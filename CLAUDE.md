@@ -13,6 +13,7 @@ Sailscoring is a sail racing scoring application for managing regattas, series, 
 - `docs/` - Living project documentation (requirements, design, planning)
   - `docs/design/decisions/` - Architecture Decision Records (ADRs)
   - `docs/design/data-model.md` - Core entities: Event, Fleet, Competitor, Race, Result, Series Result
+  - `docs/requirements/glossary.md` - Defined sailing/scoring terminology; important domain context for understanding requirements and data model
   - `docs/requirements/user-stories.md` - User requirements by domain area
   - `docs/planning/` - MVP scope, iterations, backlog
 - `reference/` - PDFs and notes from existing tools (Sailwave, ORC Scorer, HalSail, ZW). Contains lots of useful documents about comparable applications, and crucially the **Racing Rules of Sailing (RRS)** where **Appendix A governs Scoring**
