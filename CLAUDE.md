@@ -14,6 +14,8 @@ Sailscoring is a sail racing scoring application for managing regattas, series, 
   - `docs/design/decisions/` - Architecture Decision Records (ADRs)
   - `docs/design/data-model.md` - Core entities: Event, Fleet, Competitor, Race, Result, Series Result
   - `docs/requirements/glossary.md` - Defined sailing/scoring terminology; important domain context for understanding requirements and data model
+  - `docs/requirements/iodai-use-case.md` - IODAI (Irish Optimist) use case: MVP target for position-based scratch scoring, mixed-division finish entry, large fleets
+  - `docs/requirements/hyc-use-case.md` - HYC Autumn League use case: MVP target for time-based handicap scoring (IRC, HPH/NHC progressive), dual scoring from a single finish time
   - `docs/requirements/user-stories.md` - User requirements by domain area
   - `docs/planning/` - MVP scope, iterations, backlog
 - `reference/` - PDFs and notes from existing tools (Sailwave, ORC Scorer, HalSail, ZW). Contains lots of useful documents about comparable applications, and crucially the **Racing Rules of Sailing (RRS)** where **Appendix A governs Scoring**
@@ -22,8 +24,9 @@ Sailscoring is a sail racing scoring application for managing regattas, series, 
 
 Key scoring concepts that any implementation must handle correctly:
 
-- **Handicap systems:** PY (Portsmouth Yardstick), IRC, PHRF, one-design (none)
-- **Corrected time:** `elapsed_time * (1000 / PY)` for Portsmouth Yardstick
+- **Handicap systems:** IRC (fixed TCC), HPH/NHC (progressive, adjusted after each race), PY (Portsmouth Yardstick), one-design (scratch)
+- **Corrected time:** `elapsed_time × TCC` for IRC/NHC; `elapsed_time × (1000 / PY)` for Portsmouth Yardstick
+- **Dual scoring:** A single finish time scored under multiple handicap systems (e.g. IRC + HPH), each producing independent series standings
 - **Low Point scoring:** 1st = 1 point, 2nd = 2 points, etc. (lower is better)
 - **Result codes:** DNS, DNF, DSQ, OCS, UFD, BFD, RET, DNC (scored as entries + 1); RDG and SCP are variable
 - **Discards:** Worst race(s) dropped from series total; net_points = total_points minus discards
