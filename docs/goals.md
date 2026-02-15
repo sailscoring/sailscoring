@@ -20,6 +20,7 @@ Sailscoring aims to be a web-based sail race scoring application that is accessi
 - **Accessible:** A scorer with basic sailing knowledge and a web browser can set up and score an event without specialized training. The interface should guide rather than intimidate.
 - **Correct:** Scoring must faithfully implement the Racing Rules of Sailing (RRS) Appendix A, handle the full range of handicap systems and result codes, and produce results that withstand scrutiny from competitors and protest committees.
 - **Sustainable:** The project must be organized so that its long-term viability does not depend on any single individual -- whether that's the original developer, a particular volunteer, or a single hosting arrangement.
+- **Contemporary.** The application should feel like it belongs in 2026, not 1996 or 2006. This is not an aesthetic preference; it directly serves the accessibility goal. A scorer working from a race committee boat on a tablet, or entering results on a laptop in a clubhouse, should find the interface familiar and self-explanatory. Changes should take effect immediately and visibly. Complexity should be available when needed but never imposed. The application should follow the conventions and interaction patterns that users expect from modern web applications -- not reproduce the desktop-era paradigms of existing scoring tools.
 
 ## Near-Term Goals
 
