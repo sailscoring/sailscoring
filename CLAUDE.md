@@ -12,6 +12,7 @@ Sailscoring is a sail racing scoring application for managing regattas, series, 
 
 - `docs/` - Living project documentation (requirements, design, planning)
   - `docs/design/decisions/` - Architecture Decision Records (ADRs)
+  - `docs/design/naming.md` - Project naming conventions: "Sail Scoring" (brand), "sailscoring" (identifiers), "SailScoring" (PascalCase only)
   - `docs/design/data-model.md` - Core entities: Event, Fleet, Competitor, Race, Result, Series Result
   - `docs/requirements/glossary.md` - Defined sailing/scoring terminology; important domain context for understanding requirements and data model
   - `docs/requirements/iodai-use-case.md` - IODAI (Irish Optimist) use case: MVP target for position-based scratch scoring, mixed-division finish entry, large fleets
