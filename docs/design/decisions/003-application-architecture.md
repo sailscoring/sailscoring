@@ -221,6 +221,47 @@ introducing vendor lock-in.
 
 A dedicated ADR should be written for auth when the full-stack phase begins.
 
+### External API access: a post-MVP goal
+
+A public or partner-facing API is a deliberate post-MVP goal. The intent is
+to allow third-party developers to experiment with applications that integrate
+with Sailscoring — for example, a mobile finish-recording app that lets a
+finish-line official log boat finishes in real time, potentially using voice
+recognition or scanning.
+
+**Why this is not possible in the MVP.** The local-first architecture has no
+server. Data lives in IndexedDB in a single browser session. There is nothing
+for an external application to connect to.
+
+**Why the transition plan provides for it without a rewrite.** The
+architectural decisions made for MVP were chosen precisely to make this
+transition low-cost:
+
+- **Repository pattern.** The `SeriesRepository` and related interfaces are
+  exactly what API route handlers will call. The abstraction already exists.
+  A server-side implementation backed by Postgres (the planned full-stack
+  transition) is all that is needed to expose data to external clients.
+- **Pure scoring engine.** `lib/scoring/` takes plain objects in and returns
+  plain objects out. It has no dependency on storage or framework. Exposing
+  scoring calculations via an API endpoint is straightforward.
+- **Shared TypeScript types.** `lib/types.ts` serves directly as the
+  canonical shape of API request and response bodies, and could be used to
+  generate a typed SDK for third-party clients.
+- **Next.js is already the framework.** API routes are a first-class feature.
+  The only change needed to enable them is switching from static export to
+  server mode — a build configuration change, not a code change.
+
+**What the finish-recording mobile app use case requires.** A finish-line app
+is a thin write client: it needs to POST finish times as boats cross the line.
+It does not need to implement scoring, series management, or standings — all
+of that remains in the main application. This is a good fit for a simple,
+independently-maintained app that consumes the API.
+
+**Authentication for third-party clients.** API keys or OAuth 2.0 tokens will
+be needed for external clients. This is a separate decision, deferred to the
+full-stack phase. Auth.js supports this. A dedicated ADR should be written
+when the API is scoped.
+
 ## Related Decisions
 
 - [ADR-001: Database Choice](001-database-choice.md) — this decision
