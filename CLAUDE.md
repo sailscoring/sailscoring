@@ -33,6 +33,12 @@ Key scoring concepts that any implementation must handle correctly:
 - **Discards:** Worst race(s) dropped from series total; net_points = total_points minus discards
 - **Tie-breaking:** Per RRS Appendix A procedures
 
+## Repository and Licensing
+
+- **GitHub:** `github.com/sailscoring/sailscoring` (private; org is `sailscoring`)
+- **Git:** Direct commits to `main` are fine; no PR requirement; SSH remote
+- **License:** All rights reserved, copyright Mark McLoughlin — deliberately deferred pending open-source vs. commercial decision. See `LICENSE` and `docs/goals.md`. This constraint should inform dependency choices: avoid copyleft (GPL) libraries that would limit future licensing options; prefer MIT, Apache 2.0, or BSD.
+
 ## ADR Process
 
 New architectural decisions should follow the template at `docs/design/decisions/000-template.md`. Existing ADRs:
