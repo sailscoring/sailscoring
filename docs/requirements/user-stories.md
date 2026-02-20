@@ -6,17 +6,20 @@ Requirements expressed as user needs. Format: "As a [role], I want [capability] 
 
 | Role | Description |
 |------|-------------|
-| Scorer | _TODO: Describe_ |
-| Race Officer | _TODO: Describe_ |
-| Competitor | _TODO: Describe_ |
-| Club Administrator | _TODO: Describe_ |
+| Scorer | Creates and manages a series: sets up fleets, manages competitor registrations, enters race results, and publishes standings. In a team (e.g. a panel of club volunteers), each scorer works independently on their own device and shares the series file via JSON export/import. The app makes no distinction between team members. |
+| Result Viewer | Reads published results. Requires no account or login. Covers any stakeholder — competitor, race officer, jury member, or interested observer — who wants to view standings without modifying anything. |
 
-## Event Setup
+## Series Setup
 
-| ID | Story | Priority | MVP |
-|----|-------|----------|-----|
-| ES-01 | As a scorer, I want to... so that... | _High/Med/Low_ | _Yes/No_ |
-| ES-02 | | | |
+| ID | Story |
+|----|-------|
+| SS-01 | As a scorer, I want to create a new series with a name and venue so that I have a container to work in |
+| SS-02 | As a scorer, I want to define the fleets in a series so that competitors can be grouped and scored independently |
+| SS-03 | As a scorer, I want to define prize divisions within a fleet so that I can identify the top finishers per division from the fleet standings |
+| SS-04 | As a scorer, I want to configure the discard profile for a series so that the correct races are excluded from each competitor's total |
+| SS-05 | As a scorer, I want to configure how result codes are scored so that the series reflects the scoring rules specified in the sailing instructions |
+| SS-06 | As a scorer, I want to configure the rating system(s) for the series, and override them for individual fleets where needed, so that each fleet uses the correct method |
+| SS-07 | As a scorer, I want to add races to a series during setup so that I can begin recording results, with the understanding that races can be added or changed at any time |
 
 ## Competitor Management
 
