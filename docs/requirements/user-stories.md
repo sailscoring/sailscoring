@@ -35,14 +35,25 @@ Requirements expressed as user needs. Format: "As a [role], I want [capability] 
 | CM-08 | As a scorer, I want to exclude a competitor from results so that absent competitors don't appear in standings, while keeping them available to reinstate if they show up — with unrecorded races scored as DNC on reinstatement |
 | CM-09 | As a scorer, I want to import competitors from a CSV file with a configurable column mapping so that bulk registration data can be loaded without manual entry |
 
-## Race Management
+## Race Setup
 
-| ID | Story | Priority | MVP |
-|----|-------|----------|-----|
-| RM-01 | As a scorer, I want to record finish positions so that race results can be calculated | | |
-| RM-02 | As a scorer, I want to record finish times so that corrected times can be calculated | | |
-| RM-03 | As a scorer, I want to record result codes (DNS, DNF, etc.) so that non-finishers are scored correctly | | |
-| RM-04 | | | |
+| ID | Story |
+|----|-------|
+| RS-01 | As a scorer, I want to add a race to a series so that I can record results for it |
+| RS-02 | As a scorer, I want to record the start time per fleet for a race so that elapsed times can be calculated for rating-based fleets |
+| RS-03 | As a scorer, I want to delete a race so that abandoned races or incorrectly added races can be removed |
+
+## Finish Recording
+
+_These stories describe a repetitive workflow, repeated for each competitor in the finish list._
+
+| ID | Story |
+|----|-------|
+| FR-01 | As a scorer, I want to identify a competitor by sail number so that I can record their finish |
+| FR-02 | As a scorer, I want to record a finish position for the identified competitor so that their race score can be calculated — offered when the competitor's fleet uses no rating system |
+| FR-03 | As a scorer, I want to record a finish time for the identified competitor so that their corrected time and race score can be calculated — offered when the competitor's fleet uses a rating system |
+| FR-04 | As a scorer, I want to record a result code for a competitor so that they are scored correctly for that race |
+| FR-05 | As a scorer, I want to edit or remove a competitor's finish record, with the race automatically re-scored, so that mistakes can be corrected |
 
 ## Results Calculation
 
