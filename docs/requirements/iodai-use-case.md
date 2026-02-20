@@ -19,8 +19,8 @@ important simplifications:
 **Real complexity (ensures the MVP is genuinely useful):**
 
 - Large fleets: up to 200 competitors at nationals
-- Multi-level competitor grouping (fleet, division, prize category)
-- Shared finish line across divisions requiring careful result entry
+- Multi-level competitor grouping (fleet, division)
+- Shared finish line across fleets requiring careful result entry
 - Late registration and changes during the event
 - Results published live from the finish boat
 
@@ -77,48 +77,48 @@ start/finish. Each fleet is an independent series.
 - **Discards:** 1-2 depending on races sailed.
 - **Subdivisions:** Two levels of grouping (see below).
 
-#### Divisions: Junior and Senior
+#### Fleets: Junior and Senior
 
-Main Fleet is divided into **Junior** and **Senior** divisions. A sailor
+Main Fleet is split into **Junior** and **Senior** fleets. A sailor
 moves to Senior in the calendar year they turn 13.
 
-Both divisions share the same race area and finish boat. They typically have
+Both fleets share the same race area and finish boat. They typically have
 separate starts (Junior first, then Senior immediately after) and sail
 different course configurations (e.g. Junior sails the left side,
 Senior sails the right side of a split course). Finishers from both
-divisions are intermixed at the finish line.
+fleets are intermixed at the finish line.
 
-**Scoring is by division.** Each division produces its own series standings.
-The finish position used for scoring is the position within the division,
+**Scoring is by Fleet.** Each Fleet produces its own series standings.
+The finish position used for scoring is the position within the Fleet,
 not the overall finish order.
 
 However, the finish boat records all boats in crossing order, regardless of
-division. The scorer enters results as a single mixed finishing order, and
-the system must separate them by division for scoring.
+fleet. The scorer enters results as a single mixed finishing order, and
+the system must separate them by fleet for scoring.
 
-#### Prize Categories: Gold, Silver, Bronze
+#### Divisions: Gold, Silver, Bronze
 
-Within each division, competitors are further classified into Gold, Silver,
-and Bronze prize categories. All sailors start in Bronze and are upgraded
-after winning two prizes. The category persists across events and across
+Within each Fleet, competitors are further classified into Gold, Silver,
+and Bronze divisions. All sailors start in Bronze and are upgraded
+after winning two prizes. The division persists across events and across
 the Junior-to-Senior transition.
 
-**Scoring is by division, not by prize category.** All Junior sailors
+**Scoring is by Fleet, not by division.** All Junior sailors
 (Gold, Silver, Bronze) are scored together in one Junior series. Prizes are
-then awarded to the top 5 within each prize category based on their ranking
-in the division standings.
+then awarded to the top 5 within each division based on their ranking
+in the Fleet standings.
 
-Prize category is a **competitor attribute** maintained by the scorer
+Division is a **competitor attribute** maintained by the scorer
 outside of any single event.
 
 ## Result Entry Workflow
 
 1. Finish boat records all finishers on paper, in crossing order, by sail
-   number. No division or fleet markings -- just sail numbers in order.
+   number. No fleet markings -- just sail numbers in order.
 2. Written records are sent digitally (photo/message) from the finish boat
    to the scorer.
 3. Scorer enters the finishing order into the system. The system must
-   identify each competitor by sail number and knows their division from
+   identify each competitor by sail number and knows their fleet from
    registration data.
 4. For non-finishers, the scorer enters result codes (DNS, DNF, DSQ, RET,
    OCS, UFD, BFD, etc.).
@@ -154,8 +154,8 @@ outside of any single event.
 ### Held Ashore (out of scope for MVP)
 
 In difficult conditions, the Race Officer may keep a subset of competitors
-ashore for specific races -- most commonly Junior Bronze, or the entire
-Junior division.
+ashore for specific races -- most commonly Junior Bronze (the Bronze division
+within the Junior fleet), or the entire Junior fleet.
 
 This creates a scoring challenge: Bronze sailors who were present in some
 races but absent in others affect the finishing positions of Gold/Silver
@@ -179,20 +179,20 @@ Based on this use case, the MVP must support:
 
 1. **Event setup** -- create an event with multiple independent series
 2. **Competitor management** -- add/edit competitors with: sail number
-   (with optional country prefix), name, club, division, prize category
+   (with optional country prefix), name, club, fleet, division
 3. **Series configuration** -- number of races, discard profile, scoring
    system (Low Point / Appendix A)
 4. **Position-based result entry** -- enter a list of sail numbers in
    finishing order; system looks up competitors and assigns positions
 5. **Mixed-fleet result entry** -- enter one finishing order containing
-   sailors from multiple divisions; system splits by division and scores
-   each division separately
+   sailors from multiple fleets; system splits by fleet and scores
+   each fleet separately
 6. **Result codes** -- support DNS, DNF, DSQ, OCS, UFD, BFD, RET, DNC
    with standard Appendix A point values (entries + 1 or as defined)
 7. **Series scoring** -- automatic calculation of total points, discards,
-   net points, and series rankings per division
+   net points, and series rankings per Fleet
 8. **Tie-breaking** -- per RRS Appendix A8
-9. **Results publication** -- publishable results per series/division
+9. **Results publication** -- publishable results per series/fleet
 10. **Corrections** -- ability to edit results, add/remove competitors, and
     recalculate at any point
 
@@ -202,8 +202,8 @@ Based on this use case, the MVP must support:
     races automatically scored as DNC
 12. **Redress (RDG)** -- variable-point result code for protest decisions
 13. **Scoring Penalty (SCP)** -- variable-point result code
-14. **Prize category display** -- filter/group standings by Gold/Silver/
-    Bronze within a division for prize-giving
+14. **Division display** -- filter/group standings by Gold/Silver/Bronze
+    within a Fleet for prize-giving
 
 ### Won't Have (MVP)
 
@@ -211,25 +211,28 @@ Based on this use case, the MVP must support:
 - Time-based result entry
 - National ranking / series-of-series
 - Held-ashore split-series scoring
-- Automatic prize category upgrades
+- Automatic division upgrades
 - Registration integration
 - WhatsApp integration
 - Historical competitor database across events
 
 ## Data Model Implications
 
-The IODAI use case validates and refines the existing data model with these
-observations:
+The IODAI use case maps to the data model as follows:
 
-- **Event** contains multiple **Series** (not Fleets directly). Each of the
-  3 IODAI fleets maps to a Series, not to a Fleet entity.
-- **Fleet** and **Division** are competitor attributes within a Series that
-  control how scoring is partitioned. In Main Fleet, all Junior+Senior
-  competitors are in one Series, but scored by Division.
-- **Prize category** (Gold/Silver/Bronze) is a competitor attribute used
-  for filtering standings, not for scoring.
+- Each top-level IODAI fleet (Regatta Coached, Regatta Racing, Main Fleet)
+  is a separate **Series** -- they race on different courses with fully
+  independent starts, results, and standings.
+- Within the Main Fleet Series, **Junior** and **Senior** are separate
+  **Fleets**. Each Fleet has its own start time and produces its own series
+  standings. Junior and Senior are not Divisions: they are independently
+  scored, which is the defining characteristic of a Fleet.
+- **Division** (Gold/Silver/Bronze) is a competitor attribute within each
+  Fleet used for prize-giving only. All Junior sailors are scored together
+  regardless of division; prizes are then filtered by division from the
+  shared Fleet standings.
 - **Result entry** needs a workflow concept: enter raw finish order
   (sail numbers), then the system resolves competitors and assigns
-  per-division positions.
+  per-fleet positions.
 - **Finish position** (the order the boat crossed the line) is distinct
-  from **race score** (the position within the scored group/division).
+  from **race score** (the position within the scored Fleet).

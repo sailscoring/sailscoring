@@ -185,7 +185,7 @@ systems.
 |-----------|---------|-------|
 | Sail number | IRL 3939 | Primary identifier; may change for a race with notice |
 | Boat name | Harmony | Important identifier for keelboats |
-| Class | Cruiser 2 | Assigned by OA based on rating |
+| Fleet | Class 2 | Assigned by OA based on rating range; "Class 1", "Class 2", etc. are Fleet names in the data model, not boat classes |
 | IRC TCC | 0.972 | From IRC certificate; fixed for series |
 | HPH/NHC number | 0.865 | Progressive; adjusted after each race |
 | Helm | John Smith | |
@@ -293,12 +293,12 @@ Features needed for the HYC use case that go beyond the IODAI MVP:
 ### Must Have
 
 1. **Time-based result entry** -- enter finish times (time of day) per
-   boat, plus a start time per class/race
+   boat, plus a start time per fleet per race
 2. **Elapsed time calculation** -- finish time minus start time
 3. **Handicap correction** -- apply a TCF/TCC to elapsed time to produce
    corrected time; rank by corrected time
 4. **IRC scoring** -- fixed TCC per competitor, corrected time ranking
-   within class
+   within Fleet
 5. **Dual scoring** -- a single race produces results under multiple
    handicap systems; each system has its own series standings
 6. **Per-race ratings** -- store the handicap number used for each
@@ -351,6 +351,6 @@ The HYC use case adds these requirements to the data model:
 | Multiple results per boat | No | Yes (IRC + HPH) |
 | Rating changes mid-series | No | Yes (HPH after every race) |
 | Mixed-class finish entry | Yes (Junior/Senior) | Yes (all offshore classes combined) |
-| Divisions within class | Yes (Gold/Silver/Bronze) | No |
+| Divisions within Fleet | Yes (Gold/Silver/Bronze) | No |
 | Result entry location | From finish boat | Ashore (from uploaded records) |
 | Scorer count | 1 | ~4 (panel of volunteers) |
