@@ -17,6 +17,64 @@ scoring, a Competitor exists once regardless of how many scoring systems
 apply. The Fleet's scoring system configuration determines what Results are
 calculated from each Finish.
 
+**Fleet, Class, and Division:** These three competitor attributes all relate
+to grouping, but serve distinct purposes in the model. The separation was not
+obvious from the domain terminology alone -- "class" in particular is
+overloaded across different sailing contexts -- so it is worth explaining how
+we arrived at the current design.
+
+*Class* has a strong "type of boat" connotation: Optimist, ILCA 4, J/109,
+Squib. In the IODAI Main Fleet series all competitors sail Optimists, so
+class carries no useful scoring information -- it is uniform across the entire
+series. In the HYC Autumn League Offshore series, the Notice of Race and
+Sailing Instructions describe "Class 1", "Class 2", etc., but these are not
+boat classes -- they are mixed-boat groups competing together. Using the Class
+attribute for these groups would misrepresent what they are. We therefore
+treat Class as descriptive, boat-type information that is not used in scoring.
+
+*Fleet* is the primary scoring group: competitors who race and are scored
+together. Fleet turns out to be the natural unit for four distinct
+operational concerns:
+
+- **Race starts** -- in a race with multiple starts from the same line,
+  the Fleet is the subset that starts together at a given time. In both MVP
+  use cases (IODAI Junior/Senior, HYC Class 1/2/3...) it is the Fleet that
+  determines which start a competitor belongs to.
+- **Rating systems** -- each Fleet has one or more scoring systems configured
+  (scratch, IRC, NHC). This implicitly determines what rating data (TCC,
+  NHC number) is required from each competitor in that Fleet.
+- **Scoring** -- competitors are ranked within their Fleet per scoring system.
+  Scoring Fleet-by-Fleet is the natural starting point, mirroring the common
+  practice in tools like Sailwave.
+- **Publishing** -- results pages and printed sheets are typically organised
+  by Fleet. The Fleet is therefore also the natural publishing unit.
+
+In the IODAI use case the Class → Fleet → Division hierarchy exists on paper
+(all competitors are Optimists, Fleet is Junior or Senior, Division is
+Gold/Silver/Bronze), but Class is redundant for scoring and Division is used
+only for prize-giving subdivision within a Fleet, not for separate scoring.
+
+In the HYC Autumn League Offshore use case, using Fleet for the groupings
+described as "classes" in the NOR/SIs is semantically cleaner than shoehorning
+them into the Class attribute.
+
+*Division* is a subdivision within a Fleet used for prize-giving and result
+filtering (e.g. Gold/Silver/Bronze within IODAI Junior), not for scoring.
+Competitors in the same Fleet compete for the same rankings; Division only
+determines which sub-trophy they are eligible for.
+
+**Future flexibility -- class-based standalone results:** One known limitation
+of this model is the HYC Dinghy PY Fleet pattern: a single Fleet uses the PY
+rating system for all competitors, but where a critical mass of one boat class
+exists (e.g. Melges 15), that class also receives standalone, one-design,
+scratch results covering only boats of that class. In the current model a
+Competitor has exactly one Fleet and their Fleet's scoring systems apply
+uniformly. Supporting this pattern would require either assigning the Melges 15
+boats to a second Fleet (duplicating competitors, which the model explicitly
+avoids) or extending the model to allow per-class scoring overlays within a
+Fleet. This is noted for future consideration but is explicitly out of scope
+for the MVP.
+
 ## Entity Overview
 
 ```
