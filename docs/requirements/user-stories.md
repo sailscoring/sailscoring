@@ -23,11 +23,17 @@ Requirements expressed as user needs. Format: "As a [role], I want [capability] 
 
 ## Competitor Management
 
-| ID | Story | Priority | MVP |
-|----|-------|----------|-----|
-| CM-01 | As a scorer, I want to register competitors so that they can participate in races | | |
-| CM-02 | As a scorer, I want to assign handicaps to competitors so that results can be corrected | | |
-| CM-03 | | | |
+| ID | Story |
+|----|-------|
+| CM-01 | As a scorer, I want to add a competitor with their sail number, name, club, and optionally boat name so that they can be identified in results |
+| CM-02 | As a scorer, I want to assign a competitor to a fleet, and re-assign them later if needed, so that they are scored within the correct group |
+| CM-03 | As a scorer, I want to assign a competitor to a prize division so that they appear in the correct prize category standings |
+| CM-04 | As a scorer, I want to set a competitor's rating for each applicable rating system so that they appear in that rating system's standings |
+| CM-05 | As a scorer, I want to edit competitor details at any time — including sail number — with affected results automatically re-scored, so that corrections and late changes are reflected in standings |
+| CM-06 | As a scorer, I want to add a competitor mid-event so that latecomers can join, with their unrecorded races automatically scored as DNC |
+| CM-07 | As a scorer, I want to delete a competitor entered in error so that they are removed from the series entirely |
+| CM-08 | As a scorer, I want to exclude a competitor from results so that absent competitors don't appear in standings, while keeping them available to reinstate if they show up — with unrecorded races scored as DNC on reinstatement |
+| CM-09 | As a scorer, I want to import competitors from a CSV file with a configurable column mapping so that bulk registration data can be loaded without manual entry |
 
 ## Race Management
 
