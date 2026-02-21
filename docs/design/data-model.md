@@ -263,6 +263,7 @@ competitors within a Fleet) for prize-giving purposes.
 
 | Rule | Description |
 |------|-------------|
+| Sail number unique within Series | A sail number must be unique across all Competitors in a Series, regardless of Fleet. Sail number is the primary lookup key during finish recording; a duplicate would make identification ambiguous in a mixed-Fleet finish. |
 | One Finish per Competitor per Race | A Competitor can only have one Finish record for a given Race |
 | One Start per Fleet per Race | Each Fleet has exactly one Start per Race it participates in |
 | Scoring system ratings required | A Competitor must have the rating fields required by their Fleet's scoring systems |
