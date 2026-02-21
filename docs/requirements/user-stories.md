@@ -78,11 +78,11 @@ _These stories describe a repetitive workflow, repeated for each competitor in t
 
 ## Data Management
 
-| ID | Story | Priority | MVP |
-|----|-------|----------|-----|
-| DM-01 | As a scorer, I want to save my work so that I don't lose data | | |
-| DM-02 | As a club administrator, I want to maintain a competitor database so that registration is faster | | |
-| DM-03 | | | |
+| ID | Story |
+|----|-------|
+| DM-01 | As a scorer, I want to export a series as a JSON file so that I can back it up, transfer it to another device, or share it with a co-scorer |
+| DM-02 | As a scorer, I want to import a series from a JSON file so that I can restore from a backup or continue work started on another device |
+| DM-03 | As a scorer, I want to see a list of all series on my device and delete ones I no longer need so that I can manage my data over time |
 
 ## Error Handling and Corrections
 
