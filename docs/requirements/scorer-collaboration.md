@@ -61,11 +61,11 @@ at the field level rather than requiring an explicit "save" action. This
 keeps the conflict window extremely small and matches expected web
 application behaviour.
 
-**Audit trail over real-time presence.** Scorers do not need to see each
+**The log over real-time presence.** Scorers do not need to see each
 other's cursors or get live-updating cells. What they need is a clear
-record of what changed, when, and by whom. For example: "Race 3 results
-entered by Mark at 14:45", or "Competitor 42 Race 3 changed from DNF to
-14:23:07 by Sarah at 15:10". This audit trail serves multiple purposes:
+record of what changed, when, and by whom — the log. For example: "Race 3
+results entered by Mark at 14:45", or "Competitor 42 Race 3 changed from
+DNF to 14:23:07 by Sarah at 15:10". The log serves multiple purposes:
 
 - Gives scorers confidence about the current state of the data
 - Supports the correction workflow (what was changed and why)
