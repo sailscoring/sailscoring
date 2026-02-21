@@ -69,12 +69,12 @@ _These stories describe a repetitive workflow, repeated for each competitor in t
 
 ## Results Publication
 
-| ID | Story | Priority | MVP |
-|----|-------|----------|-----|
-| RP-01 | As a competitor, I want to view results so that I know my standing | | |
-| RP-02 | As a scorer, I want to print results so that they can be posted on the noticeboard | | |
-| RP-03 | As a scorer, I want to export results so that they can be published on the club website | | |
-| RP-04 | | | |
+| ID | Story |
+|----|-------|
+| RP-01 | As a scorer, I want to view current standings for any race or for the series at any time so that I can review results as they develop |
+| RP-02 | As a result viewer, I want to view a published results page so that I can see series standings and individual race results |
+| RP-03 | As a scorer, I want to produce a static HTML results page combining series standings and individual race results, in a format matching Sailwave's presentation, so that it can be hosted and shared |
+| RP-04 | As a scorer, I want to configure which fleets and rating systems appear on a results page so that I can produce separate pages for different audiences |
 
 ## Data Management
 
