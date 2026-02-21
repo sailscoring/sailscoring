@@ -272,8 +272,9 @@ bilge uses security-by-small-blast-radius, not security-by-secrecy.
 ### Retirement trigger
 
 bilge is retired when Sail Scoring ships its full-stack version. At that point:
-1. A migration tool reads `publishing.uuid` and `publishing.pages` from each
-   series JSON export and re-uploads the content to the new server.
+1. **The bilge pump** — a script in the bilge repository — reads
+   `publishing.uuid` and `publishing.pages` from each series JSON export
+   and re-uploads the content to the new server.
 2. The `publishing.service` field distinguishes bilge uploads from any future
    publishing backend.
 3. bilge is taken offline and the Vercel project deleted.
