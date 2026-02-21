@@ -1,4 +1,4 @@
-# Sailscoring: Project Goals
+# Sail Scoring: Project Goals
 
 ## Background
 
@@ -15,7 +15,7 @@ These problems are not hypothetical. At Howth Yacht Club, a panel of roughly fou
 
 ## Vision
 
-Sailscoring aims to be a web-based sail race scoring application that is accessible, correct, and sustainable.
+Sail Scoring aims to be a web-based sail race scoring application that is accessible, correct, and sustainable.
 
 - **Accessible:** A scorer with basic sailing knowledge and a web browser can set up and score an event without specialized training. The interface should guide rather than intimidate.
 - **Correct:** Scoring must faithfully implement the Racing Rules of Sailing (RRS) Appendix A, handle the full range of handicap systems and result codes, and produce results that withstand scrutiny from competitors and protest committees.
@@ -28,13 +28,13 @@ The near-term goal is to build a Minimum Viable Product and validate it with rea
 
 ### MVP
 
-Build the smallest version of Sailscoring that can score real events for two target organizations:
+Build the smallest version of Sail Scoring that can score real events for two target organizations:
 
 1. **IODAI events** -- position-based scratch scoring for large one-design fleets with mixed-division finish entry, standard Appendix A scoring, and result codes. (See [IODAI use case](requirements/iodai-use-case.md).)
 
 2. **HYC Autumn League** -- time-based finish entry with handicap correction (IRC and progressive HPH/NHC), dual scoring from a single finish time, and per-race rating adjustments. (See [HYC use case](requirements/hyc-use-case.md).)
 
-The MVP must demonstrate that Sailscoring can handle both of these use cases end-to-end: from event setup and competitor registration, through result entry and scoring, to published standings.
+The MVP must demonstrate that Sail Scoring can handle both of these use cases end-to-end: from event setup and competitor registration, through result entry and scoring, to published standings.
 
 ### Stealth Beta
 
@@ -56,13 +56,13 @@ Once the MVP is functional, introduce it to a small number of carefully chosen e
 
 ### Grow Beyond the Initial Use Cases
 
-Irish club racing encompasses diverse formats -- ECHO handicaps, white sail racing, dinghy leagues, offshore racing under IRC and ORC. As Sailscoring matures, it should expand to serve a broader range of Irish sailing clubs and class associations, and eventually the wider English-speaking sailing community and beyond.
+Irish club racing encompasses diverse formats -- ECHO handicaps, white sail racing, dinghy leagues, offshore racing under IRC and ORC. As Sail Scoring matures, it should expand to serve a broader range of Irish sailing clubs and class associations, and eventually the wider English-speaking sailing community and beyond.
 
 This growth should be demand-driven: each new use case adopted because real users need it, not because features were added speculatively.
 
 ### Make Scoring Accessible to More Volunteers
 
-The most important long-term goal is not a technical one. It is to lower the barrier so that more people can contribute to race scoring at their clubs. If Sailscoring succeeds, the measure of that success is not how many features it has, but how many clubs can run their results without depending on a single indispensable volunteer.
+The most important long-term goal is not a technical one. It is to lower the barrier so that more people can contribute to race scoring at their clubs. If Sail Scoring succeeds, the measure of that success is not how many features it has, but how many clubs can run their results without depending on a single indispensable volunteer.
 
 ### Establish a Sustainable Project Model
 
@@ -110,8 +110,8 @@ Without prescribing specific technology choices, the application should be built
 
 [RacingRulesOfSailing.org](https://www.racingrulesofsailing.org/) is a community-maintained platform that provides cross-referenced racing rules, regatta management tools (event registration, protest handling, communications), and an active forum. It is not affiliated with World Sailing but is widely used by competitors, judges, and race officials. It sustains itself through patron subscriptions and a small percentage fee on event registrations processed through its platform.
 
-RRS.org is interesting both as a model for sustainability -- a niche sailing tool funded by the community it serves -- and as a potential partner. Its scope is complementary: it handles rules reference, event registration, and protest management, but not scoring. One could imagine Sailscoring providing a scoring capability that integrates with RRS.org's existing regatta management tools, or simply learning from its approach to community engagement and funding.
+RRS.org is interesting both as a model for sustainability -- a niche sailing tool funded by the community it serves -- and as a potential partner. Its scope is complementary: it handles rules reference, event registration, and protest management, but not scoring. One could imagine Sail Scoring providing a scoring capability that integrates with RRS.org's existing regatta management tools, or simply learning from its approach to community engagement and funding.
 
 ## Summary
 
-Sailscoring exists because the sailing community deserves scoring software that is accessible, correct, and not dependent on any single person or platform. The near-term focus is narrow and practical: build an MVP that serves IODAI and HYC, and validate it with real users. The long-term ambition is broader: establish a sustainable project that lowers the barrier to race scoring for clubs everywhere.
+Sail Scoring exists because the sailing community deserves scoring software that is accessible, correct, and not dependent on any single person or platform. The near-term focus is narrow and practical: build an MVP that serves IODAI and HYC, and validate it with real users. The long-term ambition is broader: establish a sustainable project that lowers the barrier to race scoring for clubs everywhere.

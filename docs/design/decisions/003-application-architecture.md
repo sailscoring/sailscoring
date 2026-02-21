@@ -8,7 +8,7 @@
 
 ## Context
 
-Sailscoring needs an application architecture that supports the MVP goal of
+Sail Scoring needs an application architecture that supports the MVP goal of
 scoring club racing series. The architecture must account for two realities:
 
 1. **Sailing venues often have poor or no internet connectivity.** Scorers
@@ -225,7 +225,7 @@ A dedicated ADR should be written for auth when the full-stack phase begins.
 
 A public or partner-facing API is a deliberate post-MVP goal. The intent is
 to allow third-party developers to experiment with applications that integrate
-with Sailscoring — for example, a mobile finish-recording app that lets a
+with Sail Scoring — for example, a mobile finish-recording app that lets a
 finish-line official log boat finishes in real time, potentially using voice
 recognition or scanning.
 
