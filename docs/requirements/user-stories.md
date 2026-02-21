@@ -88,8 +88,8 @@ _These stories describe a repetitive workflow, repeated for each competitor in t
 
 | ID | Story |
 |----|-------|
-| PP-02 | As a scorer, I want to apply redress (RDG) to a competitor's race result so that a protest committee's decision is reflected in the standings |
-| PP-03 | As a scorer, I want to apply a scoring penalty (SCP) to a competitor's race result so that on-the-water penalties are reflected in the standings |
+| PP-01 | As a scorer, I want to apply redress (RDG) to a competitor's race result so that a protest committee's decision is reflected in the standings |
+| PP-02 | As a scorer, I want to apply a scoring penalty (SCP) to a competitor's race result so that on-the-water penalties are reflected in the standings |
 
 ## Acceptance Criteria Template
 
