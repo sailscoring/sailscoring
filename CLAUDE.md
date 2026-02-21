@@ -39,6 +39,12 @@ Key scoring concepts that any implementation must handle correctly:
 - **Git:** Direct commits to `main` are fine; no PR requirement; SSH remote
 - **License:** All rights reserved, copyright Mark McLoughlin — deliberately deferred pending open-source vs. commercial decision. See `LICENSE` and `docs/goals.md`. This constraint should inform dependency choices: avoid copyleft (GPL) libraries that would limit future licensing options; prefer MIT, Apache 2.0, or BSD.
 
+## Ideas Workflow
+
+When a new idea or area of exploration comes up, capture it as a GitHub issue with the `idea` label. Keep the issue brief — just enough to remember the thought. The **Definition of Done** for an `idea` issue is a design document drafted under `docs/` that covers the topic; close the issue once that document exists.
+
+To create an idea issue: `gh issue create --label idea --title "..." --body "..."`
+
 ## ADR Process
 
 New architectural decisions should follow the template at `docs/design/decisions/000-template.md`. Existing ADRs:
