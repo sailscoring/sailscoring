@@ -84,13 +84,12 @@ _These stories describe a repetitive workflow, repeated for each competitor in t
 | DM-02 | As a scorer, I want to import a series from a JSON file so that I can restore from a backup or continue work started on another device |
 | DM-03 | As a scorer, I want to see a list of all series on my device and delete ones I no longer need so that I can manage my data over time |
 
-## Error Handling and Corrections
+## Protests and Penalties
 
-| ID | Story | Priority | MVP |
-|----|-------|----------|-----|
-| EH-01 | As a scorer, I want to correct mistakes so that results are accurate | | |
-| EH-02 | As a scorer, I want to apply redress so that protest decisions are reflected | | |
-| EH-03 | | | |
+| ID | Story |
+|----|-------|
+| PP-02 | As a scorer, I want to apply redress (RDG) to a competitor's race result so that a protest committee's decision is reflected in the standings |
+| PP-03 | As a scorer, I want to apply a scoring penalty (SCP) to a competitor's race result so that on-the-water penalties are reflected in the standings |
 
 ## Acceptance Criteria Template
 
