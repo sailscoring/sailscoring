@@ -75,6 +75,7 @@ _These stories describe a repetitive workflow, repeated for each competitor in t
 | RP-02 | As a result viewer, I want to view a published results page so that I can see series standings and individual race results |
 | RP-03 | As a scorer, I want to produce a static HTML results page combining series standings and individual race results, in a format matching Sailwave's presentation, so that it can be hosted and shared |
 | RP-04 | As a scorer, I want to configure which fleets and rating systems appear on a results page so that I can produce separate pages for different audiences |
+| RP-05 | As a scorer, I want to publish a results page to a public URL so that I can share it with sailors and result viewers without needing to host it myself — on first publish I verify my email address to claim the URL; subsequent publishes update the page immediately |
 
 ## Data Management
 
