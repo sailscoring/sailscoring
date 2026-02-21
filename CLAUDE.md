@@ -45,6 +45,16 @@ When a new idea or area of exploration comes up, capture it as a GitHub issue wi
 
 To create an idea issue: `gh issue create --label idea --title "..." --body "..."`
 
+## Tone and Humour
+
+The project aims to be credible and serious — scorers are exacting people — but a little wry humour is welcome. The bar is: the name or term must do real communicative work, and the nautical connection must be genuine, not forced. Examples that hit the mark:
+
+- **bilge** — the results publishing service; bilge is dirty water you pump out before the real plumbing is installed. Signals temporary and throwaway without a word of explanation.
+- **the bilge pump** — the migration script inside the bilge repo that drains it when the full-stack arrives. The joke completes itself.
+- **the log** — the audit trail of scorer changes. A ship's log and a software log are the same thing.
+
+The pattern: a structural name (a tool, a module, a section heading), not inline prose. If a sailor wouldn't immediately recognise the term as correct, it's too cute.
+
 ## ADR Process
 
 New architectural decisions should follow the template at `docs/design/decisions/000-template.md`. Existing ADRs:
