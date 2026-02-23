@@ -43,6 +43,8 @@ Key scoring concepts that any implementation must handle correctly:
 
 When a new idea or area of exploration comes up, capture it as a GitHub issue with the `idea` label. Keep the issue brief — just enough to remember the thought. The **Definition of Done** for an `idea` issue is a design document drafted under `docs/` that covers the topic; close the issue once that document exists.
 
+Before creating a new idea issue, check for overlap with existing ones: `gh issue list --label idea --repo sailscoring/sailscoring`
+
 To create an idea issue: `gh issue create --label idea --title "..." --body "..."`
 
 ## Tone and Humour
