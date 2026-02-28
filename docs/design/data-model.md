@@ -147,6 +147,7 @@ that race on the same day.
 | series_id | uuid | Yes | Parent Series |
 | race_number | integer | Yes | Sequential race number within the Series |
 | date | date | No | Date the race was sailed |
+| last_finish_time | time | No | Time of the last finisher, used for protest time limit calculation. Auto-populated from the latest finish_time in the race (time mode), or entered explicitly by the scorer (position mode). Can be overridden |
 
 ### Start
 
@@ -169,7 +170,13 @@ system.
 
 A Finish records either a finishing position (for position-based recording)
 or a finish time (for time-based recording), or a result code for boats
-that did not finish normally.
+that did not finish normally. A Finish record may also be created during
+start-line check-in (to record `start_present`) before any finish data is
+available.
+
+A competitor with no Finish record for a race is implicitly scored as DNC.
+An explicit `result_code = DNC` can also be recorded but is not required
+for absent competitors.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -179,6 +186,7 @@ that did not finish normally.
 | finish_position | integer | No | Position across the finish line (position-based recording) |
 | finish_time | time | No | Time of day the boat crossed the finish line (time-based recording) |
 | result_code | string | No | DNS, DNF, DSQ, OCS, UFD, BFD, RET, DNC, RDG, SCP. If set, overrides position/time for scoring |
+| start_present | boolean | No | True if the competitor was observed in the start area. Used to distinguish DNS (present but didn't start) from DNC (not present). Set during start-line check-in |
 
 A Finish has either a finish_position, a finish_time, or a result_code.
 
@@ -264,7 +272,7 @@ competitors within a Fleet) for prize-giving purposes.
 | Rule | Description |
 |------|-------------|
 | Sail number unique within Series | A sail number must be unique across all Competitors in a Series, regardless of Fleet. Sail number is the primary lookup key during finish recording; a duplicate would make identification ambiguous in a mixed-Fleet finish. |
-| One Finish per Competitor per Race | A Competitor can only have one Finish record for a given Race |
+| At most one Finish per Competitor per Race | A Competitor can have at most one Finish record for a given Race |
 | One Start per Fleet per Race | Each Fleet has exactly one Start per Race it participates in |
 | Scoring system ratings required | A Competitor must have the rating fields required by their Fleet's scoring systems |
 | Result code exclusivity | A Finish has either a finish_position, a finish_time, or a result_code -- not a combination |
