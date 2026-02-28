@@ -1,2 +1,5 @@
 # Emacs
 *~
+
+# Claude Code - personal settings are machine-specific
+.claude/settings.local.json
