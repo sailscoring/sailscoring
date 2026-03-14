@@ -1,6 +1,6 @@
 # ADR-004: MVP Results Publishing — bilge
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Date:** 2026-02-21
 

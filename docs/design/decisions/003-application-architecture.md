@@ -1,6 +1,6 @@
 # ADR-003: Application Architecture — Local-First MVP, Full-Stack Later
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Date:** 2026-02-16
 

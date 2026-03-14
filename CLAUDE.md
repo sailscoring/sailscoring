@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Sail Scoring is a sail racing scoring application for managing regattas, series, and race days. It handles handicap corrections, result codes, discard rules, and series standings per World Sailing Racing Rules of Sailing (RRS) Appendix A.
 
-**Current status:** Documentation and planning phase. No implementation code yet. Technology stack decisions (database, frontend, backend) are pending as ADRs in `docs/design/decisions/`.
+**Current status:** Documentation and planning phase. No implementation code yet. Core architecture decisions are made; implementation is the next step.
 
 ## Repository Structure
 
@@ -60,5 +60,7 @@ The pattern: a structural name (a tool, a module, a section heading), not inline
 ## ADR Process
 
 New architectural decisions should follow the template at `docs/design/decisions/000-template.md`. Existing ADRs:
-- ADR-001: Database choice (Proposed - SQLite vs PostgreSQL vs IndexedDB)
-- ADR-002: Scoring algorithm approach (Proposed - hard-coded vs configurable vs hybrid)
+- ADR-001: Database choice (Accepted — IndexedDB via Dexie.js)
+- ADR-002: Scoring algorithm approach (Accepted — hybrid: hard-coded algorithms with configurable parameters)
+- ADR-003: Application architecture (Accepted — local-first web app for MVP, full-stack later)
+- ADR-004: Results publishing (Accepted — separate **bilge** service, `github.com/sailscoring/bilge`)
