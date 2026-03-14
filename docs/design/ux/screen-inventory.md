@@ -62,23 +62,17 @@ event. A dashboard screen is deferred until there is a clear need for one.
 
 ### G-02: New Series Setup
 
-**Route:** `/series/new` (or modal from G-01)
-**Purpose:** Create a new series with its initial configuration.
+**Route:** `/series/[id]/settings` (same screen as S-01)
+**Purpose:** Create and configure a new series.
 
-**Content/steps:**
-- Series name, venue, start/end date
-- Add fleets: fleet name, scoring system(s) per fleet
-- Discard profile
+Clicking "New Series" on G-01 immediately creates a series with a generated
+placeholder name and navigates to `/series/[id]/settings`. There is no
+upfront form. The setup screen and the series settings screen are the same
+screen — see `flows/series-setup.md` for the full flow.
 
-> **Open question:** Is this a single form or a multi-step wizard? The
-> fleet/scoring config is non-trivial (each fleet needs scoring systems,
-> and each system implies required ratings). A wizard might guide new
-> scorers better; a single form is faster for experienced scorers.
-
-> **Open question:** At what point does the scorer enter competitors?
-> Series setup and competitor import are logically sequential but the
-> scorer may want to start them separately (e.g. set up the series today,
-> import competitors tomorrow morning from the registration file).
+**Placeholder names** are generated from a small wordlist: *[Adjective] [Noun]
+Series* (e.g. *Gusty Halyard Series*, *Briny Barnacle Series*). The name field
+is auto-focused and selected on load.
 
 ---
 
@@ -91,36 +85,14 @@ to `/series/[id]/races`.
 
 **Route:** `/series/[id]/settings`
 
-**Purpose:** Edit series-level configuration.
+**Purpose:** Configure a series. Also serves as the new series setup screen
+(G-02) — there is no separate setup screen. See `flows/series-setup.md`.
 
 **Content/actions:**
-- Edit series name, venue, start/end date
-- Discard profile (e.g. "0 discards < 4 races; 1 discard 4–9 races")
-- Result code scoring overrides (e.g. A5.3 — codes not excludable)
+- Series name (large, prominent editable field at top)
+- Setup cards: Basics, Competitors, Fleets, Scoring, Discards
 - Export series as JSON
 - Delete series (destructive, with confirmation)
-
----
-
-### S-02: Fleet Settings
-
-**Route:** `/series/[id]/settings/fleets` (or tab within S-01)
-**Purpose:** Add, edit, and remove fleets within the series.
-
-**Content per fleet:**
-- Fleet name
-- Scoring systems: one or more of Scratch, IRC, NHC
-  (selection determines which rating fields competitors require)
-
-**Actions:**
-- Add fleet
-- Edit fleet name and scoring systems
-- Reorder fleets (affects display order in standings/results)
-- Delete fleet (destructive — removes all competitors in that fleet)
-
-> **Open question:** How much friction should deleting a fleet have?
-> Deleting a fleet with competitors is very destructive. A confirmation
-> that states what will be lost seems essential.
 
 ---
 
@@ -278,9 +250,7 @@ mixed entry that the system splits by fleet for scoring.
 | Screen | Route | Priority |
 |--------|-------|---------|
 | G-01: Series List | `/` | P1 |
-| G-02: New Series Setup | `/series/new` | P1 |
-| S-01: Series Settings | `/series/[id]/settings` | P1 |
-| S-02: Fleet Settings | `/series/[id]/settings/fleets` | P1 |
+| G-02/S-01: Series Setup & Settings | `/series/[id]/settings` | P1 |
 | S-03: Competitors List | `/series/[id]/competitors` | P1 |
 | S-04: Competitor Import | `/series/[id]/competitors/import` | P1 |
 | S-05: Races List | `/series/[id]/races` | P1 |
