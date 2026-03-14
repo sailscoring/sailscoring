@@ -28,7 +28,7 @@ Primary sections within a series (sidebar navigation):
 | Competitors | Competitor list, import, edit |
 | Races | Race list, finish entry, race results |
 | Standings | Series standings per fleet/scoring system |
-| Settings | Series config, fleet config |
+| Settings | Series config, scoring config |
 
 Opening a series lands on **Races** — the most frequent action during an
 event. A dashboard screen is deferred until there is a clear need for one.

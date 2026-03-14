@@ -113,7 +113,17 @@ more scoring systems configured; each produces its own set of standings.
 | id | uuid | Yes | Unique identifier |
 | series_id | uuid | Yes | Parent Series |
 | name | string | Yes | e.g. "Class 1", "Junior", "Regatta Coached" |
+| display_order | integer | No | Order in which this fleet appears in standings and results |
 | scoring_systems | list | Yes | One or more: scratch, IRC, NHC. Each produces independent standings |
+
+**Fleet lifecycle is derived from competitors.** A Fleet is created
+automatically when the first Competitor with that fleet name is added to the
+Series. A Fleet is deleted automatically when its last Competitor is removed.
+Fleets are not created or deleted directly — they emerge from competitor data.
+
+A Competitor with no fleet value is assigned to the **default fleet**
+(named "Default" unless the scorer renames it). Every Series has at most one
+default fleet; it is created on demand and removed if it becomes empty.
 
 A Fleet's scoring systems define what rating data is required from each
 Competitor in the Fleet. For example, a Fleet with [IRC, NHC] requires

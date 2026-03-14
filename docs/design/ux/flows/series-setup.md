@@ -112,37 +112,45 @@ order.
 
 ## After Competitor Import
 
-Once competitors are imported, the Fleets and Scoring cards update to reflect
-what was detected in the import data.
+Once competitors are imported, fleets appear automatically and the Scoring
+card updates to reflect what was detected.
 
 ```
 │  ┌─ Competitors ─────────────────────────────────────────────────────┐  │
-│  │  203 competitors imported · 3 classes detected       [Manage ▸]  │  │
+│  │  203 competitors · Junior, Senior, Class 1            [Manage ▸]  │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
 │                                                                         │
 │  ┌─ Fleets ──────────────────────────────────────────────────────────┐  │
-│  │  3 fleets detected from import            [Review & confirm ▸]    │  │
-│  │  Junior · Senior · Class 1                                         │  │
+│  │  Junior · Senior · Class 1                  [Reorder / rename ▸]  │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
 │                                                                         │
 │  ┌─ Scoring ─────────────────────────────────────────────────────────┐  │
 │  │  IRC ratings detected (Class 1)           [Set up scoring ▸]      │  │
-│  │  Scratch scoring detected (Junior, Senior)                         │  │
+│  │  Scratch assumed (Junior, Senior)                                  │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
 ```
 
-**Detection logic:**
+**Fleet lifecycle:** Fleets are not created or deleted directly. They are
+derived from the fleet field on competitors — a fleet exists as long as at
+least one competitor has that value. Importing competitors creates fleets
+automatically; removing the last competitor from a fleet removes the fleet.
 
-- **Fleets:** a fleet/class column in the CSV is used to group competitors
-  into fleets. If no such column exists, one fleet is created and the scorer
-  names it manually.
-- **Scoring:** the presence of IRC TCC or NHC rating columns in the CSV
-  suggests handicap scoring for those competitors' fleets. Absence of rating
-  columns suggests scratch scoring. These are suggestions — the scorer
-  confirms in the Scoring card.
+**Fleet column detection during import:** The importer looks for a fleet
+field in the CSV in priority order:
+1. A column named (or mapped to) "Fleet"
+2. If not found: a column named "Class" — the scorer is offered the option
+   to use it as fleet
+3. If not found: a column named "Division" — the scorer is offered the option
+   to use it as fleet
+4. If none found: all competitors are assigned to the default fleet
 
-The system surfaces what it noticed; it does not auto-configure. The scorer
-reviews and confirms.
+Competitors with no value in the fleet field (blank cell) are assigned to
+the default fleet.
+
+**Scoring detection:** The presence of IRC TCC or NHC rating columns in the
+CSV suggests handicap scoring for those competitors' fleets. These are
+suggestions — the scorer confirms in the Scoring card. The system does not
+auto-configure scoring.
 
 ---
 
@@ -162,23 +170,25 @@ Venue and date range. All optional — a series can operate without them.
 
 ## Card: Fleets (expanded)
 
-Shows detected fleets (if import done) or an empty state with an add button.
-The scorer can rename, reorder, merge, or delete fleets before confirming.
+Shows the current fleets derived from competitor data. Fleets cannot be
+added or deleted here — they emerge from competitors. The scorer can rename
+and reorder them.
 
 ```
 │  ┌─ Fleets ──────────────────────────────────────────────────────────┐  │
-│  │  Detected from import. Rename or adjust before confirming.        │  │
+│  │  Fleets are created automatically from your competitors.          │  │
 │  │                                                                   │  │
-│  │  ☰  Junior                                          [Rename] [×]  │  │
-│  │  ☰  Senior                                          [Rename] [×]  │  │
-│  │  ☰  Class 1                                         [Rename] [×]  │  │
+│  │  ☰  Junior                                           [Rename]    │  │
+│  │  ☰  Senior                                           [Rename]    │  │
+│  │  ☰  Class 1                                          [Rename]    │  │
 │  │                                                                   │  │
-│  │  [+ Add fleet]                                      [Confirm]    │  │
+│  │                                                          [Done]  │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
 ```
 
-Drag handles (☰) allow reordering, which affects display order in standings
-and results.
+Drag handles (☰) set display order in standings and results. Renaming a
+fleet updates all competitors in that fleet. To move competitors between
+fleets, edit them on the Competitors screen.
 
 ---
 
@@ -274,5 +284,4 @@ The screen inventory should be updated to reflect this.
 
 | # | Question | Impact |
 |---|----------|--------|
-| 1 | If no fleet/class column is detected in the CSV, should the scorer be prompted to map a column or just create one unnamed fleet? | Medium — affects import flow design |
-| 2 | Should the scorer be able to start from a template (e.g. clone last year's series)? | Low for MVP — deferred |
+| 1 | Should the scorer be able to start from a template (e.g. clone last year's series)? | Low for MVP — deferred |
