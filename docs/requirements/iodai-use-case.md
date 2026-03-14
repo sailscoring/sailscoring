@@ -179,7 +179,8 @@ Based on this use case, the MVP must support:
 
 1. **Event setup** -- create an event with multiple independent series
 2. **Competitor management** -- add/edit competitors with: sail number
-   (with optional country prefix), name, club, fleet, division
+   (with optional country prefix), name, club, fleet, division,
+   nationality, gender, age
 3. **Series configuration** -- number of races, discard profile, scoring
    system (Low Point / Appendix A)
 4. **Position-based result entry** -- enter a list of sail numbers in
@@ -218,11 +219,32 @@ Based on this use case, the MVP must support:
 
 ## Data Model Implications
 
-The IODAI use case maps to the data model as follows:
+### Series boundary: the finish line
 
-- Each top-level IODAI fleet (Regatta Coached, Regatta Racing, Main Fleet)
-  is a separate **Series** -- they race on different courses with fully
-  independent starts, results, and standings.
+The natural boundary for a Series is a shared finish line. Competitors
+whose finishes are recorded by the same finish boat, in the same crossing
+order, belong in the same Series. Competitors that cross different finish
+lines — independently officiated, with no shared ordering — belong in
+separate Series.
+
+This principle drives the IODAI structure cleanly:
+
+- **Regatta Coached** races on its own course with its own finish boat.
+  → Separate Series.
+- **Regatta Racing** races on its own course with its own finish boat.
+  → Separate Series.
+- **Main Fleet** (Junior + Senior) shares one race area and one finish
+  boat. Junior and Senior boats cross the same line, recorded in the same
+  crossing order.
+  → One Series, two Fleets.
+
+An IODAI nationals event therefore produces **three independent Series**
+in the system, not one Series with multiple Fleets. There is no shared
+parent "event" entity grouping them — they are linked only by the scorer
+knowing they belong to the same regatta.
+
+### Fleet and Division within Main Fleet
+
 - Within the Main Fleet Series, **Junior** and **Senior** are separate
   **Fleets**. Each Fleet has its own start time and produces its own series
   standings. Junior and Senior are not Divisions: they are independently
@@ -231,8 +253,20 @@ The IODAI use case maps to the data model as follows:
   Fleet used for prize-giving only. All Junior sailors are scored together
   regardless of division; prizes are then filtered by division from the
   shared Fleet standings.
+
+### Result entry
+
 - **Result entry** needs a workflow concept: enter raw finish order
   (sail numbers), then the system resolves competitors and assigns
   per-fleet positions.
 - **Finish position** (the order the boat crossed the line) is distinct
   from **race score** (the position within the scored Fleet).
+
+### Sail number scope
+
+Sail numbers must be unique within a Series. The three IODAI Series are
+scored independently, so sail number uniqueness is enforced within each
+Series separately. In practice some sail numbers appear in more than one
+Series at the same event (e.g. a boat that moved up from Regatta Racing to
+Main Fleet mid-season may appear in registration data for both); this is
+not a collision because they are different Series.

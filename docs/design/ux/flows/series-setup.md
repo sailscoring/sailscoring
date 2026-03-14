@@ -199,17 +199,27 @@ confirm or change it.
 
 ```
 │  ┌─ Scoring ─────────────────────────────────────────────────────────┐  │
-│  │  Junior    ◉ Scratch   ○ IRC   ○ NHC   ○ IRC + NHC               │  │
-│  │  Senior    ◉ Scratch   ○ IRC   ○ NHC   ○ IRC + NHC               │  │
-│  │  Class 1   ○ Scratch   ◉ IRC   ○ NHC   ○ IRC + NHC               │  │
+│  │                 Scratch  IRC    NHC    Scratch  IRC               │  │
+│  │                                       + NHC    + NHC             │  │
+│  │  Junior         ◉        ○      ○      ○        ○                │  │
+│  │  Senior         ◉        ○      ○      ○        ○                │  │
+│  │  Puppeteer 22   ○        ○      ○      ◉        ○                │  │
+│  │    ↑ NHC detected from import ratings; Scratch + NHC suggested   │  │
+│  │  Class 1        ○        ◉      ○      ○        ○                │  │
 │  │    ↑ IRC detected from import ratings                             │  │
 │  │                                                          [Done]  │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
 ```
 
-Selecting IRC or NHC for a fleet displays a note that competitors in that
-fleet will need a rating field. If ratings were already imported, no action
-is needed.
+**Scratch + NHC** is the correct choice for one-design fleets that also
+participate in a club handicap system (e.g. HYC inshore classes). It
+produces two independent sets of standings from the same finish:
+one-design positions for the class trophy, and corrected times for the
+HPH trophy.
+
+Selecting IRC or NHC (alone or in combination) displays a note that
+competitors in that fleet need a rating field. Competitors without the
+required rating will score in the remaining systems only.
 
 ---
 
@@ -261,6 +271,7 @@ Once all cards are configured, each shows a compact summary:
 │                                                                         │
 │  ┌─ Scoring ─────────────────────────────────────────────────────────┐  │
 │  │  Junior scratch · Senior scratch · Class 1 IRC        [Edit ▸]   │  │
+│  │  Puppeteer 22 scratch+NHC · Squib scratch+NHC                     │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
 │                                                                         │
 │  ┌─ Discards ────────────────────────────────────────────────────────┐  │

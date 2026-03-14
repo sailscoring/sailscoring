@@ -139,6 +139,7 @@ Each row shows one CSV column and the competitor field it maps to. The
 scorer can change any mapping via a dropdown. Options in the dropdown:
 
 - Sail number *(required — at least one column must map here)*
+- Alt sail number *(secondary identifier, used as fallback during finish lookup)*
 - Helm name
 - Boat name
 - Club
@@ -147,6 +148,9 @@ scorer can change any mapping via a dropdown. Options in the dropdown:
 - IRC TCC
 - NHC number
 - Class *(descriptive boat type, not used for scoring)*
+- Nationality
+- Gender
+- Age
 - — ignore —
 
 Unmapped columns default to "— ignore —".
@@ -199,14 +203,18 @@ and punctuation) against known field names and common aliases.
 | Competitor field | Recognised header variants |
 |-----------------|---------------------------|
 | Sail number | sail, sail no, sail number, sail #, sail_no, sailno |
+| Alt sail number | alt sail, alt sail no, alt sail number, alt_sail_no, alternative sail, alternate sail |
 | Helm name | helm, helmsman, helms, name, sailor, skipper, first name + last name (combined) |
 | Boat name | boat, boat name, vessel, yacht |
 | Club | club, sailing club, home club |
 | Fleet | fleet |
 | Division | division, div, group |
-| IRC TCC | tcc, irc tcc, irc, time correction, tcf |
-| NHC number | nhc, hph, nhc number, handicap |
+| IRC TCC | tcc, irc tcc, irc tcc, irc, irc rating, time correction, tcf |
+| NHC number | nhc, hph, nhc number, hph rating, nhc rating, handicap |
 | Class | class, boat class, boat type, dinghy class |
+| Nationality | nat, nationality, country |
+| Gender | gender, sex |
+| Age | age |
 
 **Fleet fallback priority:** if no Fleet-matching header is found, the
 importer looks for a Class header, then a Division header, and offers to

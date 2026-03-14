@@ -94,6 +94,15 @@ Series
 The top-level container for a scored competition. All other entities belong
 to a Series.
 
+**Series boundary:** The natural boundary for a Series is a shared finish
+line. Competitors whose finishes are recorded by the same finish boat, in
+the same crossing order, belong in the same Series. Competitors that cross
+different finish lines — independently officiated, with no shared ordering —
+belong in separate Series. This principle drives the IODAI structure: Regatta
+Coached and Regatta Racing each have their own finish boat and so are separate
+Series; Main Fleet Junior and Senior share one finish line and so are two
+Fleets within one Series.
+
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
 | id | uuid | Yes | Unique identifier |
@@ -138,11 +147,15 @@ A boat or person entered in the Series. Belongs to exactly one Fleet.
 | id | uuid | Yes | Unique identifier |
 | fleet_id | uuid | Yes | Parent Fleet |
 | sail_number | string | Yes | Primary identifier, e.g. "IRL 1234", "GBR 5678" |
+| alt_sail_numbers | list[string] | No | Alternative sail number identifiers. Used as fallback lookup during finish entry if the primary sail_number is not found. Useful when a boat has both a national registration number and a class sail number, or when different race areas use different numbering conventions |
 | name | string | No | Helm name |
 | boat_name | string | No | Vessel name (keelboats) |
 | club | string | No | Sailing club |
 | class | string | No | Boat class, e.g. "Optimist", "J/109" |
 | division | string | No | Subdivision within Fleet, e.g. "Gold", "Silver", "Bronze" |
+| nationality | string | No | ISO 3166-1 alpha-3 country code, e.g. "IRL", "GBR". Used for results display (flags) and nationality-based prize categories |
+| gender | string | No | "M" or "F". Used for gender-based prize categories |
+| age | integer | No | Age at the time of registration. Used for age-based prize categories. Snapshot from registration data; not recalculated automatically |
 | irc_tcc | decimal | No | IRC Time Correction Coefficient, e.g. 0.972. Required if Fleet scores IRC |
 | nhc_number | decimal | No | NHC/HPH rating, e.g. 0.865. Required if Fleet scores NHC. Progressive: adjusted after each race |
 
@@ -254,6 +267,20 @@ system configured on the Competitor's Fleet.
 | IRC | Fixed TCC per series | irc_tcc |
 | NHC | Progressive handicap, adjusted after each race | nhc_number |
 
+A Fleet's `scoring_systems` list may contain any combination of the above.
+Meaningful combinations in practice:
+
+| Configuration | Produces | Example |
+|---------------|----------|---------|
+| [scratch] | One-design standings | IODAI Junior, Senior |
+| [NHC] | NHC/HPH standings | HYC offshore boat without IRC cert |
+| [IRC, NHC] | IRC standings + NHC standings | HYC offshore Class 1-3 |
+| [scratch, NHC] | One-design standings + NHC standings | HYC inshore Puppeteer 22, Squib, H17 |
+
+**Scratch + NHC** is the standard configuration for a one-design fleet that
+also participates in a club handicap system. Scratch gives the class
+trophy; NHC gives the HPH trophy from the same finish times.
+
 ## Calculated Fields
 
 | Entity | Field | Calculation |
@@ -284,7 +311,7 @@ competitors within a Fleet) for prize-giving purposes.
 | Sail number unique within Series | A sail number must be unique across all Competitors in a Series, regardless of Fleet. Sail number is the primary lookup key during finish recording; a duplicate would make identification ambiguous in a mixed-Fleet finish. |
 | At most one Finish per Competitor per Race | A Competitor can have at most one Finish record for a given Race |
 | One Start per Fleet per Race | Each Fleet has exactly one Start per Race it participates in |
-| Scoring system ratings required | A Competitor must have the rating fields required by their Fleet's scoring systems |
+| Scoring system ratings required | A Competitor without a rating value required by one of their Fleet's scoring systems produces no Result for that scoring system. They still compete and score normally under any other scoring systems for which they have the required rating. Example: a boat in an IRC+NHC fleet with no IRC TCC scores NHC only and does not appear in IRC standings |
 | Result code exclusivity | A Finish has either a finish_position, a finish_time, or a result_code -- not a combination |
 
 ## Use Case Examples
