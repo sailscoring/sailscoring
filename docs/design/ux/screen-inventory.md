@@ -126,23 +126,17 @@ to `/series/[id]/races`.
 **Route:** `/series/[id]/competitors/import`
 **Purpose:** Bulk import competitors from a CSV file.
 
-**Steps:**
-1. Upload CSV file
-2. Map CSV columns to competitor fields (sail number, name, club, fleet, division, ratings)
-3. Preview: table of parsed competitors with validation errors highlighted
-4. Confirm import
+See `flows/competitor-import.md` for the detailed flow.
 
-**Notes:**
-- Column mapping needs to be flexible — registration exports vary widely
-  in column names and ordering.
-- Validation: sail number required; sail number must be unique within series;
-  fleet name must match an existing fleet in the series (or create one?).
-- Import should be additive (does not delete existing competitors) unless
-  the scorer explicitly requests a full replace.
+**Steps:** Upload → Map & Preview (iterative, live) → Confirm.
 
-> **Open question:** Should the import support a "replace all" mode, or
-> always be additive? Additive is safer; replace is needed if the scorer
-> re-exports a corrected registration list.
+**Key behaviours:**
+- Upsert on sail number: existing competitors are updated, new ones added,
+  unmentioned ones left alone. Re-import is safe and used for bulk rating updates.
+- Partial import: valid rows go in; error rows are listed and skipped.
+- Column mapping is auto-detected and saved per header set for future imports.
+- Fleet derived from a fleet column; falls back to class, then division, then
+  default fleet if none found.
 
 ---
 
