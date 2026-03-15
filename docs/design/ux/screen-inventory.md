@@ -13,12 +13,16 @@ only. No server rendering in MVP.
 
 ## Navigation Structure
 
-The application has two levels of navigation:
+The application has three levels of navigation:
 
-1. **Global** — the series list and series creation. No persistent chrome
+1. **App-level** — settings that apply across all series (e.g. publishing
+   email). Accessible from a persistent icon or link on the series list screen.
+   Expected to stay small; no persistent chrome needed.
+
+2. **Global** — the series list and series creation. No persistent chrome
    needed here; the scorer picks a series and enters it.
 
-2. **Within a series** — persistent sidebar (desktop) with primary sections.
+3. **Within a series** — persistent sidebar (desktop) with primary sections.
    The scorer spends most of their time inside a single series.
 
 Primary sections within a series (sidebar navigation):
@@ -32,6 +36,27 @@ Primary sections within a series (sidebar navigation):
 
 Opening a series lands on **Races** — the most frequent action during an
 event. A dashboard screen is deferred until there is a clear need for one.
+
+---
+
+## App-Level Screens
+
+### G-00: App Settings
+
+**Route:** `/settings`
+**Purpose:** Settings that apply across all series, not tied to any one event.
+
+**Content/actions:**
+- **Publishing email** — the email address bilge sends UUID verification links
+  to. Set once; used for the first publish of every new series UUID. Not stored
+  per-series and not included in series JSON exports.
+
+**Notes:**
+- Currently a single field. Expected to stay minimal for the MVP — if only one
+  or two settings ever appear here, this may be better rendered as a small
+  panel on G-01 rather than a dedicated route.
+- Accessible from a settings icon or link on the Series List screen (G-01).
+  Not part of the within-series sidebar.
 
 ---
 
@@ -90,9 +115,15 @@ to `/series/[id]/races`.
 
 **Content/actions:**
 - Series name (large, prominent editable field at top)
-- Setup cards: Basics, Competitors, Fleets, Scoring, Discards
+- Setup cards: Basics, Competitors, Fleets, Scoring, Discards, Publishing
 - Export series as JSON
 - Delete series (destructive, with confirmation)
+
+**Publishing card:** The scorer sets the series publishing prefix here
+(e.g. `hyc/autumn-league-2026`). The prefix defaults to a slugified version of
+the series name and is locked after the first verified publish. The email
+address used for UUID verification is an app-level setting, not per-series.
+See `flows/publish-results.md` for the full configuration and UX details.
 
 ---
 
@@ -228,14 +259,16 @@ mixed entry that the system splits by fleet for scoring.
 
 **Actions:**
 - Filter by division
-- Publish results → (publishing flow, TBD)
-- Export as HTML page
+- Publish results → see `flows/publish-results.md`
 
 **Notes:**
 - For dual-scored fleets (IRC + NHC), standings for each scoring system
   appear as separate sub-sections or tabs within the fleet block.
 - The scorer should be able to see standings update in near-real-time as
   finishes are entered (Dexie `liveQuery()` enables this without a page refresh).
+- Publishing posts one HTML page per fleet per scoring system to bilge. The
+  scorer shares a single listing URL (`/l/{prefix}/`) covering all pages.
+  Publish configuration (email, prefix) is set in S-01 — not at publish time.
 
 ---
 
@@ -243,6 +276,7 @@ mixed entry that the system splits by fleet for scoring.
 
 | Screen | Route | Priority |
 |--------|-------|---------|
+| G-00: App Settings | `/settings` | P2 |
 | G-01: Series List | `/` | P1 |
 | G-02/S-01: Series Setup & Settings | `/series/[id]/settings` | P1 |
 | S-03: Competitors List | `/series/[id]/competitors` | P1 |
