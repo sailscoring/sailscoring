@@ -46,6 +46,10 @@ class DexieCompetitorRepository implements CompetitorRepository {
   delete(id: string): Promise<void> {
     return db.competitors.delete(id);
   }
+
+  deleteBySeries(seriesId: string): Promise<void> {
+    return db.competitors.where('seriesId').equals(seriesId).delete().then(() => undefined);
+  }
 }
 
 class DexieRaceRepository implements RaceRepository {
@@ -67,6 +71,10 @@ class DexieRaceRepository implements RaceRepository {
 
   delete(id: string): Promise<void> {
     return db.races.delete(id);
+  }
+
+  deleteBySeries(seriesId: string): Promise<void> {
+    return db.races.where('seriesId').equals(seriesId).delete().then(() => undefined);
   }
 }
 
@@ -94,6 +102,11 @@ class DexieFinishRepository implements FinishRepository {
 
   deleteByRace(raceId: string): Promise<void> {
     return db.finishes.where('raceId').equals(raceId).delete().then(() => undefined);
+  }
+
+  deleteByRaces(raceIds: string[]): Promise<void> {
+    if (raceIds.length === 0) return Promise.resolve();
+    return db.finishes.where('raceId').anyOf(raceIds).delete().then(() => undefined);
   }
 }
 

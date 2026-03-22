@@ -12,6 +12,7 @@ export interface CompetitorRepository {
   get(id: string): Promise<Competitor | undefined>;
   save(competitor: Competitor): Promise<Competitor>;
   delete(id: string): Promise<void>;
+  deleteBySeries(seriesId: string): Promise<void>;
 }
 
 export interface RaceRepository {
@@ -19,6 +20,7 @@ export interface RaceRepository {
   get(id: string): Promise<Race | undefined>;
   save(race: Race): Promise<Race>;
   delete(id: string): Promise<void>;
+  deleteBySeries(seriesId: string): Promise<void>;
 }
 
 export interface FinishRepository {
@@ -27,4 +29,5 @@ export interface FinishRepository {
   save(finish: Finish): Promise<Finish>;
   saveMany(finishes: Finish[]): Promise<void>;
   deleteByRace(raceId: string): Promise<void>;
+  deleteByRaces(raceIds: string[]): Promise<void>;
 }
