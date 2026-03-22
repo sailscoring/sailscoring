@@ -156,6 +156,42 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   await expect(aliceRow).not.toContainText('DNC');
   await expect(aliceRow).not.toContainText('DNF');
   await expect(aliceRow).not.toContainText('OCS');
+
+  // ── 8. Delete Race 2 and verify standings update ──────────────────────────
+  await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page.getByText('2 races')).toBeVisible();
+
+  // Race 2 is the second row — accept the confirm dialog then click its Delete
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Delete' }).nth(1).click();
+  await expect(page.getByText('Race 2')).not.toBeVisible();
+  await expect(page.getByText('1 race')).toBeVisible();
+
+  // Standings with Race 1 only (N=5, penalty=6):
+  //   Alice=1, Bob=2, Carol=3, Dave=6(DNF), Eve=6(DNC)
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByText('1 race')).toBeVisible();
+  await expect(aliceRow.getByRole('cell').last()).toContainText('1');
+  await expect(carolRow.getByRole('cell').last()).toContainText('3');
+  await expect(daveRow.getByRole('cell').last()).toContainText('6');
+  await expect(daveRow).toContainText('DNF');
+  await expect(eveRow.getByRole('cell').last()).toContainText('6');
+  await expect(eveRow).toContainText('DNC');
+
+  // ── 9. Delete Eve and verify standings recalculate ────────────────────────
+  // With Eve gone, N drops to 4 so the penalty (N+1) falls to 5.
+  // Dave's DNF should now score 5, not 6.
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Delete Eve Burke' }).click();
+  await expect(page.getByRole('cell', { name: '1005' })).not.toBeVisible();
+  await expect(page.getByText('4 competitors')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByText('4 competitors')).toBeVisible();
+  await expect(aliceRow.getByRole('cell').last()).toContainText('1');
+  await expect(daveRow.getByRole('cell').last()).toContainText('5');
+  await expect(daveRow).toContainText('DNF');
 });
 
 test('unknown sail number shows error in result entry', async ({ page }) => {
