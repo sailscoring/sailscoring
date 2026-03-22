@@ -15,6 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Link href="/" className="font-semibold hover:underline">
             Sail Scoring
           </Link>
+          <Link href="/help" className="text-sm text-muted-foreground hover:underline">
+            Help
+          </Link>
         </header>
         <main className="px-6 py-8 max-w-5xl mx-auto">{children}</main>
       </body>
