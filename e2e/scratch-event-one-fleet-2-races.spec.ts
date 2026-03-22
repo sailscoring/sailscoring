@@ -233,3 +233,66 @@ test('unknown sail number shows error in result entry', async ({ page }) => {
   await page.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByText(/already in the finishing order/)).toBeVisible();
 });
+
+test('sail number autocomplete in result entry', async ({ page }) => {
+  // ── Setup: series with 3 competitors and one race ─────────────────────────
+  await page.goto('/');
+  await page.getByRole('link', { name: 'New series' }).click();
+  await page.getByLabel('Name').fill('Autocomplete Test Cup');
+  await page.getByRole('button', { name: 'Create series' }).click();
+
+  for (const [sailNumber, name] of [['1001', 'Alice Murphy'], ['1002', 'Bob Kelly'], ['1003', 'Carol Ryan']]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(sailNumber);
+    await page.getByLabel('Helm name').fill(name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: sailNumber })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByRole('link', { name: 'Enter results' }).click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  const sailInput = page.getByLabel('Sail number');
+
+  // ── 1. Dropdown appears on partial input ──────────────────────────────────
+  await sailInput.fill('100');
+  await expect(page.getByRole('listbox')).toBeVisible();
+  await expect(page.getByRole('option', { name: /1001/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /1002/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /1003/ })).toBeVisible();
+
+  // ── 2. Dropdown filters by prefix ─────────────────────────────────────────
+  await sailInput.fill('1001');
+  await expect(page.getByRole('option', { name: /1001/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /1002/ })).not.toBeVisible();
+  await expect(page.getByRole('option', { name: /1003/ })).not.toBeVisible();
+
+  // ── 3. Mouse click on suggestion adds finisher and clears input ───────────
+  await sailInput.fill('100');
+  await page.getByRole('option', { name: /1001/ }).click();
+  await expect(page.getByRole('listitem').filter({ hasText: '1001' })).toBeVisible();
+  await expect(sailInput).toHaveValue('');
+  await expect(page.getByRole('listbox')).not.toBeVisible();
+
+  // ── 4. Already-added competitor excluded from suggestions ─────────────────
+  await sailInput.fill('100');
+  await expect(page.getByRole('option', { name: /1001/ })).not.toBeVisible();
+  await expect(page.getByRole('option', { name: /1002/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /1003/ })).toBeVisible();
+
+  // ── 5. Keyboard: ArrowDown + Enter selects highlighted suggestion ─────────
+  await sailInput.press('ArrowDown');
+  await sailInput.press('Enter');
+  // First remaining suggestion (1002) should be added
+  await expect(page.getByRole('listitem').filter({ hasText: '1002' })).toBeVisible();
+  await expect(sailInput).toHaveValue('');
+
+  // ── 6. Escape clears input and closes dropdown ────────────────────────────
+  await sailInput.fill('100');
+  await expect(page.getByRole('listbox')).toBeVisible();
+  await sailInput.press('Escape');
+  await expect(sailInput).toHaveValue('');
+  await expect(page.getByRole('listbox')).not.toBeVisible();
+});

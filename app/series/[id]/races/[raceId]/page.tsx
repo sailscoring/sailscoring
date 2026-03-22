@@ -17,6 +17,7 @@ import {
 import { X } from 'lucide-react';
 import type { Competitor, Finish, ResultCode } from '@/lib/types';
 import { log } from '@/lib/debug';
+import { cn } from '@/lib/utils';
 
 type NonFinisherCode = ResultCode | 'implicit-dnc';
 
@@ -55,6 +56,7 @@ export default function ResultEntryPage({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [initialized, setInitialized] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Initialize form state from saved finishes once loaded
@@ -96,8 +98,27 @@ export default function ResultEntryPage({
       competitor: c,
       code: nonFinisherCodes.get(c.id) ?? 'implicit-dnc',
     }));
+  const suggestions = sailInput.trim()
+    ? nonFinishers.filter(({ competitor }) =>
+        competitor.sailNumber.toUpperCase().startsWith(sailInput.trim().toUpperCase()),
+      )
+    : [];
+
+  function selectSuggestion(competitor: Competitor) {
+    setFinishingOrder((order) => [...order, competitor.id]);
+    setSailInput('');
+    setInputError('');
+    setHighlightedIndex(-1);
+    inputRef.current?.focus();
+    log('result-entry', 'added finisher via suggestion', { sail: competitor.sailNumber, competitorId: competitor.id });
+  }
 
   function addFinisher() {
+    if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
+      selectSuggestion(suggestions[highlightedIndex].competitor);
+      return;
+    }
+
     const sail = sailInput.trim().toUpperCase();
     if (!sail) return;
 
@@ -194,18 +215,64 @@ export default function ResultEntryPage({
         <div className="space-y-4">
           <h3 className="font-medium">Finishing order</h3>
 
-          <div className="flex gap-2">
-            <Input
-              ref={inputRef}
-              value={sailInput}
-              onChange={(e) => { setSailInput(e.target.value); setInputError(''); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFinisher(); } }}
-              placeholder="Sail number…"
-              aria-label="Sail number"
-            />
-            <Button type="button" onClick={addFinisher}>
-              Add
-            </Button>
+          <div className="relative">
+            <div className="flex gap-2">
+              <Input
+                ref={inputRef}
+                value={sailInput}
+                onChange={(e) => { setSailInput(e.target.value); setInputError(''); setHighlightedIndex(-1); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setHighlightedIndex((i) => Math.min(i + 1, suggestions.length - 1));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setHighlightedIndex((i) => Math.max(i - 1, -1));
+                  } else if (e.key === 'Escape') {
+                    setHighlightedIndex(-1);
+                    setSailInput('');
+                  } else if (e.key === 'Tab' && suggestions.length > 0) {
+                    e.preventDefault();
+                    selectSuggestion(suggestions[Math.max(highlightedIndex, 0)].competitor);
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addFinisher();
+                  }
+                }}
+                placeholder="Sail number…"
+                aria-label="Sail number"
+                aria-autocomplete="list"
+                autoComplete="off"
+              />
+              <Button type="button" onClick={addFinisher}>
+                Add
+              </Button>
+            </div>
+            {suggestions.length > 0 && (
+              <ul
+                role="listbox"
+                className="absolute z-10 top-full mt-1 w-full rounded-md border bg-popover shadow-md"
+              >
+                {suggestions.map(({ competitor }, i) => (
+                  <li
+                    key={competitor.id}
+                    role="option"
+                    aria-selected={i === highlightedIndex}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 cursor-pointer text-sm',
+                      i === highlightedIndex ? 'bg-accent' : 'hover:bg-accent',
+                    )}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      selectSuggestion(competitor);
+                    }}
+                  >
+                    <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
+                    <span className="flex-1 truncate">{competitor.name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           {inputError && <p className="text-sm text-destructive">{inputError}</p>}
 
