@@ -1,4 +1,4 @@
-import type { Competitor, Race, Finish, RaceScore, Standing } from './types';
+import type { Competitor, Race, Finish, RaceScore, Standing, ResultCode } from './types';
 
 /**
  * Calculate race scores for all competitors in a series.
@@ -76,6 +76,7 @@ export function calculateStandings(
       rank: i + 1,
       competitor: c,
       racePoints: [],
+      raceCodes: [],
       totalPoints: 0,
     }));
   }
@@ -90,8 +91,10 @@ export function calculateStandings(
 
   // Calculate per-race scores for each competitor
   const competitorRacePoints = new Map<string, number[]>();
+  const competitorRaceCodes = new Map<string, (ResultCode | null)[]>();
   for (const competitor of competitors) {
     competitorRacePoints.set(competitor.id, []);
+    competitorRaceCodes.set(competitor.id, []);
   }
 
   for (const race of races) {
@@ -100,15 +103,18 @@ export function calculateStandings(
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
       const points = score?.points ?? competitors.length + 1;
+      const code = score?.resultCode ?? 'DNC';
       competitorRacePoints.get(competitor.id)!.push(points);
+      competitorRaceCodes.get(competitor.id)!.push(code);
     }
   }
 
   // Build initial standings
   const standings: Standing[] = competitors.map((competitor) => {
     const racePoints = competitorRacePoints.get(competitor.id)!;
+    const raceCodes = competitorRaceCodes.get(competitor.id)!;
     const totalPoints = racePoints.reduce((sum, p) => sum + p, 0);
-    return { rank: 0, competitor, racePoints, totalPoints };
+    return { rank: 0, competitor, racePoints, raceCodes, totalPoints };
   });
 
   // Sort: lowest total wins, tie-break per RRS A8.2

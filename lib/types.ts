@@ -46,6 +46,7 @@ export interface RaceScore {
 export interface Standing {
   rank: number;
   competitor: Competitor;
-  racePoints: number[];   // points per race, in race order
+  racePoints: number[];            // points per race, in race order
+  raceCodes: (ResultCode | null)[]; // result code per race (null = normal finish)
   totalPoints: number;
 }

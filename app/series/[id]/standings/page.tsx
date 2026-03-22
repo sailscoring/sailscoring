@@ -138,7 +138,7 @@ function StandingRow({
   standing: Standing;
   raceCount: number;
 }) {
-  const { rank, competitor, racePoints, totalPoints } = standing;
+  const { rank, competitor, racePoints, raceCodes, totalPoints } = standing;
 
   // Highlight rank 1 row
   const isFirst = rank === 1;
@@ -159,10 +159,10 @@ function StandingRow({
       <TableCell className="text-muted-foreground">{competitor.club}</TableCell>
       {racePoints.map((points, i) => (
         <TableCell key={i} className="text-center tabular-nums">
-          {points > raceCount ? (
+          {raceCodes[i] !== null ? (
             <span className="text-muted-foreground text-xs">
               {points}
-              <span className="ml-0.5">(DNC)</span>
+              <span className="ml-0.5">({raceCodes[i]})</span>
             </span>
           ) : (
             points
