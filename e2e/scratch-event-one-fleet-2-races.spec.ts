@@ -19,12 +19,13 @@ import { test, expect } from '@playwright/test';
  * Expected standings: 1=A(3), 2=C(4), 3=B(8), 4=E(9), 5=D(12)
  */
 
+// Deliberately not in sail-number order to verify the list sorts correctly.
 const competitors = [
-  { sailNumber: '1001', name: 'Alice Murphy', club: 'HYC', gender: 'F', age: '12' },
-  { sailNumber: '1002', name: 'Bob Kelly', club: 'RCYC', gender: 'M', age: '13' },
   { sailNumber: '1003', name: 'Carol Ryan', club: 'HYC', gender: 'F', age: '11' },
-  { sailNumber: '1004', name: 'Dave Walsh', club: 'NYS', gender: 'M', age: '14' },
+  { sailNumber: '1001', name: 'Alice Murphy', club: 'HYC', gender: 'F', age: '12' },
   { sailNumber: '1005', name: 'Eve Burke', club: 'BYC', gender: 'F', age: '12' },
+  { sailNumber: '1002', name: 'Bob Kelly', club: 'RCYC', gender: 'M', age: '13' },
+  { sailNumber: '1004', name: 'Dave Walsh', club: 'NYS', gender: 'M', age: '14' },
 ];
 
 test('scratch event, one fleet, 2 races', async ({ page }) => {
@@ -53,8 +54,14 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
   }
 
-  // Verify competitor count
+  // Verify competitor count and that the list is sorted by sail number
   await expect(page.getByText('5 competitors')).toBeVisible();
+  const sailCells = page.getByRole('cell', { name: /^\d{4}$/ });
+  await expect(sailCells.nth(0)).toHaveText('1001');
+  await expect(sailCells.nth(1)).toHaveText('1002');
+  await expect(sailCells.nth(2)).toHaveText('1003');
+  await expect(sailCells.nth(3)).toHaveText('1004');
+  await expect(sailCells.nth(4)).toHaveText('1005');
 
   // ── 3. Add races ──────────────────────────────────────────────────────────
   await page.getByRole('link', { name: 'Races' }).click();
