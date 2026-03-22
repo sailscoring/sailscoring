@@ -127,6 +127,28 @@ test('full scoring flow — The Brassed-Off Cup', async ({ page }) => {
 
   // Verify race count displayed
   await expect(page.getByText('2 races')).toBeVisible();
+
+  // ── 7. Verify result codes in standings ───────────────────────────────────
+  // Dave (1004): DNF in Race 1, implicit DNC in Race 2
+  await expect(daveRow).toContainText('DNF');
+  await expect(daveRow).toContainText('DNC');
+
+  // Bob (1002): normal finish in Race 1, OCS in Race 2
+  const bobRow = rows.filter({ hasText: 'Bob Kelly' });
+  await expect(bobRow).toContainText('OCS');
+  await expect(bobRow).not.toContainText('DNC');
+  await expect(bobRow).not.toContainText('DNF');
+
+  // Eve (1005): implicit DNC in Race 1, normal finish in Race 2
+  const eveRow = rows.filter({ hasText: 'Eve Burke' });
+  await expect(eveRow).toContainText('DNC');
+  await expect(eveRow).not.toContainText('DNF');
+  await expect(eveRow).not.toContainText('OCS');
+
+  // Alice (1001): normal finishes in both races — no penalty codes shown
+  await expect(aliceRow).not.toContainText('DNC');
+  await expect(aliceRow).not.toContainText('DNF');
+  await expect(aliceRow).not.toContainText('OCS');
 });
 
 test('unknown sail number shows error in result entry', async ({ page }) => {
