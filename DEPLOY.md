@@ -101,6 +101,26 @@ This setting is per-browser and requires no redeploy.
 
 ---
 
+## Custom domain
+
+To serve the app from `app.sailscoring.ie` instead of the auto-assigned Vercel URL:
+
+1. In the Vercel dashboard open your project → **Settings** → **Domains**
+2. Click **Add** and enter `app.sailscoring.ie`
+3. Vercel will show a CNAME record to add. Add it at your DNS registrar:
+
+   | Type  | Name  | Value                  |
+   |-------|-------|------------------------|
+   | CNAME | `app` | `cname.vercel-dns.com` |
+
+4. Wait for DNS propagation (usually a few minutes). Vercel shows a green
+   checkmark once it detects the record.
+
+No environment variables need updating — the app is fully client-side and has
+no server-side URLs to reconfigure.
+
+---
+
 ## Data persistence
 
 All scoring data (series, competitors, races, finishes) is stored in IndexedDB in the scorer's browser. It persists across page reloads and browser restarts, but:
