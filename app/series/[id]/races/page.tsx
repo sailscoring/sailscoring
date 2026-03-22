@@ -3,10 +3,16 @@
 import { use } from 'react';
 import Link from 'next/link';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { raceRepo } from '@/lib/dexie-repository';
+import { raceRepo, finishRepo } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
 import type { Race } from '@/lib/types';
 import { log } from '@/lib/debug';
+
+async function handleDeleteRace(race: Race) {
+  if (!confirm(`Delete Race ${race.raceNumber}? This will also delete all results for this race.`)) return;
+  await finishRepo.deleteByRace(race.id);
+  await raceRepo.delete(race.id);
+}
 
 function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
   return (
@@ -17,9 +23,14 @@ function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
           <span className="text-sm text-muted-foreground ml-2">{race.date}</span>
         )}
       </div>
-      <Button variant="outline" size="sm" asChild>
-        <Link href={`/series/${seriesId}/races/${race.id}`}>Enter results</Link>
-      </Button>
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/series/${seriesId}/races/${race.id}`}>Enter results</Link>
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => handleDeleteRace(race)}>
+          Delete
+        </Button>
+      </div>
     </div>
   );
 }

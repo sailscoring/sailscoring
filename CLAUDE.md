@@ -39,13 +39,17 @@ Key scoring concepts that any implementation must handle correctly:
 - **Git:** Direct commits to `main` are fine; no PR requirement; SSH remote
 - **License:** All rights reserved, copyright Mark McLoughlin — deliberately deferred pending open-source vs. commercial decision. See `LICENSE` and `docs/goals.md`. This constraint should inform dependency choices: avoid copyleft (GPL) libraries that would limit future licensing options; prefer MIT, Apache 2.0, or BSD.
 
-## Ideas Workflow
+## Issues Workflow
 
-When a new idea or area of exploration comes up, capture it as a GitHub issue with the `idea` label. Keep the issue brief — just enough to remember the thought. The **Definition of Done** for an `idea` issue is a design document drafted under `docs/` that covers the topic; close the issue once that document exists.
+**Ideas:** When a new idea or area of exploration comes up, capture it as a GitHub issue with the `idea` label. Keep the issue brief — just enough to remember the thought. The **Definition of Done** for an `idea` issue is a design document drafted under `docs/` that covers the topic; close the issue once that document exists.
 
 Before creating a new idea issue, check for overlap with existing ones: `gh issue list --label idea --repo sailscoring/sailscoring`
 
 To create an idea issue: `gh issue create --label idea --title "..." --body "..."`
+
+**Bugs:** When a bug is identified, capture it as a GitHub issue with the `bug` label. Keep the issue brief — just enough to reproduce the problem.
+
+To create a bug issue: `gh issue create --label bug --title "..." --body "..."`
 
 ## Tone and Humour
 
