@@ -23,7 +23,7 @@ function makeFinish(
 // ─── calculateRaceScores ─────────────────────────────────────────────────────
 
 describe('calculateRaceScores', () => {
-  const competitors = ['A', 'B', 'C', 'D', 'E'].map(makeCompetitor);
+  const competitors = ['A', 'B', 'C', 'D', 'E'].map(id => makeCompetitor(id));
   const n = competitors.length; // 5
 
   it('assigns points equal to finish position', () => {
@@ -84,7 +84,7 @@ describe('calculateRaceScores', () => {
 // ─── calculateStandings ──────────────────────────────────────────────────────
 
 describe('calculateStandings', () => {
-  const competitors = ['A', 'B', 'C'].map(makeCompetitor);
+  const competitors = ['A', 'B', 'C'].map(id => makeCompetitor(id));
   const races = [makeRace('r1', 1), makeRace('r2', 2)];
 
   it('ranks by total points ascending', () => {
@@ -126,7 +126,7 @@ describe('calculateStandings', () => {
 
   it('tie-break: more first places wins', () => {
     const threeRaces = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3)];
-    const abc = ['A', 'B'].map(makeCompetitor);
+    const abc = ['A', 'B'].map(id => makeCompetitor(id));
     const finishes: Finish[] = [
       // Race 1: A=1, B=2
       makeFinish('r1', 'A', 1), makeFinish('r1', 'B', 2),
@@ -168,7 +168,7 @@ describe('calculateStandings', () => {
 
   it('assigns correct shared rank for tied competitors', () => {
     // Two competitors with equal scores should share rank 1
-    const [a, b] = ['A', 'B'].map(makeCompetitor);
+    const [a, b] = ['A', 'B'].map(id => makeCompetitor(id));
     // Make them perfectly tied: A=1,B=2 then A=2,B=1 → 3 each, last race equally good (B=1 → B beats A)
     // To get a true tie on tiebreak, give them mirror images
     const tiedFinishes: Finish[] = [
