@@ -6,7 +6,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Sail Scoring is a sail racing scoring application for managing regattas, series, and race days. It handles handicap corrections, result codes, discard rules, and series standings per World Sailing Racing Rules of Sailing (RRS) Appendix A.
 
-**Current status:** Documentation and planning phase. No implementation code yet. Core architecture decisions are made; implementation is the next step.
+**Current status:** Milestone 1 complete. A working local-first web app is built and deployed to `app.sailscoring.ie` (Vercel). It supports scratch (position-based) scoring for a single fleet across multiple races with series standings.
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router), React 19, TypeScript
+- **Styling:** Tailwind CSS v4, shadcn/ui components (`components/ui/`)
+- **Storage:** IndexedDB via Dexie.js (`lib/db.ts`, `lib/dexie-repository.ts`)
+- **Package manager:** pnpm; Node 24.x
+- **Unit/integration tests:** Vitest (`tests/` — run with `pnpm test:unit`)
+- **E2E tests:** Playwright (`e2e/` — run with `pnpm test:e2e`)
+- **Deploy:** Vercel (`pnpm deploy` / `pnpm deploy:prod`); see `DEPLOY.md` for custom domain setup
+
+## Source Layout
+
+```
+lib/
+  types.ts              — core data types: Series, Competitor, Race, Finish, RaceScore, Standing
+  repository.ts         — repository interfaces (SeriesRepository, CompetitorRepository, etc.)
+  dexie-repository.ts   — Dexie/IndexedDB implementations, exported as seriesRepo, competitorRepo, raceRepo, finishRepo
+  scoring.ts            — pure scoring engine: calculateRaceScores(), calculateStandings()
+  db.ts                 — Dexie DB schema
+  debug.ts              — debug logging utility
+  utils.ts              — shadcn/ui utility (cn)
+app/
+  page.tsx              — home: lists series, create new series button
+  series/new/page.tsx   — create series form
+  series/[id]/
+    layout.tsx          — series shell with nav tabs (Competitors, Races, Standings)
+    competitors/page.tsx — manage competitors (add, delete; sorted by sail number)
+    races/page.tsx       — manage races (add, delete)
+    races/[raceId]/page.tsx — enter finish positions and result codes per race
+    standings/page.tsx   — series standings with per-race points and result codes
+```
 
 ## Repository Structure
 
@@ -14,11 +46,11 @@ Sail Scoring is a sail racing scoring application for managing regattas, series,
   - `docs/design/decisions/` - Architecture Decision Records (ADRs)
   - `docs/design/naming.md` - Project naming conventions: "Sail Scoring" (brand), "sailscoring" (identifiers), "SailScoring" (PascalCase only)
   - `docs/design/data-model.md` - Core entities: Event, Fleet, Competitor, Race, Result, Series Result
+  - `docs/design/libscoring-api.md` - API design for libscoring (the pure scoring engine)
   - `docs/requirements/glossary.md` - Defined sailing/scoring terminology; important domain context for understanding requirements and data model
   - `docs/requirements/iodai-use-case.md` - IODAI (Irish Optimist) use case: MVP target for position-based scratch scoring, mixed-division finish entry, large fleets
   - `docs/requirements/hyc-use-case.md` - HYC Autumn League use case: MVP target for time-based handicap scoring (IRC, HPH/NHC progressive), dual scoring from a single finish time
   - `docs/requirements/user-stories.md` - User requirements by domain area
-  - `docs/planning/` - MVP scope, iterations, backlog
 - `reference/` - PDFs and notes from existing tools (Sailwave, ORC Scorer, HalSail, ZW). Contains lots of useful documents about comparable applications, and crucially the **Racing Rules of Sailing (RRS)** where **Appendix A governs Scoring**
 
 ## Domain Concepts
@@ -72,3 +104,5 @@ New architectural decisions should follow the template at `docs/design/decisions
 - ADR-002: Scoring algorithm approach (Accepted — hybrid: hard-coded algorithms with configurable parameters)
 - ADR-003: Application architecture (Accepted — local-first web app for MVP, full-stack later)
 - ADR-004: Results publishing (Accepted — separate **bilge** service, `github.com/sailscoring/bilge`)
+- ADR-005: Hosting and domain structure (Accepted — `sailscoring.ie` marketing, `app.sailscoring.ie` app, `bilge.sailscoring.ie` bilge API)
+- ADR-006: Testing and debug logging (Accepted — Vitest for unit/integration, Playwright for e2e; no DB mocking; debug logs gated behind `DEBUG` env var)
