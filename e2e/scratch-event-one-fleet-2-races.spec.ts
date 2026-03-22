@@ -78,8 +78,7 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
 
   // ── 4. Enter Race 1 results ───────────────────────────────────────────────
   // Race 1: 1001, 1002, 1003 finish; 1004=DNF; 1005=implicit DNC
-  const [race1Link] = await page.getByRole('link', { name: 'Enter results' }).all();
-  await race1Link.click();
+  await page.getByText('Race 1').click();
   await expect(page.getByText('Race 1 — results')).toBeVisible();
 
   for (const sail of ['1001', '1002', '1003']) {
@@ -104,8 +103,7 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
 
   // ── 5. Enter Race 2 results ───────────────────────────────────────────────
   // Race 2: 1003, 1001, 1005 finish; 1002=OCS; 1004=implicit DNC
-  const raceLinks = await page.getByRole('link', { name: 'Enter results' }).all();
-  await raceLinks[1].click();
+  await page.getByText('Race 2').click();
   await expect(page.getByText('Race 2 — results')).toBeVisible();
 
   for (const sail of ['1003', '1001', '1005']) {
@@ -173,7 +171,7 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
 
   // Race 2 is the second row — accept the confirm dialog then click its Delete
   page.once('dialog', (dialog) => dialog.accept());
-  await page.getByRole('button', { name: 'Delete' }).nth(1).click();
+  await page.getByRole('button', { name: 'Delete Race 2' }).click();
   await expect(page.getByText('Race 2')).not.toBeVisible();
   await expect(page.getByText('1 race')).toBeVisible();
 
@@ -219,7 +217,7 @@ test('unknown sail number shows error in result entry', async ({ page }) => {
 
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
-  await page.getByRole('link', { name: 'Enter results' }).click();
+  await page.getByText('Race 1').click();
 
   // Enter an unknown sail number
   await page.getByLabel('Sail number').fill('0000');
@@ -251,7 +249,7 @@ test('sail number autocomplete in result entry', async ({ page }) => {
 
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
-  await page.getByRole('link', { name: 'Enter results' }).click();
+  await page.getByText('Race 1').click();
   await expect(page.getByText('Race 1 — results')).toBeVisible();
 
   const sailInput = page.getByLabel('Sail number');

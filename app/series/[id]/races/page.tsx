@@ -1,25 +1,31 @@
 'use client';
 
 import { use } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { raceRepo, finishRepo } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
 import type { Race } from '@/lib/types';
 import { log } from '@/lib/debug';
 
-async function handleDeleteRace(race: Race) {
-  if (!confirm(`Delete Race ${race.raceNumber}? This will also delete all results for this race.`)) return;
-  await finishRepo.deleteByRace(race.id);
-  await raceRepo.delete(race.id);
-}
-
 function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
+  const router = useRouter();
   const finishes = useLiveQuery(() => finishRepo.listByRace(race.id), [race.id]);
   const finisherCount = finishes?.filter((f) => f.finishPosition !== null).length;
 
+  async function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm(`Delete Race ${race.raceNumber}? This will also delete all results for this race.`)) return;
+    await finishRepo.deleteByRace(race.id);
+    await raceRepo.delete(race.id);
+  }
+
   return (
-    <div className="flex items-center justify-between border rounded-lg px-5 py-4">
+    <div
+      className="flex items-center justify-between border rounded-lg px-5 py-4 cursor-pointer hover:bg-muted/50"
+      onClick={() => router.push(`/series/${seriesId}/races/${race.id}`)}
+    >
       <div>
         <span className="font-medium">Race {race.raceNumber}</span>
         {race.date && (
@@ -31,14 +37,14 @@ function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
           </span>
         )}
       </div>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" asChild>
-          <Link href={`/series/${seriesId}/races/${race.id}`}>Enter results</Link>
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => handleDeleteRace(race)}>
-          Delete
-        </Button>
-      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={`Delete Race ${race.raceNumber}`}
+        onClick={handleDelete}
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
     </div>
   );
 }
