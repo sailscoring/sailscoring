@@ -41,11 +41,15 @@ Key scoring concepts that any implementation must handle correctly:
 
 ## Issues Workflow
 
-**Ideas:** When a new idea or area of exploration comes up, capture it as a GitHub issue with the `idea` label. Keep the issue brief — just enough to remember the thought. The **Definition of Done** for an `idea` issue is a design document drafted under `docs/` that covers the topic; close the issue once that document exists.
+**Ideas:** Long-term possibilities and areas of exploration that may or may not be pursued. Capture as a GitHub issue with the `idea` label. Keep the issue brief — just enough to remember the thought. The **Definition of Done** for an `idea` issue is a design document drafted under `docs/` that covers the topic; close the issue once that document exists.
 
 Before creating a new idea issue, check for overlap with existing ones: `gh issue list --label idea --repo sailscoring/sailscoring`
 
 To create an idea issue: `gh issue create --label idea --title "..." --body "..."`
+
+**Features:** In-scope work that relates to the current codebase and will almost certainly be implemented. Capture as a GitHub issue with the `feature` label. Keep the issue brief — just enough to describe what needs building.
+
+To create a feature issue: `gh issue create --label feature --title "..." --body "..."`
 
 **Bugs:** When a bug is identified, capture it as a GitHub issue with the `bug` label. Keep the issue brief — just enough to reproduce the problem.
 
