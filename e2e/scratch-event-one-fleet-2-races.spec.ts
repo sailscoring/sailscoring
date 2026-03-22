@@ -87,7 +87,7 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   }
 
   // Verify finishing order
-  await expect(page.getByText('1.')).toBeVisible();
+  await expect(page.getByTestId('position-input-1001')).toHaveValue('1');
   await expect(page.getByRole('listitem').filter({ hasText: '1001' })).toBeVisible();
 
   // Set 1004 as DNF (it's in the non-finishers panel)
@@ -230,6 +230,66 @@ test('unknown sail number shows error in result entry', async ({ page }) => {
   await page.getByLabel('Sail number').fill('9999');
   await page.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByText(/already in the finishing order/)).toBeVisible();
+});
+
+test('editing position number reorders the finishing list', async ({ page }) => {
+  // ── Setup: series with 3 competitors and one race ─────────────────────────
+  await page.goto('/');
+  await page.getByRole('link', { name: 'New series' }).click();
+  await page.getByLabel('Name').fill('Position Edit Cup');
+  await page.getByRole('button', { name: 'Create series' }).click();
+
+  for (const [sailNumber, name] of [['101', 'Alice'], ['102', 'Bob'], ['103', 'Carol']]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(sailNumber);
+    await page.getByLabel('Helm name').fill(name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: sailNumber })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  // Add finishers in order: 101 (1st), 102 (2nd), 103 (3rd)
+  for (const sail of ['101', '102', '103']) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add' }).click();
+  }
+
+  const posInput = (sail: string) => page.getByTestId(`position-input-${sail}`);
+
+  // Verify initial positions
+  await expect(posInput('101')).toHaveValue('1');
+  await expect(posInput('102')).toHaveValue('2');
+  await expect(posInput('103')).toHaveValue('3');
+
+  // ── 1. Move 103 from 3rd to 1st ───────────────────────────────────────────
+  await posInput('103').fill('1');
+  await posInput('103').press('Enter');
+
+  await expect(posInput('103')).toHaveValue('1');
+  await expect(posInput('101')).toHaveValue('2');
+  await expect(posInput('102')).toHaveValue('3');
+
+  // ── 2. Move 101 from 2nd to 3rd ───────────────────────────────────────────
+  await posInput('101').fill('3');
+  await posInput('101').press('Enter');
+
+  await expect(posInput('103')).toHaveValue('1');
+  await expect(posInput('102')).toHaveValue('2');
+  await expect(posInput('101')).toHaveValue('3');
+
+  // ── 3. Out-of-range input clamps to last ─────────────────────────────────
+  await posInput('101').fill('99');
+  await posInput('101').press('Tab'); // blur via Tab
+  await expect(posInput('101')).toHaveValue('3'); // clamped to last (no-op)
+
+  // ── 4. Save and confirm redirect ──────────────────────────────────────────
+  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+  await expect(page.getByText('3 finishers')).toBeVisible();
 });
 
 test('sail number autocomplete in result entry', async ({ page }) => {

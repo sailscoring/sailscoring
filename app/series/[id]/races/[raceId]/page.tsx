@@ -18,6 +18,7 @@ import { X } from 'lucide-react';
 import type { Competitor, Finish, ResultCode } from '@/lib/types';
 import { log } from '@/lib/debug';
 import { cn } from '@/lib/utils';
+import { reorderFinisher } from '@/lib/finish-entry';
 
 type NonFinisherCode = ResultCode | 'implicit-dnc';
 
@@ -50,6 +51,11 @@ export default function ResultEntryPage({
   const [nonFinisherCodes, setNonFinisherCodes] = useState<Map<string, ResultCode>>(
     new Map(),
   );
+
+  const [editingPosition, setEditingPosition] = useState<{
+    competitorId: string;
+    value: string;
+  } | null>(null);
 
   const [sailInput, setSailInput] = useState('');
   const [inputError, setInputError] = useState('');
@@ -141,6 +147,21 @@ export default function ResultEntryPage({
 
   function removeFinisher(competitorId: string) {
     setFinishingOrder((order) => order.filter((id) => id !== competitorId));
+  }
+
+  function commitPositionEdit() {
+    if (!editingPosition) return;
+    const { competitorId, value } = editingPosition;
+    setEditingPosition(null);
+
+    const parsed = parseInt(value, 10);
+    if (isNaN(parsed) || !Number.isInteger(Number(value))) return;
+
+    const clamped = Math.max(1, Math.min(finishingOrder.length, parsed));
+    const currentPosition = finishingOrder.indexOf(competitorId) + 1;
+    if (clamped === currentPosition) return;
+
+    setFinishingOrder((order) => reorderFinisher(order, competitorId, clamped));
   }
 
   function setNonFinisherCode(competitorId: string, code: NonFinisherCode) {
@@ -291,9 +312,37 @@ export default function ResultEntryPage({
                   key={competitorId}
                   className="flex items-center gap-3 border rounded-lg px-4 py-2.5"
                 >
-                  <span className="text-sm font-mono text-muted-foreground w-6 text-right shrink-0">
-                    {index + 1}.
-                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={finishingOrder.length}
+                    data-testid={`position-input-${competitor.sailNumber}`}
+                    aria-label={`Position for ${competitor.sailNumber}`}
+                    value={
+                      editingPosition?.competitorId === competitorId
+                        ? editingPosition.value
+                        : String(index + 1)
+                    }
+                    className="w-10 text-right text-sm font-mono text-muted-foreground shrink-0 rounded px-1 border border-transparent bg-transparent focus:border-input focus:bg-background focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    onFocus={() =>
+                      setEditingPosition({ competitorId, value: String(index + 1) })
+                    }
+                    onChange={(e) =>
+                      setEditingPosition({ competitorId, value: e.target.value })
+                    }
+                    onBlur={commitPositionEdit}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        commitPositionEdit();
+                        (e.target as HTMLInputElement).blur();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setEditingPosition(null);
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                  />
                   <span className="font-mono font-medium">{competitor.sailNumber}</span>
                   <span className="text-sm flex-1 truncate">{competitor.name}</span>
                   <button
