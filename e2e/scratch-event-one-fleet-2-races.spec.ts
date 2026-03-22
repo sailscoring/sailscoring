@@ -73,6 +73,9 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   await page.getByRole('button', { name: 'Add race' }).click();
   await expect(page.getByText('Race 2')).toBeVisible();
 
+  // Newly added races have no results yet
+  await expect(page.getByText('0 finishers')).toHaveCount(2);
+
   // ── 4. Enter Race 1 results ───────────────────────────────────────────────
   // Race 1: 1001, 1002, 1003 finish; 1004=DNF; 1005=implicit DNC
   const [race1Link] = await page.getByRole('link', { name: 'Enter results' }).all();
@@ -95,6 +98,10 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   await page.getByRole('button', { name: 'Save results' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
+  // Race 1 had 3 finishers (1001, 1002, 1003); Race 2 still empty
+  await expect(page.getByText('3 finishers')).toHaveCount(1);
+  await expect(page.getByText('0 finishers')).toHaveCount(1);
+
   // ── 5. Enter Race 2 results ───────────────────────────────────────────────
   // Race 2: 1003, 1001, 1005 finish; 1002=OCS; 1004=implicit DNC
   const raceLinks = await page.getByRole('link', { name: 'Enter results' }).all();
@@ -112,6 +119,9 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Save results' }).click();
   await expect(page).toHaveURL(/\/races$/);
+
+  // Both races now have 3 finishers each (1003, 1001, 1005 in Race 2)
+  await expect(page.getByText('3 finishers')).toHaveCount(2);
 
   // ── 6. Verify standings ───────────────────────────────────────────────────
   await page.getByRole('link', { name: 'Standings' }).click();
