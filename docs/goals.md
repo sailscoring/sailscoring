@@ -22,6 +22,22 @@ Sail Scoring aims to be a web-based sail race scoring application that is access
 - **Sustainable:** The project must be organized so that its long-term viability does not depend on any single individual -- whether that's the original developer, a particular volunteer, or a single hosting arrangement.
 - **Contemporary.** The application should feel like it belongs in 2026, not 1996 or 2006. This is not an aesthetic preference; it directly serves the accessibility goal. A scorer working from a race committee boat on a tablet, or entering results on a laptop in a clubhouse, should find the interface familiar and self-explanatory. Changes should take effect immediately and visibly. Complexity should be available when needed but never imposed. The application should follow the conventions and interaction patterns that users expect from modern web applications -- not reproduce the desktop-era paradigms of existing scoring tools.
 
+## The Irreplaceable Core
+
+Not all parts of a scoring system are equally important. Some can be replaced by external innovation; one cannot.
+
+**Finish recording** — entering the order or time at which boats cross the line — is already being disrupted. GPS trackers, transponders, and purpose-built mobile apps are increasingly capable of capturing finish data with less friction than a scorer typing into a form. Sail Scoring does not need to own this. A mobile finish-recording app, a GPS integration, or a data feed from another system can all supply the same inputs. The channel matters less than the data arriving correctly.
+
+**Publishing and display** are similarly peripheral. Results can be consumed by any number of tools: a club's existing website, a third-party app, a federation's results platform. As long as Sail Scoring exposes a well-documented API, the display layer is replaceable. The **bilge** service (see [ADR-004](design/decisions/004-results-publishing.md)) is an explicit acknowledgement of this: a deliberately temporary publishing tool, designed to be replaced rather than grown into a permanent dependency.
+
+**The irreplaceable core is scoring itself.** Given a series configuration, a list of competitors, and per-race finishes — assign scores, apply discards, and produce standings. This is the hard, rule-governed, trust-requiring part. It is the part that must be bullet-proof. Competitors and protest committees need to believe the results are correct; that belief rests entirely on the scoring engine.
+
+Scoring is especially non-trivial when rating systems are involved. One-design scratch scoring is a handful of arithmetic steps. IRC and NHC handicap scoring requires time correction, progressive rating adjustment, and careful handling of dual scoring (multiple independent standings from a single set of finish times). ORC scoring is more complex still. The rules themselves — RRS Appendix A — are precise but not always intuitive, and the edge cases (ties, redress, scoring penalties, abandoned races) require careful implementation.
+
+**libscoring is the part worth protecting and growing.** The scoring engine is not an implementation detail; it is the thing Sail Scoring exists to provide. The long-term aspiration is for libscoring to become the de-facto standard implementation of sail racing scoring rules — the library that other tools reach for when they need to know whether a tie-break was applied correctly or how progressive handicap points compound across a series. A credible, well-tested, well-documented implementation of Appendix A, freely available, is a genuinely useful thing for the sailing community to have. Nothing like it currently exists.
+
+This framing has a practical implication for prioritisation: the scoring engine deserves the most rigour, the most test coverage, and the most care in its public API. Everything else in Sail Scoring is valuable but subordinate. A finish-entry screen that is clunky but correct is better than a beautiful screen backed by a buggy scoring engine.
+
 ## Near-Term Goals
 
 The near-term goal is to build a Minimum Viable Product and validate it with real users during a stealth beta period.
@@ -114,4 +130,6 @@ RRS.org is interesting both as a model for sustainability -- a niche sailing too
 
 ## Summary
 
-Sail Scoring exists because the sailing community deserves scoring software that is accessible, correct, and not dependent on any single person or platform. The near-term focus is narrow and practical: build an MVP that serves IODAI and HYC, and validate it with real users. The long-term ambition is broader: establish a sustainable project that lowers the barrier to race scoring for clubs everywhere.
+Sail Scoring exists because the sailing community deserves scoring software that is accessible, correct, and not dependent on any single person or platform. The irreplaceable centre of that effort is the scoring engine: the rule-governed, trust-critical logic that translates finish data into standings. Finish recording, publishing, and display are designed to be replaced by external innovation; correct scoring is not.
+
+The near-term focus is narrow and practical: build an MVP that serves IODAI and HYC, and validate it with real users. The long-term ambition is broader: establish a sustainable project that lowers the barrier to race scoring for clubs everywhere — and, through libscoring, provide a credible open implementation of the Racing Rules of Sailing that the wider sailing software community can build on.
