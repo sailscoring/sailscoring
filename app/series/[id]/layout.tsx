@@ -1,11 +1,13 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { seriesRepo } from '@/lib/dexie-repository';
 import { cn } from '@/lib/utils';
+import { useGlobalKeyDown, useChordShortcut } from '@/hooks/use-keyboard-shortcut';
+import { KeyboardHelp } from '@/components/keyboard-help';
 
 const tabs = [
   { label: 'Competitors', href: (id: string) => `/series/${id}/competitors` },
@@ -22,7 +24,24 @@ export default function SeriesLayout({
 }) {
   const { id } = use(params);
   const pathname = usePathname();
+  const router = useRouter();
   const series = useLiveQuery(async () => (await seriesRepo.get(id)) ?? null, [id]);
+  const [showHelp, setShowHelp] = useState(false);
+
+  useChordShortcut({
+    c: () => router.push(tabs[0].href(id)),
+    r: () => router.push(tabs[1].href(id)),
+    s: () => router.push(tabs[2].href(id)),
+  });
+
+  useGlobalKeyDown((e) => {
+    if (e.key === '?' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
+      (document.activeElement?.tagName ?? '')
+    )) {
+      e.preventDefault();
+      setShowHelp(true);
+    }
+  });
 
   if (series === undefined) {
     return <p className="text-muted-foreground">Loading…</p>;
@@ -65,6 +84,8 @@ export default function SeriesLayout({
       </nav>
 
       {children}
+
+      <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
     </div>
   );
 }

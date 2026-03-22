@@ -6,6 +6,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Trash2 } from 'lucide-react';
 import { seriesRepo, competitorRepo, raceRepo, finishRepo } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
+import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
+import { KeyboardHelp } from '@/components/keyboard-help';
 import {
   Dialog,
   DialogContent,
@@ -54,6 +56,16 @@ function SeriesCard({
 export default function HomePage() {
   const seriesList = useLiveQuery(() => seriesRepo.list(), []);
   const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
+
+  useGlobalKeyDown((e) => {
+    if (e.key === '?' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
+      (document.activeElement?.tagName ?? '')
+    )) {
+      e.preventDefault();
+      setShowHelp(true);
+    }
+  });
 
   async function handleConfirmDelete() {
     if (!pendingDelete) return;
@@ -96,6 +108,8 @@ export default function HomePage() {
           ))}
         </div>
       )}
+
+      <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
 
       <Dialog open={pendingDelete !== null} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
         <DialogContent>

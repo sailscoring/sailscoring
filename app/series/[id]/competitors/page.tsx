@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useState, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { competitorRepo } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ import {
 import { Pencil, Trash2 } from 'lucide-react';
 import type { Competitor } from '@/lib/types';
 import { log } from '@/lib/debug';
+import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 
 interface CompetitorFormData {
   sailNumber: string;
@@ -173,6 +174,34 @@ export default function CompetitorsPage({
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCompetitor, setEditingCompetitor] = useState<Competitor | null>(null);
+  const editingRowRef = useRef<HTMLTableRowElement | null>(null);
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
+  const didAutoFocus = useRef(false);
+
+  // Auto-focus first row when list first loads
+  useEffect(() => {
+    if (didAutoFocus.current || !competitors?.length) return;
+    didAutoFocus.current = true;
+    (tbodyRef.current?.querySelector<HTMLElement>('tr[tabindex="0"]'))?.focus();
+  }, [competitors]);
+
+  // Return focus to the row that triggered the edit dialog
+  useEffect(() => {
+    if (editingCompetitor === null) {
+      editingRowRef.current?.focus();
+      editingRowRef.current = null;
+    }
+  }, [editingCompetitor]);
+
+  // 'n' to show add form
+  useGlobalKeyDown((e) => {
+    if (e.key === 'n' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
+      (document.activeElement?.tagName ?? '')
+    )) {
+      e.preventDefault();
+      setShowAddForm(true);
+    }
+  });
 
   async function handleAdd(data: CompetitorFormData) {
     const competitor: Competitor = {
@@ -253,9 +282,29 @@ export default function CompetitorsPage({
               <TableHead className="w-20" />
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody ref={tbodyRef}>
             {competitors.map((c) => (
-              <TableRow key={c.id}>
+              <TableRow
+                key={c.id}
+                tabIndex={0}
+                className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                onKeyDown={(e) => {
+                  if (e.key === 'e') {
+                    e.preventDefault();
+                    editingRowRef.current = e.currentTarget;
+                    setEditingCompetitor(c);
+                  } else if (e.key === 'd' || e.key === 'Delete') {
+                    e.preventDefault();
+                    handleDelete(c);
+                  } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    (e.currentTarget.nextElementSibling as HTMLElement)?.focus();
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    (e.currentTarget.previousElementSibling as HTMLElement)?.focus();
+                  }
+                }}
+              >
                 <TableCell className="font-mono">{c.sailNumber}</TableCell>
                 <TableCell>{c.name}</TableCell>
                 <TableCell>{c.club}</TableCell>
@@ -266,14 +315,19 @@ export default function CompetitorsPage({
                     <Button
                       variant="ghost"
                       size="icon"
+                      tabIndex={-1}
                       aria-label={`Edit ${c.name}`}
-                      onClick={() => setEditingCompetitor(c)}
+                      onClick={(e) => {
+                        editingRowRef.current = e.currentTarget.closest('tr');
+                        setEditingCompetitor(c);
+                      }}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
+                      tabIndex={-1}
                       aria-label={`Delete ${c.name}`}
                       onClick={() => handleDelete(c)}
                     >

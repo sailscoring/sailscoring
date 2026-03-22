@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useRef } from 'react';
+import { use, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { competitorRepo, raceRepo, finishRepo } from '@/lib/dexie-repository';
@@ -19,6 +19,7 @@ import type { Competitor, Finish, ResultCode } from '@/lib/types';
 import { log } from '@/lib/debug';
 import { cn } from '@/lib/utils';
 import { reorderFinisher } from '@/lib/finish-entry';
+import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 
 type NonFinisherCode = ResultCode | 'implicit-dnc';
 
@@ -83,6 +84,19 @@ export default function ResultEntryPage({
     setNonFinisherCodes(codes);
     setInitialized(true);
   }
+
+  // Focus sail input once data is loaded
+  useEffect(() => {
+    if (initialized) inputRef.current?.focus();
+  }, [initialized]);
+
+  // Ctrl+S / Cmd+S to save
+  useGlobalKeyDown((e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      handleSave();
+    }
+  });
 
   if (race === undefined || competitors === undefined) {
     return <p className="text-muted-foreground">Loading…</p>;
@@ -250,8 +264,12 @@ export default function ResultEntryPage({
                     e.preventDefault();
                     setHighlightedIndex((i) => Math.max(i - 1, -1));
                   } else if (e.key === 'Escape') {
-                    setHighlightedIndex(-1);
-                    setSailInput('');
+                    if (suggestions.length > 0 || sailInput.trim()) {
+                      setHighlightedIndex(-1);
+                      setSailInput('');
+                    } else {
+                      router.push(`/series/${seriesId}/races`);
+                    }
                   } else if (e.key === 'Tab' && suggestions.length > 0) {
                     e.preventDefault();
                     selectSuggestion(suggestions[Math.max(highlightedIndex, 0)].competitor);
@@ -408,7 +426,7 @@ export default function ResultEntryPage({
       </div>
 
       <div className="flex gap-3 items-center border-t pt-4">
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} disabled={saving} title="Save results (⌘S)">
           {saving ? 'Saving…' : 'Save results'}
         </Button>
         <Button
