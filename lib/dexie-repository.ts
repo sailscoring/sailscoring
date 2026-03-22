@@ -31,7 +31,7 @@ class DexieCompetitorRepository implements CompetitorRepository {
     return db.competitors
       .where('seriesId')
       .equals(seriesId)
-      .sortBy('createdAt');
+      .sortBy('sailNumber');
   }
 
   get(id: string): Promise<Competitor | undefined> {
