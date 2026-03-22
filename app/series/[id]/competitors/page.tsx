@@ -63,6 +63,10 @@ function CompetitorForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const sailNumberWarning = data.sailNumber.trim().includes(' ')
+    ? "This looks like a name — sail numbers don't usually contain spaces."
+    : null;
+
   function set(field: keyof CompetitorFormData, value: string) {
     setData((d) => ({ ...d, [field]: value }));
   }
@@ -104,6 +108,9 @@ function CompetitorForm({
             placeholder="e.g. 1234"
             autoFocus
           />
+          {sailNumberWarning && (
+            <p className="text-sm text-amber-600">{sailNumberWarning}</p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="helmName">Helm name *</Label>
