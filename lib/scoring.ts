@@ -103,7 +103,7 @@ export function calculateStandings(
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
       const points = score?.points ?? competitors.length + 1;
-      const code = score?.resultCode ?? 'DNC';
+      const code = score ? score.resultCode : 'DNC';
       competitorRacePoints.get(competitor.id)!.push(points);
       competitorRaceCodes.get(competitor.id)!.push(code);
     }
