@@ -27,7 +27,7 @@ const competitors = [
   { sailNumber: '1005', name: 'Eve Burke', club: 'BYC', gender: 'F', age: '12' },
 ];
 
-test('full scoring flow — The Brassed-Off Cup', async ({ page }) => {
+test('scratch event, one fleet, 2 races', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
   await page.goto('/');
   await page.getByRole('link', { name: 'New series' }).click();
