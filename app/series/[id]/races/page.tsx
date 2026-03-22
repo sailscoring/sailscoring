@@ -15,12 +15,20 @@ async function handleDeleteRace(race: Race) {
 }
 
 function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
+  const finishes = useLiveQuery(() => finishRepo.listByRace(race.id), [race.id]);
+  const finisherCount = finishes?.filter((f) => f.finishPosition !== null).length;
+
   return (
     <div className="flex items-center justify-between border rounded-lg px-5 py-4">
       <div>
         <span className="font-medium">Race {race.raceNumber}</span>
         {race.date && (
           <span className="text-sm text-muted-foreground ml-2">{race.date}</span>
+        )}
+        {finisherCount !== undefined && (
+          <span className="text-sm text-muted-foreground ml-2">
+            {finisherCount} {finisherCount === 1 ? 'finisher' : 'finishers'}
+          </span>
         )}
       </div>
       <div className="flex gap-2">
