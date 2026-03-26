@@ -72,15 +72,22 @@ event. A dashboard screen is deferred until there is a clear need for one.
 - Status indicator per series (e.g. number of races completed)
 
 **Actions:**
-- Create new series
-- Import series from JSON file
-- Open a series
+- New Series — create a blank series
+- Open Series — open a series from a `.sailscoring` file
+- Open a series already on this device
 - Delete a series (with confirmation)
+
+**Content notes:**
+- Each series in the list shows name and last-modified date. Series that have
+  been saved to a file also show "last saved: [date]". Local-only series (never
+  saved to a file) show no save state — the absence is the signal.
+- See `flows/series-open-save.md` for the Open Series flow, including the
+  disambiguation dialog when the file's series is already on this device.
 
 **Notes:**
 - This is the only screen a scorer sees before entering a specific series.
   It should be minimal — most time is spent inside a series.
-- "Create new series" could be a modal (quick, opinionated defaults) or
+- "New Series" could be a modal (quick, opinionated defaults) or
   a dedicated setup screen (if series setup needs more steps). See S-06.
 
 ---
@@ -116,8 +123,15 @@ to `/series/[id]/races`.
 **Content/actions:**
 - Series name (large, prominent editable field at top)
 - Setup cards: Basics, Competitors, Fleets, Scoring, Discards, Publishing
-- Export series as JSON
+- File card: Save to File, Update from File, last saved timestamp
 - Delete series (destructive, with confirmation)
+
+**File card notes:**
+- "Update from File" only appears for series that have been saved to a file
+  at least once (i.e. not local-only series).
+- The file card is de-emphasised (lower visual weight) for local-only series.
+- See `flows/series-open-save.md` for the full Save to File and Update from
+  File flows, including lineage check dialogs.
 
 **Publishing card:** The scorer sets the series publishing prefix here
 (e.g. `hyc/autumn-league-2026`). The prefix defaults to a slugified version of
