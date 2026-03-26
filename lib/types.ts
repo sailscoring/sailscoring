@@ -4,6 +4,11 @@ export interface Series {
   venue: string;
   date: string;        // ISO date string, e.g. "2025-06-14"
   createdAt: number;   // Date.now()
+  // File tracking
+  lastSnapshotId: string | null;  // snapshotId of last Save to File or Open from File
+  lastSavedAt: number | null;     // Date.now() of last Save to File
+  lastModifiedAt: number;         // Date.now() of last data change
+  snapshotHistory: string[];      // ordered lineage of all snapshot IDs
 }
 
 export interface Competitor {

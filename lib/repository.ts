@@ -5,6 +5,7 @@ export interface SeriesRepository {
   get(id: string): Promise<Series | undefined>;
   save(series: Series): Promise<Series>;
   delete(id: string): Promise<void>;
+  touch(id: string): Promise<void>;
 }
 
 export interface CompetitorRepository {

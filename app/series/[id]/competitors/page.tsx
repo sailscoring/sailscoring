@@ -2,7 +2,7 @@
 
 import { use, useState, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { competitorRepo } from '@/lib/dexie-repository';
+import { competitorRepo, seriesRepo } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -223,6 +223,7 @@ export default function CompetitorsPage({
     };
     log('competitors', 'adding', competitor);
     await competitorRepo.save(competitor);
+    await seriesRepo.touch(seriesId);
     setShowAddForm(false);
   }
 
@@ -238,6 +239,7 @@ export default function CompetitorsPage({
     };
     log('competitors', 'updating', updated);
     await competitorRepo.save(updated);
+    await seriesRepo.touch(seriesId);
     setEditingCompetitor(null);
   }
 
@@ -245,6 +247,7 @@ export default function CompetitorsPage({
     if (!confirm(`Delete ${competitor.name} (${competitor.sailNumber})?`)) return;
     log('competitors', 'deleting', competitor.id);
     await competitorRepo.delete(competitor.id);
+    await seriesRepo.touch(seriesId);
   }
 
   const existingSailNumbers = (competitors ?? []).map((c) => c.sailNumber.toUpperCase());

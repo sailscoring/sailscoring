@@ -3,7 +3,7 @@
 import { use, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { competitorRepo, raceRepo, finishRepo } from '@/lib/dexie-repository';
+import { competitorRepo, raceRepo, finishRepo, seriesRepo } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -223,6 +223,7 @@ export default function ResultEntryPage({
       log('result-entry', 'saving finishes', { raceId, count: finishes.length });
       await finishRepo.deleteByRace(raceId);
       await finishRepo.saveMany(finishes);
+      await seriesRepo.touch(seriesId);
       router.push(`/series/${seriesId}/races`);
     } catch (err) {
       console.error(err);

@@ -3,7 +3,7 @@
 import { use, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { raceRepo, finishRepo } from '@/lib/dexie-repository';
+import { raceRepo, finishRepo, seriesRepo } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import type { Race } from '@/lib/types';
@@ -19,6 +19,7 @@ function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
     if (!confirm(`Delete Race ${race.raceNumber}? This will also delete all results for this race.`)) return;
     await finishRepo.deleteByRace(race.id);
     await raceRepo.delete(race.id);
+    await seriesRepo.touch(seriesId);
   }
 
   return (
@@ -102,6 +103,7 @@ export default function RacesPage({
     };
     log('races', 'adding', race);
     await raceRepo.save(race);
+    await seriesRepo.touch(seriesId);
   }
 
   return (

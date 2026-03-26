@@ -15,6 +15,19 @@ export class SailScoringDb extends Dexie {
       races: 'id, seriesId, raceNumber',
       finishes: 'id, raceId, competitorId',
     });
+    this.version(2).stores({
+      series: 'id, createdAt',
+      competitors: 'id, seriesId, createdAt',
+      races: 'id, seriesId, raceNumber',
+      finishes: 'id, raceId, competitorId',
+    }).upgrade(async (tx) => {
+      await tx.table('series').toCollection().modify((series) => {
+        series.lastSnapshotId = null;
+        series.lastSavedAt = null;
+        series.lastModifiedAt = series.createdAt;
+        series.snapshotHistory = [];
+      });
+    });
   }
 }
 

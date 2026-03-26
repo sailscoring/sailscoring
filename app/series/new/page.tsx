@@ -26,12 +26,17 @@ export default function NewSeriesPage() {
     setSaving(true);
     setError('');
     try {
+      const now = Date.now();
       const series: Series = {
         id: crypto.randomUUID(),
         name: name.trim(),
         venue: venue.trim(),
         date: date,
-        createdAt: Date.now(),
+        createdAt: now,
+        lastSnapshotId: null,
+        lastSavedAt: null,
+        lastModifiedAt: now,
+        snapshotHistory: [],
       };
       log('series', 'creating', series);
       await seriesRepo.save(series);

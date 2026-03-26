@@ -24,6 +24,10 @@ class DexieSeriesRepository implements SeriesRepository {
   delete(id: string): Promise<void> {
     return db.series.delete(id);
   }
+
+  async touch(id: string): Promise<void> {
+    await db.series.update(id, { lastModifiedAt: Date.now() });
+  }
 }
 
 class DexieCompetitorRepository implements CompetitorRepository {
