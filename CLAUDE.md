@@ -26,18 +26,20 @@ lib/
   repository.ts         — repository interfaces (SeriesRepository, CompetitorRepository, etc.)
   dexie-repository.ts   — Dexie/IndexedDB implementations, exported as seriesRepo, competitorRepo, raceRepo, finishRepo
   scoring.ts            — pure scoring engine: calculateRaceScores(), calculateStandings()
+  series-file.ts        — series file serialization, lineage check, open/save/update flows
   db.ts                 — Dexie DB schema
   debug.ts              — debug logging utility
   utils.ts              — shadcn/ui utility (cn)
 app/
-  page.tsx              — home: lists series, create new series button
+  page.tsx              — home: lists series, New Series and Open Series buttons
   series/new/page.tsx   — create series form
   series/[id]/
-    layout.tsx          — series shell with nav tabs (Competitors, Races, Standings)
+    layout.tsx          — series shell with nav tabs (Competitors, Races, Standings, File); Ctrl+S saves to file
     competitors/page.tsx — manage competitors (add, delete; sorted by sail number)
     races/page.tsx       — manage races (add, delete)
     races/[raceId]/page.tsx — enter finish positions and result codes per race
-    standings/page.tsx   — series standings with per-race points and result codes
+    settings/page.tsx   — series settings and file management (Save to File, Update from File)
+    standings/page.tsx   — series standings with per-race points and result codes; Export HTML
 ```
 
 ## Repository Structure

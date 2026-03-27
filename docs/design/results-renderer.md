@@ -4,7 +4,7 @@ The results renderer is a pure TypeScript function that produces a self-containe
 HTML results page from series scoring data. It is the shared rendering layer for
 both local HTML export (issue #13) and future in-app bilge publishing.
 
-**Status:** Design complete — ready to implement
+**Status:** Implemented
 
 **Related:** [issue #13](https://github.com/sailscoring/sailscoring/issues/13),
 [Sailwave HTML template analysis](sailwave-html-template.md),

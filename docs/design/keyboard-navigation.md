@@ -36,6 +36,8 @@ The keyboard model must support this flow without switching to the mouse at any 
 | `g` `c` | Go to Competitors tab |
 | `g` `r` | Go to Races tab |
 | `g` `s` | Go to Standings tab |
+| `g` `f` | Go to File tab |
+| `Ctrl+S` / `Cmd+S` | Save series to file (from any series page) |
 
 The two-key chord (`g` then a letter within ~1 second) avoids accidental triggers in text inputs. The pattern is familiar from GitHub and Linear. Chords are inactive when focus is inside a text input or textarea.
 
@@ -69,12 +71,20 @@ Row-level shortcuts (`e`, `d`) are only active when a competitor row has keyboar
 | `Enter` | Position number field | Commit edit |
 | `Escape` | Position number field | Cancel edit |
 | `Tab` | Anywhere on page | Move to next focusable element (see tab order below) |
+| `Ctrl+Enter` / `Cmd+Enter` | Anywhere on page | Save results |
 | `Ctrl+S` / `Cmd+S` | Anywhere on page | Save results |
-| `Escape` | No modal open, no active input | Navigate back to races list |
+| `Escape` | No modal open, no active input, no unsaved changes | Navigate back to races list |
+| `Escape` | No modal open, no active input, unsaved changes present | Prompt to save or discard before leaving |
 
 **Tab order:** sail number input → finisher position fields (top to bottom) → non-finisher result code dropdowns → Save → Cancel
 
 Non-finisher result code dropdowns use Radix UI Select, which handles `ArrowDown`/`ArrowUp`/`Enter`/`Escape` internally once opened. The `Tab` key reaches the dropdown; `Enter` or `Space` opens it.
+
+### Standings page
+
+| Key | Action |
+|-----|--------|
+| `x` | Export HTML |
 
 ### Modals and dialogs
 
@@ -92,7 +102,7 @@ Non-finisher result code dropdowns use Radix UI Select, which handles `ArrowDown
 
 1. If an autocomplete dropdown is open → dismiss the dropdown
 2. If a modal/dialog is open → close the dialog
-3. If on the finish entry page with no modal → navigate back to races list
+3. If on the finish entry page with no modal → prompt to save if there are unsaved changes; otherwise navigate back to races list
 4. Otherwise → no action
 
 ---
@@ -113,12 +123,6 @@ Non-finisher result code dropdowns use Radix UI Select, which handles `ArrowDown
 - The help overlay is the single source of truth for shortcut documentation; shortcuts are not described inline in the UI.
 
 ---
-
-### Standings page
-
-| Key | Action |
-|-----|--------|
-| `x` | Export HTML |
 
 ## Out of Scope
 
