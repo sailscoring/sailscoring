@@ -8,6 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -64,7 +70,10 @@ export default function ResultEntryPage({
   const [saveError, setSaveError] = useState('');
   const [initialized, setInitialized] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const initialOrderRef = useRef<string[]>([]);
+  const initialCodesRef = useRef<Map<string, ResultCode>>(new Map());
 
   // Initialize form state from saved finishes once loaded
   if (!initialized && competitors !== undefined && savedFinishes !== undefined) {
@@ -80,6 +89,8 @@ export default function ResultEntryPage({
         // Explicit DNC — treated same as implicit, no need to store separately
       }
     }
+    initialOrderRef.current = order.filter(Boolean);
+    initialCodesRef.current = new Map(codes);
     setFinishingOrder(order.filter(Boolean));
     setNonFinisherCodes(codes);
     setInitialized(true);
@@ -94,6 +105,27 @@ export default function ResultEntryPage({
     }
   }, [race, competitors]);
 
+  function isDirty(): boolean {
+    if (!initialized) return false;
+    const initOrder = initialOrderRef.current;
+    if (finishingOrder.length !== initOrder.length) return true;
+    if (finishingOrder.some((id, i) => id !== initOrder[i])) return true;
+    const initCodes = initialCodesRef.current;
+    if (nonFinisherCodes.size !== initCodes.size) return true;
+    for (const [k, v] of nonFinisherCodes) {
+      if (initCodes.get(k) !== v) return true;
+    }
+    return false;
+  }
+
+  function tryLeave() {
+    if (isDirty()) {
+      setShowLeaveConfirm(true);
+    } else {
+      router.push(`/series/${seriesId}/races`);
+    }
+  }
+
   // Ctrl+S / Cmd+S to save; Esc to cancel when no input is focused
   useGlobalKeyDown((e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -104,7 +136,7 @@ export default function ResultEntryPage({
       !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')
     ) {
       e.preventDefault();
-      router.push(`/series/${seriesId}/races`);
+      tryLeave();
     }
   });
 
@@ -279,7 +311,7 @@ export default function ResultEntryPage({
                       setHighlightedIndex(-1);
                       setSailInput('');
                     } else {
-                      router.push(`/series/${seriesId}/races`);
+                      tryLeave();
                     }
                   } else if (e.key === 'Tab' && suggestions.length > 0) {
                     e.preventDefault();
@@ -442,7 +474,7 @@ export default function ResultEntryPage({
         </Button>
         <Button
           variant="outline"
-          onClick={() => router.push(`/series/${seriesId}/races`)}
+          onClick={tryLeave}
           disabled={saving}
         >
           Cancel
@@ -453,6 +485,26 @@ export default function ResultEntryPage({
         </div>
         {saveError && <p className="text-sm text-destructive">{saveError}</p>}
       </div>
+
+      <Dialog open={showLeaveConfirm} onOpenChange={(open) => { if (!open) setShowLeaveConfirm(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Unsaved changes</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">You have unsaved changes. Save before leaving?</p>
+          <div className="flex gap-3 pt-2">
+            <Button onClick={() => { setShowLeaveConfirm(false); handleSave(); }}>
+              Save results
+            </Button>
+            <Button variant="outline" onClick={() => { setShowLeaveConfirm(false); router.push(`/series/${seriesId}/races`); }}>
+              Discard
+            </Button>
+            <Button variant="ghost" onClick={() => setShowLeaveConfirm(false)}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Summary badges */}
       {nonFinishers.some((nf) => nf.code !== 'implicit-dnc') && (
