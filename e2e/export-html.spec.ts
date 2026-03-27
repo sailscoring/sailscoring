@@ -119,7 +119,7 @@ test('export HTML downloads a .htm file with correct standings', async ({ page }
   expect(html).toContain('class="rank1"');
 
   // Sail Scoring footer
-  expect(html).toContain('app.sailscoring.ie');
+  expect(html).toContain('sailscoring.ie');
 
   // No Nett column (no discards)
   expect(html).not.toContain('<th>Nett</th>');

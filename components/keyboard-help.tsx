@@ -88,6 +88,13 @@ export function KeyboardHelp({
           />
 
           <Section
+            title="Standings"
+            rows={[
+              { keys: ['x'], action: 'Export HTML' },
+            ]}
+          />
+
+          <Section
             title="Finish entry"
             rows={[
               { keys: ['⌘', 'S'], action: 'Save results' },

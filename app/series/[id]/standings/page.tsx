@@ -16,6 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import type { Standing } from '@/lib/types';
 
 function PointsCell({
@@ -144,6 +145,15 @@ export default function StandingsPage({
 
   const standings = calculateStandings(competitors, races, allFinishes);
 
+  useGlobalKeyDown((e) => {
+    if (e.key === 'x' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
+      (document.activeElement?.tagName ?? '')
+    )) {
+      e.preventDefault();
+      exportHtml(seriesId);
+    }
+  });
+
   return (
     <div className="space-y-4 overflow-x-auto">
       <div className="flex items-center justify-between">
@@ -151,7 +161,7 @@ export default function StandingsPage({
           {races.length} race{races.length === 1 ? '' : 's'} · Low Point ·{' '}
           {competitors.length} competitors
         </p>
-        <Button variant="outline" size="sm" onClick={() => exportHtml(seriesId)}>
+        <Button size="sm" onClick={() => exportHtml(seriesId)} title="Export HTML (x)">
           Export HTML
         </Button>
       </div>

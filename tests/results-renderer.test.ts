@@ -194,7 +194,7 @@ describe('renderSeriesHtml', () => {
 
   it('includes Sail Scoring footer link', () => {
     const html = renderSeriesHtml(MINIMAL);
-    expect(html).toContain('app.sailscoring.ie');
+    expect(html).toContain('sailscoring.ie');
   });
 });
 

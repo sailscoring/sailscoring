@@ -114,8 +114,13 @@ Non-finisher result code dropdowns use Radix UI Select, which handles `ArrowDown
 
 ---
 
+### Standings page
+
+| Key | Action |
+|-----|--------|
+| `x` | Export HTML |
+
 ## Out of Scope
 
-- The Standings page is read-only; keyboard navigation there is limited to standard tab/scroll behaviour.
 - Drag-and-drop reordering of finishers is not in scope for keyboard; position numbers are editable directly.
 - Mobile / touch interaction is a separate concern; keyboard design should not compromise touch usability.
