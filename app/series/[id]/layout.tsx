@@ -8,6 +8,7 @@ import { seriesRepo } from '@/lib/dexie-repository';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown, useChordShortcut } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
+import { saveSeriesFile } from '@/lib/series-file';
 
 const tabs = [
   { label: 'Competitors', href: (id: string) => `/series/${id}/competitors` },
@@ -42,6 +43,10 @@ export default function SeriesLayout({
     )) {
       e.preventDefault();
       setShowHelp(true);
+    } else if (e.ctrlKey && !e.metaKey && e.key === 's' && !/\/races\/[^/]+/.test(pathname)) {
+      // Ctrl+S saves to file from any series page except finish entry (which owns Ctrl+S itself)
+      e.preventDefault();
+      saveSeriesFile(id).catch(console.error);
     }
   });
 

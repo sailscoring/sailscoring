@@ -61,6 +61,7 @@ export function KeyboardHelp({
             title="Global"
             rows={[
               { keys: ['?'], action: 'Show this help' },
+              { keys: ['⌃', 'S'], action: 'Save to file' },
               { keys: ['g', 'c'], action: 'Go to Competitors' },
               { keys: ['g', 'r'], action: 'Go to Races' },
               { keys: ['g', 's'], action: 'Go to Standings' },
