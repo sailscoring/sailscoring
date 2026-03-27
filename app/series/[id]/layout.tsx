@@ -33,6 +33,7 @@ export default function SeriesLayout({
     c: () => router.push(tabs[0].href(id)),
     r: () => router.push(tabs[1].href(id)),
     s: () => router.push(tabs[2].href(id)),
+    f: () => router.push(tabs[3].href(id)),
   });
 
   useGlobalKeyDown((e) => {
