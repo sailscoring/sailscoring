@@ -126,9 +126,9 @@ export default function ResultEntryPage({
     }
   }
 
-  // Ctrl+S / Cmd+S to save; Esc to cancel when no input is focused
+  // Ctrl+S / Cmd+S / Ctrl+Enter to save; Esc to cancel when no input is focused
   useGlobalKeyDown((e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    if (((e.ctrlKey || e.metaKey) && e.key === 's') || (e.ctrlKey && e.key === 'Enter')) {
       e.preventDefault();
       handleSave();
     } else if (

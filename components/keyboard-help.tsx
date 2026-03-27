@@ -90,6 +90,7 @@ export function KeyboardHelp({
             title="Finish entry"
             rows={[
               { keys: ['⌘', 'S'], action: 'Save results' },
+              { keys: ['⌃', '↵'], action: 'Save results' },
               { keys: ['↑', '↓'], action: 'Navigate autocomplete' },
               { keys: ['↵'], action: 'Confirm / add finisher' },
               { keys: ['Esc'], action: 'Clear input or go back' },
