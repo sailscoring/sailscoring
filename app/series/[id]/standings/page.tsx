@@ -2,8 +2,9 @@
 
 import { use } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { competitorRepo, raceRepo, finishRepo } from '@/lib/dexie-repository';
-import { calculateStandings } from '@/lib/scoring';
+import { competitorRepo, raceRepo, finishRepo, seriesRepo } from '@/lib/dexie-repository';
+import { calculateStandings, calculateRaceScores } from '@/lib/scoring';
+import { renderSeriesHtml, assembleSeriesResultsData } from '@/lib/results-renderer';
 import {
   Table,
   TableBody,
@@ -13,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { Standing } from '@/lib/types';
 
@@ -41,6 +43,56 @@ function PointsCell({
       )}
     </TableCell>
   );
+}
+
+async function exportHtml(seriesId: string) {
+  const [series, competitors, races] = await Promise.all([
+    seriesRepo.get(seriesId),
+    competitorRepo.listBySeries(seriesId),
+    raceRepo.listBySeries(seriesId),
+  ]);
+  if (!series || competitors.length === 0 || races.length === 0) return;
+
+  const allFinishes = await finishRepo.listBySeries(seriesId, competitors.map((c) => c.id));
+  const standings = calculateStandings(competitors, races, allFinishes);
+
+  const competitorsById = new Map(competitors.map((c) => [c.id, c]));
+  const raceScoresByRaceId = new Map(
+    races.map((race) => {
+      const finishesForRace = allFinishes.filter((f) =>
+        races.find((r) => r.id === race.id) && f.raceId === race.id,
+      );
+      const scores = calculateRaceScores(finishesForRace, competitors);
+      const scoreMap = new Map(
+        [...scores.entries()].map(([id, s]) => [
+          id,
+          { points: s.points, place: s.place, resultCode: s.resultCode },
+        ]),
+      );
+      return [race.id, scoreMap] as const;
+    }),
+  );
+
+  const data = assembleSeriesResultsData(
+    { name: series.name, venue: series.venue },
+    races,
+    standings,
+    raceScoresByRaceId,
+    competitorsById,
+    new Date(),
+  );
+
+  const html = renderSeriesHtml(data);
+  const slug = series.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'series';
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = slug + '.htm';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 export default function StandingsPage({
@@ -92,15 +144,17 @@ export default function StandingsPage({
 
   const standings = calculateStandings(competitors, races, allFinishes);
 
-  // Find the minimum race points per competitor (for "best race" highlighting)
-  // We highlight the lowest score in each row (not used for discard, just visual)
-
   return (
     <div className="space-y-4 overflow-x-auto">
-      <p className="text-sm text-muted-foreground">
-        {races.length} race{races.length === 1 ? '' : 's'} · Low Point ·{' '}
-        {competitors.length} competitors
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {races.length} race{races.length === 1 ? '' : 's'} · Low Point ·{' '}
+          {competitors.length} competitors
+        </p>
+        <Button variant="outline" size="sm" onClick={() => exportHtml(seriesId)}>
+          Export HTML
+        </Button>
+      </div>
 
       <Table>
         <TableHeader>
