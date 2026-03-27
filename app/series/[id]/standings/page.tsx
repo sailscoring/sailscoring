@@ -119,6 +119,15 @@ export default function StandingsPage({
     [seriesId, competitors],
   );
 
+  useGlobalKeyDown((e) => {
+    if (e.key === 'x' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
+      (document.activeElement?.tagName ?? '')
+    )) {
+      e.preventDefault();
+      exportHtml(seriesId);
+    }
+  });
+
   if (
     competitors === undefined ||
     races === undefined ||
@@ -144,15 +153,6 @@ export default function StandingsPage({
   }
 
   const standings = calculateStandings(competitors, races, allFinishes);
-
-  useGlobalKeyDown((e) => {
-    if (e.key === 'x' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
-      (document.activeElement?.tagName ?? '')
-    )) {
-      e.preventDefault();
-      exportHtml(seriesId);
-    }
-  });
 
   return (
     <div className="space-y-4 overflow-x-auto">
