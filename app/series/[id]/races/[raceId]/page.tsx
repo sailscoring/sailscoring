@@ -90,11 +90,17 @@ export default function ResultEntryPage({
     if (initialized) inputRef.current?.focus();
   }, [initialized]);
 
-  // Ctrl+S / Cmd+S to save
+  // Ctrl+S / Cmd+S to save; Esc to cancel when no input is focused
   useGlobalKeyDown((e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
       handleSave();
+    } else if (
+      e.key === 'Escape' &&
+      !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')
+    ) {
+      e.preventDefault();
+      router.push(`/series/${seriesId}/races`);
     }
   });
 
