@@ -33,6 +33,7 @@ export default function HelpPage() {
           ['#adding-races', 'Adding races'],
           ['#entering-results', 'Entering results'],
           ['#reading-the-standings', 'Reading the standings'],
+          ['#saving-and-sharing', 'Saving and sharing a series'],
           ['#keyboard-shortcuts', 'Keyboard shortcuts'],
         ].map(([href, label]) => (
           <div key={href}>
@@ -146,7 +147,44 @@ export default function HelpPage() {
         <p>
           Result codes are shown in parentheses in the race columns, e.g. <em>7 (DNF)</em>.
         </p>
+        <p>
+          To share results with your club, click{' '}
+          <strong className="text-foreground">Export HTML</strong> (or press{' '}
+          <strong className="text-foreground">x</strong>) to download a self-contained results
+          page you can email or host on your club website.
+        </p>
       </Section>
+
+      <Section id="saving-and-sharing" title="Saving and sharing a series">
+        <p>
+          All changes are saved automatically to your browser's local storage — you do not need
+          to manually save while scoring. Your data persists across sessions on the same device
+          and browser.
+        </p>
+        <p>
+          To back up a series or share it with a co-scorer, open the{' '}
+          <strong className="text-foreground">File</strong> tab and click{' '}
+          <strong className="text-foreground">Save to File</strong>. This downloads a{' '}
+          <code className="text-foreground text-sm">.sailscoring</code> file containing the
+          complete series — all competitors, races, and results. You can save the file to Google
+          Drive, Dropbox, or email it to a co-scorer.
+        </p>
+        <p>
+          To open a series from a file, click{' '}
+          <strong className="text-foreground">Open Series</strong> on the home screen and select
+          the <code className="text-foreground text-sm">.sailscoring</code> file. If the series
+          is already on your device, you will be asked whether to update your local copy or open
+          a second copy.
+        </p>
+        <p>
+          If a co-scorer has saved a newer version of the file, open the{' '}
+          <strong className="text-foreground">File</strong> tab and click{' '}
+          <strong className="text-foreground">Update from File</strong> to pull in their changes.
+          The app checks whether the incoming file is a clean continuation of your local copy and
+          warns you if both copies have diverged.
+        </p>
+      </Section>
+
       <Section id="keyboard-shortcuts" title="Keyboard shortcuts">
         <p>
           Press <strong className="text-foreground">?</strong> anywhere in the app (outside a text
