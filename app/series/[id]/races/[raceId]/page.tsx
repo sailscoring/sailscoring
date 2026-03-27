@@ -85,10 +85,14 @@ export default function ResultEntryPage({
     setInitialized(true);
   }
 
-  // Focus sail input once data is loaded
+  // Focus sail input as soon as the UI first renders (race + competitors loaded)
+  const didFocusRef = useRef(false);
   useEffect(() => {
-    if (initialized) inputRef.current?.focus();
-  }, [initialized]);
+    if (!didFocusRef.current && race != null && competitors != null) {
+      didFocusRef.current = true;
+      inputRef.current?.focus();
+    }
+  }, [race, competitors]);
 
   // Ctrl+S / Cmd+S to save; Esc to cancel when no input is focused
   useGlobalKeyDown((e) => {
