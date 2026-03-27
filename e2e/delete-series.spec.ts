@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('delete series with warning dialog', async ({ page }) => {
   // ── 1. Create two series ───────────────────────────────────────────────────
