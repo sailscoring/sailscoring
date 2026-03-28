@@ -89,6 +89,16 @@ To create a feature issue: `gh issue create --label feature --title "..." --body
 
 To create a bug issue: `gh issue create --label bug --title "..." --body "..."`
 
+## Feature Checklist
+
+When implementing any new user-facing feature, ensure the following are covered before considering it done:
+
+- **Keyboard shortcut** — if the feature is a page-level action (add, import, export, etc.), add a shortcut via `useGlobalKeyDown` in the relevant page, register it in `components/keyboard-help.tsx` under the appropriate section, and document it in `app/help/page.tsx` if that page covers the area.
+- **Help documentation** — update `app/help/page.tsx` if the feature introduces a workflow or concept that a new scorer would need guidance on.
+- **Unit tests** — if the feature includes pure logic (calculations, parsers, validators), add Vitest tests in `tests/`. E2e covers workflows; unit tests cover correctness of the underlying functions.
+- **E2E test** — add a Playwright test in `e2e/` covering the happy path. Console errors and page errors fail tests automatically (see `e2e/` setup).
+- **Series file format** — if the feature adds new persistent fields to any type in `lib/types.ts`, update the serialization in `lib/series-file.ts` and consider whether the format version needs bumping. Omitting this causes silent data loss on file round-trips.
+
 ## Tone and Humour
 
 The project aims to be credible and serious — scorers are exacting people — but a little wry humour is welcome. The bar is: the name or term must do real communicative work, and the nautical connection must be genuine, not forced. Examples that hit the mark:
