@@ -2,6 +2,7 @@
 
 import { use, useState, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import Papa from 'papaparse';
 import { competitorRepo, seriesRepo } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +18,8 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -27,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Upload } from 'lucide-react';
 import type { Competitor } from '@/lib/types';
 import { log } from '@/lib/debug';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
@@ -47,6 +50,33 @@ const emptyForm: CompetitorFormData = {
   gender: '',
   age: '',
 };
+
+type CompetitorField = 'sailNumber' | 'name' | 'club' | 'gender' | 'age' | 'ignore';
+type ColumnMap = Record<number, CompetitorField>;
+
+type ImportFlow =
+  | { step: 'idle' }
+  | { step: 'mapping'; headers: string[]; sampleRows: string[][]; rows: string[][]; columnMap: ColumnMap }
+  | { step: 'done'; added: number; updated: number; unchanged: number; errors: { rowIndex: number; reason: string }[] };
+
+const FIELD_LABELS: Record<CompetitorField, string> = {
+  sailNumber: 'Sail number',
+  name: 'Helm name',
+  club: 'Club',
+  gender: 'Gender',
+  age: 'Age',
+  ignore: '(ignore)',
+};
+
+function autoDetectField(header: string): CompetitorField {
+  const h = header.trim().toLowerCase();
+  if (/sail/.test(h)) return 'sailNumber';
+  if (/helm|name/.test(h)) return 'name';
+  if (/club/.test(h)) return 'club';
+  if (/gender|sex/.test(h)) return 'gender';
+  if (/age/.test(h)) return 'age';
+  return 'ignore';
+}
 
 function CompetitorForm({
   initial,
@@ -181,8 +211,10 @@ export default function CompetitorsPage({
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCompetitor, setEditingCompetitor] = useState<Competitor | null>(null);
+  const [importFlow, setImportFlow] = useState<ImportFlow>({ step: 'idle' });
   const editingRowRef = useRef<HTMLTableRowElement | null>(null);
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
   const didAutoFocus = useRef(false);
 
   // Auto-focus first row when list first loads
@@ -200,13 +232,15 @@ export default function CompetitorsPage({
     }
   }, [editingCompetitor]);
 
-  // 'n' to show add form
+  // 'n' to show add form, 'i' to import CSV
   useGlobalKeyDown((e) => {
-    if (e.key === 'n' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
-      (document.activeElement?.tagName ?? '')
-    )) {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')) return;
+    if (e.key === 'n') {
       e.preventDefault();
       setShowAddForm(true);
+    } else if (e.key === 'i') {
+      e.preventDefault();
+      csvInputRef.current?.click();
     }
   });
 
@@ -250,6 +284,103 @@ export default function CompetitorsPage({
     await seriesRepo.touch(seriesId);
   }
 
+  function handleCsvFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    Papa.parse<string[]>(file, {
+      header: false,
+      skipEmptyLines: true,
+      complete: (result) => {
+        const allRows = result.data;
+        if (allRows.length < 2) return; // need at least a header row + 1 data row
+        const headers = allRows[0];
+        const dataRows = allRows.slice(1);
+        const sampleRows = dataRows.slice(0, 3);
+        const columnMap: ColumnMap = {};
+        headers.forEach((h, i) => { columnMap[i] = autoDetectField(h); });
+        setImportFlow({ step: 'mapping', headers, sampleRows, rows: dataRows, columnMap });
+      },
+    });
+    // Reset so the same file can be re-selected
+    e.target.value = '';
+  }
+
+  function resetImport() {
+    setImportFlow({ step: 'idle' });
+    if (csvInputRef.current) csvInputRef.current.value = '';
+  }
+
+  async function handleImport() {
+    if (importFlow.step !== 'mapping') return;
+    const { rows, columnMap } = importFlow;
+    const existing = await competitorRepo.listBySeries(seriesId);
+    const bysail = new Map(existing.map((c) => [c.sailNumber.toUpperCase(), c]));
+    let added = 0;
+    let updated = 0;
+    let unchanged = 0;
+    const errors: { rowIndex: number; reason: string }[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNumber = i + 2; // 1-based, accounting for header row
+
+      // Extract values per column map
+      let sailNumber = '';
+      let name = '';
+      let club = '';
+      let gender = '';
+      let age = '';
+      Object.entries(columnMap).forEach(([colStr, field]) => {
+        const col = parseInt(colStr, 10);
+        const val = row[col]?.trim() ?? '';
+        if (field === 'sailNumber') sailNumber = val;
+        else if (field === 'name') name = val;
+        else if (field === 'club') club = val;
+        else if (field === 'gender') gender = val;
+        else if (field === 'age') age = val;
+      });
+
+      if (!sailNumber) {
+        errors.push({ rowIndex: rowNumber, reason: 'missing sail number' });
+        continue;
+      }
+
+      const normSail = sailNumber.toUpperCase();
+      const existingCompetitor = bysail.get(normSail);
+      const parsedAge = age ? parseInt(age, 10) : null;
+      const normGender = gender.toUpperCase();
+
+      const competitor: Competitor = {
+        id: existingCompetitor?.id ?? crypto.randomUUID(),
+        seriesId,
+        sailNumber: normSail,
+        name: name || existingCompetitor?.name || '',
+        club: club || existingCompetitor?.club || '',
+        gender: (normGender === 'M' || normGender === 'F') ? normGender : (existingCompetitor?.gender ?? ''),
+        age: parsedAge !== null && !isNaN(parsedAge) ? parsedAge : (existingCompetitor?.age ?? null),
+        createdAt: existingCompetitor?.createdAt ?? Date.now(),
+      };
+
+      if (
+        existingCompetitor &&
+        existingCompetitor.name === competitor.name &&
+        existingCompetitor.club === competitor.club &&
+        existingCompetitor.gender === competitor.gender &&
+        existingCompetitor.age === competitor.age
+      ) {
+        unchanged++;
+        continue;
+      }
+
+      log('competitors', existingCompetitor ? 'import-update' : 'import-add', competitor);
+      await competitorRepo.save(competitor);
+      if (existingCompetitor) updated++; else added++;
+    }
+
+    await seriesRepo.touch(seriesId);
+    setImportFlow({ step: 'done', added, updated, unchanged, errors });
+  }
+
   const existingSailNumbers = (competitors ?? []).map((c) => c.sailNumber.toUpperCase());
   const editingExcluded = editingCompetitor
     ? existingSailNumbers.filter((s) => s !== editingCompetitor.sailNumber.toUpperCase())
@@ -264,7 +395,20 @@ export default function CompetitorsPage({
             : `${competitors.length} competitor${competitors.length === 1 ? '' : 's'}`}
         </p>
         {!showAddForm && (
-          <Button onClick={() => setShowAddForm(true)}>Add competitor</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => csvInputRef.current?.click()}>
+              <Upload className="h-4 w-4 mr-2" />
+              Import CSV
+            </Button>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleCsvFileSelected}
+              className="hidden"
+            />
+            <Button onClick={() => setShowAddForm(true)}>Add competitor</Button>
+          </div>
         )}
       </div>
 
@@ -377,6 +521,115 @@ export default function CompetitorsPage({
               existingSailNumbers={editingExcluded}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Import — column mapping dialog */}
+      <Dialog open={importFlow.step === 'mapping'} onOpenChange={(open) => { if (!open) resetImport(); }}>
+        <DialogContent className="w-[90vw] max-w-4xl sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Import competitors — map columns</DialogTitle>
+            <DialogDescription>
+              Match each CSV column to a competitor field. Sail number is required.
+            </DialogDescription>
+          </DialogHeader>
+          {importFlow.step === 'mapping' && (
+            <div className="overflow-y-auto max-h-96">
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-1/5">Column</TableHead>
+                    <TableHead className="w-1/5">Map to</TableHead>
+                    <TableHead className="w-3/5">Sample values</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {importFlow.headers.map((header, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono text-sm truncate">{header || `Column ${i + 1}`}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={importFlow.columnMap[i]}
+                          onValueChange={(v) =>
+                            setImportFlow((f) =>
+                              f.step === 'mapping'
+                                ? { ...f, columnMap: { ...f.columnMap, [i]: v as CompetitorField } }
+                                : f
+                            )
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(Object.keys(FIELD_LABELS) as CompetitorField[]).map((field) => (
+                              <SelectItem key={field} value={field}>
+                                {FIELD_LABELS[field]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground truncate">
+                        {importFlow.sampleRows
+                          .map((row) => row[i]?.trim() ?? '')
+                          .filter(Boolean)
+                          .slice(0, 3)
+                          .join(', ') || '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={resetImport}>Cancel</Button>
+            <Button
+              onClick={handleImport}
+              disabled={
+                importFlow.step !== 'mapping' ||
+                !Object.values(importFlow.columnMap).includes('sailNumber')
+              }
+            >
+              {importFlow.step === 'mapping'
+                ? `Import ${importFlow.rows.length} row${importFlow.rows.length === 1 ? '' : 's'}`
+                : 'Import'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import — done dialog */}
+      <Dialog open={importFlow.step === 'done'} onOpenChange={(open) => { if (!open) resetImport(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import complete</DialogTitle>
+          </DialogHeader>
+          {importFlow.step === 'done' && (
+            <div className="space-y-3">
+              <p className="text-sm">
+                {importFlow.added} competitor{importFlow.added === 1 ? '' : 's'} added,{' '}
+                {importFlow.updated} updated,{' '}
+                {importFlow.unchanged} unchanged.
+              </p>
+              {importFlow.errors.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-1">
+                    {importFlow.errors.length} row{importFlow.errors.length === 1 ? '' : 's'} skipped:
+                  </p>
+                  <ul className="text-sm text-muted-foreground space-y-0.5 max-h-40 overflow-auto">
+                    {importFlow.errors.map((err) => (
+                      <li key={err.rowIndex}>Row {err.rowIndex}: {err.reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={resetImport}>Done</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -30,6 +30,7 @@ export default function HelpPage() {
           ['#what-is-sail-scoring', 'What is Sail Scoring?'],
           ['#creating-a-series', 'Creating a series'],
           ['#adding-competitors', 'Adding competitors'],
+          ['#importing-competitors', 'Importing competitors from CSV'],
           ['#adding-races', 'Adding races'],
           ['#entering-results', 'Entering results'],
           ['#reading-the-standings', 'Reading the standings'],
@@ -91,6 +92,30 @@ export default function HelpPage() {
         <p>
           Competitors are sorted by sail number. You can edit or delete a competitor at any time,
           though deleting one after races have been entered will also remove their finishes.
+        </p>
+      </Section>
+
+      <Section id="importing-competitors" title="Importing competitors from CSV">
+        <p>
+          If your entry list is already in a spreadsheet, you can import it directly rather than
+          typing each competitor by hand. On the{' '}
+          <strong className="text-foreground">Competitors</strong> tab, click{' '}
+          <strong className="text-foreground">Import CSV</strong> (or press{' '}
+          <strong className="text-foreground">i</strong>) and select a CSV file.
+        </p>
+        <p>
+          The importer shows each column in the file alongside a sample of its values. Use the
+          dropdown next to each column to map it to a competitor field — sail number, helm name,
+          club, gender, or age. Columns you do not need can be left as{' '}
+          <strong className="text-foreground">(ignore)</strong>. Sail number is the only required
+          mapping; all other fields are optional.
+        </p>
+        <p>
+          Clicking <strong className="text-foreground">Import</strong> adds any new competitors and
+          updates existing ones matched by sail number. When an existing competitor's fields are
+          unchanged by the import, they are counted as{' '}
+          <strong className="text-foreground">unchanged</strong> rather than updated. Any rows
+          missing a sail number are skipped and listed in the summary.
         </p>
       </Section>
 

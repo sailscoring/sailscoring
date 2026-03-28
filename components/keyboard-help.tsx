@@ -73,6 +73,7 @@ export function KeyboardHelp({
             title="Competitors"
             rows={[
               { keys: ['n'], action: 'Add competitor' },
+              { keys: ['i'], action: 'Import CSV' },
               { keys: ['e'], action: 'Edit focused row' },
               { keys: ['d'], action: 'Delete focused row' },
             ]}
