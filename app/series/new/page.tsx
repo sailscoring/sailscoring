@@ -13,7 +13,7 @@ export default function NewSeriesPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [venue, setVenue] = useState('');
-  const [date, setDate] = useState('');
+  const [startDate, setStartDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -31,7 +31,10 @@ export default function NewSeriesPage() {
         id: crypto.randomUUID(),
         name: name.trim(),
         venue: venue.trim(),
-        date: date,
+        startDate: startDate,
+        endDate: '',
+        venueLogoUrl: '',
+        eventLogoUrl: '',
         createdAt: now,
         lastSnapshotId: null,
         lastSavedAt: null,
@@ -73,12 +76,12 @@ export default function NewSeriesPage() {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="date">Date</Label>
+          <Label htmlFor="startDate">Date</Label>
           <Input
-            id="date"
+            id="startDate"
             type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
           />
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}

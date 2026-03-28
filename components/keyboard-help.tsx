@@ -65,7 +65,7 @@ export function KeyboardHelp({
               { keys: ['g', 'c'], action: 'Go to Competitors' },
               { keys: ['g', 'r'], action: 'Go to Races' },
               { keys: ['g', 's'], action: 'Go to Standings' },
-              { keys: ['g', 'f'], action: 'Go to File' },
+              { keys: ['g', 'f'], action: 'Go to Settings' },
             ]}
           />
 

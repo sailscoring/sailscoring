@@ -14,7 +14,7 @@ const tabs = [
   { label: 'Competitors', href: (id: string) => `/series/${id}/competitors` },
   { label: 'Races', href: (id: string) => `/series/${id}/races` },
   { label: 'Standings', href: (id: string) => `/series/${id}/standings` },
-  { label: 'File', href: (id: string) => `/series/${id}/settings` },
+  { label: 'Settings', href: (id: string) => `/series/${id}/settings` },
 ];
 
 export default function SeriesLayout({
@@ -62,9 +62,9 @@ export default function SeriesLayout({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">{series.name}</h1>
-        {(series.venue || series.date) && (
+        {(series.venue || series.startDate) && (
           <p className="text-sm text-muted-foreground mt-0.5">
-            {[series.venue, series.date].filter(Boolean).join(' · ')}
+            {[series.venue, series.startDate].filter(Boolean).join(' · ')}
           </p>
         )}
       </div>

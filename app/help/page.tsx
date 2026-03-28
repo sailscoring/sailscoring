@@ -188,7 +188,7 @@ export default function HelpPage() {
         </p>
         <p>
           To back up a series or share it with a co-scorer, open the{' '}
-          <strong className="text-foreground">File</strong> tab and click{' '}
+          <strong className="text-foreground">Settings</strong> tab and click{' '}
           <strong className="text-foreground">Save to File</strong>. This downloads a{' '}
           <code className="text-foreground text-sm">.sailscoring</code> file containing the
           complete series — all competitors, races, and results. You can save the file to Google
@@ -203,7 +203,7 @@ export default function HelpPage() {
         </p>
         <p>
           If a co-scorer has saved a newer version of the file, open the{' '}
-          <strong className="text-foreground">File</strong> tab and click{' '}
+          <strong className="text-foreground">Settings</strong> tab and click{' '}
           <strong className="text-foreground">Update from File</strong> to pull in their changes.
           The app checks whether the incoming file is a clean continuation of your local copy and
           warns you if both copies have diverged.

@@ -61,8 +61,8 @@ function SeriesCard({
       >
         <div className="font-medium">{series.name}</div>
         <div className="text-sm text-muted-foreground mt-0.5 flex gap-2">
-          {(series.venue || series.date) && (
-            <span>{[series.venue, series.date].filter(Boolean).join(' · ')}</span>
+          {(series.venue || series.startDate) && (
+            <span>{[series.venue, series.startDate].filter(Boolean).join(' · ')}</span>
           )}
           {series.lastSavedAt && (
             <span>{formatSaveDate(series.lastSavedAt)}</span>

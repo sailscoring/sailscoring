@@ -10,7 +10,10 @@ interface SeriesFileSeries {
   id: string;
   name: string;
   venue: string;
-  date: string;
+  startDate: string;
+  endDate: string;
+  venueLogoUrl: string;
+  eventLogoUrl: string;
 }
 
 interface SeriesFileCompetitor {
@@ -96,7 +99,15 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
     snapshotId,
     snapshotHistory,
     exportedAt: new Date().toISOString(),
-    series: { id: series.id, name: series.name, venue: series.venue, date: series.date },
+    series: {
+      id: series.id,
+      name: series.name,
+      venue: series.venue,
+      startDate: series.startDate,
+      endDate: series.endDate,
+      venueLogoUrl: series.venueLogoUrl,
+      eventLogoUrl: series.eventLogoUrl,
+    },
     competitors: competitors.map((c) => ({
       id: c.id,
       sailNumber: c.sailNumber,
@@ -182,7 +193,10 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
       id: newSeriesId,
       name,
       venue: file.series.venue,
-      date: file.series.date,
+      startDate: file.series.startDate ?? '',
+      endDate: file.series.endDate ?? '',
+      venueLogoUrl: file.series.venueLogoUrl ?? '',
+      eventLogoUrl: file.series.eventLogoUrl ?? '',
       createdAt: now,
       lastSnapshotId: file.snapshotId,
       lastSavedAt: null,
@@ -246,7 +260,10 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
     await db.series.update(seriesId, {
       name: file.series.name,
       venue: file.series.venue,
-      date: file.series.date,
+      startDate: file.series.startDate ?? '',
+      endDate: file.series.endDate ?? '',
+      venueLogoUrl: file.series.venueLogoUrl ?? '',
+      eventLogoUrl: file.series.eventLogoUrl ?? '',
       lastSnapshotId: file.snapshotId,
       lastModifiedAt: now,
       snapshotHistory: [...file.snapshotHistory],

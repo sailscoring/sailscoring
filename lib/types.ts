@@ -2,7 +2,10 @@ export interface Series {
   id: string;
   name: string;
   venue: string;
-  date: string;        // ISO date string, e.g. "2025-06-14"
+  startDate: string;   // ISO date string, e.g. "2025-06-14"
+  endDate: string;     // ISO date string; empty string if single-day or unknown
+  venueLogoUrl: string;
+  eventLogoUrl: string;
   createdAt: number;   // Date.now()
   // File tracking
   lastSnapshotId: string | null;  // snapshotId of last Save to File or Open from File

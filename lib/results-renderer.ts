@@ -269,7 +269,7 @@ function esc(str: string): string {
  * Call this from the standings page before passing to renderSeriesHtml().
  */
 export function assembleSeriesResultsData(
-  series: { name: string; venue: string },
+  series: { name: string; venue: string; venueLogoUrl?: string; eventLogoUrl?: string },
   races: Array<{ id: string; raceNumber: number; date: string }>,
   standings: Array<{
     rank: number;
@@ -347,6 +347,8 @@ export function assembleSeriesResultsData(
 
   return {
     series,
+    leftLogoUrl: series.venueLogoUrl || undefined,
+    rightLogoUrl: series.eventLogoUrl || undefined,
     generatedAt,
     races: raceDataList,
     standings: standingRows,

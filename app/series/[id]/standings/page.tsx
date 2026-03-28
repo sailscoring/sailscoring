@@ -75,7 +75,7 @@ async function exportHtml(seriesId: string) {
   );
 
   const data = assembleSeriesResultsData(
-    { name: series.name, venue: series.venue },
+    { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl },
     races,
     standings,
     raceScoresByRaceId,

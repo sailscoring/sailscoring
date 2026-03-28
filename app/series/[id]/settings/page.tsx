@@ -1,10 +1,13 @@
 'use client';
 
-import { use, useRef, useState } from 'react';
+import { use, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { seriesRepo } from '@/lib/dexie-repository';
+import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +54,42 @@ export default function SettingsPage({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [updateFlow, setUpdateFlow] = useState<UpdateFlow>({ step: 'idle' });
+
+  const [venue, setVenue] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [venueLogoUrl, setVenueLogoUrl] = useState('');
+  const [eventLogoUrl, setEventLogoUrl] = useState('');
+  const [basicsSaving, setBasicsSaving] = useState(false);
+
+  useEffect(() => {
+    if (series) {
+      setVenue(series.venue);
+      setStartDate(series.startDate);
+      setEndDate(series.endDate);
+      setVenueLogoUrl(series.venueLogoUrl);
+      setEventLogoUrl(series.eventLogoUrl);
+    }
+  }, [series?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSaveBasics(e: React.FormEvent) {
+    e.preventDefault();
+    setBasicsSaving(true);
+    try {
+      await db.series.update(seriesId, {
+        venue: venue.trim(),
+        startDate,
+        endDate,
+        venueLogoUrl: venueLogoUrl.trim(),
+        eventLogoUrl: eventLogoUrl.trim(),
+        lastModifiedAt: Date.now(),
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setBasicsSaving(false);
+    }
+  }
 
   if (series === undefined) return <p className="text-muted-foreground">Loading…</p>;
   if (series === null) return <p className="text-muted-foreground">Series not found.</p>;
@@ -122,6 +161,63 @@ export default function SettingsPage({
 
   return (
     <div className="space-y-6 max-w-lg">
+      {/* Basics card */}
+      <form onSubmit={handleSaveBasics} className="border rounded-lg p-5 space-y-4">
+        <h2 className="text-sm font-medium">Basics</h2>
+        <div className="space-y-1.5">
+          <Label htmlFor="venue">Venue</Label>
+          <Input
+            id="venue"
+            value={venue}
+            onChange={(e) => setVenue(e.target.value)}
+            placeholder="e.g. Howth Yacht Club"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="startDate">Start date</Label>
+            <Input
+              id="startDate"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="endDate">End date</Label>
+            <Input
+              id="endDate"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="venueLogoUrl">Venue logo URL</Label>
+          <Input
+            id="venueLogoUrl"
+            type="url"
+            value={venueLogoUrl}
+            onChange={(e) => setVenueLogoUrl(e.target.value)}
+            placeholder="https://…"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="eventLogoUrl">Event logo URL</Label>
+          <Input
+            id="eventLogoUrl"
+            type="url"
+            value={eventLogoUrl}
+            onChange={(e) => setEventLogoUrl(e.target.value)}
+            placeholder="https://…"
+          />
+        </div>
+        <Button type="submit" variant="outline" disabled={basicsSaving}>
+          {basicsSaving ? 'Saving…' : 'Save'}
+        </Button>
+      </form>
+
       {/* File card */}
       <div className={`border rounded-lg p-5 space-y-4 ${!hasFileHistory ? 'opacity-70' : ''}`}>
         <div>
