@@ -41,7 +41,76 @@ Every file follows this skeleton:
 </body>
 ```
 
-## Identical CSS (inlined in every file)
+## Built-in Sailwave styles
+
+Sailwave ships 26 named styles. Each style is a pure CSS file in `Styles/*.htm`
+(no HTML wrapper). Sailwave inlines the chosen style's CSS into every exported
+results file. The style choice has no effect on the HTML structure — only the
+visual appearance changes.
+
+**HYC uses UK Windsurfing Association.** This is confirmed by comparing the CSS
+block extracted from HYC's 2025 results files against the Sailwave style files:
+the layout rules (`body`, `table`, `td, th`, `.caption`, `.hardleft/.hardright`,
+`.odd`) match UK WA exactly and do not match any other style.
+
+### Style comparison: notable differences
+
+| Style | `th` background | Row tint | Borders | Font |
+|-------|----------------|----------|---------|------|
+| **UK Windsurfing Association** | none (plain) | `.odd #eef` only | `#999` grey solid | 80% arial |
+| Default | none (plain) | none | `#999` grey solid | 80% arial |
+| Default plus | `#ddd` grey | none | `#999` grey solid | 80% arial |
+| Blue Blocks | `#aaf` blue | `.even #bbf` / `.odd #ddf` | `#fff` white solid | 72% arial |
+| Navy Blocks | `navy` | `.even/.odd navy` (white text) | `#fff` white solid | 72% arial |
+| The blues | `#0055aa` + yellow text | `.even #ccccff` | none | 72% arial |
+| Red Head | `#cc0000` + white text | `.even #d7d7d7` | none | 72% arial |
+| Grey days | `#bbb` | `.even #d7d7d7` | none | 80% arial |
+| Faded lines | none | none | bottom-only `#999` | 80% arial |
+| Jet black | none | none | `#eee` on black background | 80% arial |
+
+The styles are cosmetic-only. None change the HTML class names or table
+structure that our renderer emits. UK WA is a minimal, high-legibility style —
+plain header cells, a single light-blue `.odd` row tint, grey borders — which
+is why it reads well for dense results tables.
+
+**`table.headertable` override.** Every Sailwave export (regardless of style)
+appends two extra rules after the style CSS:
+
+```css
+table.headertable {border: 0px;}
+table.headertable td{border: 0px;}
+```
+
+These are not in the UK WA style file; Sailwave adds them unconditionally. Our
+renderer includes them explicitly.
+
+### UK Windsurfing Association — full CSS
+
+```css
+body {font: 80% arial, helvetica, sans-serif; text-align: center;}
+.hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
+.hardright {text-align: right; float: right; margin: 15px 25px 15px 0;}
+table {text-align: left; margin: 0px auto 30px auto; font-size: 1em; border-collapse: collapse; border: 1px #999 solid;}
+td, th {padding: 4px; border: 1px #999 solid; vertical-align: top;}
+.caption {padding: 5px; text-align: center; border: 0; font-weight: bold;}
+p {text-align: center;}
+.contents {text-align: left; margin-left: 20%;}
+.race {background-color: #eee;}
+.odd {background-color: #eef;}
+.natflag {border: 1px #999 solid;}
+.nattext {font-size: 0.8em;}
+.place1 {font-weight: bold; background-color: #ffffaa;}
+.place2 {font-weight: bold; background-color: #aaaaff;}
+.place3 {font-weight: bold; background-color: #ffaaaa;}
+.placen {}
+```
+
+---
+
+## CSS inlined in every file (UK WA + Sailwave base)
+
+The CSS inlined into HYC's Sailwave files is the UK Windsurfing Association
+style above, plus the unconditional `headertable` override Sailwave appends:
 
 ```css
 body {font: 80% arial, helvetica, sans-serif; text-align: center;}
@@ -188,6 +257,13 @@ td.rank1 { background: #ffd700; }
 td.rank2 { background: #6a91c5; }
 td.rank3 { background: #da6841; }
 ```
+
+**Note on style vs JS colours.** UK WA (and every other Sailwave style) also defines
+`.place1/2/3` CSS rules with paler colours (`#ffffaa`, `#aaaaff`, `#ffaaaa`). These were
+used by the old template, which emitted `class="place1"` on cells. In the new template,
+cells carry `class="rank1"` instead, so the UK WA `.place1` rule never fires — only the
+JS-applied `#ffd700` etc. colours are visible. Our static `td.rank1/2/3` CSS replicates
+the JS runtime behaviour exactly.
 
 ### HighlightWins3 v1.6 + HighlightDiscards v1.1 (old template)
 
