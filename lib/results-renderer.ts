@@ -277,6 +277,8 @@ export function assembleSeriesResultsData(
     racePoints: number[];
     raceCodes: (ResultCode | null)[];
     totalPoints: number;
+    netPoints: number;
+    raceDiscards: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; resultCode: ResultCode | null }>>,
   competitorsById: Map<string, { sailNumber: string; name: string }>,
@@ -337,12 +339,12 @@ export function assembleSeriesResultsData(
       return {
         points,
         resultCode,
-        isDiscard: false,
+        isDiscard: s.raceDiscards[i] ?? false,
         podiumRank,
       };
     }),
     totalPoints: s.totalPoints,
-    netPoints: s.totalPoints,
+    netPoints: s.netPoints,
   }));
 
   return {

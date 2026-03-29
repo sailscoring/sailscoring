@@ -25,6 +25,7 @@ import {
   type SeriesFile,
   type LineageStatus,
 } from '@/lib/series-file';
+import type { DiscardThreshold } from '@/lib/types';
 
 type UpdateFlow =
   | { step: 'idle' }
@@ -62,6 +63,9 @@ export default function SettingsPage({
   const [eventLogoUrl, setEventLogoUrl] = useState('');
   const [basicsChanged, setBasicsChanged] = useState(false);
 
+  const [thresholds, setThresholds] = useState<DiscardThreshold[]>([]);
+  const [scoringChanged, setScoringChanged] = useState(false);
+
   useEffect(() => {
     if (series) {
       setVenue(series.venue);
@@ -70,6 +74,8 @@ export default function SettingsPage({
       setVenueLogoUrl(series.venueLogoUrl);
       setEventLogoUrl(series.eventLogoUrl);
       setBasicsChanged(false);
+      setThresholds(series.discardThresholds ?? []);
+      setScoringChanged(false);
     }
   }, [series?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -88,6 +94,43 @@ export default function SettingsPage({
     } catch (err) {
       console.error(err);
     }
+  }
+
+  async function handleSaveScoring(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await db.series.update(seriesId, {
+        discardThresholds: thresholds,
+        lastModifiedAt: Date.now(),
+      });
+      setScoringChanged(false);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function updateThreshold(index: number, field: keyof DiscardThreshold, value: number) {
+    setThresholds((prev) => {
+      const next = prev.map((t, i) => i === index ? { ...t, [field]: value } : t);
+      setScoringChanged(true);
+      return next;
+    });
+  }
+
+  function addThreshold() {
+    setThresholds((prev) => {
+      const maxMinRaces = prev.reduce((m, t) => Math.max(m, t.minRaces), 0);
+      const maxDiscardCount = prev.reduce((m, t) => Math.max(m, t.discardCount), 0);
+      setScoringChanged(true);
+      return [...prev, { minRaces: maxMinRaces + 1, discardCount: maxDiscardCount + 1 }];
+    });
+  }
+
+  function removeThreshold(index: number) {
+    setThresholds((prev) => {
+      setScoringChanged(true);
+      return prev.filter((_, i) => i !== index);
+    });
   }
 
   if (series === undefined) return <p className="text-muted-foreground">Loading…</p>;
@@ -215,6 +258,70 @@ export default function SettingsPage({
         <Button type="submit" variant="outline" disabled={!basicsChanged}>
           {basicsChanged ? 'Save' : 'Saved'}
         </Button>
+      </form>
+
+      {/* Scoring card */}
+      <form onSubmit={handleSaveScoring} className="border rounded-lg p-5 space-y-4">
+        <div>
+          <h2 className="text-sm font-medium">Scoring</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Discard rules — drop each competitor&apos;s worst race(s) from the series total.
+            Each rule sets the <em>total</em> number of discards once that many races have been sailed.
+          </p>
+        </div>
+        {thresholds.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No discards configured.</p>
+        ) : (
+          <div className="space-y-2">
+            <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs text-muted-foreground px-1">
+              <span>From (races)</span>
+              <span>Total discards</span>
+              <span />
+            </div>
+            {[...thresholds]
+              .sort((a, b) => a.minRaces - b.minRaces)
+              .map((t, i, sorted) => {
+                const origIndex = thresholds.indexOf(t);
+                const minDiscard = i === 0 ? 1 : sorted[i - 1].discardCount + 1;
+                return (
+                  <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={t.minRaces}
+                      onChange={(e) => updateThreshold(origIndex, 'minRaces', Math.max(1, parseInt(e.target.value) || 1))}
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      type="number"
+                      min={minDiscard}
+                      max={t.minRaces - 1}
+                      value={t.discardCount}
+                      onChange={(e) => updateThreshold(origIndex, 'discardCount', Math.max(minDiscard, parseInt(e.target.value) || minDiscard))}
+                      className="h-8 text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-muted-foreground"
+                      onClick={() => removeThreshold(origIndex)}
+                    >
+                      ×
+                    </Button>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={addThreshold}>
+            Add rule
+          </Button>
+          <Button type="submit" variant="outline" size="sm" disabled={!scoringChanged}>
+            {scoringChanged ? 'Save' : 'Saved'}
+          </Button>
+        </div>
       </form>
 
       {/* File card */}

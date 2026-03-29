@@ -219,6 +219,8 @@ describe('assembleSeriesResultsData', () => {
       racePoints: [1, 2],
       raceCodes: [null, null] as (ResultCode | null)[],
       totalPoints: 3,
+      netPoints: 3,
+      raceDiscards: [false, false],
     },
     {
       rank: 2,
@@ -226,6 +228,8 @@ describe('assembleSeriesResultsData', () => {
       racePoints: [2, 1],
       raceCodes: [null, null] as (ResultCode | null)[],
       totalPoints: 3,
+      netPoints: 3,
+      raceDiscards: [false, false],
     },
   ];
 

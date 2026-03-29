@@ -40,6 +40,7 @@ export default function NewSeriesPage() {
         lastSavedAt: null,
         lastModifiedAt: now,
         snapshotHistory: [],
+        discardThresholds: [],
       };
       log('series', 'creating', series);
       await seriesRepo.save(series);

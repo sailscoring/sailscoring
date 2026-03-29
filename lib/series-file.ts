@@ -1,4 +1,4 @@
-import type { Series, ResultCode } from './types';
+import type { Series, ResultCode, DiscardThreshold } from './types';
 import { db } from './db';
 
 export const FORMAT_VERSION = 1;
@@ -14,6 +14,7 @@ interface SeriesFileSeries {
   endDate: string;
   venueLogoUrl: string;
   eventLogoUrl: string;
+  discardThresholds: DiscardThreshold[];
 }
 
 interface SeriesFileCompetitor {
@@ -107,6 +108,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       endDate: series.endDate,
       venueLogoUrl: series.venueLogoUrl,
       eventLogoUrl: series.eventLogoUrl,
+      discardThresholds: series.discardThresholds,
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -202,6 +204,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
       lastSavedAt: null,
       lastModifiedAt: now,
       snapshotHistory: [...file.snapshotHistory],
+      discardThresholds: file.series.discardThresholds ?? [],
     });
 
     for (const c of file.competitors) {
@@ -267,6 +270,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
       lastSnapshotId: file.snapshotId,
       lastModifiedAt: now,
       snapshotHistory: [...file.snapshotHistory],
+      discardThresholds: file.series.discardThresholds ?? [],
     });
 
     for (const c of file.competitors) {

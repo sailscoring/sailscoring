@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateRaceScores, calculateStandings } from '@/lib/scoring';
-import type { Competitor, Race, Finish } from '@/lib/types';
+import { calculateRaceScores, calculateStandings, getDiscardCount } from '@/lib/scoring';
+import type { Competitor, Race, Finish, DiscardThreshold } from '@/lib/types';
 
 // Helpers to build test fixtures with minimal required fields
 function makeCompetitor(id: string, seriesId = 's1'): Competitor {
@@ -180,5 +180,117 @@ describe('calculateStandings', () => {
     expect(standings[0].competitor.id).toBe('B');
     expect(standings[0].rank).toBe(1);
     expect(standings[1].rank).toBe(2);
+  });
+
+  it('populates netPoints and raceDiscards with no discards configured', () => {
+    const [a] = competitors;
+    const oneRace = [makeRace('r1', 1)];
+    const finishes = [makeFinish('r1', 'A', 1)];
+    const standings = calculateStandings([a], oneRace, finishes);
+    expect(standings[0].netPoints).toBe(standings[0].totalPoints);
+    expect(standings[0].raceDiscards).toEqual([false]);
+  });
+});
+
+// ─── getDiscardCount ─────────────────────────────────────────────────────────
+
+describe('getDiscardCount', () => {
+  it('returns 0 for empty thresholds', () => {
+    expect(getDiscardCount(0, [])).toBe(0);
+    expect(getDiscardCount(10, [])).toBe(0);
+  });
+
+  it('returns 0 when below the single threshold', () => {
+    const t: DiscardThreshold[] = [{ minRaces: 4, discardCount: 1 }];
+    expect(getDiscardCount(3, t)).toBe(0);
+  });
+
+  it('returns discardCount when at or above the single threshold', () => {
+    const t: DiscardThreshold[] = [{ minRaces: 4, discardCount: 1 }];
+    expect(getDiscardCount(4, t)).toBe(1);
+    expect(getDiscardCount(10, t)).toBe(1);
+  });
+
+  it('picks the highest matching threshold with two thresholds', () => {
+    const t: DiscardThreshold[] = [
+      { minRaces: 4, discardCount: 1 },
+      { minRaces: 8, discardCount: 2 },
+    ];
+    expect(getDiscardCount(3, t)).toBe(0);
+    expect(getDiscardCount(5, t)).toBe(1);
+    expect(getDiscardCount(8, t)).toBe(2);
+    expect(getDiscardCount(12, t)).toBe(2);
+  });
+
+  it('handles thresholds provided in non-sorted order', () => {
+    const t: DiscardThreshold[] = [
+      { minRaces: 8, discardCount: 2 },
+      { minRaces: 4, discardCount: 1 },
+    ];
+    expect(getDiscardCount(6, t)).toBe(1);
+    expect(getDiscardCount(9, t)).toBe(2);
+  });
+});
+
+// ─── calculateStandings with discards ────────────────────────────────────────
+
+describe('calculateStandings with discards', () => {
+  it('discard changes ranking: 2 wins + 1 penalty beats 3 consistent middles', () => {
+    // Use 5 competitors so that the DNC penalty (N+1=6) is significant
+    const five = ['A', 'B', 'C', 'D', 'E'].map(id => makeCompetitor(id));
+    const threeRaces = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3)];
+    const finishes: Finish[] = [
+      // Race 1: A=1, B=2, C=3, D=4, E=5
+      makeFinish('r1', 'A', 1), makeFinish('r1', 'B', 2), makeFinish('r1', 'C', 3),
+      makeFinish('r1', 'D', 4), makeFinish('r1', 'E', 5),
+      // Race 2: A=1, B=2, C=3, D=4, E=5
+      makeFinish('r2', 'A', 1), makeFinish('r2', 'B', 2), makeFinish('r2', 'C', 3),
+      makeFinish('r2', 'D', 4), makeFinish('r2', 'E', 5),
+      // Race 3: B=1, C=2, D=3, E=4; A has no finish → implicit DNC (N+1=6)
+      makeFinish('r3', 'B', 1), makeFinish('r3', 'C', 2), makeFinish('r3', 'D', 3),
+      makeFinish('r3', 'E', 4),
+    ];
+    // Without discards: A=1+1+6=8, B=2+2+1=5. B wins.
+    const noDiscard = calculateStandings(five, threeRaces, finishes);
+    expect(noDiscard.find(s => s.competitor.id === 'B')!.rank).toBe(1);
+    expect(noDiscard.find(s => s.competitor.id === 'A')!.totalPoints).toBe(8);
+
+    // With 1 discard: A drops 6→net 2, B drops 2→net 3. A wins.
+    const withDiscard = calculateStandings(five, threeRaces, finishes, [{ minRaces: 3, discardCount: 1 }]);
+    const aStanding = withDiscard.find(s => s.competitor.id === 'A')!;
+    const bStanding = withDiscard.find(s => s.competitor.id === 'B')!;
+    expect(aStanding.rank).toBe(1);
+    expect(aStanding.netPoints).toBe(2);
+    expect(aStanding.raceDiscards).toEqual([false, false, true]);
+    expect(bStanding.rank).toBe(2);
+    expect(bStanding.netPoints).toBe(3);
+  });
+
+  it('tied worst scores: earliest race index is discarded first', () => {
+    const [a] = ['A'].map(id => makeCompetitor(id));
+    const fourRaces = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3), makeRace('r4', 4)];
+    const finishes: Finish[] = [
+      makeFinish('r1', 'A', 4), // worst tied at index 0
+      makeFinish('r2', 'A', 4), // worst tied at index 1
+      makeFinish('r3', 'A', 1),
+      makeFinish('r4', 'A', 1),
+    ];
+    const standings = calculateStandings([a], fourRaces, finishes, [{ minRaces: 4, discardCount: 1 }]);
+    expect(standings[0].raceDiscards).toEqual([true, false, false, false]);
+    expect(standings[0].netPoints).toBe(6); // 4+1+1 = 6
+  });
+
+  it('no discards applied when race count below threshold', () => {
+    const ab = ['A', 'B'].map(id => makeCompetitor(id));
+    const twoRaces = [makeRace('r1', 1), makeRace('r2', 2)];
+    const finishes: Finish[] = [
+      makeFinish('r1', 'A', 1), makeFinish('r1', 'B', 2),
+      makeFinish('r2', 'A', 2), makeFinish('r2', 'B', 1),
+    ];
+    const standings = calculateStandings(ab, twoRaces, finishes, [{ minRaces: 3, discardCount: 1 }]);
+    for (const s of standings) {
+      expect(s.netPoints).toBe(s.totalPoints);
+      expect(s.raceDiscards.every(d => !d)).toBe(true);
+    }
   });
 });

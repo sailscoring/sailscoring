@@ -1,4 +1,4 @@
-import type { Competitor, Race, Finish, RaceScore, Standing, ResultCode } from './types';
+import type { Competitor, Race, Finish, RaceScore, Standing, ResultCode, DiscardThreshold } from './types';
 
 /**
  * Calculate race scores for all competitors in a series.
@@ -53,23 +53,45 @@ export function calculateRaceScores(
 }
 
 /**
+ * Get the number of discards to apply for a given race count.
+ *
+ * Thresholds are checked from highest minRaces to lowest; the first matching
+ * threshold's discardCount is returned. Returns 0 if no threshold matches.
+ *
+ * @param raceCount  Number of races sailed
+ * @param thresholds  Discard thresholds configured for the series
+ */
+export function getDiscardCount(
+  raceCount: number,
+  thresholds: DiscardThreshold[],
+): number {
+  const sorted = [...thresholds].sort((a, b) => b.minRaces - a.minRaces);
+  for (const t of sorted) {
+    if (raceCount >= t.minRaces) return t.discardCount;
+  }
+  return 0;
+}
+
+/**
  * Calculate series standings.
  *
  * Races and finishes must cover the same series. Standings are sorted
- * by total_points ascending (lowest wins). Ties broken per RRS A8.2:
- * most first places, then most second places, etc. If still tied after
- * all places, the competitor with the better (lower) score in the most
- * recent race ranks higher.
+ * by net_points ascending (lowest wins, after applying discards). Ties broken
+ * per RRS A8.2: most first places, then most second places, etc. (using all
+ * race points including discards). If still tied, the competitor with the
+ * better (lower) score in the most recent race ranks higher.
  *
  * @param competitors  All competitors in the series
  * @param races  All races in the series, sorted by raceNumber ascending
  * @param allFinishes  All finishes in the series
+ * @param discardThresholds  Discard rules for this series (default: none)
  * @returns  Standings array sorted by rank
  */
 export function calculateStandings(
   competitors: Competitor[],
   races: Race[],
   allFinishes: Finish[],
+  discardThresholds: DiscardThreshold[] = [],
 ): Standing[] {
   if (competitors.length === 0 || races.length === 0) {
     return competitors.map((c, i) => ({
@@ -78,6 +100,8 @@ export function calculateStandings(
       racePoints: [],
       raceCodes: [],
       totalPoints: 0,
+      netPoints: 0,
+      raceDiscards: [],
     }));
   }
 
@@ -109,18 +133,40 @@ export function calculateStandings(
     }
   }
 
-  // Build initial standings
+  const discardCount = Math.min(
+    getDiscardCount(races.length, discardThresholds),
+    races.length,
+  );
+
+  // Build initial standings with discard info
   const standings: Standing[] = competitors.map((competitor) => {
     const racePoints = competitorRacePoints.get(competitor.id)!;
     const raceCodes = competitorRaceCodes.get(competitor.id)!;
     const totalPoints = racePoints.reduce((sum, p) => sum + p, 0);
-    return { rank: 0, competitor, racePoints, raceCodes, totalPoints };
+
+    // Determine which races are discarded: pick the N worst (highest points),
+    // earliest index first when tied on points.
+    const raceDiscards = new Array<boolean>(racePoints.length).fill(false);
+    if (discardCount > 0) {
+      const indexed = racePoints.map((p, i) => ({ p, i }));
+      indexed.sort((a, b) => b.p - a.p || a.i - b.i);
+      for (let d = 0; d < discardCount; d++) {
+        raceDiscards[indexed[d].i] = true;
+      }
+    }
+
+    const netPoints = racePoints.reduce(
+      (sum, p, i) => sum + (raceDiscards[i] ? 0 : p),
+      0,
+    );
+
+    return { rank: 0, competitor, racePoints, raceCodes, totalPoints, netPoints, raceDiscards };
   });
 
-  // Sort: lowest total wins, tie-break per RRS A8.2
+  // Sort: lowest net points wins, tie-break per RRS A8.2 (uses all race points)
   standings.sort((a, b) => {
-    if (a.totalPoints !== b.totalPoints) {
-      return a.totalPoints - b.totalPoints;
+    if (a.netPoints !== b.netPoints) {
+      return a.netPoints - b.netPoints;
     }
     return tieBreak(a, b, races.length);
   });

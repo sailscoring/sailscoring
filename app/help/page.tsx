@@ -34,6 +34,7 @@ export default function HelpPage() {
           ['#adding-races', 'Adding races'],
           ['#entering-results', 'Entering results'],
           ['#reading-the-standings', 'Reading the standings'],
+          ['#discard-rules', 'Discard rules'],
           ['#saving-and-sharing', 'Saving and sharing a series'],
           ['#keyboard-shortcuts', 'Keyboard shortcuts'],
         ].map(([href, label]) => (
@@ -152,7 +153,7 @@ export default function HelpPage() {
         </ul>
         <p>
           Competitors with result codes other than DNC are scored as{' '}
-          <em>entries in the series + 1</em> points for that race, per RRS Appendix A. DNC scores
+          <em>entries in the series + 1</em> points for that race. DNC scores
           the same. A competitor with no entry at all for a race is treated as DNC.
         </p>
       </Section>
@@ -167,16 +168,58 @@ export default function HelpPage() {
           Sail Scoring uses{' '}
           <strong className="text-foreground">Low Point scoring</strong>: 1st place scores 1 point,
           2nd scores 2, and so on. Lower totals are better. The standings are ordered by total
-          points, with tie-breaking applied per RRS Appendix A.
+          points, with tie-breaking by most first places, then most second places, and so on.
         </p>
         <p>
           Result codes are shown in parentheses in the race columns, e.g. <em>7 (DNF)</em>.
         </p>
         <p>
+          When discard rules are configured, a{' '}
+          <strong className="text-foreground">Nett</strong> column appears showing each
+          competitor&apos;s series total after their worst score(s) are dropped. Discarded scores
+          are shown struck through. The standings are ordered by nett total.
+        </p>
+        <p>
           To share results with your club, click{' '}
           <strong className="text-foreground">Export HTML</strong> (or press{' '}
           <strong className="text-foreground">x</strong>) to download a self-contained results
-          page you can email or host on your club website.
+          page you can email or host on your club website. Discards are shown in the exported file
+          too.
+        </p>
+      </Section>
+
+      <Section id="discard-rules" title="Discard rules">
+        <p>
+          A <strong className="text-foreground">discard</strong> lets a competitor drop their worst
+          race score from the series total — a bad day doesn&apos;t ruin a whole season. Only the
+          resulting <em>nett</em> score counts for ranking; the full series total is still displayed
+          for reference.
+        </p>
+        <p>
+          Discards are configured per series on the{' '}
+          <strong className="text-foreground">Settings</strong> tab, in the{' '}
+          <strong className="text-foreground">Scoring</strong> card. Each rule specifies a minimum
+          number of races sailed and how many discards apply from that point on. For example:
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li>
+            <em>From (races): 5, Total discards: 1</em> — one discard applies once 5 or more races
+            have been sailed; no discards before that.
+          </li>
+          <li>
+            You can add a second rule, e.g. <em>From: 9, Total discards: 2</em>, to increase the
+            total number of discards as the series grows. Each rule sets the <em>total</em>, so a
+            second rule of 2 means two discards (not one on top of one).
+          </li>
+        </ul>
+        <p>
+          To add a rule, click <strong className="text-foreground">Add rule</strong>, fill in the
+          thresholds, then click <strong className="text-foreground">Save</strong>. To remove a
+          rule, click the × button on that row. A series with no rules has no discards.
+        </p>
+        <p>
+          The worst race(s) are dropped per competitor — each competitor discards their own worst
+          score. When two races have the same score, the earlier race is discarded.
         </p>
       </Section>
 

@@ -1,3 +1,8 @@
+export interface DiscardThreshold {
+  minRaces: number;     // apply this rule when races.length >= minRaces
+  discardCount: number; // number of worst scores to drop
+}
+
 export interface Series {
   id: string;
   name: string;
@@ -12,6 +17,8 @@ export interface Series {
   lastSavedAt: number | null;     // Date.now() of last Save to File
   lastModifiedAt: number;         // Date.now() of last data change
   snapshotHistory: string[];      // ordered lineage of all snapshot IDs
+  // Scoring rules
+  discardThresholds: DiscardThreshold[];
 }
 
 export interface Competitor {
@@ -54,7 +61,9 @@ export interface RaceScore {
 export interface Standing {
   rank: number;
   competitor: Competitor;
-  racePoints: number[];            // points per race, in race order
+  racePoints: number[];             // points per race, in race order
   raceCodes: (ResultCode | null)[]; // result code per race (null = normal finish)
   totalPoints: number;
+  netPoints: number;                // totalPoints minus discarded points
+  raceDiscards: boolean[];          // true = this race is discarded from series total
 }

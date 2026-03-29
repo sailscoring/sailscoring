@@ -3,6 +3,7 @@
 import { use } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { competitorRepo, raceRepo, finishRepo, seriesRepo } from '@/lib/dexie-repository';
+import { getDiscardCount } from '@/lib/scoring';
 import { calculateStandings, calculateRaceScores } from '@/lib/scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from '@/lib/results-renderer';
 import {
@@ -17,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
-import type { Standing } from '@/lib/types';
+import type { Standing, DiscardThreshold } from '@/lib/types';
 
 function PointsCell({
   points,
@@ -55,7 +56,7 @@ async function exportHtml(seriesId: string) {
   if (!series || competitors.length === 0 || races.length === 0) return;
 
   const allFinishes = await finishRepo.listBySeries(seriesId, competitors.map((c) => c.id));
-  const standings = calculateStandings(competitors, races, allFinishes);
+  const standings = calculateStandings(competitors, races, allFinishes, series.discardThresholds);
 
   const competitorsById = new Map(competitors.map((c) => [c.id, c]));
   const raceScoresByRaceId = new Map(
@@ -103,6 +104,10 @@ export default function StandingsPage({
 }) {
   const { id: seriesId } = use(params);
 
+  const series = useLiveQuery(
+    async () => (await seriesRepo.get(seriesId)) ?? null,
+    [seriesId],
+  );
   const competitors = useLiveQuery(
     () => competitorRepo.listBySeries(seriesId),
     [seriesId],
@@ -129,11 +134,16 @@ export default function StandingsPage({
   });
 
   if (
+    series === undefined ||
     competitors === undefined ||
     races === undefined ||
     allFinishes === undefined
   ) {
     return <p className="text-muted-foreground">Loading…</p>;
+  }
+
+  if (series === null) {
+    return <p className="text-muted-foreground">Series not found.</p>;
   }
 
   if (competitors.length === 0) {
@@ -152,14 +162,20 @@ export default function StandingsPage({
     );
   }
 
-  const standings = calculateStandings(competitors, races, allFinishes);
+  const discardThresholds: DiscardThreshold[] = series.discardThresholds ?? [];
+  const standings = calculateStandings(competitors, races, allFinishes, discardThresholds);
+  const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
+  const discardCount = getDiscardCount(races.length, discardThresholds);
 
   return (
     <div className="space-y-4 overflow-x-auto">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {races.length} race{races.length === 1 ? '' : 's'} · Low Point ·{' '}
-          {competitors.length} competitors
+          {discardCount > 0
+            ? `${discardCount} discard${discardCount > 1 ? 's' : ''}`
+            : 'No discards'}{' '}
+          · {competitors.length} competitors
         </p>
         <Button size="sm" onClick={() => exportHtml(seriesId)} title="Export HTML (x)">
           Export HTML
@@ -179,6 +195,9 @@ export default function StandingsPage({
               </TableHead>
             ))}
             <TableHead className="w-20 text-center font-semibold">Total</TableHead>
+            {hasDiscards && (
+              <TableHead className="w-20 text-center font-semibold">Nett</TableHead>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -187,6 +206,7 @@ export default function StandingsPage({
               key={standing.competitor.id}
               standing={standing}
               raceCount={races.length}
+              hasDiscards={hasDiscards}
             />
           ))}
         </TableBody>
@@ -198,11 +218,13 @@ export default function StandingsPage({
 function StandingRow({
   standing,
   raceCount,
+  hasDiscards,
 }: {
   standing: Standing;
   raceCount: number;
+  hasDiscards: boolean;
 }) {
-  const { rank, competitor, racePoints, raceCodes, totalPoints } = standing;
+  const { rank, competitor, racePoints, raceCodes, totalPoints, netPoints, raceDiscards } = standing;
 
   // Highlight rank 1 row
   const isFirst = rank === 1;
@@ -221,18 +243,28 @@ function StandingRow({
       <TableCell className="font-mono">{competitor.sailNumber}</TableCell>
       <TableCell>{competitor.name}</TableCell>
       <TableCell className="text-muted-foreground">{competitor.club}</TableCell>
-      {racePoints.map((points, i) => (
-        <TableCell key={i} className="text-center tabular-nums">
-          {raceCodes[i] !== null ? (
-            <span className="text-muted-foreground text-xs">
-              {points}
-              <span className="ml-0.5">({raceCodes[i]})</span>
-            </span>
-          ) : (
-            points
-          )}
-        </TableCell>
-      ))}
+      {racePoints.map((points, i) => {
+        const isDiscard = raceDiscards[i] ?? false;
+        const code = raceCodes[i];
+        return (
+          <TableCell
+            key={i}
+            className={cn(
+              'text-center tabular-nums',
+              isDiscard && 'line-through text-muted-foreground',
+            )}
+          >
+            {code !== null ? (
+              <span className={cn('text-xs', !isDiscard && 'text-muted-foreground')}>
+                {points}
+                <span className="ml-0.5">({code})</span>
+              </span>
+            ) : (
+              points
+            )}
+          </TableCell>
+        );
+      })}
       {/* Pad with dashes for races not yet sailed */}
       {Array.from({ length: raceCount - racePoints.length }).map((_, i) => (
         <TableCell key={`empty-${i}`} className="text-center text-muted-foreground">
@@ -242,6 +274,11 @@ function StandingRow({
       <TableCell className="text-center font-semibold tabular-nums">
         {totalPoints}
       </TableCell>
+      {hasDiscards && (
+        <TableCell className="text-center font-semibold tabular-nums">
+          {netPoints}
+        </TableCell>
+      )}
     </TableRow>
   );
 }
