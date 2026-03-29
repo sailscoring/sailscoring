@@ -203,6 +203,35 @@ export default function SettingsPage({
 
   return (
     <div className="space-y-6 max-w-lg">
+      {/* File card */}
+      <div className={`border rounded-lg p-5 space-y-4 ${!hasFileHistory ? 'opacity-70' : ''}`}>
+        <div>
+          <h2 className="text-sm font-medium">File</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {series.lastSavedAt
+              ? <>Last saved: {formatTimestamp(series.lastSavedAt)}{isModified && <span className="ml-2 text-amber-600 dark:text-amber-400">· modified since last save</span>}</>
+              : hasFileHistory
+              ? 'Opened from file — not yet saved from this device'
+              : 'Not saved to file'}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handleSaveToFile} disabled={saving} variant="outline">
+            {saving ? 'Saving…' : 'Save to File'}
+          </Button>
+          {hasFileHistory && (
+            <Button onClick={handleUpdateFromFile} variant="outline">
+              Update from File
+            </Button>
+          )}
+        </div>
+        {!hasFileHistory && (
+          <p className="text-xs text-muted-foreground">
+            Save to a file to share this series with co-scorers or back it up.
+          </p>
+        )}
+      </div>
+
       {/* Basics card */}
       <form onSubmit={handleSaveBasics} className="border rounded-lg p-5 space-y-4">
         <h2 className="text-sm font-medium">Basics</h2>
@@ -323,35 +352,6 @@ export default function SettingsPage({
           </Button>
         </div>
       </form>
-
-      {/* File card */}
-      <div className={`border rounded-lg p-5 space-y-4 ${!hasFileHistory ? 'opacity-70' : ''}`}>
-        <div>
-          <h2 className="text-sm font-medium">File</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {series.lastSavedAt
-              ? <>Last saved: {formatTimestamp(series.lastSavedAt)}{isModified && <span className="ml-2 text-amber-600 dark:text-amber-400">· modified since last save</span>}</>
-              : hasFileHistory
-              ? 'Opened from file — not yet saved from this device'
-              : 'Not saved to file'}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={handleSaveToFile} disabled={saving} variant="outline">
-            {saving ? 'Saving…' : 'Save to File'}
-          </Button>
-          {hasFileHistory && (
-            <Button onClick={handleUpdateFromFile} variant="outline">
-              Update from File
-            </Button>
-          )}
-        </div>
-        {!hasFileHistory && (
-          <p className="text-xs text-muted-foreground">
-            Save to a file to share this series with co-scorers or back it up.
-          </p>
-        )}
-      </div>
 
       <input
         ref={fileInputRef}
