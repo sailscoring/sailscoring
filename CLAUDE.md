@@ -98,6 +98,7 @@ When implementing any new user-facing feature, ensure the following are covered 
 - **Unit tests** — if the feature includes pure logic (calculations, parsers, validators), add Vitest tests in `tests/`. E2e covers workflows; unit tests cover correctness of the underlying functions.
 - **E2E test** — add a Playwright test in `e2e/` covering the happy path. Console errors and page errors fail tests automatically (see `e2e/` setup).
 - **Series file format** — if the feature adds new persistent fields to any type in `lib/types.ts`, update the serialization in `lib/series-file.ts` and consider whether the format version needs bumping. Omitting this causes silent data loss on file round-trips.
+- **Scoring fixtures** — if the feature changes or extends scoring logic in `lib/scoring.ts`, add one or more declarative YAML fixtures in `tests/fixtures/scoring/`. Fixtures are designed to be read and verified by human scorers, not just by the test runner. After adding fixtures, run `pnpm generate:fixtures` and commit the regenerated `.htm` files alongside the `.yaml` files. See `tests/fixtures/scoring/README.md`.
 
 ## Tone and Humour
 
