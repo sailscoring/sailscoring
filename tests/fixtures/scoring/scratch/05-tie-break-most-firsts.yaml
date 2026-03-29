@@ -1,0 +1,77 @@
+description: "Scratch — tie broken by most first places (RRS A8.2)"
+rrs_notes: >
+  RRS A8.2: When boats are tied on net points, rank by most first-place finishes,
+  then most second-place finishes, and so on.
+  Alice and Bob both score 5 net points. Alice has two first-place finishes; Bob has one.
+  Alice ranks ahead.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+
+# Alice: 1st, 3rd, 1st  → 5 pts, two firsts
+# Bob:   2nd, 1st, 2nd  → 5 pts, one first
+# Carol: 3rd, 2nd, 3rd  → 8 pts
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+
+  - number: 2
+    # Bob wins; Alice struggles
+    finishes:
+      - sailor: "202"
+        position: 1
+      - sailor: "303"
+        position: 2
+      - sailor: "101"
+        position: 3
+
+  - number: 3
+    # Alice wins again; Bob 2nd
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+
+# Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice wins.
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 3, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 5
+      netPoints: 5
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [2, 1, 2]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 5
+      netPoints: 5
+
+    - rank: 3
+      sailor: "303"
+      racePoints: [3, 2, 3]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 8
+      netPoints: 8

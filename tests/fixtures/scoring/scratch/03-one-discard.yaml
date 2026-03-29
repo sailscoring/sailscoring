@@ -1,0 +1,143 @@
+description: "Scratch — 5 boats, 5 races, one discard (threshold: 1 discard at 5 races)"
+rrs_notes: >
+  RRS A8.1: A series may exclude (discard) a boat's worst race score.
+  The threshold here is: 1 discard when 5 or more races have been sailed.
+  Key test: without the discard Bob leads (8 pts) and Alice is second (11 pts).
+  Once the discard applies, Alice drops her race-5 DNC penalty (6 pts) and nets 5,
+  while Bob drops his worst 2nd place and nets 6. The ranking inverts — Alice wins.
+
+series:
+  discardThresholds:
+    - minRaces: 5
+      discardCount: 1
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+  - sailNumber: "505"
+    name: "Eve"
+
+# Alice wins races 1–3 and finishes 2nd in race 4, then takes a DNC in race 5.
+# Bob finishes 2nd in races 1–3, then wins races 4 and 5.
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+      - sailor: "505"
+        position: 5
+
+  - number: 2
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+      - sailor: "505"
+        position: 5
+
+  - number: 3
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+      - sailor: "505"
+        position: 5
+
+  - number: 4
+    finishes:
+      - sailor: "202"
+        position: 1
+      - sailor: "101"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+      - sailor: "505"
+        position: 5
+
+  - number: 5
+    # Alice does not race (DNC = N+1 = 6 pts). Bob wins.
+    finishes:
+      - sailor: "202"
+        position: 1
+      - sailor: "303"
+        position: 2
+      - sailor: "404"
+        position: 3
+      - sailor: "505"
+        position: 4
+      - sailor: "101"
+        code: DNC
+
+# Points per race (N+1 = 6):
+#   Alice: 1, 1, 1, 2, 6  — total=11. Drop race 5 (DNC=6) → net=5.
+#   Bob:   2, 2, 2, 1, 1  — total=8.  Drop race 1 (worst=2, earliest) → net=6.
+#   Carol: 3, 3, 3, 3, 2  — total=14. Drop race 1 (worst=3, earliest) → net=11.
+#   David: 4, 4, 4, 4, 3  — total=19. Drop race 1 (worst=4, earliest) → net=15.
+#   Eve:   5, 5, 5, 5, 4  — total=24. Drop race 1 (worst=5, earliest) → net=19.
+#
+# Without discard: Bob(8) leads Alice(11). With discard: Alice(5) leads Bob(6).
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 1, 1, 2, 6]
+      raceCodes: [null, null, null, null, "DNC"]
+      raceDiscards: [false, false, false, false, true]
+      totalPoints: 11
+      netPoints: 5
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [2, 2, 2, 1, 1]
+      raceCodes: [null, null, null, null, null]
+      raceDiscards: [true, false, false, false, false]
+      totalPoints: 8
+      netPoints: 6
+
+    - rank: 3
+      sailor: "303"
+      racePoints: [3, 3, 3, 3, 2]
+      raceCodes: [null, null, null, null, null]
+      raceDiscards: [true, false, false, false, false]
+      totalPoints: 14
+      netPoints: 11
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 4, 4, 4, 3]
+      raceCodes: [null, null, null, null, null]
+      raceDiscards: [true, false, false, false, false]
+      totalPoints: 19
+      netPoints: 15
+
+    - rank: 5
+      sailor: "505"
+      racePoints: [5, 5, 5, 5, 4]
+      raceCodes: [null, null, null, null, null]
+      raceDiscards: [true, false, false, false, false]
+      totalPoints: 24
+      netPoints: 19

@@ -1,0 +1,102 @@
+description: "Scratch — tie broken by best score in most recent race (RRS A8.2 last resort)"
+rrs_notes: >
+  RRS A8.2: If boats are still tied after counting place-by-place occurrences, rank them
+  by their score in the most recent race, then the next most recent, and so on.
+  Alice and Bob each score 8 points, with identical place distributions
+  (one 1st, one 2nd, one DNC each). Race 3 is a draw — both took DNC.
+  Looking back to race 2, Bob finished 1st and Alice 2nd: Bob ranks ahead.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+
+# 4 boats, N+1 = 5.
+#
+# Alice: 1st, 2nd, DNC → 1+2+5=8  (one 1st, one 2nd, one DNC)
+# Bob:   2nd, 1st, DNC → 2+1+5=8  (one 1st, one 2nd, one DNC) ← tied with Alice
+# Carol: 3rd, 3rd, 1st → 3+3+1=7  (wins outright)
+# David: 4th, 4th, 2nd → 4+4+2=10
+#
+# Tie-break (Alice vs Bob):
+#   Step 1 — count 1s: Alice=1, Bob=1 → equal
+#   Step 2 — count 2s: Alice=1, Bob=1 → equal
+#   Step 3 — count 5s (DNC): Alice=1, Bob=1 → equal (all counts identical)
+#   Last resort — most recent race (race 3): Alice=5, Bob=5 → equal
+#   Next race back (race 2): Alice=2, Bob=1 → Bob wins
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 2
+    finishes:
+      - sailor: "202"
+        position: 1
+      - sailor: "101"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 3
+    # Alice and Bob both DNC; Carol wins, David 2nd
+    finishes:
+      - sailor: "303"
+        position: 1
+      - sailor: "404"
+        position: 2
+      - sailor: "101"
+        code: DNC
+      - sailor: "202"
+        code: DNC
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "303"
+      racePoints: [3, 3, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 7
+      netPoints: 7
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [2, 1, 5]
+      raceCodes: [null, null, "DNC"]
+      raceDiscards: [false, false, false]
+      totalPoints: 8
+      netPoints: 8
+
+    - rank: 3
+      sailor: "101"
+      racePoints: [1, 2, 5]
+      raceCodes: [null, null, "DNC"]
+      raceDiscards: [false, false, false]
+      totalPoints: 8
+      netPoints: 8
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 4, 2]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 10
+      netPoints: 10

@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="description" content="sail scoring results">
+<meta name="viewport" content="width=device-width">
+<title>Results for Scratch — 3 boats, 9 races, two discards (thresholds: 1 at 5 races, 2 at 9 races)</title>
+<style type="text/css">
+body {font: 80% arial, helvetica, sans-serif; text-align: center;}
+.hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
+.hardright {text-align: right; float: right; margin: 15px 25px 15px 0;}
+table {text-align: left; margin: 0px auto 30px auto; font-size: 1em; border-collapse: collapse; border: 1px #999 solid;}
+td, th {padding: 4px; border: 1px #999 solid; vertical-align: top;}
+.caption {padding: 5px; text-align: center; border: 0; font-weight: bold;}
+p {text-align: center;}
+.odd {background-color: #eef;}
+table.headertable {border: 0px;}
+table.headertable td{border: 0px;}
+td.rank1 { background: #ffd700; }
+td.rank2 { background: #6a91c5; }
+td.rank3 { background: #da6841; }
+td.discard { background: #f2f2f2; }
+td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
+</style>
+</head>
+<body>
+<table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
+<tbody>
+<tr>
+<td width="30%"></td>
+<td width="40%" align="center">
+<h1>Scratch — 3 boats, 9 races, two discards (thresholds: 1 at 5 races, 2 at 9 races)</h1>
+
+</td>
+<td width="30%"></td>
+</tr>
+</tbody>
+</table>
+<div style="clear:both;"></div>
+<div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.1: The series scoring instructions state how many races may be discarded. Threshold stepping: once 5 races are sailed, 1 discard applies; once 9 are sailed, 2 discards apply. Alice wins 7 races but takes DNCs in races 8 and 9. With 2 discards, she drops both penalties and nets just 7 points. This validates that the scoring engine applies 2 discards (not 1) at the 9-race threshold and correctly marks both of Alice's DNC races as discarded.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> 1 discard from race 5, 2 discards from race 9.</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Races 1–7: all three sail; Alice wins, Bob 2nd, Carol 3rd.
+Races 8–9: Alice does not race (DNC); Bob wins, Carol 2nd.
+    Alice absent — implicit DNC (N+1 = 4 pts for a 3-boat series)
+    Alice absent again
+Point totals (N+1 = 4):
+  Alice: 1×7 + 4×2 = 15 total.  Drop both DNCs → net = 7.
+  Bob:   2×7 + 1×2 = 16 total.  Drop two 2s (earliest first, races 1 &amp; 2) → net = 12.
+  Carol: 3×7 + 2×2 = 25 total.  Drop two 3s (races 1 &amp; 2) → net = 19.
+
+Alice leads in all scenarios (her 7 wins outweigh the 2 penalties even before discards).
+The focus here is on confirming the threshold steps to 2 discards at 9 races and that
+both of Alice's DNC races are marked as discarded.</pre>
+</div>
+<style>div.applicant-break {page-break-after:always;}</style>
+
+<table class="summarytable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="14">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="race" />
+<col class="race" />
+<col class="race" />
+<col class="race" />
+<col class="race" />
+<col class="race" />
+<col class="race" />
+<col class="race" />
+<col class="race" />
+<col class="total" />
+<col class="nett" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th><a class="racelink" href="#r1">R1</a></th>
+<th><a class="racelink" href="#r2">R2</a></th>
+<th><a class="racelink" href="#r3">R3</a></th>
+<th><a class="racelink" href="#r4">R4</a></th>
+<th><a class="racelink" href="#r5">R5</a></th>
+<th><a class="racelink" href="#r6">R6</a></th>
+<th><a class="racelink" href="#r7">R7</a></th>
+<th><a class="racelink" href="#r8">R8</a></th>
+<th><a class="racelink" href="#r9">R9</a></th>
+<th>Total</th>
+<th>Nett</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd summaryrow">
+<td>1st</td>
+<td>101</td>
+<td>Alice</td>
+<td class="rank1">1</td>
+<td class="rank1">1</td>
+<td class="rank1">1</td>
+<td class="rank1">1</td>
+<td class="rank1">1</td>
+<td class="rank1">1</td>
+<td class="rank1">1</td>
+<td class="discard">(4 DNC)</td>
+<td class="discard">(4 DNC)</td>
+<td>15</td>
+<td>7</td>
+</tr>
+<tr class="even summaryrow">
+<td>2nd</td>
+<td>202</td>
+<td>Bob</td>
+<td class="discard rank2">(2)</td>
+<td class="discard rank2">(2)</td>
+<td class="rank2">2</td>
+<td class="rank2">2</td>
+<td class="rank2">2</td>
+<td class="rank2">2</td>
+<td class="rank2">2</td>
+<td class="rank1">1</td>
+<td class="rank1">1</td>
+<td>16</td>
+<td>12</td>
+</tr>
+<tr class="odd summaryrow">
+<td>3rd</td>
+<td>303</td>
+<td>Carol</td>
+<td class="discard rank3">(3)</td>
+<td class="discard rank3">(3)</td>
+<td class="rank3">3</td>
+<td class="rank3">3</td>
+<td class="rank3">3</td>
+<td class="rank3">3</td>
+<td class="rank3">3</td>
+<td class="rank2">2</td>
+<td class="rank2">2</td>
+<td>25</td>
+<td>19</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r1">R1&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="place" />
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th>Place</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td>1</td>
+<td>101</td>
+<td>Alice</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr class="even racerow">
+<td>2</td>
+<td>202</td>
+<td>Bob</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>303</td>
+<td>Carol</td>
+<td>3</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r2">R2&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="place" />
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th>Place</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td>1</td>
+<td>101</td>
+<td>Alice</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr class="even racerow">
+<td>2</td>
+<td>202</td>
+<td>Bob</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>303</td>
+<td>Carol</td>
+<td>3</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r3">R3&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="place" />
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th>Place</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td>1</td>
+<td>101</td>
+<td>Alice</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr class="even racerow">
+<td>2</td>
+<td>202</td>
+<td>Bob</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>303</td>
+<td>Carol</td>
+<td>3</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r4">R4&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="place" />
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th>Place</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td>1</td>
+<td>101</td>
+<td>Alice</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr class="even racerow">
+<td>2</td>
+<td>202</td>
+<td>Bob</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>303</td>
+<td>Carol</td>
+<td>3</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r5">R5&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="place" />
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th>Place</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td>1</td>
+<td>101</td>
+<td>Alice</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr class="even racerow">
+<td>2</td>
+<td>202</td>
+<td>Bob</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>303</td>
+<td>Carol</td>
+<td>3</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r6">R6&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="place" />
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th>Place</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td>1</td>
+<td>101</td>
+<td>Alice</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr class="even racerow">
+<td>2</td>
+<td>202</td>
+<td>Bob</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>303</td>
+<td>Carol</td>
+<td>3</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r7">R7&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="place" />
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th>Place</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td>1</td>
+<td>101</td>
+<td>Alice</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr class="even racerow">
+<td>2</td>
+<td>202</td>
+<td>Bob</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>303</td>
+<td>Carol</td>
+<td>3</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r8">R8&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="place" />
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th>Place</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td>1</td>
+<td>202</td>
+<td>Bob</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr class="even racerow">
+<td>2</td>
+<td>303</td>
+<td>Carol</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>101</td>
+<td>Alice</td>
+<td>DNC</td>
+<td>4</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r9">R9&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="place" />
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th>Place</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td>1</td>
+<td>202</td>
+<td>Bob</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr class="even racerow">
+<td>2</td>
+<td>303</td>
+<td>Carol</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>101</td>
+<td>Alice</td>
+<td>DNC</td>
+<td>4</td>
+</tr>
+</tbody>
+</table>
+<p class="hardleft"></p>
+<p class="hardright"></p>
+<p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a></p>
+</body>
+</html>

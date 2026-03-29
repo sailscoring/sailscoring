@@ -1,0 +1,103 @@
+description: "Scratch — 5 boats, 3 races, all finish, no discards, no tie-breaks"
+rrs_notes: >
+  RRS A5.1 (Low Point): a boat's score in a race is the finishing position within the fleet.
+  The series score is the sum of race scores. Lowest score wins.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+  - sailNumber: "505"
+    name: "Eve"
+
+# Different winner each race so rankings are unambiguous
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+      - sailor: "505"
+        position: 5
+
+  - number: 2
+    finishes:
+      - sailor: "202"
+        position: 1
+      - sailor: "303"
+        position: 2
+      - sailor: "404"
+        position: 3
+      - sailor: "505"
+        position: 4
+      - sailor: "101"
+        position: 5
+
+  - number: 3
+    finishes:
+      - sailor: "303"
+        position: 1
+      - sailor: "404"
+        position: 2
+      - sailor: "505"
+        position: 3
+      - sailor: "101"
+        position: 4
+      - sailor: "202"
+        position: 5
+
+# Totals: Alice=1+5+4=10, Bob=2+1+5=8, Carol=3+2+1=6, David=4+3+2=9, Eve=5+4+3=12
+expected:
+  standings:
+    - rank: 1
+      sailor: "303"
+      racePoints: [3, 2, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 6
+      netPoints: 6
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [2, 1, 5]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 8
+      netPoints: 8
+
+    - rank: 3
+      sailor: "404"
+      racePoints: [4, 3, 2]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 9
+      netPoints: 9
+
+    - rank: 4
+      sailor: "101"
+      racePoints: [1, 5, 4]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 10
+      netPoints: 10
+
+    - rank: 5
+      sailor: "505"
+      racePoints: [5, 4, 3]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 12
+      netPoints: 12

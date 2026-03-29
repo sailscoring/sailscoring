@@ -1,0 +1,113 @@
+description: "Scratch — 5 boats, 3 races, penalty result codes (DNC, DNF, OCS)"
+rrs_notes: >
+  RRS A5.3: A boat that did not start, did not finish, retired, or was disqualified
+  shall be scored points equal to the number of boats entitled to race plus one (N+1).
+  With 5 entered boats, N+1 = 6.
+  A boat absent from a race (no finish record) is scored DNC = N+1.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+  - sailNumber: "505"
+    name: "Eve"
+
+races:
+  - number: 1
+    # All 5 boats finish cleanly
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+      - sailor: "505"
+        position: 5
+
+  - number: 2
+    # David gets OCS (on course side at start), Eve DNF (retired mid-race)
+    # Alice, Bob, Carol finish normally
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        code: OCS
+      - sailor: "505"
+        code: DNF
+
+  - number: 3
+    # Carol has an explicit DNC (decided not to race)
+    # Eve is absent (no finish record) — treated as implicit DNC, same score as explicit DNC
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "404"
+        position: 3
+      - sailor: "303"
+        code: DNC
+      # Eve ("505") has no entry at all — implicit DNC
+
+# Points summary (N+1 = 6 for all penalty codes):
+#   Alice:  1 + 1 + 1 = 3
+#   Bob:    2 + 2 + 2 = 6
+#   Carol:  3 + 3 + 6 = 12   (DNC in race 3)
+#   David:  4 + 6 + 3 = 13   (OCS in race 2)
+#   Eve:    5 + 6 + 6 = 17   (DNF in race 2, implicit DNC in race 3)
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 1, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 3
+      netPoints: 3
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [2, 2, 2]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 6
+      netPoints: 6
+
+    - rank: 3
+      sailor: "303"
+      racePoints: [3, 3, 6]
+      raceCodes: [null, null, "DNC"]
+      raceDiscards: [false, false, false]
+      totalPoints: 12
+      netPoints: 12
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 6, 3]
+      raceCodes: [null, "OCS", null]
+      raceDiscards: [false, false, false]
+      totalPoints: 13
+      netPoints: 13
+
+    - rank: 5
+      sailor: "505"
+      racePoints: [5, 6, 6]
+      raceCodes: [null, "DNF", "DNC"]
+      raceDiscards: [false, false, false]
+      totalPoints: 17
+      netPoints: 17

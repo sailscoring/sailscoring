@@ -1,0 +1,143 @@
+description: "Scratch — 3 boats, 9 races, two discards (thresholds: 1 at 5 races, 2 at 9 races)"
+rrs_notes: >
+  RRS A8.1: The series scoring instructions state how many races may be discarded.
+  Threshold stepping: once 5 races are sailed, 1 discard applies; once 9 are sailed,
+  2 discards apply. Alice wins 7 races but takes DNCs in races 8 and 9.
+  With 2 discards, she drops both penalties and nets just 7 points.
+  This validates that the scoring engine applies 2 discards (not 1) at the 9-race
+  threshold and correctly marks both of Alice's DNC races as discarded.
+
+series:
+  discardThresholds:
+    - minRaces: 5
+      discardCount: 1
+    - minRaces: 9
+      discardCount: 2
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+
+# Races 1–7: all three sail; Alice wins, Bob 2nd, Carol 3rd.
+# Races 8–9: Alice does not race (DNC); Bob wins, Carol 2nd.
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+
+  - number: 2
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+
+  - number: 3
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+
+  - number: 4
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+
+  - number: 5
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+
+  - number: 6
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+
+  - number: 7
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+
+  - number: 8
+    # Alice absent — implicit DNC (N+1 = 4 pts for a 3-boat series)
+    finishes:
+      - sailor: "202"
+        position: 1
+      - sailor: "303"
+        position: 2
+      - sailor: "101"
+        code: DNC
+
+  - number: 9
+    # Alice absent again
+    finishes:
+      - sailor: "202"
+        position: 1
+      - sailor: "303"
+        position: 2
+      - sailor: "101"
+        code: DNC
+
+# Point totals (N+1 = 4):
+#   Alice: 1×7 + 4×2 = 15 total.  Drop both DNCs → net = 7.
+#   Bob:   2×7 + 1×2 = 16 total.  Drop two 2s (earliest first, races 1 & 2) → net = 12.
+#   Carol: 3×7 + 2×2 = 25 total.  Drop two 3s (races 1 & 2) → net = 19.
+#
+# Alice leads in all scenarios (her 7 wins outweigh the 2 penalties even before discards).
+# The focus here is on confirming the threshold steps to 2 discards at 9 races and that
+# both of Alice's DNC races are marked as discarded.
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 1, 1, 1, 1, 1, 1, 4, 4]
+      raceCodes: [null, null, null, null, null, null, null, "DNC", "DNC"]
+      raceDiscards: [false, false, false, false, false, false, false, true, true]
+      totalPoints: 15
+      netPoints: 7
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [2, 2, 2, 2, 2, 2, 2, 1, 1]
+      raceCodes: [null, null, null, null, null, null, null, null, null]
+      raceDiscards: [true, true, false, false, false, false, false, false, false]
+      totalPoints: 16
+      netPoints: 12
+
+    - rank: 3
+      sailor: "303"
+      racePoints: [3, 3, 3, 3, 3, 3, 3, 2, 2]
+      raceCodes: [null, null, null, null, null, null, null, null, null]
+      raceDiscards: [true, true, false, false, false, false, false, false, false]
+      totalPoints: 25
+      netPoints: 19
