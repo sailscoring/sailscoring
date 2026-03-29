@@ -60,7 +60,7 @@ export default function SettingsPage({
   const [endDate, setEndDate] = useState('');
   const [venueLogoUrl, setVenueLogoUrl] = useState('');
   const [eventLogoUrl, setEventLogoUrl] = useState('');
-  const [basicsSaving, setBasicsSaving] = useState(false);
+  const [basicsChanged, setBasicsChanged] = useState(false);
 
   useEffect(() => {
     if (series) {
@@ -69,12 +69,12 @@ export default function SettingsPage({
       setEndDate(series.endDate);
       setVenueLogoUrl(series.venueLogoUrl);
       setEventLogoUrl(series.eventLogoUrl);
+      setBasicsChanged(false);
     }
   }, [series?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSaveBasics(e: React.FormEvent) {
     e.preventDefault();
-    setBasicsSaving(true);
     try {
       await db.series.update(seriesId, {
         venue: venue.trim(),
@@ -84,10 +84,9 @@ export default function SettingsPage({
         eventLogoUrl: eventLogoUrl.trim(),
         lastModifiedAt: Date.now(),
       });
+      setBasicsChanged(false);
     } catch (err) {
       console.error(err);
-    } finally {
-      setBasicsSaving(false);
     }
   }
 
@@ -169,7 +168,7 @@ export default function SettingsPage({
           <Input
             id="venue"
             value={venue}
-            onChange={(e) => setVenue(e.target.value)}
+            onChange={(e) => { setVenue(e.target.value); setBasicsChanged(true); }}
             placeholder="e.g. Howth Yacht Club"
           />
         </div>
@@ -180,7 +179,7 @@ export default function SettingsPage({
               id="startDate"
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => { setStartDate(e.target.value); setBasicsChanged(true); }}
             />
           </div>
           <div className="space-y-1.5">
@@ -189,7 +188,7 @@ export default function SettingsPage({
               id="endDate"
               type="date"
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(e) => { setEndDate(e.target.value); setBasicsChanged(true); }}
             />
           </div>
         </div>
@@ -199,7 +198,7 @@ export default function SettingsPage({
             id="venueLogoUrl"
             type="url"
             value={venueLogoUrl}
-            onChange={(e) => setVenueLogoUrl(e.target.value)}
+            onChange={(e) => { setVenueLogoUrl(e.target.value); setBasicsChanged(true); }}
             placeholder="https://…"
           />
         </div>
@@ -209,12 +208,12 @@ export default function SettingsPage({
             id="eventLogoUrl"
             type="url"
             value={eventLogoUrl}
-            onChange={(e) => setEventLogoUrl(e.target.value)}
+            onChange={(e) => { setEventLogoUrl(e.target.value); setBasicsChanged(true); }}
             placeholder="https://…"
           />
         </div>
-        <Button type="submit" variant="outline" disabled={basicsSaving}>
-          {basicsSaving ? 'Saving…' : 'Save'}
+        <Button type="submit" variant="outline" disabled={!basicsChanged}>
+          {basicsChanged ? 'Save' : 'Saved'}
         </Button>
       </form>
 
