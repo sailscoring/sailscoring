@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { X } from 'lucide-react';
 import type { Competitor, Finish, ResultCode } from '@/lib/types';
+import { CheckSquare, Square } from 'lucide-react';
 import { log } from '@/lib/debug';
 import { cn } from '@/lib/utils';
 import { reorderFinisher } from '@/lib/finish-entry';
@@ -64,7 +65,9 @@ export default function ResultEntryPage({
     value: string;
   } | null>(null);
 
+  const [activeTab, setActiveTab] = useState<'finish' | 'checkin'>('finish');
   const [sailInput, setSailInput] = useState('');
+  const [checkinInput, setCheckinInput] = useState('');
   const [inputError, setInputError] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -232,10 +235,49 @@ export default function ResultEntryPage({
     }
   }
 
+  async function toggleStartPresent(competitor: Competitor) {
+    const existing = savedFinishes?.find((f) => f.competitorId === competitor.id);
+    const isPresent = existing?.startPresent === true;
+
+    if (isPresent) {
+      // Un-check: remove startPresent flag
+      if (existing && existing.finishPosition === null && existing.resultCode === null) {
+        // Check-in-only record — delete it entirely
+        await finishRepo.delete(existing.id);
+      } else if (existing) {
+        // Has other data — clear just the flag
+        await finishRepo.save({ ...existing, startPresent: false });
+      }
+    } else {
+      // Check: set startPresent = true
+      if (existing) {
+        await finishRepo.save({ ...existing, startPresent: true });
+      } else {
+        await finishRepo.save({
+          id: crypto.randomUUID(),
+          raceId,
+          competitorId: competitor.id,
+          finishPosition: null,
+          resultCode: null,
+          startPresent: true,
+        });
+      }
+    }
+    await seriesRepo.touch(seriesId);
+  }
+
   async function handleSave() {
     setSaving(true);
     setSaveError('');
     try {
+      // Preserve startPresent data from existing finishes (set via check-in)
+      const existing = await finishRepo.listByRace(raceId);
+      const startPresentMap = new Map(
+        existing
+          .filter((f) => f.startPresent !== null)
+          .map((f) => [f.competitorId, f.startPresent as boolean]),
+      );
+
       const finishes: Finish[] = [];
 
       // Finishers
@@ -246,6 +288,7 @@ export default function ResultEntryPage({
           competitorId,
           finishPosition: index + 1,
           resultCode: null,
+          startPresent: startPresentMap.get(competitorId) ?? null,
         });
       });
 
@@ -258,6 +301,25 @@ export default function ResultEntryPage({
             competitorId,
             finishPosition: null,
             resultCode: code,
+            startPresent: startPresentMap.get(competitorId) ?? null,
+          });
+        }
+      }
+
+      // Check-in-only records: competitors with startPresent=true but not in finish list or codes
+      const accountedIds = new Set([
+        ...finishingOrder,
+        ...nonFinisherCodes.keys(),
+      ]);
+      for (const [competitorId, present] of startPresentMap) {
+        if (present && !accountedIds.has(competitorId)) {
+          finishes.push({
+            id: crypto.randomUUID(),
+            raceId,
+            competitorId,
+            finishPosition: null,
+            resultCode: null,
+            startPresent: true,
           });
         }
       }
@@ -281,6 +343,14 @@ export default function ResultEntryPage({
     OCS: 'OCS',
   };
 
+  const presentCount = savedFinishes?.filter((f) => f.startPresent === true).length ?? 0;
+
+  const checkinSuggestions = checkinInput.trim()
+    ? (competitors ?? []).filter((c) =>
+        c.sailNumber.toUpperCase().startsWith(checkinInput.trim().toUpperCase()),
+      )
+    : [];
+
   return (
     <div className="space-y-6">
       <div>
@@ -288,7 +358,108 @@ export default function ResultEntryPage({
         <p className="text-sm text-muted-foreground">{race.date}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      {/* Tab selector */}
+      <div className="flex gap-1 border-b">
+        <button
+          type="button"
+          onClick={() => setActiveTab('finish')}
+          className={cn(
+            'px-3 py-1.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+            activeTab === 'finish'
+              ? 'border-foreground text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Finish entry
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('checkin')}
+          className={cn(
+            'px-3 py-1.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+            activeTab === 'checkin'
+              ? 'border-foreground text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Start check-in
+          {presentCount > 0 && (
+            <span className="ml-1.5 text-xs text-muted-foreground">({presentCount})</span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'checkin' && (
+        <div className="space-y-4 max-w-lg">
+          <p className="text-sm text-muted-foreground">
+            Mark competitors as present in the starting area before the race.
+            This data is used for A5.3 scoring (DNF/OCS score starting-area entries + 1).
+          </p>
+          <p className="text-sm font-medium">
+            Present at start: {presentCount} / {competitors?.length ?? 0}
+          </p>
+          <div className="relative">
+            <Input
+              value={checkinInput}
+              onChange={(e) => setCheckinInput(e.target.value)}
+              placeholder="Sail number to search…"
+              autoComplete="off"
+            />
+            {checkinSuggestions.length > 0 && checkinInput.trim() && (
+              <ul className="absolute z-10 top-full mt-1 w-full rounded-md border bg-popover shadow-md">
+                {checkinSuggestions.map((c) => {
+                  const present = savedFinishes?.find((f) => f.competitorId === c.id)?.startPresent === true;
+                  return (
+                    <li
+                      key={c.id}
+                      className="flex items-center gap-3 px-3 py-2 cursor-pointer text-sm hover:bg-accent"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        toggleStartPresent(c);
+                        setCheckinInput('');
+                      }}
+                    >
+                      <span className="font-mono font-medium w-16 shrink-0">{c.sailNumber}</span>
+                      <span className="flex-1 truncate">{c.name}</span>
+                      {present ? (
+                        <CheckSquare className="h-4 w-4 text-green-600 shrink-0" />
+                      ) : (
+                        <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            {(competitors ?? []).map((c) => {
+              const present = savedFinishes?.find((f) => f.competitorId === c.id)?.startPresent === true;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => toggleStartPresent(c)}
+                  className={cn(
+                    'w-full flex items-center gap-3 border rounded-lg px-4 py-2.5 text-left transition-colors',
+                    present ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' : 'hover:bg-accent',
+                  )}
+                >
+                  {present ? (
+                    <CheckSquare className="h-4 w-4 text-green-600 shrink-0" />
+                  ) : (
+                    <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
+                  <span className="font-mono font-medium w-16 shrink-0">{c.sailNumber}</span>
+                  <span className="text-sm flex-1 truncate">{c.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'finish' && <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Left: finishing order */}
         <div className="space-y-4">
           <h3 className="font-medium">Finishing order</h3>
@@ -466,7 +637,7 @@ export default function ResultEntryPage({
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       <div className="flex gap-3 items-center border-t pt-4">
         <Button onClick={handleSave} disabled={saving} title="Save results (⌘S)">

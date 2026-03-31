@@ -15,6 +15,7 @@ interface SeriesFileSeries {
   venueLogoUrl: string;
   eventLogoUrl: string;
   discardThresholds: DiscardThreshold[];
+  dnfScoring: 'seriesEntries' | 'startingArea';
 }
 
 interface SeriesFileCompetitor {
@@ -31,6 +32,7 @@ interface SeriesFileFinish {
   competitorId: string;
   finishPosition: number | null;
   resultCode: ResultCode | null;
+  startPresent: boolean | null;
 }
 
 interface SeriesFileRace {
@@ -88,6 +90,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       competitorId: f.competitorId,
       finishPosition: f.finishPosition,
       resultCode: f.resultCode,
+      startPresent: f.startPresent,
     });
   }
 
@@ -109,6 +112,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       venueLogoUrl: series.venueLogoUrl,
       eventLogoUrl: series.eventLogoUrl,
       discardThresholds: series.discardThresholds,
+      dnfScoring: series.dnfScoring,
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -205,6 +209,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
       lastModifiedAt: now,
       snapshotHistory: [...file.snapshotHistory],
       discardThresholds: file.series.discardThresholds ?? [],
+      dnfScoring: file.series.dnfScoring ?? 'seriesEntries',
     });
 
     for (const c of file.competitors) {
@@ -236,6 +241,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
           competitorId: competitorIdMap.get(f.competitorId)!,
           finishPosition: f.finishPosition,
           resultCode: f.resultCode,
+          startPresent: f.startPresent ?? null,
         });
       }
     }
@@ -271,6 +277,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
       lastModifiedAt: now,
       snapshotHistory: [...file.snapshotHistory],
       discardThresholds: file.series.discardThresholds ?? [],
+      dnfScoring: file.series.dnfScoring ?? 'seriesEntries',
     });
 
     for (const c of file.competitors) {
@@ -302,6 +309,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
           competitorId: competitorIdMap.get(f.competitorId)!,
           finishPosition: f.finishPosition,
           resultCode: f.resultCode,
+          startPresent: f.startPresent ?? null,
         });
       }
     }

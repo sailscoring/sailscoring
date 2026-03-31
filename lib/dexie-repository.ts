@@ -104,6 +104,10 @@ class DexieFinishRepository implements FinishRepository {
     await db.finishes.bulkPut(finishes);
   }
 
+  delete(id: string): Promise<void> {
+    return db.finishes.delete(id);
+  }
+
   deleteByRace(raceId: string): Promise<void> {
     return db.finishes.where('raceId').equals(raceId).delete().then(() => undefined);
   }

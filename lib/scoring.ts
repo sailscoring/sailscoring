@@ -5,18 +5,37 @@ import type { Competitor, Race, Finish, RaceScore, Standing, ResultCode, Discard
  *
  * Rules (Low Point, RRS Appendix A):
  *  - finisher:  points = finishing position within fleet
- *  - DNC/DNF/OCS (or missing finish): points = N + 1 where N = number of competitors
+ *  - DNC (or missing finish): points = N + 1 where N = number of competitors (series entries)
+ *  - DNF/OCS and other codes:
+ *    - A5.2 (dnfScoring = 'seriesEntries', default): points = series entries + 1
+ *    - A5.3 (dnfScoring = 'startingArea'): points = starting-area entries + 1.
+ *      Starting-area count: if any finish has startPresent=true, count those; otherwise
+ *      fall back to counting all non-DNC finishes as a proxy.
  *
  * @param finishes  All Finish records for this race
  * @param competitors  All competitors in the series
+ * @param dnfScoring  'seriesEntries' (A5.2, default) or 'startingArea' (A5.3)
  * @returns  Map of competitorId → RaceScore
  */
 export function calculateRaceScores(
   finishes: Finish[],
   competitors: Competitor[],
+  dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
 ): Map<string, RaceScore> {
   const n = competitors.length;
-  const penaltyPoints = n + 1;
+  const seriesEntryPenalty = n + 1;
+
+  // Under A5.3, compute a per-race penalty for DNF/OCS/etc. (not DNC).
+  // DNC always uses seriesEntryPenalty regardless of dnfScoring setting.
+  let startingAreaPenalty = seriesEntryPenalty;
+  if (dnfScoring === 'startingArea') {
+    const hasCheckinData = finishes.some((f) => f.startPresent === true);
+    const startingAreaCount = hasCheckinData
+      ? finishes.filter((f) => f.startPresent === true).length
+      : finishes.filter((f) => f.resultCode !== 'DNC').length;
+    startingAreaPenalty = startingAreaCount + 1;
+  }
+
   const finishMap = new Map(finishes.map((f) => [f.competitorId, f]));
 
   const result = new Map<string, RaceScore>();
@@ -25,17 +44,26 @@ export function calculateRaceScores(
     const finish = finishMap.get(competitor.id);
 
     if (!finish) {
-      // Missing finish record = implicit DNC
+      // Missing finish record = implicit DNC — always scores series entries + 1
       result.set(competitor.id, {
         competitorId: competitor.id,
-        points: penaltyPoints,
+        points: seriesEntryPenalty,
+        place: null,
+        resultCode: 'DNC',
+      });
+    } else if (finish.resultCode === 'DNC') {
+      // Explicit DNC — always scores series entries + 1 (even under A5.3)
+      result.set(competitor.id, {
+        competitorId: competitor.id,
+        points: seriesEntryPenalty,
         place: null,
         resultCode: 'DNC',
       });
     } else if (finish.resultCode !== null) {
+      // DNF, OCS, or other penalty code — uses startingAreaPenalty under A5.3
       result.set(competitor.id, {
         competitorId: competitor.id,
-        points: penaltyPoints,
+        points: startingAreaPenalty,
         place: null,
         resultCode: finish.resultCode,
       });
@@ -45,6 +73,14 @@ export function calculateRaceScores(
         points: finish.finishPosition,
         place: finish.finishPosition,
         resultCode: null,
+      });
+    } else {
+      // Check-in-only record (startPresent=true, no position, no code) — treat as DNF
+      result.set(competitor.id, {
+        competitorId: competitor.id,
+        points: startingAreaPenalty,
+        place: null,
+        resultCode: 'DNF',
       });
     }
   }
@@ -92,6 +128,7 @@ export function calculateStandings(
   races: Race[],
   allFinishes: Finish[],
   discardThresholds: DiscardThreshold[] = [],
+  dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
 ): Standing[] {
   if (competitors.length === 0 || races.length === 0) {
     return competitors.map((c, i) => ({
@@ -123,7 +160,7 @@ export function calculateStandings(
 
   for (const race of races) {
     const finishes = finishesByRace.get(race.id) ?? [];
-    const scores = calculateRaceScores(finishes, competitors);
+    const scores = calculateRaceScores(finishes, competitors, dnfScoring);
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
       const points = score?.points ?? competitors.length + 1;

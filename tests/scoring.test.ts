@@ -17,7 +17,7 @@ function makeFinish(
   finishPosition: number | null,
   resultCode: Finish['resultCode'] = null,
 ): Finish {
-  return { id: `${raceId}-${competitorId}`, raceId, competitorId, finishPosition, resultCode };
+  return { id: `${raceId}-${competitorId}`, raceId, competitorId, finishPosition, resultCode, startPresent: null };
 }
 
 // ─── calculateRaceScores ─────────────────────────────────────────────────────

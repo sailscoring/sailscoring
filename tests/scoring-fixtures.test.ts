@@ -21,6 +21,7 @@ interface FixtureFinish {
   sailor: string;           // references competitor sailNumber
   position?: number;        // clean finish
   code?: ResultCode;        // DNC | DNF | OCS
+  startPresent?: boolean;   // true if marked present in starting area
 }
 
 interface FixtureRace {
@@ -43,6 +44,7 @@ interface ScoringFixture {
   rrs_notes?: string;
   series: {
     discardThresholds: DiscardThreshold[];
+    dnfScoring?: 'seriesEntries' | 'startingArea';
   };
   competitors: Array<{ sailNumber: string; name: string }>;
   races: FixtureRace[];
@@ -58,6 +60,7 @@ function buildInputs(fixture: ScoringFixture): {
   races: Race[];
   finishes: Finish[];
   discardThresholds: DiscardThreshold[];
+  dnfScoring: 'seriesEntries' | 'startingArea';
 } {
   const competitors: Competitor[] = fixture.competitors.map((c, i) => ({
     id: `c-${i}`,
@@ -95,11 +98,12 @@ function buildInputs(fixture: ScoringFixture): {
         competitorId,
         finishPosition: f.position ?? null,
         resultCode: f.code ?? null,
+        startPresent: f.startPresent ?? null,
       });
     }
   }
 
-  return { competitors, races, finishes, discardThresholds: fixture.series.discardThresholds };
+  return { competitors, races, finishes, discardThresholds: fixture.series.discardThresholds, dnfScoring: fixture.series.dnfScoring ?? 'seriesEntries' };
 }
 
 // ─── Load and run fixture files ───────────────────────────────────────────────
@@ -119,8 +123,8 @@ describe('scoring fixtures', () => {
     const fixture = parseYaml(raw) as ScoringFixture;
 
     it(fixture.description, () => {
-      const { competitors, races, finishes, discardThresholds } = buildInputs(fixture);
-      const standings = calculateStandings(competitors, races, finishes, discardThresholds);
+      const { competitors, races, finishes, discardThresholds, dnfScoring } = buildInputs(fixture);
+      const standings = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring);
 
       const sailNumberById = new Map(competitors.map((c) => [c.id, c.sailNumber]));
 

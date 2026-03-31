@@ -23,6 +23,7 @@ interface FixtureFinish {
   sailor: string;
   position?: number;
   code?: ResultCode;
+  startPresent?: boolean;
 }
 
 interface FixtureRace {
@@ -35,6 +36,7 @@ interface ScoringFixture {
   rrs_notes?: string;
   series: {
     discardThresholds: DiscardThreshold[];
+    dnfScoring?: 'seriesEntries' | 'startingArea';
   };
   competitors: Array<{ sailNumber: string; name: string }>;
   races: FixtureRace[];
@@ -74,11 +76,12 @@ function buildInputs(fixture: ScoringFixture) {
         competitorId,
         finishPosition: f.position ?? null,
         resultCode: f.code ?? null,
+        startPresent: f.startPresent ?? null,
       });
     }
   }
 
-  return { competitors, races, finishes, discardThresholds: fixture.series.discardThresholds };
+  return { competitors, races, finishes, discardThresholds: fixture.series.discardThresholds, dnfScoring: fixture.series.dnfScoring ?? 'seriesEntries' };
 }
 
 // ─── Preamble HTML ────────────────────────────────────────────────────────────
@@ -136,9 +139,9 @@ function esc(s: string): string {
 // ─── Generate HTML for one fixture ───────────────────────────────────────────
 
 function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): string {
-  const { competitors, races, finishes, discardThresholds } = buildInputs(fixture);
+  const { competitors, races, finishes, discardThresholds, dnfScoring } = buildInputs(fixture);
 
-  const standings = calculateStandings(competitors, races, finishes, discardThresholds);
+  const standings = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring);
 
   // Build raceScoresByRaceId for assembleSeriesResultsData
   const raceScoresByRaceId = new Map<
@@ -147,7 +150,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
   >();
   for (const race of races) {
     const raceFinishes = finishes.filter((f) => f.raceId === race.id);
-    raceScoresByRaceId.set(race.id, calculateRaceScores(raceFinishes, competitors));
+    raceScoresByRaceId.set(race.id, calculateRaceScores(raceFinishes, competitors, dnfScoring));
   }
 
   const competitorsById = new Map(competitors.map((c) => [c.id, c]));

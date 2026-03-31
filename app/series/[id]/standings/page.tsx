@@ -56,7 +56,7 @@ async function exportHtml(seriesId: string) {
   if (!series || competitors.length === 0 || races.length === 0) return;
 
   const allFinishes = await finishRepo.listBySeries(seriesId, competitors.map((c) => c.id));
-  const standings = calculateStandings(competitors, races, allFinishes, series.discardThresholds);
+  const standings = calculateStandings(competitors, races, allFinishes, series.discardThresholds, series.dnfScoring);
 
   const competitorsById = new Map(competitors.map((c) => [c.id, c]));
   const raceScoresByRaceId = new Map(
@@ -64,7 +64,7 @@ async function exportHtml(seriesId: string) {
       const finishesForRace = allFinishes.filter((f) =>
         races.find((r) => r.id === race.id) && f.raceId === race.id,
       );
-      const scores = calculateRaceScores(finishesForRace, competitors);
+      const scores = calculateRaceScores(finishesForRace, competitors, series.dnfScoring);
       const scoreMap = new Map(
         [...scores.entries()].map(([id, s]) => [
           id,
@@ -163,7 +163,7 @@ export default function StandingsPage({
   }
 
   const discardThresholds: DiscardThreshold[] = series.discardThresholds ?? [];
-  const standings = calculateStandings(competitors, races, allFinishes, discardThresholds);
+  const standings = calculateStandings(competitors, races, allFinishes, discardThresholds, series.dnfScoring ?? 'seriesEntries');
   const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
   const discardCount = getDiscardCount(races.length, discardThresholds);
 

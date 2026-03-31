@@ -29,6 +29,7 @@ export interface FinishRepository {
   listBySeries(seriesId: string, competitorIds: string[]): Promise<Finish[]>;
   save(finish: Finish): Promise<Finish>;
   saveMany(finishes: Finish[]): Promise<void>;
+  delete(id: string): Promise<void>;
   deleteByRace(raceId: string): Promise<void>;
   deleteByRaces(raceIds: string[]): Promise<void>;
 }

@@ -1,0 +1,105 @@
+description: "Scratch — A5.3 starting-area scoring with start check-in data"
+rrs_notes: >
+  RRS A5.3 (alternative): DNF, OCS and similar codes score the number of boats
+  that came to the starting area plus one. DNC (did not compete) always scores
+  series entries + 1.
+  Race 2 has only 3 boats checked in to the starting area: starting-area penalty = 4.
+  Series entries = 5: DNC penalty = 6 regardless.
+
+series:
+  discardThresholds: []
+  dnfScoring: startingArea
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+  - sailNumber: "505"
+    name: "Eve"
+
+races:
+  - number: 1
+    # All 5 boats finish cleanly
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+      - sailor: "505"
+        position: 5
+
+  - number: 2
+    # Only Alice, Bob, Carol come to the starting area (startPresent: true).
+    # David and Eve do not appear (implicit DNC).
+    # Alice gets DNF, Bob gets OCS, Carol finishes 1st.
+    # A5.3: starting-area count = 3 (boats with startPresent=true) → penalty = 4.
+    # DNC (David implicit, Eve implicit) still scores series entries + 1 = 6.
+    finishes:
+      - sailor: "101"
+        code: DNF
+        startPresent: true
+      - sailor: "202"
+        code: OCS
+        startPresent: true
+      - sailor: "303"
+        position: 1
+        startPresent: true
+      # David ("404") has no record — implicit DNC, scores 6
+      # Eve ("505") has no record — implicit DNC, scores 6
+
+# Points summary (starting-area penalty = 4, series-entry penalty = 6):
+#   Carol:  3 + 1 = 4    (3rd in race 1, 1st in race 2)
+#   Alice:  1 + 4 = 5    (1st in race 1, DNF in race 2 — scores starting-area penalty)
+#   Bob:    2 + 4 = 6    (2nd in race 1, OCS in race 2 — scores starting-area penalty)
+#   David:  4 + 6 = 10   (4th in race 1, implicit DNC in race 2 — scores series-entry penalty)
+#   Eve:    5 + 6 = 11   (5th in race 1, implicit DNC in race 2 — scores series-entry penalty)
+expected:
+  standings:
+    - rank: 1
+      sailor: "303"
+      racePoints: [3, 1]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 4
+      netPoints: 4
+
+    - rank: 2
+      sailor: "101"
+      racePoints: [1, 4]
+      raceCodes: [null, "DNF"]
+      raceDiscards: [false, false]
+      totalPoints: 5
+      netPoints: 5
+
+    - rank: 3
+      sailor: "202"
+      racePoints: [2, 4]
+      raceCodes: [null, "OCS"]
+      raceDiscards: [false, false]
+      totalPoints: 6
+      netPoints: 6
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 6]
+      raceCodes: [null, "DNC"]
+      raceDiscards: [false, false]
+      totalPoints: 10
+      netPoints: 10
+
+    - rank: 5
+      sailor: "505"
+      racePoints: [5, 6]
+      raceCodes: [null, "DNC"]
+      raceDiscards: [false, false]
+      totalPoints: 11
+      netPoints: 11

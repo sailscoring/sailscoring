@@ -41,6 +41,7 @@ export default function NewSeriesPage() {
         lastModifiedAt: now,
         snapshotHistory: [],
         discardThresholds: [],
+        dnfScoring: 'seriesEntries',
       };
       log('series', 'creating', series);
       await seriesRepo.save(series);

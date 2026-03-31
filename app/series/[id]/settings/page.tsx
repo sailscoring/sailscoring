@@ -25,7 +25,7 @@ import {
   type SeriesFile,
   type LineageStatus,
 } from '@/lib/series-file';
-import type { DiscardThreshold } from '@/lib/types';
+import type { DiscardThreshold, Series } from '@/lib/types';
 
 type UpdateFlow =
   | { step: 'idle' }
@@ -64,6 +64,7 @@ export default function SettingsPage({
   const [basicsChanged, setBasicsChanged] = useState(false);
 
   const [thresholds, setThresholds] = useState<DiscardThreshold[]>([]);
+  const [dnfScoring, setDnfScoring] = useState<Series['dnfScoring']>('seriesEntries');
   const [scoringChanged, setScoringChanged] = useState(false);
 
   useEffect(() => {
@@ -75,6 +76,7 @@ export default function SettingsPage({
       setEventLogoUrl(series.eventLogoUrl);
       setBasicsChanged(false);
       setThresholds(series.discardThresholds ?? []);
+      setDnfScoring(series.dnfScoring ?? 'seriesEntries');
       setScoringChanged(false);
     }
   }, [series?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -101,6 +103,7 @@ export default function SettingsPage({
     try {
       await db.series.update(seriesId, {
         discardThresholds: thresholds,
+        dnfScoring,
         lastModifiedAt: Date.now(),
       });
       setScoringChanged(false);
@@ -343,6 +346,29 @@ export default function SettingsPage({
               })}
           </div>
         )}
+        <div className="flex items-start gap-2.5 pt-1">
+          <input
+            id="dnfScoring"
+            type="checkbox"
+            checked={dnfScoring === 'startingArea'}
+            onChange={(e) => {
+              setDnfScoring(e.target.checked ? 'startingArea' : 'seriesEntries');
+              setScoringChanged(true);
+            }}
+            className="mt-0.5 h-4 w-4 shrink-0"
+          />
+          <div>
+            <label htmlFor="dnfScoring" className="text-sm font-medium cursor-pointer">
+              Score DNF/OCS on starting-area entries (RRS A5.3)
+            </label>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              By default, DNF and OCS score series entries + 1 (A5.2). Enable this to use
+              the number of boats that came to the starting area in each race instead.
+              DNC always scores series entries + 1. Use the Start check-in on each race
+              to record who was present.
+            </p>
+          </div>
+        </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" size="sm" onClick={addThreshold}>
             Add rule

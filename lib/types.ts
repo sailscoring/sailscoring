@@ -19,6 +19,7 @@ export interface Series {
   snapshotHistory: string[];      // ordered lineage of all snapshot IDs
   // Scoring rules
   discardThresholds: DiscardThreshold[];
+  dnfScoring: 'seriesEntries' | 'startingArea';  // A5.2 (default) or A5.3
 }
 
 export interface Competitor {
@@ -48,6 +49,7 @@ export interface Finish {
   competitorId: string;
   finishPosition: number | null;  // null if result code is set
   resultCode: ResultCode | null;  // null if finish position is set
+  startPresent: boolean | null;   // true if observed in starting area; null if not recorded
 }
 
 // Calculated, not stored
