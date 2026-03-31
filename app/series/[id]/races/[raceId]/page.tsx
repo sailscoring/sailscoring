@@ -159,10 +159,14 @@ export default function ResultEntryPage({
   const finishedIds = new Set(finishingOrder);
   const nonFinishers: NonFinisherEntry[] = competitors
     .filter((c) => !finishedIds.has(c.id))
-    .map((c) => ({
-      competitor: c,
-      code: nonFinisherCodes.get(c.id) ?? 'implicit-dnc',
-    }));
+    .map((c) => {
+      const explicitCode = nonFinisherCodes.get(c.id);
+      const isPresent = savedFinishes?.some((f) => f.competitorId === c.id && f.startPresent === true);
+      return {
+        competitor: c,
+        code: explicitCode ?? (isPresent ? 'DNF' : 'implicit-dnc'),
+      };
+    });
   const suggestions = sailInput.trim()
     ? nonFinishers.filter(({ competitor }) =>
         competitor.sailNumber.toUpperCase().startsWith(sailInput.trim().toUpperCase()),
