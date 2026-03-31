@@ -346,6 +346,11 @@ export default function SettingsPage({
               })}
           </div>
         )}
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={addThreshold}>
+            Add rule
+          </Button>
+        </div>
         <div className="flex items-start gap-2.5 pt-1">
           <input
             id="dnfScoring"
@@ -369,14 +374,9 @@ export default function SettingsPage({
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={addThreshold}>
-            Add rule
-          </Button>
-          <Button type="submit" variant="outline" size="sm" disabled={!scoringChanged}>
-            {scoringChanged ? 'Save' : 'Saved'}
-          </Button>
-        </div>
+        <Button type="submit" variant="outline" size="sm" disabled={!scoringChanged}>
+          {scoringChanged ? 'Save' : 'Saved'}
+        </Button>
       </form>
 
       <input
