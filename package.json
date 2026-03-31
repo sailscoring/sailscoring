@@ -22,7 +22,7 @@
     "dexie": "^4.4.2",
     "dexie-react-hooks": "^4.4.0",
     "lucide-react": "^0.575.0",
-    "next": "16.1.7",
+    "next": "16.2.1",
     "papaparse": "^5.5.3",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
