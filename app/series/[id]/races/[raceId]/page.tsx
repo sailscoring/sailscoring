@@ -129,7 +129,7 @@ export default function ResultEntryPage({
     }
   }
 
-  // Ctrl+S / Cmd+S / Ctrl+Enter to save; Esc to cancel when no input is focused
+  // Ctrl+S / Cmd+S / Ctrl+Enter to save; Esc to cancel; c to toggle check-in tab
   useGlobalKeyDown((e) => {
     if (((e.ctrlKey || e.metaKey) && e.key === 's') || (e.ctrlKey && e.key === 'Enter')) {
       e.preventDefault();
@@ -140,6 +140,12 @@ export default function ResultEntryPage({
     ) {
       e.preventDefault();
       tryLeave();
+    } else if (
+      e.key === 'c' &&
+      !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')
+    ) {
+      e.preventDefault();
+      setActiveTab((t) => t === 'checkin' ? 'finish' : 'checkin');
     }
   });
 

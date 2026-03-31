@@ -104,6 +104,7 @@ export function KeyboardHelp({
               { keys: ['↵'], action: 'Confirm / add finisher' },
               { keys: ['Esc'], action: 'Clear input or go back' },
               { keys: ['Tab'], action: 'Move between fields' },
+              { keys: ['c'], action: 'Toggle start check-in tab' },
             ]}
           />
         </div>

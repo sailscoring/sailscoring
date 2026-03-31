@@ -33,8 +33,10 @@ export default function HelpPage() {
           ['#importing-competitors', 'Importing competitors from CSV'],
           ['#adding-races', 'Adding races'],
           ['#entering-results', 'Entering results'],
+          ['#start-check-in', 'Start check-in'],
           ['#reading-the-standings', 'Reading the standings'],
           ['#discard-rules', 'Discard rules'],
+          ['#a53-scoring', 'A5.3 starting-area scoring'],
           ['#saving-and-sharing', 'Saving and sharing a series'],
           ['#keyboard-shortcuts', 'Keyboard shortcuts'],
         ].map(([href, label]) => (
@@ -152,9 +154,36 @@ export default function HelpPage() {
           <li><strong className="text-foreground">DNC</strong> — Did Not Compete (did not come to the start area)</li>
         </ul>
         <p>
-          Competitors with result codes other than DNC are scored as{' '}
-          <em>entries in the series + 1</em> points for that race. DNC scores
-          the same. A competitor with no entry at all for a race is treated as DNC.
+          By default (RRS A5.2), all penalty codes score{' '}
+          <em>series entries + 1</em> points. If you enable{' '}
+          <strong className="text-foreground">A5.3 starting-area scoring</strong> in
+          Settings, DNF and OCS instead score{' '}
+          <em>starting-area entries + 1</em> for that race — a smaller penalty when
+          turnout is low. DNC always scores series entries + 1 regardless.
+        </p>
+      </Section>
+
+      <Section id="start-check-in" title="Start check-in">
+        <p>
+          The{' '}
+          <strong className="text-foreground">Start check-in</strong> tab on the race
+          entry screen lets you record which competitors came to the starting area before
+          the race. This is the data source for A5.3 scoring — if you skip check-in, the
+          app infers starting-area attendance from the finish records instead.
+        </p>
+        <p>
+          Open a race, switch to the{' '}
+          <strong className="text-foreground">Start check-in</strong> tab (or press{' '}
+          <strong className="text-foreground">c</strong>), then tap each boat that appears
+          at the start. A running count shows how many are marked present.
+        </p>
+        <p>
+          Check-in saves immediately — you do not need to click Save. Once boats start
+          finishing, switch back to{' '}
+          <strong className="text-foreground">Finish entry</strong> (press{' '}
+          <strong className="text-foreground">c</strong> again) and enter the finishing
+          order as normal. Boats that were checked in but have no finish recorded will
+          appear in the non-finisher list as DNF rather than DNC.
         </p>
       </Section>
 
@@ -220,6 +249,35 @@ export default function HelpPage() {
         <p>
           The worst race(s) are dropped per competitor — each competitor discards their own worst
           score. When two races have the same score, the earlier race is discarded.
+        </p>
+      </Section>
+
+      <Section id="a53-scoring" title="A5.3 starting-area scoring">
+        <p>
+          Under the default RRS A5.2 rule, every penalty code (DNF, OCS, DNC, etc.) scores{' '}
+          <em>N + 1</em> where N is the total number of competitors entered in the series.
+          This is the same in every race, regardless of how many boats actually showed up.
+        </p>
+        <p>
+          RRS A5.3 is an alternative used by many clubs with variable race-day attendance.
+          Under A5.3, DNF and OCS score{' '}
+          <em>starting-area entries + 1</em> — that is, the number of boats that came to
+          the start in <em>that race</em>, plus one. DNC (did not compete) still scores
+          series entries + 1, because those boats were not present at all.
+        </p>
+        <p>
+          To enable A5.3 for a series, open the{' '}
+          <strong className="text-foreground">Settings</strong> tab, tick{' '}
+          <strong className="text-foreground">
+            Score DNF/OCS on starting-area entries (RRS A5.3)
+          </strong>
+          , and click <strong className="text-foreground">Save</strong>.
+        </p>
+        <p>
+          Use the <strong className="text-foreground">Start check-in</strong> tab on each
+          race entry screen to record which boats came to the start. If check-in is not
+          done, the app counts all non-DNC finish records as a proxy for starting-area
+          attendance.
         </p>
       </Section>
 
