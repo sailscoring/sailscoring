@@ -2,7 +2,9 @@
 
 ## Overview
 
-Sail Scoring Milestone 1 is a fully client-side web application. All data is stored in the browser's IndexedDB via Dexie.js. There is no server-side storage, no API functions, and no environment variables required.
+Sail Scoring is a fully client-side web application. All scoring data is stored in the browser's IndexedDB via Dexie.js. There is no server-side storage or API.
+
+FTP results publishing is relayed via [scupper](https://github.com/sailscoring/scupper), a separate service. Two environment variables must be set in Vercel for FTP publishing to work.
 
 Deployment is a single step: push to Vercel.
 
@@ -79,7 +81,40 @@ Starts the Next.js dev server on `http://localhost:3000`. Hot reload is enabled.
 
 ## Environment variables
 
-None required for Milestone 1.
+### Scupper (FTP publishing)
+
+FTP results are relayed through the scupper service. Two `NEXT_PUBLIC_` variables must be set so the browser-side client can reach it.
+
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_SCUPPER_URL` | Base URL of the deployed scupper service, no trailing slash (e.g. `https://scupper.sailscoring.ie`) |
+| `NEXT_PUBLIC_SCUPPER_API_KEY` | Shared API key. Copy the value of `SCUPPER_API_KEY` from the scupper Vercel project's environment variables. |
+
+Set them in the Vercel dashboard under **Settings → Environment Variables**, or via the CLI:
+
+```sh
+vercel env add NEXT_PUBLIC_SCUPPER_URL
+vercel env add NEXT_PUBLIC_SCUPPER_API_KEY
+```
+
+Select **Production** (and **Preview** if you want FTP publishing in preview deployments). Redeploy after adding them.
+
+If either variable is absent, the Upload via FTP button will still appear but uploads will fail with an HTTP error.
+
+### Local development
+
+Create a `.env.local` file at the project root (it is gitignored):
+
+```
+NEXT_PUBLIC_SCUPPER_URL=https://scupper.sailscoring.ie
+NEXT_PUBLIC_SCUPPER_API_KEY=<key>
+```
+
+To debug scupper calls in the browser console:
+
+```js
+localStorage.setItem('scupper:debug', '1')
+```
 
 ---
 

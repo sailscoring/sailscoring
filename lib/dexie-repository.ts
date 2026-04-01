@@ -5,7 +5,7 @@ import type {
   RaceRepository,
   FinishRepository,
 } from './repository';
-import type { Series, Competitor, Race, Finish } from './types';
+import type { Series, Competitor, Race, Finish, FtpServer } from './types';
 
 class DexieSeriesRepository implements SeriesRepository {
   list(): Promise<Series[]> {
@@ -118,7 +118,23 @@ class DexieFinishRepository implements FinishRepository {
   }
 }
 
+class DexieFtpServerRepository {
+  list(): Promise<FtpServer[]> {
+    return db.ftpServers.toArray();
+  }
+
+  async save(server: FtpServer): Promise<FtpServer> {
+    const id = await db.ftpServers.put(server);
+    return { ...server, id: id as number };
+  }
+
+  delete(id: number): Promise<void> {
+    return db.ftpServers.delete(id);
+  }
+}
+
 export const seriesRepo: SeriesRepository = new DexieSeriesRepository();
 export const competitorRepo: CompetitorRepository = new DexieCompetitorRepository();
 export const raceRepo: RaceRepository = new DexieRaceRepository();
 export const finishRepo: FinishRepository = new DexieFinishRepository();
+export const ftpServerRepo = new DexieFtpServerRepository();

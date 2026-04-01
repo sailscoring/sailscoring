@@ -1,11 +1,13 @@
 'use client';
 
-import { use } from 'react';
+import { use, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { competitorRepo, raceRepo, finishRepo, seriesRepo } from '@/lib/dexie-repository';
+import { competitorRepo, raceRepo, finishRepo, seriesRepo, ftpServerRepo } from '@/lib/dexie-repository';
 import { getDiscardCount } from '@/lib/scoring';
 import { calculateStandings, calculateRaceScores } from '@/lib/scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from '@/lib/results-renderer';
+import { uploadViaScupper } from '@/lib/scupper';
 import {
   Table,
   TableBody,
@@ -16,6 +18,22 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import type { Standing, DiscardThreshold } from '@/lib/types';
@@ -47,13 +65,13 @@ function PointsCell({
   );
 }
 
-async function exportHtml(seriesId: string) {
+async function buildHtml(seriesId: string): Promise<string | null> {
   const [series, competitors, races] = await Promise.all([
     seriesRepo.get(seriesId),
     competitorRepo.listBySeries(seriesId),
     raceRepo.listBySeries(seriesId),
   ]);
-  if (!series || competitors.length === 0 || races.length === 0) return;
+  if (!series || competitors.length === 0 || races.length === 0) return null;
 
   const allFinishes = await finishRepo.listBySeries(seriesId, competitors.map((c) => c.id));
   const standings = calculateStandings(competitors, races, allFinishes, series.discardThresholds, series.dnfScoring);
@@ -61,9 +79,7 @@ async function exportHtml(seriesId: string) {
   const competitorsById = new Map(competitors.map((c) => [c.id, c]));
   const raceScoresByRaceId = new Map(
     races.map((race) => {
-      const finishesForRace = allFinishes.filter((f) =>
-        races.find((r) => r.id === race.id) && f.raceId === race.id,
-      );
+      const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
       const scores = calculateRaceScores(finishesForRace, competitors, series.dnfScoring);
       const scoreMap = new Map(
         [...scores.entries()].map(([id, s]) => [
@@ -84,8 +100,15 @@ async function exportHtml(seriesId: string) {
     new Date(),
   );
 
-  const html = renderSeriesHtml(data);
-  const slug = series.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'series';
+  return renderSeriesHtml(data);
+}
+
+async function exportHtml(seriesId: string) {
+  const html = await buildHtml(seriesId);
+  if (!html) return;
+
+  const series = await seriesRepo.get(seriesId);
+  const slug = series?.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'series';
   const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -97,12 +120,134 @@ async function exportHtml(seriesId: string) {
   URL.revokeObjectURL(url);
 }
 
+type UploadState =
+  | 'idle'
+  | 'uploading'
+  | { success: true }
+  | { success: false; error: string };
+
+function FtpUploadDialog({
+  seriesId,
+  open,
+  onClose,
+}: {
+  seriesId: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const ftpServers = useLiveQuery(() => ftpServerRepo.list(), []);
+  const [selectedServerId, setSelectedServerId] = useState('');
+  const [ftpPath, setFtpPath] = useState('');
+  const [uploadState, setUploadState] = useState<UploadState>('idle');
+
+  useEffect(() => {
+    if (open) setUploadState('idle');
+  }, [open]);
+
+  async function handleUpload() {
+    const serverId = parseInt(selectedServerId);
+    const server = ftpServers?.find((s) => s.id === serverId);
+    if (!server || !ftpPath.trim()) return;
+
+    setUploadState('uploading');
+
+    const html = await buildHtml(seriesId);
+    if (!html) {
+      setUploadState({ success: false, error: 'No results to upload.' });
+      return;
+    }
+
+    const result = await uploadViaScupper({
+      ftpHost: server.host,
+      ftpPort: server.port,
+      ftpUsername: server.username,
+      ftpPassword: server.password,
+      ftpPath: ftpPath.trim(),
+      ftps: server.ftps,
+      html,
+    });
+
+    setUploadState(result.ok ? { success: true } : { success: false, error: result.error });
+  }
+
+  const noServers = ftpServers !== undefined && ftpServers.length === 0;
+  const uploading = uploadState === 'uploading';
+  const succeeded = typeof uploadState === 'object' && uploadState.success;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Upload via FTP</DialogTitle>
+        </DialogHeader>
+
+        {noServers ? (
+          <p className="text-sm text-muted-foreground">
+            No FTP servers configured.{' '}
+            <Link href="/settings" className="underline" onClick={onClose}>
+              Add one in Settings.
+            </Link>
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Server</Label>
+              <Select value={selectedServerId} onValueChange={setSelectedServerId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a server…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ftpServers?.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ftp-path">Path</Label>
+              <Input
+                id="ftp-path"
+                value={ftpPath}
+                onChange={(e) => setFtpPath(e.target.value)}
+                placeholder="/public_html/results/fleet-a.html"
+              />
+            </div>
+            {typeof uploadState === 'object' && uploadState.success && (
+              <p className="text-sm text-green-600 dark:text-green-400">Uploaded successfully.</p>
+            )}
+            {typeof uploadState === 'object' && !uploadState.success && (
+              <p className="text-sm text-destructive">{uploadState.error}</p>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {succeeded ? 'Close' : 'Cancel'}
+          </Button>
+          {!noServers && (
+            <Button
+              onClick={handleUpload}
+              disabled={!selectedServerId || !ftpPath.trim() || uploading}
+            >
+              {uploading ? 'Uploading…' : 'Upload'}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function StandingsPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id: seriesId } = use(params);
+  const [showFtpDialog, setShowFtpDialog] = useState(false);
 
   const series = useLiveQuery(
     async () => (await seriesRepo.get(seriesId)) ?? null,
@@ -125,11 +270,13 @@ export default function StandingsPage({
   );
 
   useGlobalKeyDown((e) => {
-    if (e.key === 'x' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
-      (document.activeElement?.tagName ?? '')
-    )) {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')) return;
+    if (e.key === 'x') {
       e.preventDefault();
       exportHtml(seriesId);
+    } else if (e.key === 'f') {
+      e.preventDefault();
+      setShowFtpDialog(true);
     }
   });
 
@@ -177,9 +324,14 @@ export default function StandingsPage({
             : 'No discards'}{' '}
           · {competitors.length} competitors
         </p>
-        <Button size="sm" onClick={() => exportHtml(seriesId)} title="Export HTML (x)">
-          Export HTML
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowFtpDialog(true)} title="Upload via FTP (f)">
+            Upload via FTP
+          </Button>
+          <Button size="sm" onClick={() => exportHtml(seriesId)} title="Export HTML (x)">
+            Export HTML
+          </Button>
+        </div>
       </div>
 
       <Table>
@@ -211,6 +363,12 @@ export default function StandingsPage({
           ))}
         </TableBody>
       </Table>
+
+      <FtpUploadDialog
+        seriesId={seriesId}
+        open={showFtpDialog}
+        onClose={() => setShowFtpDialog(false)}
+      />
     </div>
   );
 }

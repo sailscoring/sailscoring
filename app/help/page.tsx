@@ -38,6 +38,7 @@ export default function HelpPage() {
           ['#discard-rules', 'Discard rules'],
           ['#a53-scoring', 'A5.3 starting-area scoring'],
           ['#saving-and-sharing', 'Saving and sharing a series'],
+          ['#publishing-results', 'Publishing results via FTP'],
           ['#keyboard-shortcuts', 'Keyboard shortcuts'],
         ].map(([href, label]) => (
           <div key={href}>
@@ -209,11 +210,11 @@ export default function HelpPage() {
           are shown struck through. The standings are ordered by nett total.
         </p>
         <p>
-          To share results with your club, click{' '}
+          To share results, click{' '}
           <strong className="text-foreground">Export HTML</strong> (or press{' '}
           <strong className="text-foreground">x</strong>) to download a self-contained results
-          page you can email or host on your club website. Discards are shown in the exported file
-          too.
+          page you can email or host on your club website. To push results directly to a web server,
+          see <a href="#publishing-results" className="underline">Publishing results via FTP</a>.
         </p>
       </Section>
 
@@ -308,6 +309,39 @@ export default function HelpPage() {
           <strong className="text-foreground">Update from File</strong> to pull in their changes.
           The app checks whether the incoming file is a clean continuation of your local copy and
           warns you if both copies have diverged.
+        </p>
+      </Section>
+
+      <Section id="publishing-results" title="Publishing results via FTP">
+        <p>
+          If your club has a web hosting account, you can push results directly to it without
+          downloading and uploading files manually. Sail Scoring relays FTP uploads through the
+          scupper service — the browser cannot connect to an FTP server directly.
+        </p>
+        <p>
+          <strong className="text-foreground">One-time setup:</strong> open{' '}
+          <strong className="text-foreground">Settings</strong> (link in the page header) and click{' '}
+          <strong className="text-foreground">Add server</strong>. Enter a label (e.g.{' '}
+          <em>Club website</em>), the FTP hostname, port (default 21), username, and password.
+          Tick <strong className="text-foreground">FTPS (TLS)</strong> if your host requires an
+          encrypted connection. You can configure multiple servers and switch between them at upload
+          time. Credentials are stored on this device only and are never included in series file
+          exports.
+        </p>
+        <p>
+          <strong className="text-foreground">Uploading:</strong> on the{' '}
+          <strong className="text-foreground">Standings</strong> tab, click{' '}
+          <strong className="text-foreground">Upload via FTP</strong> (or press{' '}
+          <strong className="text-foreground">f</strong>). Select the server, enter the remote
+          path for the results file (e.g.{' '}
+          <code className="text-foreground text-sm">/public_html/results/fleet-a.html</code>),
+          and click <strong className="text-foreground">Upload</strong>. The path is entered
+          each time, so you can vary it per race day or fleet without changing the server
+          configuration.
+        </p>
+        <p>
+          If the upload fails, the raw FTP error from the server is shown — this is usually
+          enough to diagnose a wrong path, bad credentials, or a permission problem.
         </p>
       </Section>
 

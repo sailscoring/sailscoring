@@ -46,7 +46,7 @@ test('start check-in marks boats present and affects A5.3 standings', async ({ p
   }
 
   // ── 3. Enable A5.3 in Settings ───────────────────────────────────────────
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByLabel('Score DNF/OCS on starting-area entries (RRS A5.3)').check();
   await page.getByRole('button', { name: 'Save', exact: false }).last().click();
 

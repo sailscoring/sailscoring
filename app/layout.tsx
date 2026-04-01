@@ -15,6 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Link href="/" className="font-semibold hover:underline">
             Sail Scoring
           </Link>
+          <Link href="/settings" className="text-sm text-muted-foreground hover:underline">
+            Settings
+          </Link>
           <Link href="/help" className="text-sm text-muted-foreground hover:underline">
             Help
           </Link>

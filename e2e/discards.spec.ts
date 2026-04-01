@@ -95,7 +95,7 @@ test('discard rule changes standings and shows Nett column', async ({ page }) =>
   await expect(page.getByText('No discards')).toBeVisible();
 
   // ── 8. Add discard rule in Settings ──────────────────────────────────────
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await expect(page).toHaveURL(/\/settings$/);
 
   await page.getByRole('button', { name: 'Add rule' }).click();
@@ -107,7 +107,7 @@ test('discard rule changes standings and shows Nett column', async ({ page }) =>
   await discardCountInput.fill('1');
 
   // Save the scoring card
-  await page.getByRole('button', { name: 'Save', exact: false }).nth(1).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   // ── 9. Check standings with 1 discard: Alice should now lead ─────────────
   await page.getByRole('link', { name: 'Standings' }).click();

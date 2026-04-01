@@ -60,6 +60,16 @@ export interface RaceScore {
   resultCode: ResultCode | null;
 }
 
+export interface FtpServer {
+  id?: number;   // auto-increment primary key; undefined before first save
+  label: string; // display name, e.g. "Club website"
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  ftps: boolean;
+}
+
 export interface Standing {
   rank: number;
   competitor: Competitor;

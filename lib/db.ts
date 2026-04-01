@@ -1,11 +1,12 @@
 import Dexie, { type Table } from 'dexie';
-import type { Series, Competitor, Race, Finish } from './types';
+import type { Series, Competitor, Race, Finish, FtpServer } from './types';
 
 export class SailScoringDb extends Dexie {
   series!: Table<Series>;
   competitors!: Table<Competitor>;
   races!: Table<Race>;
   finishes!: Table<Finish>;
+  ftpServers!: Table<FtpServer>;
 
   constructor() {
     super('sailscoring');
@@ -64,6 +65,13 @@ export class SailScoringDb extends Dexie {
       await tx.table('finishes').toCollection().modify((finish) => {
         finish.startPresent = null;
       });
+    });
+    this.version(6).stores({
+      series: 'id, createdAt',
+      competitors: 'id, seriesId, createdAt',
+      races: 'id, seriesId, raceNumber',
+      finishes: 'id, raceId, competitorId',
+      ftpServers: '++id',
     });
   }
 }
