@@ -60,6 +60,7 @@ export function renderSeriesHtml(data: SeriesResultsData): string {
   return `<!doctype html>
 <html lang="en">
 <head>
+<meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="description" content="sail scoring results">
