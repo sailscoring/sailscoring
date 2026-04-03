@@ -249,7 +249,7 @@ function BilgePublishDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent aria-describedby={undefined}>
+      <DialogContent aria-describedby={undefined} className="overflow-hidden">
         <DialogHeader>
           <DialogTitle>Publish results</DialogTitle>
         </DialogHeader>
