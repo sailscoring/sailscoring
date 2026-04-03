@@ -209,7 +209,7 @@ function FtpUploadDialog({
             </Link>
           </p>
         ) : (
-          <div className="space-y-3">
+          <form id="ftp-upload-form" onSubmit={(e) => { e.preventDefault(); handleUpload(); }} className="space-y-3">
             <div className="space-y-1.5">
               <Label>Server</Label>
               <Select value={selectedServerId} onValueChange={setSelectedServerId}>
@@ -240,7 +240,7 @@ function FtpUploadDialog({
             {typeof uploadState === 'object' && !uploadState.success && (
               <p className="text-sm text-destructive">{uploadState.error}</p>
             )}
-          </div>
+          </form>
         )}
 
         <DialogFooter>
@@ -249,7 +249,8 @@ function FtpUploadDialog({
           </Button>
           {!noServers && (
             <Button
-              onClick={handleUpload}
+              type="submit"
+              form="ftp-upload-form"
               disabled={!selectedServerId || !ftpPath.trim() || uploading}
             >
               {uploading ? 'Uploading…' : 'Upload'}
