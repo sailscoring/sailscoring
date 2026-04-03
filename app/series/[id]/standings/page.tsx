@@ -232,6 +232,7 @@ function FtpUploadDialog({
                 value={ftpPath}
                 onChange={(e) => setFtpPath(e.target.value)}
                 placeholder="/public_html/results/fleet-a.html"
+                autoFocus
               />
             </div>
             {typeof uploadState === 'object' && uploadState.success && (
