@@ -258,7 +258,7 @@ function BilgePublishDialog({
           // Manage view — bundle already configured
           <form id="bilge-publish-form" onSubmit={(e) => { e.preventDefault(); handlePublish(); }} className="space-y-3">
             <div className="space-y-1 text-sm">
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground truncate">
                 Published at{' '}
                 <span className="font-mono text-xs">{bundle.slug}</span>
               </p>
@@ -283,7 +283,7 @@ function BilgePublishDialog({
             </div>
 
             {bundle.status === 'published' && bundle.publishedUrl && (
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0 overflow-hidden">
                 <a
                   href={bundle.publishedUrl}
                   target="_blank"
