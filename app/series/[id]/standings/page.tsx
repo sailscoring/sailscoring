@@ -4,6 +4,7 @@ import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { competitorRepo, raceRepo, finishRepo, seriesRepo, ftpServerRepo } from '@/lib/dexie-repository';
+import { db } from '@/lib/db';
 import { getDiscardCount } from '@/lib/scoring';
 import { calculateStandings, calculateRaceScores } from '@/lib/scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from '@/lib/results-renderer';
@@ -36,7 +37,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
-import type { Standing, DiscardThreshold } from '@/lib/types';
+import type { Standing, DiscardThreshold, Series } from '@/lib/types';
 
 function PointsCell({
   points,
@@ -127,11 +128,11 @@ type UploadState =
   | { success: false; error: string };
 
 function FtpUploadDialog({
-  seriesId,
+  series,
   open,
   onClose,
 }: {
-  seriesId: string;
+  series: Series;
   open: boolean;
   onClose: () => void;
 }) {
@@ -140,9 +141,25 @@ function FtpUploadDialog({
   const [ftpPath, setFtpPath] = useState('');
   const [uploadState, setUploadState] = useState<UploadState>('idle');
 
+  // Reset state and pre-fill from series when dialog opens.
   useEffect(() => {
-    if (open) setUploadState('idle');
+    if (!open) return;
+    setUploadState('idle');
+    setFtpPath(series.ftpPath ?? '');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Auto-select the server whose host matches the series' saved ftpHost.
+  useEffect(() => {
+    if (!open || !ftpServers) return;
+    if (series.ftpHost) {
+      const match = ftpServers.find((s) => s.host === series.ftpHost);
+      setSelectedServerId(match?.id !== undefined ? String(match.id) : '');
+    } else {
+      setSelectedServerId('');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, ftpServers]);
 
   async function handleUpload() {
     const serverId = parseInt(selectedServerId);
@@ -151,7 +168,7 @@ function FtpUploadDialog({
 
     setUploadState('uploading');
 
-    const html = await buildHtml(seriesId);
+    const html = await buildHtml(series.id);
     if (!html) {
       setUploadState({ success: false, error: 'No results to upload.' });
       return;
@@ -167,6 +184,9 @@ function FtpUploadDialog({
       html,
     });
 
+    if (result.ok) {
+      await db.series.update(series.id, { ftpHost: server.host, ftpPath: ftpPath.trim() });
+    }
     setUploadState(result.ok ? { success: true } : { success: false, error: result.error });
   }
 
@@ -199,7 +219,7 @@ function FtpUploadDialog({
                 <SelectContent>
                   {ftpServers?.map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>
-                      {s.label}
+                      {s.ftps ? 'ftps' : 'ftp'}://{s.host}:{s.port}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -365,7 +385,7 @@ export default function StandingsPage({
       </Table>
 
       <FtpUploadDialog
-        seriesId={seriesId}
+        series={series}
         open={showFtpDialog}
         onClose={() => setShowFtpDialog(false)}
       />

@@ -73,6 +73,18 @@ export class SailScoringDb extends Dexie {
       finishes: 'id, raceId, competitorId',
       ftpServers: '++id',
     });
+    this.version(7).stores({
+      series: 'id, createdAt',
+      competitors: 'id, seriesId, createdAt',
+      races: 'id, seriesId, raceNumber',
+      finishes: 'id, raceId, competitorId',
+      ftpServers: '++id',
+    }).upgrade(async (tx) => {
+      await tx.table('series').toCollection().modify((series) => {
+        series.ftpHost = '';
+        series.ftpPath = '';
+      });
+    });
   }
 }
 

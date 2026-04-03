@@ -16,6 +16,8 @@ interface SeriesFileSeries {
   eventLogoUrl: string;
   discardThresholds: DiscardThreshold[];
   dnfScoring: 'seriesEntries' | 'startingArea';
+  ftpHost: string;
+  ftpPath: string;
 }
 
 interface SeriesFileCompetitor {
@@ -113,6 +115,8 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       eventLogoUrl: series.eventLogoUrl,
       discardThresholds: series.discardThresholds,
       dnfScoring: series.dnfScoring,
+      ftpHost: series.ftpHost ?? '',
+      ftpPath: series.ftpPath ?? '',
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -210,6 +214,8 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
       snapshotHistory: [...file.snapshotHistory],
       discardThresholds: file.series.discardThresholds ?? [],
       dnfScoring: file.series.dnfScoring ?? 'seriesEntries',
+      ftpHost: file.series.ftpHost ?? '',
+      ftpPath: file.series.ftpPath ?? '',
     });
 
     for (const c of file.competitors) {
@@ -278,6 +284,8 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
       snapshotHistory: [...file.snapshotHistory],
       discardThresholds: file.series.discardThresholds ?? [],
       dnfScoring: file.series.dnfScoring ?? 'seriesEntries',
+      ftpHost: file.series.ftpHost ?? '',
+      ftpPath: file.series.ftpPath ?? '',
     });
 
     for (const c of file.competitors) {

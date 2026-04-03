@@ -19,29 +19,27 @@ test('FTP server settings: add, edit, delete', async ({ page }) => {
 
   // ── Add ──────────────────────────────────────────────────────────────────
   await page.getByRole('button', { name: 'Add server' }).click();
-  await page.getByLabel('Label').fill('Club website');
   await page.getByLabel('Host').fill('ftp.example.com');
   // Port defaults to 21 — leave it
   await page.getByLabel('Username').fill('scorer');
   await page.locator('#ftp-password').fill('s3cret');
   await page.getByRole('button', { name: 'Save' }).click();
 
-  await expect(page.getByText('Club website')).toBeVisible();
   await expect(page.getByText('ftp://ftp.example.com:21')).toBeVisible();
   await expect(page.getByText('No FTP servers configured.')).not.toBeVisible();
 
   // ── Edit ─────────────────────────────────────────────────────────────────
-  await page.getByRole('button', { name: 'Edit Club website' }).click();
-  // Label field should be pre-filled
-  await expect(page.getByLabel('Label')).toHaveValue('Club website');
-  await page.getByLabel('Label').fill('HYC website');
+  await page.getByRole('button', { name: 'Edit ftp.example.com' }).click();
+  // Host field should be pre-filled
+  await expect(page.getByLabel('Host')).toHaveValue('ftp.example.com');
+  await page.getByLabel('Host').fill('ftp.hyc.ie');
   await page.getByRole('button', { name: 'Save' }).click();
 
-  await expect(page.getByText('HYC website')).toBeVisible();
-  await expect(page.getByText('Club website')).not.toBeVisible();
+  await expect(page.getByText('ftp://ftp.hyc.ie:21')).toBeVisible();
+  await expect(page.getByText('ftp://ftp.example.com:21')).not.toBeVisible();
 
   // ── Delete ────────────────────────────────────────────────────────────────
-  await page.getByRole('button', { name: 'Delete HYC website' }).click();
+  await page.getByRole('button', { name: 'Delete ftp.hyc.ie' }).click();
   await expect(page.getByText('No FTP servers configured.')).toBeVisible();
 });
 
@@ -93,7 +91,6 @@ test('FTP upload dialog: shows configured server; shows no-servers message after
   // ── Add a server ─────────────────────────────────────────────────────────
   await page.goto('/settings');
   await page.getByRole('button', { name: 'Add server' }).click();
-  await page.getByLabel('Label').fill('Club website');
   await page.getByLabel('Host').fill('ftp.example.com');
   await page.getByLabel('Username').fill('scorer');
   await page.locator('#ftp-password').fill('s3cret');

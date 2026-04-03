@@ -20,6 +20,9 @@ export interface Series {
   // Scoring rules
   discardThresholds: DiscardThreshold[];
   dnfScoring: 'seriesEntries' | 'startingArea';  // A5.2 (default) or A5.3
+  // Publishing
+  ftpHost: string;   // saved FTP server host for this series (empty if not yet published)
+  ftpPath: string;   // saved remote path for this series (empty if not yet published)
 }
 
 export interface Competitor {
@@ -62,7 +65,6 @@ export interface RaceScore {
 
 export interface FtpServer {
   id?: number;   // auto-increment primary key; undefined before first save
-  label: string; // display name, e.g. "Club website"
   host: string;
   port: number;
   username: string;

@@ -42,6 +42,8 @@ export default function NewSeriesPage() {
         snapshotHistory: [],
         discardThresholds: [],
         dnfScoring: 'seriesEntries',
+        ftpHost: '',
+        ftpPath: '',
       };
       log('series', 'creating', series);
       await seriesRepo.save(series);

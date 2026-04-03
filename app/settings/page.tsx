@@ -25,7 +25,6 @@ function FtpServerDialog({
   initial: FtpServer | null;
   onClose: () => void;
 }) {
-  const [label, setLabel] = useState(initial?.label ?? '');
   const [host, setHost] = useState(initial?.host ?? '');
   const [port, setPort] = useState(initial?.port ?? 21);
   const [username, setUsername] = useState(initial?.username ?? '');
@@ -37,7 +36,6 @@ function FtpServerDialog({
     e.preventDefault();
     await ftpServerRepo.save({
       ...(initial?.id !== undefined ? { id: initial.id } : {}),
-      label: label.trim(),
       host: host.trim(),
       port,
       username: username.trim(),
@@ -54,16 +52,6 @@ function FtpServerDialog({
           <DialogTitle>{initial ? 'Edit FTP server' : 'Add FTP server'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSave} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="ftp-label">Label</Label>
-            <Input
-              id="ftp-label"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. Club website"
-              required
-            />
-          </div>
           <div className="space-y-1.5">
             <Label htmlFor="ftp-host">Host</Label>
             <Input
@@ -193,18 +181,15 @@ export default function SettingsPage() {
                 key={server.id}
                 className="flex items-center justify-between border rounded-md px-3 py-2"
               >
-                <div>
-                  <p className="text-sm font-medium">{server.label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {server.ftps ? 'ftps' : 'ftp'}://{server.host}:{server.port}
-                  </p>
-                </div>
+                <p className="text-sm font-medium">
+                  {server.ftps ? 'ftps' : 'ftp'}://{server.host}:{server.port}
+                </p>
                 <div className="flex gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => openEdit(server)}
-                    aria-label={`Edit ${server.label}`}
+                    aria-label={`Edit ${server.host}`}
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
@@ -212,7 +197,7 @@ export default function SettingsPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => handleDelete(server.id!)}
-                    aria-label={`Delete ${server.label}`}
+                    aria-label={`Delete ${server.host}`}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
