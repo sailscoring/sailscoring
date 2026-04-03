@@ -196,7 +196,7 @@ function FtpUploadDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent>
+      <DialogContent aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>Upload via FTP</DialogTitle>
         </DialogHeader>
