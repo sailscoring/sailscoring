@@ -23,6 +23,7 @@ export interface Series {
   // Publishing
   ftpHost: string;   // saved FTP server host for this series (empty if not yet published)
   ftpPath: string;   // saved remote path for this series (empty if not yet published)
+  bilgeBundle: BilgeBundle | null;
 }
 
 export interface Competitor {
@@ -61,6 +62,16 @@ export interface RaceScore {
   points: number;
   place: number | null;   // null for coded finishes
   resultCode: ResultCode | null;
+}
+
+export interface BilgeBundle {
+  uuid: string;                 // bilge namespace owner token (travels in series file)
+  prefix: string;               // e.g. "hyc-autumn-league-2026"
+  slug: string;                 // e.g. "hyc-autumn-league-2026/standings"
+  email?: string;               // scorer email — local only, NOT written to series file
+  status: 'unpublished' | 'pending' | 'published';
+  publishedUrl: string | null;
+  lastPublishedAt: number | null;
 }
 
 export interface FtpServer {

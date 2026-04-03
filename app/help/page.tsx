@@ -38,7 +38,7 @@ export default function HelpPage() {
           ['#discard-rules', 'Discard rules'],
           ['#a53-scoring', 'A5.3 starting-area scoring'],
           ['#saving-and-sharing', 'Saving and sharing a series'],
-          ['#publishing-results', 'Publishing results via FTP'],
+          ['#publishing-results', 'Publishing results'],
           ['#keyboard-shortcuts', 'Keyboard shortcuts'],
         ].map(([href, label]) => (
           <div key={href}>
@@ -312,14 +312,31 @@ export default function HelpPage() {
         </p>
       </Section>
 
-      <Section id="publishing-results" title="Publishing results via FTP">
+      <Section id="publishing-results" title="Publishing results">
         <p>
-          If your club has a web hosting account, you can push results directly to it without
+          Sail Scoring offers two ways to push results to a public URL from the{' '}
+          <strong className="text-foreground">Standings</strong> tab.
+        </p>
+        <p>
+          <strong className="text-foreground">Publish (bilge):</strong> click{' '}
+          <strong className="text-foreground">Publish</strong> (or press{' '}
+          <strong className="text-foreground">p</strong>). On first use, choose a URL prefix
+          (e.g. <code className="text-foreground text-sm">hyc-autumn-2026</code>) and enter your
+          email address. A verification link is sent to confirm ownership of that namespace; once
+          verified, all subsequent publishes go live immediately. The resulting URL is stable —
+          re-publishing updates the page in place. The publish configuration (URL prefix and
+          ownership token) is saved in the series file, so any scorer who opens the file can
+          publish to the same URL. The email address is stored locally only and is never written
+          to the series file.
+        </p>
+        <p>
+          <strong className="text-foreground">Upload via FTP:</strong>{' '}
+          if your club has a web hosting account, you can push results directly to it without
           downloading and uploading files manually. Sail Scoring relays FTP uploads through the
           scupper service — the browser cannot connect to an FTP server directly.
         </p>
         <p>
-          <strong className="text-foreground">One-time setup:</strong> open{' '}
+          <strong className="text-foreground">FTP one-time setup:</strong> open{' '}
           <strong className="text-foreground">Settings</strong> (link in the page header) and click{' '}
           <strong className="text-foreground">Add server</strong>. Enter a label (e.g.{' '}
           <em>Club website</em>), the FTP hostname, port (default 21), username, and password.

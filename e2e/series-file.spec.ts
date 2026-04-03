@@ -56,6 +56,7 @@ interface SeriesFile {
     dnfScoring: string;
     ftpHost: string;
     ftpPath: string;
+    bilgeBundle: unknown;
   };
   competitors: FileCompetitor[];
   races: FileRace[];
@@ -158,7 +159,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   const file = await saveToFile(page);
 
   // Top-level envelope
-  expect(file.formatVersion).toBe(1);
+  expect(file.formatVersion).toBe(2);
   expect(file.seriesId).toBe(seriesId);
   expect(typeof file.snapshotId).toBe('string');
   expect(file.snapshotHistory).toEqual([file.snapshotId]);
@@ -171,6 +172,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   expect(file.series.endDate).toBe('2025-11-01');
   expect(file.series.ftpHost).toBe('ftp.hyc.ie');
   expect(file.series.ftpPath).toBe('/results/2025/autumn-league.htm');
+  expect(file.series.bilgeBundle).toBeNull();
 
   // Competitors and races
   expect(file.competitors).toHaveLength(1);

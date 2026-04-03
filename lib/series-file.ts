@@ -1,10 +1,19 @@
 import type { Series, ResultCode, DiscardThreshold } from './types';
 import { db } from './db';
 
-export const FORMAT_VERSION = 1;
+export const FORMAT_VERSION = 2;
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
+
+interface SeriesFileBilgeBundle {
+  uuid: string;
+  prefix: string;
+  slug: string;
+  status: 'unpublished' | 'pending' | 'published';
+  publishedUrl: string | null;
+  lastPublishedAt: number | null;
+}
 
 interface SeriesFileSeries {
   id: string;
@@ -18,6 +27,7 @@ interface SeriesFileSeries {
   dnfScoring: 'seriesEntries' | 'startingArea';
   ftpHost: string;
   ftpPath: string;
+  bilgeBundle: SeriesFileBilgeBundle | null;
 }
 
 interface SeriesFileCompetitor {
@@ -117,6 +127,14 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       dnfScoring: series.dnfScoring,
       ftpHost: series.ftpHost ?? '',
       ftpPath: series.ftpPath ?? '',
+      bilgeBundle: series.bilgeBundle ? {
+        uuid: series.bilgeBundle.uuid,
+        prefix: series.bilgeBundle.prefix,
+        slug: series.bilgeBundle.slug,
+        status: series.bilgeBundle.status,
+        publishedUrl: series.bilgeBundle.publishedUrl,
+        lastPublishedAt: series.bilgeBundle.lastPublishedAt,
+      } : null,
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -165,7 +183,7 @@ export function parseSeriesFile(content: string): SeriesFile {
   }
   if (typeof data !== 'object' || data === null) throw new Error('Invalid file format');
   const obj = data as Record<string, unknown>;
-  if (obj.formatVersion !== FORMAT_VERSION)
+  if (obj.formatVersion !== 1 && obj.formatVersion !== FORMAT_VERSION)
     throw new Error(`Unsupported file format version: ${obj.formatVersion}`);
   if (typeof obj.seriesId !== 'string') throw new Error('Invalid file: missing seriesId');
   if (typeof obj.snapshotId !== 'string') throw new Error('Invalid file: missing snapshotId');
@@ -216,6 +234,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
       dnfScoring: file.series.dnfScoring ?? 'seriesEntries',
       ftpHost: file.series.ftpHost ?? '',
       ftpPath: file.series.ftpPath ?? '',
+      bilgeBundle: file.series.bilgeBundle ?? null,
     });
 
     for (const c of file.competitors) {
@@ -286,6 +305,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
       dnfScoring: file.series.dnfScoring ?? 'seriesEntries',
       ftpHost: file.series.ftpHost ?? '',
       ftpPath: file.series.ftpPath ?? '',
+      bilgeBundle: file.series.bilgeBundle ?? null,
     });
 
     for (const c of file.competitors) {

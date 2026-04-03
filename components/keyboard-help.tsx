@@ -91,6 +91,7 @@ export function KeyboardHelp({
           <Section
             title="Standings"
             rows={[
+              { keys: ['p'], action: 'Publish results' },
               { keys: ['x'], action: 'Export HTML' },
               { keys: ['f'], action: 'Upload via FTP' },
             ]}

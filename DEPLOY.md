@@ -4,7 +4,7 @@
 
 Sail Scoring is a fully client-side web application. All scoring data is stored in the browser's IndexedDB via Dexie.js. There is no server-side storage or API.
 
-FTP results publishing is relayed via [scupper](https://github.com/sailscoring/scupper), a separate service. Two environment variables must be set in Vercel for FTP publishing to work.
+Results publishing uses two separate services: [bilge](https://github.com/sailscoring/bilge) for direct HTTP publishing, and [scupper](https://github.com/sailscoring/scupper) for FTP relay. Environment variables for both must be set in Vercel.
 
 Deployment is a single step: push to Vercel.
 
@@ -81,6 +81,32 @@ Starts the Next.js dev server on `http://localhost:3000`. Hot reload is enabled.
 
 ## Environment variables
 
+### Bilge (results publishing)
+
+HTML standings are published to the bilge service. Two `NEXT_PUBLIC_` variables must be set so the browser-side client can reach it.
+
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_BILGE_URL` | Base URL of the deployed bilge service, no trailing slash (e.g. `https://bilge.sailscoring.ie`) |
+| `NEXT_PUBLIC_BILGE_API_KEY` | Shared API key. Copy the value of `NEXT_PUBLIC_BILGE_API_KEY` from the bilge Vercel project's environment variables. |
+
+Set them in the Vercel dashboard under **Settings → Environment Variables**, or via the CLI:
+
+```sh
+vercel env add NEXT_PUBLIC_BILGE_URL
+vercel env add NEXT_PUBLIC_BILGE_API_KEY
+```
+
+Select **Production** (and **Preview** if you want publishing in preview deployments). Redeploy after adding them.
+
+If either variable is absent, the Publish button will still appear but publishes will fail with a network error.
+
+To debug bilge calls in the browser console:
+
+```js
+localStorage.setItem('bilge:debug', '1')
+```
+
 ### Scupper (FTP publishing)
 
 FTP results are relayed through the scupper service. Two `NEXT_PUBLIC_` variables must be set so the browser-side client can reach it.
@@ -106,6 +132,8 @@ If either variable is absent, the Upload via FTP button will still appear but up
 Create a `.env.local` file at the project root (it is gitignored):
 
 ```
+NEXT_PUBLIC_BILGE_URL=https://bilge.sailscoring.ie
+NEXT_PUBLIC_BILGE_API_KEY=<key>
 NEXT_PUBLIC_SCUPPER_URL=https://scupper.sailscoring.ie
 NEXT_PUBLIC_SCUPPER_API_KEY=<key>
 ```

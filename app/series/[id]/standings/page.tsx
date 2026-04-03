@@ -37,7 +37,9 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
-import type { Standing, DiscardThreshold, Series } from '@/lib/types';
+import { uploadToBilge, lookupPrefix, checkPublishStatus, publishedUrl, fetchPolicy } from '@/lib/bilge';
+import { slugify, isValidPrefix } from '@/lib/bilge-slug';
+import type { Standing, DiscardThreshold, Series, BilgeBundle } from '@/lib/types';
 
 function PointsCell({
   points,
@@ -119,6 +121,276 @@ async function exportHtml(seriesId: string) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+type PublishState =
+  | 'idle'
+  | 'publishing'
+  | 'checking'
+  | { error: string };
+
+function BilgePublishDialog({
+  series,
+  open,
+  onClose,
+}: {
+  series: Series;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const bundle = series.bilgeBundle;
+
+  // Setup view state
+  const [prefix, setPrefix] = useState(() => slugify(series.name) || 'results');
+  const [email, setEmail] = useState('');
+  const [prefixAvailable, setPrefixAvailable] = useState<boolean | null>(null);
+  const [checkingPrefix, setCheckingPrefix] = useState(false);
+
+  // Shared publish state
+  const [publishState, setPublishState] = useState<PublishState>('idle');
+
+  // Retention days from policy — null = no expiry, undefined = not yet fetched
+  const [retentionDays, setRetentionDays] = useState<number | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (open) {
+      setPublishState('idle');
+      if (!bundle) {
+        setPrefix(slugify(series.name) || 'results');
+        setEmail('');
+        setPrefixAvailable(null);
+      } else {
+        fetchPolicy().then((p) => setRetentionDays(p.retentionDays));
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Debounced prefix availability check
+  useEffect(() => {
+    if (!open || bundle || !prefix || !isValidPrefix(prefix)) {
+      setPrefixAvailable(null);
+      return;
+    }
+    setCheckingPrefix(true);
+    setPrefixAvailable(null);
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      const result = await lookupPrefix(prefix, controller.signal);
+      setCheckingPrefix(false);
+      setPrefixAvailable(!result.found);
+    }, 400);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, bundle, prefix]);
+
+  async function handlePublish() {
+    setPublishState('publishing');
+
+    const html = await buildHtml(series.id);
+    if (!html) {
+      setPublishState({ error: 'No results to publish.' });
+      return;
+    }
+
+    const uuid = bundle?.uuid ?? crypto.randomUUID();
+    const slug = bundle?.slug ?? `${prefix}/standings`;
+    const result = await uploadToBilge({
+      uuid,
+      slug,
+      email: bundle ? undefined : email,
+      html,
+    });
+
+    if (result.status === 'error') {
+      setPublishState({ error: result.message ?? result.code });
+      return;
+    }
+
+    const updatedBundle: BilgeBundle = {
+      uuid,
+      prefix: bundle?.prefix ?? prefix,
+      slug,
+      email: bundle ? bundle.email : email,
+      status: result.status,
+      publishedUrl: result.status === 'published' ? result.url : (bundle?.publishedUrl ?? null),
+      lastPublishedAt: Date.now(),
+    };
+
+    await db.series.update(series.id, { bilgeBundle: updatedBundle });
+    setPublishState('idle');
+  }
+
+  async function handleCheckStatus() {
+    if (!bundle) return;
+    setPublishState('checking');
+    const live = await checkPublishStatus(bundle.slug);
+    if (live) {
+      const url = publishedUrl(bundle.slug);
+      await db.series.update(series.id, {
+        bilgeBundle: { ...bundle, status: 'published', publishedUrl: url },
+      });
+    }
+    setPublishState('idle');
+  }
+
+  const isPublishing = publishState === 'publishing';
+  const isChecking = publishState === 'checking';
+  const hasError = typeof publishState === 'object';
+
+  const prefixValid = isValidPrefix(prefix);
+  const canPublish = !isPublishing && (
+    bundle
+      ? true
+      : prefixValid && !!email.trim()
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>Publish results</DialogTitle>
+        </DialogHeader>
+
+        {bundle ? (
+          // Manage view — bundle already configured
+          <form id="bilge-publish-form" onSubmit={(e) => { e.preventDefault(); handlePublish(); }} className="space-y-3">
+            <div className="space-y-1 text-sm">
+              <p className="text-muted-foreground">
+                Published at{' '}
+                <span className="font-mono text-xs">{bundle.slug}</span>
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium">Status:</span>
+                {bundle.status === 'published' ? (
+                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">Published</span>
+                ) : bundle.status === 'pending' ? (
+                  <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">Pending verification</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Unpublished</span>
+                )}
+              </div>
+              {bundle.lastPublishedAt !== null && (
+                <p className="text-xs text-muted-foreground">
+                  {new Date(bundle.lastPublishedAt).toLocaleString()}
+                  {retentionDays != null && (
+                    <>{' · Expires '}{new Date(bundle.lastPublishedAt + retentionDays * 86_400_000).toLocaleDateString()}</>
+                  )}
+                </p>
+              )}
+            </div>
+
+            {bundle.status === 'published' && bundle.publishedUrl && (
+              <div className="flex items-center gap-2 min-w-0">
+                <a
+                  href={bundle.publishedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-mono truncate hover:underline flex-1 min-w-0"
+                >
+                  {bundle.publishedUrl}
+                </a>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => navigator.clipboard.writeText(bundle.publishedUrl!)}
+                >
+                  Copy
+                </Button>
+              </div>
+            )}
+
+            {bundle.status === 'pending' && (
+              <p className="text-sm text-muted-foreground">
+                Check your email for a verification link. Once verified, re-publish to make it live.
+              </p>
+            )}
+
+            {hasError && (
+              <p className="text-sm text-destructive">{(publishState as { error: string }).error}</p>
+            )}
+          </form>
+        ) : (
+          // Setup view — first publish
+          <form id="bilge-publish-form" onSubmit={(e) => { e.preventDefault(); handlePublish(); }} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="bilge-prefix">URL prefix</Label>
+              <Input
+                id="bilge-prefix"
+                value={prefix}
+                onChange={(e) => setPrefix(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                placeholder="hyc-autumn-league-2026"
+                autoFocus
+              />
+              {prefix && !prefixValid && (
+                <p className="text-xs text-destructive">
+                  Use only lowercase letters, numbers, and hyphens (e.g. hyc-autumn-2026).
+                </p>
+              )}
+              {prefixValid && (
+                <p className="text-xs text-muted-foreground">
+                  {checkingPrefix
+                    ? 'Checking…'
+                    : prefixAvailable === true
+                    ? '✓ Available'
+                    : prefixAvailable === false
+                    ? 'Already in use — choose another prefix.'
+                    : null}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="bilge-email">Your email</Label>
+              <Input
+                id="bilge-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="scorer@example.com"
+              />
+              <p className="text-xs text-muted-foreground">
+                A verification link will be sent on first publish. Not stored in the series file.
+              </p>
+            </div>
+            {hasError && (
+              <p className="text-sm text-destructive">{(publishState as { error: string }).error}</p>
+            )}
+          </form>
+        )}
+
+        <DialogFooter className="sm:justify-between">
+          <a
+            href={`${process.env.NEXT_PUBLIC_BILGE_URL}/l/`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-muted-foreground hover:underline self-center"
+          >
+            bilge.sailscoring.ie
+          </a>
+          <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          {bundle?.status === 'pending' && (
+            <Button variant="outline" onClick={handleCheckStatus} disabled={isChecking}>
+              {isChecking ? 'Checking…' : 'Check status'}
+            </Button>
+          )}
+          <Button
+            type="submit"
+            form="bilge-publish-form"
+            disabled={!canPublish}
+          >
+            {isPublishing ? 'Publishing…' : bundle ? 'Re-publish' : 'Publish'}
+          </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 type UploadState =
@@ -270,6 +542,7 @@ export default function StandingsPage({
 }) {
   const { id: seriesId } = use(params);
   const [showFtpDialog, setShowFtpDialog] = useState(false);
+  const [showBilgeDialog, setShowBilgeDialog] = useState(false);
 
   const series = useLiveQuery(
     async () => (await seriesRepo.get(seriesId)) ?? null,
@@ -299,6 +572,9 @@ export default function StandingsPage({
     } else if (e.key === 'f') {
       e.preventDefault();
       setShowFtpDialog(true);
+    } else if (e.key === 'p') {
+      e.preventDefault();
+      setShowBilgeDialog(true);
     }
   });
 
@@ -347,6 +623,9 @@ export default function StandingsPage({
           · {competitors.length} competitors
         </p>
         <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowBilgeDialog(true)} title="Publish (p)">
+            Publish
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setShowFtpDialog(true)} title="Upload via FTP (f)">
             Upload via FTP
           </Button>
@@ -386,6 +665,11 @@ export default function StandingsPage({
         </TableBody>
       </Table>
 
+      <BilgePublishDialog
+        series={series}
+        open={showBilgeDialog}
+        onClose={() => setShowBilgeDialog(false)}
+      />
       <FtpUploadDialog
         series={series}
         open={showFtpDialog}

@@ -44,6 +44,7 @@ export default function NewSeriesPage() {
         dnfScoring: 'seriesEntries',
         ftpHost: '',
         ftpPath: '',
+        bilgeBundle: null,
       };
       log('series', 'creating', series);
       await seriesRepo.save(series);
