@@ -249,14 +249,14 @@ function BilgePublishDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent aria-describedby={undefined} className="overflow-hidden">
+      <DialogContent aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>Publish results</DialogTitle>
         </DialogHeader>
 
         {bundle ? (
           // Manage view — bundle already configured
-          <form id="bilge-publish-form" onSubmit={(e) => { e.preventDefault(); handlePublish(); }} className="space-y-3">
+          <form id="bilge-publish-form" onSubmit={(e) => { e.preventDefault(); handlePublish(); }} className="space-y-3 min-w-0">
             <div className="space-y-1 text-sm">
               <p className="text-muted-foreground truncate">
                 Published at{' '}
@@ -283,15 +283,17 @@ function BilgePublishDialog({
             </div>
 
             {bundle.status === 'published' && bundle.publishedUrl && (
-              <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-                <a
-                  href={bundle.publishedUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs font-mono truncate hover:underline flex-1 min-w-0"
-                >
-                  {bundle.publishedUrl}
-                </a>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <a
+                    href={bundle.publishedUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-mono truncate block hover:underline"
+                  >
+                    {bundle.publishedUrl}
+                  </a>
+                </div>
                 <Button
                   size="sm"
                   variant="outline"
