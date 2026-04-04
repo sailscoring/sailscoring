@@ -100,8 +100,8 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
 
   const isSingleDefault = fleets.length <= 1;
 
-  // For single-fleet series, include JSON export (same as before)
-  const publicExport = isSingleDefault && (series.includeJsonExport ?? true)
+  // Build JSON export once for the whole series (embedded in every fleet's HTML)
+  const publicExport = (series.includeJsonExport ?? true)
     ? await buildPublicExport(seriesId)
     : null;
 
@@ -141,7 +141,6 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
       fleetName,
     );
 
-    // Only embed JSON export for single-fleet series
     if (publicExport) {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL;
       if (appUrl) {
