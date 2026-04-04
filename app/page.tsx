@@ -88,8 +88,8 @@ function SeriesCard({
 
 // Separated into its own component so useSearchParams() can be wrapped in <Suspense>,
 // which Next.js requires to avoid a prerender bailout on the home page.
-// handledRef ensures the effect fires at most once per mount, preventing a race where
-// setOpenFlow({ step: 'idle' }) re-enables detection before router.replace('/') propagates.
+// The URL is cleaned via router.replace('/') as soon as the param is detected, so the
+// ?import= param is gone before the dialog renders — navigating back to / never re-triggers it.
 function ImportFromUrlDetector({
   onDetected,
   onError,
@@ -98,12 +98,16 @@ function ImportFromUrlDetector({
   onError: (msg: string) => void;
 }) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const importParam = searchParams.get('import');
   const handledRef = useRef(false);
 
   useEffect(() => {
     if (!importParam || handledRef.current) return;
     handledRef.current = true;
+    // Strip ?import= from the URL immediately so same-pathname navigation (e.g. clicking
+    // the "Sail Scoring" header link while already on /) never re-triggers the dialog.
+    router.replace('/');
     try {
       const b64 = importParam.replace(/-/g, '+').replace(/_/g, '/');
       const padded = b64 + '=='.slice(0, (4 - b64.length % 4) % 4);
@@ -137,8 +141,7 @@ export default function HomePage() {
     setOpenFlow({ step: 'working' });
     try {
       const newId = await importPublicExport(data);
-      // replace() removes /?import=… from history so back-navigation never returns to it
-      router.replace(`/series/${newId}/standings`);
+      router.push(`/series/${newId}/standings`);
     } catch (err) {
       console.error(err);
       setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
@@ -147,7 +150,6 @@ export default function HomePage() {
 
   function handleDismissImportUrl() {
     setOpenFlow({ step: 'idle' });
-    router.replace('/');
   }
 
   useGlobalKeyDown((e) => {
