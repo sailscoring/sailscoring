@@ -379,6 +379,32 @@ export default function SettingsPage({
         </Button>
       </form>
 
+      {/* Publishing card */}
+      <div className="border rounded-lg p-5 space-y-4">
+        <h2 className="text-sm font-medium">Publishing</h2>
+        <div className="flex items-start gap-2.5">
+          <input
+            id="includeJsonExport"
+            type="checkbox"
+            checked={series.includeJsonExport ?? true}
+            onChange={(e) => {
+              db.series.update(seriesId, { includeJsonExport: e.target.checked });
+            }}
+            className="mt-0.5 h-4 w-4 shrink-0"
+          />
+          <div>
+            <label htmlFor="includeJsonExport" className="text-sm font-medium cursor-pointer">
+              Include data export in published results
+            </label>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Embeds a JSON snapshot of the results in every exported HTML file, with a
+              &ldquo;Download results (JSON)&rdquo; link in the footer. Disable if you prefer
+              to share results without the underlying data.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <input
         ref={fileInputRef}
         type="file"

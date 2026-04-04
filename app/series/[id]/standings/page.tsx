@@ -8,6 +8,7 @@ import { db } from '@/lib/db';
 import { getDiscardCount } from '@/lib/scoring';
 import { calculateStandings, calculateRaceScores } from '@/lib/scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from '@/lib/results-renderer';
+import { buildPublicExport } from '@/lib/public-export';
 import { uploadViaScupper } from '@/lib/scupper';
 import {
   Table,
@@ -94,6 +95,10 @@ async function buildHtml(seriesId: string): Promise<string | null> {
     }),
   );
 
+  const publicExport = (series.includeJsonExport ?? true)
+    ? await buildPublicExport(seriesId)
+    : null;
+
   const data = assembleSeriesResultsData(
     { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl },
     races,
@@ -102,6 +107,23 @@ async function buildHtml(seriesId: string): Promise<string | null> {
     competitorsById,
     new Date(),
   );
+
+  if (publicExport) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (appUrl) {
+      const json = JSON.stringify(publicExport);
+      // Base64url-encode the JSON (Unicode-safe via TextEncoder → binary → btoa)
+      const bytes = new TextEncoder().encode(json);
+      let binary = '';
+      bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+      const b64 = btoa(binary)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+      data.publicExportJson = json;
+      data.openInAppUrl = `${appUrl}/?import=${b64}`;
+    }
+  }
 
   return renderSeriesHtml(data);
 }

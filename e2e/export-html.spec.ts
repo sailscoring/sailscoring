@@ -127,4 +127,91 @@ test('export HTML downloads a .htm file with correct standings', async ({ page }
   // Self-contained: no external stylesheet or script links
   expect(html).not.toMatch(/<link[^>]+rel="stylesheet"/);
   expect(html).not.toMatch(/<script[^>]+src=/);
+
+  // JSON export embedded — includeJsonExport defaults to true
+  expect(html).toContain('id="sail-scoring-data"');
+  // Footer always shows "Open in Sail Scoring" (NEXT_PUBLIC_APP_URL is required)
+  expect(html).toContain('Open in Sail Scoring');
+  expect(html).toContain('?import=');
+
+  // JSON blob is valid and contains the series data
+  const jsonMatch = html.match(/<script type="application\/json" id="sail-scoring-data">\n([\s\S]*?)\n<\/script>/);
+  expect(jsonMatch).not.toBeNull();
+  const exportData = JSON.parse(jsonMatch![1]);
+  expect(exportData.version).toBe(1);
+  expect(exportData.series.name).toBe('Howth Cup 2025');
+  expect(exportData.competitors).toHaveLength(3);
+  expect(exportData.standings[0].sailNumber).toBe('42'); // Alice wins
+
+  // JSON blob is private-field-free
+  expect(exportData).not.toHaveProperty('snapshotId');
+  expect(exportData).not.toHaveProperty('snapshotHistory');
+  expect('ftpHost' in exportData).toBe(false);
+
+  // JSON blob appears after the visible footer (i.e. at the end of <body>)
+  const footerIdx = html.indexOf('sailscoring.ie');
+  const jsonBlobIdx = html.indexOf('sail-scoring-data');
+  expect(jsonBlobIdx).toBeGreaterThan(footerIdx);
+});
+
+test('Open in Sail Scoring import flow creates a new series', async ({ page }) => {
+  // Build a minimal PublicSeriesExport and base64url-encode it (Node.js Buffer API)
+  const publicExport = {
+    version: 1,
+    exportedAt: '2025-06-14T10:00:00.000Z',
+    series: {
+      name: 'Imported Regatta',
+      venue: 'Test YC',
+      startDate: '2025-06-14',
+      endDate: '',
+      discardThresholds: [],
+      dnfScoring: 'seriesEntries',
+    },
+    competitors: [
+      { sailNumber: '1', name: 'Alice', club: 'TYC', gender: '', age: null },
+      { sailNumber: '2', name: 'Bob', club: 'TYC', gender: '', age: null },
+    ],
+    races: [
+      {
+        raceNumber: 1,
+        date: '2025-06-14',
+        finishes: [
+          { sailNumber: '1', finishPosition: 1, resultCode: null, startPresent: null },
+          { sailNumber: '2', finishPosition: 2, resultCode: null, startPresent: null },
+        ],
+      },
+    ],
+    standings: [
+      { rank: 1, sailNumber: '1', name: 'Alice', racePoints: [1], raceCodes: [null], raceDiscards: [false], totalPoints: 1, netPoints: 1 },
+      { rank: 2, sailNumber: '2', name: 'Bob', racePoints: [2], raceCodes: [null], raceDiscards: [false], totalPoints: 2, netPoints: 2 },
+    ],
+  };
+
+  const json = JSON.stringify(publicExport);
+  // Use Node.js Buffer for encoding (matches TextEncoder → btoa in the browser)
+  const b64url = Buffer.from(json, 'utf-8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  // Navigate to the app home page with the import param
+  await page.goto(`/?import=${b64url}`);
+
+  // Import dialog should appear with the correct series name
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByText('Imported Regatta')).toBeVisible();
+
+  // Confirm the import
+  await page.getByRole('button', { name: 'Open series' }).click();
+
+  // Should navigate to the new series standings page
+  await expect(page).toHaveURL(/\/standings$/);
+
+  // Standings page shows the imported data
+  await expect(page.getByText('Alice')).toBeVisible();
+  await expect(page.getByText('Bob')).toBeVisible();
+
+  // URL should be clean (no ?import= param) after navigation
+  expect(page.url()).not.toContain('import=');
 });

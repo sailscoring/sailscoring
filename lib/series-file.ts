@@ -1,7 +1,7 @@
 import type { Series, ResultCode, DiscardThreshold } from './types';
 import { db } from './db';
 
-export const FORMAT_VERSION = 2;
+export const FORMAT_VERSION = 3;
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -28,6 +28,7 @@ interface SeriesFileSeries {
   ftpHost: string;
   ftpPath: string;
   bilgeBundle: SeriesFileBilgeBundle | null;
+  includeJsonExport: boolean;
 }
 
 interface SeriesFileCompetitor {
@@ -135,6 +136,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
         publishedUrl: series.bilgeBundle.publishedUrl,
         lastPublishedAt: series.bilgeBundle.lastPublishedAt,
       } : null,
+      includeJsonExport: series.includeJsonExport ?? true,
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -183,7 +185,7 @@ export function parseSeriesFile(content: string): SeriesFile {
   }
   if (typeof data !== 'object' || data === null) throw new Error('Invalid file format');
   const obj = data as Record<string, unknown>;
-  if (obj.formatVersion !== 1 && obj.formatVersion !== FORMAT_VERSION)
+  if (typeof obj.formatVersion !== 'number' || obj.formatVersion < 1 || obj.formatVersion > FORMAT_VERSION)
     throw new Error(`Unsupported file format version: ${obj.formatVersion}`);
   if (typeof obj.seriesId !== 'string') throw new Error('Invalid file: missing seriesId');
   if (typeof obj.snapshotId !== 'string') throw new Error('Invalid file: missing snapshotId');
@@ -235,6 +237,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
       ftpHost: file.series.ftpHost ?? '',
       ftpPath: file.series.ftpPath ?? '',
       bilgeBundle: file.series.bilgeBundle ?? null,
+      includeJsonExport: file.series.includeJsonExport ?? true,
     });
 
     for (const c of file.competitors) {
@@ -306,6 +309,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
       ftpHost: file.series.ftpHost ?? '',
       ftpPath: file.series.ftpPath ?? '',
       bilgeBundle: file.series.bilgeBundle ?? null,
+      includeJsonExport: file.series.includeJsonExport ?? true,
     });
 
     for (const c of file.competitors) {

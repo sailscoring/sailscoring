@@ -45,6 +45,7 @@ export default function NewSeriesPage() {
         ftpHost: '',
         ftpPath: '',
         bilgeBundle: null,
+        includeJsonExport: true,
       };
       log('series', 'creating', series);
       await seriesRepo.save(series);

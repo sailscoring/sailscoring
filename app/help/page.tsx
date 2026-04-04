@@ -39,6 +39,7 @@ export default function HelpPage() {
           ['#a53-scoring', 'A5.3 starting-area scoring'],
           ['#saving-and-sharing', 'Saving and sharing a series'],
           ['#publishing-results', 'Publishing results'],
+          ['#json-export', 'JSON data export and Open in Sail Scoring'],
           ['#keyboard-shortcuts', 'Keyboard shortcuts'],
         ].map(([href, label]) => (
           <div key={href}>
@@ -359,6 +360,31 @@ export default function HelpPage() {
         <p>
           If the upload fails, the raw FTP error from the server is shown — this is usually
           enough to diagnose a wrong path, bad credentials, or a permission problem.
+        </p>
+      </Section>
+
+      <Section id="json-export" title="JSON data export and Open in Sail Scoring">
+        <p>
+          Every exported HTML results page — whether downloaded with{' '}
+          <strong className="text-foreground">Export HTML</strong> or pushed via FTP or
+          Publish — includes an{' '}
+          <strong className="text-foreground">Open in Sail Scoring</strong> link in the footer.
+          Anyone viewing the results page can click it to open the series directly in the app
+          — competitors, races, finishes, and standings are all imported automatically as a new
+          series.
+        </p>
+        <p>
+          The footer also embeds a JSON snapshot of the results in the page source, available
+          to clubs or third parties who want to consume the data programmatically. The snapshot
+          contains only the public results; scorer-private information (file history, FTP
+          credentials, and publishing tokens) is never included.
+        </p>
+        <p>
+          To disable the embedded export for a series, open the{' '}
+          <strong className="text-foreground">Settings</strong> tab and uncheck{' '}
+          <strong className="text-foreground">Include data export in published results</strong>{' '}
+          in the <strong className="text-foreground">Publishing</strong> card. The footer will
+          revert to a plain link with no Open in Sail Scoring option.
         </p>
       </Section>
 

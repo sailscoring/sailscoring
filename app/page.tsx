@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Trash2 } from 'lucide-react';
 import { seriesRepo, competitorRepo, raceRepo, finishRepo } from '@/lib/dexie-repository';
@@ -26,9 +26,11 @@ import {
   type SeriesFile,
   type LineageStatus,
 } from '@/lib/series-file';
+import { importPublicExport, type PublicSeriesExport } from '@/lib/public-export';
 
 type OpenFlow =
   | { step: 'idle' }
+  | { step: 'import-url'; data: PublicSeriesExport }
   | { step: 'disambiguate'; file: SeriesFile; existing: Series }
   | { step: 'confirm-update'; file: SeriesFile; existing: Series; status: LineageStatus }
   | { step: 'working' }
@@ -91,6 +93,50 @@ export default function HomePage() {
   const [showHelp, setShowHelp] = useState(false);
   const [openFlow, setOpenFlow] = useState<OpenFlow>({ step: 'idle' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Detect ?import=<base64url> placed by "Open in Sail Scoring" links on published results pages.
+  // We use useSearchParams() so the param stays in the URL (immune to the React Strict Mode
+  // double-effect reset). The URL is cleaned by router.replace('/') when the dialog is dismissed.
+  const searchParams = useSearchParams();
+  const importParam = searchParams.get('import');
+
+  useEffect(() => {
+    if (!importParam || openFlow.step !== 'idle') return;
+    try {
+      // Decode base64url → UTF-8 bytes → string (TextDecoder; no deprecated escape/unescape)
+      const b64 = importParam.replace(/-/g, '+').replace(/_/g, '/');
+      // Restore base64 padding so atob() never throws on a non-multiple-of-4 length
+      const padded = b64 + '=='.slice(0, (4 - b64.length % 4) % 4);
+      const binary = atob(padded);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const json = new TextDecoder().decode(bytes);
+      const parsed = JSON.parse(json) as PublicSeriesExport;
+      if (parsed.version !== 1 || !parsed.series?.name) throw new Error('Unrecognised format');
+      setOpenFlow({ step: 'import-url', data: parsed });
+    } catch {
+      setOpenFlow({ step: 'error', message: 'Could not read the series data from the link.' });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [importParam]);
+
+  async function handleConfirmImportUrl() {
+    if (openFlow.step !== 'import-url') return;
+    const { data } = openFlow;
+    setOpenFlow({ step: 'working' });
+    try {
+      const newId = await importPublicExport(data);
+      router.push(`/series/${newId}/standings`);
+    } catch (err) {
+      console.error(err);
+      setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
+    }
+  }
+
+  function handleDismissImportUrl() {
+    setOpenFlow({ step: 'idle' });
+    if (importParam) router.replace('/');
+  }
 
   useGlobalKeyDown((e) => {
     if (e.key === '?' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
@@ -238,6 +284,30 @@ export default function HomePage() {
       />
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
+
+      {/* Open in Sail Scoring (import from URL) dialog */}
+      <Dialog
+        open={openFlow.step === 'import-url'}
+        onOpenChange={(open) => { if (!open) handleDismissImportUrl(); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Open &ldquo;{openFlow.step === 'import-url' ? openFlow.data.series.name : ''}&rdquo;?
+            </DialogTitle>
+            <DialogDescription>
+              This will create a new series in your scoring app with the results from this
+              published results page. You can score and edit it from there.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleDismissImportUrl}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmImportUrl}>Open series</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete dialog */}
       <Dialog open={pendingDelete !== null} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>

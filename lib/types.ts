@@ -24,6 +24,7 @@ export interface Series {
   ftpHost: string;   // saved FTP server host for this series (empty if not yet published)
   ftpPath: string;   // saved remote path for this series (empty if not yet published)
   bilgeBundle: BilgeBundle | null;
+  includeJsonExport: boolean;  // embed public JSON export in exported HTML (default true)
 }
 
 export interface Competitor {
