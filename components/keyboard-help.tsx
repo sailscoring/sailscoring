@@ -22,18 +22,30 @@ function Shortcut({ keys }: { keys: string[] }) {
   );
 }
 
-function Section({ title, rows }: { title: string; rows: { keys: string[]; action: string }[] }) {
+function Section({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { keys: string[]; altKeys?: string[]; action: string }[];
+}) {
   return (
     <div className="space-y-2">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {title}
       </h3>
       <dl className="space-y-1.5">
-        {rows.map(({ keys, action }) => (
+        {rows.map(({ keys, altKeys, action }) => (
           <div key={action} className="flex items-center justify-between gap-6 text-sm">
             <dt className="text-muted-foreground">{action}</dt>
-            <dd>
+            <dd className="flex items-center gap-1.5">
               <Shortcut keys={keys} />
+              {altKeys && (
+                <>
+                  <span className="text-xs text-muted-foreground">or</span>
+                  <Shortcut keys={altKeys} />
+                </>
+              )}
             </dd>
           </div>
         ))}
@@ -100,8 +112,7 @@ export function KeyboardHelp({
           <Section
             title="Finish entry"
             rows={[
-              { keys: ['⌘', 'S'], action: 'Save results' },
-              { keys: ['⌃', '↵'], action: 'Save results' },
+              { keys: ['⌘', 'S'], altKeys: ['⌃', '↵'], action: 'Save results' },
               { keys: ['↑', '↓'], action: 'Navigate autocomplete' },
               { keys: ['↵'], action: 'Confirm / add finisher' },
               { keys: ['Esc'], action: 'Clear input or go back' },
