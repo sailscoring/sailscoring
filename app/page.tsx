@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -86,26 +86,24 @@ function SeriesCard({
   );
 }
 
-export default function HomePage() {
-  const router = useRouter();
-  const seriesList = useLiveQuery(() => seriesRepo.list(), []);
-  const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
-  const [openFlow, setOpenFlow] = useState<OpenFlow>({ step: 'idle' });
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Detect ?import=<base64url> placed by "Open in Sail Scoring" links on published results pages.
-  // We use useSearchParams() so the param stays in the URL (immune to the React Strict Mode
-  // double-effect reset). The URL is cleaned by router.replace('/') when the dialog is dismissed.
+// Separated into its own component so useSearchParams() can be wrapped in <Suspense>,
+// which Next.js requires to avoid a prerender bailout on the home page.
+function ImportFromUrlDetector({
+  enabled,
+  onDetected,
+  onError,
+}: {
+  enabled: boolean;
+  onDetected: (data: PublicSeriesExport) => void;
+  onError: (msg: string) => void;
+}) {
   const searchParams = useSearchParams();
   const importParam = searchParams.get('import');
 
   useEffect(() => {
-    if (!importParam || openFlow.step !== 'idle') return;
+    if (!importParam || !enabled) return;
     try {
-      // Decode base64url → UTF-8 bytes → string (TextDecoder; no deprecated escape/unescape)
       const b64 = importParam.replace(/-/g, '+').replace(/_/g, '/');
-      // Restore base64 padding so atob() never throws on a non-multiple-of-4 length
       const padded = b64 + '=='.slice(0, (4 - b64.length % 4) % 4);
       const binary = atob(padded);
       const bytes = new Uint8Array(binary.length);
@@ -113,12 +111,23 @@ export default function HomePage() {
       const json = new TextDecoder().decode(bytes);
       const parsed = JSON.parse(json) as PublicSeriesExport;
       if (parsed.version !== 1 || !parsed.series?.name) throw new Error('Unrecognised format');
-      setOpenFlow({ step: 'import-url', data: parsed });
+      onDetected(parsed);
     } catch {
-      setOpenFlow({ step: 'error', message: 'Could not read the series data from the link.' });
+      onError('Could not read the series data from the link.');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [importParam]);
+  }, [importParam, enabled]);
+
+  return null;
+}
+
+export default function HomePage() {
+  const router = useRouter();
+  const seriesList = useLiveQuery(() => seriesRepo.list(), []);
+  const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
+  const [openFlow, setOpenFlow] = useState<OpenFlow>({ step: 'idle' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleConfirmImportUrl() {
     if (openFlow.step !== 'import-url') return;
@@ -135,7 +144,7 @@ export default function HomePage() {
 
   function handleDismissImportUrl() {
     setOpenFlow({ step: 'idle' });
-    if (importParam) router.replace('/');
+    router.replace('/');
   }
 
   useGlobalKeyDown((e) => {
@@ -284,6 +293,14 @@ export default function HomePage() {
       />
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
+
+      <Suspense>
+        <ImportFromUrlDetector
+          enabled={openFlow.step === 'idle'}
+          onDetected={(data) => setOpenFlow({ step: 'import-url', data })}
+          onError={(message) => setOpenFlow({ step: 'error', message })}
+        />
+      </Suspense>
 
       {/* Open in Sail Scoring (import from URL) dialog */}
       <Dialog
