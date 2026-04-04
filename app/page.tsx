@@ -95,13 +95,19 @@ export default function HomePage() {
   const [openFlow, setOpenFlow] = useState<OpenFlow>({ step: 'idle' });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // DEBUG: log every render
+  console.log('[import-debug] render', { pathname, openFlowStep: openFlow.step, search: typeof window !== 'undefined' ? window.location.search : '(ssr)' });
+
   // Detect ?import=<base64url> on mount. We use window.location.search (not useSearchParams)
   // so we can strip the param synchronously with window.history.replaceState before any
   // re-render sees it — router.replace() is async and races with state updates.
   useEffect(() => {
-    const importParam = new URLSearchParams(window.location.search).get('import');
+    const search = window.location.search;
+    const importParam = new URLSearchParams(search).get('import');
+    console.log('[import-debug] mount effect', { search, hasImportParam: !!importParam });
     if (!importParam) return;
     window.history.replaceState(null, '', '/');
+    console.log('[import-debug] replaceState done, new search:', window.location.search);
     try {
       const b64 = importParam.replace(/-/g, '+').replace(/_/g, '/');
       const padded = b64 + '=='.slice(0, (4 - b64.length % 4) % 4);
@@ -111,10 +117,13 @@ export default function HomePage() {
       const json = new TextDecoder().decode(bytes);
       const parsed = JSON.parse(json) as PublicSeriesExport;
       if (parsed.version !== 1 || !parsed.series?.name) throw new Error('Unrecognised format');
+      console.log('[import-debug] decoded ok, series:', parsed.series.name, '— setting import-url');
       setOpenFlow({ step: 'import-url', data: parsed });
-    } catch {
+    } catch (err) {
+      console.log('[import-debug] decode error:', err);
       setOpenFlow({ step: 'error', message: 'Could not read the series data from the link.' });
     }
+    return () => { console.log('[import-debug] mount effect cleanup'); };
   }, []);
 
   // Next.js App Router's router cache keeps client components alive across navigations,
@@ -126,10 +135,14 @@ export default function HomePage() {
   const openFlowRef = useRef(openFlow);
   openFlowRef.current = openFlow;
   useEffect(() => {
-    if (pathname === '/' && openFlowRef.current.step === 'import-url'
-        && !new URLSearchParams(window.location.search).get('import')) {
+    const search = window.location.search;
+    const hasImportParam = !!new URLSearchParams(search).get('import');
+    console.log('[import-debug] pathname effect', { pathname, openFlowStep: openFlowRef.current.step, search, hasImportParam });
+    if (pathname === '/' && openFlowRef.current.step === 'import-url' && !hasImportParam) {
+      console.log('[import-debug] resetting stale import-url state');
       setOpenFlow({ step: 'idle' });
     }
+    return () => { console.log('[import-debug] pathname effect cleanup, was pathname:', pathname); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
