@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Trash2 } from 'lucide-react';
 import { seriesRepo, competitorRepo, raceRepo, finishRepo } from '@/lib/dexie-repository';
@@ -88,6 +88,7 @@ function SeriesCard({
 
 export default function HomePage() {
   const router = useRouter();
+  const pathname = usePathname();
   const seriesList = useLiveQuery(() => seriesRepo.list(), []);
   const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -115,6 +116,22 @@ export default function HomePage() {
       setOpenFlow({ step: 'error', message: 'Could not read the series data from the link.' });
     }
   }, []);
+
+  // Next.js App Router's router cache keeps client components alive across navigations,
+  // preserving React state. When the user navigates away and back, a stale import-url
+  // state from a previous visit would re-open the dialog. Detect this by watching pathname:
+  // if we're back on / but the URL has no ?import=, the import-url state is stale.
+  // Use a ref so this effect doesn't re-run when openFlow changes (which would reset the
+  // dialog immediately after it was legitimately opened on this visit).
+  const openFlowRef = useRef(openFlow);
+  openFlowRef.current = openFlow;
+  useEffect(() => {
+    if (pathname === '/' && openFlowRef.current.step === 'import-url'
+        && !new URLSearchParams(window.location.search).get('import')) {
+      setOpenFlow({ step: 'idle' });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   async function handleConfirmImportUrl() {
     if (openFlow.step !== 'import-url') return;
