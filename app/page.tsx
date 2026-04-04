@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Trash2 } from 'lucide-react';
 import { seriesRepo, competitorRepo, raceRepo, finishRepo } from '@/lib/dexie-repository';
@@ -86,28 +86,21 @@ function SeriesCard({
   );
 }
 
-// Separated into its own component so useSearchParams() can be wrapped in <Suspense>,
-// which Next.js requires to avoid a prerender bailout on the home page.
-// The URL is cleaned via router.replace('/') as soon as the param is detected, so the
-// ?import= param is gone before the dialog renders — navigating back to / never re-triggers it.
-function ImportFromUrlDetector({
-  onDetected,
-  onError,
-}: {
-  onDetected: (data: PublicSeriesExport) => void;
-  onError: (msg: string) => void;
-}) {
-  const searchParams = useSearchParams();
+export default function HomePage() {
   const router = useRouter();
-  const importParam = searchParams.get('import');
-  const handledRef = useRef(false);
+  const seriesList = useLiveQuery(() => seriesRepo.list(), []);
+  const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
+  const [openFlow, setOpenFlow] = useState<OpenFlow>({ step: 'idle' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Detect ?import=<base64url> on mount. We use window.location.search (not useSearchParams)
+  // so we can strip the param synchronously with window.history.replaceState before any
+  // re-render sees it — router.replace() is async and races with state updates.
   useEffect(() => {
-    if (!importParam || handledRef.current) return;
-    handledRef.current = true;
-    // Strip ?import= from the URL immediately so same-pathname navigation (e.g. clicking
-    // the "Sail Scoring" header link while already on /) never re-triggers the dialog.
-    router.replace('/');
+    const importParam = new URLSearchParams(window.location.search).get('import');
+    if (!importParam) return;
+    window.history.replaceState(null, '', '/');
     try {
       const b64 = importParam.replace(/-/g, '+').replace(/_/g, '/');
       const padded = b64 + '=='.slice(0, (4 - b64.length % 4) % 4);
@@ -117,23 +110,11 @@ function ImportFromUrlDetector({
       const json = new TextDecoder().decode(bytes);
       const parsed = JSON.parse(json) as PublicSeriesExport;
       if (parsed.version !== 1 || !parsed.series?.name) throw new Error('Unrecognised format');
-      onDetected(parsed);
+      setOpenFlow({ step: 'import-url', data: parsed });
     } catch {
-      onError('Could not read the series data from the link.');
+      setOpenFlow({ step: 'error', message: 'Could not read the series data from the link.' });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [importParam]);
-
-  return null;
-}
-
-export default function HomePage() {
-  const router = useRouter();
-  const seriesList = useLiveQuery(() => seriesRepo.list(), []);
-  const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
-  const [openFlow, setOpenFlow] = useState<OpenFlow>({ step: 'idle' });
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  }, []);
 
   async function handleConfirmImportUrl() {
     if (openFlow.step !== 'import-url') return;
@@ -298,13 +279,6 @@ export default function HomePage() {
       />
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
-
-      <Suspense>
-        <ImportFromUrlDetector
-          onDetected={(data) => setOpenFlow({ step: 'import-url', data })}
-          onError={(message) => setOpenFlow({ step: 'error', message })}
-        />
-      </Suspense>
 
       {/* Open in Sail Scoring (import from URL) dialog */}
       <Dialog
