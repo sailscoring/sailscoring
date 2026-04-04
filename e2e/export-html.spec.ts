@@ -224,7 +224,7 @@ test('import dialog does not re-open after confirming and navigating back home',
   // Navigate away then back home via the header link
   await page.getByRole('link', { name: 'Help' }).click();
   await expect(page).toHaveURL('/help');
-  await page.getByRole('link', { name: 'Sail Scoring' }).click();
+  await page.getByRole('banner').getByRole('link', { name: 'Sail Scoring' }).click();
   await expect(page).toHaveURL('/');
 
   // Dialog must not re-open — this was a regression caused by Next.js router cache
@@ -242,7 +242,7 @@ test('import dialog does not re-open after cancelling and navigating back home',
   // Navigate away then back home
   await page.getByRole('link', { name: 'Help' }).click();
   await expect(page).toHaveURL('/help');
-  await page.getByRole('link', { name: 'Sail Scoring' }).click();
+  await page.getByRole('banner').getByRole('link', { name: 'Sail Scoring' }).click();
   await expect(page).toHaveURL('/');
 
   await expect(page.getByRole('dialog')).not.toBeVisible();
