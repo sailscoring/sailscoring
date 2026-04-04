@@ -106,8 +106,12 @@ export default function HomePage() {
     const importParam = new URLSearchParams(search).get('import');
     console.log('[import-debug] mount effect', { search, hasImportParam: !!importParam });
     if (!importParam) return;
+    // Both calls are needed: replaceState cleans the URL synchronously so this render
+    // cycle sees a clean URL; router.replace tells Next.js router to update its internal
+    // state so it doesn't restore /?import=… when the page is remounted from cache.
     window.history.replaceState(null, '', '/');
-    console.log('[import-debug] replaceState done, new search:', window.location.search);
+    router.replace('/');
+    console.log('[import-debug] replaceState+router.replace done, new search:', window.location.search);
     try {
       const b64 = importParam.replace(/-/g, '+').replace(/_/g, '/');
       const padded = b64 + '=='.slice(0, (4 - b64.length % 4) % 4);
