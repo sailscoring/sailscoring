@@ -88,20 +88,22 @@ function SeriesCard({
 
 // Separated into its own component so useSearchParams() can be wrapped in <Suspense>,
 // which Next.js requires to avoid a prerender bailout on the home page.
+// handledRef ensures the effect fires at most once per mount, preventing a race where
+// setOpenFlow({ step: 'idle' }) re-enables detection before router.replace('/') propagates.
 function ImportFromUrlDetector({
-  enabled,
   onDetected,
   onError,
 }: {
-  enabled: boolean;
   onDetected: (data: PublicSeriesExport) => void;
   onError: (msg: string) => void;
 }) {
   const searchParams = useSearchParams();
   const importParam = searchParams.get('import');
+  const handledRef = useRef(false);
 
   useEffect(() => {
-    if (!importParam || !enabled) return;
+    if (!importParam || handledRef.current) return;
+    handledRef.current = true;
     try {
       const b64 = importParam.replace(/-/g, '+').replace(/_/g, '/');
       const padded = b64 + '=='.slice(0, (4 - b64.length % 4) % 4);
@@ -116,7 +118,7 @@ function ImportFromUrlDetector({
       onError('Could not read the series data from the link.');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [importParam, enabled]);
+  }, [importParam]);
 
   return null;
 }
@@ -135,7 +137,8 @@ export default function HomePage() {
     setOpenFlow({ step: 'working' });
     try {
       const newId = await importPublicExport(data);
-      router.push(`/series/${newId}/standings`);
+      // replace() removes /?import=… from history so back-navigation never returns to it
+      router.replace(`/series/${newId}/standings`);
     } catch (err) {
       console.error(err);
       setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
@@ -296,7 +299,6 @@ export default function HomePage() {
 
       <Suspense>
         <ImportFromUrlDetector
-          enabled={openFlow.step === 'idle'}
           onDetected={(data) => setOpenFlow({ step: 'import-url', data })}
           onError={(message) => setOpenFlow({ step: 'error', message })}
         />
