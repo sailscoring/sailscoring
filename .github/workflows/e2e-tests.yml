@@ -24,3 +24,5 @@ jobs:
         run: pnpm exec playwright install chromium --with-deps
 
       - run: pnpm run test:e2e
+        env:
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
