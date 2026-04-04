@@ -43,7 +43,7 @@ td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 <p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A5.3 (startingArea): DNF/OCS penalty = starting-area entries in the fleet + 1. DNC always scores fleet entries + 1. With Fleet A (3 boats) and Fleet B (5 boats), and only 2 Fleet A boats in the starting area (A3 DNC), Fleet A penalties are:
   DNF = 2 + 1 = 3  (only the 2 starters counted, not the 5 Fleet B boats)
   DNC = 3 + 1 = 4  (fleet entries)
-DNF must therefore score better (lower) than DNC. A previous bug computed startingAreaCount across all finishes for the race (all fleets), giving DNF = 7 + 1 = 8 — worse than DNC = 4.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards.</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">A2 DNF — was in starting area but did not finish
+DNF must therefore score better (lower) than DNC. A previous bug computed startingAreaCount across all finishes for the race (all fleets), giving DNF = 7 + 1 = 8 — worse than DNC = 4.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.3 (starting area).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">A2 DNF — was in starting area but did not finish
     A3 DNC — did not come to the start
     All Fleet B boats finish cleanly
     startingAreaCount for Fleet A = non-DNC fleet A finishes = A1 + A2 = 2
@@ -146,25 +146,6 @@ FleetB standings (N=5):
 </tr>
 </tbody>
 </table>
-<p class="hardleft"></p>
-<p class="hardright"></p>
-<p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a></p>
-
-
-<table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
-<tbody>
-<tr>
-<td width="30%"></td>
-<td width="40%" align="center">
-<h1>Two fleets with startingArea scoring — DNF must score less than DNC</h1>
-
-</td>
-<td width="30%"></td>
-</tr>
-</tbody>
-</table>
-<div style="clear:both;"></div>
-<style>div.applicant-break {page-break-after:always;}</style>
 
 <h2>FleetB</h2>
 <table class="summarytable" cellspacing="0" cellpadding="0" border="0">
@@ -283,10 +264,10 @@ FleetB standings (N=5):
 </tr>
 </tbody>
 </table>
+
 <p class="hardleft"></p>
 <p class="hardright"></p>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a></p>
-
 
 </body>
 </html>

@@ -125,7 +125,10 @@ function buildPreamble(fixture: ScoringFixture, yamlSource: string): string {
     ? `<p style="margin:0 0 0.5em; font-style:italic; color:#444;">${esc(fixture.rrs_notes.trim())}</p>`
     : '';
 
-  const configHtml = `<p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> ${esc(discardThresholdsSummary(fixture.series.discardThresholds))}</p>`;
+  const dnfLabel = fixture.series.dnfScoring === 'startingArea'
+    ? 'A5.3 (starting area)'
+    : 'A5.2 (series entries)';
+  const configHtml = `<p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> ${esc(discardThresholdsSummary(fixture.series.discardThresholds))} DNF/OCS scoring: ${esc(dnfLabel)}.</p>`;
 
   const comments = extractComments(yamlSource);
   const commentsHtml = comments
@@ -190,19 +193,26 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
       sections.push(renderSeriesHtml(data));
     }
 
-    // Combine: first section is a full document, subsequent sections contribute only their body content
     const first = sections[0];
-    const rest = sections.slice(1).map((html) => {
-      const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-      return bodyMatch ? bodyMatch[1] : html;
-    });
-
     const preambleInjected = first.replace(
       '<div style="clear:both;"></div>',
       `<div style="clear:both;"></div>\n${preamble}`,
     );
 
-    bodyHtml = preambleInjected.replace('</body>', rest.join('\n') + '\n</body>');
+    // Split into shell (doctype through preamble), fleet contents, and footer.
+    // Each section from renderSeriesHtml contains a repeated <h1> header and footer;
+    // we want exactly one of each, with only the per-fleet <h2>+tables repeated.
+    function extractFleetContent(html: string): string {
+      const m = html.match(/<h2>[\s\S]*?(?=<p class="hardleft">)/);
+      return m ? m[0] : '';
+    }
+
+    const h2Idx = preambleInjected.indexOf('<h2>');
+    const footerIdx = preambleInjected.indexOf('<p class="hardleft">');
+    const shell = h2Idx >= 0 ? preambleInjected.slice(0, h2Idx) : preambleInjected;
+    const footer = footerIdx >= 0 ? preambleInjected.slice(footerIdx) : '</body>\n</html>';
+
+    bodyHtml = shell + sections.map(extractFleetContent).join('\n') + '\n' + footer;
   } else {
     const standings = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring);
 
