@@ -154,8 +154,8 @@ test('export HTML downloads a .htm file with correct standings', async ({ page }
   expect(jsonBlobIdx).toBeGreaterThan(footerIdx);
 });
 
-test('Open in Sail Scoring import flow creates a new series', async ({ page }) => {
-  // Build a minimal PublicSeriesExport and base64url-encode it (Node.js Buffer API)
+// Shared fixture for import flow tests
+function makeImportUrl() {
   const publicExport = {
     version: 1,
     exportedAt: '2025-06-14T10:00:00.000Z',
@@ -186,17 +186,16 @@ test('Open in Sail Scoring import flow creates a new series', async ({ page }) =
       { rank: 2, sailNumber: '2', name: 'Bob', racePoints: [2], raceCodes: [null], raceDiscards: [false], totalPoints: 2, netPoints: 2 },
     ],
   };
-
-  const json = JSON.stringify(publicExport);
-  // Use Node.js Buffer for encoding (matches TextEncoder → btoa in the browser)
-  const b64url = Buffer.from(json, 'utf-8')
+  const b64url = Buffer.from(JSON.stringify(publicExport), 'utf-8')
     .toString('base64')
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');
+  return `/?import=${b64url}`;
+}
 
-  // Navigate to the app home page with the import param
-  await page.goto(`/?import=${b64url}`);
+test('Open in Sail Scoring import flow creates a new series', async ({ page }) => {
+  await page.goto(makeImportUrl());
 
   // Import dialog should appear with the correct series name
   await expect(page.getByRole('dialog')).toBeVisible();
@@ -213,5 +212,39 @@ test('Open in Sail Scoring import flow creates a new series', async ({ page }) =
   await expect(page.getByText('Bob')).toBeVisible();
 
   // URL should be clean (no ?import= param) after navigation
+  expect(page.url()).not.toContain('import=');
+});
+
+test('import dialog does not re-open after confirming and navigating back home', async ({ page }) => {
+  await page.goto(makeImportUrl());
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Open series' }).click();
+  await expect(page).toHaveURL(/\/standings$/);
+
+  // Navigate away then back home via the header link
+  await page.getByRole('link', { name: 'Help' }).click();
+  await expect(page).toHaveURL('/help');
+  await page.getByRole('link', { name: 'Sail Scoring' }).click();
+  await expect(page).toHaveURL('/');
+
+  // Dialog must not re-open — this was a regression caused by Next.js router cache
+  // restoring the /?import= URL when the home page component remounted.
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  expect(page.url()).not.toContain('import=');
+});
+
+test('import dialog does not re-open after cancelling and navigating back home', async ({ page }) => {
+  await page.goto(makeImportUrl());
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+
+  // Navigate away then back home
+  await page.getByRole('link', { name: 'Help' }).click();
+  await expect(page).toHaveURL('/help');
+  await page.getByRole('link', { name: 'Sail Scoring' }).click();
+  await expect(page).toHaveURL('/');
+
+  await expect(page.getByRole('dialog')).not.toBeVisible();
   expect(page.url()).not.toContain('import=');
 });
