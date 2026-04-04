@@ -129,9 +129,9 @@ export default function ResultEntryPage({
     }
   }
 
-  // Ctrl+S / Cmd+S / Ctrl+Enter to save; Esc to cancel; c to toggle check-in tab
+  // Ctrl+Enter to save; Esc to cancel; c to toggle check-in tab
   useGlobalKeyDown((e) => {
-    if (((e.ctrlKey || e.metaKey) && e.key === 's') || (e.ctrlKey && e.key === 'Enter')) {
+    if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
       handleSave();
     } else if (
@@ -650,7 +650,7 @@ export default function ResultEntryPage({
       </div>}
 
       <div className="flex gap-3 items-center border-t pt-4">
-        <Button onClick={handleSave} disabled={saving} title="Save results (⌘S)">
+        <Button onClick={handleSave} disabled={saving} title="Save results (⌃↵)">
           {saving ? 'Saving…' : 'Save results'}
         </Button>
         <Button

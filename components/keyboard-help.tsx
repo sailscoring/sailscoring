@@ -112,7 +112,7 @@ export function KeyboardHelp({
           <Section
             title="Finish entry"
             rows={[
-              { keys: ['⌘', 'S'], altKeys: ['⌃', '↵'], action: 'Save results' },
+              { keys: ['⌃', '↵'], action: 'Save results' },
               { keys: ['↑', '↓'], action: 'Navigate autocomplete' },
               { keys: ['↵'], action: 'Confirm / add finisher' },
               { keys: ['Esc'], action: 'Clear input or go back' },
