@@ -3,8 +3,9 @@
 import { use, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { seriesRepo } from '@/lib/dexie-repository';
+import { seriesRepo, fleetRepo } from '@/lib/dexie-repository';
 import { db } from '@/lib/db';
+import type { Fleet } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,141 @@ import {
   type LineageStatus,
 } from '@/lib/series-file';
 import type { DiscardThreshold, Series } from '@/lib/types';
+
+function FleetsCard({ seriesId }: { seriesId: string }) {
+  const fleets = useLiveQuery(() => fleetRepo.listBySeries(seriesId), [seriesId]) ?? [];
+  const [expanded, setExpanded] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameError, setRenameError] = useState('');
+
+  // A single Default fleet means fleets are invisible to the user.
+  const isOnlyDefault = fleets.length === 1 && fleets[0].name === 'Default';
+  const showEditButton = fleets.length > 1 || (fleets.length === 1 && !isOnlyDefault);
+
+  async function moveFleet(index: number, direction: -1 | 1) {
+    const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
+    const swapIndex = index + direction;
+    if (swapIndex < 0 || swapIndex >= sorted.length) return;
+    const a = sorted[index];
+    const b = sorted[swapIndex];
+    await fleetRepo.save({ ...a, displayOrder: b.displayOrder });
+    await fleetRepo.save({ ...b, displayOrder: a.displayOrder });
+  }
+
+  function startRename(fleet: Fleet) {
+    setRenamingId(fleet.id);
+    setRenameValue(fleet.name);
+    setRenameError('');
+  }
+
+  async function commitRename(fleet: Fleet) {
+    const newName = renameValue.trim();
+    if (newName && newName !== fleet.name) {
+      const duplicate = fleets.some(
+        (f) => f.id !== fleet.id && f.name.toLowerCase() === newName.toLowerCase(),
+      );
+      if (duplicate) {
+        setRenameError(`"${newName}" already exists.`);
+        return;
+      }
+      await fleetRepo.save({ ...fleet, name: newName });
+    }
+    setRenamingId(null);
+    setRenameError('');
+  }
+
+  const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
+
+  return (
+    <div className="border rounded-lg p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium">Fleets</h2>
+        {!expanded && showEditButton && (
+          <Button variant="ghost" size="sm" onClick={() => setExpanded(true)}>
+            Edit ▸
+          </Button>
+        )}
+      </div>
+
+      {!expanded ? (
+        <p className="text-sm text-muted-foreground">
+          {fleets.length === 0 || isOnlyDefault
+            ? 'Fleets are created from competitors.'
+            : sorted.map((f) => f.name).join(' · ')}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Fleets are created automatically from your competitors.
+          </p>
+          <div className="space-y-1">
+            {sorted.map((fleet, i) => (
+              <div key={fleet.id} className="flex-col items-start gap-1">
+              <div className="flex items-center gap-2">
+                {renamingId === fleet.id ? (
+                  <input
+                    className={`flex-1 border rounded px-2 py-1 text-sm${renameError ? ' border-destructive' : ''}`}
+                    value={renameValue}
+                    autoFocus
+                    onChange={(e) => { setRenameValue(e.target.value); setRenameError(''); }}
+                    onBlur={() => commitRename(fleet)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); commitRename(fleet); }
+                      if (e.key === 'Escape') { setRenamingId(null); setRenameError(''); }
+                    }}
+                  />
+                ) : (
+                  <span className="flex-1 text-sm">{fleet.name}</span>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-1.5 text-muted-foreground"
+                  disabled={i === 0}
+                  onClick={() => moveFleet(i, -1)}
+                  title="Move up"
+                >
+                  ↑
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-1.5 text-muted-foreground"
+                  disabled={i === sorted.length - 1}
+                  onClick={() => moveFleet(i, 1)}
+                  title="Move down"
+                >
+                  ↓
+                </Button>
+                {renamingId !== fleet.id && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => startRename(fleet)}
+                  >
+                    Rename
+                  </Button>
+                )}
+              </div>
+              {renamingId === fleet.id && renameError && (
+                <p className="text-xs text-destructive mt-0.5">{renameError}</p>
+              )}
+              </div>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>
+            Done
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 type UpdateFlow =
   | { step: 'idle' }
@@ -378,6 +514,9 @@ export default function SettingsPage({
           {scoringChanged ? 'Save' : 'Saved'}
         </Button>
       </form>
+
+      {/* Fleets card */}
+      <FleetsCard seriesId={seriesId} />
 
       {/* Publishing card */}
       <div className="border rounded-lg p-5 space-y-4">

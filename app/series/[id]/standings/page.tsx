@@ -3,10 +3,9 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { competitorRepo, raceRepo, finishRepo, seriesRepo, ftpServerRepo } from '@/lib/dexie-repository';
+import { competitorRepo, raceRepo, finishRepo, seriesRepo, ftpServerRepo, fleetRepo } from '@/lib/dexie-repository';
 import { db } from '@/lib/db';
-import { getDiscardCount } from '@/lib/scoring';
-import { calculateStandings, calculateRaceScores } from '@/lib/scoring';
+import { getDiscardCount, calculateFleetStandings, calculateRaceScores } from '@/lib/scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from '@/lib/results-renderer';
 import { buildPublicExport } from '@/lib/public-export';
 import { uploadViaScupper } from '@/lib/scupper';
@@ -38,9 +37,15 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { uploadToBilge, lookupPrefix, checkPublishStatus, publishedUrl, fetchPolicy } from '@/lib/bilge';
 import { slugify, isValidPrefix } from '@/lib/bilge-slug';
-import type { Standing, DiscardThreshold, Series, BilgeBundle } from '@/lib/types';
+import type { Standing, DiscardThreshold, Fleet, Series, BilgeBundle } from '@/lib/types';
 
 function PointsCell({
   points,
@@ -69,80 +74,151 @@ function PointsCell({
   );
 }
 
-async function buildHtml(seriesId: string): Promise<string | null> {
-  const [series, competitors, races] = await Promise.all([
+function seriesSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'series';
+}
+
+/** Build one HTML string per fleet. Returns [{fleetName, html}]. */
+async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: string; isDefault: boolean; html: string }[] | null> {
+  const [series, competitors, races, fleets] = await Promise.all([
     seriesRepo.get(seriesId),
     competitorRepo.listBySeries(seriesId),
     raceRepo.listBySeries(seriesId),
+    fleetRepo.listBySeries(seriesId),
   ]);
   if (!series || competitors.length === 0 || races.length === 0) return null;
 
   const allFinishes = await finishRepo.listBySeries(seriesId, competitors.map((c) => c.id));
-  const standings = calculateStandings(competitors, races, allFinishes, series.discardThresholds, series.dnfScoring);
-
-  const competitorsById = new Map(competitors.map((c) => [c.id, c]));
-  const raceScoresByRaceId = new Map(
-    races.map((race) => {
-      const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
-      const scores = calculateRaceScores(finishesForRace, competitors, series.dnfScoring);
-      const scoreMap = new Map(
-        [...scores.entries()].map(([id, s]) => [
-          id,
-          { points: s.points, place: s.place, resultCode: s.resultCode },
-        ]),
-      );
-      return [race.id, scoreMap] as const;
-    }),
+  const fleetResults = calculateFleetStandings(
+    fleets,
+    competitors,
+    races,
+    allFinishes,
+    series.discardThresholds ?? [],
+    series.dnfScoring ?? 'seriesEntries',
   );
 
-  const publicExport = (series.includeJsonExport ?? true)
+  const isSingleDefault = fleets.length <= 1;
+
+  // For single-fleet series, include JSON export (same as before)
+  const publicExport = isSingleDefault && (series.includeJsonExport ?? true)
     ? await buildPublicExport(seriesId)
     : null;
 
-  const data = assembleSeriesResultsData(
-    { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl },
-    races,
-    standings,
-    raceScoresByRaceId,
-    competitorsById,
-    new Date(),
-  );
+  const seriesInfo = { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl };
 
-  if (publicExport) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (appUrl) {
-      const json = JSON.stringify(publicExport);
-      // Base64url-encode the JSON (Unicode-safe via TextEncoder → binary → btoa)
-      const bytes = new TextEncoder().encode(json);
-      let binary = '';
-      bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-      const b64 = btoa(binary)
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-      data.publicExportJson = json;
-      data.openInAppUrl = `${appUrl}/?import=${b64}`;
+  const results: { fleetName: string; isDefault: boolean; html: string }[] = [];
+
+  for (const { fleet, standings } of fleetResults) {
+    const fleetCompetitorIds = new Set(standings.map((s) => s.competitor.id));
+
+    // Per-fleet race score maps (only this fleet's competitors)
+    const raceScoresByRaceId = new Map(
+      races.map((race) => {
+        const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
+        const fleetCompetitors = competitors.filter((c) => fleetCompetitorIds.has(c.id));
+        const scores = calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries');
+        const scoreMap = new Map(
+          [...scores.entries()].map(([id, s]) => [
+            id,
+            { points: s.points, place: s.place, resultCode: s.resultCode },
+          ]),
+        );
+        return [race.id, scoreMap] as const;
+      }),
+    );
+
+    const competitorsById = new Map(competitors.map((c) => [c.id, c]));
+    const fleetName = isSingleDefault ? undefined : fleet.name;
+
+    const data = assembleSeriesResultsData(
+      seriesInfo,
+      races,
+      standings,
+      raceScoresByRaceId,
+      competitorsById,
+      new Date(),
+      fleetName,
+    );
+
+    // Only embed JSON export for single-fleet series
+    if (publicExport) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+      if (appUrl) {
+        const json = JSON.stringify(publicExport);
+        const bytes = new TextEncoder().encode(json);
+        let binary = '';
+        bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+        const b64 = btoa(binary)
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+        data.publicExportJson = json;
+        data.openInAppUrl = `${appUrl}/?import=${b64}`;
+      }
     }
+
+    results.push({
+      fleetName: fleet.name,
+      isDefault: isSingleDefault,
+      html: renderSeriesHtml(data),
+    });
   }
 
-  return renderSeriesHtml(data);
+  return results.length > 0 ? results : null;
 }
 
-async function exportHtml(seriesId: string) {
-  const html = await buildHtml(seriesId);
-  if (!html) return;
-
-  const series = await seriesRepo.get(seriesId);
-  const slug = series?.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'series';
+function triggerDownload(filename: string, html: string) {
   const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = slug + '.htm';
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+/** Download a single fleet's HTML (or the only fleet for single-fleet series). */
+async function exportFleetHtml(seriesId: string, fleetName: string) {
+  const series = await seriesRepo.get(seriesId);
+  const base = seriesSlug(series?.name ?? 'series');
+  const files = await buildFleetHtmlFiles(seriesId);
+  if (!files) return;
+  const file = files.find((f) => f.fleetName === fleetName) ?? files[0];
+  const suffix = file.isDefault ? '' : '-' + seriesSlug(file.fleetName);
+  triggerDownload(base + suffix + '.htm', file.html);
+}
+
+/** Derive a per-fleet bilge slug from the bundle prefix. */
+function fleetBilgeSlug(prefix: string, fleetName: string, isSingleDefault: boolean): string {
+  if (isSingleDefault) return `${prefix}/standings`;
+  return `${prefix}/standings-${seriesSlug(fleetName)}`;
+}
+
+/** Insert a fleet suffix before the file extension in an FTP path. */
+function fleetFtpPath(base: string, fleetName: string, isSingleDefault: boolean): string {
+  if (isSingleDefault || !base) return base;
+  const suffix = '-' + seriesSlug(fleetName);
+  const lastDot = base.lastIndexOf('.');
+  const lastSlash = base.lastIndexOf('/');
+  if (lastDot > lastSlash) return base.slice(0, lastDot) + suffix + base.slice(lastDot);
+  return base + suffix;
+}
+
+/** Strip the fleet suffix from a fleet-specific path to recover the base path. */
+function stripFleetSuffix(path: string, fleetName: string): string {
+  const suffix = '-' + seriesSlug(fleetName);
+  const lastDot = path.lastIndexOf('.');
+  const lastSlash = path.lastIndexOf('/');
+  if (lastDot > lastSlash) {
+    const stem = path.slice(0, lastDot);
+    if (stem.endsWith(suffix)) return stem.slice(0, -suffix.length) + path.slice(lastDot);
+  } else if (path.endsWith(suffix)) {
+    return path.slice(0, -suffix.length);
+  }
+  return path;
 }
 
 type PublishState =
@@ -153,10 +229,12 @@ type PublishState =
 
 function BilgePublishDialog({
   series,
+  fleets,
   open,
   onClose,
 }: {
   series: Series;
+  fleets: Fleet[];
   open: boolean;
   onClose: () => void;
 }) {
@@ -211,34 +289,56 @@ function BilgePublishDialog({
   async function handlePublish() {
     setPublishState('publishing');
 
-    const html = await buildHtml(series.id);
-    if (!html) {
+    const fleetFiles = await buildFleetHtmlFiles(series.id);
+    if (!fleetFiles) {
       setPublishState({ error: 'No results to publish.' });
       return;
     }
 
+    const isSingleDefault = fleetFiles.length === 1 && fleetFiles[0].isDefault;
     const uuid = bundle?.uuid ?? crypto.randomUUID();
-    const slug = bundle?.slug ?? `${prefix}/standings`;
-    const result = await uploadToBilge({
+    const effectivePrefix = bundle?.prefix ?? prefix;
+
+    // Upload first fleet — email only sent on first-ever publish
+    const primarySlug = fleetBilgeSlug(effectivePrefix, fleetFiles[0].fleetName, isSingleDefault);
+    const firstResult = await uploadToBilge({
       uuid,
-      slug,
+      slug: primarySlug,
       email: bundle ? undefined : email,
-      html,
+      html: fleetFiles[0].html,
     });
 
-    if (result.status === 'error') {
-      setPublishState({ error: result.message ?? result.code });
+    if (firstResult.status === 'error') {
+      setPublishState({ error: firstResult.message ?? firstResult.code });
       return;
+    }
+
+    // Upload remaining fleets (email verification not needed again)
+    const fleetUrls: { name: string; url: string | null }[] = [{
+      name: fleetFiles[0].fleetName,
+      url: firstResult.status === 'published' ? firstResult.url : null,
+    }];
+
+    for (const file of fleetFiles.slice(1)) {
+      const slug = fleetBilgeSlug(effectivePrefix, file.fleetName, false);
+      const result = await uploadToBilge({ uuid, slug, html: file.html });
+      fleetUrls.push({
+        name: file.fleetName,
+        url: result.status === 'published' ? result.url : null,
+      });
     }
 
     const updatedBundle: BilgeBundle = {
       uuid,
-      prefix: bundle?.prefix ?? prefix,
-      slug,
+      prefix: effectivePrefix,
+      slug: primarySlug,
       email: bundle ? bundle.email : email,
-      status: result.status,
-      publishedUrl: result.status === 'published' ? result.url : (bundle?.publishedUrl ?? null),
+      status: firstResult.status === 'published' ? 'published'
+            : firstResult.status === 'pending'   ? 'pending'
+            :                                      'unpublished',
+      publishedUrl: fleetUrls[0].url,
       lastPublishedAt: Date.now(),
+      fleets: isSingleDefault ? undefined : fleetUrls,
     };
 
     await db.series.update(series.id, { bilgeBundle: updatedBundle });
@@ -250,9 +350,18 @@ function BilgePublishDialog({
     setPublishState('checking');
     const live = await checkPublishStatus(bundle.slug);
     if (live) {
-      const url = publishedUrl(bundle.slug);
+      const isSingleDefault = !bundle.fleets;
+      const updatedFleets = bundle.fleets?.map((f) => ({
+        ...f,
+        url: publishedUrl(fleetBilgeSlug(bundle.prefix, f.name, false)),
+      }));
       await db.series.update(series.id, {
-        bilgeBundle: { ...bundle, status: 'published', publishedUrl: url },
+        bilgeBundle: {
+          ...bundle,
+          status: 'published',
+          publishedUrl: publishedUrl(bundle.slug),
+          ...(updatedFleets ? { fleets: updatedFleets } : {}),
+        },
       });
     }
     setPublishState('idle');
@@ -304,26 +413,33 @@ function BilgePublishDialog({
               )}
             </div>
 
-            {bundle.status === 'published' && bundle.publishedUrl && (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <a
-                    href={bundle.publishedUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-mono truncate block hover:underline"
-                  >
-                    {bundle.publishedUrl}
-                  </a>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="shrink-0"
-                  onClick={() => navigator.clipboard.writeText(bundle.publishedUrl!)}
-                >
-                  Copy
-                </Button>
+            {bundle.status === 'published' && (
+              <div className="space-y-1.5">
+                {(bundle.fleets ?? (bundle.publishedUrl ? [{ name: '', url: bundle.publishedUrl }] : [])).map(({ name, url }) =>
+                  url ? (
+                    <div key={name} className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        {name && <p className="text-xs font-medium mb-0.5">{name}</p>}
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-mono truncate block hover:underline"
+                        >
+                          {url}
+                        </a>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={() => navigator.clipboard.writeText(url)}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  ) : null
+                )}
               </div>
             )}
 
@@ -425,23 +541,32 @@ type UploadState =
 
 function FtpUploadDialog({
   series,
+  fleets,
   open,
   onClose,
 }: {
   series: Series;
+  fleets: Fleet[];
   open: boolean;
   onClose: () => void;
 }) {
   const ftpServers = useLiveQuery(() => ftpServerRepo.list(), []);
   const [selectedServerId, setSelectedServerId] = useState('');
-  const [ftpPath, setFtpPath] = useState('');
+  const [fleetPaths, setFleetPaths] = useState<string[]>(['']);
   const [uploadState, setUploadState] = useState<UploadState>('idle');
 
-  // Reset state and pre-fill from series when dialog opens.
+  const isSingleDefault = fleets.length <= 1;
+
+  // Reset state and pre-fill paths from series when dialog opens.
   useEffect(() => {
     if (!open) return;
     setUploadState('idle');
-    setFtpPath(series.ftpPath ?? '');
+    const base = series.ftpPath ?? '';
+    setFleetPaths(
+      fleets.length === 0
+        ? [base]
+        : fleets.map((f) => fleetFtpPath(base, f.name, isSingleDefault)),
+    );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -457,38 +582,53 @@ function FtpUploadDialog({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, ftpServers]);
 
+  function setPath(index: number, value: string) {
+    setFleetPaths((prev) => prev.map((p, i) => (i === index ? value : p)));
+  }
+
   async function handleUpload() {
     const serverId = parseInt(selectedServerId);
     const server = ftpServers?.find((s) => s.id === serverId);
-    if (!server || !ftpPath.trim()) return;
+    if (!server || fleetPaths.some((p) => !p.trim())) return;
 
     setUploadState('uploading');
 
-    const html = await buildHtml(series.id);
-    if (!html) {
+    const fleetFiles = await buildFleetHtmlFiles(series.id);
+    if (!fleetFiles) {
       setUploadState({ success: false, error: 'No results to upload.' });
       return;
     }
 
-    const result = await uploadViaScupper({
-      ftpHost: server.host,
-      ftpPort: server.port,
-      ftpUsername: server.username,
-      ftpPassword: server.password,
-      ftpPath: ftpPath.trim(),
-      ftps: server.ftps,
-      html,
-    });
-
-    if (result.ok) {
-      await db.series.update(series.id, { ftpHost: server.host, ftpPath: ftpPath.trim() });
+    for (let i = 0; i < fleetFiles.length; i++) {
+      const path = (fleetPaths[i] ?? '').trim();
+      if (!path) continue;
+      const result = await uploadViaScupper({
+        ftpHost: server.host,
+        ftpPort: server.port,
+        ftpUsername: server.username,
+        ftpPassword: server.password,
+        ftpPath: path,
+        ftps: server.ftps,
+        html: fleetFiles[i].html,
+      });
+      if (!result.ok) {
+        setUploadState({ success: false, error: result.error });
+        return;
+      }
     }
-    setUploadState(result.ok ? { success: true } : { success: false, error: result.error });
+
+    // Save the base path (strip fleet suffix from first fleet's path for multi-fleet)
+    const savedPath = fleetFiles.length > 1 && fleetPaths[0]
+      ? stripFleetSuffix(fleetPaths[0].trim(), fleetFiles[0].fleetName)
+      : (fleetPaths[0] ?? '').trim();
+    await db.series.update(series.id, { ftpHost: server.host, ftpPath: savedPath });
+    setUploadState({ success: true });
   }
 
   const noServers = ftpServers !== undefined && ftpServers.length === 0;
   const uploading = uploadState === 'uploading';
   const succeeded = typeof uploadState === 'object' && uploadState.success;
+  const canUpload = !!selectedServerId && fleetPaths.every((p) => p.trim()) && !uploading;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -521,16 +661,31 @@ function FtpUploadDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ftp-path">Path</Label>
-              <Input
-                id="ftp-path"
-                value={ftpPath}
-                onChange={(e) => setFtpPath(e.target.value)}
-                placeholder="/public_html/results/fleet-a.html"
-                autoFocus
-              />
-            </div>
+            {isSingleDefault ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="ftp-path-0">Path</Label>
+                <Input
+                  id="ftp-path-0"
+                  value={fleetPaths[0] ?? ''}
+                  onChange={(e) => setPath(0, e.target.value)}
+                  placeholder="/public_html/results/series.htm"
+                  autoFocus
+                />
+              </div>
+            ) : (
+              fleets.map((fleet, i) => (
+                <div key={fleet.id} className="space-y-1.5">
+                  <Label htmlFor={`ftp-path-${i}`}>{fleet.name} path</Label>
+                  <Input
+                    id={`ftp-path-${i}`}
+                    value={fleetPaths[i] ?? ''}
+                    onChange={(e) => setPath(i, e.target.value)}
+                    placeholder={`/public_html/results/series-${seriesSlug(fleet.name)}.htm`}
+                    autoFocus={i === 0}
+                  />
+                </div>
+              ))
+            )}
             {typeof uploadState === 'object' && uploadState.success && (
               <p className="text-sm text-green-600 dark:text-green-400">Uploaded successfully.</p>
             )}
@@ -548,7 +703,7 @@ function FtpUploadDialog({
             <Button
               type="submit"
               form="ftp-upload-form"
-              disabled={!selectedServerId || !ftpPath.trim() || uploading}
+              disabled={!canUpload}
             >
               {uploading ? 'Uploading…' : 'Upload'}
             </Button>
@@ -576,6 +731,10 @@ export default function StandingsPage({
     () => competitorRepo.listBySeries(seriesId),
     [seriesId],
   );
+  const fleets = useLiveQuery(
+    () => fleetRepo.listBySeries(seriesId),
+    [seriesId],
+  );
   const races = useLiveQuery(() => raceRepo.listBySeries(seriesId), [seriesId]);
   const allFinishes = useLiveQuery(
     async () => {
@@ -592,7 +751,9 @@ export default function StandingsPage({
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')) return;
     if (e.key === 'x') {
       e.preventDefault();
-      exportHtml(seriesId);
+      // For single fleet, download immediately. For multi-fleet, 'x' is a no-op
+      // (user must pick a fleet from the dropdown — browser blocks multi-download).
+      if (isSingleFleet) exportFleetHtml(seriesId, fleets?.[0]?.name ?? '');
     } else if (e.key === 'f') {
       e.preventDefault();
       setShowFtpDialog(true);
@@ -605,6 +766,7 @@ export default function StandingsPage({
   if (
     series === undefined ||
     competitors === undefined ||
+    fleets === undefined ||
     races === undefined ||
     allFinishes === undefined
   ) {
@@ -632,19 +794,27 @@ export default function StandingsPage({
   }
 
   const discardThresholds: DiscardThreshold[] = series.discardThresholds ?? [];
-  const standings = calculateStandings(competitors, races, allFinishes, discardThresholds, series.dnfScoring ?? 'seriesEntries');
-  const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
+  const fleetResults = calculateFleetStandings(
+    fleets,
+    competitors,
+    races,
+    allFinishes,
+    discardThresholds,
+    series.dnfScoring ?? 'seriesEntries',
+  );
   const discardCount = getDiscardCount(races.length, discardThresholds);
+  const isSingleFleet = fleets.length <= 1;
+  const fleetCountLabel = fleets.length > 1 ? ` · ${fleets.length} fleets` : '';
 
   return (
     <div className="space-y-4 overflow-x-auto">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {races.length} race{races.length === 1 ? '' : 's'} · Low Point ·{' '}
+          {races.length} race{races.length === 1 ? '' : 's'}{fleetCountLabel} · Low Point ·{' '}
           {discardCount > 0
             ? `${discardCount} discard${discardCount > 1 ? 's' : ''}`
             : 'No discards'}{' '}
-          · {competitors.length} competitors
+          · {competitors.length} competitor{competitors.length === 1 ? '' : 's'}
         </p>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setShowBilgeDialog(true)} title="Publish (p)">
@@ -653,53 +823,98 @@ export default function StandingsPage({
           <Button size="sm" variant="outline" onClick={() => setShowFtpDialog(true)} title="Upload via FTP (f)">
             Upload via FTP
           </Button>
-          <Button size="sm" onClick={() => exportHtml(seriesId)} title="Export HTML (x)">
-            Export HTML
-          </Button>
+          {isSingleFleet ? (
+            <Button size="sm" onClick={() => exportFleetHtml(seriesId, fleets[0]?.name ?? '')} title="Export HTML (x)">
+              Export HTML
+            </Button>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm">Export HTML ▾</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {fleets.map((fleet) => (
+                  <DropdownMenuItem key={fleet.id} onClick={() => exportFleetHtml(seriesId, fleet.name)}>
+                    {fleet.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-12 text-center">Rank</TableHead>
-            <TableHead className="w-20">Sail no.</TableHead>
-            <TableHead>Helm</TableHead>
-            <TableHead>Club</TableHead>
-            {races.map((race) => (
-              <TableHead key={race.id} className="w-16 text-center">
-                R{race.raceNumber}
-              </TableHead>
-            ))}
-            <TableHead className="w-20 text-center font-semibold">Total</TableHead>
-            {hasDiscards && (
-              <TableHead className="w-20 text-center font-semibold">Nett</TableHead>
+      {fleetResults.map(({ fleet, standings }) => {
+        const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
+        return (
+          <div key={fleet.id} className="space-y-2">
+            {!isSingleFleet && (
+              <h3 className="text-sm font-semibold pt-2">{fleet.name}</h3>
             )}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {standings.map((standing) => (
-            <StandingRow
-              key={standing.competitor.id}
-              standing={standing}
-              raceCount={races.length}
+            <FleetStandingsTable
+              standings={standings}
+              races={races}
               hasDiscards={hasDiscards}
             />
-          ))}
-        </TableBody>
-      </Table>
+          </div>
+        );
+      })}
 
       <BilgePublishDialog
         series={series}
+        fleets={fleets}
         open={showBilgeDialog}
         onClose={() => setShowBilgeDialog(false)}
       />
       <FtpUploadDialog
         series={series}
+        fleets={fleets}
         open={showFtpDialog}
         onClose={() => setShowFtpDialog(false)}
       />
     </div>
+  );
+}
+
+function FleetStandingsTable({
+  standings,
+  races,
+  hasDiscards,
+}: {
+  standings: Standing[];
+  races: { id: string; raceNumber: number }[];
+  hasDiscards: boolean;
+}) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-12 text-center">Rank</TableHead>
+          <TableHead className="w-20">Sail no.</TableHead>
+          <TableHead>Helm</TableHead>
+          <TableHead>Club</TableHead>
+          {races.map((race) => (
+            <TableHead key={race.id} className="w-16 text-center">
+              R{race.raceNumber}
+            </TableHead>
+          ))}
+          <TableHead className="w-20 text-center font-semibold">Total</TableHead>
+          {hasDiscards && (
+            <TableHead className="w-20 text-center font-semibold">Nett</TableHead>
+          )}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {standings.map((standing) => (
+          <StandingRow
+            key={standing.competitor.id}
+            standing={standing}
+            raceCount={races.length}
+            hasDiscards={hasDiscards}
+          />
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 

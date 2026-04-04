@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { calculateRaceScores, calculateStandings, getDiscardCount } from '@/lib/scoring';
-import type { Competitor, Race, Finish, DiscardThreshold } from '@/lib/types';
+import { calculateRaceScores, calculateStandings, calculateFleetStandings, getDiscardCount } from '@/lib/scoring';
+import type { Competitor, Fleet, Race, Finish, DiscardThreshold } from '@/lib/types';
 
 // Helpers to build test fixtures with minimal required fields
-function makeCompetitor(id: string, seriesId = 's1'): Competitor {
-  return { id, seriesId, sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0 };
+function makeCompetitor(id: string, seriesId = 's1', fleetId = 'f1'): Competitor {
+  return { id, seriesId, fleetId, sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0 };
 }
 
 function makeRace(id: string, raceNumber: number, seriesId = 's1'): Race {
@@ -292,5 +292,86 @@ describe('calculateStandings with discards', () => {
       expect(s.netPoints).toBe(s.totalPoints);
       expect(s.raceDiscards.every(d => !d)).toBe(true);
     }
+  });
+});
+
+// ─── calculateFleetStandings ─────────────────────────────────────────────────
+
+function makeFleet(id: string, name: string, displayOrder: number, seriesId = 's1'): Fleet {
+  return { id, seriesId, name, displayOrder };
+}
+
+describe('calculateFleetStandings', () => {
+  const races = [makeRace('r1', 1), makeRace('r2', 2)];
+
+  it('scores each fleet independently — penalty N is fleet size not total', () => {
+    // Junior fleet: 3 competitors; Senior fleet: 2 competitors
+    const juniors = [
+      makeCompetitor('J1', 's1', 'f-junior'),
+      makeCompetitor('J2', 's1', 'f-junior'),
+      makeCompetitor('J3', 's1', 'f-junior'),
+    ];
+    const seniors = [
+      makeCompetitor('S1', 's1', 'f-senior'),
+      makeCompetitor('S2', 's1', 'f-senior'),
+    ];
+    const competitors = [...juniors, ...seniors];
+    const fleets = [
+      makeFleet('f-junior', 'Junior', 0),
+      makeFleet('f-senior', 'Senior', 1),
+    ];
+
+    // J3 and S2 DNC both races
+    const finishes: Finish[] = [
+      makeFinish('r1', 'J1', 1), makeFinish('r1', 'J2', 2),
+      makeFinish('r1', 'S1', 1),
+      makeFinish('r2', 'J1', 1), makeFinish('r2', 'J2', 2),
+      makeFinish('r2', 'S1', 1),
+    ];
+
+    const results = calculateFleetStandings(fleets, competitors, races, finishes);
+    expect(results).toHaveLength(2);
+
+    const [juniorResult, seniorResult] = results;
+    expect(juniorResult.fleet.name).toBe('Junior');
+    expect(seniorResult.fleet.name).toBe('Senior');
+
+    // J3 DNC should score 3+1 = 4 (fleet size 3)
+    const j3 = juniorResult.standings.find((s) => s.competitor.id === 'J3')!;
+    expect(j3.racePoints[0]).toBe(4); // DNC = 3+1
+
+    // S2 DNC should score 2+1 = 3 (fleet size 2), NOT 5+1 = 6 (total)
+    const s2 = seniorResult.standings.find((s) => s.competitor.id === 'S2')!;
+    expect(s2.racePoints[0]).toBe(3); // DNC = 2+1
+  });
+
+  it('single fleet — output matches calculateStandings', () => {
+    const competitors = ['A', 'B', 'C'].map((id) => makeCompetitor(id, 's1', 'f1'));
+    const fleet = makeFleet('f1', 'Default', 0);
+    const finishes: Finish[] = [
+      makeFinish('r1', 'A', 1), makeFinish('r1', 'B', 2), makeFinish('r1', 'C', 3),
+      makeFinish('r2', 'A', 3), makeFinish('r2', 'B', 1), makeFinish('r2', 'C', 2),
+    ];
+    const [fleetResult] = calculateFleetStandings([fleet], competitors, races, finishes);
+    const direct = calculateStandings(competitors, races, finishes);
+
+    expect(fleetResult.standings.map((s) => s.competitor.id))
+      .toEqual(direct.map((s) => s.competitor.id));
+    expect(fleetResult.standings.map((s) => s.netPoints))
+      .toEqual(direct.map((s) => s.netPoints));
+  });
+
+  it('returns fleets in displayOrder', () => {
+    const competitors = [
+      makeCompetitor('A', 's1', 'f2'),
+      makeCompetitor('B', 's1', 'f1'),
+    ];
+    const fleets = [
+      makeFleet('f2', 'Zephyr', 5),
+      makeFleet('f1', 'Alpha', 0),
+    ];
+    const results = calculateFleetStandings(fleets, competitors, races, []);
+    expect(results[0].fleet.name).toBe('Alpha');
+    expect(results[1].fleet.name).toBe('Zephyr');
   });
 });

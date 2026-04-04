@@ -1,9 +1,10 @@
 import Dexie, { type Table } from 'dexie';
-import type { Series, Competitor, Race, Finish, FtpServer } from './types';
+import type { Series, Competitor, Fleet, Race, Finish, FtpServer } from './types';
 
 export class SailScoringDb extends Dexie {
   series!: Table<Series>;
   competitors!: Table<Competitor>;
+  fleets!: Table<Fleet>;
   races!: Table<Race>;
   finishes!: Table<Finish>;
   ftpServers!: Table<FtpServer>;
@@ -106,6 +107,21 @@ export class SailScoringDb extends Dexie {
       await tx.table('series').toCollection().modify((series) => {
         series.includeJsonExport = true;
       });
+    });
+    this.version(10).stores({
+      series: 'id, createdAt',
+      competitors: 'id, seriesId, fleetId, createdAt',
+      fleets: 'id, seriesId, displayOrder',
+      races: 'id, seriesId, raceNumber',
+      finishes: 'id, raceId, competitorId',
+      ftpServers: '++id',
+    }).upgrade(async (tx) => {
+      const allSeries = await tx.table('series').toArray();
+      for (const s of allSeries) {
+        const fleetId = crypto.randomUUID();
+        await tx.table('fleets').add({ id: fleetId, seriesId: s.id, name: 'Default', displayOrder: 0 });
+        await tx.table('competitors').where('seriesId').equals(s.id).modify({ fleetId });
+      }
     });
   }
 }

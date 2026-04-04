@@ -132,7 +132,9 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
   // Map sailNumber → new competitor UUID for finish remapping
   const competitorIdBySail = new Map(data.competitors.map((c) => [c.sailNumber, crypto.randomUUID()]));
 
-  await db.transaction('rw', [db.series, db.competitors, db.races, db.finishes], async () => {
+  const defaultFleetId = crypto.randomUUID();
+
+  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes], async () => {
     await db.series.add({
       id: newSeriesId,
       name: data.series.name,
@@ -154,10 +156,13 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
       includeJsonExport: true,
     });
 
+    await db.fleets.add({ id: defaultFleetId, seriesId: newSeriesId, name: 'Default', displayOrder: 0 });
+
     for (const c of data.competitors) {
       await db.competitors.add({
         id: competitorIdBySail.get(c.sailNumber)!,
         seriesId: newSeriesId,
+        fleetId: defaultFleetId,
         sailNumber: c.sailNumber,
         name: c.name,
         club: c.club,

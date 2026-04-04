@@ -1,4 +1,4 @@
-import type { Competitor, Race, Finish, RaceScore, Standing, ResultCode, DiscardThreshold } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, Standing, ResultCode, DiscardThreshold } from './types';
 
 /**
  * Calculate race scores for all competitors in a series.
@@ -130,6 +130,8 @@ export function calculateStandings(
   discardThresholds: DiscardThreshold[] = [],
   dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
 ): Standing[] {
+  const competitorIds = new Set(competitors.map((c) => c.id));
+
   if (competitors.length === 0 || races.length === 0) {
     return competitors.map((c, i) => ({
       rank: i + 1,
@@ -159,7 +161,7 @@ export function calculateStandings(
   }
 
   for (const race of races) {
-    const finishes = finishesByRace.get(race.id) ?? [];
+    const finishes = (finishesByRace.get(race.id) ?? []).filter((f) => competitorIds.has(f.competitorId));
     const scores = calculateRaceScores(finishes, competitors, dnfScoring);
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
@@ -220,6 +222,67 @@ export function calculateStandings(
   }
 
   return standings;
+}
+
+/**
+ * Calculate series standings grouped by fleet.
+ *
+ * Each fleet is scored independently: the penalty point base N is the fleet
+ * size, not the total competitor count. Fleets are returned in displayOrder.
+ *
+ * Competitors whose fleetId does not match any supplied fleet are grouped into
+ * a synthetic "Unknown" fleet at the end (should not happen after migration).
+ *
+ * @param fleets  All fleets in the series, in displayOrder
+ * @param competitors  All competitors in the series
+ * @param races  All races in the series, sorted by raceNumber ascending
+ * @param allFinishes  All finishes in the series
+ * @param discardThresholds  Discard rules for this series
+ * @param dnfScoring  'seriesEntries' (A5.2, default) or 'startingArea' (A5.3)
+ */
+export function calculateFleetStandings(
+  fleets: Fleet[],
+  competitors: Competitor[],
+  races: Race[],
+  allFinishes: Finish[],
+  discardThresholds: DiscardThreshold[] = [],
+  dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
+): { fleet: Fleet; standings: Standing[] }[] {
+  const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
+  const knownFleetIds = new Set(fleets.map((f) => f.id));
+
+  const competitorsByFleet = new Map<string, Competitor[]>();
+  const orphans: Competitor[] = [];
+  for (const competitor of competitors) {
+    if (knownFleetIds.has(competitor.fleetId)) {
+      const list = competitorsByFleet.get(competitor.fleetId) ?? [];
+      list.push(competitor);
+      competitorsByFleet.set(competitor.fleetId, list);
+    } else {
+      orphans.push(competitor);
+    }
+  }
+
+  const result: { fleet: Fleet; standings: Standing[] }[] = sorted.map((fleet) => ({
+    fleet,
+    standings: calculateStandings(
+      competitorsByFleet.get(fleet.id) ?? [],
+      races,
+      allFinishes,
+      discardThresholds,
+      dnfScoring,
+    ),
+  }));
+
+  if (orphans.length > 0) {
+    const unknownFleet: Fleet = { id: '__unknown__', seriesId: '', name: 'Unknown', displayOrder: 9999 };
+    result.push({
+      fleet: unknownFleet,
+      standings: calculateStandings(orphans, races, allFinishes, discardThresholds, dnfScoring),
+    });
+  }
+
+  return result;
 }
 
 /**

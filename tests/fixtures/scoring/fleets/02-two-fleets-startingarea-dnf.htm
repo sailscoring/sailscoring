@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="description" content="sail scoring results">
 <meta name="viewport" content="width=device-width">
-<title>Results for Scratch — tie broken by most first places (RRS A8.2)</title>
+<title>Results for Two fleets with startingArea scoring — DNF must score less than DNC — FleetA</title>
 <style type="text/css">
 body {font: 80% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
@@ -31,7 +31,7 @@ td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 <tr>
 <td width="30%"></td>
 <td width="40%" align="center">
-<h1>Scratch — tie broken by most first places (RRS A8.2)</h1>
+<h1>Two fleets with startingArea scoring — DNF must score less than DNC</h1>
 
 </td>
 <td width="30%"></td>
@@ -40,23 +40,31 @@ td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 </table>
 <div style="clear:both;"></div>
 <div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
-<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.2: When boats are tied on net points, rank by most first-place finishes, then most second-place finishes, and so on. Alice and Bob both score 5 net points. Alice has two first-place finishes; Bob has one. Alice ranks ahead.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards.</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Alice: 1st, 3rd, 1st  → 5 pts, two firsts
-Bob:   2nd, 1st, 2nd  → 5 pts, one first
-Carol: 3rd, 2nd, 3rd  → 8 pts
-    Bob wins; Alice struggles
-    Alice wins again; Bob 2nd
-Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice wins.</pre>
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A5.3 (startingArea): DNF/OCS penalty = starting-area entries in the fleet + 1. DNC always scores fleet entries + 1. With Fleet A (3 boats) and Fleet B (5 boats), and only 2 Fleet A boats in the starting area (A3 DNC), Fleet A penalties are:
+  DNF = 2 + 1 = 3  (only the 2 starters counted, not the 5 Fleet B boats)
+  DNC = 3 + 1 = 4  (fleet entries)
+DNF must therefore score better (lower) than DNC. A previous bug computed startingAreaCount across all finishes for the race (all fleets), giving DNF = 7 + 1 = 8 — worse than DNC = 4.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards.</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">A2 DNF — was in starting area but did not finish
+    A3 DNC — did not come to the start
+    All Fleet B boats finish cleanly
+    startingAreaCount for Fleet A = non-DNC fleet A finishes = A1 + A2 = 2
+    → Fleet A startingAreaPenalty = 2+1 = 3  (not 7+1=8 from all 8 boats)
+    → Fleet A seriesEntryPenalty  = 3+1 = 4
+FleetA standings (N=3):
+  A1:  1           → rank 1
+  A2:  3 (DNF)     → rank 2  ← DNF &lt; DNC: correct
+  A3:  4 (DNC)     → rank 3
+
+FleetB standings (N=5):
+  B1:  2, B2: 3, B3: 4, B4: 5, B5: 6</pre>
 </div>
 <style>div.applicant-break {page-break-after:always;}</style>
 
-
+<h2>FleetA</h2>
 <table class="summarytable" cellspacing="0" cellpadding="0" border="0">
-<colgroup span="7">
+<colgroup span="5">
 <col class="rank" />
 <col class="sailno" />
 <col class="helmname" />
-<col class="race" />
-<col class="race" />
 <col class="race" />
 <col class="total" />
 </colgroup>
@@ -66,40 +74,32 @@ Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice w
 <th>Sail</th>
 <th>Helm</th>
 <th><a class="racelink" href="#r1">R1</a></th>
-<th><a class="racelink" href="#r2">R2</a></th>
-<th><a class="racelink" href="#r3">R3</a></th>
 <th>Total</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd summaryrow">
 <td>1st</td>
-<td>101</td>
+<td>A1</td>
 <td>Alice</td>
 <td class="rank1">1</td>
-<td class="rank3">3</td>
-<td class="rank1">1</td>
-<td>5</td>
+<td>1</td>
 
 </tr>
 <tr class="even summaryrow">
 <td>2nd</td>
-<td>202</td>
+<td>A2</td>
 <td>Bob</td>
-<td class="rank2">2</td>
-<td class="rank1">1</td>
-<td class="rank2">2</td>
-<td>5</td>
+<td>3 DNF</td>
+<td>3</td>
 
 </tr>
 <tr class="odd summaryrow">
 <td>3rd</td>
-<td>303</td>
+<td>A3</td>
 <td>Carol</td>
-<td class="rank3">3</td>
-<td class="rank2">2</td>
-<td class="rank3">3</td>
-<td>8</td>
+<td>4 DNC</td>
+<td>4</td>
 
 </tr>
 </tbody>
@@ -125,114 +125,168 @@ Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice w
 <tbody>
 <tr class="odd racerow">
 <td>1</td>
-<td>101</td>
+<td>A1</td>
 <td>Alice</td>
 <td>1</td>
 <td>1</td>
 </tr>
 <tr class="even racerow">
 <td>2</td>
-<td>202</td>
+<td>A2</td>
 <td>Bob</td>
-<td>2</td>
-<td>2</td>
+<td>DNF</td>
+<td>3</td>
 </tr>
 <tr class="odd racerow">
 <td>3</td>
-<td>303</td>
+<td>A3</td>
 <td>Carol</td>
-<td>3</td>
-<td>3</td>
-</tr>
-</tbody>
-</table>
-<h3 class="racetitle" id="r2">R2&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
-<table class="racetable" cellspacing="0" cellpadding="0" border="0">
-<colgroup span="5">
-<col class="rank" />
-<col class="sailno" />
-<col class="helmname" />
-<col class="place" />
-<col class="points" />
-</colgroup>
-<thead>
-<tr class="titlerow">
-<th>Rank</th>
-<th>Sail</th>
-<th>Helm</th>
-<th>Place</th>
-<th>Points</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd racerow">
-<td>1</td>
-<td>202</td>
-<td>Bob</td>
-<td>1</td>
-<td>1</td>
-</tr>
-<tr class="even racerow">
-<td>2</td>
-<td>303</td>
-<td>Carol</td>
-<td>2</td>
-<td>2</td>
-</tr>
-<tr class="odd racerow">
-<td>3</td>
-<td>101</td>
-<td>Alice</td>
-<td>3</td>
-<td>3</td>
-</tr>
-</tbody>
-</table>
-<h3 class="racetitle" id="r3">R3&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
-<table class="racetable" cellspacing="0" cellpadding="0" border="0">
-<colgroup span="5">
-<col class="rank" />
-<col class="sailno" />
-<col class="helmname" />
-<col class="place" />
-<col class="points" />
-</colgroup>
-<thead>
-<tr class="titlerow">
-<th>Rank</th>
-<th>Sail</th>
-<th>Helm</th>
-<th>Place</th>
-<th>Points</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd racerow">
-<td>1</td>
-<td>101</td>
-<td>Alice</td>
-<td>1</td>
-<td>1</td>
-</tr>
-<tr class="even racerow">
-<td>2</td>
-<td>202</td>
-<td>Bob</td>
-<td>2</td>
-<td>2</td>
-</tr>
-<tr class="odd racerow">
-<td>3</td>
-<td>303</td>
-<td>Carol</td>
-<td>3</td>
-<td>3</td>
+<td>DNC</td>
+<td>4</td>
 </tr>
 </tbody>
 </table>
 <p class="hardleft"></p>
 <p class="hardright"></p>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a></p>
+
+
+<table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
+<tbody>
+<tr>
+<td width="30%"></td>
+<td width="40%" align="center">
+<h1>Two fleets with startingArea scoring — DNF must score less than DNC</h1>
+
+</td>
+<td width="30%"></td>
+</tr>
+</tbody>
+</table>
+<div style="clear:both;"></div>
+<style>div.applicant-break {page-break-after:always;}</style>
+
+<h2>FleetB</h2>
+<table class="summarytable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="race" />
+<col class="total" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th><a class="racelink" href="#r1">R1</a></th>
+<th>Total</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd summaryrow">
+<td>1st</td>
+<td>B1</td>
+<td>Dave</td>
+<td class="rank1">2</td>
+<td>2</td>
+
+</tr>
+<tr class="even summaryrow">
+<td>2nd</td>
+<td>B2</td>
+<td>Eve</td>
+<td class="rank2">3</td>
+<td>3</td>
+
+</tr>
+<tr class="odd summaryrow">
+<td>3rd</td>
+<td>B3</td>
+<td>Frank</td>
+<td class="rank3">4</td>
+<td>4</td>
+
+</tr>
+<tr class="even summaryrow">
+<td>4th</td>
+<td>B4</td>
+<td>Grace</td>
+<td>5</td>
+<td>5</td>
+
+</tr>
+<tr class="odd summaryrow">
+<td>5th</td>
+<td>B5</td>
+<td>Henry</td>
+<td>6</td>
+<td>6</td>
+
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r1">R1&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="place" />
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th>Place</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td>1</td>
+<td>B1</td>
+<td>Dave</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr class="even racerow">
+<td>2</td>
+<td>B2</td>
+<td>Eve</td>
+<td>3</td>
+<td>3</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>B3</td>
+<td>Frank</td>
+<td>4</td>
+<td>4</td>
+</tr>
+<tr class="even racerow">
+<td>4</td>
+<td>B4</td>
+<td>Grace</td>
+<td>5</td>
+<td>5</td>
+</tr>
+<tr class="odd racerow">
+<td>5</td>
+<td>B5</td>
+<td>Henry</td>
+<td>6</td>
+<td>6</td>
+</tr>
+</tbody>
+</table>
+<p class="hardleft"></p>
+<p class="hardright"></p>
+<p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a></p>
+
 
 </body>
 </html>

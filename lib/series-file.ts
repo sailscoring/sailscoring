@@ -1,10 +1,16 @@
 import type { Series, ResultCode, DiscardThreshold } from './types';
 import { db } from './db';
 
-export const FORMAT_VERSION = 3;
+export const FORMAT_VERSION = 4;
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
+
+interface SeriesFileFleet {
+  id: string;
+  name: string;
+  displayOrder: number;
+}
 
 interface SeriesFileBilgeBundle {
   uuid: string;
@@ -33,6 +39,7 @@ interface SeriesFileSeries {
 
 interface SeriesFileCompetitor {
   id: string;
+  fleetId: string;
   sailNumber: string;
   name: string;
   club: string;
@@ -62,6 +69,7 @@ export interface SeriesFile {
   snapshotHistory: string[];
   exportedAt: string;
   series: SeriesFileSeries;
+  fleets: SeriesFileFleet[];
   competitors: SeriesFileCompetitor[];
   races: SeriesFileRace[];
 }
@@ -85,6 +93,10 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
     .where('seriesId')
     .equals(seriesId)
     .sortBy('sailNumber');
+  const fleets = await db.fleets
+    .where('seriesId')
+    .equals(seriesId)
+    .sortBy('displayOrder');
   const races = await db.races
     .where('seriesId')
     .equals(seriesId)
@@ -116,6 +128,11 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
     snapshotId,
     snapshotHistory,
     exportedAt: new Date().toISOString(),
+    fleets: fleets.map((f) => ({
+      id: f.id,
+      name: f.name,
+      displayOrder: f.displayOrder,
+    })),
     series: {
       id: series.id,
       name: series.name,
@@ -140,6 +157,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
     },
     competitors: competitors.map((c) => ({
       id: c.id,
+      fleetId: c.fleetId,
       sailNumber: c.sailNumber,
       name: c.name,
       club: c.club,
@@ -186,7 +204,9 @@ export function parseSeriesFile(content: string): SeriesFile {
   if (typeof data !== 'object' || data === null) throw new Error('Invalid file format');
   const obj = data as Record<string, unknown>;
   if (typeof obj.formatVersion !== 'number' || obj.formatVersion < 1 || obj.formatVersion > FORMAT_VERSION)
-    throw new Error(`Unsupported file format version: ${obj.formatVersion}`);
+    throw new Error(`Unsupported file format version: ${obj.formatVersion ?? 'unknown'}`);
+  // Normalise: v1–3 files have no fleets array
+  if (!Array.isArray(obj.fleets)) obj.fleets = [];
   if (typeof obj.seriesId !== 'string') throw new Error('Invalid file: missing seriesId');
   if (typeof obj.snapshotId !== 'string') throw new Error('Invalid file: missing snapshotId');
   if (!Array.isArray(obj.snapshotHistory)) throw new Error('Invalid file: missing snapshotHistory');
@@ -215,10 +235,18 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
   const name = await uniqueSeriesName(file.series.name);
 
   // Remap IDs to avoid conflicts with existing DB records
+  const fileFleets = file.fleets ?? [];
+  const fleetIdMap = new Map(fileFleets.map((f) => [f.id, crypto.randomUUID()]));
   const competitorIdMap = new Map(file.competitors.map((c) => [c.id, crypto.randomUUID()]));
   const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
 
-  await db.transaction('rw', [db.series, db.competitors, db.races, db.finishes], async () => {
+  // For v1–3 files with no fleets, synthesize a Default fleet
+  let defaultFleetId: string | undefined;
+  if (fileFleets.length === 0) {
+    defaultFleetId = crypto.randomUUID();
+  }
+
+  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes], async () => {
     await db.series.add({
       id: newSeriesId,
       name,
@@ -240,10 +268,25 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
       includeJsonExport: file.series.includeJsonExport ?? true,
     });
 
+    if (defaultFleetId) {
+      await db.fleets.add({ id: defaultFleetId, seriesId: newSeriesId, name: 'Default', displayOrder: 0 });
+    } else {
+      for (const f of fileFleets) {
+        await db.fleets.add({
+          id: fleetIdMap.get(f.id)!,
+          seriesId: newSeriesId,
+          name: f.name,
+          displayOrder: f.displayOrder,
+        });
+      }
+    }
+
     for (const c of file.competitors) {
+      const fleetId = defaultFleetId ?? fleetIdMap.get(c.fleetId ?? '') ?? defaultFleetId!;
       await db.competitors.add({
         id: competitorIdMap.get(c.id)!,
         seriesId: newSeriesId,
+        fleetId,
         sailNumber: c.sailNumber,
         name: c.name,
         club: c.club,
@@ -283,16 +326,24 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
 export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): Promise<void> {
   const now = Date.now();
 
+  const fileFleets = file.fleets ?? [];
+  const fleetIdMap = new Map(fileFleets.map((f) => [f.id, crypto.randomUUID()]));
   const competitorIdMap = new Map(file.competitors.map((c) => [c.id, crypto.randomUUID()]));
   const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
 
-  await db.transaction('rw', [db.series, db.competitors, db.races, db.finishes], async () => {
+  let defaultFleetId: string | undefined;
+  if (fileFleets.length === 0) {
+    defaultFleetId = crypto.randomUUID();
+  }
+
+  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes], async () => {
     const existingRaces = await db.races.where('seriesId').equals(seriesId).toArray();
     if (existingRaces.length > 0) {
       await db.finishes.where('raceId').anyOf(existingRaces.map((r) => r.id)).delete();
     }
     await db.races.where('seriesId').equals(seriesId).delete();
     await db.competitors.where('seriesId').equals(seriesId).delete();
+    await db.fleets.where('seriesId').equals(seriesId).delete();
 
     await db.series.update(seriesId, {
       name: file.series.name,
@@ -312,10 +363,25 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
       includeJsonExport: file.series.includeJsonExport ?? true,
     });
 
+    if (defaultFleetId) {
+      await db.fleets.add({ id: defaultFleetId, seriesId, name: 'Default', displayOrder: 0 });
+    } else {
+      for (const f of fileFleets) {
+        await db.fleets.add({
+          id: fleetIdMap.get(f.id)!,
+          seriesId,
+          name: f.name,
+          displayOrder: f.displayOrder,
+        });
+      }
+    }
+
     for (const c of file.competitors) {
+      const fleetId = defaultFleetId ?? fleetIdMap.get(c.fleetId ?? '') ?? defaultFleetId!;
       await db.competitors.add({
         id: competitorIdMap.get(c.id)!,
         seriesId,
+        fleetId,
         sailNumber: c.sailNumber,
         name: c.name,
         club: c.club,

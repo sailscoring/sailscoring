@@ -1,0 +1,148 @@
+description: "Two fleets with startingArea scoring — DNF must score less than DNC"
+rrs_notes: >
+  RRS A5.3 (startingArea): DNF/OCS penalty = starting-area entries in the fleet + 1.
+  DNC always scores fleet entries + 1.
+  With Fleet A (3 boats) and Fleet B (5 boats), and only 2 Fleet A boats in the
+  starting area (A3 DNC), Fleet A penalties are:
+    DNF = 2 + 1 = 3  (only the 2 starters counted, not the 5 Fleet B boats)
+    DNC = 3 + 1 = 4  (fleet entries)
+  DNF must therefore score better (lower) than DNC.
+  A previous bug computed startingAreaCount across all finishes for the race
+  (all fleets), giving DNF = 7 + 1 = 8 — worse than DNC = 4.
+
+series:
+  discardThresholds: []
+  dnfScoring: startingArea
+
+competitors:
+  - sailNumber: "A1"
+    name: "Alice"
+    fleet: "FleetA"
+  - sailNumber: "A2"
+    name: "Bob"
+    fleet: "FleetA"
+  - sailNumber: "A3"
+    name: "Carol"
+    fleet: "FleetA"
+  - sailNumber: "B1"
+    name: "Dave"
+    fleet: "FleetB"
+  - sailNumber: "B2"
+    name: "Eve"
+    fleet: "FleetB"
+  - sailNumber: "B3"
+    name: "Frank"
+    fleet: "FleetB"
+  - sailNumber: "B4"
+    name: "Grace"
+    fleet: "FleetB"
+  - sailNumber: "B5"
+    name: "Henry"
+    fleet: "FleetB"
+
+races:
+  - number: 1
+    # A2 DNF — was in starting area but did not finish
+    # A3 DNC — did not come to the start
+    # All Fleet B boats finish cleanly
+    # startingAreaCount for Fleet A = non-DNC fleet A finishes = A1 + A2 = 2
+    # → Fleet A startingAreaPenalty = 2+1 = 3  (not 7+1=8 from all 8 boats)
+    # → Fleet A seriesEntryPenalty  = 3+1 = 4
+    finishes:
+      - sailor: "A1"
+        position: 1
+      - sailor: "A2"
+        code: DNF
+      - sailor: "A3"
+        code: DNC
+      - sailor: "B1"
+        position: 2
+      - sailor: "B2"
+        position: 3
+      - sailor: "B3"
+        position: 4
+      - sailor: "B4"
+        position: 5
+      - sailor: "B5"
+        position: 6
+
+# FleetA standings (N=3):
+#   A1:  1           → rank 1
+#   A2:  3 (DNF)     → rank 2  ← DNF < DNC: correct
+#   A3:  4 (DNC)     → rank 3
+#
+# FleetB standings (N=5):
+#   B1:  2, B2: 3, B3: 4, B4: 5, B5: 6
+expected:
+  standings:
+    - rank: 1
+      sailor: "A1"
+      fleet: "FleetA"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+
+    - rank: 2
+      sailor: "A2"
+      fleet: "FleetA"
+      racePoints: [3]
+      raceCodes: ["DNF"]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+
+    - rank: 3
+      sailor: "A3"
+      fleet: "FleetA"
+      racePoints: [4]
+      raceCodes: ["DNC"]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+
+    - rank: 1
+      sailor: "B1"
+      fleet: "FleetB"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+
+    - rank: 2
+      sailor: "B2"
+      fleet: "FleetB"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+
+    - rank: 3
+      sailor: "B3"
+      fleet: "FleetB"
+      racePoints: [4]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+
+    - rank: 4
+      sailor: "B4"
+      fleet: "FleetB"
+      racePoints: [5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5
+
+    - rank: 5
+      sailor: "B5"
+      fleet: "FleetB"
+      racePoints: [6]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 6
+      netPoints: 6

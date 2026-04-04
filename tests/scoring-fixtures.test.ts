@@ -12,8 +12,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { parse as parseYaml } from 'yaml';
-import { calculateStandings } from '@/lib/scoring';
-import type { Competitor, Race, Finish, DiscardThreshold, ResultCode } from '@/lib/types';
+import { calculateStandings, calculateFleetStandings } from '@/lib/scoring';
+import type { Competitor, Fleet, Race, Finish, DiscardThreshold, ResultCode } from '@/lib/types';
 
 // ─── Fixture schema types ─────────────────────────────────────────────────────
 
@@ -32,6 +32,7 @@ interface FixtureRace {
 interface FixtureStanding {
   rank: number;
   sailor: string;           // references competitor sailNumber
+  fleet?: string;           // required when fixture has multiple fleets
   racePoints: number[];
   raceCodes: (ResultCode | null)[];
   raceDiscards: boolean[];
@@ -46,7 +47,7 @@ interface ScoringFixture {
     discardThresholds: DiscardThreshold[];
     dnfScoring?: 'seriesEntries' | 'startingArea';
   };
-  competitors: Array<{ sailNumber: string; name: string }>;
+  competitors: Array<{ sailNumber: string; name: string; fleet?: string }>;
   races: FixtureRace[];
   expected: {
     standings: FixtureStanding[];
@@ -57,14 +58,26 @@ interface ScoringFixture {
 
 function buildInputs(fixture: ScoringFixture): {
   competitors: Competitor[];
+  fleets: Fleet[];
   races: Race[];
   finishes: Finish[];
   discardThresholds: DiscardThreshold[];
   dnfScoring: 'seriesEntries' | 'startingArea';
 } {
+  // Build fleets from unique fleet names in competitor list
+  const fleetNames = [...new Set(fixture.competitors.map((c) => c.fleet ?? 'Default'))];
+  const fleets: Fleet[] = fleetNames.map((name, i) => ({
+    id: `fl-${i}`,
+    seriesId: 's1',
+    name,
+    displayOrder: i,
+  }));
+  const fleetIdByName = new Map(fleets.map((f) => [f.name, f.id]));
+
   const competitors: Competitor[] = fixture.competitors.map((c, i) => ({
     id: `c-${i}`,
     seriesId: 's1',
+    fleetId: fleetIdByName.get(c.fleet ?? 'Default') ?? 'f1',
     sailNumber: c.sailNumber,
     name: c.name,
     club: '',
@@ -103,7 +116,7 @@ function buildInputs(fixture: ScoringFixture): {
     }
   }
 
-  return { competitors, races, finishes, discardThresholds: fixture.series.discardThresholds, dnfScoring: fixture.series.dnfScoring ?? 'seriesEntries' };
+  return { competitors, fleets, races, finishes, discardThresholds: fixture.series.discardThresholds, dnfScoring: fixture.series.dnfScoring ?? 'seriesEntries' };
 }
 
 // ─── Load and run fixture files ───────────────────────────────────────────────
@@ -123,15 +136,29 @@ describe('scoring fixtures', () => {
     const fixture = parseYaml(raw) as ScoringFixture;
 
     it(fixture.description, () => {
-      const { competitors, races, finishes, discardThresholds, dnfScoring } = buildInputs(fixture);
-      const standings = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring);
+      const { competitors, fleets, races, finishes, discardThresholds, dnfScoring } = buildInputs(fixture);
+      const isMultiFleet = fleets.length > 1;
 
-      const sailNumberById = new Map(competitors.map((c) => [c.id, c.sailNumber]));
+      // For multi-fleet fixtures, build a flat map of sailNumber → standing across all fleets
+      let standingsBySailNumber: Map<string, ReturnType<typeof calculateStandings>[number]>;
+      let fleetNameBySailNumber: Map<string, string> | undefined;
+      if (isMultiFleet) {
+        const fleetResults = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, dnfScoring);
+        standingsBySailNumber = new Map();
+        fleetNameBySailNumber = new Map();
+        for (const { fleet, standings } of fleetResults) {
+          for (const s of standings) {
+            standingsBySailNumber.set(s.competitor.sailNumber, s);
+            fleetNameBySailNumber.set(s.competitor.sailNumber, fleet.name);
+          }
+        }
+      } else {
+        const standings = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring);
+        standingsBySailNumber = new Map(standings.map((s) => [s.competitor.sailNumber, s]));
+      }
 
       for (const expected of fixture.expected.standings) {
-        const standing = standings.find(
-          (s) => sailNumberById.get(s.competitor.id) === expected.sailor,
-        );
+        const standing = standingsBySailNumber.get(expected.sailor);
 
         expect(
           standing,

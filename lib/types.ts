@@ -27,9 +27,17 @@ export interface Series {
   includeJsonExport: boolean;  // embed public JSON export in exported HTML (default true)
 }
 
+export interface Fleet {
+  id: string;
+  seriesId: string;
+  name: string;
+  displayOrder: number;
+}
+
 export interface Competitor {
   id: string;
   seriesId: string;
+  fleetId: string;
   sailNumber: string;
   name: string;
   club: string;
@@ -68,11 +76,13 @@ export interface RaceScore {
 export interface BilgeBundle {
   uuid: string;                 // bilge namespace owner token (travels in series file)
   prefix: string;               // e.g. "hyc-autumn-league-2026"
-  slug: string;                 // e.g. "hyc-autumn-league-2026/standings"
+  slug: string;                 // primary slug, e.g. "hyc-autumn-league-2026/standings"
   email?: string;               // scorer email — local only, NOT written to series file
   status: 'unpublished' | 'pending' | 'published';
-  publishedUrl: string | null;
+  publishedUrl: string | null;  // primary (first fleet) published URL
   lastPublishedAt: number | null;
+  // Multi-fleet: per-fleet published URLs. Absent for single-fleet bundles.
+  fleets?: { name: string; url: string | null }[];
 }
 
 export interface FtpServer {

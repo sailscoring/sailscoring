@@ -30,6 +30,7 @@ export default function HelpPage() {
           ['#what-is-sail-scoring', 'What is Sail Scoring?'],
           ['#creating-a-series', 'Creating a series'],
           ['#adding-competitors', 'Adding competitors'],
+          ['#fleets', 'Fleets'],
           ['#importing-competitors', 'Importing competitors from CSV'],
           ['#adding-races', 'Adding races'],
           ['#entering-results', 'Entering results'],
@@ -62,8 +63,8 @@ export default function HelpPage() {
           stored locally in your browser and nothing is sent to a server.
         </p>
         <p>
-          The current version supports position-based (scratch) scoring for a single fleet across
-          multiple races. Time-based and handicap scoring are on the roadmap.
+          The current version supports position-based (scratch) scoring for one or more fleets
+          across multiple races. Time-based and handicap scoring are on the roadmap.
         </p>
       </Section>
 
@@ -100,6 +101,46 @@ export default function HelpPage() {
         </p>
       </Section>
 
+      <Section id="fleets" title="Fleets">
+        <p>
+          A <strong className="text-foreground">fleet</strong> is a group of competitors
+          scored independently. Each fleet produces its own standings — the penalty point
+          base <em>N</em> is the number of competitors in that fleet, not the series total.
+          A DNC in a fleet of 5 scores 6 points; a DNC in a fleet of 3 scores 4 points.
+        </p>
+        <p>
+          Fleets are created automatically from your competitors. On the{' '}
+          <strong className="text-foreground">Competitors</strong> tab, type a fleet name
+          (e.g. <em>Junior</em> or <em>Senior</em>) in the{' '}
+          <strong className="text-foreground">Fleet</strong> field when adding or editing a
+          competitor. Leaving the field blank assigns the competitor to the{' '}
+          <strong className="text-foreground">Default</strong> fleet. A fleet exists as long
+          as at least one competitor belongs to it — removing the last competitor from a
+          fleet removes the fleet.
+        </p>
+        <p>
+          When only one fleet exists, the fleet concept is invisible: no fleet column appears
+          in the competitors table, no fleet headings appear in the standings, and the HTML
+          export produces a single file exactly as before.
+        </p>
+        <p>
+          For multi-fleet events,{' '}
+          <strong className="text-foreground">Export HTML</strong> produces one file per
+          fleet (e.g. <code className="text-foreground text-sm">my-series-junior.htm</code>,{' '}
+          <code className="text-foreground text-sm">my-series-senior.htm</code>). Each file
+          contains that fleet&apos;s standings and individual race results.
+        </p>
+        <p>
+          To rename fleets or change their display order, open the{' '}
+          <strong className="text-foreground">Settings</strong> tab and click{' '}
+          <strong className="text-foreground">Edit ▸</strong> on the{' '}
+          <strong className="text-foreground">Fleets</strong> card. You can reorder fleets
+          with the ↑/↓ buttons (which determines the order they appear in standings and
+          exports), and rename any fleet with the{' '}
+          <strong className="text-foreground">Rename</strong> button.
+        </p>
+      </Section>
+
       <Section id="importing-competitors" title="Importing competitors from CSV">
         <p>
           If your entry list is already in a spreadsheet, you can import it directly rather than
@@ -111,9 +152,10 @@ export default function HelpPage() {
         <p>
           The importer shows each column in the file alongside a sample of its values. Use the
           dropdown next to each column to map it to a competitor field — sail number, helm name,
-          club, gender, or age. Columns you do not need can be left as{' '}
+          club, gender, age, or fleet. Columns you do not need can be left as{' '}
           <strong className="text-foreground">(ignore)</strong>. Sail number is the only required
-          mapping; all other fields are optional.
+          mapping; all other fields are optional. Fleet columns named{' '}
+          <em>Fleet</em>, <em>Class</em>, or <em>Division</em> are detected automatically.
         </p>
         <p>
           Clicking <strong className="text-foreground">Import</strong> adds any new competitors and

@@ -7,6 +7,8 @@ export interface SeriesResultsData {
     name: string;
     venue: string;
   };
+  /** When set, adds a fleet heading to the page title and above the summary table. */
+  fleetName?: string;
   leftLogoUrl?: string;
   rightLogoUrl?: string;
   /** If set, renders "Results are provisional as of HH:MM on Month D, YYYY" */
@@ -60,9 +62,10 @@ export interface RaceScoreData {
 // ---- Renderer ----
 
 export function renderSeriesHtml(data: SeriesResultsData): string {
-  const { series, leftLogoUrl, rightLogoUrl, generatedAt, races, standings, publicExportJson, openInAppUrl } = data;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, generatedAt, races, standings, publicExportJson, openInAppUrl } = data;
 
   const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
+  const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -72,7 +75,7 @@ export function renderSeriesHtml(data: SeriesResultsData): string {
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="description" content="sail scoring results">
 <meta name="viewport" content="width=device-width">
-<title>Results for ${esc(series.name)}${series.venue ? ' at ' + esc(series.venue) : ''}</title>
+<title>Results for ${esc(series.name)}${series.venue ? ' at ' + esc(series.venue) : ''}${titleSuffix}</title>
 <style type="text/css">
 body {font: 80% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
@@ -107,6 +110,7 @@ ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 <div style="clear:both;"></div>
 <style>div.applicant-break {page-break-after:always;}</style>
 ${generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
+${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${renderSummaryTable(standings, races, hasDiscards)}
 ${races.map((race) => renderRaceTable(race)).join('\n')}
 <p class="hardleft"></p>
@@ -301,6 +305,7 @@ export function assembleSeriesResultsData(
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; resultCode: ResultCode | null }>>,
   competitorsById: Map<string, { sailNumber: string; name: string }>,
   generatedAt: Date,
+  fleetName?: string,
 ): SeriesResultsData {
   const raceDataList: RaceData[] = races.map((race) => {
     const scoresForRace = raceScoresByRaceId.get(race.id) ?? new Map();
@@ -367,6 +372,7 @@ export function assembleSeriesResultsData(
 
   return {
     series,
+    fleetName,
     leftLogoUrl: series.venueLogoUrl || undefined,
     rightLogoUrl: series.eventLogoUrl || undefined,
     generatedAt,

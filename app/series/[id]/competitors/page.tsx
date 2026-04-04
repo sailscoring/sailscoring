@@ -3,7 +3,7 @@
 import { use, useState, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import Papa from 'papaparse';
-import { competitorRepo, seriesRepo } from '@/lib/dexie-repository';
+import { competitorRepo, fleetRepo, seriesRepo, ensureFleet, pruneFleet } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,6 +41,7 @@ interface CompetitorFormData {
   club: string;
   gender: '' | 'M' | 'F';
   age: string;
+  fleet: string;
 }
 
 const emptyForm: CompetitorFormData = {
@@ -49,9 +50,10 @@ const emptyForm: CompetitorFormData = {
   club: '',
   gender: '',
   age: '',
+  fleet: '',
 };
 
-type CompetitorField = 'sailNumber' | 'name' | 'club' | 'gender' | 'age' | 'ignore';
+type CompetitorField = 'sailNumber' | 'name' | 'club' | 'gender' | 'age' | 'fleet' | 'ignore';
 type ColumnMap = Record<number, CompetitorField>;
 
 type ImportFlow =
@@ -65,6 +67,7 @@ const FIELD_LABELS: Record<CompetitorField, string> = {
   club: 'Club',
   gender: 'Gender',
   age: 'Age',
+  fleet: 'Fleet',
   ignore: '(ignore)',
 };
 
@@ -75,6 +78,7 @@ function autoDetectField(header: string): CompetitorField {
   if (/club/.test(h)) return 'club';
   if (/gender|sex/.test(h)) return 'gender';
   if (/age/.test(h)) return 'age';
+  if (/fleet|class|division/.test(h)) return 'fleet';
   return 'ignore';
 }
 
@@ -83,15 +87,21 @@ function CompetitorForm({
   onSave,
   onCancel,
   existingSailNumbers,
+  existingFleetNames,
 }: {
   initial: CompetitorFormData;
   onSave: (data: CompetitorFormData) => Promise<void>;
   onCancel: () => void;
   existingSailNumbers: string[];
+  existingFleetNames: string[];
 }) {
   const [data, setData] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Separate display state for the fleet input: cleared on focus so the datalist
+  // shows all existing fleets rather than filtering to only those matching the
+  // current value. data.fleet is the committed value and is only updated via onChange.
+  const [fleetDisplay, setFleetDisplay] = useState(initial.fleet);
 
   const sailNumberWarning = data.sailNumber.trim().includes(' ')
     ? "This looks like a name — sail numbers don't usually contain spaces."
@@ -184,6 +194,27 @@ function CompetitorForm({
             placeholder="e.g. 12"
           />
         </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="fleet">Fleet</Label>
+          <Input
+            id="fleet"
+            list="fleet-options"
+            autoComplete="off"
+            value={fleetDisplay}
+            onChange={(e) => {
+              setFleetDisplay(e.target.value);
+              set('fleet', e.target.value);
+            }}
+            onFocus={() => setFleetDisplay('')}
+            onBlur={() => { if (fleetDisplay === '') setFleetDisplay(data.fleet); }}
+            placeholder="Default if blank"
+          />
+          <datalist id="fleet-options">
+            {existingFleetNames.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+        </div>
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-3">
@@ -208,6 +239,13 @@ export default function CompetitorsPage({
     () => competitorRepo.listBySeries(seriesId),
     [seriesId],
   );
+  const fleets = useLiveQuery(
+    () => fleetRepo.listBySeries(seriesId),
+    [seriesId],
+  );
+  const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
+  const fleetNames = (fleets ?? []).map((f) => f.name);
+  const multipleFleets = (fleets ?? []).length > 1;
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCompetitor, setEditingCompetitor] = useState<Competitor | null>(null);
@@ -245,9 +283,11 @@ export default function CompetitorsPage({
   });
 
   async function handleAdd(data: CompetitorFormData) {
+    const fleetId = await ensureFleet(seriesId, data.fleet.trim());
     const competitor: Competitor = {
       id: crypto.randomUUID(),
       seriesId,
+      fleetId,
       sailNumber: data.sailNumber,
       name: data.name,
       club: data.club,
@@ -263,8 +303,11 @@ export default function CompetitorsPage({
 
   async function handleEdit(data: CompetitorFormData) {
     if (!editingCompetitor) return;
+    const oldFleetId = editingCompetitor.fleetId;
+    const newFleetId = await ensureFleet(seriesId, data.fleet.trim());
     const updated: Competitor = {
       ...editingCompetitor,
+      fleetId: newFleetId,
       sailNumber: data.sailNumber,
       name: data.name,
       club: data.club,
@@ -273,6 +316,9 @@ export default function CompetitorsPage({
     };
     log('competitors', 'updating', updated);
     await competitorRepo.save(updated);
+    if (oldFleetId !== newFleetId) {
+      await pruneFleet(seriesId, oldFleetId);
+    }
     await seriesRepo.touch(seriesId);
     setEditingCompetitor(null);
   }
@@ -281,6 +327,7 @@ export default function CompetitorsPage({
     if (!confirm(`Delete ${competitor.name} (${competitor.sailNumber})?`)) return;
     log('competitors', 'deleting', competitor.id);
     await competitorRepo.delete(competitor.id);
+    await pruneFleet(seriesId, competitor.fleetId);
     await seriesRepo.touch(seriesId);
   }
 
@@ -330,6 +377,7 @@ export default function CompetitorsPage({
       let club = '';
       let gender = '';
       let age = '';
+      let fleet = '';
       Object.entries(columnMap).forEach(([colStr, field]) => {
         const col = parseInt(colStr, 10);
         const val = row[col]?.trim() ?? '';
@@ -338,6 +386,7 @@ export default function CompetitorsPage({
         else if (field === 'club') club = val;
         else if (field === 'gender') gender = val;
         else if (field === 'age') age = val;
+        else if (field === 'fleet') fleet = val;
       });
 
       if (!sailNumber) {
@@ -349,10 +398,12 @@ export default function CompetitorsPage({
       const existingCompetitor = bysail.get(normSail);
       const parsedAge = age ? parseInt(age, 10) : null;
       const normGender = gender.toUpperCase();
+      const fleetId = await ensureFleet(seriesId, fleet);
 
       const competitor: Competitor = {
         id: existingCompetitor?.id ?? crypto.randomUUID(),
         seriesId,
+        fleetId,
         sailNumber: normSail,
         name: name || existingCompetitor?.name || '',
         club: club || existingCompetitor?.club || '',
@@ -363,6 +414,7 @@ export default function CompetitorsPage({
 
       if (
         existingCompetitor &&
+        existingCompetitor.fleetId === competitor.fleetId &&
         existingCompetitor.name === competitor.name &&
         existingCompetitor.club === competitor.club &&
         existingCompetitor.gender === competitor.gender &&
@@ -372,9 +424,17 @@ export default function CompetitorsPage({
         continue;
       }
 
+      const oldFleetId = existingCompetitor?.fleetId;
       log('competitors', existingCompetitor ? 'import-update' : 'import-add', competitor);
       await competitorRepo.save(competitor);
-      if (existingCompetitor) updated++; else added++;
+      if (existingCompetitor) {
+        if (oldFleetId && oldFleetId !== fleetId) {
+          await pruneFleet(seriesId, oldFleetId);
+        }
+        updated++;
+      } else {
+        added++;
+      }
     }
 
     await seriesRepo.touch(seriesId);
@@ -420,6 +480,7 @@ export default function CompetitorsPage({
             onSave={handleAdd}
             onCancel={() => setShowAddForm(false)}
             existingSailNumbers={existingSailNumbers}
+            existingFleetNames={fleetNames}
           />
         </div>
       )}
@@ -431,6 +492,7 @@ export default function CompetitorsPage({
               <TableHead>Sail no.</TableHead>
               <TableHead>Helm</TableHead>
               <TableHead>Club</TableHead>
+              {multipleFleets && <TableHead>Fleet</TableHead>}
               <TableHead>Gender</TableHead>
               <TableHead>Age</TableHead>
               <TableHead className="w-20" />
@@ -462,6 +524,7 @@ export default function CompetitorsPage({
                 <TableCell className="font-mono">{c.sailNumber}</TableCell>
                 <TableCell>{c.name}</TableCell>
                 <TableCell>{c.club}</TableCell>
+                {multipleFleets && <TableCell>{fleetById.get(c.fleetId)?.name ?? ''}</TableCell>}
                 <TableCell>{c.gender}</TableCell>
                 <TableCell>{c.age ?? ''}</TableCell>
                 <TableCell>
@@ -515,10 +578,12 @@ export default function CompetitorsPage({
                 club: editingCompetitor.club,
                 gender: editingCompetitor.gender,
                 age: editingCompetitor.age?.toString() ?? '',
+                fleet: fleetById.get(editingCompetitor.fleetId)?.name ?? '',
               }}
               onSave={handleEdit}
               onCancel={() => setEditingCompetitor(null)}
               existingSailNumbers={editingExcluded}
+              existingFleetNames={fleetNames}
             />
           )}
         </DialogContent>

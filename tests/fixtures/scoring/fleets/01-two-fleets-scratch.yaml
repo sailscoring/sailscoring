@@ -1,0 +1,110 @@
+description: "Two fleets (Junior 3, Senior 2) — penalty points are fleet-scoped"
+rrs_notes: >
+  RRS A5.3: penalty = N+1 where N is the number of boats in the fleet, not the
+  total entries across all fleets. With 3 Juniors, Junior DNC = 4. With 2 Seniors,
+  Senior DNC = 3. Clean finish points are the absolute finish position across the
+  combined fleet.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - sailNumber: "J1"
+    name: "Alice Junior"
+    fleet: "Junior"
+  - sailNumber: "J2"
+    name: "Bob Junior"
+    fleet: "Junior"
+  - sailNumber: "J3"
+    name: "Carol Junior"
+    fleet: "Junior"
+  - sailNumber: "S1"
+    name: "Dave Senior"
+    fleet: "Senior"
+  - sailNumber: "S2"
+    name: "Eve Senior"
+    fleet: "Senior"
+
+races:
+  - number: 1
+    # All 5 finish cleanly. Positions are cross-fleet absolute finish order.
+    finishes:
+      - sailor: "J1"
+        position: 1
+      - sailor: "J2"
+        position: 2
+      - sailor: "J3"
+        position: 3
+      - sailor: "S1"
+        position: 4
+      - sailor: "S2"
+        position: 5
+
+  - number: 2
+    # J3 DNC → 4 points (Junior N+1 = 3+1 = 4, not 6 = total N+1)
+    # S2 absent → implicit DNC → 3 points (Senior N+1 = 2+1 = 3, not 6 = total N+1)
+    finishes:
+      - sailor: "J1"
+        position: 1
+      - sailor: "J2"
+        position: 2
+      - sailor: "S1"
+        position: 3
+      - sailor: "J3"
+        code: DNC
+      # S2 has no entry — implicit DNC
+
+# Junior standings (N=3, DNC = 4):
+#   J1:  1 + 1 = 2
+#   J2:  2 + 2 = 4
+#   J3:  3 + 4 = 7  ← DNC scores 4, not 6 (total fleet would be 5+1=6)
+#
+# Senior standings (N=2, DNC = 3):
+#   S1:  4 + 3 = 7
+#   S2:  5 + 3 = 8  ← implicit DNC scores 3, not 6
+expected:
+  standings:
+    - rank: 1
+      sailor: "J1"
+      fleet: "Junior"
+      racePoints: [1, 1]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 2
+      netPoints: 2
+
+    - rank: 2
+      sailor: "J2"
+      fleet: "Junior"
+      racePoints: [2, 2]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 4
+      netPoints: 4
+
+    - rank: 3
+      sailor: "J3"
+      fleet: "Junior"
+      racePoints: [3, 4]
+      raceCodes: [null, "DNC"]
+      raceDiscards: [false, false]
+      totalPoints: 7
+      netPoints: 7
+
+    - rank: 1
+      sailor: "S1"
+      fleet: "Senior"
+      racePoints: [4, 3]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 7
+      netPoints: 7
+
+    - rank: 2
+      sailor: "S2"
+      fleet: "Senior"
+      racePoints: [5, 3]
+      raceCodes: [null, "DNC"]
+      raceDiscards: [false, false]
+      totalPoints: 8
+      netPoints: 8

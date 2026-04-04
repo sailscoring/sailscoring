@@ -11,9 +11,9 @@ import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
-import { calculateStandings, calculateRaceScores } from '../lib/scoring';
+import { calculateStandings, calculateFleetStandings, calculateRaceScores } from '../lib/scoring';
 import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-renderer';
-import type { Competitor, Race, Finish, DiscardThreshold, ResultCode } from '../lib/types';
+import type { Competitor, Fleet, Race, Finish, DiscardThreshold, ResultCode } from '../lib/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -38,16 +38,26 @@ interface ScoringFixture {
     discardThresholds: DiscardThreshold[];
     dnfScoring?: 'seriesEntries' | 'startingArea';
   };
-  competitors: Array<{ sailNumber: string; name: string }>;
+  competitors: Array<{ sailNumber: string; name: string; fleet?: string }>;
   races: FixtureRace[];
 }
 
 // ─── Build lib inputs from fixture ───────────────────────────────────────────
 
 function buildInputs(fixture: ScoringFixture) {
+  const fleetNames = [...new Set(fixture.competitors.map((c) => c.fleet ?? 'Default'))];
+  const fleets: Fleet[] = fleetNames.map((name, i) => ({
+    id: `fl-${i}`,
+    seriesId: 's1',
+    name,
+    displayOrder: i,
+  }));
+  const fleetIdByName = new Map(fleets.map((f) => [f.name, f.id]));
+
   const competitors: Competitor[] = fixture.competitors.map((c, i) => ({
     id: `c-${i}`,
     seriesId: 's1',
+    fleetId: fleetIdByName.get(c.fleet ?? 'Default') ?? 'f1',
     sailNumber: c.sailNumber,
     name: c.name,
     club: '',
@@ -81,7 +91,7 @@ function buildInputs(fixture: ScoringFixture) {
     }
   }
 
-  return { competitors, races, finishes, discardThresholds: fixture.series.discardThresholds, dnfScoring: fixture.series.dnfScoring ?? 'seriesEntries' };
+  return { competitors, fleets, races, finishes, discardThresholds: fixture.series.discardThresholds, dnfScoring: fixture.series.dnfScoring ?? 'seriesEntries' };
 }
 
 // ─── Preamble HTML ────────────────────────────────────────────────────────────
@@ -139,43 +149,90 @@ function esc(s: string): string {
 // ─── Generate HTML for one fixture ───────────────────────────────────────────
 
 function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): string {
-  const { competitors, races, finishes, discardThresholds, dnfScoring } = buildInputs(fixture);
-
-  const standings = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring);
-
-  // Build raceScoresByRaceId for assembleSeriesResultsData
-  const raceScoresByRaceId = new Map<
-    string,
-    Map<string, { points: number; place: number | null; resultCode: ResultCode | null }>
-  >();
-  for (const race of races) {
-    const raceFinishes = finishes.filter((f) => f.raceId === race.id);
-    raceScoresByRaceId.set(race.id, calculateRaceScores(raceFinishes, competitors, dnfScoring));
-  }
+  const { competitors, fleets, races, finishes, discardThresholds, dnfScoring } = buildInputs(fixture);
+  const isMultiFleet = fleets.length > 1;
 
   const competitorsById = new Map(competitors.map((c) => [c.id, c]));
-
-  const data = assembleSeriesResultsData(
-    { name: fixture.description, venue: '' },
-    races,
-    standings,
-    raceScoresByRaceId,
-    competitorsById,
-    new Date(),
-  );
-  // Don't show a "provisional" timestamp — the file would change on every regeneration.
-  delete data.generatedAt;
-
-  // renderSeriesHtml generates a full document; inject preamble after the header table
   const preamble = buildPreamble(fixture, yamlSource);
-  const html = renderSeriesHtml(data);
 
-  // The header table is followed by <div style="clear:both;"></div>
-  // Inject the preamble immediately after that div, before the results tables.
-  return html.replace(
-    '<div style="clear:both;"></div>',
-    `<div style="clear:both;"></div>\n${preamble}`,
-  );
+  let bodyHtml: string;
+
+  if (isMultiFleet) {
+    // Render one standings section per fleet
+    const fleetResults = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, dnfScoring);
+    const sections: string[] = [];
+
+    for (const { fleet, standings } of fleetResults) {
+      const fleetCompetitorIds = new Set(
+        competitors.filter((c) => c.fleetId === fleet.id).map((c) => c.id),
+      );
+      const raceScoresByRaceId = new Map<
+        string,
+        Map<string, { points: number; place: number | null; resultCode: ResultCode | null }>
+      >();
+      for (const race of races) {
+        const raceFinishes = finishes.filter(
+          (f) => f.raceId === race.id && fleetCompetitorIds.has(f.competitorId),
+        );
+        raceScoresByRaceId.set(race.id, calculateRaceScores(raceFinishes, competitors.filter((c) => fleetCompetitorIds.has(c.id)), dnfScoring));
+      }
+
+      const data = assembleSeriesResultsData(
+        { name: fixture.description, venue: '' },
+        races,
+        standings,
+        raceScoresByRaceId,
+        competitorsById,
+        new Date(),
+        fleet.name,
+      );
+      delete data.generatedAt;
+      sections.push(renderSeriesHtml(data));
+    }
+
+    // Combine: first section is a full document, subsequent sections contribute only their body content
+    const first = sections[0];
+    const rest = sections.slice(1).map((html) => {
+      const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+      return bodyMatch ? bodyMatch[1] : html;
+    });
+
+    const preambleInjected = first.replace(
+      '<div style="clear:both;"></div>',
+      `<div style="clear:both;"></div>\n${preamble}`,
+    );
+
+    bodyHtml = preambleInjected.replace('</body>', rest.join('\n') + '\n</body>');
+  } else {
+    const standings = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring);
+
+    const raceScoresByRaceId = new Map<
+      string,
+      Map<string, { points: number; place: number | null; resultCode: ResultCode | null }>
+    >();
+    for (const race of races) {
+      const raceFinishes = finishes.filter((f) => f.raceId === race.id);
+      raceScoresByRaceId.set(race.id, calculateRaceScores(raceFinishes, competitors, dnfScoring));
+    }
+
+    const data = assembleSeriesResultsData(
+      { name: fixture.description, venue: '' },
+      races,
+      standings,
+      raceScoresByRaceId,
+      competitorsById,
+      new Date(),
+    );
+    delete data.generatedAt;
+
+    const html = renderSeriesHtml(data);
+    bodyHtml = html.replace(
+      '<div style="clear:both;"></div>',
+      `<div style="clear:both;"></div>\n${preamble}`,
+    );
+  }
+
+  return bodyHtml;
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
