@@ -51,6 +51,15 @@ the existing UX holds up in real use. Revisit once there's experience with it.
 
 *(Was GitHub issue #20)*
 
+### Elapsed time recording in finish entry
+
+MVP records finish time of day; elapsed time is back-calculated from the start. Some
+finish boats use stopwatches and record elapsed times directly — supporting this natively
+would save the scorer a step. Unclear how common this practice actually is in the field;
+worth asking real recorders before building anything.
+
+*(Was GitHub issue #21)*
+
 ---
 
 ## Scoring records and audit trail
