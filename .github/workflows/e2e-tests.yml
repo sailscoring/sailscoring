@@ -26,3 +26,4 @@ jobs:
       - run: pnpm run test:e2e
         env:
           NEXT_PUBLIC_APP_URL: http://localhost:3000
+          NEXT_PUBLIC_BILGE_URL: https://bilge.sailscoring.ie
