@@ -185,6 +185,13 @@ export default function HelpPage() {
           order. Repeat for each finisher in order.
         </p>
         <p>
+          If a sail number is not yet registered in the series, the app will offer to{' '}
+          <strong className="text-foreground">Record as unknown</strong>. The finish position is
+          preserved; you can click <strong className="text-foreground">Resolve</strong> next to the
+          entry to link it to a registered competitor once you know who it was.
+          Unresolved unknown finishes are excluded from standings until resolved.
+        </p>
+        <p>
           You can drag finishers to reorder them, or edit the position number directly if you prefer.
         </p>
         <p>

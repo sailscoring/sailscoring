@@ -59,7 +59,8 @@ export type ResultCode = 'DNC' | 'DNF' | 'OCS';
 export interface Finish {
   id: string;
   raceId: string;
-  competitorId: string;
+  competitorId: string | null;    // null for unresolved unknown finishes
+  unknownSailNumber?: string;     // set when competitorId is null
   finishPosition: number | null;  // null if result code is set
   resultCode: ResultCode | null;  // null if finish position is set
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded

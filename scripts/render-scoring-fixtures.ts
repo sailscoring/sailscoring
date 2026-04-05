@@ -175,7 +175,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
       >();
       for (const race of races) {
         const raceFinishes = finishes.filter(
-          (f) => f.raceId === race.id && fleetCompetitorIds.has(f.competitorId),
+          (f) => f.raceId === race.id && f.competitorId !== null && fleetCompetitorIds.has(f.competitorId),
         );
         raceScoresByRaceId.set(race.id, calculateRaceScores(raceFinishes, competitors.filter((c) => fleetCompetitorIds.has(c.id)), dnfScoring));
       }

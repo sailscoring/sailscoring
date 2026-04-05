@@ -114,7 +114,7 @@ export function KeyboardHelp({
             rows={[
               { keys: ['⌃', '↵'], action: 'Save results' },
               { keys: ['↑', '↓'], action: 'Navigate autocomplete' },
-              { keys: ['↵'], action: 'Confirm / add finisher' },
+              { keys: ['↵'], action: 'Confirm / add finisher (or record as unknown)' },
               { keys: ['Esc'], action: 'Clear input or go back' },
               { keys: ['Tab'], action: 'Move between fields' },
               { keys: ['c'], action: 'Toggle start check-in tab' },

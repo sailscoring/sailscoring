@@ -3,7 +3,7 @@
 import { use, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { competitorRepo, raceRepo, finishRepo, seriesRepo } from '@/lib/dexie-repository';
+import { competitorRepo, fleetRepo, raceRepo, finishRepo, seriesRepo, ensureFleet } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { X } from 'lucide-react';
+import { X, AlertTriangle } from 'lucide-react';
 import type { Competitor, Finish, ResultCode } from '@/lib/types';
 import { CheckSquare, Square } from 'lucide-react';
 import { log } from '@/lib/debug';
@@ -32,6 +32,14 @@ type NonFinisherCode = ResultCode | 'implicit-dnc';
 interface NonFinisherEntry {
   competitor: Competitor;
   code: NonFinisherCode;
+}
+
+type FinishEntry =
+  | { kind: 'known'; competitorId: string }
+  | { kind: 'unknown'; tempId: string; sailNumber: string };
+
+function entryId(e: FinishEntry): string {
+  return e.kind === 'known' ? e.competitorId : e.tempId;
 }
 
 export default function ResultEntryPage({
@@ -51,10 +59,14 @@ export default function ResultEntryPage({
     () => finishRepo.listByRace(raceId),
     [raceId],
   );
+  const fleets = useLiveQuery(
+    () => fleetRepo.listBySeries(seriesId),
+    [seriesId],
+  );
 
-  // Finishing order: competitor IDs sorted by finishPositions ascending
-  const [finishingOrder, setFinishingOrder] = useState<string[]>([]);
-  // Explicit finish positions: competitorId → recorded position number (may be > fleet size for cross-fleet races)
+  // Finishing order: entries sorted by recorded finish positions
+  const [finishingOrder, setFinishingOrder] = useState<FinishEntry[]>([]);
+  // Explicit finish positions: entryId → recorded position number (may be > fleet size for cross-fleet races)
   const [finishPositions, setFinishPositions] = useState<Map<string, number>>(new Map());
   const initialPositionsRef = useRef<Map<string, number>>(new Map());
   // Non-finisher codes: competitorId → code (only explicit overrides from implicit DNC)
@@ -63,7 +75,7 @@ export default function ResultEntryPage({
   );
 
   const [editingPosition, setEditingPosition] = useState<{
-    competitorId: string;
+    entryId: string;
     value: string;
   } | null>(null);
 
@@ -71,13 +83,21 @@ export default function ResultEntryPage({
   const [sailInput, setSailInput] = useState('');
   const [checkinInput, setCheckinInput] = useState('');
   const [inputError, setInputError] = useState('');
+  const [pendingUnknownSail, setPendingUnknownSail] = useState<string | null>(null);
+  const [resolvingEntry, setResolvingEntry] = useState<(FinishEntry & { kind: 'unknown' }) | null>(null);
+  const [showAddCompetitorForm, setShowAddCompetitorForm] = useState(false);
+  const [newCompetitorSail, setNewCompetitorSail] = useState('');
+  const [newCompetitorName, setNewCompetitorName] = useState('');
+  const [newCompetitorFleet, setNewCompetitorFleet] = useState('');
+  const [addCompetitorError, setAddCompetitorError] = useState('');
+  const [addingCompetitor, setAddingCompetitor] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [initialized, setInitialized] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const initialOrderRef = useRef<string[]>([]);
+  const initialOrderRef = useRef<FinishEntry[]>([]);
   const initialCodesRef = useRef<Map<string, ResultCode>>(new Map());
 
   // Initialize form state from saved finishes once loaded
@@ -87,13 +107,21 @@ export default function ResultEntryPage({
       .filter((f) => f.finishPosition !== null)
       .sort((a, b) => a.finishPosition! - b.finishPosition!);
 
-    const order: string[] = positionedFinishes.map((f) => f.competitorId);
-    const positions = new Map(positionedFinishes.map((f) => [f.competitorId, f.finishPosition!]));
+    const order: FinishEntry[] = positionedFinishes.map((f) => {
+      if (f.competitorId !== null) {
+        return { kind: 'known', competitorId: f.competitorId };
+      } else {
+        return { kind: 'unknown', tempId: crypto.randomUUID(), sailNumber: f.unknownSailNumber ?? '' };
+      }
+    });
+    const positions = new Map(order.map((entry, i) => [entryId(entry), positionedFinishes[i].finishPosition!]));
 
-    const finishedIds = new Set(order);
+    const finishedIds = new Set(
+      order.flatMap((e) => e.kind === 'known' ? [e.competitorId] : []),
+    );
     const codes = new Map<string, ResultCode>();
     for (const finish of savedFinishes) {
-      if (finish.finishPosition === null && finish.resultCode && finish.resultCode !== 'DNC' && !finishedIds.has(finish.competitorId)) {
+      if (finish.finishPosition === null && finish.resultCode && finish.resultCode !== 'DNC' && finish.competitorId && !finishedIds.has(finish.competitorId)) {
         codes.set(finish.competitorId, finish.resultCode);
       }
     }
@@ -171,8 +199,10 @@ export default function ResultEntryPage({
     competitors.map((c) => [c.sailNumber.toUpperCase(), c]),
   );
 
-  // Competitors not yet in the finishing order
-  const finishedIds = new Set(finishingOrder);
+  // Competitors not yet in the finishing order (only known finishers consume a competitor slot)
+  const finishedIds = new Set(
+    finishingOrder.flatMap((e) => e.kind === 'known' ? [e.competitorId] : []),
+  );
   const nonFinishers: NonFinisherEntry[] = competitors
     .filter((c) => !finishedIds.has(c.id))
     .map((c) => {
@@ -191,13 +221,26 @@ export default function ResultEntryPage({
 
   function selectSuggestion(competitor: Competitor) {
     const nextPos = finishPositions.size > 0 ? Math.max(...finishPositions.values()) + 1 : 1;
-    setFinishingOrder((order) => [...order, competitor.id]);
+    setFinishingOrder((order) => [...order, { kind: 'known', competitorId: competitor.id }]);
     setFinishPositions((prev) => new Map(prev).set(competitor.id, nextPos));
     setSailInput('');
     setInputError('');
+    setPendingUnknownSail(null);
     setHighlightedIndex(-1);
     inputRef.current?.focus();
     log('result-entry', 'added finisher via suggestion', { sail: competitor.sailNumber, competitorId: competitor.id });
+  }
+
+  function recordAsUnknown(sail: string) {
+    const tempId = crypto.randomUUID();
+    const nextPos = finishPositions.size > 0 ? Math.max(...finishPositions.values()) + 1 : 1;
+    setFinishingOrder((order) => [...order, { kind: 'unknown', tempId, sailNumber: sail }]);
+    setFinishPositions((prev) => new Map(prev).set(tempId, nextPos));
+    setPendingUnknownSail(null);
+    setSailInput('');
+    setInputError('');
+    inputRef.current?.focus();
+    log('result-entry', 'recorded unknown finisher', { sail });
   }
 
   function addFinisher() {
@@ -211,6 +254,7 @@ export default function ResultEntryPage({
 
     const competitor = sailMap.get(sail);
     if (!competitor) {
+      setPendingUnknownSail(sail);
       setInputError(`Sail number "${sail}" not found in this series.`);
       return;
     }
@@ -220,40 +264,41 @@ export default function ResultEntryPage({
     }
 
     const nextPos = finishPositions.size > 0 ? Math.max(...finishPositions.values()) + 1 : 1;
-    setFinishingOrder((order) => [...order, competitor.id]);
+    setFinishingOrder((order) => [...order, { kind: 'known', competitorId: competitor.id }]);
     setFinishPositions((prev) => new Map(prev).set(competitor.id, nextPos));
+    setPendingUnknownSail(null);
     setInputError('');
     setSailInput('');
     inputRef.current?.focus();
     log('result-entry', 'added finisher', { sail, competitorId: competitor.id });
   }
 
-  function removeFinisher(competitorId: string) {
-    setFinishingOrder((order) => order.filter((id) => id !== competitorId));
+  function removeFinisher(eid: string) {
+    setFinishingOrder((order) => order.filter((e) => entryId(e) !== eid));
     setFinishPositions((prev) => {
       const next = new Map(prev);
-      next.delete(competitorId);
+      next.delete(eid);
       return next;
     });
   }
 
   function commitPositionEdit() {
     if (!editingPosition) return;
-    const { competitorId, value } = editingPosition;
+    const { entryId: eid, value } = editingPosition;
     setEditingPosition(null);
 
     const parsed = parseInt(value, 10);
     if (isNaN(parsed) || parsed < 1) return;
 
-    if (parsed === finishPositions.get(competitorId)) return;
+    if (parsed === finishPositions.get(eid)) return;
 
     const newPositions = new Map(finishPositions);
-    newPositions.set(competitorId, parsed);
+    newPositions.set(eid, parsed);
 
     setFinishPositions(newPositions);
     // Re-sort visual order by new positions; stable sort keeps tied boats in original relative order
     setFinishingOrder((prev) =>
-      [...prev].sort((a, b) => (newPositions.get(a) ?? 0) - (newPositions.get(b) ?? 0)),
+      [...prev].sort((a, b) => (newPositions.get(entryId(a)) ?? 0) - (newPositions.get(entryId(b)) ?? 0)),
     );
   }
 
@@ -300,6 +345,73 @@ export default function ResultEntryPage({
     await seriesRepo.touch(seriesId);
   }
 
+  function openAddCompetitorForm() {
+    setNewCompetitorSail(resolvingEntry?.sailNumber ?? '');
+    setNewCompetitorName('');
+    setNewCompetitorFleet(fleets?.[0]?.name ?? '');
+    setAddCompetitorError('');
+    setShowAddCompetitorForm(true);
+  }
+
+  function closeResolveDialog() {
+    setResolvingEntry(null);
+    setShowAddCompetitorForm(false);
+    setNewCompetitorSail('');
+    setNewCompetitorName('');
+    setAddCompetitorError('');
+    setAddingCompetitor(false);
+    inputRef.current?.focus();
+  }
+
+  async function handleAddCompetitor() {
+    if (!resolvingEntry) return;
+    const name = newCompetitorName.trim();
+    const sail = newCompetitorSail.trim().toUpperCase();
+    if (!name) { setAddCompetitorError('Helm name is required.'); return; }
+    if (!sail) { setAddCompetitorError('Sail number is required.'); return; }
+
+    setAddingCompetitor(true);
+    setAddCompetitorError('');
+    try {
+      const fleetId = await ensureFleet(seriesId, newCompetitorFleet.trim());
+      const competitor: Competitor = {
+        id: crypto.randomUUID(),
+        seriesId,
+        fleetId,
+        sailNumber: sail,
+        name,
+        club: '',
+        gender: '',
+        age: null,
+        createdAt: Date.now(),
+      };
+      await competitorRepo.save(competitor);
+      await seriesRepo.touch(seriesId);
+
+      // Resolve the unknown entry to the new competitor
+      const eid = resolvingEntry.tempId;
+      const pos = finishPositions.get(eid);
+      setFinishingOrder((order) =>
+        order.map((e) =>
+          e.kind === 'unknown' && e.tempId === eid
+            ? { kind: 'known', competitorId: competitor.id }
+            : e,
+        ),
+      );
+      setFinishPositions((prev) => {
+        const next = new Map(prev);
+        next.delete(eid);
+        if (pos !== undefined) next.set(competitor.id, pos);
+        return next;
+      });
+      closeResolveDialog();
+    } catch (err) {
+      console.error(err);
+      setAddCompetitorError('Failed to add competitor. Please try again.');
+      setAddingCompetitor(false);
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     setSaveError('');
@@ -308,22 +420,35 @@ export default function ResultEntryPage({
       const existing = await finishRepo.listByRace(raceId);
       const startPresentMap = new Map(
         existing
-          .filter((f) => f.startPresent !== null)
+          .filter((f): f is Finish & { competitorId: string } => f.competitorId !== null && f.startPresent !== null)
           .map((f) => [f.competitorId, f.startPresent as boolean]),
       );
 
       const finishes: Finish[] = [];
 
       // Finishers — use recorded positions (explicit, may include ties and cross-fleet values)
-      finishingOrder.forEach((competitorId, index) => {
-        finishes.push({
-          id: crypto.randomUUID(),
-          raceId,
-          competitorId,
-          finishPosition: finishPositions.get(competitorId) ?? index + 1,
-          resultCode: null,
-          startPresent: startPresentMap.get(competitorId) ?? null,
-        });
+      finishingOrder.forEach((entry, index) => {
+        const eid = entryId(entry);
+        if (entry.kind === 'known') {
+          finishes.push({
+            id: crypto.randomUUID(),
+            raceId,
+            competitorId: entry.competitorId,
+            finishPosition: finishPositions.get(eid) ?? index + 1,
+            resultCode: null,
+            startPresent: startPresentMap.get(entry.competitorId) ?? null,
+          });
+        } else {
+          finishes.push({
+            id: crypto.randomUUID(),
+            raceId,
+            competitorId: null,
+            unknownSailNumber: entry.sailNumber,
+            finishPosition: finishPositions.get(eid) ?? index + 1,
+            resultCode: null,
+            startPresent: null,
+          });
+        }
       });
 
       // Non-finishers with explicit codes
@@ -342,7 +467,7 @@ export default function ResultEntryPage({
 
       // Check-in-only records: competitors with startPresent=true but not in finish list or codes
       const accountedIds = new Set([
-        ...finishingOrder,
+        ...finishingOrder.flatMap((e) => e.kind === 'known' ? [e.competitorId] : []),
         ...nonFinisherCodes.keys(),
       ]);
       for (const [competitorId, present] of startPresentMap) {
@@ -384,6 +509,8 @@ export default function ResultEntryPage({
         c.sailNumber.toUpperCase().startsWith(checkinInput.trim().toUpperCase()),
       )
     : [];
+
+  const unknownCount = finishingOrder.filter((e) => e.kind === 'unknown').length;
 
   return (
     <div className="space-y-6">
@@ -503,7 +630,12 @@ export default function ResultEntryPage({
               <Input
                 ref={inputRef}
                 value={sailInput}
-                onChange={(e) => { setSailInput(e.target.value); setInputError(''); setHighlightedIndex(-1); }}
+                onChange={(e) => {
+                  setSailInput(e.target.value);
+                  setInputError('');
+                  setHighlightedIndex(-1);
+                  setPendingUnknownSail(null);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'ArrowDown') {
                     e.preventDefault();
@@ -512,7 +644,10 @@ export default function ResultEntryPage({
                     e.preventDefault();
                     setHighlightedIndex((i) => Math.max(i - 1, -1));
                   } else if (e.key === 'Escape') {
-                    if (suggestions.length > 0 || sailInput.trim()) {
+                    if (pendingUnknownSail) {
+                      setPendingUnknownSail(null);
+                      setInputError('');
+                    } else if (suggestions.length > 0 || sailInput.trim()) {
                       setHighlightedIndex(-1);
                       setSailInput('');
                     } else {
@@ -523,7 +658,11 @@ export default function ResultEntryPage({
                     selectSuggestion(suggestions[Math.max(highlightedIndex, 0)].competitor);
                   } else if (e.key === 'Enter') {
                     e.preventDefault();
-                    addFinisher();
+                    if (pendingUnknownSail) {
+                      recordAsUnknown(pendingUnknownSail);
+                    } else {
+                      addFinisher();
+                    }
                   }
                 }}
                 placeholder="Sail number…"
@@ -561,7 +700,37 @@ export default function ResultEntryPage({
               </ul>
             )}
           </div>
-          {inputError && <p className="text-sm text-destructive">{inputError}</p>}
+          {inputError && !pendingUnknownSail && (
+            <p className="text-sm text-destructive">{inputError}</p>
+          )}
+          {pendingUnknownSail && (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">
+                Sail number &ldquo;{pendingUnknownSail}&rdquo; is not registered in this series.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => recordAsUnknown(pendingUnknownSail)}
+                >
+                  Record as unknown
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setPendingUnknownSail(null);
+                    setInputError('');
+                    setSailInput('');
+                    inputRef.current?.focus();
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
 
           {finishingOrder.length === 0 && (
             <p className="text-sm text-muted-foreground">
@@ -570,15 +739,77 @@ export default function ResultEntryPage({
           )}
 
           <ol className="space-y-1.5">
-            {finishingOrder.map((competitorId, index) => {
-              const competitor = competitorMap.get(competitorId);
+            {finishingOrder.map((entry, index) => {
+              const eid = entryId(entry);
+              const displayPos = finishPositions.get(eid) ?? (index + 1);
+              const prevEntry = finishingOrder[index - 1];
+              const prevEid = prevEntry ? entryId(prevEntry) : undefined;
+              const isTied = index > 0 && prevEid !== undefined &&
+                finishPositions.get(eid) === finishPositions.get(prevEid);
+
+              if (entry.kind === 'unknown') {
+                return (
+                  <li
+                    key={entry.tempId}
+                    className="flex items-center gap-3 border border-amber-400 rounded-lg px-4 py-2.5 bg-amber-50 dark:bg-amber-950"
+                  >
+                    <div className="flex items-center shrink-0">
+                      <input
+                        type="number"
+                        min={1}
+                        aria-label={`Position for unknown ${entry.sailNumber}`}
+                        value={
+                          editingPosition?.entryId === eid
+                            ? editingPosition.value
+                            : String(displayPos)
+                        }
+                        className="w-10 text-right text-sm font-mono text-muted-foreground rounded px-1 border border-transparent bg-transparent focus:border-input focus:bg-background focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        onFocus={() => setEditingPosition({ entryId: eid, value: String(displayPos) })}
+                        onChange={(e) => setEditingPosition({ entryId: eid, value: e.target.value })}
+                        onBlur={commitPositionEdit}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            commitPositionEdit();
+                            (e.target as HTMLInputElement).blur();
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setEditingPosition(null);
+                            (e.target as HTMLInputElement).blur();
+                          }
+                        }}
+                      />
+                      <span className={cn('w-3 text-xs font-mono text-muted-foreground', isTied ? '' : 'invisible')} aria-hidden>
+                        =
+                      </span>
+                    </div>
+                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                    <span className="font-mono font-medium">{entry.sailNumber}</span>
+                    <span className="text-sm text-muted-foreground flex-1">Unknown — not registered</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={() => setResolvingEntry(entry)}
+                    >
+                      Resolve
+                    </Button>
+                    <button
+                      onClick={() => removeFinisher(eid)}
+                      aria-label={`Remove unknown ${entry.sailNumber}`}
+                      className="text-muted-foreground hover:text-foreground shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </li>
+                );
+              }
+
+              const competitor = competitorMap.get(entry.competitorId);
               if (!competitor) return null;
-              const displayPos = finishPositions.get(competitorId) ?? (index + 1);
-              const prevId = finishingOrder[index - 1];
-              const isTied = index > 0 && finishPositions.get(competitorId) === finishPositions.get(prevId);
               return (
                 <li
-                  key={competitorId}
+                  key={entry.competitorId}
                   className="flex items-center gap-3 border rounded-lg px-4 py-2.5"
                 >
                   <div className="flex items-center shrink-0">
@@ -588,16 +819,16 @@ export default function ResultEntryPage({
                       data-testid={`position-input-${competitor.sailNumber}`}
                       aria-label={`Position for ${competitor.sailNumber}`}
                       value={
-                        editingPosition?.competitorId === competitorId
+                        editingPosition?.entryId === eid
                           ? editingPosition.value
                           : String(displayPos)
                       }
                       className="w-10 text-right text-sm font-mono text-muted-foreground rounded px-1 border border-transparent bg-transparent focus:border-input focus:bg-background focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       onFocus={() =>
-                        setEditingPosition({ competitorId, value: String(displayPos) })
+                        setEditingPosition({ entryId: eid, value: String(displayPos) })
                       }
                       onChange={(e) =>
-                        setEditingPosition({ competitorId, value: e.target.value })
+                        setEditingPosition({ entryId: eid, value: e.target.value })
                       }
                       onBlur={commitPositionEdit}
                       onKeyDown={(e) => {
@@ -619,7 +850,7 @@ export default function ResultEntryPage({
                   <span className="font-mono font-medium">{competitor.sailNumber}</span>
                   <span className="text-sm flex-1 truncate">{competitor.name}</span>
                   <button
-                    onClick={() => removeFinisher(competitorId)}
+                    onClick={() => removeFinisher(eid)}
                     aria-label={`Remove ${competitor.sailNumber}`}
                     className="text-muted-foreground hover:text-foreground"
                   >
@@ -692,7 +923,8 @@ export default function ResultEntryPage({
           Cancel
         </Button>
         <div className="ml-auto text-sm text-muted-foreground">
-          {finishingOrder.length} finisher{finishingOrder.length === 1 ? '' : 's'},{' '}
+          {finishingOrder.length} finisher{finishingOrder.length === 1 ? '' : 's'}
+          {unknownCount > 0 && ` (${unknownCount} unknown)`},{' '}
           {nonFinishers.length} non-finisher{nonFinishers.length === 1 ? '' : 's'}
         </div>
         {saveError && <p className="text-sm text-destructive">{saveError}</p>}
@@ -715,6 +947,133 @@ export default function ResultEntryPage({
               Cancel
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Resolve unknown competitor dialog */}
+      <Dialog
+        open={resolvingEntry !== null}
+        onOpenChange={(open) => { if (!open) closeResolveDialog(); }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Resolve sail {resolvingEntry?.sailNumber}</DialogTitle>
+          </DialogHeader>
+
+          {!showAddCompetitorForm ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Select a registered competitor, or add a new one.
+              </p>
+              <div className="space-y-1 max-h-52 overflow-y-auto">
+                {nonFinishers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground px-3 py-2">
+                    No unfinished competitors available.
+                  </p>
+                ) : (
+                  nonFinishers.map(({ competitor }) => (
+                    <button
+                      key={competitor.id}
+                      type="button"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-accent text-sm text-left"
+                      onClick={() => {
+                        if (!resolvingEntry) return;
+                        const eid = resolvingEntry.tempId;
+                        const pos = finishPositions.get(eid);
+                        setFinishingOrder((order) =>
+                          order.map((e) =>
+                            e.kind === 'unknown' && e.tempId === eid
+                              ? { kind: 'known', competitorId: competitor.id }
+                              : e,
+                          ),
+                        );
+                        setFinishPositions((prev) => {
+                          const next = new Map(prev);
+                          next.delete(eid);
+                          if (pos !== undefined) next.set(competitor.id, pos);
+                          return next;
+                        });
+                        closeResolveDialog();
+                      }}
+                    >
+                      <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
+                      <span className="flex-1 truncate">{competitor.name}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex-1 border-t" />
+                <span>or</span>
+                <div className="flex-1 border-t" />
+              </div>
+              <Button variant="outline" size="sm" onClick={openAddCompetitorForm}>
+                Add new competitor
+              </Button>
+              <Button variant="ghost" size="sm" onClick={closeResolveDialog}>
+                Keep as unknown
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Add a new competitor and link them to this finish.
+              </p>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium" htmlFor="resolve-sail">Sail number</label>
+                  <Input
+                    id="resolve-sail"
+                    value={newCompetitorSail}
+                    onChange={(e) => setNewCompetitorSail(e.target.value)}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium" htmlFor="resolve-name">Helm name *</label>
+                  <Input
+                    id="resolve-name"
+                    value={newCompetitorName}
+                    onChange={(e) => setNewCompetitorName(e.target.value)}
+                    autoComplete="off"
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCompetitor(); } }}
+                  />
+                </div>
+                {(fleets ?? []).length > 1 && (
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium" htmlFor="resolve-fleet">Fleet</label>
+                    <Select value={newCompetitorFleet} onValueChange={setNewCompetitorFleet}>
+                      <SelectTrigger id="resolve-fleet">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(fleets ?? []).map((f) => (
+                          <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {addCompetitorError && (
+                  <p className="text-sm text-destructive">{addCompetitorError}</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleAddCompetitor} disabled={addingCompetitor} size="sm">
+                  {addingCompetitor ? 'Adding…' : 'Add and resolve'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddCompetitorForm(false)}
+                  disabled={addingCompetitor}
+                >
+                  Back
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

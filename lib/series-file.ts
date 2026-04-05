@@ -49,7 +49,8 @@ interface SeriesFileCompetitor {
 
 interface SeriesFileFinish {
   id: string;
-  competitorId: string;
+  competitorId: string | null;
+  unknownSailNumber?: string;
   finishPosition: number | null;
   resultCode: ResultCode | null;
   startPresent: boolean | null;
@@ -113,6 +114,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
     finishesByRace.get(f.raceId)!.push({
       id: f.id,
       competitorId: f.competitorId,
+      unknownSailNumber: f.unknownSailNumber,
       finishPosition: f.finishPosition,
       resultCode: f.resultCode,
       startPresent: f.startPresent,
@@ -306,10 +308,14 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
         createdAt: now,
       });
       for (const f of r.finishes) {
+        const mappedCompetitorId = f.competitorId
+          ? (competitorIdMap.get(f.competitorId) ?? null)
+          : null;
         await db.finishes.add({
           id: crypto.randomUUID(),
           raceId: newRaceId,
-          competitorId: competitorIdMap.get(f.competitorId)!,
+          competitorId: mappedCompetitorId,
+          unknownSailNumber: f.unknownSailNumber,
           finishPosition: f.finishPosition,
           resultCode: f.resultCode,
           startPresent: f.startPresent ?? null,
@@ -401,10 +407,14 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
         createdAt: now,
       });
       for (const f of r.finishes) {
+        const mappedCompetitorId = f.competitorId
+          ? (competitorIdMap.get(f.competitorId) ?? null)
+          : null;
         await db.finishes.add({
           id: crypto.randomUUID(),
           raceId: newRaceId,
-          competitorId: competitorIdMap.get(f.competitorId)!,
+          competitorId: mappedCompetitorId,
+          unknownSailNumber: f.unknownSailNumber,
           finishPosition: f.finishPosition,
           resultCode: f.resultCode,
           startPresent: f.startPresent ?? null,

@@ -123,6 +123,14 @@ export class SailScoringDb extends Dexie {
         await tx.table('competitors').where('seriesId').equals(s.id).modify({ fleetId });
       }
     });
+    this.version(11).stores({
+      series: 'id, createdAt',
+      competitors: 'id, seriesId, fleetId, createdAt',
+      fleets: 'id, seriesId, displayOrder',
+      races: 'id, seriesId, raceNumber',
+      finishes: 'id, raceId, competitorId',
+      ftpServers: '++id',
+    });
   }
 }
 

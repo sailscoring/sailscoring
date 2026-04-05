@@ -36,7 +36,11 @@ export function calculateRaceScores(
     startingAreaPenalty = startingAreaCount + 1;
   }
 
-  const finishMap = new Map(finishes.map((f) => [f.competitorId, f]));
+  const finishMap = new Map(
+    finishes
+      .filter((f): f is Finish & { competitorId: string } => f.competitorId !== null)
+      .map((f) => [f.competitorId, f]),
+  );
 
   const result = new Map<string, RaceScore>();
 
@@ -192,7 +196,7 @@ export function calculateStandings(
   }
 
   for (const race of races) {
-    const finishes = (finishesByRace.get(race.id) ?? []).filter((f) => competitorIds.has(f.competitorId));
+    const finishes = (finishesByRace.get(race.id) ?? []).filter((f) => f.competitorId !== null && competitorIds.has(f.competitorId));
     const scores = calculateRaceScores(finishes, competitors, dnfScoring);
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);

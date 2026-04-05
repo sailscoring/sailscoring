@@ -415,3 +415,56 @@ describe('calculateFleetStandings', () => {
     expect(results[1].fleet.name).toBe('Zephyr');
   });
 });
+
+// ─── Unknown finishes (null competitorId) ────────────────────────────────────
+
+describe('calculateRaceScores — unknown finishes (null competitorId)', () => {
+  const competitors = ['A', 'B', 'C'].map(id => makeCompetitor(id));
+  const n = competitors.length; // 3
+
+  it('ignores a finish with null competitorId and does not affect competitor scores', () => {
+    const finishes: Finish[] = [
+      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 1, resultCode: null, startPresent: null },
+      makeFinish('r1', 'A', 2),
+      makeFinish('r1', 'B', 3),
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    // Unknown is ignored; A and B are the only finishers (fleet ranks 1 and 2), C → implicit DNC
+    expect(scores.get('A')?.points).toBe(1);
+    expect(scores.get('B')?.points).toBe(2);
+    expect(scores.get('C')?.points).toBe(n + 1);
+    expect(scores.get('C')?.resultCode).toBe('DNC');
+    // Unknown finish does not produce a score entry
+    expect(scores.get(null as unknown as string)).toBeUndefined();
+  });
+
+  it('does not crash when all finishes have null competitorId', () => {
+    const finishes: Finish[] = [
+      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 1, resultCode: null, startPresent: null },
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    // All three competitors score as implicit DNC
+    for (const c of competitors) {
+      expect(scores.get(c.id)?.resultCode).toBe('DNC');
+      expect(scores.get(c.id)?.points).toBe(n + 1);
+    }
+  });
+});
+
+describe('calculateStandings — unknown finishes (null competitorId)', () => {
+  const competitors = ['A', 'B'].map(id => makeCompetitor(id));
+  const races = [makeRace('r1', 1)];
+
+  it('ignores unknown finishes and scores registered competitors correctly', () => {
+    const finishes: Finish[] = [
+      makeFinish('r1', 'A', 1),
+      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 2, resultCode: null, startPresent: null },
+    ];
+    const standings = calculateStandings(competitors, races, finishes);
+    // A wins with 1 point; B has no finish → implicit DNC (3 pts)
+    expect(standings[0].competitor.id).toBe('A');
+    expect(standings[0].netPoints).toBe(1);
+    expect(standings[1].competitor.id).toBe('B');
+    expect(standings[1].netPoints).toBe(3);
+  });
+});
