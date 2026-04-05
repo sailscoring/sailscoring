@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Sail Scoring is a sail racing scoring application for managing regattas, series, and race days. It handles handicap corrections, result codes, discard rules, and series standings per World Sailing Racing Rules of Sailing (RRS) Appendix A.
 
-**Current status:** Milestone 1 complete. A working local-first web app is built and deployed to `app.sailscoring.ie` (Vercel). It supports scratch (position-based) scoring for a single fleet across multiple races with series standings.
+**Current status:** Milestone 1 complete. A working local-first web app is built and deployed to `app.sailscoring.ie` (Vercel). It supports scratch (position-based) scoring across multiple fleets and races, with series standings, discards, a full set of RRS result codes (RRS A5/A6/A8/A11), A5.3 alternative scoring, start check-in, equal finish positions, CSV competitor import, series settings (venue, dates, burgee), HTML/JSON results export, and results publishing via bilge and FTP.
 
 ## Tech Stack
 
@@ -20,52 +20,9 @@ Sail Scoring is a sail racing scoring application for managing regattas, series,
 
 ## Source Layout
 
-```
-lib/
-  types.ts              — core data types: Series, Competitor, Race, Finish, RaceScore, Standing
-  repository.ts         — repository interfaces (SeriesRepository, CompetitorRepository, etc.)
-  dexie-repository.ts   — Dexie/IndexedDB implementations, exported as seriesRepo, competitorRepo, raceRepo, finishRepo
-  scoring.ts            — pure scoring engine: calculateRaceScores(), calculateStandings()
-  series-file.ts        — series file serialization, lineage check, open/save/update flows
-  db.ts                 — Dexie DB schema
-  debug.ts              — debug logging utility
-  utils.ts              — shadcn/ui utility (cn)
-app/
-  page.tsx              — home: lists series, New Series and Open Series buttons
-  series/new/page.tsx   — create series form
-  series/[id]/
-    layout.tsx          — series shell with nav tabs (Competitors, Races, Standings, File); Ctrl+S saves to file
-    competitors/page.tsx — manage competitors (add, delete; sorted by sail number)
-    races/page.tsx       — manage races (add, delete)
-    races/[raceId]/page.tsx — enter finish positions and result codes per race
-    settings/page.tsx   — series settings and file management (Save to File, Update from File)
-    standings/page.tsx   — series standings with per-race points and result codes; Export HTML
-```
+Pure logic lives in `lib/`; pages and UI in `app/`. Key lib modules: `scoring.ts` (engine), `scoring-codes.ts` (RRS code registry), `series-file.ts` (serialization), `results-renderer.ts` (HTML export), `public-export.ts` (JSON export/import), `bilge.ts` / `scupper.ts` (results publishing). Series pages live under `app/series/[id]/` with tabs: Competitors, Races, Standings, Settings.
 
-## Repository Structure
-
-- `docs/` - Living project documentation (requirements, design, planning)
-  - `docs/design/decisions/` - Architecture Decision Records (ADRs)
-  - `docs/design/naming.md` - Project naming conventions: "Sail Scoring" (brand), "sailscoring" (identifiers), "SailScoring" (PascalCase only)
-  - `docs/design/data-model.md` - Core entities: Event, Fleet, Competitor, Race, Result, Series Result
-  - `docs/design/libscoring-api.md` - API design for libscoring (the pure scoring engine)
-  - `docs/requirements/glossary.md` - Defined sailing/scoring terminology; important domain context for understanding requirements and data model
-  - `docs/requirements/iodai-use-case.md` - IODAI (Irish Optimist) use case: MVP target for position-based scratch scoring, mixed-division finish entry, large fleets
-  - `docs/requirements/hyc-use-case.md` - HYC Autumn League use case: MVP target for time-based handicap scoring (IRC, HPH/NHC progressive), dual scoring from a single finish time
-  - `docs/requirements/user-stories.md` - User requirements by domain area
-- `reference/` - PDFs and notes from existing tools (Sailwave, ORC Scorer, HalSail, ZW). Contains lots of useful documents about comparable applications, and crucially the **Racing Rules of Sailing (RRS)** where **Appendix A governs Scoring**
-
-## Domain Concepts
-
-Key scoring concepts that any implementation must handle correctly:
-
-- **Handicap systems:** IRC (fixed TCC), HPH/NHC (progressive, adjusted after each race), PY (Portsmouth Yardstick), one-design (scratch)
-- **Corrected time:** `elapsed_time × TCC` for IRC/NHC; `elapsed_time × (1000 / PY)` for Portsmouth Yardstick
-- **Dual scoring:** A single finish time scored under multiple handicap systems (e.g. IRC + HPH), each producing independent series standings
-- **Low Point scoring:** 1st = 1 point, 2nd = 2 points, etc. (lower is better)
-- **Result codes:** DNS, DNF, DSQ, OCS, UFD, BFD, RET, DNC (scored as entries + 1); RDG and SCP are variable
-- **Discards:** Worst race(s) dropped from series total; net_points = total_points minus discards
-- **Tie-breaking:** Per RRS Appendix A procedures
+See `docs/` for design docs, ADRs, requirements, and glossary. `reference/` holds PDFs of comparable tools and the RRS (Appendix A governs scoring).
 
 ## Repository and Licensing
 
@@ -75,15 +32,13 @@ Key scoring concepts that any implementation must handle correctly:
 
 ## Issues Workflow
 
-**Horizon (far-future ideas):** Long-range possibilities that require infrastructure or products that don't yet exist, or that are otherwise too speculative to track as active issues. Captured in `docs/design/horizon.md` — not in the issue tracker. Add to that file directly; no issue needed.
+| Type | When | Label | Command |
+|------|------|-------|---------|
+| Feature | In-scope, will almost certainly be built | `feature` | `gh issue create --label feature --title "..." --body "..."` |
+| Bug | Broken behaviour | `bug` | `gh issue create --label bug --title "..." --body "..."` |
+| Far-future idea | Speculative; requires infrastructure that doesn't exist yet | — | Add to `docs/design/horizon.md` directly; no issue needed |
 
-**Features:** In-scope work that relates to the current codebase and will almost certainly be implemented. Capture as a GitHub issue with the `feature` label. Keep the issue brief — just enough to describe what needs building.
-
-To create a feature issue: `gh issue create --label feature --title "..." --body "..."`
-
-**Bugs:** When a bug is identified, capture it as a GitHub issue with the `bug` label. Keep the issue brief — just enough to reproduce the problem.
-
-To create a bug issue: `gh issue create --label bug --title "..." --body "..."`
+The `idea` GitHub label is deprecated — use `docs/design/horizon.md` instead.
 
 ## MANDATORY: Run Tests Before Every Push
 
@@ -106,13 +61,7 @@ When implementing any new user-facing feature, ensure the following are covered 
 
 ## Tone and Humour
 
-The project aims to be credible and serious — scorers are exacting people — but a little wry humour is welcome. The bar is: the name or term must do real communicative work, and the nautical connection must be genuine, not forced. Examples that hit the mark:
-
-- **bilge** — the results publishing service; bilge is dirty water you pump out before the real plumbing is installed. Signals temporary and throwaway without a word of explanation.
-- **the bilge pump** — the migration script inside the bilge repo that drains it when the full-stack arrives. The joke completes itself.
-- **the log** — the audit trail of scorer changes. A ship's log and a software log are the same thing.
-
-The pattern: a structural name (a tool, a module, a section heading), not inline prose. If a sailor wouldn't immediately recognise the term as correct, it's too cute.
+The project aims to be credible and serious — scorers are exacting people — but a little wry humour is welcome. The bar: the name must do real communicative work, the nautical connection must be genuine, and it belongs in structure (a module name, a section heading), not inline prose. Example: **bilge** — the temporary results publishing service; bilge is dirty water you pump out before the real plumbing is installed. If a sailor wouldn't immediately recognise the term as correct, it's too cute.
 
 ## ADR Process
 
