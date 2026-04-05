@@ -178,3 +178,60 @@ test('BFD is not struck through and shown in red when a discard is active', asyn
   const aliceCells = aliceRow.getByRole('cell');
   await expect(aliceCells.nth(8)).toContainText('6'); // Nett
 });
+
+// ── Test 3: ZFP penalty is assignable and appears in standings ───────────────
+
+test('ZFP penalty can be set on a finisher and appears in standings with amber styling', async ({ page }) => {
+  // 3 competitors, N=3, DNF score=4. ZFP adds round(0.2×4)=1 pt.
+  // Alice finishes 1st + ZFP → 2pts. Bob finishes 2nd → 2pts. Carol finishes 3rd → 3pts.
+  const competitors = [
+    { sailNumber: '501', name: 'Alice' },
+    { sailNumber: '502', name: 'Bob' },
+    { sailNumber: '503', name: 'Carol' },
+  ];
+
+  await page.goto('/');
+  await page.getByRole('link', { name: 'New series' }).click();
+  await page.getByLabel('Name').fill('ZFP Test');
+  await page.getByRole('button', { name: 'Create series' }).click();
+  await expect(page).toHaveURL(/\/competitors$/);
+
+  for (const c of competitors) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sailNumber);
+    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+
+  // Enter finishers: Alice 1st, Bob 2nd, Carol 3rd
+  for (const sail of ['501', '502', '503']) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add' }).click();
+  }
+
+  // Set ZFP on Alice (first finisher)
+  await page.getByRole('button', { name: 'Set penalty for 501' }).click();
+  await page.getByRole('dialog').getByRole('combobox').click();
+  await page.getByRole('option', { name: /ZFP/ }).click();
+  await page.getByRole('button', { name: 'Apply' }).click();
+
+  // ZFP badge should appear next to Alice in the finisher list
+  await expect(page.getByText('ZFP').first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+
+  const rows = page.getByRole('row');
+  const aliceRow = rows.filter({ hasText: 'Alice' });
+
+  // Alice's R1 cell should show points and (ZFP)
+  const aliceR1Cell = aliceRow.getByRole('cell').nth(4);
+  await expect(aliceR1Cell).toContainText('ZFP');
+  await expect(aliceR1Cell.locator('span').first()).toHaveAttribute('title', 'ZFP penalty applied');
+});

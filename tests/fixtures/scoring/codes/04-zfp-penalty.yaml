@@ -1,0 +1,75 @@
+description: "ZFP (Two-Turns Penalty) adds 20% of DNF score to finish place"
+rrs_notes: >
+  RRS 44.3(a): a boat that takes a Two-Turns Penalty is scored her finishing
+  place plus 20% of the DNF score, rounded to the nearest whole number, but
+  not more than the DNF score.
+  A6.2: other boats' scores are unchanged (duplicate scores are permitted).
+  5 competitors, N=5, DNF score=6.
+  ZFP adds round(0.20 × 6) = round(1.2) = 1 point.
+  Alice finishes 1st + ZFP → 1+1 = 2.
+  Bob finishes 2nd → 2 (unchanged; A6.2 — two boats may share 2).
+  Carol finishes 3rd → 3.
+  Dave finishes 4th → 4.
+  Eve finishes 5th → 5.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - { sailNumber: "1", name: "Alice" }
+  - { sailNumber: "2", name: "Bob" }
+  - { sailNumber: "3", name: "Carol" }
+  - { sailNumber: "4", name: "Dave" }
+  - { sailNumber: "5", name: "Eve" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "1", position: 1, penaltyCode: ZFP }
+      - { sailor: "2", position: 2 }
+      - { sailor: "3", position: 3 }
+      - { sailor: "4", position: 4 }
+      - { sailor: "5", position: 5 }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 1
+      sailor: "1"
+      racePoints: [2]
+      raceCodes: [null]
+      racePenaltyCodes: [ZFP]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 4
+      sailor: "4"
+      racePoints: [4]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 5
+      sailor: "5"
+      racePoints: [5]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5

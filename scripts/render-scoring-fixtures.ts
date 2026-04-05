@@ -87,6 +87,8 @@ function buildInputs(fixture: ScoringFixture) {
         finishPosition: f.position ?? null,
         resultCode: f.code ?? null,
         startPresent: f.startPresent ?? null,
+        penaltyCode: null,
+        penaltyOverride: null,
       });
     }
   }

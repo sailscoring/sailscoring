@@ -926,7 +926,7 @@ function StandingRow({
   raceCount: number;
   hasDiscards: boolean;
 }) {
-  const { rank, competitor, racePoints, raceCodes, totalPoints, netPoints, raceDiscards, raceNonDiscardable } = standing;
+  const { rank, competitor, racePoints, raceCodes, racePenaltyCodes, totalPoints, netPoints, raceDiscards, raceNonDiscardable } = standing;
 
   // Highlight rank 1 row
   const isFirst = rank === 1;
@@ -949,6 +949,7 @@ function StandingRow({
         const isDiscard = raceDiscards[i] ?? false;
         const isNonDiscardable = raceNonDiscardable[i] ?? false;
         const code = raceCodes[i];
+        const penaltyCode = racePenaltyCodes?.[i] ?? null;
         return (
           <TableCell
             key={i}
@@ -969,6 +970,11 @@ function StandingRow({
               >
                 {points}
                 <span className="ml-0.5">({code})</span>
+              </span>
+            ) : penaltyCode !== null ? (
+              <span className="text-xs text-amber-600 dark:text-amber-400" title={`${penaltyCode} penalty applied`}>
+                {points}
+                <span className="ml-0.5">({penaltyCode})</span>
               </span>
             ) : (
               points

@@ -67,6 +67,12 @@ export type ResultCode =
   | 'UFD'   // U Flag Disqualification (rule 30.3) — discardable
   | 'BFD';  // Black Flag Disqualification (rule 30.4) — cannot be discarded
 
+export type PenaltyCode =
+  // Additive penalty codes (applied on top of finish; A6.2: other scores unchanged)
+  | 'ZFP'   // Two-Turns Penalty (rule 44.3(a)) — adds 20% of DNF score
+  | 'SCP'   // Scoring Penalty — adds specified % of DNF score (default 20%)
+  | 'DPI';  // Discretionary Points Increase — adds stated number of points
+
 export interface Finish {
   id: string;
   raceId: string;
@@ -75,6 +81,8 @@ export interface Finish {
   finishPosition: number | null;  // null if result code is set
   resultCode: ResultCode | null;  // null if finish position is set
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded
+  penaltyCode: PenaltyCode | null;    // additive penalty (ZFP/SCP/DPI); only for finishers
+  penaltyOverride: number | null;     // SCP: explicit %; DPI: explicit points; null = use default
 }
 
 // Calculated, not stored
@@ -110,10 +118,11 @@ export interface FtpServer {
 export interface Standing {
   rank: number;
   competitor: Competitor;
-  racePoints: number[];             // points per race, in race order
-  raceCodes: (ResultCode | null)[]; // result code per race (null = normal finish)
+  racePoints: number[];                  // points per race, in race order
+  raceCodes: (ResultCode | null)[];      // result code per race (null = normal finish)
+  racePenaltyCodes: (PenaltyCode | null)[]; // additive penalty per race (null = no penalty)
   totalPoints: number;
-  netPoints: number;                // totalPoints minus discarded points
-  raceDiscards: boolean[];          // true = this race is discarded from series total
-  raceNonDiscardable: boolean[];    // true = this code cannot be excluded by discard rules (DNE, BFD)
+  netPoints: number;                     // totalPoints minus discarded points
+  raceDiscards: boolean[];               // true = this race is discarded from series total
+  raceNonDiscardable: boolean[];         // true = this code cannot be excluded by discard rules (DNE, BFD)
 }

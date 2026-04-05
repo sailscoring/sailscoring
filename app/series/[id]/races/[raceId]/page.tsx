@@ -21,8 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { X, AlertTriangle } from 'lucide-react';
-import type { Competitor, Finish, ResultCode } from '@/lib/types';
+import { X, AlertTriangle, Flag } from 'lucide-react';
+import type { Competitor, Finish, ResultCode, PenaltyCode } from '@/lib/types';
 import { CheckSquare, Square } from 'lucide-react';
 import { log } from '@/lib/debug';
 import { cn } from '@/lib/utils';
@@ -98,6 +98,13 @@ export default function ResultEntryPage({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showAllCheckin, setShowAllCheckin] = useState(false);
+  // Additive penalties: entryId → { code, override }
+  const [finisherPenalties, setFinisherPenalties] = useState<Map<string, { code: PenaltyCode; override: number | null }>>(new Map());
+  const initialPenaltiesRef = useRef<Map<string, { code: PenaltyCode; override: number | null }>>(new Map());
+  // Penalty editor dialog
+  const [editingPenaltyEntryId, setEditingPenaltyEntryId] = useState<string | null>(null);
+  const [pendingPenaltyCode, setPendingPenaltyCode] = useState<PenaltyCode | 'none'>('none');
+  const [pendingPenaltyOverride, setPendingPenaltyOverride] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
   const initialOrderRef = useRef<FinishEntry[]>([]);
   const initialCodesRef = useRef<Map<string, ResultCode>>(new Map());
@@ -128,12 +135,21 @@ export default function ResultEntryPage({
       }
     }
 
+    const penalties = new Map<string, { code: PenaltyCode; override: number | null }>();
+    for (const finish of savedFinishes) {
+      if (finish.penaltyCode && finish.competitorId && finishedIds.has(finish.competitorId)) {
+        penalties.set(finish.competitorId, { code: finish.penaltyCode, override: finish.penaltyOverride ?? null });
+      }
+    }
+
     initialOrderRef.current = [...order];
     initialCodesRef.current = new Map(codes);
     initialPositionsRef.current = new Map(positions);
+    initialPenaltiesRef.current = new Map(penalties);
     setFinishingOrder(order);
     setFinishPositions(positions);
     setNonFinisherCodes(codes);
+    setFinisherPenalties(penalties);
     setInitialized(true);
   }
 
@@ -157,6 +173,12 @@ export default function ResultEntryPage({
     if (nonFinisherCodes.size !== initCodes.size) return true;
     for (const [k, v] of nonFinisherCodes) {
       if (initCodes.get(k) !== v) return true;
+    }
+    const initPenalties = initialPenaltiesRef.current;
+    if (finisherPenalties.size !== initPenalties.size) return true;
+    for (const [k, v] of finisherPenalties) {
+      const init = initPenalties.get(k);
+      if (!init || init.code !== v.code || init.override !== v.override) return true;
     }
     return false;
   }
@@ -282,6 +304,36 @@ export default function ResultEntryPage({
       next.delete(eid);
       return next;
     });
+    setFinisherPenalties((prev) => {
+      const next = new Map(prev);
+      next.delete(eid);
+      return next;
+    });
+  }
+
+  function openPenaltyEditor(eid: string) {
+    const existing = finisherPenalties.get(eid);
+    setPendingPenaltyCode(existing?.code ?? 'none');
+    setPendingPenaltyOverride(existing?.override != null ? String(existing.override) : '');
+    setEditingPenaltyEntryId(eid);
+  }
+
+  function applyPenalty() {
+    if (!editingPenaltyEntryId) return;
+    if (pendingPenaltyCode === 'none') {
+      // Clear penalty
+      setFinisherPenalties((prev) => {
+        const next = new Map(prev);
+        next.delete(editingPenaltyEntryId);
+        return next;
+      });
+    } else {
+      const override = pendingPenaltyOverride.trim() ? Number(pendingPenaltyOverride) : null;
+      setFinisherPenalties((prev) =>
+        new Map(prev).set(editingPenaltyEntryId, { code: pendingPenaltyCode as PenaltyCode, override }),
+      );
+    }
+    setEditingPenaltyEntryId(null);
   }
 
   function commitPositionEdit() {
@@ -345,6 +397,8 @@ export default function ResultEntryPage({
           finishPosition: null,
           resultCode: null,
           startPresent: false,
+          penaltyCode: null,
+          penaltyOverride: null,
         });
       }
     } else {
@@ -359,6 +413,8 @@ export default function ResultEntryPage({
           finishPosition: null,
           resultCode: null,
           startPresent: true,
+          penaltyCode: null,
+          penaltyOverride: null,
         });
       }
     }
@@ -450,6 +506,7 @@ export default function ResultEntryPage({
       finishingOrder.forEach((entry, index) => {
         const eid = entryId(entry);
         if (entry.kind === 'known') {
+          const penalty = finisherPenalties.get(entry.competitorId);
           finishes.push({
             id: crypto.randomUUID(),
             raceId,
@@ -457,6 +514,8 @@ export default function ResultEntryPage({
             finishPosition: finishPositions.get(eid) ?? index + 1,
             resultCode: null,
             startPresent: startPresentMap.get(entry.competitorId) ?? true,
+            penaltyCode: penalty?.code ?? null,
+            penaltyOverride: penalty?.override ?? null,
           });
         } else {
           finishes.push({
@@ -467,6 +526,8 @@ export default function ResultEntryPage({
             finishPosition: finishPositions.get(eid) ?? index + 1,
             resultCode: null,
             startPresent: null,
+            penaltyCode: null,
+            penaltyOverride: null,
           });
         }
       });
@@ -481,6 +542,8 @@ export default function ResultEntryPage({
             finishPosition: null,
             resultCode: code,
             startPresent: startPresentMap.get(competitorId) ?? null,
+            penaltyCode: null,
+            penaltyOverride: null,
           });
         }
       }
@@ -499,6 +562,8 @@ export default function ResultEntryPage({
             finishPosition: null,
             resultCode: null,
             startPresent: true,
+            penaltyCode: null,
+            penaltyOverride: null,
           });
         }
       }
@@ -877,6 +942,7 @@ export default function ResultEntryPage({
 
               const competitor = competitorMap.get(entry.competitorId);
               if (!competitor) return null;
+              const penalty = finisherPenalties.get(entry.competitorId);
               return (
                 <li
                   key={entry.competitorId}
@@ -919,6 +985,24 @@ export default function ResultEntryPage({
                   </div>
                   <span className="font-mono font-medium">{competitor.sailNumber}</span>
                   <span className="text-sm flex-1 truncate">{competitor.name}</span>
+                  {penalty && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs shrink-0 cursor-pointer"
+                      onClick={() => openPenaltyEditor(entry.competitorId)}
+                    >
+                      {penalty.code}
+                      {penalty.override != null ? ` (${penalty.override}${penalty.code === 'DPI' ? 'pts' : '%'})` : ''}
+                    </Badge>
+                  )}
+                  <button
+                    onClick={() => openPenaltyEditor(entry.competitorId)}
+                    aria-label={`Set penalty for ${competitor.sailNumber}`}
+                    title="Set scoring penalty"
+                    className="text-muted-foreground hover:text-foreground shrink-0"
+                  >
+                    <Flag className="h-3.5 w-3.5" />
+                  </button>
                   <button
                     onClick={() => removeFinisher(eid)}
                     aria-label={`Remove ${competitor.sailNumber}`}
@@ -1151,6 +1235,69 @@ export default function ResultEntryPage({
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Penalty editor dialog */}
+      <Dialog open={editingPenaltyEntryId !== null} onOpenChange={(open) => { if (!open) setEditingPenaltyEntryId(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              Scoring penalty — {editingPenaltyEntryId ? (competitorMap.get(editingPenaltyEntryId)?.sailNumber ?? '') : ''}
+            </DialogTitle>
+            <DialogDescription>
+              Additive penalty codes (A6.2): other boats keep their scores.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Penalty</label>
+              <Select value={pendingPenaltyCode} onValueChange={(v) => { setPendingPenaltyCode(v as PenaltyCode | 'none'); setPendingPenaltyOverride(''); }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No penalty</SelectItem>
+                  <SelectItem value="ZFP">ZFP — Two-Turns (20%)</SelectItem>
+                  <SelectItem value="SCP">SCP — Scoring Penalty (%)</SelectItem>
+                  <SelectItem value="DPI">DPI — Discretionary Points</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {(pendingPenaltyCode as string) === 'SCP' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Percentage (default 20)</label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={100}
+                  placeholder="20"
+                  value={pendingPenaltyOverride}
+                  onChange={(e) => setPendingPenaltyOverride(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyPenalty(); } }}
+                  autoFocus
+                />
+              </div>
+            )}
+            {(pendingPenaltyCode as string) === 'DPI' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Points to add</label>
+                <Input
+                  type="number"
+                  min={1}
+                  placeholder="e.g. 2"
+                  value={pendingPenaltyOverride}
+                  onChange={(e) => setPendingPenaltyOverride(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyPenalty(); } }}
+                  autoFocus
+                />
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={applyPenalty}>Apply</Button>
+            <Button variant="ghost" onClick={() => setEditingPenaltyEntryId(null)}>Cancel</Button>
+          </div>
         </DialogContent>
       </Dialog>
 

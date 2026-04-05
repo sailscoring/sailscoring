@@ -13,7 +13,7 @@ import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { parse as parseYaml } from 'yaml';
 import { calculateStandings, calculateFleetStandings } from '@/lib/scoring';
-import type { Competitor, Fleet, Race, Finish, DiscardThreshold, ResultCode } from '@/lib/types';
+import type { Competitor, Fleet, Race, Finish, DiscardThreshold, ResultCode, PenaltyCode } from '@/lib/types';
 
 // ─── Fixture schema types ─────────────────────────────────────────────────────
 
@@ -22,6 +22,8 @@ interface FixtureFinish {
   position?: number;        // clean finish
   code?: ResultCode;        // DNC | DNF | OCS
   startPresent?: boolean;   // true if marked present in starting area
+  penaltyCode?: PenaltyCode; // additive penalty (ZFP | SCP | DPI)
+  penaltyOverride?: number;  // SCP: percentage; DPI: stated points
 }
 
 interface FixtureRace {
@@ -36,7 +38,8 @@ interface FixtureStanding {
   racePoints: number[];
   raceCodes: (ResultCode | null)[];
   raceDiscards: boolean[];
-  raceNonDiscardable?: boolean[];   // optional; assert only when present in fixture
+  raceNonDiscardable?: boolean[];         // optional; assert only when present in fixture
+  racePenaltyCodes?: (PenaltyCode | null)[];  // optional; assert only when present in fixture
   totalPoints: number;
   netPoints: number;
 }
@@ -113,6 +116,8 @@ function buildInputs(fixture: ScoringFixture): {
         finishPosition: f.position ?? null,
         resultCode: f.code ?? null,
         startPresent: f.startPresent ?? null,
+        penaltyCode: f.penaltyCode ?? null,
+        penaltyOverride: f.penaltyOverride ?? null,
       });
     }
   }
@@ -176,6 +181,9 @@ describe('scoring fixtures', () => {
         expect(standing.raceDiscards, `${label}: raceDiscards`).toEqual(expected.raceDiscards);
         if (expected.raceNonDiscardable !== undefined) {
           expect(standing.raceNonDiscardable, `${label}: raceNonDiscardable`).toEqual(expected.raceNonDiscardable);
+        }
+        if (expected.racePenaltyCodes !== undefined) {
+          expect(standing.racePenaltyCodes, `${label}: racePenaltyCodes`).toEqual(expected.racePenaltyCodes);
         }
         expect(standing.totalPoints, `${label}: totalPoints`).toBe(expected.totalPoints);
         expect(standing.netPoints, `${label}: netPoints`).toBe(expected.netPoints);

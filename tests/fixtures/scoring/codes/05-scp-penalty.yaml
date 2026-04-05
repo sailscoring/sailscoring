@@ -1,0 +1,72 @@
+description: "SCP (Scoring Penalty) — default 20% and explicit override"
+rrs_notes: >
+  SCP default: same 20% formula as ZFP.
+  SCP with penaltyOverride=30 means 30% of DNF score.
+  5 competitors, N=5, DNF score=6.
+  Alice finishes 1st + SCP (default 20%) → 1 + round(0.20×6) = 1+1 = 2.
+  Bob finishes 2nd + SCP (override 30%) → 2 + round(0.30×6) = 2+2 = 4.
+  Carol finishes 3rd → 3.
+  Dave finishes 4th → 4.
+  Eve finishes 5th → 5.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - { sailNumber: "1", name: "Alice" }
+  - { sailNumber: "2", name: "Bob" }
+  - { sailNumber: "3", name: "Carol" }
+  - { sailNumber: "4", name: "Dave" }
+  - { sailNumber: "5", name: "Eve" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "1", position: 1, penaltyCode: SCP }
+      - { sailor: "2", position: 2, penaltyCode: SCP, penaltyOverride: 30 }
+      - { sailor: "3", position: 3 }
+      - { sailor: "4", position: 4 }
+      - { sailor: "5", position: 5 }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [2]
+      raceCodes: [null]
+      racePenaltyCodes: [SCP]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 2
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 3
+      sailor: "2"
+      racePoints: [4]
+      raceCodes: [null]
+      racePenaltyCodes: [SCP]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 3
+      sailor: "4"
+      racePoints: [4]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 5
+      sailor: "5"
+      racePoints: [5]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5

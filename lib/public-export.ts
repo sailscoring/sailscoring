@@ -191,6 +191,8 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
           finishPosition: finish.finishPosition,
           resultCode: finish.resultCode,
           startPresent: finish.startPresent,
+          penaltyCode: null,
+          penaltyOverride: null,
         });
       }
     }

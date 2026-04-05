@@ -34,6 +34,7 @@ export default function HelpPage() {
           ['#importing-competitors', 'Importing competitors from CSV'],
           ['#adding-races', 'Adding races'],
           ['#entering-results', 'Entering results'],
+          ['#penalty-codes', 'Additive penalty codes'],
           ['#start-check-in', 'Start check-in'],
           ['#reading-the-standings', 'Reading the standings'],
           ['#discard-rules', 'Discard rules'],
@@ -227,6 +228,33 @@ export default function HelpPage() {
           In the standings table they are shown in red. Even if a DNE or BFD is a
           competitor&apos;s worst score, the discard falls on their next-worst result
           instead.
+        </p>
+        <p className="font-medium text-sm mt-2">Additive penalty codes (applied to finishers)</p>
+        <p>
+          A boat that finishes but is penalised by the protest committee may be assigned an
+          additive penalty code using the <strong className="text-foreground">flag icon</strong>{' '}
+          next to their name in the finisher list. Click the flag to open the penalty editor.
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li>
+            <strong className="text-foreground">ZFP</strong> — Two-Turns Penalty (rule 44.3(a)):
+            adds 20% of the DNF score, rounded to the nearest whole number.
+          </li>
+          <li>
+            <strong className="text-foreground">SCP</strong> — Scoring Penalty (PC-imposed):
+            adds a specified percentage of the DNF score (default 20%; enter a different value
+            to override).
+          </li>
+          <li>
+            <strong className="text-foreground">DPI</strong> — Discretionary Points Increase:
+            adds a stated number of points (enter the amount in the penalty editor).
+          </li>
+        </ul>
+        <p>
+          Per RRS A6.2, additive penalties do not change other competitors&apos; scores —
+          two boats may legitimately share the same score. The penalised score is capped at
+          the DNF score for that race. Penalty codes are shown in amber in the standings table,
+          e.g. <em>4 (ZFP)</em>.
         </p>
       </Section>
 

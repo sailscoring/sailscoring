@@ -1,0 +1,61 @@
+description: "DPI (Discretionary Points Increase) adds stated points, capped at DNF score"
+rrs_notes: >
+  DPI: PC adds a stated number of points to the finishing score.
+  Result is capped at the DNF score (N+1).
+  4 competitors, N=4, DNF score=5.
+  Alice finishes 1st + DPI(2pts) → min(1+2, 5) = 3.
+  Bob finishes 2nd → 2.
+  Carol finishes 3rd + DPI(4pts) → min(3+4, 5) = 5 (capped at DNF score).
+  Dave finishes 4th → 4.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - { sailNumber: "1", name: "Alice" }
+  - { sailNumber: "2", name: "Bob" }
+  - { sailNumber: "3", name: "Carol" }
+  - { sailNumber: "4", name: "Dave" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "1", position: 1, penaltyCode: DPI, penaltyOverride: 2 }
+      - { sailor: "2", position: 2 }
+      - { sailor: "3", position: 3, penaltyCode: DPI, penaltyOverride: 4 }
+      - { sailor: "4", position: 4 }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 2
+      sailor: "1"
+      racePoints: [3]
+      raceCodes: [null]
+      racePenaltyCodes: [DPI]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 3
+      sailor: "4"
+      racePoints: [4]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 4
+      sailor: "3"
+      racePoints: [5]
+      raceCodes: [null]
+      racePenaltyCodes: [DPI]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculateRaceScores, calculateStandings, calculateFleetStandings, getDiscardCount } from '@/lib/scoring';
-import type { Competitor, Fleet, Race, Finish, DiscardThreshold } from '@/lib/types';
+import type { Competitor, Fleet, Race, Finish, DiscardThreshold, PenaltyCode } from '@/lib/types';
 
 // Helpers to build test fixtures with minimal required fields
 function makeCompetitor(id: string, seriesId = 's1', fleetId = 'f1'): Competitor {
@@ -16,8 +16,10 @@ function makeFinish(
   competitorId: string,
   finishPosition: number | null,
   resultCode: Finish['resultCode'] = null,
+  penaltyCode: PenaltyCode | null = null,
+  penaltyOverride: number | null = null,
 ): Finish {
-  return { id: `${raceId}-${competitorId}`, raceId, competitorId, finishPosition, resultCode, startPresent: null };
+  return { id: `${raceId}-${competitorId}`, raceId, competitorId, finishPosition, resultCode, startPresent: null, penaltyCode, penaltyOverride };
 }
 
 // ─── calculateRaceScores ─────────────────────────────────────────────────────
@@ -494,7 +496,7 @@ describe('calculateRaceScores — unknown finishes (null competitorId)', () => {
 
   it('ignores a finish with null competitorId and does not affect competitor scores', () => {
     const finishes: Finish[] = [
-      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 1, resultCode: null, startPresent: null },
+      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 1, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null },
       makeFinish('r1', 'A', 2),
       makeFinish('r1', 'B', 3),
     ];
@@ -510,7 +512,7 @@ describe('calculateRaceScores — unknown finishes (null competitorId)', () => {
 
   it('does not crash when all finishes have null competitorId', () => {
     const finishes: Finish[] = [
-      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 1, resultCode: null, startPresent: null },
+      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 1, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null },
     ];
     const scores = calculateRaceScores(finishes, competitors);
     // All three competitors score as implicit DNC
@@ -521,6 +523,143 @@ describe('calculateRaceScores — unknown finishes (null competitorId)', () => {
   });
 });
 
+// ─── Additive penalty codes (Phase 2) ────────────────────────────────────────
+
+describe('calculateRaceScores — additive penalties (ZFP/SCP/DPI)', () => {
+  const competitors = ['A', 'B', 'C', 'D', 'E'].map(id => makeCompetitor(id));
+  const n = competitors.length; // 5
+  const dnfScore = n + 1; // 6
+
+  it('ZFP adds 20% of DNF score to finish place', () => {
+    const finishes = [
+      makeFinish('r1', 'A', 1, null, 'ZFP'),  // 1 + round(0.2×6)=1 → 2
+      makeFinish('r1', 'B', 2),               // 2 (unchanged)
+      makeFinish('r1', 'C', 3),               // 3
+      makeFinish('r1', 'D', 4),               // 4
+      makeFinish('r1', 'E', 5),               // 5
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('A')?.points).toBe(2);  // 1 + 1 = 2
+    expect(scores.get('B')?.points).toBe(2);  // unchanged
+    expect(scores.get('A')?.resultCode).toBeNull();
+  });
+
+  it('ZFP penalty is capped at DNF score', () => {
+    // 4th place + ZFP: 4 + round(0.2×6) = 4+1 = 5 — under cap
+    // Last place + ZFP: 5 + 1 = 6 = cap exactly
+    const finishes = [
+      makeFinish('r1', 'A', 1),
+      makeFinish('r1', 'B', 2),
+      makeFinish('r1', 'C', 3),
+      makeFinish('r1', 'D', 4),
+      makeFinish('r1', 'E', 5, null, 'ZFP'),  // 5 + 1 = 6 = dnfScore
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('E')?.points).toBe(dnfScore); // capped at 6
+  });
+
+  it('SCP uses default 20% when no override', () => {
+    const finishes = [
+      makeFinish('r1', 'A', 1, null, 'SCP'),  // same as ZFP: 1+1=2
+      makeFinish('r1', 'B', 2),
+      makeFinish('r1', 'C', 3),
+      makeFinish('r1', 'D', 4),
+      makeFinish('r1', 'E', 5),
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('A')?.points).toBe(2);
+  });
+
+  it('SCP uses penaltyOverride percentage when specified', () => {
+    const finishes = [
+      makeFinish('r1', 'A', 2, null, 'SCP', 30),  // 2 + round(0.3×6)=2 → 4
+      makeFinish('r1', 'B', 1),
+      makeFinish('r1', 'C', 3),
+      makeFinish('r1', 'D', 4),
+      makeFinish('r1', 'E', 5),
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('A')?.points).toBe(4); // 2 + 2 = 4
+  });
+
+  it('DPI adds stated points from penaltyOverride', () => {
+    const finishes = [
+      makeFinish('r1', 'A', 1, null, 'DPI', 3),  // 1+3=4
+      makeFinish('r1', 'B', 2),
+      makeFinish('r1', 'C', 3),
+      makeFinish('r1', 'D', 4),
+      makeFinish('r1', 'E', 5),
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('A')?.points).toBe(4);
+  });
+
+  it('DPI is capped at DNF score', () => {
+    const finishes = [
+      makeFinish('r1', 'A', 3, null, 'DPI', 100),  // min(3+100, 6)=6
+      makeFinish('r1', 'B', 2),
+      makeFinish('r1', 'C', 1),
+      makeFinish('r1', 'D', 4),
+      makeFinish('r1', 'E', 5),
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('A')?.points).toBe(dnfScore); // capped
+  });
+
+  it('penalty code does not affect other boats scores (A6.2)', () => {
+    const finishes = [
+      makeFinish('r1', 'A', 1, null, 'ZFP'),
+      makeFinish('r1', 'B', 2),
+      makeFinish('r1', 'C', 3),
+      makeFinish('r1', 'D', 4),
+      makeFinish('r1', 'E', 5),
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    // B,C,D,E keep their original finish-place scores
+    expect(scores.get('B')?.points).toBe(2);
+    expect(scores.get('C')?.points).toBe(3);
+    expect(scores.get('D')?.points).toBe(4);
+    expect(scores.get('E')?.points).toBe(5);
+  });
+
+  it('penalty is not applied to non-finishers (coded boats)', () => {
+    // A penalty on a coded boat (resultCode set) is ignored
+    const finishes = [
+      makeFinish('r1', 'A', null, 'DNS'),  // coded; penalty should be ignored
+      makeFinish('r1', 'B', 1),
+      makeFinish('r1', 'C', 2),
+      makeFinish('r1', 'D', 3),
+      makeFinish('r1', 'E', 4),
+    ];
+    // Manually set penaltyCode on the DNS finish
+    finishes[0] = { ...finishes[0], penaltyCode: 'ZFP' };
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('A')?.points).toBe(dnfScore); // DNS: N+1, ZFP ignored
+    expect(scores.get('A')?.resultCode).toBe('DNS');
+  });
+});
+
+describe('calculateStandings — racePenaltyCodes populated', () => {
+  const competitors = ['A', 'B', 'C'].map(id => makeCompetitor(id));
+  const races = [makeRace('r1', 1), makeRace('r2', 2)];
+
+  it('racePenaltyCodes tracks which races had a penalty', () => {
+    const finishes = [
+      makeFinish('r1', 'A', 1, null, 'ZFP'),
+      makeFinish('r1', 'B', 2),
+      makeFinish('r1', 'C', 3),
+      makeFinish('r2', 'A', 2),
+      makeFinish('r2', 'B', 1, null, 'SCP', 30),
+      makeFinish('r2', 'C', 3),
+    ];
+    const standings = calculateStandings(competitors, races, finishes);
+    const byId = new Map(standings.map(s => [s.competitor.id, s]));
+    expect(byId.get('A')?.racePenaltyCodes).toEqual(['ZFP', null]);
+    expect(byId.get('B')?.racePenaltyCodes).toEqual([null, 'SCP']);
+    expect(byId.get('C')?.racePenaltyCodes).toEqual([null, null]);
+  });
+});
+
 describe('calculateStandings — unknown finishes (null competitorId)', () => {
   const competitors = ['A', 'B'].map(id => makeCompetitor(id));
   const races = [makeRace('r1', 1)];
@@ -528,7 +667,7 @@ describe('calculateStandings — unknown finishes (null competitorId)', () => {
   it('ignores unknown finishes and scores registered competitors correctly', () => {
     const finishes: Finish[] = [
       makeFinish('r1', 'A', 1),
-      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 2, resultCode: null, startPresent: null },
+      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 2, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null },
     ];
     const standings = calculateStandings(competitors, races, finishes);
     // A wins with 1 point; B has no finish → implicit DNC (3 pts)

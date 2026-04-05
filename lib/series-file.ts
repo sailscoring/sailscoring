@@ -1,7 +1,7 @@
-import type { Series, ResultCode, DiscardThreshold } from './types';
+import type { Series, ResultCode, PenaltyCode, DiscardThreshold } from './types';
 import { db } from './db';
 
-export const FORMAT_VERSION = 4;
+export const FORMAT_VERSION = 5;
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -54,6 +54,8 @@ interface SeriesFileFinish {
   finishPosition: number | null;
   resultCode: ResultCode | null;
   startPresent: boolean | null;
+  penaltyCode?: PenaltyCode | null;
+  penaltyOverride?: number | null;
 }
 
 interface SeriesFileRace {
@@ -118,6 +120,8 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       finishPosition: f.finishPosition,
       resultCode: f.resultCode,
       startPresent: f.startPresent,
+      penaltyCode: f.penaltyCode ?? null,
+      penaltyOverride: f.penaltyOverride ?? null,
     });
   }
 
@@ -319,6 +323,8 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
           finishPosition: f.finishPosition,
           resultCode: f.resultCode,
           startPresent: f.startPresent ?? null,
+          penaltyCode: f.penaltyCode ?? null,
+          penaltyOverride: f.penaltyOverride ?? null,
         });
       }
     }
@@ -418,6 +424,8 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
           finishPosition: f.finishPosition,
           resultCode: f.resultCode,
           startPresent: f.startPresent ?? null,
+          penaltyCode: f.penaltyCode ?? null,
+          penaltyOverride: f.penaltyOverride ?? null,
         });
       }
     }

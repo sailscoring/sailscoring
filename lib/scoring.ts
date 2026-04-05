@@ -1,4 +1,4 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, Standing, ResultCode, DiscardThreshold } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, Standing, ResultCode, PenaltyCode, DiscardThreshold } from './types';
 import { getCodeDefinition } from './scoring-codes';
 
 /**
@@ -113,18 +113,50 @@ export function calculateRaceScores(
     fi = fj;
   }
 
+  // Apply additive penalty codes (ZFP, SCP, DPI) to finishers.
+  // Per A6.2 other boats are NOT re-ranked; duplicate scores are allowed.
+  // Cap: penalised score cannot exceed the DNF score (startingAreaPenalty).
+  for (const competitor of competitors) {
+    const finish = finishMap.get(competitor.id);
+    if (!finish?.penaltyCode) continue;
+    const score = result.get(competitor.id);
+    if (!score || score.place === null) continue; // only apply to finishers
+
+    const def = getCodeDefinition(finish.penaltyCode);
+    if (!def) continue;
+
+    const method = def.pointsMethod;
+    const cap = startingAreaPenalty; // DNF score (starters base) is the ceiling
+    let penalized = score.points;
+
+    if (method.type === 'additive_percentage') {
+      const pct = finish.penaltyOverride ?? method.defaultPct;
+      penalized = Math.min(score.points + Math.round(pct / 100 * cap), cap);
+    } else if (method.type === 'additive_stated') {
+      const pts = finish.penaltyOverride ?? 0;
+      penalized = Math.min(score.points + pts, cap);
+    }
+
+    result.set(competitor.id, { ...score, points: penalized });
+  }
+
   return result;
 }
 
 /**
- * Resolve penalty points from a PointsMethod and the two penalty bases.
+ * Resolve penalty points for fixed-penalty result codes (DNC, DNS, OCS, etc.).
+ * Additive penalty codes (ZFP, SCP, DPI) are handled separately in calculateRaceScores.
  */
 function penaltyPoints(
-  method: { type: 'fixed_penalty'; penaltyBase: 'entries' | 'starters' },
+  method: import('./scoring-codes').PointsMethod,
   seriesEntryPenalty: number,
   startingAreaPenalty: number,
 ): number {
-  return method.penaltyBase === 'entries' ? seriesEntryPenalty : startingAreaPenalty;
+  if (method.type === 'fixed_penalty') {
+    return method.penaltyBase === 'entries' ? seriesEntryPenalty : startingAreaPenalty;
+  }
+  // Additive methods should not appear as resultCode definitions; fall back to entries+1.
+  return seriesEntryPenalty;
 }
 
 /**
@@ -180,6 +212,7 @@ export function calculateStandings(
       competitor: c,
       racePoints: [],
       raceCodes: [],
+      racePenaltyCodes: [],
       totalPoints: 0,
       netPoints: 0,
       raceDiscards: [],
@@ -198,20 +231,25 @@ export function calculateStandings(
   // Calculate per-race scores for each competitor
   const competitorRacePoints = new Map<string, number[]>();
   const competitorRaceCodes = new Map<string, (ResultCode | null)[]>();
+  const competitorRacePenaltyCodes = new Map<string, (PenaltyCode | null)[]>();
   for (const competitor of competitors) {
     competitorRacePoints.set(competitor.id, []);
     competitorRaceCodes.set(competitor.id, []);
+    competitorRacePenaltyCodes.set(competitor.id, []);
   }
 
   for (const race of races) {
-    const finishes = (finishesByRace.get(race.id) ?? []).filter((f) => f.competitorId !== null && competitorIds.has(f.competitorId));
-    const scores = calculateRaceScores(finishes, competitors, dnfScoring);
+    const raceFinishes = (finishesByRace.get(race.id) ?? []).filter((f) => f.competitorId !== null && competitorIds.has(f.competitorId));
+    const raceFinishMap = new Map(raceFinishes.map((f) => [f.competitorId!, f]));
+    const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
       const points = score?.points ?? competitors.length + 1;
       const code = score ? score.resultCode : 'DNC';
+      const finish = raceFinishMap.get(competitor.id);
       competitorRacePoints.get(competitor.id)!.push(points);
       competitorRaceCodes.get(competitor.id)!.push(code);
+      competitorRacePenaltyCodes.get(competitor.id)!.push(finish?.penaltyCode ?? null);
     }
   }
 
@@ -224,6 +262,7 @@ export function calculateStandings(
   const standings: Standing[] = competitors.map((competitor) => {
     const racePoints = competitorRacePoints.get(competitor.id)!;
     const raceCodes = competitorRaceCodes.get(competitor.id)!;
+    const racePenaltyCodes = competitorRacePenaltyCodes.get(competitor.id)!;
     const totalPoints = racePoints.reduce((sum, p) => sum + p, 0);
 
     // Determine non-discardable flags from code definitions
@@ -251,7 +290,7 @@ export function calculateStandings(
       0,
     );
 
-    return { rank: 0, competitor, racePoints, raceCodes, totalPoints, netPoints, raceDiscards, raceNonDiscardable };
+    return { rank: 0, competitor, racePoints, raceCodes, racePenaltyCodes, totalPoints, netPoints, raceDiscards, raceNonDiscardable };
   });
 
   // Sort: lowest net points wins, tie-break per RRS A8.2 (uses all race points)
