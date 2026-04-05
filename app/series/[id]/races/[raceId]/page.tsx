@@ -97,6 +97,7 @@ export default function ResultEntryPage({
   const [initialized, setInitialized] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showAllCheckin, setShowAllCheckin] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const initialOrderRef = useRef<FinishEntry[]>([]);
   const initialCodesRef = useRef<Map<string, ResultCode>>(new Map());
@@ -585,9 +586,20 @@ export default function ResultEntryPage({
             Mark competitors as present in the starting area before the race.
             This data is used for A5.3 scoring (DNF/OCS score starting-area entries + 1).
           </p>
-          <p className="text-sm font-medium">
-            Present at start: {presentCount} / {competitors?.length ?? 0}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">
+              Present at start: {presentCount} / {competitors?.length ?? 0}
+            </p>
+            {presentCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllCheckin((v) => !v)}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+              >
+                {showAllCheckin ? 'Hide checked-in' : `Show all`}
+              </button>
+            )}
+          </div>
           <div className="relative">
             <Input
               value={checkinInput}
@@ -623,28 +635,47 @@ export default function ResultEntryPage({
             )}
           </div>
           <div className="space-y-1.5">
-            {(competitors ?? []).map((c) => {
-              const present = effectivelyPresent(c.id);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => toggleStartPresent(c)}
-                  className={cn(
-                    'w-full flex items-center gap-3 border rounded-lg px-4 py-2.5 text-left transition-colors',
-                    present ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' : 'hover:bg-accent',
-                  )}
-                >
-                  {present ? (
-                    <CheckSquare className="h-4 w-4 text-green-600 shrink-0" />
-                  ) : (
-                    <Square className="h-4 w-4 text-muted-foreground shrink-0" />
-                  )}
-                  <span className="font-mono font-medium w-16 shrink-0">{c.sailNumber}</span>
-                  <span className="text-sm flex-1 truncate">{c.name}</span>
-                </button>
-              );
-            })}
+            {(() => {
+              const visible = showAllCheckin
+                ? (competitors ?? [])
+                : (competitors ?? []).filter((c) => !effectivelyPresent(c.id));
+              if (visible.length === 0 && presentCount > 0) {
+                return (
+                  <p className="text-sm text-muted-foreground">
+                    All competitors checked in.{' '}
+                    <button
+                      type="button"
+                      onClick={() => setShowAllCheckin(true)}
+                      className="underline underline-offset-2 hover:text-foreground"
+                    >
+                      Show all
+                    </button>
+                  </p>
+                );
+              }
+              return visible.map((c) => {
+                const present = effectivelyPresent(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => toggleStartPresent(c)}
+                    className={cn(
+                      'w-full flex items-center gap-3 border rounded-lg px-4 py-2.5 text-left transition-colors',
+                      present ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' : 'hover:bg-accent',
+                    )}
+                  >
+                    {present ? (
+                      <CheckSquare className="h-4 w-4 text-green-600 shrink-0" />
+                    ) : (
+                      <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                    )}
+                    <span className="font-mono font-medium w-16 shrink-0">{c.sailNumber}</span>
+                    <span className="text-sm flex-1 truncate">{c.name}</span>
+                  </button>
+                );
+              });
+            })()}
           </div>
         </div>
       )}
