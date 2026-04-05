@@ -97,6 +97,7 @@ test('discard rule changes standings and shows Nett column', async ({ page }) =>
   // ── 8. Add discard rule in Settings ──────────────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await expect(page).toHaveURL(/\/settings$/);
+  await page.getByRole('heading', { name: 'Scoring' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
 
   await page.getByRole('button', { name: 'Add rule' }).click();
 

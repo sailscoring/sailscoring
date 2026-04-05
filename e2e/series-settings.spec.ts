@@ -20,6 +20,7 @@ test('settings basics card saves venue, dates, and logo URLs', async ({ page }) 
   await expect(page).toHaveURL(/\/settings$/);
 
   // ── 3. Fill in the Basics card ────────────────────────────────────────────
+  await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByLabel('Venue', { exact: true }).fill('Dún Laoghaire Harbour');
   await page.getByLabel('Start date').fill('2025-07-11');
   await page.getByLabel('End date').fill('2025-07-13');
@@ -28,12 +29,13 @@ test('settings basics card saves venue, dates, and logo URLs', async ({ page }) 
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   // ── 4. Verify the series header subtitle reflects the new venue and date ──
-  await expect(page.getByText('Dún Laoghaire Harbour')).toBeVisible();
-  await expect(page.getByText(/2025-07-11/)).toBeVisible();
+  await expect(page.getByText('Dún Laoghaire Harbour').first()).toBeVisible();
+  await expect(page.getByText(/2025-07-11/).first()).toBeVisible();
 
   // ── 5. Navigate away and back to confirm persistence ─────────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await expect(page.getByLabel('Venue', { exact: true })).toHaveValue('Dún Laoghaire Harbour');
   await expect(page.getByLabel('Start date')).toHaveValue('2025-07-11');
   await expect(page.getByLabel('End date')).toHaveValue('2025-07-13');
@@ -51,6 +53,7 @@ test('logo URLs appear as img tags in exported HTML', async ({ page }) => {
 
   // ── 2. Set logo URLs in Settings ─────────────────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByLabel('Venue logo URL').fill('https://example.com/venue.png');
   await page.getByLabel('Event logo URL').fill('https://example.com/event.png');
   await page.getByRole('button', { name: 'Save', exact: true }).click();

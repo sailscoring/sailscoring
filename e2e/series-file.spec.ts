@@ -108,11 +108,12 @@ test('series file: save exports correct JSON with all series fields, competitors
 
   // ── Fill in basics ────────────────────────────────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByLabel('Venue', { exact: true }).fill('Howth Yacht Club');
   await page.getByLabel('Start date').fill('2025-09-06');
   await page.getByLabel('End date').fill('2025-11-01');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible();
+  await expect(page.getByText('Howth Yacht Club').first()).toBeVisible();
 
   // ── Inject ftpHost/ftpPath directly into IndexedDB ───────────────────────
   // (These fields are normally set on a successful FTP upload; we can't do
