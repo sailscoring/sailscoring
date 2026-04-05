@@ -3,6 +3,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -66,6 +67,7 @@ export function KeyboardHelp({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Keyboard shortcuts</DialogTitle>
+          <DialogDescription>A reference of all available keyboard shortcuts.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 pt-1">
