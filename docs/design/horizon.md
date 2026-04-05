@@ -41,6 +41,18 @@ lead with in developer-facing documentation.
 
 ---
 
+## Finish entry UX
+
+### Drag-reorder in finish list
+
+Insertion and position editing cover the current UX needs. Drag-reorder could make
+mid-list corrections faster, but whether it's worth the complexity depends on how
+the existing UX holds up in real use. Revisit once there's experience with it.
+
+*(Was GitHub issue #20)*
+
+---
+
 ## Scoring records and audit trail
 
 ### Revision history with revert and diff
