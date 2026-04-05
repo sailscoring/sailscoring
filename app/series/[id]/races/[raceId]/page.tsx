@@ -317,16 +317,34 @@ export default function ResultEntryPage({
 
   async function toggleStartPresent(competitor: Competitor) {
     const existing = savedFinishes?.find((f) => f.competitorId === competitor.id);
-    const isPresent = existing?.startPresent === true;
+    const isExplicitlyAbsent = existing?.startPresent === false;
+    // A finisher in the unsaved finishing order is implicitly present unless explicitly un-checked
+    const isImplicitlyPresent = finishedIds.has(competitor.id) && !isExplicitlyAbsent;
+    const isPresent = existing?.startPresent === true || isImplicitlyPresent;
 
     if (isPresent) {
       // Un-check: remove startPresent flag
       if (existing && existing.finishPosition === null && existing.resultCode === null) {
-        // Check-in-only record — delete it entirely
-        await finishRepo.delete(existing.id);
+        if (isImplicitlyPresent) {
+          // Check-in-only record but competitor is also in finishing order — mark explicitly absent
+          await finishRepo.save({ ...existing, startPresent: false });
+        } else {
+          // Pure check-in-only record — delete it entirely
+          await finishRepo.delete(existing.id);
+        }
       } else if (existing) {
         // Has other data — clear just the flag
         await finishRepo.save({ ...existing, startPresent: false });
+      } else {
+        // Implicitly present via finishing order but no DB record yet — create explicit absence record
+        await finishRepo.save({
+          id: crypto.randomUUID(),
+          raceId,
+          competitorId: competitor.id,
+          finishPosition: null,
+          resultCode: null,
+          startPresent: false,
+        });
       }
     } else {
       // Check: set startPresent = true
@@ -437,7 +455,7 @@ export default function ResultEntryPage({
             competitorId: entry.competitorId,
             finishPosition: finishPositions.get(eid) ?? index + 1,
             resultCode: null,
-            startPresent: startPresentMap.get(entry.competitorId) ?? null,
+            startPresent: startPresentMap.get(entry.competitorId) ?? true,
           });
         } else {
           finishes.push({
@@ -503,7 +521,17 @@ export default function ResultEntryPage({
     OCS: 'OCS',
   };
 
-  const presentCount = savedFinishes?.filter((f) => f.startPresent === true).length ?? 0;
+  // A competitor is effectively present if they are in the unsaved finishing order OR explicitly
+  // checked in via savedFinishes, unless they have been explicitly un-checked (startPresent === false).
+  const explicitlyAbsentIds = new Set(
+    (savedFinishes ?? [])
+      .filter((f): f is Finish & { competitorId: string } => f.competitorId !== null && f.startPresent === false)
+      .map((f) => f.competitorId),
+  );
+  const effectivelyPresent = (id: string) =>
+    !explicitlyAbsentIds.has(id) &&
+    (finishedIds.has(id) || (savedFinishes?.some((f) => f.competitorId === id && f.startPresent === true) ?? false));
+  const presentCount = (competitors ?? []).filter((c) => effectivelyPresent(c.id)).length;
 
   const checkinSuggestions = checkinInput.trim()
     ? (competitors ?? []).filter((c) =>
@@ -570,7 +598,7 @@ export default function ResultEntryPage({
             {checkinSuggestions.length > 0 && checkinInput.trim() && (
               <ul className="absolute z-10 top-full mt-1 w-full rounded-md border bg-popover shadow-md">
                 {checkinSuggestions.map((c) => {
-                  const present = savedFinishes?.find((f) => f.competitorId === c.id)?.startPresent === true;
+                  const present = effectivelyPresent(c.id);
                   return (
                     <li
                       key={c.id}
@@ -596,7 +624,7 @@ export default function ResultEntryPage({
           </div>
           <div className="space-y-1.5">
             {(competitors ?? []).map((c) => {
-              const present = savedFinishes?.find((f) => f.competitorId === c.id)?.startPresent === true;
+              const present = effectivelyPresent(c.id);
               return (
                 <button
                   key={c.id}
