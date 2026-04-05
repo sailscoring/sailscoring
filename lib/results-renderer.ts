@@ -65,8 +65,9 @@ export interface RaceScoreData {
 
 // ---- Renderer ----
 
-export function renderSeriesHtml(data: SeriesResultsData): string {
+export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercent?: number }): string {
   const { series, fleetName, leftLogoUrl, rightLogoUrl, generatedAt, races, standings, publicExportJson, openInAppUrl } = data;
+  const fontPercent = options?.fontPercent ?? 80;
 
   const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
@@ -81,7 +82,7 @@ export function renderSeriesHtml(data: SeriesResultsData): string {
 <meta name="viewport" content="width=device-width">
 <title>Results for ${esc(series.name)}${series.venue ? ' at ' + esc(series.venue) : ''}${titleSuffix}</title>
 <style type="text/css">
-body {font: 80% arial, helvetica, sans-serif; text-align: center;}
+body {font: ${fontPercent}% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
 .hardright {text-align: right; float: right; margin: 15px 25px 15px 0;}
 table {text-align: left; margin: 0px auto 30px auto; font-size: 1em; border-collapse: collapse; border: 1px #999 solid;}

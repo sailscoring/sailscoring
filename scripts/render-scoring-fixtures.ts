@@ -199,7 +199,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
         fleet.name,
       );
       delete data.generatedAt;
-      sections.push(renderSeriesHtml(data));
+      sections.push(renderSeriesHtml(data, { fontPercent: 100 }));
     }
 
     const first = sections[0];
@@ -249,7 +249,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
     );
     delete data.generatedAt;
 
-    const html = renderSeriesHtml(data);
+    const html = renderSeriesHtml(data, { fontPercent: 100 });
     bodyHtml = html.replace(
       '<div style="clear:both;"></div>',
       `<div style="clear:both;"></div>\n${preamble}`,
@@ -276,7 +276,7 @@ const CATEGORY_META: Record<string, { title: string; intro: string }> = {
   },
 };
 
-const BASE_CSS = `body { font: 80% arial, helvetica, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #222; }
+const BASE_CSS = `body { font: 100% arial, helvetica, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #222; }
 h1 { font-size: 1.6em; margin-bottom: 0.2em; }
 p { line-height: 1.6; color: #444; }
 h2 { font-size: 1.1em; margin: 2em 0 0.4em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
