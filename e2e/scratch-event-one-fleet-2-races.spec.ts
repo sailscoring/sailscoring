@@ -265,28 +265,41 @@ test('editing position number reorders the finishing list', async ({ page }) => 
   await expect(posInput('102')).toHaveValue('2');
   await expect(posInput('103')).toHaveValue('3');
 
-  // ── 1. Move 103 from 3rd to 1st ───────────────────────────────────────────
-  await posInput('103').fill('1');
+  // ── 1. Move 103 to position 10 (arbitrary, e.g. cross-fleet recording) ────
+  // Positions are explicit — other boats keep their values; list reorders.
+  await posInput('103').fill('10');
   await posInput('103').press('Enter');
 
-  await expect(posInput('103')).toHaveValue('1');
-  await expect(posInput('101')).toHaveValue('2');
-  await expect(posInput('102')).toHaveValue('3');
+  await expect(posInput('101')).toHaveValue('1');
+  await expect(posInput('102')).toHaveValue('2');
+  await expect(posInput('103')).toHaveValue('10');
 
-  // ── 2. Move 101 from 2nd to 3rd ───────────────────────────────────────────
-  await posInput('101').fill('3');
+  // ── 2. Move 101 to position 5 (between 102 and 103) ───────────────────────
+  await posInput('101').fill('5');
   await posInput('101').press('Enter');
 
-  await expect(posInput('103')).toHaveValue('1');
   await expect(posInput('102')).toHaveValue('2');
-  await expect(posInput('101')).toHaveValue('3');
+  await expect(posInput('101')).toHaveValue('5');
+  await expect(posInput('103')).toHaveValue('10');
 
-  // ── 3. Out-of-range input clamps to last ─────────────────────────────────
-  await posInput('101').fill('99');
-  await posInput('101').press('Tab'); // blur via Tab
-  await expect(posInput('101')).toHaveValue('3'); // clamped to last (no-op)
+  // ── 3. Tie 102 with 101 (both at position 5) ──────────────────────────────
+  // Positions are explicit; equal values are a valid tie (e.g. simultaneous finish).
+  await posInput('102').fill('5');
+  await posInput('102').press('Enter');
 
-  // ── 4. Save and confirm redirect ──────────────────────────────────────────
+  await expect(posInput('101')).toHaveValue('5');
+  await expect(posInput('102')).toHaveValue('5');
+  await expect(posInput('103')).toHaveValue('10');
+  // Tie indicator: the "=" span for the second boat in the pair is not invisible
+  const tieSpans = page.locator('span[aria-hidden="true"]', { hasText: '=' });
+  await expect(tieSpans.nth(1)).not.toHaveClass(/invisible/);
+
+  // ── 4. Invalid position (< 1) is rejected — value stays unchanged ─────────
+  await posInput('103').fill('0');
+  await posInput('103').press('Tab'); // blur
+  await expect(posInput('103')).toHaveValue('10'); // unchanged
+
+  // ── 5. Save and confirm redirect ──────────────────────────────────────────
   await page.getByRole('button', { name: 'Save results' }).click();
   await expect(page).toHaveURL(/\/races$/);
   await expect(page.getByText('3 finishers')).toBeVisible();
