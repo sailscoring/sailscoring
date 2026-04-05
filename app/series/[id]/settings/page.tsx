@@ -28,6 +28,118 @@ import {
 } from '@/lib/series-file';
 import type { DiscardThreshold, Series } from '@/lib/types';
 
+function BasicsCard({ seriesId, series }: { seriesId: string; series: Series }) {
+  const [expanded, setExpanded] = useState(false);
+  const [venue, setVenue] = useState(series.venue);
+  const [startDate, setStartDate] = useState(series.startDate);
+  const [endDate, setEndDate] = useState(series.endDate);
+  const [venueLogoUrl, setVenueLogoUrl] = useState(series.venueLogoUrl);
+  const [eventLogoUrl, setEventLogoUrl] = useState(series.eventLogoUrl);
+  const [changed, setChanged] = useState(false);
+
+  useEffect(() => {
+    setVenue(series.venue);
+    setStartDate(series.startDate);
+    setEndDate(series.endDate);
+    setVenueLogoUrl(series.venueLogoUrl);
+    setEventLogoUrl(series.eventLogoUrl);
+    setChanged(false);
+  }, [series.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    await db.series.update(seriesId, {
+      venue: venue.trim(),
+      startDate,
+      endDate,
+      venueLogoUrl: venueLogoUrl.trim(),
+      eventLogoUrl: eventLogoUrl.trim(),
+      lastModifiedAt: Date.now(),
+    });
+    setChanged(false);
+    setExpanded(false);
+  }
+
+  const parts = [series.venue, series.startDate].filter(Boolean);
+  const summary = parts.length ? parts.join(' · ') : 'No venue or dates set';
+
+  return (
+    <div className="border rounded-lg p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium">Basic</h2>
+        {!expanded && (
+          <Button variant="ghost" size="sm" onClick={() => setExpanded(true)}>
+            Edit ▸
+          </Button>
+        )}
+      </div>
+      {!expanded ? (
+        <p className="text-sm text-muted-foreground">{summary}</p>
+      ) : (
+        <form onSubmit={handleSave} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="venue">Venue</Label>
+            <Input
+              id="venue"
+              value={venue}
+              onChange={(e) => { setVenue(e.target.value); setChanged(true); }}
+              placeholder="e.g. Howth Yacht Club"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="startDate">Start date</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={startDate}
+                onChange={(e) => { setStartDate(e.target.value); setChanged(true); }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="endDate">End date</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={endDate}
+                onChange={(e) => { setEndDate(e.target.value); setChanged(true); }}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="venueLogoUrl">Venue logo URL</Label>
+            <Input
+              id="venueLogoUrl"
+              type="url"
+              value={venueLogoUrl}
+              onChange={(e) => { setVenueLogoUrl(e.target.value); setChanged(true); }}
+              placeholder="https://…"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="eventLogoUrl">Event logo URL</Label>
+            <Input
+              id="eventLogoUrl"
+              type="url"
+              value={eventLogoUrl}
+              onChange={(e) => { setEventLogoUrl(e.target.value); setChanged(true); }}
+              placeholder="https://…"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" variant="outline" size="sm" disabled={!changed}>
+              {changed ? 'Save' : 'Saved'}
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded(false)}>
+              Done
+            </Button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
 function FleetsCard({ seriesId }: { seriesId: string }) {
   const fleets = useLiveQuery(() => fleetRepo.listBySeries(seriesId), [seriesId]) ?? [];
   const [expanded, setExpanded] = useState(false);
@@ -163,6 +275,218 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
   );
 }
 
+function ScoringCard({ seriesId, series }: { seriesId: string; series: Series }) {
+  const [expanded, setExpanded] = useState(false);
+  const [thresholds, setThresholds] = useState<DiscardThreshold[]>(series.discardThresholds ?? []);
+  const [dnfScoring, setDnfScoring] = useState<Series['dnfScoring']>(series.dnfScoring ?? 'seriesEntries');
+  const [changed, setChanged] = useState(false);
+
+  useEffect(() => {
+    setThresholds(series.discardThresholds ?? []);
+    setDnfScoring(series.dnfScoring ?? 'seriesEntries');
+    setChanged(false);
+  }, [series.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    await db.series.update(seriesId, {
+      discardThresholds: thresholds,
+      dnfScoring,
+      lastModifiedAt: Date.now(),
+    });
+    setChanged(false);
+    setExpanded(false);
+  }
+
+  function updateThreshold(index: number, field: keyof DiscardThreshold, value: number) {
+    setThresholds((prev) => {
+      const next = prev.map((t, i) => i === index ? { ...t, [field]: value } : t);
+      setScoringChanged();
+      return next;
+    });
+  }
+
+  function setScoringChanged() { setChanged(true); }
+
+  function addThreshold() {
+    setThresholds((prev) => {
+      const maxMinRaces = prev.reduce((m, t) => Math.max(m, t.minRaces), 0);
+      const maxDiscardCount = prev.reduce((m, t) => Math.max(m, t.discardCount), 0);
+      setChanged(true);
+      return [...prev, { minRaces: maxMinRaces + 1, discardCount: maxDiscardCount + 1 }];
+    });
+  }
+
+  function removeThreshold(index: number) {
+    setThresholds((prev) => {
+      setChanged(true);
+      return prev.filter((_, i) => i !== index);
+    });
+  }
+
+  const ruleCount = (series.discardThresholds ?? []).length;
+  const dnfLabel = (series.dnfScoring ?? 'seriesEntries') === 'startingArea'
+    ? 'DNF: starting area'
+    : 'DNF: series entries';
+  const summary = ruleCount === 0
+    ? `No discards · ${dnfLabel}`
+    : `${ruleCount} discard rule${ruleCount !== 1 ? 's' : ''} · ${dnfLabel}`;
+
+  return (
+    <div className="border rounded-lg p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium">Scoring</h2>
+        {!expanded && (
+          <Button variant="ghost" size="sm" onClick={() => setExpanded(true)}>
+            Edit ▸
+          </Button>
+        )}
+      </div>
+      {!expanded ? (
+        <p className="text-sm text-muted-foreground">{summary}</p>
+      ) : (
+        <form onSubmit={handleSave} className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Discard rules — drop each competitor&apos;s worst race(s) from the series total.
+            Each rule sets the <em>total</em> number of discards once that many races have been sailed.
+          </p>
+          {thresholds.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No discards configured.</p>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs text-muted-foreground px-1">
+                <span>From (races)</span>
+                <span>Total discards</span>
+                <span />
+              </div>
+              {[...thresholds]
+                .sort((a, b) => a.minRaces - b.minRaces)
+                .map((t, i, sorted) => {
+                  const origIndex = thresholds.indexOf(t);
+                  const minDiscard = i === 0 ? 1 : sorted[i - 1].discardCount + 1;
+                  return (
+                    <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                      <Input
+                        type="number"
+                        min={1}
+                        value={t.minRaces}
+                        onChange={(e) => updateThreshold(origIndex, 'minRaces', Math.max(1, parseInt(e.target.value) || 1))}
+                        className="h-8 text-sm"
+                      />
+                      <Input
+                        type="number"
+                        min={minDiscard}
+                        max={t.minRaces - 1}
+                        value={t.discardCount}
+                        onChange={(e) => updateThreshold(origIndex, 'discardCount', Math.max(minDiscard, parseInt(e.target.value) || minDiscard))}
+                        className="h-8 text-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-muted-foreground"
+                        onClick={() => removeThreshold(origIndex)}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={addThreshold}>
+              Add rule
+            </Button>
+          </div>
+          <div className="flex items-start gap-2.5 pt-1">
+            <input
+              id="dnfScoring"
+              type="checkbox"
+              checked={dnfScoring === 'startingArea'}
+              onChange={(e) => {
+                setDnfScoring(e.target.checked ? 'startingArea' : 'seriesEntries');
+                setChanged(true);
+              }}
+              className="mt-0.5 h-4 w-4 shrink-0"
+            />
+            <div>
+              <label htmlFor="dnfScoring" className="text-sm font-medium cursor-pointer">
+                Score DNF/OCS on starting-area entries (RRS A5.3)
+              </label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                By default, DNF and OCS score series entries + 1 (A5.2). Enable this to use
+                the number of boats that came to the starting area in each race instead.
+                DNC always scores series entries + 1. Use the Start check-in on each race
+                to record who was present.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" variant="outline" size="sm" disabled={!changed}>
+              {changed ? 'Save' : 'Saved'}
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded(false)}>
+              Done
+            </Button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function PublishingCard({ seriesId, series }: { seriesId: string; series: Series }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const includeJson = series.includeJsonExport ?? true;
+  const summary = includeJson ? 'JSON export included in results' : 'JSON export excluded from results';
+
+  return (
+    <div className="border rounded-lg p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium">Publishing</h2>
+        {!expanded && (
+          <Button variant="ghost" size="sm" onClick={() => setExpanded(true)}>
+            Edit ▸
+          </Button>
+        )}
+      </div>
+      {!expanded ? (
+        <p className="text-sm text-muted-foreground">{summary}</p>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-start gap-2.5">
+            <input
+              id="includeJsonExport"
+              type="checkbox"
+              checked={includeJson}
+              onChange={(e) => {
+                db.series.update(seriesId, { includeJsonExport: e.target.checked });
+              }}
+              className="mt-0.5 h-4 w-4 shrink-0"
+            />
+            <div>
+              <label htmlFor="includeJsonExport" className="text-sm font-medium cursor-pointer">
+                Include data export in published results
+              </label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Embeds a JSON snapshot of the results in every exported HTML file, with a
+                &ldquo;Download results (JSON)&rdquo; link in the footer. Disable if you prefer
+                to share results without the underlying data.
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>
+            Done
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type UpdateFlow =
   | { step: 'idle' }
   | { step: 'confirm'; file: SeriesFile; status: LineageStatus }
@@ -191,86 +515,6 @@ export default function SettingsPage({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [updateFlow, setUpdateFlow] = useState<UpdateFlow>({ step: 'idle' });
-
-  const [venue, setVenue] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [venueLogoUrl, setVenueLogoUrl] = useState('');
-  const [eventLogoUrl, setEventLogoUrl] = useState('');
-  const [basicsChanged, setBasicsChanged] = useState(false);
-
-  const [thresholds, setThresholds] = useState<DiscardThreshold[]>([]);
-  const [dnfScoring, setDnfScoring] = useState<Series['dnfScoring']>('seriesEntries');
-  const [scoringChanged, setScoringChanged] = useState(false);
-
-  useEffect(() => {
-    if (series) {
-      setVenue(series.venue);
-      setStartDate(series.startDate);
-      setEndDate(series.endDate);
-      setVenueLogoUrl(series.venueLogoUrl);
-      setEventLogoUrl(series.eventLogoUrl);
-      setBasicsChanged(false);
-      setThresholds(series.discardThresholds ?? []);
-      setDnfScoring(series.dnfScoring ?? 'seriesEntries');
-      setScoringChanged(false);
-    }
-  }, [series?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function handleSaveBasics(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      await db.series.update(seriesId, {
-        venue: venue.trim(),
-        startDate,
-        endDate,
-        venueLogoUrl: venueLogoUrl.trim(),
-        eventLogoUrl: eventLogoUrl.trim(),
-        lastModifiedAt: Date.now(),
-      });
-      setBasicsChanged(false);
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  async function handleSaveScoring(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      await db.series.update(seriesId, {
-        discardThresholds: thresholds,
-        dnfScoring,
-        lastModifiedAt: Date.now(),
-      });
-      setScoringChanged(false);
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  function updateThreshold(index: number, field: keyof DiscardThreshold, value: number) {
-    setThresholds((prev) => {
-      const next = prev.map((t, i) => i === index ? { ...t, [field]: value } : t);
-      setScoringChanged(true);
-      return next;
-    });
-  }
-
-  function addThreshold() {
-    setThresholds((prev) => {
-      const maxMinRaces = prev.reduce((m, t) => Math.max(m, t.minRaces), 0);
-      const maxDiscardCount = prev.reduce((m, t) => Math.max(m, t.discardCount), 0);
-      setScoringChanged(true);
-      return [...prev, { minRaces: maxMinRaces + 1, discardCount: maxDiscardCount + 1 }];
-    });
-  }
-
-  function removeThreshold(index: number) {
-    setThresholds((prev) => {
-      setScoringChanged(true);
-      return prev.filter((_, i) => i !== index);
-    });
-  }
 
   if (series === undefined) return <p className="text-muted-foreground">Loading…</p>;
   if (series === null) return <p className="text-muted-foreground">Series not found.</p>;
@@ -371,178 +615,10 @@ export default function SettingsPage({
         )}
       </div>
 
-      {/* Basics card */}
-      <form onSubmit={handleSaveBasics} className="border rounded-lg p-5 space-y-4">
-        <h2 className="text-sm font-medium">Basics</h2>
-        <div className="space-y-1.5">
-          <Label htmlFor="venue">Venue</Label>
-          <Input
-            id="venue"
-            value={venue}
-            onChange={(e) => { setVenue(e.target.value); setBasicsChanged(true); }}
-            placeholder="e.g. Howth Yacht Club"
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="startDate">Start date</Label>
-            <Input
-              id="startDate"
-              type="date"
-              value={startDate}
-              onChange={(e) => { setStartDate(e.target.value); setBasicsChanged(true); }}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="endDate">End date</Label>
-            <Input
-              id="endDate"
-              type="date"
-              value={endDate}
-              onChange={(e) => { setEndDate(e.target.value); setBasicsChanged(true); }}
-            />
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="venueLogoUrl">Venue logo URL</Label>
-          <Input
-            id="venueLogoUrl"
-            type="url"
-            value={venueLogoUrl}
-            onChange={(e) => { setVenueLogoUrl(e.target.value); setBasicsChanged(true); }}
-            placeholder="https://…"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="eventLogoUrl">Event logo URL</Label>
-          <Input
-            id="eventLogoUrl"
-            type="url"
-            value={eventLogoUrl}
-            onChange={(e) => { setEventLogoUrl(e.target.value); setBasicsChanged(true); }}
-            placeholder="https://…"
-          />
-        </div>
-        <Button type="submit" variant="outline" disabled={!basicsChanged}>
-          {basicsChanged ? 'Save' : 'Saved'}
-        </Button>
-      </form>
-
-      {/* Scoring card */}
-      <form onSubmit={handleSaveScoring} className="border rounded-lg p-5 space-y-4">
-        <div>
-          <h2 className="text-sm font-medium">Scoring</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Discard rules — drop each competitor&apos;s worst race(s) from the series total.
-            Each rule sets the <em>total</em> number of discards once that many races have been sailed.
-          </p>
-        </div>
-        {thresholds.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No discards configured.</p>
-        ) : (
-          <div className="space-y-2">
-            <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs text-muted-foreground px-1">
-              <span>From (races)</span>
-              <span>Total discards</span>
-              <span />
-            </div>
-            {[...thresholds]
-              .sort((a, b) => a.minRaces - b.minRaces)
-              .map((t, i, sorted) => {
-                const origIndex = thresholds.indexOf(t);
-                const minDiscard = i === 0 ? 1 : sorted[i - 1].discardCount + 1;
-                return (
-                  <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
-                    <Input
-                      type="number"
-                      min={1}
-                      value={t.minRaces}
-                      onChange={(e) => updateThreshold(origIndex, 'minRaces', Math.max(1, parseInt(e.target.value) || 1))}
-                      className="h-8 text-sm"
-                    />
-                    <Input
-                      type="number"
-                      min={minDiscard}
-                      max={t.minRaces - 1}
-                      value={t.discardCount}
-                      onChange={(e) => updateThreshold(origIndex, 'discardCount', Math.max(minDiscard, parseInt(e.target.value) || minDiscard))}
-                      className="h-8 text-sm"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-muted-foreground"
-                      onClick={() => removeThreshold(origIndex)}
-                    >
-                      ×
-                    </Button>
-                  </div>
-                );
-              })}
-          </div>
-        )}
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={addThreshold}>
-            Add rule
-          </Button>
-        </div>
-        <div className="flex items-start gap-2.5 pt-1">
-          <input
-            id="dnfScoring"
-            type="checkbox"
-            checked={dnfScoring === 'startingArea'}
-            onChange={(e) => {
-              setDnfScoring(e.target.checked ? 'startingArea' : 'seriesEntries');
-              setScoringChanged(true);
-            }}
-            className="mt-0.5 h-4 w-4 shrink-0"
-          />
-          <div>
-            <label htmlFor="dnfScoring" className="text-sm font-medium cursor-pointer">
-              Score DNF/OCS on starting-area entries (RRS A5.3)
-            </label>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              By default, DNF and OCS score series entries + 1 (A5.2). Enable this to use
-              the number of boats that came to the starting area in each race instead.
-              DNC always scores series entries + 1. Use the Start check-in on each race
-              to record who was present.
-            </p>
-          </div>
-        </div>
-        <Button type="submit" variant="outline" size="sm" disabled={!scoringChanged}>
-          {scoringChanged ? 'Save' : 'Saved'}
-        </Button>
-      </form>
-
-      {/* Fleets card */}
+      <BasicsCard seriesId={seriesId} series={series} />
       <FleetsCard seriesId={seriesId} />
-
-      {/* Publishing card */}
-      <div className="border rounded-lg p-5 space-y-4">
-        <h2 className="text-sm font-medium">Publishing</h2>
-        <div className="flex items-start gap-2.5">
-          <input
-            id="includeJsonExport"
-            type="checkbox"
-            checked={series.includeJsonExport ?? true}
-            onChange={(e) => {
-              db.series.update(seriesId, { includeJsonExport: e.target.checked });
-            }}
-            className="mt-0.5 h-4 w-4 shrink-0"
-          />
-          <div>
-            <label htmlFor="includeJsonExport" className="text-sm font-medium cursor-pointer">
-              Include data export in published results
-            </label>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Embeds a JSON snapshot of the results in every exported HTML file, with a
-              &ldquo;Download results (JSON)&rdquo; link in the footer. Disable if you prefer
-              to share results without the underlying data.
-            </p>
-          </div>
-        </div>
-      </div>
+      <ScoringCard seriesId={seriesId} series={series} />
+      <PublishingCard seriesId={seriesId} series={series} />
 
       <input
         ref={fileInputRef}
