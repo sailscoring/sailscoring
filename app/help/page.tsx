@@ -127,8 +127,8 @@ export default function HelpPage() {
         <p>
           For multi-fleet events,{' '}
           <strong className="text-foreground">Export HTML</strong> produces one file per
-          fleet (e.g. <code className="text-foreground text-sm">my-series-junior.htm</code>,{' '}
-          <code className="text-foreground text-sm">my-series-senior.htm</code>). Each file
+          fleet (e.g. <code className="text-foreground text-sm">my-series-junior.html</code>,{' '}
+          <code className="text-foreground text-sm">my-series-senior.html</code>). Each file
           contains that fleet&apos;s standings and individual race results.
         </p>
         <p>

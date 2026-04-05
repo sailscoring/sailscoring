@@ -16,7 +16,7 @@ import { test, expect } from './fixtures';
  * Expected standings: 1=Alice(3), 2=Carol(5), 3=Bob(6)
  */
 
-test('export HTML downloads a .htm file with correct standings', async ({ page }) => {
+test('export HTML downloads a .html file with correct standings', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
   await page.goto('/');
   await page.getByRole('link', { name: 'New series' }).click();
@@ -76,7 +76,7 @@ test('export HTML downloads a .htm file with correct standings', async ({ page }
   ]).then(([dl]) => dl);
 
   // ── 7. Verify filename ────────────────────────────────────────────────────
-  expect(download.suggestedFilename()).toMatch(/howth-cup-2025\.htm$/);
+  expect(download.suggestedFilename()).toMatch(/howth-cup-2025\.html$/);
 
   // ── 8. Read and parse downloaded HTML ────────────────────────────────────
   const stream = await download.createReadStream();

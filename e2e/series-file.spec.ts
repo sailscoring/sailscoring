@@ -137,7 +137,7 @@ test('series file: save exports correct JSON with all series fields, competitors
       };
       req.onerror = () => reject(req.error);
     });
-  }, [seriesId, 'ftp.hyc.ie', '/results/2025/autumn-league.htm']);
+  }, [seriesId, 'ftp.hyc.ie', '/results/2025/autumn-league.html']);
 
   // ── Add competitor ────────────────────────────────────────────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();
@@ -172,7 +172,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   expect(file.series.startDate).toBe('2025-09-06');
   expect(file.series.endDate).toBe('2025-11-01');
   expect(file.series.ftpHost).toBe('ftp.hyc.ie');
-  expect(file.series.ftpPath).toBe('/results/2025/autumn-league.htm');
+  expect(file.series.ftpPath).toBe('/results/2025/autumn-league.html');
   expect(file.series.bilgeBundle).toBeNull();
 
   // Competitors and races

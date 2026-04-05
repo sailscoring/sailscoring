@@ -16,7 +16,7 @@ both local HTML export (issue #13) and future in-app bilge publishing.
 
 ### What the renderer produces
 
-A single self-contained `.htm` file per series. The file contains:
+A single self-contained `.html` file per series. The file contains:
 
 1. **Series standings table** — all competitors ranked, with per-race points and totals
 2. **Race detail tables** — one table per race, showing finishing order
@@ -214,19 +214,19 @@ An **Export HTML** button on **S-08 (Series Standings)**.
 1. Click Export HTML
 2. App assembles `SeriesResultsData` from current DB state
 3. Calls `renderSeriesHtml(data)`
-4. Triggers a browser download of the resulting string as `{series-name-slug}.htm`
+4. Triggers a browser download of the resulting string as `{series-name-slug}.html`
 
 The download uses a `<a href="data:text/html,...">` or `URL.createObjectURL(blob)`
 approach — no server required. File System Access API (directory picker) is out of
 scope for now; a single-file download is sufficient.
 
-**Filename:** slugified series name + `.htm`, e.g. `hyc-autumn-league-2025.htm`.
+**Filename:** slugified series name + `.html`, e.g. `hyc-autumn-league-2025.html`.
 
 ---
 
 ## Relationship to bilge publishing
 
-For now, the scorer exports an `.htm` file and uploads it manually using the
+For now, the scorer exports an `.html` file and uploads it manually using the
 [bilge client](bilge-client.md). The renderer is unaware of bilge.
 
 When bilge publishing is embedded in the app (future), the publish flow calls

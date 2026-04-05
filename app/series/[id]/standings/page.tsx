@@ -198,7 +198,7 @@ async function exportFleetHtml(seriesId: string, fleetName: string) {
   if (!files) return;
   const file = files.find((f) => f.fleetName === fleetName) ?? files[0];
   const suffix = file.isDefault ? '' : '-' + seriesSlug(file.fleetName);
-  triggerDownload(base + suffix + '.htm', file.html);
+  triggerDownload(base + suffix + '.html', file.html);
 }
 
 /** Derive a per-fleet bilge slug from the bundle prefix. */
@@ -678,7 +678,7 @@ function FtpUploadDialog({
                   id="ftp-path-0"
                   value={fleetPaths[0] ?? ''}
                   onChange={(e) => setPath(0, e.target.value)}
-                  placeholder="/public_html/results/series.htm"
+                  placeholder="/public_html/results/series.html"
                   autoFocus
                 />
               </div>
@@ -690,7 +690,7 @@ function FtpUploadDialog({
                     id={`ftp-path-${i}`}
                     value={fleetPaths[i] ?? ''}
                     onChange={(e) => setPath(i, e.target.value)}
-                    placeholder={`/public_html/results/series-${seriesSlug(fleet.name)}.htm`}
+                    placeholder={`/public_html/results/series-${seriesSlug(fleet.name)}.html`}
                     autoFocus={i === 0}
                   />
                 </div>

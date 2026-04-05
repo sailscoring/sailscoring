@@ -1,9 +1,9 @@
 /**
- * Generate .htm preview files for each YAML scoring fixture.
+ * Generate .html preview files for each YAML scoring fixture.
  *
  * Run: pnpm generate:fixtures
  *
- * Each .htm file is checked in alongside its .yaml file so that scorers
+ * Each .html file is checked in alongside its .yaml file so that scorers
  * can review test cases in a browser without running any code.
  */
 
@@ -299,8 +299,8 @@ function generateCategoryIndex(
 
   const rows = fixtures
     .map((f, i) => {
-      const htmFile = basename(f.yamlPath).replace(/\.yaml$/, '.htm');
-      return `<tr>\n  <td>${i + 1}</td>\n  <td><a href="${htmFile}">${esc(f.description)}</a></td>\n</tr>`;
+      const htmlFile = basename(f.yamlPath).replace(/\.yaml$/, '.html');
+      return `<tr>\n  <td>${i + 1}</td>\n  <td><a href="${htmlFile}">${esc(f.description)}</a></td>\n</tr>`;
     })
     .join('\n');
 
@@ -391,7 +391,7 @@ for (const yamlPath of yamlFiles) {
   const yamlSource = readFileSync(yamlPath, 'utf-8');
   const fixture = parseYaml(yamlSource) as ScoringFixture;
   const html = generateFixtureHtml(fixture, yamlSource);
-  const outPath = yamlPath.replace(/\.yaml$/, '.htm');
+  const outPath = yamlPath.replace(/\.yaml$/, '.html');
   writeFileSync(outPath, html, 'utf-8');
   console.log(`  ${basename(outPath)}`);
   htmCount++;
