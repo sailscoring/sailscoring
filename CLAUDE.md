@@ -89,6 +89,14 @@ To create a feature issue: `gh issue create --label feature --title "..." --body
 
 To create a bug issue: `gh issue create --label bug --title "..." --body "..."`
 
+## MANDATORY: Run Tests Before Every Push
+
+**ALWAYS run `pnpm test:e2e` before `git push`.** Do not push unless all tests pass.
+If a test fails due to a code change you made, fix it before pushing — do not defer test fixes to a follow-up commit.
+If a test was already failing before your change, note it explicitly and confirm with the user before pushing.
+
+This rule has no exceptions. Forgetting it has caused broken commits in the past.
+
 ## Feature Checklist
 
 When implementing any new user-facing feature, ensure the following are covered before considering it done:
