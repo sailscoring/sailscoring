@@ -1,0 +1,82 @@
+description: "Scratch — equal finish positions (tied on water)"
+rrs_notes: >
+  RRS A8.1: When boats are tied on the water they share the points for the
+  places they occupy. Each is given the average of those points; subsequent
+  finishers score the next available place.
+
+  Example: two boats tied at position 2 each score (2+3)/2 = 2.5; the next
+  finisher scores 4.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2   # tied with Carol: each scores (2+3)/2 = 2.5
+      - sailor: "303"
+        position: 2   # tied with Bob
+      - sailor: "404"
+        position: 4   # next available place after the two-way tie
+
+  - number: 2
+    finishes:
+      - sailor: "404"
+        position: 1
+      - sailor: "101"
+        position: 2
+      - sailor: "202"
+        position: 3
+      - sailor: "303"
+        position: 4
+
+# Race 1: Alice=1, Bob=2.5, Carol=2.5, David=4
+# Race 2: David=1, Alice=2, Bob=3, Carol=4
+# Totals: Alice=3, David=5, Bob=5.5, Carol=6.5
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 2]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 3
+      netPoints: 3
+
+    - rank: 2
+      sailor: "404"
+      racePoints: [4, 1]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 5
+      netPoints: 5
+
+    - rank: 3
+      sailor: "202"
+      racePoints: [2.5, 3]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 5.5
+      netPoints: 5.5
+
+    - rank: 4
+      sailor: "303"
+      racePoints: [2.5, 4]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 6.5
+      netPoints: 6.5

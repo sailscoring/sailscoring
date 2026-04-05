@@ -70,7 +70,7 @@ export function calculateRaceScores(
     } else if (finish.finishPosition !== null) {
       result.set(competitor.id, {
         competitorId: competitor.id,
-        points: finish.finishPosition,
+        points: finish.finishPosition, // averaged below if tied
         place: finish.finishPosition,
         resultCode: null,
       });
@@ -82,6 +82,25 @@ export function calculateRaceScores(
         place: null,
         resultCode: 'DNF',
       });
+    }
+  }
+
+  // Average points for boats tied on the water (equal finishPosition, RRS A8.1).
+  // k boats at position p occupy slots p … p+k-1; each scores the average.
+  const byPosition = new Map<number, string[]>();
+  for (const [cId, score] of result) {
+    if (score.place !== null) {
+      const list = byPosition.get(score.place) ?? [];
+      list.push(cId);
+      byPosition.set(score.place, list);
+    }
+  }
+  for (const [pos, ids] of byPosition) {
+    if (ids.length > 1) {
+      const avg = pos + (ids.length - 1) / 2;
+      for (const id of ids) {
+        result.set(id, { ...result.get(id)!, points: avg });
+      }
     }
   }
 

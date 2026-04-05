@@ -1,4 +1,30 @@
 /**
+ * Computes the displayed finish position for each competitor in the ordering,
+ * accounting for ties. Boats in tiedWithPrevious share the position of the
+ * competitor immediately before them; subsequent positions skip numbers to fill
+ * the tied slots.
+ *
+ * Example: order=[A, B, C, D], tiedWithPrevious={C} → [1, 2, 2, 4]
+ *
+ * @param order - Finishing order (array of competitor IDs)
+ * @param tiedWithPrevious - IDs of boats tied with the boat immediately before them
+ * @returns 1-based finish positions, parallel to order
+ */
+export function computePositions(order: string[], tiedWithPrevious: Set<string>): number[] {
+  const positions: number[] = [];
+  let nextPos = 1;
+  for (let i = 0; i < order.length; i++) {
+    if (i > 0 && tiedWithPrevious.has(order[i])) {
+      positions.push(positions[i - 1]);
+    } else {
+      positions.push(nextPos);
+    }
+    nextPos++;
+  }
+  return positions;
+}
+
+/**
  * Moves a competitor to a new position in the finishing order.
  *
  * @param order - Current finishing order (array of competitor IDs, 0-indexed)

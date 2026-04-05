@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="description" content="sail scoring results">
 <meta name="viewport" content="width=device-width">
-<title>Results for Scratch — perfectly tied boats share a rank; next boat gets rank after both</title>
+<title>Results for Scratch — equal finish positions (tied on water)</title>
 <style type="text/css">
 body {font: 80% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
@@ -31,7 +31,7 @@ td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 <tr>
 <td width="30%"></td>
 <td width="40%" align="center">
-<h1>Scratch — perfectly tied boats share a rank; next boat gets rank after both</h1>
+<h1>Scratch — equal finish positions (tied on water)</h1>
 
 </td>
 <td width="30%"></td>
@@ -40,15 +40,10 @@ td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 </table>
 <div style="clear:both;"></div>
 <div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
-<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.1: When boats finish simultaneously they share the averaged points for the places they occupy. RRS A8.2: If no tie-break procedure separates two boats, they share the same rank. The next boat below them is assigned the rank after both tied boats.
-Alice and Bob cross the line together in every race (equal finishPosition). Under RRS A8.1 each scores (2+3)/2 = 2.5 per race. Their series scores are identical in every race so no tie-break procedure (RRS A8.2) can separate them and they share rank 1. Carol, consistently further back, gets rank 3.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Alice and Bob cross the line together in every race (tied at position 2).
-Each scores (2+3)/2 = 2.5 per race. Carol finishes 3rd each time (position 4).
-
-Alice: 2.5, 2.5 → 5 pts total
-Bob:   2.5, 2.5 → 5 pts total  ← unresolvable tie with Alice
-Carol: 4,   4   → 8 pts total
-
-Expected: Alice and Bob both get rank 1. Carol gets rank 3 (not rank 2).</pre>
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.1: When boats are tied on the water they share the points for the places they occupy. Each is given the average of those points; subsequent finishers score the next available place.
+Example: two boats tied at position 2 each score (2+3)/2 = 2.5; the next finisher scores 4.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Race 1: Alice=1, Bob=2.5, Carol=2.5, David=4
+Race 2: David=1, Alice=2, Bob=3, Carol=4
+Totals: Alice=3, David=5, Bob=5.5, Carol=6.5</pre>
 </div>
 <style>div.applicant-break {page-break-after:always;}</style>
 
@@ -77,27 +72,36 @@ Expected: Alice and Bob both get rank 1. Carol gets rank 3 (not rank 2).</pre>
 <td>1st</td>
 <td>101</td>
 <td>Alice</td>
-<td class="rank1">2.5</td>
-<td class="rank1">2.5</td>
-<td>5</td>
+<td class="rank1">1</td>
+<td class="rank2">2</td>
+<td>3</td>
 
 </tr>
 <tr class="even summaryrow">
-<td>1st</td>
-<td>202</td>
-<td>Bob</td>
-<td class="rank2">2.5</td>
-<td class="rank2">2.5</td>
+<td>2nd</td>
+<td>404</td>
+<td>David</td>
+<td>4</td>
+<td class="rank1">1</td>
 <td>5</td>
 
 </tr>
 <tr class="odd summaryrow">
 <td>3rd</td>
+<td>202</td>
+<td>Bob</td>
+<td class="rank2">2.5</td>
+<td class="rank3">3</td>
+<td>5.5</td>
+
+</tr>
+<tr class="even summaryrow">
+<td>4th</td>
 <td>303</td>
 <td>Carol</td>
-<td class="rank3">4</td>
-<td class="rank3">4</td>
-<td>8</td>
+<td class="rank3">2.5</td>
+<td>4</td>
+<td>6.5</td>
 
 </tr>
 </tbody>
@@ -125,8 +129,8 @@ Expected: Alice and Bob both get rank 1. Carol gets rank 3 (not rank 2).</pre>
 <td>1</td>
 <td>101</td>
 <td>Alice</td>
-<td>2</td>
-<td>2.5</td>
+<td>1</td>
+<td>1</td>
 </tr>
 <tr class="even racerow">
 <td>2</td>
@@ -139,6 +143,13 @@ Expected: Alice and Bob both get rank 1. Carol gets rank 3 (not rank 2).</pre>
 <td>3</td>
 <td>303</td>
 <td>Carol</td>
+<td>2</td>
+<td>2.5</td>
+</tr>
+<tr class="even racerow">
+<td>4</td>
+<td>404</td>
+<td>David</td>
 <td>4</td>
 <td>4</td>
 </tr>
@@ -165,20 +176,27 @@ Expected: Alice and Bob both get rank 1. Carol gets rank 3 (not rank 2).</pre>
 <tbody>
 <tr class="odd racerow">
 <td>1</td>
-<td>101</td>
-<td>Alice</td>
-<td>2</td>
-<td>2.5</td>
+<td>404</td>
+<td>David</td>
+<td>1</td>
+<td>1</td>
 </tr>
 <tr class="even racerow">
 <td>2</td>
-<td>202</td>
-<td>Bob</td>
+<td>101</td>
+<td>Alice</td>
 <td>2</td>
-<td>2.5</td>
+<td>2</td>
 </tr>
 <tr class="odd racerow">
 <td>3</td>
+<td>202</td>
+<td>Bob</td>
+<td>3</td>
+<td>3</td>
+</tr>
+<tr class="even racerow">
+<td>4</td>
 <td>303</td>
 <td>Carol</td>
 <td>4</td>

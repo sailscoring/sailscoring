@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { reorderFinisher } from '@/lib/finish-entry';
+import { reorderFinisher, computePositions } from '@/lib/finish-entry';
 
 describe('reorderFinisher', () => {
   const base = ['A', 'B', 'C', 'D'];
@@ -33,5 +33,39 @@ describe('reorderFinisher', () => {
     const order = ['A', 'B', 'C'];
     reorderFinisher(order, 'C', 1);
     expect(order).toEqual(['A', 'B', 'C']);
+  });
+});
+
+describe('computePositions', () => {
+  it('returns sequential positions with no ties', () => {
+    expect(computePositions(['A', 'B', 'C', 'D'], new Set())).toEqual([1, 2, 3, 4]);
+  });
+
+  it('gives tied boat the same position as its predecessor', () => {
+    // C tied with B → positions [1, 2, 2, 4]
+    expect(computePositions(['A', 'B', 'C', 'D'], new Set(['C']))).toEqual([1, 2, 2, 4]);
+  });
+
+  it('handles a tie at position 1', () => {
+    // B tied with A → [1, 1, 3, 4]
+    expect(computePositions(['A', 'B', 'C', 'D'], new Set(['B']))).toEqual([1, 1, 3, 4]);
+  });
+
+  it('handles a three-way tie', () => {
+    // B and C both tied with A and each other → [1, 1, 1, 4]
+    expect(computePositions(['A', 'B', 'C', 'D'], new Set(['B', 'C']))).toEqual([1, 1, 1, 4]);
+  });
+
+  it('handles two separate two-way ties', () => {
+    // B tied with A, D tied with C → [1, 1, 3, 3]
+    expect(computePositions(['A', 'B', 'C', 'D'], new Set(['B', 'D']))).toEqual([1, 1, 3, 3]);
+  });
+
+  it('returns empty array for empty order', () => {
+    expect(computePositions([], new Set())).toEqual([]);
+  });
+
+  it('returns [1] for a single boat', () => {
+    expect(computePositions(['A'], new Set())).toEqual([1]);
   });
 });

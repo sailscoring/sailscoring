@@ -79,6 +79,42 @@ describe('calculateRaceScores', () => {
     const scores = calculateRaceScores(finishes, solo);
     expect(scores.get('X')?.points).toBe(1);
   });
+
+  it('averages points for two boats tied at the same position (RRS A8.1)', () => {
+    // B and C both at position 2 → each scores (2+3)/2 = 2.5; D at position 4 scores 4
+    const finishes = [
+      makeFinish('r1', 'A', 1),
+      makeFinish('r1', 'B', 2),
+      makeFinish('r1', 'C', 2),
+      makeFinish('r1', 'D', 4),
+      makeFinish('r1', 'E', 5),
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('A')?.points).toBe(1);
+    expect(scores.get('B')?.points).toBe(2.5);
+    expect(scores.get('C')?.points).toBe(2.5);
+    expect(scores.get('D')?.points).toBe(4);
+    expect(scores.get('E')?.points).toBe(5);
+    // place is preserved as the raw finishPosition
+    expect(scores.get('B')?.place).toBe(2);
+    expect(scores.get('C')?.place).toBe(2);
+  });
+
+  it('averages points for a three-way tie', () => {
+    // A, B, C all at position 1 → each scores (1+2+3)/3 = 2; D at position 4 scores 4
+    const finishes = [
+      makeFinish('r1', 'A', 1),
+      makeFinish('r1', 'B', 1),
+      makeFinish('r1', 'C', 1),
+      makeFinish('r1', 'D', 4),
+      makeFinish('r1', 'E', 5),
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('A')?.points).toBe(2);
+    expect(scores.get('B')?.points).toBe(2);
+    expect(scores.get('C')?.points).toBe(2);
+    expect(scores.get('D')?.points).toBe(4);
+  });
 });
 
 // ─── calculateStandings ──────────────────────────────────────────────────────
