@@ -171,7 +171,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
       );
       const raceScoresByRaceId = new Map<
         string,
-        Map<string, { points: number; place: number | null; resultCode: ResultCode | null }>
+        Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null }>
       >();
       for (const race of races) {
         const raceFinishes = finishes.filter(
@@ -218,7 +218,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
 
     const raceScoresByRaceId = new Map<
       string,
-      Map<string, { points: number; place: number | null; resultCode: ResultCode | null }>
+      Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null }>
     >();
     for (const race of races) {
       const raceFinishes = finishes.filter((f) => f.raceId === race.id);
