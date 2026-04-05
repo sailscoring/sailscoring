@@ -303,17 +303,21 @@ describe('calculateStandings with discards', () => {
   });
 
   it('tied worst scores: earliest race index is discarded first', () => {
-    const [a] = ['A'].map(id => makeCompetitor(id));
+    // Need 4 competitors so A at position 4 genuinely scores 4 points (fleet rank 4).
+    const abcd = ['A', 'B', 'C', 'D'].map(id => makeCompetitor(id));
     const fourRaces = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3), makeRace('r4', 4)];
     const finishes: Finish[] = [
-      makeFinish('r1', 'A', 4), // worst tied at index 0
-      makeFinish('r2', 'A', 4), // worst tied at index 1
-      makeFinish('r3', 'A', 1),
-      makeFinish('r4', 'A', 1),
+      // Races 1 and 2: A last (fleet rank 4 = 4 pts)
+      makeFinish('r1', 'B', 1), makeFinish('r1', 'C', 2), makeFinish('r1', 'D', 3), makeFinish('r1', 'A', 4),
+      makeFinish('r2', 'B', 1), makeFinish('r2', 'C', 2), makeFinish('r2', 'D', 3), makeFinish('r2', 'A', 4),
+      // Races 3 and 4: A first (fleet rank 1 = 1 pt)
+      makeFinish('r3', 'A', 1), makeFinish('r3', 'B', 2), makeFinish('r3', 'C', 3), makeFinish('r3', 'D', 4),
+      makeFinish('r4', 'A', 1), makeFinish('r4', 'B', 2), makeFinish('r4', 'C', 3), makeFinish('r4', 'D', 4),
     ];
-    const standings = calculateStandings([a], fourRaces, finishes, [{ minRaces: 4, discardCount: 1 }]);
-    expect(standings[0].raceDiscards).toEqual([true, false, false, false]);
-    expect(standings[0].netPoints).toBe(6); // 4+1+1 = 6
+    const standings = calculateStandings(abcd, fourRaces, finishes, [{ minRaces: 4, discardCount: 1 }]);
+    const aStanding = standings.find(s => s.competitor.id === 'A')!;
+    expect(aStanding.raceDiscards).toEqual([true, false, false, false]);
+    expect(aStanding.netPoints).toBe(6); // 4+1+1 = 6
   });
 
   it('no discards applied when race count below threshold', () => {

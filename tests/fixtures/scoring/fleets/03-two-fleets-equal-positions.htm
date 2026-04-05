@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="description" content="sail scoring results">
 <meta name="viewport" content="width=device-width">
-<title>Results for Scratch — perfectly tied boats share a rank; next boat gets rank after both</title>
+<title>Results for Two fleets — equal finish positions within and across fleets — Junior</title>
 <style type="text/css">
 body {font: 80% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
@@ -31,7 +31,7 @@ td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 <tr>
 <td width="30%"></td>
 <td width="40%" align="center">
-<h1>Scratch — perfectly tied boats share a rank; next boat gets rank after both</h1>
+<h1>Two fleets — equal finish positions within and across fleets</h1>
 
 </td>
 <td width="30%"></td>
@@ -40,26 +40,19 @@ td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 </table>
 <div style="clear:both;"></div>
 <div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
-<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.1: When boats finish simultaneously they share the averaged points for the places they occupy. RRS A8.2: If no tie-break procedure separates two boats, they share the same rank. The next boat below them is assigned the rank after both tied boats.
-Alice and Bob cross the line together in every race (equal finishPosition at position 2, with no boat recorded at position 1). Under RRS A8.1 they occupy fleet ranks 1 and 2, each scoring (1+2)/2 = 1.5 per race. Carol is third in fleet (position 4 → fleet rank 3) scoring 3 per race.
-Their series scores are identical so no tie-break (RRS A8.2) can separate them; they share rank 1. Carol gets rank 3 (not rank 2).</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Alice and Bob cross the line together in every race (tied at position 2, fleet ranks 1 &amp; 2).
-Each scores (1+2)/2 = 1.5 per race. Carol is 3rd in fleet (position 4 → rank 3) scoring 3.
-
-Alice: 1.5, 1.5 → 3 pts total
-Bob:   1.5, 1.5 → 3 pts total  ← unresolvable tie with Alice
-Carol: 3,   3   → 6 pts total
-
-Expected: Alice and Bob both get rank 1. Carol gets rank 3 (not rank 2).</pre>
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">Equal-position scoring applies per fleet. A tie between two boats in the same fleet averages their fleet-scoped scores. A tie between boats in different fleets has no effect: each fleet is scored independently, so only same-fleet ties produce averaged points.
+Fleet A (3 boats): J2 and J3 cross the finish line together at cross-fleet position 2. Within Fleet A they share places 2 and 3, each scoring (2+3)/2 = 2.5.
+Fleet B (2 boats): both boats finish cleanly at cross-fleet positions 4 and 5. Within Senior fleet they are ranked 1st and 2nd, scoring 1 and 2.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Junior fleet (N=3): J1=1, J2=2.5, J3=2.5
+Senior fleet (N=2): S1=rank1=1, S2=rank2=2 (DNC would score N+1=3)</pre>
 </div>
 <style>div.applicant-break {page-break-after:always;}</style>
 
-
+<h2>Junior</h2>
 <table class="summarytable" cellspacing="0" cellpadding="0" border="0">
-<colgroup span="6">
+<colgroup span="5">
 <col class="rank" />
 <col class="sailno" />
 <col class="helmname" />
-<col class="race" />
 <col class="race" />
 <col class="total" />
 </colgroup>
@@ -69,36 +62,32 @@ Expected: Alice and Bob both get rank 1. Carol gets rank 3 (not rank 2).</pre>
 <th>Sail</th>
 <th>Helm</th>
 <th><a class="racelink" href="#r1">R1</a></th>
-<th><a class="racelink" href="#r2">R2</a></th>
 <th>Total</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd summaryrow">
 <td>1st</td>
-<td>101</td>
+<td>J1</td>
 <td>Alice</td>
-<td class="rank1">1.5</td>
-<td class="rank1">1.5</td>
-<td>3</td>
+<td class="rank1">1</td>
+<td>1</td>
 
 </tr>
 <tr class="even summaryrow">
-<td>1st</td>
-<td>202</td>
+<td>2nd</td>
+<td>J2</td>
 <td>Bob</td>
-<td class="rank1">1.5</td>
-<td class="rank1">1.5</td>
-<td>3</td>
+<td class="rank2">2.5</td>
+<td>2.5</td>
 
 </tr>
 <tr class="odd summaryrow">
-<td>3rd</td>
-<td>303</td>
+<td>2nd</td>
+<td>J3</td>
 <td>Carol</td>
-<td class="rank3">3</td>
-<td class="rank3">3</td>
-<td>6</td>
+<td class="rank2">2.5</td>
+<td>2.5</td>
 
 </tr>
 </tbody>
@@ -123,29 +112,67 @@ Expected: Alice and Bob both get rank 1. Carol gets rank 3 (not rank 2).</pre>
 </thead>
 <tbody>
 <tr class="odd racerow">
-<td>2=</td>
-<td>101</td>
+<td>1</td>
+<td>J1</td>
 <td>Alice</td>
-<td>1=</td>
-<td>1.5</td>
+<td>1</td>
+<td>1</td>
 </tr>
 <tr class="even racerow">
 <td>2=</td>
-<td>202</td>
+<td>J2</td>
 <td>Bob</td>
-<td>1=</td>
-<td>1.5</td>
+<td>2=</td>
+<td>2.5</td>
 </tr>
 <tr class="odd racerow">
-<td>4</td>
-<td>303</td>
+<td>2=</td>
+<td>J3</td>
 <td>Carol</td>
-<td>3</td>
-<td>3</td>
+<td>2=</td>
+<td>2.5</td>
 </tr>
 </tbody>
 </table>
-<h3 class="racetitle" id="r2">R2&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+
+<h2>Senior</h2>
+<table class="summarytable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="helmname" />
+<col class="race" />
+<col class="total" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Helm</th>
+<th><a class="racelink" href="#r1">R1</a></th>
+<th>Total</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd summaryrow">
+<td>1st</td>
+<td>S1</td>
+<td>Dave</td>
+<td class="rank1">1</td>
+<td>1</td>
+
+</tr>
+<tr class="even summaryrow">
+<td>2nd</td>
+<td>S2</td>
+<td>Eve</td>
+<td class="rank2">2</td>
+<td>2</td>
+
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r1">R1&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
 <table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="5">
 <col class="place" />
@@ -165,28 +192,22 @@ Expected: Alice and Bob both get rank 1. Carol gets rank 3 (not rank 2).</pre>
 </thead>
 <tbody>
 <tr class="odd racerow">
-<td>2=</td>
-<td>101</td>
-<td>Alice</td>
-<td>1=</td>
-<td>1.5</td>
+<td>4</td>
+<td>S1</td>
+<td>Dave</td>
+<td>1</td>
+<td>1</td>
 </tr>
 <tr class="even racerow">
-<td>2=</td>
-<td>202</td>
-<td>Bob</td>
-<td>1=</td>
-<td>1.5</td>
-</tr>
-<tr class="odd racerow">
-<td>4</td>
-<td>303</td>
-<td>Carol</td>
-<td>3</td>
-<td>3</td>
+<td>5</td>
+<td>S2</td>
+<td>Eve</td>
+<td>2</td>
+<td>2</td>
 </tr>
 </tbody>
 </table>
+
 <p class="hardleft"></p>
 <p class="hardright"></p>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a></p>

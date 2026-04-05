@@ -50,12 +50,12 @@ DNF must therefore score better (lower) than DNC. A previous bug computed starti
     → Fleet A startingAreaPenalty = 2+1 = 3  (not 7+1=8 from all 8 boats)
     → Fleet A seriesEntryPenalty  = 3+1 = 4
 FleetA standings (N=3):
-  A1:  1           → rank 1
-  A2:  3 (DNF)     → rank 2  ← DNF &lt; DNC: correct
-  A3:  4 (DNC)     → rank 3
+  A1:  rank1(pos1) = 1  → series rank 1
+  A2:  3 (DNF)          → series rank 2  ← DNF &lt; DNC: correct
+  A3:  4 (DNC)          → series rank 3
 
 FleetB standings (N=5):
-  B1:  2, B2: 3, B3: 4, B4: 5, B5: 6</pre>
+  B1: rank1(pos2)=1, B2: rank2(pos3)=2, B3: rank3(pos4)=3, B4: rank4(pos5)=4, B5: rank5(pos6)=5</pre>
 </div>
 <style>div.applicant-break {page-break-after:always;}</style>
 
@@ -107,18 +107,18 @@ FleetB standings (N=5):
 <h3 class="racetitle" id="r1">R1&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
 <table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="5">
-<col class="rank" />
+<col class="place" />
 <col class="sailno" />
 <col class="helmname" />
-<col class="place" />
+<col class="rank" />
 <col class="points" />
 </colgroup>
 <thead>
 <tr class="titlerow">
-<th>Rank</th>
+<th>Place</th>
 <th>Sail</th>
 <th>Helm</th>
-<th>Place</th>
+<th>Rank</th>
 <th>Points</th>
 </tr>
 </thead>
@@ -131,17 +131,17 @@ FleetB standings (N=5):
 <td>1</td>
 </tr>
 <tr class="even racerow">
-<td>2</td>
+<td>DNF</td>
 <td>A2</td>
 <td>Bob</td>
-<td>DNF</td>
+<td></td>
 <td>3</td>
 </tr>
 <tr class="odd racerow">
-<td>3</td>
+<td>DNC</td>
 <td>A3</td>
 <td>Carol</td>
-<td>DNC</td>
+<td></td>
 <td>4</td>
 </tr>
 </tbody>
@@ -170,40 +170,40 @@ FleetB standings (N=5):
 <td>1st</td>
 <td>B1</td>
 <td>Dave</td>
-<td class="rank1">2</td>
-<td>2</td>
+<td class="rank1">1</td>
+<td>1</td>
 
 </tr>
 <tr class="even summaryrow">
 <td>2nd</td>
 <td>B2</td>
 <td>Eve</td>
-<td class="rank2">3</td>
-<td>3</td>
+<td class="rank2">2</td>
+<td>2</td>
 
 </tr>
 <tr class="odd summaryrow">
 <td>3rd</td>
 <td>B3</td>
 <td>Frank</td>
-<td class="rank3">4</td>
-<td>4</td>
+<td class="rank3">3</td>
+<td>3</td>
 
 </tr>
 <tr class="even summaryrow">
 <td>4th</td>
 <td>B4</td>
 <td>Grace</td>
-<td>5</td>
-<td>5</td>
+<td>4</td>
+<td>4</td>
 
 </tr>
 <tr class="odd summaryrow">
 <td>5th</td>
 <td>B5</td>
 <td>Henry</td>
-<td>6</td>
-<td>6</td>
+<td>5</td>
+<td>5</td>
 
 </tr>
 </tbody>
@@ -211,56 +211,56 @@ FleetB standings (N=5):
 <h3 class="racetitle" id="r1">R1&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
 <table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="5">
-<col class="rank" />
+<col class="place" />
 <col class="sailno" />
 <col class="helmname" />
-<col class="place" />
+<col class="rank" />
 <col class="points" />
 </colgroup>
 <thead>
 <tr class="titlerow">
-<th>Rank</th>
+<th>Place</th>
 <th>Sail</th>
 <th>Helm</th>
-<th>Place</th>
+<th>Rank</th>
 <th>Points</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd racerow">
-<td>1</td>
+<td>2</td>
 <td>B1</td>
 <td>Dave</td>
-<td>2</td>
-<td>2</td>
+<td>1</td>
+<td>1</td>
 </tr>
 <tr class="even racerow">
-<td>2</td>
+<td>3</td>
 <td>B2</td>
 <td>Eve</td>
-<td>3</td>
-<td>3</td>
+<td>2</td>
+<td>2</td>
 </tr>
 <tr class="odd racerow">
-<td>3</td>
+<td>4</td>
 <td>B3</td>
 <td>Frank</td>
-<td>4</td>
-<td>4</td>
+<td>3</td>
+<td>3</td>
 </tr>
 <tr class="even racerow">
-<td>4</td>
+<td>5</td>
 <td>B4</td>
 <td>Grace</td>
-<td>5</td>
-<td>5</td>
+<td>4</td>
+<td>4</td>
 </tr>
 <tr class="odd racerow">
-<td>5</td>
+<td>6</td>
 <td>B5</td>
 <td>Henry</td>
-<td>6</td>
-<td>6</td>
+<td>5</td>
+<td>5</td>
 </tr>
 </tbody>
 </table>

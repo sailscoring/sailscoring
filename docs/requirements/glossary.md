@@ -63,7 +63,8 @@ be defined are collected at the bottom.
 | Finish time | The time of day (clock time) at which a boat crosses the finishing line. Used together with start time to calculate elapsed time. |
 | Elapsed time | The actual duration a boat took to complete a race: finish time minus start time. This is the raw time before any handicap correction is applied. |
 | Corrected time | Elapsed time adjusted by the boat's rating/handicap. The value used to determine finishing order in handicap racing. Calculated as elapsed time multiplied by the time correction factor. |
-| Place | A boat's finishing position in a race, either by crossing the finish line (in position-based recording) or derived from corrected times (in handicap racing). Place determines the race score in low point scoring: 1st place = 1 point, 2nd = 2, etc. |
+| Place | The raw finishing position recorded by the scorer. In a multi-fleet race run on a shared finish line, place is the absolute cross-fleet order (e.g. a boat finishing 10th overall has place 10, even if it is 1st in its fleet). In a single-fleet race, place and rank are the same. |
+| Rank (per race) | A boat's finishing position within its fleet, derived from the cross-fleet places of its fleet-mates. The rank determines the race score in low point scoring: rank 1 = 1 point, rank 2 = 2 points, etc. In a single-fleet race, rank equals place. When two or more boats in the same fleet tie on the water (equal place), they share the averaged consecutive ranks (RRS A8.1), and the next boat receives the rank after all tied boats. |
 | Code | A standardized abbreviation assigned instead of (or in addition to) a finishing place, indicating that a boat did not finish normally. Examples: DNS, DNF, OCS, DSQ, RET. Codes defined in RRS Appendix A determine how the boat is scored. |
 | Tie-break | The procedure for determining rank when two or more boats have equal series points. Resolved per RRS Appendix A8 by comparing individual race results. |
 
@@ -74,13 +75,13 @@ be defined are collected at the bottom.
 | Finish | The act of crossing the finishing line per the RRS definition. A boat finishes when, after her starting signal, any part of her hull crosses the finishing line from the course side. |
 | Result | A competitor's outcome for a single race: either a place (finishing position or corrected-time position) or a code (DNS, DNF, etc.). Each result is converted to points for series scoring. |
 | Scoring | The process of calculating race points and series standings from recorded results, according to the configured scoring system and rules. |
-| Score | The numeric points value assigned to a competitor for a single race. In low point scoring, the score equals the place (1st = 1.0, 2nd = 2.0) unless modified by a code or penalty. |
+| Score | The numeric points value assigned to a competitor for a single race. In low point scoring, the score equals the within-fleet rank (rank 1 = 1.0, rank 2 = 2.0) unless modified by a code or penalty. When two boats tie on the water they share averaged consecutive ranks (e.g. 2.5 for ranks 2 and 3). |
 | Points | The numeric values assigned to race results. In standard low point scoring: place points equal the finishing position; code points are typically entries + 1 (for DNC) or starters in the race + 1 (for DNS, DNF, etc.), depending on the scoring system configuration. |
 | Total | The sum of a competitor's points across all races in a series, before any discards are applied. Also called gross points. |
 | Net | The competitor's series score after discards are subtracted from the total. Net points determine the final series ranking. Also called nett points. |
 | Discard | The exclusion of a competitor's worst race score(s) from their series total. The number of discards allowed depends on the discard profile and the number of races completed. Also called a drop or exclusion. |
 | Penalty | Additional points or a scoring code applied to a competitor's result, either as a post-race sanction (e.g. SCP, ZFP, DPI) or as directed by the protest committee. May be percentage-based or fixed. |
-| Rank | A competitor's position in the series standings, determined by net points (lowest is best in low point scoring). Also called place or position. |
+| Rank (series) | A competitor's position in the series standings, determined by net points (lowest is best in low point scoring). Distinct from per-race rank, which is the within-fleet finishing position for a single race. |
 | Retirement | A boat voluntarily withdrawing from a race after starting. Recorded with the code RET and scored per the scoring system (typically as entries/starters + 1). |
 | Disqualification | The removal of a competitor's result for a race due to a rule breach, as decided by the protest committee. Recorded as DSQ (excludable) or DNE (not excludable from discards). |
 | Protest | A formal allegation under RRS rule 60 by a boat or committee that another boat or committee has broken a rule. Decided by the protest committee in a hearing, and may result in scoring changes. |

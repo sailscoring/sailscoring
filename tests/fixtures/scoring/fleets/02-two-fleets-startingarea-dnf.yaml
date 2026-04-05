@@ -67,12 +67,12 @@ races:
         position: 6
 
 # FleetA standings (N=3):
-#   A1:  1           → rank 1
-#   A2:  3 (DNF)     → rank 2  ← DNF < DNC: correct
-#   A3:  4 (DNC)     → rank 3
+#   A1:  rank1(pos1) = 1  → series rank 1
+#   A2:  3 (DNF)          → series rank 2  ← DNF < DNC: correct
+#   A3:  4 (DNC)          → series rank 3
 #
 # FleetB standings (N=5):
-#   B1:  2, B2: 3, B3: 4, B4: 5, B5: 6
+#   B1: rank1(pos2)=1, B2: rank2(pos3)=2, B3: rank3(pos4)=3, B4: rank4(pos5)=4, B5: rank5(pos6)=5
 expected:
   standings:
     - rank: 1
@@ -105,14 +105,23 @@ expected:
     - rank: 1
       sailor: "B1"
       fleet: "FleetB"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+
+    - rank: 2
+      sailor: "B2"
+      fleet: "FleetB"
       racePoints: [2]
       raceCodes: [null]
       raceDiscards: [false]
       totalPoints: 2
       netPoints: 2
 
-    - rank: 2
-      sailor: "B2"
+    - rank: 3
+      sailor: "B3"
       fleet: "FleetB"
       racePoints: [3]
       raceCodes: [null]
@@ -120,8 +129,8 @@ expected:
       totalPoints: 3
       netPoints: 3
 
-    - rank: 3
-      sailor: "B3"
+    - rank: 4
+      sailor: "B4"
       fleet: "FleetB"
       racePoints: [4]
       raceCodes: [null]
@@ -129,20 +138,11 @@ expected:
       totalPoints: 4
       netPoints: 4
 
-    - rank: 4
-      sailor: "B4"
+    - rank: 5
+      sailor: "B5"
       fleet: "FleetB"
       racePoints: [5]
       raceCodes: [null]
       raceDiscards: [false]
       totalPoints: 5
       netPoints: 5
-
-    - rank: 5
-      sailor: "B5"
-      fleet: "FleetB"
-      racePoints: [6]
-      raceCodes: [null]
-      raceDiscards: [false]
-      totalPoints: 6
-      netPoints: 6

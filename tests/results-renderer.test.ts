@@ -235,12 +235,12 @@ describe('assembleSeriesResultsData', () => {
 
   const raceScoresByRaceId = new Map([
     ['r1', new Map([
-      ['c1', { points: 1, place: 1, resultCode: null as ResultCode | null }],
-      ['c2', { points: 2, place: 2, resultCode: null as ResultCode | null }],
+      ['c1', { points: 1, place: 1, rank: 1, resultCode: null as ResultCode | null }],
+      ['c2', { points: 2, place: 2, rank: 2, resultCode: null as ResultCode | null }],
     ])],
     ['r2', new Map([
-      ['c1', { points: 2, place: 2, resultCode: null as ResultCode | null }],
-      ['c2', { points: 1, place: 1, resultCode: null as ResultCode | null }],
+      ['c1', { points: 2, place: 2, rank: 2, resultCode: null as ResultCode | null }],
+      ['c2', { points: 1, place: 1, rank: 1, resultCode: null as ResultCode | null }],
     ])],
   ]);
 

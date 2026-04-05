@@ -5,10 +5,13 @@ rrs_notes: >
   RRS A8.2: If no tie-break procedure separates two boats, they share the same rank.
   The next boat below them is assigned the rank after both tied boats.
 
-  Alice and Bob cross the line together in every race (equal finishPosition). Under
-  RRS A8.1 each scores (2+3)/2 = 2.5 per race. Their series scores are identical in
-  every race so no tie-break procedure (RRS A8.2) can separate them and they share rank 1.
-  Carol, consistently further back, gets rank 3.
+  Alice and Bob cross the line together in every race (equal finishPosition at
+  position 2, with no boat recorded at position 1). Under RRS A8.1 they occupy
+  fleet ranks 1 and 2, each scoring (1+2)/2 = 1.5 per race. Carol is third in
+  fleet (position 4 → fleet rank 3) scoring 3 per race.
+
+  Their series scores are identical so no tie-break (RRS A8.2) can separate them;
+  they share rank 1. Carol gets rank 3 (not rank 2).
 
 series:
   discardThresholds: []
@@ -21,12 +24,12 @@ competitors:
   - sailNumber: "303"
     name: "Carol"
 
-# Alice and Bob cross the line together in every race (tied at position 2).
-# Each scores (2+3)/2 = 2.5 per race. Carol finishes 3rd each time (position 4).
+# Alice and Bob cross the line together in every race (tied at position 2, fleet ranks 1 & 2).
+# Each scores (1+2)/2 = 1.5 per race. Carol is 3rd in fleet (position 4 → rank 3) scoring 3.
 #
-# Alice: 2.5, 2.5 → 5 pts total
-# Bob:   2.5, 2.5 → 5 pts total  ← unresolvable tie with Alice
-# Carol: 4,   4   → 8 pts total
+# Alice: 1.5, 1.5 → 3 pts total
+# Bob:   1.5, 1.5 → 3 pts total  ← unresolvable tie with Alice
+# Carol: 3,   3   → 6 pts total
 #
 # Expected: Alice and Bob both get rank 1. Carol gets rank 3 (not rank 2).
 races:
@@ -52,24 +55,24 @@ expected:
   standings:
     - rank: 1
       sailor: "101"
-      racePoints: [2.5, 2.5]
+      racePoints: [1.5, 1.5]
       raceCodes: [null, null]
       raceDiscards: [false, false]
-      totalPoints: 5
-      netPoints: 5
+      totalPoints: 3
+      netPoints: 3
 
     - rank: 1
       sailor: "202"
-      racePoints: [2.5, 2.5]
+      racePoints: [1.5, 1.5]
       raceCodes: [null, null]
       raceDiscards: [false, false]
-      totalPoints: 5
-      netPoints: 5
+      totalPoints: 3
+      netPoints: 3
 
     - rank: 3
       sailor: "303"
-      racePoints: [4, 4]
+      racePoints: [3, 3]
       raceCodes: [null, null]
       raceDiscards: [false, false]
-      totalPoints: 8
-      netPoints: 8
+      totalPoints: 6
+      netPoints: 6

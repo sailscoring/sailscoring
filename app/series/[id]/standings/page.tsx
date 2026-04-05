@@ -121,7 +121,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
         const scoreMap = new Map(
           [...scores.entries()].map(([id, s]) => [
             id,
-            { points: s.points, place: s.place, resultCode: s.resultCode },
+            { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode },
           ]),
         );
         return [race.id, scoreMap] as const;

@@ -49,6 +49,7 @@ export function calculateRaceScores(
         competitorId: competitor.id,
         points: seriesEntryPenalty,
         place: null,
+        rank: null,
         resultCode: 'DNC',
       });
     } else if (finish.resultCode === 'DNC') {
@@ -57,6 +58,7 @@ export function calculateRaceScores(
         competitorId: competitor.id,
         points: seriesEntryPenalty,
         place: null,
+        rank: null,
         resultCode: 'DNC',
       });
     } else if (finish.resultCode !== null) {
@@ -65,13 +67,15 @@ export function calculateRaceScores(
         competitorId: competitor.id,
         points: startingAreaPenalty,
         place: null,
+        rank: null,
         resultCode: finish.resultCode,
       });
     } else if (finish.finishPosition !== null) {
       result.set(competitor.id, {
         competitorId: competitor.id,
-        points: finish.finishPosition, // averaged below if tied
+        points: 0,       // assigned below after within-fleet rank is computed
         place: finish.finishPosition,
+        rank: null,      // assigned below
         resultCode: null,
       });
     } else {
@@ -80,28 +84,36 @@ export function calculateRaceScores(
         competitorId: competitor.id,
         points: startingAreaPenalty,
         place: null,
+        rank: null,
         resultCode: 'DNF',
       });
     }
   }
 
-  // Average points for boats tied on the water (equal finishPosition, RRS A8.1).
-  // k boats at position p occupy slots p … p+k-1; each scores the average.
-  const byPosition = new Map<number, string[]>();
-  for (const [cId, score] of result) {
-    if (score.place !== null) {
-      const list = byPosition.get(score.place) ?? [];
-      list.push(cId);
-      byPosition.set(score.place, list);
+  // Assign within-fleet sequential ranks and average points for tied boats (RRS A8.1).
+  // Sort finishers by cross-fleet place; assign fleet ranks 1, 2, 3 … in that order.
+  // Boats tied on the water (equal finishPosition) share averaged consecutive ranks.
+  const finishers = [...result.entries()]
+    .filter(([, score]) => score.place !== null)
+    .sort((a, b) => a[1].place! - b[1].place! || a[0].localeCompare(b[0]));
+
+  let fleetRank = 1;
+  let fi = 0;
+  while (fi < finishers.length) {
+    const pos = finishers[fi][1].place!;
+    // Find all boats tied at this cross-fleet position
+    let fj = fi;
+    while (fj < finishers.length && finishers[fj][1].place === pos) fj++;
+    const tiedCount = fj - fi;
+    // They occupy fleet ranks fleetRank … fleetRank+tiedCount-1; average those ranks.
+    const baseRank = fleetRank;
+    const avgPoints = fleetRank + (tiedCount - 1) / 2;
+    for (let k = fi; k < fj; k++) {
+      const [cId, score] = finishers[k];
+      result.set(cId, { ...score, rank: baseRank, points: avgPoints });
     }
-  }
-  for (const [pos, ids] of byPosition) {
-    if (ids.length > 1) {
-      const avg = pos + (ids.length - 1) / 2;
-      for (const id of ids) {
-        result.set(id, { ...result.get(id)!, points: avg });
-      }
-    }
+    fleetRank += tiedCount;
+    fi = fj;
   }
 
   return result;

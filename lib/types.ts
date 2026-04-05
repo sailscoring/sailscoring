@@ -69,7 +69,8 @@ export interface Finish {
 export interface RaceScore {
   competitorId: string;
   points: number;
-  place: number | null;   // null for coded finishes
+  place: number | null;   // raw cross-fleet finish position; null for coded finishes
+  rank: number | null;    // within-fleet finish rank (base, before averaging); null for coded finishes
   resultCode: ResultCode | null;
 }
 

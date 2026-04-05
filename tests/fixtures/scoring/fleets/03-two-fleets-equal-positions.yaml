@@ -1,0 +1,96 @@
+description: "Two fleets — equal finish positions within and across fleets"
+rrs_notes: >
+  Equal-position scoring applies per fleet. A tie between two boats in the same
+  fleet averages their fleet-scoped scores. A tie between boats in different fleets
+  has no effect: each fleet is scored independently, so only same-fleet ties produce
+  averaged points.
+
+  Fleet A (3 boats): J2 and J3 cross the finish line together at cross-fleet position 2.
+  Within Fleet A they share places 2 and 3, each scoring (2+3)/2 = 2.5.
+
+  Fleet B (2 boats): both boats finish cleanly at cross-fleet positions 4 and 5.
+  Within Senior fleet they are ranked 1st and 2nd, scoring 1 and 2.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - sailNumber: "J1"
+    name: "Alice"
+    fleet: "Junior"
+  - sailNumber: "J2"
+    name: "Bob"
+    fleet: "Junior"
+  - sailNumber: "J3"
+    name: "Carol"
+    fleet: "Junior"
+  - sailNumber: "S1"
+    name: "Dave"
+    fleet: "Senior"
+  - sailNumber: "S2"
+    name: "Eve"
+    fleet: "Senior"
+
+races:
+  - number: 1
+    finishes:
+      - sailor: "J1"
+        position: 1
+      - sailor: "J2"
+        position: 2    # tied with J3: each scores (2+3)/2 = 2.5 within Junior fleet
+      - sailor: "J3"
+        position: 2    # tied with J2
+      - sailor: "S1"
+        position: 4    # 4th overall, but 1st in Senior fleet → rank 1 → scores 1
+      - sailor: "S2"
+        position: 5    # 5th overall, but 2nd in Senior fleet → rank 2 → scores 2
+
+# Junior fleet (N=3): J1=1, J2=2.5, J3=2.5
+# Senior fleet (N=2): S1=rank1=1, S2=rank2=2 (DNC would score N+1=3)
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "J1"
+      fleet: "Junior"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+
+    - rank: 2
+      sailor: "J2"
+      fleet: "Junior"
+      racePoints: [2.5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2.5
+      netPoints: 2.5
+
+    - rank: 2
+      sailor: "J3"
+      fleet: "Junior"
+      racePoints: [2.5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2.5
+      netPoints: 2.5
+
+    - rank: 1
+      sailor: "S1"
+      fleet: "Senior"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+
+    - rank: 2
+      sailor: "S2"
+      fleet: "Senior"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2

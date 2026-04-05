@@ -1,9 +1,11 @@
-description: "Two fleets (Junior 3, Senior 2) — penalty points are fleet-scoped"
+description: "Two fleets (Junior 3, Senior 2) — penalty points and finish ranks are fleet-scoped"
 rrs_notes: >
   RRS A5.3: penalty = N+1 where N is the number of boats in the fleet, not the
   total entries across all fleets. With 3 Juniors, Junior DNC = 4. With 2 Seniors,
-  Senior DNC = 3. Clean finish points are the absolute finish position across the
-  combined fleet.
+  Senior DNC = 3.
+
+  Finish points equal the boat's within-fleet rank, not its absolute cross-fleet
+  position. A boat finishing 4th overall but 1st in its fleet scores 1 point.
 
 series:
   discardThresholds: []
@@ -55,13 +57,13 @@ races:
       # S2 has no entry — implicit DNC
 
 # Junior standings (N=3, DNC = 4):
-#   J1:  1 + 1 = 2
-#   J2:  2 + 2 = 4
-#   J3:  3 + 4 = 7  ← DNC scores 4, not 6 (total fleet would be 5+1=6)
+#   J1:  rank1 + rank1 = 2
+#   J2:  rank2 + rank2 = 4
+#   J3:  rank3 + DNC(4) = 7  ← DNC scores 4, not 6 (total fleet would be 5+1=6)
 #
 # Senior standings (N=2, DNC = 3):
-#   S1:  4 + 3 = 7
-#   S2:  5 + 3 = 8  ← implicit DNC scores 3, not 6
+#   S1:  rank1(pos4) + rank1(pos3) = 2  ← 4th overall but 1st in fleet → 1 pt each race
+#   S2:  rank2(pos5) + DNC(3) = 5  ← implicit DNC scores 3, not 6
 expected:
   standings:
     - rank: 1
@@ -94,17 +96,17 @@ expected:
     - rank: 1
       sailor: "S1"
       fleet: "Senior"
-      racePoints: [4, 3]
+      racePoints: [1, 1]
       raceCodes: [null, null]
       raceDiscards: [false, false]
-      totalPoints: 7
-      netPoints: 7
+      totalPoints: 2
+      netPoints: 2
 
     - rank: 2
       sailor: "S2"
       fleet: "Senior"
-      racePoints: [5, 3]
+      racePoints: [2, 3]
       raceCodes: [null, "DNC"]
       raceDiscards: [false, false]
-      totalPoints: 8
-      netPoints: 8
+      totalPoints: 5
+      netPoints: 5

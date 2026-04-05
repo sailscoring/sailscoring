@@ -35,10 +35,10 @@ export interface RaceData {
 }
 
 export interface RaceResultData {
-  rank: number;
   sailNumber: string;
   helm: string;
-  place: number | null;
+  place: number | null;   // raw cross-fleet finish position; null for coded finishes
+  rank: number | null;    // within-fleet finish rank; null for coded finishes
   points: number;
   resultCode: ResultCode | null;
 }
@@ -198,15 +198,26 @@ ${rows}
 
 function renderRaceTable(race: RaceData): string {
   const dateStr = formatIsoDate(race.date);
+  // Detect ties in place (cross-fleet) and rank (within-fleet)
+  const placeCounts = new Map<number, number>();
+  const rankCounts = new Map<number, number>();
+  for (const r of race.results) {
+    if (r.place !== null) placeCounts.set(r.place, (placeCounts.get(r.place) ?? 0) + 1);
+    if (r.rank !== null) rankCounts.set(r.rank, (rankCounts.get(r.rank) ?? 0) + 1);
+  }
+
   const rows = race.results
     .map((r, i) => {
       const rowClass = i % 2 === 0 ? 'odd' : 'even';
-      const placeText = r.resultCode ?? String(r.place ?? '');
+      const isPlaceTied = r.place !== null && (placeCounts.get(r.place) ?? 0) > 1;
+      const isRankTied = r.rank !== null && (rankCounts.get(r.rank) ?? 0) > 1;
+      const placeText = r.resultCode ?? (r.place !== null ? `${r.place}${isPlaceTied ? '=' : ''}` : '');
+      const rankText = r.rank !== null ? `${r.rank}${isRankTied ? '=' : ''}` : '';
       return `<tr class="${rowClass} racerow">
-<td>${r.rank}</td>
+<td>${placeText}</td>
 <td>${esc(r.sailNumber)}</td>
 <td>${esc(r.helm)}</td>
-<td>${placeText}</td>
+<td>${rankText}</td>
 <td>${r.points}</td>
 </tr>`;
     })
@@ -215,18 +226,18 @@ function renderRaceTable(race: RaceData): string {
   return `<h3 class="racetitle" id="${esc(race.anchorId)}">${esc(race.label)}&nbsp;&mdash;&nbsp;${dateStr}</h3>
 <table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="5">
-<col class="rank" />
+<col class="place" />
 <col class="sailno" />
 <col class="helmname" />
-<col class="place" />
+<col class="rank" />
 <col class="points" />
 </colgroup>
 <thead>
 <tr class="titlerow">
-<th>Rank</th>
+<th>Place</th>
 <th>Sail</th>
 <th>Helm</th>
-<th>Place</th>
+<th>Rank</th>
 <th>Points</th>
 </tr>
 </thead>
@@ -302,7 +313,7 @@ export function assembleSeriesResultsData(
     netPoints: number;
     raceDiscards: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; resultCode: ResultCode | null }>>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null }>>,
   competitorsById: Map<string, { sailNumber: string; name: string }>,
   generatedAt: Date,
   fleetName?: string,
@@ -315,18 +326,22 @@ export function assembleSeriesResultsData(
       const competitor = competitorsById.get(competitorId);
       if (!competitor) continue;
       results.push({
-        rank: 0, // assigned below after sort
         sailNumber: competitor.sailNumber,
         helm: competitor.name,
         place: score.place,
+        rank: score.rank,
         points: score.points,
         resultCode: score.resultCode,
       });
     }
 
-    // Sort by points ascending (finishers first, then coded)
-    results.sort((a, b) => a.points - b.points || a.sailNumber.localeCompare(b.sailNumber));
-    results.forEach((r, i) => { r.rank = i + 1; });
+    // Finishers first (by cross-fleet place ascending), then coded boats (by sail number).
+    results.sort((a, b) => {
+      if (a.place !== null && b.place === null) return -1;
+      if (a.place === null && b.place !== null) return 1;
+      if (a.place !== null && b.place !== null) return a.place - b.place || a.sailNumber.localeCompare(b.sailNumber);
+      return a.sailNumber.localeCompare(b.sailNumber);
+    });
 
     return {
       raceNumber: race.raceNumber,
@@ -343,7 +358,7 @@ export function assembleSeriesResultsData(
   for (const raceData of raceDataList) {
     const podium = new Map<string, 1 | 2 | 3>();
     for (const r of raceData.results) {
-      if (r.resultCode === null && r.rank <= 3) {
+      if (r.resultCode === null && r.rank !== null && r.rank <= 3) {
         podium.set(r.sailNumber, r.rank as 1 | 2 | 3);
       }
     }

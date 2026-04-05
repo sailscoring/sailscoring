@@ -25,7 +25,6 @@ import type { Competitor, Finish, ResultCode } from '@/lib/types';
 import { CheckSquare, Square } from 'lucide-react';
 import { log } from '@/lib/debug';
 import { cn } from '@/lib/utils';
-import { reorderFinisher, computePositions } from '@/lib/finish-entry';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 
 type NonFinisherCode = ResultCode | 'implicit-dnc';
@@ -53,15 +52,15 @@ export default function ResultEntryPage({
     [raceId],
   );
 
-  // Finishing order: list of competitor IDs in order
+  // Finishing order: competitor IDs sorted by finishPositions ascending
   const [finishingOrder, setFinishingOrder] = useState<string[]>([]);
+  // Explicit finish positions: competitorId → recorded position number (may be > fleet size for cross-fleet races)
+  const [finishPositions, setFinishPositions] = useState<Map<string, number>>(new Map());
+  const initialPositionsRef = useRef<Map<string, number>>(new Map());
   // Non-finisher codes: competitorId → code (only explicit overrides from implicit DNC)
   const [nonFinisherCodes, setNonFinisherCodes] = useState<Map<string, ResultCode>>(
     new Map(),
   );
-
-  const [tiedWithPrevious, setTiedWithPrevious] = useState<Set<string>>(new Set());
-  const initialTiedRef = useRef<Set<string>>(new Set());
 
   const [editingPosition, setEditingPosition] = useState<{
     competitorId: string;
@@ -83,21 +82,13 @@ export default function ResultEntryPage({
 
   // Initialize form state from saved finishes once loaded
   if (!initialized && competitors !== undefined && savedFinishes !== undefined) {
-    // Sort by finishPosition to detect consecutive equal positions (ties)
+    // Sort by finishPosition to put tied boats adjacent
     const positionedFinishes = savedFinishes
       .filter((f) => f.finishPosition !== null)
       .sort((a, b) => a.finishPosition! - b.finishPosition!);
 
-    const order: string[] = [];
-    const ties = new Set<string>();
-    let lastPos: number | null = null;
-    for (const finish of positionedFinishes) {
-      order.push(finish.competitorId);
-      if (lastPos !== null && finish.finishPosition === lastPos) {
-        ties.add(finish.competitorId);
-      }
-      lastPos = finish.finishPosition;
-    }
+    const order: string[] = positionedFinishes.map((f) => f.competitorId);
+    const positions = new Map(positionedFinishes.map((f) => [f.competitorId, f.finishPosition!]));
 
     const finishedIds = new Set(order);
     const codes = new Map<string, ResultCode>();
@@ -109,10 +100,10 @@ export default function ResultEntryPage({
 
     initialOrderRef.current = [...order];
     initialCodesRef.current = new Map(codes);
-    initialTiedRef.current = new Set(ties);
+    initialPositionsRef.current = new Map(positions);
     setFinishingOrder(order);
+    setFinishPositions(positions);
     setNonFinisherCodes(codes);
-    setTiedWithPrevious(ties);
     setInitialized(true);
   }
 
@@ -127,18 +118,15 @@ export default function ResultEntryPage({
 
   function isDirty(): boolean {
     if (!initialized) return false;
-    const initOrder = initialOrderRef.current;
-    if (finishingOrder.length !== initOrder.length) return true;
-    if (finishingOrder.some((id, i) => id !== initOrder[i])) return true;
+    const initPositions = initialPositionsRef.current;
+    if (finishPositions.size !== initPositions.size) return true;
+    for (const [k, v] of finishPositions) {
+      if (initPositions.get(k) !== v) return true;
+    }
     const initCodes = initialCodesRef.current;
     if (nonFinisherCodes.size !== initCodes.size) return true;
     for (const [k, v] of nonFinisherCodes) {
       if (initCodes.get(k) !== v) return true;
-    }
-    const initTied = initialTiedRef.current;
-    if (tiedWithPrevious.size !== initTied.size) return true;
-    for (const id of tiedWithPrevious) {
-      if (!initTied.has(id)) return true;
     }
     return false;
   }
@@ -202,7 +190,9 @@ export default function ResultEntryPage({
     : [];
 
   function selectSuggestion(competitor: Competitor) {
+    const nextPos = finishPositions.size > 0 ? Math.max(...finishPositions.values()) + 1 : 1;
     setFinishingOrder((order) => [...order, competitor.id]);
+    setFinishPositions((prev) => new Map(prev).set(competitor.id, nextPos));
     setSailInput('');
     setInputError('');
     setHighlightedIndex(-1);
@@ -229,7 +219,9 @@ export default function ResultEntryPage({
       return;
     }
 
+    const nextPos = finishPositions.size > 0 ? Math.max(...finishPositions.values()) + 1 : 1;
     setFinishingOrder((order) => [...order, competitor.id]);
+    setFinishPositions((prev) => new Map(prev).set(competitor.id, nextPos));
     setInputError('');
     setSailInput('');
     inputRef.current?.focus();
@@ -237,16 +229,10 @@ export default function ResultEntryPage({
   }
 
   function removeFinisher(competitorId: string) {
-    const currentIdx = finishingOrder.indexOf(competitorId);
     setFinishingOrder((order) => order.filter((id) => id !== competitorId));
-    setTiedWithPrevious((prev) => {
-      const next = new Set(prev);
+    setFinishPositions((prev) => {
+      const next = new Map(prev);
       next.delete(competitorId);
-      // The boat after the removed boat was tied with it — break that tie
-      const successorId = finishingOrder[currentIdx + 1];
-      if (successorId && next.has(successorId)) {
-        next.delete(successorId);
-      }
       return next;
     });
   }
@@ -257,64 +243,18 @@ export default function ResultEntryPage({
     setEditingPosition(null);
 
     const parsed = parseInt(value, 10);
-    if (isNaN(parsed) || !Number.isInteger(Number(value))) return;
+    if (isNaN(parsed) || parsed < 1) return;
 
-    const positions = computePositions(finishingOrder, tiedWithPrevious);
-    const currentIdx = finishingOrder.indexOf(competitorId);
-    const currentPos = positions[currentIdx];
-    if (parsed === currentPos) return;
+    if (parsed === finishPositions.get(competitorId)) return;
 
-    // Check if typed position matches another boat — tie request
-    const matchIdx = positions.findIndex((p, i) => p === parsed && i !== currentIdx);
+    const newPositions = new Map(finishPositions);
+    newPositions.set(competitorId, parsed);
 
-    if (matchIdx !== -1) {
-      // Find the last boat in the group with that position
-      let groupEnd = matchIdx;
-      while (groupEnd + 1 < positions.length && positions[groupEnd + 1] === parsed) {
-        groupEnd++;
-      }
-
-      // Move this boat to right after the group
-      const newOrder = [...finishingOrder];
-      newOrder.splice(currentIdx, 1);
-      const adjustedGroupEnd = groupEnd > currentIdx ? groupEnd - 1 : groupEnd;
-      newOrder.splice(adjustedGroupEnd + 1, 0, competitorId);
-
-      setFinishingOrder(newOrder);
-      setTiedWithPrevious((prev) => {
-        const next = new Set(prev);
-        // Break old successor's tie (its anchor is moving away)
-        const oldSuccessorId = finishingOrder[currentIdx + 1];
-        if (oldSuccessorId && next.has(oldSuccessorId)) {
-          next.delete(oldSuccessorId);
-        }
-        next.add(competitorId);
-        return next;
-      });
-      return;
-    }
-
-    // Normal reorder (no tie match) — also clears any existing tie on this boat
-    const clamped = Math.max(1, Math.min(finishingOrder.length, parsed));
-    const newOrder = reorderFinisher(finishingOrder, competitorId, clamped);
-    const newIdx = newOrder.indexOf(competitorId);
-
-    setFinishingOrder(newOrder);
-    setTiedWithPrevious((prev) => {
-      const next = new Set(prev);
-      next.delete(competitorId);
-      // Break old successor's tie (its anchor moved away)
-      const oldSuccessorId = finishingOrder[currentIdx + 1];
-      if (oldSuccessorId && next.has(oldSuccessorId)) {
-        next.delete(oldSuccessorId);
-      }
-      // Break new successor's tie (it was tied with its former predecessor, not this boat)
-      const newSuccessorId = newOrder[newIdx + 1];
-      if (newSuccessorId && next.has(newSuccessorId)) {
-        next.delete(newSuccessorId);
-      }
-      return next;
-    });
+    setFinishPositions(newPositions);
+    // Re-sort visual order by new positions; stable sort keeps tied boats in original relative order
+    setFinishingOrder((prev) =>
+      [...prev].sort((a, b) => (newPositions.get(a) ?? 0) - (newPositions.get(b) ?? 0)),
+    );
   }
 
   function setNonFinisherCode(competitorId: string, code: NonFinisherCode) {
@@ -374,14 +314,13 @@ export default function ResultEntryPage({
 
       const finishes: Finish[] = [];
 
-      // Finishers — use computed positions to preserve ties
-      const savedPositions = computePositions(finishingOrder, tiedWithPrevious);
+      // Finishers — use recorded positions (explicit, may include ties and cross-fleet values)
       finishingOrder.forEach((competitorId, index) => {
         finishes.push({
           id: crypto.randomUUID(),
           raceId,
           competitorId,
-          finishPosition: savedPositions[index],
+          finishPosition: finishPositions.get(competitorId) ?? index + 1,
           resultCode: null,
           startPresent: startPresentMap.get(competitorId) ?? null,
         });
@@ -630,71 +569,66 @@ export default function ResultEntryPage({
             </p>
           )}
 
-          {(() => {
-            const displayPositions = computePositions(finishingOrder, tiedWithPrevious);
-            return (
-              <ol className="space-y-1.5">
-                {finishingOrder.map((competitorId, index) => {
-                  const competitor = competitorMap.get(competitorId);
-                  if (!competitor) return null;
-                  const displayPos = displayPositions[index];
-                  const isTied = tiedWithPrevious.has(competitorId);
-                  return (
-                    <li
-                      key={competitorId}
-                      className="flex items-center gap-3 border rounded-lg px-4 py-2.5"
-                    >
-                      <div className="flex items-center shrink-0">
-                        <input
-                          type="number"
-                          min={1}
-                          max={finishingOrder.length}
-                          data-testid={`position-input-${competitor.sailNumber}`}
-                          aria-label={`Position for ${competitor.sailNumber}`}
-                          value={
-                            editingPosition?.competitorId === competitorId
-                              ? editingPosition.value
-                              : String(displayPos)
-                          }
-                          className="w-10 text-right text-sm font-mono text-muted-foreground rounded px-1 border border-transparent bg-transparent focus:border-input focus:bg-background focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          onFocus={() =>
-                            setEditingPosition({ competitorId, value: String(displayPos) })
-                          }
-                          onChange={(e) =>
-                            setEditingPosition({ competitorId, value: e.target.value })
-                          }
-                          onBlur={commitPositionEdit}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              commitPositionEdit();
-                              (e.target as HTMLInputElement).blur();
-                            } else if (e.key === 'Escape') {
-                              e.preventDefault();
-                              setEditingPosition(null);
-                              (e.target as HTMLInputElement).blur();
-                            }
-                          }}
-                        />
-                        <span className={cn('w-3 text-xs font-mono text-muted-foreground', isTied ? '' : 'invisible')} aria-hidden>
-                          =
-                        </span>
-                      </div>
-                      <span className="font-mono font-medium">{competitor.sailNumber}</span>
-                      <span className="text-sm flex-1 truncate">{competitor.name}</span>
-                      <button
-                        onClick={() => removeFinisher(competitorId)}
-                        aria-label={`Remove ${competitor.sailNumber}`}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ol>
-            );
-          })()}
+          <ol className="space-y-1.5">
+            {finishingOrder.map((competitorId, index) => {
+              const competitor = competitorMap.get(competitorId);
+              if (!competitor) return null;
+              const displayPos = finishPositions.get(competitorId) ?? (index + 1);
+              const prevId = finishingOrder[index - 1];
+              const isTied = index > 0 && finishPositions.get(competitorId) === finishPositions.get(prevId);
+              return (
+                <li
+                  key={competitorId}
+                  className="flex items-center gap-3 border rounded-lg px-4 py-2.5"
+                >
+                  <div className="flex items-center shrink-0">
+                    <input
+                      type="number"
+                      min={1}
+                      data-testid={`position-input-${competitor.sailNumber}`}
+                      aria-label={`Position for ${competitor.sailNumber}`}
+                      value={
+                        editingPosition?.competitorId === competitorId
+                          ? editingPosition.value
+                          : String(displayPos)
+                      }
+                      className="w-10 text-right text-sm font-mono text-muted-foreground rounded px-1 border border-transparent bg-transparent focus:border-input focus:bg-background focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      onFocus={() =>
+                        setEditingPosition({ competitorId, value: String(displayPos) })
+                      }
+                      onChange={(e) =>
+                        setEditingPosition({ competitorId, value: e.target.value })
+                      }
+                      onBlur={commitPositionEdit}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          commitPositionEdit();
+                          (e.target as HTMLInputElement).blur();
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          setEditingPosition(null);
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
+                    />
+                    <span className={cn('w-3 text-xs font-mono text-muted-foreground', isTied ? '' : 'invisible')} aria-hidden>
+                      =
+                    </span>
+                  </div>
+                  <span className="font-mono font-medium">{competitor.sailNumber}</span>
+                  <span className="text-sm flex-1 truncate">{competitor.name}</span>
+                  <button
+                    onClick={() => removeFinisher(competitorId)}
+                    aria-label={`Remove ${competitor.sailNumber}`}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
         </div>
 
         {/* Right: non-finishers */}
