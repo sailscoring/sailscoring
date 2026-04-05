@@ -132,6 +132,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
               rank: s.rank,
               resultCode: s.resultCode,
               penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
+              penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
             },
           ]),
         );
@@ -937,7 +938,7 @@ function StandingRow({
   raceCount: number;
   hasDiscards: boolean;
 }) {
-  const { rank, competitor, racePoints, raceCodes, racePenaltyCodes, totalPoints, netPoints, raceDiscards, raceNonDiscardable } = standing;
+  const { rank, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, totalPoints, netPoints, raceDiscards, raceNonDiscardable } = standing;
 
   // Highlight rank 1 row
   const isFirst = rank === 1;
@@ -961,6 +962,14 @@ function StandingRow({
         const isNonDiscardable = raceNonDiscardable[i] ?? false;
         const code = raceCodes[i];
         const penaltyCode = racePenaltyCodes?.[i] ?? null;
+        const penaltyOverride = racePenaltyOverrides?.[i] ?? null;
+        const penaltyLabel = penaltyCode
+          ? penaltyOverride !== null
+            ? penaltyCode === 'DPI'
+              ? `${penaltyCode}(${penaltyOverride}pts)`
+              : `${penaltyCode}(${penaltyOverride}%)`
+            : penaltyCode
+          : null;
         return (
           <TableCell
             key={i}
@@ -982,10 +991,10 @@ function StandingRow({
                 {points}
                 <span className="ml-0.5">({code})</span>
               </span>
-            ) : penaltyCode !== null ? (
+            ) : penaltyLabel !== null ? (
               <span className="text-xs text-amber-600 dark:text-amber-400" title={`${penaltyCode} penalty applied`}>
                 {points}
-                <span className="ml-0.5">({penaltyCode})</span>
+                <span className="ml-0.5">({penaltyLabel})</span>
               </span>
             ) : (
               points

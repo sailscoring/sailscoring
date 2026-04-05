@@ -42,6 +42,7 @@ export interface RaceResultData {
   points: number;
   resultCode: ResultCode | null;
   penaltyCode: PenaltyCode | null;
+  penaltyOverride: number | null;
 }
 
 export interface StandingRowData {
@@ -57,6 +58,7 @@ export interface RaceScoreData {
   points: number;
   resultCode: ResultCode | null;
   penaltyCode: PenaltyCode | null;
+  penaltyOverride: number | null;
   isDiscard: boolean;
   podiumRank: 1 | 2 | 3 | null;
 }
@@ -165,7 +167,7 @@ function renderSummaryTable(
           ]
             .filter(Boolean)
             .join(' ');
-          const text = renderScoreText(score.points, score.resultCode, score.penaltyCode, score.isDiscard);
+          const text = renderScoreText(score.points, score.resultCode, score.penaltyCode, score.penaltyOverride, score.isDiscard);
           return classes ? `<td class="${classes}">${text}</td>` : `<td>${text}</td>`;
         })
         .join('\n');
@@ -215,7 +217,7 @@ function renderRaceTable(race: RaceData): string {
       const isRankTied = r.rank !== null && (rankCounts.get(r.rank) ?? 0) > 1;
       const placeText = r.resultCode ?? (r.place !== null ? `${r.place}${isPlaceTied ? '=' : ''}` : '');
       const rankText = r.rank !== null ? `${r.rank}${isRankTied ? '=' : ''}` : '';
-      const pointsText = r.penaltyCode ? `${r.points} ${r.penaltyCode}` : String(r.points);
+      const pointsText = r.penaltyCode ? `${r.points} ${formatPenaltyLabel(r.penaltyCode, r.penaltyOverride)}` : String(r.points);
       return `<tr class="${rowClass} racerow">
 <td>${placeText}</td>
 <td>${esc(r.sailNumber)}</td>
@@ -252,17 +254,24 @@ ${rows}
 
 // ---- Helpers ----
 
+function formatPenaltyLabel(code: PenaltyCode, override: number | null): string {
+  if (override === null) return code;
+  if (code === 'DPI') return `${code}(${override}pts)`;
+  return `${code}(${override}%)`;
+}
+
 function renderScoreText(
   points: number,
   resultCode: ResultCode | null,
   penaltyCode: PenaltyCode | null,
+  penaltyOverride: number | null,
   isDiscard: boolean,
 ): string {
   let text: string;
   if (resultCode) {
     text = `${points} ${resultCode}`;
   } else if (penaltyCode) {
-    text = `${points} ${penaltyCode}`;
+    text = `${points} ${formatPenaltyLabel(penaltyCode, penaltyOverride)}`;
   } else {
     text = String(points);
   }
@@ -321,11 +330,12 @@ export function assembleSeriesResultsData(
     racePoints: number[];
     raceCodes: (ResultCode | null)[];
     racePenaltyCodes?: (PenaltyCode | null)[];
+    racePenaltyOverrides?: (number | null)[];
     totalPoints: number;
     netPoints: number;
     raceDiscards: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null }>>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null }>>,
   competitorsById: Map<string, { sailNumber: string; name: string }>,
   generatedAt: Date,
   fleetName?: string,
@@ -345,6 +355,7 @@ export function assembleSeriesResultsData(
         points: score.points,
         resultCode: score.resultCode,
         penaltyCode: score.penaltyCode ?? null,
+        penaltyOverride: score.penaltyOverride ?? null,
       });
     }
 
@@ -385,6 +396,7 @@ export function assembleSeriesResultsData(
     raceScores: s.racePoints.map((points, i) => {
       const resultCode = s.raceCodes[i] ?? null;
       const penaltyCode = s.racePenaltyCodes?.[i] ?? null;
+      const penaltyOverride = s.racePenaltyOverrides?.[i] ?? null;
       const raceNumber = races[i]?.raceNumber ?? i + 1;
       const podium = racePodiums.get(raceNumber);
       const podiumRank = resultCode === null && penaltyCode === null ? (podium?.get(s.competitor.sailNumber) ?? null) : null;
@@ -392,6 +404,7 @@ export function assembleSeriesResultsData(
         points,
         resultCode,
         penaltyCode,
+        penaltyOverride,
         isDiscard: s.raceDiscards[i] ?? false,
         podiumRank,
       };

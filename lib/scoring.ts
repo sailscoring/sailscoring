@@ -213,6 +213,7 @@ export function calculateStandings(
       racePoints: [],
       raceCodes: [],
       racePenaltyCodes: [],
+      racePenaltyOverrides: [],
       totalPoints: 0,
       netPoints: 0,
       raceDiscards: [],
@@ -232,10 +233,12 @@ export function calculateStandings(
   const competitorRacePoints = new Map<string, number[]>();
   const competitorRaceCodes = new Map<string, (ResultCode | null)[]>();
   const competitorRacePenaltyCodes = new Map<string, (PenaltyCode | null)[]>();
+  const competitorRacePenaltyOverrides = new Map<string, (number | null)[]>();
   for (const competitor of competitors) {
     competitorRacePoints.set(competitor.id, []);
     competitorRaceCodes.set(competitor.id, []);
     competitorRacePenaltyCodes.set(competitor.id, []);
+    competitorRacePenaltyOverrides.set(competitor.id, []);
   }
 
   for (const race of races) {
@@ -250,6 +253,7 @@ export function calculateStandings(
       competitorRacePoints.get(competitor.id)!.push(points);
       competitorRaceCodes.get(competitor.id)!.push(code);
       competitorRacePenaltyCodes.get(competitor.id)!.push(finish?.penaltyCode ?? null);
+      competitorRacePenaltyOverrides.get(competitor.id)!.push(finish?.penaltyOverride ?? null);
     }
   }
 
@@ -263,6 +267,7 @@ export function calculateStandings(
     const racePoints = competitorRacePoints.get(competitor.id)!;
     const raceCodes = competitorRaceCodes.get(competitor.id)!;
     const racePenaltyCodes = competitorRacePenaltyCodes.get(competitor.id)!;
+    const racePenaltyOverrides = competitorRacePenaltyOverrides.get(competitor.id)!;
     const totalPoints = racePoints.reduce((sum, p) => sum + p, 0);
 
     // Determine non-discardable flags from code definitions
@@ -290,7 +295,7 @@ export function calculateStandings(
       0,
     );
 
-    return { rank: 0, competitor, racePoints, raceCodes, racePenaltyCodes, totalPoints, netPoints, raceDiscards, raceNonDiscardable };
+    return { rank: 0, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, totalPoints, netPoints, raceDiscards, raceNonDiscardable };
   });
 
   // Sort: lowest net points wins, tie-break per RRS A8.2 (uses all race points)

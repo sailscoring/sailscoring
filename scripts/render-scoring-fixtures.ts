@@ -175,7 +175,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
       );
       const raceScoresByRaceId = new Map<
         string,
-        Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode: PenaltyCode | null }>
+        Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode: PenaltyCode | null; penaltyOverride: number | null }>
       >();
       for (const race of races) {
         const raceFinishes = finishes.filter(
@@ -185,7 +185,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
         const scores = calculateRaceScores(raceFinishes, competitors.filter((c) => fleetCompetitorIds.has(c.id)), dnfScoring);
         raceScoresByRaceId.set(race.id, new Map([...scores.entries()].map(([id, s]) => [
           id,
-          { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null },
+          { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null },
         ])));
       }
 
@@ -227,7 +227,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
 
     const raceScoresByRaceId = new Map<
       string,
-      Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode: PenaltyCode | null }>
+      Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode: PenaltyCode | null; penaltyOverride: number | null }>
     >();
     for (const race of races) {
       const raceFinishes = finishes.filter((f) => f.raceId === race.id);
@@ -235,7 +235,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
       const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
       raceScoresByRaceId.set(race.id, new Map([...scores.entries()].map(([id, s]) => [
         id,
-        { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null },
+        { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null },
       ])));
     }
 
