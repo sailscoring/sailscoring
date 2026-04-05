@@ -116,12 +116,23 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
     const raceScoresByRaceId = new Map(
       races.map((race) => {
         const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
+        const finishByCompetitorId = new Map(
+          finishesForRace
+            .filter((f): f is typeof f & { competitorId: string } => f.competitorId !== null)
+            .map((f) => [f.competitorId, f]),
+        );
         const fleetCompetitors = competitors.filter((c) => fleetCompetitorIds.has(c.id));
         const scores = calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries');
         const scoreMap = new Map(
           [...scores.entries()].map(([id, s]) => [
             id,
-            { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode },
+            {
+              points: s.points,
+              place: s.place,
+              rank: s.rank,
+              resultCode: s.resultCode,
+              penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
+            },
           ]),
         );
         return [race.id, scoreMap] as const;

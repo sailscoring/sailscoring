@@ -237,8 +237,10 @@ export default function HelpPage() {
         </p>
         <ul className="list-disc list-inside space-y-1 pl-2">
           <li>
-            <strong className="text-foreground">ZFP</strong> — Two-Turns Penalty (rule 44.3(a)):
-            adds 20% of the DNF score, rounded to the nearest whole number.
+            <strong className="text-foreground">ZFP</strong> — Z Flag Penalty (rule 30.2):
+            automatically applied (no hearing) to a boat in the triangle zone during the
+            last minute before the start. Adds 20% of the DNF score, rounded to the
+            nearest whole number (formula per rule 44.3(c)).
           </li>
           <li>
             <strong className="text-foreground">SCP</strong> — Scoring Penalty (PC-imposed):

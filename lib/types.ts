@@ -69,7 +69,7 @@ export type ResultCode =
 
 export type PenaltyCode =
   // Additive penalty codes (applied on top of finish; A6.2: other scores unchanged)
-  | 'ZFP'   // Two-Turns Penalty (rule 44.3(a)) — adds 20% of DNF score
+  | 'ZFP'   // Z Flag Penalty (rule 30.2) — adds 20% of DNF score (formula per 44.3(c))
   | 'SCP'   // Scoring Penalty — adds specified % of DNF score (default 20%)
   | 'DPI';  // Discretionary Points Increase — adds stated number of points
 

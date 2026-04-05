@@ -1258,7 +1258,7 @@ export default function ResultEntryPage({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No penalty</SelectItem>
-                  <SelectItem value="ZFP">ZFP — Two-Turns (20%)</SelectItem>
+                  <SelectItem value="ZFP">ZFP — Z Flag (20%)</SelectItem>
                   <SelectItem value="SCP">SCP — Scoring Penalty (%)</SelectItem>
                   <SelectItem value="DPI">DPI — Discretionary Points</SelectItem>
                 </SelectContent>

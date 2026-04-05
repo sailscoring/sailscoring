@@ -1,8 +1,9 @@
-description: "ZFP (Two-Turns Penalty) adds 20% of DNF score to finish place"
+description: "ZFP (Z Flag Penalty) adds 20% of DNF score to finish place"
 rrs_notes: >
-  RRS 44.3(a): a boat that takes a Two-Turns Penalty is scored her finishing
-  place plus 20% of the DNF score, rounded to the nearest whole number, but
-  not more than the DNF score.
+  RRS 30.2 (Z Flag Rule): a boat in the triangle zone during the last minute
+  before the start is penalised without a hearing. The score becomes the
+  finishing place plus 20% of the DNF score, rounded to the nearest whole
+  number, but not more than the DNF score (formula per rule 44.3(c)).
   A6.2: other boats' scores are unchanged (duplicate scores are permitted).
   5 competitors, N=5, DNF score=6.
   ZFP adds round(0.20 × 6) = round(1.2) = 1 point.

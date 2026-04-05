@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import { calculateStandings, calculateFleetStandings, calculateRaceScores } from '../lib/scoring';
 import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-renderer';
-import type { Competitor, Fleet, Race, Finish, DiscardThreshold, ResultCode } from '../lib/types';
+import type { Competitor, Fleet, Race, Finish, DiscardThreshold, ResultCode, PenaltyCode } from '../lib/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +24,8 @@ interface FixtureFinish {
   position?: number;
   code?: ResultCode;
   startPresent?: boolean;
+  penaltyCode?: PenaltyCode;
+  penaltyOverride?: number;
 }
 
 interface FixtureRace {
@@ -87,8 +89,8 @@ function buildInputs(fixture: ScoringFixture) {
         finishPosition: f.position ?? null,
         resultCode: f.code ?? null,
         startPresent: f.startPresent ?? null,
-        penaltyCode: null,
-        penaltyOverride: null,
+        penaltyCode: f.penaltyCode ?? null,
+        penaltyOverride: f.penaltyOverride ?? null,
       });
     }
   }
@@ -173,13 +175,18 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
       );
       const raceScoresByRaceId = new Map<
         string,
-        Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null }>
+        Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode: PenaltyCode | null }>
       >();
       for (const race of races) {
         const raceFinishes = finishes.filter(
           (f) => f.raceId === race.id && f.competitorId !== null && fleetCompetitorIds.has(f.competitorId),
         );
-        raceScoresByRaceId.set(race.id, calculateRaceScores(raceFinishes, competitors.filter((c) => fleetCompetitorIds.has(c.id)), dnfScoring));
+        const finishByCompetitorId = new Map(raceFinishes.filter((f) => f.competitorId !== null).map((f) => [f.competitorId!, f]));
+        const scores = calculateRaceScores(raceFinishes, competitors.filter((c) => fleetCompetitorIds.has(c.id)), dnfScoring);
+        raceScoresByRaceId.set(race.id, new Map([...scores.entries()].map(([id, s]) => [
+          id,
+          { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null },
+        ])));
       }
 
       const data = assembleSeriesResultsData(
@@ -220,11 +227,16 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
 
     const raceScoresByRaceId = new Map<
       string,
-      Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null }>
+      Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode: PenaltyCode | null }>
     >();
     for (const race of races) {
       const raceFinishes = finishes.filter((f) => f.raceId === race.id);
-      raceScoresByRaceId.set(race.id, calculateRaceScores(raceFinishes, competitors, dnfScoring));
+      const finishByCompetitorId = new Map(raceFinishes.filter((f) => f.competitorId !== null).map((f) => [f.competitorId!, f]));
+      const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
+      raceScoresByRaceId.set(race.id, new Map([...scores.entries()].map(([id, s]) => [
+        id,
+        { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null },
+      ])));
     }
 
     const data = assembleSeriesResultsData(

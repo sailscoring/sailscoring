@@ -1,4 +1,4 @@
-import type { ResultCode } from './types';
+import type { ResultCode, PenaltyCode } from './types';
 
 // ---- Input types ----
 
@@ -41,6 +41,7 @@ export interface RaceResultData {
   rank: number | null;    // within-fleet finish rank; null for coded finishes
   points: number;
   resultCode: ResultCode | null;
+  penaltyCode: PenaltyCode | null;
 }
 
 export interface StandingRowData {
@@ -55,6 +56,7 @@ export interface StandingRowData {
 export interface RaceScoreData {
   points: number;
   resultCode: ResultCode | null;
+  penaltyCode: PenaltyCode | null;
   isDiscard: boolean;
   podiumRank: 1 | 2 | 3 | null;
 }
@@ -163,7 +165,7 @@ function renderSummaryTable(
           ]
             .filter(Boolean)
             .join(' ');
-          const text = renderScoreText(score.points, score.resultCode, score.isDiscard);
+          const text = renderScoreText(score.points, score.resultCode, score.penaltyCode, score.isDiscard);
           return classes ? `<td class="${classes}">${text}</td>` : `<td>${text}</td>`;
         })
         .join('\n');
@@ -213,12 +215,13 @@ function renderRaceTable(race: RaceData): string {
       const isRankTied = r.rank !== null && (rankCounts.get(r.rank) ?? 0) > 1;
       const placeText = r.resultCode ?? (r.place !== null ? `${r.place}${isPlaceTied ? '=' : ''}` : '');
       const rankText = r.rank !== null ? `${r.rank}${isRankTied ? '=' : ''}` : '';
+      const pointsText = r.penaltyCode ? `${r.points} ${r.penaltyCode}` : String(r.points);
       return `<tr class="${rowClass} racerow">
 <td>${placeText}</td>
 <td>${esc(r.sailNumber)}</td>
 <td>${esc(r.helm)}</td>
 <td>${rankText}</td>
-<td>${r.points}</td>
+<td>${pointsText}</td>
 </tr>`;
     })
     .join('\n');
@@ -252,9 +255,17 @@ ${rows}
 function renderScoreText(
   points: number,
   resultCode: ResultCode | null,
+  penaltyCode: PenaltyCode | null,
   isDiscard: boolean,
 ): string {
-  const text = resultCode ? `${points} ${resultCode}` : String(points);
+  let text: string;
+  if (resultCode) {
+    text = `${points} ${resultCode}`;
+  } else if (penaltyCode) {
+    text = `${points} ${penaltyCode}`;
+  } else {
+    text = String(points);
+  }
   return isDiscard ? `(${text})` : text;
 }
 
@@ -309,11 +320,12 @@ export function assembleSeriesResultsData(
     competitor: { sailNumber: string; name: string };
     racePoints: number[];
     raceCodes: (ResultCode | null)[];
+    racePenaltyCodes?: (PenaltyCode | null)[];
     totalPoints: number;
     netPoints: number;
     raceDiscards: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null }>>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null }>>,
   competitorsById: Map<string, { sailNumber: string; name: string }>,
   generatedAt: Date,
   fleetName?: string,
@@ -332,6 +344,7 @@ export function assembleSeriesResultsData(
         rank: score.rank,
         points: score.points,
         resultCode: score.resultCode,
+        penaltyCode: score.penaltyCode ?? null,
       });
     }
 
@@ -371,12 +384,14 @@ export function assembleSeriesResultsData(
     helm: s.competitor.name,
     raceScores: s.racePoints.map((points, i) => {
       const resultCode = s.raceCodes[i] ?? null;
+      const penaltyCode = s.racePenaltyCodes?.[i] ?? null;
       const raceNumber = races[i]?.raceNumber ?? i + 1;
       const podium = racePodiums.get(raceNumber);
-      const podiumRank = resultCode === null ? (podium?.get(s.competitor.sailNumber) ?? null) : null;
+      const podiumRank = resultCode === null && penaltyCode === null ? (podium?.get(s.competitor.sailNumber) ?? null) : null;
       return {
         points,
         resultCode,
+        penaltyCode,
         isDiscard: s.raceDiscards[i] ?? false,
         podiumRank,
       };

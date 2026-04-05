@@ -127,9 +127,10 @@ export const BUILT_IN_CODES: readonly ScoringCodeDefinition[] = [
   // ── Additive penalty codes (Phase 2) ───────────────────────────────────────
   {
     code: 'ZFP',
-    name: 'Two-Turns Penalty',
+    name: 'Z Flag Penalty',
     builtIn: true,
-    // Rule 44.3(a): 20% of the DNF score, added to finish place (no override).
+    // Rule 30.2 (Z Flag Rule): 20% of the DNF score added to finish place (formula per 44.3(c)).
+    // Applied automatically — no hearing required. No penaltyOverride (percentage is fixed by rule).
     pointsMethod: { type: 'additive_percentage', defaultPct: 20 },
     discardable: true,
     otherScoresUnchanged: true,   // A6.2: other boats keep their scores
