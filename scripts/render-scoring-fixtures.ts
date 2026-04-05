@@ -259,6 +259,122 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
   return bodyHtml;
 }
 
+// ─── Index generation ─────────────────────────────────────────────────────────
+
+const CATEGORY_META: Record<string, { title: string; intro: string }> = {
+  scratch: {
+    title: 'Scratch racing',
+    intro: "Position-based scoring with no handicap. Each boat's score in a race equals\n  its finishing position. Series score is the sum of race scores; lowest wins.",
+  },
+  fleets: {
+    title: 'Fleets',
+    intro: 'Multi-fleet series where competitors are grouped into fleets and scored\n  independently. The penalty point base N is the fleet size, not the total\n  series entries \u2014 a DNC in a fleet of 3 scores 4, not the series total plus one.',
+  },
+  codes: {
+    title: 'Result codes',
+    intro: 'Scoring behaviour for result codes: position-replacing codes (DNS, DNF, DSQ,\n  OCS, UFD, BFD, RET, NSC, DNC, DNE) and non-discardable penalties. Point\n  values and discard eligibility are governed by RRS Appendix A5 and Rule 30.',
+  },
+};
+
+const BASE_CSS = `body { font: 80% arial, helvetica, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.6em; margin-bottom: 0.2em; }
+p { line-height: 1.6; color: #444; }
+h2 { font-size: 1.1em; margin: 2em 0 0.4em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+ul { margin: 0; padding: 0 0 0 1.2em; }
+li { margin: 0.4em 0; }
+a { color: #336; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }`;
+
+const TABLE_CSS = `table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; vertical-align: top; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }`;
+
+function generateCategoryIndex(
+  categoryDir: string,
+  fixtures: Array<{ yamlPath: string; description: string }>,
+): string {
+  const dirName = basename(categoryDir);
+  const meta = CATEGORY_META[dirName] ?? { title: dirName, intro: '' };
+
+  const rows = fixtures
+    .map((f, i) => {
+      const htmFile = basename(f.yamlPath).replace(/\.yaml$/, '.htm');
+      return `<tr>\n  <td>${i + 1}</td>\n  <td><a href="${htmFile}">${esc(f.description)}</a></td>\n</tr>`;
+    })
+    .join('\n');
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>${esc(meta.title)} \u2014 Sail Scoring Worked Examples</title>
+<style>
+${BASE_CSS}
+${TABLE_CSS}
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All examples</a></p>
+<h1>${esc(meta.title)}</h1>
+<p>
+  ${meta.intro}
+</p>
+
+<h2>Examples</h2>
+<table>
+<thead>
+<tr><th>#</th><th>Scenario</th></tr>
+</thead>
+<tbody>
+${rows}
+</tbody>
+</table>
+
+<footer>
+  <a href="https://sailscoring.ie">sailscoring.ie</a>
+</footer>
+</body>
+</html>
+`;
+}
+
+function generateRootIndex(categories: Array<{ dirName: string; title: string }>): string {
+  const sections = categories
+    .map(
+      ({ dirName, title }) =>
+        `<h2>${esc(title)}</h2>\n<ul>\n  <li><a href="${dirName}/">Browse all ${esc(title.toLowerCase())} examples</a></li>\n</ul>`,
+    )
+    .join('\n\n');
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>Sail Scoring \u2014 Worked Examples</title>
+<style>
+${BASE_CSS}
+</style>
+</head>
+<body>
+<h1>Sail Scoring \u2014 Worked Examples</h1>
+<p>
+  Each example specifies a complete scoring scenario \u2014 fleet, races, finishes, and
+  expected standings \u2014 and shows the arithmetic. They exist so that experienced
+  scorers can verify that the scoring engine produces results consistent with
+  the Racing Rules of Sailing.
+</p>
+
+${sections}
+
+<footer>
+  <a href="https://sailscoring.ie">sailscoring.ie</a>
+</footer>
+</body>
+</html>
+`;
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 const fixtureDir = join(__dirname, '../tests/fixtures/scoring');
@@ -267,7 +383,10 @@ const yamlFiles = readdirSync(fixtureDir, { recursive: true, encoding: 'utf-8' }
   .map((f) => join(fixtureDir, f))
   .sort();
 
-let count = 0;
+// Group yaml files by their immediate parent directory (= category).
+const byCategory = new Map<string, Array<{ yamlPath: string; description: string }>>();
+let htmCount = 0;
+
 for (const yamlPath of yamlFiles) {
   const yamlSource = readFileSync(yamlPath, 'utf-8');
   const fixture = parseYaml(yamlSource) as ScoringFixture;
@@ -275,6 +394,27 @@ for (const yamlPath of yamlFiles) {
   const outPath = yamlPath.replace(/\.yaml$/, '.htm');
   writeFileSync(outPath, html, 'utf-8');
   console.log(`  ${basename(outPath)}`);
-  count++;
+  htmCount++;
+
+  const categoryDir = dirname(yamlPath);
+  if (!byCategory.has(categoryDir)) byCategory.set(categoryDir, []);
+  byCategory.get(categoryDir)!.push({ yamlPath, description: fixture.description });
 }
-console.log(`\nGenerated ${count} fixture preview${count !== 1 ? 's' : ''}.`);
+
+// Generate category index.html files.
+const categories: Array<{ dirName: string; title: string }> = [];
+for (const [categoryDir, fixtures] of [...byCategory.entries()].sort()) {
+  const dirName = basename(categoryDir);
+  const indexHtml = generateCategoryIndex(categoryDir, fixtures);
+  writeFileSync(join(categoryDir, 'index.html'), indexHtml, 'utf-8');
+  console.log(`  ${dirName}/index.html`);
+  categories.push({ dirName, title: (CATEGORY_META[dirName] ?? { title: dirName }).title });
+}
+
+// Generate root index.html.
+const rootIndexHtml = generateRootIndex(categories);
+writeFileSync(join(fixtureDir, 'index.html'), rootIndexHtml, 'utf-8');
+console.log(`  index.html`);
+
+const indexCount = categories.length + 1;
+console.log(`\nGenerated ${htmCount} fixture preview${htmCount !== 1 ? 's' : ''} and ${indexCount} index file${indexCount !== 1 ? 's' : ''}.`);
