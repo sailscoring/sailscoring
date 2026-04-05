@@ -517,9 +517,19 @@ export default function ResultEntryPage({
 
   const codeLabels: Record<NonFinisherCode, string> = {
     'implicit-dnc': 'DNC (absent)',
-    DNC: 'DNC',
+    // Common operational codes — shown first
+    DNS: 'DNS',
     DNF: 'DNF',
     OCS: 'OCS',
+    NSC: 'NSC',
+    RET: 'RET',
+    // Protest committee codes
+    DSQ: 'DSQ',
+    DNE: 'DNE',
+    UFD: 'UFD',
+    BFD: 'BFD',
+    // Explicit absence
+    DNC: 'DNC',
   };
 
   // A competitor is effectively present if they are in the unsaved finishing order OR explicitly

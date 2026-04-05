@@ -196,21 +196,37 @@ export default function HelpPage() {
         </p>
         <p>
           For competitors who did not finish normally, use the result code dropdown next to their
-          name:
+          name. Codes are grouped by how they arise:
         </p>
+        <p className="font-medium text-sm mt-2">Operational codes (assigned during or after the race)</p>
         <ul className="list-disc list-inside space-y-1 pl-2">
-          <li><strong className="text-foreground">DNS</strong> — Did Not Start</li>
+          <li><strong className="text-foreground">DNS</strong> — Did Not Start (came to start area but did not start)</li>
           <li><strong className="text-foreground">DNF</strong> — Did Not Finish</li>
           <li><strong className="text-foreground">OCS</strong> — On Course Side at start (premature starter)</li>
+          <li><strong className="text-foreground">NSC</strong> — Did Not Sail the Course (finished but missed a mark)</li>
+          <li><strong className="text-foreground">RET</strong> — Retired after starting</li>
           <li><strong className="text-foreground">DNC</strong> — Did Not Compete (did not come to the start area)</li>
+        </ul>
+        <p className="font-medium text-sm mt-2">Protest committee codes (entered after a hearing or RC decision)</p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li><strong className="text-foreground">DSQ</strong> — Disqualified</li>
+          <li><strong className="text-foreground">DNE</strong> — Disqualification Not Excludable (cannot be discarded)</li>
+          <li><strong className="text-foreground">UFD</strong> — U Flag Disqualification, rule 30.3 (discardable)</li>
+          <li><strong className="text-foreground">BFD</strong> — Black Flag Disqualification, rule 30.4 (cannot be discarded)</li>
         </ul>
         <p>
           By default (RRS A5.2), all penalty codes score{' '}
           <em>series entries + 1</em> points. If you enable{' '}
           <strong className="text-foreground">A5.3 starting-area scoring</strong> in
-          Settings, DNF and OCS instead score{' '}
+          Settings, most codes instead score{' '}
           <em>starting-area entries + 1</em> for that race — a smaller penalty when
-          turnout is low. DNC always scores series entries + 1 regardless.
+          turnout is low. DNC and BFD always score series entries + 1 regardless.
+        </p>
+        <p>
+          <strong className="text-foreground">DNE and BFD cannot be discarded.</strong>{' '}
+          In the standings table they are shown in red. Even if a DNE or BFD is a
+          competitor&apos;s worst score, the discard falls on their next-worst result
+          instead.
         </p>
       </Section>
 

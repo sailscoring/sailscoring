@@ -54,7 +54,18 @@ export interface Race {
   createdAt: number;
 }
 
-export type ResultCode = 'DNC' | 'DNF' | 'OCS';
+export type ResultCode =
+  // Position-replacing codes (replace finish; boat receives penalty score)
+  | 'DNC'   // Did Not Come to start area — always entries+1
+  | 'DNS'   // Did Not Start
+  | 'OCS'   // On Course Side
+  | 'NSC'   // Did Not Sail the Course
+  | 'DNF'   // Did Not Finish
+  | 'RET'   // Retired
+  | 'DSQ'   // Disqualified (excludable)
+  | 'DNE'   // Disqualification Not Excludable — cannot be discarded
+  | 'UFD'   // U Flag Disqualification (rule 30.3) — discardable
+  | 'BFD';  // Black Flag Disqualification (rule 30.4) — cannot be discarded
 
 export interface Finish {
   id: string;
@@ -104,4 +115,5 @@ export interface Standing {
   totalPoints: number;
   netPoints: number;                // totalPoints minus discarded points
   raceDiscards: boolean[];          // true = this race is discarded from series total
+  raceNonDiscardable: boolean[];    // true = this code cannot be excluded by discard rules (DNE, BFD)
 }

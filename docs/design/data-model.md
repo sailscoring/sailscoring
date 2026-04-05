@@ -246,18 +246,38 @@ system configured on the Competitor's Fleet.
 
 ### Result Codes
 
-| Code | Description | Default Points |
-|------|-------------|----------------|
-| DNS | Did Not Start | Entries + 1 |
-| DNF | Did Not Finish | Entries + 1 |
-| DSQ | Disqualified | Entries + 1 |
-| OCS | On Course Side | Entries + 1 |
-| UFD | U Flag Disqualification | Entries + 1 |
-| BFD | Black Flag Disqualification | Entries + 1 |
-| RET | Retired | Entries + 1 |
-| DNC | Did Not Compete | Entries + 1 |
-| RDG | Redress Given | Variable |
-| SCP | Scoring Penalty | Variable |
+The codes currently implemented are a subset. See `docs/design/scoring-codes.md`
+for the full code taxonomy, discardability rules, and phased implementation plan.
+
+**Position-replacing codes** (replace the finish position; boat receives a
+penalty score):
+
+| Code | Description | Default Points | Discardable? |
+|------|-------------|----------------|--------------|
+| DNC | Did Not Come to start area | Series entries + 1 | Yes |
+| DNS | Did Not Start | Starters/entries + 1 | Yes |
+| OCS | On Course Side | Starters/entries + 1 | Yes |
+| NSC | Did Not Sail the Course | Starters/entries + 1 | Yes |
+| DNF | Did Not Finish | Starters/entries + 1 | Yes |
+| RET | Retired | Starters/entries + 1 | Yes |
+| DSQ | Disqualified | Starters/entries + 1 | Yes |
+| DNE | Disqualification Not Excludable | Starters/entries + 1 | **No** |
+| UFD | U Flag Disqualification | Starters/entries + 1 | Yes |
+| BFD | Black Flag Disqualification | Entries + 1 | **No** |
+
+**Additive penalty codes** (amend a finish position; other boats unaffected):
+
+| Code | Description | Points | Discardable? |
+|------|-------------|--------|--------------|
+| ZFP | Z Flag Penalty | Base + 20% of DNF score (≤ DNF score) | Yes |
+| SCP | Scoring Penalty | Base + stated % or 20% default (≤ DNF score) | Yes |
+| DPI | Discretionary Penalty Imposed | Base + stated points | Yes |
+
+**Redress:**
+
+| Code | Description | Points | Discardable? |
+|------|-------------|--------|--------------|
+| RDG | Redress Given | Average of other races (A9 method) | Yes |
 
 ### Scoring Systems
 

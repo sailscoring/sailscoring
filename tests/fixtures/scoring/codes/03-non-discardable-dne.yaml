@@ -1,0 +1,100 @@
+description: "Scratch — 4 boats, 3 races, 1 discard; DNE cannot be discarded even when it is the worst score"
+rrs_notes: >
+  RRS: DNE (Disqualification Not Excludable) is a protest-committee
+  disqualification that shall not be excluded from series scoring.
+  Like DSQ but the DNE flag prevents discard selection.
+  DNE scores N+1 using the dnfScoring setting (starters or entries).
+  With 4 entered boats and seriesEntries scoring, DNE = 5.
+
+series:
+  discardThresholds:
+    - minRaces: 3
+      discardCount: 1
+
+competitors:
+  - sailNumber: "11"
+    name: "Alice"
+  - sailNumber: "22"
+    name: "Bob"
+  - sailNumber: "33"
+    name: "Carol"
+  - sailNumber: "44"
+    name: "David"
+
+races:
+  - number: 1
+    finishes:
+      - sailor: "11"
+        position: 1
+      - sailor: "22"
+        position: 2
+      - sailor: "33"
+        position: 3
+      - sailor: "44"
+        position: 4
+
+  - number: 2
+    finishes:
+      - sailor: "11"
+        position: 1
+      - sailor: "22"
+        position: 2
+      - sailor: "33"
+        position: 3
+      - sailor: "44"
+        position: 4
+
+  - number: 3
+    # Alice gets DNE — worst possible score (5 pts) but non-discardable.
+    # Her next-worst discardable score is 1 (R1 or R2); discard one of those.
+    finishes:
+      - sailor: "11"
+        code: DNE    # 5 pts, non-discardable
+      - sailor: "22"
+        position: 1
+      - sailor: "33"
+        position: 2
+      - sailor: "44"
+        position: 3
+
+# Alice: R1=1, R2=1, R3=5(DNE,non-disc). Total=7. Discard worst discardable=1(R1). Net=6.
+# Bob:   R1=2, R2=2, R3=1.               Total=5. Discard worst=2(R1).             Net=3.
+# Carol: R1=3, R2=3, R3=2.               Total=8. Discard worst=3(R1).             Net=5.
+# David: R1=4, R2=4, R3=3.               Total=11. Discard worst=4(R1).            Net=7.
+expected:
+  standings:
+    - rank: 1
+      sailor: "22"
+      racePoints: [2, 2, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [true, false, false]
+      raceNonDiscardable: [false, false, false]
+      totalPoints: 5
+      netPoints: 3
+
+    - rank: 2
+      sailor: "33"
+      racePoints: [3, 3, 2]
+      raceCodes: [null, null, null]
+      raceDiscards: [true, false, false]
+      raceNonDiscardable: [false, false, false]
+      totalPoints: 8
+      netPoints: 5
+
+    - rank: 3
+      sailor: "11"
+      racePoints: [1, 1, 5]
+      raceCodes: [null, null, "DNE"]
+      raceDiscards: [true, false, false]
+      raceNonDiscardable: [false, false, true]
+      totalPoints: 7
+      netPoints: 6
+
+    - rank: 4
+      sailor: "44"
+      racePoints: [4, 4, 3]
+      raceCodes: [null, null, null]
+      raceDiscards: [true, false, false]
+      raceNonDiscardable: [false, false, false]
+      totalPoints: 11
+      netPoints: 7

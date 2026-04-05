@@ -88,6 +88,46 @@ be defined are collected at the bottom.
 | Redress | Compensation given to a boat whose score has been made significantly worse through no fault of her own (e.g. by a race committee error or giving help). Granted by the protest committee, typically as average points. Recorded as code RDG. |
 | Jury | The protest committee, especially at major events where an independent (international) jury is appointed. Decisions of the jury on scoring matters are implemented by the scorer. |
 
+### Scoring Codes — Position-Replacing
+
+RRS Appendix A calls these *scoring abbreviations*; this application uses
+*scoring codes*, which is the convention in most scoring software. The terms
+are interchangeable.
+
+These codes replace a finish position entirely. The boat receives a penalty
+score instead of a place-based score.
+
+| Term | Definition |
+|------|------------|
+| DNC | Did Not Come to starting area. The boat did not appear in the starting area for this race. Always scored at series entries + 1 regardless of how other penalty codes are scored. A boat with no finish record is implicitly scored DNC. |
+| DNS | Did Not Start. The boat came to the starting area but did not start (for any reason other than OCS). Scored at starters + 1 or entries + 1 depending on the series A5 configuration. |
+| OCS | On Course Side. The boat was on the course side of the starting line at her starting signal and failed to return to start correctly, or broke rule 30.1. Scored the same as DNS. |
+| NSC | Did Not Sail the Course. The boat finished but is deemed not to have sailed the course (e.g. missed a mark). Not to be confused with DNF; scored the same as DNS/DNF. |
+| DNF | Did Not Finish. The boat started but did not finish within the time limit or retired before finishing. Scored at starters + 1 or entries + 1. |
+| RET | Retired. The boat voluntarily withdrew from the race after starting, typically after acknowledging a rules infringement under rule 44.1. Scored the same as DNF. |
+| DSQ | Disqualified. The boat's result was removed by the protest committee following a hearing. Scored at entries + 1 (or starters + 1); discardable. |
+| DNE | Disqualification Not Excludable. A disqualification whose score cannot be excluded from the series total regardless of the discard rules. Applied when the protest committee determines the breach was serious enough to preclude discard (e.g. breaking rule 2). |
+| UFD | U Flag Disqualification. Disqualification imposed without a hearing under rule 30.3 (U Flag Rule) for being in the triangle zone in the last minute before the start. Discardable. |
+| BFD | Black Flag Disqualification. Disqualification imposed without a hearing under rule 30.4 (Black Flag Rule). Unlike UFD, BFD cannot be excluded from series scoring. |
+
+### Scoring Codes — Additive Penalties
+
+These codes amend a recorded finish position by adding penalty points. The
+boat retains its finishing place for ranking purposes; only its own score
+changes (per RRS A6.2, other boats' scores are not recalculated).
+
+| Term | Definition |
+|------|------------|
+| ZFP | Z Flag Penalty. Applied without a hearing under rule 30.2 (Z Flag Rule) for a boat in the triangle zone during the last minute before the start. The penalty is 20% of the DNF score for that race (per rule 44.3(c)), added to the boat's finishing-place score. The boat's score cannot exceed the DNF score. Can be applied again if identified on a subsequent re-start attempt. |
+| SCP | Scoring Penalty. An additive penalty imposed by the protest committee per rule 44.3. The penalty amount is stated in the notice of race or sailing instructions; if not stated, it defaults to 20% of the DNF score. The boat's score cannot exceed the DNF score. |
+| DPI | Discretionary Penalty Imposed. An additive penalty where the protest committee specifies the points to add. Similar to SCP but with a committee-determined points value rather than a percentage. |
+
+### Scoring Codes — Redress
+
+| Term | Definition |
+|------|------------|
+| RDG | Redress Given. Applied by the protest committee when a boat's score has been made significantly worse through no fault of her own (rule 62). The boat's score for the affected race is replaced by an average calculated from her other races (see RRS A9 for recommended averaging methods). Three methods are used in practice: average of all other races (A9a), average of races before the incident (A9b), or points based on position at time of incident (A9c). |
+
 ### Rules and Governance
 
 | Term | Definition |
@@ -155,23 +195,9 @@ be defined are collected at the bottom.
 
 ### Result Codes
 
-| # | Term | Also known as |
-|---|------|---------------|
-| 1 | DNC | Did Not Compete |
-| 2 | DNS | Did Not Start |
-| 3 | OCS | On Course Side |
-| 4 | DNF | Did Not Finish |
-| 5 | DSQ | Disqualified |
-| 6 | UFD | U Flag Disqualification |
-| 7 | BFD | Black Flag Disqualification |
-| 8 | RET | Retired |
-| 9 | RDG | Redress Given |
-| 10 | SCP | Scoring Penalty |
-| 11 | TLE | Time Limit Expired |
-| 12 | ZFP | Z Flag Penalty |
-| 13 | DPI | Discretionary Penalty Imposed |
-| 14 | NSC | Did Not Sail the Course |
-| 15 | DNE | Disqualification Not Excludable |
+| # | Term | Notes |
+|---|------|-------|
+| 1 | TLE | Time Limit Expired — used in some systems; scoring treatment varies by event rules |
 
 ### Series Scoring
 

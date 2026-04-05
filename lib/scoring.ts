@@ -1,16 +1,17 @@
 import type { Competitor, Fleet, Race, Finish, RaceScore, Standing, ResultCode, DiscardThreshold } from './types';
+import { getCodeDefinition } from './scoring-codes';
 
 /**
  * Calculate race scores for all competitors in a series.
  *
  * Rules (Low Point, RRS Appendix A):
  *  - finisher:  points = finishing position within fleet
- *  - DNC (or missing finish): points = N + 1 where N = number of competitors (series entries)
- *  - DNF/OCS and other codes:
- *    - A5.2 (dnfScoring = 'seriesEntries', default): points = series entries + 1
- *    - A5.3 (dnfScoring = 'startingArea'): points = starting-area entries + 1.
- *      Starting-area count: if any finish has startPresent=true, count those; otherwise
- *      fall back to counting all non-DNC finishes as a proxy.
+ *  - Coded result: points determined by the code's ScoringCodeDefinition.
+ *    penaltyBase 'entries' → series entries + 1 (always; e.g. DNC, BFD)
+ *    penaltyBase 'starters' → depends on dnfScoring:
+ *      'seriesEntries' (A5.2, default): series entries + 1
+ *      'startingArea'  (A5.3): starting-area entries + 1
+ *  - Missing finish record → implicit DNC (entries + 1)
  *
  * @param finishes  All Finish records for this race
  * @param competitors  All competitors in the series
@@ -25,8 +26,8 @@ export function calculateRaceScores(
   const n = competitors.length;
   const seriesEntryPenalty = n + 1;
 
-  // Under A5.3, compute a per-race penalty for DNF/OCS/etc. (not DNC).
-  // DNC always uses seriesEntryPenalty regardless of dnfScoring setting.
+  // Under A5.3, compute a per-race penalty for 'starters'-base codes.
+  // 'entries'-base codes (DNC, BFD) always use seriesEntryPenalty regardless.
   let startingAreaPenalty = seriesEntryPenalty;
   if (dnfScoring === 'startingArea') {
     const hasCheckinData = finishes.some((f) => f.startPresent === true);
@@ -48,16 +49,7 @@ export function calculateRaceScores(
     const finish = finishMap.get(competitor.id);
 
     if (!finish) {
-      // Missing finish record = implicit DNC — always scores series entries + 1
-      result.set(competitor.id, {
-        competitorId: competitor.id,
-        points: seriesEntryPenalty,
-        place: null,
-        rank: null,
-        resultCode: 'DNC',
-      });
-    } else if (finish.resultCode === 'DNC') {
-      // Explicit DNC — always scores series entries + 1 (even under A5.3)
+      // Missing finish record = implicit DNC — always series entries + 1
       result.set(competitor.id, {
         competitorId: competitor.id,
         points: seriesEntryPenalty,
@@ -66,10 +58,11 @@ export function calculateRaceScores(
         resultCode: 'DNC',
       });
     } else if (finish.resultCode !== null) {
-      // DNF, OCS, or other penalty code — uses startingAreaPenalty under A5.3
+      const def = getCodeDefinition(finish.resultCode);
+      const points = penaltyPoints(def?.pointsMethod ?? { type: 'fixed_penalty', penaltyBase: 'entries' }, seriesEntryPenalty, startingAreaPenalty);
       result.set(competitor.id, {
         competitorId: competitor.id,
-        points: startingAreaPenalty,
+        points,
         place: null,
         rank: null,
         resultCode: finish.resultCode,
@@ -124,6 +117,17 @@ export function calculateRaceScores(
 }
 
 /**
+ * Resolve penalty points from a PointsMethod and the two penalty bases.
+ */
+function penaltyPoints(
+  method: { type: 'fixed_penalty'; penaltyBase: 'entries' | 'starters' },
+  seriesEntryPenalty: number,
+  startingAreaPenalty: number,
+): number {
+  return method.penaltyBase === 'entries' ? seriesEntryPenalty : startingAreaPenalty;
+}
+
+/**
  * Get the number of discards to apply for a given race count.
  *
  * Thresholds are checked from highest minRaces to lowest; the first matching
@@ -152,6 +156,9 @@ export function getDiscardCount(
  * race points including discards). If still tied, the competitor with the
  * better (lower) score in the most recent race ranks higher.
  *
+ * Non-discardable codes (DNE, BFD) are protected from discard selection even
+ * when they are the worst score.
+ *
  * @param competitors  All competitors in the series
  * @param races  All races in the series, sorted by raceNumber ascending
  * @param allFinishes  All finishes in the series
@@ -176,6 +183,7 @@ export function calculateStandings(
       totalPoints: 0,
       netPoints: 0,
       raceDiscards: [],
+      raceNonDiscardable: [],
     }));
   }
 
@@ -218,14 +226,23 @@ export function calculateStandings(
     const raceCodes = competitorRaceCodes.get(competitor.id)!;
     const totalPoints = racePoints.reduce((sum, p) => sum + p, 0);
 
-    // Determine which races are discarded: pick the N worst (highest points),
-    // earliest index first when tied on points.
+    // Determine non-discardable flags from code definitions
+    const raceNonDiscardable = raceCodes.map((code) => {
+      if (!code) return false;
+      const def = getCodeDefinition(code);
+      return def ? !def.discardable : false;
+    });
+
+    // Select worst N discardable scores to discard; non-discardable races are skipped.
     const raceDiscards = new Array<boolean>(racePoints.length).fill(false);
     if (discardCount > 0) {
-      const indexed = racePoints.map((p, i) => ({ p, i }));
-      indexed.sort((a, b) => b.p - a.p || a.i - b.i);
-      for (let d = 0; d < discardCount; d++) {
-        raceDiscards[indexed[d].i] = true;
+      const discardable = racePoints
+        .map((p, i) => ({ p, i }))
+        .filter(({ i }) => !raceNonDiscardable[i]);
+      discardable.sort((a, b) => b.p - a.p || a.i - b.i);
+      const effectiveCount = Math.min(discardCount, discardable.length);
+      for (let d = 0; d < effectiveCount; d++) {
+        raceDiscards[discardable[d].i] = true;
       }
     }
 
@@ -234,7 +251,7 @@ export function calculateStandings(
       0,
     );
 
-    return { rank: 0, competitor, racePoints, raceCodes, totalPoints, netPoints, raceDiscards };
+    return { rank: 0, competitor, racePoints, raceCodes, totalPoints, netPoints, raceDiscards, raceNonDiscardable };
   });
 
   // Sort: lowest net points wins, tie-break per RRS A8.2 (uses all race points)

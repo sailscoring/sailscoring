@@ -1,0 +1,96 @@
+description: "Scratch — 6 boats, 1 race, new position-replacing codes (DNS, NSC, RET, DSQ, UFD)"
+rrs_notes: >
+  RRS A5.2 (seriesEntries default): boats that did not start, did not finish,
+  retired, or were disqualified score N+1 where N = number of boats entered.
+  DNS, NSC, RET, DSQ, and UFD all score identically to DNF under A5.2.
+  With 6 entered boats, N+1 = 7.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+  - sailNumber: "505"
+    name: "Eve"
+  - sailNumber: "606"
+    name: "Frank"
+
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        code: DNS    # came to area, did not start
+      - sailor: "303"
+        code: NSC    # finished but did not sail the course
+      - sailor: "404"
+        code: RET    # retired after starting
+      - sailor: "505"
+        code: DSQ    # disqualified by protest committee
+      - sailor: "606"
+        code: UFD    # U Flag disqualification (rule 30.3)
+
+# All coded results score N+1 = 7 under A5.2.
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      raceNonDiscardable: [false]
+      totalPoints: 1
+      netPoints: 1
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [7]
+      raceCodes: ["DNS"]
+      raceDiscards: [false]
+      raceNonDiscardable: [false]
+      totalPoints: 7
+      netPoints: 7
+
+    - rank: 2
+      sailor: "303"
+      racePoints: [7]
+      raceCodes: ["NSC"]
+      raceDiscards: [false]
+      raceNonDiscardable: [false]
+      totalPoints: 7
+      netPoints: 7
+
+    - rank: 2
+      sailor: "404"
+      racePoints: [7]
+      raceCodes: ["RET"]
+      raceDiscards: [false]
+      raceNonDiscardable: [false]
+      totalPoints: 7
+      netPoints: 7
+
+    - rank: 2
+      sailor: "505"
+      racePoints: [7]
+      raceCodes: ["DSQ"]
+      raceDiscards: [false]
+      raceNonDiscardable: [false]
+      totalPoints: 7
+      netPoints: 7
+
+    - rank: 2
+      sailor: "606"
+      racePoints: [7]
+      raceCodes: ["UFD"]
+      raceDiscards: [false]
+      raceNonDiscardable: [false]
+      totalPoints: 7
+      netPoints: 7

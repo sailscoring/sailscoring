@@ -36,6 +36,7 @@ interface FixtureStanding {
   racePoints: number[];
   raceCodes: (ResultCode | null)[];
   raceDiscards: boolean[];
+  raceNonDiscardable?: boolean[];   // optional; assert only when present in fixture
   totalPoints: number;
   netPoints: number;
 }
@@ -173,6 +174,9 @@ describe('scoring fixtures', () => {
         expect(standing.racePoints, `${label}: racePoints`).toEqual(expected.racePoints);
         expect(standing.raceCodes, `${label}: raceCodes`).toEqual(expected.raceCodes);
         expect(standing.raceDiscards, `${label}: raceDiscards`).toEqual(expected.raceDiscards);
+        if (expected.raceNonDiscardable !== undefined) {
+          expect(standing.raceNonDiscardable, `${label}: raceNonDiscardable`).toEqual(expected.raceNonDiscardable);
+        }
         expect(standing.totalPoints, `${label}: totalPoints`).toBe(expected.totalPoints);
         expect(standing.netPoints, `${label}: netPoints`).toBe(expected.netPoints);
       }

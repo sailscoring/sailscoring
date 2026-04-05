@@ -377,8 +377,24 @@ code buttons for each unaccounted boat:
 ```
 
 Clicking a code button assigns it immediately and removes the boat from the
-panel. The `[···]` button opens a picker for less common codes (UFD, BFD,
-RET, DNC, RDG, SCP).
+panel. The `[···]` button opens a picker for less common codes. Code picker
+layout (most frequent first):
+
+```
+  [DNS]  [DNF]  [OCS]
+  [NSC]  [RET]  [DSQ]
+  [DNE]  [UFD]  [BFD]
+  [DNC]
+```
+
+DSQ/DNE/UFD/BFD are protest committee codes; they are deliberately placed after
+the common operational codes. See `docs/design/scoring-codes.md` for the full
+code taxonomy.
+
+**Additive penalties (ZFP, SCP, DPI):** These codes amend a recorded finish
+position rather than replacing it. They are applied to boats already in the
+finish list, not from the "Not yet recorded" panel. See `scoring-codes.md` for
+the UX design for penalty entry (deferred to Phase 2).
 
 **Implicit DNC:** Boats with no finish record and no result code are
 implicitly scored as DNC. The scorer does not need to take any action for

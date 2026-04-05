@@ -926,7 +926,7 @@ function StandingRow({
   raceCount: number;
   hasDiscards: boolean;
 }) {
-  const { rank, competitor, racePoints, raceCodes, totalPoints, netPoints, raceDiscards } = standing;
+  const { rank, competitor, racePoints, raceCodes, totalPoints, netPoints, raceDiscards, raceNonDiscardable } = standing;
 
   // Highlight rank 1 row
   const isFirst = rank === 1;
@@ -947,6 +947,7 @@ function StandingRow({
       <TableCell className="text-muted-foreground">{competitor.club}</TableCell>
       {racePoints.map((points, i) => {
         const isDiscard = raceDiscards[i] ?? false;
+        const isNonDiscardable = raceNonDiscardable[i] ?? false;
         const code = raceCodes[i];
         return (
           <TableCell
@@ -957,7 +958,15 @@ function StandingRow({
             )}
           >
             {code !== null ? (
-              <span className={cn('text-xs', !isDiscard && 'text-muted-foreground')}>
+              <span
+                className={cn(
+                  'text-xs',
+                  isNonDiscardable
+                    ? 'text-destructive font-semibold'
+                    : !isDiscard && 'text-muted-foreground',
+                )}
+                title={isNonDiscardable ? `${code} — cannot be discarded` : undefined}
+              >
                 {points}
                 <span className="ml-0.5">({code})</span>
               </span>

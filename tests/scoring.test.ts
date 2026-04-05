@@ -100,6 +100,40 @@ describe('calculateRaceScores', () => {
     expect(scores.get('C')?.place).toBe(2);
   });
 
+  it('scores DNS, NSC, RET, DSQ, UFD as N+1 (same as DNF)', () => {
+    for (const code of ['DNS', 'NSC', 'RET', 'DSQ', 'UFD'] as const) {
+      const finishes = [makeFinish('r1', 'A', null, code)];
+      const scores = calculateRaceScores(finishes, competitors);
+      expect(scores.get('A')?.points, `${code} should score N+1`).toBe(n + 1);
+      expect(scores.get('A')?.resultCode).toBe(code);
+    }
+  });
+
+  it('scores DNE as N+1 (same as DNF, but non-discardable — tracked separately)', () => {
+    const finishes = [makeFinish('r1', 'A', null, 'DNE')];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('A')?.points).toBe(n + 1);
+    expect(scores.get('A')?.resultCode).toBe('DNE');
+  });
+
+  it('scores BFD as entries+1 (same as DNC, regardless of dnfScoring)', () => {
+    // Under startingArea scoring, 'starters'-base codes score starters+1.
+    // BFD uses 'entries' base so it always scores entries+1, same as DNC.
+    const finishes = [
+      makeFinish('r1', 'A', null, 'BFD'),
+      // B–E present in start area
+      makeFinish('r1', 'B', 1),
+      makeFinish('r1', 'C', 2),
+      makeFinish('r1', 'D', 3),
+      makeFinish('r1', 'E', 4),
+    ];
+    const scores = calculateRaceScores(finishes, competitors, 'startingArea');
+    // starters = 4 (B, C, D, E); startingAreaPenalty = 5
+    // BFD uses 'entries': entries+1 = 6
+    expect(scores.get('A')?.points).toBe(n + 1); // 6
+    expect(scores.get('B')?.points).toBe(1);
+  });
+
   it('averages points for a three-way tie', () => {
     // A, B, C all at position 1 → each scores (1+2+3)/3 = 2; D at position 4 scores 4
     const finishes = [
@@ -225,6 +259,42 @@ describe('calculateStandings', () => {
     const standings = calculateStandings([a], oneRace, finishes);
     expect(standings[0].netPoints).toBe(standings[0].totalPoints);
     expect(standings[0].raceDiscards).toEqual([false]);
+    expect(standings[0].raceNonDiscardable).toEqual([false]);
+  });
+
+  it('marks DNE and BFD races as non-discardable', () => {
+    const [a, b, c] = competitors;
+    const threeRaces = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3)];
+    const finishes: Finish[] = [
+      makeFinish('r1', 'A', 1), makeFinish('r1', 'B', 2), makeFinish('r1', 'C', 3),
+      makeFinish('r2', 'A', null, 'DNE'), makeFinish('r2', 'B', 1), makeFinish('r2', 'C', 2),
+      makeFinish('r3', 'A', null, 'BFD'), makeFinish('r3', 'B', 1), makeFinish('r3', 'C', 2),
+    ];
+    const standings = calculateStandings(competitors, threeRaces, finishes);
+    const aStanding = standings.find((s) => s.competitor.id === 'A')!;
+    expect(aStanding.raceNonDiscardable).toEqual([false, true, true]);
+    const bStanding = standings.find((s) => s.competitor.id === 'B')!;
+    expect(bStanding.raceNonDiscardable).toEqual([false, false, false]);
+  });
+
+  it('does not discard non-discardable DNE even when it is the worst score', () => {
+    // A: R1=1, R2=DNE(4), R3=1. With 1 discard, DNE should NOT be discarded.
+    // Worst discardable for A is 1 (R1 or R3).
+    const [a, b, c] = competitors;
+    const threeRaces = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3)];
+    const finishes: Finish[] = [
+      makeFinish('r1', 'A', 1), makeFinish('r1', 'B', 2), makeFinish('r1', 'C', 3),
+      makeFinish('r2', 'A', null, 'DNE'), makeFinish('r2', 'B', 1), makeFinish('r2', 'C', 2),
+      makeFinish('r3', 'A', 1), makeFinish('r3', 'B', 2), makeFinish('r3', 'C', 3),
+    ];
+    const thresholds: DiscardThreshold[] = [{ minRaces: 3, discardCount: 1 }];
+    const standings = calculateStandings(competitors, threeRaces, finishes, thresholds);
+    const aStanding = standings.find((s) => s.competitor.id === 'A')!;
+    // DNE (R2) must not be discarded; R1 (=1pt) is discarded instead
+    expect(aStanding.raceDiscards).toEqual([true, false, false]);
+    expect(aStanding.raceNonDiscardable).toEqual([false, true, false]);
+    // Net = DNE(4) + R3(1) = 5
+    expect(aStanding.netPoints).toBe(5);
   });
 });
 
