@@ -29,6 +29,27 @@ import { log } from '@/lib/debug';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 
+/**
+ * Accept flexible time input: "HH:MM:SS", "H:MM:SS", or bare digits "HHMMSS" / "HMMSS".
+ * Returns a normalised "HH:MM:SS" string, or null if the input cannot be parsed.
+ */
+function normalizeTimeInput(raw: string): string | null {
+  const s = raw.trim();
+  let h: number, m: number, sec: number;
+  if (/^\d{1,2}:\d{2}:\d{2}$/.test(s)) {
+    [h, m, sec] = s.split(':').map(Number);
+  } else if (/^\d{5,6}$/.test(s)) {
+    const p = s.padStart(6, '0');
+    h = parseInt(p.slice(0, 2), 10);
+    m = parseInt(p.slice(2, 4), 10);
+    sec = parseInt(p.slice(4, 6), 10);
+  } else {
+    return null;
+  }
+  if (m > 59 || sec > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
 type NonFinisherCode = ResultCode | 'implicit-dnc';
 
 type RedressMethod = 'all_races' | 'races_before' | 'stated';
@@ -305,8 +326,9 @@ export default function ResultEntryPage({
   }
 
   async function handleSaveStart() {
-    if (!/^\d{1,2}:\d{2}:\d{2}$/.test(startTimeInput.trim())) {
-      setStartDialogError('Time must be in HH:MM:SS format (e.g. 14:05:00).');
+    const normalizedStart = normalizeTimeInput(startTimeInput);
+    if (!normalizedStart) {
+      setStartDialogError('Enter a valid time, e.g. 14:05:00 or 140500.');
       return;
     }
     if (startFleetIds.length === 0) {
@@ -326,7 +348,7 @@ export default function ResultEntryPage({
       id: startDialog?.editingId ?? crypto.randomUUID(),
       raceId,
       fleetIds: startFleetIds,
-      startTime: startTimeInput.trim(),
+      startTime: normalizedStart,
     };
     await raceStartRepo.save(raceStart);
     await seriesRepo.touch(seriesId);
@@ -436,13 +458,13 @@ export default function ResultEntryPage({
 
   function confirmPendingTime() {
     if (!pendingTimeEntry) return;
-    const time = pendingTimeValue.trim();
-    if (!time) {
+    if (!pendingTimeValue.trim()) {
       setPendingTimeError('Finish time is required.');
       return;
     }
-    if (!/^\d{1,2}:\d{2}:\d{2}$/.test(time)) {
-      setPendingTimeError('Time must be in HH:MM:SS format (e.g. 14:32:10).');
+    const time = normalizeTimeInput(pendingTimeValue);
+    if (!time) {
+      setPendingTimeError('Enter a valid time, e.g. 14:32:10 or 143210.');
       return;
     }
     addKnownFinisher(pendingTimeEntry.competitor, time);
@@ -1113,7 +1135,7 @@ export default function ResultEntryPage({
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Gun time (HH:MM:SS)</label>
+              <label className="text-sm font-medium">Gun time</label>
               <input
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm font-mono shadow-sm"
                 value={startTimeInput}
@@ -1426,6 +1448,10 @@ export default function ResultEntryPage({
                       type="text"
                       value={finishTimes.get(entry.competitorId) ?? ''}
                       onChange={(e) => setFinishTimes((prev) => new Map(prev).set(entry.competitorId, e.target.value))}
+                      onBlur={(e) => {
+                        const normalized = normalizeTimeInput(e.target.value);
+                        if (normalized) setFinishTimes((prev) => new Map(prev).set(entry.competitorId, normalized));
+                      }}
                       placeholder="HH:MM:SS"
                       aria-label={`Finish time for ${competitor.sailNumber}`}
                       data-testid={`finish-time-${competitor.sailNumber}`}
