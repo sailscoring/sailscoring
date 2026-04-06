@@ -154,6 +154,189 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
   expect(jsonBlobIdx).toBeGreaterThan(footerIdx);
 });
 
+/**
+ * Multi-fleet IRC handicap export test.
+ *
+ * Two fleets: Cruiser (scratch, 2 boats) and IRC (IRC scoring, 3 boats).
+ * 1 race. IRC fleet has a start at 14:00:00, finish times recorded.
+ *
+ * IRC fleet:
+ *   B1 (TCC=1.100): finishes 14:25:00 → ET=1500s → CT=1650.0s → 1st
+ *   B2 (TCC=1.050): finishes 14:28:00 → ET=1680s → CT=1764.0s → 2nd
+ *   B3 (TCC=1.000): finishes 14:30:00 → ET=1800s → CT=1800.0s → 3rd
+ *
+ * Cruiser fleet:
+ *   C1 finishes 1st, C2 finishes 2nd (scratch positions)
+ *
+ * Exported JSON should include fleets, competitor fleetNames/ratings,
+ * per-race starts, finish times, and per-fleet standings.
+ */
+test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fleet standings', async ({ page }) => {
+  // ── 1. Create series ──────────────────────────────────────────────────────
+  await page.goto('/');
+  await page.getByRole('link', { name: 'New series' }).click();
+  await page.getByLabel('Name').fill('Multi-Fleet Export Test');
+  await page.getByRole('button', { name: 'Create series' }).click();
+  await expect(page).toHaveURL(/\/competitors$/);
+
+  // ── 2. Add competitors: 3 IRC, 2 Cruiser ─────────────────────────────────
+  const boats = [
+    { sail: 'B1', name: 'Fast One', fleet: 'IRC' },
+    { sail: 'B2', name: 'Mid Two', fleet: 'IRC' },
+    { sail: 'B3', name: 'Slow Three', fleet: 'IRC' },
+    { sail: 'C1', name: 'Cruiser Alpha', fleet: 'Cruiser' },
+    { sail: 'C2', name: 'Cruiser Beta', fleet: 'Cruiser' },
+  ];
+  for (const b of boats) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(b.sail);
+    await page.getByLabel('Helm name').fill(b.name);
+    await page.getByLabel('Fleet').fill(b.fleet);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: b.sail })).toBeVisible();
+  }
+
+  // ── 3. Set IRC fleet scoring system to IRC ────────────────────────────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const fleetsHeading = page.getByRole('heading', { name: 'Fleets', level: 2 });
+  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
+  // Find the IRC fleet's combobox and change to IRC
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).first().click();
+  await page.getByRole('option', { name: 'IRC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 4. Set TCC ratings on IRC boats ───────────────────────────────────────
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  const tccs: Record<string, string> = { B1: '1.100', B2: '1.050', B3: '1.000' };
+  for (const sail of ['B1', 'B2', 'B3']) {
+    const row = page.getByRole('row').filter({ hasText: sail });
+    await row.getByRole('button', { name: /Edit/ }).click();
+    await page.getByLabel('IRC TCC').fill(tccs[sail]);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: sail })).toBeVisible();
+  }
+
+  // ── 5. Add a race ─────────────────────────────────────────────────────────
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 1')).toBeVisible();
+
+  // ── 6. Enter race results ─────────────────────────────────────────────────
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  // Add start time for IRC fleet
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByLabel('IRC').check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('14:00:00')).toBeVisible();
+
+  // Add IRC finishers with times
+  for (const { sail, time } of [
+    { sail: 'B1', time: '14:25:00' },
+    { sail: 'B2', time: '14:28:00' },
+    { sail: 'B3', time: '14:30:00' },
+  ]) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(time);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+
+  // Add Cruiser finishers (scratch, no times)
+  for (const sail of ['C1', 'C2']) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+
+  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+
+  // ── 7. Navigate to Standings and export IRC fleet HTML ────────────────────
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('heading', { name: 'IRC' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cruiser' })).toBeVisible();
+
+  // Export IRC fleet HTML via dropdown
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    (async () => {
+      await page.getByRole('button', { name: /Export HTML/ }).click();
+      await page.getByRole('menuitem', { name: 'IRC' }).click();
+    })(),
+  ]);
+
+  // ── 8. Read and parse the HTML ────────────────────────────────────────────
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  const html = Buffer.concat(chunks).toString('utf-8');
+
+  // Race detail table should show IRC-specific columns
+  expect(html).toContain('<th>TCC</th>');
+  expect(html).toContain('<th>Finish</th>');
+  expect(html).toContain('<th>ET</th>');
+  expect(html).toContain('<th>CT</th>');
+
+  // Start time in race header
+  expect(html).toContain('Start: 14:00:00');
+
+  // TCC values appear
+  expect(html).toContain('1.100');
+  expect(html).toContain('1.050');
+  expect(html).toContain('1.000');
+
+  // Finish times appear
+  expect(html).toContain('14:25:00');
+  expect(html).toContain('14:28:00');
+  expect(html).toContain('14:30:00');
+
+  // ── 9. Verify the embedded JSON blob ──────────────────────────────────────
+  const jsonMatch = html.match(/<script type="application\/json" id="sail-scoring-data">\n([\s\S]*?)\n<\/script>/);
+  expect(jsonMatch).not.toBeNull();
+  const data = JSON.parse(jsonMatch![1]);
+  expect(data.version).toBe(2);
+
+  // Fleets
+  expect(data.fleets).toHaveLength(2);
+  const ircFleet = data.fleets.find((f: { name: string }) => f.name === 'IRC');
+  const cruiserFleet = data.fleets.find((f: { name: string }) => f.name === 'Cruiser');
+  expect(ircFleet.scoringSystem).toBe('irc');
+  expect(cruiserFleet.scoringSystem).toBe('scratch');
+
+  // Competitors have fleetNames and ratings
+  const b1 = data.competitors.find((c: { sailNumber: string }) => c.sailNumber === 'B1');
+  expect(b1.fleetNames).toContain('IRC');
+  expect(b1.ircTcc).toBe(1.1);
+  const c1 = data.competitors.find((c: { sailNumber: string }) => c.sailNumber === 'C1');
+  expect(c1.fleetNames).toContain('Cruiser');
+  expect(c1.ircTcc).toBeUndefined();
+
+  // Race starts
+  const race1 = data.races[0];
+  expect(race1.starts).toHaveLength(1);
+  expect(race1.starts[0].fleetNames).toContain('IRC');
+  expect(race1.starts[0].startTime).toBe('14:00:00');
+
+  // Finish times in race finishes
+  const b1Finish = race1.finishes.find((f: { sailNumber: string }) => f.sailNumber === 'B1');
+  expect(b1Finish.finishTime).toBe('14:25:00');
+  // Scratch finishers have no finish time
+  const c1Finish = race1.finishes.find((f: { sailNumber: string }) => f.sailNumber === 'C1');
+  expect(c1Finish.finishTime).toBeUndefined();
+
+  // Per-fleet standings
+  expect(data.standings).toHaveLength(2);
+  const ircStandings = data.standings.find((s: { fleetName: string }) => s.fleetName === 'IRC');
+  const cruiserStandings = data.standings.find((s: { fleetName: string }) => s.fleetName === 'Cruiser');
+  expect(ircStandings.rows).toHaveLength(3);
+  expect(ircStandings.rows[0].sailNumber).toBe('B1'); // lowest CT → 1st
+  expect(cruiserStandings.rows).toHaveLength(2);
+  expect(cruiserStandings.rows[0].sailNumber).toBe('C1');
+});
+
 // Shared fixture for import flow tests
 function makeImportUrl() {
   const publicExport = {
