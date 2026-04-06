@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { competitorRepo, raceRepo, finishRepo, seriesRepo, ftpServerRepo, fleetRepo, raceStartRepo } from '@/lib/dexie-repository';
 import { db } from '@/lib/db';
-import { getDiscardCount, calculateFleetStandings, calculateRaceScores } from '@/lib/scoring';
+import { getDiscardCount, calculateFleetStandings, calculateRaceScores, calculateHandicapRaceScores } from '@/lib/scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from '@/lib/results-renderer';
 import { buildPublicExport } from '@/lib/public-export';
 import { uploadViaScupper } from '@/lib/scupper';
@@ -117,6 +117,12 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
     const fleetCompetitorIds = new Set(standings.map((s) => s.competitor.id));
 
     // Per-fleet race score maps (only this fleet's competitors)
+    const isHandicap = fleet.scoringSystem !== 'scratch';
+    const raceStartByRaceId = new Map(
+      allRaceStarts
+        .filter((rs) => rs.fleetIds.includes(fleet.id))
+        .map((rs) => [rs.raceId, rs]),
+    );
     const raceScoresByRaceId = new Map(
       races.map((race) => {
         const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
@@ -126,7 +132,10 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
             .map((f) => [f.competitorId, f]),
         );
         const fleetCompetitors = competitors.filter((c) => fleetCompetitorIds.has(c.id));
-        const scores = calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries');
+        const raceStart = raceStartByRaceId.get(race.id);
+        const scores = isHandicap && raceStart
+          ? calculateHandicapRaceScores(finishesForRace, fleetCompetitors, raceStart, fleet)
+          : calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries');
         const scoreMap = new Map(
           [...scores.entries()].map(([id, s]) => [
             id,
