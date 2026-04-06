@@ -137,6 +137,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
               resultCode: s.resultCode,
               penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
               penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
+              finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
             },
           ]),
         );
@@ -155,6 +156,11 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
       competitorsById,
       new Date(),
       fleetName,
+      {
+        raceStarts: allRaceStarts,
+        fleetId: fleet.id,
+        scoringSystem: fleet.scoringSystem,
+      },
     );
 
     if (publicExport) {
