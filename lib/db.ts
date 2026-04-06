@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Series, Competitor, Fleet, Race, Finish, FtpServer } from './types';
+import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart } from './types';
 
 export class SailScoringDb extends Dexie {
   series!: Table<Series>;
@@ -7,6 +7,7 @@ export class SailScoringDb extends Dexie {
   fleets!: Table<Fleet>;
   races!: Table<Race>;
   finishes!: Table<Finish>;
+  raceStarts!: Table<RaceStart>;
   ftpServers!: Table<FtpServer>;
 
   constructor() {
@@ -119,7 +120,7 @@ export class SailScoringDb extends Dexie {
       const allSeries = await tx.table('series').toArray();
       for (const s of allSeries) {
         const fleetId = crypto.randomUUID();
-        await tx.table('fleets').add({ id: fleetId, seriesId: s.id, name: 'Default', displayOrder: 0 });
+        await tx.table('fleets').add({ id: fleetId, seriesId: s.id, name: 'Default', displayOrder: 0, scoringSystem: 'scratch' });
         await tx.table('competitors').where('seriesId').equals(s.id).modify({ fleetId });
       }
     });
@@ -158,6 +159,23 @@ export class SailScoringDb extends Dexie {
         finish.redressIncludeRaces = null;
         finish.redressIncludeAllLater = false;
         finish.redressPoints = null;
+      });
+    });
+    this.version(14).stores({
+      series: 'id, createdAt',
+      competitors: 'id, seriesId, *fleetIds, createdAt',
+      fleets: 'id, seriesId, displayOrder',
+      races: 'id, seriesId, raceNumber',
+      finishes: 'id, raceId, competitorId',
+      raceStarts: 'id, raceId',
+      ftpServers: '++id',
+    }).upgrade(async (tx) => {
+      await tx.table('competitors').toCollection().modify((competitor) => {
+        competitor.fleetIds = [competitor.fleetId];
+        delete competitor.fleetId;
+      });
+      await tx.table('fleets').toCollection().modify((fleet) => {
+        fleet.scoringSystem = 'scratch';
       });
     });
   }

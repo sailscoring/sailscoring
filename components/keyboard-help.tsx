@@ -120,6 +120,7 @@ export function KeyboardHelp({
               { keys: ['Esc'], action: 'Clear input or go back' },
               { keys: ['Tab'], action: 'Move between fields' },
               { keys: ['c'], action: 'Toggle start check-in tab' },
+              { keys: ['s'], action: 'Add start (handicap series only)' },
             ]}
           />
         </div>

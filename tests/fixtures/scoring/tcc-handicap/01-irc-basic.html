@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>IRC — corrected-time order differs from elapsed-time order — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.8em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All IRC handicap examples</a></p>
+<h1>IRC — corrected-time order differs from elapsed-time order</h1>
+<p style="font-style:italic; color:#444;">CT = ET × TCC; boats rank by lowest corrected time regardless of who crossed first.</p>
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> IRC &nbsp;&nbsp;
+  <strong>Gun time:</strong> 14:05:00
+</div>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Start 14:05:00 (= 50700 s since midnight)
+
+Boat 1: finish 15:05:00  ET = 3600 s   CT = 3600 × 1.05 = 3780.00 s  → 3rd
+Boat 2: finish 15:12:58  ET = 4078 s   CT = 4078 × 0.88 = 3588.64 s  → 1st
+Boat 3: finish 15:08:30  ET = 3810 s   CT = 3810 × 0.95 = 3619.50 s  → 2nd
+
+Boat 2 finished last on elapsed time but wins on corrected time.</pre>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>TCF</th><th>Finish time</th><th>ET</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Beta</td>
+  <td class="mono">2</td>
+  <td class="mono">0.880</td>
+  <td class="mono">0.8800</td>
+  <td class="mono">15:12:58</td>
+  <td class="mono">67m 58s</td>
+  <td class="mono">59m 49s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Gamma</td>
+  <td class="mono">3</td>
+  <td class="mono">0.950</td>
+  <td class="mono">0.9500</td>
+  <td class="mono">15:08:30</td>
+  <td class="mono">63m 30s</td>
+  <td class="mono">60m 20s</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">1.050</td>
+  <td class="mono">1.0500</td>
+  <td class="mono">15:05:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">63m 00s</td>
+  <td>3</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

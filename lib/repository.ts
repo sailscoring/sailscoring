@@ -1,4 +1,4 @@
-import type { Series, Competitor, Fleet, Race, Finish } from './types';
+import type { Series, Competitor, Fleet, Race, Finish, RaceStart } from './types';
 
 export interface FleetRepository {
   listBySeries(seriesId: string): Promise<Fleet[]>;
@@ -37,6 +37,15 @@ export interface FinishRepository {
   listBySeries(seriesId: string, competitorIds: string[]): Promise<Finish[]>;
   save(finish: Finish): Promise<Finish>;
   saveMany(finishes: Finish[]): Promise<void>;
+  delete(id: string): Promise<void>;
+  deleteByRace(raceId: string): Promise<void>;
+  deleteByRaces(raceIds: string[]): Promise<void>;
+}
+
+export interface RaceStartRepository {
+  listByRace(raceId: string): Promise<RaceStart[]>;
+  listByRaces(raceIds: string[]): Promise<RaceStart[]>;
+  save(raceStart: RaceStart): Promise<RaceStart>;
   delete(id: string): Promise<void>;
   deleteByRace(raceId: string): Promise<void>;
   deleteByRaces(raceIds: string[]): Promise<void>;

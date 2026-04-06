@@ -3,7 +3,7 @@
 import { use, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { competitorRepo, fleetRepo, raceRepo, finishRepo, seriesRepo, ensureFleet } from '@/lib/dexie-repository';
+import { competitorRepo, fleetRepo, raceRepo, finishRepo, raceStartRepo, seriesRepo, ensureFleet } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -21,8 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { X, AlertTriangle, Flag, Scale } from 'lucide-react';
-import type { Competitor, Finish, ResultCode, PenaltyCode } from '@/lib/types';
+import { X, AlertTriangle, Flag, Scale, Plus, Pencil, Trash2 } from 'lucide-react';
+import type { Competitor, Finish, ResultCode, PenaltyCode, RaceStart } from '@/lib/types';
 import { calculateStandings } from '@/lib/scoring';
 import { CheckSquare, Square } from 'lucide-react';
 import { log } from '@/lib/debug';
@@ -87,6 +87,10 @@ export default function ResultEntryPage({
     () => raceRepo.listBySeries(seriesId),
     [seriesId],
   );
+  const raceStarts = useLiveQuery(
+    () => raceStartRepo.listByRace(raceId),
+    [raceId],
+  ) ?? [];
 
   // Finishing order: entries sorted by recorded finish positions
   const [finishingOrder, setFinishingOrder] = useState<FinishEntry[]>([]);
@@ -117,10 +121,18 @@ export default function ResultEntryPage({
   const [addingCompetitor, setAddingCompetitor] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  // Race starts dialog
+  const [startDialog, setStartDialog] = useState<{ editingId: string | null } | null>(null);
+  const [startTimeInput, setStartTimeInput] = useState('');
+  const [startFleetIds, setStartFleetIds] = useState<string[]>([]);
+  const [startDialogError, setStartDialogError] = useState('');
   const [initialized, setInitialized] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showAllCheckin, setShowAllCheckin] = useState(false);
+  // Finish times: competitorId → "HH:MM:SS"
+  const [finishTimes, setFinishTimes] = useState<Map<string, string>>(new Map());
+  const initialFinishTimesRef = useRef<Map<string, string>>(new Map());
   // Additive penalties: entryId → { code, override }
   const [finisherPenalties, setFinisherPenalties] = useState<Map<string, { code: PenaltyCode; override: number | null }>>(new Map());
   const initialPenaltiesRef = useRef<Map<string, { code: PenaltyCode; override: number | null }>>(new Map());
@@ -185,16 +197,25 @@ export default function ResultEntryPage({
       }
     }
 
+    const times = new Map<string, string>();
+    for (const finish of savedFinishes) {
+      if (finish.finishTime && finish.competitorId) {
+        times.set(finish.competitorId, finish.finishTime);
+      }
+    }
+
     initialOrderRef.current = [...order];
     initialCodesRef.current = new Map(codes);
     initialPositionsRef.current = new Map(positions);
     initialPenaltiesRef.current = new Map(penalties);
     initialRedressRef.current = new Map(redress);
+    initialFinishTimesRef.current = new Map(times);
     setFinishingOrder(order);
     setFinishPositions(positions);
     setNonFinisherCodes(codes);
     setFinisherPenalties(penalties);
     setRedressEntries(redress);
+    setFinishTimes(times);
     setInitialized(true);
   }
 
@@ -235,6 +256,11 @@ export default function ResultEntryPage({
           JSON.stringify(init.excludeRaces) !== JSON.stringify(v.excludeRaces) ||
           JSON.stringify(init.includeRaces) !== JSON.stringify(v.includeRaces)) return true;
     }
+    const initTimes = initialFinishTimesRef.current;
+    if (finishTimes.size !== initTimes.size) return true;
+    for (const [k, v] of finishTimes) {
+      if (initTimes.get(k) !== v) return true;
+    }
     return false;
   }
 
@@ -247,6 +273,54 @@ export default function ResultEntryPage({
   }
 
   // Ctrl+Enter to save; Esc to cancel; c to toggle check-in tab
+  function openAddStart() {
+    setStartTimeInput('');
+    setStartFleetIds([]);
+    setStartDialogError('');
+    setStartDialog({ editingId: null });
+  }
+
+  function openEditStart(s: RaceStart) {
+    setStartTimeInput(s.startTime);
+    setStartFleetIds([...s.fleetIds]);
+    setStartDialogError('');
+    setStartDialog({ editingId: s.id });
+  }
+
+  async function handleSaveStart() {
+    if (!/^\d{1,2}:\d{2}:\d{2}$/.test(startTimeInput.trim())) {
+      setStartDialogError('Time must be in HH:MM:SS format (e.g. 14:05:00).');
+      return;
+    }
+    if (startFleetIds.length === 0) {
+      setStartDialogError('Select at least one fleet.');
+      return;
+    }
+    // Validate: no fleet in two start groups for this race
+    const otherStarts = raceStarts.filter((s) => s.id !== startDialog?.editingId);
+    const usedFleetIds = new Set(otherStarts.flatMap((s) => s.fleetIds));
+    const conflict = startFleetIds.find((id) => usedFleetIds.has(id));
+    if (conflict) {
+      const name = fleets?.find((f) => f.id === conflict)?.name ?? conflict;
+      setStartDialogError(`Fleet "${name}" is already in another start group.`);
+      return;
+    }
+    const raceStart: RaceStart = {
+      id: startDialog?.editingId ?? crypto.randomUUID(),
+      raceId,
+      fleetIds: startFleetIds,
+      startTime: startTimeInput.trim(),
+    };
+    await raceStartRepo.save(raceStart);
+    await seriesRepo.touch(seriesId);
+    setStartDialog(null);
+  }
+
+  async function handleDeleteStart(id: string) {
+    await raceStartRepo.delete(id);
+    await seriesRepo.touch(seriesId);
+  }
+
   useGlobalKeyDown((e) => {
     if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
@@ -263,6 +337,13 @@ export default function ResultEntryPage({
     ) {
       e.preventDefault();
       setActiveTab((t) => t === 'checkin' ? 'finish' : 'checkin');
+    } else if (
+      e.key === 's' &&
+      !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '') &&
+      fleets?.some((f) => f.scoringSystem !== 'scratch')
+    ) {
+      e.preventDefault();
+      openAddStart();
     }
   });
 
@@ -277,6 +358,16 @@ export default function ResultEntryPage({
   const sailMap = new Map(
     competitors.map((c) => [c.sailNumber.toUpperCase(), c]),
   );
+  const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
+  const hasNonScratchFleets = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
+  // Fleet IDs that have a recorded start time for this race
+  const fleetIdsWithStartTimes = new Set(raceStarts.flatMap((s) => s.fleetIds));
+  // Returns true if this competitor needs a finish time recorded (their fleet has a start time)
+  const needsFinishTime = (competitorId: string): boolean => {
+    const c = competitorMap.get(competitorId);
+    if (!c) return false;
+    return c.fleetIds.some((id) => fleetIdsWithStartTimes.has(id));
+  };
 
   // Competitors not yet in the finishing order (only known finishers consume a competitor slot)
   const finishedIds = new Set(
@@ -365,6 +456,11 @@ export default function ResultEntryPage({
       return next;
     });
     setRedressEntries((prev) => {
+      const next = new Map(prev);
+      next.delete(eid);
+      return next;
+    });
+    setFinishTimes((prev) => {
       const next = new Map(prev);
       next.delete(eid);
       return next;
@@ -573,7 +669,7 @@ export default function ResultEntryPage({
       const competitor: Competitor = {
         id: crypto.randomUUID(),
         seriesId,
-        fleetId,
+        fleetIds: [fleetId],
         sailNumber: sail,
         name,
         club: '',
@@ -628,6 +724,7 @@ export default function ResultEntryPage({
         if (entry.kind === 'known') {
           const penalty = finisherPenalties.get(entry.competitorId);
           const rdg = redressEntries.get(entry.competitorId);
+          const ft = finishTimes.get(entry.competitorId);
           finishes.push({
             id: crypto.randomUUID(),
             raceId,
@@ -642,6 +739,7 @@ export default function ResultEntryPage({
             redressIncludeRaces: rdg?.poolMode === 'include' ? rdg.includeRaces : null,
             redressIncludeAllLater: rdg?.poolMode === 'include' ? (rdg.includeAllLater ?? false) : false,
             redressPoints: rdg?.method === 'stated' ? (Number(rdg.statedPoints) || null) : null,
+            ...(ft ? { finishTime: ft } : {}),
           });
         } else {
           finishes.push({
@@ -899,6 +997,88 @@ export default function ResultEntryPage({
         </div>
       )}
 
+      {/* Race starts — only shown for series with non-scratch fleets */}
+      {activeTab === 'finish' && hasNonScratchFleets && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium text-sm">Race starts</h3>
+            <Button size="sm" variant="outline" onClick={openAddStart}>
+              <Plus className="h-3.5 w-3.5 mr-1" />Add start
+            </Button>
+          </div>
+          {raceStarts.length === 0 && (
+            <p className="text-sm text-muted-foreground">No start times recorded. Press <kbd className="px-1 py-0.5 text-xs border rounded">s</kbd> or click Add start.</p>
+          )}
+          <div className="space-y-1">
+            {[...raceStarts].sort((a, b) => a.startTime.localeCompare(b.startTime)).map((s) => (
+              <div key={s.id} className="flex items-center gap-2 text-sm px-3 py-2 border rounded-md">
+                <span className="font-mono font-medium">{s.startTime}</span>
+                <span className="text-muted-foreground">—</span>
+                <span className="flex-1">{s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditStart(s)}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteStart(s.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit start dialog */}
+      <Dialog open={startDialog !== null} onOpenChange={(open) => { if (!open) setStartDialog(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{startDialog?.editingId ? 'Edit start' : 'Add start'}</DialogTitle>
+            <DialogDescription>Record the gun time for a group of fleets.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Gun time (HH:MM:SS)</label>
+              <input
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm font-mono shadow-sm"
+                value={startTimeInput}
+                onChange={(e) => { setStartTimeInput(e.target.value); setStartDialogError(''); }}
+                placeholder="14:05:00"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveStart(); }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Fleets in this start</label>
+              <div className="space-y-1.5">
+                {(fleets ?? []).map((f) => (
+                  <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={startFleetIds.includes(f.id)}
+                      onChange={(e) => {
+                        setStartFleetIds((prev) =>
+                          e.target.checked ? [...prev, f.id] : prev.filter((id) => id !== f.id),
+                        );
+                        setStartDialogError('');
+                      }}
+                      className="h-4 w-4 rounded border"
+                    />
+                    {f.name}
+                    {f.scoringSystem !== 'scratch' && (
+                      <span className="text-xs text-muted-foreground">({f.scoringSystem.toUpperCase()})</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+            {startDialogError && <p className="text-sm text-destructive">{startDialogError}</p>}
+          </div>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => setStartDialog(null)}>Cancel</Button>
+            <Button onClick={handleSaveStart}>Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {activeTab === 'finish' && <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Left: finishing order */}
         <div className="space-y-4">
@@ -1132,7 +1312,18 @@ export default function ResultEntryPage({
                     </span>
                   </div>
                   <span className="font-mono font-medium">{competitor.sailNumber}</span>
-                  <span className="text-sm flex-1 truncate">{competitor.name}</span>
+                  <span className={cn('text-sm truncate', needsFinishTime(entry.competitorId) ? 'w-24 shrink-0' : 'flex-1')}>{competitor.name}</span>
+                  {needsFinishTime(entry.competitorId) && (
+                    <input
+                      type="text"
+                      value={finishTimes.get(entry.competitorId) ?? ''}
+                      onChange={(e) => setFinishTimes((prev) => new Map(prev).set(entry.competitorId, e.target.value))}
+                      placeholder="HH:MM:SS"
+                      aria-label={`Finish time for ${competitor.sailNumber}`}
+                      data-testid={`finish-time-${competitor.sailNumber}`}
+                      className="flex-1 min-w-0 font-mono text-sm rounded px-2 py-0.5 border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  )}
                   {penalty && (
                     <Badge
                       variant="outline"

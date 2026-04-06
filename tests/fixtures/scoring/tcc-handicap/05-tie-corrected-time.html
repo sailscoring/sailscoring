@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>IRC — tie on corrected time triggers A8.1 averaging — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.8em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All IRC handicap examples</a></p>
+<h1>IRC — tie on corrected time triggers A8.1 averaging</h1>
+<p style="font-style:italic; color:#444;">RRS A8.1: when boats tie on corrected time, they share the points for the tied places averaged. A8.2 tie-breaking is for series standings, not individual race scores.</p>
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> IRC &nbsp;&nbsp;
+  <strong>Gun time:</strong> 14:00:00
+</div>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Start 14:00:00 (= 50400 s since midnight)
+
+Boat 1 (TCC 1.0): finish 15:00:00  ET = 3600 s   CT = 3600 × 1.0 = 3600.0 s  → tied 2nd
+Boat 2 (TCC 0.9): finish 15:06:40  ET = 4000 s   CT = 4000 × 0.9 = 3600.0 s  → tied 2nd
+Boat 3 (TCC 1.0): finish 14:58:00  ET = 3480 s   CT = 3480 × 1.0 = 3480.0 s  → 1st
+
+Boats 1 and 2 are tied at CT=3600.0. They occupy 2nd and 3rd place; averaged
+points = (2 + 3) / 2 = 2.5 each.</pre>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>TCF</th><th>Finish time</th><th>ET</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Gamma</td>
+  <td class="mono">3</td>
+  <td class="mono">1.000</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">14:58:00</td>
+  <td class="mono">58m 00s</td>
+  <td class="mono">58m 00s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">1.000</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">60m 00s</td>
+  <td>2.5</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Beta</td>
+  <td class="mono">2</td>
+  <td class="mono">0.900</td>
+  <td class="mono">0.9000</td>
+  <td class="mono">15:06:40</td>
+  <td class="mono">66m 40s</td>
+  <td class="mono">60m 00s</td>
+  <td>2.5</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

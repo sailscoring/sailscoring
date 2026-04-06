@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>TCC handicap scoring (IRC / PY) — Sail Scoring Worked Examples</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.6em; margin-bottom: 0.2em; }
+p { line-height: 1.6; color: #444; }
+h2 { font-size: 1.1em; margin: 2em 0 0.4em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+ul { margin: 0; padding: 0 0 0 1.2em; }
+li { margin: 0.4em 0; }
+a { color: #336; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; vertical-align: top; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All examples</a></p>
+<h1>TCC handicap scoring (IRC / PY)</h1>
+<p>
+  Time-on-time corrected scoring using a Time Correction Factor (TCF).
+  IRC boats use TCC directly; PY boats derive TCF = 1000 ÷ PY number.
+  Boats rank by lowest corrected time (CT = ET × TCF); penalty codes are unchanged.
+</p>
+
+<h2>Examples</h2>
+<table>
+<thead>
+<tr><th>#</th><th>Scenario</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td><a href="01-irc-basic.html">IRC — corrected-time order differs from elapsed-time order</a></td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><a href="02-py-basic.html">PY — TCF derived from integer Portsmouth Yardstick number</a></td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><a href="03-dnf.html">IRC — DNF receives fleet-size penalty; finishers still scored on corrected time</a></td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><a href="04-missing-rating.html">IRC — competitor with no TCC receives penalty points; others scored normally</a></td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><a href="05-tie-corrected-time.html">IRC — tie on corrected time triggers A8.1 averaging</a></td>
+</tr>
+</tbody>
+</table>
+
+<footer>
+  <a href="https://sailscoring.ie">sailscoring.ie</a>
+</footer>
+</body>
+</html>

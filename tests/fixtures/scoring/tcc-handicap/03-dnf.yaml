@@ -1,0 +1,49 @@
+description: "IRC — DNF receives fleet-size penalty; finishers still scored on corrected time"
+rrs_notes: "A5.1: a boat that did not finish receives points equal to fleet entries + 1. Time-based scoring does not affect penalty point calculation."
+
+# Fleet size = 3, so penalty = 4.
+# Start 14:00:00 (= 50400 s since midnight)
+#
+# Boat 1 (TCC 1.0): finish 15:00:00  ET = 3600 s   CT = 3600.0 s  → 1st  (1 pt)
+# Boat 2 (TCC 1.0): DNF                                             → n/a  (4 pts)
+# Boat 3 (TCC 1.0): finish 15:01:00  ET = 3660 s   CT = 3660.0 s  → 2nd  (2 pts)
+
+fleet:
+  scoringSystem: irc
+startTime: "14:00:00"
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    ircTcc: 1.0
+  - sailNumber: "2"
+    name: "Beta"
+    ircTcc: 1.0
+  - sailNumber: "3"
+    name: "Gamma"
+    ircTcc: 1.0
+finishes:
+  - sailor: "1"
+    finishTime: "15:00:00"
+  - sailor: "2"
+    code: "DNF"
+  - sailor: "3"
+    finishTime: "15:01:00"
+expected:
+  - sailor: "1"
+    rank: 1
+    points: 1.0
+    elapsedTime: 3600
+    correctedTime: 3600.0
+    tcfApplied: 1.0
+  - sailor: "2"
+    rank: null
+    points: 4.0
+    elapsedTime: null
+    correctedTime: null
+    tcfApplied: null
+  - sailor: "3"
+    rank: 2
+    points: 2.0
+    elapsedTime: 3660
+    correctedTime: 3660.0
+    tcfApplied: 1.0

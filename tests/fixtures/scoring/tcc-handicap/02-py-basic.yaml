@@ -1,0 +1,51 @@
+description: "PY — TCF derived from integer Portsmouth Yardstick number"
+rrs_notes: "TCF = 1000 ÷ PY; otherwise identical to IRC. A lower PY number means a faster boat type."
+
+# Start 14:00:00 (= 50400 s since midnight)
+#
+# Boat 1 (PY 1000): finish 15:00:00  ET = 3600 s   TCF = 1.000   CT = 3600.00 s  → 1st
+# Boat 2 (PY  900): finish 14:55:00  ET = 3300 s   TCF = 1.111   CT = 3666.67 s  → 2nd
+# Boat 3 (PY 1100): finish 15:10:00  ET = 4200 s   TCF = 0.909   CT = 3818.18 s  → 3rd
+#
+# Boat 2 is the fastest type (PY 900) but finished in the middle;
+# its higher TCF inflates its corrected time above Boat 1.
+
+fleet:
+  scoringSystem: py
+startTime: "14:00:00"
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    pyNumber: 1000
+  - sailNumber: "2"
+    name: "Beta"
+    pyNumber: 900
+  - sailNumber: "3"
+    name: "Gamma"
+    pyNumber: 1100
+finishes:
+  - sailor: "1"
+    finishTime: "15:00:00"
+  - sailor: "2"
+    finishTime: "14:55:00"
+  - sailor: "3"
+    finishTime: "15:10:00"
+expected:
+  - sailor: "1"
+    rank: 1
+    points: 1.0
+    elapsedTime: 3600
+    correctedTime: 3600.0
+    tcfApplied: 1.0
+  - sailor: "2"
+    rank: 2
+    points: 2.0
+    elapsedTime: 3300
+    correctedTime: 3666.67
+    tcfApplied: 1.1111111111111112
+  - sailor: "3"
+    rank: 3
+    points: 3.0
+    elapsedTime: 4200
+    correctedTime: 3818.18
+    tcfApplied: 0.9090909090909091

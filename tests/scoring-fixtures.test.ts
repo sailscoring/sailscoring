@@ -82,13 +82,14 @@ function buildInputs(fixture: ScoringFixture): {
     seriesId: 's1',
     name,
     displayOrder: i,
+    scoringSystem: 'scratch' as const,
   }));
   const fleetIdByName = new Map(fleets.map((f) => [f.name, f.id]));
 
   const competitors: Competitor[] = fixture.competitors.map((c, i) => ({
     id: `c-${i}`,
     seriesId: 's1',
-    fleetId: fleetIdByName.get(c.fleet ?? 'Default') ?? 'f1',
+    fleetIds: [fleetIdByName.get(c.fleet ?? 'Default') ?? 'fl-0'],
     sailNumber: c.sailNumber,
     name: c.name,
     club: '',
@@ -140,8 +141,10 @@ function buildInputs(fixture: ScoringFixture): {
 // ─── Load and run fixture files ───────────────────────────────────────────────
 
 const fixtureDir = join(__dirname, 'fixtures/scoring');
+// Only include fixtures in known scratch-format subdirectories (exclude tcc-handicap, etc.)
+const SCRATCH_SUBDIRS = new Set(['scratch', 'codes', 'fleets']);
 const fixtureFiles = readdirSync(fixtureDir, { recursive: true, encoding: 'utf-8' })
-  .filter((f) => f.endsWith('.yaml'))
+  .filter((f) => f.endsWith('.yaml') && SCRATCH_SUBDIRS.has(f.split(/[\\/]/)[0]))
   .map((f) => join(fixtureDir, f));
 
 if (fixtureFiles.length === 0) {

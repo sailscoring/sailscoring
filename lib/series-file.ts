@@ -1,7 +1,7 @@
-import type { Series, ResultCode, PenaltyCode, DiscardThreshold } from './types';
+import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart } from './types';
 import { db } from './db';
 
-export const FORMAT_VERSION = 6;
+export const FORMAT_VERSION = 7;
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -10,6 +10,7 @@ interface SeriesFileFleet {
   id: string;
   name: string;
   displayOrder: number;
+  scoringSystem?: 'scratch' | 'irc' | 'py';  // optional for back-compat with pre-v7 files
 }
 
 interface SeriesFileBilgeBundle {
@@ -39,12 +40,15 @@ interface SeriesFileSeries {
 
 interface SeriesFileCompetitor {
   id: string;
-  fleetId: string;
+  fleetIds?: string[];   // v7+
+  fleetId?: string;      // pre-v7 back-compat; prefer fleetIds when present
   sailNumber: string;
   name: string;
   club: string;
   gender: 'M' | 'F' | '';
   age: number | null;
+  ircTcc?: number;
+  pyNumber?: number;
 }
 
 interface SeriesFileFinish {
@@ -52,6 +56,7 @@ interface SeriesFileFinish {
   competitorId: string | null;
   unknownSailNumber?: string;
   finishPosition: number | null;
+  finishTime?: string;
   resultCode: ResultCode | null;
   startPresent: boolean | null;
   penaltyCode?: PenaltyCode | null;
@@ -63,10 +68,17 @@ interface SeriesFileFinish {
   redressPoints?: number;
 }
 
+interface SeriesFileRaceStart {
+  id: string;
+  fleetIds: string[];
+  startTime: string;
+}
+
 interface SeriesFileRace {
   id: string;
   raceNumber: number;
   date: string;
+  starts?: SeriesFileRaceStart[];
   finishes: SeriesFileFinish[];
 }
 
@@ -114,6 +126,10 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
     raceIds.length > 0
       ? await db.finishes.where('raceId').anyOf(raceIds).toArray()
       : [];
+  const allRaceStarts: RaceStart[] =
+    raceIds.length > 0
+      ? await db.raceStarts.where('raceId').anyOf(raceIds).toArray()
+      : [];
 
   const finishesByRace = new Map<string, SeriesFileFinish[]>();
   for (const f of allFinishes) {
@@ -123,6 +139,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       competitorId: f.competitorId,
       unknownSailNumber: f.unknownSailNumber,
       finishPosition: f.finishPosition,
+      ...(f.finishTime ? { finishTime: f.finishTime } : {}),
       resultCode: f.resultCode,
       startPresent: f.startPresent,
       penaltyCode: f.penaltyCode ?? null,
@@ -133,6 +150,12 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       ...(f.redressIncludeAllLater ? { redressIncludeAllLater: f.redressIncludeAllLater } : {}),
       ...(f.redressPoints != null ? { redressPoints: f.redressPoints } : {}),
     });
+  }
+
+  const startsByRace = new Map<string, SeriesFileRaceStart[]>();
+  for (const s of allRaceStarts) {
+    if (!startsByRace.has(s.raceId)) startsByRace.set(s.raceId, []);
+    startsByRace.get(s.raceId)!.push({ id: s.id, fleetIds: s.fleetIds, startTime: s.startTime });
   }
 
   const snapshotId = crypto.randomUUID();
@@ -148,6 +171,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       id: f.id,
       name: f.name,
       displayOrder: f.displayOrder,
+      scoringSystem: f.scoringSystem,
     })),
     series: {
       id: series.id,
@@ -173,17 +197,20 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
     },
     competitors: competitors.map((c) => ({
       id: c.id,
-      fleetId: c.fleetId,
+      fleetIds: c.fleetIds,
       sailNumber: c.sailNumber,
       name: c.name,
       club: c.club,
       gender: c.gender,
       age: c.age,
+      ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
+      ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
     })),
     races: races.map((r) => ({
       id: r.id,
       raceNumber: r.raceNumber,
       date: r.date,
+      ...(startsByRace.has(r.id) ? { starts: startsByRace.get(r.id) } : {}),
       finishes: finishesByRace.get(r.id) ?? [],
     })),
   };
@@ -262,7 +289,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
     defaultFleetId = crypto.randomUUID();
   }
 
-  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes], async () => {
+  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts], async () => {
     await db.series.add({
       id: newSeriesId,
       name,
@@ -285,7 +312,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
     });
 
     if (defaultFleetId) {
-      await db.fleets.add({ id: defaultFleetId, seriesId: newSeriesId, name: 'Default', displayOrder: 0 });
+      await db.fleets.add({ id: defaultFleetId, seriesId: newSeriesId, name: 'Default', displayOrder: 0, scoringSystem: 'scratch' });
     } else {
       for (const f of fileFleets) {
         await db.fleets.add({
@@ -293,22 +320,25 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
           seriesId: newSeriesId,
           name: f.name,
           displayOrder: f.displayOrder,
+          scoringSystem: f.scoringSystem ?? 'scratch',
         });
       }
     }
 
     for (const c of file.competitors) {
-      const fleetId = defaultFleetId ?? fleetIdMap.get(c.fleetId ?? '') ?? defaultFleetId!;
+      const fleetIds = resolveCompetitorFleetIds(c, fleetIdMap, defaultFleetId);
       await db.competitors.add({
         id: competitorIdMap.get(c.id)!,
         seriesId: newSeriesId,
-        fleetId,
+        fleetIds,
         sailNumber: c.sailNumber,
         name: c.name,
         club: c.club,
         gender: c.gender,
         age: c.age,
         createdAt: now,
+        ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
+        ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       });
     }
 
@@ -321,6 +351,14 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
         date: r.date,
         createdAt: now,
       });
+      for (const s of r.starts ?? []) {
+        await db.raceStarts.add({
+          id: crypto.randomUUID(),
+          raceId: newRaceId,
+          fleetIds: s.fleetIds.map((id) => fleetIdMap.get(id) ?? id),
+          startTime: s.startTime,
+        });
+      }
       for (const f of r.finishes) {
         const mappedCompetitorId = f.competitorId
           ? (competitorIdMap.get(f.competitorId) ?? null)
@@ -331,6 +369,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
           competitorId: mappedCompetitorId,
           unknownSailNumber: f.unknownSailNumber,
           finishPosition: f.finishPosition,
+          ...(f.finishTime ? { finishTime: f.finishTime } : {}),
           resultCode: f.resultCode,
           startPresent: f.startPresent ?? null,
           penaltyCode: f.penaltyCode ?? null,
@@ -363,10 +402,12 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
     defaultFleetId = crypto.randomUUID();
   }
 
-  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes], async () => {
+  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts], async () => {
     const existingRaces = await db.races.where('seriesId').equals(seriesId).toArray();
     if (existingRaces.length > 0) {
-      await db.finishes.where('raceId').anyOf(existingRaces.map((r) => r.id)).delete();
+      const existingRaceIds = existingRaces.map((r) => r.id);
+      await db.finishes.where('raceId').anyOf(existingRaceIds).delete();
+      await db.raceStarts.where('raceId').anyOf(existingRaceIds).delete();
     }
     await db.races.where('seriesId').equals(seriesId).delete();
     await db.competitors.where('seriesId').equals(seriesId).delete();
@@ -391,7 +432,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
     });
 
     if (defaultFleetId) {
-      await db.fleets.add({ id: defaultFleetId, seriesId, name: 'Default', displayOrder: 0 });
+      await db.fleets.add({ id: defaultFleetId, seriesId, name: 'Default', displayOrder: 0, scoringSystem: 'scratch' });
     } else {
       for (const f of fileFleets) {
         await db.fleets.add({
@@ -399,22 +440,25 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
           seriesId,
           name: f.name,
           displayOrder: f.displayOrder,
+          scoringSystem: f.scoringSystem ?? 'scratch',
         });
       }
     }
 
     for (const c of file.competitors) {
-      const fleetId = defaultFleetId ?? fleetIdMap.get(c.fleetId ?? '') ?? defaultFleetId!;
+      const fleetIds = resolveCompetitorFleetIds(c, fleetIdMap, defaultFleetId);
       await db.competitors.add({
         id: competitorIdMap.get(c.id)!,
         seriesId,
-        fleetId,
+        fleetIds,
         sailNumber: c.sailNumber,
         name: c.name,
         club: c.club,
         gender: c.gender,
         age: c.age,
         createdAt: now,
+        ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
+        ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       });
     }
 
@@ -427,6 +471,14 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
         date: r.date,
         createdAt: now,
       });
+      for (const s of r.starts ?? []) {
+        await db.raceStarts.add({
+          id: crypto.randomUUID(),
+          raceId: newRaceId,
+          fleetIds: s.fleetIds.map((id) => fleetIdMap.get(id) ?? id),
+          startTime: s.startTime,
+        });
+      }
       for (const f of r.finishes) {
         const mappedCompetitorId = f.competitorId
           ? (competitorIdMap.get(f.competitorId) ?? null)
@@ -437,6 +489,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
           competitorId: mappedCompetitorId,
           unknownSailNumber: f.unknownSailNumber,
           finishPosition: f.finishPosition,
+          ...(f.finishTime ? { finishTime: f.finishTime } : {}),
           resultCode: f.resultCode,
           startPresent: f.startPresent ?? null,
           penaltyCode: f.penaltyCode ?? null,
@@ -450,6 +503,22 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
       }
     }
   });
+}
+
+/**
+ * Resolve fleet IDs for a competitor from the file format.
+ * Handles both the new fleetIds (v7+) and legacy fleetId (pre-v7) formats.
+ */
+function resolveCompetitorFleetIds(
+  c: SeriesFileCompetitor,
+  fleetIdMap: Map<string, string>,
+  defaultFleetId: string | undefined,
+): string[] {
+  if (Array.isArray(c.fleetIds) && c.fleetIds.length > 0) {
+    return c.fleetIds.map((id) => fleetIdMap.get(id) ?? defaultFleetId!).filter(Boolean);
+  }
+  const fleetId = defaultFleetId ?? fleetIdMap.get(c.fleetId ?? '') ?? defaultFleetId!;
+  return [fleetId];
 }
 
 function slugify(name: string): string {

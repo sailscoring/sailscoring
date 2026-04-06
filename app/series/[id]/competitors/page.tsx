@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Pencil, Trash2, Upload } from 'lucide-react';
-import type { Competitor } from '@/lib/types';
+import type { Competitor, Fleet } from '@/lib/types';
 import { log } from '@/lib/debug';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 
@@ -41,7 +41,10 @@ interface CompetitorFormData {
   club: string;
   gender: '' | 'M' | 'F';
   age: string;
-  fleet: string;
+  fleetIds: string[];   // IDs of existing fleets to assign the competitor to
+  newFleetName: string; // typed name for a new fleet to create (optional)
+  ircTcc: string;       // decimal string, e.g. "0.972"; empty if not set
+  pyNumber: string;     // integer string, e.g. "1034"; empty if not set
 }
 
 const emptyForm: CompetitorFormData = {
@@ -50,10 +53,13 @@ const emptyForm: CompetitorFormData = {
   club: '',
   gender: '',
   age: '',
-  fleet: '',
+  fleetIds: [],
+  newFleetName: '',
+  ircTcc: '',
+  pyNumber: '',
 };
 
-type CompetitorField = 'sailNumber' | 'name' | 'club' | 'gender' | 'age' | 'fleet' | 'ignore';
+type CompetitorField = 'sailNumber' | 'name' | 'club' | 'gender' | 'age' | 'fleet' | 'tcc' | 'py' | 'ignore';
 type ColumnMap = Record<number, CompetitorField>;
 
 type ImportFlow =
@@ -68,6 +74,8 @@ const FIELD_LABELS: Record<CompetitorField, string> = {
   gender: 'Gender',
   age: 'Age',
   fleet: 'Fleet',
+  tcc: 'IRC TCC',
+  py: 'PY number',
   ignore: '(ignore)',
 };
 
@@ -79,6 +87,8 @@ function autoDetectField(header: string): CompetitorField {
   if (/gender|sex/.test(h)) return 'gender';
   if (/age/.test(h)) return 'age';
   if (/fleet|class|division/.test(h)) return 'fleet';
+  if (/tcc|irc.*rating|rating.*irc/.test(h)) return 'tcc';
+  if (/\bpy\b|portsmouth/.test(h)) return 'py';
   return 'ignore';
 }
 
@@ -87,28 +97,36 @@ function CompetitorForm({
   onSave,
   onCancel,
   existingSailNumbers,
-  existingFleetNames,
+  availableFleets,
 }: {
   initial: CompetitorFormData;
   onSave: (data: CompetitorFormData) => Promise<void>;
   onCancel: () => void;
   existingSailNumbers: string[];
-  existingFleetNames: string[];
+  availableFleets: Fleet[];
 }) {
   const [data, setData] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  // Separate display state for the fleet input: cleared on focus so the datalist
-  // shows all existing fleets rather than filtering to only those matching the
-  // current value. data.fleet is the committed value and is only updated via onChange.
-  const [fleetDisplay, setFleetDisplay] = useState(initial.fleet);
 
   const sailNumberWarning = data.sailNumber.trim().includes(' ')
     ? "This looks like a name — sail numbers don't usually contain spaces."
     : null;
 
-  function set(field: keyof CompetitorFormData, value: string) {
+  // Determine which rating fields to show based on selected fleets
+  const selectedFleets = availableFleets.filter((f) => data.fleetIds.includes(f.id));
+  const needsIrcTcc = selectedFleets.some((f) => f.scoringSystem === 'irc');
+  const needsPyNumber = selectedFleets.some((f) => f.scoringSystem === 'py');
+
+  function set<K extends keyof CompetitorFormData>(field: K, value: CompetitorFormData[K]) {
     setData((d) => ({ ...d, [field]: value }));
+  }
+
+  function toggleFleet(fleetId: string, checked: boolean) {
+    set('fleetIds', checked
+      ? [...data.fleetIds, fleetId]
+      : data.fleetIds.filter((id) => id !== fleetId),
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -125,6 +143,20 @@ function CompetitorForm({
     if (existingSailNumbers.includes(sailLower)) {
       setError(`Sail number ${sailLower} is already in this series.`);
       return;
+    }
+    if (needsIrcTcc && data.ircTcc.trim()) {
+      const tcc = parseFloat(data.ircTcc);
+      if (isNaN(tcc) || tcc < 0.5 || tcc > 1.5) {
+        setError('TCC must be a decimal number between 0.5 and 1.5 (e.g. 0.972).');
+        return;
+      }
+    }
+    if (needsPyNumber && data.pyNumber.trim()) {
+      const py = parseInt(data.pyNumber, 10);
+      if (isNaN(py) || py < 500 || py > 2000) {
+        setError('PY number must be a positive integer (e.g. 1034).');
+        return;
+      }
     }
     setSaving(true);
     setError('');
@@ -194,27 +226,55 @@ function CompetitorForm({
             placeholder="e.g. 12"
           />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="fleet">Fleet</Label>
+        <div className="space-y-1.5 col-span-2">
+          <Label htmlFor="newFleetName">Fleet</Label>
+          {availableFleets.length > 0 && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-1.5">
+              {availableFleets.map((f) => (
+                <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={data.fleetIds.includes(f.id)}
+                    onChange={(e) => toggleFleet(f.id, e.target.checked)}
+                    className="h-4 w-4 rounded border"
+                  />
+                  {f.name}
+                  {f.scoringSystem !== 'scratch' && (
+                    <span className="text-xs text-muted-foreground">({f.scoringSystem.toUpperCase()})</span>
+                  )}
+                </label>
+              ))}
+            </div>
+          )}
           <Input
-            id="fleet"
-            list="fleet-options"
-            autoComplete="off"
-            value={fleetDisplay}
-            onChange={(e) => {
-              setFleetDisplay(e.target.value);
-              set('fleet', e.target.value);
-            }}
-            onFocus={() => setFleetDisplay('')}
-            onBlur={() => { if (fleetDisplay === '') setFleetDisplay(data.fleet); }}
-            placeholder="Default if blank"
+            id="newFleetName"
+            value={data.newFleetName}
+            onChange={(e) => set('newFleetName', e.target.value)}
+            placeholder={availableFleets.length > 0 ? 'New fleet name (optional)…' : 'e.g. Junior'}
           />
-          <datalist id="fleet-options">
-            {existingFleetNames.map((name) => (
-              <option key={name} value={name} />
-            ))}
-          </datalist>
         </div>
+        {needsIrcTcc && (
+          <div className="space-y-1.5">
+            <Label htmlFor="ircTcc">IRC TCC</Label>
+            <Input
+              id="ircTcc"
+              value={data.ircTcc}
+              onChange={(e) => set('ircTcc', e.target.value)}
+              placeholder="e.g. 0.972"
+            />
+          </div>
+        )}
+        {needsPyNumber && (
+          <div className="space-y-1.5">
+            <Label htmlFor="pyNumber">PY number</Label>
+            <Input
+              id="pyNumber"
+              value={data.pyNumber}
+              onChange={(e) => set('pyNumber', e.target.value)}
+              placeholder="e.g. 1034"
+            />
+          </div>
+        )}
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-3">
@@ -244,7 +304,6 @@ export default function CompetitorsPage({
     [seriesId],
   );
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
-  const fleetNames = (fleets ?? []).map((f) => f.name);
   const multipleFleets = (fleets ?? []).length > 1;
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -282,18 +341,36 @@ export default function CompetitorsPage({
     }
   });
 
+  function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'pyNumber'> {
+    const tcc = data.ircTcc.trim() ? parseFloat(data.ircTcc.trim()) : undefined;
+    const py = data.pyNumber.trim() ? parseInt(data.pyNumber.trim(), 10) : undefined;
+    return {
+      ...(tcc != null && !isNaN(tcc) ? { ircTcc: tcc } : {}),
+      ...(py != null && !isNaN(py) ? { pyNumber: py } : {}),
+    };
+  }
+
   async function handleAdd(data: CompetitorFormData) {
-    const fleetId = await ensureFleet(seriesId, data.fleet.trim());
+    // Resolve fleet IDs: existing selections + optional new fleet by name (deduplicated)
+    const fleetIdSet = new Set(data.fleetIds);
+    if (data.newFleetName.trim()) {
+      fleetIdSet.add(await ensureFleet(seriesId, data.newFleetName.trim()));
+    }
+    let fleetIds = [...fleetIdSet];
+    if (fleetIds.length === 0) {
+      fleetIds = [await ensureFleet(seriesId, '')];
+    }
     const competitor: Competitor = {
       id: crypto.randomUUID(),
       seriesId,
-      fleetId,
+      fleetIds,
       sailNumber: data.sailNumber,
       name: data.name,
       club: data.club,
       gender: data.gender,
       age: data.age ? parseInt(data.age, 10) : null,
       createdAt: Date.now(),
+      ...ratingFieldsFromForm(data),
     };
     log('competitors', 'adding', competitor);
     await competitorRepo.save(competitor);
@@ -303,21 +380,33 @@ export default function CompetitorsPage({
 
   async function handleEdit(data: CompetitorFormData) {
     if (!editingCompetitor) return;
-    const oldFleetId = editingCompetitor.fleetId;
-    const newFleetId = await ensureFleet(seriesId, data.fleet.trim());
+    const oldFleetIds = editingCompetitor.fleetIds;
+    const newFleetIdSet = new Set(data.fleetIds);
+    if (data.newFleetName.trim()) {
+      newFleetIdSet.add(await ensureFleet(seriesId, data.newFleetName.trim()));
+    }
+    let newFleetIds = [...newFleetIdSet];
+    if (newFleetIds.length === 0) {
+      newFleetIds = [await ensureFleet(seriesId, '')];
+    }
     const updated: Competitor = {
       ...editingCompetitor,
-      fleetId: newFleetId,
+      fleetIds: newFleetIds,
       sailNumber: data.sailNumber,
       name: data.name,
       club: data.club,
       gender: data.gender,
       age: data.age ? parseInt(data.age, 10) : null,
+      ...ratingFieldsFromForm(data),
     };
+    // Clear ratings no longer relevant
+    if (!updated.ircTcc) delete updated.ircTcc;
+    if (!updated.pyNumber) delete updated.pyNumber;
     log('competitors', 'updating', updated);
     await competitorRepo.save(updated);
-    if (oldFleetId !== newFleetId) {
-      await pruneFleet(seriesId, oldFleetId);
+    // Prune any fleets that were removed
+    for (const fId of oldFleetIds) {
+      if (!newFleetIds.includes(fId)) await pruneFleet(seriesId, fId);
     }
     await seriesRepo.touch(seriesId);
     setEditingCompetitor(null);
@@ -327,7 +416,7 @@ export default function CompetitorsPage({
     if (!confirm(`Delete ${competitor.name} (${competitor.sailNumber})?`)) return;
     log('competitors', 'deleting', competitor.id);
     await competitorRepo.delete(competitor.id);
-    await pruneFleet(seriesId, competitor.fleetId);
+    for (const fId of competitor.fleetIds) await pruneFleet(seriesId, fId);
     await seriesRepo.touch(seriesId);
   }
 
@@ -378,6 +467,8 @@ export default function CompetitorsPage({
       let gender = '';
       let age = '';
       let fleet = '';
+      let tcc = '';
+      let py = '';
       Object.entries(columnMap).forEach(([colStr, field]) => {
         const col = parseInt(colStr, 10);
         const val = row[col]?.trim() ?? '';
@@ -387,6 +478,8 @@ export default function CompetitorsPage({
         else if (field === 'gender') gender = val;
         else if (field === 'age') age = val;
         else if (field === 'fleet') fleet = val;
+        else if (field === 'tcc') tcc = val;
+        else if (field === 'py') py = val;
       });
 
       if (!sailNumber) {
@@ -400,31 +493,40 @@ export default function CompetitorsPage({
       const normGender = gender.toUpperCase();
       const fleetId = await ensureFleet(seriesId, fleet);
 
+      const parsedTcc = tcc ? parseFloat(tcc) : null;
+      const parsedPy = py ? parseInt(py, 10) : null;
+      const ircTcc = parsedTcc != null && !isNaN(parsedTcc) ? parsedTcc : existingCompetitor?.ircTcc;
+      const pyNumber = parsedPy != null && !isNaN(parsedPy) ? parsedPy : existingCompetitor?.pyNumber;
+
       const competitor: Competitor = {
         id: existingCompetitor?.id ?? crypto.randomUUID(),
         seriesId,
-        fleetId,
+        fleetIds: [fleetId],
         sailNumber: normSail,
         name: name || existingCompetitor?.name || '',
         club: club || existingCompetitor?.club || '',
         gender: (normGender === 'M' || normGender === 'F') ? normGender : (existingCompetitor?.gender ?? ''),
         age: parsedAge !== null && !isNaN(parsedAge) ? parsedAge : (existingCompetitor?.age ?? null),
         createdAt: existingCompetitor?.createdAt ?? Date.now(),
+        ...(ircTcc != null ? { ircTcc } : {}),
+        ...(pyNumber != null ? { pyNumber } : {}),
       };
 
       if (
         existingCompetitor &&
-        existingCompetitor.fleetId === competitor.fleetId &&
+        existingCompetitor.fleetIds[0] === competitor.fleetIds[0] &&
         existingCompetitor.name === competitor.name &&
         existingCompetitor.club === competitor.club &&
         existingCompetitor.gender === competitor.gender &&
-        existingCompetitor.age === competitor.age
+        existingCompetitor.age === competitor.age &&
+        existingCompetitor.ircTcc === competitor.ircTcc &&
+        existingCompetitor.pyNumber === competitor.pyNumber
       ) {
         unchanged++;
         continue;
       }
 
-      const oldFleetId = existingCompetitor?.fleetId;
+      const oldFleetId = existingCompetitor?.fleetIds[0];
       log('competitors', existingCompetitor ? 'import-update' : 'import-add', competitor);
       await competitorRepo.save(competitor);
       if (existingCompetitor) {
@@ -480,7 +582,7 @@ export default function CompetitorsPage({
             onSave={handleAdd}
             onCancel={() => setShowAddForm(false)}
             existingSailNumbers={existingSailNumbers}
-            existingFleetNames={fleetNames}
+            availableFleets={fleets ?? []}
           />
         </div>
       )}
@@ -524,7 +626,7 @@ export default function CompetitorsPage({
                 <TableCell className="font-mono">{c.sailNumber}</TableCell>
                 <TableCell>{c.name}</TableCell>
                 <TableCell>{c.club}</TableCell>
-                {multipleFleets && <TableCell>{fleetById.get(c.fleetId)?.name ?? ''}</TableCell>}
+                {multipleFleets && <TableCell>{c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ')}</TableCell>}
                 <TableCell>{c.gender}</TableCell>
                 <TableCell>{c.age ?? ''}</TableCell>
                 <TableCell>
@@ -578,12 +680,15 @@ export default function CompetitorsPage({
                 club: editingCompetitor.club,
                 gender: editingCompetitor.gender,
                 age: editingCompetitor.age?.toString() ?? '',
-                fleet: fleetById.get(editingCompetitor.fleetId)?.name ?? '',
+                fleetIds: editingCompetitor.fleetIds,
+                newFleetName: '',
+                ircTcc: editingCompetitor.ircTcc?.toString() ?? '',
+                pyNumber: editingCompetitor.pyNumber?.toString() ?? '',
               }}
               onSave={handleEdit}
               onCancel={() => setEditingCompetitor(null)}
               existingSailNumbers={editingExcluded}
-              existingFleetNames={fleetNames}
+              availableFleets={fleets ?? []}
             />
           )}
         </DialogContent>

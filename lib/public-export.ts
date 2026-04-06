@@ -156,13 +156,13 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
       includeJsonExport: true,
     });
 
-    await db.fleets.add({ id: defaultFleetId, seriesId: newSeriesId, name: 'Default', displayOrder: 0 });
+    await db.fleets.add({ id: defaultFleetId, seriesId: newSeriesId, name: 'Default', displayOrder: 0, scoringSystem: 'scratch' });
 
     for (const c of data.competitors) {
       await db.competitors.add({
         id: competitorIdBySail.get(c.sailNumber)!,
         seriesId: newSeriesId,
-        fleetId: defaultFleetId,
+        fleetIds: [defaultFleetId],
         sailNumber: c.sailNumber,
         name: c.name,
         club: c.club,

@@ -32,18 +32,28 @@ export interface Fleet {
   seriesId: string;
   name: string;
   displayOrder: number;
+  scoringSystem: 'scratch' | 'irc' | 'py';
+}
+
+export interface RaceStart {
+  id: string;
+  raceId: string;
+  fleetIds: string[];   // all fleets sharing this gun time
+  startTime: string;    // "HH:MM:SS"
 }
 
 export interface Competitor {
   id: string;
   seriesId: string;
-  fleetId: string;
+  fleetIds: string[];
   sailNumber: string;
   name: string;
   club: string;
   gender: 'M' | 'F' | '';
   age: number | null;
   createdAt: number;
+  ircTcc?: number;    // IRC Time Correction Coefficient, e.g. 0.972
+  pyNumber?: number;  // RYA Portsmouth Yardstick number, e.g. 1034
 }
 
 export interface Race {
@@ -81,6 +91,7 @@ export interface Finish {
   competitorId: string | null;    // null for unresolved unknown finishes
   unknownSailNumber?: string;     // set when competitorId is null
   finishPosition: number | null;  // null if result code is set (except RDG: may be set alongside RDG)
+  finishTime?: string;            // "HH:MM:SS" — time of day the boat crossed the line; ET = finishTime − startTime
   resultCode: ResultCode | null;  // null if finish position is set (RDG may coexist with finishPosition)
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded
   penaltyCode: PenaltyCode | null;    // additive penalty (ZFP/SCP/DPI); only for finishers
@@ -100,6 +111,13 @@ export interface RaceScore {
   place: number | null;   // raw cross-fleet finish position; null for coded finishes
   rank: number | null;    // within-fleet finish rank (base, before averaging); null for coded finishes
   resultCode: ResultCode | null;
+}
+
+// Calculated, not stored — extends RaceScore with handicap time fields
+export interface HandicapRaceScore extends RaceScore {
+  elapsedTime: number | null;    // seconds; null for coded finishes or missing start time
+  correctedTime: number | null;  // seconds; null for coded finishes or missing rating
+  tcfApplied: number | null;     // TCF used (TCC or 1000/PY); null if no rating
 }
 
 export interface BilgeBundle {

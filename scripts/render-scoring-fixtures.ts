@@ -11,9 +11,9 @@ import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
-import { calculateStandings, calculateFleetStandings, calculateRaceScores } from '../lib/scoring';
+import { calculateStandings, calculateFleetStandings, calculateRaceScores, calculateHandicapRaceScores } from '../lib/scoring';
 import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-renderer';
-import type { Competitor, Fleet, Race, Finish, DiscardThreshold, ResultCode, PenaltyCode } from '../lib/types';
+import type { Competitor, Fleet, Race, Finish, DiscardThreshold, ResultCode, PenaltyCode, RaceStart } from '../lib/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -58,13 +58,14 @@ function buildInputs(fixture: ScoringFixture) {
     seriesId: 's1',
     name,
     displayOrder: i,
+    scoringSystem: 'scratch' as const,
   }));
   const fleetIdByName = new Map(fleets.map((f) => [f.name, f.id]));
 
   const competitors: Competitor[] = fixture.competitors.map((c, i) => ({
     id: `c-${i}`,
     seriesId: 's1',
-    fleetId: fleetIdByName.get(c.fleet ?? 'Default') ?? 'f1',
+    fleetIds: [fleetIdByName.get(c.fleet ?? 'Default') ?? 'fl-0'],
     sailNumber: c.sailNumber,
     name: c.name,
     club: '',
@@ -181,7 +182,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
 
     for (const { fleet, standings } of fleetResults) {
       const fleetCompetitorIds = new Set(
-        competitors.filter((c) => c.fleetId === fleet.id).map((c) => c.id),
+        competitors.filter((c) => c.fleetIds.includes(fleet.id)).map((c) => c.id),
       );
       const raceScoresByRaceId = new Map<
         string,
@@ -269,6 +270,164 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
   return bodyHtml;
 }
 
+// ─── Handicap fixture types and renderer ─────────────────────────────────────
+
+interface HandicapFixtureCompetitor {
+  sailNumber: string;
+  name: string;
+  ircTcc?: number;
+  pyNumber?: number;
+}
+
+interface HandicapFixtureFinish {
+  sailor: string;
+  finishTime?: string;
+  code?: string;
+}
+
+interface HandicapFixtureExpected {
+  sailor: string;
+  rank: number | null;
+  points: number;
+  elapsedTime: number | null;
+  correctedTime: number | null;
+  tcfApplied: number | null;
+}
+
+interface HandicapFixture {
+  fleet: { scoringSystem: 'irc' | 'py' };
+  description: string;
+  rrs_notes?: string;
+  startTime: string;
+  competitors: HandicapFixtureCompetitor[];
+  finishes: HandicapFixtureFinish[];
+  expected: HandicapFixtureExpected[];
+}
+
+function isHandicapFixture(data: unknown): data is HandicapFixture {
+  return typeof data === 'object' && data !== null && 'fleet' in data;
+}
+
+function fmtSeconds(s: number | null): string {
+  if (s === null) return '—';
+  const m = Math.floor(s / 60);
+  const sec = Math.round(s % 60);
+  return `${m}m ${sec.toString().padStart(2, '0')}s`;
+}
+
+function fmtTcf(tcf: number | null, sys: 'irc' | 'py'): string {
+  if (tcf === null) return '—';
+  return `${tcf.toFixed(4)}${sys === 'py' ? ' (1000/PY)' : ''}`;
+}
+
+function generateHandicapFixtureHtml(fixture: HandicapFixture, yamlSource: string): string {
+  const sys = fixture.fleet.scoringSystem.toUpperCase();
+  const fleet: Fleet = {
+    id: 'fl-0', seriesId: 's1', name: 'Fleet', displayOrder: 0,
+    scoringSystem: fixture.fleet.scoringSystem,
+  };
+  const sailToId = new Map(fixture.competitors.map((c, i) => [c.sailNumber, `c-${i}`]));
+  const competitors: Competitor[] = fixture.competitors.map((c, i) => ({
+    id: `c-${i}`, seriesId: 's1', fleetIds: ['fl-0'],
+    sailNumber: c.sailNumber, name: c.name, club: '', gender: '', age: null, createdAt: 0,
+    ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
+    ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
+  }));
+  const raceStart: RaceStart = { id: 'rs-0', raceId: 'r-0', fleetIds: ['fl-0'], startTime: fixture.startTime };
+  const finishes: Finish[] = fixture.finishes.map((f, i) => ({
+    id: `fin-${i}`, raceId: 'r-0', competitorId: sailToId.get(f.sailor) ?? null,
+    finishPosition: null, ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+    resultCode: (f.code as Finish['resultCode']) ?? null, startPresent: null,
+    penaltyCode: null, penaltyOverride: null,
+    redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+    redressIncludeAllLater: false, redressPoints: null,
+  }));
+  const scores = calculateHandicapRaceScores(finishes, competitors, raceStart, fleet);
+
+  const competitorByIdMap = new Map(competitors.map((c) => [c.id, c]));
+  const finishTimeByCompetitorId = new Map(
+    finishes.filter((f) => f.competitorId && f.finishTime).map((f) => [f.competitorId!, f.finishTime!])
+  );
+
+  const sortedScores = [...scores.entries()]
+    .sort((a, b) => {
+      const ra = a[1].rank ?? Infinity;
+      const rb = b[1].rank ?? Infinity;
+      if (ra !== rb) return ra - rb;
+      return a[0].localeCompare(b[0]);
+    });
+
+  const rows = sortedScores.map(([cId, score]) => {
+    const c = competitorByIdMap.get(cId)!;
+    const ratingDisplay = fixture.fleet.scoringSystem === 'irc'
+      ? (c.ircTcc?.toFixed(3) ?? '—')
+      : (c.pyNumber?.toString() ?? '—');
+    const finishTimeDisplay = finishTimeByCompetitorId.get(cId) ?? (score.resultCode ?? '—');
+    const rankDisplay = score.rank !== null ? score.rank.toString() : '—';
+    const pointsDisplay = score.points % 1 === 0 ? score.points.toString() : score.points.toFixed(1);
+    return `<tr>
+  <td>${esc(rankDisplay)}</td>
+  <td>${esc(c.name)}</td>
+  <td class="mono">${esc(c.sailNumber)}</td>
+  <td class="mono">${esc(ratingDisplay)}</td>
+  <td class="mono">${esc(fmtTcf(score.tcfApplied, fixture.fleet.scoringSystem))}</td>
+  <td class="mono">${esc(finishTimeDisplay)}</td>
+  <td class="mono">${esc(fmtSeconds(score.elapsedTime))}</td>
+  <td class="mono">${esc(fmtSeconds(score.correctedTime))}</td>
+  <td>${esc(pointsDisplay)}</td>
+</tr>`;
+  }).join('\n');
+
+  const notesHtml = fixture.rrs_notes
+    ? `<p style="font-style:italic; color:#444;">${esc(fixture.rrs_notes)}</p>`
+    : '';
+
+  const comments = extractComments(yamlSource);
+  const commentsHtml = comments
+    ? `<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">${esc(comments)}</pre>`
+    : '';
+
+  const ratingHeader = fixture.fleet.scoringSystem === 'irc' ? 'TCC' : 'PY';
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>${esc(fixture.description)} — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.8em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All ${esc(sys)} handicap examples</a></p>
+<h1>${esc(fixture.description)}</h1>
+${notesHtml}
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> ${esc(sys)} &nbsp;&nbsp;
+  <strong>Gun time:</strong> ${esc(fixture.startTime)}
+</div>
+${commentsHtml}
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>${esc(ratingHeader)}</th><th>TCF</th><th>Finish time</th><th>ET</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+${rows}
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>
+`;
+}
+
 // ─── Index generation ─────────────────────────────────────────────────────────
 
 const CATEGORY_META: Record<string, { title: string; intro: string }> = {
@@ -283,6 +442,10 @@ const CATEGORY_META: Record<string, { title: string; intro: string }> = {
   codes: {
     title: 'Result codes',
     intro: 'Scoring behaviour for result codes: position-replacing codes (DNS, DNF, DSQ,\n  OCS, UFD, BFD, RET, NSC, DNC, DNE) and non-discardable penalties. Point\n  values and discard eligibility are governed by RRS Appendix A5 and Rule 30.',
+  },
+  'tcc-handicap': {
+    title: 'TCC handicap scoring (IRC / PY)',
+    intro: 'Time-on-time corrected scoring using a Time Correction Factor (TCF).\n  IRC boats use TCC directly; PY boats derive TCF = 1000 \u00f7 PY number.\n  Boats rank by lowest corrected time (CT = ET \u00d7 TCF); penalty codes are unchanged.',
   },
 };
 
@@ -399,8 +562,17 @@ let htmCount = 0;
 
 for (const yamlPath of yamlFiles) {
   const yamlSource = readFileSync(yamlPath, 'utf-8');
-  const fixture = parseYaml(yamlSource) as ScoringFixture;
-  const html = generateFixtureHtml(fixture, yamlSource);
+  const parsed = parseYaml(yamlSource);
+  let html: string;
+  let description: string;
+  if (isHandicapFixture(parsed)) {
+    html = generateHandicapFixtureHtml(parsed, yamlSource);
+    description = parsed.description;
+  } else {
+    const fixture = parsed as ScoringFixture;
+    html = generateFixtureHtml(fixture, yamlSource);
+    description = fixture.description;
+  }
   const outPath = yamlPath.replace(/\.yaml$/, '.html');
   writeFileSync(outPath, html, 'utf-8');
   console.log(`  ${basename(outPath)}`);
@@ -408,7 +580,7 @@ for (const yamlPath of yamlFiles) {
 
   const categoryDir = dirname(yamlPath);
   if (!byCategory.has(categoryDir)) byCategory.set(categoryDir, []);
-  byCategory.get(categoryDir)!.push({ yamlPath, description: fixture.description });
+  byCategory.get(categoryDir)!.push({ yamlPath, description });
 }
 
 // Generate category index.html files.

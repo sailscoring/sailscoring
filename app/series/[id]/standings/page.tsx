@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { competitorRepo, raceRepo, finishRepo, seriesRepo, ftpServerRepo, fleetRepo } from '@/lib/dexie-repository';
+import { competitorRepo, raceRepo, finishRepo, seriesRepo, ftpServerRepo, fleetRepo, raceStartRepo } from '@/lib/dexie-repository';
 import { db } from '@/lib/db';
 import { getDiscardCount, calculateFleetStandings, calculateRaceScores } from '@/lib/scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from '@/lib/results-renderer';
@@ -88,7 +88,10 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
   ]);
   if (!series || competitors.length === 0 || races.length === 0) return null;
 
-  const allFinishes = await finishRepo.listBySeries(seriesId, competitors.map((c) => c.id));
+  const [allFinishes, allRaceStarts] = await Promise.all([
+    finishRepo.listBySeries(seriesId, competitors.map((c) => c.id)),
+    raceStartRepo.listByRaces(races.map((r) => r.id)),
+  ]);
   const { fleetStandings: fleetResults } = calculateFleetStandings(
     fleets,
     competitors,
@@ -96,6 +99,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
     allFinishes,
     series.discardThresholds ?? [],
     series.dnfScoring ?? 'seriesEntries',
+    allRaceStarts,
   );
 
   const isSingleDefault = fleets.length <= 1;
@@ -757,6 +761,13 @@ export default function StandingsPage({
     },
     [seriesId, competitors],
   );
+  const allRaceStarts = useLiveQuery(
+    async () => {
+      if (!races) return undefined;
+      return raceStartRepo.listByRaces(races.map((r) => r.id));
+    },
+    [races],
+  );
 
   useGlobalKeyDown((e) => {
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')) return;
@@ -779,7 +790,8 @@ export default function StandingsPage({
     competitors === undefined ||
     fleets === undefined ||
     races === undefined ||
-    allFinishes === undefined
+    allFinishes === undefined ||
+    allRaceStarts === undefined
   ) {
     return <p className="text-muted-foreground">Loading…</p>;
   }
@@ -812,6 +824,7 @@ export default function StandingsPage({
     allFinishes,
     discardThresholds,
     series.dnfScoring ?? 'seriesEntries',
+    allRaceStarts,
   );
   const discardCount = getDiscardCount(races.length, discardThresholds);
   const isSingleFleet = fleets.length <= 1;
@@ -867,7 +880,17 @@ export default function StandingsPage({
         return (
           <div key={fleet.id} className="space-y-2">
             {!isSingleFleet && (
-              <h3 className="text-sm font-semibold pt-2">{fleet.name}</h3>
+              <h3 className="text-sm font-semibold pt-2">
+                {fleet.name}
+                {fleet.scoringSystem !== 'scratch' && (
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">({fleet.scoringSystem.toUpperCase()})</span>
+                )}
+              </h3>
+            )}
+            {isSingleFleet && fleet.scoringSystem !== 'scratch' && (
+              <p className="text-xs text-muted-foreground">
+                Scored on {fleet.scoringSystem.toUpperCase()} — points based on corrected time.
+              </p>
             )}
             <FleetStandingsTable
               standings={standings}

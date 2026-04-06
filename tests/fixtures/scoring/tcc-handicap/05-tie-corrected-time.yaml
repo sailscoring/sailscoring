@@ -1,0 +1,51 @@
+description: "IRC — tie on corrected time triggers A8.1 averaging"
+rrs_notes: "RRS A8.1: when boats tie on corrected time, they share the points for the tied places averaged. A8.2 tie-breaking is for series standings, not individual race scores."
+
+# Start 14:00:00 (= 50400 s since midnight)
+#
+# Boat 1 (TCC 1.0): finish 15:00:00  ET = 3600 s   CT = 3600 × 1.0 = 3600.0 s  → tied 2nd
+# Boat 2 (TCC 0.9): finish 15:06:40  ET = 4000 s   CT = 4000 × 0.9 = 3600.0 s  → tied 2nd
+# Boat 3 (TCC 1.0): finish 14:58:00  ET = 3480 s   CT = 3480 × 1.0 = 3480.0 s  → 1st
+#
+# Boats 1 and 2 are tied at CT=3600.0. They occupy 2nd and 3rd place; averaged
+# points = (2 + 3) / 2 = 2.5 each.
+
+fleet:
+  scoringSystem: irc
+startTime: "14:00:00"
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    ircTcc: 1.0
+  - sailNumber: "2"
+    name: "Beta"
+    ircTcc: 0.9
+  - sailNumber: "3"
+    name: "Gamma"
+    ircTcc: 1.0
+finishes:
+  - sailor: "1"
+    finishTime: "15:00:00"
+  - sailor: "2"
+    finishTime: "15:06:40"
+  - sailor: "3"
+    finishTime: "14:58:00"
+expected:
+  - sailor: "1"
+    rank: 2
+    points: 2.5
+    elapsedTime: 3600
+    correctedTime: 3600.0
+    tcfApplied: 1.0
+  - sailor: "2"
+    rank: 2
+    points: 2.5
+    elapsedTime: 4000
+    correctedTime: 3600.0
+    tcfApplied: 0.9
+  - sailor: "3"
+    rank: 1
+    points: 1.0
+    elapsedTime: 3480
+    correctedTime: 3480.0
+    tcfApplied: 1.0

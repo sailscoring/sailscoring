@@ -4,7 +4,7 @@ import type { Competitor, Fleet, Race, Finish, DiscardThreshold, PenaltyCode } f
 
 // Helpers to build test fixtures with minimal required fields
 function makeCompetitor(id: string, seriesId = 's1', fleetId = 'f1'): Competitor {
-  return { id, seriesId, fleetId, sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0 };
+  return { id, seriesId, fleetIds: [fleetId], sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0 };
 }
 
 function makeRace(id: string, raceNumber: number, seriesId = 's1'): Race {
@@ -410,7 +410,7 @@ describe('calculateStandings with discards', () => {
 // ─── calculateFleetStandings ─────────────────────────────────────────────────
 
 function makeFleet(id: string, name: string, displayOrder: number, seriesId = 's1'): Fleet {
-  return { id, seriesId, name, displayOrder };
+  return { id, seriesId, name, displayOrder, scoringSystem: 'scratch' };
 }
 
 describe('calculateFleetStandings', () => {

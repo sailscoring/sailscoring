@@ -18,6 +18,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   saveSeriesFile,
   parseSeriesFile,
   checkLineage,
@@ -149,7 +156,7 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
 
   // A single Default fleet means fleets are invisible to the user.
   const isOnlyDefault = fleets.length === 1 && fleets[0].name === 'Default';
-  const showEditButton = fleets.length > 1 || (fleets.length === 1 && !isOnlyDefault);
+  const showEditButton = fleets.length > 0;
 
   async function moveFleet(index: number, direction: -1 | 1) {
     const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
@@ -183,6 +190,10 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
     setRenameError('');
   }
 
+  async function changeScoringSystem(fleet: Fleet, system: Fleet['scoringSystem']) {
+    await fleetRepo.save({ ...fleet, scoringSystem: system });
+  }
+
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
 
   return (
@@ -200,12 +211,12 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
         <p className="text-sm text-muted-foreground">
           {fleets.length === 0 || isOnlyDefault
             ? 'Fleets are created from competitors.'
-            : sorted.map((f) => f.name).join(' · ')}
+            : sorted.map((f) => f.scoringSystem !== 'scratch' ? `${f.name} (${f.scoringSystem.toUpperCase()})` : f.name).join(' · ')}
         </p>
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Fleets are created automatically from your competitors.
+            Fleets are created automatically from your competitors. Set each fleet&apos;s scoring system here.
           </p>
           <div className="space-y-1">
             {sorted.map((fleet, i) => (
@@ -226,6 +237,19 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
                 ) : (
                   <span className="flex-1 text-sm">{fleet.name}</span>
                 )}
+                <Select
+                  value={fleet.scoringSystem}
+                  onValueChange={(v) => changeScoringSystem(fleet, v as Fleet['scoringSystem'])}
+                >
+                  <SelectTrigger className="w-28 h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scratch">Scratch</SelectItem>
+                    <SelectItem value="irc">IRC</SelectItem>
+                    <SelectItem value="py">PY</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button
                   type="button"
                   variant="ghost"

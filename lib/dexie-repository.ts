@@ -5,8 +5,9 @@ import type {
   FleetRepository,
   RaceRepository,
   FinishRepository,
+  RaceStartRepository,
 } from './repository';
-import type { Series, Competitor, Fleet, Race, Finish, FtpServer } from './types';
+import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart } from './types';
 
 export const DEFAULT_FLEET_NAME = 'Default';
 
@@ -121,6 +122,35 @@ class DexieFinishRepository implements FinishRepository {
   }
 }
 
+class DexieRaceStartRepository implements RaceStartRepository {
+  listByRace(raceId: string): Promise<RaceStart[]> {
+    return db.raceStarts.where('raceId').equals(raceId).toArray();
+  }
+
+  listByRaces(raceIds: string[]): Promise<RaceStart[]> {
+    if (raceIds.length === 0) return Promise.resolve([]);
+    return db.raceStarts.where('raceId').anyOf(raceIds).toArray();
+  }
+
+  async save(raceStart: RaceStart): Promise<RaceStart> {
+    await db.raceStarts.put(raceStart);
+    return raceStart;
+  }
+
+  delete(id: string): Promise<void> {
+    return db.raceStarts.delete(id);
+  }
+
+  deleteByRace(raceId: string): Promise<void> {
+    return db.raceStarts.where('raceId').equals(raceId).delete().then(() => undefined);
+  }
+
+  deleteByRaces(raceIds: string[]): Promise<void> {
+    if (raceIds.length === 0) return Promise.resolve();
+    return db.raceStarts.where('raceId').anyOf(raceIds).delete().then(() => undefined);
+  }
+}
+
 class DexieFtpServerRepository {
   list(): Promise<FtpServer[]> {
     return db.ftpServers.toArray();
@@ -167,6 +197,7 @@ export const competitorRepo: CompetitorRepository = new DexieCompetitorRepositor
 export const fleetRepo: FleetRepository = new DexieFleetRepository();
 export const raceRepo: RaceRepository = new DexieRaceRepository();
 export const finishRepo: FinishRepository = new DexieFinishRepository();
+export const raceStartRepo: RaceStartRepository = new DexieRaceStartRepository();
 export const ftpServerRepo = new DexieFtpServerRepository();
 
 /**
@@ -189,6 +220,7 @@ export async function ensureFleet(seriesId: string, name: string): Promise<strin
     seriesId,
     name: fleetName,
     displayOrder: maxOrder + 1,
+    scoringSystem: 'scratch',
   };
   await db.fleets.add(newFleet);
   return newFleet.id;
@@ -201,7 +233,7 @@ export async function pruneFleet(seriesId: string, fleetId: string): Promise<voi
   const count = await db.competitors
     .where('seriesId')
     .equals(seriesId)
-    .filter((c) => c.fleetId === fleetId)
+    .filter((c) => c.fleetIds.includes(fleetId))
     .count();
   if (count === 0) {
     await db.fleets.delete(fleetId);

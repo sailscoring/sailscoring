@@ -1,0 +1,158 @@
+import { test, expect } from './fixtures';
+
+/**
+ * E2E tests for IRC time-corrected handicap scoring (issue #61, Phase 1).
+ *
+ * Three boats in an IRC fleet start at 14:00:00.
+ * Finish times and TCC ratings:
+ *   IRC1 (TCC=1.000): finishes 14:30:00 → ET=1800s → CT=1800.0s  → 3rd
+ *   IRC2 (TCC=1.050): finishes 14:28:00 → ET=1680s → CT=1764.0s  → 2nd
+ *   IRC3 (TCC=1.100): finishes 14:25:00 → ET=1500s → CT=1650.0s  → 1st
+ *
+ * Standings after 1 race: IRC3=1pt, IRC2=2pt, IRC1=3pt.
+ */
+
+test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
+  // ── 1. Create series ──────────────────────────────────────────────────────
+  await page.goto('/');
+  await page.getByRole('link', { name: 'New series' }).click();
+  await page.getByLabel('Name').fill('IRC Test 2025');
+  await page.getByRole('button', { name: 'Create series' }).click();
+  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
+
+  // ── 2. Add three competitors — fleet "IRC" is created on first save ───────
+  const boats = [
+    { sailNumber: 'IRC1', name: 'Slow Alice' },
+    { sailNumber: 'IRC2', name: 'Medium Bob' },
+    { sailNumber: 'IRC3', name: 'Fast Carol' },
+  ];
+
+  for (const c of boats) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sailNumber);
+    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Fleet').fill('IRC');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
+  }
+
+  // ── 3. Settings: change fleet scoring system to IRC ───────────────────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+
+  // The Fleets card has an "Edit ▸" button; click it
+  const fleetsHeading = page.getByRole('heading', { name: 'Fleets', level: 2 });
+  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
+
+  // The fleet row shows "Scratch" as the current scoring system; click it to open the Select
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'IRC' }).click();
+
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 4. Edit competitors to add TCC ratings ────────────────────────────────
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
+  const tccs: Record<string, string> = { IRC1: '1.000', IRC2: '1.050', IRC3: '1.100' };
+  for (const c of boats) {
+    const row = page.getByRole('row').filter({ hasText: c.sailNumber });
+    await row.getByRole('button', { name: /Edit/ }).click();
+    // With IRC fleet checked, TCC input is visible
+    await expect(page.getByLabel('IRC TCC')).toBeVisible();
+    await page.getByLabel('IRC TCC').fill(tccs[c.sailNumber]);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
+  }
+
+  // ── 5. Add a race ─────────────────────────────────────────────────────────
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 1')).toBeVisible();
+
+  // ── 6. Open race — add start time and finish times ────────────────────────
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  // Add start time: 14:00:00 for the IRC fleet
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  // Check the IRC fleet checkbox in the dialog
+  await page.getByLabel('IRC').check();
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  // Verify the start is recorded
+  await expect(page.getByText('14:00:00')).toBeVisible();
+
+  // Add boats to finishing order in order IRC3, IRC2, IRC1 (earliest finisher first)
+  for (const sailNumber of ['IRC3', 'IRC2', 'IRC1']) {
+    await page.getByLabel('Sail number').fill(sailNumber);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+
+  // Set finish times
+  const finishTimes: Record<string, string> = {
+    IRC3: '14:25:00',
+    IRC2: '14:28:00',
+    IRC1: '14:30:00',
+  };
+  for (const sailNumber of ['IRC3', 'IRC2', 'IRC1']) {
+    await page.getByTestId(`finish-time-${sailNumber}`).fill(finishTimes[sailNumber]);
+  }
+
+  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+
+  // ── 7. Verify standings: IRC3 first, IRC1 last ────────────────────────────
+  await page.getByRole('link', { name: 'Standings' }).click();
+
+  // IRC label should appear somewhere on the standings page
+  await expect(page.getByText(/IRC/)).toBeVisible();
+
+  // IRC3 has lowest CT (1650s) → rank 1 → first data row
+  await expect(page.getByRole('row').nth(1)).toContainText('IRC3');
+  // IRC1 has highest CT (1800s) → rank 3 → third data row
+  await expect(page.getByRole('row').nth(3)).toContainText('IRC1');
+});
+
+/**
+ * File format version is 7 after adding IRC fleet and scoring system.
+ */
+test('series file version is 7 with IRC fleet scoring system', async ({ page }) => {
+  // ── 1. Create a series with an IRC fleet ──────────────────────────────────
+  await page.goto('/');
+  await page.getByRole('link', { name: 'New series' }).click();
+  await page.getByLabel('Name').fill('IRC Format Test');
+  await page.getByRole('button', { name: 'Create series' }).click();
+  await expect(page).toHaveURL(/\/competitors$/);
+
+  // Add one competitor to create the fleet
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('F1');
+  await page.getByLabel('Helm name').fill('Format Tester');
+  await page.getByLabel('Fleet').fill('IRC');
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  // Change fleet scoring system to IRC
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const fleetsHeading = page.getByRole('heading', { name: 'Fleets', level: 2 });
+  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'IRC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 2. Save to file and verify format version ─────────────────────────────
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Save to File' }).click();
+  const dl = await download;
+
+  const stream = await dl.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const json = JSON.parse(Buffer.concat(chunks).toString());
+
+  expect(json.formatVersion).toBe(7);
+
+  const ircFleet = json.fleets?.find((f: { name: string }) => f.name === 'IRC');
+  expect(ircFleet?.scoringSystem).toBe('irc');
+});

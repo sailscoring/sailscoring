@@ -1,0 +1,51 @@
+description: "IRC — competitor with no TCC receives penalty points; others scored normally"
+rrs_notes: "A boat entered in a handicap fleet with no rating cannot be corrected. It receives penalty points (fleet+1) and no corrected time."
+
+# Fleet size = 3, so penalty = 4.
+# Start 14:00:00 (= 50400 s since midnight)
+#
+# Boat 1 (TCC 1.05): finish 15:05:00  ET = 3900 s   CT = 3900 × 1.05 = 4095.0 s  → 2nd  (2 pts)
+# Boat 2 (no TCC):   finish 15:10:00  ET = 4200 s   CT = n/a                      → n/a  (4 pts)
+# Boat 3 (TCC 0.95): finish 15:03:00  ET = 3780 s   CT = 3780 × 0.95 = 3591.0 s  → 1st  (1 pt)
+#
+# Boat 2 has a recorded finish time but no TCC, so it cannot be ranked.
+
+fleet:
+  scoringSystem: irc
+startTime: "14:00:00"
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    ircTcc: 1.05
+  - sailNumber: "2"
+    name: "Beta"
+    # no ircTcc — unrated
+  - sailNumber: "3"
+    name: "Gamma"
+    ircTcc: 0.95
+finishes:
+  - sailor: "1"
+    finishTime: "15:05:00"
+  - sailor: "2"
+    finishTime: "15:10:00"
+  - sailor: "3"
+    finishTime: "15:03:00"
+expected:
+  - sailor: "1"
+    rank: 2
+    points: 2.0
+    elapsedTime: 3900
+    correctedTime: 4095.0
+    tcfApplied: 1.05
+  - sailor: "2"
+    rank: null
+    points: 4.0
+    elapsedTime: 4200
+    correctedTime: null
+    tcfApplied: null
+  - sailor: "3"
+    rank: 1
+    points: 1.0
+    elapsedTime: 3780
+    correctedTime: 3591.0
+    tcfApplied: 0.95
