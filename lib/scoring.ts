@@ -680,7 +680,7 @@ function calculateHandicapStandings(
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
       competitorRacePoints.get(competitor.id)!.push(score?.points ?? competitors.length + 1);
-      competitorRaceCodes.get(competitor.id)!.push(score?.resultCode ?? 'DNC');
+      competitorRaceCodes.get(competitor.id)!.push(score !== undefined ? score.resultCode : 'DNC');
       competitorRacePenaltyCodes.get(competitor.id)!.push(null);
       competitorRacePenaltyOverrides.get(competitor.id)!.push(null);
       competitorRaceRedressFlags.get(competitor.id)!.push(false);
