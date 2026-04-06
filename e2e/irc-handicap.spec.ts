@@ -72,7 +72,8 @@ test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
   await page.getByText('Race 1').click();
   await expect(page.getByText('Race 1 — results')).toBeVisible();
 
-  // Add start time: 14:00:00 for the IRC fleet
+  // Expand the race starts card, then add a start time: 14:00:00 for the IRC fleet
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
   await page.getByPlaceholder('14:05:00').fill('14:00:00');
   // Check the IRC fleet checkbox in the dialog

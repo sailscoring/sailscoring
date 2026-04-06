@@ -126,6 +126,8 @@ export default function ResultEntryPage({
   const [pendingTimeValue, setPendingTimeValue] = useState('');
   const [pendingTimeError, setPendingTimeError] = useState('');
   const pendingTimeInputRef = useRef<HTMLInputElement>(null);
+  // Race starts section
+  const [startsExpanded, setStartsExpanded] = useState(false);
   // Race starts dialog
   const [startDialog, setStartDialog] = useState<{ editingId: string | null } | null>(null);
   const [startTimeInput, setStartTimeInput] = useState('');
@@ -284,6 +286,7 @@ export default function ResultEntryPage({
 
   // Ctrl+Enter to save; Esc to cancel; c to toggle check-in tab
   function openAddStart() {
+    setStartsExpanded(true);
     setStartTimeInput('');
     setStartFleetIds([]);
     setStartDialogError('');
@@ -1042,31 +1045,58 @@ export default function ResultEntryPage({
 
       {/* Race starts — only shown for series with non-scratch fleets */}
       {activeTab === 'finish' && hasNonScratchFleets && (
-        <div className="space-y-2">
+        <div className="border rounded-lg px-4 py-3 space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-sm">Race starts</h3>
-            <Button size="sm" variant="outline" onClick={openAddStart}>
-              <Plus className="h-3.5 w-3.5 mr-1" />Add start
-            </Button>
-          </div>
-          {raceStarts.length === 0 && (
-            <p className="text-sm text-muted-foreground">No start times recorded. Press <kbd className="px-1 py-0.5 text-xs border rounded">s</kbd> or click Add start.</p>
-          )}
-          <div className="space-y-1">
-            {[...raceStarts].sort((a, b) => a.startTime.localeCompare(b.startTime)).map((s) => (
-              <div key={s.id} className="flex items-center gap-2 text-sm px-3 py-2 border rounded-md">
-                <span className="font-mono font-medium">{s.startTime}</span>
-                <span className="text-muted-foreground">—</span>
-                <span className="flex-1">{s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditStart(s)}>
-                  <Pencil className="h-3.5 w-3.5" />
+            {!startsExpanded ? (
+              <Button variant="ghost" size="sm" onClick={() => setStartsExpanded(true)}>
+                Edit ▸
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={openAddStart}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />Add start
                 </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteStart(s.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
+                <Button size="sm" variant="ghost" onClick={() => setStartsExpanded(false)}>
+                  Done
                 </Button>
               </div>
-            ))}
+            )}
           </div>
+          {!startsExpanded ? (
+            raceStarts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No start times recorded.</p>
+            ) : (
+              <div className="space-y-1">
+                {[...raceStarts].sort((a, b) => a.startTime.localeCompare(b.startTime)).map((s) => (
+                  <p key={s.id} className="text-sm text-muted-foreground">
+                    <span className="font-mono">{s.startTime}</span>
+                    {' — '}
+                    {s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}
+                  </p>
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="space-y-1">
+              {raceStarts.length === 0 && (
+                <p className="text-sm text-muted-foreground">No start times recorded. Press <kbd className="px-1 py-0.5 text-xs border rounded">s</kbd> or click Add start.</p>
+              )}
+              {[...raceStarts].sort((a, b) => a.startTime.localeCompare(b.startTime)).map((s) => (
+                <div key={s.id} className="flex items-center gap-2 text-sm px-3 py-2 border rounded-md">
+                  <span className="font-mono font-medium">{s.startTime}</span>
+                  <span className="text-muted-foreground">—</span>
+                  <span className="flex-1">{s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}</span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditStart(s)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteStart(s.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
