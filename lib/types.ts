@@ -65,7 +65,9 @@ export type ResultCode =
   | 'DSQ'   // Disqualified (excludable)
   | 'DNE'   // Disqualification Not Excludable — cannot be discarded
   | 'UFD'   // U Flag Disqualification (rule 30.3) — discardable
-  | 'BFD';  // Black Flag Disqualification (rule 30.4) — cannot be discarded
+  | 'BFD'   // Black Flag Disqualification (rule 30.4) — cannot be discarded
+  // Redress (replaces score with A9 average; Phase 3)
+  | 'RDG';  // Redress Given — score replaced by A9 average
 
 export type PenaltyCode =
   // Additive penalty codes (applied on top of finish; A6.2: other scores unchanged)
@@ -78,11 +80,17 @@ export interface Finish {
   raceId: string;
   competitorId: string | null;    // null for unresolved unknown finishes
   unknownSailNumber?: string;     // set when competitorId is null
-  finishPosition: number | null;  // null if result code is set
-  resultCode: ResultCode | null;  // null if finish position is set
+  finishPosition: number | null;  // null if result code is set (except RDG: may be set alongside RDG)
+  resultCode: ResultCode | null;  // null if finish position is set (RDG may coexist with finishPosition)
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded
   penaltyCode: PenaltyCode | null;    // additive penalty (ZFP/SCP/DPI); only for finishers
   penaltyOverride: number | null;     // SCP: explicit %; DPI: explicit points; null = use default
+  // Redress (RDG) — all null unless resultCode === 'RDG'
+  redressMethod: 'all_races' | 'races_before' | 'stated' | null;
+  redressExcludeRaces: number[] | null; // exclude-mode: remove these races from method-default pool
+  redressIncludeRaces: number[] | null; // include-mode: use only these races (overrides method default)
+  redressIncludeAllLater: boolean;      // include-mode: also include all races after max(redressIncludeRaces)
+  redressPoints: number | null;         // stated-method: scorer-entered points value
 }
 
 // Calculated, not stored
@@ -126,4 +134,5 @@ export interface Standing {
   netPoints: number;                     // totalPoints minus discarded points
   raceDiscards: boolean[];               // true = this race is discarded from series total
   raceNonDiscardable: boolean[];         // true = this code cannot be excluded by discard rules (DNE, BFD)
+  raceRedressFlags: boolean[];           // true = this race score was calculated via RDG (A9 average)
 }

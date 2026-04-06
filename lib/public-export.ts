@@ -60,7 +60,7 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
   if (!series || competitors.length === 0 || races.length === 0) return null;
 
   const allFinishes = await finishRepo.listBySeries(seriesId, competitors.map((c) => c.id));
-  const standings = calculateStandings(
+  const { standings } = calculateStandings(
     competitors,
     races,
     allFinishes,
@@ -193,6 +193,11 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
           startPresent: finish.startPresent,
           penaltyCode: null,
           penaltyOverride: null,
+          redressMethod: null,
+          redressExcludeRaces: null,
+          redressIncludeRaces: null,
+          redressIncludeAllLater: false,
+          redressPoints: null,
         });
       }
     }

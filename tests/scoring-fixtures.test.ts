@@ -20,10 +20,16 @@ import type { Competitor, Fleet, Race, Finish, DiscardThreshold, ResultCode, Pen
 interface FixtureFinish {
   sailor: string;           // references competitor sailNumber
   position?: number;        // clean finish
-  code?: ResultCode;        // DNC | DNF | OCS
+  code?: ResultCode;        // DNC | DNF | OCS | RDG | …
   startPresent?: boolean;   // true if marked present in starting area
   penaltyCode?: PenaltyCode; // additive penalty (ZFP | SCP | DPI)
   penaltyOverride?: number;  // SCP: percentage; DPI: stated points
+  // Redress (RDG)
+  redressMethod?: 'all_races' | 'races_before' | 'stated';
+  redressExcludeRaces?: number[];
+  redressIncludeRaces?: number[];
+  redressIncludeAllLater?: boolean;
+  redressPoints?: number;
 }
 
 interface FixtureRace {
@@ -40,6 +46,7 @@ interface FixtureStanding {
   raceDiscards: boolean[];
   raceNonDiscardable?: boolean[];         // optional; assert only when present in fixture
   racePenaltyCodes?: (PenaltyCode | null)[];  // optional; assert only when present in fixture
+  raceRedressFlags?: boolean[];           // optional; assert only when present in fixture
   totalPoints: number;
   netPoints: number;
 }
@@ -118,6 +125,11 @@ function buildInputs(fixture: ScoringFixture): {
         startPresent: f.startPresent ?? null,
         penaltyCode: f.penaltyCode ?? null,
         penaltyOverride: f.penaltyOverride ?? null,
+        redressMethod: f.redressMethod ?? null,
+        redressExcludeRaces: f.redressExcludeRaces ?? null,
+        redressIncludeRaces: f.redressIncludeRaces ?? null,
+        redressIncludeAllLater: f.redressIncludeAllLater ?? false,
+        redressPoints: f.redressPoints ?? null,
       });
     }
   }
@@ -146,20 +158,20 @@ describe('scoring fixtures', () => {
       const isMultiFleet = fleets.length > 1;
 
       // For multi-fleet fixtures, build a flat map of sailNumber → standing across all fleets
-      let standingsBySailNumber: Map<string, ReturnType<typeof calculateStandings>[number]>;
+      let standingsBySailNumber: Map<string, import('@/lib/types').Standing>;
       let fleetNameBySailNumber: Map<string, string> | undefined;
       if (isMultiFleet) {
-        const fleetResults = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, dnfScoring);
+        const { fleetStandings } = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, dnfScoring);
         standingsBySailNumber = new Map();
         fleetNameBySailNumber = new Map();
-        for (const { fleet, standings } of fleetResults) {
+        for (const { fleet, standings } of fleetStandings) {
           for (const s of standings) {
             standingsBySailNumber.set(s.competitor.sailNumber, s);
             fleetNameBySailNumber.set(s.competitor.sailNumber, fleet.name);
           }
         }
       } else {
-        const standings = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring);
+        const { standings } = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring);
         standingsBySailNumber = new Map(standings.map((s) => [s.competitor.sailNumber, s]));
       }
 
@@ -184,6 +196,9 @@ describe('scoring fixtures', () => {
         }
         if (expected.racePenaltyCodes !== undefined) {
           expect(standing.racePenaltyCodes, `${label}: racePenaltyCodes`).toEqual(expected.racePenaltyCodes);
+        }
+        if (expected.raceRedressFlags !== undefined) {
+          expect(standing.raceRedressFlags, `${label}: raceRedressFlags`).toEqual(expected.raceRedressFlags);
         }
         expect(standing.totalPoints, `${label}: totalPoints`).toBe(expected.totalPoints);
         expect(standing.netPoints, `${label}: netPoints`).toBe(expected.netPoints);

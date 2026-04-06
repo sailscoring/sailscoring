@@ -89,7 +89,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
   if (!series || competitors.length === 0 || races.length === 0) return null;
 
   const allFinishes = await finishRepo.listBySeries(seriesId, competitors.map((c) => c.id));
-  const fleetResults = calculateFleetStandings(
+  const { fleetStandings: fleetResults } = calculateFleetStandings(
     fleets,
     competitors,
     races,
@@ -805,7 +805,7 @@ export default function StandingsPage({
   }
 
   const discardThresholds: DiscardThreshold[] = series.discardThresholds ?? [];
-  const fleetResults = calculateFleetStandings(
+  const { fleetStandings: fleetResults, circularRedressRaces } = calculateFleetStandings(
     fleets,
     competitors,
     races,
@@ -819,6 +819,13 @@ export default function StandingsPage({
 
   return (
     <div className="space-y-4 overflow-x-auto">
+      {circularRedressRaces.length > 0 && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Circular redress: two or more boats in{' '}
+          {circularRedressRaces.map((n) => `Race ${n}`).join(', ')}{' '}
+          have RDG assigned. Assign one result manually to resolve.
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {races.length} race{races.length === 1 ? '' : 's'}{fleetCountLabel} · Low Point ·{' '}
@@ -938,7 +945,7 @@ function StandingRow({
   raceCount: number;
   hasDiscards: boolean;
 }) {
-  const { rank, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, totalPoints, netPoints, raceDiscards, raceNonDiscardable } = standing;
+  const { rank, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable } = standing;
 
   // Highlight rank 1 row
   const isFirst = rank === 1;
@@ -963,6 +970,7 @@ function StandingRow({
         const code = raceCodes[i];
         const penaltyCode = racePenaltyCodes?.[i] ?? null;
         const penaltyOverride = racePenaltyOverrides?.[i] ?? null;
+        const isRedress = raceRedressFlags?.[i] ?? false;
         const penaltyLabel = penaltyCode
           ? penaltyOverride !== null
             ? penaltyCode === 'DPI'
@@ -978,7 +986,11 @@ function StandingRow({
               isDiscard && 'line-through text-muted-foreground',
             )}
           >
-            {code !== null ? (
+            {isRedress ? (
+              <span className="text-xs text-amber-600 dark:text-amber-400" title="Redress given (RDG)">
+                {points}<sup>r</sup>
+              </span>
+            ) : code !== null ? (
               <span
                 className={cn(
                   'text-xs',

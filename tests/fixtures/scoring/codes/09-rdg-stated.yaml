@@ -1,0 +1,57 @@
+description: "RDG (Redress Given) — A9(c) scorer-stated points"
+rrs_notes: >
+  RRS A9(c): the PC may assign a specific points value as redress rather than
+  computing an average. The stated value is used directly (no rounding).
+  3 competitors, N=3, DNF score=4.
+  Alice (sail 1) fails to finish race 2 and is granted redress of 2.5 points.
+  Final: Bob 4 pts (rank 1), Alice 5.5 pts (rank 2), Carol 8 pts (rank 3).
+
+series:
+  discardThresholds: []
+
+competitors:
+  - { sailNumber: "1", name: "Alice" }
+  - { sailNumber: "2", name: "Bob" }
+  - { sailNumber: "3", name: "Carol" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "1", position: 1 }
+      - { sailor: "2", position: 2 }
+      - { sailor: "3", position: 3 }
+  - number: 2
+    finishes:
+      - { sailor: "1", code: RDG, redressMethod: stated, redressPoints: 2.5 }
+      - { sailor: "2", position: 1 }
+      - { sailor: "3", position: 2 }
+  - number: 3
+    finishes:
+      - { sailor: "1", position: 2 }
+      - { sailor: "2", position: 1 }
+      - { sailor: "3", position: 3 }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [2, 1, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 2
+      sailor: "1"
+      racePoints: [1, 2.5, 2]
+      raceCodes: [null, RDG, null]
+      raceDiscards: [false, false, false]
+      raceRedressFlags: [false, true, false]
+      totalPoints: 5.5
+      netPoints: 5.5
+    - rank: 3
+      sailor: "3"
+      racePoints: [3, 2, 3]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 8
+      netPoints: 8

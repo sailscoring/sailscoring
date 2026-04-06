@@ -26,6 +26,9 @@ function makeStanding(
       resultCode: s.resultCode ?? null,
       isDiscard: false,
       podiumRank: s.podiumRank ?? null,
+      penaltyCode: null,
+      penaltyOverride: null,
+      isRedress: false,
     })),
     totalPoints,
     netPoints: totalPoints,
@@ -45,6 +48,8 @@ function makeRace(n: number, results: Array<[string, string, number, ResultCode 
       place: code === null ? points : null,
       points,
       resultCode: code,
+      penaltyCode: null,
+      penaltyOverride: null,
     })),
   };
 }
@@ -143,8 +148,8 @@ describe('renderSeriesHtml', () => {
           sailNumber: '1',
           helm: 'A',
           raceScores: [
-            { points: 1, resultCode: null, isDiscard: false, podiumRank: 1 },
-            { points: 4, resultCode: 'DNC', isDiscard: true, podiumRank: null },
+            { points: 1, resultCode: null, isDiscard: false, podiumRank: 1, penaltyCode: null, penaltyOverride: null, isRedress: false },
+            { points: 4, resultCode: 'DNC', isDiscard: true, podiumRank: null, penaltyCode: null, penaltyOverride: null, isRedress: false },
           ],
           totalPoints: 5,
           netPoints: 1,

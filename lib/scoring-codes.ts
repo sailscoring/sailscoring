@@ -23,8 +23,9 @@ export type PointsMethod =
   | { type: 'additive_percentage'; defaultPct: number }
   // Discretionary Points Increase: min(place + override, dnfScore)
   // Finish.penaltyOverride is the stated points to add.
-  | { type: 'additive_stated' };
-  // Phase 3: redress
+  | { type: 'additive_stated' }
+  // Redress (RDG): score replaced by A9 average — computed dynamically in calculateStandings.
+  | { type: 'redress' };
 
 export interface ScoringCodeDefinition {
   code: string;
@@ -152,6 +153,17 @@ export const BUILT_IN_CODES: readonly ScoringCodeDefinition[] = [
     pointsMethod: { type: 'additive_stated' },
     discardable: true,
     otherScoresUnchanged: true,
+  },
+  // ── Redress (Phase 3) ──────────────────────────────────────────────────────
+  {
+    code: 'RDG',
+    name: 'Redress Given',
+    builtIn: true,
+    // Score is replaced by an A9 average calculated dynamically by calculateStandings().
+    // The placeholder score assigned by calculateRaceScores() is always overwritten.
+    pointsMethod: { type: 'redress' },
+    discardable: true,
+    otherScoresUnchanged: false,
   },
 ];
 

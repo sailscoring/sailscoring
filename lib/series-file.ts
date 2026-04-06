@@ -1,7 +1,7 @@
 import type { Series, ResultCode, PenaltyCode, DiscardThreshold } from './types';
 import { db } from './db';
 
-export const FORMAT_VERSION = 5;
+export const FORMAT_VERSION = 6;
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -56,6 +56,11 @@ interface SeriesFileFinish {
   startPresent: boolean | null;
   penaltyCode?: PenaltyCode | null;
   penaltyOverride?: number | null;
+  redressMethod?: 'all_races' | 'races_before' | 'stated';
+  redressExcludeRaces?: number[];
+  redressIncludeRaces?: number[];
+  redressIncludeAllLater?: boolean;
+  redressPoints?: number;
 }
 
 interface SeriesFileRace {
@@ -122,6 +127,11 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       startPresent: f.startPresent,
       penaltyCode: f.penaltyCode ?? null,
       penaltyOverride: f.penaltyOverride ?? null,
+      ...(f.redressMethod ? { redressMethod: f.redressMethod } : {}),
+      ...(f.redressExcludeRaces?.length ? { redressExcludeRaces: f.redressExcludeRaces } : {}),
+      ...(f.redressIncludeRaces?.length ? { redressIncludeRaces: f.redressIncludeRaces } : {}),
+      ...(f.redressIncludeAllLater ? { redressIncludeAllLater: f.redressIncludeAllLater } : {}),
+      ...(f.redressPoints != null ? { redressPoints: f.redressPoints } : {}),
     });
   }
 
@@ -325,6 +335,11 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
           startPresent: f.startPresent ?? null,
           penaltyCode: f.penaltyCode ?? null,
           penaltyOverride: f.penaltyOverride ?? null,
+          redressMethod: f.redressMethod ?? null,
+          redressExcludeRaces: f.redressExcludeRaces ?? null,
+          redressIncludeRaces: f.redressIncludeRaces ?? null,
+          redressIncludeAllLater: f.redressIncludeAllLater ?? false,
+          redressPoints: f.redressPoints ?? null,
         });
       }
     }
@@ -426,6 +441,11 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
           startPresent: f.startPresent ?? null,
           penaltyCode: f.penaltyCode ?? null,
           penaltyOverride: f.penaltyOverride ?? null,
+          redressMethod: f.redressMethod ?? null,
+          redressExcludeRaces: f.redressExcludeRaces ?? null,
+          redressIncludeRaces: f.redressIncludeRaces ?? null,
+          redressIncludeAllLater: f.redressIncludeAllLater ?? false,
+          redressPoints: f.redressPoints ?? null,
         });
       }
     }

@@ -60,6 +60,7 @@ export interface RaceScoreData {
   penaltyCode: PenaltyCode | null;
   penaltyOverride: number | null;
   isDiscard: boolean;
+  isRedress: boolean;
   podiumRank: 1 | 2 | 3 | null;
 }
 
@@ -168,7 +169,7 @@ function renderSummaryTable(
           ]
             .filter(Boolean)
             .join(' ');
-          const text = renderScoreText(score.points, score.resultCode, score.penaltyCode, score.penaltyOverride, score.isDiscard);
+          const text = renderScoreText(score.points, score.resultCode, score.penaltyCode, score.penaltyOverride, score.isDiscard, score.isRedress);
           return classes ? `<td class="${classes}">${text}</td>` : `<td>${text}</td>`;
         })
         .join('\n');
@@ -218,7 +219,11 @@ function renderRaceTable(race: RaceData): string {
       const isRankTied = r.rank !== null && (rankCounts.get(r.rank) ?? 0) > 1;
       const placeText = r.resultCode ?? (r.place !== null ? `${r.place}${isPlaceTied ? '=' : ''}` : '');
       const rankText = r.rank !== null ? `${r.rank}${isRankTied ? '=' : ''}` : '';
-      const pointsText = r.penaltyCode ? `${r.points} ${formatPenaltyLabel(r.penaltyCode, r.penaltyOverride)}` : String(r.points);
+      const pointsText = r.penaltyCode
+        ? `${r.points} ${formatPenaltyLabel(r.penaltyCode, r.penaltyOverride)}`
+        : r.resultCode === 'RDG'
+          ? `${r.points} RDG`
+          : String(r.points);
       return `<tr class="${rowClass} racerow">
 <td>${placeText}</td>
 <td>${esc(r.sailNumber)}</td>
@@ -267,9 +272,12 @@ function renderScoreText(
   penaltyCode: PenaltyCode | null,
   penaltyOverride: number | null,
   isDiscard: boolean,
+  isRedress: boolean,
 ): string {
   let text: string;
-  if (resultCode) {
+  if (isRedress) {
+    text = `${points} RDG`;
+  } else if (resultCode) {
     text = `${points} ${resultCode}`;
   } else if (penaltyCode) {
     text = `${points} ${formatPenaltyLabel(penaltyCode, penaltyOverride)}`;
@@ -332,6 +340,7 @@ export function assembleSeriesResultsData(
     raceCodes: (ResultCode | null)[];
     racePenaltyCodes?: (PenaltyCode | null)[];
     racePenaltyOverrides?: (number | null)[];
+    raceRedressFlags?: boolean[];
     totalPoints: number;
     netPoints: number;
     raceDiscards: boolean[];
@@ -398,15 +407,17 @@ export function assembleSeriesResultsData(
       const resultCode = s.raceCodes[i] ?? null;
       const penaltyCode = s.racePenaltyCodes?.[i] ?? null;
       const penaltyOverride = s.racePenaltyOverrides?.[i] ?? null;
+      const isRedress = s.raceRedressFlags?.[i] ?? false;
       const raceNumber = races[i]?.raceNumber ?? i + 1;
       const podium = racePodiums.get(raceNumber);
-      const podiumRank = resultCode === null && penaltyCode === null ? (podium?.get(s.competitor.sailNumber) ?? null) : null;
+      const podiumRank = resultCode === null && penaltyCode === null && !isRedress ? (podium?.get(s.competitor.sailNumber) ?? null) : null;
       return {
         points,
         resultCode,
         penaltyCode,
         penaltyOverride,
         isDiscard: s.raceDiscards[i] ?? false,
+        isRedress,
         podiumRank,
       };
     }),

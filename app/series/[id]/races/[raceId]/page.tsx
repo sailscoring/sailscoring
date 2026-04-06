@@ -21,14 +21,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { X, AlertTriangle, Flag } from 'lucide-react';
+import { X, AlertTriangle, Flag, Scale } from 'lucide-react';
 import type { Competitor, Finish, ResultCode, PenaltyCode } from '@/lib/types';
+import { calculateStandings } from '@/lib/scoring';
 import { CheckSquare, Square } from 'lucide-react';
 import { log } from '@/lib/debug';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 
 type NonFinisherCode = ResultCode | 'implicit-dnc';
+
+type RedressMethod = 'all_races' | 'races_before' | 'stated';
+type RedressPoolMode = 'none' | 'exclude' | 'include';
+
+interface RedressEntry {
+  method: RedressMethod;
+  poolMode: RedressPoolMode;
+  excludeRaces: number[];
+  includeRaces: number[];
+  includeAllLater: boolean;
+  statedPoints: string;
+}
+
+interface RedressDialogState extends RedressEntry {
+  competitorId: string;
+  isFinisher: boolean;
+  previousCode?: NonFinisherCode;   // for non-finisher: revert on cancel
+}
 
 interface NonFinisherEntry {
   competitor: Competitor;
@@ -62,6 +81,10 @@ export default function ResultEntryPage({
   );
   const fleets = useLiveQuery(
     () => fleetRepo.listBySeries(seriesId),
+    [seriesId],
+  );
+  const allSeriesRaces = useLiveQuery(
+    () => raceRepo.listBySeries(seriesId),
     [seriesId],
   );
 
@@ -101,6 +124,10 @@ export default function ResultEntryPage({
   // Additive penalties: entryId → { code, override }
   const [finisherPenalties, setFinisherPenalties] = useState<Map<string, { code: PenaltyCode; override: number | null }>>(new Map());
   const initialPenaltiesRef = useRef<Map<string, { code: PenaltyCode; override: number | null }>>(new Map());
+  // Redress: competitorId → redress entry
+  const [redressEntries, setRedressEntries] = useState<Map<string, RedressEntry>>(new Map());
+  const initialRedressRef = useRef<Map<string, RedressEntry>>(new Map());
+  const [redressDialog, setRedressDialog] = useState<RedressDialogState | null>(null);
   // Penalty editor dialog
   const [editingPenaltyEntryId, setEditingPenaltyEntryId] = useState<string | null>(null);
   const [pendingPenaltyCode, setPendingPenaltyCode] = useState<PenaltyCode | 'none'>('none');
@@ -142,14 +169,32 @@ export default function ResultEntryPage({
       }
     }
 
+    const redress = new Map<string, RedressEntry>();
+    for (const finish of savedFinishes) {
+      if (finish.resultCode === 'RDG' && finish.competitorId && finish.redressMethod) {
+        const hasExclude = (finish.redressExcludeRaces?.length ?? 0) > 0;
+        const hasInclude = (finish.redressIncludeRaces?.length ?? 0) > 0 || finish.redressIncludeAllLater;
+        redress.set(finish.competitorId, {
+          method: finish.redressMethod as RedressMethod,
+          poolMode: hasExclude ? 'exclude' : hasInclude ? 'include' : 'none',
+          excludeRaces: finish.redressExcludeRaces ?? [],
+          includeRaces: finish.redressIncludeRaces ?? [],
+          includeAllLater: finish.redressIncludeAllLater ?? false,
+          statedPoints: finish.redressPoints != null ? String(finish.redressPoints) : '',
+        });
+      }
+    }
+
     initialOrderRef.current = [...order];
     initialCodesRef.current = new Map(codes);
     initialPositionsRef.current = new Map(positions);
     initialPenaltiesRef.current = new Map(penalties);
+    initialRedressRef.current = new Map(redress);
     setFinishingOrder(order);
     setFinishPositions(positions);
     setNonFinisherCodes(codes);
     setFinisherPenalties(penalties);
+    setRedressEntries(redress);
     setInitialized(true);
   }
 
@@ -179,6 +224,16 @@ export default function ResultEntryPage({
     for (const [k, v] of finisherPenalties) {
       const init = initPenalties.get(k);
       if (!init || init.code !== v.code || init.override !== v.override) return true;
+    }
+    const initRedress = initialRedressRef.current;
+    if (redressEntries.size !== initRedress.size) return true;
+    for (const [k, v] of redressEntries) {
+      const init = initRedress.get(k);
+      if (!init) return true;
+      if (init.method !== v.method || init.poolMode !== v.poolMode ||
+          init.statedPoints !== v.statedPoints || init.includeAllLater !== v.includeAllLater ||
+          JSON.stringify(init.excludeRaces) !== JSON.stringify(v.excludeRaces) ||
+          JSON.stringify(init.includeRaces) !== JSON.stringify(v.includeRaces)) return true;
     }
     return false;
   }
@@ -309,6 +364,11 @@ export default function ResultEntryPage({
       next.delete(eid);
       return next;
     });
+    setRedressEntries((prev) => {
+      const next = new Map(prev);
+      next.delete(eid);
+      return next;
+    });
   }
 
   function openPenaltyEditor(eid: string) {
@@ -334,6 +394,56 @@ export default function ResultEntryPage({
       );
     }
     setEditingPenaltyEntryId(null);
+  }
+
+  function openRedressDialog(competitorId: string, isFinisher: boolean, previousCode?: NonFinisherCode) {
+    const existingEntry = redressEntries.get(competitorId);
+    setRedressDialog({
+      competitorId,
+      isFinisher,
+      previousCode,
+      method: existingEntry?.method ?? 'all_races',
+      poolMode: existingEntry?.poolMode ?? 'none',
+      excludeRaces: existingEntry?.excludeRaces ?? [],
+      includeRaces: existingEntry?.includeRaces ?? [],
+      includeAllLater: existingEntry?.includeAllLater ?? false,
+      statedPoints: existingEntry?.statedPoints ?? '',
+    });
+  }
+
+  function applyRedress() {
+    if (!redressDialog) return;
+    const { competitorId, isFinisher, ...entry } = redressDialog;
+    setRedressEntries((prev) => new Map(prev).set(competitorId, {
+      method: entry.method,
+      poolMode: entry.poolMode,
+      excludeRaces: entry.excludeRaces,
+      includeRaces: entry.includeRaces,
+      includeAllLater: entry.includeAllLater,
+      statedPoints: entry.statedPoints,
+    }));
+    if (!isFinisher) {
+      setNonFinisherCodes((m) => new Map(m).set(competitorId, 'RDG'));
+    }
+    setRedressDialog(null);
+  }
+
+  function removeRedress() {
+    if (!redressDialog) return;
+    const { competitorId, isFinisher } = redressDialog;
+    setRedressEntries((prev) => {
+      const next = new Map(prev);
+      next.delete(competitorId);
+      return next;
+    });
+    if (!isFinisher) {
+      setNonFinisherCodes((m) => {
+        const next = new Map(m);
+        next.delete(competitorId);
+        return next;
+      });
+    }
+    setRedressDialog(null);
   }
 
   function commitPositionEdit() {
@@ -399,6 +509,11 @@ export default function ResultEntryPage({
           startPresent: false,
           penaltyCode: null,
           penaltyOverride: null,
+          redressMethod: null,
+          redressExcludeRaces: null,
+          redressIncludeRaces: null,
+          redressIncludeAllLater: false,
+          redressPoints: null,
         });
       }
     } else {
@@ -415,6 +530,11 @@ export default function ResultEntryPage({
           startPresent: true,
           penaltyCode: null,
           penaltyOverride: null,
+          redressMethod: null,
+          redressExcludeRaces: null,
+          redressIncludeRaces: null,
+          redressIncludeAllLater: false,
+          redressPoints: null,
         });
       }
     }
@@ -507,15 +627,21 @@ export default function ResultEntryPage({
         const eid = entryId(entry);
         if (entry.kind === 'known') {
           const penalty = finisherPenalties.get(entry.competitorId);
+          const rdg = redressEntries.get(entry.competitorId);
           finishes.push({
             id: crypto.randomUUID(),
             raceId,
             competitorId: entry.competitorId,
             finishPosition: finishPositions.get(eid) ?? index + 1,
-            resultCode: null,
+            resultCode: rdg ? 'RDG' : null,
             startPresent: startPresentMap.get(entry.competitorId) ?? true,
             penaltyCode: penalty?.code ?? null,
             penaltyOverride: penalty?.override ?? null,
+            redressMethod: rdg?.method ?? null,
+            redressExcludeRaces: rdg?.poolMode === 'exclude' ? rdg.excludeRaces : null,
+            redressIncludeRaces: rdg?.poolMode === 'include' ? rdg.includeRaces : null,
+            redressIncludeAllLater: rdg?.poolMode === 'include' ? (rdg.includeAllLater ?? false) : false,
+            redressPoints: rdg?.method === 'stated' ? (Number(rdg.statedPoints) || null) : null,
           });
         } else {
           finishes.push({
@@ -528,6 +654,11 @@ export default function ResultEntryPage({
             startPresent: null,
             penaltyCode: null,
             penaltyOverride: null,
+            redressMethod: null,
+            redressExcludeRaces: null,
+            redressIncludeRaces: null,
+            redressIncludeAllLater: false,
+            redressPoints: null,
           });
         }
       });
@@ -535,6 +666,7 @@ export default function ResultEntryPage({
       // Non-finishers with explicit codes
       for (const [competitorId, code] of nonFinisherCodes) {
         if (!finishedIds.has(competitorId)) {
+          const rdg = code === 'RDG' ? redressEntries.get(competitorId) : undefined;
           finishes.push({
             id: crypto.randomUUID(),
             raceId,
@@ -544,6 +676,11 @@ export default function ResultEntryPage({
             startPresent: startPresentMap.get(competitorId) ?? null,
             penaltyCode: null,
             penaltyOverride: null,
+            redressMethod: rdg?.method ?? null,
+            redressExcludeRaces: rdg?.poolMode === 'exclude' ? rdg.excludeRaces : null,
+            redressIncludeRaces: rdg?.poolMode === 'include' ? rdg.includeRaces : null,
+            redressIncludeAllLater: rdg?.poolMode === 'include' ? (rdg.includeAllLater ?? false) : false,
+            redressPoints: rdg?.method === 'stated' ? (Number(rdg.statedPoints) || null) : null,
           });
         }
       }
@@ -564,6 +701,11 @@ export default function ResultEntryPage({
             startPresent: true,
             penaltyCode: null,
             penaltyOverride: null,
+            redressMethod: null,
+            redressExcludeRaces: null,
+            redressIncludeRaces: null,
+            redressIncludeAllLater: false,
+            redressPoints: null,
           });
         }
       }
@@ -595,6 +737,8 @@ export default function ResultEntryPage({
     BFD: 'BFD',
     // Explicit absence
     DNC: 'DNC',
+    // Redress
+    RDG: 'RDG (redress)',
   };
 
   // A competitor is effectively present if they are in the unsaved finishing order OR explicitly
@@ -943,10 +1087,14 @@ export default function ResultEntryPage({
               const competitor = competitorMap.get(entry.competitorId);
               if (!competitor) return null;
               const penalty = finisherPenalties.get(entry.competitorId);
+              const hasRedress = redressEntries.has(entry.competitorId);
               return (
                 <li
                   key={entry.competitorId}
-                  className="flex items-center gap-3 border rounded-lg px-4 py-2.5"
+                  className={cn(
+                    'flex items-center gap-3 border rounded-lg px-4 py-2.5',
+                    hasRedress && 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700',
+                  )}
                 >
                   <div className="flex items-center shrink-0">
                     <input
@@ -1004,6 +1152,17 @@ export default function ResultEntryPage({
                     <Flag className="h-3.5 w-3.5" />
                   </button>
                   <button
+                    onClick={() => openRedressDialog(entry.competitorId, true)}
+                    aria-label={`Set redress for ${competitor.sailNumber}`}
+                    title="Set redress (RDG)"
+                    className={cn(
+                      'shrink-0',
+                      hasRedress ? 'text-amber-600 hover:text-amber-700' : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    <Scale className="h-3.5 w-3.5" />
+                  </button>
+                  <button
                     onClick={() => removeFinisher(eid)}
                     aria-label={`Remove ${competitor.sailNumber}`}
                     className="text-muted-foreground hover:text-foreground"
@@ -1035,17 +1194,42 @@ export default function ResultEntryPage({
                 <div
                   key={competitor.id}
                   data-testid={`non-finisher-${competitor.sailNumber}`}
-                  className="flex items-center gap-3 border rounded-lg px-4 py-2"
+                  className={cn(
+                    'flex items-center gap-3 border rounded-lg px-4 py-2',
+                    code === 'RDG' && 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700',
+                  )}
                 >
                   <span className="font-mono font-medium w-16 shrink-0">
                     {competitor.sailNumber}
                   </span>
                   <span className="text-sm flex-1 truncate">{competitor.name}</span>
+                  {code === 'RDG' && (
+                    <button
+                      type="button"
+                      onClick={() => openRedressDialog(competitor.id, false, 'RDG')}
+                      aria-label={`Edit redress for ${competitor.sailNumber}`}
+                      title="Edit redress"
+                      className="text-amber-600 hover:text-amber-700 shrink-0"
+                    >
+                      <Scale className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   <Select
                     value={code}
-                    onValueChange={(v) =>
-                      setNonFinisherCode(competitor.id, v as NonFinisherCode)
-                    }
+                    onValueChange={(v) => {
+                      if (v === 'RDG') {
+                        openRedressDialog(competitor.id, false, code);
+                      } else {
+                        if (code === 'RDG') {
+                          setRedressEntries((prev) => {
+                            const next = new Map(prev);
+                            next.delete(competitor.id);
+                            return next;
+                          });
+                        }
+                        setNonFinisherCode(competitor.id, v as NonFinisherCode);
+                      }
+                    }}
                   >
                     <SelectTrigger className="w-36 h-8 text-xs">
                       <SelectValue />
@@ -1297,6 +1481,167 @@ export default function ResultEntryPage({
           <div className="flex gap-2">
             <Button onClick={applyPenalty}>Apply</Button>
             <Button variant="ghost" onClick={() => setEditingPenaltyEntryId(null)}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Redress dialog */}
+      <Dialog open={redressDialog !== null} onOpenChange={(open) => { if (!open) setRedressDialog(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Redress (RDG) — {redressDialog ? (competitorMap.get(redressDialog.competitorId)?.sailNumber ?? '') : ''}
+            </DialogTitle>
+            <DialogDescription>
+              RRS A9: replace score with average from a pool of races.
+              {redressDialog?.isFinisher && finishPositions.get(redressDialog.competitorId) !== undefined && (
+                <> Finish position {finishPositions.get(redressDialog.competitorId)} is kept.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Method (RRS A9)</label>
+              <div className="space-y-1.5">
+                {([
+                  { value: 'all_races', label: 'A9(a) — average of all races in the series' },
+                  { value: 'races_before', label: `A9(b) — average of races before race ${race?.raceNumber ?? ''}` },
+                  { value: 'stated', label: 'A9(c) — scorer-stated points' },
+                ] as { value: RedressMethod; label: string }[]).map(({ value, label }) => (
+                  <label key={value} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="radio"
+                      name="rdg-method"
+                      value={value}
+                      checked={redressDialog?.method === value}
+                      onChange={() => setRedressDialog((d) => d ? { ...d, method: value } : null)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {redressDialog?.method === 'stated' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Points</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  placeholder="e.g. 3.5"
+                  value={redressDialog.statedPoints}
+                  onChange={(e) => setRedressDialog((d) => d ? { ...d, statedPoints: e.target.value } : null)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyRedress(); } }}
+                  autoFocus
+                />
+              </div>
+            )}
+
+            {redressDialog?.method !== 'stated' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Pool restriction</label>
+                <div className="space-y-1.5">
+                  {([
+                    { value: 'none', label: 'No restriction' },
+                    { value: 'exclude', label: 'Exclude specific races from pool' },
+                    { value: 'include', label: 'Include only specific races' },
+                  ] as { value: RedressPoolMode; label: string }[]).map(({ value, label }) => (
+                    <label key={value} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="rdg-pool"
+                        value={value}
+                        checked={redressDialog?.poolMode === value}
+                        onChange={() => setRedressDialog((d) => d ? { ...d, poolMode: value } : null)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+
+                {redressDialog?.poolMode === 'exclude' && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Races to exclude:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {(allSeriesRaces ?? []).sort((a, b) => a.raceNumber - b.raceNumber).map((r) => {
+                        const selected = redressDialog.excludeRaces.includes(r.raceNumber);
+                        return (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => setRedressDialog((d) => {
+                              if (!d) return null;
+                              const races = selected
+                                ? d.excludeRaces.filter((n) => n !== r.raceNumber)
+                                : [...d.excludeRaces, r.raceNumber];
+                              return { ...d, excludeRaces: races };
+                            })}
+                            className={cn(
+                              'text-xs px-2 py-0.5 rounded border transition-colors',
+                              selected
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background hover:bg-accent border-input',
+                            )}
+                          >
+                            R{r.raceNumber}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {redressDialog?.poolMode === 'include' && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Races to include:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {(allSeriesRaces ?? []).sort((a, b) => a.raceNumber - b.raceNumber).map((r) => {
+                        const selected = redressDialog.includeRaces.includes(r.raceNumber);
+                        return (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => setRedressDialog((d) => {
+                              if (!d) return null;
+                              const races = selected
+                                ? d.includeRaces.filter((n) => n !== r.raceNumber)
+                                : [...d.includeRaces, r.raceNumber];
+                              return { ...d, includeRaces: races };
+                            })}
+                            className={cn(
+                              'text-xs px-2 py-0.5 rounded border transition-colors',
+                              selected
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background hover:bg-accent border-input',
+                            )}
+                          >
+                            R{r.raceNumber}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {redressDialog.method !== 'races_before' && (
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={redressDialog.includeAllLater}
+                          onChange={(e) => setRedressDialog((d) => d ? { ...d, includeAllLater: e.target.checked } : null)}
+                        />
+                        Include all later races
+                      </label>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={applyRedress}>Apply</Button>
+            {redressEntries.has(redressDialog?.competitorId ?? '') && (
+              <Button variant="outline" onClick={removeRedress}>Remove redress</Button>
+            )}
+            <Button variant="ghost" onClick={() => setRedressDialog(null)}>Cancel</Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -35,6 +35,7 @@ export default function HelpPage() {
           ['#adding-races', 'Adding races'],
           ['#entering-results', 'Entering results'],
           ['#penalty-codes', 'Additive penalty codes'],
+          ['#redress', 'Redress (RDG)'],
           ['#start-check-in', 'Start check-in'],
           ['#reading-the-standings', 'Reading the standings'],
           ['#discard-rules', 'Discard rules'],
@@ -257,6 +258,73 @@ export default function HelpPage() {
           two boats may legitimately share the same score. The penalised score is capped at
           the DNF score for that race. Penalty codes are shown in amber in the standings table,
           e.g. <em>4 (ZFP)</em>.
+        </p>
+      </Section>
+
+      <Section id="redress" title="Redress (RDG)">
+        <p>
+          When the protest committee grants a competitor redress under RRS Rule 62,
+          their score for a race is replaced by an average calculated from their
+          other scores. Use the{' '}
+          <strong className="text-foreground">scales icon</strong> next to a
+          competitor in the race entry screen to assign redress.
+        </p>
+        <p>
+          There are two entry paths depending on whether the competitor finished:
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li>
+            <strong className="text-foreground">Finisher granted redress</strong> — the
+            boat completed the course and recorded a position, but later received redress to
+            improve their score. Click the scales icon in the finishing order list. The
+            finish position is preserved in the record but replaced by the redress score
+            for standings.
+          </li>
+          <li>
+            <strong className="text-foreground">Non-finisher granted redress</strong> — the
+            boat did not finish (e.g. retired, RET). Select{' '}
+            <strong className="text-foreground">RDG (redress)</strong> from the code
+            dropdown in the non-finisher list. A dialog will open to configure the
+            redress details.
+          </li>
+        </ul>
+        <p className="font-medium text-sm mt-2">Redress methods (RRS A9)</p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li>
+            <strong className="text-foreground">A9(a) — all races</strong>: average of
+            the competitor&apos;s scores in all other races in the series.
+          </li>
+          <li>
+            <strong className="text-foreground">A9(b) — races before</strong>: average
+            of scores in races sailed before the race in which redress is granted.
+          </li>
+          <li>
+            <strong className="text-foreground">A9(c) — stated points</strong>: the PC
+            assigns a specific points value directly.
+          </li>
+        </ul>
+        <p className="font-medium text-sm mt-2">Pool restriction</p>
+        <p>
+          For A9(a) and A9(b) you can optionally restrict which races contribute
+          to the average:
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li>
+            <strong className="text-foreground">Exclude specific races</strong> — remove
+            named races from the default pool (e.g. exclude a race the competitor did not
+            start).
+          </li>
+          <li>
+            <strong className="text-foreground">Include specific races</strong> — use
+            only the listed races. Check{' '}
+            <strong className="text-foreground">Include all later races</strong> to also
+            include every race after the highest-numbered race in the list.
+          </li>
+        </ul>
+        <p>
+          The average is rounded to the nearest tenth (0.05 rounds up, per RRS A9).
+          Redress scores are shown in amber with a superscript{' '}
+          <em>r</em> in the standings table.
         </p>
       </Section>
 

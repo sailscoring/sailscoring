@@ -26,6 +26,11 @@ interface FixtureFinish {
   startPresent?: boolean;
   penaltyCode?: PenaltyCode;
   penaltyOverride?: number;
+  redressMethod?: 'all_races' | 'races_before' | 'stated';
+  redressExcludeRaces?: number[];
+  redressIncludeRaces?: number[];
+  redressIncludeAllLater?: boolean;
+  redressPoints?: number;
 }
 
 interface FixtureRace {
@@ -91,6 +96,11 @@ function buildInputs(fixture: ScoringFixture) {
         startPresent: f.startPresent ?? null,
         penaltyCode: f.penaltyCode ?? null,
         penaltyOverride: f.penaltyOverride ?? null,
+        redressMethod: f.redressMethod ?? null,
+        redressExcludeRaces: f.redressExcludeRaces ?? null,
+        redressIncludeRaces: f.redressIncludeRaces ?? null,
+        redressIncludeAllLater: f.redressIncludeAllLater ?? false,
+        redressPoints: f.redressPoints ?? null,
       });
     }
   }
@@ -166,7 +176,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
 
   if (isMultiFleet) {
     // Render one standings section per fleet
-    const fleetResults = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, dnfScoring);
+    const { fleetStandings: fleetResults } = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, dnfScoring);
     const sections: string[] = [];
 
     for (const { fleet, standings } of fleetResults) {
@@ -223,7 +233,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
 
     bodyHtml = shell + sections.map(extractFleetContent).join('\n') + '\n' + footer;
   } else {
-    const standings = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring);
+    const { standings } = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring);
 
     const raceScoresByRaceId = new Map<
       string,

@@ -144,6 +144,22 @@ export class SailScoringDb extends Dexie {
         finish.penaltyOverride = null;
       });
     });
+    this.version(13).stores({
+      series: 'id, createdAt',
+      competitors: 'id, seriesId, fleetId, createdAt',
+      fleets: 'id, seriesId, displayOrder',
+      races: 'id, seriesId, raceNumber',
+      finishes: 'id, raceId, competitorId',
+      ftpServers: '++id',
+    }).upgrade(async (tx) => {
+      await tx.table('finishes').toCollection().modify((finish) => {
+        finish.redressMethod = null;
+        finish.redressExcludeRaces = null;
+        finish.redressIncludeRaces = null;
+        finish.redressIncludeAllLater = false;
+        finish.redressPoints = null;
+      });
+    });
   }
 }
 

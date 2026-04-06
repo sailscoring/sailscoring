@@ -1,0 +1,66 @@
+description: "RDG (Redress Given) — A9(b) average of races before the redress race"
+rrs_notes: >
+  RRS A9(b): redress score is the average of the competitor's scores in races
+  sailed before the race in which redress is granted, rounded to the nearest
+  tenth (0.05 rounds up).
+  3 competitors, N=3, DNF score=4.
+  Alice (sail 1) fails to finish race 3 and is granted redress under A9(b).
+  Races before race 3: race 1 (2 pts, 2nd), race 2 (1 pt, 1st).
+  Average = (2 + 1) / 2 = 1.5 → rounded to 1.5.
+  With A9(a) the pool would include race 4 (2 pts) giving avg (2+1+2)/3=1.7 — different.
+  Final: Bob 5 pts (rank 1), Alice 6.5 pts (rank 2), Carol 11 pts (rank 3).
+
+series:
+  discardThresholds: []
+
+competitors:
+  - { sailNumber: "1", name: "Alice" }
+  - { sailNumber: "2", name: "Bob" }
+  - { sailNumber: "3", name: "Carol" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "1", position: 2 }
+      - { sailor: "2", position: 1 }
+      - { sailor: "3", position: 3 }
+  - number: 2
+    finishes:
+      - { sailor: "1", position: 1 }
+      - { sailor: "2", position: 2 }
+      - { sailor: "3", position: 3 }
+  - number: 3
+    finishes:
+      - { sailor: "1", code: RDG, redressMethod: races_before }
+      - { sailor: "2", position: 1 }
+      - { sailor: "3", position: 2 }
+  - number: 4
+    finishes:
+      - { sailor: "1", position: 2 }
+      - { sailor: "2", position: 1 }
+      - { sailor: "3", position: 3 }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [1, 2, 1, 1]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [false, false, false, false]
+      totalPoints: 5
+      netPoints: 5
+    - rank: 2
+      sailor: "1"
+      racePoints: [2, 1, 1.5, 2]
+      raceCodes: [null, null, RDG, null]
+      raceDiscards: [false, false, false, false]
+      raceRedressFlags: [false, false, true, false]
+      totalPoints: 6.5
+      netPoints: 6.5
+    - rank: 3
+      sailor: "3"
+      racePoints: [3, 3, 2, 3]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [false, false, false, false]
+      totalPoints: 11
+      netPoints: 11

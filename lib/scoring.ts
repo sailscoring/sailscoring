@@ -144,8 +144,17 @@ export function calculateRaceScores(
 }
 
 /**
+ * Round x to the nearest tenth; 0.05 rounds up, per RRS Appendix A9.
+ * Used for redress (RDG) averages.
+ */
+function roundToTenth(x: number): number {
+  return Math.floor(x * 10 + 0.5) / 10;
+}
+
+/**
  * Resolve penalty points for fixed-penalty result codes (DNC, DNS, OCS, etc.).
  * Additive penalty codes (ZFP, SCP, DPI) are handled separately in calculateRaceScores.
+ * Redress (RDG) scores are handled separately in calculateStandings second pass.
  */
 function penaltyPoints(
   method: import('./scoring-codes').PointsMethod,
@@ -203,22 +212,26 @@ export function calculateStandings(
   allFinishes: Finish[],
   discardThresholds: DiscardThreshold[] = [],
   dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
-): Standing[] {
+): { standings: Standing[]; circularRedressRaces: number[] } {
   const competitorIds = new Set(competitors.map((c) => c.id));
 
   if (competitors.length === 0 || races.length === 0) {
-    return competitors.map((c, i) => ({
-      rank: i + 1,
-      competitor: c,
-      racePoints: [],
-      raceCodes: [],
-      racePenaltyCodes: [],
-      racePenaltyOverrides: [],
-      totalPoints: 0,
-      netPoints: 0,
-      raceDiscards: [],
-      raceNonDiscardable: [],
-    }));
+    return {
+      standings: competitors.map((c, i) => ({
+        rank: i + 1,
+        competitor: c,
+        racePoints: [],
+        raceCodes: [],
+        racePenaltyCodes: [],
+        racePenaltyOverrides: [],
+        raceRedressFlags: [],
+        totalPoints: 0,
+        netPoints: 0,
+        raceDiscards: [],
+        raceNonDiscardable: [],
+      })),
+      circularRedressRaces: [],
+    };
   }
 
   // Group finishes by raceId for quick lookup
@@ -234,14 +247,22 @@ export function calculateStandings(
   const competitorRaceCodes = new Map<string, (ResultCode | null)[]>();
   const competitorRacePenaltyCodes = new Map<string, (PenaltyCode | null)[]>();
   const competitorRacePenaltyOverrides = new Map<string, (number | null)[]>();
+  const competitorRaceRedressFlags = new Map<string, boolean[]>();
   for (const competitor of competitors) {
     competitorRacePoints.set(competitor.id, []);
     competitorRaceCodes.set(competitor.id, []);
     competitorRacePenaltyCodes.set(competitor.id, []);
     competitorRacePenaltyOverrides.set(competitor.id, []);
+    competitorRaceRedressFlags.set(competitor.id, []);
   }
 
-  for (const race of races) {
+  // Collect RDG finishes for the second pass: raceId → [competitorIds with RDG]
+  const rdgByRaceId = new Map<string, string[]>();
+  // All RDG assignments: { competitorId, raceIdx, finish }
+  const rdgAssignments: Array<{ competitorId: string; raceIdx: number; finish: Finish }> = [];
+
+  for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
+    const race = races[raceIdx];
     const raceFinishes = (finishesByRace.get(race.id) ?? []).filter((f) => f.competitorId !== null && competitorIds.has(f.competitorId));
     const raceFinishMap = new Map(raceFinishes.map((f) => [f.competitorId!, f]));
     const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
@@ -254,7 +275,92 @@ export function calculateStandings(
       competitorRaceCodes.get(competitor.id)!.push(code);
       competitorRacePenaltyCodes.get(competitor.id)!.push(finish?.penaltyCode ?? null);
       competitorRacePenaltyOverrides.get(competitor.id)!.push(finish?.penaltyOverride ?? null);
+      competitorRaceRedressFlags.get(competitor.id)!.push(false);
     }
+    // Collect RDG finishes in this race
+    const raceRdgIds: string[] = [];
+    for (const finish of raceFinishes) {
+      if (finish.resultCode === 'RDG' && finish.competitorId !== null) {
+        raceRdgIds.push(finish.competitorId);
+        rdgAssignments.push({ competitorId: finish.competitorId, raceIdx, finish });
+      }
+    }
+    if (raceRdgIds.length > 0) rdgByRaceId.set(race.id, raceRdgIds);
+  }
+
+  // ── Second pass: resolve RDG scores ─────────────────────────────────────────
+
+  // Circular dependency: 2+ competitors with RDG in the same race
+  const circularRedressRaces: number[] = [];
+  const circularRaceIds = new Set<string>();
+  for (const [raceId, compIds] of rdgByRaceId) {
+    if (compIds.length >= 2) {
+      const race = races.find((r) => r.id === raceId);
+      if (race) {
+        circularRedressRaces.push(race.raceNumber);
+        circularRaceIds.add(raceId);
+      }
+    }
+  }
+
+  for (const { competitorId, raceIdx, finish } of rdgAssignments) {
+    const race = races[raceIdx];
+    if (circularRaceIds.has(race.id)) continue; // leave placeholder in place
+
+    let redressScore: number;
+
+    if (finish.redressMethod === 'stated') {
+      redressScore = finish.redressPoints ?? (competitors.length + 1);
+    } else {
+      const allPoints = competitorRacePoints.get(competitorId)!;
+      let poolIndices: number[];
+
+      if (finish.redressIncludeRaces !== null && finish.redressIncludeRaces.length > 0) {
+        // Include mode: explicit list (optionally extended by all-later races)
+        const includeSet = new Set(finish.redressIncludeRaces);
+        poolIndices = races
+          .map((r, i) => ({ r, i }))
+          .filter(({ r, i }) => includeSet.has(r.raceNumber) && i !== raceIdx)
+          .map(({ i }) => i);
+        if (finish.redressIncludeAllLater) {
+          const maxIncluded = Math.max(...finish.redressIncludeRaces);
+          const laterIndices = races
+            .map((r, i) => ({ r, i }))
+            .filter(({ r, i }) => r.raceNumber > maxIncluded && i !== raceIdx)
+            .map(({ i }) => i);
+          const merged = new Set([...poolIndices, ...laterIndices]);
+          poolIndices = [...merged].sort((a, b) => a - b);
+        }
+      } else if (finish.redressExcludeRaces !== null && finish.redressExcludeRaces.length > 0) {
+        // Exclude mode: method default minus excluded races
+        const excludeSet = new Set(finish.redressExcludeRaces);
+        if (finish.redressMethod === 'races_before') {
+          poolIndices = races.map((_, i) => i).filter((i) => i < raceIdx && !excludeSet.has(races[i].raceNumber));
+        } else {
+          poolIndices = races.map((_, i) => i).filter((i) => i !== raceIdx && !excludeSet.has(races[i].raceNumber));
+        }
+      } else {
+        // No restriction: use method default
+        if (finish.redressMethod === 'races_before') {
+          poolIndices = races.map((_, i) => i).filter((i) => i < raceIdx);
+        } else {
+          // 'all_races' (default)
+          poolIndices = races.map((_, i) => i).filter((i) => i !== raceIdx);
+        }
+      }
+
+      const poolPoints = poolIndices.map((i) => allPoints[i]);
+      if (poolPoints.length === 0) {
+        redressScore = competitors.length + 1; // empty pool → DNF score
+      } else {
+        const avg = poolPoints.reduce((s, p) => s + p, 0) / poolPoints.length;
+        redressScore = roundToTenth(avg);
+      }
+    }
+
+    competitorRacePoints.get(competitorId)![raceIdx] = redressScore;
+    competitorRaceRedressFlags.get(competitorId)![raceIdx] = true;
+    // resultCode 'RDG' is already in competitorRaceCodes from the first pass
   }
 
   const discardCount = Math.min(
@@ -268,6 +374,7 @@ export function calculateStandings(
     const raceCodes = competitorRaceCodes.get(competitor.id)!;
     const racePenaltyCodes = competitorRacePenaltyCodes.get(competitor.id)!;
     const racePenaltyOverrides = competitorRacePenaltyOverrides.get(competitor.id)!;
+    const raceRedressFlags = competitorRaceRedressFlags.get(competitor.id)!;
     const totalPoints = racePoints.reduce((sum, p) => sum + p, 0);
 
     // Determine non-discardable flags from code definitions
@@ -295,7 +402,7 @@ export function calculateStandings(
       0,
     );
 
-    return { rank: 0, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, totalPoints, netPoints, raceDiscards, raceNonDiscardable };
+    return { rank: 0, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable };
   });
 
   // Sort: lowest net points wins, tie-break per RRS A8.2 (uses all race points)
@@ -317,7 +424,7 @@ export function calculateStandings(
     rank++;
   }
 
-  return standings;
+  return { standings, circularRedressRaces };
 }
 
 /**
@@ -343,7 +450,7 @@ export function calculateFleetStandings(
   allFinishes: Finish[],
   discardThresholds: DiscardThreshold[] = [],
   dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
-): { fleet: Fleet; standings: Standing[] }[] {
+): { fleetStandings: { fleet: Fleet; standings: Standing[] }[]; circularRedressRaces: number[] } {
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
   const knownFleetIds = new Set(fleets.map((f) => f.id));
 
@@ -359,26 +466,27 @@ export function calculateFleetStandings(
     }
   }
 
-  const result: { fleet: Fleet; standings: Standing[] }[] = sorted.map((fleet) => ({
-    fleet,
-    standings: calculateStandings(
+  const allCircular: number[] = [];
+  const fleetStandings: { fleet: Fleet; standings: Standing[] }[] = sorted.map((fleet) => {
+    const { standings, circularRedressRaces } = calculateStandings(
       competitorsByFleet.get(fleet.id) ?? [],
       races,
       allFinishes,
       discardThresholds,
       dnfScoring,
-    ),
-  }));
+    );
+    allCircular.push(...circularRedressRaces);
+    return { fleet, standings };
+  });
 
   if (orphans.length > 0) {
     const unknownFleet: Fleet = { id: '__unknown__', seriesId: '', name: 'Unknown', displayOrder: 9999 };
-    result.push({
-      fleet: unknownFleet,
-      standings: calculateStandings(orphans, races, allFinishes, discardThresholds, dnfScoring),
-    });
+    const { standings, circularRedressRaces } = calculateStandings(orphans, races, allFinishes, discardThresholds, dnfScoring);
+    allCircular.push(...circularRedressRaces);
+    fleetStandings.push({ fleet: unknownFleet, standings });
   }
 
-  return result;
+  return { fleetStandings, circularRedressRaces: [...new Set(allCircular)].sort((a, b) => a - b) };
 }
 
 /**

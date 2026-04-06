@@ -19,7 +19,7 @@ function makeFinish(
   penaltyCode: PenaltyCode | null = null,
   penaltyOverride: number | null = null,
 ): Finish {
-  return { id: `${raceId}-${competitorId}`, raceId, competitorId, finishPosition, resultCode, startPresent: null, penaltyCode, penaltyOverride };
+  return { id: `${raceId}-${competitorId}`, raceId, competitorId, finishPosition, resultCode, startPresent: null, penaltyCode, penaltyOverride, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, redressIncludeAllLater: false, redressPoints: null };
 }
 
 // ─── calculateRaceScores ─────────────────────────────────────────────────────
@@ -170,7 +170,7 @@ describe('calculateStandings', () => {
       makeFinish('r2', 'B', 1),
       makeFinish('r2', 'C', 3),
     ];
-    const standings = calculateStandings(competitors, races, finishes);
+    const { standings } = calculateStandings(competitors, races, finishes);
     // A: 1+2=3, B: 2+1=3, C: 3+3=6
     expect(standings[2].competitor.id).toBe('C');
     expect(standings[2].totalPoints).toBe(6);
@@ -191,7 +191,7 @@ describe('calculateStandings', () => {
     // A: 1+2=3 (one first place), B: 2+1=3 (one first place) — equal on firsts
     // Move to second places: A has one 2nd, B has one 2nd — still equal
     // Last resort: most recent race — A got 2, B got 1 → B wins tie
-    const standings = calculateStandings(competitors, races, finishes);
+    const { standings } = calculateStandings(competitors, races, finishes);
     expect(standings[0].competitor.id).toBe('B');
     expect(standings[1].competitor.id).toBe('A');
   });
@@ -208,7 +208,7 @@ describe('calculateStandings', () => {
       makeFinish('r3', 'A', 1), makeFinish('r3', 'B', 2),
     ];
     // A: 1+2+1=4, B: 2+1+2=5  — not tied, but let's verify rank
-    const standings = calculateStandings(abc, threeRaces, finishes);
+    const { standings } = calculateStandings(abc, threeRaces, finishes);
     expect(standings[0].competitor.id).toBe('A');
   });
 
@@ -219,7 +219,7 @@ describe('calculateStandings', () => {
       makeFinish('r1', 'A', 1),
       // B has no finish record → implicit DNC → N+1 = 3+1 = 4
     ];
-    const standings = calculateStandings(competitors, oneRace, finishes);
+    const { standings } = calculateStandings(competitors, oneRace, finishes);
     const aStanding = standings.find((s) => s.competitor.id === 'A')!;
     const bStanding = standings.find((s) => s.competitor.id === 'B')!;
     expect(aStanding.racePoints[0]).toBe(1);
@@ -228,13 +228,13 @@ describe('calculateStandings', () => {
   });
 
   it('returns empty standings for no races', () => {
-    const standings = calculateStandings(competitors, [], []);
+    const { standings } = calculateStandings(competitors, [], []);
     expect(standings).toHaveLength(3);
     expect(standings.every((s) => s.racePoints.length === 0)).toBe(true);
   });
 
   it('returns empty standings for no competitors', () => {
-    const standings = calculateStandings([], races, []);
+    const { standings } = calculateStandings([], races, []);
     expect(standings).toHaveLength(0);
   });
 
@@ -247,7 +247,7 @@ describe('calculateStandings', () => {
       makeFinish('r1', 'A', 1), makeFinish('r1', 'B', 2),
       makeFinish('r2', 'A', 2), makeFinish('r2', 'B', 1),
     ];
-    const standings = calculateStandings([a, b], races, tiedFinishes);
+    const { standings } = calculateStandings([a, b], races, tiedFinishes);
     // A: 1+2=3, B: 2+1=3; tie-break: each has one 1st → still tied; last race: A=2, B=1 → B wins
     expect(standings[0].competitor.id).toBe('B');
     expect(standings[0].rank).toBe(1);
@@ -258,7 +258,7 @@ describe('calculateStandings', () => {
     const [a] = competitors;
     const oneRace = [makeRace('r1', 1)];
     const finishes = [makeFinish('r1', 'A', 1)];
-    const standings = calculateStandings([a], oneRace, finishes);
+    const { standings } = calculateStandings([a], oneRace, finishes);
     expect(standings[0].netPoints).toBe(standings[0].totalPoints);
     expect(standings[0].raceDiscards).toEqual([false]);
     expect(standings[0].raceNonDiscardable).toEqual([false]);
@@ -272,7 +272,7 @@ describe('calculateStandings', () => {
       makeFinish('r2', 'A', null, 'DNE'), makeFinish('r2', 'B', 1), makeFinish('r2', 'C', 2),
       makeFinish('r3', 'A', null, 'BFD'), makeFinish('r3', 'B', 1), makeFinish('r3', 'C', 2),
     ];
-    const standings = calculateStandings(competitors, threeRaces, finishes);
+    const { standings } = calculateStandings(competitors, threeRaces, finishes);
     const aStanding = standings.find((s) => s.competitor.id === 'A')!;
     expect(aStanding.raceNonDiscardable).toEqual([false, true, true]);
     const bStanding = standings.find((s) => s.competitor.id === 'B')!;
@@ -290,7 +290,7 @@ describe('calculateStandings', () => {
       makeFinish('r3', 'A', 1), makeFinish('r3', 'B', 2), makeFinish('r3', 'C', 3),
     ];
     const thresholds: DiscardThreshold[] = [{ minRaces: 3, discardCount: 1 }];
-    const standings = calculateStandings(competitors, threeRaces, finishes, thresholds);
+    const { standings } = calculateStandings(competitors, threeRaces, finishes, thresholds);
     const aStanding = standings.find((s) => s.competitor.id === 'A')!;
     // DNE (R2) must not be discarded; R1 (=1pt) is discarded instead
     expect(aStanding.raceDiscards).toEqual([true, false, false]);
@@ -359,12 +359,12 @@ describe('calculateStandings with discards', () => {
       makeFinish('r3', 'E', 4),
     ];
     // Without discards: A=1+1+6=8, B=2+2+1=5. B wins.
-    const noDiscard = calculateStandings(five, threeRaces, finishes);
+    const { standings: noDiscard } = calculateStandings(five, threeRaces, finishes);
     expect(noDiscard.find(s => s.competitor.id === 'B')!.rank).toBe(1);
     expect(noDiscard.find(s => s.competitor.id === 'A')!.totalPoints).toBe(8);
 
     // With 1 discard: A drops 6→net 2, B drops 2→net 3. A wins.
-    const withDiscard = calculateStandings(five, threeRaces, finishes, [{ minRaces: 3, discardCount: 1 }]);
+    const { standings: withDiscard } = calculateStandings(five, threeRaces, finishes, [{ minRaces: 3, discardCount: 1 }]);
     const aStanding = withDiscard.find(s => s.competitor.id === 'A')!;
     const bStanding = withDiscard.find(s => s.competitor.id === 'B')!;
     expect(aStanding.rank).toBe(1);
@@ -386,7 +386,7 @@ describe('calculateStandings with discards', () => {
       makeFinish('r3', 'A', 1), makeFinish('r3', 'B', 2), makeFinish('r3', 'C', 3), makeFinish('r3', 'D', 4),
       makeFinish('r4', 'A', 1), makeFinish('r4', 'B', 2), makeFinish('r4', 'C', 3), makeFinish('r4', 'D', 4),
     ];
-    const standings = calculateStandings(abcd, fourRaces, finishes, [{ minRaces: 4, discardCount: 1 }]);
+    const { standings } = calculateStandings(abcd, fourRaces, finishes, [{ minRaces: 4, discardCount: 1 }]);
     const aStanding = standings.find(s => s.competitor.id === 'A')!;
     expect(aStanding.raceDiscards).toEqual([true, false, false, false]);
     expect(aStanding.netPoints).toBe(6); // 4+1+1 = 6
@@ -399,7 +399,7 @@ describe('calculateStandings with discards', () => {
       makeFinish('r1', 'A', 1), makeFinish('r1', 'B', 2),
       makeFinish('r2', 'A', 2), makeFinish('r2', 'B', 1),
     ];
-    const standings = calculateStandings(ab, twoRaces, finishes, [{ minRaces: 3, discardCount: 1 }]);
+    const { standings } = calculateStandings(ab, twoRaces, finishes, [{ minRaces: 3, discardCount: 1 }]);
     for (const s of standings) {
       expect(s.netPoints).toBe(s.totalPoints);
       expect(s.raceDiscards.every(d => !d)).toBe(true);
@@ -441,7 +441,7 @@ describe('calculateFleetStandings', () => {
       makeFinish('r2', 'S1', 1),
     ];
 
-    const results = calculateFleetStandings(fleets, competitors, races, finishes);
+    const { fleetStandings: results } = calculateFleetStandings(fleets, competitors, races, finishes);
     expect(results).toHaveLength(2);
 
     const [juniorResult, seniorResult] = results;
@@ -464,8 +464,8 @@ describe('calculateFleetStandings', () => {
       makeFinish('r1', 'A', 1), makeFinish('r1', 'B', 2), makeFinish('r1', 'C', 3),
       makeFinish('r2', 'A', 3), makeFinish('r2', 'B', 1), makeFinish('r2', 'C', 2),
     ];
-    const [fleetResult] = calculateFleetStandings([fleet], competitors, races, finishes);
-    const direct = calculateStandings(competitors, races, finishes);
+    const { fleetStandings: [fleetResult] } = calculateFleetStandings([fleet], competitors, races, finishes);
+    const { standings: direct } = calculateStandings(competitors, races, finishes);
 
     expect(fleetResult.standings.map((s) => s.competitor.id))
       .toEqual(direct.map((s) => s.competitor.id));
@@ -482,7 +482,7 @@ describe('calculateFleetStandings', () => {
       makeFleet('f2', 'Zephyr', 5),
       makeFleet('f1', 'Alpha', 0),
     ];
-    const results = calculateFleetStandings(fleets, competitors, races, []);
+    const { fleetStandings: results } = calculateFleetStandings(fleets, competitors, races, []);
     expect(results[0].fleet.name).toBe('Alpha');
     expect(results[1].fleet.name).toBe('Zephyr');
   });
@@ -496,7 +496,7 @@ describe('calculateRaceScores — unknown finishes (null competitorId)', () => {
 
   it('ignores a finish with null competitorId and does not affect competitor scores', () => {
     const finishes: Finish[] = [
-      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 1, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null },
+      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 1, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, redressIncludeAllLater: false, redressPoints: null },
       makeFinish('r1', 'A', 2),
       makeFinish('r1', 'B', 3),
     ];
@@ -512,7 +512,7 @@ describe('calculateRaceScores — unknown finishes (null competitorId)', () => {
 
   it('does not crash when all finishes have null competitorId', () => {
     const finishes: Finish[] = [
-      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 1, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null },
+      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 1, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, redressIncludeAllLater: false, redressPoints: null },
     ];
     const scores = calculateRaceScores(finishes, competitors);
     // All three competitors score as implicit DNC
@@ -652,7 +652,7 @@ describe('calculateStandings — racePenaltyCodes populated', () => {
       makeFinish('r2', 'B', 1, null, 'SCP', 30),
       makeFinish('r2', 'C', 3),
     ];
-    const standings = calculateStandings(competitors, races, finishes);
+    const { standings } = calculateStandings(competitors, races, finishes);
     const byId = new Map(standings.map(s => [s.competitor.id, s]));
     expect(byId.get('A')?.racePenaltyCodes).toEqual(['ZFP', null]);
     expect(byId.get('B')?.racePenaltyCodes).toEqual([null, 'SCP']);
@@ -667,9 +667,9 @@ describe('calculateStandings — unknown finishes (null competitorId)', () => {
   it('ignores unknown finishes and scores registered competitors correctly', () => {
     const finishes: Finish[] = [
       makeFinish('r1', 'A', 1),
-      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 2, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null },
+      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', finishPosition: 2, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, redressIncludeAllLater: false, redressPoints: null },
     ];
-    const standings = calculateStandings(competitors, races, finishes);
+    const { standings } = calculateStandings(competitors, races, finishes);
     // A wins with 1 point; B has no finish → implicit DNC (3 pts)
     expect(standings[0].competitor.id).toBe('A');
     expect(standings[0].netPoints).toBe(1);
