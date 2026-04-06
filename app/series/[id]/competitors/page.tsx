@@ -692,7 +692,7 @@ export default function CompetitorsPage({
 
       {/* Edit dialog */}
       <Dialog open={editingCompetitor !== null} onOpenChange={(open) => { if (!open) setEditingCompetitor(null); }}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Edit competitor</DialogTitle>
           </DialogHeader>
@@ -797,7 +797,7 @@ export default function CompetitorsPage({
 
       {/* Import — done dialog */}
       <Dialog open={importFlow.step === 'done'} onOpenChange={(open) => { if (!open) resetImport(); }}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Import complete</DialogTitle>
           </DialogHeader>
