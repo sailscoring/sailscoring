@@ -235,9 +235,13 @@ export default function ResultEntryPage({
     }
   }, [race, competitors]);
 
-  // Focus the time input whenever a pending time entry appears
+  // Focus the time input when a pending time entry appears; return focus to sail input when it clears
   useEffect(() => {
-    if (pendingTimeEntry) pendingTimeInputRef.current?.focus();
+    if (pendingTimeEntry) {
+      pendingTimeInputRef.current?.focus();
+    } else {
+      inputRef.current?.focus();
+    }
   }, [pendingTimeEntry]);
 
   function isDirty(): boolean {
