@@ -121,6 +121,11 @@ export default function ResultEntryPage({
   const [addingCompetitor, setAddingCompetitor] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  // Pending time entry: competitor confirmed, waiting for finish time before adding to list
+  const [pendingTimeEntry, setPendingTimeEntry] = useState<{ competitor: Competitor } | null>(null);
+  const [pendingTimeValue, setPendingTimeValue] = useState('');
+  const [pendingTimeError, setPendingTimeError] = useState('');
+  const pendingTimeInputRef = useRef<HTMLInputElement>(null);
   // Race starts dialog
   const [startDialog, setStartDialog] = useState<{ editingId: string | null } | null>(null);
   const [startTimeInput, setStartTimeInput] = useState('');
@@ -227,6 +232,11 @@ export default function ResultEntryPage({
       inputRef.current?.focus();
     }
   }, [race, competitors]);
+
+  // Focus the time input whenever a pending time entry appears
+  useEffect(() => {
+    if (pendingTimeEntry) pendingTimeInputRef.current?.focus();
+  }, [pendingTimeEntry]);
 
   function isDirty(): boolean {
     if (!initialized) return false;
@@ -389,16 +399,56 @@ export default function ResultEntryPage({
       )
     : [];
 
-  function selectSuggestion(competitor: Competitor) {
+  // Core "add this competitor to the finishing order" — optionally with a pre-known finish time.
+  function addKnownFinisher(competitor: Competitor, finishTime?: string) {
     const nextPos = finishPositions.size > 0 ? Math.max(...finishPositions.values()) + 1 : 1;
     setFinishingOrder((order) => [...order, { kind: 'known', competitorId: competitor.id }]);
     setFinishPositions((prev) => new Map(prev).set(competitor.id, nextPos));
+    if (finishTime) setFinishTimes((prev) => new Map(prev).set(competitor.id, finishTime));
     setSailInput('');
     setInputError('');
     setPendingUnknownSail(null);
     setHighlightedIndex(-1);
     inputRef.current?.focus();
-    log('result-entry', 'added finisher via suggestion', { sail: competitor.sailNumber, competitorId: competitor.id });
+    log('result-entry', 'added finisher', { sail: competitor.sailNumber, competitorId: competitor.id });
+  }
+
+  // Route a resolved competitor through time-entry if their fleet has a start time.
+  function commitCompetitor(competitor: Competitor) {
+    if (needsFinishTime(competitor.id)) {
+      setSailInput('');
+      setInputError('');
+      setHighlightedIndex(-1);
+      setPendingTimeEntry({ competitor });
+      setPendingTimeValue('');
+      setPendingTimeError('');
+    } else {
+      addKnownFinisher(competitor);
+    }
+  }
+
+  function confirmPendingTime() {
+    if (!pendingTimeEntry) return;
+    const time = pendingTimeValue.trim();
+    if (!time) {
+      setPendingTimeError('Finish time is required.');
+      return;
+    }
+    if (!/^\d{1,2}:\d{2}:\d{2}$/.test(time)) {
+      setPendingTimeError('Time must be in HH:MM:SS format (e.g. 14:32:10).');
+      return;
+    }
+    addKnownFinisher(pendingTimeEntry.competitor, time);
+    setPendingTimeEntry(null);
+    setPendingTimeValue('');
+    setPendingTimeError('');
+  }
+
+  function cancelPendingTime() {
+    setPendingTimeEntry(null);
+    setPendingTimeValue('');
+    setPendingTimeError('');
+    inputRef.current?.focus();
   }
 
   function recordAsUnknown(sail: string) {
@@ -415,7 +465,7 @@ export default function ResultEntryPage({
 
   function addFinisher() {
     if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
-      selectSuggestion(suggestions[highlightedIndex].competitor);
+      commitCompetitor(suggestions[highlightedIndex].competitor);
       return;
     }
 
@@ -433,14 +483,7 @@ export default function ResultEntryPage({
       return;
     }
 
-    const nextPos = finishPositions.size > 0 ? Math.max(...finishPositions.values()) + 1 : 1;
-    setFinishingOrder((order) => [...order, { kind: 'known', competitorId: competitor.id }]);
-    setFinishPositions((prev) => new Map(prev).set(competitor.id, nextPos));
-    setPendingUnknownSail(null);
-    setInputError('');
-    setSailInput('');
-    inputRef.current?.focus();
-    log('result-entry', 'added finisher', { sail, competitorId: competitor.id });
+    commitCompetitor(competitor);
   }
 
   function removeFinisher(eid: string) {
@@ -1085,6 +1128,33 @@ export default function ResultEntryPage({
           <h3 className="font-medium">Finishing order</h3>
 
           <div className="relative">
+            {pendingTimeEntry ? (
+              <div className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
+                <span className="font-mono font-medium text-sm shrink-0">{pendingTimeEntry.competitor.sailNumber}</span>
+                <span className="text-sm text-muted-foreground truncate">{pendingTimeEntry.competitor.name}</span>
+                <input
+                  ref={pendingTimeInputRef}
+                  type="text"
+                  value={pendingTimeValue}
+                  onChange={(e) => { setPendingTimeValue(e.target.value); setPendingTimeError(''); }}
+                  placeholder="HH:MM:SS"
+                  aria-label="Finish time"
+                  className="w-28 shrink-0 font-mono text-sm rounded px-2 py-1 border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === 'Tab') {
+                      e.preventDefault();
+                      confirmPendingTime();
+                    } else if (e.key === 'Escape') {
+                      cancelPendingTime();
+                    }
+                  }}
+                />
+                <Button size="sm" onClick={confirmPendingTime}>Add</Button>
+                <button onClick={cancelPendingTime} aria-label="Cancel" className="text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
             <div className="flex gap-2">
               <Input
                 ref={inputRef}
@@ -1114,7 +1184,7 @@ export default function ResultEntryPage({
                     }
                   } else if (e.key === 'Tab' && suggestions.length > 0) {
                     e.preventDefault();
-                    selectSuggestion(suggestions[Math.max(highlightedIndex, 0)].competitor);
+                    commitCompetitor(suggestions[Math.max(highlightedIndex, 0)].competitor);
                   } else if (e.key === 'Enter') {
                     e.preventDefault();
                     if (pendingUnknownSail) {
@@ -1133,7 +1203,11 @@ export default function ResultEntryPage({
                 Add
               </Button>
             </div>
-            {suggestions.length > 0 && (
+            )}
+            {pendingTimeError && (
+              <p className="text-sm text-destructive mt-1">{pendingTimeError}</p>
+            )}
+            {suggestions.length > 0 && !pendingTimeEntry && (
               <ul
                 role="listbox"
                 className="absolute z-10 top-full mt-1 w-full rounded-md border bg-popover shadow-md"
@@ -1149,7 +1223,7 @@ export default function ResultEntryPage({
                     )}
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      selectSuggestion(competitor);
+                      commitCompetitor(competitor);
                     }}
                   >
                     <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>

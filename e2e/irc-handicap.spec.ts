@@ -82,20 +82,17 @@ test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
   // Verify the start is recorded
   await expect(page.getByText('14:00:00')).toBeVisible();
 
-  // Add boats to finishing order in order IRC3, IRC2, IRC1 (earliest finisher first)
-  for (const sailNumber of ['IRC3', 'IRC2', 'IRC1']) {
+  // For each boat: type sail number → Add → time-entry prompt → type time → Add
+  for (const { sailNumber, finishTime } of [
+    { sailNumber: 'IRC3', finishTime: '14:25:00' },
+    { sailNumber: 'IRC2', finishTime: '14:28:00' },
+    { sailNumber: 'IRC1', finishTime: '14:30:00' },
+  ]) {
     await page.getByLabel('Sail number').fill(sailNumber);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
-  }
-
-  // Set finish times
-  const finishTimes: Record<string, string> = {
-    IRC3: '14:25:00',
-    IRC2: '14:28:00',
-    IRC1: '14:30:00',
-  };
-  for (const sailNumber of ['IRC3', 'IRC2', 'IRC1']) {
-    await page.getByTestId(`finish-time-${sailNumber}`).fill(finishTimes[sailNumber]);
+    // Pending time-entry prompt appears; fill finish time and confirm
+    await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
 
   await page.getByRole('button', { name: 'Save results' }).click();
