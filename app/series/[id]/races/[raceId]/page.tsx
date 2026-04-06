@@ -430,10 +430,41 @@ export default function ResultEntryPage({
 
   // Core "add this competitor to the finishing order" — optionally with a pre-known finish time.
   function addKnownFinisher(competitor: Competitor, finishTime?: string) {
-    const nextPos = finishPositions.size > 0 ? Math.max(...finishPositions.values()) + 1 : 1;
-    setFinishingOrder((order) => [...order, { kind: 'known', competitorId: competitor.id }]);
-    setFinishPositions((prev) => new Map(prev).set(competitor.id, nextPos));
-    if (finishTime) setFinishTimes((prev) => new Map(prev).set(competitor.id, finishTime));
+    if (finishTime) {
+      // Insert in time-sorted order and reassign positions
+      setFinishTimes((prev) => new Map(prev).set(competitor.id, finishTime));
+      setFinishingOrder((order) => {
+        const newEntry: FinishEntry = { kind: 'known', competitorId: competitor.id };
+        const updated = [...order, newEntry];
+        // Sort entries that have finish times by time; entries without times keep their relative order at the end
+        const withTime: (FinishEntry & { time: string })[] = [];
+        const withoutTime: FinishEntry[] = [];
+        // We need to read finishTimes from the closure but it won't have the new entry yet,
+        // so build a merged view
+        const mergedTimes = new Map(finishTimes);
+        mergedTimes.set(competitor.id, finishTime);
+        for (const e of updated) {
+          const eid = entryId(e);
+          const t = mergedTimes.get(eid);
+          if (t) {
+            withTime.push({ ...e, time: t } as FinishEntry & { time: string });
+          } else {
+            withoutTime.push(e);
+          }
+        }
+        withTime.sort((a, b) => a.time.localeCompare(b.time));
+        const sorted = [...withTime, ...withoutTime];
+        // Reassign positions 1, 2, 3…
+        const newPositions = new Map<string, number>();
+        sorted.forEach((e, i) => newPositions.set(entryId(e), i + 1));
+        setFinishPositions(newPositions);
+        return sorted;
+      });
+    } else {
+      const nextPos = finishPositions.size > 0 ? Math.max(...finishPositions.values()) + 1 : 1;
+      setFinishingOrder((order) => [...order, { kind: 'known', competitorId: competitor.id }]);
+      setFinishPositions((prev) => new Map(prev).set(competitor.id, nextPos));
+    }
     setSailInput('');
     setInputError('');
     setPendingUnknownSail(null);
