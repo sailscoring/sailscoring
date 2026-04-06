@@ -1,7 +1,7 @@
 import type { ResultCode, DiscardThreshold } from './types';
 import { db } from './db';
-import { seriesRepo, competitorRepo, raceRepo, finishRepo } from './dexie-repository';
-import { calculateStandings, calculateRaceScores } from './scoring';
+import { seriesRepo, competitorRepo, raceRepo, finishRepo, fleetRepo, raceStartRepo } from './dexie-repository';
+import { calculateFleetStandings, calculateRaceScores } from './scoring';
 
 // ---- Public export type ----
 //
@@ -10,7 +10,7 @@ import { calculateStandings, calculateRaceScores } from './scoring';
 // and all internal UUIDs (competitors are keyed by sailNumber instead).
 
 export interface PublicSeriesExport {
-  version: 1;
+  version: 2;
   exportedAt: string;
   series: {
     name: string;
@@ -20,6 +20,11 @@ export interface PublicSeriesExport {
     discardThresholds: DiscardThreshold[];
     dnfScoring: 'seriesEntries' | 'startingArea';
   };
+  fleets: {
+    name: string;
+    displayOrder: number;
+    scoringSystem: 'scratch' | 'irc' | 'py';
+  }[];
   competitors: {
     sailNumber: string;
     boatName?: string;
@@ -27,77 +32,110 @@ export interface PublicSeriesExport {
     club: string;
     gender: 'M' | 'F' | '';
     age: number | null;
+    fleetNames: string[];
+    ircTcc?: number;
+    pyNumber?: number;
   }[];
   races: {
     raceNumber: number;
     date: string;
+    starts: {
+      fleetNames: string[];
+      startTime: string;
+    }[];
     finishes: {
       sailNumber: string;
       finishPosition: number | null;
+      finishTime?: string;
       resultCode: ResultCode | null;
       startPresent: boolean | null;
     }[];
   }[];
   standings: {
-    rank: number;
-    sailNumber: string;
-    name: string;
-    racePoints: number[];
-    raceCodes: (ResultCode | null)[];
-    raceDiscards: boolean[];
-    totalPoints: number;
-    netPoints: number;
+    fleetName: string;
+    rows: {
+      rank: number;
+      sailNumber: string;
+      name: string;
+      racePoints: number[];
+      raceCodes: (ResultCode | null)[];
+      raceDiscards: boolean[];
+      totalPoints: number;
+      netPoints: number;
+    }[];
   }[];
 }
 
 // ---- Builder ----
 
 export async function buildPublicExport(seriesId: string): Promise<PublicSeriesExport | null> {
-  const [series, competitors, races] = await Promise.all([
+  const [series, competitors, races, fleets] = await Promise.all([
     seriesRepo.get(seriesId),
     competitorRepo.listBySeries(seriesId),
     raceRepo.listBySeries(seriesId),
+    fleetRepo.listBySeries(seriesId),
   ]);
   if (!series || competitors.length === 0 || races.length === 0) return null;
 
-  const allFinishes = await finishRepo.listBySeries(seriesId, competitors.map((c) => c.id));
-  const { standings } = calculateStandings(
+  const [allFinishes, allRaceStarts] = await Promise.all([
+    finishRepo.listBySeries(seriesId, competitors.map((c) => c.id)),
+    raceStartRepo.listByRaces(races.map((r) => r.id)),
+  ]);
+
+  const { fleetStandings } = calculateFleetStandings(
+    fleets,
     competitors,
     races,
     allFinishes,
     series.discardThresholds,
     series.dnfScoring,
+    allRaceStarts,
   );
 
-  // Map competitor IDs to sail numbers for denormalising finishes
+  // Build fleet name lookup
+  const fleetNameById = new Map(fleets.map((f) => [f.id, f.name]));
   const sailNumberById = new Map(competitors.map((c) => [c.id, c.sailNumber]));
+
+  const isSingleDefault = fleets.length <= 1 && fleets[0]?.name === 'Default';
 
   const exportedRaces = races.map((race) => {
     const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
-    // Include all competitors with a finish record for this race
     const raceScores = calculateRaceScores(finishesForRace, competitors, series.dnfScoring);
-    const finishes = [...raceScores.entries()].map(([competitorId, score]) => ({
-      sailNumber: sailNumberById.get(competitorId) ?? competitorId,
-      finishPosition: score.place,
-      resultCode: score.resultCode,
-      startPresent: finishesForRace.find((f) => f.competitorId === competitorId)?.startPresent ?? null,
-    }));
-    return { raceNumber: race.raceNumber, date: race.date, finishes };
+    const finishes = [...raceScores.entries()].map(([competitorId, score]) => {
+      const finish = finishesForRace.find((f) => f.competitorId === competitorId);
+      return {
+        sailNumber: sailNumberById.get(competitorId) ?? competitorId,
+        finishPosition: score.place,
+        ...(finish?.finishTime ? { finishTime: finish.finishTime } : {}),
+        resultCode: score.resultCode,
+        startPresent: finish?.startPresent ?? null,
+      };
+    });
+    const starts = allRaceStarts
+      .filter((rs) => rs.raceId === race.id)
+      .map((rs) => ({
+        fleetNames: rs.fleetIds.map((id) => fleetNameById.get(id) ?? id),
+        startTime: rs.startTime,
+      }));
+    return { raceNumber: race.raceNumber, date: race.date, starts, finishes };
   });
 
-  const exportedStandings = standings.map((s) => ({
-    rank: s.rank,
-    sailNumber: s.competitor.sailNumber,
-    name: s.competitor.name,
-    racePoints: s.racePoints,
-    raceCodes: s.raceCodes,
-    raceDiscards: s.raceDiscards,
-    totalPoints: s.totalPoints,
-    netPoints: s.netPoints,
+  const exportedStandings = fleetStandings.map(({ fleet, standings }) => ({
+    fleetName: isSingleDefault ? 'Default' : fleet.name,
+    rows: standings.map((s) => ({
+      rank: s.rank,
+      sailNumber: s.competitor.sailNumber,
+      name: s.competitor.name,
+      racePoints: s.racePoints,
+      raceCodes: s.raceCodes,
+      raceDiscards: s.raceDiscards,
+      totalPoints: s.totalPoints,
+      netPoints: s.netPoints,
+    })),
   }));
 
   return {
-    version: 1 as const,
+    version: 2 as const,
     exportedAt: new Date().toISOString(),
     series: {
       name: series.name,
@@ -107,6 +145,11 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
       discardThresholds: series.discardThresholds,
       dnfScoring: series.dnfScoring,
     },
+    fleets: fleets.map((f) => ({
+      name: f.name,
+      displayOrder: f.displayOrder,
+      scoringSystem: f.scoringSystem,
+    })),
     competitors: competitors.map((c) => ({
       sailNumber: c.sailNumber,
       ...(c.boatName ? { boatName: c.boatName } : {}),
@@ -114,6 +157,9 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
       club: c.club,
       gender: c.gender,
       age: c.age,
+      fleetNames: c.fleetIds.map((id) => fleetNameById.get(id) ?? id),
+      ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
+      ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
     })),
     races: exportedRaces,
     standings: exportedStandings,
@@ -126,6 +172,8 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
  * Create a new series from a PublicSeriesExport. Fresh UUIDs are assigned to all
  * entities — the imported series has no file history, no snapshot lineage, and no
  * publishing config. Returns the new seriesId.
+ *
+ * Handles both v1 (single-fleet, no handicap data) and v2 (multi-fleet, handicap) formats.
  */
 export async function importPublicExport(data: PublicSeriesExport): Promise<string> {
   const newSeriesId = crypto.randomUUID();
@@ -134,9 +182,18 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
   // Map sailNumber → new competitor UUID for finish remapping
   const competitorIdBySail = new Map(data.competitors.map((c) => [c.sailNumber, crypto.randomUUID()]));
 
-  const defaultFleetId = crypto.randomUUID();
+  // Build fleet name → new fleet ID map
+  const fleetIdByName = new Map<string, string>();
+  const exportedFleets = (data as { fleets?: PublicSeriesExport['fleets'] }).fleets ?? [];
+  if (exportedFleets.length > 0) {
+    for (const f of exportedFleets) {
+      fleetIdByName.set(f.name, crypto.randomUUID());
+    }
+  } else {
+    fleetIdByName.set('Default', crypto.randomUUID());
+  }
 
-  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes], async () => {
+  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts], async () => {
     await db.series.add({
       id: newSeriesId,
       name: data.series.name,
@@ -158,13 +215,35 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
       includeJsonExport: true,
     });
 
-    await db.fleets.add({ id: defaultFleetId, seriesId: newSeriesId, name: 'Default', displayOrder: 0, scoringSystem: 'scratch' });
+    if (exportedFleets.length > 0) {
+      for (const f of exportedFleets) {
+        await db.fleets.add({
+          id: fleetIdByName.get(f.name)!,
+          seriesId: newSeriesId,
+          name: f.name,
+          displayOrder: f.displayOrder,
+          scoringSystem: f.scoringSystem,
+        });
+      }
+    } else {
+      await db.fleets.add({
+        id: fleetIdByName.get('Default')!,
+        seriesId: newSeriesId,
+        name: 'Default',
+        displayOrder: 0,
+        scoringSystem: 'scratch',
+      });
+    }
 
     for (const c of data.competitors) {
+      const fleetNames = (c as { fleetNames?: string[] }).fleetNames;
+      const fleetIds = fleetNames && fleetNames.length > 0
+        ? fleetNames.map((n) => fleetIdByName.get(n)).filter((id): id is string => id != null)
+        : [fleetIdByName.get('Default')!];
       await db.competitors.add({
         id: competitorIdBySail.get(c.sailNumber)!,
         seriesId: newSeriesId,
-        fleetIds: [defaultFleetId],
+        fleetIds,
         sailNumber: c.sailNumber,
         ...(c.boatName ? { boatName: c.boatName } : {}),
         name: c.name,
@@ -172,6 +251,8 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
         gender: c.gender,
         age: c.age,
         createdAt: now,
+        ...((c as { ircTcc?: number }).ircTcc != null ? { ircTcc: (c as { ircTcc: number }).ircTcc } : {}),
+        ...((c as { pyNumber?: number }).pyNumber != null ? { pyNumber: (c as { pyNumber: number }).pyNumber } : {}),
       });
     }
 
@@ -184,14 +265,30 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
         date: race.date,
         createdAt: now,
       });
+      // Import race starts (v2)
+      const starts = (race as { starts?: { fleetNames: string[]; startTime: string }[] }).starts ?? [];
+      for (const start of starts) {
+        const startFleetIds = start.fleetNames
+          .map((n) => fleetIdByName.get(n))
+          .filter((id): id is string => id != null);
+        if (startFleetIds.length > 0) {
+          await db.raceStarts.add({
+            id: crypto.randomUUID(),
+            raceId,
+            fleetIds: startFleetIds,
+            startTime: start.startTime,
+          });
+        }
+      }
       for (const finish of race.finishes) {
         const competitorId = competitorIdBySail.get(finish.sailNumber);
-        if (!competitorId) continue; // skip unknown sail numbers
+        if (!competitorId) continue;
         await db.finishes.add({
           id: crypto.randomUUID(),
           raceId,
           competitorId,
           finishPosition: finish.finishPosition,
+          ...((finish as { finishTime?: string }).finishTime ? { finishTime: (finish as { finishTime: string }).finishTime } : {}),
           resultCode: finish.resultCode,
           startPresent: finish.startPresent,
           penaltyCode: null,

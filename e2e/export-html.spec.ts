@@ -138,10 +138,10 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
   const jsonMatch = html.match(/<script type="application\/json" id="sail-scoring-data">\n([\s\S]*?)\n<\/script>/);
   expect(jsonMatch).not.toBeNull();
   const exportData = JSON.parse(jsonMatch![1]);
-  expect(exportData.version).toBe(1);
+  expect(exportData.version).toBe(2);
   expect(exportData.series.name).toBe('Howth Cup 2025');
   expect(exportData.competitors).toHaveLength(3);
-  expect(exportData.standings[0].sailNumber).toBe('42'); // Alice wins
+  expect(exportData.standings[0].rows[0].sailNumber).toBe('42'); // Alice wins
 
   // JSON blob is private-field-free
   expect(exportData).not.toHaveProperty('snapshotId');

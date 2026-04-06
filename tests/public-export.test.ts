@@ -11,7 +11,7 @@ const MINIMAL_DATA: SeriesResultsData = {
 };
 
 const SAMPLE_EXPORT: PublicSeriesExport = {
-  version: 1,
+  version: 2,
   exportedAt: '2025-06-14T12:00:00.000Z',
   series: {
     name: 'Test Cup',
@@ -21,14 +21,16 @@ const SAMPLE_EXPORT: PublicSeriesExport = {
     discardThresholds: [],
     dnfScoring: 'seriesEntries',
   },
+  fleets: [{ name: 'Default', displayOrder: 0, scoringSystem: 'scratch' }],
   competitors: [
-    { sailNumber: '42', name: 'Alice', club: 'HYC', gender: 'F', age: null },
-    { sailNumber: '99', name: 'Bob', club: 'HYC', gender: 'M', age: null },
+    { sailNumber: '42', name: 'Alice', club: 'HYC', gender: 'F', age: null, fleetNames: ['Default'] },
+    { sailNumber: '99', name: 'Bob', club: 'HYC', gender: 'M', age: null, fleetNames: ['Default'] },
   ],
   races: [
     {
       raceNumber: 1,
       date: '2025-06-14',
+      starts: [],
       finishes: [
         { sailNumber: '42', finishPosition: 1, resultCode: null, startPresent: null },
         { sailNumber: '99', finishPosition: 2, resultCode: null, startPresent: null },
@@ -36,8 +38,10 @@ const SAMPLE_EXPORT: PublicSeriesExport = {
     },
   ],
   standings: [
-    { rank: 1, sailNumber: '42', name: 'Alice', racePoints: [1], raceCodes: [null], raceDiscards: [false], totalPoints: 1, netPoints: 1 },
-    { rank: 2, sailNumber: '99', name: 'Bob', racePoints: [2], raceCodes: [null], raceDiscards: [false], totalPoints: 2, netPoints: 2 },
+    { fleetName: 'Default', rows: [
+      { rank: 1, sailNumber: '42', name: 'Alice', racePoints: [1], raceCodes: [null], raceDiscards: [false], totalPoints: 1, netPoints: 1 },
+      { rank: 2, sailNumber: '99', name: 'Bob', racePoints: [2], raceCodes: [null], raceDiscards: [false], totalPoints: 2, netPoints: 2 },
+    ] },
   ],
 };
 
@@ -87,7 +91,7 @@ describe('renderSeriesHtml with publicExportJson', () => {
     const match = html.match(/<script type="application\/json" id="sail-scoring-data">\n([\s\S]*?)\n<\/script>/);
     expect(match).not.toBeNull();
     const parsed = JSON.parse(match![1]) as PublicSeriesExport;
-    expect(parsed.version).toBe(1);
+    expect(parsed.version).toBe(2);
     expect(parsed.competitors).toHaveLength(2);
     expect(parsed.competitors[0].sailNumber).toBe('42');
   });
