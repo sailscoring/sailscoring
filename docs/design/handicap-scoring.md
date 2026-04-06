@@ -78,31 +78,44 @@ HPH is the progressive time-on-time system used at HYC. It is a local implementa
 of NHC (National Handicap for Cruisers). Each boat starts with an initial TCF, which
 is adjusted after every race based on performance relative to the fleet average.
 
-**Per-race adjustment (HalSail FAQ — "mathematical explanation" section):**
+HYC scores HPH using Sailwave's built-in `NHC1` rating system. The algorithm has been
+confirmed by reverse-engineering the 2025 Puppeteer 22 Championships data
+(`reference/data/nhc-example/`), where actual per-race TCFs and finish times are
+preserved in full.
 
-1. Score the race: `CT_i = ET_i × TCF_i` for each finisher `i`
-2. Compute fleet mean corrected time: `CT_avg = mean(CT_i)`
-3. For each finisher, compute the "fair TCF" — the TCF that would have given exactly
-   average corrected time:
+**NHC1 algorithm (confirmed Adjust = 0.15, symmetric):**
 
-   ```
-   fair_TCF_i = TCF_i × (CT_avg / CT_i)
-   ```
+```
+H_i  = elapsed time in decimal minutes
+O_i  = 100 / H_i                     # raw performance index
+O_avg = mean(O_i) over HPH finishers
+P50  = mean(TCF_i) / O_avg            # scale: converts O-units to TCF-units
+Q_i  = O_i × P50                     # "fair TCF" — the TCF that would have given
+                                      # boat i exactly the fleet-mean corrected time
+new_TCF_i = TCF_i + 0.15 × (Q_i − TCF_i)   for finishers
+new_TCF_i = TCF_i                            for non-finishers (OCS/DNF/DNC/etc.)
+```
 
-4. Apply a fractional adjustment towards fair_TCF:
+`Q_i` is algebraically equivalent to `fair_TCF_i = TCF_i × (CT_avg / CT_i)`. The
+P50 formulation is numerically cleaner to implement and matches Sailwave's internal
+calculation directly.
 
-   ```
-   new_TCF_i = TCF_i + K × (fair_TCF_i − TCF_i)
-   ```
+The adjustment is **symmetric** — the same 15% rate applies whether a boat
+over-performed or under-performed. This differs from the SWNHC2015 spreadsheet
+(AdjustP=0.30/AdjustN=0.15); see below.
 
-   where K is the *sensitivity factor*, typically **0.1** (10% per race). This
-   damps wild swings while progressively converging towards fair ratings.
+**Re-alignment is a no-op in NHC1.** Because P50 is constructed from the fleet mean,
+`Q_avg = TCF_avg` exactly. The average new TCF equals the average old TCF after every
+race, so a re-alignment scale factor is always 1.0. No extra step is needed.
 
-5. Round `new_TCF_i` to 3 decimal places — this is the boat's handicap for race N+1.
+Round `new_TCF_i` to 3 decimal places — this is the boat's handicap for race N+1.
 
 The critical implication: **the TCF applied in race N must be snapshotted**, because
-the stored TCF will change after race N is scored. This snapshot is also required
-for the audit trail.
+the stored TCF will change after race N is scored. In Sailwave this is the `rrat` field
+per result record (distinct from `comprating`, the master stored TCF). Both must be
+persisted: `comprating` for the current master handicap, `rrat` (= `tcfApplied`) for
+the audit trail of what was actually used in each race. The two can diverge when a
+prior update is pending — see "Race rating vs master rating" below.
 
 ### ECHO
 
@@ -132,7 +145,7 @@ the reference point is the **winner's corrected time**, not the fleet mean.
    ```
    new_TCF_i = TCF_i × (1 − Adjust) + ECHO_i × Adjust
    ```
-   Default `Adjust = 0.6` — far more aggressive than HPH's K = 0.1.
+   Default `Adjust = 0.6` — far more aggressive than HPH/NHC1's Adjust = 0.15.
 
 6. Non-finishers (DNF/DNS/etc.) retain their current handicap unchanged.
 
@@ -141,76 +154,69 @@ the reference point is the **winner's corrected time**, not the fleet mean.
 should have tied the leader). Combined with the higher Adjust, ECHO reacts more
 sharply to individual race results.
 
-### NHC (National Handicap for Cruisers) — applicable to HPH
+### NHC (National Handicap for Cruisers) — background and variants
 
-HPH at HYC is a local implementation of NHC. The Sailwave NHC spreadsheets
-(`SWNHC*.xls`) reveal the algorithm in detail. The recommended implementation
-target is **SWNHC2015 (Club variant)**, the most recent widely-used club version.
+NHC is the standard progressive handicap system for cruisers in Ireland and the UK.
+Two distinct implementations exist:
 
-**Common foundation (all NHC versions):**
+#### NHC1 — Sailwave built-in (used by HYC)
 
-```
-H_i  = elapsed time in decimal minutes
-CT_i = MROUND(ET_i × TCF_i, 1 second)    # corrected time, rounded
-O_i  = 100 / H_i                          # raw performance index (100/min)
-P50  = avg(TCF_i) / avg(O_i)             # scale factor: converts O-units to TCF-units
-Q_i  = O_i × P50                          # "fair TCF": the TCF that would have
-                                           # given boat i exactly the fleet-mean CT
-```
+This is the algorithm described in the HPH section above. Sailwave's `scrratingsystem
+= 'NHC1'` activates it; corrected times and per-race TCFs are computed inside
+Sailwave and published in results. The scorer updates each boat's master rating before
+each race; Sailwave does not write updated ratings back automatically
+(`scrupdateratings = 'No'`).
 
-`Q_i` is mathematically equivalent to HPH's `fair_TCF`. The fleet reference
-point is the **fleet mean**, not the winner.
+Key properties confirmed from the Puppeteer 22 Championships data:
+- **Symmetric Adjust = 0.15** (same rate up and down)
+- **Re-alignment is a no-op** (fleet mean conserved by construction)
+- **Non-finishers keep their TCF unchanged**
+- **`rrat` per result** = TCF applied that race (= `tcfApplied` snapshot)
+- **`comprating`** = master stored TCF; may differ from `rrat` when a prior update
+  is pending from an earlier event
 
-**SWNHC2015 (Club) adjustment:**
+**Race rating vs master rating:** The gap between `comprating` and race 1 `rrat` in
+the Championships data (up to ±0.025 for some boats) reflects ratings that were
+updated in a prior event whose master rating had not yet been written back. Both
+values must be persisted: the master TCF (what shows in the standings header) and
+the race-specific TCF (what was used to compute that race's corrected times).
 
-Two asymmetric adjustment rates — a boat that over-performed gets its handicap
-raised faster than an under-performer's gets lowered:
+**Rating storage convention:** Sailwave stores TCFs as raw 3-decimal values (e.g.
+`1.319`). The Puppeteer 22 HPH fleet has ratings in the 1.14–1.45 range — all above
+1.0 — because the fleet's historical baseline was calibrated against a slow reference
+boat. The absolute scale does not affect the algorithm; only relative values within
+the fleet matter. Our implementation should store raw TCF and document the convention
+clearly.
 
+#### SWNHC2015 — external spreadsheet variant (reference only)
+
+Some clubs use the Sailwave NHC spreadsheet (`SWNHC*.xls`) as an external calculator
+rather than Sailwave's built-in NHC1. This variant is more complex:
+
+**Asymmetric adjustment rates:**
 ```
 new_TCF_i = AdjustP × Q_i + (1 − AdjustP) × TCF_i   if Q_i > TCF_i  (over-performed)
           = AdjustN × Q_i + (1 − AdjustN) × TCF_i   if Q_i ≤ TCF_i  (under-performed)
 ```
+Default parameters: `AdjustP = 0.3`, `AdjustN = 0.15`. A boat that over-performed
+gets its handicap raised faster than an under-performer's gets lowered.
 
-Default parameters: `AdjustP = 0.3`, `AdjustN = 0.15`.
-
-**SD-based outlier dampening** (added in the 2014 club version, retained in 2015):
-
+**SD-based outlier dampening** (added in the 2014 club version):
 Boats whose comparative score `Q_i / TCF_i` lies more than 1.5 SD above or 1.0 SD
-below the fleet mean are classified as outliers and receive a **smaller** adjustment
-(`AdjustPX = 0.15`, `AdjustNX = 0.075`). The idea: a boat having an exceptional
-race should not be penalised (or rewarded) as heavily as a boat with a typical
-performance, to avoid overreacting to a single result. Normal boats are adjusted
-relative to the non-outlier fleet average only.
+below the fleet mean receive a smaller adjustment (`AdjustPX = 0.15`,
+`AdjustNX = 0.075`) to avoid overreacting to a single exceptional result.
 
-**Re-alignment:**
-
-After computing all new handicaps, every value is scaled by the ratio of the old
-fleet mean to the new fleet mean:
-
+**Re-alignment** (applies in the spreadsheet because the asymmetric rates break
+fleet-mean conservation):
 ```
 re_aligned_i = new_TCF_i × (avg_old_TCF / avg_new_TCF)
 ```
+Applied only when `finishers ≥ 3`.
 
-This prevents ratings drift: a lucky or unlucky race day cannot cause the whole
-fleet to creep up or down together. Re-alignment is only applied when
-`finishers ≥ 3` (configurable MinFin gate).
-
-**Non-finishers:** DNF/DNS/etc. retain their current handicap unchanged
-(club variant). The Regatta variant imputes times for non-finishers but that
-variant is not relevant for club series.
-
-**Rating storage:** The Sailwave spreadsheet uses `RatingConvert: On` — it stores
-a 3-digit NHC number (e.g. 104.5) and divides by 100 before passing to the
-spreadsheet, which always works in TCF units (0.85–1.15). Our implementation
-should store the raw TCF and display a 3-digit form where that matches user
-expectation. Document the convention clearly so `tcfApplied` snapshots and the
-master rating use the same units.
-
-**Race rating vs master rating:** Sailwave writes two separate values per race:
-`Rating` (the stored master handicap) and `RaceRating` (the TCF actually applied
-when scoring that race). These diverge when a re-alignment is still pending.
-This maps directly to the `tcfApplied` snapshot in `HandicapRaceScore` — it must
-be persisted separately from the competitor's current master TCF.
+HYC does not use this variant. It is documented here for completeness and in case
+a future club supported by this application uses the SWNHC spreadsheet workflow.
+See `docs/notes/sailwave-excel-handicap-protocol.md` for the full spreadsheet
+analysis.
 
 ### Why Phase 2 is a significant jump
 
@@ -448,22 +454,23 @@ formulas, not time-based formulas.
 
 ## Phase 2 open questions
 
-The NHC and ECHO algorithms above are derived from the Sailwave spreadsheet files
-(`reference/sailwave/`; see `docs/notes/sailwave-excel-handicap-protocol.md` for
-the full analysis). Several implementation decisions still need to be settled before
-Phase 2 begins:
+The NHC1 algorithm and parameters are now confirmed from real race data
+(`reference/data/nhc-example/`; see `docs/notes/sailwave-excel-handicap-protocol.md`
+for the spreadsheet variant analysis). The remaining open questions before
+Phase 2 implementation begins:
 
-- **Exact K for HPH at HYC.** The HalSail FAQ describes K ≈ 0.1; the Sailwave NHC
-  spreadsheet defaults to 0.3/0.15. Confirm which parameters HYC actually uses
-  before implementing the HPH adjustment.
-- **Carry-over handicap at series start.** What initial TCF is used for a boat that
-  has not raced before? What happens when a new series begins — do boats carry over
-  their end-of-last-series TCF, revert to a class baseline, or something else?
+- **Carry-over handicap at series start.** The Championships data shows a gap between
+  `comprating` (master TCF) and race 1 `rrat` (TCF actually applied) for most boats,
+  indicating ratings were updated in a prior event. The pattern is clear but the
+  source of the initial series-start TCF is not: do boats carry over their
+  end-of-last-series TCF, is there a class-baseline reset between seasons, or does
+  the scorer manually set starting TCFs? Ask the fleet scorer before implementing
+  the series-start setup flow.
 - **Retroactive edits.** Changing a result for race N invalidates the computed TCF
   for race N+1 and all subsequent races. HalSail requires a manual re-score; we
   need to decide whether to propagate changes automatically, warn the scorer, or
   lock races once handicaps are committed.
 - **`tcfApplied` persistence.** The `tcfApplied` snapshot in `HandicapRaceScore`
   must be persisted (not just computed), since the stored handicap changes after
-  each race. The `Result.rating_used` field from `data-model.md` is the right
-  place for this.
+  each race. Corresponds to Sailwave's `rrat` per result record. The
+  `Result.rating_used` field from `data-model.md` is the right place for this.
