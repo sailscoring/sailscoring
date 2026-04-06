@@ -276,7 +276,7 @@ function renderScoreText(
 ): string {
   let text: string;
   if (isRedress) {
-    text = `${points} RDG`;
+    text = `RDG(${points})`;
   } else if (resultCode) {
     text = `${points} ${resultCode}`;
   } else if (penaltyCode) {

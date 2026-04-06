@@ -987,8 +987,8 @@ function StandingRow({
             )}
           >
             {isRedress ? (
-              <span className="text-xs text-amber-600 dark:text-amber-400" title="Redress given (RDG)">
-                {points}<sup>r</sup>
+              <span className="text-xs text-amber-600 dark:text-amber-400">
+                RDG({points})
               </span>
             ) : code !== null ? (
               <span
