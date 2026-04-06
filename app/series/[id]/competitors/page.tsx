@@ -37,6 +37,7 @@ import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 
 interface CompetitorFormData {
   sailNumber: string;
+  boatName: string;
   name: string;
   club: string;
   gender: '' | 'M' | 'F';
@@ -49,6 +50,7 @@ interface CompetitorFormData {
 
 const emptyForm: CompetitorFormData = {
   sailNumber: '',
+  boatName: '',
   name: '',
   club: '',
   gender: '',
@@ -59,7 +61,7 @@ const emptyForm: CompetitorFormData = {
   pyNumber: '',
 };
 
-type CompetitorField = 'sailNumber' | 'name' | 'club' | 'gender' | 'age' | 'fleet' | 'tcc' | 'py' | 'ignore';
+type CompetitorField = 'sailNumber' | 'boatName' | 'name' | 'club' | 'gender' | 'age' | 'fleet' | 'tcc' | 'py' | 'ignore';
 type ColumnMap = Record<number, CompetitorField>;
 
 type ImportFlow =
@@ -69,6 +71,7 @@ type ImportFlow =
 
 const FIELD_LABELS: Record<CompetitorField, string> = {
   sailNumber: 'Sail number',
+  boatName: 'Boat name',
   name: 'Helm name',
   club: 'Club',
   gender: 'Gender',
@@ -82,6 +85,7 @@ const FIELD_LABELS: Record<CompetitorField, string> = {
 function autoDetectField(header: string): CompetitorField {
   const h = header.trim().toLowerCase();
   if (/sail/.test(h)) return 'sailNumber';
+  if (/\bboat\b/.test(h)) return 'boatName';
   if (/helm|name/.test(h)) return 'name';
   if (/club/.test(h)) return 'club';
   if (/gender|sex/.test(h)) return 'gender';
@@ -191,6 +195,15 @@ function CompetitorForm({
             value={data.name}
             onChange={(e) => set('name', e.target.value)}
             placeholder="e.g. Jane Doe"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="boatName">Boat name</Label>
+          <Input
+            id="boatName"
+            value={data.boatName}
+            onChange={(e) => set('boatName', e.target.value)}
+            placeholder="e.g. The Big Picture"
           />
         </div>
         <div className="space-y-1.5">
@@ -365,6 +378,7 @@ export default function CompetitorsPage({
       seriesId,
       fleetIds,
       sailNumber: data.sailNumber,
+      ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       name: data.name,
       club: data.club,
       gender: data.gender,
@@ -393,6 +407,7 @@ export default function CompetitorsPage({
       ...editingCompetitor,
       fleetIds: newFleetIds,
       sailNumber: data.sailNumber,
+      ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       name: data.name,
       club: data.club,
       gender: data.gender,
@@ -402,6 +417,7 @@ export default function CompetitorsPage({
     // Clear ratings no longer relevant
     if (!updated.ircTcc) delete updated.ircTcc;
     if (!updated.pyNumber) delete updated.pyNumber;
+    if (!data.boatName.trim()) delete updated.boatName;
     log('competitors', 'updating', updated);
     await competitorRepo.save(updated);
     // Prune any fleets that were removed
@@ -462,6 +478,7 @@ export default function CompetitorsPage({
 
       // Extract values per column map
       let sailNumber = '';
+      let boatName = '';
       let name = '';
       let club = '';
       let gender = '';
@@ -473,6 +490,7 @@ export default function CompetitorsPage({
         const col = parseInt(colStr, 10);
         const val = row[col]?.trim() ?? '';
         if (field === 'sailNumber') sailNumber = val;
+        else if (field === 'boatName') boatName = val;
         else if (field === 'name') name = val;
         else if (field === 'club') club = val;
         else if (field === 'gender') gender = val;
@@ -498,11 +516,13 @@ export default function CompetitorsPage({
       const ircTcc = parsedTcc != null && !isNaN(parsedTcc) ? parsedTcc : existingCompetitor?.ircTcc;
       const pyNumber = parsedPy != null && !isNaN(parsedPy) ? parsedPy : existingCompetitor?.pyNumber;
 
+      const resolvedBoatName = boatName || existingCompetitor?.boatName || '';
       const competitor: Competitor = {
         id: existingCompetitor?.id ?? crypto.randomUUID(),
         seriesId,
         fleetIds: [fleetId],
         sailNumber: normSail,
+        ...(resolvedBoatName ? { boatName: resolvedBoatName } : {}),
         name: name || existingCompetitor?.name || '',
         club: club || existingCompetitor?.club || '',
         gender: (normGender === 'M' || normGender === 'F') ? normGender : (existingCompetitor?.gender ?? ''),
@@ -515,6 +535,7 @@ export default function CompetitorsPage({
       if (
         existingCompetitor &&
         existingCompetitor.fleetIds[0] === competitor.fleetIds[0] &&
+        (existingCompetitor.boatName ?? '') === (competitor.boatName ?? '') &&
         existingCompetitor.name === competitor.name &&
         existingCompetitor.club === competitor.club &&
         existingCompetitor.gender === competitor.gender &&
@@ -547,6 +568,7 @@ export default function CompetitorsPage({
   const editingExcluded = editingCompetitor
     ? existingSailNumbers.filter((s) => s !== editingCompetitor.sailNumber.toUpperCase())
     : existingSailNumbers;
+  const hasBoatNames = (competitors ?? []).some((c) => c.boatName);
 
   return (
     <div className="space-y-6">
@@ -592,6 +614,7 @@ export default function CompetitorsPage({
           <TableHeader>
             <TableRow>
               <TableHead>Sail no.</TableHead>
+              {hasBoatNames && <TableHead>Boat</TableHead>}
               <TableHead>Helm</TableHead>
               <TableHead>Club</TableHead>
               {multipleFleets && <TableHead>Fleet</TableHead>}
@@ -624,6 +647,7 @@ export default function CompetitorsPage({
                 }}
               >
                 <TableCell className="font-mono">{c.sailNumber}</TableCell>
+                {hasBoatNames && <TableCell>{c.boatName ?? ''}</TableCell>}
                 <TableCell>{c.name}</TableCell>
                 <TableCell>{c.club}</TableCell>
                 {multipleFleets && <TableCell>{c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ')}</TableCell>}
@@ -676,6 +700,7 @@ export default function CompetitorsPage({
             <CompetitorForm
               initial={{
                 sailNumber: editingCompetitor.sailNumber,
+                boatName: editingCompetitor.boatName ?? '',
                 name: editingCompetitor.name,
                 club: editingCompetitor.club,
                 gender: editingCompetitor.gender,

@@ -22,6 +22,7 @@ export interface PublicSeriesExport {
   };
   competitors: {
     sailNumber: string;
+    boatName?: string;
     name: string;
     club: string;
     gender: 'M' | 'F' | '';
@@ -108,6 +109,7 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
     },
     competitors: competitors.map((c) => ({
       sailNumber: c.sailNumber,
+      ...(c.boatName ? { boatName: c.boatName } : {}),
       name: c.name,
       club: c.club,
       gender: c.gender,
@@ -164,6 +166,7 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
         seriesId: newSeriesId,
         fleetIds: [defaultFleetId],
         sailNumber: c.sailNumber,
+        ...(c.boatName ? { boatName: c.boatName } : {}),
         name: c.name,
         club: c.club,
         gender: c.gender,

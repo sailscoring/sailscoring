@@ -43,6 +43,7 @@ interface SeriesFileCompetitor {
   fleetIds?: string[];   // v7+
   fleetId?: string;      // pre-v7 back-compat; prefer fleetIds when present
   sailNumber: string;
+  boatName?: string;
   name: string;
   club: string;
   gender: 'M' | 'F' | '';
@@ -199,6 +200,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       id: c.id,
       fleetIds: c.fleetIds,
       sailNumber: c.sailNumber,
+      ...(c.boatName ? { boatName: c.boatName } : {}),
       name: c.name,
       club: c.club,
       gender: c.gender,
@@ -332,6 +334,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
         seriesId: newSeriesId,
         fleetIds,
         sailNumber: c.sailNumber,
+        ...(c.boatName ? { boatName: c.boatName } : {}),
         name: c.name,
         club: c.club,
         gender: c.gender,
@@ -452,6 +455,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
         seriesId,
         fleetIds,
         sailNumber: c.sailNumber,
+        ...(c.boatName ? { boatName: c.boatName } : {}),
         name: c.name,
         club: c.club,
         gender: c.gender,

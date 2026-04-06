@@ -47,6 +47,7 @@ export interface Competitor {
   seriesId: string;
   fleetIds: string[];
   sailNumber: string;
+  boatName?: string;  // name of the vessel, e.g. "The Big Picture"
   name: string;
   club: string;
   gender: 'M' | 'F' | '';
