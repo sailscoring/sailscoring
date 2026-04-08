@@ -39,6 +39,28 @@ lead with in developer-facing documentation.
 
 *(Was GitHub issue #16)*
 
+### Fetch PY numbers from RYA
+
+Portsmouth Yardstick numbers are published by the RYA. Fetching them directly would
+let scorers select a class and get the current PY number automatically, rather than
+looking it up manually. Requires understanding the RYA's data availability — whether
+there's a public API or whether scraping/download is needed.
+
+### Fetch IRC and ECHO certs from Irish Sailing
+
+IRC certificates and ECHO handicaps are managed by Irish Sailing. Importing them
+directly — by sail number or boat name — would save scorers from manually entering
+handicap values and reduce transcription errors. Depends on what data Irish Sailing
+exposes and under what terms.
+
+### Submit results to Irish Sailing and RYA
+
+After scoring a series, results could be submitted back to Irish Sailing (for ECHO
+and IRC) and the RYA (for PY). This closes the loop: handicap authorities use race
+results to update handicap numbers. Currently this is a manual process involving
+spreadsheets or web forms. Automating it would be valuable to both scorers and the
+authorities, but requires agreement on data format and access.
+
 ---
 
 ## Finish entry UX
