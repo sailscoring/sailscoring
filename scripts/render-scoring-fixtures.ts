@@ -93,7 +93,7 @@ function buildInputs(fixture: ScoringFixture) {
         id: `f-${ri}-${f.sailor}`,
         raceId: races[ri].id,
         competitorId,
-        finishPosition: f.position ?? null,
+        sortOrder: f.position ?? null,
         resultCode: f.code ?? null,
         startPresent: f.startPresent ?? null,
         penaltyCode: f.penaltyCode ?? null,
@@ -339,7 +339,7 @@ function generateHandicapFixtureHtml(fixture: HandicapFixture, yamlSource: strin
   const raceStart: RaceStart = { id: 'rs-0', raceId: 'r-0', fleetIds: ['fl-0'], startTime: fixture.startTime };
   const finishes: Finish[] = fixture.finishes.map((f, i) => ({
     id: `fin-${i}`, raceId: 'r-0', competitorId: sailToId.get(f.sailor) ?? null,
-    finishPosition: null, ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+    sortOrder: null, ...(f.finishTime ? { finishTime: f.finishTime } : {}),
     resultCode: (f.code as Finish['resultCode']) ?? null, startPresent: null,
     penaltyCode: null, penaltyOverride: null,
     redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,

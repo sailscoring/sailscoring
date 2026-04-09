@@ -45,7 +45,7 @@ export interface RaceResultData {
   boatName?: string;
   helm: string;
   crewName?: string;
-  place: number | null;   // raw cross-fleet finish position; null for coded finishes
+  place: number | null;   // internal sort key for display order; null for coded finishes
   rank: number | null;    // within-fleet finish rank; null for coded finishes
   points: number;
   resultCode: ResultCode | null;
@@ -230,26 +230,23 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showCrewName: bo
   const dateStr = formatIsoDate(race.date);
   const startStr = race.startTime ? ` &mdash; Start: ${esc(race.startTime)}` : '';
   const hasHandicapCols = race.results.some((r) => r.tcc != null);
-  // Detect ties in place (cross-fleet) and rank (within-fleet)
-  const placeCounts = new Map<number, number>();
+  // Detect ties in within-fleet rank
   const rankCounts = new Map<number, number>();
   for (const r of race.results) {
-    if (r.place !== null) placeCounts.set(r.place, (placeCounts.get(r.place) ?? 0) + 1);
     if (r.rank !== null) rankCounts.set(r.rank, (rankCounts.get(r.rank) ?? 0) + 1);
   }
 
   const rows = race.results
     .map((r, i) => {
       const rowClass = i % 2 === 0 ? 'odd' : 'even';
-      const isPlaceTied = r.place !== null && (placeCounts.get(r.place) ?? 0) > 1;
       const isRankTied = r.rank !== null && (rankCounts.get(r.rank) ?? 0) > 1;
-      const placeText = r.resultCode ?? (r.place !== null ? `${r.place}${isPlaceTied ? '=' : ''}` : '');
       const rankText = r.rank !== null ? `${r.rank}${isRankTied ? '=' : ''}` : '';
+      const codeSuffix = r.resultCode && r.resultCode !== 'RDG' ? ` ${r.resultCode}` : '';
       const pointsText = r.penaltyCode
         ? `${r.points} ${formatPenaltyLabel(r.penaltyCode, r.penaltyOverride)}`
         : r.resultCode === 'RDG'
           ? `${r.points} RDG`
-          : String(r.points);
+          : `${r.points}${codeSuffix}`;
       const handicapCells = hasHandicapCols
         ? [
             `<td class="mono">${r.tcc != null ? r.tcc.toFixed(3) : ''}</td>`,
@@ -260,11 +257,10 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showCrewName: bo
         : [];
       return [
         `<tr class="${rowClass} racerow">`,
-        `<td>${placeText}</td>`,
+        `<td>${rankText}</td>`,
         `<td>${esc(r.sailNumber)}</td>`,
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
         `<td>${esc(renderHelmCell(r.helm, r.crewName, showCrewName))}</td>`,
-        `<td>${rankText}</td>`,
         `<td>${pointsText}</td>`,
         ...handicapCells,
         `</tr>`,
@@ -272,7 +268,7 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showCrewName: bo
     })
     .join('\n');
 
-  const baseColCount = showBoatName ? 6 : 5;
+  const baseColCount = showBoatName ? 5 : 4;
   const colCount = baseColCount + (hasHandicapCols ? 4 : 0);
   const handicapHeaders = hasHandicapCols
     ? '\n<th>TCC</th>\n<th>Finish</th>\n<th>ET</th>\n<th>CT</th>'
@@ -284,18 +280,16 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showCrewName: bo
   return `<h3 class="racetitle" id="${esc(race.anchorId)}">${esc(race.label)}&nbsp;&mdash;&nbsp;${dateStr}${startStr}</h3>
 <table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
-<col class="place" />
+<col class="rank" />
 <col class="sailno" />
 ${showBoatName ? '<col class="boatname" />\n' : ''}<col class="helmname" />
-<col class="rank" />
 <col class="points" />${handicapCols}
 </colgroup>
 <thead>
 <tr class="titlerow">
-<th>Place</th>
+<th>Rank</th>
 <th>Sail</th>
 ${showBoatName ? '<th>Boat</th>\n' : ''}<th>${showCrewName ? 'Helm / Crew' : 'Helm'}</th>
-<th>Rank</th>
 <th>Points</th>${handicapHeaders}
 </tr>
 </thead>
@@ -499,7 +493,7 @@ export function assembleSeriesResultsData(
       });
     }
 
-    // Finishers first (by cross-fleet place ascending), then coded boats (by sail number).
+    // Finishers first (by crossing-order ascending), then coded boats (by sail number).
     results.sort((a, b) => {
       if (a.place !== null && b.place === null) return -1;
       if (a.place === null && b.place !== null) return 1;

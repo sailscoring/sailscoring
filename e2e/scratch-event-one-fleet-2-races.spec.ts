@@ -88,8 +88,8 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
     await page.getByRole('button', { name: 'Add' }).click();
   }
 
-  // Verify finishing order
-  await expect(page.getByTestId('position-input-1001')).toHaveValue('1');
+  // Verify finishing order — row 1 is the first list item and contains 1001
+  await expect(page.getByRole('listitem').nth(0)).toContainText('1001');
   await expect(page.getByRole('listitem').filter({ hasText: '1001' })).toBeVisible();
 
   // Set 1004 as DNF (it's in the non-finishers panel)
@@ -410,11 +410,11 @@ test('unresolved unknown finish is excluded from standings', async ({ page }) =>
   await expect(page.getByText('9999')).not.toBeVisible();
 });
 
-test('editing position number reorders the finishing list', async ({ page }) => {
+test('move controls reorder scratch rows in the finishing list', async ({ page }) => {
   // ── Setup: series with 3 competitors and one race ─────────────────────────
   await page.goto('/');
   await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Position Edit Cup');
+  await page.getByLabel('Name').fill('Scratch Reorder Cup');
   await page.getByRole('button', { name: 'Create series' }).click();
 
   for (const [sailNumber, name] of [['101', 'Alice'], ['102', 'Bob'], ['103', 'Carol']]) {
@@ -430,54 +430,43 @@ test('editing position number reorders the finishing list', async ({ page }) => 
   await page.getByText('Race 1').click();
   await expect(page.getByText('Race 1 — results')).toBeVisible();
 
-  // Add finishers in order: 101 (1st), 102 (2nd), 103 (3rd)
+  // Add finishers in order: 101 (row 1), 102 (row 2), 103 (row 3)
   for (const sail of ['101', '102', '103']) {
     await page.getByLabel('Sail number').fill(sail);
     await page.getByRole('button', { name: 'Add' }).click();
   }
 
-  const posInput = (sail: string) => page.getByTestId(`position-input-${sail}`);
+  const row = (n: number) => page.getByRole('listitem').nth(n);
 
-  // Verify initial positions
-  await expect(posInput('101')).toHaveValue('1');
-  await expect(posInput('102')).toHaveValue('2');
-  await expect(posInput('103')).toHaveValue('3');
+  // Verify initial order
+  await expect(row(0)).toContainText('101');
+  await expect(row(1)).toContainText('102');
+  await expect(row(2)).toContainText('103');
 
-  // ── 1. Move 103 to position 10 (arbitrary, e.g. cross-fleet recording) ────
-  // Positions are explicit — other boats keep their values; list reorders.
-  await posInput('103').fill('10');
-  await posInput('103').press('Enter');
+  // ── 1. Move 103 up two steps → [101, 103, 102] then [103, 101, 102] ───────
+  await page.getByTestId('move-up-103').click();
+  await expect(row(0)).toContainText('101');
+  await expect(row(1)).toContainText('103');
+  await expect(row(2)).toContainText('102');
 
-  await expect(posInput('101')).toHaveValue('1');
-  await expect(posInput('102')).toHaveValue('2');
-  await expect(posInput('103')).toHaveValue('10');
+  await page.getByTestId('move-up-103').click();
+  await expect(row(0)).toContainText('103');
+  await expect(row(1)).toContainText('101');
+  await expect(row(2)).toContainText('102');
 
-  // ── 2. Move 101 to position 5 (between 102 and 103) ───────────────────────
-  await posInput('101').fill('5');
-  await posInput('101').press('Enter');
+  // ── 2. Move 103 down → [101, 103, 102] ────────────────────────────────────
+  await page.getByTestId('move-down-103').click();
+  await expect(row(0)).toContainText('101');
+  await expect(row(1)).toContainText('103');
+  await expect(row(2)).toContainText('102');
 
-  await expect(posInput('102')).toHaveValue('2');
-  await expect(posInput('101')).toHaveValue('5');
-  await expect(posInput('103')).toHaveValue('10');
+  // ── 3. Move controls at the boundaries are disabled ───────────────────────
+  // 101 is now in row 0, so its ↑ button is disabled
+  await expect(page.getByTestId('move-up-101')).toBeDisabled();
+  // 102 is now in row 2 (the last row), so its ↓ button is disabled
+  await expect(page.getByTestId('move-down-102')).toBeDisabled();
 
-  // ── 3. Tie 102 with 101 (both at position 5) ──────────────────────────────
-  // Positions are explicit; equal values are a valid tie (e.g. simultaneous finish).
-  await posInput('102').fill('5');
-  await posInput('102').press('Enter');
-
-  await expect(posInput('101')).toHaveValue('5');
-  await expect(posInput('102')).toHaveValue('5');
-  await expect(posInput('103')).toHaveValue('10');
-  // Tie indicator: the "=" span for the second boat in the pair is not invisible
-  const tieSpans = page.locator('span[aria-hidden="true"]', { hasText: '=' });
-  await expect(tieSpans.nth(1)).not.toHaveClass(/invisible/);
-
-  // ── 4. Invalid position (< 1) is rejected — value stays unchanged ─────────
-  await posInput('103').fill('0');
-  await posInput('103').press('Tab'); // blur
-  await expect(posInput('103')).toHaveValue('10'); // unchanged
-
-  // ── 5. Save and confirm redirect ──────────────────────────────────────────
+  // ── 4. Save and confirm redirect ──────────────────────────────────────────
   await page.getByRole('button', { name: 'Save results' }).click();
   await expect(page).toHaveURL(/\/races$/);
   await expect(page.getByText('3 finishers')).toBeVisible();

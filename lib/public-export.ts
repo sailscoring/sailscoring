@@ -51,7 +51,7 @@ export interface PublicSeriesExport {
     }[];
     finishes: {
       sailNumber: string;
-      finishPosition: number | null;
+      sortOrder: number | null;
       finishTime?: string;
       resultCode: ResultCode | null;
       startPresent: boolean | null;
@@ -111,7 +111,7 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
       const finish = finishesForRace.find((f) => f.competitorId === competitorId);
       return {
         sailNumber: sailNumberById.get(competitorId) ?? competitorId,
-        finishPosition: score.place,
+        sortOrder: finish?.sortOrder ?? null,
         ...(finish?.finishTime ? { finishTime: finish.finishTime } : {}),
         resultCode: score.resultCode,
         startPresent: finish?.startPresent ?? null,
@@ -294,11 +294,13 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
       for (const finish of race.finishes) {
         const competitorId = competitorIdBySail.get(finish.sailNumber);
         if (!competitorId) continue;
+        // Back-compat: older v2 exports used finishPosition; v3 uses sortOrder
+        const legacyFinishPosition = (finish as { finishPosition?: number | null }).finishPosition;
         await db.finishes.add({
           id: crypto.randomUUID(),
           raceId,
           competitorId,
-          finishPosition: finish.finishPosition,
+          sortOrder: finish.sortOrder ?? legacyFinishPosition ?? null,
           ...((finish as { finishTime?: string }).finishTime ? { finishTime: (finish as { finishTime: string }).finishTime } : {}),
           resultCode: finish.resultCode,
           startPresent: finish.startPresent,

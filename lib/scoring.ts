@@ -67,11 +67,11 @@ export function calculateRaceScores(
         rank: null,
         resultCode: finish.resultCode,
       });
-    } else if (finish.finishPosition !== null) {
+    } else if (finish.sortOrder !== null) {
       result.set(competitor.id, {
         competitorId: competitor.id,
         points: 0,       // assigned below after within-fleet rank is computed
-        place: finish.finishPosition,
+        place: finish.sortOrder,
         rank: null,      // assigned below
         resultCode: null,
       });
@@ -89,7 +89,7 @@ export function calculateRaceScores(
 
   // Assign within-fleet sequential ranks and average points for tied boats (RRS A8.1).
   // Sort finishers by cross-fleet place; assign fleet ranks 1, 2, 3 … in that order.
-  // Boats tied on the water (equal finishPosition) share averaged consecutive ranks.
+  // Boats tied on the water (equal sortOrder — crossing-order index) share averaged consecutive ranks.
   const finishers = [...result.entries()]
     .filter(([, score]) => score.place !== null)
     .sort((a, b) => a[1].place! - b[1].place! || a[0].localeCompare(b[0]));

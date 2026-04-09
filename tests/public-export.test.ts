@@ -34,8 +34,8 @@ const SAMPLE_EXPORT: PublicSeriesExport = {
       date: '2025-06-14',
       starts: [],
       finishes: [
-        { sailNumber: '42', finishPosition: 1, resultCode: null, startPresent: null },
-        { sailNumber: '99', finishPosition: 2, resultCode: null, startPresent: null },
+        { sailNumber: '42', sortOrder: 1, resultCode: null, startPresent: null },
+        { sailNumber: '99', sortOrder: 2, resultCode: null, startPresent: null },
       ],
     },
   ],

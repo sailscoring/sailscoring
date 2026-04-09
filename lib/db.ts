@@ -192,6 +192,20 @@ export class SailScoringDb extends Dexie {
         series.enabledCompetitorFields = defaultEnabledCompetitorFields();
       });
     });
+    this.version(16).stores({
+      series: 'id, createdAt',
+      competitors: 'id, seriesId, *fleetIds, createdAt',
+      fleets: 'id, seriesId, displayOrder',
+      races: 'id, seriesId, raceNumber',
+      finishes: 'id, raceId, competitorId',
+      raceStarts: 'id, raceId',
+      ftpServers: '++id',
+    }).upgrade(async (tx) => {
+      await tx.table('finishes').toCollection().modify((finish) => {
+        finish.sortOrder = finish.finishPosition ?? null;
+        delete finish.finishPosition;
+      });
+    });
   }
 }
 

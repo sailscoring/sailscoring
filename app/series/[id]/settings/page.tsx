@@ -3,7 +3,7 @@
 import { use, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { seriesRepo, fleetRepo } from '@/lib/dexie-repository';
+import { seriesRepo, fleetRepo, finishRepo, competitorRepo, raceRepo } from '@/lib/dexie-repository';
 import { db } from '@/lib/db';
 import type { Fleet, CompetitorFieldKey } from '@/lib/types';
 import { ALL_COMPETITOR_FIELDS, COMPETITOR_FIELD_LABELS, defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
@@ -154,6 +154,10 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renameError, setRenameError] = useState('');
+  // Inline error message for a blocked Scratch → Handicap change (missing finish times).
+  const [scoringSystemError, setScoringSystemError] = useState<{ fleetId: string; message: string } | null>(null);
+  // Pending Handicap → Scratch confirmation (non-blocking warning).
+  const [confirmToScratch, setConfirmToScratch] = useState<{ fleet: Fleet } | null>(null);
 
   // A single Default fleet means fleets are invisible to the user.
   const isOnlyDefault = fleets.length === 1 && fleets[0].name === 'Default';
@@ -192,7 +196,56 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
   }
 
   async function changeScoringSystem(fleet: Fleet, system: Fleet['scoringSystem']) {
-    await fleetRepo.save({ ...fleet, scoringSystem: system });
+    setScoringSystemError(null);
+    const wasScratch = fleet.scoringSystem === 'scratch';
+    const willBeScratch = system === 'scratch';
+    if (wasScratch === willBeScratch) {
+      // No category change (e.g. IRC → PY or scratch → scratch). Apply directly.
+      await fleetRepo.save({ ...fleet, scoringSystem: system });
+      return;
+    }
+
+    // Scratch → Handicap: block if any finish for this fleet lacks a finishTime.
+    if (wasScratch && !willBeScratch) {
+      const competitorsInFleet = await competitorRepo.listBySeries(seriesId);
+      const fleetCompetitorIds = new Set(
+        competitorsInFleet.filter((c) => c.fleetIds.includes(fleet.id)).map((c) => c.id),
+      );
+      if (fleetCompetitorIds.size === 0) {
+        await fleetRepo.save({ ...fleet, scoringSystem: system });
+        return;
+      }
+      const races = await raceRepo.listBySeries(seriesId);
+      let untimedCount = 0;
+      for (const race of races) {
+        const finishes = await finishRepo.listByRace(race.id);
+        for (const f of finishes) {
+          if (f.competitorId && fleetCompetitorIds.has(f.competitorId)
+              && f.sortOrder !== null && f.resultCode === null && !f.finishTime) {
+            untimedCount++;
+          }
+        }
+      }
+      if (untimedCount > 0) {
+        setScoringSystemError({
+          fleetId: fleet.id,
+          message: `Cannot switch to ${system.toUpperCase()}: ${untimedCount} finish${untimedCount === 1 ? ' lacks' : 'es lack'} a finish time. Enter finish times on those races first.`,
+        });
+        return;
+      }
+      // All finishers have times — proceed.
+      await fleetRepo.save({ ...fleet, scoringSystem: system });
+      return;
+    }
+
+    // Handicap → Scratch: warn (non-blocking), stored times are preserved but unused.
+    setConfirmToScratch({ fleet: { ...fleet, scoringSystem: system } });
+  }
+
+  async function confirmSwitchToScratch() {
+    if (!confirmToScratch) return;
+    await fleetRepo.save(confirmToScratch.fleet);
+    setConfirmToScratch(null);
   }
 
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
@@ -288,6 +341,11 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
               {renamingId === fleet.id && renameError && (
                 <p className="text-xs text-destructive mt-0.5">{renameError}</p>
               )}
+              {scoringSystemError?.fleetId === fleet.id && (
+                <p className="text-xs text-destructive mt-0.5" data-testid={`scoring-system-error-${fleet.id}`}>
+                  {scoringSystemError.message}
+                </p>
+              )}
               </div>
             ))}
           </div>
@@ -296,6 +354,20 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
           </Button>
         </div>
       )}
+      <Dialog open={confirmToScratch !== null} onOpenChange={(open) => { if (!open) setConfirmToScratch(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Switch to scratch scoring?</DialogTitle>
+            <DialogDescription>
+              Finish times for {confirmToScratch?.fleet.name} will be preserved but not used for scoring. You can switch back to handicap scoring later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmToScratch(null)}>Cancel</Button>
+            <Button onClick={confirmSwitchToScratch}>Switch to scratch</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

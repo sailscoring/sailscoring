@@ -59,7 +59,8 @@ interface SeriesFileFinish {
   id: string;
   competitorId: string | null;
   unknownSailNumber?: string;
-  finishPosition: number | null;
+  sortOrder?: number | null;        // v8+ — crossing-order index in the finish sheet
+  finishPosition?: number | null;   // pre-v8 — mapped to sortOrder on import
   finishTime?: string;
   resultCode: ResultCode | null;
   startPresent: boolean | null;
@@ -142,7 +143,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       id: f.id,
       competitorId: f.competitorId,
       unknownSailNumber: f.unknownSailNumber,
-      finishPosition: f.finishPosition,
+      sortOrder: f.sortOrder,
       ...(f.finishTime ? { finishTime: f.finishTime } : {}),
       resultCode: f.resultCode,
       startPresent: f.startPresent,
@@ -378,7 +379,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
           raceId: newRaceId,
           competitorId: mappedCompetitorId,
           unknownSailNumber: f.unknownSailNumber,
-          finishPosition: f.finishPosition,
+          sortOrder: f.sortOrder ?? f.finishPosition ?? null,
           ...(f.finishTime ? { finishTime: f.finishTime } : {}),
           resultCode: f.resultCode,
           startPresent: f.startPresent ?? null,
@@ -501,7 +502,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
           raceId: newRaceId,
           competitorId: mappedCompetitorId,
           unknownSailNumber: f.unknownSailNumber,
-          finishPosition: f.finishPosition,
+          sortOrder: f.sortOrder ?? f.finishPosition ?? null,
           ...(f.finishTime ? { finishTime: f.finishTime } : {}),
           resultCode: f.resultCode,
           startPresent: f.startPresent ?? null,

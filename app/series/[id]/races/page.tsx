@@ -13,7 +13,7 @@ import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
   const router = useRouter();
   const finishes = useLiveQuery(() => finishRepo.listByRace(race.id), [race.id]);
-  const finisherCount = finishes?.filter((f) => f.finishPosition !== null).length;
+  const finisherCount = finishes?.filter((f) => f.sortOrder !== null).length;
 
   async function handleDelete() {
     if (!confirm(`Delete Race ${race.raceNumber}? This will also delete all results for this race.`)) return;

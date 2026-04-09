@@ -359,8 +359,8 @@ function makeImportUrl() {
         raceNumber: 1,
         date: '2025-06-14',
         finishes: [
-          { sailNumber: '1', finishPosition: 1, resultCode: null, startPresent: null },
-          { sailNumber: '2', finishPosition: 2, resultCode: null, startPresent: null },
+          { sailNumber: '1', sortOrder: 1, resultCode: null, startPresent: null },
+          { sailNumber: '2', sortOrder: 2, resultCode: null, startPresent: null },
         ],
       },
     ],

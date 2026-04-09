@@ -115,7 +115,7 @@ describe('TCC handicap scoring fixtures', () => {
         id: `fin-${i}`,
         raceId: 'r-0',
         competitorId: sailToId.get(f.sailor) ?? null,
-        finishPosition: null,
+        sortOrder: null,
         ...(f.finishTime ? { finishTime: f.finishTime } : {}),
         resultCode: (f.code as Finish['resultCode']) ?? null,
         startPresent: null,

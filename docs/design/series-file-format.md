@@ -103,13 +103,13 @@ self-contained.
       {
         "id": "finish-uuid-...",
         "competitorId": "comp-uuid-...",
-        "finishPosition": 1,
+        "sortOrder": 1,
         "resultCode": null
       },
       {
         "id": "finish-uuid-...",
         "competitorId": "comp-uuid-...",
-        "finishPosition": null,
+        "sortOrder": null,
         "resultCode": "DNS"
       }
     ]

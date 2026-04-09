@@ -27,7 +27,7 @@ interface FileCompetitor {
 interface FileFinish {
   id: string;
   competitorId: string;
-  finishPosition: number | null;
+  sortOrder: number | null;
   resultCode: string | null;
   startPresent: boolean | null;
 }
@@ -187,7 +187,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   expect(file.races).toHaveLength(1);
   expect(file.races[0].raceNumber).toBe(1);
   expect(file.races[0].finishes).toHaveLength(1);
-  expect(file.races[0].finishes[0].finishPosition).toBe(1);
+  expect(file.races[0].finishes[0].sortOrder).toBe(1);
 });
 
 test('series file: identical snapshot shows "nothing to update"', async ({ page }) => {

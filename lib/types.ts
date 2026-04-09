@@ -98,9 +98,9 @@ export interface Finish {
   raceId: string;
   competitorId: string | null;    // null for unresolved unknown finishes
   unknownSailNumber?: string;     // set when competitorId is null
-  finishPosition: number | null;  // null if result code is set (except RDG: may be set alongside RDG)
+  sortOrder: number | null;       // crossing-order index in the unified finish sheet; null for coded finishes (except RDG: may be set alongside RDG)
   finishTime?: string;            // "HH:MM:SS" — time of day the boat crossed the line; ET = finishTime − startTime
-  resultCode: ResultCode | null;  // null if finish position is set (RDG may coexist with finishPosition)
+  resultCode: ResultCode | null;  // null if sortOrder is set (RDG may coexist with sortOrder)
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded
   penaltyCode: PenaltyCode | null;    // additive penalty (ZFP/SCP/DPI); only for finishers
   penaltyOverride: number | null;     // SCP: explicit %; DPI: explicit points; null = use default

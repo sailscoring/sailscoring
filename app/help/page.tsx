@@ -195,19 +195,30 @@ export default function HelpPage() {
 
       <Section id="entering-results" title="Entering results">
         <p>
-          The result entry screen is where you record who finished where. Search for a competitor
-          by sail number using the input at the top, then select them to add them to the finishing
-          order. Repeat for each finisher in order.
+          The result entry screen is a digital transcription of the handwritten finish sheet.
+          Each row is a crossing of the finish line; row order is crossing order. Search for
+          a competitor by sail number using the input at the top and they are added to the
+          next slot in the list. For boats in a fleet with a recorded start, the app prompts
+          for a finish time before adding the row.
         </p>
         <p>
           If a sail number is not yet registered in the series, the app will offer to{' '}
-          <strong className="text-foreground">Record as unknown</strong>. The finish position is
-          preserved; you can click <strong className="text-foreground">Resolve</strong> next to the
-          entry to link it to a registered competitor once you know who it was.
-          Unresolved unknown finishes are excluded from standings until resolved.
+          <strong className="text-foreground">Record as unknown</strong>. The row is kept in
+          crossing order; click <strong className="text-foreground">Resolve</strong> next to
+          the entry to link it to a registered competitor once you know who it was. Unresolved
+          unknown finishes are excluded from standings until resolved.
         </p>
         <p>
-          You can drag finishers to reorder them, or edit the position number directly if you prefer.
+          Rows for fleets without a start time (scratch scoring) show{' '}
+          <strong className="text-foreground">↑/↓</strong> controls that let you nudge a boat
+          up or down in the list. Rows for timed fleets have no move controls — their position
+          is determined automatically by the finish time. If you edit a time and it no longer
+          matches the crossing order, the row slides to its correct slot.
+        </p>
+        <p>
+          When two scratch-fleet boats cross together, tick{' '}
+          <strong className="text-foreground">tie</strong> on the second row to mark them as
+          tied with the previous row. Tied boats share averaged ranks per RRS A8.1.
         </p>
         <p>
           For competitors who did not finish normally, use the result code dropdown next to their

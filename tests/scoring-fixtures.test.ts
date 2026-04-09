@@ -121,7 +121,7 @@ function buildInputs(fixture: ScoringFixture): {
         id: `f-${ri}-${f.sailor}`,
         raceId: race.id,
         competitorId,
-        finishPosition: f.position ?? null,
+        sortOrder: f.position ?? null,
         resultCode: f.code ?? null,
         startPresent: f.startPresent ?? null,
         penaltyCode: f.penaltyCode ?? null,

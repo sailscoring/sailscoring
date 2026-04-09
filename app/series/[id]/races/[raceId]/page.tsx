@@ -126,20 +126,18 @@ export default function ResultEntryPage({
     [raceId],
   ) ?? [];
 
-  // Finishing order: entries sorted by recorded finish positions
+  // Finishing order: unified crossing-order list (row index = sortOrder). ADR-007.
   const [finishingOrder, setFinishingOrder] = useState<FinishEntry[]>([]);
-  // Explicit finish positions: entryId → recorded position number (may be > fleet size for cross-fleet races)
-  const [finishPositions, setFinishPositions] = useState<Map<string, number>>(new Map());
-  const initialPositionsRef = useRef<Map<string, number>>(new Map());
   // Non-finisher codes: competitorId → code (only explicit overrides from implicit DNC)
   const [nonFinisherCodes, setNonFinisherCodes] = useState<Map<string, ResultCode>>(
     new Map(),
   );
-
-  const [editingPosition, setEditingPosition] = useState<{
-    entryId: string;
-    value: string;
-  } | null>(null);
+  // Entry ID of a row to briefly flash (recent auto-slot, auto-slide, or scratch reorder).
+  const [flashedRowId, setFlashedRowId] = useState<string | null>(null);
+  // Entry IDs of rows marked "tied with previous row" — simultaneous-finish case on scratch rows.
+  // The scoring engine applies RRS A8.1 averaged ranks to boats sharing the same sortOrder.
+  const [tiedWithPrevious, setTiedWithPrevious] = useState<Set<string>>(new Set());
+  const initialTiesRef = useRef<Set<string>>(new Set());
 
   const [activeTab, setActiveTab] = useState<'finish' | 'checkin'>('finish');
   const [sailInput, setSailInput] = useState('');
@@ -191,10 +189,10 @@ export default function ResultEntryPage({
 
   // Initialize form state from saved finishes once loaded
   if (!initialized && competitors !== undefined && savedFinishes !== undefined) {
-    // Sort by finishPosition to put tied boats adjacent
+    // Row order is crossing order (ADR-007). Build the list sorted by the stored sortOrder.
     const positionedFinishes = savedFinishes
-      .filter((f) => f.finishPosition !== null)
-      .sort((a, b) => a.finishPosition! - b.finishPosition!);
+      .filter((f) => f.sortOrder !== null)
+      .sort((a, b) => a.sortOrder! - b.sortOrder!);
 
     const order: FinishEntry[] = positionedFinishes.map((f) => {
       if (f.competitorId !== null) {
@@ -203,14 +201,13 @@ export default function ResultEntryPage({
         return { kind: 'unknown', tempId: crypto.randomUUID(), sailNumber: f.unknownSailNumber ?? '' };
       }
     });
-    const positions = new Map(order.map((entry, i) => [entryId(entry), positionedFinishes[i].finishPosition!]));
 
     const finishedIds = new Set(
       order.flatMap((e) => e.kind === 'known' ? [e.competitorId] : []),
     );
     const codes = new Map<string, ResultCode>();
     for (const finish of savedFinishes) {
-      if (finish.finishPosition === null && finish.resultCode && finish.resultCode !== 'DNC' && finish.competitorId && !finishedIds.has(finish.competitorId)) {
+      if (finish.sortOrder === null && finish.resultCode && finish.resultCode !== 'DNC' && finish.competitorId && !finishedIds.has(finish.competitorId)) {
         codes.set(finish.competitorId, finish.resultCode);
       }
     }
@@ -245,14 +242,22 @@ export default function ResultEntryPage({
       }
     }
 
+    // Derive the "tied with previous" set from consecutive equal sortOrder values.
+    const ties = new Set<string>();
+    for (let i = 1; i < positionedFinishes.length; i++) {
+      if (positionedFinishes[i].sortOrder === positionedFinishes[i - 1].sortOrder) {
+        ties.add(entryId(order[i]));
+      }
+    }
+
     initialOrderRef.current = [...order];
     initialCodesRef.current = new Map(codes);
-    initialPositionsRef.current = new Map(positions);
     initialPenaltiesRef.current = new Map(penalties);
     initialRedressRef.current = new Map(redress);
     initialFinishTimesRef.current = new Map(times);
+    initialTiesRef.current = new Set(ties);
     setFinishingOrder(order);
-    setFinishPositions(positions);
+    setTiedWithPrevious(ties);
     setNonFinisherCodes(codes);
     setFinisherPenalties(penalties);
     setRedressEntries(redress);
@@ -278,12 +283,20 @@ export default function ResultEntryPage({
     }
   }, [pendingTimeEntry]);
 
+  // Clear the row flash after a short delay so the animation only plays once per trigger.
+  useEffect(() => {
+    if (flashedRowId === null) return;
+    const t = setTimeout(() => setFlashedRowId(null), 900);
+    return () => clearTimeout(t);
+  }, [flashedRowId]);
+
   function isDirty(): boolean {
     if (!initialized) return false;
-    const initPositions = initialPositionsRef.current;
-    if (finishPositions.size !== initPositions.size) return true;
-    for (const [k, v] of finishPositions) {
-      if (initPositions.get(k) !== v) return true;
+    // Order matters: compare finishingOrder against initial order by entry ID.
+    const initOrder = initialOrderRef.current;
+    if (finishingOrder.length !== initOrder.length) return true;
+    for (let i = 0; i < finishingOrder.length; i++) {
+      if (entryId(finishingOrder[i]) !== entryId(initOrder[i])) return true;
     }
     const initCodes = initialCodesRef.current;
     if (nonFinisherCodes.size !== initCodes.size) return true;
@@ -310,6 +323,11 @@ export default function ResultEntryPage({
     if (finishTimes.size !== initTimes.size) return true;
     for (const [k, v] of finishTimes) {
       if (initTimes.get(k) !== v) return true;
+    }
+    const initTies = initialTiesRef.current;
+    if (tiedWithPrevious.size !== initTies.size) return true;
+    for (const k of tiedWithPrevious) {
+      if (!initTies.has(k)) return true;
     }
     return false;
   }
@@ -442,41 +460,28 @@ export default function ResultEntryPage({
     : [];
 
   // Core "add this competitor to the finishing order" — optionally with a pre-known finish time.
+  // Timed entries are auto-slotted immediately before the next later-timed row, preserving
+  // the relative order of scratch rows (time-order invariant, ADR-007).
   function addKnownFinisher(competitor: Competitor, finishTime?: string) {
+    const newEntry: FinishEntry = { kind: 'known', competitorId: competitor.id };
+
     if (finishTime) {
-      // Insert in time-sorted order and reassign positions
       setFinishTimes((prev) => new Map(prev).set(competitor.id, finishTime));
       setFinishingOrder((order) => {
-        const newEntry: FinishEntry = { kind: 'known', competitorId: competitor.id };
-        const updated = [...order, newEntry];
-        // Sort entries that have finish times by time; entries without times keep their relative order at the end
-        const withTime: (FinishEntry & { time: string })[] = [];
-        const withoutTime: FinishEntry[] = [];
-        // We need to read finishTimes from the closure but it won't have the new entry yet,
-        // so build a merged view
-        const mergedTimes = new Map(finishTimes);
-        mergedTimes.set(competitor.id, finishTime);
-        for (const e of updated) {
-          const eid = entryId(e);
-          const t = mergedTimes.get(eid);
-          if (t) {
-            withTime.push({ ...e, time: t } as FinishEntry & { time: string });
-          } else {
-            withoutTime.push(e);
+        // Find the first existing entry whose stored finishTime is later than the new one.
+        let insertAt = order.length;
+        for (let i = 0; i < order.length; i++) {
+          const existingTime = finishTimes.get(entryId(order[i]));
+          if (existingTime !== undefined && existingTime > finishTime) {
+            insertAt = i;
+            break;
           }
         }
-        withTime.sort((a, b) => a.time.localeCompare(b.time));
-        const sorted = [...withTime, ...withoutTime];
-        // Reassign positions 1, 2, 3…
-        const newPositions = new Map<string, number>();
-        sorted.forEach((e, i) => newPositions.set(entryId(e), i + 1));
-        setFinishPositions(newPositions);
-        return sorted;
+        return [...order.slice(0, insertAt), newEntry, ...order.slice(insertAt)];
       });
+      setFlashedRowId(competitor.id);
     } else {
-      const nextPos = finishPositions.size > 0 ? Math.max(...finishPositions.values()) + 1 : 1;
-      setFinishingOrder((order) => [...order, { kind: 'known', competitorId: competitor.id }]);
-      setFinishPositions((prev) => new Map(prev).set(competitor.id, nextPos));
+      setFinishingOrder((order) => [...order, newEntry]);
     }
     setSailInput('');
     setInputError('');
@@ -526,9 +531,7 @@ export default function ResultEntryPage({
 
   function recordAsUnknown(sail: string) {
     const tempId = crypto.randomUUID();
-    const nextPos = finishPositions.size > 0 ? Math.max(...finishPositions.values()) + 1 : 1;
     setFinishingOrder((order) => [...order, { kind: 'unknown', tempId, sailNumber: sail }]);
-    setFinishPositions((prev) => new Map(prev).set(tempId, nextPos));
     setPendingUnknownSail(null);
     setSailInput('');
     setInputError('');
@@ -561,11 +564,6 @@ export default function ResultEntryPage({
 
   function removeFinisher(eid: string) {
     setFinishingOrder((order) => order.filter((e) => entryId(e) !== eid));
-    setFinishPositions((prev) => {
-      const next = new Map(prev);
-      next.delete(eid);
-      return next;
-    });
     setFinisherPenalties((prev) => {
       const next = new Map(prev);
       next.delete(eid);
@@ -579,6 +577,67 @@ export default function ResultEntryPage({
     setFinishTimes((prev) => {
       const next = new Map(prev);
       next.delete(eid);
+      return next;
+    });
+    setTiedWithPrevious((prev) => {
+      if (!prev.has(eid)) return prev;
+      const next = new Set(prev);
+      next.delete(eid);
+      return next;
+    });
+  }
+
+  function toggleTiedWithPrevious(eid: string) {
+    setTiedWithPrevious((prev) => {
+      const next = new Set(prev);
+      if (next.has(eid)) next.delete(eid);
+      else next.add(eid);
+      return next;
+    });
+  }
+
+  /**
+   * Move a scratch row by one step in the given direction. No-op if it would
+   * fall off the list. Scratch rows can freely move past timed rows; the
+   * moved row briefly flashes at its new position as a visual confirmation.
+   * Timed rows never have move affordances — their position is determined by
+   * the time-order invariant.
+   */
+  function moveRow(index: number, direction: -1 | 1) {
+    setFinishingOrder((order) => {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= order.length) return order;
+      const next = [...order];
+      const [moved] = next.splice(index, 1);
+      next.splice(targetIndex, 0, moved);
+      setFlashedRowId(entryId(moved));
+      return next;
+    });
+  }
+
+  /**
+   * Re-slot a row that already has a finish time after its time has been edited
+   * so the time-order invariant holds. Scratch rows keep their relative order;
+   * the moved row briefly flashes at its new position.
+   */
+  function reslotTimedRow(eid: string, nextTime: string) {
+    setFinishingOrder((order) => {
+      const currentIndex = order.findIndex((e) => entryId(e) === eid);
+      if (currentIndex === -1) return order;
+      const without = [...order.slice(0, currentIndex), ...order.slice(currentIndex + 1)];
+      let insertAt = without.length;
+      for (let i = 0; i < without.length; i++) {
+        const otherId = entryId(without[i]);
+        if (otherId === eid) continue;
+        const otherTime = finishTimes.get(otherId);
+        if (otherTime !== undefined && otherTime > nextTime) {
+          insertAt = i;
+          break;
+        }
+      }
+      if (insertAt === currentIndex) return order;
+      const next = [...without.slice(0, insertAt), order[currentIndex], ...without.slice(insertAt)];
+      setFlashedRowId(eid);
       return next;
     });
   }
@@ -658,26 +717,6 @@ export default function ResultEntryPage({
     setRedressDialog(null);
   }
 
-  function commitPositionEdit() {
-    if (!editingPosition) return;
-    const { entryId: eid, value } = editingPosition;
-    setEditingPosition(null);
-
-    const parsed = parseInt(value, 10);
-    if (isNaN(parsed) || parsed < 1) return;
-
-    if (parsed === finishPositions.get(eid)) return;
-
-    const newPositions = new Map(finishPositions);
-    newPositions.set(eid, parsed);
-
-    setFinishPositions(newPositions);
-    // Re-sort visual order by new positions; stable sort keeps tied boats in original relative order
-    setFinishingOrder((prev) =>
-      [...prev].sort((a, b) => (newPositions.get(entryId(a)) ?? 0) - (newPositions.get(entryId(b)) ?? 0)),
-    );
-  }
-
   function setNonFinisherCode(competitorId: string, code: NonFinisherCode) {
     if (code === 'implicit-dnc') {
       setNonFinisherCodes((m) => {
@@ -699,7 +738,7 @@ export default function ResultEntryPage({
 
     if (isPresent) {
       // Un-check: remove startPresent flag
-      if (existing && existing.finishPosition === null && existing.resultCode === null) {
+      if (existing && existing.sortOrder === null && existing.resultCode === null) {
         if (isImplicitlyPresent) {
           // Check-in-only record but competitor is also in finishing order — mark explicitly absent
           await finishRepo.save({ ...existing, startPresent: false });
@@ -716,7 +755,7 @@ export default function ResultEntryPage({
           id: crypto.randomUUID(),
           raceId,
           competitorId: competitor.id,
-          finishPosition: null,
+          sortOrder: null,
           resultCode: null,
           startPresent: false,
           penaltyCode: null,
@@ -737,7 +776,7 @@ export default function ResultEntryPage({
           id: crypto.randomUUID(),
           raceId,
           competitorId: competitor.id,
-          finishPosition: null,
+          sortOrder: null,
           resultCode: null,
           startPresent: true,
           penaltyCode: null,
@@ -798,7 +837,6 @@ export default function ResultEntryPage({
 
       // Resolve the unknown entry to the new competitor
       const eid = resolvingEntry.tempId;
-      const pos = finishPositions.get(eid);
       setFinishingOrder((order) =>
         order.map((e) =>
           e.kind === 'unknown' && e.tempId === eid
@@ -806,12 +844,6 @@ export default function ResultEntryPage({
             : e,
         ),
       );
-      setFinishPositions((prev) => {
-        const next = new Map(prev);
-        next.delete(eid);
-        if (pos !== undefined) next.set(competitor.id, pos);
-        return next;
-      });
       closeResolveDialog();
     } catch (err) {
       console.error(err);
@@ -834,9 +866,20 @@ export default function ResultEntryPage({
 
       const finishes: Finish[] = [];
 
-      // Finishers — use recorded positions (explicit, may include ties and cross-fleet values)
+      // Finishers — sortOrder is the row index (crossing-order, ADR-007).
+      // Rows marked "tied with previous" share sortOrder with the preceding row
+      // so the scoring engine applies RRS A8.1 averaged ranks.
+      const sortOrders: number[] = [];
       finishingOrder.forEach((entry, index) => {
         const eid = entryId(entry);
+        if (index > 0 && tiedWithPrevious.has(eid)) {
+          sortOrders.push(sortOrders[index - 1]);
+        } else {
+          sortOrders.push(index + 1);
+        }
+      });
+      finishingOrder.forEach((entry, index) => {
+        const sortOrder = sortOrders[index];
         if (entry.kind === 'known') {
           const penalty = finisherPenalties.get(entry.competitorId);
           const rdg = redressEntries.get(entry.competitorId);
@@ -845,7 +888,7 @@ export default function ResultEntryPage({
             id: crypto.randomUUID(),
             raceId,
             competitorId: entry.competitorId,
-            finishPosition: finishPositions.get(eid) ?? index + 1,
+            sortOrder,
             resultCode: rdg ? 'RDG' : null,
             startPresent: startPresentMap.get(entry.competitorId) ?? true,
             penaltyCode: penalty?.code ?? null,
@@ -863,7 +906,7 @@ export default function ResultEntryPage({
             raceId,
             competitorId: null,
             unknownSailNumber: entry.sailNumber,
-            finishPosition: finishPositions.get(eid) ?? index + 1,
+            sortOrder,
             resultCode: null,
             startPresent: null,
             penaltyCode: null,
@@ -885,7 +928,7 @@ export default function ResultEntryPage({
             id: crypto.randomUUID(),
             raceId,
             competitorId,
-            finishPosition: null,
+            sortOrder: null,
             resultCode: code,
             startPresent: startPresentMap.get(competitorId) ?? null,
             penaltyCode: null,
@@ -910,7 +953,7 @@ export default function ResultEntryPage({
             id: crypto.randomUUID(),
             raceId,
             competitorId,
-            finishPosition: null,
+            sortOrder: null,
             resultCode: null,
             startPresent: true,
             penaltyCode: null,
@@ -1231,6 +1274,11 @@ export default function ResultEntryPage({
             {pendingTimeEntry ? (
               <div className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
                 <span className="font-mono font-medium text-sm shrink-0">{pendingTimeEntry.competitor.sailNumber}</span>
+                {(() => {
+                  const pf = fleetById.get(pendingTimeEntry.competitor.fleetIds[0]);
+                  if (!pf || ((fleets ?? []).length <= 1 && pf.name === 'Default')) return null;
+                  return <Badge variant="secondary" className="text-xs shrink-0">{pf.name}</Badge>;
+                })()}
                 <span className="text-sm text-muted-foreground truncate">{displayHelmCrew(pendingTimeEntry.competitor, showCrew)}</span>
                 <input
                   ref={pendingTimeInputRef}
@@ -1374,51 +1422,46 @@ export default function ResultEntryPage({
           <ol className="space-y-1.5">
             {finishingOrder.map((entry, index) => {
               const eid = entryId(entry);
-              const displayPos = finishPositions.get(eid) ?? (index + 1);
-              const prevEntry = finishingOrder[index - 1];
-              const prevEid = prevEntry ? entryId(prevEntry) : undefined;
-              const isTied = index > 0 && prevEid !== undefined &&
-                finishPositions.get(eid) === finishPositions.get(prevEid);
+              const rowNumber = index + 1;
+              const isFlashed = flashedRowId === eid;
+              const isTimed = entry.kind === 'known' && needsFinishTime(entry.competitorId);
 
               if (entry.kind === 'unknown') {
                 return (
                   <li
                     key={entry.tempId}
-                    className="flex items-center gap-3 border border-amber-400 rounded-lg px-4 py-2.5 bg-amber-50 dark:bg-amber-950"
+                    className={cn(
+                      'flex items-center gap-3 border border-amber-400 rounded-lg px-4 py-2.5 bg-amber-50 dark:bg-amber-950 transition-colors',
+                      isFlashed && 'ring-2 ring-primary',
+                    )}
                   >
-                    <div className="flex items-center shrink-0">
-                      <input
-                        type="number"
-                        min={1}
-                        aria-label={`Position for unknown ${entry.sailNumber}`}
-                        value={
-                          editingPosition?.entryId === eid
-                            ? editingPosition.value
-                            : String(displayPos)
-                        }
-                        className="w-10 text-right text-sm font-mono text-muted-foreground rounded px-1 border border-transparent bg-transparent focus:border-input focus:bg-background focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        onFocus={() => setEditingPosition({ entryId: eid, value: String(displayPos) })}
-                        onChange={(e) => setEditingPosition({ entryId: eid, value: e.target.value })}
-                        onBlur={commitPositionEdit}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            commitPositionEdit();
-                            (e.target as HTMLInputElement).blur();
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            setEditingPosition(null);
-                            (e.target as HTMLInputElement).blur();
-                          }
-                        }}
-                      />
-                      <span className={cn('w-3 text-xs font-mono text-muted-foreground', isTied ? '' : 'invisible')} aria-hidden>
-                        =
-                      </span>
+                    <span className="w-6 text-right text-sm font-mono text-muted-foreground shrink-0">
+                      {rowNumber}
+                    </span>
+                    <div className="flex flex-col shrink-0">
+                      <button
+                        type="button"
+                        aria-label={`Move row ${rowNumber} up`}
+                        disabled={index === 0}
+                        onClick={() => moveRow(index, -1)}
+                        className="text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none leading-none text-sm"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Move row ${rowNumber} down`}
+                        disabled={index === finishingOrder.length - 1}
+                        onClick={() => moveRow(index, 1)}
+                        className="text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none leading-none text-sm"
+                      >
+                        ↓
+                      </button>
                     </div>
                     <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                     <span className="font-mono font-medium">{entry.sailNumber}</span>
                     <span className="text-sm text-muted-foreground flex-1">Unknown — not registered</span>
+                    <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
                     <Button
                       size="sm"
                       variant="outline"
@@ -1442,65 +1485,90 @@ export default function ResultEntryPage({
               if (!competitor) return null;
               const penalty = finisherPenalties.get(entry.competitorId);
               const hasRedress = redressEntries.has(entry.competitorId);
+              const primaryFleet = fleetById.get(competitor.fleetIds[0]);
+              const fleetLabel = primaryFleet?.name ?? '—';
+              const showFleetBadge = (fleets ?? []).length > 1 || (primaryFleet?.name ?? '') !== 'Default';
               return (
                 <li
                   key={entry.competitorId}
                   className={cn(
-                    'flex items-center gap-3 border rounded-lg px-4 py-2.5',
+                    'flex items-center gap-3 border rounded-lg px-4 py-2.5 transition-colors',
                     hasRedress && 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700',
+                    isFlashed && 'ring-2 ring-primary',
                   )}
                 >
-                  <div className="flex items-center shrink-0">
-                    <input
-                      type="number"
-                      min={1}
-                      data-testid={`position-input-${competitor.sailNumber}`}
-                      aria-label={`Position for ${competitor.sailNumber}`}
-                      value={
-                        editingPosition?.entryId === eid
-                          ? editingPosition.value
-                          : String(displayPos)
-                      }
-                      className="w-10 text-right text-sm font-mono text-muted-foreground rounded px-1 border border-transparent bg-transparent focus:border-input focus:bg-background focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      onFocus={() =>
-                        setEditingPosition({ entryId: eid, value: String(displayPos) })
-                      }
-                      onChange={(e) =>
-                        setEditingPosition({ entryId: eid, value: e.target.value })
-                      }
-                      onBlur={commitPositionEdit}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          commitPositionEdit();
-                          (e.target as HTMLInputElement).blur();
-                        } else if (e.key === 'Escape') {
-                          e.preventDefault();
-                          setEditingPosition(null);
-                          (e.target as HTMLInputElement).blur();
-                        }
-                      }}
-                    />
-                    <span className={cn('w-3 text-xs font-mono text-muted-foreground', isTied ? '' : 'invisible')} aria-hidden>
-                      =
-                    </span>
-                  </div>
+                  <span className="w-6 text-right text-sm font-mono text-muted-foreground shrink-0">
+                    {rowNumber}
+                  </span>
+                  {isTimed ? (
+                    // Timed rows are position-locked by the time-order invariant.
+                    // No move affordances — scorer edits the time instead.
+                    <div className="w-[14px] shrink-0" aria-hidden />
+                  ) : (
+                    <div className="flex flex-col shrink-0">
+                      <button
+                        type="button"
+                        data-testid={`move-up-${competitor.sailNumber}`}
+                        aria-label={`Move ${competitor.sailNumber} up`}
+                        disabled={index === 0}
+                        onClick={() => moveRow(index, -1)}
+                        className="text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none leading-none text-sm"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        data-testid={`move-down-${competitor.sailNumber}`}
+                        aria-label={`Move ${competitor.sailNumber} down`}
+                        disabled={index === finishingOrder.length - 1}
+                        onClick={() => moveRow(index, 1)}
+                        className="text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none leading-none text-sm"
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  )}
                   <span className="font-mono font-medium">{competitor.sailNumber}</span>
-                  <span className={cn('text-sm truncate', needsFinishTime(entry.competitorId) ? 'w-24 shrink-0' : 'flex-1')}>{displayHelmCrew(competitor, showCrew)}</span>
-                  {needsFinishTime(entry.competitorId) && (
+                  {showFleetBadge && (
+                    <Badge variant="secondary" className="text-xs shrink-0" data-testid={`fleet-badge-${competitor.sailNumber}`}>
+                      {fleetLabel}
+                    </Badge>
+                  )}
+                  <span className="text-sm truncate flex-1">{displayHelmCrew(competitor, showCrew)}</span>
+                  {isTimed ? (
                     <input
                       type="text"
                       value={finishTimes.get(entry.competitorId) ?? ''}
                       onChange={(e) => setFinishTimes((prev) => new Map(prev).set(entry.competitorId, e.target.value))}
                       onBlur={(e) => {
                         const normalized = normalizeTimeInput(e.target.value);
-                        if (normalized) setFinishTimes((prev) => new Map(prev).set(entry.competitorId, normalized));
+                        if (normalized) {
+                          setFinishTimes((prev) => new Map(prev).set(entry.competitorId, normalized));
+                          reslotTimedRow(entry.competitorId, normalized);
+                        }
                       }}
                       placeholder="HH:MM:SS"
                       aria-label={`Finish time for ${competitor.sailNumber}`}
                       data-testid={`finish-time-${competitor.sailNumber}`}
-                      className="flex-1 min-w-0 font-mono text-sm rounded px-2 py-0.5 border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="w-24 shrink-0 font-mono text-sm text-center rounded px-2 py-0.5 border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
                     />
+                  ) : (
+                    <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
+                  )}
+                  {!isTimed && index > 0 && (
+                    <label
+                      className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 cursor-pointer"
+                      title="Tied with previous row (simultaneous finish, RRS A8.1)"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={tiedWithPrevious.has(eid)}
+                        onChange={() => toggleTiedWithPrevious(eid)}
+                        aria-label={`Tie ${competitor.sailNumber} with previous row`}
+                        data-testid={`tie-${competitor.sailNumber}`}
+                      />
+                      tie
+                    </label>
                   )}
                   {penalty && (
                     <Badge
@@ -1696,7 +1764,6 @@ export default function ResultEntryPage({
                       onClick={() => {
                         if (!resolvingEntry) return;
                         const eid = resolvingEntry.tempId;
-                        const pos = finishPositions.get(eid);
                         setFinishingOrder((order) =>
                           order.map((e) =>
                             e.kind === 'unknown' && e.tempId === eid
@@ -1704,12 +1771,6 @@ export default function ResultEntryPage({
                               : e,
                           ),
                         );
-                        setFinishPositions((prev) => {
-                          const next = new Map(prev);
-                          next.delete(eid);
-                          if (pos !== undefined) next.set(competitor.id, pos);
-                          return next;
-                        });
                         closeResolveDialog();
                       }}
                     >
@@ -1863,9 +1924,12 @@ export default function ResultEntryPage({
             </DialogTitle>
             <DialogDescription>
               RRS A9: replace score with average from a pool of races.
-              {redressDialog?.isFinisher && finishPositions.get(redressDialog.competitorId) !== undefined && (
-                <> Finish position {finishPositions.get(redressDialog.competitorId)} is kept.</>
-              )}
+              {redressDialog?.isFinisher && (() => {
+                const idx = finishingOrder.findIndex(
+                  (e) => e.kind === 'known' && e.competitorId === redressDialog.competitorId,
+                );
+                return idx >= 0 ? <> Finish position {idx + 1} is kept.</> : null;
+              })()}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
