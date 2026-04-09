@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import { calculateStandings, calculateFleetStandings, calculateRaceScores, calculateHandicapRaceScores } from '../lib/scoring';
 import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-renderer';
+import { defaultEnabledCompetitorFields } from '../lib/competitor-fields';
 import type { Competitor, Fleet, Race, Finish, DiscardThreshold, ResultCode, PenaltyCode, RaceStart } from '../lib/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -206,6 +207,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
         standings,
         raceScoresByRaceId,
         competitorsById,
+        defaultEnabledCompetitorFields(),
         new Date(),
         fleet.name,
       );
@@ -256,6 +258,7 @@ function generateFixtureHtml(fixture: ScoringFixture, yamlSource: string): strin
       standings,
       raceScoresByRaceId,
       competitorsById,
+      defaultEnabledCompetitorFields(),
       new Date(),
     );
     delete data.generatedAt;

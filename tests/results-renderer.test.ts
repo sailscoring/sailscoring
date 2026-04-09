@@ -56,6 +56,7 @@ function makeRace(n: number, results: Array<[string, string, number, ResultCode 
 
 const MINIMAL: SeriesResultsData = {
   series: { name: 'Test Series', venue: 'Test Venue' },
+  enabledCompetitorFields: ['club'],
   races: [
     makeRace(1, [['42', 'Alice', 1, null], ['99', 'Bob', 2, null]]),
     makeRace(2, [['99', 'Bob', 1, null], ['42', 'Alice', 2, null]]),
@@ -124,6 +125,7 @@ describe('renderSeriesHtml', () => {
   it('does not apply rank classes to result-code cells', () => {
     const data: SeriesResultsData = {
       series: { name: 'S', venue: '' },
+      enabledCompetitorFields: ['club'],
       races: [makeRace(1, [['1', 'A', 1, null], ['2', 'B', 2, 'DNC']])],
       standings: [
         makeStanding(1, '1', 'A', [{ points: 1, podiumRank: 1 }]),
@@ -138,6 +140,7 @@ describe('renderSeriesHtml', () => {
   it('wraps discarded scores in parentheses and applies discard class', () => {
     const data: SeriesResultsData = {
       series: { name: 'S', venue: '' },
+      enabledCompetitorFields: ['club'],
       races: [
         makeRace(1, [['1', 'A', 1, null]]),
         makeRace(2, [['1', 'A', 4, 'DNC']]),
@@ -201,6 +204,98 @@ describe('renderSeriesHtml', () => {
     const html = renderSeriesHtml(MINIMAL);
     expect(html).toContain('sailscoring.ie');
   });
+
+  describe('enabledCompetitorFields column visibility', () => {
+    // A race with a boat name and crew name set on the only competitor, so we
+    // can confirm visibility is driven by the setting and not auto-detected
+    // from whether data exists.
+    const withBoatAndCrew: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: [],
+      races: [
+        {
+          raceNumber: 1,
+          date: '2025-06-01',
+          label: 'R1',
+          anchorId: 'r1',
+          results: [
+            {
+              sailNumber: '1',
+              boatName: 'Windchaser',
+              helm: 'Alice',
+              crewName: 'Mark',
+              place: 1,
+              rank: 1,
+              points: 1,
+              resultCode: null,
+              penaltyCode: null,
+              penaltyOverride: null,
+            },
+          ],
+        },
+      ],
+      standings: [
+        {
+          rank: 1,
+          sailNumber: '1',
+          boatName: 'Windchaser',
+          helm: 'Alice',
+          crewName: 'Mark',
+          raceScores: [
+            { points: 1, resultCode: null, penaltyCode: null, penaltyOverride: null, isDiscard: false, isRedress: false, podiumRank: 1 },
+          ],
+          totalPoints: 1,
+          netPoints: 1,
+        },
+      ],
+    };
+
+    it('hides Boat column when boatName is not enabled, even if data exists', () => {
+      const html = renderSeriesHtml({ ...withBoatAndCrew, enabledCompetitorFields: [] });
+      expect(html).not.toContain('<th>Boat</th>');
+      expect(html).not.toContain('Windchaser');
+    });
+
+    it('shows Boat column when boatName is enabled', () => {
+      const html = renderSeriesHtml({ ...withBoatAndCrew, enabledCompetitorFields: ['boatName'] });
+      expect(html).toContain('<th>Boat</th>');
+      expect(html).toContain('Windchaser');
+    });
+
+    it('renders plain Helm header when crewName is not enabled', () => {
+      const html = renderSeriesHtml({ ...withBoatAndCrew, enabledCompetitorFields: [] });
+      expect(html).toContain('<th>Helm</th>');
+      expect(html).not.toContain('Helm / Crew');
+      // Crew name must not leak into the output
+      expect(html).not.toContain('Mark');
+    });
+
+    it('renders "Helm / Crew" header and combined cell when crewName is enabled', () => {
+      const html = renderSeriesHtml({ ...withBoatAndCrew, enabledCompetitorFields: ['crewName'] });
+      expect(html).toContain('<th>Helm / Crew</th>');
+      expect(html).toContain('Alice / Mark');
+    });
+
+    it('falls back to helm-only when crewName is enabled but no crew is set', () => {
+      const noCrew: SeriesResultsData = {
+        ...withBoatAndCrew,
+        enabledCompetitorFields: ['crewName'],
+        standings: [{ ...withBoatAndCrew.standings[0], crewName: undefined }],
+        races: [
+          {
+            ...withBoatAndCrew.races[0],
+            results: [{ ...withBoatAndCrew.races[0].results[0], crewName: undefined }],
+          },
+        ],
+      };
+      const html = renderSeriesHtml(noCrew);
+      // Header is still "Helm / Crew" (the scorer chose to show it), but a
+      // single-hander row just shows the helm.
+      expect(html).toContain('<th>Helm / Crew</th>');
+      expect(html).not.toContain('Alice /');
+      expect(html).toContain('>Alice<');
+    });
+  });
 });
 
 // ---- assembleSeriesResultsData ----
@@ -252,20 +347,20 @@ describe('assembleSeriesResultsData', () => {
   const now = new Date(2025, 5, 14, 19, 0);
 
   it('produces correct series metadata', () => {
-    const data = assembleSeriesResultsData(series, races, standings, raceScoresByRaceId, competitorsById, now);
+    const data = assembleSeriesResultsData(series, races, standings, raceScoresByRaceId, competitorsById, ['club'], now);
     expect(data.series.name).toBe('Test');
     expect(data.series.venue).toBe('HYC');
     expect(data.generatedAt).toBe(now);
   });
 
   it('produces correct number of races and standings', () => {
-    const data = assembleSeriesResultsData(series, races, standings, raceScoresByRaceId, competitorsById, now);
+    const data = assembleSeriesResultsData(series, races, standings, raceScoresByRaceId, competitorsById, ['club'], now);
     expect(data.races).toHaveLength(2);
     expect(data.standings).toHaveLength(2);
   });
 
   it('assigns podiumRank correctly', () => {
-    const data = assembleSeriesResultsData(series, races, standings, raceScoresByRaceId, competitorsById, now);
+    const data = assembleSeriesResultsData(series, races, standings, raceScoresByRaceId, competitorsById, ['club'], now);
     // Alice: R1=1st, R2=2nd
     expect(data.standings[0].raceScores[0].podiumRank).toBe(1);
     expect(data.standings[0].raceScores[1].podiumRank).toBe(2);
@@ -275,7 +370,7 @@ describe('assembleSeriesResultsData', () => {
   });
 
   it('sets isDiscard=false and netPoints=totalPoints for all scores', () => {
-    const data = assembleSeriesResultsData(series, races, standings, raceScoresByRaceId, competitorsById, now);
+    const data = assembleSeriesResultsData(series, races, standings, raceScoresByRaceId, competitorsById, ['club'], now);
     for (const s of data.standings) {
       expect(s.netPoints).toBe(s.totalPoints);
       for (const score of s.raceScores) {
@@ -285,7 +380,7 @@ describe('assembleSeriesResultsData', () => {
   });
 
   it('race results are sorted by points ascending', () => {
-    const data = assembleSeriesResultsData(series, races, standings, raceScoresByRaceId, competitorsById, now);
+    const data = assembleSeriesResultsData(series, races, standings, raceScoresByRaceId, competitorsById, ['club'], now);
     const r1 = data.races[0].results;
     expect(r1[0].sailNumber).toBe('42'); // Alice 1pt
     expect(r1[1].sailNumber).toBe('99'); // Bob 2pt

@@ -1,4 +1,4 @@
-import type { ResultCode, PenaltyCode } from './types';
+import type { ResultCode, PenaltyCode, CompetitorFieldKey } from './types';
 
 // ---- Input types ----
 
@@ -13,6 +13,11 @@ export interface SeriesResultsData {
   rightLogoUrl?: string;
   /** If set, renders "Results are provisional as of HH:MM on Month D, YYYY" */
   generatedAt?: Date;
+  /** Which optional competitor fields the scorer has enabled for this series.
+   *  Drives column visibility in the summary and race tables. The Boat column
+   *  is shown iff this list contains 'boatName'; the helm cell includes the
+   *  crew name iff this list contains 'crewName'. */
+  enabledCompetitorFields: CompetitorFieldKey[];
   /** Races in series order */
   races: RaceData[];
   /** Standings sorted by rank ascending */
@@ -39,6 +44,7 @@ export interface RaceResultData {
   sailNumber: string;
   boatName?: string;
   helm: string;
+  crewName?: string;
   place: number | null;   // raw cross-fleet finish position; null for coded finishes
   rank: number | null;    // within-fleet finish rank; null for coded finishes
   points: number;
@@ -57,6 +63,7 @@ export interface StandingRowData {
   sailNumber: string;
   boatName?: string;
   helm: string;
+  crewName?: string;
   raceScores: RaceScoreData[];
   totalPoints: number;
   netPoints: number;
@@ -75,10 +82,12 @@ export interface RaceScoreData {
 // ---- Renderer ----
 
 export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercent?: number }): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, generatedAt, races, standings, publicExportJson, openInAppUrl } = data;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, generatedAt, enabledCompetitorFields, races, standings, publicExportJson, openInAppUrl } = data;
   const fontPercent = options?.fontPercent ?? 80;
 
   const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
+  const showBoatName = enabledCompetitorFields.includes('boatName');
+  const showCrewName = enabledCompetitorFields.includes('crewName');
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
 
   return `<!doctype html>
@@ -125,8 +134,8 @@ ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 <style>div.applicant-break {page-break-after:always;}</style>
 ${generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
 ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
-${renderSummaryTable(standings, races, hasDiscards)}
-${races.map((race) => renderRaceTable(race)).join('\n')}
+${renderSummaryTable(standings, races, hasDiscards, showBoatName, showCrewName)}
+${races.map((race) => renderRaceTable(race, showBoatName, showCrewName)).join('\n')}
 <p class="hardleft"></p>
 <p class="hardright"></p>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}">Open in Sail Scoring</a>` : ''}</p>
@@ -143,14 +152,15 @@ function renderSummaryTable(
   standings: StandingRowData[],
   races: RaceData[],
   hasDiscards: boolean,
+  showBoatName: boolean,
+  showCrewName: boolean,
 ): string {
-  const hasBoatNames = standings.some((s) => s.boatName);
-  const colCount = (hasBoatNames ? 4 : 3) + races.length + (hasDiscards ? 2 : 1); // rank + sail [+ boat] + helm + races + total [+ nett]
+  const colCount = (showBoatName ? 4 : 3) + races.length + (hasDiscards ? 2 : 1); // rank + sail [+ boat] + helm + races + total [+ nett]
 
   const cols = [
     '<col class="rank" />',
     '<col class="sailno" />',
-    ...(hasBoatNames ? ['<col class="boatname" />'] : []),
+    ...(showBoatName ? ['<col class="boatname" />'] : []),
     '<col class="helmname" />',
     ...races.map(() => '<col class="race" />'),
     '<col class="total" />',
@@ -160,8 +170,8 @@ function renderSummaryTable(
   const headerCells = [
     '<th>Rank</th>',
     '<th>Sail</th>',
-    ...(hasBoatNames ? ['<th>Boat</th>'] : []),
-    '<th>Helm</th>',
+    ...(showBoatName ? ['<th>Boat</th>'] : []),
+    `<th>${showCrewName ? 'Helm / Crew' : 'Helm'}</th>`,
     ...races.map(
       (r) => `<th><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a></th>`,
     ),
@@ -188,8 +198,8 @@ function renderSummaryTable(
       return `<tr class="${rowClass} summaryrow">
 <td>${ordinal(s.rank)}</td>
 <td>${esc(s.sailNumber)}</td>
-${hasBoatNames ? `<td>${esc(s.boatName ?? '')}</td>` : ''}
-<td>${esc(s.helm)}</td>
+${showBoatName ? `<td>${esc(s.boatName ?? '')}</td>` : ''}
+<td>${esc(renderHelmCell(s.helm, s.crewName, showCrewName))}</td>
 ${scoreCells}
 <td>${s.totalPoints}</td>
 ${hasDiscards ? `<td>${s.netPoints}</td>` : ''}
@@ -214,10 +224,9 @@ ${rows}
 
 // ---- Race detail table ----
 
-function renderRaceTable(race: RaceData): string {
+function renderRaceTable(race: RaceData, showBoatName: boolean, showCrewName: boolean): string {
   const dateStr = formatIsoDate(race.date);
   const startStr = race.startTime ? ` &mdash; Start: ${esc(race.startTime)}` : '';
-  const hasBoatNames = race.results.some((r) => r.boatName);
   const hasHandicapCols = race.results.some((r) => r.tcc != null);
   // Detect ties in place (cross-fleet) and rank (within-fleet)
   const placeCounts = new Map<number, number>();
@@ -245,15 +254,15 @@ function renderRaceTable(race: RaceData): string {
       return `<tr class="${rowClass} racerow">
 <td>${placeText}</td>
 <td>${esc(r.sailNumber)}</td>
-${hasBoatNames ? `<td>${esc(r.boatName ?? '')}</td>` : ''}
-<td>${esc(r.helm)}</td>
+${showBoatName ? `<td>${esc(r.boatName ?? '')}</td>` : ''}
+<td>${esc(renderHelmCell(r.helm, r.crewName, showCrewName))}</td>
 <td>${rankText}</td>
 <td>${pointsText}</td>${handicapCells}
 </tr>`;
     })
     .join('\n');
 
-  const baseColCount = hasBoatNames ? 6 : 5;
+  const baseColCount = showBoatName ? 6 : 5;
   const colCount = baseColCount + (hasHandicapCols ? 4 : 0);
   const handicapHeaders = hasHandicapCols
     ? '\n<th>TCC</th>\n<th>Finish</th>\n<th>ET</th>\n<th>CT</th>'
@@ -267,7 +276,7 @@ ${hasBoatNames ? `<td>${esc(r.boatName ?? '')}</td>` : ''}
 <colgroup span="${colCount}">
 <col class="place" />
 <col class="sailno" />
-${hasBoatNames ? '<col class="boatname" />\n' : ''}<col class="helmname" />
+${showBoatName ? '<col class="boatname" />\n' : ''}<col class="helmname" />
 <col class="rank" />
 <col class="points" />${handicapCols}
 </colgroup>
@@ -275,7 +284,7 @@ ${hasBoatNames ? '<col class="boatname" />\n' : ''}<col class="helmname" />
 <tr class="titlerow">
 <th>Place</th>
 <th>Sail</th>
-${hasBoatNames ? '<th>Boat</th>\n' : ''}<th>Helm</th>
+${showBoatName ? '<th>Boat</th>\n' : ''}<th>${showCrewName ? 'Helm / Crew' : 'Helm'}</th>
 <th>Rank</th>
 <th>Points</th>${handicapHeaders}
 </tr>
@@ -284,6 +293,16 @@ ${hasBoatNames ? '<th>Boat</th>\n' : ''}<th>Helm</th>
 ${rows}
 </tbody>
 </table>`;
+}
+
+/** Compose the text for the Helm column. When crew names are shown and a
+ *  crew is set, renders "Helm / Crew"; otherwise just the helm name. The
+ *  result is raw text — callers are responsible for HTML-escaping. */
+function renderHelmCell(helm: string, crewName: string | undefined, showCrewName: boolean): string {
+  if (showCrewName && crewName && crewName.trim()) {
+    return `${helm} / ${crewName}`;
+  }
+  return helm;
 }
 
 // ---- Helpers ----
@@ -388,7 +407,7 @@ export function assembleSeriesResultsData(
   races: Array<{ id: string; raceNumber: number; date: string }>,
   standings: Array<{
     rank: number;
-    competitor: { sailNumber: string; boatName?: string; name: string };
+    competitor: { sailNumber: string; boatName?: string; name: string; crewName?: string };
     racePoints: number[];
     raceCodes: (ResultCode | null)[];
     racePenaltyCodes?: (PenaltyCode | null)[];
@@ -399,7 +418,8 @@ export function assembleSeriesResultsData(
     raceDiscards: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null }>>,
-  competitorsById: Map<string, { sailNumber: string; boatName?: string; name: string; ircTcc?: number; pyNumber?: number }>,
+  competitorsById: Map<string, { sailNumber: string; boatName?: string; name: string; crewName?: string; ircTcc?: number; pyNumber?: number }>,
+  enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
   options?: {
@@ -455,6 +475,7 @@ export function assembleSeriesResultsData(
         sailNumber: competitor.sailNumber,
         ...(competitor.boatName ? { boatName: competitor.boatName } : {}),
         helm: competitor.name,
+        ...(competitor.crewName ? { crewName: competitor.crewName } : {}),
         place: score.place,
         rank: score.rank,
         points: score.points,
@@ -504,6 +525,7 @@ export function assembleSeriesResultsData(
     sailNumber: s.competitor.sailNumber,
     ...(s.competitor.boatName ? { boatName: s.competitor.boatName } : {}),
     helm: s.competitor.name,
+    ...(s.competitor.crewName ? { crewName: s.competitor.crewName } : {}),
     raceScores: s.racePoints.map((points, i) => {
       const resultCode = s.raceCodes[i] ?? null;
       const penaltyCode = s.racePenaltyCodes?.[i] ?? null;
@@ -532,6 +554,7 @@ export function assembleSeriesResultsData(
     leftLogoUrl: series.venueLogoUrl || undefined,
     rightLogoUrl: series.eventLogoUrl || undefined,
     generatedAt,
+    enabledCompetitorFields,
     races: raceDataList,
     standings: standingRows,
   };

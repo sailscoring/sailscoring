@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { seriesRepo, fleetRepo } from '@/lib/dexie-repository';
 import { db } from '@/lib/db';
-import type { Fleet } from '@/lib/types';
+import type { Fleet, CompetitorFieldKey } from '@/lib/types';
+import { ALL_COMPETITOR_FIELDS, COMPETITOR_FIELD_LABELS, defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -461,6 +462,88 @@ function ScoringCard({ seriesId, series }: { seriesId: string; series: Series })
   );
 }
 
+function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: Series }) {
+  const [expanded, setExpanded] = useState(false);
+  // Mirror the persisted array into local state so the checkbox updates
+  // instantly on click — the async db.update that follows would otherwise
+  // leave the controlled <input> at the old value until useLiveQuery reruns.
+  const persisted = series.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
+  const [localEnabled, setLocalEnabled] = useState<CompetitorFieldKey[]>(persisted);
+  useEffect(() => {
+    setLocalEnabled(persisted);
+  }, [persisted.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  const enabledSet = new Set<CompetitorFieldKey>(localEnabled);
+
+  async function toggle(field: CompetitorFieldKey, checked: boolean) {
+    const next = new Set(enabledSet);
+    if (checked) next.add(field); else next.delete(field);
+    const nextArray = ALL_COMPETITOR_FIELDS.filter((f) => next.has(f));
+    setLocalEnabled(nextArray);
+    await db.series.update(seriesId, {
+      enabledCompetitorFields: nextArray,
+      lastModifiedAt: Date.now(),
+    });
+  }
+
+  const shownLabels = ALL_COMPETITOR_FIELDS
+    .filter((f) => enabledSet.has(f))
+    .map((f) => COMPETITOR_FIELD_LABELS[f]);
+  const summary = shownLabels.length === 0
+    ? 'Only sail number and helm name'
+    : `Sail, Helm, ${shownLabels.join(', ')}`;
+
+  const fieldHints: Partial<Record<CompetitorFieldKey, string>> = {
+    crewName: 'Enable for two-person classes (420, Fireball, GP14).',
+  };
+
+  return (
+    <div className="border rounded-lg p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium">Competitor fields</h2>
+        {!expanded && (
+          <Button variant="ghost" size="sm" onClick={() => setExpanded(true)}>
+            Edit ▸
+          </Button>
+        )}
+      </div>
+      {!expanded ? (
+        <p className="text-sm text-muted-foreground">{summary}</p>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Sail number and helm name are always shown. Toggle the optional fields you want
+            displayed in the competitor list, standings, and exported results.
+          </p>
+          <div className="space-y-2">
+            {ALL_COMPETITOR_FIELDS.map((field) => (
+              <div key={field} className="flex items-start gap-2.5">
+                <input
+                  id={`field-${field}`}
+                  type="checkbox"
+                  checked={enabledSet.has(field)}
+                  onChange={(e) => toggle(field, e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                />
+                <div>
+                  <label htmlFor={`field-${field}`} className="text-sm font-medium cursor-pointer">
+                    {COMPETITOR_FIELD_LABELS[field]}
+                  </label>
+                  {fieldHints[field] && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{fieldHints[field]}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>
+            Done
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PublishingCard({ seriesId, series }: { seriesId: string; series: Series }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -642,6 +725,7 @@ export default function SettingsPage({
       <BasicsCard seriesId={seriesId} series={series} />
       <FleetsCard seriesId={seriesId} />
       <ScoringCard seriesId={seriesId} series={series} />
+      <CompetitorFieldsCard seriesId={seriesId} series={series} />
       <PublishingCard seriesId={seriesId} series={series} />
 
       <input

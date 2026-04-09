@@ -80,6 +80,39 @@ test('import competitors from CSV', async ({ page }) => {
   await expect(page.getByRole('cell', { name: 'IRL999', exact: true })).not.toBeVisible();
 });
 
+test('import CSV auto-detects the Crew column and stores crew names', async ({ page }) => {
+  // ── 1. Create a series and enable crew-name display ─────────────────────
+  await page.goto('/');
+  await page.getByRole('link', { name: 'New series' }).click();
+  await page.getByLabel('Name').fill('Two-Person Dinghy Import');
+  await page.getByRole('button', { name: 'Create series' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByLabel('Crew name').check();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
+  // ── 2. Upload a CSV with a Crew column ──────────────────────────────────
+  const csv = [
+    'Sail,Helm,Crew,Club',
+    '14702,Jane Doe,Mark Smith,HYC',
+    '14801,Chris Brown,,RCYC',    // single-hander, empty crew
+  ].join('\n');
+  await uploadCsv(page, csv);
+
+  // ── 3. Mapping dialog auto-detects Crew → crewName ──────────────────────
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 4. Crew column shows the imported value ─────────────────────────────
+  await expect(page.getByRole('columnheader', { name: 'Crew' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Mark Smith' })).toBeVisible();
+  const singleHanderRow = page.getByRole('row', { name: /14801/ });
+  await expect(singleHanderRow).toContainText('Chris Brown');
+});
+
 test('import competitors assigned to multiple fleets', async ({ page }) => {
   // ── 1. Create a series ────────────────────────────────────────────────────
   await page.goto('/');

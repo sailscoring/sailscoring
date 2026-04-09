@@ -18,6 +18,7 @@ interface FileCompetitor {
   id: string;
   sailNumber: string;
   name: string;
+  crewName?: string;
   club: string;
   gender: string;
   age: number | null;
@@ -57,6 +58,7 @@ interface SeriesFile {
     ftpHost: string;
     ftpPath: string;
     bilgeBundle: unknown;
+    enabledCompetitorFields?: string[];
   };
   competitors: FileCompetitor[];
   races: FileRace[];
@@ -160,7 +162,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   const file = await saveToFile(page);
 
   // Top-level envelope
-  expect(file.formatVersion).toBe(7);
+  expect(file.formatVersion).toBe(8);
   expect(file.seriesId).toBe(seriesId);
   expect(typeof file.snapshotId).toBe('string');
   expect(file.snapshotHistory).toEqual([file.snapshotId]);
@@ -174,6 +176,8 @@ test('series file: save exports correct JSON with all series fields, competitors
   expect(file.series.ftpHost).toBe('ftp.hyc.ie');
   expect(file.series.ftpPath).toBe('/results/2025/autumn-league.html');
   expect(file.series.bilgeBundle).toBeNull();
+  // New in v8: scorer's choice of which optional competitor fields to show.
+  expect(file.series.enabledCompetitorFields).toEqual(['club']);
 
   // Competitors and races
   expect(file.competitors).toHaveLength(1);

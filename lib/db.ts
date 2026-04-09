@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart } from './types';
+import { defaultEnabledCompetitorFields } from './competitor-fields';
 
 export class SailScoringDb extends Dexie {
   series!: Table<Series>;
@@ -176,6 +177,19 @@ export class SailScoringDb extends Dexie {
       });
       await tx.table('fleets').toCollection().modify((fleet) => {
         fleet.scoringSystem = 'scratch';
+      });
+    });
+    this.version(15).stores({
+      series: 'id, createdAt',
+      competitors: 'id, seriesId, *fleetIds, createdAt',
+      fleets: 'id, seriesId, displayOrder',
+      races: 'id, seriesId, raceNumber',
+      finishes: 'id, raceId, competitorId',
+      raceStarts: 'id, raceId',
+      ftpServers: '++id',
+    }).upgrade(async (tx) => {
+      await tx.table('series').toCollection().modify((series) => {
+        series.enabledCompetitorFields = defaultEnabledCompetitorFields();
       });
     });
   }

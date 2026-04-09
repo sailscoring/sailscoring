@@ -6,12 +6,13 @@ import type { PublicSeriesExport } from '@/lib/public-export';
 
 const MINIMAL_DATA: SeriesResultsData = {
   series: { name: 'Test Cup', venue: 'Harbour YC' },
+  enabledCompetitorFields: ['club'],
   races: [],
   standings: [],
 };
 
 const SAMPLE_EXPORT: PublicSeriesExport = {
-  version: 2,
+  version: 3,
   exportedAt: '2025-06-14T12:00:00.000Z',
   series: {
     name: 'Test Cup',
@@ -20,10 +21,11 @@ const SAMPLE_EXPORT: PublicSeriesExport = {
     endDate: '',
     discardThresholds: [],
     dnfScoring: 'seriesEntries',
+    displayFields: ['boatName', 'crewName', 'club'],
   },
   fleets: [{ name: 'Default', displayOrder: 0, scoringSystem: 'scratch' }],
   competitors: [
-    { sailNumber: '42', name: 'Alice', club: 'HYC', gender: 'F', age: null, fleetNames: ['Default'] },
+    { sailNumber: '42', name: 'Alice', crewName: 'Mark', club: 'HYC', gender: 'F', age: null, fleetNames: ['Default'] },
     { sailNumber: '99', name: 'Bob', club: 'HYC', gender: 'M', age: null, fleetNames: ['Default'] },
   ],
   races: [
@@ -91,9 +93,18 @@ describe('renderSeriesHtml with publicExportJson', () => {
     const match = html.match(/<script type="application\/json" id="sail-scoring-data">\n([\s\S]*?)\n<\/script>/);
     expect(match).not.toBeNull();
     const parsed = JSON.parse(match![1]) as PublicSeriesExport;
-    expect(parsed.version).toBe(2);
+    expect(parsed.version).toBe(3);
     expect(parsed.competitors).toHaveLength(2);
     expect(parsed.competitors[0].sailNumber).toBe('42');
+  });
+
+  it('preserves crewName and displayFields through the embed round-trip', () => {
+    const match = html.match(/<script type="application\/json" id="sail-scoring-data">\n([\s\S]*?)\n<\/script>/);
+    const parsed = JSON.parse(match![1]) as PublicSeriesExport;
+    expect(parsed.series.displayFields).toEqual(['boatName', 'crewName', 'club']);
+    expect(parsed.competitors[0].crewName).toBe('Mark');
+    // Competitors without a crew just omit the field — they don't store an empty string.
+    expect(parsed.competitors[1].crewName).toBeUndefined();
   });
 
   it('does not include private scorer fields in the embedded JSON', () => {

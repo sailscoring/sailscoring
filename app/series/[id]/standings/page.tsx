@@ -8,6 +8,7 @@ import { db } from '@/lib/db';
 import { getDiscardCount, calculateFleetStandings, calculateRaceScores, calculateHandicapRaceScores } from '@/lib/scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from '@/lib/results-renderer';
 import { buildPublicExport } from '@/lib/public-export';
+import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
 import { uploadViaScupper } from '@/lib/scupper';
 import {
   Table,
@@ -45,7 +46,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { uploadToBilge, lookupPrefix, checkPublishStatus, publishedUrl, fetchPolicy } from '@/lib/bilge';
 import { slugify, isValidPrefix } from '@/lib/bilge-slug';
-import type { Standing, DiscardThreshold, Fleet, Series, BilgeBundle } from '@/lib/types';
+import type { Standing, DiscardThreshold, Fleet, Series, BilgeBundle, CompetitorFieldKey } from '@/lib/types';
 
 function PointsCell({
   points,
@@ -163,6 +164,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
       standings,
       raceScoresByRaceId,
       competitorsById,
+      series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
       new Date(),
       fleetName,
       {
@@ -911,6 +913,7 @@ export default function StandingsPage({
               standings={standings}
               races={races}
               hasDiscards={hasDiscards}
+              enabledFields={series.enabledCompetitorFields ?? defaultEnabledCompetitorFields()}
             />
           </div>
         );
@@ -936,19 +939,26 @@ function FleetStandingsTable({
   standings,
   races,
   hasDiscards,
+  enabledFields,
 }: {
   standings: Standing[];
   races: { id: string; raceNumber: number }[];
   hasDiscards: boolean;
+  enabledFields: CompetitorFieldKey[];
 }) {
+  const showBoat = enabledFields.includes('boatName');
+  const showCrew = enabledFields.includes('crewName');
+  const showClub = enabledFields.includes('club');
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead className="w-12 text-center">Rank</TableHead>
           <TableHead className="w-20">Sail no.</TableHead>
+          {showBoat && <TableHead>Boat</TableHead>}
           <TableHead>Helm</TableHead>
-          <TableHead>Club</TableHead>
+          {showCrew && <TableHead>Crew</TableHead>}
+          {showClub && <TableHead>Club</TableHead>}
           {races.map((race) => (
             <TableHead key={race.id} className="w-16 text-center">
               R{race.raceNumber}
@@ -967,6 +977,9 @@ function FleetStandingsTable({
             standing={standing}
             raceCount={races.length}
             hasDiscards={hasDiscards}
+            showBoat={showBoat}
+            showCrew={showCrew}
+            showClub={showClub}
           />
         ))}
       </TableBody>
@@ -978,10 +991,16 @@ function StandingRow({
   standing,
   raceCount,
   hasDiscards,
+  showBoat,
+  showCrew,
+  showClub,
 }: {
   standing: Standing;
   raceCount: number;
   hasDiscards: boolean;
+  showBoat: boolean;
+  showCrew: boolean;
+  showClub: boolean;
 }) {
   const { rank, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable } = standing;
 
@@ -1000,8 +1019,10 @@ function StandingRow({
         )}
       </TableCell>
       <TableCell className="font-mono">{competitor.sailNumber}</TableCell>
+      {showBoat && <TableCell>{competitor.boatName ?? ''}</TableCell>}
       <TableCell>{competitor.name}</TableCell>
-      <TableCell className="text-muted-foreground">{competitor.club}</TableCell>
+      {showCrew && <TableCell>{competitor.crewName ?? ''}</TableCell>}
+      {showClub && <TableCell className="text-muted-foreground">{competitor.club}</TableCell>}
       {racePoints.map((points, i) => {
         const isDiscard = raceDiscards[i] ?? false;
         const isNonDiscardable = raceNonDiscardable[i] ?? false;

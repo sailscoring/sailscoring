@@ -1,7 +1,8 @@
-import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart } from './types';
+import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart, CompetitorFieldKey } from './types';
 import { db } from './db';
+import { defaultEnabledCompetitorFields } from './competitor-fields';
 
-export const FORMAT_VERSION = 7;
+export const FORMAT_VERSION = 8;
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -36,6 +37,7 @@ interface SeriesFileSeries {
   ftpPath: string;
   bilgeBundle: SeriesFileBilgeBundle | null;
   includeJsonExport: boolean;
+  enabledCompetitorFields?: CompetitorFieldKey[];  // v8+; defaulted on read for older files
 }
 
 interface SeriesFileCompetitor {
@@ -45,6 +47,7 @@ interface SeriesFileCompetitor {
   sailNumber: string;
   boatName?: string;
   name: string;
+  crewName?: string;     // v8+
   club: string;
   gender: 'M' | 'F' | '';
   age: number | null;
@@ -195,6 +198,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
         lastPublishedAt: series.bilgeBundle.lastPublishedAt,
       } : null,
       includeJsonExport: series.includeJsonExport ?? true,
+      enabledCompetitorFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -202,6 +206,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       sailNumber: c.sailNumber,
       ...(c.boatName ? { boatName: c.boatName } : {}),
       name: c.name,
+      ...(c.crewName ? { crewName: c.crewName } : {}),
       club: c.club,
       gender: c.gender,
       age: c.age,
@@ -311,6 +316,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
       ftpPath: file.series.ftpPath ?? '',
       bilgeBundle: file.series.bilgeBundle ?? null,
       includeJsonExport: file.series.includeJsonExport ?? true,
+      enabledCompetitorFields: file.series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
     });
 
     if (defaultFleetId) {
@@ -336,6 +342,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
         sailNumber: c.sailNumber,
         ...(c.boatName ? { boatName: c.boatName } : {}),
         name: c.name,
+        ...(c.crewName ? { crewName: c.crewName } : {}),
         club: c.club,
         gender: c.gender,
         age: c.age,
@@ -432,6 +439,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
       ftpPath: file.series.ftpPath ?? '',
       bilgeBundle: file.series.bilgeBundle ?? null,
       includeJsonExport: file.series.includeJsonExport ?? true,
+      enabledCompetitorFields: file.series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
     });
 
     if (defaultFleetId) {
@@ -457,6 +465,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
         sailNumber: c.sailNumber,
         ...(c.boatName ? { boatName: c.boatName } : {}),
         name: c.name,
+        ...(c.crewName ? { crewName: c.crewName } : {}),
         club: c.club,
         gender: c.gender,
         age: c.age,

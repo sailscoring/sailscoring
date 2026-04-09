@@ -43,12 +43,14 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'The Brassed-Off Cup' })).toBeVisible();
 
   // ── 2. Add 5 competitors ──────────────────────────────────────────────────
+  // Note: the Age field is optional and hidden by default — scorers enable it
+  // via Settings → Competitor fields. This test uses the default layout, so
+  // c.age goes unused here.
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
     await page.getByLabel('Helm name').fill(c.name);
     await page.getByLabel('Club').fill(c.club);
-    await page.getByLabel('Age').fill(c.age);
     await page.getByRole('button', { name: 'Save' }).click();
     // Wait for row to appear before adding the next one
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();

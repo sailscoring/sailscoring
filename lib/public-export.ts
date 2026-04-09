@@ -1,7 +1,8 @@
-import type { ResultCode, DiscardThreshold } from './types';
+import type { ResultCode, DiscardThreshold, CompetitorFieldKey } from './types';
 import { db } from './db';
 import { seriesRepo, competitorRepo, raceRepo, finishRepo, fleetRepo, raceStartRepo } from './dexie-repository';
 import { calculateFleetStandings, calculateRaceScores } from './scoring';
+import { defaultEnabledCompetitorFields } from './competitor-fields';
 
 // ---- Public export type ----
 //
@@ -10,7 +11,7 @@ import { calculateFleetStandings, calculateRaceScores } from './scoring';
 // and all internal UUIDs (competitors are keyed by sailNumber instead).
 
 export interface PublicSeriesExport {
-  version: 2;
+  version: 2 | 3;
   exportedAt: string;
   series: {
     name: string;
@@ -19,6 +20,10 @@ export interface PublicSeriesExport {
     endDate: string;
     discardThresholds: DiscardThreshold[];
     dnfScoring: 'seriesEntries' | 'startingArea';
+    /** v3+: which optional competitor fields the scorer has chosen to show.
+     *  Display hint for re-renderers; competitor data is still exported in
+     *  full regardless of this setting. */
+    displayFields?: CompetitorFieldKey[];
   };
   fleets: {
     name: string;
@@ -29,6 +34,7 @@ export interface PublicSeriesExport {
     sailNumber: string;
     boatName?: string;
     name: string;
+    crewName?: string;  // v3+
     club: string;
     gender: 'M' | 'F' | '';
     age: number | null;
@@ -135,7 +141,7 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
   }));
 
   return {
-    version: 2 as const,
+    version: 3 as const,
     exportedAt: new Date().toISOString(),
     series: {
       name: series.name,
@@ -144,6 +150,7 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
       endDate: series.endDate,
       discardThresholds: series.discardThresholds,
       dnfScoring: series.dnfScoring,
+      displayFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
     },
     fleets: fleets.map((f) => ({
       name: f.name,
@@ -154,6 +161,7 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
       sailNumber: c.sailNumber,
       ...(c.boatName ? { boatName: c.boatName } : {}),
       name: c.name,
+      ...(c.crewName ? { crewName: c.crewName } : {}),
       club: c.club,
       gender: c.gender,
       age: c.age,
@@ -173,7 +181,8 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
  * entities — the imported series has no file history, no snapshot lineage, and no
  * publishing config. Returns the new seriesId.
  *
- * Handles both v1 (single-fleet, no handicap data) and v2 (multi-fleet, handicap) formats.
+ * Handles v1 (single-fleet, no handicap data), v2 (multi-fleet, handicap),
+ * and v3 (crew names, display hints) formats.
  */
 export async function importPublicExport(data: PublicSeriesExport): Promise<string> {
   const newSeriesId = crypto.randomUUID();
@@ -213,6 +222,7 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
       ftpPath: '',
       bilgeBundle: null,
       includeJsonExport: true,
+      enabledCompetitorFields: data.series.displayFields ?? defaultEnabledCompetitorFields(),
     });
 
     if (exportedFleets.length > 0) {
@@ -247,6 +257,7 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
         sailNumber: c.sailNumber,
         ...(c.boatName ? { boatName: c.boatName } : {}),
         name: c.name,
+        ...((c as { crewName?: string }).crewName ? { crewName: (c as { crewName: string }).crewName } : {}),
         club: c.club,
         gender: c.gender,
         age: c.age,

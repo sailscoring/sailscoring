@@ -4,6 +4,7 @@ import { use, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { competitorRepo, fleetRepo, raceRepo, finishRepo, raceStartRepo, seriesRepo, ensureFleet } from '@/lib/dexie-repository';
+import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -83,6 +84,15 @@ function entryId(e: FinishEntry): string {
   return e.kind === 'known' ? e.competitorId : e.tempId;
 }
 
+/** Render "Helm / Crew" when the series has crew names enabled and a crew is
+ *  set; otherwise just the helm. Used in autocomplete rows and finish lists. */
+function displayHelmCrew(competitor: Pick<Competitor, 'name' | 'crewName'>, showCrew: boolean): string {
+  if (showCrew && competitor.crewName && competitor.crewName.trim()) {
+    return `${competitor.name} / ${competitor.crewName}`;
+  }
+  return competitor.name;
+}
+
 export default function ResultEntryPage({
   params,
 }: {
@@ -95,6 +105,9 @@ export default function ResultEntryPage({
     () => competitorRepo.listBySeries(seriesId),
     [seriesId],
   );
+  const series = useLiveQuery(() => seriesRepo.get(seriesId), [seriesId]);
+  const showCrew =
+    (series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields()).includes('crewName');
   const race = useLiveQuery(async () => (await raceRepo.get(raceId)) ?? null, [raceId]);
   const savedFinishes = useLiveQuery(
     () => finishRepo.listByRace(raceId),
@@ -1042,7 +1055,7 @@ export default function ResultEntryPage({
                       }}
                     >
                       <span className="font-mono font-medium w-16 shrink-0">{c.sailNumber}</span>
-                      <span className="flex-1 truncate">{c.name}</span>
+                      <span className="flex-1 truncate">{displayHelmCrew(c, showCrew)}</span>
                       {present ? (
                         <CheckSquare className="h-4 w-4 text-green-600 shrink-0" />
                       ) : (
@@ -1091,7 +1104,7 @@ export default function ResultEntryPage({
                       <Square className="h-4 w-4 text-muted-foreground shrink-0" />
                     )}
                     <span className="font-mono font-medium w-16 shrink-0">{c.sailNumber}</span>
-                    <span className="text-sm flex-1 truncate">{c.name}</span>
+                    <span className="text-sm flex-1 truncate">{displayHelmCrew(c, showCrew)}</span>
                   </button>
                 );
               });
@@ -1218,7 +1231,7 @@ export default function ResultEntryPage({
             {pendingTimeEntry ? (
               <div className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
                 <span className="font-mono font-medium text-sm shrink-0">{pendingTimeEntry.competitor.sailNumber}</span>
-                <span className="text-sm text-muted-foreground truncate">{pendingTimeEntry.competitor.name}</span>
+                <span className="text-sm text-muted-foreground truncate">{displayHelmCrew(pendingTimeEntry.competitor, showCrew)}</span>
                 <input
                   ref={pendingTimeInputRef}
                   type="text"
@@ -1314,7 +1327,7 @@ export default function ResultEntryPage({
                     }}
                   >
                     <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
-                    <span className="flex-1 truncate">{competitor.name}</span>
+                    <span className="flex-1 truncate">{displayHelmCrew(competitor, showCrew)}</span>
                   </li>
                 ))}
               </ul>
@@ -1473,7 +1486,7 @@ export default function ResultEntryPage({
                     </span>
                   </div>
                   <span className="font-mono font-medium">{competitor.sailNumber}</span>
-                  <span className={cn('text-sm truncate', needsFinishTime(entry.competitorId) ? 'w-24 shrink-0' : 'flex-1')}>{competitor.name}</span>
+                  <span className={cn('text-sm truncate', needsFinishTime(entry.competitorId) ? 'w-24 shrink-0' : 'flex-1')}>{displayHelmCrew(competitor, showCrew)}</span>
                   {needsFinishTime(entry.competitorId) && (
                     <input
                       type="text"
@@ -1558,7 +1571,7 @@ export default function ResultEntryPage({
                   <span className="font-mono font-medium w-16 shrink-0">
                     {competitor.sailNumber}
                   </span>
-                  <span className="text-sm flex-1 truncate">{competitor.name}</span>
+                  <span className="text-sm flex-1 truncate">{displayHelmCrew(competitor, showCrew)}</span>
                   {code === 'RDG' && (
                     <button
                       type="button"
@@ -1701,7 +1714,7 @@ export default function ResultEntryPage({
                       }}
                     >
                       <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
-                      <span className="flex-1 truncate">{competitor.name}</span>
+                      <span className="flex-1 truncate">{displayHelmCrew(competitor, showCrew)}</span>
                     </button>
                   ))
                 )}

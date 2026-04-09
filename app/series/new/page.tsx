@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Series } from '@/lib/types';
+import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
 import { log } from '@/lib/debug';
 
 export default function NewSeriesPage() {
@@ -46,6 +47,7 @@ export default function NewSeriesPage() {
         ftpPath: '',
         bilgeBundle: null,
         includeJsonExport: true,
+        enabledCompetitorFields: defaultEnabledCompetitorFields(),
       };
       log('series', 'creating', series);
       await seriesRepo.save(series);

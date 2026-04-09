@@ -3,6 +3,10 @@ export interface DiscardThreshold {
   discardCount: number; // number of worst scores to drop
 }
 
+/** Optional competitor fields that can be shown or hidden per series.
+ *  Sail number and helm name are always shown and are not configurable. */
+export type CompetitorFieldKey = 'boatName' | 'crewName' | 'club' | 'gender' | 'age';
+
 export interface Series {
   id: string;
   name: string;
@@ -25,6 +29,8 @@ export interface Series {
   ftpPath: string;   // saved remote path for this series (empty if not yet published)
   bilgeBundle: BilgeBundle | null;
   includeJsonExport: boolean;  // embed public JSON export in exported HTML (default true)
+  // Display
+  enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
 }
 
 export interface Fleet {
@@ -48,7 +54,8 @@ export interface Competitor {
   fleetIds: string[];
   sailNumber: string;
   boatName?: string;  // name of the vessel, e.g. "The Big Picture"
-  name: string;
+  name: string;       // helm name
+  crewName?: string;  // crew name, for two-person dinghy classes
   club: string;
   gender: 'M' | 'F' | '';
   age: number | null;

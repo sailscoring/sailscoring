@@ -112,9 +112,9 @@ test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
 });
 
 /**
- * File format version is 7 after adding IRC fleet and scoring system.
+ * File format version is 8 after adding IRC fleet and scoring system.
  */
-test('series file version is 7 with IRC fleet scoring system', async ({ page }) => {
+test('series file version is 8 with IRC fleet scoring system', async ({ page }) => {
   // ── 1. Create a series with an IRC fleet ──────────────────────────────────
   await page.goto('/');
   await page.getByRole('link', { name: 'New series' }).click();
@@ -149,7 +149,7 @@ test('series file version is 7 with IRC fleet scoring system', async ({ page }) 
   }
   const json = JSON.parse(Buffer.concat(chunks).toString());
 
-  expect(json.formatVersion).toBe(7);
+  expect(json.formatVersion).toBe(8);
 
   const ircFleet = json.fleets?.find((f: { name: string }) => f.name === 'IRC');
   expect(ircFleet?.scoringSystem).toBe('irc');

@@ -32,7 +32,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Pencil, Trash2, Upload } from 'lucide-react';
-import type { Competitor, Fleet } from '@/lib/types';
+import type { Competitor, Fleet, CompetitorFieldKey } from '@/lib/types';
+import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
 import { log } from '@/lib/debug';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 
@@ -40,6 +41,7 @@ interface CompetitorFormData {
   sailNumber: string;
   boatName: string;
   name: string;
+  crewName: string;
   club: string;
   gender: '' | 'M' | 'F';
   age: string;
@@ -53,6 +55,7 @@ const emptyForm: CompetitorFormData = {
   sailNumber: '',
   boatName: '',
   name: '',
+  crewName: '',
   club: '',
   gender: '',
   age: '',
@@ -62,7 +65,7 @@ const emptyForm: CompetitorFormData = {
   pyNumber: '',
 };
 
-type CompetitorField = 'sailNumber' | 'boatName' | 'name' | 'club' | 'gender' | 'age' | 'fleet' | 'tcc' | 'py' | 'ignore';
+type CompetitorField = 'sailNumber' | 'boatName' | 'name' | 'crewName' | 'club' | 'gender' | 'age' | 'fleet' | 'tcc' | 'py' | 'ignore';
 type ColumnMap = Record<number, CompetitorField>;
 
 type ImportFlow =
@@ -74,6 +77,7 @@ const FIELD_LABELS: Record<CompetitorField, string> = {
   sailNumber: 'Sail number',
   boatName: 'Boat name',
   name: 'Helm name',
+  crewName: 'Crew name',
   club: 'Club',
   gender: 'Gender',
   age: 'Age',
@@ -94,6 +98,7 @@ function autoDetectField(header: string): CompetitorField {
   const h = header.trim().toLowerCase();
   if (/sail/.test(h)) return 'sailNumber';
   if (/\bboat\b/.test(h)) return 'boatName';
+  if (/crew/.test(h)) return 'crewName';
   if (/helm|name/.test(h)) return 'name';
   if (/club/.test(h)) return 'club';
   if (/gender|sex/.test(h)) return 'gender';
@@ -110,12 +115,14 @@ function CompetitorForm({
   onCancel,
   existingSailNumbers,
   availableFleets,
+  enabledFields,
 }: {
   initial: CompetitorFormData;
   onSave: (data: CompetitorFormData) => Promise<void>;
   onCancel: () => void;
   existingSailNumbers: string[];
   availableFleets: Fleet[];
+  enabledFields: CompetitorFieldKey[];
 }) {
   const [data, setData] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -205,48 +212,67 @@ function CompetitorForm({
             placeholder="e.g. Jane Doe"
           />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="boatName">Boat name</Label>
-          <Input
-            id="boatName"
-            value={data.boatName}
-            onChange={(e) => set('boatName', e.target.value)}
-            placeholder="e.g. The Big Picture"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="club">Club</Label>
-          <Input
-            id="club"
-            value={data.club}
-            onChange={(e) => set('club', e.target.value)}
-            placeholder="e.g. HYC"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Gender</Label>
-          <Select value={data.gender} onValueChange={(v) => set('gender', v as '' | 'M' | 'F')}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select…" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="M">M</SelectItem>
-              <SelectItem value="F">F</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="age">Age</Label>
-          <Input
-            id="age"
-            type="number"
-            min={0}
-            max={99}
-            value={data.age}
-            onChange={(e) => set('age', e.target.value)}
-            placeholder="e.g. 12"
-          />
-        </div>
+        {enabledFields.includes('boatName') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="boatName">Boat name</Label>
+            <Input
+              id="boatName"
+              value={data.boatName}
+              onChange={(e) => set('boatName', e.target.value)}
+              placeholder="e.g. The Big Picture"
+            />
+          </div>
+        )}
+        {enabledFields.includes('crewName') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="crewName">Crew name</Label>
+            <Input
+              id="crewName"
+              value={data.crewName}
+              onChange={(e) => set('crewName', e.target.value)}
+              placeholder="e.g. Mark Smith"
+            />
+          </div>
+        )}
+        {enabledFields.includes('club') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="club">Club</Label>
+            <Input
+              id="club"
+              value={data.club}
+              onChange={(e) => set('club', e.target.value)}
+              placeholder="e.g. HYC"
+            />
+          </div>
+        )}
+        {enabledFields.includes('gender') && (
+          <div className="space-y-1.5">
+            <Label>Gender</Label>
+            <Select value={data.gender} onValueChange={(v) => set('gender', v as '' | 'M' | 'F')}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="M">M</SelectItem>
+                <SelectItem value="F">F</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {enabledFields.includes('age') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="age">Age</Label>
+            <Input
+              id="age"
+              type="number"
+              min={0}
+              max={99}
+              value={data.age}
+              onChange={(e) => set('age', e.target.value)}
+              placeholder="e.g. 12"
+            />
+          </div>
+        )}
         <div className="space-y-1.5 col-span-2">
           <Label htmlFor="newFleetName">Fleet</Label>
           {availableFleets.length > 0 && (
@@ -324,6 +350,9 @@ export default function CompetitorsPage({
     () => fleetRepo.listBySeries(seriesId),
     [seriesId],
   );
+  const series = useLiveQuery(() => seriesRepo.get(seriesId), [seriesId]);
+  const enabledFields: CompetitorFieldKey[] =
+    series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const multipleFleets = (fleets ?? []).length > 1;
 
@@ -388,6 +417,7 @@ export default function CompetitorsPage({
       sailNumber: data.sailNumber,
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       name: data.name,
+      ...(data.crewName.trim() ? { crewName: data.crewName.trim() } : {}),
       club: data.club,
       gender: data.gender,
       age: data.age ? parseInt(data.age, 10) : null,
@@ -417,6 +447,7 @@ export default function CompetitorsPage({
       sailNumber: data.sailNumber,
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       name: data.name,
+      ...(data.crewName.trim() ? { crewName: data.crewName.trim() } : {}),
       club: data.club,
       gender: data.gender,
       age: data.age ? parseInt(data.age, 10) : null,
@@ -426,6 +457,7 @@ export default function CompetitorsPage({
     if (!updated.ircTcc) delete updated.ircTcc;
     if (!updated.pyNumber) delete updated.pyNumber;
     if (!data.boatName.trim()) delete updated.boatName;
+    if (!data.crewName.trim()) delete updated.crewName;
     log('competitors', 'updating', updated);
     await competitorRepo.save(updated);
     // Prune any fleets that were removed
@@ -488,6 +520,7 @@ export default function CompetitorsPage({
       let sailNumber = '';
       let boatName = '';
       let name = '';
+      let crewName = '';
       let club = '';
       let gender = '';
       let age = '';
@@ -500,6 +533,7 @@ export default function CompetitorsPage({
         if (field === 'sailNumber') sailNumber = val;
         else if (field === 'boatName') boatName = val;
         else if (field === 'name') name = val;
+        else if (field === 'crewName') crewName = val;
         else if (field === 'club') club = val;
         else if (field === 'gender') gender = val;
         else if (field === 'age') age = val;
@@ -536,6 +570,7 @@ export default function CompetitorsPage({
       const pyNumber = parsedPy != null && !isNaN(parsedPy) ? parsedPy : existingCompetitor?.pyNumber;
 
       const resolvedBoatName = boatName || existingCompetitor?.boatName || '';
+      const resolvedCrewName = crewName || existingCompetitor?.crewName || '';
       const competitor: Competitor = {
         id: existingCompetitor?.id ?? crypto.randomUUID(),
         seriesId,
@@ -543,6 +578,7 @@ export default function CompetitorsPage({
         sailNumber: normSail,
         ...(resolvedBoatName ? { boatName: resolvedBoatName } : {}),
         name: name || existingCompetitor?.name || '',
+        ...(resolvedCrewName ? { crewName: resolvedCrewName } : {}),
         club: club || existingCompetitor?.club || '',
         gender: (normGender === 'M' || normGender === 'F') ? normGender : (existingCompetitor?.gender ?? ''),
         age: parsedAge !== null && !isNaN(parsedAge) ? parsedAge : (existingCompetitor?.age ?? null),
@@ -556,6 +592,7 @@ export default function CompetitorsPage({
         sameFleetIdSet(existingCompetitor.fleetIds, competitor.fleetIds) &&
         (existingCompetitor.boatName ?? '') === (competitor.boatName ?? '') &&
         existingCompetitor.name === competitor.name &&
+        (existingCompetitor.crewName ?? '') === (competitor.crewName ?? '') &&
         existingCompetitor.club === competitor.club &&
         existingCompetitor.gender === competitor.gender &&
         existingCompetitor.age === competitor.age &&
@@ -588,7 +625,11 @@ export default function CompetitorsPage({
   const editingExcluded = editingCompetitor
     ? existingSailNumbers.filter((s) => s !== editingCompetitor.sailNumber.toUpperCase())
     : existingSailNumbers;
-  const hasBoatNames = (competitors ?? []).some((c) => c.boatName);
+  const showBoat = enabledFields.includes('boatName');
+  const showCrew = enabledFields.includes('crewName');
+  const showClub = enabledFields.includes('club');
+  const showGender = enabledFields.includes('gender');
+  const showAge = enabledFields.includes('age');
 
   return (
     <div className="space-y-6">
@@ -625,6 +666,7 @@ export default function CompetitorsPage({
             onCancel={() => setShowAddForm(false)}
             existingSailNumbers={existingSailNumbers}
             availableFleets={fleets ?? []}
+            enabledFields={enabledFields}
           />
         </div>
       )}
@@ -634,12 +676,13 @@ export default function CompetitorsPage({
           <TableHeader>
             <TableRow>
               <TableHead>Sail no.</TableHead>
-              {hasBoatNames && <TableHead>Boat</TableHead>}
+              {showBoat && <TableHead>Boat</TableHead>}
               <TableHead>Helm</TableHead>
-              <TableHead>Club</TableHead>
+              {showCrew && <TableHead>Crew</TableHead>}
+              {showClub && <TableHead>Club</TableHead>}
               {multipleFleets && <TableHead>Fleet</TableHead>}
-              <TableHead>Gender</TableHead>
-              <TableHead>Age</TableHead>
+              {showGender && <TableHead>Gender</TableHead>}
+              {showAge && <TableHead>Age</TableHead>}
               <TableHead className="w-20" />
             </TableRow>
           </TableHeader>
@@ -667,12 +710,13 @@ export default function CompetitorsPage({
                 }}
               >
                 <TableCell className="font-mono">{c.sailNumber}</TableCell>
-                {hasBoatNames && <TableCell>{c.boatName ?? ''}</TableCell>}
+                {showBoat && <TableCell>{c.boatName ?? ''}</TableCell>}
                 <TableCell>{c.name}</TableCell>
-                <TableCell>{c.club}</TableCell>
+                {showCrew && <TableCell>{c.crewName ?? ''}</TableCell>}
+                {showClub && <TableCell>{c.club}</TableCell>}
                 {multipleFleets && <TableCell>{c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ')}</TableCell>}
-                <TableCell>{c.gender}</TableCell>
-                <TableCell>{c.age ?? ''}</TableCell>
+                {showGender && <TableCell>{c.gender}</TableCell>}
+                {showAge && <TableCell>{c.age ?? ''}</TableCell>}
                 <TableCell>
                   <div className="flex gap-1">
                     <Button
@@ -722,6 +766,7 @@ export default function CompetitorsPage({
                 sailNumber: editingCompetitor.sailNumber,
                 boatName: editingCompetitor.boatName ?? '',
                 name: editingCompetitor.name,
+                crewName: editingCompetitor.crewName ?? '',
                 club: editingCompetitor.club,
                 gender: editingCompetitor.gender,
                 age: editingCompetitor.age?.toString() ?? '',
@@ -734,6 +779,7 @@ export default function CompetitorsPage({
               onCancel={() => setEditingCompetitor(null)}
               existingSailNumbers={editingExcluded}
               availableFleets={fleets ?? []}
+              enabledFields={enabledFields}
             />
           )}
         </DialogContent>
