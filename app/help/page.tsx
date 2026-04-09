@@ -160,6 +160,13 @@ export default function HelpPage() {
           <em>Fleet</em>, <em>Class</em>, or <em>Division</em> are detected automatically.
         </p>
         <p>
+          A competitor can be assigned to more than one fleet by separating fleet names with a
+          pipe character in the fleet column — for example,{' '}
+          <code className="text-foreground text-sm">PY|M15</code> enters a Melges 15 in both the
+          PY handicap fleet and the M15 scratch fleet. This matches the convention used by
+          Sailwave exports.
+        </p>
+        <p>
           Clicking <strong className="text-foreground">Import</strong> adds any new competitors and
           updates existing ones matched by sail number. When an existing competitor's fields are
           unchanged by the import, they are counted as{' '}

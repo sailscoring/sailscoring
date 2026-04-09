@@ -4,6 +4,7 @@ import { use, useState, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import Papa from 'papaparse';
 import { competitorRepo, fleetRepo, seriesRepo, ensureFleet, pruneFleet } from '@/lib/dexie-repository';
+import { parseFleetCell } from '@/lib/csv-import';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -81,6 +82,13 @@ const FIELD_LABELS: Record<CompetitorField, string> = {
   py: 'PY number',
   ignore: '(ignore)',
 };
+
+function sameFleetIdSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  for (const id of b) if (!set.has(id)) return false;
+  return true;
+}
 
 function autoDetectField(header: string): CompetitorField {
   const h = header.trim().toLowerCase();
@@ -509,7 +517,18 @@ export default function CompetitorsPage({
       const existingCompetitor = bysail.get(normSail);
       const parsedAge = age ? parseInt(age, 10) : null;
       const normGender = gender.toUpperCase();
-      const fleetId = await ensureFleet(seriesId, fleet);
+
+      // Resolve the fleet cell to one or more fleet IDs. A pipe-delimited cell
+      // (e.g. "PY|M15") assigns the competitor to multiple fleets. An empty
+      // cell falls back to the default fleet, matching the single-fleet path.
+      const fleetNames = parseFleetCell(fleet);
+      const resolvedFleetIds =
+        fleetNames.length === 0
+          ? [await ensureFleet(seriesId, '')]
+          : await Promise.all(fleetNames.map((n) => ensureFleet(seriesId, n)));
+      // Dedupe in case two names resolve to the same existing fleet
+      // (e.g. differing only in whitespace or case).
+      const fleetIds = [...new Set(resolvedFleetIds)];
 
       const parsedTcc = tcc ? parseFloat(tcc) : null;
       const parsedPy = py ? parseInt(py, 10) : null;
@@ -520,7 +539,7 @@ export default function CompetitorsPage({
       const competitor: Competitor = {
         id: existingCompetitor?.id ?? crypto.randomUUID(),
         seriesId,
-        fleetIds: [fleetId],
+        fleetIds,
         sailNumber: normSail,
         ...(resolvedBoatName ? { boatName: resolvedBoatName } : {}),
         name: name || existingCompetitor?.name || '',
@@ -534,7 +553,7 @@ export default function CompetitorsPage({
 
       if (
         existingCompetitor &&
-        existingCompetitor.fleetIds[0] === competitor.fleetIds[0] &&
+        sameFleetIdSet(existingCompetitor.fleetIds, competitor.fleetIds) &&
         (existingCompetitor.boatName ?? '') === (competitor.boatName ?? '') &&
         existingCompetitor.name === competitor.name &&
         existingCompetitor.club === competitor.club &&
@@ -547,12 +566,13 @@ export default function CompetitorsPage({
         continue;
       }
 
-      const oldFleetId = existingCompetitor?.fleetIds[0];
+      const oldFleetIds = existingCompetitor?.fleetIds ?? [];
       log('competitors', existingCompetitor ? 'import-update' : 'import-add', competitor);
       await competitorRepo.save(competitor);
       if (existingCompetitor) {
-        if (oldFleetId && oldFleetId !== fleetId) {
-          await pruneFleet(seriesId, oldFleetId);
+        // Prune any fleets the competitor is no longer assigned to.
+        for (const fId of oldFleetIds) {
+          if (!fleetIds.includes(fId)) await pruneFleet(seriesId, fId);
         }
         updated++;
       } else {
@@ -726,6 +746,8 @@ export default function CompetitorsPage({
             <DialogTitle>Import competitors — map columns</DialogTitle>
             <DialogDescription>
               Match each CSV column to a competitor field. Sail number is required.
+              Use <code>|</code> in the fleet column to assign a competitor to multiple
+              fleets, e.g. <code>PY|M15</code>.
             </DialogDescription>
           </DialogHeader>
           {importFlow.step === 'mapping' && (

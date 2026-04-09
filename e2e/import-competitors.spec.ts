@@ -79,3 +79,70 @@ test('import competitors from CSV', async ({ page }) => {
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(page.getByRole('cell', { name: 'IRL999', exact: true })).not.toBeVisible();
 });
+
+test('import competitors assigned to multiple fleets', async ({ page }) => {
+  // ── 1. Create a series ────────────────────────────────────────────────────
+  await page.goto('/');
+  await page.getByRole('link', { name: 'New series' }).click();
+  await page.getByLabel('Name').fill('Multi-Fleet Import');
+  await page.getByRole('button', { name: 'Create series' }).click();
+  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
+
+  // ── 2. Import a CSV with a pipe-delimited fleet cell ─────────────────────
+  // Mirrors the HYC Dinghy Frostbite reference CSV: a Melges 15 scored in
+  // both PY (handicap) and M15 (scratch).
+  const csv = [
+    'sailNumber,name,club,fleet',
+    '635,Cormac Farrelly,HYC,PY|M15',  // multi-fleet
+    '3187,Emmet Dalton,HYC,PY',        // single fleet
+  ].join('\n');
+
+  await uploadCsv(page, csv);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  // Mapping dialog mentions the pipe syntax
+  await expect(page.getByRole('dialog')).toContainText('|');
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
+  await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 3. The multi-fleet competitor shows both fleet names ─────────────────
+  // Once more than one fleet exists, the table renders a Fleet column that
+  // joins the competitor's fleet names with ", ".
+  const melgesRow = page.getByRole('row', { name: /635/ });
+  await expect(melgesRow).toContainText('Cormac Farrelly');
+  await expect(melgesRow).toContainText('PY');
+  await expect(melgesRow).toContainText('M15');
+  const aeroRow = page.getByRole('row', { name: /3187/ });
+  await expect(aeroRow).toContainText('Emmet Dalton');
+  await expect(aeroRow).toContainText('PY');
+  await expect(aeroRow).not.toContainText('M15');
+
+  // ── 4. Reimporting the same CSV reports unchanged (set-equality check) ───
+  await uploadCsv(page, csv);
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/0 competitor.* added/i)).toBeVisible();
+  await expect(page.getByText(/0 updated/i)).toBeVisible();
+  await expect(page.getByText(/2 unchanged/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 5. Removing one fleet updates the competitor and prunes the fleet ────
+  // Drop M15 from the Melges 15 row. M15 is not used by any other competitor,
+  // so the fleet should be pruned — the table should revert to the
+  // single-fleet layout (no Fleet column visible).
+  const shrunkCsv = [
+    'sailNumber,name,club,fleet',
+    '635,Cormac Farrelly,HYC,PY',
+    '3187,Emmet Dalton,HYC,PY',
+  ].join('\n');
+  await uploadCsv(page, shrunkCsv);
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/1 updated/i)).toBeVisible();
+  await expect(page.getByText(/1 unchanged/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Only the PY fleet remains — so the Fleet column in the competitors table
+  // is hidden (rendered only when multiple fleets exist).
+  await expect(page.getByRole('row', { name: /635/ })).not.toContainText('M15');
+  await expect(page.getByRole('columnheader', { name: 'Fleet' })).not.toBeVisible();
+});
