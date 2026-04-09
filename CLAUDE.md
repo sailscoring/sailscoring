@@ -72,3 +72,4 @@ New architectural decisions should follow the template at `docs/design/decisions
 - ADR-004: Results publishing (Accepted — separate **bilge** service, `github.com/sailscoring/bilge`)
 - ADR-005: Hosting and domain structure (Accepted — `sailscoring.ie` marketing, `app.sailscoring.ie` app, `bilge.sailscoring.ie` bilge API)
 - ADR-006: Testing and debug logging (Accepted — Vitest for unit/integration, Playwright for e2e; no DB mocking; debug logs gated behind `DEBUG` env var)
+- ADR-007: Finish sheet model for mixed timed/untimed finish entry (Proposed — unified ordered list, row order = crossing order, time column optional per row; see `docs/design/finish-sheet-plan.md`)

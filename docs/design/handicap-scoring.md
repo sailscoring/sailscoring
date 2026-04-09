@@ -289,11 +289,20 @@ Gun time is the starting signal time, not the individual boat's crossing of the 
 #### Changes to `Finish`
 
 ```typescript
-finishTime?: string;    // "HH:MM:SS" — added alongside existing finishPosition
+sortOrder: number;      // row index in the crossing-order list (0-based)
+finishTime?: string;    // "HH:MM:SS" — recorded for handicap fleet boats
 ```
 
-A finish record has either `finishPosition` (position mode), `finishTime` (time
-mode), or a `resultCode`. Both can coexist in the same race when fleets are mixed.
+A finish record represents one row in the race's crossing-order list. `sortOrder`
+is the row index: every non-coded finish has one, assigned by the finish entry UI
+and updated as rows are inserted, moved, or deleted. `finishTime` is recorded only
+for competitors whose fleet uses a time-based scoring system. A finish with a
+`resultCode` (DNS/DNF/etc.) replaces the row data; coded finishes typically have
+no `sortOrder` because they do not participate in crossing-order ranking.
+
+This replaces the earlier `finishPosition` field. The cross-fleet "place" concept
+is gone — within-fleet rank is computed from `sortOrder` for scratch fleets and
+from corrected times for handicap fleets.
 
 #### Changes to `Competitor`
 
@@ -346,51 +355,77 @@ for non-finishers in IRC/PY club racing.
 
 ---
 
-## Finish entry UX — the timesheet model
+## Finish entry UX — the finish sheet model
 
 ### Core principle
 
-Finish entry should look like a **hand-written timesheet** — an ordered list of
-boats in the order they crossed the finish line. This is the natural mental model
-for a finish boat officer.
+Finish entry is a digital transcription of the handwritten finish sheet — a single
+ordered list of boats in the order they crossed the finish line. Row order in the
+list **is** crossing order. No explicit position number is stored or displayed; the
+row's position in the list is the data.
 
-The list is sorted by **finish time of day** where times are recorded, not by
-elapsed time or corrected time. Elapsed time depends on when the boat's fleet
-started; corrected time depends on handicap. Neither is known on the finish boat.
-Finish time (time of day) is universal.
+This is the natural mental model for a scorer working from a handwritten sheet:
+sail numbers listed top to bottom in crossing order, with a finish time written
+next to the boats whose fleets use handicap scoring and no time for the scratch
+classes.
 
-### Position vs time is per-competitor, not per-fleet
+### Time field is per-competitor, determined by fleet scoring
 
 A competitor needs a **finish time** only if any of their fleets uses time-based
-scoring (IRC, PY, HPH). A scratch-only competitor needs only a **position**.
+scoring (IRC, PY, HPH). A scratch-only competitor needs no time.
 
 In a typical mixed-fleet race the same finish boat records everyone. Handicap
 boats get a time recorded as they cross; scratch boats are just tallied in order.
-Both appear in the same finish entry list.
+Both appear in the same finish entry list. A fleet badge on each row makes the
+reason visible — no implicit mode switch, just a time column populated for some
+rows and empty for others, matching the handwritten sheet.
 
-### Interleaving positions and finish times
+### Transcription and late insertion
 
-The hard part: how does a scratch-position boat relate to a time-recorded boat in
-the same list?
+The happy path is top-to-bottom transcription of the sheet:
 
-Proposed approach: **positions are the primary ordering; finish times sort within
-groups**. More precisely:
+- Scorer enters sail numbers in crossing order
+- Scratch entries are appended to the list immediately (fast path: sail number →
+  Enter → in the list)
+- Handicap entries prompt for a time before being added
+- In a correct transcription the times come out in ascending order naturally
+  because that is the order the boats crossed
 
-- All competitors are shown in a single ordered list (one finish entry for the race)
-- Time-recorded competitors are sorted by finish time within their contiguous group
-- Position-only competitors are manually placed in the list (drag, insert, or number)
-- When a scorer enters a finish time for a competitor, that competitor auto-sorts
-  relative to adjacent time-recorded competitors
-- The system does not attempt to auto-interleave time-recorded boats with
-  position-only boats — the scorer sets their relative order
+When a boat is entered late (out of order):
 
-This mirrors what actually happens on the water: the recorder has a timesheet for
-handicap classes and a separate tally for one-design classes; the scorer later
-merges them based on their knowledge of crossing order.
+- **Handicap entry (has a time)**: silently auto-slotted into the correct time
+  position among the other timed rows. No confirmation dialog. The new row is
+  inserted immediately before the next later-timed row, preserving scratch rows'
+  relative positions around it.
+- **Scratch entry (no time)**: appended to the end. The scorer then uses per-row
+  move controls to place it where it belongs.
 
-This design is intentionally left for detailed UX work when implementation begins.
-The key invariant: **the list in finish entry always represents crossing order, as
-observed on the water, not scoring order**.
+### The time-order invariant and move controls
+
+Timed rows are always in time order relative to each other. This is enforced
+**structurally**: timed rows have no move controls at all. Their position in the
+list is derived entirely from their finish time (and the list insertion rule).
+The only way to change a timed row's position is to edit its time, which
+auto-slides the row to its new correct slot.
+
+Scratch rows have up/down move controls (reusing the pattern from the series
+Fleets settings card). They can be moved anywhere in the list, including past
+timed rows — the scorer is simply saying "this scratch boat actually crossed
+before that handicap boat," which is a valid observation.
+
+Since scratch ranking is computed per-fleet from crossing order, moving an ILCA 6
+row past an ILCA 7 row has no effect on ILCA 7's scoring. Only the relative order
+of same-fleet scratch boats matters for scoring.
+
+### Key invariant
+
+**The list in finish entry always represents crossing order, as observed on the
+water, not scoring order.** Scoring order (within-fleet rank) is derived: for
+scratch fleets from crossing order among fleet members; for handicap fleets from
+corrected times.
+
+Detailed UX for entry, lookup, insertion, and reordering is in
+`docs/design/ux/flows/finish-entry.md`.
 
 ---
 

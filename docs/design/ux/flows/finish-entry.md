@@ -8,16 +8,16 @@ of the Sail Scoring application.
 ## Overview
 
 The finish entry screen is where a scorer records who finished a race and in
-what order (or at what time). It is the highest-traffic screen in the app:
-used after every race, often under time pressure, sometimes from a finish boat
-with intermittent connectivity.
+what order. It is the highest-traffic screen in the app: used after every race,
+often under time pressure, sometimes from a finish boat with intermittent
+connectivity.
 
 **Design priorities, in order:**
 
 1. **Speed.** Entering 100+ sail numbers one by one must feel fast. The scorer
    should never need to reach for the mouse during a normal entry run.
 2. **Clarity.** After each entry, the scorer must immediately see that it
-   registered correctly — who was identified, what position they got.
+   registered correctly — who was identified, where they landed in the list.
 3. **Recoverability.** Mistakes will happen. Correcting a wrong sail number
    or removing an entry must be quick and non-disruptive to the rest of the list.
 4. **Completeness.** At the end of entry, the scorer must be able to see at a
@@ -26,6 +26,22 @@ with intermittent connectivity.
 
 ---
 
+## The finish sheet model
+
+The finish entry screen is a digital transcription of the handwritten finish
+sheet. The handwritten sheet is a single ordered list of sail numbers in the
+order they crossed the line, with a finish time written next to boats whose
+fleets use handicap scoring and nothing written next to scratch boats.
+
+The screen mirrors this: **one unified ordered list**. Row order IS crossing
+order. Each row is a boat, and each row has an optional finish time. Scratch
+rows show "—" in the time column; handicap rows show their finish time.
+
+This model replaces the earlier approach of entering explicit crossing-order
+position numbers. Position is no longer a field the scorer types — it is the
+row's index in the list, managed by list operations (append, auto-insert, move,
+delete).
+
 ## Recorded vs Calculated
 
 The finish entry screen deals in **recorded** data — what the scorer observes
@@ -33,41 +49,47 @@ on the water. It is important to distinguish this from what the system
 calculates.
 
 **Recorded (scorer input):**
-- `Finish.finish_position` — the crossing-order position of this boat across
-  the finish line. The UI auto-suggests the next available integer, but the
-  scorer can override it before confirming (e.g. to record a tie, or an
-  insertion into the middle of the list).
+- The **ordered list** of finishers for the race. Row order represents the
+  order boats crossed the line. The scorer adds rows in order, or inserts/moves
+  them later; they never type an explicit position number.
 - `Finish.finish_time` — the clock time the boat crossed the finish line.
-- `Finish.result_code` — a non-finish outcome: DNS, DNF, OCS, etc.
+  Recorded for boats in handicap fleets; omitted for scratch-only boats.
+- `Finish.result_code` — a non-finish outcome: DNS, DNF, OCS, etc. Coded
+  finishes are not part of the crossing-order list (they have no row index).
+- An optional **"tied with previous row"** flag on scratch rows, for the rare
+  case where two boats cross the line simultaneously.
 
 **Calculated (scoring engine, not entered by scorer):**
-- The per-fleet *scoring position* (who came 1st, 2nd, 3rd *within their
-  Fleet*) is derived by the engine from the raw `finish_position` values
-  (or `finish_time` values for time mode), not entered directly.
-- Elapsed time, corrected time, points, and series standings are all
-  derived automatically.
+- The per-fleet **rank** (who came 1st, 2nd, 3rd *within their fleet*) is
+  derived by the engine. For scratch fleets: from row order among the fleet's
+  members. For handicap fleets: from corrected times among the fleet's members.
+- Elapsed time, corrected time, points, and series standings are all derived
+  automatically.
+- There is no cross-fleet "place" concept in results. Only within-fleet rank
+  is displayed; the crossing-order list is an input, not a published output.
 
-**Implicit DNC:** A competitor with no `Finish` record for a race is
-implicitly scored as DNC. The scorer does not need to manually assign DNC
-to absent boats — silence is the signal. An explicit `result_code = DNC` can
-be recorded (e.g. to confirm an absence was actively noted), but is not
-required.
+**Implicit DNC:** A competitor with no finish record for a race is implicitly
+scored as DNC. The scorer does not need to manually assign DNC to absent
+boats — silence is the signal. An explicit `result_code = DNC` can be recorded
+(e.g. to confirm an absence was actively noted), but is not required.
 
 ---
 
-## Mode Determination
+## Time field is per-competitor, not per-race
 
-Entry mode is determined **per-competitor after lookup**, not once for the
-whole race. After the scorer selects a competitor, the system inspects that
-competitor's Fleet's scoring systems:
+Whether a row has a time field is determined **per-competitor after lookup**,
+based on the competitor's fleet. After the scorer selects a competitor, the
+system inspects that competitor's fleet(s):
 
-| Competitor's Fleet scoring | Mode shown |
+| Competitor's fleet scoring | Time field |
 |----------------------------|------------|
-| Any handicap system (IRC or NHC) | **Time mode**: a finish time field appears |
-| Scratch only | **Position mode**: auto-suggested crossing position shown for confirmation |
+| Any handicap system (IRC or PY, later HPH) | **Required**: a finish time field appears in a pending row; the scorer enters the time before the row is added |
+| Scratch only | **Not shown**: the row is added immediately with no time prompt |
 
-A single race can therefore mix modes entry-by-entry: a Class 1 IRC boat gets
-a time field; a Junior scratch boat gets a position field.
+A single race therefore mixes rows with and without times. This is not a
+"mode switch" in the UI — the time column is always visible in the list,
+populated for handicap rows and empty for scratch rows. A fleet badge on each
+row ("ILCA 7", "PY", "M15 · PY") makes the reason visible at a glance.
 
 ---
 
@@ -76,12 +98,14 @@ a time field; a Junior scratch boat gets a position field.
 Before finish entry begins, the scorer must have:
 
 - Created the race (race number, date)
-- For time mode: entered start times for each Fleet in this race
+- Entered start times for each handicap fleet (or fleet group) in the race.
+  Scratch-only fleets do not need a start time.
 
 Start times can be entered directly on the finish entry screen (they appear
 in an editable panel at the top), so the scorer does not need to go to a
 separate screen first. If start times are missing when the scorer begins
-entering finishes, the screen shows a prominent but non-blocking warning.
+entering finishes for a handicap fleet, the screen shows a prominent but
+non-blocking warning.
 
 ---
 
@@ -113,45 +137,48 @@ and `GBR 999`, both appear in the match list ranked by relevance. The scorer
 selects from the list.
 
 **Already-recorded signal:** If the selected competitor already has a finish
-record, the UI shows their existing record subtly (e.g. "Already at position
-15") and offers to update it rather than adding a duplicate. See
-[Position Management](#position-management) for update flows.
+record, the UI shows their existing record subtly (e.g. "Already recorded at
+14:23:10" for a timed row, or "Already recorded (ILCA 7)" for a scratch row)
+and offers to update it rather than adding a duplicate. See
+[List Management](#list-management) for update flows.
 
-### Position mode (IODAI example)
+### Scratch entry — the fast path
 
-After the scorer selects a competitor in a scratch Fleet, the auto-suggested
-next crossing-order position is displayed prominently before confirmation:
-
-```
-Scorer types → selects competitor from match list
-
-  IRL 1234  Jane Murphy  Junior · Gold
-  Position [ 48 ]   ← auto-suggested; editable before confirm
-
-Scorer presses Enter to confirm. Input clears and re-focuses.
-
-The finish list now shows:
-  48  IRL 1234  Jane Murphy       Junior · Gold     [×]
-```
-
-The suggested position must be visible *before* the scorer presses Enter.
-The scorer can edit the field to record a tie or an insertion (see
-[Position Management](#position-management)).
-
-### Time mode (HYC example)
-
-After the scorer selects a competitor in a handicap Fleet, a finish time
-field appears:
+When the scorer selects a competitor whose fleet is scratch-only, the row is
+added to the end of the list immediately. No pending state, no time prompt:
 
 ```
-  IRL 3939  Harmony  Class 2 (IRC + NHC)
+Scorer types → selects competitor from match list → Enter → in the list
+
+  IRL 1234  Jane Murphy  Junior · Gold        [add]
+
+The finish list now shows the new row at the end:
+  ·   ·         ·                 ·                   ↑↓ [×]
+  IRL 1234  Jane Murphy       Junior · Gold      —    ↑↓ [×]
+```
+
+This is the frostbite ILCA path: the scorer is rattling through sail numbers
+and each one lands at the next row in the list with no intermediate
+confirmation step.
+
+### Handicap entry — the time path
+
+When the scorer selects a competitor whose fleet uses handicap scoring, a
+pending row appears with a finish time field:
+
+```
+  IRL 3939  Harmony  Class 2 (IRC)
   Finish time [ 14:23:45 ]
 
-Scorer presses Enter. The finish list shows:
-  1  IRL 3939  Harmony  Class 2   14:23:45  (el. 1:18:45)
+Scorer presses Enter to confirm. The new row is placed at the correct
+position in the list — silently auto-slotted by finish time among other
+timed rows (see List Management below).
+
+  ·   ·         ·                 ·
+  IRL 3939  Harmony             Class 2      14:23:45   [×]
 ```
 
-The elapsed time is calculated immediately from finish time minus the Fleet's
+The elapsed time is calculated immediately from finish time minus the fleet's
 start time. Corrected time is shown if the rating is already set.
 
 **Time input format:**
@@ -161,8 +188,8 @@ start time. Corrected time is shown if the rating is already set.
 #### Real-time finish time (live recording)
 
 For recording from the finish boat as boats cross the line, a "Use current
-time" option is available in time mode (a small button or keyboard shortcut,
-not shown prominently in the main layout):
+time" option is available on the pending time entry row (a small button or
+keyboard shortcut, not shown prominently in the main layout):
 
 - When activated, the time field shows the current wall-clock time, updating
   every second.
@@ -173,17 +200,17 @@ not shown prominently in the main layout):
 ### Assigning a result code from the main flow
 
 The scorer can assign a result code directly from the main entry flow — not
-only from the "Not yet recorded" panel. After selecting a competitor (before
-confirming a position or time), result code buttons or a dropdown are visible:
+only from the "Not yet recorded" panel. After selecting a competitor, result
+code buttons or a dropdown are visible alongside the confirmation action:
 
 ```
   IRL 0042  Patrick Regan  Senior · Silver
-  Position [ 83 ]   [DNS] [DNF] [OCS] [···]
+  [add]   [DNS] [DNF] [OCS] [···]
 ```
 
-Selecting a code replaces the position/time input and confirms immediately.
-This is useful for entering a batch of OCS boats by sail number early in the
-entry session, before finishers start arriving.
+Selecting a code creates a coded finish (not part of the crossing-order list)
+instead of adding a row. This is useful for entering a batch of OCS boats by
+sail number early in the entry session, before finishers start arriving.
 
 ---
 
@@ -191,35 +218,35 @@ entry session, before finishers start arriving.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  IODAI Leinsters 2025                                                        │
+│  HYC Frostbite Winter 2026                                                   │
 ├────────┬─────────────────────────────────────────────────────────────────────┤
 │        │                                                                      │
-│  Comp. │  Race 5 · Tue 15 Jul 2025             [Entry] [Results] [Standings] │
+│  Comp. │  Race 5 · Sun 12 Jan 2026            [Entry] [Results] [Standings] │
 │        │                                                                      │
-│  Races │  Start times: Junior 14:05  Senior 14:07           [Edit]           │
+│  Races │  Starts: PY 14:05  ILCA 7 14:08  ILCA 6 14:11  ILCA 4 14:14 [Edit]│
 │  ▶ R5  │  ─────────────────────────────────────────────────────────────────  │
 │    R4  │                                                                      │
-│    R3  │  [ 1234_                                        ]                   │
-│    R2  │    → IRL 1234  Jane Murphy  Junior · Gold                           │
-│    R1  │    → IRL 12    Bo Larsen    Junior · Silver                         │
+│    R3  │  [ 555_                                           ]                  │
+│    R2  │    → IRL 555   Aine O'Reilly  PY · RS Aero 6                        │
+│    R1  │                                                                      │
+│        │  IRL 555  Aine O'Reilly  PY (RS Aero 6)                             │
+│  Stnd. │  Finish time [ __:__:__ ]   [add]  [DNS] [DNF] [OCS] [···]          │
 │        │                                                                      │
-│  Stnd. │  IRL 1234  Jane Murphy  Junior · Gold                               │
-│        │  Position [ 48 ]   [DNS] [DNF] [OCS] [···]                         │
-│  Sett. │                                                                      │
-│        │  Finishers (47)                                                      │
+│  Sett. │  Finishers (6)                                                       │
 │        │  ┌─────────────────────────────────────────────────────────────┐    │
-│        │  │  #   Sail      Name              Fleet           ···        │    │
-│        │  │  1   IRL 2468  Tom O'Brien       Senior · Silver  [×]       │    │
-│        │  │  2   IRL 1111  Alice Murphy      Junior · Gold    [×]       │    │
-│        │  │  3   GBR 999   Sam Smith         Junior · Bronze  [×]       │    │
-│        │  │  ·   ·         ·                 ·                          │    │
-│        │  │  47  IRL 0077  Bob Jones         Senior · Gold    [×]       │    │
+│        │  │  Sail      Name              Fleet        Time              │    │
+│        │  │  IRL 420   Pat Regan         PY           14:23:10    [×]   │    │
+│        │  │  IRL 635   Cormac Farrelly   ILCA 7       —        ↑↓ [×]   │    │
+│        │  │  IRL 199   Dave Kirwan       PY           14:23:30    [×]   │    │
+│        │  │  IRL 12345 Jane Murphy       ILCA 6       —        ↑↓ [×]   │    │
+│        │  │  IRL 808   Tom O'Brien       M15 · PY     14:23:45    [×]   │    │
+│        │  │  IRL 67890 Alice Brennan     ILCA 7       —        ↑↓ [×]   │    │
 │        │  └─────────────────────────────────────────────────────────────┘    │
 │        │                                                                      │
-│        │  Not yet recorded (156)                      [Assign codes ▾]       │
+│        │  Not yet recorded (44)                       [Assign codes ▾]       │
 │        │  ┌─────────────────────────────────────────────────────────────┐    │
-│        │  │  IRL 0001  Aoife Brennan    Junior · Bronze                 │    │
-│        │  │  IRL 0003  Cian Walsh       Junior · Silver                 │    │
+│        │  │  IRL 0001  Aoife Brennan    ILCA 7                          │    │
+│        │  │  IRL 0003  Cian Walsh       PY · RS Aero 6                  │    │
 │        │  │  IRL 0004  ...                                              │    │
 │        │  └─────────────────────────────────────────────────────────────┘    │
 └────────┴─────────────────────────────────────────────────────────────────────┘
@@ -229,77 +256,114 @@ entry session, before finishers start arriving.
 
 - The entry input is always at the top of the content area, never buried.
   It is auto-focused on page load and re-focused after each confirmed entry.
-- The match list drops inline below the input; after a competitor is selected
-  it collapses and the position/time field appears.
+- The match list drops inline below the input.
+- For scratch-only competitors, the entry is added immediately — no pending
+  confirmation row. For handicap competitors, a pending row with the time
+  field appears and persists until the time is entered.
+- **No position column.** Row order is the data; rows do not show "#1", "#2".
+- **Time column is always present**, showing "—" for scratch rows and the
+  finish time for handicap rows. This matches the handwritten sheet visually
+  and makes mixed-mode entry feel expected, not jarring.
+- **Fleet badge** on every row, so the scorer sees why some rows have times
+  and others don't.
+- **Move controls (↑↓)** appear only on scratch (untimed) rows. Handicap rows
+  have no move affordance — see List Management.
 - The finish list scrolls independently; the input stays fixed.
 - "Not yet recorded" is a separate, scrollable panel below the finish list.
   It shrinks as boats are accounted for.
 
 ---
 
-## Position Management
+## List Management
 
-Five scenarios arise when recording, correcting, or updating finish positions.
+The crossing-order list is maintained by simple list operations. There are no
+explicit position numbers to shift or renumber — the row's position is its
+index in the list.
 
-### Tie-break (two boats, same position)
+### The time-order invariant
 
-Two boats cross the line so close together that the scorer calls them tied:
+Timed rows must always be in time order relative to each other. This is the
+one hard constraint on the list.
 
-- Scorer selects the second boat; the auto-suggested position is N+1.
-- Scorer manually overrides it to N (same as the first boat's position).
-- Both boats are now at position N. No subsequent boats are shifted.
-- The next auto-suggested position after a tie-break: max(recorded positions) + 1.
+The invariant is enforced **structurally**: timed rows have no move controls
+at all. The scorer cannot drag them out of time order because the UI offers
+no affordance to move them. The only way a timed row changes position is by
+editing its finish time, which auto-slides it to its correct slot (see
+Correction below).
 
-This is a niche scenario and intentionally requires a manual override step.
+Scratch rows are unconstrained — they can be moved anywhere in the list,
+including past timed rows.
 
-### Insertion into the middle (a boat was missed)
+### Adding a row
 
-A boat was recorded at the wrong point; it needs to slot in between existing
-entries:
+- **Scratch entry**: appended to the end of the list. The scorer can move it
+  afterwards if it belongs earlier.
+- **Handicap entry**: silently auto-slotted into the correct time position.
+  The insertion rule: find the earliest slot where the time-order invariant
+  holds, and place the new row immediately before the next later-timed row
+  (or at the end if no later-timed rows exist). Scratch rows around the
+  insertion point keep their relative positions. No confirmation dialog —
+  the system just does it.
 
-- Scorer selects the boat. The auto-suggested position is the next available
-  (end of list).
-- Scorer overrides the position to the correct insertion point (e.g. 23).
-- All existing boats with `finish_position >= 23` are shifted up by 1.
-- Exception: tied boats at position 23 are all shifted to 24 together.
+### Reordering a scratch row
 
-### Deletion (entry was wrong)
+Scratch rows have ↑ and ↓ buttons in the row (reusing the same pattern as
+the Fleets card in series settings). Clicking the button moves the row one
+step up or down in the list.
 
-- Scorer clicks `[×]` on the entry in the finish list.
-- All boats with `finish_position >` the deleted position shift down by 1.
-- Tie-break awareness: if the deleted boat shared its position with another,
-  no shift occurs (the tie partner stays at position N; subsequent boats
-  remain at N+1, N+2, etc.).
+A scratch row can be moved past a timed row — the scorer is asserting "this
+scratch boat actually crossed before that handicap boat," which is a valid
+statement. When a scratch row crosses a timed row, the destination row
+**flashes briefly** so the scorer sees where it landed.
 
-### Correction (wrong position recorded)
+Since scratch ranking is computed per-fleet, moving a scratch row past
+other-fleet rows has no scoring effect. Only the relative order of
+same-fleet scratch rows determines rank within that fleet.
 
-- The "Already at position N" signal appears when the scorer looks up a boat
-  already in the finish list.
-- The scorer updates the position number. Other boats are automatically
-  re-numbered:
-  - **Moving up** (new position < old, e.g. 15 → 10): boats at positions
-    10–14 shift down by 1 (their position numbers increase by 1).
-  - **Moving down** (new position > old, e.g. 10 → 15): boats at positions
-    11–15 shift up by 1 (their position numbers decrease by 1).
-- Tie-break awareness is preserved throughout: boats sharing a position are
-  always shifted as a group, so no tie is inadvertently broken or created.
+### Deletion
 
-### Scoring code assignment after position recorded
+Scorer clicks `[×]` on a row → the row is removed. Everything below shifts
+up naturally because the row's position was just its index. No tie-shift
+logic, no renumbering math.
 
-- Scorer looks up a boat that has a recorded position. Instead of updating
-  the position, they assign a result code.
-- **Most codes** (DNS, DNF, DSQ, OCS, UFD, BFD, RET, DNC): the position is
-  voided. All boats with `finish_position >` the voided position shift down
-  by 1.
-- **SCP** (Scoring Penalty): position is **retained**. The code adds penalty
-  points without affecting finish order.
-- **RDG** (Redress Given): treated as a position override (variable points);
-  position behaviour depends on the redress decision. Documented as a special
-  case but not auto-shifted.
+### Correcting a finish time
 
-**Drag-reorder: deferred post-MVP.** A GitHub idea issue is filed to revisit
-once scorers have used the app. The insertion and deletion paths above are
-judged sufficient for MVP.
+The scorer opens a timed row and edits its finish time. If the new time no
+longer satisfies the time-order invariant in the row's current position,
+the row **auto-slides** to its correct slot. The destination position
+**flashes briefly** so the scorer sees the row move.
+
+Editing a time that stays within the valid range causes no movement.
+
+### Correcting a scratch row
+
+There is nothing to correct about the row's position in isolation — use the
+move controls to reposition it. If the scorer entered the wrong sail number,
+delete and re-enter.
+
+### Ties between scratch rows
+
+Two boats cross simultaneously in the same scratch fleet. Represent this with
+a **"tied with previous row"** flag on the second row. The scoring engine
+applies RRS A8.1 averaged consecutive ranks. This is the rare case — tied
+handicap finishes are handled naturally by the scoring engine from identical
+corrected times.
+
+### Scoring code assignment after a row is recorded
+
+- Scorer looks up a boat that has a row in the list. Instead of updating its
+  time, they assign a result code.
+- **Most codes** (DNS, DNF, DSQ, OCS, UFD, BFD, RET, DNC): the row is
+  removed from the crossing-order list and the boat becomes a coded finish.
+  No shifts to manage.
+- **SCP** (Scoring Penalty): row is **retained** in the list. The code adds
+  penalty points without affecting crossing order.
+- **RDG** (Redress Given): treated as a points override on the existing row
+  or as a replacement score; list position behaviour follows the redress
+  decision. Documented as a special case.
+
+**Drag-reorder is not required for MVP.** The ↑/↓ buttons cover the
+correction paths; drag may be added later if scorers want it.
 
 ---
 
@@ -346,11 +410,12 @@ from DNC automatically.
 Protest time limits are calculated relative to the elapsed time of the last
 boat to finish (per RRS). The app records this explicitly.
 
-- **Time mode:** last finisher time is automatically the latest `finish_time`
-  in the finish list. Displayed as a read-only field with an override option.
-- **Position mode:** no finish times are recorded, so it cannot be
-  auto-populated. An explicit "Last finisher time" field is available for the
-  scorer to enter manually.
+- **If the race has any timed rows**, the last finisher time is auto-populated
+  as the latest `finish_time` in the list. Displayed as a read-only field
+  with an override option.
+- **If the race has only scratch rows**, no finish times are recorded, so
+  the field cannot be auto-populated. An explicit "Last finisher time" field
+  is available for the scorer to enter manually.
 - The override or explicit field is always editable.
 - Stored as `Race.last_finish_time`. See data-model.md.
 
@@ -362,8 +427,9 @@ After the finish list is complete (or at any point during entry), the scorer
 assigns result codes to boats that did not finish normally.
 
 **From the main entry flow:** The scorer can assign codes directly by looking
-up a competitor and selecting a code instead of a position/time. Useful for
-batching OCS entries at the start of a session.
+up a competitor and selecting a code instead of adding a row (or instead of
+entering a time, on the pending time row). Useful for batching OCS entries
+at the start of a session.
 
 **From the "Not yet recorded" panel:** Clicking "Assign codes" expands inline
 code buttons for each unaccounted boat:
@@ -392,9 +458,9 @@ the common operational codes. See `docs/design/scoring-codes.md` for the full
 code taxonomy.
 
 **Additive penalties (ZFP, SCP, DPI):** These codes amend a recorded finish
-position rather than replacing it. They are applied to boats already in the
-finish list, not from the "Not yet recorded" panel. See `scoring-codes.md` for
-the UX design for penalty entry (deferred to Phase 2).
+(adding penalty points) rather than replacing it. They are applied to boats
+already in the list, not from the "Not yet recorded" panel. See
+`scoring-codes.md` for the UX design for penalty entry (deferred to Phase 2).
 
 **Implicit DNC:** Boats with no finish record and no result code are
 implicitly scored as DNC. The scorer does not need to take any action for
@@ -408,16 +474,20 @@ a mandatory worklist.
 Scoring runs automatically after each finish is confirmed (user story RC-01).
 The system recalculates race scores and series standings in the background.
 
-For position mode, the score is the position within the Fleet (not the raw
-finish order, which may mix Fleets). After each entry, the system:
-1. Looks up the competitor's Fleet.
-2. Counts how many finishers of that Fleet are in the list.
-3. Assigns that count as the per-Fleet position (i.e. the score).
+Within-fleet rank is computed from the crossing-order list:
 
-For time mode, the score is derived from corrected time rank within the Fleet.
+- **Scratch fleets**: iterate the list in order, count only the rows belonging
+  to this fleet, and assign ranks 1, 2, 3… to them in that order. Tied rows
+  (marked with "tied with previous row") share averaged consecutive ranks per
+  RRS A8.1.
+- **Handicap fleets**: compute corrected time for each row whose competitor is
+  in this fleet (elapsed time × TCF), then rank by corrected time ascending.
+  Equal corrected times share averaged ranks.
 
 The scorer does not need to trigger scoring manually. The race results screen
 (S-07) always reflects the current state.
+
+There is no cross-fleet "place" in the output — only within-fleet rank.
 
 ---
 
@@ -457,9 +527,9 @@ finish boats operate stopwatches and record elapsed times directly, avoiding
 the need to back-calculate finish times. This is not supported in MVP.
 A GitHub idea issue is filed.
 
-**Drag-reorder in finish list:** Insertion and position editing cover MVP
-correction needs. Drag-reorder would make mid-list corrections faster but
-adds implementation complexity. A GitHub idea issue is filed.
+**Drag-reorder in finish list:** The ↑/↓ move controls on scratch rows cover
+MVP correction needs. Drag-reorder would make moving a row across many
+positions faster but adds implementation complexity.
 
 ---
 
