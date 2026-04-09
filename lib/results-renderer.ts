@@ -195,15 +195,17 @@ function renderSummaryTable(
         })
         .join('\n');
 
-      return `<tr class="${rowClass} summaryrow">
-<td>${ordinal(s.rank)}</td>
-<td>${esc(s.sailNumber)}</td>
-${showBoatName ? `<td>${esc(s.boatName ?? '')}</td>` : ''}
-<td>${esc(renderHelmCell(s.helm, s.crewName, showCrewName))}</td>
-${scoreCells}
-<td>${s.totalPoints}</td>
-${hasDiscards ? `<td>${s.netPoints}</td>` : ''}
-</tr>`;
+      return [
+        `<tr class="${rowClass} summaryrow">`,
+        `<td>${ordinal(s.rank)}</td>`,
+        `<td>${esc(s.sailNumber)}</td>`,
+        ...(showBoatName ? [`<td>${esc(s.boatName ?? '')}</td>`] : []),
+        `<td>${esc(renderHelmCell(s.helm, s.crewName, showCrewName))}</td>`,
+        scoreCells,
+        `<td>${s.totalPoints}</td>`,
+        ...(hasDiscards ? [`<td>${s.netPoints}</td>`] : []),
+        `</tr>`,
+      ].join('\n');
     })
     .join('\n');
 
@@ -249,16 +251,24 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showCrewName: bo
           ? `${r.points} RDG`
           : String(r.points);
       const handicapCells = hasHandicapCols
-        ? `\n<td class="mono">${r.tcc != null ? r.tcc.toFixed(3) : ''}</td>\n<td class="mono">${esc(r.finishTime ?? '')}</td>\n<td class="mono">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>\n<td class="mono">${r.correctedTimeSecs != null ? formatCorrectedSecs(r.correctedTimeSecs) : ''}</td>`
-        : '';
-      return `<tr class="${rowClass} racerow">
-<td>${placeText}</td>
-<td>${esc(r.sailNumber)}</td>
-${showBoatName ? `<td>${esc(r.boatName ?? '')}</td>` : ''}
-<td>${esc(renderHelmCell(r.helm, r.crewName, showCrewName))}</td>
-<td>${rankText}</td>
-<td>${pointsText}</td>${handicapCells}
-</tr>`;
+        ? [
+            `<td class="mono">${r.tcc != null ? r.tcc.toFixed(3) : ''}</td>`,
+            `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
+            `<td class="mono">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>`,
+            `<td class="mono">${r.correctedTimeSecs != null ? formatCorrectedSecs(r.correctedTimeSecs) : ''}</td>`,
+          ]
+        : [];
+      return [
+        `<tr class="${rowClass} racerow">`,
+        `<td>${placeText}</td>`,
+        `<td>${esc(r.sailNumber)}</td>`,
+        ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
+        `<td>${esc(renderHelmCell(r.helm, r.crewName, showCrewName))}</td>`,
+        `<td>${rankText}</td>`,
+        `<td>${pointsText}</td>`,
+        ...handicapCells,
+        `</tr>`,
+      ].join('\n');
     })
     .join('\n');
 
