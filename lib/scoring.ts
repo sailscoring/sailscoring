@@ -1,4 +1,4 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold, ScoringRejection } from './types';
 import { getCodeDefinition } from './scoring-codes';
 
 /**
@@ -149,6 +149,14 @@ export function calculateRaceScores(
  * PY:  TCF = 1000 / pyNumber.
  * Returns null if the competitor has no rating for the fleet's scoring system.
  */
+/**
+ * Whether a competitor has a valid handicap rating for a fleet.
+ * Returns true for scratch fleets (no rating needed).
+ */
+export function hasFleetRating(competitor: Competitor, fleet: Fleet): boolean {
+  return fleet.scoringSystem === 'scratch' || getTCF(competitor, fleet) !== null;
+}
+
 function getTCF(competitor: Competitor, fleet: Fleet): number | null {
   if (fleet.scoringSystem === 'irc') {
     return competitor.ircTcc ?? null;
@@ -189,10 +197,22 @@ export function calculateHandicapRaceScores(
   competitors: Competitor[],
   raceStart: RaceStart,
   fleet: Fleet,
-): Map<string, HandicapRaceScore> {
-  const n = competitors.length;
-  const penaltyPoints = n + 1;
+): { scores: Map<string, HandicapRaceScore>; rejections: ScoringRejection[] } {
   const startSeconds = parseTimeToSeconds(raceStart.startTime);
+
+  // Partition: competitors without a rating are rejected, not scored
+  const rejections: ScoringRejection[] = [];
+  const rated: Competitor[] = [];
+  for (const competitor of competitors) {
+    if (getTCF(competitor, fleet) !== null) {
+      rated.push(competitor);
+    } else {
+      rejections.push({ competitorId: competitor.id, reason: 'no_rating' });
+    }
+  }
+
+  const n = rated.length;
+  const penaltyPoints = n + 1;
 
   const finishMap = new Map(
     finishes
@@ -200,7 +220,7 @@ export function calculateHandicapRaceScores(
       .map((f) => [f.competitorId, f]),
   );
 
-  // First pass: compute ET, CT, TCF for each competitor; collect scored finishes
+  // First pass: compute ET, CT, TCF for each rated competitor; collect scored finishes
   interface Candidate {
     competitorId: string;
     elapsedTime: number | null;
@@ -211,9 +231,9 @@ export function calculateHandicapRaceScores(
   }
 
   const candidates: Candidate[] = [];
-  for (const competitor of competitors) {
+  for (const competitor of rated) {
     const finish = finishMap.get(competitor.id);
-    const tcf = getTCF(competitor, fleet);
+    const tcf = getTCF(competitor, fleet)!;
 
     if (!finish) {
       // Implicit DNC
@@ -236,14 +256,14 @@ export function calculateHandicapRaceScores(
     }
 
     const et = finishSeconds - startSeconds;
-    const ct = tcf !== null ? et * tcf : null;
+    const ct = et * tcf;
     candidates.push({
       competitorId: competitor.id,
       elapsedTime: et,
       correctedTime: ct,
       tcfApplied: tcf,
       resultCode: null,
-      isFinisher: ct !== null,
+      isFinisher: true,
     });
   }
 
@@ -253,7 +273,7 @@ export function calculateHandicapRaceScores(
     .sort((a, b) => a.correctedTime! - b.correctedTime! || a.competitorId.localeCompare(b.competitorId));
 
   // Build result map
-  const result = new Map<string, HandicapRaceScore>();
+  const scores = new Map<string, HandicapRaceScore>();
 
   // Assign ranks and points to finishers (tied CT = averaged ranks, same as scratch)
   let fleetRank = 1;
@@ -266,7 +286,7 @@ export function calculateHandicapRaceScores(
     const avgPoints = fleetRank + (tiedCount - 1) / 2;
     for (let k = fi; k < fj; k++) {
       const c = finishers[k];
-      result.set(c.competitorId, {
+      scores.set(c.competitorId, {
         competitorId: c.competitorId,
         points: avgPoints,
         place: fi + 1,  // crossing-order position within fleet (1-based)
@@ -281,41 +301,26 @@ export function calculateHandicapRaceScores(
     fi = fj;
   }
 
-  // Assign penalty points to non-finishers and no-rating competitors
+  // Assign penalty points to non-finishers
   for (const c of candidates) {
-    if (result.has(c.competitorId)) continue; // already scored as finisher
-    if (c.isFinisher) continue; // shouldn't happen
+    if (scores.has(c.competitorId)) continue; // already scored as finisher
 
-    if (c.resultCode !== null) {
-      const def = getCodeDefinition(c.resultCode);
-      // For handicap, always use fleet-size-based penalty (no A5.3 distinction)
-      const pts = (def?.pointsMethod.type === 'fixed_penalty') ? penaltyPoints : penaltyPoints;
-      result.set(c.competitorId, {
-        competitorId: c.competitorId,
-        points: pts,
-        place: null,
-        rank: null,
-        resultCode: c.resultCode,
-        elapsedTime: c.elapsedTime,
-        correctedTime: null,
-        tcfApplied: c.tcfApplied,
-      });
-    } else {
-      // No rating — scored as DNF-equivalent, place is null
-      result.set(c.competitorId, {
-        competitorId: c.competitorId,
-        points: penaltyPoints,
-        place: null,
-        rank: null,
-        resultCode: null,
-        elapsedTime: c.elapsedTime,
-        correctedTime: null,
-        tcfApplied: null,
-      });
-    }
+    const def = c.resultCode !== null ? getCodeDefinition(c.resultCode) : null;
+    // For handicap, always use fleet-size-based penalty (no A5.3 distinction)
+    const pts = (def?.pointsMethod.type === 'fixed_penalty') ? penaltyPoints : penaltyPoints;
+    scores.set(c.competitorId, {
+      competitorId: c.competitorId,
+      points: pts,
+      place: null,
+      rank: null,
+      resultCode: c.resultCode,
+      elapsedTime: c.elapsedTime,
+      correctedTime: null,
+      tcfApplied: c.tcfApplied,
+    });
   }
 
-  return result;
+  return { scores, rejections };
 }
 
 /**
@@ -617,10 +622,16 @@ function calculateHandicapStandings(
   raceStarts: RaceStart[],
   fleet: Fleet,
   discardThresholds: DiscardThreshold[] = [],
-): { standings: Standing[] } {
+): { standings: Standing[]; rejections: ScoringRejection[] } {
   if (competitors.length === 0 || races.length === 0) {
+    // Even with no races, identify competitors who lack a rating
+    const rejections: ScoringRejection[] = competitors
+      .filter((c) => getTCF(c, fleet) === null)
+      .map((c) => ({ competitorId: c.id, reason: 'no_rating' as const }));
+    const rejectedIds = new Set(rejections.map((r) => r.competitorId));
+    const rated = competitors.filter((c) => !rejectedIds.has(c.id));
     return {
-      standings: competitors.map((c, i) => ({
+      standings: rated.map((c, i) => ({
         rank: i + 1,
         competitor: c,
         racePoints: [],
@@ -633,6 +644,7 @@ function calculateHandicapStandings(
         raceDiscards: [],
         raceNonDiscardable: [],
       })),
+      rejections,
     };
   }
 
@@ -650,6 +662,10 @@ function calculateHandicapStandings(
     list.push(finish);
     finishesByRace.set(finish.raceId, list);
   }
+
+  // Collect rejections across all races (deduplicated)
+  const rejectedIds = new Set<string>();
+  const allRejections: ScoringRejection[] = [];
 
   const competitorRacePoints = new Map<string, number[]>();
   const competitorRaceCodes = new Map<string, (ResultCode | null)[]>();
@@ -670,7 +686,14 @@ function calculateHandicapStandings(
 
     let scores: Map<string, { points: number; resultCode: ResultCode | null }>;
     if (raceStart) {
-      scores = calculateHandicapRaceScores(raceFinishes, competitors, raceStart, fleet);
+      const result = calculateHandicapRaceScores(raceFinishes, competitors, raceStart, fleet);
+      scores = result.scores;
+      for (const r of result.rejections) {
+        if (!rejectedIds.has(r.competitorId)) {
+          rejectedIds.add(r.competitorId);
+          allRejections.push(r);
+        }
+      }
     } else {
       // No start recorded yet — fall back to scratch scoring
       const scratchScores = calculateRaceScores(raceFinishes, competitors, 'seriesEntries');
@@ -678,6 +701,7 @@ function calculateHandicapStandings(
     }
 
     for (const competitor of competitors) {
+      if (rejectedIds.has(competitor.id)) continue; // excluded from scoring
       const score = scores.get(competitor.id);
       competitorRacePoints.get(competitor.id)!.push(score?.points ?? competitors.length + 1);
       competitorRaceCodes.get(competitor.id)!.push(score !== undefined ? score.resultCode : 'DNC');
@@ -687,12 +711,14 @@ function calculateHandicapStandings(
     }
   }
 
+  const rated = competitors.filter((c) => !rejectedIds.has(c.id));
+
   const discardCount = Math.min(
     getDiscardCount(races.length, discardThresholds),
     races.length,
   );
 
-  const standings: Standing[] = competitors.map((competitor) => {
+  const standings: Standing[] = rated.map((competitor) => {
     const racePoints = competitorRacePoints.get(competitor.id)!;
     const raceCodes = competitorRaceCodes.get(competitor.id)!;
     const racePenaltyCodes = competitorRacePenaltyCodes.get(competitor.id)!;
@@ -742,7 +768,7 @@ function calculateHandicapStandings(
   });
   standings.forEach((s, i) => { s.rank = i + 1; });
 
-  return { standings };
+  return { standings, rejections: allRejections };
 }
 
 /**
@@ -770,7 +796,7 @@ export function calculateFleetStandings(
   discardThresholds: DiscardThreshold[] = [],
   dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
   raceStarts: RaceStart[] = [],
-): { fleetStandings: { fleet: Fleet; standings: Standing[] }[]; circularRedressRaces: number[] } {
+): { fleetStandings: { fleet: Fleet; standings: Standing[]; rejections: ScoringRejection[] }[]; circularRedressRaces: number[] } {
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
   const knownFleetIds = new Set(fleets.map((f) => f.id));
 
@@ -792,10 +818,10 @@ export function calculateFleetStandings(
   }
 
   const allCircular: number[] = [];
-  const fleetStandings: { fleet: Fleet; standings: Standing[] }[] = sorted.map((fleet) => {
+  const fleetStandings: { fleet: Fleet; standings: Standing[]; rejections: ScoringRejection[] }[] = sorted.map((fleet) => {
     const fleetCompetitors = competitorsByFleet.get(fleet.id) ?? [];
     if (fleet.scoringSystem !== 'scratch') {
-      const { standings } = calculateHandicapStandings(
+      const { standings, rejections } = calculateHandicapStandings(
         fleetCompetitors,
         races,
         allFinishes,
@@ -803,7 +829,7 @@ export function calculateFleetStandings(
         fleet,
         discardThresholds,
       );
-      return { fleet, standings };
+      return { fleet, standings, rejections };
     }
     const { standings, circularRedressRaces } = calculateStandings(
       fleetCompetitors,
@@ -813,14 +839,14 @@ export function calculateFleetStandings(
       dnfScoring,
     );
     allCircular.push(...circularRedressRaces);
-    return { fleet, standings };
+    return { fleet, standings, rejections: [] };
   });
 
   if (orphans.length > 0) {
     const unknownFleet: Fleet = { id: '__unknown__', seriesId: '', name: 'Unknown', displayOrder: 9999, scoringSystem: 'scratch' };
     const { standings, circularRedressRaces } = calculateStandings(orphans, races, allFinishes, discardThresholds, dnfScoring);
     allCircular.push(...circularRedressRaces);
-    fleetStandings.push({ fleet: unknownFleet, standings });
+    fleetStandings.push({ fleet: unknownFleet, standings, rejections: [] });
   }
 
   return { fleetStandings, circularRedressRaces: [...new Set(allCircular)].sort((a, b) => a - b) };

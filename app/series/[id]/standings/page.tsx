@@ -6,6 +6,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { competitorRepo, raceRepo, finishRepo, seriesRepo, ftpServerRepo, fleetRepo, raceStartRepo } from '@/lib/dexie-repository';
 import { db } from '@/lib/db';
 import { getDiscardCount, calculateFleetStandings, calculateRaceScores, calculateHandicapRaceScores } from '@/lib/scoring';
+import type { ScoringRejection } from '@/lib/types';
+import { AlertTriangle } from 'lucide-react';
 import { renderSeriesHtml, assembleSeriesResultsData } from '@/lib/results-renderer';
 import { buildPublicExport } from '@/lib/public-export';
 import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
@@ -46,7 +48,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { uploadToBilge, lookupPrefix, checkPublishStatus, publishedUrl, fetchPolicy } from '@/lib/bilge';
 import { slugify, isValidPrefix } from '@/lib/bilge-slug';
-import type { Standing, DiscardThreshold, Fleet, Series, BilgeBundle, CompetitorFieldKey } from '@/lib/types';
+import type { Standing, DiscardThreshold, Fleet, Series, BilgeBundle, CompetitorFieldKey, Competitor } from '@/lib/types';
 
 function PointsCell({
   points,
@@ -135,7 +137,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
         const fleetCompetitors = competitors.filter((c) => fleetCompetitorIds.has(c.id));
         const raceStart = raceStartByRaceId.get(race.id);
         const scores = isHandicap && raceStart
-          ? calculateHandicapRaceScores(finishesForRace, fleetCompetitors, raceStart, fleet)
+          ? calculateHandicapRaceScores(finishesForRace, fleetCompetitors, raceStart, fleet).scores
           : calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries');
         const scoreMap = new Map(
           [...scores.entries()].map(([id, s]) => [
@@ -892,7 +894,7 @@ export default function StandingsPage({
         </div>
       </div>
 
-      {fleetResults.map(({ fleet, standings }) => {
+      {fleetResults.map(({ fleet, standings, rejections }) => {
         const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
         return (
           <div key={fleet.id} className="space-y-2">
@@ -908,6 +910,9 @@ export default function StandingsPage({
               <p className="text-xs text-muted-foreground">
                 Scored on {fleet.scoringSystem.toUpperCase()} — points based on corrected time.
               </p>
+            )}
+            {rejections.length > 0 && (
+              <ScoringRejectionsWarning rejections={rejections} competitors={competitors} />
             )}
             <FleetStandingsTable
               standings={standings}
@@ -931,6 +936,28 @@ export default function StandingsPage({
         open={showFtpDialog}
         onClose={() => setShowFtpDialog(false)}
       />
+    </div>
+  );
+}
+
+function ScoringRejectionsWarning({ rejections, competitors }: { rejections: ScoringRejection[]; competitors: Competitor[] }) {
+  const competitorById = new Map(competitors.map((c) => [c.id, c]));
+  const noRating = rejections.filter((r) => r.reason === 'no_rating');
+  if (noRating.length === 0) return null;
+
+  const names = noRating
+    .map((r) => {
+      const c = competitorById.get(r.competitorId);
+      return c ? `${c.sailNumber} (${c.name})` : r.competitorId;
+    })
+    .join(', ');
+
+  return (
+    <div className="rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
+      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+      <span>
+        {noRating.length} competitor{noRating.length === 1 ? ' lacks' : 's lack'} a rating and cannot be scored: {names}
+      </span>
     </div>
   );
 }

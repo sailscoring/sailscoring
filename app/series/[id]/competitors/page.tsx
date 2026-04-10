@@ -31,8 +31,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Pencil, Trash2, Upload } from 'lucide-react';
+import { AlertTriangle, Pencil, Trash2, Upload } from 'lucide-react';
 import type { Competitor, Fleet, CompetitorFieldKey } from '@/lib/types';
+import { hasFleetRating } from '@/lib/scoring';
 import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
 import { log } from '@/lib/debug';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
@@ -355,6 +356,9 @@ export default function CompetitorsPage({
     series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const multipleFleets = (fleets ?? []).length > 1;
+
+  const isMissingRating = (c: Competitor): boolean =>
+    c.fleetIds.some((id) => { const f = fleetById.get(id); return f != null && !hasFleetRating(c, f); });
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCompetitor, setEditingCompetitor] = useState<Competitor | null>(null);
@@ -709,7 +713,12 @@ export default function CompetitorsPage({
                   }
                 }}
               >
-                <TableCell className="font-mono">{c.sailNumber}</TableCell>
+                <TableCell className="font-mono">
+                  {isMissingRating(c) && (
+                    <AlertTriangle className="inline h-3.5 w-3.5 text-amber-500 mr-1.5 -mt-0.5" aria-label="Missing handicap rating" />
+                  )}
+                  {c.sailNumber}
+                </TableCell>
                 {showBoat && <TableCell>{c.boatName ?? ''}</TableCell>}
                 <TableCell>{c.name}</TableCell>
                 {showCrew && <TableCell>{c.crewName ?? ''}</TableCell>}

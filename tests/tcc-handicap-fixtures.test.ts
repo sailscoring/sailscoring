@@ -43,6 +43,11 @@ interface FixtureExpected {
   tcfApplied: number | null;
 }
 
+interface FixtureRejected {
+  sailor: string;
+  reason: string;
+}
+
 interface HandicapFixture {
   description: string;
   rrs_notes?: string;
@@ -51,6 +56,7 @@ interface HandicapFixture {
   competitors: FixtureCompetitor[];
   finishes: FixtureFinish[];
   expected: FixtureExpected[];
+  rejectedCompetitors?: FixtureRejected[];
 }
 
 // ─── Test runner ─────────────────────────────────────────────────────────────
@@ -128,7 +134,7 @@ describe('TCC handicap scoring fixtures', () => {
         redressPoints: null,
       }));
 
-      const scores = calculateHandicapRaceScores(finishes, competitors, raceStart, fleet);
+      const { scores, rejections } = calculateHandicapRaceScores(finishes, competitors, raceStart, fleet);
 
       for (const exp of fixture.expected) {
         const competitorId = sailToId.get(exp.sailor);
@@ -148,6 +154,21 @@ describe('TCC handicap scoring fixtures', () => {
         } else {
           expect(score.correctedTime, `sailor ${exp.sailor} correctedTime`).toBe(exp.correctedTime);
         }
+      }
+
+      // Verify rejected competitors
+      const expectedRejections = fixture.rejectedCompetitors ?? [];
+      expect(rejections.length, 'rejection count').toBe(expectedRejections.length);
+      for (const exp of expectedRejections) {
+        const competitorId = sailToId.get(exp.sailor);
+        if (!competitorId) {
+          throw new Error(`Fixture "${fixture.description}": unknown sailor "${exp.sailor}" in rejectedCompetitors`);
+        }
+        const rejection = rejections.find((r) => r.competitorId === competitorId);
+        expect(rejection, `rejection for sailor ${exp.sailor}`).toBeDefined();
+        expect(rejection?.reason, `rejection reason for sailor ${exp.sailor}`).toBe(exp.reason);
+        // Rejected competitors must not appear in scores
+        expect(scores.has(competitorId), `sailor ${exp.sailor} should not be in scores`).toBe(false);
       }
     });
   }

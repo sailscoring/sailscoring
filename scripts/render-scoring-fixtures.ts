@@ -345,7 +345,7 @@ function generateHandicapFixtureHtml(fixture: HandicapFixture, yamlSource: strin
     redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
     redressIncludeAllLater: false, redressPoints: null,
   }));
-  const scores = calculateHandicapRaceScores(finishes, competitors, raceStart, fleet);
+  const { scores } = calculateHandicapRaceScores(finishes, competitors, raceStart, fleet);
 
   const competitorByIdMap = new Map(competitors.map((c) => [c.id, c]));
   const finishTimeByCompetitorId = new Map(

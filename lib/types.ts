@@ -162,3 +162,10 @@ export interface Standing {
   raceNonDiscardable: boolean[];         // true = this code cannot be excluded by discard rules (DNE, BFD)
   raceRedressFlags: boolean[];           // true = this race score was calculated via RDG (A9 average)
 }
+
+export type ScoringRejectionReason = 'no_rating';
+
+export interface ScoringRejection {
+  competitorId: string;
+  reason: ScoringRejectionReason;
+}
