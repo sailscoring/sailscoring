@@ -432,8 +432,23 @@ export default function ResultEntryPage({
   const hasNonScratchFleets = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
   // Fleet IDs that have a recorded start time for this race
   const fleetIdsWithStartTimes = new Set(raceStarts.flatMap((s) => s.fleetIds));
-  // Returns true if this competitor needs a finish time recorded (their fleet has a start time)
+  // Returns true if this competitor needs a finish time recorded.
+  // Both conditions must hold: the fleet has a start time AND uses handicap scoring.
+  // Scratch fleets never need finish times, even when they have a recorded start.
   const needsFinishTime = (competitorId: string): boolean => {
+    const c = competitorMap.get(competitorId);
+    if (!c) return false;
+    return c.fleetIds.some((id) => {
+      const fleet = fleetById.get(id);
+      return fleet !== undefined && fleet.scoringSystem !== 'scratch' && fleetIdsWithStartTimes.has(id);
+    });
+  };
+
+  // Returns true if this competitor has at least one fleet with a start configured
+  // for this race. When any handicap fleet exists in the series, every finished
+  // competitor must have a corresponding start — otherwise we can't determine
+  // whether they need a finish time.
+  const hasStartForRace = (competitorId: string): boolean => {
     const c = competitorMap.get(competitorId);
     if (!c) return false;
     return c.fleetIds.some((id) => fleetIdsWithStartTimes.has(id));
@@ -492,7 +507,20 @@ export default function ResultEntryPage({
   }
 
   // Route a resolved competitor through time-entry if their fleet has a start time.
+  // When any handicap fleet exists in the series, block competitors whose fleet
+  // has no start configured — the scorer needs to add a start first.
   function commitCompetitor(competitor: Competitor) {
+    if (hasNonScratchFleets && !hasStartForRace(competitor.id)) {
+      const fleetNames = competitor.fleetIds
+        .map((id) => fleetById.get(id)?.name)
+        .filter(Boolean)
+        .join(', ');
+      setSailInput('');
+      setHighlightedIndex(-1);
+      setPendingUnknownSail(null);
+      setInputError(`${competitor.sailNumber} cannot be finished — no start configured for fleet ${fleetNames}. Add a start for this fleet first.`);
+      return;
+    }
     if (needsFinishTime(competitor.id)) {
       setSailInput('');
       setInputError('');

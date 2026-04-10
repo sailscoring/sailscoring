@@ -69,21 +69,35 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
   await page.getByText('Race 1').click();
   await expect(page.getByText('Race 1 — results')).toBeVisible();
 
+  // Add two starts: ILCA at 14:05:00 (scratch — no time needed), PY+M15 at 14:10:00
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByPlaceholder('14:05:00').fill('14:05:00');
+  await page.getByLabel('ILCA').check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('14:05:00')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('14:10:00');
   await page.getByLabel('PY').check();
   await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('14:00:00')).toBeVisible();
+  await expect(page.getByText('14:10:00')).toBeVisible();
 
   // ── 4. Enter finishers in crossing order ──────────────────────────────────
-  // Crossing order on the sheet: L1 (scratch), P1 (14:10:00), L2 (scratch), P2 (14:15:00)
+  // Crossing order on the sheet: L1 (scratch), P1 (14:20:00), L2 (scratch), P2 (14:25:00)
+
+  // Scratch boat (L1): should NOT be prompted for a time.
   await page.getByLabel('Sail number').fill('L1');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
+  // Verify no time prompt appeared — the boat was added directly to the list.
+  await expect(page.getByRole('textbox', { name: 'Finish time', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('listitem').nth(0)).toContainText('L1');
 
+  // PY boat (P1): should be prompted for a time.
   await page.getByLabel('Sail number').fill('P1');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill('14:10:00');
+  await expect(page.getByRole('textbox', { name: 'Finish time', exact: true })).toBeVisible();
+  await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill('14:20:00');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
 
   await page.getByLabel('Sail number').fill('L2');
@@ -91,7 +105,7 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
 
   await page.getByLabel('Sail number').fill('P2');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill('14:15:00');
+  await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill('14:25:00');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
 
   // ── 5. Verify the list preserves crossing order ───────────────────────────
@@ -106,8 +120,8 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
   await expect(page.getByTestId('fleet-badge-P1')).toContainText('PY');
 
   // PY rows show editable finish times; ILCA rows show a dash placeholder.
-  await expect(page.getByTestId('finish-time-P1')).toHaveValue('14:10:00');
-  await expect(page.getByTestId('finish-time-P2')).toHaveValue('14:15:00');
+  await expect(page.getByTestId('finish-time-P1')).toHaveValue('14:20:00');
+  await expect(page.getByTestId('finish-time-P2')).toHaveValue('14:25:00');
 
   // Move controls are present on scratch rows (L1, L2) and absent on timed rows (P1, P2)
   await expect(page.getByTestId('move-up-L2')).toBeVisible();
@@ -120,7 +134,7 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
 
   await page.getByRole('link', { name: 'Standings' }).click();
   // ILCA: L1 first (scratch list order), L2 second.
-  // PY:   corrected times: P1 = 600 * (1000/1000) = 600, P2 = 900 * (1000/1100) ≈ 818 → P1 first, P2 second.
+  // PY:   corrected times: P1 = 600s * (1000/1000) = 600, P2 = 900s * (1000/1100) ≈ 818 → P1 first.
   // Per-fleet standings tables are rendered with fleet headings.
   await expect(page.getByRole('heading', { name: /ILCA/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: /PY/ })).toBeVisible();
@@ -226,4 +240,75 @@ test('scoring-system change blocked: Scratch → PY with untimed finishes', asyn
   // Inline error should appear and the fleet should still be Scratch.
   await expect(page.getByText(/Cannot switch to PY/)).toBeVisible();
   await expect(page.getByRole('combobox').filter({ hasText: /Scratch/i })).toBeVisible();
+});
+
+test('finish blocked for competitor whose fleet has no start when handicap fleets exist', async ({ page }) => {
+  // ── Setup: two fleets, one scratch (ILCA) and one PY ──────────────────────
+  await page.goto('/');
+  await page.getByRole('link', { name: 'New series' }).click();
+  await page.getByLabel('Name').fill('Gate Test');
+  await page.getByRole('button', { name: 'Create series' }).click();
+
+  // Add one boat per fleet
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('G1');
+  await page.getByLabel('Helm name').fill('Alice');
+  await page.getByLabel('Fleet').fill('ILCA');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'G1' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('G2');
+  await page.getByLabel('Helm name').fill('Bob');
+  await page.getByLabel('Fleet').fill('PY');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'G2' })).toBeVisible();
+
+  // Switch PY fleet to PY scoring
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const fleetsHeading = page.getByRole('heading', { name: 'Fleets', level: 2 });
+  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
+  const pyRow = page.getByText('PY', { exact: true }).locator('..');
+  await pyRow.getByRole('combobox').click();
+  await page.getByRole('option', { name: 'PY' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── Create a race with a start for PY only (no start for ILCA) ────────────
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByLabel('PY').check();
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  // Close the starts editor so only the finish entry UI is active.
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── Try to finish G1 (ILCA, no start) — should be blocked ────────────────
+  const sailInput = page.getByLabel('Sail number');
+  await sailInput.fill('G1');
+  await sailInput.press('Enter');
+
+  // Error message should appear; G1 should NOT be in the finishing order.
+  await expect(page.getByText(/cannot be finished/)).toBeVisible();
+  await expect(page.getByRole('listitem')).toHaveCount(0);
+
+  // ── Add an ILCA start, then G1 should be finishable ───────────────────────
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('14:05:00');
+  await page.getByLabel('ILCA').check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await sailInput.fill('G1');
+  await sailInput.press('Enter');
+
+  // Now it works — G1 is in the list without a time prompt (scratch fleet).
+  await expect(page.getByRole('listitem').nth(0)).toContainText('G1');
+  await expect(page.getByRole('textbox', { name: 'Finish time', exact: true })).toHaveCount(0);
 });
