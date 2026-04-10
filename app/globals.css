@@ -121,6 +121,13 @@
   html {
     scrollbar-gutter: stable;
     }
+  /* Radix UI's scroll-lock adds margin-right to body[data-scroll-locked]
+     to compensate for the removed scrollbar, but scrollbar-gutter: stable
+     already reserves that space — the margin double-compensates, causing
+     a visible layout shift when dialogs open. */
+  body[data-scroll-locked] {
+    margin-right: 0 !important;
+    }
   body {
     @apply bg-background text-foreground;
     }
