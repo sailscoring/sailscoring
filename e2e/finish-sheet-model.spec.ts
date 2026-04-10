@@ -173,6 +173,7 @@ test('auto-slot: a late timed entry inserts at its correct crossing-order slot',
   await page.getByPlaceholder('14:05:00').fill('14:00:00');
   await page.getByLabel('PY').check();
   await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('14:00:00')).toBeVisible();
 
   // ── Enter A1 at 14:10, then A3 at 14:30 ───────────────────────────────────
   for (const [sail, time] of [['A1', '14:10:00'], ['A3', '14:30:00']] as const) {
