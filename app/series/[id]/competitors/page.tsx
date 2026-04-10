@@ -104,7 +104,7 @@ function autoDetectField(header: string): CompetitorField {
   if (/club/.test(h)) return 'club';
   if (/gender|sex/.test(h)) return 'gender';
   if (/age/.test(h)) return 'age';
-  if (/fleet|class|division/.test(h)) return 'fleet';
+  if (/fleet|division/.test(h)) return 'fleet';
   if (/tcc|irc.*rating|rating.*irc/.test(h)) return 'tcc';
   if (/\bpy\b|portsmouth/.test(h)) return 'py';
   return 'ignore';
