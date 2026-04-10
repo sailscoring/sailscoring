@@ -188,8 +188,23 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
   const newSeriesId = crypto.randomUUID();
   const now = Date.now();
 
-  // Map sailNumber → new competitor UUID for finish remapping
-  const competitorIdBySail = new Map(data.competitors.map((c) => [c.sailNumber, crypto.randomUUID()]));
+  // Each competitor gets a unique UUID. Key by (sailNumber, fleetNames) to handle
+  // collisions where different-fleet boats share a sail number.
+  const competitorIdBySailFleet = new Map<string, string>();
+  // Secondary sail-only multi-map for finish remapping (finishes lack fleet info).
+  const competitorIdsBySail = new Map<string, string[]>();
+  for (const c of data.competitors) {
+    const fleetNames = (c as { fleetNames?: string[] }).fleetNames ?? [];
+    const key = `${c.sailNumber}\0${[...fleetNames].sort().join('\0')}`;
+    const id = crypto.randomUUID();
+    competitorIdBySailFleet.set(key, id);
+    const arr = competitorIdsBySail.get(c.sailNumber);
+    if (arr) arr.push(id);
+    else competitorIdsBySail.set(c.sailNumber, [id]);
+  }
+  function competitorKey(sailNumber: string, fleetNames: string[]): string {
+    return `${sailNumber}\0${[...fleetNames].sort().join('\0')}`;
+  }
 
   // Build fleet name → new fleet ID map
   const fleetIdByName = new Map<string, string>();
@@ -246,12 +261,12 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
     }
 
     for (const c of data.competitors) {
-      const fleetNames = (c as { fleetNames?: string[] }).fleetNames;
-      const fleetIds = fleetNames && fleetNames.length > 0
-        ? fleetNames.map((n) => fleetIdByName.get(n)).filter((id): id is string => id != null)
+      const cFleetNames = (c as { fleetNames?: string[] }).fleetNames ?? [];
+      const fleetIds = cFleetNames.length > 0
+        ? cFleetNames.map((n) => fleetIdByName.get(n)).filter((id): id is string => id != null)
         : [fleetIdByName.get('Default')!];
       await db.competitors.add({
-        id: competitorIdBySail.get(c.sailNumber)!,
+        id: competitorIdBySailFleet.get(competitorKey(c.sailNumber, cFleetNames))!,
         seriesId: newSeriesId,
         fleetIds,
         sailNumber: c.sailNumber,
@@ -291,9 +306,12 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
           });
         }
       }
+      const usedIds = new Set<string>();
       for (const finish of race.finishes) {
-        const competitorId = competitorIdBySail.get(finish.sailNumber);
+        const candidates = competitorIdsBySail.get(finish.sailNumber) ?? [];
+        const competitorId = candidates.find((id) => !usedIds.has(id)) ?? candidates[0];
         if (!competitorId) continue;
+        usedIds.add(competitorId);
         // Back-compat: older v2 exports used finishPosition; v3 uses sortOrder
         const legacyFinishPosition = (finish as { finishPosition?: number | null }).finishPosition;
         await db.finishes.add({

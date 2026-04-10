@@ -114,14 +114,14 @@ function CompetitorForm({
   initial,
   onSave,
   onCancel,
-  existingSailNumbers,
+  existingCompetitors,
   availableFleets,
   enabledFields,
 }: {
   initial: CompetitorFormData;
   onSave: (data: CompetitorFormData) => Promise<void>;
   onCancel: () => void;
-  existingSailNumbers: string[];
+  existingCompetitors: { sailNumber: string; fleetIds: string[] }[];
   availableFleets: Fleet[];
   enabledFields: CompetitorFieldKey[];
 }) {
@@ -159,9 +159,13 @@ function CompetitorForm({
       setError('Helm name is required.');
       return;
     }
-    const sailLower = data.sailNumber.trim().toUpperCase();
-    if (existingSailNumbers.includes(sailLower)) {
-      setError(`Sail number ${sailLower} is already in this series.`);
+    const sailUpper = data.sailNumber.trim().toUpperCase();
+    const collision = existingCompetitors.find(
+      (c) => c.sailNumber === sailUpper && c.fleetIds.some((id) => data.fleetIds.includes(id)),
+    );
+    if (collision) {
+      const fleetName = availableFleets.find((f) => collision.fleetIds.some((id) => id === f.id))?.name;
+      setError(`Sail number ${sailUpper} is already in${fleetName ? ` fleet ${fleetName}` : ' this series'}.`);
       return;
     }
     if (needsIrcTcc && data.ircTcc.trim()) {
@@ -181,7 +185,7 @@ function CompetitorForm({
     setSaving(true);
     setError('');
     try {
-      await onSave({ ...data, sailNumber: sailLower });
+      await onSave({ ...data, sailNumber: sailUpper });
     } catch {
       setError('Failed to save. Please try again.');
       setSaving(false);
@@ -510,7 +514,13 @@ export default function CompetitorsPage({
     if (importFlow.step !== 'mapping') return;
     const { rows, columnMap } = importFlow;
     const existing = await competitorRepo.listBySeries(seriesId);
-    const bysail = new Map(existing.map((c) => [c.sailNumber.toUpperCase(), c]));
+    const bysail = new Map<string, Competitor[]>();
+    for (const c of existing) {
+      const key = c.sailNumber.toUpperCase();
+      const arr = bysail.get(key);
+      if (arr) arr.push(c);
+      else bysail.set(key, [c]);
+    }
     let added = 0;
     let updated = 0;
     let unchanged = 0;
@@ -552,7 +562,6 @@ export default function CompetitorsPage({
       }
 
       const normSail = sailNumber.toUpperCase();
-      const existingCompetitor = bysail.get(normSail);
       const parsedAge = age ? parseInt(age, 10) : null;
       const normGender = gender.toUpperCase();
 
@@ -567,6 +576,12 @@ export default function CompetitorsPage({
       // Dedupe in case two names resolve to the same existing fleet
       // (e.g. differing only in whitespace or case).
       const fleetIds = [...new Set(resolvedFleetIds)];
+
+      // Disambiguate sail number collisions using fleet membership
+      const sailCandidates = bysail.get(normSail) ?? [];
+      const existingCompetitor = sailCandidates.length <= 1
+        ? sailCandidates[0] ?? null
+        : sailCandidates.find((c) => sameFleetIdSet(c.fleetIds, fleetIds)) ?? sailCandidates[0];
 
       const parsedTcc = tcc ? parseFloat(tcc) : null;
       const parsedPy = py ? parseInt(py, 10) : null;
@@ -625,10 +640,10 @@ export default function CompetitorsPage({
     setImportFlow({ step: 'done', added, updated, unchanged, errors });
   }
 
-  const existingSailNumbers = (competitors ?? []).map((c) => c.sailNumber.toUpperCase());
+  const existingCompetitors = (competitors ?? []).map((c) => ({ sailNumber: c.sailNumber.toUpperCase(), fleetIds: c.fleetIds }));
   const editingExcluded = editingCompetitor
-    ? existingSailNumbers.filter((s) => s !== editingCompetitor.sailNumber.toUpperCase())
-    : existingSailNumbers;
+    ? existingCompetitors.filter((c) => c.sailNumber !== editingCompetitor.sailNumber.toUpperCase() || !sameFleetIdSet(c.fleetIds, editingCompetitor.fleetIds))
+    : existingCompetitors;
   const showBoat = enabledFields.includes('boatName');
   const showCrew = enabledFields.includes('crewName');
   const showClub = enabledFields.includes('club');
@@ -668,7 +683,7 @@ export default function CompetitorsPage({
             initial={emptyForm}
             onSave={handleAdd}
             onCancel={() => setShowAddForm(false)}
-            existingSailNumbers={existingSailNumbers}
+            existingCompetitors={existingCompetitors}
             availableFleets={fleets ?? []}
             enabledFields={enabledFields}
           />
@@ -786,7 +801,7 @@ export default function CompetitorsPage({
               }}
               onSave={handleEdit}
               onCancel={() => setEditingCompetitor(null)}
-              existingSailNumbers={editingExcluded}
+              existingCompetitors={editingExcluded}
               availableFleets={fleets ?? []}
               enabledFields={enabledFields}
             />

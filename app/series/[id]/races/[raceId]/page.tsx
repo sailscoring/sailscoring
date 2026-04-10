@@ -425,10 +425,15 @@ export default function ResultEntryPage({
   }
 
   const competitorMap = new Map(competitors.map((c) => [c.id, c]));
-  const sailMap = new Map(
-    competitors.map((c) => [c.sailNumber.toUpperCase(), c]),
-  );
+  const sailMap = new Map<string, Competitor[]>();
+  for (const c of competitors) {
+    const key = c.sailNumber.toUpperCase();
+    const arr = sailMap.get(key);
+    if (arr) arr.push(c);
+    else sailMap.set(key, [c]);
+  }
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
+  const showFleetBadge = (fleets ?? []).length > 1 || (fleets ?? []).some((f) => f.name !== 'Default');
   const hasNonScratchFleets = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
   // Fleet IDs that have a recorded start time for this race
   const fleetIdsWithStartTimes = new Set(raceStarts.flatMap((s) => s.fleetIds));
@@ -576,18 +581,23 @@ export default function ResultEntryPage({
     const sail = sailInput.trim().toUpperCase();
     if (!sail) return;
 
-    const competitor = sailMap.get(sail);
-    if (!competitor) {
+    const candidates = sailMap.get(sail);
+    if (!candidates || candidates.length === 0) {
       setPendingUnknownSail(sail);
       setInputError(`Sail number "${sail}" not found in this series.`);
       return;
     }
-    if (finishedIds.has(competitor.id)) {
+    const unfinished = candidates.filter((c) => !finishedIds.has(c.id));
+    if (unfinished.length === 0) {
       setInputError(`${sail} is already in the finishing order.`);
       return;
     }
+    if (unfinished.length > 1) {
+      setInputError(`Multiple boats with sail ${sail} — select from the list.`);
+      return;
+    }
 
-    commitCompetitor(competitor);
+    commitCompetitor(unfinished[0]);
   }
 
   function removeFinisher(eid: string) {
@@ -1403,6 +1413,11 @@ export default function ResultEntryPage({
                     }}
                   >
                     <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
+                    {showFleetBadge && (
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        {fleetById.get(competitor.fleetIds[0])?.name ?? '—'}
+                      </Badge>
+                    )}
                     <span className="flex-1 truncate">{displayHelmCrew(competitor, showCrew)}</span>
                   </li>
                 ))}
@@ -1513,9 +1528,7 @@ export default function ResultEntryPage({
               if (!competitor) return null;
               const penalty = finisherPenalties.get(entry.competitorId);
               const hasRedress = redressEntries.has(entry.competitorId);
-              const primaryFleet = fleetById.get(competitor.fleetIds[0]);
-              const fleetLabel = primaryFleet?.name ?? '—';
-              const showFleetBadge = (fleets ?? []).length > 1 || (primaryFleet?.name ?? '') !== 'Default';
+              const fleetLabel = fleetById.get(competitor.fleetIds[0])?.name ?? '—';
               return (
                 <li
                   key={entry.competitorId}
