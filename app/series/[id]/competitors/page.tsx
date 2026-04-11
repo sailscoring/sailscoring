@@ -360,6 +360,8 @@ export default function CompetitorsPage({
     series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const multipleFleets = (fleets ?? []).length > 1;
+  const showIrc = (fleets ?? []).some((f) => f.scoringSystem === 'irc');
+  const showPy = (fleets ?? []).some((f) => f.scoringSystem === 'py');
 
   const isMissingRating = (c: Competitor): boolean =>
     c.fleetIds.some((id) => { const f = fleetById.get(id); return f != null && !hasFleetRating(c, f); });
@@ -700,6 +702,8 @@ export default function CompetitorsPage({
               {showCrew && <TableHead>Crew</TableHead>}
               {showClub && <TableHead>Club</TableHead>}
               {multipleFleets && <TableHead>Fleet</TableHead>}
+              {showIrc && <TableHead>IRC TCC</TableHead>}
+              {showPy && <TableHead>PY</TableHead>}
               {showGender && <TableHead>Gender</TableHead>}
               {showAge && <TableHead>Age</TableHead>}
               <TableHead className="w-20" />
@@ -739,6 +743,20 @@ export default function CompetitorsPage({
                 {showCrew && <TableCell>{c.crewName ?? ''}</TableCell>}
                 {showClub && <TableCell>{c.club}</TableCell>}
                 {multipleFleets && <TableCell>{c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ')}</TableCell>}
+                {showIrc && (
+                  <TableCell className="font-mono">
+                    {c.fleetIds.some((id) => fleetById.get(id)?.scoringSystem === 'irc')
+                      ? (c.ircTcc ?? '—')
+                      : '—'}
+                  </TableCell>
+                )}
+                {showPy && (
+                  <TableCell className="font-mono">
+                    {c.fleetIds.some((id) => fleetById.get(id)?.scoringSystem === 'py')
+                      ? (c.pyNumber ?? '—')
+                      : '—'}
+                  </TableCell>
+                )}
                 {showGender && <TableCell>{c.gender}</TableCell>}
                 {showAge && <TableCell>{c.age ?? ''}</TableCell>}
                 <TableCell>
