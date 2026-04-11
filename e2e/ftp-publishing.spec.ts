@@ -95,6 +95,9 @@ test('FTP upload dialog: shows configured server; shows no-servers message after
   await page.getByLabel('Username').fill('scorer');
   await page.locator('#ftp-password').fill('s3cret');
   await page.getByRole('button', { name: 'Save' }).click();
+  // Wait for save to complete before navigating away — the async IndexedDB write
+  // must finish or page.goto() will interrupt it.
+  await expect(page.getByText('ftp://ftp.example.com:21')).toBeVisible();
 
   // ── Return to Standings: dialog now shows the server dropdown ─────────────
   await page.goto('/');

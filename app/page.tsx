@@ -98,6 +98,8 @@ export default function HomePage() {
   // Detect ?import=<base64url> on mount. We use window.location.search (not useSearchParams)
   // so we can strip the param synchronously with window.history.replaceState before any
   // re-render sees it — router.replace() is async and races with state updates.
+  // SessionStorage prevents re-processing when the production router cache restores
+  // /?import=… on back-navigation (the cache is more aggressive than in dev mode).
   useEffect(() => {
     const importParam = new URLSearchParams(window.location.search).get('import');
     if (!importParam) return;
@@ -106,6 +108,9 @@ export default function HomePage() {
     // state so it doesn't restore /?import=… when the page is remounted from cache.
     window.history.replaceState(null, '', '/');
     router.replace('/');
+    const storageKey = 'sailscoring-last-import';
+    if (sessionStorage.getItem(storageKey) === importParam) return;
+    sessionStorage.setItem(storageKey, importParam);
     try {
       const b64 = importParam.replace(/-/g, '+').replace(/_/g, '/');
       const padded = b64 + '=='.slice(0, (4 - b64.length % 4) % 4);
@@ -120,22 +125,6 @@ export default function HomePage() {
       setOpenFlow({ step: 'error', message: 'Could not read the series data from the link.' });
     }
   }, []);
-
-  // Next.js App Router's router cache keeps client components alive across navigations,
-  // preserving React state. When the user navigates away and back, a stale import-url
-  // state from a previous visit would re-open the dialog. Detect this by watching pathname:
-  // if we're back on / but the URL has no ?import=, the import-url state is stale.
-  // Use a ref so this effect doesn't re-run when openFlow changes (which would reset the
-  // dialog immediately after it was legitimately opened on this visit).
-  const openFlowRef = useRef(openFlow);
-  openFlowRef.current = openFlow;
-  useEffect(() => {
-    if (pathname === '/' && openFlowRef.current.step === 'import-url'
-        && !new URLSearchParams(window.location.search).get('import')) {
-      setOpenFlow({ step: 'idle' });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
 
   async function handleConfirmImportUrl() {
     if (openFlow.step !== 'import-url') return;
