@@ -1626,7 +1626,7 @@ export default function ResultEntryPage({
                   ) : (
                     <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
                   )}
-                  {!isTimed && index > 0 && !(finishingOrder[index - 1].kind === 'known' && needsFinishTime(finishingOrder[index - 1].competitorId)) && (
+                  {!isTimed && index > 0 && !((() => { const prev = finishingOrder[index - 1]; return prev.kind === 'known' && needsFinishTime(prev.competitorId); })()) && (
                     <label
                       className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 cursor-pointer"
                       title="Tied with previous row (simultaneous finish, RRS A8.1)"
