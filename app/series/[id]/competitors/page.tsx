@@ -3,7 +3,7 @@
 import { use, useState, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import Papa from 'papaparse';
-import { competitorRepo, fleetRepo, seriesRepo, ensureFleet, pruneFleet } from '@/lib/dexie-repository';
+import { competitorRepo, fleetRepo, seriesRepo, ensureFleet } from '@/lib/dexie-repository';
 import { parseFleetCell } from '@/lib/csv-import';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +47,6 @@ interface CompetitorFormData {
   gender: '' | 'M' | 'F';
   age: string;
   fleetIds: string[];   // IDs of existing fleets to assign the competitor to
-  newFleetName: string; // typed name for a new fleet to create (optional)
   ircTcc: string;       // decimal string, e.g. "0.972"; empty if not set
   pyNumber: string;     // integer string, e.g. "1034"; empty if not set
 }
@@ -61,7 +60,6 @@ const emptyForm: CompetitorFormData = {
   gender: '',
   age: '',
   fleetIds: [],
-  newFleetName: '',
   ircTcc: '',
   pyNumber: '',
 };
@@ -72,7 +70,7 @@ type ColumnMap = Record<number, CompetitorField>;
 type ImportFlow =
   | { step: 'idle' }
   | { step: 'mapping'; headers: string[]; sampleRows: string[][]; rows: string[][]; columnMap: ColumnMap }
-  | { step: 'done'; added: number; updated: number; unchanged: number; errors: { rowIndex: number; reason: string }[] };
+  | { step: 'done'; added: number; updated: number; unchanged: number; fleetsCreated: string[]; errors: { rowIndex: number; reason: string }[] };
 
 const FIELD_LABELS: Record<CompetitorField, string> = {
   sailNumber: 'Sail number',
@@ -278,10 +276,10 @@ function CompetitorForm({
             />
           </div>
         )}
-        <div className="space-y-1.5 col-span-2">
-          <Label htmlFor="newFleetName">Fleet</Label>
-          {availableFleets.length > 0 && (
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-1.5">
+        {availableFleets.length > 1 && (
+          <div className="space-y-1.5 col-span-2">
+            <Label>Fleet</Label>
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
               {availableFleets.map((f) => (
                 <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
                   <input
@@ -297,14 +295,8 @@ function CompetitorForm({
                 </label>
               ))}
             </div>
-          )}
-          <Input
-            id="newFleetName"
-            value={data.newFleetName}
-            onChange={(e) => set('newFleetName', e.target.value)}
-            placeholder={availableFleets.length > 0 ? 'New fleet name (optional)…' : 'e.g. Junior'}
-          />
-        </div>
+          </div>
+        )}
         {needsIrcTcc && (
           <div className="space-y-1.5">
             <Label htmlFor="ircTcc">IRC TCC</Label>
@@ -411,15 +403,12 @@ export default function CompetitorsPage({
   }
 
   async function handleAdd(data: CompetitorFormData) {
-    // Resolve fleet IDs: existing selections + optional new fleet by name (deduplicated)
-    const fleetIdSet = new Set(data.fleetIds);
-    if (data.newFleetName.trim()) {
-      fleetIdSet.add(await ensureFleet(seriesId, data.newFleetName.trim()));
-    }
-    let fleetIds = [...fleetIdSet];
-    if (fleetIds.length === 0) {
-      fleetIds = [await ensureFleet(seriesId, '')];
-    }
+    // Use selected fleet IDs, falling back to the first available fleet
+    let fleetIds = data.fleetIds.length > 0
+      ? data.fleetIds
+      : (fleets ?? []).length > 0
+        ? [(fleets ?? [])[0].id]
+        : [];
     const competitor: Competitor = {
       id: crypto.randomUUID(),
       seriesId,
@@ -442,15 +431,12 @@ export default function CompetitorsPage({
 
   async function handleEdit(data: CompetitorFormData) {
     if (!editingCompetitor) return;
-    const oldFleetIds = editingCompetitor.fleetIds;
-    const newFleetIdSet = new Set(data.fleetIds);
-    if (data.newFleetName.trim()) {
-      newFleetIdSet.add(await ensureFleet(seriesId, data.newFleetName.trim()));
-    }
-    let newFleetIds = [...newFleetIdSet];
-    if (newFleetIds.length === 0) {
-      newFleetIds = [await ensureFleet(seriesId, '')];
-    }
+    // Use selected fleet IDs, falling back to the first available fleet
+    let newFleetIds = data.fleetIds.length > 0
+      ? data.fleetIds
+      : (fleets ?? []).length > 0
+        ? [(fleets ?? [])[0].id]
+        : [];
     const updated: Competitor = {
       ...editingCompetitor,
       fleetIds: newFleetIds,
@@ -470,10 +456,6 @@ export default function CompetitorsPage({
     if (!data.crewName.trim()) delete updated.crewName;
     log('competitors', 'updating', updated);
     await competitorRepo.save(updated);
-    // Prune any fleets that were removed
-    for (const fId of oldFleetIds) {
-      if (!newFleetIds.includes(fId)) await pruneFleet(seriesId, fId);
-    }
     await seriesRepo.touch(seriesId);
     setEditingCompetitor(null);
   }
@@ -482,7 +464,6 @@ export default function CompetitorsPage({
     if (!confirm(`Delete ${competitor.name} (${competitor.sailNumber})?`)) return;
     log('competitors', 'deleting', competitor.id);
     await competitorRepo.delete(competitor.id);
-    for (const fId of competitor.fleetIds) await pruneFleet(seriesId, fId);
     await seriesRepo.touch(seriesId);
   }
 
@@ -523,6 +504,9 @@ export default function CompetitorsPage({
       if (arr) arr.push(c);
       else bysail.set(key, [c]);
     }
+    // Track which fleets exist before import so we can report new ones
+    const existingFleetNames = new Set((fleets ?? []).map((f) => f.name.toLowerCase()));
+    const newFleetNames = new Set<string>();
     let added = 0;
     let updated = 0;
     let unchanged = 0;
@@ -578,6 +562,13 @@ export default function CompetitorsPage({
       // Dedupe in case two names resolve to the same existing fleet
       // (e.g. differing only in whitespace or case).
       const fleetIds = [...new Set(resolvedFleetIds)];
+      // Track newly created fleet names for the import summary
+      for (const fn of fleetNames) {
+        if (fn.trim() && !existingFleetNames.has(fn.trim().toLowerCase())) {
+          newFleetNames.add(fn.trim());
+          existingFleetNames.add(fn.trim().toLowerCase());
+        }
+      }
 
       // Disambiguate sail number collisions using fleet membership
       const sailCandidates = bysail.get(normSail) ?? [];
@@ -628,10 +619,6 @@ export default function CompetitorsPage({
       log('competitors', existingCompetitor ? 'import-update' : 'import-add', competitor);
       await competitorRepo.save(competitor);
       if (existingCompetitor) {
-        // Prune any fleets the competitor is no longer assigned to.
-        for (const fId of oldFleetIds) {
-          if (!fleetIds.includes(fId)) await pruneFleet(seriesId, fId);
-        }
         updated++;
       } else {
         added++;
@@ -639,7 +626,7 @@ export default function CompetitorsPage({
     }
 
     await seriesRepo.touch(seriesId);
-    setImportFlow({ step: 'done', added, updated, unchanged, errors });
+    setImportFlow({ step: 'done', added, updated, unchanged, fleetsCreated: [...newFleetNames], errors });
   }
 
   const existingCompetitors = (competitors ?? []).map((c) => ({ sailNumber: c.sailNumber.toUpperCase(), fleetIds: c.fleetIds }));
@@ -813,7 +800,6 @@ export default function CompetitorsPage({
                 gender: editingCompetitor.gender,
                 age: editingCompetitor.age?.toString() ?? '',
                 fleetIds: editingCompetitor.fleetIds,
-                newFleetName: '',
                 ircTcc: editingCompetitor.ircTcc?.toString() ?? '',
                 pyNumber: editingCompetitor.pyNumber?.toString() ?? '',
               }}
@@ -918,6 +904,12 @@ export default function CompetitorsPage({
                 {importFlow.updated} updated,{' '}
                 {importFlow.unchanged} unchanged.
               </p>
+              {importFlow.fleetsCreated.length > 0 && (
+                <p className="text-sm">
+                  {importFlow.fleetsCreated.length} new fleet{importFlow.fleetsCreated.length === 1 ? '' : 's'} created:{' '}
+                  {importFlow.fleetsCreated.join(', ')}.
+                </p>
+              )}
               {importFlow.errors.length > 0 && (
                 <div>
                   <p className="text-sm font-medium mb-1">

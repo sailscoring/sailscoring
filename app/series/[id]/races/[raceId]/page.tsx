@@ -3,7 +3,7 @@
 import { use, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { competitorRepo, fleetRepo, raceRepo, finishRepo, raceStartRepo, seriesRepo, ensureFleet } from '@/lib/dexie-repository';
+import { competitorRepo, fleetRepo, raceRepo, finishRepo, raceStartRepo, seriesRepo } from '@/lib/dexie-repository';
 import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -888,11 +888,12 @@ export default function ResultEntryPage({
     setAddingCompetitor(true);
     setAddCompetitorError('');
     try {
-      const fleetId = await ensureFleet(seriesId, newCompetitorFleet.trim());
+      // Use selected fleet ID, falling back to the first available fleet
+      const fleetId = newCompetitorFleet || (fleets ?? [])[0]?.id || '';
       const competitor: Competitor = {
         id: crypto.randomUUID(),
         seriesId,
-        fleetIds: [fleetId],
+        fleetIds: fleetId ? [fleetId] : [],
         sailNumber: sail,
         name,
         club: '',
@@ -1900,7 +1901,7 @@ export default function ResultEntryPage({
                       </SelectTrigger>
                       <SelectContent>
                         {(fleets ?? []).map((f) => (
-                          <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>
+                          <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

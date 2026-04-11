@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createFleets } from './helpers';
 
 /**
  * E2E test for sail number collisions across fleets (issue #70).
@@ -27,13 +28,16 @@ test('sail number collision across fleets is disambiguated at finish entry', asy
   await page.getByRole('button', { name: 'Create series' }).click();
   await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
 
-  // ── 2. Add competitors with fleet names ───────────────────────────────────
+  // ── 2. Create fleets and add competitors ──────────────────────────────────
+  await createFleets(page, ['Puppeteer', 'Howth17']);
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
     await page.getByLabel('Helm name').fill(c.name);
     await page.getByLabel('Club').fill(c.club);
-    await page.getByLabel('Fleet').fill(c.fleet);
+    await page.getByRole('checkbox', { name: c.fleet }).check();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.name, exact: true })).toBeVisible();
   }

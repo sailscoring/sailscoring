@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createFleets } from './helpers';
 
 /**
  * E2E test for issue #72: handicap rating columns in competitors list.
@@ -16,7 +17,11 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
   await page.getByRole('button', { name: 'Create series' }).click();
   await expect(page).toHaveURL(/\/competitors$/);
 
-  // ── 2. Add two competitors in a "PY" fleet ───────────────────────────────
+  // ── 2. Create PY fleet ───────────────────────────────────────────────────
+  await createFleets(page, ['PY']);
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
+  // ── 3. Add two competitors in the PY fleet ───────────────────────────────
   for (const c of [
     { sail: 'PY1', name: 'Alice' },
     { sail: 'PY2', name: 'Bob' },
@@ -24,25 +29,24 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sail);
     await page.getByLabel('Helm name').fill(c.name);
-    await page.getByLabel('Fleet').fill('PY');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sail })).toBeVisible();
   }
 
-  // ── 3. No rating columns yet (fleet is still scratch-scored) ─────────────
+  // ── 4. No rating columns yet (fleet is still scratch-scored) ─────────────
   const header = page.getByRole('row').first();
   await expect(header.getByRole('columnheader', { name: 'PY' })).not.toBeVisible();
   await expect(header.getByRole('columnheader', { name: 'IRC TCC' })).not.toBeVisible();
 
-  // ── 4. Change fleet scoring system to PY ─────────────────────────────────
+  // ── 5. Change fleet scoring system to PY ─────────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const fleetsHeading = page.getByRole('heading', { name: 'Fleets', level: 2 });
-  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
+  // Open Fleets card for editing
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
   await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
   await page.getByRole('option', { name: 'PY' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
 
-  // ── 5. Edit competitors to set PY numbers ────────────────────────────────
+  // ── 6. Edit competitors to set PY numbers ────────────────────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();
 
   const pyNumbers: Record<string, string> = { PY1: '1034', PY2: '1087' };
@@ -54,7 +58,7 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
     await expect(page.getByRole('cell', { name: sail })).toBeVisible();
   }
 
-  // ── 6. PY column now visible with correct values ─────────────────────────
+  // ── 7. PY column now visible with correct values ─────────────────────────
   await expect(header.getByRole('columnheader', { name: 'PY' })).toBeVisible();
   // IRC column should NOT appear (no IRC fleet)
   await expect(header.getByRole('columnheader', { name: 'IRC TCC' })).not.toBeVisible();

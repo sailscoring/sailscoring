@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createFleets } from './helpers';
 
 /**
  * E2E tests for the "tied with previous row" checkbox (RRS A8.1).
@@ -13,11 +14,22 @@ test('tie checkbox: not shown after a timed row', async ({ page }) => {
   await page.getByLabel('Name').fill('Tie After Timed');
   await page.getByRole('button', { name: 'Create series' }).click();
 
+  // Create fleets and set PY scoring system
+  await createFleets(page, ['ILCA', 'PY']);
+  // Open Fleets card for editing
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  const pyRow = page.getByText('PY', { exact: true }).locator('..');
+  await pyRow.getByRole('combobox').click();
+  await page.getByRole('option', { name: 'PY' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
   // Scratch boat
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('S1');
   await page.getByLabel('Helm name').fill('Alice');
-  await page.getByLabel('Fleet').fill('ILCA');
+  await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'S1' })).toBeVisible();
 
@@ -25,7 +37,7 @@ test('tie checkbox: not shown after a timed row', async ({ page }) => {
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('P1');
   await page.getByLabel('Helm name').fill('Bob');
-  await page.getByLabel('Fleet').fill('PY');
+  await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'P1' })).toBeVisible();
 
@@ -33,21 +45,11 @@ test('tie checkbox: not shown after a timed row', async ({ page }) => {
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('S2');
   await page.getByLabel('Helm name').fill('Carol');
-  await page.getByLabel('Fleet').fill('ILCA');
+  await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'S2' })).toBeVisible();
 
-  // Switch PY fleet to PY scoring
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const fleetsHeading = page.getByRole('heading', { name: 'Fleets', level: 2 });
-  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
-  const pyRow = page.getByText('PY', { exact: true }).locator('..');
-  await pyRow.getByRole('combobox').click();
-  await page.getByRole('option', { name: 'PY' }).click();
-  await page.getByRole('button', { name: 'Done' }).click();
-
   // Set PY number
-  await page.getByRole('link', { name: 'Competitors' }).click();
   const p1Row = page.getByRole('row').filter({ hasText: 'P1' });
   await p1Row.getByRole('button', { name: /Edit/ }).click();
   await page.getByLabel('PY number').fill('1000');
@@ -61,13 +63,13 @@ test('tie checkbox: not shown after a timed row', async ({ page }) => {
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
   await page.getByPlaceholder('14:05:00').fill('14:00:00');
-  await page.getByLabel('ILCA').check();
+  await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();
 
   await page.getByRole('button', { name: 'Add start' }).click();
   await page.getByPlaceholder('14:05:00').fill('14:05:00');
-  await page.getByLabel('PY').check();
+  await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:05:00')).toBeVisible();
 

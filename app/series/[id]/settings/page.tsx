@@ -154,14 +154,18 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renameError, setRenameError] = useState('');
+  const [addingFleet, setAddingFleet] = useState(false);
+  const [newFleetName, setNewFleetName] = useState('');
+  const [newFleetError, setNewFleetError] = useState('');
   // Inline error message for a blocked Scratch → Handicap change (missing finish times).
   const [scoringSystemError, setScoringSystemError] = useState<{ fleetId: string; message: string } | null>(null);
   // Pending Handicap → Scratch confirmation (non-blocking warning).
   const [confirmToScratch, setConfirmToScratch] = useState<{ fleet: Fleet } | null>(null);
+  // Pending fleet deletion confirmation.
+  const [confirmDeleteFleet, setConfirmDeleteFleet] = useState<Fleet | null>(null);
 
   // A single Default fleet means fleets are invisible to the user.
   const isOnlyDefault = fleets.length === 1 && fleets[0].name === 'Default';
-  const showEditButton = fleets.length > 0;
 
   async function moveFleet(index: number, direction: -1 | 1) {
     const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
@@ -248,13 +252,54 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
     setConfirmToScratch(null);
   }
 
+  async function handleAddFleet() {
+    const name = newFleetName.trim();
+    if (!name) {
+      setNewFleetError('Fleet name is required.');
+      return;
+    }
+    if (fleets.some((f) => f.name.toLowerCase() === name.toLowerCase())) {
+      setNewFleetError(`"${name}" already exists.`);
+      return;
+    }
+    const maxOrder = fleets.reduce((max, f) => Math.max(max, f.displayOrder), -1);
+    await fleetRepo.save({
+      id: crypto.randomUUID(),
+      seriesId,
+      name,
+      displayOrder: maxOrder + 1,
+      scoringSystem: 'scratch',
+    });
+    await seriesRepo.touch(seriesId);
+    setNewFleetName('');
+    setNewFleetError('');
+    setAddingFleet(false);
+  }
+
+  async function handleDeleteFleet(fleet: Fleet) {
+    const competitorsInFleet = await competitorRepo.listBySeries(seriesId);
+    const count = competitorsInFleet.filter((c) => c.fleetIds.includes(fleet.id)).length;
+    if (count > 0) {
+      // Move competitors out of this fleet before deleting
+      for (const c of competitorsInFleet) {
+        if (c.fleetIds.includes(fleet.id)) {
+          const remaining = c.fleetIds.filter((id) => id !== fleet.id);
+          await competitorRepo.save({ ...c, fleetIds: remaining.length > 0 ? remaining : c.fleetIds });
+        }
+      }
+    }
+    await fleetRepo.delete(fleet.id);
+    await seriesRepo.touch(seriesId);
+    setConfirmDeleteFleet(null);
+  }
+
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
 
   return (
     <div className="border rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">Fleets</h2>
-        {!expanded && showEditButton && (
+        {!expanded && (
           <Button variant="ghost" size="sm" onClick={() => setExpanded(true)}>
             Edit ▸
           </Button>
@@ -264,13 +309,13 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
       {!expanded ? (
         <p className="text-sm text-muted-foreground">
           {fleets.length === 0 || isOnlyDefault
-            ? 'Fleets are created from competitors.'
+            ? 'No fleets configured.'
             : sorted.map((f) => f.scoringSystem !== 'scratch' ? `${f.name} (${f.scoringSystem.toUpperCase()})` : f.name).join(' · ')}
         </p>
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Fleets are created automatically from your competitors. Set each fleet&apos;s scoring system here.
+            Add and configure fleets for your series. Set each fleet&apos;s scoring system here.
           </p>
           <div className="space-y-1">
             {sorted.map((fleet, i) => (
@@ -337,6 +382,16 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
                     Rename
                   </Button>
                 )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-1.5 text-destructive/70 hover:text-destructive"
+                  onClick={() => setConfirmDeleteFleet(fleet)}
+                  title="Delete fleet"
+                >
+                  ×
+                </Button>
               </div>
               {renamingId === fleet.id && renameError && (
                 <p className="text-xs text-destructive mt-0.5">{renameError}</p>
@@ -349,6 +404,28 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
               </div>
             ))}
           </div>
+          {addingFleet ? (
+            <div className="flex items-center gap-2">
+              <input
+                className={`flex-1 border rounded px-2 py-1 text-sm${newFleetError ? ' border-destructive' : ''}`}
+                value={newFleetName}
+                autoFocus
+                placeholder="Fleet name"
+                onChange={(e) => { setNewFleetName(e.target.value); setNewFleetError(''); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); handleAddFleet(); }
+                  if (e.key === 'Escape') { setAddingFleet(false); setNewFleetName(''); setNewFleetError(''); }
+                }}
+              />
+              <Button type="button" size="sm" className="h-7" onClick={handleAddFleet}>Add</Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7" onClick={() => { setAddingFleet(false); setNewFleetName(''); setNewFleetError(''); }}>Cancel</Button>
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setAddingFleet(true)}>
+              + Add fleet
+            </Button>
+          )}
+          {newFleetError && <p className="text-xs text-destructive">{newFleetError}</p>}
           <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>
             Done
           </Button>
@@ -365,6 +442,20 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
           <DialogFooter>
             <Button variant="ghost" onClick={() => setConfirmToScratch(null)}>Cancel</Button>
             <Button onClick={confirmSwitchToScratch}>Switch to scratch</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={confirmDeleteFleet !== null} onOpenChange={(open) => { if (!open) setConfirmDeleteFleet(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete fleet &ldquo;{confirmDeleteFleet?.name}&rdquo;?</DialogTitle>
+            <DialogDescription>
+              Competitors in this fleet will be unassigned. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmDeleteFleet(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => confirmDeleteFleet && handleDeleteFleet(confirmDeleteFleet)}>Delete fleet</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

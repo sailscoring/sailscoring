@@ -159,10 +159,9 @@ test('import competitors assigned to multiple fleets', async ({ page }) => {
   await expect(page.getByText(/2 unchanged/i)).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
 
-  // ── 5. Removing one fleet updates the competitor and prunes the fleet ────
-  // Drop M15 from the Melges 15 row. M15 is not used by any other competitor,
-  // so the fleet should be pruned — the table should revert to the
-  // single-fleet layout (no Fleet column visible).
+  // ── 5. Removing one fleet from a competitor via reimport ─────────────────
+  // Drop M15 from the Melges 15 row. The M15 fleet persists (fleets are
+  // explicit managed objects) but the competitor is no longer assigned to it.
   const shrunkCsv = [
     'sailNumber,name,club,fleet',
     '635,Cormac Farrelly,HYC,PY',
@@ -174,8 +173,6 @@ test('import competitors assigned to multiple fleets', async ({ page }) => {
   await expect(page.getByText(/1 unchanged/i)).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
 
-  // Only the PY fleet remains — so the Fleet column in the competitors table
-  // is hidden (rendered only when multiple fleets exist).
+  // The competitor is no longer in M15 — their row should show only PY.
   await expect(page.getByRole('row', { name: /635/ })).not.toContainText('M15');
-  await expect(page.getByRole('columnheader', { name: 'Fleet' })).not.toBeVisible();
 });

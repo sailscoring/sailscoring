@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createFleets } from './helpers';
 
 /**
  * E2E tests for fleet support (issue #40).
@@ -37,31 +38,36 @@ test('two-fleet series shows fleet column, per-fleet standings, and exports two 
   await page.getByRole('button', { name: 'Create series' }).click();
   await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
 
-  // ── 2. Add competitors with fleet names ───────────────────────────────────
+  // ── 2. Create fleets ─────────────────────────────────────────────────────
+  await createFleets(page, ['Junior', 'Senior']);
+
+  // ── 3. Add competitors with fleet assignments ─────────────────────────────
+  await page.getByRole('link', { name: 'Competitors' }).click();
   for (const c of [...juniors, ...seniors]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
     await page.getByLabel('Helm name').fill(c.name);
     await page.getByLabel('Club').fill(c.club);
-    await page.getByLabel('Fleet').fill(c.fleet);
+    // Check the appropriate fleet checkbox
+    await page.getByRole('checkbox', { name: c.fleet }).check();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
   }
 
-  // ── 3. Fleet column appears in competitors table ──────────────────────────
+  // ── 4. Fleet column appears in competitors table ──────────────────────────
   await expect(page.getByRole('columnheader', { name: 'Fleet' })).toBeVisible();
   const rows = page.getByRole('row');
   await expect(rows.filter({ hasText: 'J1' }).first()).toContainText('Junior');
   await expect(rows.filter({ hasText: 'S1' }).first()).toContainText('Senior');
 
-  // ── 4. Add 2 races ────────────────────────────────────────────────────────
+  // ── 5. Add 2 races ────────────────────────────────────────────────────────
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
   await expect(page.getByText('Race 1')).toBeVisible();
   await page.getByRole('button', { name: 'Add race' }).click();
   await expect(page.getByText('Race 2')).toBeVisible();
 
-  // ── 5. Enter Race 1: J1, J2, J3, S1, S2 in order ────────────────────────
+  // ── 6. Enter Race 1: J1, J2, J3, S1, S2 in order ────────────────────────
   await page.getByText('Race 1').click();
   await expect(page.getByText('Race 1 — results')).toBeVisible();
 
@@ -73,7 +79,7 @@ test('two-fleet series shows fleet column, per-fleet standings, and exports two 
   await page.getByRole('button', { name: 'Save results' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
-  // ── 6. Enter Race 2: J2, J3, J1, S2, S1 in order ─────────────────────────
+  // ── 7. Enter Race 2: J2, J3, J1, S2, S1 in order ─────────────────────────
   await page.getByText('Race 2').click();
   await expect(page.getByText('Race 2 — results')).toBeVisible();
 
@@ -85,7 +91,7 @@ test('two-fleet series shows fleet column, per-fleet standings, and exports two 
   await page.getByRole('button', { name: 'Save results' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
-  // ── 7. Standings show per-fleet headings ──────────────────────────────────
+  // ── 8. Standings show per-fleet headings ──────────────────────────────────
   await page.getByRole('link', { name: 'Standings' }).click();
 
   await expect(page.getByRole('heading', { name: 'Junior' })).toBeVisible();
@@ -100,7 +106,7 @@ test('two-fleet series shows fleet column, per-fleet standings, and exports two 
   const seniorSection = page.getByRole('heading', { name: 'Senior' }).locator('..');
   await expect(seniorSection.getByRole('row').nth(1)).toContainText('S2');
 
-  // ── 8. Export HTML dropdown offers per-fleet downloads ───────────────────
+  // ── 9. Export HTML dropdown offers per-fleet downloads ───────────────────
   const downloads: string[] = [];
   page.on('download', (download) => downloads.push(download.suggestedFilename()));
 
@@ -123,7 +129,11 @@ test('multi-fleet non-finishers show fleet badge', async ({ page }) => {
   await page.getByRole('button', { name: 'Create series' }).click();
   await expect(page).toHaveURL(/\/competitors$/);
 
+  // Create fleets
+  await createFleets(page, ['Junior', 'Senior']);
+
   // Add competitors in two fleets
+  await page.getByRole('link', { name: 'Competitors' }).click();
   const competitors = [
     { sailNumber: 'J1', name: 'Alice', club: 'HYC', fleet: 'Junior' },
     { sailNumber: 'S1', name: 'Bob', club: 'HYC', fleet: 'Senior' },
@@ -134,7 +144,7 @@ test('multi-fleet non-finishers show fleet badge', async ({ page }) => {
     await page.getByLabel('Sail number').fill(c.sailNumber);
     await page.getByLabel('Helm name').fill(c.name);
     await page.getByLabel('Club').fill(c.club);
-    await page.getByLabel('Fleet').fill(c.fleet);
+    await page.getByRole('checkbox', { name: c.fleet }).check();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
   }
@@ -173,7 +183,7 @@ test('single-fleet series hides fleet concept', async ({ page }) => {
   await page.getByLabel('Sail number').fill('42');
   await page.getByLabel('Helm name').fill('Alice');
   await page.getByLabel('Club').fill('HYC');
-  // Leave Fleet blank intentionally
+  // No fleet checkbox shown for single-fleet series
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: '42' })).toBeVisible();
 

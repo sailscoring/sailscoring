@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createFleets } from './helpers';
 
 /**
  * E2E tests for the finish sheet model (ADR-007, issue #66).
@@ -16,6 +17,17 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
   await page.getByLabel('Name').fill('Frostbite Mixed');
   await page.getByRole('button', { name: 'Create series' }).click();
 
+  // Create fleets and set PY scoring system
+  await createFleets(page, ['ILCA', 'PY']);
+  // Open Fleets card for editing
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  const pyRow = page.getByText('PY', { exact: true }).locator('..');
+  await pyRow.getByRole('combobox').click();
+  await page.getByRole('option', { name: 'PY' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
   // ILCA fleet — scratch scoring
   for (const c of [
     { sailNumber: 'L1', name: 'Laser Alice' },
@@ -24,7 +36,7 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
     await page.getByLabel('Helm name').fill(c.name);
-    await page.getByLabel('Fleet').fill('ILCA');
+    await page.getByRole('checkbox', { name: 'ILCA' }).check();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
   }
@@ -37,24 +49,12 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
     await page.getByLabel('Helm name').fill(c.name);
-    await page.getByLabel('Fleet').fill('PY');
+    await page.getByRole('checkbox', { name: 'PY' }).check();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
   }
 
-  // ── 2. Switch PY fleet to PY scoring and add PY numbers ───────────────────
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const fleetsHeading = page.getByRole('heading', { name: 'Fleets', level: 2 });
-  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
-
-  // Change the PY fleet scoring system. The ILCA row stays scratch.
-  const pyRow = page.getByText('PY', { exact: true }).locator('..');
-  await pyRow.getByRole('combobox').click();
-  await page.getByRole('option', { name: 'PY' }).click();
-  await page.getByRole('button', { name: 'Done' }).click();
-
-  // Set PY numbers on the PY boats
-  await page.getByRole('link', { name: 'Competitors' }).click();
+  // ── 2. Set PY numbers on the PY boats ────────────────────────────────────
   for (const { sail, py } of [{ sail: 'P1', py: '1000' }, { sail: 'P2', py: '1100' }]) {
     const row = page.getByRole('row').filter({ hasText: sail });
     await row.getByRole('button', { name: /Edit/ }).click();
@@ -73,13 +73,13 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
   await page.getByPlaceholder('14:05:00').fill('14:05:00');
-  await page.getByLabel('ILCA').check();
+  await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:05:00')).toBeVisible();
 
   await page.getByRole('button', { name: 'Add start' }).click();
   await page.getByPlaceholder('14:05:00').fill('14:10:00');
-  await page.getByLabel('PY').check();
+  await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:10:00')).toBeVisible();
 
@@ -147,6 +147,16 @@ test('auto-slot: a late timed entry inserts at its correct crossing-order slot',
   await page.getByLabel('Name').fill('Auto-Slot Cup');
   await page.getByRole('button', { name: 'Create series' }).click();
 
+  // Create PY fleet and set scoring system
+  await createFleets(page, ['PY']);
+  // Open Fleets card for editing
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'PY' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
   for (const c of [
     { sail: 'A1', name: 'Alice' },
     { sail: 'A2', name: 'Bob' },
@@ -155,21 +165,12 @@ test('auto-slot: a late timed entry inserts at its correct crossing-order slot',
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sail);
     await page.getByLabel('Helm name').fill(c.name);
-    await page.getByLabel('Fleet').fill('PY');
+    // Single fleet — competitor auto-assigned, no checkbox needed
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sail })).toBeVisible();
   }
 
-  // Switch fleet to PY
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const fleetsHeading = page.getByRole('heading', { name: 'Fleets', level: 2 });
-  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
-  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
-  await page.getByRole('option', { name: 'PY' }).click();
-  await page.getByRole('button', { name: 'Done' }).click();
-
   // Set a PY number so CT is defined (value is irrelevant to auto-slot)
-  await page.getByRole('link', { name: 'Competitors' }).click();
   for (const sail of ['A1', 'A2', 'A3']) {
     const r = page.getByRole('row').filter({ hasText: sail });
     await r.getByRole('button', { name: /Edit/ }).click();
@@ -185,7 +186,7 @@ test('auto-slot: a late timed entry inserts at its correct crossing-order slot',
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
   await page.getByPlaceholder('14:05:00').fill('14:00:00');
-  await page.getByLabel('PY').check();
+  await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();
 
@@ -210,11 +211,15 @@ test('auto-slot: a late timed entry inserts at its correct crossing-order slot',
 });
 
 test('scoring-system change blocked: Scratch → PY with untimed finishes', async ({ page }) => {
-  // ── Setup: scratch series, one race with one finish ───────────────────────
+  // ── Setup: scratch series, one fleet, one race with one finish ────────────
   await page.goto('/');
   await page.getByRole('link', { name: 'New series' }).click();
   await page.getByLabel('Name').fill('Block Test');
   await page.getByRole('button', { name: 'Create series' }).click();
+
+  // Create a fleet so there's something to switch
+  await createFleets(page, ['Dinghy']);
+  await page.getByRole('link', { name: 'Competitors' }).click();
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('B1');
@@ -230,10 +235,10 @@ test('scoring-system change blocked: Scratch → PY with untimed finishes', asyn
   await page.getByRole('button', { name: 'Save results' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
-  // ── Settings: try to switch Default → PY. Should be blocked. ──────────────
+  // ── Settings: try to switch Dinghy fleet → PY. Should be blocked. ─────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const fleetsHeading = page.getByRole('heading', { name: 'Fleets', level: 2 });
-  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
+  await expect(page.locator('h2', { hasText: 'Fleets' })).toBeVisible();
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
   await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
   await page.getByRole('option', { name: 'PY' }).click();
 
@@ -249,29 +254,31 @@ test('finish blocked for competitor whose fleet has no start when handicap fleet
   await page.getByLabel('Name').fill('Gate Test');
   await page.getByRole('button', { name: 'Create series' }).click();
 
+  // Create fleets and set PY scoring system
+  await createFleets(page, ['ILCA', 'PY']);
+  // Open Fleets card for editing
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  const pyRow = page.getByText('PY', { exact: true }).locator('..');
+  await pyRow.getByRole('combobox').click();
+  await page.getByRole('option', { name: 'PY' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
   // Add one boat per fleet
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('G1');
   await page.getByLabel('Helm name').fill('Alice');
-  await page.getByLabel('Fleet').fill('ILCA');
+  await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'G1' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('G2');
   await page.getByLabel('Helm name').fill('Bob');
-  await page.getByLabel('Fleet').fill('PY');
+  await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'G2' })).toBeVisible();
-
-  // Switch PY fleet to PY scoring
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const fleetsHeading = page.getByRole('heading', { name: 'Fleets', level: 2 });
-  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
-  const pyRow = page.getByText('PY', { exact: true }).locator('..');
-  await pyRow.getByRole('combobox').click();
-  await page.getByRole('option', { name: 'PY' }).click();
-  await page.getByRole('button', { name: 'Done' }).click();
 
   // ── Create a race with a start for PY only (no start for ILCA) ────────────
   await page.getByRole('link', { name: 'Races' }).click();
@@ -282,7 +289,7 @@ test('finish blocked for competitor whose fleet has no start when handicap fleet
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
   await page.getByPlaceholder('14:05:00').fill('14:00:00');
-  await page.getByLabel('PY').check();
+  await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
 
   // Close the starts editor so only the finish entry UI is active.
@@ -301,7 +308,7 @@ test('finish blocked for competitor whose fleet has no start when handicap fleet
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
   await page.getByPlaceholder('14:05:00').fill('14:05:00');
-  await page.getByLabel('ILCA').check();
+  await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
 

@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createFleets } from './helpers';
 
 /**
  * E2E tests for the Export HTML feature (issue #13).
@@ -179,7 +180,18 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   await page.getByRole('button', { name: 'Create series' }).click();
   await expect(page).toHaveURL(/\/competitors$/);
 
-  // ── 2. Add competitors: 3 IRC, 2 Cruiser ─────────────────────────────────
+  // ── 2. Create fleets and set IRC scoring system ────────────────────────────
+  await createFleets(page, ['IRC', 'Cruiser']);
+  // Open Fleets card for editing
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  // Find the IRC fleet's combobox and change to IRC
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).first().click();
+  await page.getByRole('option', { name: 'IRC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 3. Add competitors: 3 IRC, 2 Cruiser ─────────────────────────────────
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
   const boats = [
     { sail: 'B1', name: 'Fast One', fleet: 'IRC' },
     { sail: 'B2', name: 'Mid Two', fleet: 'IRC' },
@@ -191,22 +203,12 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(b.sail);
     await page.getByLabel('Helm name').fill(b.name);
-    await page.getByLabel('Fleet').fill(b.fleet);
+    await page.getByRole('checkbox', { name: b.fleet }).check();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: b.sail })).toBeVisible();
   }
 
-  // ── 3. Set IRC fleet scoring system to IRC ────────────────────────────────
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const fleetsHeading = page.getByRole('heading', { name: 'Fleets', level: 2 });
-  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
-  // Find the IRC fleet's combobox and change to IRC
-  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).first().click();
-  await page.getByRole('option', { name: 'IRC' }).click();
-  await page.getByRole('button', { name: 'Done' }).click();
-
   // ── 4. Set TCC ratings on IRC boats ───────────────────────────────────────
-  await page.getByRole('link', { name: 'Competitors' }).click();
   const tccs: Record<string, string> = { B1: '1.100', B2: '1.050', B3: '1.000' };
   for (const sail of ['B1', 'B2', 'B3']) {
     const row = page.getByRole('row').filter({ hasText: sail });
@@ -229,7 +231,7 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
   await page.getByPlaceholder('14:05:00').fill('14:00:00');
-  await page.getByLabel('IRC').check();
+  await page.getByRole('checkbox', { name: 'IRC' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();
 
