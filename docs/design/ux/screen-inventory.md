@@ -92,15 +92,20 @@ event. A dashboard screen is deferred until there is a clear need for one.
 
 ---
 
-### G-02: New Series Setup
+### G-02: New Series Wizard
 
-**Route:** `/series/[id]/settings` (same screen as S-01)
-**Purpose:** Create and configure a new series.
+**Route:** `/series/[id]/setup` (wizard flow; leads to S-01 on completion)
+**Purpose:** Create and configure a new series via a guided wizard.
 
 Clicking "New Series" on G-01 immediately creates a series with a generated
-placeholder name and navigates to `/series/[id]/settings`. There is no
-upfront form. The setup screen and the series settings screen are the same
-screen — see `flows/series-setup.md` for the full flow.
+placeholder name and launches the setup wizard. The wizard walks through
+four steps: Name & Basics → Import Competitors → Fleets → Scoring &
+Discards. Each step is skippable. On completion the scorer lands on the
+Races list.
+
+The wizard and the Settings screen (S-01) share the same configuration UI
+— the wizard presents it as a linear sequence, settings presents it as
+expandable cards. See `flows/series-setup.md` for the full flow.
 
 **Placeholder names** are generated from a small wordlist: *[Adjective] [Noun]
 Series* (e.g. *Gusty Halyard Series*, *Briny Barnacle Series*). The name field
@@ -197,8 +202,12 @@ screen when opening a series.
 - For each race: link to finish entry, link to race results view
 
 **Actions:**
-- Add race (minimal form: race number, date)
-- Edit race (date; start times are set on the finish entry screen)
+- Add race — for scratch-only series: minimal form (race number, date).
+  For handicap series: race number, date, and first start time; subsequent
+  start times are pre-populated from the default start sequence configured
+  in Settings > Fleets. See `flows/series-setup.md` for details.
+- Edit race (date; start times can be edited on the race detail page or
+  the finish entry screen)
 - Delete race (with confirmation — removes all finishes)
 
 ---
@@ -292,7 +301,8 @@ mixed entry that the system splits by fleet for scoring.
 |--------|-------|---------|
 | G-00: App Settings | `/settings` | P2 |
 | G-01: Series List | `/` | P1 |
-| G-02/S-01: Series Setup & Settings | `/series/[id]/settings` | P1 |
+| G-02: New Series Wizard | `/series/[id]/setup` | P1 |
+| S-01: Series Settings | `/series/[id]/settings` | P1 |
 | S-03: Competitors List | `/series/[id]/competitors` | P1 |
 | S-04: Competitor Import | `/series/[id]/competitors/import` | P1 |
 | S-05: Races List | `/series/[id]/races` | P1 |

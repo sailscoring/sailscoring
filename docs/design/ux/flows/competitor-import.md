@@ -225,7 +225,9 @@ default fleet and no warning is shown (single-fleet series are common).
 
 ## Step 3: Confirm
 
-A summary screen before the import runs.
+A summary screen before the import runs. Fleet creation is reported
+explicitly — the scorer sees exactly what structural changes the import
+will make, not just how many rows are affected.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -233,8 +235,9 @@ A summary screen before the import runs.
 │                                                                         │
 │  Ready to import                                                        │
 │                                                                         │
-│  177  competitors will be added                                         │
+│  147  competitors will be added                                         │
 │   23  existing competitors will be updated                              │
+│    3  new fleets will be created: Junior, Senior, Class 1              │
 │    3  rows skipped (errors)                                             │
 │                                                                         │
 │  Skipped rows:                                                          │
@@ -242,16 +245,31 @@ A summary screen before the import runs.
 │    Row 112  — missing sail number                                       │
 │    Row 198  — duplicate sail number IRL 9999 (row 12 takes precedence)  │
 │                                                                         │
-│  [◀ Adjust mapping]                    [Import 200 competitors]        │
+│  [◀ Adjust mapping]                    [Import 170 competitors]        │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
+
+The fleet creation line is prominent — **"3 new fleets will be created:
+Junior, Senior, Class 1"**. If all fleet values in the CSV match existing
+fleets, this line does not appear (no new fleets). If some values match
+and others are new, only the new ones are listed.
+
+New fleets are created with default settings (scratch scoring, no start
+group assignment). The scorer should configure them in Settings > Fleets
+after import.
 
 The import button label states the number of competitors that will actually
 be written, not the total row count.
 
 On confirmation, the import runs immediately (client-side, no server round-
 trip) and the scorer is returned to the Competitors list with a success
-banner: *"200 competitors imported. 3 rows skipped — see details."*
+banner:
+
+> *170 competitors imported. 3 new fleets created. 3 rows skipped —
+> see details.*
+
+The banner reports fleet creation alongside the competitor count so the
+result is never a surprise.
 
 ---
 
@@ -260,12 +278,17 @@ banner: *"200 competitors imported. 3 rows skipped — see details."*
 Returning to the series settings screen:
 
 - The **Competitors card** updates to show the count and fleet names.
-- The **Fleets card** reflects any new fleets that emerged from the import.
+- The **Fleets card** reflects the new fleets created by the import.
+  New fleets default to scratch scoring and are not yet assigned to a
+  start group (for handicap series). The scorer should review and
+  configure them.
 - The **Scoring card** surfaces detected rating columns as suggestions if
   scoring has not yet been configured.
 
 The scorer can import again at any time — to add late entries, apply bulk
 rating updates, or correct registration data. Each import upserts cleanly.
+Subsequent imports that introduce new fleet values will again report fleet
+creation explicitly in the confirmation step.
 
 ---
 

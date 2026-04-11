@@ -1,8 +1,8 @@
-import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart, CompetitorFieldKey } from './types';
+import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart, CompetitorFieldKey, StartGroup } from './types';
 import { db } from './db';
 import { defaultEnabledCompetitorFields } from './competitor-fields';
 
-export const FORMAT_VERSION = 8;
+export const FORMAT_VERSION = 9;
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -38,6 +38,8 @@ interface SeriesFileSeries {
   bilgeBundle: SeriesFileBilgeBundle | null;
   includeJsonExport: boolean;
   enabledCompetitorFields?: CompetitorFieldKey[];  // v8+; defaulted on read for older files
+  scoringMode?: 'scratch' | 'handicap';            // v9+; defaults to 'scratch' for older files
+  defaultStartSequence?: StartGroup[];              // v9+; undefined for older files
 }
 
 interface SeriesFileCompetitor {
@@ -200,6 +202,8 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       } : null,
       includeJsonExport: series.includeJsonExport ?? true,
       enabledCompetitorFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
+      scoringMode: series.scoringMode ?? 'scratch',
+      ...(series.defaultStartSequence?.length ? { defaultStartSequence: series.defaultStartSequence } : {}),
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -311,6 +315,8 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
       lastSavedAt: null,
       lastModifiedAt: now,
       snapshotHistory: [...file.snapshotHistory],
+      scoringMode: file.series.scoringMode ?? 'scratch',
+      defaultStartSequence: file.series.defaultStartSequence,
       discardThresholds: file.series.discardThresholds ?? [],
       dnfScoring: file.series.dnfScoring ?? 'seriesEntries',
       ftpHost: file.series.ftpHost ?? '',
@@ -434,6 +440,8 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
       lastSnapshotId: file.snapshotId,
       lastModifiedAt: now,
       snapshotHistory: [...file.snapshotHistory],
+      scoringMode: file.series.scoringMode ?? 'scratch',
+      defaultStartSequence: file.series.defaultStartSequence,
       discardThresholds: file.series.discardThresholds ?? [],
       dnfScoring: file.series.dnfScoring ?? 'seriesEntries',
       ftpHost: file.series.ftpHost ?? '',

@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart } from './types';
+import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart, StartGroup } from './types';
 import { defaultEnabledCompetitorFields } from './competitor-fields';
 
 export class SailScoringDb extends Dexie {
@@ -204,6 +204,29 @@ export class SailScoringDb extends Dexie {
       await tx.table('finishes').toCollection().modify((finish) => {
         finish.sortOrder = finish.finishPosition ?? null;
         delete finish.finishPosition;
+      });
+    });
+    this.version(17).stores({
+      series: 'id, createdAt',
+      competitors: 'id, seriesId, *fleetIds, createdAt',
+      fleets: 'id, seriesId, displayOrder',
+      races: 'id, seriesId, raceNumber',
+      finishes: 'id, raceId, competitorId',
+      raceStarts: 'id, raceId',
+      ftpServers: '++id',
+    }).upgrade(async (tx) => {
+      // Infer scoringMode from fleet scoring systems
+      const allFleets = await tx.table('fleets').toArray();
+      const fleetsBySeriesId = new Map<string, { scoringSystem: string }[]>();
+      for (const f of allFleets) {
+        const list = fleetsBySeriesId.get(f.seriesId) ?? [];
+        list.push(f);
+        fleetsBySeriesId.set(f.seriesId, list);
+      }
+      await tx.table('series').toCollection().modify((series) => {
+        const fleets = fleetsBySeriesId.get(series.id) ?? [];
+        const hasHandicap = fleets.some((f) => f.scoringSystem !== 'scratch');
+        series.scoringMode = hasHandicap ? 'handicap' : 'scratch';
       });
     });
   }

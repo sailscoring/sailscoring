@@ -41,6 +41,7 @@ export default function NewSeriesPage() {
         lastSavedAt: null,
         lastModifiedAt: now,
         snapshotHistory: [],
+        scoringMode: 'scratch',
         discardThresholds: [],
         dnfScoring: 'seriesEntries',
         ftpHost: '',

@@ -24,6 +24,8 @@ export interface PublicSeriesExport {
      *  Display hint for re-renderers; competitor data is still exported in
      *  full regardless of this setting. */
     displayFields?: CompetitorFieldKey[];
+    /** v3+: series-level scoring mode (scratch or handicap). */
+    scoringMode?: 'scratch' | 'handicap';
   };
   fleets: {
     name: string;
@@ -151,6 +153,7 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
       discardThresholds: series.discardThresholds,
       dnfScoring: series.dnfScoring,
       displayFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
+      scoringMode: series.scoringMode ?? 'scratch',
     },
     fleets: fleets.map((f) => ({
       name: f.name,
@@ -231,6 +234,7 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
       lastSavedAt: null,
       lastModifiedAt: now,
       snapshotHistory: [],
+      scoringMode: data.series.scoringMode ?? 'scratch',
       discardThresholds: data.series.discardThresholds,
       dnfScoring: data.series.dnfScoring,
       ftpHost: '',

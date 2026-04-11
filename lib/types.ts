@@ -7,6 +7,11 @@ export interface DiscardThreshold {
  *  Sail number and helm name are always shown and are not configurable. */
 export type CompetitorFieldKey = 'boatName' | 'crewName' | 'club' | 'gender' | 'age';
 
+export interface StartGroup {
+  fleetIds: string[];       // fleets sharing this starting signal
+  offsetMinutes: number;    // minutes after the first start (0 for the first group)
+}
+
 export interface Series {
   id: string;
   name: string;
@@ -21,6 +26,9 @@ export interface Series {
   lastSavedAt: number | null;     // Date.now() of last Save to File
   lastModifiedAt: number;         // Date.now() of last data change
   snapshotHistory: string[];      // ordered lineage of all snapshot IDs
+  // Scoring configuration
+  scoringMode: 'scratch' | 'handicap';  // series-level fork; locked after first race has finishes
+  defaultStartSequence?: StartGroup[];  // default start groups and offsets for race creation
   // Scoring rules
   discardThresholds: DiscardThreshold[];
   dnfScoring: 'seriesEntries' | 'startingArea';  // A5.2 (default) or A5.3

@@ -98,14 +98,17 @@ row ("ILCA 7", "PY", "M15 · PY") makes the reason visible at a glance.
 Before finish entry begins, the scorer must have:
 
 - Created the race (race number, date)
-- Entered start times for each handicap fleet (or fleet group) in the race.
-  Scratch-only fleets do not need a start time.
+- For handicap series: entered start times for each fleet group. If the
+  series has a default start sequence configured (see `series-setup.md`),
+  start times are pre-populated at race creation — the scorer only enters
+  the first start time and subsequent starts are calculated from the
+  configured offsets. Scratch-only fleets do not need a start time.
 
-Start times can be entered directly on the finish entry screen (they appear
-in an editable panel at the top), so the scorer does not need to go to a
-separate screen first. If start times are missing when the scorer begins
-entering finishes for a handicap fleet, the screen shows a prominent but
-non-blocking warning.
+Start times can also be edited directly on the finish entry screen (they
+appear in an editable panel at the top), so the scorer can adjust them
+without leaving the entry flow. If start times are missing when the scorer
+begins entering finishes for a handicap fleet, the screen shows a prominent
+but non-blocking warning.
 
 ---
 

@@ -162,7 +162,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   const file = await saveToFile(page);
 
   // Top-level envelope
-  expect(file.formatVersion).toBe(8);
+  expect(file.formatVersion).toBe(9);
   expect(file.seriesId).toBe(seriesId);
   expect(typeof file.snapshotId).toBe('string');
   expect(file.snapshotHistory).toEqual([file.snapshotId]);
