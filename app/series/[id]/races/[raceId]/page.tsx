@@ -1680,6 +1680,11 @@ export default function ResultEntryPage({
                   <span className="font-mono font-medium w-16 shrink-0">
                     {competitor.sailNumber}
                   </span>
+                  {showFleetBadge && (
+                    <Badge variant="outline">
+                      {fleetById.get(competitor.fleetIds[0])?.name ?? '—'}
+                    </Badge>
+                  )}
                   <span className="text-sm flex-1 truncate">{displayHelmCrew(competitor, showCrew)}</span>
                   {code === 'RDG' && (
                     <button

@@ -114,6 +114,52 @@ test('two-fleet series shows fleet column, per-fleet standings, and exports two 
   expect(downloads.some((n) => n.includes('senior'))).toBe(true);
 });
 
+test('multi-fleet non-finishers show fleet badge', async ({ page }) => {
+  // Create series
+  await page.goto('/');
+  await page.getByRole('link', { name: 'New series' }).click();
+  await page.getByLabel('Name').fill('Non-finisher Fleet Test');
+  await page.getByLabel('Venue').fill('HYC');
+  await page.getByRole('button', { name: 'Create series' }).click();
+  await expect(page).toHaveURL(/\/competitors$/);
+
+  // Add competitors in two fleets
+  const competitors = [
+    { sailNumber: 'J1', name: 'Alice', club: 'HYC', fleet: 'Junior' },
+    { sailNumber: 'S1', name: 'Bob', club: 'HYC', fleet: 'Senior' },
+    { sailNumber: 'S2', name: 'Carol', club: 'HYC', fleet: 'Senior' },
+  ];
+  for (const c of competitors) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sailNumber);
+    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Club').fill(c.club);
+    await page.getByLabel('Fleet').fill(c.fleet);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
+  }
+
+  // Add a race
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  // Enter only J1 as a finisher — S1 and S2 remain as non-finishers
+  await page.getByLabel('Sail number').fill('J1');
+  await page.getByRole('button', { name: 'Add' }).click();
+
+  // Non-finishers should show fleet badges
+  const s1Row = page.getByTestId('non-finisher-S1');
+  const s2Row = page.getByTestId('non-finisher-S2');
+  await expect(s1Row).toContainText('Senior');
+  await expect(s2Row).toContainText('Senior');
+
+  // The finisher (J1) also has a fleet badge in the finishing order — just verify non-finishers
+  const j1NonFinisher = page.getByTestId('non-finisher-J1');
+  await expect(j1NonFinisher).not.toBeVisible();
+});
+
 test('single-fleet series hides fleet concept', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: 'New series' }).click();
