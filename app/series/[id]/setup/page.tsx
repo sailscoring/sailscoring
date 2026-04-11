@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Upload } from 'lucide-react';
+import { CompetitorImport } from '@/components/competitor-import';
 
 const STEP_LABELS = ['Name & Basics', 'Competitors', 'Fleets', 'Scoring'];
 const TOTAL_STEPS = STEP_LABELS.length;
@@ -118,35 +119,49 @@ function Step2({
   onNext: () => void;
   onBack: () => void;
 }) {
-  const router = useRouter();
   const competitors = useLiveQuery(
     () => competitorRepo.listBySeries(seriesId),
     [seriesId],
   );
+  const fleets = useLiveQuery(
+    () => fleetRepo.listBySeries(seriesId),
+    [seriesId],
+  );
   const count = competitors?.length ?? 0;
+  const [lastImportResult, setLastImportResult] = useState<{ added: number; fleetsCreated: string[] } | null>(null);
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Import your competitors from a CSV file, or add them manually later.
-        Fleet information can be detected from the import.
+        Import your competitors from a CSV file. Fleet information can be
+        detected from the import.
       </p>
-      {count > 0 && (
+      <CompetitorImport
+        seriesId={seriesId}
+        fleets={fleets ?? []}
+        onComplete={(result) => {
+          if (result && result.added > 0) {
+            setLastImportResult({ added: result.added, fleetsCreated: result.fleetsCreated });
+          }
+        }}
+        trigger={
+          <Button variant="outline">
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </Button>
+        }
+      />
+      {lastImportResult && (
+        <p className="text-sm font-medium">
+          {lastImportResult.added} competitor{lastImportResult.added === 1 ? '' : 's'} imported.
+          {lastImportResult.fleetsCreated.length > 0 && (
+            <> {lastImportResult.fleetsCreated.length} fleet{lastImportResult.fleetsCreated.length === 1 ? '' : 's'} created: {lastImportResult.fleetsCreated.join(', ')}.</>
+          )}
+        </p>
+      )}
+      {count > 0 && !lastImportResult && (
         <p className="text-sm font-medium">{count} competitor{count === 1 ? '' : 's'} loaded.</p>
       )}
-      <div className="flex gap-3">
-        <Button
-          variant="outline"
-          onClick={() => router.push(`/series/${seriesId}/competitors`)}
-        >
-          <Upload className="h-4 w-4 mr-2" />
-          Go to Competitors
-        </Button>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        You can import CSV files and add competitors from the Competitors tab.
-        Return here to continue the wizard when you&apos;re ready.
-      </p>
       <div className="flex justify-between pt-2">
         <Button variant="ghost" onClick={onBack}>← Back</Button>
         <div className="flex gap-2">
