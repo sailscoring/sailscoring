@@ -46,9 +46,9 @@ The near-term goal is to build a Minimum Viable Product and validate it with rea
 
 Build the smallest version of Sail Scoring that can score real events for two target organizations:
 
-1. **IODAI events** -- position-based scratch scoring for large one-design fleets with mixed-division finish entry, standard Appendix A scoring, and result codes. (See [IODAI use case](requirements/iodai-use-case.md).)
+1. **IODAI events** -- position-based scratch scoring for large one-design fleets with mixed-division finish entry, standard Appendix A scoring, and result codes. (See [IODAI use case](requirements/iodai-use-case.md).) **Status: complete.** Milestone 1 delivered the full IODAI workflow including scratch scoring, all RRS Appendix A result codes, discards, CSV competitor import, and results publishing.
 
-2. **HYC Autumn League** -- time-based finish entry with handicap correction (IRC and progressive HPH/NHC), dual scoring from a single finish time, and per-race rating adjustments. (See [HYC use case](requirements/hyc-use-case.md).)
+2. **HYC Autumn League** -- time-based finish entry with handicap correction (IRC and progressive HPH/NHC), dual scoring from a single finish time, and per-race rating adjustments. (See [HYC use case](requirements/hyc-use-case.md).) **Status: partially complete.** Phase 1 handicap scoring (IRC and PY with static correction factors) is built, along with multi-fleet competitors, the finish sheet model for mixed timed/untimed entry, and per-fleet start groups. The remaining work is progressive handicaps (HPH/NHC): the NHC1 adjustment algorithm, per-race rating persistence, and the race commit workflow.
 
 The MVP must demonstrate that Sail Scoring can handle both of these use cases end-to-end: from event setup and competitor registration, through result entry and scoring, to published standings.
 

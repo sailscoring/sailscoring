@@ -1,6 +1,6 @@
 # ADR-007: The Finish Sheet Model for Mixed Timed/Untimed Finish Entry
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Date:** 2026-04-09
 

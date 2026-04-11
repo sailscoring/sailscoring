@@ -1,7 +1,8 @@
 # Handicap Scoring
 
-Research and design notes for adding time-based handicap scoring to the application.
-Covers mathematics, architecture implications, and phased implementation plan.
+Design and implementation record for time-based handicap scoring. Phase 1 (static
+TCF — IRC and PY) is complete. Phase 2 (progressive handicaps — HPH and ECHO) is
+the next milestone. Covers mathematics, architecture, and implementation status.
 
 ---
 
@@ -21,7 +22,15 @@ discards and tie-breaking work as before.
 
 ---
 
-## Phase 1: Static TCF scoring — IRC and PY
+## Phase 1: Static TCF scoring — IRC and PY ✓ Implemented
+
+> **Status:** Complete. Implemented in issue #61 (commit `9e9eba0` and
+> subsequent polish commits). All data model changes, scoring engine,
+> finish sheet model, start time entry, multi-fleet competitors, rating
+> field editing, fleet scoring system settings, handicap standings
+> display, and series file format changes are in production. YAML scoring
+> fixtures cover IRC basic, PY basic, handicap DNF, missing rating
+> rejection, and corrected-time tie-breaking (`tests/fixtures/scoring/tcc-handicap/`).
 
 ### IRC
 
@@ -70,7 +79,7 @@ to the scorer.
 
 ---
 
-## Phase 2: Progressive handicaps — HPH and ECHO
+## Phase 2: Progressive handicaps — HPH and ECHO — Not started
 
 ### HPH (Howth Performance Handicap)
 
@@ -247,27 +256,21 @@ ORC advanced methods (PCS, Custom Courses) are far horizon; see `horizon.md`.
 
 ---
 
-## Architecture: what needs to change
+## Architecture: what changed (Phase 1) ✓ Implemented
 
-### Key corrections to the existing data model
+> The following describes the data model and scoring engine as
+> implemented. These are no longer proposals — they are the current
+> state of the code in `lib/types.ts` and `lib/scoring.ts`.
 
-The designs in `data-model.md` need adjustment based on the following realities:
+### Data model
 
-**Competitors can be in multiple fleets.** This is a first-class scenario:
-- "Melges 15 Scratch" fleet + "PY" fleet (same boat, two different scoring systems)
-- "Class 3 IRC" fleet + "Class 3 HPH" fleet (same boat, two different scoring systems)
+**Competitors are in multiple fleets:** `Competitor.fleetIds: string[]`.
+A competitor in multiple fleets gets independent standings in each (e.g.
+"Melges 15 Scratch" + "PY", or "Class 3 IRC" + "Class 3 HPH").
 
-`Competitor.fleetId: string` (current `types.ts`) must become `Competitor.fleetIds: string[]`.
-This is a breaking data model change. Scoring system is one per fleet; a competitor
-in multiple fleets gets independent standings in each.
-
-**A start covers one or more fleets, not exactly one.** Multiple fleets can share
-the same gun. A competitor in multiple fleets must have all those fleets share the
-same start (necessary so that elapsed time is unambiguous).
-
-### New and changed types
-
-#### `RaceStart` — gun time for a group of fleets
+**A start covers one or more fleets:** `RaceStart` stores a gun time for
+a group of fleets. Multiple fleets can share the same gun. A competitor's
+fleets must all share the same start.
 
 ```typescript
 export interface RaceStart {
@@ -278,64 +281,47 @@ export interface RaceStart {
 }
 ```
 
-One `RaceStart` per start group per race. A race may have several (e.g. Class 1
-at 14:05, Class 2 at 14:15). An `RaceStart` with multiple `fleetIds` is the normal
-case for mixed-fleet starts.
-
-Time format: `"HH:MM:SS"` is fine for Phase 1. A "+1" suffix or seconds-since-noon
-scheme can handle post-midnight finishes later without a breaking format change.
-Gun time is the starting signal time, not the individual boat's crossing of the line.
-
-#### Changes to `Finish`
+**Finish uses the finish sheet model** (ADR-007):
 
 ```typescript
 sortOrder: number;      // row index in the crossing-order list (0-based)
 finishTime?: string;    // "HH:MM:SS" — recorded for handicap fleet boats
 ```
 
-A finish record represents one row in the race's crossing-order list. `sortOrder`
-is the row index: every non-coded finish has one, assigned by the finish entry UI
-and updated as rows are inserted, moved, or deleted. `finishTime` is recorded only
-for competitors whose fleet uses a time-based scoring system. A finish with a
-`resultCode` (DNS/DNF/etc.) replaces the row data; coded finishes typically have
-no `sortOrder` because they do not participate in crossing-order ranking.
+Row order is crossing order. `finishTime` is populated only for competitors
+in handicap fleets. The cross-fleet `finishPosition` field from before Phase 1
+was removed.
 
-This replaces the earlier `finishPosition` field. The cross-fleet "place" concept
-is gone — within-fleet rank is computed from `sortOrder` for scratch fleets and
-from corrected times for handicap fleets.
-
-#### Changes to `Competitor`
+**Competitor rating fields:**
 
 ```typescript
-// Replace: fleetId: string
 fleetIds: string[];     // one or more fleets
-
-// New:
 ircTcc?: number;        // e.g. 0.972 — IRC Time Correction Coefficient
 pyNumber?: number;      // e.g. 1034 — RYA Portsmouth Yardstick number
 // Phase 2 will add: hphHandicap?: number  (initial TCF for HPH/NHC)
 ```
 
-#### Changes to `Fleet`
+**Fleet scoring system:**
 
 ```typescript
 scoringSystem: 'scratch' | 'irc' | 'py';  // one per fleet; default 'scratch'
 // Phase 2 will add: 'hph' | 'echo'
 ```
 
-### Scoring engine changes
-
-`calculateRaceScores` and `calculateFleetStandings` stay for scratch fleets.
-A new parallel function handles handicap races:
+**Series-level scoring mode** (added in file format v9):
 
 ```typescript
-export function calculateHandicapRaceScores(
-  finishes: Finish[],
-  competitors: Competitor[],
-  raceStart: RaceStart,        // gun time for this fleet group
-  fleet: Fleet,                // determines scoringSystem and getTCF
-): Map<string, HandicapRaceScore>
+scoringMode: 'scratch' | 'handicap';  // locked after first race has finishes
+defaultStartSequence?: StartGroup[];  // default start groups for race creation
+```
 
+### Scoring engine
+
+`calculateHandicapRaceScores()` handles IRC and PY fleets, parallel to the
+existing scratch path. `getTCF(competitor, fleet)` resolves the IRC vs PY
+distinction (`ircTcc` directly, or `1000 / pyNumber`). Result shape:
+
+```typescript
 export interface HandicapRaceScore extends RaceScore {
   elapsedTime: number | null;    // seconds; null for coded finishes
   correctedTime: number | null;  // seconds; null for coded finishes
@@ -343,19 +329,21 @@ export interface HandicapRaceScore extends RaceScore {
 }
 ```
 
-Internally, `getTCF(competitor, fleet)` handles the IRC vs PY distinction:
-```
-IRC:  tcf = competitor.ircTcc
-PY:   tcf = 1000 / competitor.pyNumber
-```
+`tcfApplied` is calculated during scoring but **not yet persisted** in the
+series file format — it is re-derived on load. This is sufficient for
+static-TCF systems (IRC, PY) where the rating doesn't change, but Phase 2
+will need to persist it (see Phase 2 open questions).
 
 Coded finishes (DNS, DNC, DNF, etc.) receive penalty points (fleet size + 1)
-regardless of their elapsed time — same as scratch. No time-based penalty
-for non-finishers in IRC/PY club racing.
+regardless of their elapsed time — same as scratch.
 
 ---
 
-## Finish entry UX — the finish sheet model
+## Finish entry UX — the finish sheet model ✓ Implemented
+
+> **Status:** Complete. Implemented in commit `d8ad8d0` and subsequent
+> polish (#66, #76, #77). See ADR-007 (Accepted) for the full decision
+> record.
 
 ### Core principle
 
@@ -456,43 +444,36 @@ formulas, not time-based formulas.
 
 ---
 
-## Suggested implementation sequence within Phase 1
+## Phase 1 implementation sequence ✓ Complete
 
-1. **Data model** — add `RaceStart` to `types.ts`; add `finishTime` to `Finish`;
-   add `ircTcc`, `pyNumber`, `fleetIds` (replacing `fleetId`) to `Competitor`;
-   add `scoringSystem` to `Fleet`. Update `series-file.ts` and Dexie schema.
-   No UI changes yet. This is the only breaking data model change — all existing
-   series data will need migration (single-fleet competitors become `fleetIds: [fleetId]`).
+All steps implemented. Key commits and issues for reference:
 
-2. **Scoring engine** — implement `calculateHandicapRaceScores` with unit tests
-   via YAML fixtures in `tests/fixtures/scoring/irc/` and `tests/fixtures/scoring/py/`.
-   Keep entirely separate from the scratch scoring path.
-
-3. **Start time entry UI** — add start time recording to the race view.
-   Per-start-group time input, stored as `RaceStart`. No handicap scoring yet.
-
-4. **Competitor: multi-fleet and rating fields** — update competitor editing
-   to support multiple fleets and to show TCC/PY fields when the fleet uses
-   a non-scratch scoring system.
-
-5. **Finish time entry UI** — extend finish entry to support time recording for
-   competitors that need it. This is the UX design challenge described above.
-
-6. **Fleet scoring system setting** — add to series/fleet settings UI.
-
-7. **Handicap standings display** — extend standings tables to show corrected
-   times. For handicap fleets: show ET, CT, TCF alongside points.
-
-8. **Series file format version** — bump once all new fields are stable.
+1. **Data model** — `RaceStart`, `finishTime`, `ircTcc`, `pyNumber`,
+   `fleetIds`, `scoringSystem` all in `lib/types.ts`. Series file format
+   bumped through v7–v9.
+2. **Scoring engine** — `calculateHandicapRaceScores` with YAML fixtures
+   in `tests/fixtures/scoring/tcc-handicap/` (5 fixtures). Commit `9e9eba0`.
+3. **Start time entry UI** — per-start-group time input on race page.
+4. **Competitor: multi-fleet and rating fields** — multi-fleet editing,
+   TCC/PY fields shown per scoring system. CSV import supports multi-fleet (#68).
+   Rating columns in competitor list (#72).
+5. **Finish time entry UI** — finish sheet model (ADR-007, commit `d8ad8d0`).
+   Mixed timed/untimed entry, auto-slot for timed rows, move controls for
+   scratch rows, tie checkbox (#66, #76, #77).
+6. **Fleet scoring system setting** — in Settings → Fleets. Scratch → Handicap
+   blocked when untimed finishes exist.
+7. **Handicap standings display** — ET, CT, TCF shown alongside points.
+   Per-race place column in HTML export for handicap fleets.
+8. **Series file format** — v9 (current). Added `scoringMode` and
+   `defaultStartSequence` at series level (commit `6777704`).
 
 ---
 
 ## Phase 2 open questions
 
-The NHC1 algorithm and parameters are now confirmed from real race data
+The NHC1 algorithm and parameters are confirmed from real race data
 (`reference/data/nhc-example/`; see `docs/notes/sailwave-excel-handicap-protocol.md`
-for the spreadsheet variant analysis). The remaining open questions before
-Phase 2 implementation begins:
+for the spreadsheet variant analysis). Remaining open questions:
 
 - **Carry-over handicap at series start.** The Championships data shows a gap between
   `comprating` (master TCF) and race 1 `rrat` (TCF actually applied) for most boats,
@@ -505,7 +486,9 @@ Phase 2 implementation begins:
   for race N+1 and all subsequent races. HalSail requires a manual re-score; we
   need to decide whether to propagate changes automatically, warn the scorer, or
   lock races once handicaps are committed.
-- **`tcfApplied` persistence.** The `tcfApplied` snapshot in `HandicapRaceScore`
-  must be persisted (not just computed), since the stored handicap changes after
-  each race. Corresponds to Sailwave's `rrat` per result record. The
-  `Result.rating_used` field from `data-model.md` is the right place for this.
+- **`tcfApplied` persistence.** Currently `tcfApplied` in `HandicapRaceScore` is
+  calculated during scoring but not persisted in the series file. For static-TCF
+  systems (IRC, PY) this is fine — the rating doesn't change, so re-derivation is
+  correct. For progressive handicaps, the TCF applied in race N must be snapshotted,
+  because the stored handicap will change after race N is scored. Corresponds to
+  Sailwave's `rrat` per result record.

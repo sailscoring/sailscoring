@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Sail Scoring is a sail racing scoring application for managing regattas, series, and race days. It handles handicap corrections, result codes, discard rules, and series standings per World Sailing Racing Rules of Sailing (RRS) Appendix A.
 
-**Current status:** Milestone 1 complete. A working local-first web app is built and deployed to `app.sailscoring.ie` (Vercel). It supports scratch (position-based) scoring across multiple fleets and races, with series standings, discards, a full set of RRS result codes (RRS A5/A6/A8/A11), A5.3 alternative scoring, start check-in, equal finish positions, CSV competitor import, series settings (venue, dates, burgee), HTML/JSON results export, and results publishing via bilge and FTP.
+**Current status:** Milestone 1 (IODAI use case) complete. Phase 1 handicap scoring (IRC/PY) complete. A working local-first web app is deployed to `app.sailscoring.ie` (Vercel). It supports scratch (position-based) and time-corrected handicap (IRC, PY) scoring across multiple fleets and races, with the finish sheet model for mixed timed/untimed entry, multi-fleet competitors, per-fleet start groups, series standings, discards, a full set of RRS result codes (RRS A5/A6/A8/A11), A5.3 alternative scoring, start check-in, equal finish positions, configurable competitor fields, crew names, CSV competitor import (with multi-fleet support), series settings (venue, dates, burgee, scoring mode, default start sequence), HTML/JSON results export, and results publishing via bilge and FTP. Next milestone: progressive handicaps (HPH/NHC) for the HYC Autumn League use case.
 
 ## Tech Stack
 
@@ -73,4 +73,4 @@ New architectural decisions should follow the template at `docs/design/decisions
 - ADR-004: Results publishing (Accepted — separate **bilge** service, `github.com/sailscoring/bilge`)
 - ADR-005: Hosting and domain structure (Accepted — `sailscoring.ie` marketing, `app.sailscoring.ie` app, `bilge.sailscoring.ie` bilge API)
 - ADR-006: Testing and debug logging (Accepted — Vitest for unit/integration, Playwright for e2e; no DB mocking; debug logs gated behind `DEBUG` env var)
-- ADR-007: Finish sheet model for mixed timed/untimed finish entry (Proposed — unified ordered list, row order = crossing order, time column optional per row; see `docs/design/finish-sheet-plan.md`)
+- ADR-007: Finish sheet model for mixed timed/untimed finish entry (Accepted — unified ordered list, row order = crossing order, time column optional per row; implemented in `d8ad8d0`)
