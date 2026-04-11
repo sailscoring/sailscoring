@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures';
 import { type Page } from '@playwright/test';
+import { createSeriesQuick } from './helpers';
 
 /**
  * E2E tests for bilge results publishing (issue #31).
@@ -18,11 +19,7 @@ const BILGE_URL = 'https://bilge.sailscoring.ie';
 
 /** Navigate to a new series, add one competitor and race, return seriesId. */
 async function createSeriesWithData(page: Page): Promise<string> {
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('HYC Autumn League 2026');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'HYC Autumn League 2026' });
 
   const match = page.url().match(/\/series\/([^/]+)/);
   if (!match) throw new Error(`Not on a series page: ${page.url()}`);

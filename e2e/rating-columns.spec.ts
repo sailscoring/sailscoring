@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { createFleets, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
 
 /**
  * E2E test for issue #72: handicap rating columns in competitors list.
@@ -11,11 +11,7 @@ import { createFleets, setScoringMode } from './helpers';
 
 test('rating columns appear for handicap fleets', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Rating Columns Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'Rating Columns Test' });
 
   // ── 2. Create PY fleet ───────────────────────────────────────────────────
   await createFleets(page, ['PY']);

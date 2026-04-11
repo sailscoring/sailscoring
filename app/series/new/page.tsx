@@ -1,23 +1,83 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { seriesRepo } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Series } from '@/lib/types';
 import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
+import { generatePlaceholderName } from '@/lib/placeholder-names';
 import { log } from '@/lib/debug';
 
-export default function NewSeriesPage() {
+async function doCreateSeries(
+  seriesName: string,
+  seriesVenue: string,
+  seriesDate: string,
+): Promise<string> {
+  const now = Date.now();
+  const series: Series = {
+    id: crypto.randomUUID(),
+    name: seriesName,
+    venue: seriesVenue,
+    startDate: seriesDate,
+    endDate: '',
+    venueLogoUrl: '',
+    eventLogoUrl: '',
+    createdAt: now,
+    lastSnapshotId: null,
+    lastSavedAt: null,
+    lastModifiedAt: now,
+    snapshotHistory: [],
+    scoringMode: 'scratch',
+    discardThresholds: [],
+    dnfScoring: 'seriesEntries',
+    ftpHost: '',
+    ftpPath: '',
+    bilgeBundle: null,
+    includeJsonExport: true,
+    enabledCompetitorFields: defaultEnabledCompetitorFields(),
+  };
+  log('series', 'creating', series);
+  await seriesRepo.save(series);
+  return series.id;
+}
+
+function NewSeriesContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isQuick = searchParams.get('quick') === '1';
+  const didCreate = useRef(false);
+
   const [name, setName] = useState('');
   const [venue, setVenue] = useState('');
   const [startDate, setStartDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Normal mode: auto-create series with placeholder name and redirect to wizard
+  useEffect(() => {
+    if (isQuick || didCreate.current) return;
+    didCreate.current = true;
+    doCreateSeries(generatePlaceholderName(), '', '').then((id) => {
+      router.push(`/series/${id}/setup`);
+    }).catch((err) => {
+      console.error(err);
+      setError('Failed to create series.');
+    });
+  }, [isQuick, router]);
+
+  if (!isQuick) {
+    return (
+      <div className="max-w-md space-y-6">
+        <p className="text-muted-foreground">Creating series…</p>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </div>
+    );
+  }
+
+  // Quick mode: the traditional form (preserves existing e2e test flows)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
@@ -27,32 +87,8 @@ export default function NewSeriesPage() {
     setSaving(true);
     setError('');
     try {
-      const now = Date.now();
-      const series: Series = {
-        id: crypto.randomUUID(),
-        name: name.trim(),
-        venue: venue.trim(),
-        startDate: startDate,
-        endDate: '',
-        venueLogoUrl: '',
-        eventLogoUrl: '',
-        createdAt: now,
-        lastSnapshotId: null,
-        lastSavedAt: null,
-        lastModifiedAt: now,
-        snapshotHistory: [],
-        scoringMode: 'scratch',
-        discardThresholds: [],
-        dnfScoring: 'seriesEntries',
-        ftpHost: '',
-        ftpPath: '',
-        bilgeBundle: null,
-        includeJsonExport: true,
-        enabledCompetitorFields: defaultEnabledCompetitorFields(),
-      };
-      log('series', 'creating', series);
-      await seriesRepo.save(series);
-      router.push(`/series/${series.id}/competitors`);
+      const id = await doCreateSeries(name.trim(), venue.trim(), startDate);
+      router.push(`/series/${id}/competitors`);
     } catch (err) {
       console.error(err);
       setError('Failed to save series. Please try again.');
@@ -109,5 +145,13 @@ export default function NewSeriesPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function NewSeriesPage() {
+  return (
+    <Suspense fallback={<p className="text-muted-foreground">Loading…</p>}>
+      <NewSeriesContent />
+    </Suspense>
   );
 }

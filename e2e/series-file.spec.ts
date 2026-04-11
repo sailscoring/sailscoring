@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
+import { createSeriesQuick } from './helpers';
 
 /**
  * E2E tests for the series file save / load round-trip.
@@ -101,11 +102,7 @@ async function updateFromFile(page: Page, file: object): Promise<void> {
 
 test('series file: save exports correct JSON with all series fields, competitors, races, and FTP host/path', async ({ page }) => {
   // ── Create series ─────────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Autumn League 2025');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'Autumn League 2025' });
   const seriesId = getSeriesId(page);
 
   // ── Fill in basics ────────────────────────────────────────────────────────
@@ -192,10 +189,7 @@ test('series file: save exports correct JSON with all series fields, competitors
 
 test('series file: identical snapshot shows "nothing to update"', async ({ page }) => {
   // ── Create series and save ────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Identical Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Identical Test' });
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   const file = await saveToFile(page);
 
@@ -209,10 +203,7 @@ test('series file: identical snapshot shows "nothing to update"', async ({ page 
 
 test('series file: clean lineage updates series in place', async ({ page }) => {
   // ── Create series with a competitor, save to file ─────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Clean Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Clean Test' });
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('10');
@@ -250,10 +241,7 @@ test('series file: clean lineage updates series in place', async ({ page }) => {
 
 test('series file: diverged snapshot shows conflict dialog; open as new copy creates second series', async ({ page }) => {
   // ── Create series and save to file ────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Diverged Original');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Diverged Original' });
   const originalSeriesId = getSeriesId(page);
 
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();

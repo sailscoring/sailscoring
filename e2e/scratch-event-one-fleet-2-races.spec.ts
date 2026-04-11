@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createSeriesQuick } from './helpers';
 
 /**
  * Full happy-path test for a simple one-day event.
@@ -30,16 +31,7 @@ const competitors = [
 
 test('scratch event, one fleet, 2 races', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await expect(page.getByRole('heading', { name: 'New series' })).toBeVisible();
-
-  await page.getByLabel('Name').fill('The Brassed-Off Cup');
-  await page.getByLabel('Venue').fill('Howth Yacht Club');
-  await page.getByRole('button', { name: 'Create series' }).click();
-
-  // Should redirect to competitors tab
-  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
+  await createSeriesQuick(page, { name: 'The Brassed-Off Cup', venue: 'Howth Yacht Club' });
   await expect(page.getByRole('heading', { name: 'The Brassed-Off Cup' })).toBeVisible();
 
   // ── 2. Add 5 competitors ──────────────────────────────────────────────────
@@ -206,10 +198,7 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
 
 test('unknown sail number shows error and "Record as unknown" option', async ({ page }) => {
   // Create a minimal series with one competitor
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Error Test Series');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Error Test Series' });
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('9999');
@@ -241,10 +230,7 @@ test('unknown sail number shows error and "Record as unknown" option', async ({ 
 });
 
 test('unknown finish can be recorded and resolved', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Resolve Test Series');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Resolve Test Series' });
 
   // Add two competitors
   await page.getByRole('button', { name: 'Add competitor' }).click();
@@ -292,10 +278,7 @@ test('unknown finish can be recorded and resolved', async ({ page }) => {
 });
 
 test('unknown finish resolved by adding a new competitor', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Add Competitor Test Series');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Add Competitor Test Series' });
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1001');
@@ -338,10 +321,7 @@ test('unknown finish resolved by adding a new competitor', async ({ page }) => {
 });
 
 test('unknown finish survives save and reload', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Roundtrip Test Series');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Roundtrip Test Series' });
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1001');
@@ -372,10 +352,7 @@ test('unknown finish survives save and reload', async ({ page }) => {
 });
 
 test('unresolved unknown finish is excluded from standings', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Scoring Test Series');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Scoring Test Series' });
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1001');
@@ -412,10 +389,7 @@ test('unresolved unknown finish is excluded from standings', async ({ page }) =>
 
 test('move controls reorder scratch rows in the finishing list', async ({ page }) => {
   // ── Setup: series with 3 competitors and one race ─────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Scratch Reorder Cup');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Scratch Reorder Cup' });
 
   for (const [sailNumber, name] of [['101', 'Alice'], ['102', 'Bob'], ['103', 'Carol']]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
@@ -474,10 +448,7 @@ test('move controls reorder scratch rows in the finishing list', async ({ page }
 
 test('sail number autocomplete in result entry', async ({ page }) => {
   // ── Setup: series with 3 competitors and one race ─────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Autocomplete Test Cup');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Autocomplete Test Cup' });
 
   for (const [sailNumber, name] of [['1001', 'Alice Murphy'], ['1002', 'Bob Kelly'], ['1003', 'Carol Ryan']]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();

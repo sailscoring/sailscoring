@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { createFleets, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
 
 /**
  * E2E tests for IRC time-corrected handicap scoring (issue #61, Phase 1).
@@ -15,11 +15,7 @@ import { createFleets, setScoringMode } from './helpers';
 
 test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('IRC Test 2025');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
+  await createSeriesQuick(page, { name: 'IRC Test 2025' });
 
   // ── 2. Create IRC fleet and set scoring system to IRC ─────────────────────
   await createFleets(page, ['IRC']);
@@ -113,11 +109,7 @@ test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
  */
 test('series file version is 8 with IRC fleet scoring system', async ({ page }) => {
   // ── 1. Create a series with an IRC fleet ──────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('IRC Format Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'IRC Format Test' });
 
   // Create IRC fleet and set scoring system to IRC
   await createFleets(page, ['IRC']);

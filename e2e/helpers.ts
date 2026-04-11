@@ -2,6 +2,22 @@ import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
 /**
+ * Create a new series using the quick-create form (bypasses the wizard).
+ * Returns after the page navigates to the competitors tab.
+ */
+export async function createSeriesQuick(
+  page: Page,
+  data: { name: string; venue?: string; date?: string },
+): Promise<void> {
+  await page.goto('/series/new?quick=1');
+  await page.getByLabel('Name').fill(data.name);
+  if (data.venue) await page.getByLabel('Venue').fill(data.venue);
+  if (data.date) await page.getByLabel('Date').fill(data.date);
+  await page.getByRole('button', { name: 'Create series' }).click();
+  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
+}
+
+/**
  * Create fleets in Settings > Fleets for the current series.
  * Assumes the page is already within a series context (any series tab).
  */

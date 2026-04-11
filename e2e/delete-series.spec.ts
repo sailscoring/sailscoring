@@ -1,18 +1,10 @@
 import { test, expect } from './fixtures';
+import { createSeriesQuick } from './helpers';
 
 test('delete series with warning dialog', async ({ page }) => {
   // ── 1. Create two series ───────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Series to Keep');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
-
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Series to Delete');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
+  await createSeriesQuick(page, { name: 'Series to Keep' });
+  await createSeriesQuick(page, { name: 'Series to Delete' });
 
   // ── 2. Verify both series appear on home ───────────────────────────────────
   await page.goto('/');

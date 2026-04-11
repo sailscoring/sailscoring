@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createSeriesQuick } from './helpers';
 
 /**
  * E2E tests for configurable competitor fields (#64) and crew name (#69).
@@ -10,11 +11,7 @@ import { test, expect } from './fixtures';
 
 test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Fireball Frostbite');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'Fireball Frostbite' });
 
   // ── 2. By default: Crew column is hidden, Crew field is not in the form ──
   await page.getByRole('button', { name: 'Add competitor' }).click();
@@ -76,10 +73,7 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
 
 test('disabling a field preserves its data on re-enable', async ({ page }) => {
   // ── 1. Create series and enable Boat name ────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Persist Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Persist Test' });
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByLabel('Boat name').check();

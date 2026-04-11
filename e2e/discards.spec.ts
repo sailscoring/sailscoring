@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createSeriesQuick } from './helpers';
 
 /**
  * E2E tests for discard rules (issue #32).
@@ -27,11 +28,7 @@ const competitors = [
 
 test('discard rule changes standings and shows Nett column', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Discard Test Series');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'Discard Test Series' });
 
   // ── 2. Add 5 competitors ──────────────────────────────────────────────────
   for (const c of competitors) {

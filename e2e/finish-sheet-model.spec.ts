@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { createFleets, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
 
 /**
  * E2E tests for the finish sheet model (ADR-007, issue #66).
@@ -12,10 +12,7 @@ import { createFleets, setScoringMode } from './helpers';
 
 test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing order', async ({ page }) => {
   // ── 1. Create series with two fleets ──────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Frostbite Mixed');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Frostbite Mixed' });
 
   // Create fleets and set PY scoring system
   await createFleets(page, ['ILCA', 'PY']);
@@ -143,10 +140,7 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
 
 test('auto-slot: a late timed entry inserts at its correct crossing-order slot', async ({ page }) => {
   // ── Setup: one PY fleet, three boats, 14:00:00 start ──────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Auto-Slot Cup');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Auto-Slot Cup' });
 
   // Create PY fleet and set scoring system
   await createFleets(page, ['PY']);
@@ -216,10 +210,7 @@ test('scoring-system change blocked: Scratch → PY with untimed finishes', asyn
   // ── Setup: handicap series with two fleets, one race with one scratch finish ─
   // The Dinghy fleet starts as scratch in a handicap series. After adding an
   // untimed finish, switching the fleet to PY should be blocked.
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Block Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Block Test' });
 
   // Create two fleets so fleet checkboxes appear in the competitor dialog
   await createFleets(page, ['Dinghy', 'Other']);
@@ -266,10 +257,7 @@ test('scoring-system change blocked: Scratch → PY with untimed finishes', asyn
 
 test('finish blocked for competitor whose fleet has no start when handicap fleets exist', async ({ page }) => {
   // ── Setup: two fleets, one scratch (ILCA) and one PY ──────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Gate Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Gate Test' });
 
   // Create fleets and set PY scoring system
   await createFleets(page, ['ILCA', 'PY']);

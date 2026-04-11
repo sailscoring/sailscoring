@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createSeriesQuick } from './helpers';
 
 /**
  * E2E tests for RDG (Redress Given) scoring — RRS Appendix A9.
@@ -27,11 +28,7 @@ test('RDG non-finisher: A9(a) average replaces score and shows RDG(pts) in stand
     { sailNumber: '3', name: 'Carol' },
   ];
 
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('RDG Non-Finisher Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'RDG Non-Finisher Test' });
 
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
@@ -127,11 +124,7 @@ test('RDG finisher: scales button replaces finish score with A9(a) average', asy
     { sailNumber: '30', name: 'Carol' },
   ];
 
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('RDG Finisher Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'RDG Finisher Test' });
 
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();

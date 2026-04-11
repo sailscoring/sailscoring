@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { createFleets, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
 
 /**
  * E2E tests for the Export HTML feature (issue #13).
@@ -19,12 +19,7 @@ import { createFleets, setScoringMode } from './helpers';
 
 test('export HTML downloads a .html file with correct standings', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Howth Cup 2025');
-  await page.getByLabel('Venue').fill('Howth Yacht Club');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'Howth Cup 2025', venue: 'Howth Yacht Club' });
 
   // ── 2. Add 3 competitors ──────────────────────────────────────────────────
   for (const [sailNumber, name, club] of [
@@ -174,11 +169,7 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
  */
 test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fleet standings', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Multi-Fleet Export Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'Multi-Fleet Export Test' });
 
   // ── 2. Create fleets and set IRC scoring system ────────────────────────────
   await createFleets(page, ['IRC', 'Cruiser']);

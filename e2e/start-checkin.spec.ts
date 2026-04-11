@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createSeriesQuick } from './helpers';
 
 /**
  * E2E tests for start check-in and A5.3 scoring (issue #42).
@@ -30,11 +31,7 @@ const competitors = [
 
 test('start check-in marks boats present and affects A5.3 standings', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('A5.3 Test Series');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'A5.3 Test Series' });
 
   // ── 2. Add 5 competitors ──────────────────────────────────────────────────
   for (const c of competitors) {

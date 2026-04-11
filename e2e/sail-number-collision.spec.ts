@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { createFleets } from './helpers';
+import { createFleets, createSeriesQuick } from './helpers';
 
 /**
  * E2E test for sail number collisions across fleets (issue #70).
@@ -21,12 +21,7 @@ const competitors = [
 
 test('sail number collision across fleets is disambiguated at finish entry', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Collision Test 2025');
-  await page.getByLabel('Venue').fill('HYC');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
+  await createSeriesQuick(page, { name: 'Collision Test 2025', venue: 'HYC' });
 
   // ── 2. Create fleets and add competitors ──────────────────────────────────
   await createFleets(page, ['Puppeteer', 'Howth17']);

@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createSeriesQuick } from './helpers';
 
 /**
  * E2E tests for FTP publishing (issue #54).
@@ -60,10 +61,7 @@ test('FTP server settings: password visibility toggle', async ({ page }) => {
 
 test('FTP upload dialog: shows configured server; shows no-servers message after delete', async ({ page }) => {
   // ── Set up a series with one race so Standings tab is reachable ───────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('FTP Test Series');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'FTP Test Series' });
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1');

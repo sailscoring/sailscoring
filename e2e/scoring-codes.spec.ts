@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createSeriesQuick } from './helpers';
 
 /**
  * E2E tests for Phase 1 scoring codes (issue #35).
@@ -21,11 +22,7 @@ test('DNS, RET, and DSQ codes are assignable and appear in standings', async ({ 
     { sailNumber: '404', name: 'Dave' },
   ];
 
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Codes Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'Codes Test' });
 
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
@@ -95,11 +92,7 @@ test('BFD is not struck through and shown in red when a discard is active', asyn
     { sailNumber: '1004', name: 'Dave' },
   ];
 
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('BFD Non-Discardable Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'BFD Non-Discardable Test' });
 
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
@@ -190,11 +183,7 @@ test('ZFP penalty can be set on a finisher and appears in standings with amber s
     { sailNumber: '503', name: 'Carol' },
   ];
 
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('ZFP Test');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'ZFP Test' });
 
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();

@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createSeriesQuick } from './helpers';
 
 function csvBuffer(content: string) {
   return { name: 'competitors.csv', mimeType: 'text/csv', buffer: Buffer.from(content) };
@@ -10,11 +11,7 @@ async function uploadCsv(page: import('@playwright/test').Page, content: string)
 
 test('import competitors from CSV', async ({ page }) => {
   // ── 1. Create a series ────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Import Test Series');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
+  await createSeriesQuick(page, { name: 'Import Test Series' });
 
   // ── 2. Add one competitor manually so we can test overwrite & unchanged ───
   await page.getByRole('button', { name: 'Add competitor' }).click();
@@ -82,10 +79,7 @@ test('import competitors from CSV', async ({ page }) => {
 
 test('import CSV auto-detects the Crew column and stores crew names', async ({ page }) => {
   // ── 1. Create a series and enable crew-name display ─────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Two-Person Dinghy Import');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Two-Person Dinghy Import' });
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByLabel('Crew name').check();
@@ -115,11 +109,7 @@ test('import CSV auto-detects the Crew column and stores crew names', async ({ p
 
 test('import competitors assigned to multiple fleets', async ({ page }) => {
   // ── 1. Create a series ────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Multi-Fleet Import');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
+  await createSeriesQuick(page, { name: 'Multi-Fleet Import' });
 
   // ── 2. Import a CSV with a pipe-delimited fleet cell ─────────────────────
   // Mirrors the HYC Dinghy Frostbite reference CSV: a Melges 15 scored in

@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { createFleets } from './helpers';
+import { createFleets, createSeriesQuick } from './helpers';
 
 /**
  * E2E tests for fleet support (issue #40).
@@ -31,12 +31,7 @@ const seniors = [
 
 test('two-fleet series shows fleet column, per-fleet standings, and exports two files', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Junior-Senior Combined 2025');
-  await page.getByLabel('Venue').fill('HYC');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
+  await createSeriesQuick(page, { name: 'Junior-Senior Combined 2025', venue: 'HYC' });
 
   // ── 2. Create fleets ─────────────────────────────────────────────────────
   await createFleets(page, ['Junior', 'Senior']);
@@ -122,12 +117,7 @@ test('two-fleet series shows fleet column, per-fleet standings, and exports two 
 
 test('multi-fleet non-finishers show fleet badge', async ({ page }) => {
   // Create series
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Non-finisher Fleet Test');
-  await page.getByLabel('Venue').fill('HYC');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'Non-finisher Fleet Test', venue: 'HYC' });
 
   // Create fleets
   await createFleets(page, ['Junior', 'Senior']);
@@ -171,12 +161,7 @@ test('multi-fleet non-finishers show fleet badge', async ({ page }) => {
 });
 
 test('single-fleet series hides fleet concept', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Single Fleet Cup');
-  await page.getByLabel('Venue').fill('HYC');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'Single Fleet Cup', venue: 'HYC' });
 
   // Add competitor with no fleet — goes to Default fleet
   await page.getByRole('button', { name: 'Add competitor' }).click();

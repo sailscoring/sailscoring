@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { createSeriesQuick } from './helpers';
 
 /**
  * E2E tests for the series settings page (issue #39).
@@ -9,11 +10,7 @@ import { test, expect } from './fixtures';
 
 test('settings basics card saves venue, dates, and logo URLs', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Dún Laoghaire Regatta 2025');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'Dún Laoghaire Regatta 2025' });
 
   // ── 2. Navigate to Settings tab (formerly "File") ─────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
@@ -45,11 +42,7 @@ test('settings basics card saves venue, dates, and logo URLs', async ({ page }) 
 
 test('logo URLs appear as img tags in exported HTML', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Logo Test Series');
-  await page.getByRole('button', { name: 'Create series' }).click();
-  await expect(page).toHaveURL(/\/competitors$/);
+  await createSeriesQuick(page, { name: 'Logo Test Series' });
 
   // ── 2. Set logo URLs in Settings ─────────────────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();

@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { createFleets, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
 
 /**
  * E2E tests for the "tied with previous row" checkbox (RRS A8.1).
@@ -9,10 +9,7 @@ import { createFleets, setScoringMode } from './helpers';
 
 test('tie checkbox: not shown after a timed row', async ({ page }) => {
   // ── Setup: mixed scratch + handicap series ────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Tie After Timed');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Tie After Timed' });
 
   // Create fleets and set PY scoring system
   await createFleets(page, ['ILCA', 'PY']);
@@ -96,10 +93,7 @@ test('tie checkbox: not shown after a timed row', async ({ page }) => {
 
 test('tie checkbox: moving a tied row clears the tie', async ({ page }) => {
   // ── Setup: scratch-only series, 4 boats ───────────────────────────────────
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Tie Move Clear');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Tie Move Clear' });
 
   for (const c of [
     { sail: 'T1', name: 'Alice' },
@@ -138,10 +132,7 @@ test('tie checkbox: moving a tied row clears the tie', async ({ page }) => {
 test('tie checkbox: moving group leader clears follower tie', async ({ page }) => {
   // If A, B (tied with A) and we move A down, B loses its tie
   // because A was the group leader.
-  await page.goto('/');
-  await page.getByRole('link', { name: 'New series' }).click();
-  await page.getByLabel('Name').fill('Tie Leader Move');
-  await page.getByRole('button', { name: 'Create series' }).click();
+  await createSeriesQuick(page, { name: 'Tie Leader Move' });
 
   for (const c of [
     { sail: 'X', name: 'Alice' },
