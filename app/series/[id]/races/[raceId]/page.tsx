@@ -646,6 +646,36 @@ export default function ResultEntryPage({
       const targetIndex = index + direction;
       if (targetIndex < 0 || targetIndex >= order.length) return order;
       const next = [...order];
+      const movedEid = entryId(next[index]);
+
+      // If the row immediately below the moved row was tied with it,
+      // that tie now refers to the row above the vacated slot — preserve it
+      // only if the moved row was itself tied (i.e. the group continues).
+      // Otherwise clear it, since the tie target is gone.
+      const belowIndex = index + 1;
+      if (belowIndex < next.length) {
+        const belowEid = entryId(next[belowIndex]);
+        if (tiedWithPrevious.has(belowEid) && !tiedWithPrevious.has(movedEid)) {
+          // The moved row was the group leader — the row below loses its tie.
+          setTiedWithPrevious((prev) => {
+            const s = new Set(prev);
+            s.delete(belowEid);
+            return s;
+          });
+        }
+        // If movedEid was also tied (mid-group), belowEid's tie naturally
+        // transfers to the row above — no change needed.
+      }
+
+      // Always clear the tie on the moved row itself.
+      if (tiedWithPrevious.has(movedEid)) {
+        setTiedWithPrevious((prev) => {
+          const s = new Set(prev);
+          s.delete(movedEid);
+          return s;
+        });
+      }
+
       const [moved] = next.splice(index, 1);
       next.splice(targetIndex, 0, moved);
       setFlashedRowId(entryId(moved));
@@ -1596,7 +1626,7 @@ export default function ResultEntryPage({
                   ) : (
                     <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
                   )}
-                  {!isTimed && index > 0 && (
+                  {!isTimed && index > 0 && !(finishingOrder[index - 1].kind === 'known' && needsFinishTime(finishingOrder[index - 1].competitorId)) && (
                     <label
                       className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 cursor-pointer"
                       title="Tied with previous row (simultaneous finish, RRS A8.1)"
