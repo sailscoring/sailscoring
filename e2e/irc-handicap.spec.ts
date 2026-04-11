@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { createFleets } from './helpers';
+import { createFleets, setScoringMode } from './helpers';
 
 /**
  * E2E tests for IRC time-corrected handicap scoring (issue #61, Phase 1).
@@ -23,6 +23,7 @@ test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
 
   // ── 2. Create IRC fleet and set scoring system to IRC ─────────────────────
   await createFleets(page, ['IRC']);
+  await setScoringMode(page, 'handicap');
   // Open Fleets card for editing
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
   await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
@@ -120,6 +121,7 @@ test('series file version is 8 with IRC fleet scoring system', async ({ page }) 
 
   // Create IRC fleet and set scoring system to IRC
   await createFleets(page, ['IRC']);
+  await setScoringMode(page, 'handicap');
   // Open Fleets card for editing
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
   await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();

@@ -26,6 +26,18 @@ export async function createFleets(page: Page, names: string[]): Promise<void> {
 }
 
 /**
+ * Set the series scoring mode in Settings > Scoring Mode.
+ * Assumes the page is already within a series context (any series tab).
+ */
+export async function setScoringMode(page: Page, mode: 'scratch' | 'handicap'): Promise<void> {
+  const settingsLink = page.getByRole('navigation').getByRole('link', { name: 'Settings' });
+  await settingsLink.click();
+  await expect(page.locator('h2', { hasText: 'Scoring mode' })).toBeVisible();
+  const label = mode === 'handicap' ? 'Handicap (time-corrected)' : 'Scratch (position-based)';
+  await page.getByText(label).click();
+}
+
+/**
  * Add a competitor using the competitor form.
  * Assumes the page is on the Competitors tab with the Add form open or about to be opened.
  * If fleet is specified and multiple fleets exist, checks the fleet checkbox.

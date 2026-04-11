@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { createFleets } from './helpers';
+import { createFleets, setScoringMode } from './helpers';
 
 /**
  * E2E test for issue #72: handicap rating columns in competitors list.
@@ -38,8 +38,8 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
   await expect(header.getByRole('columnheader', { name: 'PY' })).not.toBeVisible();
   await expect(header.getByRole('columnheader', { name: 'IRC TCC' })).not.toBeVisible();
 
-  // ── 5. Change fleet scoring system to PY ─────────────────────────────────
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  // ── 5. Switch to handicap mode and change fleet scoring system to PY ──────
+  await setScoringMode(page, 'handicap');
   // Open Fleets card for editing
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
   await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();

@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { createFleets } from './helpers';
+import { createFleets, setScoringMode } from './helpers';
 
 /**
  * E2E tests for the finish sheet model (ADR-007, issue #66).
@@ -19,6 +19,7 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
 
   // Create fleets and set PY scoring system
   await createFleets(page, ['ILCA', 'PY']);
+  await setScoringMode(page, 'handicap');
   // Open Fleets card for editing
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
   const pyRow = page.getByText('PY', { exact: true }).locator('..');
@@ -149,6 +150,7 @@ test('auto-slot: a late timed entry inserts at its correct crossing-order slot',
 
   // Create PY fleet and set scoring system
   await createFleets(page, ['PY']);
+  await setScoringMode(page, 'handicap');
   // Open Fleets card for editing
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
   await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
@@ -211,25 +213,39 @@ test('auto-slot: a late timed entry inserts at its correct crossing-order slot',
 });
 
 test('scoring-system change blocked: Scratch → PY with untimed finishes', async ({ page }) => {
-  // ── Setup: scratch series, one fleet, one race with one finish ────────────
+  // ── Setup: handicap series with two fleets, one race with one scratch finish ─
+  // The Dinghy fleet starts as scratch in a handicap series. After adding an
+  // untimed finish, switching the fleet to PY should be blocked.
   await page.goto('/');
   await page.getByRole('link', { name: 'New series' }).click();
   await page.getByLabel('Name').fill('Block Test');
   await page.getByRole('button', { name: 'Create series' }).click();
 
-  // Create a fleet so there's something to switch
-  await createFleets(page, ['Dinghy']);
+  // Create two fleets so fleet checkboxes appear in the competitor dialog
+  await createFleets(page, ['Dinghy', 'Other']);
+  await setScoringMode(page, 'handicap');
   await page.getByRole('link', { name: 'Competitors' }).click();
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('B1');
   await page.getByLabel('Helm name').fill('Alice');
+  await page.getByRole('checkbox', { name: 'Dinghy' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'B1' })).toBeVisible();
 
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  // Add a start for the Dinghy fleet (required in handicap series)
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByRole('checkbox', { name: 'Dinghy' }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
   await page.getByLabel('Sail number').fill('B1');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await page.getByRole('button', { name: 'Save results' }).click();
@@ -239,12 +255,13 @@ test('scoring-system change blocked: Scratch → PY with untimed finishes', asyn
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await expect(page.locator('h2', { hasText: 'Fleets' })).toBeVisible();
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
-  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  // Find the Dinghy fleet's combobox (first one showing Scratch)
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).first().click();
   await page.getByRole('option', { name: 'PY' }).click();
 
   // Inline error should appear and the fleet should still be Scratch.
   await expect(page.getByText(/Cannot switch to PY/)).toBeVisible();
-  await expect(page.getByRole('combobox').filter({ hasText: /Scratch/i })).toBeVisible();
+  await expect(page.getByRole('combobox').filter({ hasText: /Scratch/i }).first()).toBeVisible();
 });
 
 test('finish blocked for competitor whose fleet has no start when handicap fleets exist', async ({ page }) => {
@@ -256,10 +273,11 @@ test('finish blocked for competitor whose fleet has no start when handicap fleet
 
   // Create fleets and set PY scoring system
   await createFleets(page, ['ILCA', 'PY']);
+  await setScoringMode(page, 'handicap');
   // Open Fleets card for editing
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
-  const pyRow = page.getByText('PY', { exact: true }).locator('..');
-  await pyRow.getByRole('combobox').click();
+  const pyRow2 = page.getByText('PY', { exact: true }).locator('..');
+  await pyRow2.getByRole('combobox').click();
   await page.getByRole('option', { name: 'PY' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
 

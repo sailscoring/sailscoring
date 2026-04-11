@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { createFleets } from './helpers';
+import { createFleets, setScoringMode } from './helpers';
 
 /**
  * E2E tests for the "tied with previous row" checkbox (RRS A8.1).
@@ -16,6 +16,7 @@ test('tie checkbox: not shown after a timed row', async ({ page }) => {
 
   // Create fleets and set PY scoring system
   await createFleets(page, ['ILCA', 'PY']);
+  await setScoringMode(page, 'handicap');
   // Open Fleets card for editing
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
   const pyRow = page.getByText('PY', { exact: true }).locator('..');

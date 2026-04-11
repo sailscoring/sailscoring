@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { createFleets } from './helpers';
+import { createFleets, setScoringMode } from './helpers';
 
 /**
  * E2E tests for the Export HTML feature (issue #13).
@@ -182,6 +182,7 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
 
   // ── 2. Create fleets and set IRC scoring system ────────────────────────────
   await createFleets(page, ['IRC', 'Cruiser']);
+  await setScoringMode(page, 'handicap');
   // Open Fleets card for editing
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
   // Find the IRC fleet's combobox and change to IRC

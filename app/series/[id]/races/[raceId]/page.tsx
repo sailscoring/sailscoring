@@ -435,6 +435,7 @@ export default function ResultEntryPage({
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const showFleetBadge = (fleets ?? []).length > 1 || (fleets ?? []).some((f) => f.name !== 'Default');
   const hasNonScratchFleets = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
+  const isHandicapSeries = series?.scoringMode === 'handicap';
   // Fleet IDs that have a recorded start time for this race
   const fleetIdsWithStartTimes = new Set(raceStarts.flatMap((s) => s.fleetIds));
   // Returns true if this competitor needs a finish time recorded.
@@ -512,10 +513,10 @@ export default function ResultEntryPage({
   }
 
   // Route a resolved competitor through time-entry if their fleet has a start time.
-  // When any handicap fleet exists in the series, block competitors whose fleet
-  // has no start configured — the scorer needs to add a start first.
+  // In a handicap series, block competitors whose fleet has no start configured.
+  // The scorer needs to add a start for every fleet before entering finishes.
   function commitCompetitor(competitor: Competitor) {
-    if (hasNonScratchFleets && !hasStartForRace(competitor.id)) {
+    if (isHandicapSeries && !hasStartForRace(competitor.id)) {
       const fleetNames = competitor.fleetIds
         .map((id) => fleetById.get(id)?.name)
         .filter(Boolean)
@@ -1225,8 +1226,8 @@ export default function ResultEntryPage({
         </div>
       )}
 
-      {/* Race starts — only shown for series with non-scratch fleets */}
-      {activeTab === 'finish' && hasNonScratchFleets && (
+      {/* Race starts — only shown for handicap series */}
+      {activeTab === 'finish' && isHandicapSeries && (
         <div className="border rounded-lg px-4 py-3 space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-sm">Race starts</h3>

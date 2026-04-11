@@ -148,7 +148,84 @@ function BasicsCard({ seriesId, series }: { seriesId: string; series: Series }) 
   );
 }
 
-function FleetsCard({ seriesId }: { seriesId: string }) {
+function ScoringModeCard({ seriesId, series }: { seriesId: string; series: Series }) {
+  const [locked, setLocked] = useState(false);
+  const [lockReason, setLockReason] = useState('');
+
+  // Check if any race in the series has finishes — if so, scoring mode is locked
+  useEffect(() => {
+    (async () => {
+      const races = await raceRepo.listBySeries(seriesId);
+      if (races.length === 0) { setLocked(false); return; }
+      const raceIds = races.map((r) => r.id);
+      const finishes = await db.finishes.where('raceId').anyOf(raceIds).limit(1).toArray();
+      if (finishes.length > 0) {
+        setLocked(true);
+        setLockReason('Scoring mode is locked because races have finishes. Remove all finishes to change it.');
+      } else {
+        setLocked(false);
+      }
+    })();
+  }, [seriesId]);
+
+  async function handleChange(mode: 'scratch' | 'handicap') {
+    if (locked || mode === series.scoringMode) return;
+    await db.series.update(seriesId, { scoringMode: mode });
+    // When switching to scratch, reset all fleet scoring systems to scratch
+    if (mode === 'scratch') {
+      const fleets = await fleetRepo.listBySeries(seriesId);
+      for (const f of fleets) {
+        if (f.scoringSystem !== 'scratch') {
+          await fleetRepo.save({ ...f, scoringSystem: 'scratch' });
+        }
+      }
+    }
+    await seriesRepo.touch(seriesId);
+  }
+
+  return (
+    <div className="border rounded-lg p-5 space-y-4">
+      <h2 className="text-sm font-medium">Scoring mode</h2>
+      <div className="space-y-2">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="radio"
+            name="scoringMode"
+            value="scratch"
+            checked={series.scoringMode === 'scratch'}
+            onChange={() => handleChange('scratch')}
+            disabled={locked}
+            className="mt-0.5"
+          />
+          <div>
+            <span className="text-sm font-medium">Scratch (position-based)</span>
+            <p className="text-xs text-muted-foreground">Boats are ranked by the order they cross the finish line. No finish times needed.</p>
+          </div>
+        </label>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="radio"
+            name="scoringMode"
+            value="handicap"
+            checked={series.scoringMode === 'handicap'}
+            onChange={() => handleChange('handicap')}
+            disabled={locked}
+            className="mt-0.5"
+          />
+          <div>
+            <span className="text-sm font-medium">Handicap (time-corrected)</span>
+            <p className="text-xs text-muted-foreground">Some or all fleets use IRC, PY, or other time-based scoring. Finish times are recorded for handicap fleets.</p>
+          </div>
+        </label>
+      </div>
+      {locked && (
+        <p className="text-xs text-muted-foreground">{lockReason}</p>
+      )}
+    </div>
+  );
+}
+
+function FleetsCard({ seriesId, series }: { seriesId: string; series: Series }) {
   const fleets = useLiveQuery(() => fleetRepo.listBySeries(seriesId), [seriesId]) ?? [];
   const [expanded, setExpanded] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -336,19 +413,21 @@ function FleetsCard({ seriesId }: { seriesId: string }) {
                 ) : (
                   <span className="flex-1 text-sm">{fleet.name}</span>
                 )}
-                <Select
-                  value={fleet.scoringSystem}
-                  onValueChange={(v) => changeScoringSystem(fleet, v as Fleet['scoringSystem'])}
-                >
-                  <SelectTrigger className="w-28 h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="scratch">Scratch</SelectItem>
-                    <SelectItem value="irc">IRC</SelectItem>
-                    <SelectItem value="py">PY</SelectItem>
-                  </SelectContent>
-                </Select>
+                {series.scoringMode === 'handicap' && (
+                  <Select
+                    value={fleet.scoringSystem}
+                    onValueChange={(v) => changeScoringSystem(fleet, v as Fleet['scoringSystem'])}
+                  >
+                    <SelectTrigger className="w-28 h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="scratch">Scratch</SelectItem>
+                      <SelectItem value="irc">IRC</SelectItem>
+                      <SelectItem value="py">PY</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
                 <Button
                   type="button"
                   variant="ghost"
@@ -886,7 +965,8 @@ export default function SettingsPage({
       </div>
 
       <BasicsCard seriesId={seriesId} series={series} />
-      <FleetsCard seriesId={seriesId} />
+      <ScoringModeCard seriesId={seriesId} series={series} />
+      <FleetsCard seriesId={seriesId} series={series} />
       <ScoringCard seriesId={seriesId} series={series} />
       <CompetitorFieldsCard seriesId={seriesId} series={series} />
       <PublishingCard seriesId={seriesId} series={series} />
