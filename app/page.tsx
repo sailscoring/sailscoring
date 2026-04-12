@@ -119,7 +119,7 @@ export default function HomePage() {
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       const json = new TextDecoder().decode(bytes);
       const parsed = JSON.parse(json) as PublicSeriesExport;
-      if (![1, 2, 3].includes(parsed.version) || !parsed.series?.name) throw new Error('Unrecognised format');
+      if (!(parsed.version >= 1) || !parsed.series?.name) throw new Error('Unrecognised format');
       setOpenFlow({ step: 'import-url', data: parsed });
     } catch {
       setOpenFlow({ step: 'error', message: 'Could not read the series data from the link.' });

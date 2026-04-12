@@ -334,7 +334,7 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
 // Shared fixture for import flow tests
 function makeImportUrl() {
   const publicExport = {
-    version: 1,
+    version: 3,
     exportedAt: '2025-06-14T10:00:00.000Z',
     series: {
       name: 'Imported Regatta',
@@ -343,15 +343,21 @@ function makeImportUrl() {
       endDate: '',
       discardThresholds: [],
       dnfScoring: 'seriesEntries',
+      displayFields: ['club'],
+      scoringMode: 'scratch',
     },
+    fleets: [
+      { name: 'Default', displayOrder: 0, scoringSystem: 'scratch' },
+    ],
     competitors: [
-      { sailNumber: '1', name: 'Alice', club: 'TYC', gender: '', age: null },
-      { sailNumber: '2', name: 'Bob', club: 'TYC', gender: '', age: null },
+      { sailNumber: '1', name: 'Alice', club: 'TYC', gender: '', age: null, fleetNames: ['Default'] },
+      { sailNumber: '2', name: 'Bob', club: 'TYC', gender: '', age: null, fleetNames: ['Default'] },
     ],
     races: [
       {
         raceNumber: 1,
         date: '2025-06-14',
+        starts: [],
         finishes: [
           { sailNumber: '1', sortOrder: 1, resultCode: null, startPresent: null },
           { sailNumber: '2', sortOrder: 2, resultCode: null, startPresent: null },
@@ -359,8 +365,13 @@ function makeImportUrl() {
       },
     ],
     standings: [
-      { rank: 1, sailNumber: '1', name: 'Alice', racePoints: [1], raceCodes: [null], raceDiscards: [false], totalPoints: 1, netPoints: 1 },
-      { rank: 2, sailNumber: '2', name: 'Bob', racePoints: [2], raceCodes: [null], raceDiscards: [false], totalPoints: 2, netPoints: 2 },
+      {
+        fleetName: 'Default',
+        rows: [
+          { rank: 1, sailNumber: '1', name: 'Alice', racePoints: [1], raceCodes: [null], raceDiscards: [false], totalPoints: 1, netPoints: 1 },
+          { rank: 2, sailNumber: '2', name: 'Bob', racePoints: [2], raceCodes: [null], raceDiscards: [false], totalPoints: 2, netPoints: 2 },
+        ],
+      },
     ],
   };
   const b64url = Buffer.from(JSON.stringify(publicExport), 'utf-8')
@@ -406,6 +417,55 @@ test('import dialog does not re-open after confirming and navigating back home',
   // Dialog must not re-open. The production router cache may retain ?import= in the
   // URL (a cosmetic issue), but sessionStorage prevents re-processing the import.
   await expect(page.getByRole('dialog')).not.toBeVisible();
+});
+
+test('export HTML → import URL round-trip creates a new series', async ({ page }) => {
+  // Build a minimal series and export its HTML.
+  await createSeriesQuick(page, { name: 'Round Trip Regatta', venue: 'RT YC' });
+
+  for (const [sail, name] of [['11', 'Alice RT'], ['22', 'Bob RT']]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByLabel('Helm name').fill(name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: sail })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  for (const sail of ['11', '22']) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add' }).click();
+  }
+  await page.getByRole('button', { name: 'Save results' }).click();
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  const download = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export HTML' }).click(),
+  ]).then(([dl]) => dl);
+
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  const html = Buffer.concat(chunks).toString('utf-8');
+
+  // Extract the ?import= URL from the exported HTML.
+  const match = html.match(/href="([^"]*\?import=[^"]+)"/);
+  expect(match).not.toBeNull();
+  const importHref = match![1];
+  const importParam = new URL(importHref, 'http://localhost').searchParams.get('import');
+  expect(importParam).not.toBeNull();
+
+  // Navigate to the import URL — this is the flow that broke in a4b08c7.
+  await page.goto(`/?import=${importParam}`);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Round Trip Regatta/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Open series' }).click();
+  await expect(page).toHaveURL(/\/standings$/);
+  await expect(page.getByText('Alice RT')).toBeVisible();
+  await expect(page.getByText('Bob RT')).toBeVisible();
 });
 
 test('import dialog does not re-open after cancelling and navigating back home', async ({ page }) => {
