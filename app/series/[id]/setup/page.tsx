@@ -1,26 +1,20 @@
 'use client';
 
-import { use, useState, useEffect, useRef } from 'react';
+import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { seriesRepo, fleetRepo, competitorRepo } from '@/lib/dexie-repository';
 import { db } from '@/lib/db';
-import type { Series, Fleet, DiscardThreshold, StartGroup } from '@/lib/types';
+import type { Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Upload } from 'lucide-react';
 import { CompetitorImport } from '@/components/competitor-import';
+import { BasicsCard } from '@/components/series-settings/basics-card';
+import { FleetsCard } from '@/components/series-settings/fleets-card';
+import { ScoringCard } from '@/components/series-settings/scoring-card';
 
 const STEP_LABELS = ['Name & Basics', 'Competitors', 'Fleets', 'Scoring'];
-const TOTAL_STEPS = STEP_LABELS.length;
 
 // ── Step 1: Name & Basics ─────────────────────────────────────────────────────
 
@@ -33,76 +27,21 @@ function Step1({
   seriesId: string;
   onNext: () => void;
 }) {
-  const [name, setName] = useState(series.name);
-  const [venue, setVenue] = useState(series.venue);
-  const [startDate, setStartDate] = useState(series.startDate);
-  const [endDate, setEndDate] = useState(series.endDate);
-  const nameRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    // Auto-select the placeholder name so the scorer can type over it
-    nameRef.current?.select();
-  }, []);
-
-  async function save() {
-    await db.series.update(seriesId, {
-      name: name.trim() || series.name,
-      venue: venue.trim(),
-      startDate,
-      endDate,
-    });
+  async function persist(patch: Partial<Series>) {
+    await db.series.update(seriesId, patch);
     await seriesRepo.touch(seriesId);
-  }
-
-  async function handleNext() {
-    await save();
-    onNext();
   }
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label htmlFor="name">Name</Label>
-        <Input
-          ref={nameRef}
-          id="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. HYC Frostbite 2026"
-          autoFocus
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="venue">Venue</Label>
-        <Input
-          id="venue"
-          value={venue}
-          onChange={(e) => setVenue(e.target.value)}
-          placeholder="e.g. Howth Yacht Club"
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="startDate">Start date</Label>
-          <Input
-            id="startDate"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="endDate">End date</Label>
-          <Input
-            id="endDate"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-        </div>
-      </div>
+      <BasicsCard
+        mode="wizard"
+        includeName
+        value={series}
+        onChange={persist}
+      />
       <div className="flex justify-end pt-2">
-        <Button onClick={handleNext}>Next: Competitors →</Button>
+        <Button onClick={onNext}>Next: Competitors →</Button>
       </div>
     </div>
   );
@@ -119,14 +58,8 @@ function Step2({
   onNext: () => void;
   onBack: () => void;
 }) {
-  const competitors = useLiveQuery(
-    () => competitorRepo.listBySeries(seriesId),
-    [seriesId],
-  );
-  const fleets = useLiveQuery(
-    () => fleetRepo.listBySeries(seriesId),
-    [seriesId],
-  );
+  const competitors = useLiveQuery(() => competitorRepo.listBySeries(seriesId), [seriesId]);
+  const fleets = useLiveQuery(() => fleetRepo.listBySeries(seriesId), [seriesId]);
   const count = competitors?.length ?? 0;
   const [lastImportResult, setLastImportResult] = useState<{ added: number; fleetsCreated: string[] } | null>(null);
 
@@ -173,7 +106,7 @@ function Step2({
   );
 }
 
-// ── Step 3: Fleets ────────────────────────────────────────────────────────────
+// ── Step 3: Fleets (scoring mode + fleets + start sequence) ───────────────────
 
 function Step3({
   series,
@@ -186,18 +119,11 @@ function Step3({
   onNext: () => void;
   onBack: () => void;
 }) {
-  const fleets = useLiveQuery(() => fleetRepo.listBySeries(seriesId), [seriesId]) ?? [];
-  const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
-  const isOnlyDefault = fleets.length === 1 && fleets[0].name === 'Default';
-
-  const [addingFleet, setAddingFleet] = useState(false);
-  const [newFleetName, setNewFleetName] = useState('');
-  const [newFleetError, setNewFleetError] = useState('');
-
   async function handleScoringMode(mode: 'scratch' | 'handicap') {
     if (mode === series.scoringMode) return;
     await db.series.update(seriesId, { scoringMode: mode });
     if (mode === 'scratch') {
+      const fleets = await fleetRepo.listBySeries(seriesId);
       for (const f of fleets) {
         if (f.scoringSystem !== 'scratch') {
           await fleetRepo.save({ ...f, scoringSystem: 'scratch' });
@@ -207,41 +133,8 @@ function Step3({
     await seriesRepo.touch(seriesId);
   }
 
-  async function handleAddFleet() {
-    const name = newFleetName.trim();
-    if (!name) { setNewFleetError('Fleet name is required.'); return; }
-    if (fleets.some((f) => f.name.toLowerCase() === name.toLowerCase())) {
-      setNewFleetError(`"${name}" already exists.`);
-      return;
-    }
-    const maxOrder = fleets.reduce((max, f) => Math.max(max, f.displayOrder), -1);
-    await fleetRepo.save({
-      id: crypto.randomUUID(),
-      seriesId,
-      name,
-      displayOrder: maxOrder + 1,
-      scoringSystem: 'scratch',
-    });
-    await seriesRepo.touch(seriesId);
-    setNewFleetName('');
-    setNewFleetError('');
-    setAddingFleet(false);
-  }
-
-  async function changeScoringSystem(fleet: Fleet, system: Fleet['scoringSystem']) {
-    await fleetRepo.save({ ...fleet, scoringSystem: system });
-    await seriesRepo.touch(seriesId);
-  }
-
-  async function deleteFleet(fleet: Fleet) {
-    if (!confirm(`Delete fleet "${fleet.name}"?`)) return;
-    await fleetRepo.delete(fleet.id);
-    await seriesRepo.touch(seriesId);
-  }
-
   return (
     <div className="space-y-4">
-      {/* Scoring mode */}
       <div className="space-y-2">
         <Label>How will this series be scored?</Label>
         <div className="space-y-2">
@@ -274,66 +167,9 @@ function Step3({
         </div>
       </div>
 
-      {/* Fleet list */}
       <div className="space-y-2">
         <Label>Fleets</Label>
-        {sorted.length === 0 || isOnlyDefault ? (
-          <p className="text-sm text-muted-foreground">No fleets configured yet.</p>
-        ) : (
-          <div className="space-y-1">
-            {sorted.map((fleet) => (
-              <div key={fleet.id} className="flex items-center gap-2 text-sm border rounded-md px-3 py-2">
-                <span className="flex-1">{fleet.name}</span>
-                {series.scoringMode === 'handicap' && (
-                  <Select
-                    value={fleet.scoringSystem}
-                    onValueChange={(v) => changeScoringSystem(fleet, v as Fleet['scoringSystem'])}
-                  >
-                    <SelectTrigger className="w-28 h-7 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="scratch">Scratch</SelectItem>
-                      <SelectItem value="irc">IRC</SelectItem>
-                      <SelectItem value="py">PY</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-1.5 text-destructive/70 hover:text-destructive"
-                  onClick={() => deleteFleet(fleet)}
-                >
-                  ×
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-        {addingFleet ? (
-          <div className="flex items-center gap-2">
-            <Input
-              value={newFleetName}
-              autoFocus
-              placeholder="Fleet name"
-              onChange={(e) => { setNewFleetName(e.target.value); setNewFleetError(''); }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); handleAddFleet(); }
-                if (e.key === 'Escape') { setAddingFleet(false); setNewFleetName(''); setNewFleetError(''); }
-              }}
-              className="flex-1"
-            />
-            <Button size="sm" onClick={handleAddFleet}>Add</Button>
-            <Button variant="ghost" size="sm" onClick={() => { setAddingFleet(false); setNewFleetName(''); setNewFleetError(''); }}>Cancel</Button>
-          </div>
-        ) : (
-          <Button variant="outline" size="sm" onClick={() => setAddingFleet(true)}>
-            + Add fleet
-          </Button>
-        )}
-        {newFleetError && <p className="text-xs text-destructive">{newFleetError}</p>}
+        <FleetsCard mode="wizard" seriesId={seriesId} series={series} />
       </div>
 
       <div className="flex justify-between pt-2">
@@ -357,127 +193,17 @@ function Step4({
   onBack: () => void;
   onFinish: () => void;
 }) {
-  const [dnfScoring, setDnfScoring] = useState<Series['dnfScoring']>(series.dnfScoring);
-  const [discardMode, setDiscardMode] = useState<'rrs' | 'custom'>(
-    series.discardThresholds.length === 0 ? 'rrs' : 'custom',
-  );
-  const [thresholds, setThresholds] = useState<DiscardThreshold[]>(series.discardThresholds);
-
-  async function handleFinish() {
-    const finalThresholds = discardMode === 'rrs' ? [] : thresholds;
-    await db.series.update(seriesId, {
-      dnfScoring,
-      discardThresholds: finalThresholds,
-    });
+  async function persist(patch: Partial<Series>) {
+    await db.series.update(seriesId, patch);
     await seriesRepo.touch(seriesId);
-    onFinish();
   }
 
   return (
     <div className="space-y-4">
-      {/* DNF scoring */}
-      <div className="space-y-2">
-        <Label>DNF/DNS scoring (RRS A5)</Label>
-        <div className="space-y-2">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="radio"
-              name="wizardDnfScoring"
-              checked={dnfScoring === 'seriesEntries'}
-              onChange={() => setDnfScoring('seriesEntries')}
-              className="mt-0.5"
-            />
-            <div>
-              <span className="text-sm font-medium">Entries in the series (RRS A5.2 — standard)</span>
-              <p className="text-xs text-muted-foreground">DNF/DNS score = fleet size + 1.</p>
-            </div>
-          </label>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="radio"
-              name="wizardDnfScoring"
-              checked={dnfScoring === 'startingArea'}
-              onChange={() => setDnfScoring('startingArea')}
-              className="mt-0.5"
-            />
-            <div>
-              <span className="text-sm font-medium">Boats in the starting area (RRS A5.3 — alternative)</span>
-              <p className="text-xs text-muted-foreground">Requires start check-in to distinguish DNS from DNC.</p>
-            </div>
-          </label>
-        </div>
-      </div>
-
-      {/* Discards */}
-      <div className="space-y-2">
-        <Label>Discards</Label>
-        <div className="space-y-2">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="radio"
-              name="wizardDiscards"
-              checked={discardMode === 'rrs'}
-              onChange={() => setDiscardMode('rrs')}
-              className="mt-0.5"
-            />
-            <span className="text-sm">RRS standard (1 discard after 5 races; 2 after 9; etc.)</span>
-          </label>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="radio"
-              name="wizardDiscards"
-              checked={discardMode === 'custom'}
-              onChange={() => {
-                setDiscardMode('custom');
-                if (thresholds.length === 0) setThresholds([{ minRaces: 5, discardCount: 1 }]);
-              }}
-              className="mt-0.5"
-            />
-            <span className="text-sm">Custom</span>
-          </label>
-        </div>
-        {discardMode === 'custom' && (
-          <div className="space-y-2 pl-7">
-            {thresholds.map((t, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm">
-                <span>After</span>
-                <Input
-                  type="number"
-                  min={1}
-                  value={t.minRaces}
-                  onChange={(e) => {
-                    const updated = [...thresholds];
-                    updated[i] = { ...t, minRaces: parseInt(e.target.value, 10) || 1 };
-                    setThresholds(updated);
-                  }}
-                  className="w-16 h-7 text-xs"
-                />
-                <span>races, discard</span>
-                <Input
-                  type="number"
-                  min={1}
-                  value={t.discardCount}
-                  onChange={(e) => {
-                    const updated = [...thresholds];
-                    updated[i] = { ...t, discardCount: parseInt(e.target.value, 10) || 1 };
-                    setThresholds(updated);
-                  }}
-                  className="w-16 h-7 text-xs"
-                />
-                <span>worst</span>
-                <Button variant="ghost" size="sm" className="h-7 px-1.5" onClick={() => setThresholds(thresholds.filter((_, j) => j !== i))}>×</Button>
-              </div>
-            ))}
-            <Button variant="outline" size="sm" onClick={() => setThresholds([...thresholds, { minRaces: thresholds.length > 0 ? thresholds[thresholds.length - 1].minRaces + 4 : 5, discardCount: thresholds.length + 1 }])}>
-              + Add threshold
-            </Button>
-          </div>
-        )}
-      </div>
-
+      <ScoringCard mode="wizard" value={series} onChange={persist} />
       <div className="flex justify-between pt-2">
         <Button variant="ghost" onClick={onBack}>← Back</Button>
-        <Button onClick={handleFinish}>Finish setup →</Button>
+        <Button onClick={onFinish}>Finish setup →</Button>
       </div>
     </div>
   );
@@ -503,12 +229,11 @@ export default function SetupPage({
   }
 
   function handleFinish() {
-    router.push(`/series/${seriesId}/races`);
+    router.push(`/series/${seriesId}/competitors`);
   }
 
   return (
     <div className="max-w-lg space-y-6">
-      {/* Step indicator */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         {STEP_LABELS.map((label, i) => (
           <button
@@ -521,36 +246,17 @@ export default function SetupPage({
         ))}
       </div>
 
-      {/* Step content */}
       {step === 1 && (
-        <Step1
-          series={series}
-          seriesId={seriesId}
-          onNext={() => setStep(2)}
-        />
+        <Step1 series={series} seriesId={seriesId} onNext={() => setStep(2)} />
       )}
       {step === 2 && (
-        <Step2
-          seriesId={seriesId}
-          onNext={() => setStep(3)}
-          onBack={() => setStep(1)}
-        />
+        <Step2 seriesId={seriesId} onNext={() => setStep(3)} onBack={() => setStep(1)} />
       )}
       {step === 3 && (
-        <Step3
-          series={series}
-          seriesId={seriesId}
-          onNext={() => setStep(4)}
-          onBack={() => setStep(2)}
-        />
+        <Step3 series={series} seriesId={seriesId} onNext={() => setStep(4)} onBack={() => setStep(2)} />
       )}
       {step === 4 && (
-        <Step4
-          series={series}
-          seriesId={seriesId}
-          onBack={() => setStep(3)}
-          onFinish={handleFinish}
-        />
+        <Step4 series={series} seriesId={seriesId} onBack={() => setStep(3)} onFinish={handleFinish} />
       )}
     </div>
   );
