@@ -39,6 +39,7 @@ export interface RaceData {
 export interface RaceResultData {
   sailNumber: string;
   boatName?: string;
+  boatClass?: string;
   helm: string;
   crewName?: string;
   place: number | null;   // internal sort key for display order; null for coded finishes
@@ -58,6 +59,7 @@ export interface StandingRowData {
   rank: number;
   sailNumber: string;
   boatName?: string;
+  boatClass?: string;
   helm: string;
   crewName?: string;
   raceScores: RaceScoreData[];
@@ -83,6 +85,7 @@ export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercen
 
   const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
   const showBoatName = enabledCompetitorFields.includes('boatName');
+  const showBoatClass = enabledCompetitorFields.includes('boatClass');
   const showCrewName = enabledCompetitorFields.includes('crewName');
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
 
@@ -130,8 +133,8 @@ ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 <style>div.applicant-break {page-break-after:always;}</style>
 ${generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
 ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
-${renderSummaryTable(standings, races, hasDiscards, showBoatName, showCrewName)}
-${races.map((race) => renderRaceTable(race, showBoatName, showCrewName)).join('\n')}
+${renderSummaryTable(standings, races, hasDiscards, showBoatName, showBoatClass, showCrewName)}
+${races.map((race) => renderRaceTable(race, showBoatName, showBoatClass, showCrewName)).join('\n')}
 <p class="hardleft"></p>
 <p class="hardright"></p>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}">Open in Sail Scoring</a>` : ''}</p>
@@ -146,14 +149,17 @@ function renderSummaryTable(
   races: RaceData[],
   hasDiscards: boolean,
   showBoatName: boolean,
+  showBoatClass: boolean,
   showCrewName: boolean,
 ): string {
-  const colCount = (showBoatName ? 4 : 3) + races.length + (hasDiscards ? 2 : 1); // rank + sail [+ boat] + helm + races + total [+ nett]
+  const extraCols = (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0);
+  const colCount = 3 + extraCols + races.length + (hasDiscards ? 2 : 1); // rank + sail [+ boat] [+ class] + helm + races + total [+ nett]
 
   const cols = [
     '<col class="rank" />',
     '<col class="sailno" />',
     ...(showBoatName ? ['<col class="boatname" />'] : []),
+    ...(showBoatClass ? ['<col class="boatclass" />'] : []),
     '<col class="helmname" />',
     ...races.map(() => '<col class="race" />'),
     '<col class="total" />',
@@ -164,6 +170,7 @@ function renderSummaryTable(
     '<th>Rank</th>',
     '<th>Sail</th>',
     ...(showBoatName ? ['<th>Boat</th>'] : []),
+    ...(showBoatClass ? ['<th>Class</th>'] : []),
     `<th>${showCrewName ? 'Helm / Crew' : 'Helm'}</th>`,
     ...races.map(
       (r) => `<th><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a></th>`,
@@ -193,6 +200,7 @@ function renderSummaryTable(
         `<td>${ordinal(s.rank)}</td>`,
         `<td>${esc(s.sailNumber)}</td>`,
         ...(showBoatName ? [`<td>${esc(s.boatName ?? '')}</td>`] : []),
+        ...(showBoatClass ? [`<td>${esc(s.boatClass ?? '')}</td>`] : []),
         `<td>${esc(renderHelmCell(s.helm, s.crewName, showCrewName))}</td>`,
         scoreCells,
         `<td>${s.totalPoints}</td>`,
@@ -219,7 +227,7 @@ ${rows}
 
 // ---- Race detail table ----
 
-function renderRaceTable(race: RaceData, showBoatName: boolean, showCrewName: boolean): string {
+function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: boolean, showCrewName: boolean): string {
   const dateStr = formatIsoDate(race.date);
   const startStr = race.startTime ? ` &mdash; Start: ${esc(race.startTime)}` : '';
   const hasHandicapCols = race.results.some((r) => r.tcc != null);
@@ -253,6 +261,7 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showCrewName: bo
         `<td>${rankText}</td>`,
         `<td>${esc(r.sailNumber)}</td>`,
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
+        ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
         `<td>${esc(renderHelmCell(r.helm, r.crewName, showCrewName))}</td>`,
         `<td>${pointsText}</td>`,
         ...handicapCells,
@@ -261,7 +270,7 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showCrewName: bo
     })
     .join('\n');
 
-  const baseColCount = showBoatName ? 5 : 4;
+  const baseColCount = 4 + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0);
   const colCount = baseColCount + (hasHandicapCols ? 4 : 0);
   const handicapHeaders = hasHandicapCols
     ? '\n<th>TCC</th>\n<th>Finish</th>\n<th>ET</th>\n<th>CT</th>'
@@ -275,14 +284,14 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showCrewName: bo
 <colgroup span="${colCount}">
 <col class="rank" />
 <col class="sailno" />
-${showBoatName ? '<col class="boatname" />\n' : ''}<col class="helmname" />
+${showBoatName ? '<col class="boatname" />\n' : ''}${showBoatClass ? '<col class="boatclass" />\n' : ''}<col class="helmname" />
 <col class="points" />${handicapCols}
 </colgroup>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
 <th>Sail</th>
-${showBoatName ? '<th>Boat</th>\n' : ''}<th>${showCrewName ? 'Helm / Crew' : 'Helm'}</th>
+${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${showCrewName ? 'Helm / Crew' : 'Helm'}</th>
 <th>Points</th>${handicapHeaders}
 </tr>
 </thead>
@@ -397,7 +406,7 @@ export function assembleSeriesResultsData(
   races: Array<{ id: string; raceNumber: number; date: string }>,
   standings: Array<{
     rank: number;
-    competitor: { sailNumber: string; boatName?: string; name: string; crewName?: string };
+    competitor: { sailNumber: string; boatName?: string; boatClass?: string; name: string; crewName?: string };
     racePoints: number[];
     raceCodes: (ResultCode | null)[];
     racePenaltyCodes?: (PenaltyCode | null)[];
@@ -408,7 +417,7 @@ export function assembleSeriesResultsData(
     raceDiscards: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null }>>,
-  competitorsById: Map<string, { sailNumber: string; boatName?: string; name: string; crewName?: string; ircTcc?: number; pyNumber?: number }>,
+  competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; crewName?: string; ircTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -464,6 +473,7 @@ export function assembleSeriesResultsData(
       results.push({
         sailNumber: competitor.sailNumber,
         ...(competitor.boatName ? { boatName: competitor.boatName } : {}),
+        ...(competitor.boatClass ? { boatClass: competitor.boatClass } : {}),
         helm: competitor.name,
         ...(competitor.crewName ? { crewName: competitor.crewName } : {}),
         place: score.place,
@@ -514,6 +524,7 @@ export function assembleSeriesResultsData(
     rank: s.rank,
     sailNumber: s.competitor.sailNumber,
     ...(s.competitor.boatName ? { boatName: s.competitor.boatName } : {}),
+    ...(s.competitor.boatClass ? { boatClass: s.competitor.boatClass } : {}),
     helm: s.competitor.name,
     ...(s.competitor.crewName ? { crewName: s.competitor.crewName } : {}),
     raceScores: s.racePoints.map((points, i) => {

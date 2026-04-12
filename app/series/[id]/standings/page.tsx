@@ -973,6 +973,7 @@ function FleetStandingsTable({
   enabledFields: CompetitorFieldKey[];
 }) {
   const showBoat = enabledFields.includes('boatName');
+  const showClass = enabledFields.includes('boatClass');
   const showCrew = enabledFields.includes('crewName');
   const showClub = enabledFields.includes('club');
   return (
@@ -982,6 +983,7 @@ function FleetStandingsTable({
           <TableHead className="w-12 text-center">Rank</TableHead>
           <TableHead className="w-20">Sail no.</TableHead>
           {showBoat && <TableHead>Boat</TableHead>}
+          {showClass && <TableHead>Class</TableHead>}
           <TableHead>Helm</TableHead>
           {showCrew && <TableHead>Crew</TableHead>}
           {showClub && <TableHead>Club</TableHead>}
@@ -1004,6 +1006,7 @@ function FleetStandingsTable({
             raceCount={races.length}
             hasDiscards={hasDiscards}
             showBoat={showBoat}
+            showClass={showClass}
             showCrew={showCrew}
             showClub={showClub}
           />
@@ -1018,6 +1021,7 @@ function StandingRow({
   raceCount,
   hasDiscards,
   showBoat,
+  showClass,
   showCrew,
   showClub,
 }: {
@@ -1025,6 +1029,7 @@ function StandingRow({
   raceCount: number;
   hasDiscards: boolean;
   showBoat: boolean;
+  showClass: boolean;
   showCrew: boolean;
   showClub: boolean;
 }) {
@@ -1046,6 +1051,7 @@ function StandingRow({
       </TableCell>
       <TableCell className="font-mono">{competitor.sailNumber}</TableCell>
       {showBoat && <TableCell>{competitor.boatName ?? ''}</TableCell>}
+      {showClass && <TableCell>{competitor.boatClass ?? ''}</TableCell>}
       <TableCell>{competitor.name}</TableCell>
       {showCrew && <TableCell>{competitor.crewName ?? ''}</TableCell>}
       {showClub && <TableCell className="text-muted-foreground">{competitor.club}</TableCell>}

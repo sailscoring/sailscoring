@@ -162,6 +162,7 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
     : `Sail, Helm, ${shownLabels.join(', ')}`;
 
   const fieldHints: Partial<Record<CompetitorFieldKey, string>> = {
+    boatClass: 'Enable for PY fleets with mixed classes (Laser, Firefly, Mirror).',
     crewName: 'Enable for two-person classes (420, Fireball, GP14).',
   };
 

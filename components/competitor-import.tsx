@@ -34,7 +34,7 @@ import { log } from '@/lib/debug';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-type CompetitorField = 'sailNumber' | 'boatName' | 'name' | 'crewName' | 'club' | 'gender' | 'age' | 'fleet' | 'tcc' | 'py' | 'ignore';
+type CompetitorField = 'sailNumber' | 'boatName' | 'boatClass' | 'name' | 'crewName' | 'club' | 'gender' | 'age' | 'fleet' | 'tcc' | 'py' | 'ignore';
 type ColumnMap = Record<number, CompetitorField>;
 
 type ImportFlow =
@@ -53,6 +53,7 @@ export interface ImportResult {
 const FIELD_LABELS: Record<CompetitorField, string> = {
   sailNumber: 'Sail number',
   boatName: 'Boat name',
+  boatClass: 'Class',
   name: 'Helm name',
   crewName: 'Crew name',
   club: 'Club',
@@ -77,6 +78,7 @@ function autoDetectField(header: string): CompetitorField {
   const h = header.trim().toLowerCase();
   if (/sail/.test(h)) return 'sailNumber';
   if (/\bboat\b/.test(h)) return 'boatName';
+  if (/\bclass\b/.test(h)) return 'boatClass';
   if (/crew/.test(h)) return 'crewName';
   if (/helm|name/.test(h)) return 'name';
   if (/club/.test(h)) return 'club';
@@ -174,6 +176,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
 
       let sailNumber = '';
       let boatName = '';
+      let boatClass = '';
       let name = '';
       let crewName = '';
       let club = '';
@@ -187,6 +190,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         const val = row[col]?.trim() ?? '';
         if (field === 'sailNumber') sailNumber = val;
         else if (field === 'boatName') boatName = val;
+        else if (field === 'boatClass') boatClass = val;
         else if (field === 'name') name = val;
         else if (field === 'crewName') crewName = val;
         else if (field === 'club') club = val;
@@ -230,6 +234,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const pyNumber = parsedPy != null && !isNaN(parsedPy) ? parsedPy : existingCompetitor?.pyNumber;
 
       const resolvedBoatName = boatName || existingCompetitor?.boatName || '';
+      const resolvedBoatClass = boatClass || existingCompetitor?.boatClass || '';
       const resolvedCrewName = crewName || existingCompetitor?.crewName || '';
       const competitor: Competitor = {
         id: existingCompetitor?.id ?? crypto.randomUUID(),
@@ -237,6 +242,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         fleetIds,
         sailNumber: normSail,
         ...(resolvedBoatName ? { boatName: resolvedBoatName } : {}),
+        ...(resolvedBoatClass ? { boatClass: resolvedBoatClass } : {}),
         name: name || existingCompetitor?.name || '',
         ...(resolvedCrewName ? { crewName: resolvedCrewName } : {}),
         club: club || existingCompetitor?.club || '',
@@ -251,6 +257,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         existingCompetitor &&
         sameFleetIdSet(existingCompetitor.fleetIds, competitor.fleetIds) &&
         (existingCompetitor.boatName ?? '') === (competitor.boatName ?? '') &&
+        (existingCompetitor.boatClass ?? '') === (competitor.boatClass ?? '') &&
         existingCompetitor.name === competitor.name &&
         (existingCompetitor.crewName ?? '') === (competitor.crewName ?? '') &&
         existingCompetitor.club === competitor.club &&

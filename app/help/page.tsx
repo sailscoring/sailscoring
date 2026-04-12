@@ -95,10 +95,12 @@ export default function HelpPage() {
         <p>
           Each competitor requires a <strong className="text-foreground">sail number</strong> and a
           <strong className="text-foreground"> helm name</strong>. Sail numbers must be unique within
-          the series. Other fields — boat name, crew name, club, gender, age — are optional, and
-          which of them appear in the form and tables is controlled by the{' '}
+          the series. Other fields — boat name, class, crew name, club, gender, age — are optional,
+          and which of them appear in the form and tables is controlled by the{' '}
           <strong className="text-foreground">Competitor fields</strong> card on the{' '}
           <strong className="text-foreground">Settings</strong> tab. Enable{' '}
+          <em>Class</em> for PY fleets with mixed classes (Laser, Firefly, Mirror) to show the boat
+          class alongside each entry. Enable{' '}
           <em>Crew name</em> for two-person dinghy classes (420, Fireball, GP14); the helm and crew
           are then shown as <em>Helm / Crew</em> in exported results.
         </p>
@@ -159,11 +161,11 @@ export default function HelpPage() {
         <p>
           The importer shows each column in the file alongside a sample of its values. Use the
           dropdown next to each column to map it to a competitor field — sail number, helm name,
-          boat name, crew name, club, gender, age, or fleet. Columns you do not need can be left as{' '}
-          <strong className="text-foreground">(ignore)</strong>. Sail number is the only required
-          mapping; all other fields are optional. Fleet columns named{' '}
-          <em>Fleet</em>, <em>Class</em>, or <em>Division</em> are detected automatically, as are
-          columns named <em>Crew</em>.
+          boat name, class, crew name, club, gender, age, or fleet. Columns you do not need can be
+          left as <strong className="text-foreground">(ignore)</strong>. Sail number is the only
+          required mapping; all other fields are optional. Fleet columns named{' '}
+          <em>Fleet</em> or <em>Division</em> are detected automatically, as are columns named{' '}
+          <em>Class</em> (mapped to boat class) and <em>Crew</em>.
         </p>
         <p>
           A competitor can be assigned to more than one fleet by separating fleet names with a

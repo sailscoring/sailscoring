@@ -71,6 +71,48 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
   expect(html).toContain('<th>Boat</th>');
 });
 
+test('class field shows Class column and exports in results', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'PY Handicap' });
+
+  // Enable Class in Settings → Competitor fields
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByLabel('Class', { exact: true }).check();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Add a competitor with a class
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('207112');
+  await page.getByLabel('Helm name').fill('Jane Doe');
+  await page.getByLabel('Class', { exact: true }).fill('Laser');
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  // Competitors table now has a Class column
+  await expect(page.getByRole('columnheader', { name: 'Class', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Laser' })).toBeVisible();
+
+  // Add a race and export HTML
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('207112');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await page.getByRole('button', { name: 'Save results' }).click();
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export HTML' }).click(),
+  ]);
+  const path = await download.path();
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(path, 'utf-8');
+
+  expect(html).toContain('<th>Class</th>');
+  expect(html).toContain('>Laser<');
+});
+
 test('disabling a field preserves its data on re-enable', async ({ page }) => {
   // ── 1. Create series and enable Boat name ────────────────────────────────
   await createSeriesQuick(page, { name: 'Persist Test' });

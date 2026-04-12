@@ -4,6 +4,7 @@ import type { CompetitorFieldKey } from './types';
  *  and any UI that lists fields should iterate over this in this order. */
 export const ALL_COMPETITOR_FIELDS: readonly CompetitorFieldKey[] = [
   'boatName',
+  'boatClass',
   'crewName',
   'club',
   'gender',
@@ -13,6 +14,7 @@ export const ALL_COMPETITOR_FIELDS: readonly CompetitorFieldKey[] = [
 /** Human-readable labels for each configurable field. */
 export const COMPETITOR_FIELD_LABELS: Record<CompetitorFieldKey, string> = {
   boatName: 'Boat name',
+  boatClass: 'Class',
   crewName: 'Crew name',
   club: 'Club',
   gender: 'Gender',

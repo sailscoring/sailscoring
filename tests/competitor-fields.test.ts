@@ -20,8 +20,8 @@ describe('defaultEnabledCompetitorFields', () => {
 });
 
 describe('ALL_COMPETITOR_FIELDS', () => {
-  it('includes all five optional fields in display order', () => {
-    expect(ALL_COMPETITOR_FIELDS).toEqual(['boatName', 'crewName', 'club', 'gender', 'age']);
+  it('includes all optional fields in display order', () => {
+    expect(ALL_COMPETITOR_FIELDS).toEqual(['boatName', 'boatClass', 'crewName', 'club', 'gender', 'age']);
   });
 
   it('has a human label for every field', () => {

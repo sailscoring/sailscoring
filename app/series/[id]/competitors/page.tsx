@@ -40,6 +40,7 @@ import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 interface CompetitorFormData {
   sailNumber: string;
   boatName: string;
+  boatClass: string;
   name: string;
   crewName: string;
   club: string;
@@ -53,6 +54,7 @@ interface CompetitorFormData {
 const emptyForm: CompetitorFormData = {
   sailNumber: '',
   boatName: '',
+  boatClass: '',
   name: '',
   crewName: '',
   club: '',
@@ -185,6 +187,17 @@ function CompetitorForm({
               value={data.boatName}
               onChange={(e) => set('boatName', e.target.value)}
               placeholder="e.g. The Big Picture"
+            />
+          </div>
+        )}
+        {enabledFields.includes('boatClass') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="boatClass">Class</Label>
+            <Input
+              id="boatClass"
+              value={data.boatClass}
+              onChange={(e) => set('boatClass', e.target.value)}
+              placeholder="e.g. Laser"
             />
           </div>
         )}
@@ -376,6 +389,7 @@ export default function CompetitorsPage({
       fleetIds,
       sailNumber: data.sailNumber,
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
+      ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
       name: data.name,
       ...(data.crewName.trim() ? { crewName: data.crewName.trim() } : {}),
       club: data.club,
@@ -403,6 +417,7 @@ export default function CompetitorsPage({
       fleetIds: newFleetIds,
       sailNumber: data.sailNumber,
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
+      ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
       name: data.name,
       ...(data.crewName.trim() ? { crewName: data.crewName.trim() } : {}),
       club: data.club,
@@ -414,6 +429,7 @@ export default function CompetitorsPage({
     if (!updated.ircTcc) delete updated.ircTcc;
     if (!updated.pyNumber) delete updated.pyNumber;
     if (!data.boatName.trim()) delete updated.boatName;
+    if (!data.boatClass.trim()) delete updated.boatClass;
     if (!data.crewName.trim()) delete updated.crewName;
     log('competitors', 'updating', updated);
     await competitorRepo.save(updated);
@@ -434,6 +450,7 @@ export default function CompetitorsPage({
     ? existingCompetitors.filter((c) => c.sailNumber !== editingCompetitor.sailNumber.toUpperCase() || !sameFleetIdSet(c.fleetIds, editingCompetitor.fleetIds))
     : existingCompetitors;
   const showBoat = enabledFields.includes('boatName');
+  const showClass = enabledFields.includes('boatClass');
   const showCrew = enabledFields.includes('crewName');
   const showClub = enabledFields.includes('club');
   const showGender = enabledFields.includes('gender');
@@ -479,6 +496,7 @@ export default function CompetitorsPage({
             <TableRow>
               <TableHead>Sail no.</TableHead>
               {showBoat && <TableHead>Boat</TableHead>}
+              {showClass && <TableHead>Class</TableHead>}
               <TableHead>Helm</TableHead>
               {showCrew && <TableHead>Crew</TableHead>}
               {showClub && <TableHead>Club</TableHead>}
@@ -520,6 +538,7 @@ export default function CompetitorsPage({
                   {c.sailNumber}
                 </TableCell>
                 {showBoat && <TableCell>{c.boatName ?? ''}</TableCell>}
+                {showClass && <TableCell>{c.boatClass ?? ''}</TableCell>}
                 <TableCell>{c.name}</TableCell>
                 {showCrew && <TableCell>{c.crewName ?? ''}</TableCell>}
                 {showClub && <TableCell>{c.club}</TableCell>}
@@ -588,6 +607,7 @@ export default function CompetitorsPage({
               initial={{
                 sailNumber: editingCompetitor.sailNumber,
                 boatName: editingCompetitor.boatName ?? '',
+                boatClass: editingCompetitor.boatClass ?? '',
                 name: editingCompetitor.name,
                 crewName: editingCompetitor.crewName ?? '',
                 club: editingCompetitor.club,

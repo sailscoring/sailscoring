@@ -5,7 +5,7 @@ export interface DiscardThreshold {
 
 /** Optional competitor fields that can be shown or hidden per series.
  *  Sail number and helm name are always shown and are not configurable. */
-export type CompetitorFieldKey = 'boatName' | 'crewName' | 'club' | 'gender' | 'age';
+export type CompetitorFieldKey = 'boatName' | 'boatClass' | 'crewName' | 'club' | 'gender' | 'age';
 
 export interface StartGroup {
   fleetIds: string[];       // fleets sharing this starting signal
@@ -62,6 +62,7 @@ export interface Competitor {
   fleetIds: string[];
   sailNumber: string;
   boatName?: string;  // name of the vessel, e.g. "The Big Picture"
+  boatClass?: string; // boat class, e.g. "Laser", "Firefly" — relevant for PY fleets
   name: string;       // helm name
   crewName?: string;  // crew name, for two-person dinghy classes
   club: string;

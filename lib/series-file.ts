@@ -2,7 +2,7 @@ import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart, Comp
 import { db } from './db';
 import { defaultEnabledCompetitorFields } from './competitor-fields';
 
-export const FORMAT_VERSION = 9;
+export const FORMAT_VERSION = 10;
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -48,6 +48,7 @@ interface SeriesFileCompetitor {
   fleetId?: string;      // pre-v7 back-compat; prefer fleetIds when present
   sailNumber: string;
   boatName?: string;
+  boatClass?: string;    // v10+
   name: string;
   crewName?: string;     // v8+
   club: string;
@@ -210,6 +211,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       fleetIds: c.fleetIds,
       sailNumber: c.sailNumber,
       ...(c.boatName ? { boatName: c.boatName } : {}),
+      ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       name: c.name,
       ...(c.crewName ? { crewName: c.crewName } : {}),
       club: c.club,
@@ -348,6 +350,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
         fleetIds,
         sailNumber: c.sailNumber,
         ...(c.boatName ? { boatName: c.boatName } : {}),
+        ...(c.boatClass ? { boatClass: c.boatClass } : {}),
         name: c.name,
         ...(c.crewName ? { crewName: c.crewName } : {}),
         club: c.club,
@@ -473,6 +476,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
         fleetIds,
         sailNumber: c.sailNumber,
         ...(c.boatName ? { boatName: c.boatName } : {}),
+        ...(c.boatClass ? { boatClass: c.boatClass } : {}),
         name: c.name,
         ...(c.crewName ? { crewName: c.crewName } : {}),
         club: c.club,
