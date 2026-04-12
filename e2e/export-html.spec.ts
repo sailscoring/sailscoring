@@ -126,14 +126,14 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
 
   // Footer always shows "Open in Sail Scoring" (NEXT_PUBLIC_APP_URL is required)
   expect(html).toContain('Open in Sail Scoring');
-  expect(html).toContain('?import=');
+  expect(html).toContain('/import?data=');
 
   // No embedded JSON blob — the import URL carries the data.
   expect(html).not.toContain('sail-scoring-data');
   expect(html).not.toContain('application/json');
 
   // Decode the import URL and check it carries the series data.
-  const importMatch = html.match(/href="[^"]*\?import=([^"&]+)"/);
+  const importMatch = html.match(/href="[^"]*\/import\?data=([^"&]+)"/);
   expect(importMatch).not.toBeNull();
   const b64 = importMatch![1].replace(/-/g, '+').replace(/_/g, '/');
   const exportData = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
@@ -286,7 +286,7 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   expect(html).toContain('14:30:00');
 
   // ── 9. Verify the import URL carries the series data ──────────────────────
-  const importMatch = html.match(/href="[^"]*\?import=([^"&]+)"/);
+  const importMatch = html.match(/href="[^"]*\/import\?data=([^"&]+)"/);
   expect(importMatch).not.toBeNull();
   const b64 = importMatch![1].replace(/-/g, '+').replace(/_/g, '/');
   const data = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
@@ -378,7 +378,7 @@ function makeImportUrl() {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');
-  return `/?import=${b64url}`;
+  return `/import?data=${b64url}`;
 }
 
 test('Open in Sail Scoring import flow creates a new series', async ({ page }) => {
@@ -398,11 +398,12 @@ test('Open in Sail Scoring import flow creates a new series', async ({ page }) =
   await expect(page.getByText('Alice')).toBeVisible();
   await expect(page.getByText('Bob')).toBeVisible();
 
-  // URL should be clean (no ?import= param) after navigation
-  expect(page.url()).not.toContain('import=');
+  // URL should be clean (no import params) after navigation
+  expect(page.url()).not.toContain('data=');
+  expect(page.url()).not.toContain('import');
 });
 
-test('import dialog does not re-open after confirming and navigating back home', async ({ page }) => {
+test('home URL is clean after confirming an import and navigating back home', async ({ page }) => {
   await page.goto(makeImportUrl());
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('button', { name: 'Open series' }).click();
@@ -413,8 +414,8 @@ test('import dialog does not re-open after confirming and navigating back home',
   await expect(page).toHaveURL('/help');
   await page.getByRole('banner').getByRole('link', { name: 'Sail Scoring' }).click();
 
-  // Dialog must not re-open. The production router cache may retain ?import= in the
-  // URL (a cosmetic issue), but sessionStorage prevents re-processing the import.
+  // Home page must be clean — no dialog, no stale import params in URL.
+  await expect(page).toHaveURL('/');
   await expect(page.getByRole('dialog')).not.toBeVisible();
 });
 
@@ -450,15 +451,15 @@ test('export HTML → import URL round-trip creates a new series', async ({ page
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   const html = Buffer.concat(chunks).toString('utf-8');
 
-  // Extract the ?import= URL from the exported HTML.
-  const match = html.match(/href="([^"]*\?import=[^"]+)"/);
+  // Extract the /import?data= URL from the exported HTML.
+  const match = html.match(/href="([^"]*\/import\?data=[^"]+)"/);
   expect(match).not.toBeNull();
   const importHref = match![1];
-  const importParam = new URL(importHref, 'http://localhost').searchParams.get('import');
-  expect(importParam).not.toBeNull();
+  const dataParam = new URL(importHref, 'http://localhost').searchParams.get('data');
+  expect(dataParam).not.toBeNull();
 
   // Navigate to the import URL — this is the flow that broke in a4b08c7.
-  await page.goto(`/?import=${importParam}`);
+  await page.goto(`/import?data=${dataParam}`);
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('heading', { name: /Round Trip Regatta/ })).toBeVisible();
   await page.getByRole('button', { name: 'Open series' }).click();
@@ -467,17 +468,18 @@ test('export HTML → import URL round-trip creates a new series', async ({ page
   await expect(page.getByText('Bob RT')).toBeVisible();
 });
 
-test('import dialog does not re-open after cancelling and navigating back home', async ({ page }) => {
+test('home URL is clean after cancelling an import and navigating back home', async ({ page }) => {
   await page.goto(makeImportUrl());
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await expect(page).toHaveURL('/');
 
   // Navigate away then back home
   await page.getByRole('link', { name: 'Help' }).click();
   await expect(page).toHaveURL('/help');
   await page.getByRole('banner').getByRole('link', { name: 'Sail Scoring' }).click();
 
-  // Dialog must not re-open (sessionStorage prevents re-processing cached ?import= URL)
+  // Home page must be clean — no dialog, no stale import params in URL.
+  await expect(page).toHaveURL('/');
   await expect(page.getByRole('dialog')).not.toBeVisible();
 });
