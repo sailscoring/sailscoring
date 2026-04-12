@@ -49,8 +49,11 @@ export async function setScoringMode(page: Page, mode: 'scratch' | 'handicap'): 
   const settingsLink = page.getByRole('navigation').getByRole('link', { name: 'Settings' });
   await settingsLink.click();
   await expect(page.locator('h2', { hasText: 'Scoring mode' })).toBeVisible();
+  const scoringRow = page.locator('h2', { hasText: 'Scoring mode' }).locator('..');
+  await scoringRow.getByRole('button', { name: /Edit/ }).click();
   const label = mode === 'handicap' ? 'Handicap (time-corrected)' : 'Scratch (position-based)';
   await page.getByText(label).click();
+  await page.getByRole('button', { name: 'Done' }).click();
 }
 
 /**
