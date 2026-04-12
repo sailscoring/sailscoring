@@ -44,7 +44,7 @@ test('start check-in marks boats present and affects A5.3 standings', async ({ p
 
   // ── 3. Enable A5.3 in Settings ───────────────────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  await page.getByRole('heading', { name: 'Scoring' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('heading', { name: 'Scoring', exact: true }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByLabel('Boats in the starting area (RRS A5.3 — alternative)').check();
   await page.getByRole('button', { name: 'Save', exact: false }).last().click();
 

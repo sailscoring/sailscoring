@@ -138,7 +138,7 @@ test('BFD is not struck through and shown in red when a discard is active', asyn
 
   // Add discard rule (1 discard from 3 races)
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  await page.getByRole('heading', { name: 'Scoring' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('heading', { name: 'Scoring', exact: true }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add rule' }).click();
   await page.getByRole('spinbutton').nth(0).fill('3');
   await page.getByRole('spinbutton').nth(1).fill('1');
