@@ -187,7 +187,6 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
           .replace(/\+/g, '-')
           .replace(/\//g, '_')
           .replace(/=+$/, '');
-        data.publicExportJson = json;
         data.openInAppUrl = `${appUrl}/?import=${b64}`;
       }
     }

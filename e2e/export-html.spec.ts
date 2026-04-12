@@ -124,30 +124,28 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
   expect(html).not.toMatch(/<link[^>]+rel="stylesheet"/);
   expect(html).not.toMatch(/<script[^>]+src=/);
 
-  // JSON export embedded — includeJsonExport defaults to true
-  expect(html).toContain('id="sail-scoring-data"');
   // Footer always shows "Open in Sail Scoring" (NEXT_PUBLIC_APP_URL is required)
   expect(html).toContain('Open in Sail Scoring');
   expect(html).toContain('?import=');
 
-  // JSON blob is valid and contains the series data
-  const jsonMatch = html.match(/<script type="application\/json" id="sail-scoring-data">\n([\s\S]*?)\n<\/script>/);
-  expect(jsonMatch).not.toBeNull();
-  const exportData = JSON.parse(jsonMatch![1]);
+  // No embedded JSON blob — the import URL carries the data.
+  expect(html).not.toContain('sail-scoring-data');
+  expect(html).not.toContain('application/json');
+
+  // Decode the import URL and check it carries the series data.
+  const importMatch = html.match(/href="[^"]*\?import=([^"&]+)"/);
+  expect(importMatch).not.toBeNull();
+  const b64 = importMatch![1].replace(/-/g, '+').replace(/_/g, '/');
+  const exportData = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
   expect(exportData.version).toBe(3);
   expect(exportData.series.name).toBe('Howth Cup 2025');
   expect(exportData.competitors).toHaveLength(3);
   expect(exportData.standings[0].rows[0].sailNumber).toBe('42'); // Alice wins
 
-  // JSON blob is private-field-free
+  // Import URL is private-field-free
   expect(exportData).not.toHaveProperty('snapshotId');
   expect(exportData).not.toHaveProperty('snapshotHistory');
   expect('ftpHost' in exportData).toBe(false);
-
-  // JSON blob appears after the visible footer (i.e. at the end of <body>)
-  const footerIdx = html.indexOf('sailscoring.ie');
-  const jsonBlobIdx = html.indexOf('sail-scoring-data');
-  expect(jsonBlobIdx).toBeGreaterThan(footerIdx);
 });
 
 /**
@@ -287,10 +285,11 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   expect(html).toContain('14:28:00');
   expect(html).toContain('14:30:00');
 
-  // ── 9. Verify the embedded JSON blob ──────────────────────────────────────
-  const jsonMatch = html.match(/<script type="application\/json" id="sail-scoring-data">\n([\s\S]*?)\n<\/script>/);
-  expect(jsonMatch).not.toBeNull();
-  const data = JSON.parse(jsonMatch![1]);
+  // ── 9. Verify the import URL carries the series data ──────────────────────
+  const importMatch = html.match(/href="[^"]*\?import=([^"&]+)"/);
+  expect(importMatch).not.toBeNull();
+  const b64 = importMatch![1].replace(/-/g, '+').replace(/_/g, '/');
+  const data = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
   expect(data.version).toBe(3);
 
   // Fleets

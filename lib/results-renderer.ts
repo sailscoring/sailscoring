@@ -22,12 +22,8 @@ export interface SeriesResultsData {
   races: RaceData[];
   /** Standings sorted by rank ascending */
   standings: StandingRowData[];
-  /** Pre-serialised PublicSeriesExport JSON. When present, embeds the data in a
-   *  <script type="application/json"> block at the end of <body> for programmatic
-   *  consumers. Always set together with openInAppUrl. */
-  publicExportJson?: string;
   /** Full import URL, e.g. https://app.sailscoring.ie/?import=<base64url>. When set,
-   *  adds an "Open in Sail Scoring" link to the footer. Requires publicExportJson. */
+   *  adds an "Open in Sail Scoring" link to the footer. */
   openInAppUrl?: string;
 }
 
@@ -82,7 +78,7 @@ export interface RaceScoreData {
 // ---- Renderer ----
 
 export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercent?: number }): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, generatedAt, enabledCompetitorFields, races, standings, publicExportJson, openInAppUrl } = data;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, generatedAt, enabledCompetitorFields, races, standings, openInAppUrl } = data;
   const fontPercent = options?.fontPercent ?? 80;
 
   const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
@@ -139,9 +135,6 @@ ${races.map((race) => renderRaceTable(race, showBoatName, showCrewName)).join('\
 <p class="hardleft"></p>
 <p class="hardright"></p>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}">Open in Sail Scoring</a>` : ''}</p>
-${publicExportJson ? `<script type="application/json" id="sail-scoring-data">
-${escJson(publicExportJson)}
-</script>` : ''}
 </body>
 </html>`;
 }
@@ -391,13 +384,6 @@ function esc(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-/** Escape JSON for safe embedding inside a <script> tag.
- *  Only `</` needs escaping to prevent early tag termination; full HTML-escaping
- *  would corrupt the JSON text. */
-function escJson(json: string): string {
-  return json.replace(/<\//g, '<\\/');
 }
 
 // ---- Assembly helper ----
