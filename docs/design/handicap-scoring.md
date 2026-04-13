@@ -227,6 +227,50 @@ a future club supported by this application uses the SWNHC spreadsheet workflow.
 See `docs/notes/sailwave-excel-handicap-protocol.md` for the full spreadsheet
 analysis.
 
+### Scoring-inquiry adjustments
+
+A scorer may be asked (e.g. via an RRS scoring inquiry from the sailing committee
+or RO) to make adjustments to the handicap calculation for a race. These
+adjustments apply only to progressive systems — static TCF systems (IRC, PY)
+have nothing to recompute. Two forms are common:
+
+**Exclude a specific boat from the handicap calculation for a race.** Used when
+a boat's performance in that race was unusually poor (gear failure, crew
+incident, navigation error) and including it would skew the fleet statistics
+used to update everyone else's handicap. The excluded boat's own TCF remains
+unchanged by that race, and all other boats' handicaps are computed as if that
+boat were not in the fleet for that race. The boat still appears in the race
+results with its own corrected time and points — the exclusion is from the
+*handicap-update calculation*, not from the *scoring*.
+
+Mechanically, for NHC1 this means the boat is omitted from the `O_avg` and
+`mean(TCF_i)` used to compute `P50`, and its own `new_TCF_i = TCF_i` (as for a
+non-finisher). For ECHO it is omitted from the `avg(TCF_i)` and `avg(BCR_i)`
+used to compute `EchoIndex`, and its own TCF is unchanged.
+
+**Exclude a specific race from the handicap calculation entirely.** Used when
+the race as a whole was unrepresentative of the fleet's usual spread (e.g. a
+drifter that rewarded a lucky wind shift, or a short course on which the
+handicap differences had no chance to resolve). All boats' handicaps remain
+as they were before the race. The race is still scored — boats get points
+from their corrected times using the pre-race TCFs — but no handicap update
+propagates to race N+1.
+
+Mechanically this is equivalent to setting `new_TCF_i = TCF_i` for every boat,
+finisher or not. The `rrat`/`tcfApplied` snapshot for that race is still
+recorded (it is the TCF that produced the corrected times shown in results),
+but the master `comprating` is not advanced.
+
+**Data model implications (Phase 2):**
+
+- Per-race, per-competitor flag: `excludeFromHandicapUpdate?: boolean`.
+- Per-race flag: `excludeFromHandicapUpdate?: boolean` on the race itself, as
+  a shorthand for "all boats, this race".
+- Both flags only suppress the *update*. Corrected times, places, and points
+  for the race are unaffected.
+- The audit trail should record who made the exclusion and why (free-text
+  reason), because these are scoring-inquiry decisions and may be challenged.
+
 ### Why Phase 2 is a significant jump
 
 Phase 1 is stateless: the same TCC/PY number applies to every race; results can be
