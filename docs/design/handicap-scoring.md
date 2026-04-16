@@ -1,7 +1,7 @@
 # Handicap Scoring
 
 Design and implementation record for time-based handicap scoring. Phase 1 (static
-TCF — IRC and PY) is complete. Phase 2 (progressive handicaps — HPH and ECHO) is
+TCF — IRC and PY) is complete. Phase 2 (progressive handicaps — NHC and ECHO) is
 the next milestone. Covers mathematics, architecture, and implementation status.
 
 ---
@@ -79,25 +79,47 @@ to the scorer.
 
 ---
 
-## Phase 2: Progressive handicaps — HPH and ECHO — Not started
+## Phase 2: Progressive handicaps — NHC and ECHO — Not started
 
-### HPH (Howth Performance Handicap)
+### NHC (National Handicap for Cruisers)
 
-HPH is the progressive time-on-time system used at HYC. It is a local implementation
-of NHC (National Handicap for Cruisers). Each boat starts with an initial TCF, which
-is adjusted after every race based on performance relative to the fleet average.
+NHC is the standard progressive time-on-time handicap system for cruisers in
+Ireland and the UK. Each boat starts with an initial TCF, which is adjusted
+after every race based on performance relative to the fleet average.
 
-HYC scores HPH using Sailwave's built-in `NHC1` rating system. The algorithm has been
-confirmed by reverse-engineering the 2025 Puppeteer 22 Championships data
-(`reference/data/nhc-example/`), where actual per-race TCFs and finish times are
-preserved in full.
+Three distinct implementations exist in the wild:
+
+- **NHC1** — Sailwave's built-in algorithm. Symmetric `α = 0.15`, fleet-mean
+  target, no explicit realignment (the formulation conserves fleet mean by
+  construction). Covered in detail below; this is the variant we implement first.
+- **RYA NHC 2015 (HalSail)** — the RYA's published spec, as documented in
+  HalSail's FAQ. Symmetric `α = 0.3`, extreme-performer cap at ±1 SD of
+  corrected time, realignment anchored to RYA-published base numbers `H0`
+  (not to the prior fleet mean). Documented below for reference.
+- **SWNHC2015** — external Sailwave spreadsheet (`SWNHC*.xls`) used as a
+  standalone calculator by some clubs. Asymmetric rates, SD-based outlier
+  dampening via a reduced α, realignment anchored to the prior fleet mean.
+  Documented below for reference only.
+
+> **HPH (Howth Performance Handicap)** is HYC's local label for its NHC-based
+> progressive handicap; mechanically it is NHC1 with the default parameters.
+> The codebase will not carry any HPH-specific concept: HYC scorers configure
+> a fleet with `scoringSystem: 'nhc'` and the default parameters, and the
+> resulting handicap is what HYC calls HPH. Other clubs' NHC variants are
+> reached by the same scoring system with different parameters.
+
+#### NHC1 — Sailwave built-in
+
+The algorithm has been confirmed by reverse-engineering the 2025 Puppeteer 22
+Championships data (`reference/data/nhc-example/`), where actual per-race TCFs
+and finish times are preserved in full.
 
 **NHC1 algorithm (confirmed Adjust = 0.15, symmetric):**
 
 ```
 H_i  = elapsed time in decimal minutes
 O_i  = 100 / H_i                     # raw performance index
-O_avg = mean(O_i) over HPH finishers
+O_avg = mean(O_i) over NHC finishers
 P50  = mean(TCF_i) / O_avg            # scale: converts O-units to TCF-units
 Q_i  = O_i × P50                     # "fair TCF" — the TCF that would have given
                                       # boat i exactly the fleet-mean corrected time
@@ -126,55 +148,10 @@ persisted: `comprating` for the current master handicap, `rrat` (= `tcfApplied`)
 the audit trail of what was actually used in each race. The two can diverge when a
 prior update is pending — see "Race rating vs master rating" below.
 
-### ECHO
-
-ECHO is used by some Irish and UK clubs. It differs from HPH/NHC in one key way:
-the reference point is the **winner's corrected time**, not the fleet mean.
-
-**Per-race adjustment (from `SWECHO.xls` — Version 2018-01-02-0):**
-
-1. Score the race: `CT_i = ET_i × TCF_i` for each finisher `i`
-2. For each finisher, compute the "Best Corrected Rate" — the TCF that would have
-   tied the winner:
-   ```
-   BCR_i = CT_winner / ET_i
-   ```
-   (For the winner, `BCR = TCF_winner`.)
-3. Compute the EchoIndex fleet normalisation factor:
-   ```
-   EchoIndex = avg(TCF_i) / avg(BCR_i)   over all finishers
-   ```
-   This keeps the fleet-mean handicap constant from race to race — without it, a
-   consistently fast fleet would have all handicaps cut every race.
-4. Scale BCR by EchoIndex to get a normalised target:
-   ```
-   ECHO_i = BCR_i × EchoIndex
-   ```
-5. Apply a fractional adjustment towards the target:
-   ```
-   new_TCF_i = TCF_i × (1 − Adjust) + ECHO_i × Adjust
-   ```
-   Default `Adjust = 0.6` — far more aggressive than HPH/NHC1's Adjust = 0.15.
-
-6. Non-finishers (DNF/DNS/etc.) retain their current handicap unchanged.
-
-**Key difference from HPH/NHC:** HPH and NHC target the fleet mean corrected time
-(every boat should finish equal to average); ECHO targets the winner (every boat
-should have tied the leader). Combined with the higher Adjust, ECHO reacts more
-sharply to individual race results.
-
-### NHC (National Handicap for Cruisers) — background and variants
-
-NHC is the standard progressive handicap system for cruisers in Ireland and the UK.
-Two distinct implementations exist:
-
-#### NHC1 — Sailwave built-in (used by HYC)
-
-This is the algorithm described in the HPH section above. Sailwave's `scrratingsystem
-= 'NHC1'` activates it; corrected times and per-race TCFs are computed inside
-Sailwave and published in results. The scorer updates each boat's master rating before
-each race; Sailwave does not write updated ratings back automatically
-(`scrupdateratings = 'No'`).
+Sailwave's `scrratingsystem = 'NHC1'` activates the built-in; corrected times and
+per-race TCFs are computed inside Sailwave and published in results. The scorer
+updates each boat's master rating before each race; Sailwave does not write updated
+ratings back automatically (`scrupdateratings = 'No'`).
 
 Key properties confirmed from the Puppeteer 22 Championships data:
 - **Symmetric Adjust = 0.15** (same rate up and down)
@@ -191,11 +168,81 @@ values must be persisted: the master TCF (what shows in the standings header) an
 the race-specific TCF (what was used to compute that race's corrected times).
 
 **Rating storage convention:** Sailwave stores TCFs as raw 3-decimal values (e.g.
-`1.319`). The Puppeteer 22 HPH fleet has ratings in the 1.14–1.45 range — all above
+`1.319`). The Puppeteer 22 fleet has ratings in the 1.14–1.45 range — all above
 1.0 — because the fleet's historical baseline was calibrated against a slow reference
 boat. The absolute scale does not affect the algorithm; only relative values within
 the fleet matter. Our implementation should store raw TCF and document the convention
 clearly.
+
+#### RYA NHC 2015 (HalSail) — reference spec
+
+HalSail's public FAQ describes the RYA scheme as introduced in 2013 and revised
+in May 2015. The variable naming differs from ours (the FAQ uses `H0/H1/H2/Hp/Ha`
+rather than `TCF/Q/new_TCF`), but the per-boat "fair handicap" formulation is
+algebraically identical to NHC1's:
+
+```
+Ha_i = ΣH1 / (Te_i × Σ(1/Te))      # = our Q_i = TCF × CT_avg / CT_i
+```
+
+Three properties distinguish it from NHC1:
+
+**1. Symmetric `α = 0.3`.** Twice NHC1's blend rate. Handicaps move further per
+race, so the system converges faster but is noisier.
+
+```
+Hp_i = (1 − α) H1_i + α · Ha_i     # non-extreme performers
+```
+
+**2. Extreme-performer cap.** A boat is an "extreme performer" if its corrected
+time is more than one standard deviation from the fleet mean:
+
+```
+fast extreme:  Tc_i < μ_tc − σ_tc
+slow extreme:  Tc_i > μ_tc + σ_tc
+```
+
+For extreme performers, the formula substitutes a threshold elapsed time `Tt`
+(the elapsed time that *would have* put the boat right at the ±1 SD boundary)
+in place of the boat's actual `Te_i`:
+
+```
+Tt_i = (μ_tc ∓ σ_tc) / H1_i
+Hp_i = (1 − α) H1_i + α · (ΣH1 / (Tt_i × Σ(1/Te)))
+```
+
+The motivation is stated directly in the FAQ: a boat that suffered gear failure
+shouldn't get a huge handicap reduction, and a boat that finished just before
+the wind died shouldn't get a huge handicap increase. This is a different
+outlier strategy from SWNHC2015 (which reduces `α` for outliers); HalSail keeps
+the same `α` but clamps the input.
+
+**3. Realignment to base numbers.** This is the biggest conceptual difference
+from NHC1. Each boat has an RYA-published **base handicap `H0`**, derived from
+length/beam/weight/sail-area measurements. After each race, the fleet is
+realigned so the sum of current handicaps equals the sum of base handicaps:
+
+```
+H2_i = Hp_i × (ΣH0 / ΣHp)           # rounded to 3 decimal places
+```
+
+This preserves the *relative* positions produced by the blend step but anchors
+the *absolute* scale to the published baseline. NHC1 has no equivalent — it
+conserves the fleet's own current mean, which can drift arbitrarily far from
+any external reference over a long series.
+
+**DNC realignment:** realignment applies to *all* boats, including those that
+did not race. A DNC boat's handicap can still change from race to race as the
+fleet scales. The only exception is a boat that has never started any race in
+the series yet — those are not realigned until their first non-DNC result.
+
+**New boat entering a series:** starts on its base number `H0`.
+
+**Implementation implication:** supporting RYA NHC 2015 requires a
+`baseHandicap` (`H0`) field per competitor, distinct from the current TCF. See
+"Unified algorithm and parameterisation" below for how `H0` fits into the
+overall data model and what a safe default looks like when a scorer doesn't
+supply a value.
 
 #### SWNHC2015 — external spreadsheet variant (reference only)
 
@@ -226,6 +273,171 @@ HYC does not use this variant. It is documented here for completeness and in cas
 a future club supported by this application uses the SWNHC spreadsheet workflow.
 See `docs/notes/sailwave-excel-handicap-protocol.md` for the full spreadsheet
 analysis.
+
+#### Unified algorithm and parameterisation
+
+All three NHC variants share the same four-step shape. Rather than implement
+three separate algorithms we parameterise a single one and expose named presets
+to the scorer.
+
+**The four steps**
+
+1. **Compute the per-boat fair TCF** for each finisher — identical across all
+   variants:
+   ```
+   Q_i = ΣTCF / (Te_i × Σ(1/Te))
+       ≡ TCF_i × CT_avg / CT_i
+       ≡ O_i × P50                (with O_i = 100/H_i, P50 = mean(TCF)/mean(O))
+   ```
+   All three formulations are algebraically equivalent; the implementation can
+   use whichever is numerically cleanest.
+2. **Classify outliers** (optional, variant-dependent).
+3. **Blend** each finisher's TCF toward its `Q_i` using a rate α. Non-finishers
+   skip this step (`new_TCF = TCF`).
+4. **Realign** the whole fleet to a target sum (optional). When enabled, this
+   step may apply to non-finishers too.
+
+**Configuration schema**
+
+```ts
+interface NhcConfig {
+  // Blend rates. Setting alphaUp === alphaDown gives symmetric adjustment.
+  alphaUp: number;                 // applied when Q_i > TCF_i (boat over-performed)
+  alphaDown: number;               // applied when Q_i ≤ TCF_i
+
+  outlier:
+    | { strategy: 'none' }
+    | {
+        // RYA: clamp the boat's effective corrected time to ±k SDs of fleet Tc,
+        //      then recompute Q_i from the clamped Tc. Same α is applied.
+        strategy: 'cap-input';
+        sdThresholdFast: number;       // default 1.0
+        sdThresholdSlow: number;       // default 1.0
+      }
+    | {
+        // SWNHC2015: keep Te, but reduce α for boats whose Q/TCF ratio is
+        //            far from fleet mean.
+        strategy: 'reduce-alpha';
+        sdThresholdUp: number;         // default 1.5
+        sdThresholdDown: number;       // default 1.0
+        alphaUpReduced: number;        // default 0.15
+        alphaDownReduced: number;      // default 0.075
+      };
+
+  realignment:
+    | { target: 'none' }
+    | { target: 'prior-mean';   minFinishers: number; includeDNC: boolean }
+    | { target: 'base-numbers'; includeDNC: boolean };
+}
+```
+
+**Preset configurations**
+
+| Parameter                 | NHC1 (default) | RYA NHC 2015  | SWNHC2015    |
+|---------------------------|----------------|---------------|--------------|
+| `alphaUp`                 | 0.15           | 0.3           | 0.3          |
+| `alphaDown`               | 0.15           | 0.3           | 0.15         |
+| `outlier.strategy`        | `none`         | `cap-input`   | `reduce-alpha` |
+| outlier thresholds        | —              | 1.0 / 1.0 SD  | 1.5 / 1.0 SD |
+| `realignment.target`      | `none`         | `base-numbers`| `prior-mean` |
+| `realignment.includeDNC`  | —              | `true`        | `false`      |
+| `realignment.minFinishers`| —              | —             | 3            |
+| Requires `H0` per boat?   | no             | **yes**       | no           |
+
+**Why NHC1 is the default.** It's what HYC (our one known user) runs; it is the
+simplest code path (no outlier classification, no realignment step); and with
+symmetric α its formulation conserves fleet mean by construction, so there is
+no implicit drift to correct for.
+
+**UI: presets vs raw parameters.** Scorers should pick a variant by name (NHC1
+/ RYA NHC 2015 / SWNHC2015). Exposing raw α, thresholds, and realignment target
+is a power-user escape hatch we can add later if a club ever asks. Start with
+presets-only.
+
+**Starting TCF vs base handicap `H0`**
+
+Two distinct per-competitor values:
+
+- **Starting TCF** — the handicap used in race 1 of *this series*. Every NHC
+  variant needs one. Typical sources:
+  - carry-over from the final race of a previous series,
+  - scorer-entered (new boat joining mid-season, local reset), or
+  - equal to `H0` for a boat's very first NHC race ever.
+
+  Stored as the competitor's initial TCF; gets updated after each race.
+
+- **`baseHandicap` (`H0`)** — the RYA-published measurement-based number.
+  **Does not change race-to-race.** Used *only* as the realignment anchor in
+  the RYA variant (`ΣH2 = ΣH0` after each race). NHC1 and SWNHC2015 do not
+  reference it.
+
+  For a boat racing its very first NHC race, `H0` and starting TCF coincide.
+  For a returning boat they typically differ — the starting TCF has drifted
+  from `H0` across prior series, and the RYA realignment is precisely the
+  mechanism that keeps pulling it back toward `H0`.
+
+**`H0` fallback when the scorer doesn't supply one.** In the RYA preset, if
+`H0` is blank when the first race is committed, snapshot the starting TCF into
+it and lock the field. The algorithm continues to work correctly — `ΣH0` is
+well-defined and realignment still prevents within-series drift — but the
+anchor becomes "whatever the fleet looked like at the start of this series"
+rather than "the RYA published baseline." That's a reasonable fallback for
+clubs running NHC as a local progressive system without subscribing to the
+RYA list.
+
+The snapshot is **persisted and locked**, not recomputed on the fly. If a
+scorer later edits a boat's starting TCF, `H0` stays pinned to the original
+race-1 value; otherwise the realignment anchor would retroactively move and
+change all subsequent race results.
+
+**Implementation staging**
+
+1. **First pass — NHC1 only.** `alphaUp = alphaDown = 0.15`, no outliers, no
+   realignment, no `baseHandicap` field. Validates the whole Phase 2 pipeline
+   (TCF snapshotting, master-vs-race-TCF distinction, commit workflow) against
+   real Puppeteer 22 data.
+2. **Add SWNHC2015.** Asymmetric α, `reduce-alpha` outlier strategy,
+   `prior-mean` realignment. Config-only; no schema changes.
+3. **Add RYA NHC 2015.** Adds the `baseHandicap` field on competitor, the
+   `cap-input` outlier strategy, `base-numbers` realignment, and DNC
+   realignment. This is the biggest data-model delta so it comes last.
+
+### ECHO
+
+ECHO is used by some Irish and UK clubs. It differs from NHC in one key way:
+the reference point is the **winner's corrected time**, not the fleet mean.
+
+**Per-race adjustment (from `SWECHO.xls` — Version 2018-01-02-0):**
+
+1. Score the race: `CT_i = ET_i × TCF_i` for each finisher `i`
+2. For each finisher, compute the "Best Corrected Rate" — the TCF that would have
+   tied the winner:
+   ```
+   BCR_i = CT_winner / ET_i
+   ```
+   (For the winner, `BCR = TCF_winner`.)
+3. Compute the EchoIndex fleet normalisation factor:
+   ```
+   EchoIndex = avg(TCF_i) / avg(BCR_i)   over all finishers
+   ```
+   This keeps the fleet-mean handicap constant from race to race — without it, a
+   consistently fast fleet would have all handicaps cut every race.
+4. Scale BCR by EchoIndex to get a normalised target:
+   ```
+   ECHO_i = BCR_i × EchoIndex
+   ```
+5. Apply a fractional adjustment towards the target:
+   ```
+   new_TCF_i = TCF_i × (1 − Adjust) + ECHO_i × Adjust
+   ```
+   Default `Adjust = 0.6` — far more aggressive than NHC1's Adjust = 0.15.
+
+6. Non-finishers (DNF/DNS/etc.) retain their current handicap unchanged.
+
+**Key difference from NHC:** NHC targets the fleet mean corrected time (every
+boat should finish equal to average); ECHO targets the winner (every boat should
+have tied the leader). Combined with the higher Adjust, ECHO reacts more sharply
+to individual race results.
 
 ### Scoring-inquiry adjustments
 
@@ -271,6 +483,187 @@ but the master `comprating` is not advanced.
 - The audit trail should record who made the exclusion and why (free-text
   reason), because these are scoring-inquiry decisions and may be challenged.
 
+### Rating calculation explainability
+
+The opacity of progressive handicap algorithms is their biggest practical
+problem: sailors don't trust a system they can't reproduce on paper. Phase 2
+output is designed around a **verification contract** — given only the
+published HTML for a race, a competitor with a calculator should be able to
+reproduce every boat's `new_TCF`. Every decision below follows from that.
+
+Concretely, this means:
+
+- Every per-boat intermediate value the algorithm computes is displayed.
+- Every fleet-level aggregate used in the computation is displayed.
+- Intermediates are stored in the scoring output, not recomputed at render
+  time. Both the HTML renderer and the JSON exporter read from the same shape.
+- The display form is chosen for intuitiveness, not internal numerical
+  cleanliness. Internal computation may use a different algebraically
+  equivalent form.
+
+#### Column set — NHC1 baseline
+
+Primary table, one row per finisher:
+
+| Rank | Boat | TCF used | ET | CT | CT ratio | Fair TCF | Adjustment | New TCF |
+
+Notes on each column:
+
+- **TCF used** — the `rrat` snapshot actually used to compute this race's
+  corrected time. If this differs from the boat's master TCF carried in from
+  a prior event, an asterisk footnote makes the race-rating-vs-master-rating
+  distinction visible to the competitor.
+- **CT** displayed to 0.1 s. The column footer shows `CT_avg` to the same
+  precision.
+- **CT ratio** = `CT_avg / CT_i` to 4 dp. The key "how did I do vs. average"
+  number — arguably the most intuitive single value in the whole calculation.
+  A boat that sailed exactly to its rating has a ratio of 1.0000.
+- **Fair TCF** = `TCF_i × CT ratio` to 4 dp. Displayed with one extra dp vs.
+  final TCF so the blend arithmetic closes to the last digit of the result.
+- **Adjustment** = `α × (Fair TCF − TCF_i)`, signed, to 4 dp. Sign is
+  meaningful: positive = handicap going up = "you sailed fast today."
+- **New TCF** = `TCF_i + Adjustment`, rounded to 3 dp. The TCF applied in
+  race N+1.
+
+Fleet-level header displayed once above the table:
+
+```
+Rating system: NHC1  ·  Adjustment rate α = 0.15  ·  Finishers: 14
+Fleet CT average: 64:12.8  ·  Fleet mean TCF: 1.184
+```
+
+#### Non-finishers
+
+A sub-table below the main one:
+
+| Boat | TCF used | Code | New TCF |
+|------|----------|------|---------|
+| …    | 1.038    | DNF  | 1.038 (unchanged) |
+
+Explicit "unchanged" text beats an empty cell — the absence of an adjustment
+is deliberate, not a data error.
+
+#### Variant extensions
+
+The NHC1 column set stays identical across variants; further columns and
+sub-tables are added additively.
+
+**RYA extreme-performer capping.** For a clamped row, the CT column shows
+the actual CT with a marker (e.g. `71:22.4 †`); the Fair TCF calculation
+uses the clamped value `(μ_tc ± σ_tc)` and that value is shown inline.
+Footer note explains the ±1 SD cap. Header gains `σ_tc` and the cap
+thresholds `μ_tc ± σ_tc`.
+
+**Realignment** (RYA, SWNHC2015). A second table-section below the blend
+section, titled "Realignment." The fleet-wide scale factor is displayed
+once (`ΣH0 / ΣHp` for RYA, `mean(TCF_old) / mean(TCF_new)` for SWNHC2015),
+followed by a per-boat "Post-realignment TCF" column. The "New TCF" from
+the blend section is relabelled `Hp` (provisional TCF); the final column
+of the realignment section is the TCF applied in race N+1. For RYA, the
+header shows `ΣH0` and `ΣHp` so the scale factor is reproducible.
+
+**SWNHC2015 asymmetric α.** Column heading shows `α = 0.30 ↑ / 0.15 ↓`;
+the applied α is implied by the sign of the adjustment. For outlier rows,
+the reduced α actually used is annotated inline: `+0.0024 (α=0.15, outlier)`.
+
+**ECHO.** Replace `CT_avg` with `CT_winner`; the CT ratio column becomes
+`BCR_i / TCF_i` with the `BCR_i` shown alongside. Header includes the
+`EchoIndex` scale factor alongside α.
+
+#### Scoring-inquiry exclusions
+
+A boat with `excludeFromHandicapUpdate` for a race appears in a third
+sub-section titled "Excluded from rating calculation," showing its TCF,
+code, and `new_TCF = TCF_i (unchanged — excluded: [reason])`. It still
+appears in the main race results table with its corrected time and points.
+
+Fleet aggregates in the header reflect the *post-exclusion* values — the
+numbers actually used in the math. An explicit "N excluded" field signals
+that the averages don't cover every boat that raced.
+
+For a whole-race exclusion, the rating calculation table collapses to a
+single line: "Rating update suppressed for this race. All TCFs carry
+forward unchanged. Reason: [free text]."
+
+#### Placement in HTML output
+
+Per-race: a "Rating calculation" section below each race's results table,
+collapsed by default, expandable on click. Race results stay the headline;
+rating derivation is the appendix.
+
+Series-level: a "Rating history" page showing, for each boat, a row per
+race with `TCF_in → new_TCF` and the adjustment. The view a boat owner
+cares about most — not one race's math, but the trajectory across the
+season.
+
+#### Precision and display form
+
+Stored TCFs are 3 dp. Intermediate displays:
+
+- CT: 0.1 s (or 1 s for short races)
+- CT ratio, Fair TCF, Adjustment: 4 dp
+- New TCF: 3 dp (the stored value)
+
+The displayed arithmetic must close to the last digit of the New TCF column.
+If it doesn't, the displayed intermediates are lossy — worth testing a few
+rows against manual calculation before locking column widths.
+
+Internal representation uses whichever formulation is numerically cleanest
+(likely the P50 form — it matches Sailwave's internal calculation and avoids
+division-by-CT-per-boat). Display form uses `CT_avg / CT_i` because it is
+the most intuitive. The two are algebraically equivalent so correctness is
+not at stake, only presentation.
+
+#### Scoring output shape
+
+Only `tcfApplied` and `newTcf` are generic across progressive systems and
+live directly on `HandicapRaceScore`. Everything else is variant-specific
+and encapsulated in an optional sub-object:
+
+```typescript
+export interface HandicapRaceScore extends RaceScore {
+  elapsedTime: number | null;
+  correctedTime: number | null;
+  tcfApplied: number | null;   // TCF used this race (rrat snapshot)
+  newTcf: number | null;       // TCF for race N+1; null for static systems
+  nhc?: NhcRaceCalc;           // present iff fleet.scoringSystem === 'nhc'
+  // Future: echo?: EchoRaceCalc;
+}
+
+export interface NhcRaceCalc {
+  ctRatio: number;             // CT_avg / CT_i — the key intuitive value
+  fairTcf: number;             // TCF_i × ctRatio
+  adjustment: number;          // signed: α × (fairTcf − TCF_i)
+  alphaApplied: number;        // actual α used (differs per-boat in SWNHC2015 outliers)
+
+  // RYA variant only; omitted when no clamping occurred
+  extremePerformer?: {
+    clampedCt: number;
+    direction: 'fast' | 'slow';
+  };
+
+  // Realignment variants; omitted for NHC1
+  provisionalTcf?: number;     // Hp before realignment
+}
+```
+
+For non-finishers the `nhc` field is absent — `newTcf === tcfApplied` is
+sufficient to express "unchanged."
+
+Fleet-level aggregates (`ctAvg`, `finisherCount`, `meanTcf`, the active `α`
+settings, and realignment inputs `σ_tc` / `ΣH0` / `ΣHp` /
+`realignmentFactor` where applicable) do not belong on per-boat scores.
+They sit on a fleet-race-level object that Phase 2 needs to introduce. The
+renderer pulls fleet stats from there and per-boat intermediates from
+`nhc`.
+
+#### Series-level settings
+
+`publishRatingCalculations: boolean` (default: `true` for progressive-
+handicap series; not applicable for static-TCF series). One knob. Clubs
+that want cleaner published results can turn it off; clubs that want
+transparency get it automatically.
+
 ### Why Phase 2 is a significant jump
 
 Phase 1 is stateless: the same TCC/PY number applies to every race; results can be
@@ -310,7 +703,7 @@ ORC advanced methods (PCS, Custom Courses) are far horizon; see `horizon.md`.
 
 **Competitors are in multiple fleets:** `Competitor.fleetIds: string[]`.
 A competitor in multiple fleets gets independent standings in each (e.g.
-"Melges 15 Scratch" + "PY", or "Class 3 IRC" + "Class 3 HPH").
+"Melges 15 Scratch" + "PY", or "Class 3 IRC" + "Class 3 NHC").
 
 **A start covers one or more fleets:** `RaceStart` stores a gun time for
 a group of fleets. Multiple fleets can share the same gun. A competitor's
@@ -342,14 +735,14 @@ was removed.
 fleetIds: string[];     // one or more fleets
 ircTcc?: number;        // e.g. 0.972 — IRC Time Correction Coefficient
 pyNumber?: number;      // e.g. 1034 — RYA Portsmouth Yardstick number
-// Phase 2 will add: hphHandicap?: number  (initial TCF for HPH/NHC)
+// Phase 2 will add: nhcHandicap?: number  (initial TCF for NHC)
 ```
 
 **Fleet scoring system:**
 
 ```typescript
 scoringSystem: 'scratch' | 'irc' | 'py';  // one per fleet; default 'scratch'
-// Phase 2 will add: 'hph' | 'echo'
+// Phase 2 will add: 'nhc' | 'echo'
 ```
 
 **Series-level scoring mode** (added in file format v9):
@@ -404,7 +797,7 @@ classes.
 ### Time field is per-competitor, determined by fleet scoring
 
 A competitor needs a **finish time** only if any of their fleets uses time-based
-scoring (IRC, PY, HPH). A scratch-only competitor needs no time.
+scoring (IRC, PY, NHC). A scratch-only competitor needs no time.
 
 In a typical mixed-fleet race the same finish boat records everyone. Handicap
 boats get a time recorded as they cross; scratch boats are just tallied in order.
