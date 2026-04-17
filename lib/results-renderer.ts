@@ -327,9 +327,9 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
         `<td>${esc(renderHelmCell(r.helm, r.crewName, showCrewName))}</td>`,
-        `<td>${pointsText}</td>`,
         ...handicapCells,
         ...nhcCells,
+        `<td>${pointsText}</td>`,
         `</tr>`,
       ].join('\n');
     })
@@ -359,14 +359,15 @@ ${nhcSubheading}<table class="racetable" cellspacing="0" cellpadding="0" border=
 <col class="rank" />
 <col class="sailno" />
 ${showBoatName ? '<col class="boatname" />\n' : ''}${showBoatClass ? '<col class="boatclass" />\n' : ''}<col class="helmname" />
-<col class="points" />${handicapCols}${nhcCols}
+${handicapCols}${nhcCols}
+<col class="points" />
 </colgroup>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
 <th>Sail</th>
-${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${showCrewName ? 'Helm / Crew' : 'Helm'}</th>
-<th>Points</th>${handicapHeaders}${nhcHeaders}
+${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${showCrewName ? 'Helm / Crew' : 'Helm'}</th>${handicapHeaders}${nhcHeaders}
+<th>Points</th>
 </tr>
 </thead>
 <tbody>
