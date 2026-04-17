@@ -1,4 +1,4 @@
-import type { ResultCode, DiscardThreshold, CompetitorFieldKey } from './types';
+import type { ResultCode, PenaltyCode, DiscardThreshold, CompetitorFieldKey } from './types';
 import { db } from './db';
 import { seriesRepo, competitorRepo, raceRepo, finishRepo, fleetRepo, raceStartRepo } from './dexie-repository';
 import { calculateFleetStandings, calculateRaceScores } from './scoring';
@@ -10,14 +10,26 @@ import { defaultEnabledCompetitorFields } from './competitor-fields';
 // scorer-private fields: snapshotId, snapshotHistory, ftpHost, ftpPath, bilgeBundle,
 // and all internal UUIDs (competitors are keyed by sailNumber instead).
 
+/** v5+: start sequence group as it appears in the public export. Matches
+ *  the shape of `StartGroup` in `types.ts` but refers to fleets by name
+ *  rather than by internal UUID (mirroring how `races[].starts` does). */
+export interface ExportStartGroup {
+  fleetNames: string[];
+  offsetMinutes: number;
+}
+
 export interface PublicSeriesExport {
-  version: 2 | 3 | 4;
+  version: 2 | 3 | 4 | 5;
   exportedAt: string;
   series: {
     name: string;
     venue: string;
     startDate: string;
     endDate: string;
+    /** v5+: series logo URLs. */
+    venueLogoUrl?: string;
+    /** v5+: series logo URLs. */
+    eventLogoUrl?: string;
     discardThresholds: DiscardThreshold[];
     dnfScoring: 'seriesEntries' | 'startingArea';
     /** v3+: which optional competitor fields the scorer has chosen to show.
@@ -28,6 +40,8 @@ export interface PublicSeriesExport {
     scoringMode?: 'scratch' | 'handicap';
     /** v4+: NHC publish-rating-calculations toggle (display hint). */
     publishRatingCalculations?: boolean;
+    /** v5+: default start sequence used when new races are created. */
+    defaultStartSequence?: ExportStartGroup[];
   };
   fleets: {
     name: string;
@@ -60,10 +74,24 @@ export interface PublicSeriesExport {
     }[];
     finishes: {
       sailNumber: string;
+      /** v5+: set when the finish is unresolved (scorer recorded a crossing
+       *  but no matching competitor). When present, `sailNumber` is empty. */
+      unknownSailNumber?: string;
       sortOrder: number | null;
       finishTime?: string;
       resultCode: ResultCode | null;
       startPresent: boolean | null;
+      /** v5+: additive penalty applied on top of the finish (ZFP/SCP/DPI). */
+      penaltyCode?: PenaltyCode | null;
+      /** v5+: SCP %, DPI points, or null to use code default. */
+      penaltyOverride?: number | null;
+      /** v5+: redress (RDG) configuration — all fields together reproduce
+       *  the A9 average. Present iff resultCode === 'RDG'. */
+      redressMethod?: 'all_races' | 'races_before' | 'stated' | null;
+      redressExcludeRaces?: number[] | null;
+      redressIncludeRaces?: number[] | null;
+      redressIncludeAllLater?: boolean;
+      redressPoints?: number | null;
     }[];
     /** v4+: NHC per-fleet scoring intermediates for this race (one entry per
      *  NHC fleet, keyed by fleet name). Carries the fleet-race aggregates
@@ -80,6 +108,14 @@ export interface PublicSeriesExport {
       racePoints: number[];
       raceCodes: (ResultCode | null)[];
       raceDiscards: boolean[];
+      /** v5+: per-race additive penalty annotations (aligned with racePoints). */
+      racePenaltyCodes?: (PenaltyCode | null)[];
+      /** v5+: per-race penalty overrides (aligned with racePoints). */
+      racePenaltyOverrides?: (number | null)[];
+      /** v5+: per-race non-discardable flags (DNE/BFD). */
+      raceNonDiscardable?: boolean[];
+      /** v5+: per-race RDG flag — score was calculated via A9 average. */
+      raceRedressFlags?: boolean[];
       totalPoints: number;
       netPoints: number;
     }[];
@@ -175,8 +211,30 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
         ...(finish?.finishTime ? { finishTime: finish.finishTime } : {}),
         resultCode: score.resultCode,
         startPresent: finish?.startPresent ?? null,
+        ...(finish?.penaltyCode ? { penaltyCode: finish.penaltyCode } : {}),
+        ...(finish?.penaltyOverride != null ? { penaltyOverride: finish.penaltyOverride } : {}),
+        ...(finish?.resultCode === 'RDG' ? {
+          redressMethod: finish.redressMethod,
+          ...(finish.redressExcludeRaces ? { redressExcludeRaces: finish.redressExcludeRaces } : {}),
+          ...(finish.redressIncludeRaces ? { redressIncludeRaces: finish.redressIncludeRaces } : {}),
+          ...(finish.redressIncludeAllLater ? { redressIncludeAllLater: true } : {}),
+          ...(finish.redressPoints != null ? { redressPoints: finish.redressPoints } : {}),
+        } : {}),
       };
     });
+    // Unresolved finishes — not in raceScores (no competitor to key on) — are
+    // appended separately so a round-trip preserves them as unknown crossings.
+    for (const f of finishesForRace) {
+      if (f.competitorId != null) continue;
+      finishes.push({
+        sailNumber: '',
+        ...(f.unknownSailNumber ? { unknownSailNumber: f.unknownSailNumber } : {}),
+        sortOrder: f.sortOrder ?? null,
+        ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+        resultCode: f.resultCode,
+        startPresent: f.startPresent ?? null,
+      } as (typeof finishes)[number]);
+    }
     const starts = allRaceStarts
       .filter((rs) => rs.raceId === race.id)
       .map((rs) => ({
@@ -205,24 +263,38 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
       racePoints: s.racePoints,
       raceCodes: s.raceCodes,
       raceDiscards: s.raceDiscards,
+      racePenaltyCodes: s.racePenaltyCodes,
+      racePenaltyOverrides: s.racePenaltyOverrides,
+      raceNonDiscardable: s.raceNonDiscardable,
+      raceRedressFlags: s.raceRedressFlags,
       totalPoints: s.totalPoints,
       netPoints: s.netPoints,
     })),
   }));
 
+  const exportedDefaultStartSequence: ExportStartGroup[] | undefined = series.defaultStartSequence?.length
+    ? series.defaultStartSequence.map((g) => ({
+        fleetNames: g.fleetIds.map((id) => fleetNameById.get(id) ?? id),
+        offsetMinutes: g.offsetMinutes,
+      }))
+    : undefined;
+
   return {
-    version: 4 as const,
+    version: 5 as const,
     exportedAt: new Date().toISOString(),
     series: {
       name: series.name,
       venue: series.venue,
       startDate: series.startDate,
       endDate: series.endDate,
+      ...(series.venueLogoUrl ? { venueLogoUrl: series.venueLogoUrl } : {}),
+      ...(series.eventLogoUrl ? { eventLogoUrl: series.eventLogoUrl } : {}),
       discardThresholds: series.discardThresholds,
       dnfScoring: series.dnfScoring,
       displayFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
+      ...(exportedDefaultStartSequence ? { defaultStartSequence: exportedDefaultStartSequence } : {}),
     },
     fleets: fleets.map((f) => ({
       name: f.name,
@@ -257,7 +329,9 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
  * publishing config. Returns the new seriesId.
  *
  * Handles v1 (single-fleet, no handicap data), v2 (multi-fleet, handicap),
- * and v3 (crew names, display hints) formats.
+ * v3 (crew names, display hints), v4 (NHC), and v5 (logos, default start
+ * sequence, penalty/redress fields, unresolved finishes, standing display
+ * flags) formats.
  */
 export async function importPublicExport(data: PublicSeriesExport): Promise<string> {
   const newSeriesId = crypto.randomUUID();
@@ -293,20 +367,31 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
   }
 
   await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory], async () => {
+    // v5+: resolve exported defaultStartSequence (fleetNames) → internal fleetIds.
+    const importedDefaultStartSequence = data.series.defaultStartSequence?.length
+      ? data.series.defaultStartSequence
+          .map((g) => ({
+            fleetIds: g.fleetNames.map((n) => fleetIdByName.get(n)).filter((id): id is string => id != null),
+            offsetMinutes: g.offsetMinutes,
+          }))
+          .filter((g) => g.fleetIds.length > 0)
+      : undefined;
+
     await db.series.add({
       id: newSeriesId,
       name: data.series.name,
       venue: data.series.venue,
       startDate: data.series.startDate,
       endDate: data.series.endDate,
-      venueLogoUrl: '',
-      eventLogoUrl: '',
+      venueLogoUrl: data.series.venueLogoUrl ?? '',
+      eventLogoUrl: data.series.eventLogoUrl ?? '',
       createdAt: now,
       lastSnapshotId: null,
       lastSavedAt: null,
       lastModifiedAt: now,
       snapshotHistory: [],
       scoringMode: data.series.scoringMode ?? 'scratch',
+      ...(importedDefaultStartSequence?.length ? { defaultStartSequence: importedDefaultStartSequence } : {}),
       discardThresholds: data.series.discardThresholds,
       dnfScoring: data.series.dnfScoring,
       ftpHost: '',
@@ -400,27 +485,34 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
       }
       const usedIds = new Set<string>();
       for (const finish of race.finishes) {
-        const candidates = competitorIdsBySail.get(finish.sailNumber) ?? [];
+        // v5+: a finish with unknownSailNumber set (and typically empty
+        // sailNumber) represents an unresolved crossing — store it with
+        // competitorId: null so it survives the round trip.
+        const exportedUnknownSail = finish.unknownSailNumber;
+        const candidates = finish.sailNumber
+          ? competitorIdsBySail.get(finish.sailNumber) ?? []
+          : [];
         const competitorId = candidates.find((id) => !usedIds.has(id)) ?? candidates[0];
-        if (!competitorId) continue;
-        usedIds.add(competitorId);
+        if (!competitorId && !exportedUnknownSail) continue;
+        if (competitorId) usedIds.add(competitorId);
         // Back-compat: older v2 exports used finishPosition; v3 uses sortOrder
         const legacyFinishPosition = (finish as { finishPosition?: number | null }).finishPosition;
         await db.finishes.add({
           id: crypto.randomUUID(),
           raceId,
-          competitorId,
+          competitorId: competitorId ?? null,
+          ...(!competitorId && exportedUnknownSail ? { unknownSailNumber: exportedUnknownSail } : {}),
           sortOrder: finish.sortOrder ?? legacyFinishPosition ?? null,
           ...((finish as { finishTime?: string }).finishTime ? { finishTime: (finish as { finishTime: string }).finishTime } : {}),
           resultCode: finish.resultCode,
           startPresent: finish.startPresent,
-          penaltyCode: null,
-          penaltyOverride: null,
-          redressMethod: null,
-          redressExcludeRaces: null,
-          redressIncludeRaces: null,
-          redressIncludeAllLater: false,
-          redressPoints: null,
+          penaltyCode: finish.penaltyCode ?? null,
+          penaltyOverride: finish.penaltyOverride ?? null,
+          redressMethod: finish.redressMethod ?? null,
+          redressExcludeRaces: finish.redressExcludeRaces ?? null,
+          redressIncludeRaces: finish.redressIncludeRaces ?? null,
+          redressIncludeAllLater: finish.redressIncludeAllLater ?? false,
+          redressPoints: finish.redressPoints ?? null,
         });
       }
 
