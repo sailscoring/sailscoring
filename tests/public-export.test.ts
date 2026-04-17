@@ -104,11 +104,11 @@ describe('renderSeriesHtml — NHC explainability', () => {
     expect(html).toContain('α = 0.15');
     expect(html).toContain('Finishers: 3');
     expect(html).toContain('mean TCF: 1.0000');
-    expect(html).toContain('<th>TCF used</th>');
-    expect(html).toContain('<th>CT ratio</th>');
-    expect(html).toContain('<th>Fair TCF</th>');
-    expect(html).toContain('<th>Adjustment</th>');
-    expect(html).toContain('<th>New TCF</th>');
+    expect(html).toContain('<th class="nhc-detail">TCF used</th>');
+    expect(html).toContain('<th class="nhc-detail">CT ratio</th>');
+    expect(html).toContain('<th class="nhc-detail">Fair TCF</th>');
+    expect(html).toContain('<th class="nhc-detail">Adjustment</th>');
+    expect(html).toContain('<th class="nhc-detail">New TCF</th>');
   });
 
   it('renders per-finisher NHC values to the documented precision', () => {

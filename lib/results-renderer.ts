@@ -114,6 +114,7 @@ export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercen
   const showBoatClass = enabledCompetitorFields.includes('boatClass');
   const showCrewName = enabledCompetitorFields.includes('crewName');
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
+  const hasNhcDetail = races.some((r) => r.nhcHeader != null);
 
   return `<!doctype html>
 <html lang="en">
@@ -140,9 +141,9 @@ td.rank2 { background: #6a91c5; }
 td.rank3 { background: #da6841; }
 td.discard { background: #f2f2f2; }
 td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
-</style>
+${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\n' : ''}</style>
 </head>
-<body>
+<body${hasNhcDetail ? ' class="hide-nhc-detail"' : ''}>
 <table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
 <tbody>
 <tr>
@@ -159,13 +160,39 @@ ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 <style>div.applicant-break {page-break-after:always;}</style>
 ${generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
 ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
+${hasNhcDetail ? renderNhcToggle() : ''}
 ${renderSummaryTable(standings, races, hasDiscards, showBoatName, showBoatClass, showCrewName)}
 ${races.map((race) => renderRaceTable(race, showBoatName, showBoatClass, showCrewName)).join('\n')}
 <p class="hardleft"></p>
 <p class="hardright"></p>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}">Open in Sail Scoring</a>` : ''}</p>
+${hasNhcDetail ? renderNhcToggleScript() : ''}
 </body>
 </html>`;
+}
+
+/** Viewer-facing toggle for NHC rating-calculation columns. Only emitted when
+ *  the scorer has published explainability data. Defaults to hidden — paired
+ *  with the `hide-nhc-detail` body class and CSS rule. */
+function renderNhcToggle(): string {
+  return `<p class="nhc-toggle"><label><input type="checkbox" id="nhc-detail-toggle"> Show NHC rating calculations</label></p>`;
+}
+
+/** Inline script: restore viewer preference from localStorage and wire the
+ *  checkbox to toggle the body class. Key is global, not per-series, so the
+ *  preference sticks across events. */
+function renderNhcToggleScript(): string {
+  return `<script>(function(){
+var KEY='sailscoring:nhc-explain-visible';
+var cb=document.getElementById('nhc-detail-toggle');
+if(!cb)return;
+var visible=localStorage.getItem(KEY)==='true';
+if(visible){document.body.classList.remove('hide-nhc-detail');cb.checked=true;}
+cb.addEventListener('change',function(){
+  if(cb.checked){document.body.classList.remove('hide-nhc-detail');localStorage.setItem(KEY,'true');}
+  else{document.body.classList.add('hide-nhc-detail');localStorage.setItem(KEY,'false');}
+});
+})();</script>`;
 }
 
 // ---- Summary table ----
@@ -308,13 +335,13 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
     ? '\n<col class="tcc" />\n<col class="finish" />\n<col class="et" />\n<col class="ct" />'
     : '';
   const nhcHeaders = isNhc
-    ? '\n<th>TCF used</th>\n<th>ET</th>\n<th>CT</th>\n<th>CT ratio</th>\n<th>Fair TCF</th>\n<th>Adjustment</th>\n<th>New TCF</th>'
+    ? '\n<th class="nhc-detail">TCF used</th>\n<th class="nhc-detail">ET</th>\n<th class="nhc-detail">CT</th>\n<th class="nhc-detail">CT ratio</th>\n<th class="nhc-detail">Fair TCF</th>\n<th class="nhc-detail">Adjustment</th>\n<th class="nhc-detail">New TCF</th>'
     : '';
   const nhcCols = isNhc
-    ? '\n<col class="tcf" />\n<col class="et" />\n<col class="ct" />\n<col class="ctratio" />\n<col class="fairtcf" />\n<col class="adjustment" />\n<col class="newtcf" />'
+    ? '\n<col class="tcf nhc-detail" />\n<col class="et nhc-detail" />\n<col class="ct nhc-detail" />\n<col class="ctratio nhc-detail" />\n<col class="fairtcf nhc-detail" />\n<col class="adjustment nhc-detail" />\n<col class="newtcf nhc-detail" />'
     : '';
   const nhcSubheading = isNhc
-    ? `<p class="nhc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: NHC1 &middot; α = ${race.nhcHeader!.alpha} &middot; Finishers: ${race.nhcHeader!.finisherCount} &middot; CT_avg: ${formatCorrectedSecs(race.nhcHeader!.ctAvgSecs)} &middot; mean TCF: ${race.nhcHeader!.meanTcf.toFixed(4)}</p>`
+    ? `<p class="nhc-fleet-header nhc-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: NHC1 &middot; α = ${race.nhcHeader!.alpha} &middot; Finishers: ${race.nhcHeader!.finisherCount} &middot; CT_avg: ${formatCorrectedSecs(race.nhcHeader!.ctAvgSecs)} &middot; mean TCF: ${race.nhcHeader!.meanTcf.toFixed(4)}</p>`
     : '';
 
   return `<h3 class="racetitle" id="${esc(race.anchorId)}">${esc(race.label)}&nbsp;&mdash;&nbsp;${dateStr}${startStr}</h3>
@@ -347,28 +374,36 @@ ${rows}
 function renderNhcCells(r: RaceResultData): string[] {
   const nhc = r.nhc;
   if (!nhc) {
-    return [`<td></td>`, `<td></td>`, `<td></td>`, `<td></td>`, `<td></td>`, `<td></td>`, `<td></td>`];
+    return [
+      `<td class="nhc-detail"></td>`,
+      `<td class="nhc-detail"></td>`,
+      `<td class="nhc-detail"></td>`,
+      `<td class="nhc-detail"></td>`,
+      `<td class="nhc-detail"></td>`,
+      `<td class="nhc-detail"></td>`,
+      `<td class="nhc-detail"></td>`,
+    ];
   }
-  const tcfApplied = `<td class="mono">${nhc.tcfApplied.toFixed(3)}</td>`;
+  const tcfApplied = `<td class="mono nhc-detail">${nhc.tcfApplied.toFixed(3)}</td>`;
   if (!nhc.isFinisher) {
     return [
       tcfApplied,
-      `<td class="mono">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>`,
-      `<td></td>`,
-      `<td></td>`,
-      `<td></td>`,
-      `<td></td>`,
-      `<td class="mono">unchanged</td>`,
+      `<td class="mono nhc-detail">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>`,
+      `<td class="nhc-detail"></td>`,
+      `<td class="nhc-detail"></td>`,
+      `<td class="nhc-detail"></td>`,
+      `<td class="nhc-detail"></td>`,
+      `<td class="mono nhc-detail">unchanged</td>`,
     ];
   }
   return [
     tcfApplied,
-    `<td class="mono">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>`,
-    `<td class="mono">${r.correctedTimeSecs != null ? formatCorrectedSecs(r.correctedTimeSecs) : ''}</td>`,
-    `<td class="mono">${nhc.ctRatio != null ? nhc.ctRatio.toFixed(4) : ''}</td>`,
-    `<td class="mono">${nhc.fairTcf != null ? nhc.fairTcf.toFixed(4) : ''}</td>`,
-    `<td class="mono">${nhc.adjustment != null ? formatSigned(nhc.adjustment, 4) : ''}</td>`,
-    `<td class="mono">${nhc.newTcf.toFixed(3)}</td>`,
+    `<td class="mono nhc-detail">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>`,
+    `<td class="mono nhc-detail">${r.correctedTimeSecs != null ? formatCorrectedSecs(r.correctedTimeSecs) : ''}</td>`,
+    `<td class="mono nhc-detail">${nhc.ctRatio != null ? nhc.ctRatio.toFixed(4) : ''}</td>`,
+    `<td class="mono nhc-detail">${nhc.fairTcf != null ? nhc.fairTcf.toFixed(4) : ''}</td>`,
+    `<td class="mono nhc-detail">${nhc.adjustment != null ? formatSigned(nhc.adjustment, 4) : ''}</td>`,
+    `<td class="mono nhc-detail">${nhc.newTcf.toFixed(3)}</td>`,
   ];
 }
 

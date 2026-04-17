@@ -386,3 +386,72 @@ describe('assembleSeriesResultsData', () => {
     expect(r1[1].sailNumber).toBe('99'); // Bob 2pt
   });
 });
+
+// ---- NHC viewer toggle ----
+
+function nhcFixture(): SeriesResultsData {
+  const nhcHeader = { alpha: 0.5, finisherCount: 2, ctAvgSecs: 3600, meanTcf: 1.0 };
+  const race: RaceData = {
+    raceNumber: 1,
+    date: '2025-06-01',
+    label: 'R1',
+    anchorId: 'r1',
+    nhcHeader,
+    results: [
+      {
+        rank: 1, sailNumber: '42', helm: 'Alice',
+        place: 1, points: 1, resultCode: null, penaltyCode: null, penaltyOverride: null,
+        elapsedTimeSecs: 3500, correctedTimeSecs: 3500,
+        nhc: { tcfApplied: 1.0, newTcf: 1.014, ctRatio: 0.972, fairTcf: 1.029, adjustment: 0.029, isFinisher: true },
+      },
+      {
+        rank: 2, sailNumber: '99', helm: 'Bob',
+        place: 2, points: 2, resultCode: null, penaltyCode: null, penaltyOverride: null,
+        elapsedTimeSecs: 3700, correctedTimeSecs: 3700,
+        nhc: { tcfApplied: 1.0, newTcf: 0.986, ctRatio: 1.028, fairTcf: 0.973, adjustment: -0.027, isFinisher: true },
+      },
+    ],
+  };
+  return {
+    series: { name: 'NHC Series', venue: 'HYC' },
+    enabledCompetitorFields: [],
+    races: [race],
+    standings: [
+      makeStanding(1, '42', 'Alice', [{ points: 1, podiumRank: 1 }]),
+      makeStanding(2, '99', 'Bob', [{ points: 2, podiumRank: 2 }]),
+    ],
+  };
+}
+
+describe('renderSeriesHtml NHC viewer toggle', () => {
+  it('emits the checkbox, body class, and script on NHC fleets', () => {
+    const html = renderSeriesHtml(nhcFixture());
+    expect(html).toContain('id="nhc-detail-toggle"');
+    expect(html).toContain('Show NHC rating calculations');
+    expect(html).toContain('<body class="hide-nhc-detail">');
+    expect(html).toContain('body.hide-nhc-detail .nhc-detail { display: none; }');
+    expect(html).toContain("sailscoring:nhc-explain-visible");
+  });
+
+  it('tags every NHC explainability element with nhc-detail', () => {
+    const html = renderSeriesHtml(nhcFixture());
+    // One per column header
+    expect(html).toContain('<th class="nhc-detail">TCF used</th>');
+    expect(html).toContain('<th class="nhc-detail">New TCF</th>');
+    // <col> elements
+    expect(html).toContain('<col class="tcf nhc-detail" />');
+    expect(html).toContain('<col class="newtcf nhc-detail" />');
+    // Finisher <td> cells
+    expect(html).toMatch(/<td class="mono nhc-detail">1\.000<\/td>/);
+    // Fleet-header <p>
+    expect(html).toContain('class="nhc-fleet-header nhc-detail"');
+  });
+
+  it('omits toggle, body class, and script on non-NHC fleets', () => {
+    const html = renderSeriesHtml(MINIMAL);
+    expect(html).not.toContain('nhc-detail-toggle');
+    expect(html).not.toContain('hide-nhc-detail');
+    expect(html).not.toContain('sailscoring:nhc-explain-visible');
+    expect(html).toContain('<body>');
+  });
+});
