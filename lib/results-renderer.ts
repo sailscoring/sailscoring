@@ -34,9 +34,15 @@ export interface RaceData {
   anchorId: string; // in-page anchor, e.g. "r1"
   startTime?: string; // "HH:MM:SS" gun time for this fleet (handicap fleets only)
   results: RaceResultData[];
+  /** True when the fleet uses NHC scoring. Drives the "TCF" rating column
+   *  label (vs. "TCC") and, when nhcHeader is also set, the explainability
+   *  columns that hide under the viewer toggle. Decoupled from nhcHeader so
+   *  the base rating/finish/elapsed/corrected columns still render when the
+   *  scorer has opted out of publishing rating calculations. */
+  isNhc?: boolean;
   /** NHC fleet-race-level aggregates. When set, renders the rating-calculation
    *  fleet header line above the race table and extra explainability columns
-   *  (TCF used, ET, CT, CT ratio, Fair TCF, Adjustment, New TCF). */
+   *  (CT ratio, Fair TCF, Adjustment, New TCF) under the viewer toggle. */
   nhcHeader?: NhcHeaderData;
 }
 
@@ -283,8 +289,11 @@ ${rows}
 function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: boolean, showCrewName: boolean): string {
   const dateStr = formatIsoDate(race.date);
   const startStr = race.startTime ? ` &mdash; Start: ${esc(race.startTime)}` : '';
-  const isNhc = race.nhcHeader != null;
-  const hasHandicapCols = !isNhc && race.results.some((r) => r.tcc != null);
+  const isNhc = race.isNhc === true || race.nhcHeader != null;
+  const hasExplain = race.nhcHeader != null;
+  const hasHandicapCols = race.results.some((r) => r.tcc != null);
+  const ratingLabel = isNhc ? 'TCF' : 'TCC';
+  const ratingColClass = isNhc ? 'tcf' : 'tcc';
   // Detect ties in within-fleet rank
   const rankCounts = new Map<number, number>();
   for (const r of race.results) {
@@ -310,7 +319,7 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
             `<td class="mono">${r.correctedTimeSecs != null ? formatCorrectedSecs(r.correctedTimeSecs) : ''}</td>`,
           ]
         : [];
-      const nhcCells = isNhc ? renderNhcCells(r) : [];
+      const nhcCells = hasExplain ? renderNhcCells(r) : [];
       return [
         `<tr class="${rowClass} racerow">`,
         `<td>${rankText}</td>`,
@@ -327,20 +336,20 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
     .join('\n');
 
   const baseColCount = 4 + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0);
-  const colCount = baseColCount + (hasHandicapCols ? 4 : 0) + (isNhc ? 7 : 0);
+  const colCount = baseColCount + (hasHandicapCols ? 4 : 0) + (hasExplain ? 4 : 0);
   const handicapHeaders = hasHandicapCols
-    ? '\n<th>TCC</th>\n<th>Finish</th>\n<th>ET</th>\n<th>CT</th>'
+    ? `\n<th>${ratingLabel}</th>\n<th>Finish</th>\n<th>ET</th>\n<th>CT</th>`
     : '';
   const handicapCols = hasHandicapCols
-    ? '\n<col class="tcc" />\n<col class="finish" />\n<col class="et" />\n<col class="ct" />'
+    ? `\n<col class="${ratingColClass}" />\n<col class="finish" />\n<col class="et" />\n<col class="ct" />`
     : '';
-  const nhcHeaders = isNhc
-    ? '\n<th class="nhc-detail">TCF used</th>\n<th class="nhc-detail">ET</th>\n<th class="nhc-detail">CT</th>\n<th class="nhc-detail">CT ratio</th>\n<th class="nhc-detail">Fair TCF</th>\n<th class="nhc-detail">Adjustment</th>\n<th class="nhc-detail">New TCF</th>'
+  const nhcHeaders = hasExplain
+    ? '\n<th class="nhc-detail">CT ratio</th>\n<th class="nhc-detail">Fair TCF</th>\n<th class="nhc-detail">Adjustment</th>\n<th class="nhc-detail">New TCF</th>'
     : '';
-  const nhcCols = isNhc
-    ? '\n<col class="tcf nhc-detail" />\n<col class="et nhc-detail" />\n<col class="ct nhc-detail" />\n<col class="ctratio nhc-detail" />\n<col class="fairtcf nhc-detail" />\n<col class="adjustment nhc-detail" />\n<col class="newtcf nhc-detail" />'
+  const nhcCols = hasExplain
+    ? '\n<col class="ctratio nhc-detail" />\n<col class="fairtcf nhc-detail" />\n<col class="adjustment nhc-detail" />\n<col class="newtcf nhc-detail" />'
     : '';
-  const nhcSubheading = isNhc
+  const nhcSubheading = hasExplain
     ? `<p class="nhc-fleet-header nhc-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: NHC1 &middot; α = ${race.nhcHeader!.alpha} &middot; Finishers: ${race.nhcHeader!.finisherCount} &middot; CT_avg: ${formatCorrectedSecs(race.nhcHeader!.ctAvgSecs)} &middot; mean TCF: ${race.nhcHeader!.meanTcf.toFixed(4)}</p>`
     : '';
 
@@ -366,11 +375,15 @@ ${rows}
 </table>`;
 }
 
-/** Render the seven NHC explainability cells for one row.
- *  Non-finishers leave the four computational cells blank and show "unchanged"
- *  in the New TCF column. The verification contract: a competitor with a
- *  calculator should be able to reproduce New TCF from these published values
- *  via TCF + α × (Fair TCF − TCF). */
+/** Render the four NHC explainability cells for one row. Rating/finish/ET/CT
+ *  have been promoted to always-visible columns so non-scratch race tables
+ *  always carry that data; this helper only emits the four cells that hide
+ *  under the viewer toggle.
+ *
+ *  Non-finishers leave the three computational cells blank and show
+ *  "unchanged" in the New TCF column. The verification contract: a competitor
+ *  with a calculator should be able to reproduce New TCF from these published
+ *  values via TCF + α × (Fair TCF − TCF). */
 function renderNhcCells(r: RaceResultData): string[] {
   const nhc = r.nhc;
   if (!nhc) {
@@ -379,17 +392,10 @@ function renderNhcCells(r: RaceResultData): string[] {
       `<td class="nhc-detail"></td>`,
       `<td class="nhc-detail"></td>`,
       `<td class="nhc-detail"></td>`,
-      `<td class="nhc-detail"></td>`,
-      `<td class="nhc-detail"></td>`,
-      `<td class="nhc-detail"></td>`,
     ];
   }
-  const tcfApplied = `<td class="mono nhc-detail">${nhc.tcfApplied.toFixed(3)}</td>`;
   if (!nhc.isFinisher) {
     return [
-      tcfApplied,
-      `<td class="mono nhc-detail">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>`,
-      `<td class="nhc-detail"></td>`,
       `<td class="nhc-detail"></td>`,
       `<td class="nhc-detail"></td>`,
       `<td class="nhc-detail"></td>`,
@@ -397,9 +403,6 @@ function renderNhcCells(r: RaceResultData): string[] {
     ];
   }
   return [
-    tcfApplied,
-    `<td class="mono nhc-detail">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>`,
-    `<td class="mono nhc-detail">${r.correctedTimeSecs != null ? formatCorrectedSecs(r.correctedTimeSecs) : ''}</td>`,
     `<td class="mono nhc-detail">${nhc.ctRatio != null ? nhc.ctRatio.toFixed(4) : ''}</td>`,
     `<td class="mono nhc-detail">${nhc.fairTcf != null ? nhc.fairTcf.toFixed(4) : ''}</td>`,
     `<td class="mono nhc-detail">${nhc.adjustment != null ? formatSigned(nhc.adjustment, 4) : ''}</td>`,
@@ -609,7 +612,7 @@ export function assembleSeriesResultsData(
         resultCode: score.resultCode,
         penaltyCode: score.penaltyCode ?? null,
         penaltyOverride: score.penaltyOverride ?? null,
-        ...(tcc != null && scoringSystem !== 'nhc' ? { tcc } : {}),
+        ...(tcc != null ? { tcc } : {}),
         ...(score.finishTime && isHandicap ? { finishTime: score.finishTime } : {}),
         ...(elapsedTimeSecs != null ? { elapsedTimeSecs } : {}),
         ...(correctedTimeSecs != null ? { correctedTimeSecs } : {}),
@@ -633,6 +636,7 @@ export function assembleSeriesResultsData(
       label: `R${race.raceNumber}`,
       anchorId: `r${race.raceNumber}`,
       ...(startTime ? { startTime } : {}),
+      ...(scoringSystem === 'nhc' ? { isNhc: true } : {}),
       results,
       ...(nhcHeader ? { nhcHeader } : {}),
     };

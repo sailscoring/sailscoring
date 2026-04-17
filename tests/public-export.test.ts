@@ -68,6 +68,7 @@ describe('renderSeriesHtml — NHC explainability', () => {
           label: 'R1',
           anchorId: 'r1',
           startTime: '14:00:00',
+          isNhc: true,
           ...(toggleOn ? {
             nhcHeader: { alpha: 0.15, finisherCount: 3, ctAvgSecs: 3300, meanTcf: 1.0 },
           } : {}),
@@ -76,6 +77,7 @@ describe('renderSeriesHtml — NHC explainability', () => {
               sailNumber: '1', helm: 'Alpha',
               place: 1, rank: 1, points: 1,
               resultCode: null, penaltyCode: null, penaltyOverride: null,
+              tcc: 1.0,
               finishTime: '14:50:00',
               elapsedTimeSecs: 3000,
               correctedTimeSecs: 3000,
@@ -87,6 +89,7 @@ describe('renderSeriesHtml — NHC explainability', () => {
               sailNumber: '2', helm: 'Beta',
               place: null, rank: null, points: 4,
               resultCode: 'DNF', penaltyCode: null, penaltyOverride: null,
+              tcc: 1.05,
               ...(toggleOn ? {
                 nhc: { tcfApplied: 1.05, newTcf: 1.05, isFinisher: false },
               } : {}),
@@ -104,7 +107,6 @@ describe('renderSeriesHtml — NHC explainability', () => {
     expect(html).toContain('α = 0.15');
     expect(html).toContain('Finishers: 3');
     expect(html).toContain('mean TCF: 1.0000');
-    expect(html).toContain('<th class="nhc-detail">TCF used</th>');
     expect(html).toContain('<th class="nhc-detail">CT ratio</th>');
     expect(html).toContain('<th class="nhc-detail">Fair TCF</th>');
     expect(html).toContain('<th class="nhc-detail">Adjustment</th>');
@@ -125,10 +127,17 @@ describe('renderSeriesHtml — NHC explainability', () => {
     expect(html).toContain('unchanged');
   });
 
-  it('omits NHC columns and fleet header when nhcHeader is absent (toggle off)', () => {
+  it('omits rating-calculation columns and fleet header when nhcHeader is absent (toggle off)', () => {
     const html = renderSeriesHtml(nhcData(false));
     expect(html).not.toContain('Rating system: NHC1');
-    expect(html).not.toContain('<th>TCF used</th>');
-    expect(html).not.toContain('<th>Fair TCF</th>');
+    expect(html).not.toContain('<th class="nhc-detail">CT ratio</th>');
+    expect(html).not.toContain('<th class="nhc-detail">Fair TCF</th>');
+    expect(html).not.toContain('<th class="nhc-detail">Adjustment</th>');
+    expect(html).not.toContain('<th class="nhc-detail">New TCF</th>');
+    // But rating, finish, elapsed, and corrected columns stay visible
+    expect(html).toContain('<th>TCF</th>');
+    expect(html).toContain('<th>Finish</th>');
+    expect(html).toContain('<th>ET</th>');
+    expect(html).toContain('<th>CT</th>');
   });
 });

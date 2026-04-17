@@ -276,8 +276,9 @@ function PublishingCard({ seriesId, series, anyNhcFleet }: { seriesId: string; s
                   Publish NHC rating calculations alongside results
                 </label>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Adds per-race columns (TCF used, ET, CT, CT ratio, Fair TCF, Adjustment, New TCF)
+                  Adds per-race rating-calculation columns (CT ratio, Fair TCF, Adjustment, New TCF)
                   and a fleet header line so competitors can verify each new TCF with a calculator.
+                  The rating, finish, elapsed, and corrected-time columns are always shown.
                 </p>
               </div>
             </div>

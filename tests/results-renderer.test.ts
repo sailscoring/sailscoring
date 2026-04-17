@@ -389,26 +389,33 @@ describe('assembleSeriesResultsData', () => {
 
 // ---- NHC viewer toggle ----
 
-function nhcFixture(): SeriesResultsData {
+function nhcFixture(withExplain = true): SeriesResultsData {
   const nhcHeader = { alpha: 0.5, finisherCount: 2, ctAvgSecs: 3600, meanTcf: 1.0 };
   const race: RaceData = {
     raceNumber: 1,
     date: '2025-06-01',
     label: 'R1',
     anchorId: 'r1',
-    nhcHeader,
+    isNhc: true,
+    ...(withExplain ? { nhcHeader } : {}),
     results: [
       {
         rank: 1, sailNumber: '42', helm: 'Alice',
         place: 1, points: 1, resultCode: null, penaltyCode: null, penaltyOverride: null,
+        tcc: 1.0, finishTime: '14:58:20',
         elapsedTimeSecs: 3500, correctedTimeSecs: 3500,
-        nhc: { tcfApplied: 1.0, newTcf: 1.014, ctRatio: 0.972, fairTcf: 1.029, adjustment: 0.029, isFinisher: true },
+        ...(withExplain ? {
+          nhc: { tcfApplied: 1.0, newTcf: 1.014, ctRatio: 0.972, fairTcf: 1.029, adjustment: 0.029, isFinisher: true },
+        } : {}),
       },
       {
         rank: 2, sailNumber: '99', helm: 'Bob',
         place: 2, points: 2, resultCode: null, penaltyCode: null, penaltyOverride: null,
+        tcc: 1.0, finishTime: '15:01:40',
         elapsedTimeSecs: 3700, correctedTimeSecs: 3700,
-        nhc: { tcfApplied: 1.0, newTcf: 0.986, ctRatio: 1.028, fairTcf: 0.973, adjustment: -0.027, isFinisher: true },
+        ...(withExplain ? {
+          nhc: { tcfApplied: 1.0, newTcf: 0.986, ctRatio: 1.028, fairTcf: 0.973, adjustment: -0.027, isFinisher: true },
+        } : {}),
       },
     ],
   };
@@ -433,18 +440,45 @@ describe('renderSeriesHtml NHC viewer toggle', () => {
     expect(html).toContain("sailscoring:nhc-explain-visible");
   });
 
-  it('tags every NHC explainability element with nhc-detail', () => {
+  it('tags only the rating-calculation columns with nhc-detail', () => {
     const html = renderSeriesHtml(nhcFixture());
-    // One per column header
-    expect(html).toContain('<th class="nhc-detail">TCF used</th>');
+    // Only the calculation columns hide under the toggle
+    expect(html).toContain('<th class="nhc-detail">CT ratio</th>');
+    expect(html).toContain('<th class="nhc-detail">Fair TCF</th>');
+    expect(html).toContain('<th class="nhc-detail">Adjustment</th>');
     expect(html).toContain('<th class="nhc-detail">New TCF</th>');
     // <col> elements
-    expect(html).toContain('<col class="tcf nhc-detail" />');
+    expect(html).toContain('<col class="ctratio nhc-detail" />');
     expect(html).toContain('<col class="newtcf nhc-detail" />');
-    // Finisher <td> cells
-    expect(html).toMatch(/<td class="mono nhc-detail">1\.000<\/td>/);
     // Fleet-header <p>
     expect(html).toContain('class="nhc-fleet-header nhc-detail"');
+  });
+
+  it('keeps rating, finish, elapsed, and corrected time columns always visible for NHC fleets', () => {
+    const html = renderSeriesHtml(nhcFixture());
+    // TCF column uses the "TCF" label (not "TCC") and is not nhc-detail
+    expect(html).toContain('<th>TCF</th>');
+    expect(html).toContain('<th>Finish</th>');
+    expect(html).toContain('<th>ET</th>');
+    expect(html).toContain('<th>CT</th>');
+    expect(html).not.toContain('<th class="nhc-detail">TCF</th>');
+    expect(html).not.toContain('<th class="nhc-detail">ET</th>');
+    expect(html).not.toContain('<th class="nhc-detail">CT</th>');
+    expect(html).not.toContain('<th class="nhc-detail">Finish</th>');
+    // Rating value renders without nhc-detail class
+    expect(html).toMatch(/<td class="mono">1\.000<\/td>/);
+  });
+
+  it('renders rating, finish, ET, and CT for NHC fleets even when explainability is hidden', () => {
+    const html = renderSeriesHtml(nhcFixture(false));
+    // Base columns still appear without the explainability block
+    expect(html).toContain('<th>TCF</th>');
+    expect(html).toContain('<th>Finish</th>');
+    expect(html).toContain('<th>ET</th>');
+    expect(html).toContain('<th>CT</th>');
+    expect(html).not.toContain('Rating system: NHC1');
+    expect(html).not.toContain('<th class="nhc-detail">CT ratio</th>');
+    expect(html).not.toContain('<th class="nhc-detail">New TCF</th>');
   });
 
   it('omits toggle, body class, and script on non-NHC fleets', () => {
