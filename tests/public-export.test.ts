@@ -35,7 +35,7 @@ describe('renderSeriesHtml', () => {
 // ---- Tests: openInAppUrl present ----
 
 describe('renderSeriesHtml with openInAppUrl', () => {
-  const appUrl = 'https://app.sailscoring.ie/import?data=abc123';
+  const appUrl = 'https://app.sailscoring.ie/import#data=abc123';
   const html = renderSeriesHtml({ ...MINIMAL_DATA, openInAppUrl: appUrl });
 
   it('shows "Open in Sail Scoring" as a plain link in the footer', () => {

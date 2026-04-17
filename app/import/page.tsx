@@ -24,7 +24,10 @@ export default function ImportPage() {
   const [state, setState] = useState<State>({ step: 'loading' });
 
   useEffect(() => {
-    const param = new URLSearchParams(window.location.search).get('data');
+    const hash = window.location.hash.startsWith('#')
+      ? window.location.hash.slice(1)
+      : window.location.hash;
+    const param = new URLSearchParams(hash).get('data');
     if (!param) {
       setState({ step: 'error', message: 'No import data in URL.' });
       return;

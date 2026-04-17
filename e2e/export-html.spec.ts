@@ -126,14 +126,14 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
 
   // Footer always shows "Open in Sail Scoring" (NEXT_PUBLIC_APP_URL is required)
   expect(html).toContain('Open in Sail Scoring');
-  expect(html).toContain('/import?data=');
+  expect(html).toContain('/import#data=');
 
   // No embedded JSON blob — the import URL carries the data.
   expect(html).not.toContain('sail-scoring-data');
   expect(html).not.toContain('application/json');
 
   // Decode the import URL and check it carries the series data.
-  const importMatch = html.match(/href="[^"]*\/import\?data=([^"&]+)"/);
+  const importMatch = html.match(/href="[^"]*\/import#data=([^"&]+)"/);
   expect(importMatch).not.toBeNull();
   const b64 = importMatch![1].replace(/-/g, '+').replace(/_/g, '/');
   const exportData = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
@@ -286,7 +286,7 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   expect(html).toContain('14:30:00');
 
   // ── 9. Verify the import URL carries the series data ──────────────────────
-  const importMatch = html.match(/href="[^"]*\/import\?data=([^"&]+)"/);
+  const importMatch = html.match(/href="[^"]*\/import#data=([^"&]+)"/);
   expect(importMatch).not.toBeNull();
   const b64 = importMatch![1].replace(/-/g, '+').replace(/_/g, '/');
   const data = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
@@ -378,7 +378,7 @@ function makeImportUrl() {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');
-  return `/import?data=${b64url}`;
+  return `/import#data=${b64url}`;
 }
 
 test('Open in Sail Scoring import flow creates a new series', async ({ page }) => {
@@ -451,15 +451,14 @@ test('export HTML → import URL round-trip creates a new series', async ({ page
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   const html = Buffer.concat(chunks).toString('utf-8');
 
-  // Extract the /import?data= URL from the exported HTML.
-  const match = html.match(/href="([^"]*\/import\?data=[^"]+)"/);
+  // Extract the /import#data= URL from the exported HTML.
+  const match = html.match(/href="([^"]*\/import#data=([^"]+))"/);
   expect(match).not.toBeNull();
-  const importHref = match![1];
-  const dataParam = new URL(importHref, 'http://localhost').searchParams.get('data');
-  expect(dataParam).not.toBeNull();
+  const dataParam = match![2];
+  expect(dataParam).not.toBeUndefined();
 
   // Navigate to the import URL — this is the flow that broke in a4b08c7.
-  await page.goto(`/import?data=${dataParam}`);
+  await page.goto(`/import#data=${dataParam}`);
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('heading', { name: /Round Trip Regatta/ })).toBeVisible();
   await page.getByRole('button', { name: 'Open series' }).click();
