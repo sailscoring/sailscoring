@@ -10,59 +10,56 @@ import { defaultEnabledCompetitorFields } from './competitor-fields';
 // scorer-private fields: snapshotId, snapshotHistory, ftpHost, ftpPath, bilgeBundle,
 // and all internal UUIDs (competitors are keyed by sailNumber instead).
 
-/** v5+: start sequence group as it appears in the public export. Matches
- *  the shape of `StartGroup` in `types.ts` but refers to fleets by name
- *  rather than by internal UUID (mirroring how `races[].starts` does). */
+/** Start sequence group as it appears in the public export. Matches the shape
+ *  of `StartGroup` in `types.ts` but refers to fleets by name rather than by
+ *  internal UUID (mirroring how `races[].starts` does). */
 export interface ExportStartGroup {
   fleetNames: string[];
   offsetMinutes: number;
 }
 
 export interface PublicSeriesExport {
-  version: 2 | 3 | 4 | 5;
+  version: 1;
   exportedAt: string;
   series: {
     name: string;
     venue: string;
     startDate: string;
     endDate: string;
-    /** v5+: series logo URLs. */
     venueLogoUrl?: string;
-    /** v5+: series logo URLs. */
     eventLogoUrl?: string;
     discardThresholds: DiscardThreshold[];
     dnfScoring: 'seriesEntries' | 'startingArea';
-    /** v3+: which optional competitor fields the scorer has chosen to show.
+    /** Which optional competitor fields the scorer has chosen to show.
      *  Display hint for re-renderers; competitor data is still exported in
      *  full regardless of this setting. */
-    displayFields?: CompetitorFieldKey[];
-    /** v3+: series-level scoring mode (scratch or handicap). */
-    scoringMode?: 'scratch' | 'handicap';
-    /** v4+: NHC publish-rating-calculations toggle (display hint). */
+    displayFields: CompetitorFieldKey[];
+    scoringMode: 'scratch' | 'handicap';
+    /** NHC publish-rating-calculations toggle (display hint). */
     publishRatingCalculations?: boolean;
-    /** v5+: default start sequence used when new races are created. */
+    /** Default start sequence used when new races are created. */
     defaultStartSequence?: ExportStartGroup[];
   };
   fleets: {
     name: string;
     displayOrder: number;
     scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc';
-    /** v4+: NHC blend rate α (present iff scoringSystem === 'nhc'). */
+    /** NHC blend rate α (present iff scoringSystem === 'nhc'). */
     nhcAlpha?: number;
   }[];
   competitors: {
     sailNumber: string;
     boatName?: string;
-    boatClass?: string;  // v3+
+    boatClass?: string;
     name: string;
-    crewName?: string;  // v3+
+    crewName?: string;
     club: string;
     gender: 'M' | 'F' | '';
     age: number | null;
     fleetNames: string[];
     ircTcc?: number;
     pyNumber?: number;
-    /** v4+: NHC starting TCF (race-1 input). */
+    /** NHC starting TCF (race-1 input). */
     nhcStartingTcf?: number;
   }[];
   races: {
@@ -74,18 +71,18 @@ export interface PublicSeriesExport {
     }[];
     finishes: {
       sailNumber: string;
-      /** v5+: set when the finish is unresolved (scorer recorded a crossing
+      /** Set when the finish is unresolved (scorer recorded a crossing
        *  but no matching competitor). When present, `sailNumber` is empty. */
       unknownSailNumber?: string;
       sortOrder: number | null;
       finishTime?: string;
       resultCode: ResultCode | null;
       startPresent: boolean | null;
-      /** v5+: additive penalty applied on top of the finish (ZFP/SCP/DPI). */
+      /** Additive penalty applied on top of the finish (ZFP/SCP/DPI). */
       penaltyCode?: PenaltyCode | null;
-      /** v5+: SCP %, DPI points, or null to use code default. */
+      /** SCP %, DPI points, or null to use code default. */
       penaltyOverride?: number | null;
-      /** v5+: redress (RDG) configuration — all fields together reproduce
+      /** Redress (RDG) configuration — all fields together reproduce
        *  the A9 average. Present iff resultCode === 'RDG'. */
       redressMethod?: 'all_races' | 'races_before' | 'stated' | null;
       redressExcludeRaces?: number[] | null;
@@ -93,10 +90,10 @@ export interface PublicSeriesExport {
       redressIncludeAllLater?: boolean;
       redressPoints?: number | null;
     }[];
-    /** v4+: NHC per-fleet scoring intermediates for this race (one entry per
-     *  NHC fleet, keyed by fleet name). Carries the fleet-race aggregates
-     *  used in the explainability fleet header line, plus the per-boat
-     *  intermediate calculations needed to reproduce New TCF. */
+    /** NHC per-fleet scoring intermediates for this race (one entry per NHC
+     *  fleet, keyed by fleet name). Carries the fleet-race aggregates used in
+     *  the explainability fleet header line, plus the per-boat intermediate
+     *  calculations needed to reproduce New TCF. */
     nhcByFleet?: Record<string, NhcRaceFleetExport>;
   }[];
   standings: {
@@ -108,21 +105,17 @@ export interface PublicSeriesExport {
       racePoints: number[];
       raceCodes: (ResultCode | null)[];
       raceDiscards: boolean[];
-      /** v5+: per-race additive penalty annotations (aligned with racePoints). */
-      racePenaltyCodes?: (PenaltyCode | null)[];
-      /** v5+: per-race penalty overrides (aligned with racePoints). */
-      racePenaltyOverrides?: (number | null)[];
-      /** v5+: per-race non-discardable flags (DNE/BFD). */
-      raceNonDiscardable?: boolean[];
-      /** v5+: per-race RDG flag — score was calculated via A9 average. */
-      raceRedressFlags?: boolean[];
+      racePenaltyCodes: (PenaltyCode | null)[];
+      racePenaltyOverrides: (number | null)[];
+      raceNonDiscardable: boolean[];
+      raceRedressFlags: boolean[];
       totalPoints: number;
       netPoints: number;
     }[];
   }[];
 }
 
-/** v4+: per-(race, fleet) NHC scoring details for the public export. */
+/** Per-(race, fleet) NHC scoring details for the public export. */
 export interface NhcRaceFleetExport {
   alpha: number;
   finisherCount: number;
@@ -280,7 +273,7 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
     : undefined;
 
   return {
-    version: 5 as const,
+    version: 1 as const,
     exportedAt: new Date().toISOString(),
     series: {
       name: series.name,
@@ -327,11 +320,6 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
  * Create a new series from a PublicSeriesExport. Fresh UUIDs are assigned to all
  * entities — the imported series has no file history, no snapshot lineage, and no
  * publishing config. Returns the new seriesId.
- *
- * Handles v1 (single-fleet, no handicap data), v2 (multi-fleet, handicap),
- * v3 (crew names, display hints), v4 (NHC), and v5 (logos, default start
- * sequence, penalty/redress fields, unresolved finishes, standing display
- * flags) formats.
  */
 export async function importPublicExport(data: PublicSeriesExport): Promise<string> {
   const newSeriesId = crypto.randomUUID();
@@ -343,8 +331,7 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
   // Secondary sail-only multi-map for finish remapping (finishes lack fleet info).
   const competitorIdsBySail = new Map<string, string[]>();
   for (const c of data.competitors) {
-    const fleetNames = (c as { fleetNames?: string[] }).fleetNames ?? [];
-    const key = `${c.sailNumber}\0${[...fleetNames].sort().join('\0')}`;
+    const key = `${c.sailNumber}\0${[...c.fleetNames].sort().join('\0')}`;
     const id = crypto.randomUUID();
     competitorIdBySailFleet.set(key, id);
     const arr = competitorIdsBySail.get(c.sailNumber);
@@ -357,17 +344,12 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
 
   // Build fleet name → new fleet ID map
   const fleetIdByName = new Map<string, string>();
-  const exportedFleets = (data as { fleets?: PublicSeriesExport['fleets'] }).fleets ?? [];
-  if (exportedFleets.length > 0) {
-    for (const f of exportedFleets) {
-      fleetIdByName.set(f.name, crypto.randomUUID());
-    }
-  } else {
-    fleetIdByName.set('Default', crypto.randomUUID());
+  for (const f of data.fleets) {
+    fleetIdByName.set(f.name, crypto.randomUUID());
   }
 
   await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory], async () => {
-    // v5+: resolve exported defaultStartSequence (fleetNames) → internal fleetIds.
+    // Resolve exported defaultStartSequence (fleetNames) → internal fleetIds.
     const importedDefaultStartSequence = data.series.defaultStartSequence?.length
       ? data.series.defaultStartSequence
           .map((g) => ({
@@ -390,7 +372,7 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
       lastSavedAt: null,
       lastModifiedAt: now,
       snapshotHistory: [],
-      scoringMode: data.series.scoringMode ?? 'scratch',
+      scoringMode: data.series.scoringMode,
       ...(importedDefaultStartSequence?.length ? { defaultStartSequence: importedDefaultStartSequence } : {}),
       discardThresholds: data.series.discardThresholds,
       dnfScoring: data.series.dnfScoring,
@@ -402,47 +384,36 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
       enabledCompetitorFields: data.series.displayFields ?? defaultEnabledCompetitorFields(),
     });
 
-    if (exportedFleets.length > 0) {
-      for (const f of exportedFleets) {
-        await db.fleets.add({
-          id: fleetIdByName.get(f.name)!,
-          seriesId: newSeriesId,
-          name: f.name,
-          displayOrder: f.displayOrder,
-          scoringSystem: f.scoringSystem,
-          ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
-        });
-      }
-    } else {
+    for (const f of data.fleets) {
       await db.fleets.add({
-        id: fleetIdByName.get('Default')!,
+        id: fleetIdByName.get(f.name)!,
         seriesId: newSeriesId,
-        name: 'Default',
-        displayOrder: 0,
-        scoringSystem: 'scratch',
+        name: f.name,
+        displayOrder: f.displayOrder,
+        scoringSystem: f.scoringSystem,
+        ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
       });
     }
 
     for (const c of data.competitors) {
-      const cFleetNames = (c as { fleetNames?: string[] }).fleetNames ?? [];
-      const fleetIds = cFleetNames.length > 0
-        ? cFleetNames.map((n) => fleetIdByName.get(n)).filter((id): id is string => id != null)
-        : [fleetIdByName.get('Default')!];
+      const fleetIds = c.fleetNames
+        .map((n) => fleetIdByName.get(n))
+        .filter((id): id is string => id != null);
       await db.competitors.add({
-        id: competitorIdBySailFleet.get(competitorKey(c.sailNumber, cFleetNames))!,
+        id: competitorIdBySailFleet.get(competitorKey(c.sailNumber, c.fleetNames))!,
         seriesId: newSeriesId,
         fleetIds,
         sailNumber: c.sailNumber,
         ...(c.boatName ? { boatName: c.boatName } : {}),
-        ...((c as { boatClass?: string }).boatClass ? { boatClass: (c as { boatClass: string }).boatClass } : {}),
+        ...(c.boatClass ? { boatClass: c.boatClass } : {}),
         name: c.name,
-        ...((c as { crewName?: string }).crewName ? { crewName: (c as { crewName: string }).crewName } : {}),
+        ...(c.crewName ? { crewName: c.crewName } : {}),
         club: c.club,
         gender: c.gender,
         age: c.age,
         createdAt: now,
-        ...((c as { ircTcc?: number }).ircTcc != null ? { ircTcc: (c as { ircTcc: number }).ircTcc } : {}),
-        ...((c as { pyNumber?: number }).pyNumber != null ? { pyNumber: (c as { pyNumber: number }).pyNumber } : {}),
+        ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
+        ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       });
     }
@@ -451,10 +422,9 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
     // A boat in two NHC fleets needs distinct rows per fleet — keyed by both.
     const competitorIdBySailFleetName = new Map<string, string>();
     for (const c of data.competitors) {
-      const cFleetNames = (c as { fleetNames?: string[] }).fleetNames ?? [];
-      const cId = competitorIdBySailFleet.get(competitorKey(c.sailNumber, cFleetNames));
+      const cId = competitorIdBySailFleet.get(competitorKey(c.sailNumber, c.fleetNames));
       if (!cId) continue;
-      for (const fn of cFleetNames) {
+      for (const fn of c.fleetNames) {
         competitorIdBySailFleetName.set(`${c.sailNumber}\0${fn}`, cId);
       }
     }
@@ -468,9 +438,7 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
         date: race.date,
         createdAt: now,
       });
-      // Import race starts (v2)
-      const starts = (race as { starts?: { fleetNames: string[]; startTime: string }[] }).starts ?? [];
-      for (const start of starts) {
+      for (const start of race.starts) {
         const startFleetIds = start.fleetNames
           .map((n) => fleetIdByName.get(n))
           .filter((id): id is string => id != null);
@@ -485,9 +453,9 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
       }
       const usedIds = new Set<string>();
       for (const finish of race.finishes) {
-        // v5+: a finish with unknownSailNumber set (and typically empty
-        // sailNumber) represents an unresolved crossing — store it with
-        // competitorId: null so it survives the round trip.
+        // A finish with unknownSailNumber set (and typically empty sailNumber)
+        // represents an unresolved crossing — store it with competitorId: null
+        // so it survives the round trip.
         const exportedUnknownSail = finish.unknownSailNumber;
         const candidates = finish.sailNumber
           ? competitorIdsBySail.get(finish.sailNumber) ?? []
@@ -495,15 +463,13 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
         const competitorId = candidates.find((id) => !usedIds.has(id)) ?? candidates[0];
         if (!competitorId && !exportedUnknownSail) continue;
         if (competitorId) usedIds.add(competitorId);
-        // Back-compat: older v2 exports used finishPosition; v3 uses sortOrder
-        const legacyFinishPosition = (finish as { finishPosition?: number | null }).finishPosition;
         await db.finishes.add({
           id: crypto.randomUUID(),
           raceId,
           competitorId: competitorId ?? null,
           ...(!competitorId && exportedUnknownSail ? { unknownSailNumber: exportedUnknownSail } : {}),
-          sortOrder: finish.sortOrder ?? legacyFinishPosition ?? null,
-          ...((finish as { finishTime?: string }).finishTime ? { finishTime: (finish as { finishTime: string }).finishTime } : {}),
+          sortOrder: finish.sortOrder,
+          ...(finish.finishTime ? { finishTime: finish.finishTime } : {}),
           resultCode: finish.resultCode,
           startPresent: finish.startPresent,
           penaltyCode: finish.penaltyCode ?? null,
@@ -516,7 +482,7 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
         });
       }
 
-      // v4+: reconstruct nhcTcfHistory rows from per-(race, fleet) intermediates.
+      // Reconstruct nhcTcfHistory rows from per-(race, fleet) intermediates.
       // Engine-recompute would also work, but persisting directly avoids needing
       // to re-score on every render after import.
       const nhcByFleet = race.nhcByFleet;

@@ -17,6 +17,7 @@ import { createSeriesQuick } from './helpers';
 
 interface FileCompetitor {
   id: string;
+  fleetIds: string[];
   sailNumber: string;
   name: string;
   crewName?: string;
@@ -119,7 +120,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   //  a real upload in tests so we write them directly.)
   await page.evaluate(async ([id, host, path]) => {
     await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.open('sailscoring');
+      const req = indexedDB.open('sailscoring-v1');
       req.onsuccess = () => {
         const db = req.result;
         const tx = db.transaction('series', 'readwrite');
@@ -159,7 +160,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   const file = await saveToFile(page);
 
   // Top-level envelope
-  expect(file.formatVersion).toBe(11);
+  expect(file.formatVersion).toBe(1);
   expect(file.seriesId).toBe(seriesId);
   expect(typeof file.snapshotId).toBe('string');
   expect(file.snapshotHistory).toEqual([file.snapshotId]);
@@ -223,7 +224,7 @@ test('series file: clean lineage updates series in place', async ({ page }) => {
     series: { ...original.series, name: 'Updated by Co-scorer', venue: 'RIYC' },
     competitors: [
       ...original.competitors,
-      { id: 'new-competitor-1', sailNumber: '99', name: 'New Helm', club: 'RIYC', gender: '', age: null },
+      { id: 'new-competitor-1', fleetIds: original.competitors[0].fleetIds, sailNumber: '99', name: 'New Helm', club: 'RIYC', gender: '', age: null },
     ],
   };
 

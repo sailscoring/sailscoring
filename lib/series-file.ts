@@ -3,7 +3,7 @@ import { db } from './db';
 import { defaultEnabledCompetitorFields } from './competitor-fields';
 import { recomputeNhcHistoryForSeries } from './nhc-persistence';
 
-export const FORMAT_VERSION = 11;
+export const FORMAT_VERSION = 1;
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -12,8 +12,8 @@ interface SeriesFileFleet {
   id: string;
   name: string;
   displayOrder: number;
-  scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc';  // 'nhc' added in v11
-  nhcAlpha?: number;  // v11+; present iff scoringSystem === 'nhc'
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc';
+  nhcAlpha?: number;  // present iff scoringSystem === 'nhc'
 }
 
 interface SeriesFileBilgeBundle {
@@ -39,40 +39,38 @@ interface SeriesFileSeries {
   ftpPath: string;
   bilgeBundle: SeriesFileBilgeBundle | null;
   includeJsonExport: boolean;
-  enabledCompetitorFields?: CompetitorFieldKey[];  // v8+; defaulted on read for older files
-  scoringMode?: 'scratch' | 'handicap';            // v9+; defaults to 'scratch' for older files
-  defaultStartSequence?: StartGroup[];              // v9+; undefined for older files
-  publishRatingCalculations?: boolean;              // v11+; default true on read
+  enabledCompetitorFields: CompetitorFieldKey[];
+  scoringMode: 'scratch' | 'handicap';
+  defaultStartSequence?: StartGroup[];
+  publishRatingCalculations?: boolean;
 }
 
 interface SeriesFileCompetitor {
   id: string;
-  fleetIds?: string[];   // v7+
-  fleetId?: string;      // pre-v7 back-compat; prefer fleetIds when present
+  fleetIds: string[];
   sailNumber: string;
   boatName?: string;
-  boatClass?: string;    // v10+
+  boatClass?: string;
   name: string;
-  crewName?: string;     // v8+
+  crewName?: string;
   club: string;
   gender: 'M' | 'F' | '';
   age: number | null;
   ircTcc?: number;
   pyNumber?: number;
-  nhcStartingTcf?: number;  // v11+
+  nhcStartingTcf?: number;
 }
 
 interface SeriesFileFinish {
   id: string;
   competitorId: string | null;
   unknownSailNumber?: string;
-  sortOrder?: number | null;        // v8+ — crossing-order index in the finish sheet
-  finishPosition?: number | null;   // pre-v8 — mapped to sortOrder on import
+  sortOrder: number | null;
   finishTime?: string;
   resultCode: ResultCode | null;
   startPresent: boolean | null;
-  penaltyCode?: PenaltyCode | null;
-  penaltyOverride?: number | null;
+  penaltyCode: PenaltyCode | null;
+  penaltyOverride: number | null;
   redressMethod?: 'all_races' | 'races_before' | 'stated';
   redressExcludeRaces?: number[];
   redressIncludeRaces?: number[];
@@ -90,11 +88,10 @@ interface SeriesFileRace {
   id: string;
   raceNumber: number;
   date: string;
-  starts?: SeriesFileRaceStart[];
+  starts: SeriesFileRaceStart[];
   finishes: SeriesFileFinish[];
 }
 
-// v11+: persisted NHC per-race per-competitor TCF snapshots
 interface SeriesFileNhcTcfRecord {
   raceId: string;
   competitorId: string;
@@ -113,7 +110,7 @@ export interface SeriesFile {
   fleets: SeriesFileFleet[];
   competitors: SeriesFileCompetitor[];
   races: SeriesFileRace[];
-  nhcTcfHistory?: SeriesFileNhcTcfRecord[];  // v11+; absent in older files
+  nhcTcfHistory?: SeriesFileNhcTcfRecord[];
 }
 
 export type LineageStatus = 'clean' | 'identical' | 'diverged';
@@ -249,7 +246,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       id: r.id,
       raceNumber: r.raceNumber,
       date: r.date,
-      ...(startsByRace.has(r.id) ? { starts: startsByRace.get(r.id) } : {}),
+      starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
     })),
     ...(allNhcTcfHistory.length > 0
@@ -296,16 +293,15 @@ export function parseSeriesFile(content: string): SeriesFile {
   }
   if (typeof data !== 'object' || data === null) throw new Error('Invalid file format');
   const obj = data as Record<string, unknown>;
-  if (typeof obj.formatVersion !== 'number' || obj.formatVersion < 1 || obj.formatVersion > FORMAT_VERSION)
+  if (obj.formatVersion !== FORMAT_VERSION)
     throw new Error(`Unsupported file format version: ${obj.formatVersion ?? 'unknown'}`);
-  // Normalise: v1–3 files have no fleets array
-  if (!Array.isArray(obj.fleets)) obj.fleets = [];
   if (typeof obj.seriesId !== 'string') throw new Error('Invalid file: missing seriesId');
   if (typeof obj.snapshotId !== 'string') throw new Error('Invalid file: missing snapshotId');
   if (!Array.isArray(obj.snapshotHistory)) throw new Error('Invalid file: missing snapshotHistory');
   if (typeof obj.exportedAt !== 'string') throw new Error('Invalid file: missing exportedAt');
   if (typeof obj.series !== 'object' || obj.series === null)
     throw new Error('Invalid file: missing series');
+  if (!Array.isArray(obj.fleets)) throw new Error('Invalid file: missing fleets');
   if (!Array.isArray(obj.competitors)) throw new Error('Invalid file: missing competitors');
   if (!Array.isArray(obj.races)) throw new Error('Invalid file: missing races');
   return data as SeriesFile;
@@ -328,60 +324,49 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
   const name = await uniqueSeriesName(file.series.name);
 
   // Remap IDs to avoid conflicts with existing DB records
-  const fileFleets = file.fleets ?? [];
-  const fleetIdMap = new Map(fileFleets.map((f) => [f.id, crypto.randomUUID()]));
+  const fleetIdMap = new Map(file.fleets.map((f) => [f.id, crypto.randomUUID()]));
   const competitorIdMap = new Map(file.competitors.map((c) => [c.id, crypto.randomUUID()]));
   const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
-
-  // For v1–3 files with no fleets, synthesize a Default fleet
-  let defaultFleetId: string | undefined;
-  if (fileFleets.length === 0) {
-    defaultFleetId = crypto.randomUUID();
-  }
 
   await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory], async () => {
     await db.series.add({
       id: newSeriesId,
       name,
       venue: file.series.venue,
-      startDate: file.series.startDate ?? '',
-      endDate: file.series.endDate ?? '',
-      venueLogoUrl: file.series.venueLogoUrl ?? '',
-      eventLogoUrl: file.series.eventLogoUrl ?? '',
+      startDate: file.series.startDate,
+      endDate: file.series.endDate,
+      venueLogoUrl: file.series.venueLogoUrl,
+      eventLogoUrl: file.series.eventLogoUrl,
       createdAt: now,
       lastSnapshotId: file.snapshotId,
       lastSavedAt: null,
       lastModifiedAt: now,
       snapshotHistory: [...file.snapshotHistory],
-      scoringMode: file.series.scoringMode ?? 'scratch',
+      scoringMode: file.series.scoringMode,
       defaultStartSequence: file.series.defaultStartSequence,
-      discardThresholds: file.series.discardThresholds ?? [],
-      dnfScoring: file.series.dnfScoring ?? 'seriesEntries',
-      ftpHost: file.series.ftpHost ?? '',
-      ftpPath: file.series.ftpPath ?? '',
-      bilgeBundle: file.series.bilgeBundle ?? null,
-      includeJsonExport: file.series.includeJsonExport ?? true,
+      discardThresholds: file.series.discardThresholds,
+      dnfScoring: file.series.dnfScoring,
+      ftpHost: file.series.ftpHost,
+      ftpPath: file.series.ftpPath,
+      bilgeBundle: file.series.bilgeBundle,
+      includeJsonExport: file.series.includeJsonExport,
       publishRatingCalculations: file.series.publishRatingCalculations ?? true,
-      enabledCompetitorFields: file.series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
+      enabledCompetitorFields: file.series.enabledCompetitorFields,
     });
 
-    if (defaultFleetId) {
-      await db.fleets.add({ id: defaultFleetId, seriesId: newSeriesId, name: 'Default', displayOrder: 0, scoringSystem: 'scratch' });
-    } else {
-      for (const f of fileFleets) {
-        await db.fleets.add({
-          id: fleetIdMap.get(f.id)!,
-          seriesId: newSeriesId,
-          name: f.name,
-          displayOrder: f.displayOrder,
-          scoringSystem: f.scoringSystem ?? 'scratch',
-          ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
-        });
-      }
+    for (const f of file.fleets) {
+      await db.fleets.add({
+        id: fleetIdMap.get(f.id)!,
+        seriesId: newSeriesId,
+        name: f.name,
+        displayOrder: f.displayOrder,
+        scoringSystem: f.scoringSystem,
+        ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
+      });
     }
 
     for (const c of file.competitors) {
-      const fleetIds = resolveCompetitorFleetIds(c, fleetIdMap, defaultFleetId);
+      const fleetIds = c.fleetIds.map((id) => fleetIdMap.get(id)!).filter(Boolean);
       await db.competitors.add({
         id: competitorIdMap.get(c.id)!,
         seriesId: newSeriesId,
@@ -410,7 +395,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
         date: r.date,
         createdAt: now,
       });
-      for (const s of r.starts ?? []) {
+      for (const s of r.starts) {
         await db.raceStarts.add({
           id: crypto.randomUUID(),
           raceId: newRaceId,
@@ -427,12 +412,12 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
           raceId: newRaceId,
           competitorId: mappedCompetitorId,
           unknownSailNumber: f.unknownSailNumber,
-          sortOrder: f.sortOrder ?? f.finishPosition ?? null,
+          sortOrder: f.sortOrder,
           ...(f.finishTime ? { finishTime: f.finishTime } : {}),
           resultCode: f.resultCode,
-          startPresent: f.startPresent ?? null,
-          penaltyCode: f.penaltyCode ?? null,
-          penaltyOverride: f.penaltyOverride ?? null,
+          startPresent: f.startPresent,
+          penaltyCode: f.penaltyCode,
+          penaltyOverride: f.penaltyOverride,
           redressMethod: f.redressMethod ?? null,
           redressExcludeRaces: f.redressExcludeRaces ?? null,
           redressIncludeRaces: f.redressIncludeRaces ?? null,
@@ -445,7 +430,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
     for (const h of file.nhcTcfHistory ?? []) {
       const raceId = raceIdMap.get(h.raceId);
       const competitorId = competitorIdMap.get(h.competitorId);
-      const fleetId = fleetIdMap.get(h.fleetId) ?? defaultFleetId;
+      const fleetId = fleetIdMap.get(h.fleetId);
       if (!raceId || !competitorId || !fleetId) continue;
       await db.nhcTcfHistory.add({
         id: crypto.randomUUID(),
@@ -466,15 +451,9 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
 export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): Promise<void> {
   const now = Date.now();
 
-  const fileFleets = file.fleets ?? [];
-  const fleetIdMap = new Map(fileFleets.map((f) => [f.id, crypto.randomUUID()]));
+  const fleetIdMap = new Map(file.fleets.map((f) => [f.id, crypto.randomUUID()]));
   const competitorIdMap = new Map(file.competitors.map((c) => [c.id, crypto.randomUUID()]));
   const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
-
-  let defaultFleetId: string | undefined;
-  if (fileFleets.length === 0) {
-    defaultFleetId = crypto.randomUUID();
-  }
 
   await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory], async () => {
     const existingRaces = await db.races.where('seriesId').equals(seriesId).toArray();
@@ -491,42 +470,38 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
     await db.series.update(seriesId, {
       name: file.series.name,
       venue: file.series.venue,
-      startDate: file.series.startDate ?? '',
-      endDate: file.series.endDate ?? '',
-      venueLogoUrl: file.series.venueLogoUrl ?? '',
-      eventLogoUrl: file.series.eventLogoUrl ?? '',
+      startDate: file.series.startDate,
+      endDate: file.series.endDate,
+      venueLogoUrl: file.series.venueLogoUrl,
+      eventLogoUrl: file.series.eventLogoUrl,
       lastSnapshotId: file.snapshotId,
       lastModifiedAt: now,
       snapshotHistory: [...file.snapshotHistory],
-      scoringMode: file.series.scoringMode ?? 'scratch',
+      scoringMode: file.series.scoringMode,
       defaultStartSequence: file.series.defaultStartSequence,
-      discardThresholds: file.series.discardThresholds ?? [],
-      dnfScoring: file.series.dnfScoring ?? 'seriesEntries',
-      ftpHost: file.series.ftpHost ?? '',
-      ftpPath: file.series.ftpPath ?? '',
-      bilgeBundle: file.series.bilgeBundle ?? null,
-      includeJsonExport: file.series.includeJsonExport ?? true,
+      discardThresholds: file.series.discardThresholds,
+      dnfScoring: file.series.dnfScoring,
+      ftpHost: file.series.ftpHost,
+      ftpPath: file.series.ftpPath,
+      bilgeBundle: file.series.bilgeBundle,
+      includeJsonExport: file.series.includeJsonExport,
       publishRatingCalculations: file.series.publishRatingCalculations ?? true,
-      enabledCompetitorFields: file.series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
+      enabledCompetitorFields: file.series.enabledCompetitorFields,
     });
 
-    if (defaultFleetId) {
-      await db.fleets.add({ id: defaultFleetId, seriesId, name: 'Default', displayOrder: 0, scoringSystem: 'scratch' });
-    } else {
-      for (const f of fileFleets) {
-        await db.fleets.add({
-          id: fleetIdMap.get(f.id)!,
-          seriesId,
-          name: f.name,
-          displayOrder: f.displayOrder,
-          scoringSystem: f.scoringSystem ?? 'scratch',
-          ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
-        });
-      }
+    for (const f of file.fleets) {
+      await db.fleets.add({
+        id: fleetIdMap.get(f.id)!,
+        seriesId,
+        name: f.name,
+        displayOrder: f.displayOrder,
+        scoringSystem: f.scoringSystem,
+        ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
+      });
     }
 
     for (const c of file.competitors) {
-      const fleetIds = resolveCompetitorFleetIds(c, fleetIdMap, defaultFleetId);
+      const fleetIds = c.fleetIds.map((id) => fleetIdMap.get(id)!).filter(Boolean);
       await db.competitors.add({
         id: competitorIdMap.get(c.id)!,
         seriesId,
@@ -555,7 +530,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
         date: r.date,
         createdAt: now,
       });
-      for (const s of r.starts ?? []) {
+      for (const s of r.starts) {
         await db.raceStarts.add({
           id: crypto.randomUUID(),
           raceId: newRaceId,
@@ -572,12 +547,12 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
           raceId: newRaceId,
           competitorId: mappedCompetitorId,
           unknownSailNumber: f.unknownSailNumber,
-          sortOrder: f.sortOrder ?? f.finishPosition ?? null,
+          sortOrder: f.sortOrder,
           ...(f.finishTime ? { finishTime: f.finishTime } : {}),
           resultCode: f.resultCode,
-          startPresent: f.startPresent ?? null,
-          penaltyCode: f.penaltyCode ?? null,
-          penaltyOverride: f.penaltyOverride ?? null,
+          startPresent: f.startPresent,
+          penaltyCode: f.penaltyCode,
+          penaltyOverride: f.penaltyOverride,
           redressMethod: f.redressMethod ?? null,
           redressExcludeRaces: f.redressExcludeRaces ?? null,
           redressIncludeRaces: f.redressIncludeRaces ?? null,
@@ -590,7 +565,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
     for (const h of file.nhcTcfHistory ?? []) {
       const raceId = raceIdMap.get(h.raceId);
       const competitorId = competitorIdMap.get(h.competitorId);
-      const fleetId = fleetIdMap.get(h.fleetId) ?? defaultFleetId;
+      const fleetId = fleetIdMap.get(h.fleetId);
       if (!raceId || !competitorId || !fleetId) continue;
       await db.nhcTcfHistory.add({
         id: crypto.randomUUID(),
@@ -602,22 +577,6 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
       });
     }
   });
-}
-
-/**
- * Resolve fleet IDs for a competitor from the file format.
- * Handles both the new fleetIds (v7+) and legacy fleetId (pre-v7) formats.
- */
-function resolveCompetitorFleetIds(
-  c: SeriesFileCompetitor,
-  fleetIdMap: Map<string, string>,
-  defaultFleetId: string | undefined,
-): string[] {
-  if (Array.isArray(c.fleetIds) && c.fleetIds.length > 0) {
-    return c.fleetIds.map((id) => fleetIdMap.get(id) ?? defaultFleetId!).filter(Boolean);
-  }
-  const fleetId = defaultFleetId ?? fleetIdMap.get(c.fleetId ?? '') ?? defaultFleetId!;
-  return [fleetId];
 }
 
 function slugify(name: string): string {

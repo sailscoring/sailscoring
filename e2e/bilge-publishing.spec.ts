@@ -134,7 +134,7 @@ test('Publish dialog: re-publish — pre-seeded bundle shows manage view, Re-pub
   // Seed a bilgeBundle into IndexedDB
   await page.evaluate(async ([id, url]) => {
     await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.open('sailscoring');
+      const req = indexedDB.open('sailscoring-v1');
       req.onsuccess = () => {
         const db = req.result;
         const tx = db.transaction('series', 'readwrite');
