@@ -29,27 +29,9 @@ import { CheckSquare, Square } from 'lucide-react';
 import { log } from '@/lib/debug';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
-
-/**
- * Accept flexible time input: "HH:MM:SS", "H:MM:SS", or bare digits "HHMMSS" / "HMMSS".
- * Returns a normalised "HH:MM:SS" string, or null if the input cannot be parsed.
- */
-function normalizeTimeInput(raw: string): string | null {
-  const s = raw.trim();
-  let h: number, m: number, sec: number;
-  if (/^\d{1,2}:\d{2}:\d{2}$/.test(s)) {
-    [h, m, sec] = s.split(':').map(Number);
-  } else if (/^\d{5,6}$/.test(s)) {
-    const p = s.padStart(6, '0');
-    h = parseInt(p.slice(0, 2), 10);
-    m = parseInt(p.slice(2, 4), 10);
-    sec = parseInt(p.slice(4, 6), 10);
-  } else {
-    return null;
-  }
-  if (m > 59 || sec > 59) return null;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-}
+import { normalizeTimeInput } from '@/lib/time-parse';
+import { FinishSheetImport, type FinishSheetImportHandle } from '@/components/finish-sheet-import';
+import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 
 type NonFinisherCode = ResultCode | 'implicit-dnc';
 
@@ -186,6 +168,7 @@ export default function ResultEntryPage({
   const inputRef = useRef<HTMLInputElement>(null);
   const initialOrderRef = useRef<FinishEntry[]>([]);
   const initialCodesRef = useRef<Map<string, ResultCode>>(new Map());
+  const finishSheetImportRef = useRef<FinishSheetImportHandle>(null);
 
   // Initialize form state from saved finishes once loaded
   if (!initialized && competitors !== undefined && savedFinishes !== undefined) {
@@ -414,6 +397,13 @@ export default function ResultEntryPage({
     ) {
       e.preventDefault();
       openAddStart();
+    } else if (
+      e.key === 'i' &&
+      !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '') &&
+      activeTab === 'finish'
+    ) {
+      e.preventDefault();
+      finishSheetImportRef.current?.trigger();
     }
   });
 
@@ -784,6 +774,54 @@ export default function ResultEntryPage({
       });
     }
     setRedressDialog(null);
+  }
+
+  /**
+   * Replace the finishing order, finish times, and non-finisher codes from a
+   * CSV import. Clears state not expressible in the v1 CSV format (ties,
+   * penalties, redress) — the scorer re-adds those in the editor if needed.
+   * State only; the scorer clicks "Save results" to persist.
+   */
+  function applyCsvImport(imported: ParseFinishSheetResult) {
+    const finishers = imported.finishes
+      .filter((f) => f.sortOrder !== null)
+      .sort((a, b) => a.sortOrder! - b.sortOrder!);
+
+    const order: FinishEntry[] = [];
+    const times = new Map<string, string>();
+    for (const f of finishers) {
+      if (f.competitorId !== null) {
+        order.push({ kind: 'known', competitorId: f.competitorId });
+        if (f.finishTime) times.set(f.competitorId, f.finishTime);
+      } else {
+        const tempId = crypto.randomUUID();
+        order.push({ kind: 'unknown', tempId, sailNumber: f.unknownSailNumber ?? '' });
+        if (f.finishTime) times.set(tempId, f.finishTime);
+      }
+    }
+
+    const codes = new Map<string, ResultCode>();
+    for (const f of imported.finishes) {
+      if (f.sortOrder === null && f.resultCode && f.competitorId) {
+        codes.set(f.competitorId, f.resultCode);
+      }
+    }
+
+    setFinishingOrder(order);
+    setFinishTimes(times);
+    setNonFinisherCodes(codes);
+    setTiedWithPrevious(new Set());
+    setFinisherPenalties(new Map());
+    setRedressEntries(new Map());
+    setSailInput('');
+    setInputError('');
+    setPendingUnknownSail(null);
+    setPendingTimeEntry(null);
+    log('result-entry', 'csv import applied', {
+      finishers: imported.summary.finishers,
+      coded: imported.summary.coded,
+      unresolved: imported.summary.unresolved,
+    });
   }
 
   function setNonFinisherCode(competitorId: string, code: NonFinisherCode) {
@@ -1338,7 +1376,20 @@ export default function ResultEntryPage({
       {activeTab === 'finish' && <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Left: finishing order */}
         <div className="space-y-4">
-          <h3 className="font-medium">Finishing order</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">Finishing order</h3>
+            <FinishSheetImport
+              ref={finishSheetImportRef}
+              candidates={competitors}
+              existingFinishCount={savedFinishes?.filter((f) => f.sortOrder !== null || f.resultCode !== null).length ?? 0}
+              onConfirm={applyCsvImport}
+              trigger={
+                <Button variant="outline" size="sm" title="Import finish sheet from CSV (i)">
+                  Import CSV
+                </Button>
+              }
+            />
+          </div>
 
           <div className="relative">
             {pendingTimeEntry ? (

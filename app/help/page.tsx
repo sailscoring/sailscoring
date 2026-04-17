@@ -34,6 +34,7 @@ export default function HelpPage() {
           ['#importing-competitors', 'Importing competitors from CSV'],
           ['#adding-races', 'Adding races'],
           ['#entering-results', 'Entering results'],
+          ['#importing-finish-sheet', 'Importing a finish sheet from CSV'],
           ['#penalty-codes', 'Additive penalty codes'],
           ['#redress', 'Redress (RDG)'],
           ['#start-check-in', 'Start check-in'],
@@ -284,6 +285,48 @@ export default function HelpPage() {
           two boats may legitimately share the same score. The penalised score is capped at
           the DNF score for that race. Penalty codes are shown in amber in the standings table,
           e.g. <em>4 (ZFP)</em>.
+        </p>
+      </Section>
+
+      <Section id="importing-finish-sheet" title="Importing a finish sheet from CSV">
+        <p>
+          On a race&apos;s result entry screen, click{' '}
+          <strong className="text-foreground">Import CSV</strong> (or press{' '}
+          <strong className="text-foreground">i</strong>) to import a whole finish
+          sheet in one go — useful when results are captured on a tablet or in a
+          spreadsheet on the RC boat and you want to transcribe the lot at once.
+        </p>
+        <p>The importer reads three columns:</p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li>
+            <strong className="text-foreground">Sail number</strong> — required; matched
+            against registered competitors. Unregistered sail numbers import as unresolved
+            crossings that you can resolve later.
+          </li>
+          <li>
+            <strong className="text-foreground">Finish time</strong> — optional; accepts{' '}
+            <code className="text-foreground text-sm">HH:MM:SS</code>,{' '}
+            <code className="text-foreground text-sm">H:MM:SS</code>, or bare digits like{' '}
+            <code className="text-foreground text-sm">143210</code>.
+          </li>
+          <li>
+            <strong className="text-foreground">Result code</strong> — optional; any standard
+            RRS code (DNF, DSQ, OCS, RET, DNE, UFD, BFD, DNS, NSC, DNC). Rows with a code are
+            recorded as non-finishers and the finish time is ignored.
+          </li>
+        </ul>
+        <p>
+          Row order in the CSV is the crossing order — the importer assigns finish positions
+          in the order rows appear. A preview dialog shows how many finishers and coded
+          entries will be imported and how many existing finishes will be replaced.
+        </p>
+        <p>
+          The import is <strong className="text-foreground">replace-all</strong>: confirming
+          replaces the race&apos;s finishing order entirely and clears any penalties, redress,
+          and tied-finish markers — the importer only covers the basic sheet, so re-apply
+          those in the editor after import if needed. Existing start check-ins are preserved.
+          Click <strong className="text-foreground">Save results</strong> after importing to
+          persist the change.
         </p>
       </Section>
 
