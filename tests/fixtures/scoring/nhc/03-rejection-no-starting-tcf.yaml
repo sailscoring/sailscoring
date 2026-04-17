@@ -1,0 +1,67 @@
+description: "NHC1 — competitor without starting TCF is rejected, not scored"
+notes: |
+  3 boats; one (Gamma) has no nhcStartingTcf at all.
+  Gamma must be rejected with reason 'no_starting_tcf' and absent from scores.
+  Aggregates and other boats reflect the 2-boat fleet.
+
+  Computation for the 2 rated boats:
+    Alpha: TCF 1.0, ET 3000, CT 3000.0
+    Beta:  TCF 1.0, ET 3600, CT 3600.0
+    CT_avg = 3300.0,  mean(TCF) = 1.0
+
+    Alpha: ratio = 3300/3000 = 1.10,  fair = 1.10,
+           adj = 0.15 × 0.10 = 0.015,  new = 1.015
+    Beta:  ratio = 3300/3600 = 0.916666...,  fair = 0.916666...,
+           adj = 0.15 × −0.083333... = −0.0125, new = 0.9875
+
+fleet:
+  scoringSystem: nhc
+  alpha: 0.15
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    nhcStartingTcf: 1.000
+  - sailNumber: "2"
+    name: "Beta"
+    nhcStartingTcf: 1.000
+  - sailNumber: "3"
+    name: "Gamma"
+    # no nhcStartingTcf — must be rejected
+races:
+  - startTime: "14:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "14:50:00"
+      - sailor: "2"
+        finishTime: "15:00:00"
+      - sailor: "3"
+        finishTime: "15:05:00"
+    aggregates:
+      alpha: 0.15
+      finisherCount: 2
+      ctAvg: 3300.0
+      meanTcf: 1.0
+    expected:
+      - sailor: "1"
+        rank: 1
+        points: 1.0
+        elapsedTime: 3000
+        correctedTime: 3000.0
+        tcfApplied: 1.000
+        ctRatio: 1.10
+        fairTcf: 1.10
+        adjustment: 0.015
+        newTcf: 1.015
+      - sailor: "2"
+        rank: 2
+        points: 2.0
+        elapsedTime: 3600
+        correctedTime: 3600.0
+        tcfApplied: 1.000
+        ctRatio: 0.9166666667
+        fairTcf: 0.9166666667
+        adjustment: -0.0125
+        newTcf: 0.9875
+    rejected:
+      - sailor: "3"
+        reason: "no_starting_tcf"

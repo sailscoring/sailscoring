@@ -308,7 +308,13 @@ interface HandicapFixture {
 }
 
 function isHandicapFixture(data: unknown): data is HandicapFixture {
-  return typeof data === 'object' && data !== null && 'fleet' in data;
+  if (typeof data !== 'object' || data === null) return false;
+  if (!('fleet' in data)) return false;
+  // NHC fixtures use a multi-race schema (`races: [...]`) and need a different
+  // renderer path; skip them for now (they still run via the unit-test runner).
+  const fleet = (data as { fleet?: { scoringSystem?: string } }).fleet;
+  if (fleet?.scoringSystem === 'nhc') return false;
+  return true;
 }
 
 function fmtSeconds(s: number | null): string {
@@ -564,6 +570,9 @@ const byCategory = new Map<string, Array<{ yamlPath: string; description: string
 let htmCount = 0;
 
 for (const yamlPath of yamlFiles) {
+  // NHC fixtures use a multi-race schema; skip HTML rendering for now.
+  // They still execute via tests/nhc-fixtures.test.ts.
+  if (yamlPath.includes('/nhc/')) continue;
   const yamlSource = readFileSync(yamlPath, 'utf-8');
   const parsed = parseYaml(yamlSource);
   let html: string;

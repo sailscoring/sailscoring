@@ -1,5 +1,7 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold, ScoringRejection } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold, ScoringRejection, NhcRaceAggregates, NhcTcfRecord } from './types';
 import { getCodeDefinition } from './scoring-codes';
+
+export const NHC_DEFAULT_ALPHA = 0.15;
 
 /**
  * Calculate race scores for all competitors in a series.
@@ -152,9 +154,13 @@ export function calculateRaceScores(
 /**
  * Whether a competitor has a valid handicap rating for a fleet.
  * Returns true for scratch fleets (no rating needed).
+ * For NHC fleets, the rating is the starting TCF; the per-race TCF is derived
+ * by the engine and lives outside the competitor record.
  */
 export function hasFleetRating(competitor: Competitor, fleet: Fleet): boolean {
-  return fleet.scoringSystem === 'scratch' || getTCF(competitor, fleet) !== null;
+  if (fleet.scoringSystem === 'scratch') return true;
+  if (fleet.scoringSystem === 'nhc') return competitor.nhcStartingTcf != null;
+  return getTCF(competitor, fleet) !== null;
 }
 
 function getTCF(competitor: Competitor, fleet: Fleet): number | null {
@@ -295,6 +301,7 @@ export function calculateHandicapRaceScores(
         elapsedTime: c.elapsedTime,
         correctedTime: c.correctedTime,
         tcfApplied: c.tcfApplied,
+        newTcf: null,
       });
     }
     fleetRank += tiedCount;
@@ -317,10 +324,182 @@ export function calculateHandicapRaceScores(
       elapsedTime: c.elapsedTime,
       correctedTime: null,
       tcfApplied: c.tcfApplied,
+      newTcf: null,
     });
   }
 
   return { scores, rejections };
+}
+
+/**
+ * Calculate handicap race scores for a single fleet using NHC1 progressive
+ * time-on-time correction. Algorithm: Sailwave-style symmetric blend.
+ *
+ *   CT_i  = ET_i × TCF_i           (TCF_i is the running, race-N TCF)
+ *   Q_i   = TCF_i × CT_avg / CT_i  (the "fair" TCF — what would have given CT_avg)
+ *   ΔTCF  = α × (Q_i − TCF_i)      (signed: fast boats positive, slow negative)
+ *   newTcf = TCF_i + ΔTCF
+ *
+ * Non-finishers carry their TCF unchanged into the next race. CT_avg and the
+ * mean TCF are computed across finishers only.
+ *
+ * Note on Q_i form: Sailwave's reference NHC1 uses an algebraically distinct
+ * P50 form (Q_i = O_i × P50, where O_i = 1/ET_i and P50 = mean(TCF) / mean(O)).
+ * That form exactly conserves the fleet TCF mean. The simple `TCF × CT_avg/CT`
+ * form used here drifts ≤0.001 from the P50 form on real club fleets — well
+ * under Sailwave's 3-dp precision — and lets the published "Fair TCF" column
+ * close arithmetically with the displayed "CT ratio" (the explainability
+ * verification contract). Picked the simple form for that reason.
+ *
+ * @param finishes  All Finish records for this race (may span multiple fleets)
+ * @param competitors  Competitors in this fleet only
+ * @param raceStart  The RaceStart that covers this fleet
+ * @param fleet  The fleet (provides α via fleet.nhcAlpha; defaults to 0.15)
+ * @param currentTcfByCompetitorId  Per-competitor TCF for this race (the running map)
+ */
+export function calculateNhcRaceScores(
+  finishes: Finish[],
+  competitors: Competitor[],
+  raceStart: RaceStart,
+  fleet: Fleet,
+  currentTcfByCompetitorId: Map<string, number>,
+): {
+  scores: Map<string, HandicapRaceScore>;
+  rejections: ScoringRejection[];
+  nhcAggregates: NhcRaceAggregates;
+  newTcfByCompetitorId: Map<string, number>;
+} {
+  const alpha = fleet.nhcAlpha ?? NHC_DEFAULT_ALPHA;
+  const startSeconds = parseTimeToSeconds(raceStart.startTime);
+
+  // Reject competitors lacking a current TCF (no starting TCF and never raced)
+  const rejections: ScoringRejection[] = [];
+  const rated: Competitor[] = [];
+  for (const competitor of competitors) {
+    if (currentTcfByCompetitorId.has(competitor.id)) {
+      rated.push(competitor);
+    } else {
+      rejections.push({ competitorId: competitor.id, reason: 'no_starting_tcf' });
+    }
+  }
+
+  const n = rated.length;
+  const penaltyPoints = n + 1;
+
+  const finishMap = new Map(
+    finishes
+      .filter((f): f is Finish & { competitorId: string } => f.competitorId !== null)
+      .map((f) => [f.competitorId, f]),
+  );
+
+  interface Candidate {
+    competitorId: string;
+    elapsedTime: number | null;
+    correctedTime: number | null;
+    tcfApplied: number;
+    resultCode: ResultCode | null;
+    isFinisher: boolean;
+  }
+
+  const candidates: Candidate[] = [];
+  for (const competitor of rated) {
+    const finish = finishMap.get(competitor.id);
+    const tcf = currentTcfByCompetitorId.get(competitor.id)!;
+
+    if (!finish) {
+      candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: tcf, resultCode: 'DNC', isFinisher: false });
+      continue;
+    }
+    if (finish.resultCode !== null) {
+      candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: tcf, resultCode: finish.resultCode, isFinisher: false });
+      continue;
+    }
+    const finishSeconds = parseTimeToSeconds(finish.finishTime);
+    if (finishSeconds === null || startSeconds === null) {
+      candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: tcf, resultCode: 'DNF', isFinisher: false });
+      continue;
+    }
+    const et = finishSeconds - startSeconds;
+    const ct = et * tcf;
+    candidates.push({
+      competitorId: competitor.id,
+      elapsedTime: et,
+      correctedTime: ct,
+      tcfApplied: tcf,
+      resultCode: null,
+      isFinisher: true,
+    });
+  }
+
+  const finishers = candidates.filter((c) => c.isFinisher);
+  const finisherCount = finishers.length;
+  const ctSum = finishers.reduce((s, c) => s + c.correctedTime!, 0);
+  const tcfSum = finishers.reduce((s, c) => s + c.tcfApplied, 0);
+  const ctAvg = finisherCount > 0 ? ctSum / finisherCount : 0;
+  const meanTcf = finisherCount > 0 ? tcfSum / finisherCount : 0;
+
+  // Sort finishers by corrected time ascending (stable by competitorId)
+  finishers.sort((a, b) => a.correctedTime! - b.correctedTime! || a.competitorId.localeCompare(b.competitorId));
+
+  const scores = new Map<string, HandicapRaceScore>();
+  const newTcfByCompetitorId = new Map<string, number>();
+
+  // Assign ranks and points to finishers, computing NHC blend for each
+  let fleetRank = 1;
+  let fi = 0;
+  while (fi < finishers.length) {
+    const ct = finishers[fi].correctedTime!;
+    let fj = fi;
+    while (fj < finishers.length && finishers[fj].correctedTime === ct) fj++;
+    const tiedCount = fj - fi;
+    const avgPoints = fleetRank + (tiedCount - 1) / 2;
+    for (let k = fi; k < fj; k++) {
+      const c = finishers[k];
+      const ctRatio = c.correctedTime! > 0 ? ctAvg / c.correctedTime! : 1;
+      const fairTcf = c.tcfApplied * ctRatio;
+      const adjustment = alpha * (fairTcf - c.tcfApplied);
+      const newTcf = c.tcfApplied + adjustment;
+      scores.set(c.competitorId, {
+        competitorId: c.competitorId,
+        points: avgPoints,
+        place: fi + 1,
+        rank: fleetRank,
+        resultCode: null,
+        elapsedTime: c.elapsedTime,
+        correctedTime: c.correctedTime,
+        tcfApplied: c.tcfApplied,
+        newTcf,
+        nhc: { ctRatio, fairTcf, adjustment, alphaApplied: alpha },
+      });
+      newTcfByCompetitorId.set(c.competitorId, newTcf);
+    }
+    fleetRank += tiedCount;
+    fi = fj;
+  }
+
+  // Non-finishers: penalty points, TCF unchanged
+  for (const c of candidates) {
+    if (scores.has(c.competitorId)) continue;
+    scores.set(c.competitorId, {
+      competitorId: c.competitorId,
+      points: penaltyPoints,
+      place: null,
+      rank: null,
+      resultCode: c.resultCode,
+      elapsedTime: c.elapsedTime,
+      correctedTime: null,
+      tcfApplied: c.tcfApplied,
+      newTcf: c.tcfApplied,
+    });
+    newTcfByCompetitorId.set(c.competitorId, c.tcfApplied);
+  }
+
+  return {
+    scores,
+    rejections,
+    nhcAggregates: { alpha, finisherCount, ctAvg, meanTcf },
+    newTcfByCompetitorId,
+  };
 }
 
 /**
@@ -622,12 +801,22 @@ function calculateHandicapStandings(
   raceStarts: RaceStart[],
   fleet: Fleet,
   discardThresholds: DiscardThreshold[] = [],
-): { standings: Standing[]; rejections: ScoringRejection[] } {
+): {
+  standings: Standing[];
+  rejections: ScoringRejection[];
+  // NHC-only outputs (populated when fleet.scoringSystem === 'nhc')
+  nhcRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
+  nhcAggregatesByRaceId?: Map<string, NhcRaceAggregates>;
+  nhcTcfHistory?: NhcTcfRecord[];
+} {
+  const isNhc = fleet.scoringSystem === 'nhc';
+
   if (competitors.length === 0 || races.length === 0) {
-    // Even with no races, identify competitors who lack a rating
+    // Even with no races, identify competitors who lack a rating / starting TCF
+    const reason: ScoringRejection['reason'] = isNhc ? 'no_starting_tcf' : 'no_rating';
     const rejections: ScoringRejection[] = competitors
-      .filter((c) => getTCF(c, fleet) === null)
-      .map((c) => ({ competitorId: c.id, reason: 'no_rating' as const }));
+      .filter((c) => isNhc ? c.nhcStartingTcf == null : getTCF(c, fleet) === null)
+      .map((c) => ({ competitorId: c.id, reason }));
     const rejectedIds = new Set(rejections.map((r) => r.competitorId));
     const rated = competitors.filter((c) => !rejectedIds.has(c.id));
     return {
@@ -645,6 +834,7 @@ function calculateHandicapStandings(
         raceNonDiscardable: [],
       })),
       rejections,
+      ...(isNhc ? { nhcRaceScoresByRaceId: new Map(), nhcAggregatesByRaceId: new Map(), nhcTcfHistory: [] } : {}),
     };
   }
 
@@ -667,6 +857,23 @@ function calculateHandicapStandings(
   const rejectedIds = new Set<string>();
   const allRejections: ScoringRejection[] = [];
 
+  // NHC: running per-competitor TCF map, initialised from each competitor's nhcStartingTcf.
+  // Competitors without a starting TCF are rejected; everyone else propagates through races.
+  const nhcTcfMap = new Map<string, number>();
+  const nhcRaceScoresByRaceId = new Map<string, Map<string, HandicapRaceScore>>();
+  const nhcAggregatesByRaceId = new Map<string, NhcRaceAggregates>();
+  const nhcTcfHistory: NhcTcfRecord[] = [];
+  if (isNhc) {
+    for (const c of competitors) {
+      if (c.nhcStartingTcf != null) {
+        nhcTcfMap.set(c.id, c.nhcStartingTcf);
+      } else {
+        rejectedIds.add(c.id);
+        allRejections.push({ competitorId: c.id, reason: 'no_starting_tcf' });
+      }
+    }
+  }
+
   const competitorRacePoints = new Map<string, number[]>();
   const competitorRaceCodes = new Map<string, (ResultCode | null)[]>();
   const competitorRacePenaltyCodes = new Map<string, (PenaltyCode | null)[]>();
@@ -685,7 +892,26 @@ function calculateHandicapStandings(
     const raceStart = startsByRaceId.get(race.id);
 
     let scores: Map<string, { points: number; resultCode: ResultCode | null }>;
-    if (raceStart) {
+    if (raceStart && isNhc) {
+      // NHC fleet: thread the running TCF map through the race, then merge newTcfs back in
+      const ratedCompetitors = competitors.filter((c) => !rejectedIds.has(c.id));
+      const result = calculateNhcRaceScores(raceFinishes, ratedCompetitors, raceStart, fleet, nhcTcfMap);
+      scores = result.scores;
+      nhcRaceScoresByRaceId.set(race.id, result.scores);
+      nhcAggregatesByRaceId.set(race.id, result.nhcAggregates);
+      for (const [cid, newTcf] of result.newTcfByCompetitorId) {
+        const tcfApplied = nhcTcfMap.get(cid)!;
+        nhcTcfMap.set(cid, newTcf);
+        nhcTcfHistory.push({
+          id: `${race.id}-${cid}-${fleet.id}`,
+          raceId: race.id,
+          competitorId: cid,
+          fleetId: fleet.id,
+          tcfApplied,
+          newTcf,
+        });
+      }
+    } else if (raceStart) {
       const result = calculateHandicapRaceScores(raceFinishes, competitors, raceStart, fleet);
       scores = result.scores;
       for (const r of result.rejections) {
@@ -768,7 +994,11 @@ function calculateHandicapStandings(
   });
   standings.forEach((s, i) => { s.rank = i + 1; });
 
-  return { standings, rejections: allRejections };
+  return {
+    standings,
+    rejections: allRejections,
+    ...(isNhc ? { nhcRaceScoresByRaceId, nhcAggregatesByRaceId, nhcTcfHistory } : {}),
+  };
 }
 
 /**
@@ -796,7 +1026,17 @@ export function calculateFleetStandings(
   discardThresholds: DiscardThreshold[] = [],
   dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
   raceStarts: RaceStart[] = [],
-): { fleetStandings: { fleet: Fleet; standings: Standing[]; rejections: ScoringRejection[] }[]; circularRedressRaces: number[] } {
+): {
+  fleetStandings: {
+    fleet: Fleet;
+    standings: Standing[];
+    rejections: ScoringRejection[];
+    nhcRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
+    nhcAggregatesByRaceId?: Map<string, NhcRaceAggregates>;
+    nhcTcfHistory?: NhcTcfRecord[];
+  }[];
+  circularRedressRaces: number[];
+} {
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
   const knownFleetIds = new Set(fleets.map((f) => f.id));
 
@@ -818,10 +1058,10 @@ export function calculateFleetStandings(
   }
 
   const allCircular: number[] = [];
-  const fleetStandings: { fleet: Fleet; standings: Standing[]; rejections: ScoringRejection[] }[] = sorted.map((fleet) => {
+  const fleetStandings = sorted.map((fleet) => {
     const fleetCompetitors = competitorsByFleet.get(fleet.id) ?? [];
     if (fleet.scoringSystem !== 'scratch') {
-      const { standings, rejections } = calculateHandicapStandings(
+      const { standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, nhcTcfHistory } = calculateHandicapStandings(
         fleetCompetitors,
         races,
         allFinishes,
@@ -829,7 +1069,7 @@ export function calculateFleetStandings(
         fleet,
         discardThresholds,
       );
-      return { fleet, standings, rejections };
+      return { fleet, standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, nhcTcfHistory };
     }
     const { standings, circularRedressRaces } = calculateStandings(
       fleetCompetitors,

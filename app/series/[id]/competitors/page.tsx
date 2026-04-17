@@ -49,6 +49,7 @@ interface CompetitorFormData {
   fleetIds: string[];   // IDs of existing fleets to assign the competitor to
   ircTcc: string;       // decimal string, e.g. "0.972"; empty if not set
   pyNumber: string;     // integer string, e.g. "1034"; empty if not set
+  nhcStartingTcf: string; // decimal string, e.g. "1.005"; empty if not set
 }
 
 const emptyForm: CompetitorFormData = {
@@ -63,6 +64,7 @@ const emptyForm: CompetitorFormData = {
   fleetIds: [],
   ircTcc: '',
   pyNumber: '',
+  nhcStartingTcf: '',
 };
 
 function sameFleetIdSet(a: string[], b: string[]): boolean {
@@ -99,6 +101,7 @@ function CompetitorForm({
   const selectedFleets = availableFleets.filter((f) => data.fleetIds.includes(f.id));
   const needsIrcTcc = selectedFleets.some((f) => f.scoringSystem === 'irc');
   const needsPyNumber = selectedFleets.some((f) => f.scoringSystem === 'py');
+  const needsNhcStartingTcf = selectedFleets.some((f) => f.scoringSystem === 'nhc');
 
   function set<K extends keyof CompetitorFormData>(field: K, value: CompetitorFormData[K]) {
     setData((d) => ({ ...d, [field]: value }));
@@ -141,6 +144,13 @@ function CompetitorForm({
       const py = parseInt(data.pyNumber, 10);
       if (isNaN(py) || py < 500 || py > 2000) {
         setError('PY number must be a positive integer (e.g. 1034).');
+        return;
+      }
+    }
+    if (needsNhcStartingTcf && data.nhcStartingTcf.trim()) {
+      const tcf = parseFloat(data.nhcStartingTcf);
+      if (isNaN(tcf) || tcf < 0.5 || tcf > 2.0) {
+        setError('Starting TCF must be a decimal number (typically 0.5–2.0, e.g. 1.005).');
         return;
       }
     }
@@ -294,6 +304,17 @@ function CompetitorForm({
             />
           </div>
         )}
+        {needsNhcStartingTcf && (
+          <div className="space-y-1.5">
+            <Label htmlFor="nhcStartingTcf">NHC starting TCF</Label>
+            <Input
+              id="nhcStartingTcf"
+              value={data.nhcStartingTcf}
+              onChange={(e) => set('nhcStartingTcf', e.target.value)}
+              placeholder="e.g. 1.005"
+            />
+          </div>
+        )}
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-3">
@@ -329,6 +350,7 @@ export default function CompetitorsPage({
   const multipleFleets = (fleets ?? []).length > 1;
   const showIrc = (fleets ?? []).some((f) => f.scoringSystem === 'irc');
   const showPy = (fleets ?? []).some((f) => f.scoringSystem === 'py');
+  const showNhc = (fleets ?? []).some((f) => f.scoringSystem === 'nhc');
 
   const isMissingRating = (c: Competitor): boolean =>
     c.fleetIds.some((id) => { const f = fleetById.get(id); return f != null && !hasFleetRating(c, f); });
@@ -367,12 +389,14 @@ export default function CompetitorsPage({
     }
   });
 
-  function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'pyNumber'> {
+  function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'pyNumber' | 'nhcStartingTcf'> {
     const tcc = data.ircTcc.trim() ? parseFloat(data.ircTcc.trim()) : undefined;
     const py = data.pyNumber.trim() ? parseInt(data.pyNumber.trim(), 10) : undefined;
+    const nhc = data.nhcStartingTcf.trim() ? parseFloat(data.nhcStartingTcf.trim()) : undefined;
     return {
       ...(tcc != null && !isNaN(tcc) ? { ircTcc: tcc } : {}),
       ...(py != null && !isNaN(py) ? { pyNumber: py } : {}),
+      ...(nhc != null && !isNaN(nhc) ? { nhcStartingTcf: nhc } : {}),
     };
   }
 
@@ -428,6 +452,7 @@ export default function CompetitorsPage({
     // Clear ratings no longer relevant
     if (!updated.ircTcc) delete updated.ircTcc;
     if (!updated.pyNumber) delete updated.pyNumber;
+    if (!updated.nhcStartingTcf) delete updated.nhcStartingTcf;
     if (!data.boatName.trim()) delete updated.boatName;
     if (!data.boatClass.trim()) delete updated.boatClass;
     if (!data.crewName.trim()) delete updated.crewName;
@@ -503,6 +528,7 @@ export default function CompetitorsPage({
               {multipleFleets && <TableHead>Fleet</TableHead>}
               {showIrc && <TableHead>IRC TCC</TableHead>}
               {showPy && <TableHead>PY</TableHead>}
+              {showNhc && <TableHead>NHC TCF</TableHead>}
               {showGender && <TableHead>Gender</TableHead>}
               {showAge && <TableHead>Age</TableHead>}
               <TableHead className="w-20" />
@@ -554,6 +580,13 @@ export default function CompetitorsPage({
                   <TableCell className="font-mono">
                     {c.fleetIds.some((id) => fleetById.get(id)?.scoringSystem === 'py')
                       ? (c.pyNumber ?? '—')
+                      : '—'}
+                  </TableCell>
+                )}
+                {showNhc && (
+                  <TableCell className="font-mono">
+                    {c.fleetIds.some((id) => fleetById.get(id)?.scoringSystem === 'nhc')
+                      ? (c.nhcStartingTcf ?? '—')
                       : '—'}
                   </TableCell>
                 )}
@@ -616,6 +649,7 @@ export default function CompetitorsPage({
                 fleetIds: editingCompetitor.fleetIds,
                 ircTcc: editingCompetitor.ircTcc?.toString() ?? '',
                 pyNumber: editingCompetitor.pyNumber?.toString() ?? '',
+                nhcStartingTcf: editingCompetitor.nhcStartingTcf?.toString() ?? '',
               }}
               onSave={handleEdit}
               onCancel={() => setEditingCompetitor(null)}

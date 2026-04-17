@@ -34,7 +34,7 @@ import { log } from '@/lib/debug';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-type CompetitorField = 'sailNumber' | 'boatName' | 'boatClass' | 'name' | 'crewName' | 'club' | 'gender' | 'age' | 'fleet' | 'tcc' | 'py' | 'ignore';
+type CompetitorField = 'sailNumber' | 'boatName' | 'boatClass' | 'name' | 'crewName' | 'club' | 'gender' | 'age' | 'fleet' | 'tcc' | 'py' | 'nhcStartingTcf' | 'ignore';
 type ColumnMap = Record<number, CompetitorField>;
 
 type ImportFlow =
@@ -62,6 +62,7 @@ const FIELD_LABELS: Record<CompetitorField, string> = {
   fleet: 'Fleet',
   tcc: 'IRC TCC',
   py: 'PY number',
+  nhcStartingTcf: 'NHC starting TCF',
   ignore: '(ignore)',
 };
 
@@ -87,6 +88,7 @@ function autoDetectField(header: string): CompetitorField {
   if (/fleet|division/.test(h)) return 'fleet';
   if (/tcc|irc.*rating|rating.*irc/.test(h)) return 'tcc';
   if (/\bpy\b|portsmouth/.test(h)) return 'py';
+  if (/\bnhc\b|starting.*tcf|nhc.*tcf|nhc.*rating/.test(h)) return 'nhcStartingTcf';
   return 'ignore';
 }
 
@@ -185,6 +187,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let fleet = '';
       let tcc = '';
       let py = '';
+      let nhcStartingTcfStr = '';
       Object.entries(columnMap).forEach(([colStr, field]) => {
         const col = parseInt(colStr, 10);
         const val = row[col]?.trim() ?? '';
@@ -199,6 +202,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'fleet') fleet = val;
         else if (field === 'tcc') tcc = val;
         else if (field === 'py') py = val;
+        else if (field === 'nhcStartingTcf') nhcStartingTcfStr = val;
       });
 
       if (!sailNumber) {
@@ -230,8 +234,10 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
 
       const parsedTcc = tcc ? parseFloat(tcc) : null;
       const parsedPy = py ? parseInt(py, 10) : null;
+      const parsedNhc = nhcStartingTcfStr ? parseFloat(nhcStartingTcfStr) : null;
       const ircTcc = parsedTcc != null && !isNaN(parsedTcc) ? parsedTcc : existingCompetitor?.ircTcc;
       const pyNumber = parsedPy != null && !isNaN(parsedPy) ? parsedPy : existingCompetitor?.pyNumber;
+      const nhcStartingTcf = parsedNhc != null && !isNaN(parsedNhc) ? parsedNhc : existingCompetitor?.nhcStartingTcf;
 
       const resolvedBoatName = boatName || existingCompetitor?.boatName || '';
       const resolvedBoatClass = boatClass || existingCompetitor?.boatClass || '';
@@ -251,6 +257,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         createdAt: existingCompetitor?.createdAt ?? Date.now(),
         ...(ircTcc != null ? { ircTcc } : {}),
         ...(pyNumber != null ? { pyNumber } : {}),
+        ...(nhcStartingTcf != null ? { nhcStartingTcf } : {}),
       };
 
       if (
@@ -264,7 +271,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         existingCompetitor.gender === competitor.gender &&
         existingCompetitor.age === competitor.age &&
         existingCompetitor.ircTcc === competitor.ircTcc &&
-        existingCompetitor.pyNumber === competitor.pyNumber
+        existingCompetitor.pyNumber === competitor.pyNumber &&
+        existingCompetitor.nhcStartingTcf === competitor.nhcStartingTcf
       ) {
         unchanged++;
         continue;

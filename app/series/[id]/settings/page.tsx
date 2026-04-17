@@ -214,11 +214,16 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
   );
 }
 
-function PublishingCard({ seriesId, series }: { seriesId: string; series: Series }) {
+function PublishingCard({ seriesId, series, anyNhcFleet }: { seriesId: string; series: Series; anyNhcFleet: boolean }) {
   const [expanded, setExpanded] = useState(false);
 
   const includeJson = series.includeJsonExport ?? true;
-  const summary = includeJson ? 'JSON export included in results' : 'JSON export excluded from results';
+  const publishRatingCalcs = series.publishRatingCalculations ?? true;
+  const summaryParts = [
+    includeJson ? 'JSON export included' : 'JSON export excluded',
+    ...(anyNhcFleet ? [publishRatingCalcs ? 'rating calculations published' : 'rating calculations hidden'] : []),
+  ];
+  const summary = summaryParts.join(' · ');
 
   return (
     <div className="border rounded-lg p-5 space-y-4">
@@ -255,6 +260,28 @@ function PublishingCard({ seriesId, series }: { seriesId: string; series: Series
               </p>
             </div>
           </div>
+          {anyNhcFleet && (
+            <div className="flex items-start gap-2.5">
+              <input
+                id="publishRatingCalculations"
+                type="checkbox"
+                checked={publishRatingCalcs}
+                onChange={(e) => {
+                  db.series.update(seriesId, { publishRatingCalculations: e.target.checked });
+                }}
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              <div>
+                <label htmlFor="publishRatingCalculations" className="text-sm font-medium cursor-pointer">
+                  Publish NHC rating calculations alongside results
+                </label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Adds per-race columns (TCF used, ET, CT, CT ratio, Fair TCF, Adjustment, New TCF)
+                  and a fleet header line so competitors can verify each new TCF with a calculator.
+                </p>
+              </div>
+            </div>
+          )}
           <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>
             Done
           </Button>
@@ -289,12 +316,15 @@ export default function SettingsPage({
   const { id: seriesId } = use(params);
   const router = useRouter();
   const series = useLiveQuery(async () => (await seriesRepo.get(seriesId)) ?? null, [seriesId]);
+  const fleets = useLiveQuery(() => fleetRepo.listBySeries(seriesId), [seriesId]) ?? [];
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [updateFlow, setUpdateFlow] = useState<UpdateFlow>({ step: 'idle' });
 
   if (series === undefined) return <p className="text-muted-foreground">Loading…</p>;
   if (series === null) return <p className="text-muted-foreground">Series not found.</p>;
+
+  const anyNhcFleet = fleets.some((f) => f.scoringSystem === 'nhc');
 
   const hasFileHistory = series.lastSnapshotId !== null;
   const isModified =
@@ -408,7 +438,7 @@ export default function SettingsPage({
         }}
       />
       <CompetitorFieldsCard seriesId={seriesId} series={series} />
-      <PublishingCard seriesId={seriesId} series={series} />
+      <PublishingCard seriesId={seriesId} series={series} anyNhcFleet={anyNhcFleet} />
 
       <input
         ref={fileInputRef}

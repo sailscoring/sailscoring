@@ -1,8 +1,9 @@
-import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart, CompetitorFieldKey, StartGroup } from './types';
+import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart, CompetitorFieldKey, StartGroup, NhcTcfRecord } from './types';
 import { db } from './db';
 import { defaultEnabledCompetitorFields } from './competitor-fields';
+import { recomputeNhcHistoryForSeries } from './nhc-persistence';
 
-export const FORMAT_VERSION = 10;
+export const FORMAT_VERSION = 11;
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -11,7 +12,8 @@ interface SeriesFileFleet {
   id: string;
   name: string;
   displayOrder: number;
-  scoringSystem?: 'scratch' | 'irc' | 'py';  // optional for back-compat with pre-v7 files
+  scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc';  // 'nhc' added in v11
+  nhcAlpha?: number;  // v11+; present iff scoringSystem === 'nhc'
 }
 
 interface SeriesFileBilgeBundle {
@@ -40,6 +42,7 @@ interface SeriesFileSeries {
   enabledCompetitorFields?: CompetitorFieldKey[];  // v8+; defaulted on read for older files
   scoringMode?: 'scratch' | 'handicap';            // v9+; defaults to 'scratch' for older files
   defaultStartSequence?: StartGroup[];              // v9+; undefined for older files
+  publishRatingCalculations?: boolean;              // v11+; default true on read
 }
 
 interface SeriesFileCompetitor {
@@ -56,6 +59,7 @@ interface SeriesFileCompetitor {
   age: number | null;
   ircTcc?: number;
   pyNumber?: number;
+  nhcStartingTcf?: number;  // v11+
 }
 
 interface SeriesFileFinish {
@@ -90,6 +94,15 @@ interface SeriesFileRace {
   finishes: SeriesFileFinish[];
 }
 
+// v11+: persisted NHC per-race per-competitor TCF snapshots
+interface SeriesFileNhcTcfRecord {
+  raceId: string;
+  competitorId: string;
+  fleetId: string;
+  tcfApplied: number;
+  newTcf: number;
+}
+
 export interface SeriesFile {
   formatVersion: number;
   seriesId: string;
@@ -100,6 +113,7 @@ export interface SeriesFile {
   fleets: SeriesFileFleet[];
   competitors: SeriesFileCompetitor[];
   races: SeriesFileRace[];
+  nhcTcfHistory?: SeriesFileNhcTcfRecord[];  // v11+; absent in older files
 }
 
 export type LineageStatus = 'clean' | 'identical' | 'diverged';
@@ -116,6 +130,10 @@ export function checkLineage(localSeries: Series, file: SeriesFile): LineageStat
 export async function saveSeriesFile(seriesId: string): Promise<void> {
   const series = await db.series.get(seriesId);
   if (!series) throw new Error(`Series ${seriesId} not found`);
+
+  // Refresh NHC TCF history before reading from DB so the file carries the
+  // current scoring engine's view, not whatever was last persisted.
+  await recomputeNhcHistoryForSeries(seriesId);
 
   const competitors = await db.competitors
     .where('seriesId')
@@ -137,6 +155,10 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
   const allRaceStarts: RaceStart[] =
     raceIds.length > 0
       ? await db.raceStarts.where('raceId').anyOf(raceIds).toArray()
+      : [];
+  const allNhcTcfHistory: NhcTcfRecord[] =
+    raceIds.length > 0
+      ? await db.nhcTcfHistory.where('raceId').anyOf(raceIds).toArray()
       : [];
 
   const finishesByRace = new Map<string, SeriesFileFinish[]>();
@@ -180,6 +202,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       name: f.name,
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
+      ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
     })),
     series: {
       id: series.id,
@@ -205,6 +228,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       enabledCompetitorFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.defaultStartSequence?.length ? { defaultStartSequence: series.defaultStartSequence } : {}),
+      ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -219,6 +243,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       age: c.age,
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
+      ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
     })),
     races: races.map((r) => ({
       id: r.id,
@@ -227,6 +252,17 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       ...(startsByRace.has(r.id) ? { starts: startsByRace.get(r.id) } : {}),
       finishes: finishesByRace.get(r.id) ?? [],
     })),
+    ...(allNhcTcfHistory.length > 0
+      ? {
+          nhcTcfHistory: allNhcTcfHistory.map((h) => ({
+            raceId: h.raceId,
+            competitorId: h.competitorId,
+            fleetId: h.fleetId,
+            tcfApplied: h.tcfApplied,
+            newTcf: h.newTcf,
+          })),
+        }
+      : {}),
   };
 
   // Trigger download
@@ -303,7 +339,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
     defaultFleetId = crypto.randomUUID();
   }
 
-  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts], async () => {
+  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory], async () => {
     await db.series.add({
       id: newSeriesId,
       name,
@@ -325,6 +361,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
       ftpPath: file.series.ftpPath ?? '',
       bilgeBundle: file.series.bilgeBundle ?? null,
       includeJsonExport: file.series.includeJsonExport ?? true,
+      publishRatingCalculations: file.series.publishRatingCalculations ?? true,
       enabledCompetitorFields: file.series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
     });
 
@@ -338,6 +375,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
           name: f.name,
           displayOrder: f.displayOrder,
           scoringSystem: f.scoringSystem ?? 'scratch',
+          ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
         });
       }
     }
@@ -359,6 +397,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
         createdAt: now,
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
+        ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       });
     }
 
@@ -402,6 +441,21 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
         });
       }
     }
+
+    for (const h of file.nhcTcfHistory ?? []) {
+      const raceId = raceIdMap.get(h.raceId);
+      const competitorId = competitorIdMap.get(h.competitorId);
+      const fleetId = fleetIdMap.get(h.fleetId) ?? defaultFleetId;
+      if (!raceId || !competitorId || !fleetId) continue;
+      await db.nhcTcfHistory.add({
+        id: crypto.randomUUID(),
+        raceId,
+        competitorId,
+        fleetId,
+        tcfApplied: h.tcfApplied,
+        newTcf: h.newTcf,
+      });
+    }
   });
 
   return newSeriesId;
@@ -422,12 +476,13 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
     defaultFleetId = crypto.randomUUID();
   }
 
-  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts], async () => {
+  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory], async () => {
     const existingRaces = await db.races.where('seriesId').equals(seriesId).toArray();
     if (existingRaces.length > 0) {
       const existingRaceIds = existingRaces.map((r) => r.id);
       await db.finishes.where('raceId').anyOf(existingRaceIds).delete();
       await db.raceStarts.where('raceId').anyOf(existingRaceIds).delete();
+      await db.nhcTcfHistory.where('raceId').anyOf(existingRaceIds).delete();
     }
     await db.races.where('seriesId').equals(seriesId).delete();
     await db.competitors.where('seriesId').equals(seriesId).delete();
@@ -451,6 +506,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
       ftpPath: file.series.ftpPath ?? '',
       bilgeBundle: file.series.bilgeBundle ?? null,
       includeJsonExport: file.series.includeJsonExport ?? true,
+      publishRatingCalculations: file.series.publishRatingCalculations ?? true,
       enabledCompetitorFields: file.series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
     });
 
@@ -464,6 +520,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
           name: f.name,
           displayOrder: f.displayOrder,
           scoringSystem: f.scoringSystem ?? 'scratch',
+          ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
         });
       }
     }
@@ -485,6 +542,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
         createdAt: now,
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
+        ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       });
     }
 
@@ -527,6 +585,21 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
           redressPoints: f.redressPoints ?? null,
         });
       }
+    }
+
+    for (const h of file.nhcTcfHistory ?? []) {
+      const raceId = raceIdMap.get(h.raceId);
+      const competitorId = competitorIdMap.get(h.competitorId);
+      const fleetId = fleetIdMap.get(h.fleetId) ?? defaultFleetId;
+      if (!raceId || !competitorId || !fleetId) continue;
+      await db.nhcTcfHistory.add({
+        id: crypto.randomUUID(),
+        raceId,
+        competitorId,
+        fleetId,
+        tcfApplied: h.tcfApplied,
+        newTcf: h.newTcf,
+      });
     }
   });
 }

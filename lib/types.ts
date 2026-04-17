@@ -37,6 +37,7 @@ export interface Series {
   ftpPath: string;   // saved remote path for this series (empty if not yet published)
   bilgeBundle: BilgeBundle | null;
   includeJsonExport: boolean;  // embed public JSON export in exported HTML (default true)
+  publishRatingCalculations?: boolean;  // NHC rating-calculation explainability columns/header (default true)
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
 }
@@ -46,7 +47,8 @@ export interface Fleet {
   seriesId: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc';
+  nhcAlpha?: number;  // present iff scoringSystem === 'nhc'; default 0.15
 }
 
 export interface RaceStart {
@@ -71,6 +73,7 @@ export interface Competitor {
   createdAt: number;
   ircTcc?: number;    // IRC Time Correction Coefficient, e.g. 0.972
   pyNumber?: number;  // RYA Portsmouth Yardstick number, e.g. 1034
+  nhcStartingTcf?: number;  // initial TCF for NHC fleets; required for NHC competitors
 }
 
 export interface Race {
@@ -134,7 +137,37 @@ export interface RaceScore {
 export interface HandicapRaceScore extends RaceScore {
   elapsedTime: number | null;    // seconds; null for coded finishes or missing start time
   correctedTime: number | null;  // seconds; null for coded finishes or missing rating
-  tcfApplied: number | null;     // TCF used (TCC or 1000/PY); null if no rating
+  tcfApplied: number | null;     // TCF used this race (TCC, 1000/PY, or NHC race-N TCF); null if no rating
+  newTcf: number | null;         // TCF for race N+1; null for static systems (IRC/PY) or no rating
+  nhc?: NhcRaceCalc;             // present iff fleet.scoringSystem === 'nhc' AND finisher
+}
+
+// NHC per-finisher intermediate calculations (for explainability)
+export interface NhcRaceCalc {
+  ctRatio: number;       // CT_avg / CT_i
+  fairTcf: number;       // TCF_i × ctRatio  (≡ Q_i)
+  adjustment: number;    // signed: α × (fairTcf − TCF_i)
+  alphaApplied: number;  // α actually used this race
+}
+
+// NHC fleet-race-level aggregates (for the explainability fleet header)
+export interface NhcRaceAggregates {
+  alpha: number;
+  finisherCount: number;
+  ctAvg: number;     // seconds — mean of corrected times across finishers
+  meanTcf: number;   // mean of tcfApplied across finishers
+}
+
+// Persistent per-(race, competitor, fleet) TCF snapshot. Derived state — rebuilt
+// by the scoring engine on every recompute, persisted so file/JSON imports render
+// without re-scoring and so non-finishers (no Finish row) still carry a record.
+export interface NhcTcfRecord {
+  id: string;
+  raceId: string;
+  competitorId: string;
+  fleetId: string;
+  tcfApplied: number;    // TCF used to compute CT in this race
+  newTcf: number;        // TCF for race N+1 (== tcfApplied if non-finisher)
 }
 
 export interface BilgeBundle {
@@ -172,7 +205,7 @@ export interface Standing {
   raceRedressFlags: boolean[];           // true = this race score was calculated via RDG (A9 average)
 }
 
-export type ScoringRejectionReason = 'no_rating';
+export type ScoringRejectionReason = 'no_rating' | 'no_starting_tcf';
 
 export interface ScoringRejection {
   competitorId: string;

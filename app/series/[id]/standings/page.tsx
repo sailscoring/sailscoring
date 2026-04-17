@@ -48,7 +48,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { uploadToBilge, lookupPrefix, checkPublishStatus, publishedUrl, fetchPolicy } from '@/lib/bilge';
 import { slugify, isValidPrefix } from '@/lib/bilge-slug';
-import type { Standing, DiscardThreshold, Fleet, Series, BilgeBundle, CompetitorFieldKey, Competitor } from '@/lib/types';
+import type { Standing, DiscardThreshold, Fleet, Series, BilgeBundle, CompetitorFieldKey, Competitor, ResultCode, PenaltyCode } from '@/lib/types';
 
 function PointsCell({
   points,
@@ -116,17 +116,30 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
 
   const results: { fleetName: string; isDefault: boolean; html: string }[] = [];
 
-  for (const { fleet, standings } of fleetResults) {
+  for (const { fleet, standings, nhcRaceScoresByRaceId, nhcAggregatesByRaceId } of fleetResults) {
     const fleetCompetitorIds = new Set(standings.map((s) => s.competitor.id));
 
     // Per-fleet race score maps (only this fleet's competitors)
     const isHandicap = fleet.scoringSystem !== 'scratch';
+    const isNhc = fleet.scoringSystem === 'nhc';
     const raceStartByRaceId = new Map(
       allRaceStarts
         .filter((rs) => rs.fleetIds.includes(fleet.id))
         .map((rs) => [rs.raceId, rs]),
     );
-    const raceScoresByRaceId = new Map(
+    type RaceScoreCellForRender = {
+      points: number;
+      place: number | null;
+      rank: number | null;
+      resultCode: ResultCode | null;
+      penaltyCode: PenaltyCode | null;
+      penaltyOverride: number | null;
+      finishTime: string | null;
+      tcfApplied?: number | null;
+      newTcf?: number | null;
+      nhc?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number };
+    };
+    const raceScoresByRaceId = new Map<string, Map<string, RaceScoreCellForRender>>(
       races.map((race) => {
         const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
         const finishByCompetitorId = new Map(
@@ -136,10 +149,34 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
         );
         const fleetCompetitors = competitors.filter((c) => fleetCompetitorIds.has(c.id));
         const raceStart = raceStartByRaceId.get(race.id);
+
+        if (isNhc && nhcRaceScoresByRaceId) {
+          // NHC: scores already computed by calculateFleetStandings (with running TCF map)
+          const nhcScores = nhcRaceScoresByRaceId.get(race.id);
+          const scoreMap = new Map<string, RaceScoreCellForRender>(
+            [...(nhcScores ?? new Map()).entries()].map(([id, s]) => [
+              id,
+              {
+                points: s.points,
+                place: s.place,
+                rank: s.rank,
+                resultCode: s.resultCode,
+                penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
+                penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
+                finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                tcfApplied: s.tcfApplied,
+                newTcf: s.newTcf,
+                ...(s.nhc ? { nhc: s.nhc } : {}),
+              },
+            ]),
+          );
+          return [race.id, scoreMap] as const;
+        }
+
         const scores = isHandicap && raceStart
           ? calculateHandicapRaceScores(finishesForRace, fleetCompetitors, raceStart, fleet).scores
           : calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries');
-        const scoreMap = new Map(
+        const scoreMap = new Map<string, RaceScoreCellForRender>(
           [...scores.entries()].map(([id, s]) => [
             id,
             {
@@ -160,6 +197,17 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
     const competitorsById = new Map(competitors.map((c) => [c.id, c]));
     const fleetName = isSingleDefault ? undefined : fleet.name;
 
+    // Build NHC aggregates header map iff fleet is NHC AND publishing toggle is on
+    const publishRatingCalcs = series.publishRatingCalculations ?? true;
+    const nhcAggregatesForRender = isNhc && publishRatingCalcs && nhcAggregatesByRaceId
+      ? new Map([...nhcAggregatesByRaceId.entries()].map(([raceId, agg]) => [raceId, {
+          alpha: agg.alpha,
+          finisherCount: agg.finisherCount,
+          ctAvgSecs: agg.ctAvg,
+          meanTcf: agg.meanTcf,
+        }]))
+      : undefined;
+
     const data = assembleSeriesResultsData(
       seriesInfo,
       races,
@@ -173,6 +221,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
         raceStarts: allRaceStarts,
         fleetId: fleet.id,
         scoringSystem: fleet.scoringSystem,
+        ...(nhcAggregatesForRender ? { nhcAggregatesByRaceId: nhcAggregatesForRender } : {}),
       },
     );
 
@@ -941,22 +990,29 @@ export default function StandingsPage({
 
 function ScoringRejectionsWarning({ rejections, competitors }: { rejections: ScoringRejection[]; competitors: Competitor[] }) {
   const competitorById = new Map(competitors.map((c) => [c.id, c]));
-  const noRating = rejections.filter((r) => r.reason === 'no_rating');
-  if (noRating.length === 0) return null;
+  if (rejections.length === 0) return null;
 
-  const names = noRating
-    .map((r) => {
-      const c = competitorById.get(r.competitorId);
-      return c ? `${c.sailNumber} (${c.name})` : r.competitorId;
-    })
-    .join(', ');
+  function nameOf(r: ScoringRejection): string {
+    const c = competitorById.get(r.competitorId);
+    return c ? `${c.sailNumber} (${c.name})` : r.competitorId;
+  }
+
+  const noRating = rejections.filter((r) => r.reason === 'no_rating');
+  const noStartingTcf = rejections.filter((r) => r.reason === 'no_starting_tcf');
+
+  const messages: string[] = [];
+  if (noRating.length > 0) {
+    messages.push(`${noRating.length} competitor${noRating.length === 1 ? ' lacks' : 's lack'} a rating and cannot be scored: ${noRating.map(nameOf).join(', ')}`);
+  }
+  if (noStartingTcf.length > 0) {
+    messages.push(`${noStartingTcf.length} competitor${noStartingTcf.length === 1 ? ' lacks' : 's lack'} a starting TCF for NHC scoring: ${noStartingTcf.map(nameOf).join(', ')}`);
+  }
+  if (messages.length === 0) return null;
 
   return (
     <div className="rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
       <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-      <span>
-        {noRating.length} competitor{noRating.length === 1 ? ' lacks' : 's lack'} a rating and cannot be scored: {names}
-      </span>
+      <span>{messages.join(' · ')}</span>
     </div>
   );
 }

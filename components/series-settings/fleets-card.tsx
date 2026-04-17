@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { StartSequenceEditor } from './start-sequence-editor';
+import { NHC_DEFAULT_ALPHA } from '@/lib/scoring';
 
 export type FleetsCardProps = {
   seriesId: string;
@@ -82,8 +83,16 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     setScoringSystemError(null);
     const wasScratch = fleet.scoringSystem === 'scratch';
     const willBeScratch = system === 'scratch';
+
+    // When switching INTO NHC, seed the default α; when switching OUT, drop it.
+    const next: Fleet = {
+      ...fleet,
+      scoringSystem: system,
+      ...(system === 'nhc' ? { nhcAlpha: fleet.nhcAlpha ?? NHC_DEFAULT_ALPHA } : { nhcAlpha: undefined }),
+    };
+
     if (wasScratch === willBeScratch) {
-      await fleetRepo.save({ ...fleet, scoringSystem: system });
+      await fleetRepo.save(next);
       return;
     }
 
@@ -93,7 +102,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
         competitorsInFleet.filter((c) => c.fleetIds.includes(fleet.id)).map((c) => c.id),
       );
       if (fleetCompetitorIds.size === 0) {
-        await fleetRepo.save({ ...fleet, scoringSystem: system });
+        await fleetRepo.save(next);
         return;
       }
       const races = await raceRepo.listBySeries(seriesId);
@@ -114,11 +123,20 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
         });
         return;
       }
-      await fleetRepo.save({ ...fleet, scoringSystem: system });
+      await fleetRepo.save(next);
       return;
     }
 
-    setConfirmToScratch({ fleet: { ...fleet, scoringSystem: system } });
+    setConfirmToScratch({ fleet: next });
+  }
+
+  async function commitAlpha(fleet: Fleet, raw: string) {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1) return;
+    if (parsed === fleet.nhcAlpha) return;
+    await fleetRepo.save({ ...fleet, nhcAlpha: parsed });
   }
 
   async function confirmSwitchToScratch() {
@@ -196,19 +214,43 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                 <span className="flex-1 text-sm">{fleet.name}</span>
               )}
               {series.scoringMode === 'handicap' && (
-                <Select
-                  value={fleet.scoringSystem}
-                  onValueChange={(v) => changeScoringSystem(fleet, v as Fleet['scoringSystem'])}
-                >
-                  <SelectTrigger className="w-28 h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="scratch">Scratch</SelectItem>
-                    <SelectItem value="irc">IRC</SelectItem>
-                    <SelectItem value="py">PY</SelectItem>
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select
+                    value={fleet.scoringSystem}
+                    onValueChange={(v) => changeScoringSystem(fleet, v as Fleet['scoringSystem'])}
+                  >
+                    <SelectTrigger className="w-28 h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="scratch">Scratch</SelectItem>
+                      <SelectItem value="irc">IRC</SelectItem>
+                      <SelectItem value="py">PY</SelectItem>
+                      <SelectItem value="nhc">NHC</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {fleet.scoringSystem === 'nhc' && (
+                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                      α
+                      <Input
+                        type="number"
+                        defaultValue={fleet.nhcAlpha ?? NHC_DEFAULT_ALPHA}
+                        step="0.01"
+                        min="0.01"
+                        max="1"
+                        className="w-16 h-7 text-xs"
+                        onBlur={(e) => commitAlpha(fleet, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            commitAlpha(fleet, (e.target as HTMLInputElement).value);
+                          }
+                        }}
+                        title="NHC blend rate (0 < α ≤ 1; default 0.15)"
+                      />
+                    </label>
+                  )}
+                </>
               )}
               <Button
                 type="button"
@@ -356,7 +398,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
         <p className="text-sm text-muted-foreground">
           {fleets.length === 0 || isOnlyDefault
             ? 'No fleets configured.'
-            : sorted.map((f) => f.scoringSystem !== 'scratch' ? `${f.name} (${f.scoringSystem.toUpperCase()})` : f.name).join(' · ')}
+            : sorted.map((f) => {
+                if (f.scoringSystem === 'scratch') return f.name;
+                if (f.scoringSystem === 'nhc') return `${f.name} (NHC, α=${f.nhcAlpha ?? NHC_DEFAULT_ALPHA})`;
+                return `${f.name} (${f.scoringSystem.toUpperCase()})`;
+              }).join(' · ')}
         </p>
       ) : (
         body

@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart, StartGroup } from './types';
+import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart, StartGroup, NhcTcfRecord } from './types';
 import { defaultEnabledCompetitorFields } from './competitor-fields';
 
 export class SailScoringDb extends Dexie {
@@ -10,6 +10,7 @@ export class SailScoringDb extends Dexie {
   finishes!: Table<Finish>;
   raceStarts!: Table<RaceStart>;
   ftpServers!: Table<FtpServer>;
+  nhcTcfHistory!: Table<NhcTcfRecord>;
 
   constructor() {
     super('sailscoring');
@@ -228,6 +229,16 @@ export class SailScoringDb extends Dexie {
         const hasHandicap = fleets.some((f) => f.scoringSystem !== 'scratch');
         series.scoringMode = hasHandicap ? 'handicap' : 'scratch';
       });
+    });
+    this.version(18).stores({
+      series: 'id, createdAt',
+      competitors: 'id, seriesId, *fleetIds, createdAt',
+      fleets: 'id, seriesId, displayOrder',
+      races: 'id, seriesId, raceNumber',
+      finishes: 'id, raceId, competitorId',
+      raceStarts: 'id, raceId',
+      ftpServers: '++id',
+      nhcTcfHistory: 'id, raceId, [raceId+fleetId], [raceId+competitorId+fleetId]',
     });
   }
 }

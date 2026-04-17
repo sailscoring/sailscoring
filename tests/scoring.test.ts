@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateRaceScores, calculateStandings, calculateFleetStandings, getDiscardCount } from '@/lib/scoring';
-import type { Competitor, Fleet, Race, Finish, DiscardThreshold, PenaltyCode } from '@/lib/types';
+import { calculateRaceScores, calculateStandings, calculateFleetStandings, getDiscardCount, calculateNhcRaceScores } from '@/lib/scoring';
+import type { Competitor, Fleet, Race, Finish, DiscardThreshold, PenaltyCode, RaceStart } from '@/lib/types';
 
 // Helpers to build test fixtures with minimal required fields
 function makeCompetitor(id: string, seriesId = 's1', fleetId = 'f1'): Competitor {
@@ -675,5 +675,176 @@ describe('calculateStandings — unknown finishes (null competitorId)', () => {
     expect(standings[0].netPoints).toBe(1);
     expect(standings[1].competitor.id).toBe('B');
     expect(standings[1].netPoints).toBe(3);
+  });
+});
+
+// ─── calculateNhcRaceScores ──────────────────────────────────────────────────
+
+describe('calculateNhcRaceScores — edge cases', () => {
+  function nhcFleet(alpha = 0.15): Fleet {
+    return { id: 'fl-0', seriesId: 's1', name: 'NHC', displayOrder: 0, scoringSystem: 'nhc', nhcAlpha: alpha };
+  }
+  function comp(id: string, startTcf?: number): Competitor {
+    return { id, seriesId: 's1', fleetIds: ['fl-0'], sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0, ...(startTcf != null ? { nhcStartingTcf: startTcf } : {}) };
+  }
+  function start(): RaceStart {
+    return { id: 'rs-0', raceId: 'r-0', fleetIds: ['fl-0'], startTime: '14:00:00' };
+  }
+  function fin(competitorId: string, finishTime?: string, code: Finish['resultCode'] = null): Finish {
+    return { id: `f-${competitorId}`, raceId: 'r-0', competitorId, sortOrder: null, ...(finishTime ? { finishTime } : {}), resultCode: code, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, redressIncludeAllLater: false, redressPoints: null };
+  }
+
+  it('α = 0 produces no movement (newTcf == tcfApplied)', () => {
+    const fleet = nhcFleet(0);
+    const cs = [comp('A', 1.0), comp('B', 1.0)];
+    const tcf = new Map([['A', 1.0], ['B', 1.0]]);
+    const finishes = [fin('A', '14:50:00'), fin('B', '15:00:00')];
+    const { scores } = calculateNhcRaceScores(finishes, cs, start(), fleet, tcf);
+    expect(scores.get('A')!.newTcf).toBeCloseTo(1.0, 6);
+    expect(scores.get('B')!.newTcf).toBeCloseTo(1.0, 6);
+  });
+
+  it('α = 1 snaps newTcf to fairTcf', () => {
+    const fleet = nhcFleet(1.0);
+    const cs = [comp('A', 1.0), comp('B', 1.0)];
+    const tcf = new Map([['A', 1.0], ['B', 1.0]]);
+    const finishes = [fin('A', '14:50:00'), fin('B', '15:10:00')];
+    const { scores } = calculateNhcRaceScores(finishes, cs, start(), fleet, tcf);
+    // CT_A = 3000, CT_B = 4200, CT_avg = 3600
+    // fair_A = 1.0 × 3600/3000 = 1.2; fair_B = 1.0 × 3600/4200 = 0.857142...
+    expect(scores.get('A')!.newTcf).toBeCloseTo(1.2, 6);
+    expect(scores.get('A')!.nhc?.fairTcf).toBeCloseTo(1.2, 6);
+    expect(scores.get('B')!.newTcf).toBeCloseTo(3600 / 4200, 6);
+  });
+
+  it('single-finisher race produces no movement (ratio = 1)', () => {
+    const fleet = nhcFleet();
+    const cs = [comp('A', 1.0)];
+    const tcf = new Map([['A', 1.0]]);
+    const finishes = [fin('A', '14:50:00')];
+    const { scores, nhcAggregates } = calculateNhcRaceScores(finishes, cs, start(), fleet, tcf);
+    expect(nhcAggregates.finisherCount).toBe(1);
+    expect(scores.get('A')!.nhc?.ctRatio).toBeCloseTo(1, 6);
+    expect(scores.get('A')!.nhc?.adjustment).toBeCloseTo(0, 6);
+    expect(scores.get('A')!.newTcf).toBeCloseTo(1.0, 6);
+  });
+
+  it('all-DNF race leaves all TCFs unchanged and emits zero finisher aggregates', () => {
+    const fleet = nhcFleet();
+    const cs = [comp('A', 1.0), comp('B', 1.05)];
+    const tcf = new Map([['A', 1.0], ['B', 1.05]]);
+    const finishes = [fin('A', undefined, 'DNF'), fin('B', undefined, 'DNF')];
+    const { scores, nhcAggregates, newTcfByCompetitorId } = calculateNhcRaceScores(finishes, cs, start(), fleet, tcf);
+    expect(nhcAggregates.finisherCount).toBe(0);
+    expect(scores.get('A')!.newTcf).toBe(1.0);
+    expect(scores.get('B')!.newTcf).toBe(1.05);
+    expect(newTcfByCompetitorId.get('A')).toBe(1.0);
+    expect(newTcfByCompetitorId.get('B')).toBe(1.05);
+  });
+
+  it('uses the per-competitor TCF map, not the master rating', () => {
+    // Competitor's nhcStartingTcf is 1.0 but the running map has them at 1.20 (e.g. after race 1)
+    const fleet = nhcFleet();
+    const cs = [comp('A', 1.0), comp('B', 1.0)];
+    const tcf = new Map([['A', 1.20], ['B', 0.80]]);
+    const finishes = [fin('A', '14:50:00'), fin('B', '15:00:00')];
+    const { scores } = calculateNhcRaceScores(finishes, cs, start(), fleet, tcf);
+    expect(scores.get('A')!.tcfApplied).toBe(1.20);
+    expect(scores.get('B')!.tcfApplied).toBe(0.80);
+  });
+});
+
+// ─── calculateFleetStandings — NHC propagation ───────────────────────────────
+
+describe('calculateFleetStandings — NHC progressive handicap', () => {
+  function nhcFleet(alpha = 0.15): Fleet {
+    return { id: 'fl-0', seriesId: 's1', name: 'NHC', displayOrder: 0, scoringSystem: 'nhc', nhcAlpha: alpha };
+  }
+  function nhcComp(id: string, startTcf?: number): Competitor {
+    return { id, seriesId: 's1', fleetIds: ['fl-0'], sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0, ...(startTcf != null ? { nhcStartingTcf: startTcf } : {}) };
+  }
+  function rs(raceId: string): RaceStart {
+    return { id: `rs-${raceId}`, raceId, fleetIds: ['fl-0'], startTime: '14:00:00' };
+  }
+  function fin(raceId: string, competitorId: string, finishTime: string): Finish {
+    return { id: `f-${raceId}-${competitorId}`, raceId, competitorId, sortOrder: null, finishTime, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, redressIncludeAllLater: false, redressPoints: null };
+  }
+
+  it('threads newTcf from race N into race N+1 as tcfApplied', () => {
+    const fleet = nhcFleet(0.15);
+    const comps = [nhcComp('A', 0.95), nhcComp('B', 1.00), nhcComp('C', 1.05), nhcComp('D', 1.10)];
+    const races: Race[] = [
+      { id: 'r1', seriesId: 's1', raceNumber: 1, date: '2025-01-01', createdAt: 0 },
+      { id: 'r2', seriesId: 's1', raceNumber: 2, date: '2025-01-02', createdAt: 0 },
+    ];
+    const finishes: Finish[] = [
+      fin('r1', 'A', '14:50:00'), fin('r1', 'B', '15:00:00'),
+      fin('r1', 'C', '15:10:00'), fin('r1', 'D', '15:20:00'),
+      fin('r2', 'A', '14:50:00'), fin('r2', 'B', '15:00:00'),
+      fin('r2', 'C', '15:10:00'), fin('r2', 'D', '15:20:00'),
+    ];
+    const { fleetStandings } = calculateFleetStandings([fleet], comps, races, finishes, [], 'seriesEntries', [rs('r1'), rs('r2')]);
+    const fr = fleetStandings[0];
+    const r1Scores = fr.nhcRaceScoresByRaceId!.get('r1')!;
+    const r2Scores = fr.nhcRaceScoresByRaceId!.get('r2')!;
+    // Race 2's tcfApplied for each boat must equal race 1's newTcf
+    for (const cid of ['A', 'B', 'C', 'D']) {
+      expect(r2Scores.get(cid)!.tcfApplied, `${cid} race-2 tcfApplied = race-1 newTcf`).toBeCloseTo(r1Scores.get(cid)!.newTcf!, 9);
+    }
+  });
+
+  it('emits one nhcTcfHistory record per (race, competitor) for NHC fleets', () => {
+    const fleet = nhcFleet();
+    const comps = [nhcComp('A', 1.0), nhcComp('B', 1.0)];
+    const races: Race[] = [
+      { id: 'r1', seriesId: 's1', raceNumber: 1, date: '2025-01-01', createdAt: 0 },
+      { id: 'r2', seriesId: 's1', raceNumber: 2, date: '2025-01-02', createdAt: 0 },
+    ];
+    const finishes: Finish[] = [
+      fin('r1', 'A', '14:50:00'), fin('r1', 'B', '15:00:00'),
+      fin('r2', 'A', '14:50:00'), fin('r2', 'B', '15:00:00'),
+    ];
+    const { fleetStandings } = calculateFleetStandings([fleet], comps, races, finishes, [], 'seriesEntries', [rs('r1'), rs('r2')]);
+    const history = fleetStandings[0].nhcTcfHistory!;
+    expect(history.length).toBe(4);
+    const r1A = history.find((h) => h.raceId === 'r1' && h.competitorId === 'A');
+    expect(r1A?.tcfApplied).toBe(1.0);
+    expect(r1A?.fleetId).toBe('fl-0');
+  });
+
+  it('retroactive edit propagates: changing race 1 finish affects race 2 tcfApplied', () => {
+    const fleet = nhcFleet(0.5);  // larger α for visibility
+    const comps = [nhcComp('A', 1.0), nhcComp('B', 1.0)];
+    const races: Race[] = [
+      { id: 'r1', seriesId: 's1', raceNumber: 1, date: '2025-01-01', createdAt: 0 },
+      { id: 'r2', seriesId: 's1', raceNumber: 2, date: '2025-01-02', createdAt: 0 },
+    ];
+    const finishesV1: Finish[] = [
+      fin('r1', 'A', '14:50:00'), fin('r1', 'B', '15:00:00'),
+      fin('r2', 'A', '14:50:00'), fin('r2', 'B', '15:00:00'),
+    ];
+    const finishesV2: Finish[] = [
+      // swap A and B finish times in race 1
+      fin('r1', 'A', '15:00:00'), fin('r1', 'B', '14:50:00'),
+      fin('r2', 'A', '14:50:00'), fin('r2', 'B', '15:00:00'),
+    ];
+    const v1 = calculateFleetStandings([fleet], comps, races, finishesV1, [], 'seriesEntries', [rs('r1'), rs('r2')]);
+    const v2 = calculateFleetStandings([fleet], comps, races, finishesV2, [], 'seriesEntries', [rs('r1'), rs('r2')]);
+
+    const a_r2_v1 = v1.fleetStandings[0].nhcRaceScoresByRaceId!.get('r2')!.get('A')!.tcfApplied!;
+    const a_r2_v2 = v2.fleetStandings[0].nhcRaceScoresByRaceId!.get('r2')!.get('A')!.tcfApplied!;
+    expect(a_r2_v1).not.toBe(a_r2_v2);
+  });
+
+  it('rejects competitors without nhcStartingTcf even with no races', () => {
+    const fleet = nhcFleet();
+    const comps = [nhcComp('A', 1.0), nhcComp('B')]; // B has no starting TCF
+    const { fleetStandings } = calculateFleetStandings([fleet], comps, [], [], [], 'seriesEntries', []);
+    const r = fleetStandings[0];
+    expect(r.rejections.length).toBe(1);
+    expect(r.rejections[0].competitorId).toBe('B');
+    expect(r.rejections[0].reason).toBe('no_starting_tcf');
+    expect(r.standings.find((s) => s.competitor.id === 'B')).toBeUndefined();
+    expect(r.standings.find((s) => s.competitor.id === 'A')).toBeDefined();
   });
 });
