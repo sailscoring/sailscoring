@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -233,6 +234,7 @@ export default function RacesPage({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New race</DialogTitle>
+            <DialogDescription>Set the first start time to generate the start sequence.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
