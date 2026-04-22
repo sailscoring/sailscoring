@@ -70,10 +70,21 @@ test('start check-in marks boats present and affects A5.3 standings', async ({ p
   // Switch to start check-in tab
   await page.getByRole('button', { name: 'Start check-in' }).click();
 
-  // Mark Alice, Bob, Carol as present
-  for (const sail of ['101', '202', '303']) {
-    await page.getByRole('button', { name: new RegExp(sail) }).click();
-  }
+  // Mark Alice via keyboard (Enter on the autocomplete suggestion)
+  const search = page.getByPlaceholder('Sail number to search…');
+  await search.fill('101');
+  await search.press('Enter');
+  await expect(search).toHaveValue('');
+  await expect(page.getByText('Present at start: 1 / 5')).toBeVisible();
+
+  // Mark Bob via keyboard (Tab on the autocomplete suggestion)
+  await search.fill('202');
+  await search.press('Tab');
+  await expect(search).toHaveValue('');
+  await expect(page.getByText('Present at start: 2 / 5')).toBeVisible();
+
+  // Mark Carol by clicking the row (covers the original mouse-down path)
+  await page.getByRole('button', { name: /303/ }).click();
 
   // Confirm count shows 3 present
   await expect(page.getByText('Present at start: 3 / 5')).toBeVisible();

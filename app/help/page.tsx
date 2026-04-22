@@ -412,6 +412,12 @@ export default function HelpPage() {
           at the start. A running count shows how many are marked present.
         </p>
         <p>
+          For fast keyboard entry, type a sail number into the search box and press{' '}
+          <strong className="text-foreground">Enter</strong> or{' '}
+          <strong className="text-foreground">Tab</strong> to toggle the first matching
+          boat — the input clears so you can keep typing the next sail number.
+        </p>
+        <p>
           Check-in saves immediately — you do not need to click Save. Once boats start
           finishing, switch back to{' '}
           <strong className="text-foreground">Finish entry</strong> (press{' '}

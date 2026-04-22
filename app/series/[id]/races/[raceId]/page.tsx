@@ -1188,6 +1188,17 @@ export default function ResultEntryPage({
             <Input
               value={checkinInput}
               onChange={(e) => setCheckinInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setCheckinInput('');
+                  return;
+                }
+                if (e.key !== 'Enter' && e.key !== 'Tab') return;
+                if (!checkinInput.trim() || checkinSuggestions.length === 0) return;
+                e.preventDefault();
+                toggleStartPresent(checkinSuggestions[0]);
+                setCheckinInput('');
+              }}
               placeholder="Sail number to search…"
               autoComplete="off"
             />
