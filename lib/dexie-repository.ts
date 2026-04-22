@@ -201,6 +201,34 @@ export const raceStartRepo: RaceStartRepository = new DexieRaceStartRepository()
 export const ftpServerRepo = new DexieFtpServerRepository();
 
 /**
+ * Delete every child row that belongs (directly or via race) to the given series.
+ * Caller is responsible for running inside a transaction that includes all
+ * tables touched here — see `deleteSeriesCascade` for the top-level entry point.
+ */
+export async function deleteSeriesChildren(seriesId: string): Promise<void> {
+  const raceIds = (await db.races.where('seriesId').equals(seriesId).toArray()).map((r) => r.id);
+  if (raceIds.length > 0) {
+    await db.finishes.where('raceId').anyOf(raceIds).delete();
+    await db.raceStarts.where('raceId').anyOf(raceIds).delete();
+    await db.nhcTcfHistory.where('raceId').anyOf(raceIds).delete();
+  }
+  await db.races.where('seriesId').equals(seriesId).delete();
+  await db.competitors.where('seriesId').equals(seriesId).delete();
+  await db.fleets.where('seriesId').equals(seriesId).delete();
+}
+
+export async function deleteSeriesCascade(seriesId: string): Promise<void> {
+  await db.transaction(
+    'rw',
+    [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory],
+    async () => {
+      await deleteSeriesChildren(seriesId);
+      await db.series.delete(seriesId);
+    },
+  );
+}
+
+/**
  * Find a fleet by name (case-insensitive) or create it.
  * Blank name → "Default".
  * Returns the fleetId.

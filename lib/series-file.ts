@@ -1,5 +1,6 @@
 import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart, CompetitorFieldKey, StartGroup, NhcTcfRecord } from './types';
 import { db } from './db';
+import { deleteSeriesChildren } from './dexie-repository';
 import { defaultEnabledCompetitorFields } from './competitor-fields';
 import { recomputeNhcHistoryForSeries } from './nhc-persistence';
 
@@ -456,16 +457,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
   const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
 
   await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory], async () => {
-    const existingRaces = await db.races.where('seriesId').equals(seriesId).toArray();
-    if (existingRaces.length > 0) {
-      const existingRaceIds = existingRaces.map((r) => r.id);
-      await db.finishes.where('raceId').anyOf(existingRaceIds).delete();
-      await db.raceStarts.where('raceId').anyOf(existingRaceIds).delete();
-      await db.nhcTcfHistory.where('raceId').anyOf(existingRaceIds).delete();
-    }
-    await db.races.where('seriesId').equals(seriesId).delete();
-    await db.competitors.where('seriesId').equals(seriesId).delete();
-    await db.fleets.where('seriesId').equals(seriesId).delete();
+    await deleteSeriesChildren(seriesId);
 
     await db.series.update(seriesId, {
       name: file.series.name,

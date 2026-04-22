@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Trash2 } from 'lucide-react';
-import { seriesRepo, competitorRepo, raceRepo, finishRepo } from '@/lib/dexie-repository';
+import { seriesRepo, deleteSeriesCascade } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
@@ -105,11 +105,7 @@ export default function HomePage() {
     if (!pendingDelete) return;
     const seriesId = pendingDelete.id;
     setPendingDelete(null);
-    const races = await raceRepo.listBySeries(seriesId);
-    await finishRepo.deleteByRaces(races.map((r) => r.id));
-    await raceRepo.deleteBySeries(seriesId);
-    await competitorRepo.deleteBySeries(seriesId);
-    await seriesRepo.delete(seriesId);
+    await deleteSeriesCascade(seriesId);
   }
 
   function handleOpenSeriesClick() {
