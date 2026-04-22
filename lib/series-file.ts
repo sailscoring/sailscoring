@@ -1,8 +1,9 @@
 import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart, CompetitorFieldKey, StartGroup, NhcTcfRecord } from './types';
 import { db } from './db';
-import { deleteSeriesChildren } from './dexie-repository';
+import { deleteSeriesChildren, listSeriesNames } from './dexie-repository';
 import { defaultEnabledCompetitorFields } from './competitor-fields';
 import { recomputeNhcHistoryForSeries } from './nhc-persistence';
+import { disambiguateSeriesName } from './series-name';
 
 export const FORMAT_VERSION = 1;
 export const FILE_EXTENSION = '.sailscoring';
@@ -310,19 +311,10 @@ export function parseSeriesFile(content: string): SeriesFile {
 
 // ---- Open as new series ----
 
-async function uniqueSeriesName(baseName: string): Promise<string> {
-  const existing = await db.series.toArray();
-  const names = new Set(existing.map((s) => s.name));
-  if (!names.has(baseName)) return baseName;
-  let n = 2;
-  while (names.has(`${baseName} (${n})`)) n++;
-  return `${baseName} (${n})`;
-}
-
 export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
   const newSeriesId = crypto.randomUUID();
   const now = Date.now();
-  const name = await uniqueSeriesName(file.series.name);
+  const name = disambiguateSeriesName(file.series.name, await listSeriesNames());
 
   // Remap IDs to avoid conflicts with existing DB records
   const fleetIdMap = new Map(file.fleets.map((f) => [f.id, crypto.randomUUID()]));

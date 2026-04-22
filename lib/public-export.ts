@@ -1,8 +1,9 @@
 import type { ResultCode, PenaltyCode, DiscardThreshold, CompetitorFieldKey } from './types';
 import { db } from './db';
-import { seriesRepo, competitorRepo, raceRepo, finishRepo, fleetRepo, raceStartRepo } from './dexie-repository';
+import { seriesRepo, competitorRepo, raceRepo, finishRepo, fleetRepo, raceStartRepo, listSeriesNames } from './dexie-repository';
 import { calculateFleetStandings, calculateRaceScores } from './scoring';
 import { defaultEnabledCompetitorFields } from './competitor-fields';
+import { disambiguateSeriesName } from './series-name';
 
 // ---- Public export type ----
 //
@@ -324,6 +325,7 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
 export async function importPublicExport(data: PublicSeriesExport): Promise<string> {
   const newSeriesId = crypto.randomUUID();
   const now = Date.now();
+  const seriesName = disambiguateSeriesName(data.series.name, await listSeriesNames());
 
   // Each competitor gets a unique UUID. Key by (sailNumber, fleetNames) to handle
   // collisions where different-fleet boats share a sail number.
@@ -361,7 +363,7 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
 
     await db.series.add({
       id: newSeriesId,
-      name: data.series.name,
+      name: seriesName,
       venue: data.series.venue,
       startDate: data.series.startDate,
       endDate: data.series.endDate,

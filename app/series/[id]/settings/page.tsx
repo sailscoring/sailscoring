@@ -3,7 +3,8 @@
 import { use, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { seriesRepo, fleetRepo, raceRepo } from '@/lib/dexie-repository';
+import { seriesRepo, fleetRepo, raceRepo, listSeriesNames } from '@/lib/dexie-repository';
+import { isDuplicateSeriesName } from '@/lib/series-name';
 import { db } from '@/lib/db';
 import type { CompetitorFieldKey } from '@/lib/types';
 import { BasicsCard } from '@/components/series-settings/basics-card';
@@ -425,6 +426,15 @@ export default function SettingsPage({
 
       <BasicsCard
         value={series}
+        includeName
+        validateName={async (name) => {
+          const trimmed = name.trim();
+          if (!trimmed) return 'Series name is required.';
+          const existing = await listSeriesNames({ excludeId: seriesId });
+          return isDuplicateSeriesName(trimmed, existing)
+            ? 'A series with this name already exists.'
+            : null;
+        }}
         onChange={async (patch) => {
           const trimmed: typeof patch = { ...patch };
           await db.series.update(seriesId, { ...trimmed, lastModifiedAt: Date.now() });

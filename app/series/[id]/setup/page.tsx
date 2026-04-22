@@ -3,7 +3,8 @@
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { seriesRepo, fleetRepo, competitorRepo } from '@/lib/dexie-repository';
+import { seriesRepo, fleetRepo, competitorRepo, listSeriesNames } from '@/lib/dexie-repository';
+import { isDuplicateSeriesName } from '@/lib/series-name';
 import { db } from '@/lib/db';
 import type { Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -27,9 +28,30 @@ function Step1({
   seriesId: string;
   onNext: () => void;
 }) {
+  const [nextError, setNextError] = useState<string | null>(null);
+
   async function persist(patch: Partial<Series>) {
     await db.series.update(seriesId, patch);
     await seriesRepo.touch(seriesId);
+  }
+
+  async function validateName(name: string): Promise<string | null> {
+    const trimmed = name.trim();
+    if (!trimmed) return 'Series name is required.';
+    const existing = await listSeriesNames({ excludeId: seriesId });
+    return isDuplicateSeriesName(trimmed, existing)
+      ? 'A series with this name already exists.'
+      : null;
+  }
+
+  async function handleNext() {
+    const err = await validateName(series.name);
+    if (err) {
+      setNextError(err);
+      return;
+    }
+    setNextError(null);
+    onNext();
   }
 
   return (
@@ -38,10 +60,12 @@ function Step1({
         mode="wizard"
         includeName
         value={series}
+        validateName={validateName}
         onChange={persist}
       />
+      {nextError && <p className="text-sm text-destructive">{nextError}</p>}
       <div className="flex justify-end pt-2">
-        <Button onClick={onNext}>Next: Competitors →</Button>
+        <Button onClick={handleNext}>Next: Competitors →</Button>
       </div>
     </div>
   );

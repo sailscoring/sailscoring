@@ -2,13 +2,14 @@
 
 import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { seriesRepo } from '@/lib/dexie-repository';
+import { seriesRepo, listSeriesNames } from '@/lib/dexie-repository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Series } from '@/lib/types';
 import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
-import { generatePlaceholderName } from '@/lib/placeholder-names';
+import { generateUniquePlaceholderName } from '@/lib/placeholder-names';
+import { isDuplicateSeriesName } from '@/lib/series-name';
 import { log } from '@/lib/debug';
 
 async function doCreateSeries(
@@ -60,7 +61,10 @@ function NewSeriesContent() {
   useEffect(() => {
     if (isQuick || didCreate.current) return;
     didCreate.current = true;
-    doCreateSeries(generatePlaceholderName(), '', '').then((id) => {
+    (async () => {
+      const existing = await listSeriesNames();
+      return doCreateSeries(generateUniquePlaceholderName(existing), '', '');
+    })().then((id) => {
       router.push(`/series/${id}/setup`);
     }).catch((err) => {
       console.error(err);
@@ -80,14 +84,19 @@ function NewSeriesContent() {
   // Quick mode: the traditional form (preserves existing e2e test flows)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) {
+    const trimmed = name.trim();
+    if (!trimmed) {
       setError('Series name is required.');
+      return;
+    }
+    if (isDuplicateSeriesName(trimmed, await listSeriesNames())) {
+      setError('A series with this name already exists.');
       return;
     }
     setSaving(true);
     setError('');
     try {
-      const id = await doCreateSeries(name.trim(), venue.trim(), startDate);
+      const id = await doCreateSeries(trimmed, venue.trim(), startDate);
       router.push(`/series/${id}/competitors`);
     } catch (err) {
       console.error(err);

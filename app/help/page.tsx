@@ -80,7 +80,10 @@ export default function HelpPage() {
         <p>
           From the home screen, click <strong className="text-foreground">New series</strong> and
           give it a name. Venue and date are optional but useful for keeping things organised if you
-          manage several series on the same device.
+          manage several series on the same device. Names must be unique; the app prevents you from
+          creating two series with the same name. You can rename a series later from the{' '}
+          <strong className="text-foreground">Basic</strong> card on its{' '}
+          <strong className="text-foreground">Settings</strong> tab.
         </p>
         <p>
           After saving, you land on the Competitors tab, ready for the next step.
@@ -609,7 +612,9 @@ export default function HelpPage() {
           <strong className="text-foreground">Open in Sail Scoring</strong> link in the footer.
           Anyone viewing the results page can click it to open the series directly in the app
           — competitors, races, finishes, and standings are all imported automatically as a new
-          series.
+          series. If you already have a series with that name on this device, the import gets a{' '}
+          <code className="text-foreground text-sm">(2)</code> suffix so the two are easy to
+          tell apart.
         </p>
         <p>
           The footer also embeds a JSON snapshot of the results in the page source, available

@@ -17,6 +17,9 @@ export type BasicsCardProps = {
   includeName?: boolean;
   /** Include logo URL fields. Defaults to true in settings, false in wizard. */
   includeLogos?: boolean;
+  /** Validate the name before committing. Return an error message to block save,
+   *  or null/undefined to accept. Only consulted when `includeName` is true. */
+  validateName?: (name: string) => Promise<string | null> | string | null;
 };
 
 export function BasicsCard({
@@ -25,12 +28,14 @@ export function BasicsCard({
   mode = 'settings',
   includeName = false,
   includeLogos,
+  validateName,
 }: BasicsCardProps) {
   const showLogos = includeLogos ?? (mode === 'settings');
   const isWizard = mode === 'wizard';
   const [expanded, setExpanded] = useState(isWizard);
   const [draft, setDraft] = useState<BasicsValues>(value);
   const [changed, setChanged] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
   // Re-sync when the underlying series changes (e.g. opening a different series).
@@ -43,12 +48,19 @@ export function BasicsCard({
     if (isWizard && includeName) nameRef.current?.select();
   }, [isWizard, includeName]);
 
-  function update(patch: Partial<BasicsValues>) {
+  async function update(patch: Partial<BasicsValues>) {
     const next = { ...draft, ...patch };
     setDraft(next);
     setChanged(true);
-    // In wizard mode, propagate every change so the parent can persist on Next.
-    if (isWizard) onChange(patch);
+    if ('name' in patch) setNameError(null);
+    // In wizard mode, propagate every change so the parent can persist live.
+    if (isWizard) {
+      onChange(patch);
+      if ('name' in patch && validateName) {
+        const err = await validateName((patch.name ?? '').trim() || value.name);
+        if (err) setNameError(err);
+      }
+    }
   }
 
   async function handleSettingsSave(e: React.FormEvent) {
@@ -58,12 +70,23 @@ export function BasicsCard({
       startDate: draft.startDate,
       endDate: draft.endDate,
     };
-    if (includeName) patch.name = draft.name.trim() || value.name;
+    if (includeName) {
+      const trimmedName = draft.name.trim() || value.name;
+      if (validateName) {
+        const err = await validateName(trimmedName);
+        if (err) {
+          setNameError(err);
+          return;
+        }
+      }
+      patch.name = trimmedName;
+    }
     if (showLogos) {
       patch.venueLogoUrl = draft.venueLogoUrl.trim();
       patch.eventLogoUrl = draft.eventLogoUrl.trim();
     }
     await onChange(patch);
+    setNameError(null);
     setChanged(false);
     setExpanded(false);
   }
@@ -81,6 +104,7 @@ export function BasicsCard({
             placeholder="e.g. HYC Frostbite 2026"
             autoFocus
           />
+          {nameError && <p className="text-sm text-destructive">{nameError}</p>}
         </div>
       )}
       <div className="space-y-1.5">

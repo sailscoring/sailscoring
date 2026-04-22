@@ -192,6 +192,13 @@ class DexieFleetRepository implements FleetRepository {
   }
 }
 
+export async function listSeriesNames(opts: { excludeId?: string } = {}): Promise<string[]> {
+  const all = await db.series.toArray();
+  return all
+    .filter((s) => s.id !== opts.excludeId)
+    .map((s) => s.name);
+}
+
 export const seriesRepo: SeriesRepository = new DexieSeriesRepository();
 export const competitorRepo: CompetitorRepository = new DexieCompetitorRepository();
 export const fleetRepo: FleetRepository = new DexieFleetRepository();
