@@ -160,6 +160,55 @@ test('multi-fleet non-finishers show fleet badge', async ({ page }) => {
   await expect(j1NonFinisher).not.toBeVisible();
 });
 
+test('reorder works after CSV import creates multiple fleets in parallel (#90)', async ({ page }) => {
+  // Regression: ensureFleet was not transactional, so parallel calls from a
+  // single pipe-delimited CSV row could produce two fleets with the same
+  // displayOrder. The Fleets card's ↑/↓ buttons used to swap displayOrder
+  // values between rows, which became a no-op under a collision.
+  await createSeriesQuick(page, { name: 'Fleet Reorder Regression' });
+
+  const csv = [
+    'sailNumber,name,club,fleet',
+    '1,Alice,HYC,Alpha|Bravo',
+  ].join('\n');
+  await page
+    .locator('input[type=file][accept=".csv,text/csv"]')
+    .setInputFiles({ name: 'competitors.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: /Import 1 row/i }).click();
+  await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Open Settings → Fleets
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const fleetsHeading = page.locator('h2', { hasText: 'Fleets' });
+  await expect(fleetsHeading).toBeVisible();
+  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
+
+  // Both fleets are present and both ↓/↑ buttons render
+  const rows = page.getByTestId('fleet-row');
+  await expect(rows).toHaveCount(2);
+  const initial = await rows.allTextContents();
+  expect(initial[0]).toMatch(/Alpha/);
+  expect(initial[1]).toMatch(/Bravo/);
+
+  // Click ↓ on Alpha (first row) — order must flip
+  await rows.nth(0).getByTitle('Move down').click();
+  await expect(async () => {
+    const after = await rows.allTextContents();
+    expect(after[0]).toMatch(/Bravo/);
+    expect(after[1]).toMatch(/Alpha/);
+  }).toPass();
+
+  // And reversing it restores the original order
+  await rows.nth(1).getByTitle('Move up').click();
+  await expect(async () => {
+    const after = await rows.allTextContents();
+    expect(after[0]).toMatch(/Alpha/);
+    expect(after[1]).toMatch(/Bravo/);
+  }).toPass();
+});
+
 test('single-fleet series hides fleet concept', async ({ page }) => {
   await createSeriesQuick(page, { name: 'Single Fleet Cup', venue: 'HYC' });
 

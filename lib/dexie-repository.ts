@@ -242,23 +242,27 @@ export async function deleteSeriesCascade(seriesId: string): Promise<void> {
  */
 export async function ensureFleet(seriesId: string, name: string): Promise<string> {
   const fleetName = name.trim() || DEFAULT_FLEET_NAME;
-  const existing = await db.fleets
-    .where('seriesId')
-    .equals(seriesId)
-    .toArray();
-  const match = existing.find((f) => f.name.toLowerCase() === fleetName.toLowerCase());
-  if (match) return match.id;
+  // Wrap read + write in a transaction so parallel callers don't each compute
+  // maxOrder from the same baseline and end up with colliding displayOrders.
+  return db.transaction('rw', db.fleets, async () => {
+    const existing = await db.fleets
+      .where('seriesId')
+      .equals(seriesId)
+      .toArray();
+    const match = existing.find((f) => f.name.toLowerCase() === fleetName.toLowerCase());
+    if (match) return match.id;
 
-  const maxOrder = existing.reduce((max, f) => Math.max(max, f.displayOrder), -1);
-  const newFleet: Fleet = {
-    id: crypto.randomUUID(),
-    seriesId,
-    name: fleetName,
-    displayOrder: maxOrder + 1,
-    scoringSystem: 'scratch',
-  };
-  await db.fleets.add(newFleet);
-  return newFleet.id;
+    const maxOrder = existing.reduce((max, f) => Math.max(max, f.displayOrder), -1);
+    const newFleet: Fleet = {
+      id: crypto.randomUUID(),
+      seriesId,
+      name: fleetName,
+      displayOrder: maxOrder + 1,
+      scoringSystem: 'scratch',
+    };
+    await db.fleets.add(newFleet);
+    return newFleet.id;
+  });
 }
 
 /**

@@ -51,10 +51,16 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
     const swapIndex = index + direction;
     if (swapIndex < 0 || swapIndex >= sorted.length) return;
-    const a = sorted[index];
-    const b = sorted[swapIndex];
-    await fleetRepo.save({ ...a, displayOrder: b.displayOrder });
-    await fleetRepo.save({ ...b, displayOrder: a.displayOrder });
+    const reordered = [...sorted];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(swapIndex, 0, moved);
+    // Renumber rather than swap values: this self-heals fleets that share a
+    // displayOrder (which a historical race in ensureFleet could produce).
+    for (let i = 0; i < reordered.length; i++) {
+      if (reordered[i].displayOrder !== i) {
+        await fleetRepo.save({ ...reordered[i], displayOrder: i });
+      }
+    }
   }
 
   function startRename(fleet: Fleet) {
@@ -196,7 +202,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
       )}
       <div className="space-y-1">
         {sorted.map((fleet, i) => (
-          <div key={fleet.id} className="flex-col items-start gap-1">
+          <div key={fleet.id} data-testid="fleet-row" className="flex-col items-start gap-1">
             <div className="flex items-center gap-2">
               {renamingId === fleet.id ? (
                 <input
