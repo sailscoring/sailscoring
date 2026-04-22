@@ -313,9 +313,9 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
           : `${r.points}${codeSuffix}`;
       const handicapCells = hasHandicapCols
         ? [
-            `<td class="mono">${r.tcc != null ? r.tcc.toFixed(3) : ''}</td>`,
             `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
             `<td class="mono">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>`,
+            `<td class="mono">${r.tcc != null ? r.tcc.toFixed(3) : ''}</td>`,
             `<td class="mono">${r.correctedTimeSecs != null ? formatCorrectedSecs(r.correctedTimeSecs) : ''}</td>`,
           ]
         : [];
@@ -338,10 +338,10 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
   const baseColCount = 4 + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0);
   const colCount = baseColCount + (hasHandicapCols ? 4 : 0) + (hasExplain ? 4 : 0);
   const handicapHeaders = hasHandicapCols
-    ? `\n<th>${ratingLabel}</th>\n<th>Finish</th>\n<th>ET</th>\n<th>CT</th>`
+    ? `\n<th>Finish</th>\n<th>ET</th>\n<th>${ratingLabel}</th>\n<th>CT</th>`
     : '';
   const handicapCols = hasHandicapCols
-    ? `\n<col class="${ratingColClass}" />\n<col class="finish" />\n<col class="et" />\n<col class="ct" />`
+    ? `\n<col class="finish" />\n<col class="et" />\n<col class="${ratingColClass}" />\n<col class="ct" />`
     : '';
   const nhcHeaders = hasExplain
     ? '\n<th class="nhc-detail">CT ratio</th>\n<th class="nhc-detail">Fair TCF</th>\n<th class="nhc-detail">Adjustment</th>\n<th class="nhc-detail">New TCF</th>'

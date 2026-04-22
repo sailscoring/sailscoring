@@ -379,9 +379,9 @@ function generateHandicapFixtureHtml(fixture: HandicapFixture, yamlSource: strin
   <td>${esc(c.name)}</td>
   <td class="mono">${esc(c.sailNumber)}</td>
   <td class="mono">${esc(ratingDisplay)}</td>
-  <td class="mono">${esc(fmtTcf(score.tcfApplied, fixture.fleet.scoringSystem))}</td>
   <td class="mono">${esc(finishTimeDisplay)}</td>
   <td class="mono">${esc(fmtSeconds(score.elapsedTime))}</td>
+  <td class="mono">${esc(fmtTcf(score.tcfApplied, fixture.fleet.scoringSystem))}</td>
   <td class="mono">${esc(fmtSeconds(score.correctedTime))}</td>
   <td>${esc(pointsDisplay)}</td>
 </tr>`;
@@ -425,7 +425,7 @@ ${notesHtml}
 ${commentsHtml}
 <table>
 <thead>
-<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>${esc(ratingHeader)}</th><th>TCF</th><th>Finish time</th><th>ET</th><th>CT</th><th>Points</th></tr>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>${esc(ratingHeader)}</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
 </thead>
 <tbody>
 ${rows}
