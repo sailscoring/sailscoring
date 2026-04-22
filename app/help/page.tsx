@@ -180,7 +180,7 @@ export default function HelpPage() {
         </p>
         <p>
           Clicking <strong className="text-foreground">Import</strong> adds any new competitors and
-          updates existing ones matched by sail number. When an existing competitor's fields are
+          updates existing ones matched by sail number. When an existing competitor&apos;s fields are
           unchanged by the import, they are counted as{' '}
           <strong className="text-foreground">unchanged</strong> rather than updated. Any rows
           missing a sail number are skipped and listed in the summary.
@@ -526,7 +526,7 @@ export default function HelpPage() {
 
       <Section id="saving-and-sharing" title="Saving and sharing a series">
         <p>
-          All changes are saved automatically to your browser's local storage — you do not need
+          All changes are saved automatically to your browser&apos;s local storage — you do not need
           to manually save while scoring. Your data persists across sessions on the same device
           and browser.
         </p>

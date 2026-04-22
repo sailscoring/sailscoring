@@ -42,9 +42,9 @@ The `idea` GitHub label is deprecated — use `docs/design/horizon.md` instead.
 
 ## MANDATORY: Run Tests Before Every Push
 
-**ALWAYS run `pnpm test:e2e` before `git push`.** Do not push unless all tests pass.
-If a test fails due to a code change you made, fix it before pushing — do not defer test fixes to a follow-up commit.
-If a test was already failing before your change, note it explicitly and confirm with the user before pushing.
+**ALWAYS run `pnpm test:e2e` and `pnpm lint` before `git push`.** Do not push unless both pass.
+If a test or lint check fails due to a code change you made, fix it before pushing — do not defer fixes to a follow-up commit.
+If a check was already failing before your change, note it explicitly and confirm with the user before pushing.
 
 This rule has no exceptions. Forgetting it has caused broken commits in the past.
 
