@@ -29,10 +29,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { AlertTriangle, Pencil, Trash2 } from 'lucide-react';
 import { CompetitorImport, type CompetitorImportHandle } from '@/components/competitor-import';
 import type { Competitor, Fleet, CompetitorFieldKey } from '@/lib/types';
-import { hasFleetRating } from '@/lib/scoring';
+import {
+  missingRatings,
+  formatMissingRatings,
+  requiredForFleetsHint,
+  type MissingRating,
+} from '@/lib/competitor-ratings';
 import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
 import { log } from '@/lib/debug';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
@@ -67,6 +77,21 @@ const emptyForm: CompetitorFormData = {
   nhcStartingTcf: '',
 };
 
+function MissingRatingIcon({ missing }: { missing: MissingRating[] }) {
+  if (missing.length === 0) return null;
+  const label = formatMissingRatings(missing);
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className="inline-flex align-middle mr-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xs">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-500 -mt-0.5" aria-label={label} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function sameFleetIdSet(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   const set = new Set(a);
@@ -99,9 +124,12 @@ function CompetitorForm({
 
   // Determine which rating fields to show based on selected fleets
   const selectedFleets = availableFleets.filter((f) => data.fleetIds.includes(f.id));
-  const needsIrcTcc = selectedFleets.some((f) => f.scoringSystem === 'irc');
-  const needsPyNumber = selectedFleets.some((f) => f.scoringSystem === 'py');
-  const needsNhcStartingTcf = selectedFleets.some((f) => f.scoringSystem === 'nhc');
+  const ircFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'irc').map((f) => f.name);
+  const pyFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'py').map((f) => f.name);
+  const nhcFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'nhc').map((f) => f.name);
+  const needsIrcTcc = ircFleetNames.length > 0;
+  const needsPyNumber = pyFleetNames.length > 0;
+  const needsNhcStartingTcf = nhcFleetNames.length > 0;
 
   function set<K extends keyof CompetitorFormData>(field: K, value: CompetitorFormData[K]) {
     setData((d) => ({ ...d, [field]: value }));
@@ -291,6 +319,9 @@ function CompetitorForm({
               onChange={(e) => set('ircTcc', e.target.value)}
               placeholder="e.g. 0.972"
             />
+            {!data.ircTcc.trim() && (
+              <p className="text-sm text-amber-600">{requiredForFleetsHint(ircFleetNames)}</p>
+            )}
           </div>
         )}
         {needsPyNumber && (
@@ -302,6 +333,9 @@ function CompetitorForm({
               onChange={(e) => set('pyNumber', e.target.value)}
               placeholder="e.g. 1034"
             />
+            {!data.pyNumber.trim() && (
+              <p className="text-sm text-amber-600">{requiredForFleetsHint(pyFleetNames)}</p>
+            )}
           </div>
         )}
         {needsNhcStartingTcf && (
@@ -313,6 +347,9 @@ function CompetitorForm({
               onChange={(e) => set('nhcStartingTcf', e.target.value)}
               placeholder="e.g. 1.005"
             />
+            {!data.nhcStartingTcf.trim() && (
+              <p className="text-sm text-amber-600">{requiredForFleetsHint(nhcFleetNames)}</p>
+            )}
           </div>
         )}
       </div>
@@ -352,8 +389,6 @@ export default function CompetitorsPage({
   const showPy = (fleets ?? []).some((f) => f.scoringSystem === 'py');
   const showNhc = (fleets ?? []).some((f) => f.scoringSystem === 'nhc');
 
-  const isMissingRating = (c: Competitor): boolean =>
-    c.fleetIds.some((id) => { const f = fleetById.get(id); return f != null && !hasFleetRating(c, f); });
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCompetitor, setEditingCompetitor] = useState<Competitor | null>(null);
@@ -558,9 +593,7 @@ export default function CompetitorsPage({
                 }}
               >
                 <TableCell className="font-mono">
-                  {isMissingRating(c) && (
-                    <AlertTriangle className="inline h-3.5 w-3.5 text-amber-500 mr-1.5 -mt-0.5" aria-label="Missing handicap rating" />
-                  )}
+                  <MissingRatingIcon missing={missingRatings(c, fleetById)} />
                   {c.sailNumber}
                 </TableCell>
                 {showBoat && <TableCell>{c.boatName ?? ''}</TableCell>}

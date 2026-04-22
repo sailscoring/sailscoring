@@ -76,9 +76,9 @@ export async function addCompetitor(
       await checkbox.check();
     }
   }
-  if (data.ircTcc) await page.getByLabel('IRC TCC').fill(data.ircTcc);
-  if (data.pyNumber) await page.getByLabel('PY number').fill(data.pyNumber);
-  if (data.nhcStartingTcf) await page.getByLabel('NHC starting TCF').fill(data.nhcStartingTcf);
+  if (data.ircTcc) await page.getByLabel('IRC TCC', { exact: true }).fill(data.ircTcc);
+  if (data.pyNumber) await page.getByLabel('PY number', { exact: true }).fill(data.pyNumber);
+  if (data.nhcStartingTcf) await page.getByLabel('NHC starting TCF', { exact: true }).fill(data.nhcStartingTcf);
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: data.sailNumber })).toBeVisible();
 }

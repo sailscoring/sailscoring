@@ -203,7 +203,7 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   for (const sail of ['B1', 'B2', 'B3']) {
     const row = page.getByRole('row').filter({ hasText: sail });
     await row.getByRole('button', { name: /Edit/ }).click();
-    await page.getByLabel('IRC TCC').fill(tccs[sail]);
+    await page.getByLabel('IRC TCC', { exact: true }).fill(tccs[sail]);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: sail })).toBeVisible();
   }

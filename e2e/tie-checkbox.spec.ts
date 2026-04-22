@@ -50,7 +50,7 @@ test('tie checkbox: not shown after a timed row', async ({ page }) => {
   // Set PY number
   const p1Row = page.getByRole('row').filter({ hasText: 'P1' });
   await p1Row.getByRole('button', { name: /Edit/ }).click();
-  await page.getByLabel('PY number').fill('1000');
+  await page.getByLabel('PY number', { exact: true }).fill('1000');
   await page.getByRole('button', { name: 'Save' }).click();
 
   // ── Add race with starts ─────────────────────────────────────────────────

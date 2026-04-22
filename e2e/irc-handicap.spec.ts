@@ -50,8 +50,8 @@ test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
     const row = page.getByRole('row').filter({ hasText: c.sailNumber });
     await row.getByRole('button', { name: /Edit/ }).click();
     // With IRC fleet checked, TCC input is visible
-    await expect(page.getByLabel('IRC TCC')).toBeVisible();
-    await page.getByLabel('IRC TCC').fill(tccs[c.sailNumber]);
+    await expect(page.getByLabel('IRC TCC', { exact: true })).toBeVisible();
+    await page.getByLabel('IRC TCC', { exact: true }).fill(tccs[c.sailNumber]);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
   }
