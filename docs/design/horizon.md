@@ -120,6 +120,37 @@ as attribution in the snapshot history entries in the series file format.
 
 ---
 
+## Esoteric scoring engine requirements
+
+Scoring variations that go beyond standard RRS Appendix A — supported by
+Sailwave and occasionally specified in Notices of Race, but not common enough
+to prioritise. Captured here so that when a real-world series needs one, we
+have a starting point rather than a blank page.
+
+### Non-discardable races
+
+A series NoR can designate certain races as non-discardable — they must count
+toward the final total even when the series allows discards. Example: the
+Lambay Race is the centrepiece of the HYC Wave Regatta and its NoR marks it
+as non-discardable, so a competitor's worst result cannot be the Lambay Race.
+
+Shape of the change: a per-race flag on `Race`, surfaced in race settings, and
+a tweak to the discard selection logic in `lib/scoring.ts` to exclude flagged
+races from the discardable set.
+
+### Race weightings
+
+A series NoR can weight individual races differently — e.g. the Lambay Race
+counts for 1.5× points. The weighting multiplies each competitor's score for
+that race before series totals are computed.
+
+Shape of the change: a per-race multiplier on `Race` (default 1.0), applied in
+the series totalling step. Interaction with discards needs thought: is the
+weighted or unweighted score used when selecting which race to discard?
+Sailwave's behaviour here is worth checking before designing.
+
+---
+
 ## AI and automation
 
 ### LLM-drafted changelog entries
