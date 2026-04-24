@@ -139,9 +139,15 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
   // leave the controlled <input> at the old value until useLiveQuery reruns.
   const persisted = series.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
   const [localEnabled, setLocalEnabled] = useState<CompetitorFieldKey[]>(persisted);
-  useEffect(() => {
+  // Re-sync when the persisted fields actually change. Render-time compare
+  // (not an effect) so this works cleanly with the React Compiler. See
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const persistedKey = persisted.join(',');
+  const [prevPersistedKey, setPrevPersistedKey] = useState(persistedKey);
+  if (prevPersistedKey !== persistedKey) {
+    setPrevPersistedKey(persistedKey);
     setLocalEnabled(persisted);
-  }, [persisted.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
   const enabledSet = new Set<CompetitorFieldKey>(localEnabled);
 
   async function toggle(field: CompetitorFieldKey, checked: boolean) {
@@ -151,6 +157,7 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
     setLocalEnabled(nextArray);
     await db.series.update(seriesId, {
       enabledCompetitorFields: nextArray,
+      // eslint-disable-next-line react-hooks/purity -- Date.now() runs inside an async event handler, not render.
       lastModifiedAt: Date.now(),
     });
   }

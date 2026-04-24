@@ -38,11 +38,17 @@ export function BasicsCard({
   const [nameError, setNameError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
-  // Re-sync when the underlying series changes (e.g. opening a different series).
-  useEffect(() => {
+  // Re-sync when the persisted basic fields change (e.g. opening a different
+  // series, or an external update). Tracked via a derived key rather than
+  // `value` identity, so unrelated series writes (e.g. FleetsCard saving) do
+  // not reset an in-progress draft. See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const persistedKey = `${value.name}|${value.venue}|${value.startDate}|${value.endDate}|${value.venueLogoUrl}|${value.eventLogoUrl}`;
+  const [prevPersistedKey, setPrevPersistedKey] = useState(persistedKey);
+  if (prevPersistedKey !== persistedKey) {
+    setPrevPersistedKey(persistedKey);
     setDraft(value);
     setChanged(false);
-  }, [value.name, value.venue, value.startDate, value.endDate, value.venueLogoUrl, value.eventLogoUrl]);
+  }
 
   useEffect(() => {
     if (isWizard && includeName) nameRef.current?.select();

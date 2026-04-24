@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { DiscardThreshold, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,11 +21,17 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
   const [dnfScoring, setDnfScoring] = useState<Series['dnfScoring']>(value.dnfScoring ?? 'seriesEntries');
   const [changed, setChanged] = useState(false);
 
-  useEffect(() => {
+  // Re-sync the local draft when the persisted value changes identity (e.g.
+  // opening a different series). Done via render-time compare rather than an
+  // effect so it plays nicely with the React Compiler. See
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevValue, setPrevValue] = useState(value);
+  if (prevValue !== value) {
+    setPrevValue(value);
     setThresholds(value.discardThresholds ?? []);
     setDnfScoring(value.dnfScoring ?? 'seriesEntries');
     setChanged(false);
-  }, [value]);
+  }
 
   function updateThresholds(next: DiscardThreshold[]) {
     setThresholds(next);

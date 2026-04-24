@@ -334,6 +334,9 @@ function BilgePublishDialog({
   // Retention days from policy — null = no expiry, undefined = not yet fetched
   const [retentionDays, setRetentionDays] = useState<number | null | undefined>(undefined);
 
+  // Reset dialog state when it reopens. This effect syncs with the external
+  // dialog-open signal from the parent, so setState-in-effect is expected.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open) {
       setPublishState('idle');
@@ -347,8 +350,12 @@ function BilgePublishDialog({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Debounced prefix availability check
+  // Debounced prefix availability check — this effect subscribes to an
+  // external system (the prefix lookup API). The synchronous resets below
+  // exist to clear stale UI before the new fetch fires.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open || bundle || !prefix || !isValidPrefix(prefix)) {
       setPrefixAvailable(null);
@@ -367,6 +374,7 @@ function BilgePublishDialog({
       controller.abort();
     };
   }, [open, bundle, prefix]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function handlePublish() {
     setPublishState('publishing');
@@ -639,7 +647,10 @@ function FtpUploadDialog({
 
   const isSingleDefault = fleets.length <= 1;
 
-  // Reset state and pre-fill paths from series when dialog opens.
+  // Reset state and pre-fill paths from series when dialog opens. Syncs with
+  // an external signal (parent-controlled `open`), so setState-in-effect is
+  // expected.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
     setUploadState('idle');
@@ -663,6 +674,7 @@ function FtpUploadDialog({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, ftpServers]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function setPath(index: number, value: string) {
     setFleetPaths((prev) => prev.map((p, i) => (i === index ? value : p)));

@@ -14,7 +14,9 @@ function isInputFocused(): boolean {
  */
 export function useGlobalKeyDown(handler: (e: KeyboardEvent) => void) {
   const handlerRef = useRef(handler);
-  handlerRef.current = handler;
+  useEffect(() => {
+    handlerRef.current = handler;
+  });
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -35,7 +37,9 @@ export function useChordShortcut(chords: Record<string, () => void>) {
   const pendingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chordsRef = useRef(chords);
-  chordsRef.current = chords;
+  useEffect(() => {
+    chordsRef.current = chords;
+  });
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

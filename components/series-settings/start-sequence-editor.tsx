@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { Fleet, StartGroup } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,10 +22,14 @@ export function StartSequenceEditor({ value, fleets, onSave }: StartSequenceEdit
   const [groups, setGroups] = useState<StartGroup[]>(value ?? []);
   const [dirty, setDirty] = useState(false);
 
-  useEffect(() => {
+  // Re-sync when the persisted value changes identity. Render-time compare
+  // instead of an effect. See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevValue, setPrevValue] = useState(value);
+  if (prevValue !== value) {
+    setPrevValue(value);
     setGroups(value ?? []);
     setDirty(false);
-  }, [value]);
+  }
 
   const assignedFleetIds = new Set(groups.flatMap((g) => g.fleetIds));
   const unassignedFleets = fleets.filter((f) => !assignedFleetIds.has(f.id));

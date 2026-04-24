@@ -23,6 +23,9 @@ export default function ImportPage() {
   const router = useRouter();
   const [state, setState] = useState<State>({ step: 'loading' });
 
+  // One-shot parse of the URL fragment on mount. `window.location` is not
+  // available during SSR, so we can't derive this from render directly.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const hash = window.location.hash.startsWith('#')
       ? window.location.hash.slice(1)
@@ -46,6 +49,7 @@ export default function ImportPage() {
       setState({ step: 'error', message: 'Could not read the series data from the link.' });
     }
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function handleConfirm() {
     if (state.step !== 'confirm') return;
