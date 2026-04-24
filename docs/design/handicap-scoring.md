@@ -1,8 +1,11 @@
 # Handicap Scoring
 
 Design and implementation record for time-based handicap scoring. Phase 1 (static
-TCF — IRC and PY) is complete. Phase 2 (progressive handicaps — NHC and ECHO) is
-the next milestone. Covers mathematics, architecture, and implementation status.
+TCF — IRC and PY) is complete. The first pass of Phase 2 (NHC1 — Sailwave's
+built-in progressive handicap) is complete, including the rating-calculation
+explainability view. Remaining Phase 2 variants (RYA NHC 2015, SWNHC2015, ECHO)
+and scoring-inquiry exclusions are deferred. Covers mathematics, architecture,
+and implementation status.
 
 ---
 
@@ -79,7 +82,16 @@ to the scorer.
 
 ---
 
-## Phase 2: Progressive handicaps — NHC and ECHO — Not started
+## Phase 2: Progressive handicaps — NHC and ECHO
+
+> **Status:** First pass complete. NHC1 (Sailwave built-in; α = 0.15,
+> symmetric, no realignment) is implemented and in production, with
+> rating-calculation explainability and persistence of per-race TCF
+> snapshots. Implemented in commit `db39652` ("Add NHC1 progressive
+> handicap scoring"), with follow-ups `41cdf29` (viewer toggle) and
+> `a7d452a` (unified fixture rendering). Deferred: RYA NHC 2015,
+> SWNHC2015, ECHO, scoring-inquiry rating adjustments, and the
+> series-level Rating-history page.
 
 ### NHC (National Handicap for Cruisers)
 
@@ -108,7 +120,18 @@ Three distinct implementations exist in the wild:
 > resulting handicap is what HYC calls HPH. Other clubs' NHC variants are
 > reached by the same scoring system with different parameters.
 
-#### NHC1 — Sailwave built-in
+#### NHC1 — Sailwave built-in ✓ Implemented
+
+> **Status:** Complete. Scoring engine extended in `lib/scoring.ts`;
+> persistence of per-race TCF snapshots in `NhcTcfRecord`
+> (`lib/nhc-persistence.ts`, Dexie table `nhcTcfHistory`); series file
+> format and public JSON export both carry the TCF history. Per-fleet
+> `nhcAlpha` and per-competitor `nhcStartingTcf` editable from the
+> competitors and fleets settings pages. Four YAML fixtures in
+> `tests/fixtures/scoring/nhc/` cover single-race blend, non-finisher
+> carry-forward, missing-starting-TCF rejection, and multi-race
+> propagation. Retroactive edits to earlier races propagate forward to
+> later races' TCFs automatically (no explicit commit step).
 
 The algorithm has been confirmed by reverse-engineering the 2025 Puppeteer 22
 Championships data (`reference/data/nhc-example/`), where actual per-race TCFs
@@ -392,10 +415,10 @@ change all subsequent race results.
 
 **Implementation staging**
 
-1. **First pass — NHC1 only.** `alphaUp = alphaDown = 0.15`, no outliers, no
-   realignment, no `baseHandicap` field. Validates the whole Phase 2 pipeline
-   (TCF snapshotting, master-vs-race-TCF distinction, commit workflow) against
-   real Puppeteer 22 data.
+1. **First pass — NHC1 only.** ✓ Done. `alphaUp = alphaDown = 0.15`, no
+   outliers, no realignment, no `baseHandicap` field. Validated the Phase 2
+   pipeline (TCF snapshotting, automatic forward propagation of retroactive
+   edits) against real Puppeteer 22 data.
 2. **Add SWNHC2015.** Asymmetric α, `reduce-alpha` outlier strategy,
    `prior-mean` realignment. Config-only; no schema changes.
 3. **Add RYA NHC 2015.** Adds the `baseHandicap` field on competitor, the
@@ -483,7 +506,25 @@ but the master `comprating` is not advanced.
 - The audit trail should record who made the exclusion and why (free-text
   reason), because these are scoring-inquiry decisions and may be challenged.
 
-### Rating calculation explainability
+### Rating calculation explainability ✓ Implemented (NHC1)
+
+> **Status:** Implemented for NHC1. The seven explainability columns
+> (TCF used, ET, CT, CT ratio, Fair TCF, Adjustment, New TCF), the
+> per-race fleet-header line (α, finisher count, CT_avg, mean TCF),
+> and a non-finisher sub-table render in both the in-app standings
+> view and the exported HTML. In the exported HTML a viewer-facing
+> checkbox ("Show NHC rating calculations") toggles the columns and
+> header on/off, with the preference persisted to `localStorage`
+> (commit `41cdf29`). A series-level `publishRatingCalculations`
+> setting (default `true`) controls whether the columns are emitted
+> at all. Intermediates are stored per-competitor in `NhcRaceCalc` and
+> per-fleet-race in `NhcRaceAggregates`, populated by the scoring
+> engine and read directly by both the renderer and the public JSON
+> exporter. Deferred: the series-level Rating-history page, the
+> variant extensions (RYA/SWNHC2015/ECHO), and scoring-inquiry
+> exclusion rendering. Deviation from the original design: the
+> appendix is not collapsed-by-default-expandable; instead the
+> columns render inline and a single viewer toggle hides/shows them.
 
 The opacity of progressive handicap algorithms is their biggest practical
 problem: sailors don't trust a system they can't reproduce on paper. Phase 2
@@ -587,14 +628,19 @@ forward unchanged. Reason: [free text]."
 
 #### Placement in HTML output
 
-Per-race: a "Rating calculation" section below each race's results table,
-collapsed by default, expandable on click. Race results stay the headline;
-rating derivation is the appendix.
+Per-race (**implemented**): the explainability columns render inline in
+the same race table, with a single viewer toggle — "Show NHC rating
+calculations" — that hides or shows them. Defaults to hidden; the
+viewer's preference is persisted in `localStorage`. The original plan
+was a collapsed-by-default appendix section, but inline-with-toggle
+proved simpler and kept the CT column adjacent to corrected-time context
+already in the table. A series-level `publishRatingCalculations`
+setting (default `true`) controls whether the columns and toggle are
+emitted at all.
 
-Series-level: a "Rating history" page showing, for each boat, a row per
-race with `TCF_in → new_TCF` and the adjustment. The view a boat owner
-cares about most — not one race's math, but the trajectory across the
-season.
+Series-level (**deferred**): a "Rating history" page showing, for
+each boat, a row per race with `TCF_in → new_TCF` and the adjustment.
+Not yet built; per-race views currently cover the common case.
 
 #### Precision and display form
 
@@ -910,22 +956,34 @@ All steps implemented. Key commits and issues for reference:
 
 The NHC1 algorithm and parameters are confirmed from real race data
 (`reference/data/nhc-example/`; see `docs/notes/sailwave-excel-handicap-protocol.md`
-for the spreadsheet variant analysis). Remaining open questions:
+for the spreadsheet variant analysis).
 
-- **Carry-over handicap at series start.** The Championships data shows a gap between
-  `comprating` (master TCF) and race 1 `rrat` (TCF actually applied) for most boats,
-  indicating ratings were updated in a prior event. The pattern is clear but the
-  source of the initial series-start TCF is not: do boats carry over their
-  end-of-last-series TCF, is there a class-baseline reset between seasons, or does
-  the scorer manually set starting TCFs? Ask the fleet scorer before implementing
-  the series-start setup flow.
-- **Retroactive edits.** Changing a result for race N invalidates the computed TCF
-  for race N+1 and all subsequent races. HalSail requires a manual re-score; we
-  need to decide whether to propagate changes automatically, warn the scorer, or
-  lock races once handicaps are committed.
-- **`tcfApplied` persistence.** Currently `tcfApplied` in `HandicapRaceScore` is
-  calculated during scoring but not persisted in the series file. For static-TCF
-  systems (IRC, PY) this is fine — the rating doesn't change, so re-derivation is
-  correct. For progressive handicaps, the TCF applied in race N must be snapshotted,
-  because the stored handicap will change after race N is scored. Corresponds to
-  Sailwave's `rrat` per result record.
+**Resolved in the first pass:**
+
+- **Retroactive edits.** Decided: propagate automatically. Changing any input
+  (a finish time, a starting TCF, α) recomputes the full TCF history for the
+  fleet; the persisted `NhcTcfRecord` rows are rewritten as part of the
+  recompute. No explicit commit step and no per-race lock. This is the
+  opposite of HalSail's manual re-score but matches the local-first model
+  where a single scorer edits on their own machine.
+- **`tcfApplied` persistence.** Resolved: persisted per `(race, competitor,
+  fleet)` in the `nhcTcfHistory` Dexie table as `NhcTcfRecord`, with
+  `tcfApplied` (the Sailwave `rrat` analogue) and `newTcf` stored alongside.
+  Series file format and public JSON export both carry the history so that
+  imports can render without re-scoring, and so non-finishers (with no
+  Finish row) still leave an audit trail.
+
+**Still open:**
+
+- **Carry-over handicap at series start.** The Championships data shows a
+  gap between `comprating` (master TCF) and race 1 `rrat` (TCF actually
+  applied) for most boats, indicating ratings were updated in a prior event.
+  The pattern is clear but the source of the initial series-start TCF is
+  not: do boats carry over their end-of-last-series TCF, is there a
+  class-baseline reset between seasons, or does the scorer manually set
+  starting TCFs? Currently the scorer sets `nhcStartingTcf` per competitor
+  by hand; a future flow could auto-carry from a prior series. Ask the
+  fleet scorer before implementing.
+- **Scoring-inquiry exclusions.** Designed (see "Scoring-inquiry adjustments"
+  above) but not implemented. Defer until a real request comes in — the
+  data model for `excludeFromHandicapUpdate` is drafted but not wired up.
