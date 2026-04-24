@@ -27,7 +27,7 @@ test('DNS, RET, and DSQ codes are assignable and appear in standings', async ({ 
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
   }
 
@@ -97,7 +97,7 @@ test('BFD is not struck through and shown in red when a discard is active', asyn
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
   }
 
@@ -150,8 +150,8 @@ test('BFD is not struck through and shown in red when a discard is active', asyn
   const rows = page.getByRole('row');
   const aliceRow = rows.filter({ hasText: 'Alice' });
 
-  // Alice's Race 3 cell (col index: rank=0, sail=1, name=2, club=3, R1=4, R2=5, R3=6)
-  const aliceR3Cell = aliceRow.getByRole('cell').nth(6);
+  // Alice's Race 3 cell (col index: rank=0, sail=1, boat=2, name=3, club=4, R1=5, R2=6, R3=7)
+  const aliceR3Cell = aliceRow.getByRole('cell').nth(7);
 
   // BFD cell must NOT be struck through (non-discardable)
   await expect(aliceR3Cell).not.toHaveClass(/line-through/);
@@ -164,12 +164,12 @@ test('BFD is not struck through and shown in red when a discard is active', asyn
   await expect(bfdSpan).toHaveAttribute('title', 'BFD — cannot be discarded');
 
   // Alice's Race 1 cell should be struck through (worst discardable score dropped)
-  const aliceR1Cell = aliceRow.getByRole('cell').nth(4);
+  const aliceR1Cell = aliceRow.getByRole('cell').nth(5);
   await expect(aliceR1Cell).toHaveClass(/line-through/);
 
   // Bob leads with Nett=3; Alice is 2nd with Nett=6
   const aliceCells = aliceRow.getByRole('cell');
-  await expect(aliceCells.nth(8)).toContainText('6'); // Nett
+  await expect(aliceCells.nth(9)).toContainText('6'); // Nett
 });
 
 // ── Test 3: ZFP penalty is assignable and appears in standings ───────────────
@@ -188,7 +188,7 @@ test('ZFP penalty can be set on a finisher and appears in standings with amber s
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
   }
 
@@ -220,7 +220,7 @@ test('ZFP penalty can be set on a finisher and appears in standings with amber s
   const aliceRow = rows.filter({ hasText: 'Alice' });
 
   // Alice's R1 cell should show points and (ZFP)
-  const aliceR1Cell = aliceRow.getByRole('cell').nth(4);
+  const aliceR1Cell = aliceRow.getByRole('cell').nth(5);
   await expect(aliceR1Cell).toContainText('ZFP');
   await expect(aliceR1Cell.locator('span').first()).toHaveAttribute('title', 'ZFP penalty applied');
 });

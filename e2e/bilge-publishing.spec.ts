@@ -27,7 +27,7 @@ async function createSeriesWithData(page: Page): Promise<string> {
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('42');
-  await page.getByLabel('Helm name').fill('Alice');
+  await page.getByLabel('Competitor name').fill('Alice');
   await page.getByRole('button', { name: 'Save' }).click();
 
   await page.getByRole('link', { name: 'Races' }).click();

@@ -41,7 +41,7 @@ test('two-fleet series shows fleet column, per-fleet standings, and exports two 
   for (const c of [...juniors, ...seniors]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByLabel('Club').fill(c.club);
     // Check the appropriate fleet checkbox
     await page.getByRole('checkbox', { name: c.fleet }).check();
@@ -132,7 +132,7 @@ test('multi-fleet non-finishers show fleet badge', async ({ page }) => {
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByLabel('Club').fill(c.club);
     await page.getByRole('checkbox', { name: c.fleet }).check();
     await page.getByRole('button', { name: 'Save' }).click();
@@ -215,7 +215,7 @@ test('single-fleet series hides fleet concept', async ({ page }) => {
   // Add competitor with no fleet — goes to Default fleet
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('42');
-  await page.getByLabel('Helm name').fill('Alice');
+  await page.getByLabel('Competitor name').fill('Alice');
   await page.getByLabel('Club').fill('HYC');
   // No fleet checkbox shown for single-fleet series
   await page.getByRole('button', { name: 'Save' }).click();

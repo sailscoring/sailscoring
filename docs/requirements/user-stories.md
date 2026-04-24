@@ -25,7 +25,7 @@ Requirements expressed as user needs. Format: "As a [role], I want [capability] 
 
 | ID | Story |
 |----|-------|
-| CM-01 | As a scorer, I want to add a competitor with their sail number, name, club, and optionally boat name so that they can be identified in results |
+| CM-01 | As a scorer, I want to add a competitor with their sail number, primary identifier (helm, owner, or a generic "competitor"/"entrant" — configurable per series), optional secondary role (helm when the primary is owner, and vice versa), club, and optionally boat name so that they can be identified in results in the convention their class expects |
 | CM-02 | As a scorer, I want to assign a competitor to a fleet, and re-assign them later if needed, so that they are scored within the correct group |
 | CM-03 | As a scorer, I want to assign a competitor to a prize division so that they appear in the correct prize category standings |
 | CM-04 | As a scorer, I want to set a competitor's rating for each applicable rating system so that they appear in that rating system's standings |

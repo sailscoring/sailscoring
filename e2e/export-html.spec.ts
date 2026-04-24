@@ -29,7 +29,7 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
   ]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(sailNumber);
-    await page.getByLabel('Helm name').fill(name);
+    await page.getByLabel('Competitor name').fill(name);
     await page.getByLabel('Club').fill(club);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: sailNumber })).toBeVisible();
@@ -192,7 +192,7 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   for (const b of boats) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(b.sail);
-    await page.getByLabel('Helm name').fill(b.name);
+    await page.getByLabel('Competitor name').fill(b.name);
     await page.getByRole('checkbox', { name: b.fleet }).check();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: b.sail })).toBeVisible();
@@ -426,7 +426,7 @@ test('export HTML → import URL round-trip creates a new series', async ({ page
   for (const [sail, name] of [['11', 'Alice RT'], ['22', 'Bob RT']]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(sail);
-    await page.getByLabel('Helm name').fill(name);
+    await page.getByLabel('Competitor name').fill(name);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: sail })).toBeVisible();
   }

@@ -25,7 +25,7 @@ test('import per-race finish sheet from CSV', async ({ page }) => {
   ]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sail);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sail, exact: true })).toBeVisible();
   }
@@ -103,7 +103,7 @@ test('finish sheet CSV import replaces existing finishes', async ({ page }) => {
   ]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sail);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sail, exact: true })).toBeVisible();
   }

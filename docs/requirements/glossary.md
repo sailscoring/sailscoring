@@ -21,6 +21,7 @@ be defined are collected at the bottom.
 |------|------------|
 | Competitor | A person who races or intends to race in the event (per RRS). The competitor record represents a single boat entry and holds all associated attributes (sail number, helm, rating, etc.). |
 | Entrant | Synonym for competitor. Some events use "entrant" to refer to the person or entity who registers a boat. |
+| Primary identifier | The per-series choice of what label to use for the required name column on every competitor — "Competitor", "Entrant", "Helm", or "Owner". Dinghy series typically use Helm; cruiser series typically use Owner; mixed events use a generic label. Controls column headings everywhere results appear. Does not change which storage slot holds the name (always `Competitor.name`). |
 | Sail number | The primary identifier for a boat, displayed on its sails per class rules or national authority requirements. The default field used for looking up competitors during result entry. |
 | Alternate sail number | A secondary sail number field, searched alongside the primary sail number during result entry. Useful when a boat carries a country-code prefix (e.g. GBR 1234) separate from the numeric-only sail number. |
 | Bow number | A number affixed to the bow of a boat, typically assigned by the organizing authority for identification at a specific event. Sometimes used instead of sail number for result entry. |

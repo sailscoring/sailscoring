@@ -55,7 +55,7 @@ test('logo URLs appear as img tags in exported HTML', async ({ page }) => {
   await page.getByRole('link', { name: 'Competitors' }).click();
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1');
-  await page.getByLabel('Helm name').fill('Test Helm');
+  await page.getByLabel('Competitor name').fill('Test Helm');
   await page.getByLabel('Club').fill('TC');
   await page.getByRole('button', { name: 'Save' }).click();
 

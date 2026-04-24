@@ -36,14 +36,21 @@ import {
 } from '@/components/ui/tooltip';
 import { AlertTriangle, Pencil, Trash2 } from 'lucide-react';
 import { CompetitorImport, type CompetitorImportHandle } from '@/components/competitor-import';
-import type { Competitor, Fleet, CompetitorFieldKey } from '@/lib/types';
+import type { Competitor, Fleet, CompetitorFieldKey, PrimaryPersonLabel } from '@/lib/types';
 import {
   missingRatings,
   formatMissingRatings,
   requiredForFleetsHint,
   type MissingRating,
 } from '@/lib/competitor-ratings';
-import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
+import {
+  defaultEnabledCompetitorFields,
+  DEFAULT_PRIMARY_PERSON_LABEL,
+  PRIMARY_PERSON_LABEL_TEXT,
+  COMPETITOR_FIELD_LABELS,
+  ALL_COMPETITOR_FIELDS,
+  isFieldDisabledByPrimary,
+} from '@/lib/competitor-fields';
 import { log } from '@/lib/debug';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 
@@ -52,6 +59,8 @@ interface CompetitorFormData {
   boatName: string;
   boatClass: string;
   name: string;
+  owner: string;
+  helm: string;
   crewName: string;
   club: string;
   gender: '' | 'M' | 'F';
@@ -67,6 +76,8 @@ const emptyForm: CompetitorFormData = {
   boatName: '',
   boatClass: '',
   name: '',
+  owner: '',
+  helm: '',
   crewName: '',
   club: '',
   gender: '',
@@ -106,6 +117,7 @@ function CompetitorForm({
   existingCompetitors,
   availableFleets,
   enabledFields,
+  primaryLabel,
 }: {
   initial: CompetitorFormData;
   onSave: (data: CompetitorFormData) => Promise<void>;
@@ -113,10 +125,21 @@ function CompetitorForm({
   existingCompetitors: { sailNumber: string; fleetIds: string[] }[];
   availableFleets: Fleet[];
   enabledFields: CompetitorFieldKey[];
+  primaryLabel: PrimaryPersonLabel;
 }) {
   const [data, setData] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // "+ More fields" lets scorers add owner/helm/etc. without leaving the form.
+  // Defaults to expanded when the initial data already populates one of the
+  // extra slots (editing) so the value stays visible.
+  const initialExtra = (['owner', 'helm'] as const).some((f) => (initial[f] ?? '').trim().length > 0);
+  const [showMore, setShowMore] = useState(initialExtra);
+  const primaryFieldLabel = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
+  // Extra role fields available through "+ More fields" — the two role slots
+  // minus whichever one the primary already occupies.
+  const extraRoleFields: CompetitorFieldKey[] = (['owner', 'helm'] as CompetitorFieldKey[])
+    .filter((f) => !isFieldDisabledByPrimary(f, primaryLabel) && !enabledFields.includes(f));
 
   const sailNumberWarning = data.sailNumber.trim().includes(' ')
     ? "This looks like a name — sail numbers don't usually contain spaces."
@@ -149,7 +172,7 @@ function CompetitorForm({
       return;
     }
     if (!data.name.trim()) {
-      setError('Helm name is required.');
+      setError(`${primaryFieldLabel} name is required.`);
       return;
     }
     const sailUpper = data.sailNumber.trim().toUpperCase();
@@ -209,9 +232,9 @@ function CompetitorForm({
           )}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="helmName">Helm name *</Label>
+          <Label htmlFor="primaryName">{primaryFieldLabel} name *</Label>
           <Input
-            id="helmName"
+            id="primaryName"
             value={data.name}
             onChange={(e) => set('name', e.target.value)}
             placeholder="e.g. Jane Doe"
@@ -236,6 +259,50 @@ function CompetitorForm({
               value={data.boatClass}
               onChange={(e) => set('boatClass', e.target.value)}
               placeholder="e.g. Laser"
+            />
+          </div>
+        )}
+        {enabledFields.includes('helm') && !isFieldDisabledByPrimary('helm', primaryLabel) && (
+          <div className="space-y-1.5">
+            <Label htmlFor="helm">Helm name</Label>
+            <Input
+              id="helm"
+              value={data.helm}
+              onChange={(e) => set('helm', e.target.value)}
+              placeholder="e.g. Jane Doe"
+            />
+          </div>
+        )}
+        {enabledFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel) && (
+          <div className="space-y-1.5">
+            <Label htmlFor="owner">Owner name</Label>
+            <Input
+              id="owner"
+              value={data.owner}
+              onChange={(e) => set('owner', e.target.value)}
+              placeholder="e.g. John Smith"
+            />
+          </div>
+        )}
+        {showMore && extraRoleFields.includes('helm') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="helm">Helm name</Label>
+            <Input
+              id="helm"
+              value={data.helm}
+              onChange={(e) => set('helm', e.target.value)}
+              placeholder="e.g. Jane Doe"
+            />
+          </div>
+        )}
+        {showMore && extraRoleFields.includes('owner') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="owner">Owner name</Label>
+            <Input
+              id="owner"
+              value={data.owner}
+              onChange={(e) => set('owner', e.target.value)}
+              placeholder="e.g. John Smith"
             />
           </div>
         )}
@@ -353,6 +420,15 @@ function CompetitorForm({
           </div>
         )}
       </div>
+      {!showMore && extraRoleFields.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowMore(true)}
+          className="text-xs text-muted-foreground hover:text-foreground underline decoration-dotted"
+        >
+          + More fields ({extraRoleFields.map((f) => COMPETITOR_FIELD_LABELS[f]).join(', ')})
+        </button>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-3">
         <Button type="submit" disabled={saving}>
@@ -383,6 +459,9 @@ export default function CompetitorsPage({
   const series = useLiveQuery(() => seriesRepo.get(seriesId), [seriesId]);
   const enabledFields: CompetitorFieldKey[] =
     series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
+  const primaryLabel: PrimaryPersonLabel =
+    series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
+  const primaryFieldLabel = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const multipleFleets = (fleets ?? []).length > 1;
   const showIrc = (fleets ?? []).some((f) => f.scoringSystem === 'irc');
@@ -450,6 +529,7 @@ export default function CompetitorsPage({
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
       name: data.name,
+      ...(data.owner.trim() ? { owner: data.owner.trim() } : {}),
       ...(data.crewName.trim() ? { crewName: data.crewName.trim() } : {}),
       club: data.club,
       gender: data.gender,
@@ -478,6 +558,8 @@ export default function CompetitorsPage({
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
       name: data.name,
+      ...(data.owner.trim() ? { owner: data.owner.trim() } : {}),
+      ...(data.helm.trim() ? { helm: data.helm.trim() } : {}),
       ...(data.crewName.trim() ? { crewName: data.crewName.trim() } : {}),
       club: data.club,
       gender: data.gender,
@@ -490,6 +572,8 @@ export default function CompetitorsPage({
     if (!updated.nhcStartingTcf) delete updated.nhcStartingTcf;
     if (!data.boatName.trim()) delete updated.boatName;
     if (!data.boatClass.trim()) delete updated.boatClass;
+    if (!data.owner.trim()) delete updated.owner;
+    if (!data.helm.trim()) delete updated.helm;
     if (!data.crewName.trim()) delete updated.crewName;
     log('competitors', 'updating', updated);
     await competitorRepo.save(updated);
@@ -511,6 +595,8 @@ export default function CompetitorsPage({
     : existingCompetitors;
   const showBoat = enabledFields.includes('boatName');
   const showClass = enabledFields.includes('boatClass');
+  const showOwner = enabledFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel);
+  const showHelm = enabledFields.includes('helm') && !isFieldDisabledByPrimary('helm', primaryLabel);
   const showCrew = enabledFields.includes('crewName');
   const showClub = enabledFields.includes('club');
   const showGender = enabledFields.includes('gender');
@@ -546,6 +632,7 @@ export default function CompetitorsPage({
             existingCompetitors={existingCompetitors}
             availableFleets={fleets ?? []}
             enabledFields={enabledFields}
+            primaryLabel={primaryLabel}
           />
         </div>
       )}
@@ -557,7 +644,9 @@ export default function CompetitorsPage({
               <TableHead>Sail no.</TableHead>
               {showBoat && <TableHead>Boat</TableHead>}
               {showClass && <TableHead>Class</TableHead>}
-              <TableHead>Helm</TableHead>
+              <TableHead>{primaryFieldLabel}</TableHead>
+              {showHelm && <TableHead>Helm</TableHead>}
+              {showOwner && <TableHead>Owner</TableHead>}
               {showCrew && <TableHead>Crew</TableHead>}
               {showClub && <TableHead>Club</TableHead>}
               {multipleFleets && <TableHead>Fleet</TableHead>}
@@ -599,6 +688,8 @@ export default function CompetitorsPage({
                 {showBoat && <TableCell>{c.boatName ?? ''}</TableCell>}
                 {showClass && <TableCell>{c.boatClass ?? ''}</TableCell>}
                 <TableCell>{c.name}</TableCell>
+                {showHelm && <TableCell>{c.helm ?? ''}</TableCell>}
+                {showOwner && <TableCell>{c.owner ?? ''}</TableCell>}
                 {showCrew && <TableCell>{c.crewName ?? ''}</TableCell>}
                 {showClub && <TableCell>{c.club}</TableCell>}
                 {multipleFleets && <TableCell>{c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ')}</TableCell>}
@@ -675,6 +766,8 @@ export default function CompetitorsPage({
                 boatName: editingCompetitor.boatName ?? '',
                 boatClass: editingCompetitor.boatClass ?? '',
                 name: editingCompetitor.name,
+                owner: editingCompetitor.owner ?? '',
+                helm: editingCompetitor.helm ?? '',
                 crewName: editingCompetitor.crewName ?? '',
                 club: editingCompetitor.club,
                 gender: editingCompetitor.gender,
@@ -689,6 +782,7 @@ export default function CompetitorsPage({
               existingCompetitors={editingExcluded}
               availableFleets={fleets ?? []}
               enabledFields={enabledFields}
+              primaryLabel={primaryLabel}
             />
           )}
         </DialogContent>

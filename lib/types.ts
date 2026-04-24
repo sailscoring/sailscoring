@@ -4,8 +4,27 @@ export interface DiscardThreshold {
 }
 
 /** Optional competitor fields that can be shown or hidden per series.
- *  Sail number and helm name are always shown and are not configurable. */
-export type CompetitorFieldKey = 'boatName' | 'boatClass' | 'crewName' | 'club' | 'gender' | 'age';
+ *  Sail number and the primary person slot (`Competitor.name`, labelled per
+ *  `Series.primaryPersonLabel`) are always shown and are not configurable.
+ *  `helm` and `owner` are optional *role* fields: when the primary label is a
+ *  role, the matching key is disabled to avoid duplication with the primary. */
+export type CompetitorFieldKey =
+  | 'boatName'
+  | 'boatClass'
+  | 'helm'
+  | 'owner'
+  | 'crewName'
+  | 'club'
+  | 'gender'
+  | 'age';
+
+/** How the primary person slot (`Competitor.name`) is labelled throughout the
+ *  UI and exports. "competitor" and "entrant" are generic; "helm" and "owner"
+ *  are roles. This is a display concept only — it does not change which slot
+ *  stores the primary name. Optional fields `helm` and `owner` let scorers
+ *  record the other role separately; the matching role is disabled here when
+ *  the primary label already carries it. */
+export type PrimaryPersonLabel = 'competitor' | 'entrant' | 'helm' | 'owner';
 
 export interface StartGroup {
   fleetIds: string[];       // fleets sharing this starting signal
@@ -40,6 +59,7 @@ export interface Series {
   publishRatingCalculations?: boolean;  // NHC rating-calculation explainability columns/header (default true)
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
+  primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)
 }
 
 export interface Fleet {
@@ -65,7 +85,9 @@ export interface Competitor {
   sailNumber: string;
   boatName?: string;  // name of the vessel, e.g. "The Big Picture"
   boatClass?: string; // boat class, e.g. "Laser", "Firefly" — relevant for PY fleets
-  name: string;       // helm name
+  name: string;       // primary identifying person (labelled per Series.primaryPersonLabel)
+  owner?: string;     // owner, when recorded separately from the primary (e.g. helm-primary series)
+  helm?: string;      // helm, when recorded separately from the primary (e.g. owner-primary series)
   crewName?: string;  // crew name, for two-person dinghy classes
   club: string;
   gender: 'M' | 'F' | '';

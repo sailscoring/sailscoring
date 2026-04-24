@@ -111,6 +111,7 @@ Fleets within one Series.
 | start_date | date | No | First racing day |
 | end_date | date | No | Last racing day |
 | discard_profile | string | No | Discard rules, e.g. "0 discards < 4 races, 1 discard 4-9 races" |
+| primary_person_label | enum | No | Display label for the primary person slot on each Competitor. One of `competitor`, `entrant`, `helm`, `owner`. Defaults to `competitor`. Drives column headings in results and form labels throughout the UI. See Competitor.name for storage semantics |
 
 ### Fleet
 
@@ -148,7 +149,9 @@ A boat or person entered in the Series. Belongs to exactly one Fleet.
 | fleet_id | uuid | Yes | Parent Fleet |
 | sail_number | string | Yes | Primary identifier, e.g. "IRL 1234", "GBR 5678" |
 | alt_sail_numbers | list[string] | No | Alternative sail number identifiers. Used as fallback lookup during finish entry if the primary sail_number is not found. Useful when a boat has both a national registration number and a class sail number, or when different race areas use different numbering conventions |
-| name | string | No | Helm name |
+| name | string | Yes | Primary identifying person. Labelled per the series' `primaryPersonLabel` — "Competitor", "Entrant", "Helm", or "Owner" — a display concept only; the data slot is the same regardless of label. Required on every competitor so published results always carry at least one identifying name |
+| owner | string | No | Owner, when recorded separately from the primary. Used when `primaryPersonLabel` is Helm (dinghy pattern, helm is primary) or Competitor/Entrant, and the owner is distinct |
+| helm | string | No | Helm, when recorded separately from the primary. Used when `primaryPersonLabel` is Owner (cruiser pattern) or Competitor/Entrant, and the helm is distinct from whoever is primary |
 | boat_name | string | No | Vessel name (keelboats) |
 | club | string | No | Sailing club |
 | class | string | No | Boat class, e.g. "Optimist", "J/109" |

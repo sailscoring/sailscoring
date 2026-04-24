@@ -4,7 +4,11 @@ import { use, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { competitorRepo, fleetRepo, raceRepo, finishRepo, raceStartRepo, seriesRepo } from '@/lib/dexie-repository';
-import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
+import {
+  defaultEnabledCompetitorFields,
+  DEFAULT_PRIMARY_PERSON_LABEL,
+  PRIMARY_PERSON_LABEL_TEXT,
+} from '@/lib/competitor-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -90,6 +94,8 @@ export default function ResultEntryPage({
   const series = useLiveQuery(() => seriesRepo.get(seriesId), [seriesId]);
   const showCrew =
     (series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields()).includes('crewName');
+  const primaryFieldLabel =
+    PRIMARY_PERSON_LABEL_TEXT[series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL];
   const race = useLiveQuery(async () => (await raceRepo.get(raceId)) ?? null, [raceId]);
   const savedFinishes = useLiveQuery(
     () => finishRepo.listByRace(raceId),
@@ -921,7 +927,7 @@ export default function ResultEntryPage({
     if (!resolvingEntry) return;
     const name = newCompetitorName.trim();
     const sail = newCompetitorSail.trim().toUpperCase();
-    if (!name) { setAddCompetitorError('Helm name is required.'); return; }
+    if (!name) { setAddCompetitorError(`${primaryFieldLabel} name is required.`); return; }
     if (!sail) { setAddCompetitorError('Sail number is required.'); return; }
 
     setAddingCompetitor(true);
@@ -1945,7 +1951,7 @@ export default function ResultEntryPage({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium" htmlFor="resolve-name">Helm name *</label>
+                  <label className="text-sm font-medium" htmlFor="resolve-name">{primaryFieldLabel} name *</label>
                   <Input
                     id="resolve-name"
                     value={newCompetitorName}

@@ -41,7 +41,7 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByLabel('Club').fill(c.club);
     await page.getByRole('button', { name: 'Save' }).click();
     // Wait for row to appear before adding the next one
@@ -202,7 +202,7 @@ test('unknown sail number shows error and "Record as unknown" option', async ({ 
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('9999');
-  await page.getByLabel('Helm name').fill('Test Sailor');
+  await page.getByLabel('Competitor name').fill('Test Sailor');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: '9999' })).toBeVisible();
 
@@ -235,11 +235,11 @@ test('unknown finish can be recorded and resolved', async ({ page }) => {
   // Add two competitors
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1001');
-  await page.getByLabel('Helm name').fill('Alice');
+  await page.getByLabel('Competitor name').fill('Alice');
   await page.getByRole('button', { name: 'Save' }).click();
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1002');
-  await page.getByLabel('Helm name').fill('Bob');
+  await page.getByLabel('Competitor name').fill('Bob');
   await page.getByRole('button', { name: 'Save' }).click();
 
   await page.getByRole('link', { name: 'Races' }).click();
@@ -282,7 +282,7 @@ test('unknown finish resolved by adding a new competitor', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1001');
-  await page.getByLabel('Helm name').fill('Alice');
+  await page.getByLabel('Competitor name').fill('Alice');
   await page.getByRole('button', { name: 'Save' }).click();
 
   await page.getByRole('link', { name: 'Races' }).click();
@@ -303,7 +303,7 @@ test('unknown finish resolved by adding a new competitor', async ({ page }) => {
   await expect(dialog.getByLabel('Sail number')).toHaveValue('9999');
 
   // Fill in the helm name and submit
-  await dialog.getByLabel('Helm name *').fill('Bob');
+  await dialog.getByLabel('Competitor name *').fill('Bob');
   await dialog.getByRole('button', { name: 'Add and resolve' }).click();
 
   // Unknown entry replaced by the new competitor
@@ -325,7 +325,7 @@ test('unknown finish survives save and reload', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1001');
-  await page.getByLabel('Helm name').fill('Alice');
+  await page.getByLabel('Competitor name').fill('Alice');
   await page.getByRole('button', { name: 'Save' }).click();
 
   await page.getByRole('link', { name: 'Races' }).click();
@@ -356,11 +356,11 @@ test('unresolved unknown finish is excluded from standings', async ({ page }) =>
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1001');
-  await page.getByLabel('Helm name').fill('Alice');
+  await page.getByLabel('Competitor name').fill('Alice');
   await page.getByRole('button', { name: 'Save' }).click();
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1002');
-  await page.getByLabel('Helm name').fill('Bob');
+  await page.getByLabel('Competitor name').fill('Bob');
   await page.getByRole('button', { name: 'Save' }).click();
 
   await page.getByRole('link', { name: 'Races' }).click();
@@ -394,7 +394,7 @@ test('move controls reorder scratch rows in the finishing list', async ({ page }
   for (const [sailNumber, name] of [['101', 'Alice'], ['102', 'Bob'], ['103', 'Carol']]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(sailNumber);
-    await page.getByLabel('Helm name').fill(name);
+    await page.getByLabel('Competitor name').fill(name);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: sailNumber })).toBeVisible();
   }
@@ -453,7 +453,7 @@ test('sail number autocomplete in result entry', async ({ page }) => {
   for (const [sailNumber, name] of [['1001', 'Alice Murphy'], ['1002', 'Bob Kelly'], ['1003', 'Carol Ryan']]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(sailNumber);
-    await page.getByLabel('Helm name').fill(name);
+    await page.getByLabel('Competitor name').fill(name);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: sailNumber })).toBeVisible();
   }

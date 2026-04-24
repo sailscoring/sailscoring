@@ -37,7 +37,7 @@ test('start check-in marks boats present and affects A5.3 standings', async ({ p
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
   }

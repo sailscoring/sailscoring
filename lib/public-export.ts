@@ -1,8 +1,8 @@
-import type { ResultCode, PenaltyCode, DiscardThreshold, CompetitorFieldKey } from './types';
+import type { ResultCode, PenaltyCode, DiscardThreshold, CompetitorFieldKey, PrimaryPersonLabel } from './types';
 import { db } from './db';
 import { seriesRepo, competitorRepo, raceRepo, finishRepo, fleetRepo, raceStartRepo, listSeriesNames } from './dexie-repository';
 import { calculateFleetStandings, calculateRaceScores } from './scoring';
-import { defaultEnabledCompetitorFields } from './competitor-fields';
+import { defaultEnabledCompetitorFields, DEFAULT_PRIMARY_PERSON_LABEL } from './competitor-fields';
 import { disambiguateSeriesName } from './series-name';
 
 // ---- Public export type ----
@@ -35,6 +35,10 @@ export interface PublicSeriesExport {
      *  Display hint for re-renderers; competitor data is still exported in
      *  full regardless of this setting. */
     displayFields: CompetitorFieldKey[];
+    /** Label for the primary person slot (`Competitor.name`). Display hint —
+     *  "competitor" / "entrant" / "helm" / "owner". Absent in exports produced
+     *  by older builds; importers default to "competitor". */
+    primaryPersonLabel?: PrimaryPersonLabel;
     scoringMode: 'scratch' | 'handicap';
     /** NHC publish-rating-calculations toggle (display hint). */
     publishRatingCalculations?: boolean;
@@ -53,6 +57,10 @@ export interface PublicSeriesExport {
     boatName?: string;
     boatClass?: string;
     name: string;
+    /** Owner, when recorded separately from the primary (helm-primary series). */
+    owner?: string;
+    /** Helm, when recorded separately from the primary (owner-primary series). */
+    helm?: string;
     crewName?: string;
     club: string;
     gender: 'M' | 'F' | '';
@@ -286,6 +294,7 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
       discardThresholds: series.discardThresholds,
       dnfScoring: series.dnfScoring,
       displayFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
+      primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
       ...(exportedDefaultStartSequence ? { defaultStartSequence: exportedDefaultStartSequence } : {}),
@@ -301,6 +310,8 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       name: c.name,
+      ...(c.owner ? { owner: c.owner } : {}),
+      ...(c.helm ? { helm: c.helm } : {}),
       ...(c.crewName ? { crewName: c.crewName } : {}),
       club: c.club,
       gender: c.gender,
@@ -384,6 +395,7 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
       includeJsonExport: true,
       ...(data.series.publishRatingCalculations != null ? { publishRatingCalculations: data.series.publishRatingCalculations } : {}),
       enabledCompetitorFields: data.series.displayFields ?? defaultEnabledCompetitorFields(),
+      primaryPersonLabel: data.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     });
 
     for (const f of data.fleets) {
@@ -409,6 +421,8 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
         ...(c.boatName ? { boatName: c.boatName } : {}),
         ...(c.boatClass ? { boatClass: c.boatClass } : {}),
         name: c.name,
+        ...(c.owner ? { owner: c.owner } : {}),
+        ...(c.helm ? { helm: c.helm } : {}),
         ...(c.crewName ? { crewName: c.crewName } : {}),
         club: c.club,
         gender: c.gender,

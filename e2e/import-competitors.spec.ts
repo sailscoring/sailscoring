@@ -16,7 +16,7 @@ test('import competitors from CSV', async ({ page }) => {
   // ── 2. Add one competitor manually so we can test overwrite & unchanged ───
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('IRL100');
-  await page.getByLabel('Helm name').fill('Original Name');
+  await page.getByLabel('Competitor name').fill('Original Name');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'IRL100', exact: true })).toBeVisible();
 

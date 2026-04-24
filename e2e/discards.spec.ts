@@ -34,7 +34,7 @@ test('discard rule changes standings and shows Nett column', async ({ page }) =>
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
   }
@@ -121,18 +121,18 @@ test('discard rule changes standings and shows Nett column', async ({ page }) =>
   await expect(aliceRow.getByRole('cell').nth(0)).toContainText('1');
 
   // Alice's last race cell (Race 3) should be struck through
-  const aliceR3Cell = aliceRow.getByRole('cell').nth(6); // rank, sail, name, club, R1, R2, R3
+  const aliceR3Cell = aliceRow.getByRole('cell').nth(7); // rank, sail, boat, name, club, R1, R2, R3
   await expect(aliceR3Cell).toHaveClass(/line-through/);
 
   // Alice: Total=8, Nett=2
   const aliceCells = aliceRow.getByRole('cell');
-  const aliceTotalCell = aliceCells.nth(7);
-  const aliceNettCell = aliceCells.nth(8);
+  const aliceTotalCell = aliceCells.nth(8);
+  const aliceNettCell = aliceCells.nth(9);
   await expect(aliceTotalCell).toContainText('8');
   await expect(aliceNettCell).toContainText('2');
 
   // Bob: Total=5, Nett=3
   const bobCells = bobRow.getByRole('cell');
-  const bobNettCell = bobCells.nth(8);
+  const bobNettCell = bobCells.nth(9);
   await expect(bobNettCell).toContainText('3');
 });

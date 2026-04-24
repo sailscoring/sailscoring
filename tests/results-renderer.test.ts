@@ -262,24 +262,25 @@ describe('renderSeriesHtml', () => {
       expect(html).toContain('Windchaser');
     });
 
-    it('renders plain Helm header when crewName is not enabled', () => {
-      const html = renderSeriesHtml({ ...withBoatAndCrew, enabledCompetitorFields: [] });
+    it('renders a plain primary header when crewName is not enabled', () => {
+      const html = renderSeriesHtml({ ...withBoatAndCrew, enabledCompetitorFields: [], primaryPersonLabel: 'helm' });
       expect(html).toContain('<th>Helm</th>');
       expect(html).not.toContain('Helm / Crew');
       // Crew name must not leak into the output
       expect(html).not.toContain('Mark');
     });
 
-    it('renders "Helm / Crew" header and combined cell when crewName is enabled', () => {
-      const html = renderSeriesHtml({ ...withBoatAndCrew, enabledCompetitorFields: ['crewName'] });
+    it('renders "Primary / Crew" header and combined cell when crewName is enabled', () => {
+      const html = renderSeriesHtml({ ...withBoatAndCrew, enabledCompetitorFields: ['crewName'], primaryPersonLabel: 'helm' });
       expect(html).toContain('<th>Helm / Crew</th>');
       expect(html).toContain('Alice / Mark');
     });
 
-    it('falls back to helm-only when crewName is enabled but no crew is set', () => {
+    it('falls back to primary-only when crewName is enabled but no crew is set', () => {
       const noCrew: SeriesResultsData = {
         ...withBoatAndCrew,
         enabledCompetitorFields: ['crewName'],
+        primaryPersonLabel: 'helm',
         standings: [{ ...withBoatAndCrew.standings[0], crewName: undefined }],
         races: [
           {
@@ -290,10 +291,21 @@ describe('renderSeriesHtml', () => {
       };
       const html = renderSeriesHtml(noCrew);
       // Header is still "Helm / Crew" (the scorer chose to show it), but a
-      // single-hander row just shows the helm.
+      // single-hander row just shows the primary name.
       expect(html).toContain('<th>Helm / Crew</th>');
       expect(html).not.toContain('Alice /');
       expect(html).toContain('>Alice<');
+    });
+
+    it('defaults to "Competitor" as the primary header when primaryPersonLabel is unset', () => {
+      const html = renderSeriesHtml({ ...withBoatAndCrew, enabledCompetitorFields: [] });
+      expect(html).toContain('<th>Competitor</th>');
+    });
+
+    it('uses the configured primary label (Owner) in the header', () => {
+      const html = renderSeriesHtml({ ...withBoatAndCrew, enabledCompetitorFields: [], primaryPersonLabel: 'owner' });
+      expect(html).toContain('<th>Owner</th>');
+      expect(html).not.toContain('<th>Helm</th>');
     });
   });
 });

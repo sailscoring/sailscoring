@@ -33,7 +33,7 @@ test('RDG non-finisher: A9(a) average replaces score and shows RDG(pts) in stand
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
   }
 
@@ -96,16 +96,16 @@ test('RDG non-finisher: A9(a) average replaces score and shows RDG(pts) in stand
   await expect(bobRow.getByRole('cell').nth(0)).toContainText('1');
   await expect(aliceRow.getByRole('cell').nth(0)).toContainText('2');
 
-  // Alice's Race 2 cell (col 5: rank=0 sail=1 name=2 club=3 R1=4 R2=5)
-  const aliceR2Cell = aliceRow.getByRole('cell').nth(5);
+  // Alice's Race 2 cell (col 6: rank=0 sail=1 boat=2 name=3 club=4 R1=5 R2=6)
+  const aliceR2Cell = aliceRow.getByRole('cell').nth(6);
   await expect(aliceR2Cell).toContainText('RDG(1.5)');
 
   // The RDG cell should be amber
   await expect(aliceR2Cell.locator('span').first()).toHaveClass(/text-amber-/);
 
-  // Total column (col 7 for 3 races, no discard): Bob=4, Alice=4.5
-  await expect(bobRow.getByRole('cell').nth(7)).toContainText('4');
-  await expect(aliceRow.getByRole('cell').nth(7)).toContainText('4.5');
+  // Total column (col 8 for 3 races, no discard): Bob=4, Alice=4.5
+  await expect(bobRow.getByRole('cell').nth(8)).toContainText('4');
+  await expect(aliceRow.getByRole('cell').nth(8)).toContainText('4.5');
 });
 
 // ── Test 2: finisher RDG via scales button ────────────────────────────────────
@@ -129,7 +129,7 @@ test('RDG finisher: scales button replaces finish score with A9(a) average', asy
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
   }
 
@@ -193,12 +193,12 @@ test('RDG finisher: scales button replaces finish score with A9(a) average', asy
   await expect(aliceRow.getByRole('cell').nth(0)).toContainText('1');
   await expect(bobRow.getByRole('cell').nth(0)).toContainText('2');
 
-  // Alice's Race 3 cell (col 6) shows RDG(1) — pool avg of 1, 1 = 1.0 → shown as 1
-  const aliceR3Cell = aliceRow.getByRole('cell').nth(6);
+  // Alice's Race 3 cell (col 7) shows RDG(1) — pool avg of 1, 1 = 1.0 → shown as 1
+  const aliceR3Cell = aliceRow.getByRole('cell').nth(7);
   await expect(aliceR3Cell).toContainText('RDG(1)');
   await expect(aliceR3Cell.locator('span').first()).toHaveClass(/text-amber-/);
 
   // Total: Alice=3, Bob=5
-  await expect(aliceRow.getByRole('cell').nth(7)).toContainText('3');
-  await expect(bobRow.getByRole('cell').nth(7)).toContainText('5');
+  await expect(aliceRow.getByRole('cell').nth(8)).toContainText('3');
+  await expect(bobRow.getByRole('cell').nth(8)).toContainText('5');
 });

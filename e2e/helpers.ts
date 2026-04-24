@@ -67,7 +67,7 @@ export async function addCompetitor(
 ): Promise<void> {
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill(data.sailNumber);
-  await page.getByLabel('Helm name').fill(data.name);
+  await page.getByLabel('Competitor name').fill(data.name);
   if (data.club) await page.getByLabel('Club').fill(data.club);
   if (data.fleet) {
     // Check the fleet checkbox — only visible when multiple fleets exist

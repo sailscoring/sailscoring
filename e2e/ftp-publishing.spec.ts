@@ -65,7 +65,7 @@ test('FTP upload dialog: shows configured server; shows no-servers message after
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1');
-  await page.getByLabel('Helm name').fill('Alice');
+  await page.getByLabel('Competitor name').fill('Alice');
   await page.getByRole('button', { name: 'Save' }).click();
 
   await page.getByRole('link', { name: 'Races' }).click();

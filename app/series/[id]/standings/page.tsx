@@ -10,7 +10,12 @@ import type { ScoringRejection } from '@/lib/types';
 import { AlertTriangle } from 'lucide-react';
 import { renderSeriesHtml, assembleSeriesResultsData } from '@/lib/results-renderer';
 import { buildPublicExport } from '@/lib/public-export';
-import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
+import {
+  defaultEnabledCompetitorFields,
+  DEFAULT_PRIMARY_PERSON_LABEL,
+  PRIMARY_PERSON_LABEL_TEXT,
+  isFieldDisabledByPrimary,
+} from '@/lib/competitor-fields';
 import { uploadViaScupper } from '@/lib/scupper';
 import {
   Table,
@@ -48,7 +53,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { uploadToBilge, lookupPrefix, checkPublishStatus, publishedUrl, fetchPolicy } from '@/lib/bilge';
 import { slugify, isValidPrefix } from '@/lib/bilge-slug';
-import type { Standing, DiscardThreshold, Fleet, Series, BilgeBundle, CompetitorFieldKey, Competitor, ResultCode, PenaltyCode } from '@/lib/types';
+import type { Standing, DiscardThreshold, Fleet, Series, BilgeBundle, CompetitorFieldKey, PrimaryPersonLabel, Competitor, ResultCode, PenaltyCode } from '@/lib/types';
 
 function PointsCell({
   points,
@@ -221,6 +226,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
         raceStarts: allRaceStarts,
         fleetId: fleet.id,
         scoringSystem: fleet.scoringSystem,
+        primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
         ...(nhcAggregatesForRender ? { nhcAggregatesByRaceId: nhcAggregatesForRender } : {}),
       },
     );
@@ -979,6 +985,7 @@ export default function StandingsPage({
               races={races}
               hasDiscards={hasDiscards}
               enabledFields={series.enabledCompetitorFields ?? defaultEnabledCompetitorFields()}
+              primaryLabel={series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL}
             />
           </div>
         );
@@ -1034,14 +1041,18 @@ function FleetStandingsTable({
   races,
   hasDiscards,
   enabledFields,
+  primaryLabel,
 }: {
   standings: Standing[];
   races: { id: string; raceNumber: number }[];
   hasDiscards: boolean;
   enabledFields: CompetitorFieldKey[];
+  primaryLabel: PrimaryPersonLabel;
 }) {
   const showBoat = enabledFields.includes('boatName');
   const showClass = enabledFields.includes('boatClass');
+  const showHelm = enabledFields.includes('helm') && !isFieldDisabledByPrimary('helm', primaryLabel);
+  const showOwner = enabledFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel);
   const showCrew = enabledFields.includes('crewName');
   const showClub = enabledFields.includes('club');
   return (
@@ -1052,7 +1063,9 @@ function FleetStandingsTable({
           <TableHead className="w-20">Sail no.</TableHead>
           {showBoat && <TableHead>Boat</TableHead>}
           {showClass && <TableHead>Class</TableHead>}
-          <TableHead>Helm</TableHead>
+          <TableHead>{PRIMARY_PERSON_LABEL_TEXT[primaryLabel]}</TableHead>
+          {showHelm && <TableHead>Helm</TableHead>}
+          {showOwner && <TableHead>Owner</TableHead>}
           {showCrew && <TableHead>Crew</TableHead>}
           {showClub && <TableHead>Club</TableHead>}
           {races.map((race) => (
@@ -1075,6 +1088,8 @@ function FleetStandingsTable({
             hasDiscards={hasDiscards}
             showBoat={showBoat}
             showClass={showClass}
+            showHelm={showHelm}
+            showOwner={showOwner}
             showCrew={showCrew}
             showClub={showClub}
           />
@@ -1090,6 +1105,8 @@ function StandingRow({
   hasDiscards,
   showBoat,
   showClass,
+  showHelm,
+  showOwner,
   showCrew,
   showClub,
 }: {
@@ -1098,6 +1115,8 @@ function StandingRow({
   hasDiscards: boolean;
   showBoat: boolean;
   showClass: boolean;
+  showHelm: boolean;
+  showOwner: boolean;
   showCrew: boolean;
   showClub: boolean;
 }) {
@@ -1121,6 +1140,8 @@ function StandingRow({
       {showBoat && <TableCell>{competitor.boatName ?? ''}</TableCell>}
       {showClass && <TableCell>{competitor.boatClass ?? ''}</TableCell>}
       <TableCell>{competitor.name}</TableCell>
+      {showHelm && <TableCell>{competitor.helm ?? ''}</TableCell>}
+      {showOwner && <TableCell>{competitor.owner ?? ''}</TableCell>}
       {showCrew && <TableCell>{competitor.crewName ?? ''}</TableCell>}
       {showClub && <TableCell className="text-muted-foreground">{competitor.club}</TableCell>}
       {racePoints.map((points, i) => {

@@ -38,7 +38,7 @@ test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
   for (const c of boats) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
   }
@@ -124,7 +124,7 @@ test('series file version is current with IRC fleet scoring system', async ({ pa
   await page.getByRole('link', { name: 'Competitors' }).click();
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('F1');
-  await page.getByLabel('Helm name').fill('Format Tester');
+  await page.getByLabel('Competitor name').fill('Format Tester');
   await page.getByRole('button', { name: 'Save' }).click();
 
   // ── 2. Save to file and verify format version ─────────────────────────────
@@ -140,7 +140,7 @@ test('series file version is current with IRC fleet scoring system', async ({ pa
   }
   const json = JSON.parse(Buffer.concat(chunks).toString());
 
-  expect(json.formatVersion).toBe(1);
+  expect(json.formatVersion).toBe(2);
 
   const ircFleet = json.fleets?.find((f: { name: string }) => f.name === 'IRC');
   expect(ircFleet?.scoringSystem).toBe('irc');

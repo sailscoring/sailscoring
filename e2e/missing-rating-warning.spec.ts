@@ -24,7 +24,7 @@ test('missing handicap rating: tooltip + dialog hint name the fleet and rating',
   // auto-assigned to the only fleet on save)
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('IRL1234');
-  await page.getByLabel('Helm name').fill('Test Skipper');
+  await page.getByLabel('Competitor name').fill('Test Skipper');
   await page.getByRole('button', { name: 'Save' }).click();
 
   // Row should render the warning icon with the descriptive aria-label

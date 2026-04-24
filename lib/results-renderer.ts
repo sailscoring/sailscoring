@@ -1,4 +1,9 @@
-import type { ResultCode, PenaltyCode, CompetitorFieldKey } from './types';
+import type { ResultCode, PenaltyCode, CompetitorFieldKey, PrimaryPersonLabel } from './types';
+import {
+  PRIMARY_PERSON_LABEL_TEXT,
+  DEFAULT_PRIMARY_PERSON_LABEL,
+  isFieldDisabledByPrimary,
+} from './competitor-fields';
 
 // ---- Input types ----
 
@@ -18,6 +23,10 @@ export interface SeriesResultsData {
    *  is shown iff this list contains 'boatName'; the helm cell includes the
    *  crew name iff this list contains 'crewName'. */
   enabledCompetitorFields: CompetitorFieldKey[];
+  /** Label for the primary person slot (`Competitor.name`). Drives the
+   *  summary and race table column heading that corresponds to the primary
+   *  name. Defaults to "Competitor" if not set (matching v1 files). */
+  primaryPersonLabel?: PrimaryPersonLabel;
   /** Races in series order */
   races: RaceData[];
   /** Standings sorted by rank ascending */
@@ -57,7 +66,12 @@ export interface RaceResultData {
   sailNumber: string;
   boatName?: string;
   boatClass?: string;
+  /** Primary name — labelled per `SeriesResultsData.primaryPersonLabel`. */
   helm: string;
+  /** Owner when recorded separately from the primary (helm-primary series). */
+  owner?: string;
+  /** Helm when recorded separately from the primary (owner-primary series). */
+  helmRole?: string;
   crewName?: string;
   place: number | null;   // internal sort key for display order; null for coded finishes
   rank: number | null;    // within-fleet finish rank; null for coded finishes
@@ -92,7 +106,12 @@ export interface StandingRowData {
   sailNumber: string;
   boatName?: string;
   boatClass?: string;
+  /** Primary name — labelled per `SeriesResultsData.primaryPersonLabel`. */
   helm: string;
+  /** Owner when recorded separately (helm-primary series). */
+  owner?: string;
+  /** Helm when recorded separately (owner-primary series). */
+  helmRole?: string;
   crewName?: string;
   raceScores: RaceScoreData[];
   totalPoints: number;
@@ -112,12 +131,16 @@ export interface RaceScoreData {
 // ---- Renderer ----
 
 export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercent?: number }): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, generatedAt, enabledCompetitorFields, races, standings, openInAppUrl } = data;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, generatedAt, enabledCompetitorFields, primaryPersonLabel, races, standings, openInAppUrl } = data;
   const fontPercent = options?.fontPercent ?? 80;
 
+  const primaryLabel = primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
+  const primaryHeader = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
   const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
   const showBoatName = enabledCompetitorFields.includes('boatName');
   const showBoatClass = enabledCompetitorFields.includes('boatClass');
+  const showHelm = enabledCompetitorFields.includes('helm') && !isFieldDisabledByPrimary('helm', primaryLabel);
+  const showOwner = enabledCompetitorFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel);
   const showCrewName = enabledCompetitorFields.includes('crewName');
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
   const hasNhcDetail = races.some((r) => r.nhcHeader != null);
@@ -167,8 +190,8 @@ ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 ${generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
 ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${hasNhcDetail ? renderNhcToggle() : ''}
-${renderSummaryTable(standings, races, hasDiscards, showBoatName, showBoatClass, showCrewName)}
-${races.map((race) => renderRaceTable(race, showBoatName, showBoatClass, showCrewName)).join('\n')}
+${renderSummaryTable(standings, races, hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, primaryHeader)}
+${races.map((race) => renderRaceTable(race, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, primaryHeader)).join('\n')}
 <p class="hardleft"></p>
 <p class="hardright"></p>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}">Open in Sail Scoring</a>` : ''}</p>
@@ -209,10 +232,13 @@ function renderSummaryTable(
   hasDiscards: boolean,
   showBoatName: boolean,
   showBoatClass: boolean,
+  showHelm: boolean,
+  showOwner: boolean,
   showCrewName: boolean,
+  primaryHeader: string,
 ): string {
-  const extraCols = (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0);
-  const colCount = 3 + extraCols + races.length + (hasDiscards ? 2 : 1); // rank + sail [+ boat] [+ class] + helm + races + total [+ nett]
+  const extraCols = (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0);
+  const colCount = 3 + extraCols + races.length + (hasDiscards ? 2 : 1); // rank + sail [+ boat] [+ class] + primary [+ helm] [+ owner] + races + total [+ nett]
 
   const cols = [
     '<col class="rank" />',
@@ -220,6 +246,8 @@ function renderSummaryTable(
     ...(showBoatName ? ['<col class="boatname" />'] : []),
     ...(showBoatClass ? ['<col class="boatclass" />'] : []),
     '<col class="helmname" />',
+    ...(showHelm ? ['<col class="helm" />'] : []),
+    ...(showOwner ? ['<col class="owner" />'] : []),
     ...races.map(() => '<col class="race" />'),
     '<col class="total" />',
     ...(hasDiscards ? ['<col class="nett" />'] : []),
@@ -230,7 +258,9 @@ function renderSummaryTable(
     '<th>Sail</th>',
     ...(showBoatName ? ['<th>Boat</th>'] : []),
     ...(showBoatClass ? ['<th>Class</th>'] : []),
-    `<th>${showCrewName ? 'Helm / Crew' : 'Helm'}</th>`,
+    `<th>${esc(showCrewName ? `${primaryHeader} / Crew` : primaryHeader)}</th>`,
+    ...(showHelm ? ['<th>Helm</th>'] : []),
+    ...(showOwner ? ['<th>Owner</th>'] : []),
     ...races.map(
       (r) => `<th><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a></th>`,
     ),
@@ -261,6 +291,8 @@ function renderSummaryTable(
         ...(showBoatName ? [`<td>${esc(s.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(s.boatClass ?? '')}</td>`] : []),
         `<td>${esc(renderHelmCell(s.helm, s.crewName, showCrewName))}</td>`,
+        ...(showHelm ? [`<td>${esc(s.helmRole ?? '')}</td>`] : []),
+        ...(showOwner ? [`<td>${esc(s.owner ?? '')}</td>`] : []),
         scoreCells,
         `<td>${s.totalPoints}</td>`,
         ...(hasDiscards ? [`<td>${s.netPoints}</td>`] : []),
@@ -286,7 +318,7 @@ ${rows}
 
 // ---- Race detail table ----
 
-function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: boolean, showCrewName: boolean): string {
+function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: boolean, showHelm: boolean, showOwner: boolean, showCrewName: boolean, primaryHeader: string): string {
   const dateStr = formatIsoDate(race.date);
   const startStr = race.startTime ? ` &mdash; Start: ${esc(race.startTime)}` : '';
   const isNhc = race.isNhc === true || race.nhcHeader != null;
@@ -327,6 +359,8 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
         `<td>${esc(renderHelmCell(r.helm, r.crewName, showCrewName))}</td>`,
+        ...(showHelm ? [`<td>${esc(r.helmRole ?? '')}</td>`] : []),
+        ...(showOwner ? [`<td>${esc(r.owner ?? '')}</td>`] : []),
         ...handicapCells,
         ...nhcCells,
         `<td>${pointsText}</td>`,
@@ -335,7 +369,7 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
     })
     .join('\n');
 
-  const baseColCount = 4 + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0);
+  const baseColCount = 4 + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0);
   const colCount = baseColCount + (hasHandicapCols ? 4 : 0) + (hasExplain ? 4 : 0);
   const handicapHeaders = hasHandicapCols
     ? `\n<th>Finish</th>\n<th>ET</th>\n<th>${ratingLabel}</th>\n<th>CT</th>`
@@ -353,20 +387,21 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
     ? `<p class="nhc-fleet-header nhc-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: NHC1 &middot; α = ${race.nhcHeader!.alpha} &middot; Finishers: ${race.nhcHeader!.finisherCount} &middot; CT_avg: ${formatCorrectedSecs(race.nhcHeader!.ctAvgSecs)} &middot; mean TCF: ${race.nhcHeader!.meanTcf.toFixed(4)}</p>`
     : '';
 
+  const primaryTh = esc(showCrewName ? `${primaryHeader} / Crew` : primaryHeader);
   return `<h3 class="racetitle" id="${esc(race.anchorId)}">${esc(race.label)}&nbsp;&mdash;&nbsp;${dateStr}${startStr}</h3>
 ${nhcSubheading}<table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
 <col class="rank" />
 <col class="sailno" />
 ${showBoatName ? '<col class="boatname" />\n' : ''}${showBoatClass ? '<col class="boatclass" />\n' : ''}<col class="helmname" />
-${handicapCols}${nhcCols}
+${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\n' : ''}${handicapCols}${nhcCols}
 <col class="points" />
 </colgroup>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
 <th>Sail</th>
-${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${showCrewName ? 'Helm / Crew' : 'Helm'}</th>${handicapHeaders}${nhcHeaders}
+${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? '\n<th>Helm</th>' : ''}${showOwner ? '\n<th>Owner</th>' : ''}${handicapHeaders}${nhcHeaders}
 <th>Points</th>
 </tr>
 </thead>
@@ -520,7 +555,7 @@ export function assembleSeriesResultsData(
   races: Array<{ id: string; raceNumber: number; date: string }>,
   standings: Array<{
     rank: number;
-    competitor: { sailNumber: string; boatName?: string; boatClass?: string; name: string; crewName?: string };
+    competitor: { sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string };
     racePoints: number[];
     raceCodes: (ResultCode | null)[];
     racePenaltyCodes?: (PenaltyCode | null)[];
@@ -531,11 +566,14 @@ export function assembleSeriesResultsData(
     raceDiscards: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; newTcf?: number | null; nhc?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; crewName?: string; ircTcc?: number; pyNumber?: number }>,
+  competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; ircTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
   options?: {
+    /** Display label for the primary person slot. Defaults to "Competitor"
+     *  in the renderer if omitted here (matching v1 file behaviour). */
+    primaryPersonLabel?: PrimaryPersonLabel;
     /** RaceStart records for all races — used to find the gun time for this fleet */
     raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime: string }>;
     /** ID of the fleet being rendered */
@@ -549,7 +587,7 @@ export function assembleSeriesResultsData(
     nhcAggregatesByRaceId?: Map<string, NhcHeaderData>;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId } = options ?? {};
+  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, primaryPersonLabel } = options ?? {};
   const isHandicap = scoringSystem === 'irc' || scoringSystem === 'py' || scoringSystem === 'nhc';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
 
@@ -606,6 +644,8 @@ export function assembleSeriesResultsData(
         ...(competitor.boatName ? { boatName: competitor.boatName } : {}),
         ...(competitor.boatClass ? { boatClass: competitor.boatClass } : {}),
         helm: competitor.name,
+        ...(competitor.owner ? { owner: competitor.owner } : {}),
+        ...(competitor.helm ? { helmRole: competitor.helm } : {}),
         ...(competitor.crewName ? { crewName: competitor.crewName } : {}),
         place: score.place,
         rank: score.rank,
@@ -662,6 +702,8 @@ export function assembleSeriesResultsData(
     ...(s.competitor.boatName ? { boatName: s.competitor.boatName } : {}),
     ...(s.competitor.boatClass ? { boatClass: s.competitor.boatClass } : {}),
     helm: s.competitor.name,
+    ...(s.competitor.owner ? { owner: s.competitor.owner } : {}),
+    ...(s.competitor.helm ? { helmRole: s.competitor.helm } : {}),
     ...(s.competitor.crewName ? { crewName: s.competitor.crewName } : {}),
     raceScores: s.racePoints.map((points, i) => {
       const resultCode = s.raceCodes[i] ?? null;
@@ -692,6 +734,7 @@ export function assembleSeriesResultsData(
     rightLogoUrl: series.eventLogoUrl || undefined,
     generatedAt,
     enabledCompetitorFields,
+    ...(primaryPersonLabel ? { primaryPersonLabel } : {}),
     races: raceDataList,
     standings: standingRows,
   };

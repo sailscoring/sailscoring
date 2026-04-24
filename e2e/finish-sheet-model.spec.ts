@@ -33,7 +33,7 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
   ]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('checkbox', { name: 'ILCA' }).check();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
@@ -46,7 +46,7 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
   ]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('checkbox', { name: 'PY' }).check();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
@@ -160,7 +160,7 @@ test('auto-slot: a late timed entry inserts at its correct crossing-order slot',
   ]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sail);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     // Single fleet — competitor auto-assigned, no checkbox needed
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sail })).toBeVisible();
@@ -219,7 +219,7 @@ test('scoring-system change blocked: Scratch → PY with untimed finishes', asyn
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('B1');
-  await page.getByLabel('Helm name').fill('Alice');
+  await page.getByLabel('Competitor name').fill('Alice');
   await page.getByRole('checkbox', { name: 'Dinghy' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'B1' })).toBeVisible();
@@ -274,14 +274,14 @@ test('finish blocked for competitor whose fleet has no start when handicap fleet
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('G1');
-  await page.getByLabel('Helm name').fill('Alice');
+  await page.getByLabel('Competitor name').fill('Alice');
   await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'G1' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('G2');
-  await page.getByLabel('Helm name').fill('Bob');
+  await page.getByLabel('Competitor name').fill('Bob');
   await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'G2' })).toBeVisible();

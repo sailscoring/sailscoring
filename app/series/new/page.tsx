@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Series } from '@/lib/types';
-import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
+import { defaultEnabledCompetitorFields, DEFAULT_PRIMARY_PERSON_LABEL } from '@/lib/competitor-fields';
 import { generateUniquePlaceholderName } from '@/lib/placeholder-names';
 import { isDuplicateSeriesName } from '@/lib/series-name';
 import { log } from '@/lib/debug';
@@ -39,6 +39,7 @@ async function doCreateSeries(
     bilgeBundle: null,
     includeJsonExport: true,
     enabledCompetitorFields: defaultEnabledCompetitorFields(),
+    primaryPersonLabel: DEFAULT_PRIMARY_PERSON_LABEL,
   };
   log('series', 'creating', series);
   await seriesRepo.save(series);

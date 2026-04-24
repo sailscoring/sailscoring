@@ -6,11 +6,20 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { seriesRepo, fleetRepo, raceRepo, listSeriesNames } from '@/lib/dexie-repository';
 import { isDuplicateSeriesName } from '@/lib/series-name';
 import { db } from '@/lib/db';
-import type { CompetitorFieldKey } from '@/lib/types';
+import type { CompetitorFieldKey, PrimaryPersonLabel } from '@/lib/types';
 import { BasicsCard } from '@/components/series-settings/basics-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
-import { ALL_COMPETITOR_FIELDS, COMPETITOR_FIELD_LABELS, defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
+import {
+  ALL_COMPETITOR_FIELDS,
+  COMPETITOR_FIELD_LABELS,
+  DEFAULT_PRIMARY_PERSON_LABEL,
+  PRIMARY_PERSON_LABELS,
+  PRIMARY_PERSON_LABEL_TEXT,
+  PRIMARY_PERSON_LABEL_HINTS,
+  defaultEnabledCompetitorFields,
+  isFieldDisabledByPrimary,
+} from '@/lib/competitor-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -138,6 +147,7 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
   // instantly on click — the async db.update that follows would otherwise
   // leave the controlled <input> at the old value until useLiveQuery reruns.
   const persisted = series.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
+  const primaryLabel: PrimaryPersonLabel = series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
   const [localEnabled, setLocalEnabled] = useState<CompetitorFieldKey[]>(persisted);
   // Re-sync when the persisted fields actually change. Render-time compare
   // (not an effect) so this works cleanly with the React Compiler. See
@@ -162,16 +172,27 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
     });
   }
 
+  async function changePrimary(label: PrimaryPersonLabel) {
+    await db.series.update(seriesId, {
+      primaryPersonLabel: label,
+      // eslint-disable-next-line react-hooks/purity -- Date.now() runs inside an async event handler, not render.
+      lastModifiedAt: Date.now(),
+    });
+  }
+
+  const primaryFieldLabel = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
   const shownLabels = ALL_COMPETITOR_FIELDS
-    .filter((f) => enabledSet.has(f))
+    .filter((f) => enabledSet.has(f) && !isFieldDisabledByPrimary(f, primaryLabel))
     .map((f) => COMPETITOR_FIELD_LABELS[f]);
   const summary = shownLabels.length === 0
-    ? 'Only sail number and helm name'
-    : `Sail, Helm, ${shownLabels.join(', ')}`;
+    ? `Only sail number and ${primaryFieldLabel.toLowerCase()}`
+    : `Sail, ${primaryFieldLabel}, ${shownLabels.join(', ')}`;
 
   const fieldHints: Partial<Record<CompetitorFieldKey, string>> = {
     boatClass: 'Enable for PY fleets with mixed classes (Laser, Firefly, Mirror).',
     crewName: 'Enable for two-person classes (420, Fireball, GP14).',
+    helm: 'Record the helm separately when the primary identifier is not the helm.',
+    owner: 'Record the owner separately when the primary identifier is not the owner.',
   };
 
   return (
@@ -187,31 +208,70 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
       {!expanded ? (
         <p className="text-sm text-muted-foreground">{summary}</p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            Sail number and helm name are always shown. Toggle the optional fields you want
-            displayed in the competitor list, standings, and exported results.
+            Tip: when you import a CSV, the wizard proposes these settings automatically.
+            Most scorers won’t need to configure this by hand.
           </p>
           <div className="space-y-2">
-            {ALL_COMPETITOR_FIELDS.map((field) => (
-              <div key={field} className="flex items-start gap-2.5">
-                <input
-                  id={`field-${field}`}
-                  type="checkbox"
-                  checked={enabledSet.has(field)}
-                  onChange={(e) => toggle(field, e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0"
-                />
-                <div>
-                  <label htmlFor={`field-${field}`} className="text-sm font-medium cursor-pointer">
-                    {COMPETITOR_FIELD_LABELS[field]}
-                  </label>
-                  {fieldHints[field] && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{fieldHints[field]}</p>
-                  )}
+            <p className="text-sm font-medium">Primary identifier</p>
+            <p className="text-xs text-muted-foreground">
+              The required name on every competitor. Shown as a column heading throughout results.
+            </p>
+            <div className="space-y-1.5">
+              {PRIMARY_PERSON_LABELS.map((label) => (
+                <label key={label} className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="primaryPersonLabel"
+                    value={label}
+                    checked={primaryLabel === label}
+                    onChange={() => changePrimary(label)}
+                    className="mt-0.5 h-4 w-4 shrink-0"
+                  />
+                  <div>
+                    <span className="text-sm font-medium">{PRIMARY_PERSON_LABEL_TEXT[label]}</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">{PRIMARY_PERSON_LABEL_HINTS[label]}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2 pt-2 border-t">
+            <p className="text-sm font-medium">Optional fields</p>
+            <p className="text-xs text-muted-foreground">
+              Toggle the optional fields you want displayed in the competitor list, standings, and exported results.
+            </p>
+            {ALL_COMPETITOR_FIELDS.map((field) => {
+              const disabledByPrimary = isFieldDisabledByPrimary(field, primaryLabel);
+              return (
+                <div
+                  key={field}
+                  className={`flex items-start gap-2.5 ${disabledByPrimary ? 'opacity-50' : ''}`}
+                >
+                  <input
+                    id={`field-${field}`}
+                    type="checkbox"
+                    checked={enabledSet.has(field) && !disabledByPrimary}
+                    onChange={(e) => toggle(field, e.target.checked)}
+                    disabled={disabledByPrimary}
+                    className="mt-0.5 h-4 w-4 shrink-0"
+                  />
+                  <div>
+                    <label htmlFor={`field-${field}`} className="text-sm font-medium cursor-pointer">
+                      {COMPETITOR_FIELD_LABELS[field]}
+                    </label>
+                    {disabledByPrimary ? (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Already the primary identifier.
+                      </p>
+                    ) : fieldHints[field] ? (
+                      <p className="text-xs text-muted-foreground mt-0.5">{fieldHints[field]}</p>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>
             Done

@@ -26,7 +26,7 @@ test('tie checkbox: not shown after a timed row', async ({ page }) => {
   // Scratch boat
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('S1');
-  await page.getByLabel('Helm name').fill('Alice');
+  await page.getByLabel('Competitor name').fill('Alice');
   await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'S1' })).toBeVisible();
@@ -34,7 +34,7 @@ test('tie checkbox: not shown after a timed row', async ({ page }) => {
   // PY boat
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('P1');
-  await page.getByLabel('Helm name').fill('Bob');
+  await page.getByLabel('Competitor name').fill('Bob');
   await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'P1' })).toBeVisible();
@@ -42,7 +42,7 @@ test('tie checkbox: not shown after a timed row', async ({ page }) => {
   // Second scratch boat
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('S2');
-  await page.getByLabel('Helm name').fill('Carol');
+  await page.getByLabel('Competitor name').fill('Carol');
   await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'S2' })).toBeVisible();
@@ -103,7 +103,7 @@ test('tie checkbox: moving a tied row clears the tie', async ({ page }) => {
   ]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sail);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sail })).toBeVisible();
   }
@@ -141,7 +141,7 @@ test('tie checkbox: moving group leader clears follower tie', async ({ page }) =
   ]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sail);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: c.sail })).toBeVisible();
   }

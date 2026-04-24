@@ -136,24 +136,57 @@ updates the preview instantly.
 ### Column mapping table
 
 Each row shows one CSV column and the competitor field it maps to. The
-scorer can change any mapping via a dropdown. Options in the dropdown:
+scorer can change any mapping via a dropdown. The dropdown lists **roles**,
+not storage slots — the role that matches the series' primary label is
+marked `(primary — required)` and becomes the only mandatory non-sail
+column. The other role remains available as an optional field.
+
+Example dropdown for a series with primary = Owner:
 
 - Sail number *(required — at least one column must map here)*
 - Alt sail number *(secondary identifier, used as fallback during finish lookup)*
-- Helm name
+- Owner name *(primary — required)*
 - Boat name
+- Helm name
+- Crew name
 - Club
-- Fleet
-- Division
-- IRC TCC
-- NHC number
-- Class *(descriptive boat type, not used for scoring)*
-- Nationality
-- Gender
-- Age
+- Fleet / Division / IRC TCC / NHC / Class / Nationality / Gender / Age
 - — ignore —
 
+If primary is Helm, the Helm row becomes `(primary — required)` and Owner
+is the optional role. If primary is the generic "Competitor" or "Entrant",
+the primary row is labelled accordingly and both Helm and Owner are
+available as optional roles.
+
+Under the hood: the primary role maps to `Competitor.name`; other roles
+map to their respective optional fields (`Competitor.owner`, `Competitor.helm`).
+The scorer never sees this — they just see role labels.
+
 Unmapped columns default to "— ignore —".
+
+### Series-level proposals
+
+Step 2 surfaces two series-level proposals alongside column mapping:
+
+- **Primary identifier** — a radio group: Competitor / Entrant / Helm /
+  Owner. Auto-proposed from the detected column roles:
+  - Both Owner and Helm columns present → **Owner** (cruiser pattern).
+  - Owner only → Owner.
+  - Helm only → Helm.
+  - Neither → fall back to the current series primary, defaulting to
+    Competitor on a new series.
+- **Optional fields to enable** — a checklist of all optional competitor
+  fields. Auto-proposed: any mapped column whose target is an optional
+  field is enabled.
+
+Both proposals are editable before import. Changes are only written to the
+series when the scorer clicks Import.
+
+**Subsequent imports** (when the series already has competitors) respect
+existing field config and only propose *additive* changes — new fields are
+offered for enablement, but the primary label is not flipped away from the
+one already configured. Scorers can still override both manually before
+importing.
 
 ### Fleet column warning
 
@@ -204,7 +237,9 @@ and punctuation) against known field names and common aliases.
 |-----------------|---------------------------|
 | Sail number | sail, sail no, sail number, sail #, sail_no, sailno |
 | Alt sail number | alt sail, alt sail no, alt sail number, alt_sail_no, alternative sail, alternate sail |
-| Helm name | helm, helmsman, helms, name, sailor, skipper, first name + last name (combined) |
+| Helm name | helm, helmsman, helms, skipper |
+| Owner name | owner, boat owner, entrant |
+| Primary name | name, sailor, first name + last name (combined) |
 | Boat name | boat, boat name, vessel, yacht |
 | Club | club, sailing club, home club |
 | Fleet | fleet |
@@ -237,7 +272,12 @@ will make, not just how many rows are affected.
 │                                                                         │
 │  147  competitors will be added                                         │
 │   23  existing competitors will be updated                              │
-│    3  new fleets will be created: Junior, Senior, Class 1              │
+│    3  new fleets will be created: Class 1, Class 2, Class 3            │
+│                                                                         │
+│  Series settings changes:                                               │
+│    • Primary identifier:    Competitor  →  Owner                        │
+│    • Optional fields on:    Boat name, Helm name, Crew name             │
+│                                                                         │
 │    3  rows skipped (errors)                                             │
 │                                                                         │
 │  Skipped rows:                                                          │
@@ -248,6 +288,12 @@ will make, not just how many rows are affected.
 │  [◀ Adjust mapping]                    [Import 170 competitors]        │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
+
+The "Series settings changes" block appears when the wizard's proposed
+primary label or enabled-field list differs from what's currently saved on
+the series. On a first import it is the norm; on subsequent imports it
+typically only appears when the new CSV introduces a field that wasn't
+enabled before.
 
 The fleet creation line is prominent — **"3 new fleets will be created:
 Junior, Senior, Class 1"**. If all fleet values in the CSV match existing

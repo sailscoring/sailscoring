@@ -51,7 +51,7 @@ test('NHC fleet: standings + propagation across two races', async ({ page }) => 
   ]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(sailNumber);
-    await page.getByLabel('Helm name').fill(name);
+    await page.getByLabel('Competitor name').fill(name);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: sailNumber })).toBeVisible();
   }
@@ -144,7 +144,7 @@ test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page 
   ]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(sailNumber);
-    await page.getByLabel('Helm name').fill(name);
+    await page.getByLabel('Competitor name').fill(name);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('row').filter({ hasText: sailNumber })).toBeVisible();
   }

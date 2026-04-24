@@ -1,11 +1,16 @@
-import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart, CompetitorFieldKey, StartGroup, NhcTcfRecord } from './types';
+import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart, CompetitorFieldKey, PrimaryPersonLabel, StartGroup, NhcTcfRecord } from './types';
 import { db } from './db';
 import { deleteSeriesChildren, listSeriesNames } from './dexie-repository';
-import { defaultEnabledCompetitorFields } from './competitor-fields';
+import { defaultEnabledCompetitorFields, DEFAULT_PRIMARY_PERSON_LABEL } from './competitor-fields';
 import { recomputeNhcHistoryForSeries } from './nhc-persistence';
 import { disambiguateSeriesName } from './series-name';
 
-export const FORMAT_VERSION = 1;
+/** File format version. v2 adds `Competitor.owner` and `Series.primaryPersonLabel`.
+ *  v1 files load cleanly — the parser defaults the new primary label to
+ *  "competitor" (the pre-v2 behaviour was effectively helm-labelled but
+ *  tolerating a generic label loses nothing). */
+export const FORMAT_VERSION = 2;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -42,6 +47,7 @@ interface SeriesFileSeries {
   bilgeBundle: SeriesFileBilgeBundle | null;
   includeJsonExport: boolean;
   enabledCompetitorFields: CompetitorFieldKey[];
+  primaryPersonLabel?: PrimaryPersonLabel;  // v2+; absent in v1 files, defaults to 'competitor'
   scoringMode: 'scratch' | 'handicap';
   defaultStartSequence?: StartGroup[];
   publishRatingCalculations?: boolean;
@@ -54,6 +60,8 @@ interface SeriesFileCompetitor {
   boatName?: string;
   boatClass?: string;
   name: string;
+  owner?: string;  // v2+
+  helm?: string;   // v2+
   crewName?: string;
   club: string;
   gender: 'M' | 'F' | '';
@@ -225,6 +233,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       } : null,
       includeJsonExport: series.includeJsonExport ?? true,
       enabledCompetitorFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
+      primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.defaultStartSequence?.length ? { defaultStartSequence: series.defaultStartSequence } : {}),
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
@@ -236,6 +245,8 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       name: c.name,
+      ...(c.owner ? { owner: c.owner } : {}),
+      ...(c.helm ? { helm: c.helm } : {}),
       ...(c.crewName ? { crewName: c.crewName } : {}),
       club: c.club,
       gender: c.gender,
@@ -295,7 +306,7 @@ export function parseSeriesFile(content: string): SeriesFile {
   }
   if (typeof data !== 'object' || data === null) throw new Error('Invalid file format');
   const obj = data as Record<string, unknown>;
-  if (obj.formatVersion !== FORMAT_VERSION)
+  if (typeof obj.formatVersion !== 'number' || !SUPPORTED_FORMAT_VERSIONS.includes(obj.formatVersion))
     throw new Error(`Unsupported file format version: ${obj.formatVersion ?? 'unknown'}`);
   if (typeof obj.seriesId !== 'string') throw new Error('Invalid file: missing seriesId');
   if (typeof obj.snapshotId !== 'string') throw new Error('Invalid file: missing snapshotId');
@@ -345,6 +356,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
       includeJsonExport: file.series.includeJsonExport,
       publishRatingCalculations: file.series.publishRatingCalculations ?? true,
       enabledCompetitorFields: file.series.enabledCompetitorFields,
+      primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     });
 
     for (const f of file.fleets) {
@@ -368,6 +380,8 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
         ...(c.boatName ? { boatName: c.boatName } : {}),
         ...(c.boatClass ? { boatClass: c.boatClass } : {}),
         name: c.name,
+        ...(c.owner ? { owner: c.owner } : {}),
+        ...(c.helm ? { helm: c.helm } : {}),
         ...(c.crewName ? { crewName: c.crewName } : {}),
         club: c.club,
         gender: c.gender,
@@ -471,6 +485,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
       includeJsonExport: file.series.includeJsonExport,
       publishRatingCalculations: file.series.publishRatingCalculations ?? true,
       enabledCompetitorFields: file.series.enabledCompetitorFields,
+      primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     });
 
     for (const f of file.fleets) {
@@ -494,6 +509,8 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
         ...(c.boatName ? { boatName: c.boatName } : {}),
         ...(c.boatClass ? { boatClass: c.boatClass } : {}),
         name: c.name,
+        ...(c.owner ? { owner: c.owner } : {}),
+        ...(c.helm ? { helm: c.helm } : {}),
         ...(c.crewName ? { crewName: c.crewName } : {}),
         club: c.club,
         gender: c.gender,

@@ -13,18 +13,27 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
   // ── 1. Create series ──────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'Fireball Frostbite' });
 
-  // ── 2. By default: Crew column is hidden, Crew field is not in the form ──
+  // ── 2. Switch to Helm-primary and turn off the default Boat column so the
+  //     rest of the test exercises the enable path explicitly. ──────────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('radio', { name: /^Helm/ }).click();
+  await page.getByRole('checkbox', { name: 'Boat name' }).uncheck();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
+  // ── 3. By default (after step 2): Crew column is hidden, Crew field is not in the form ──
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await expect(page.getByLabel('Crew name')).toHaveCount(0);
   await page.getByRole('button', { name: 'Cancel' }).click();
 
-  // ── 3. Enable crew name in Settings → Competitor fields ──────────────────
+  // ── 4. Enable crew name in Settings → Competitor fields ──────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
-  await page.getByLabel('Crew name').check();
+  await page.getByRole('checkbox', { name: 'Crew name' }).check();
   await page.getByRole('button', { name: 'Done' }).click();
 
-  // ── 4. Add a competitor with helm + crew ────────────────────────────────
+  // ── 5. Add a competitor with helm + crew ────────────────────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('14702');
@@ -32,20 +41,20 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
   await page.getByLabel('Crew name').fill('Mark Smith');
   await page.getByRole('button', { name: 'Save' }).click();
 
-  // ── 5. Competitors table now has a Crew column ───────────────────────────
+  // ── 6. Competitors table now has a Crew column ───────────────────────────
   await expect(page.getByRole('columnheader', { name: 'Crew' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Mark Smith' })).toBeVisible();
 
-  // ── 6. Confirm Boat column is hidden (default off) and toggling it adds + removes the column ──
+  // ── 7. Toggling Boat name adds the column ───────────────────────────────
   await expect(page.getByRole('columnheader', { name: 'Boat', exact: true })).toHaveCount(0);
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
-  await page.getByLabel('Boat name').check();
+  await page.getByRole('checkbox', { name: 'Boat name' }).check();
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('link', { name: 'Competitors' }).click();
   await expect(page.getByRole('columnheader', { name: 'Boat', exact: true })).toBeVisible();
 
-  // ── 7. Add a race so export is possible ─────────────────────────────────
+  // ── 8. Add a race so export is possible ─────────────────────────────────
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByText('Race 1').click();
@@ -53,7 +62,7 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
   await page.getByRole('button', { name: 'Add' }).click();
   await page.getByRole('button', { name: 'Save results' }).click();
 
-  // ── 8. Export HTML and verify combined "Helm / Crew" rendering ───────────
+  // ── 9. Export HTML and verify combined "Helm / Crew" rendering ──────────
   await page.getByRole('link', { name: 'Standings' }).click();
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -63,11 +72,11 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
   const fs = await import('node:fs');
   const html = fs.readFileSync(path, 'utf-8');
 
-  // Header uses the combined label
+  // Header uses the combined label — Helm primary + crew enabled
   expect(html).toContain('<th>Helm / Crew</th>');
   // Row body uses slash form
   expect(html).toContain('Jane Doe / Mark Smith');
-  // Boat column is now visible after the enable in step 6
+  // Boat column is now visible after the enable in step 7
   expect(html).toContain('<th>Boat</th>');
 });
 
@@ -84,7 +93,7 @@ test('class field shows Class column and exports in results', async ({ page }) =
   await page.getByRole('link', { name: 'Competitors' }).click();
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('207112');
-  await page.getByLabel('Helm name').fill('Jane Doe');
+  await page.getByLabel('Competitor name').fill('Jane Doe');
   await page.getByLabel('Class', { exact: true }).fill('Laser');
   await page.getByRole('button', { name: 'Save' }).click();
 
@@ -125,7 +134,7 @@ test('disabling a field preserves its data on re-enable', async ({ page }) => {
   // ── 2. Add a competitor with a boat name ─────────────────────────────────
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1');
-  await page.getByLabel('Helm name').fill('Alice');
+  await page.getByLabel('Competitor name').fill('Alice');
   await page.getByLabel('Boat name').fill('Windchaser');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'Windchaser' })).toBeVisible();

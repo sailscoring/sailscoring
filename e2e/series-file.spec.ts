@@ -143,7 +143,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   await page.getByRole('link', { name: 'Competitors' }).click();
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1234');
-  await page.getByLabel('Helm name').fill('Jane Doe');
+  await page.getByLabel('Competitor name').fill('Jane Doe');
   await page.getByLabel('Club').fill('HYC');
   await page.getByRole('button', { name: 'Save' }).click();
 
@@ -160,7 +160,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   const file = await saveToFile(page);
 
   // Top-level envelope
-  expect(file.formatVersion).toBe(1);
+  expect(file.formatVersion).toBe(2);
   expect(file.seriesId).toBe(seriesId);
   expect(typeof file.snapshotId).toBe('string');
   expect(file.snapshotHistory).toEqual([file.snapshotId]);
@@ -175,7 +175,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   expect(file.series.ftpPath).toBe('/results/2025/autumn-league.html');
   expect(file.series.bilgeBundle).toBeNull();
   // New in v8: scorer's choice of which optional competitor fields to show.
-  expect(file.series.enabledCompetitorFields).toEqual(['club']);
+  expect(file.series.enabledCompetitorFields).toEqual(['boatName', 'club']);
 
   // Competitors and races
   expect(file.competitors).toHaveLength(1);
@@ -208,7 +208,7 @@ test('series file: clean lineage updates series in place', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('10');
-  await page.getByLabel('Helm name').fill('Original Helm');
+  await page.getByLabel('Competitor name').fill('Original Helm');
   await page.getByRole('button', { name: 'Save' }).click();
 
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();

@@ -30,7 +30,7 @@ test('sail number collision across fleets is disambiguated at finish entry', asy
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill(c.sailNumber);
-    await page.getByLabel('Helm name').fill(c.name);
+    await page.getByLabel('Competitor name').fill(c.name);
     await page.getByLabel('Club').fill(c.club);
     await page.getByRole('checkbox', { name: c.fleet }).check();
     await page.getByRole('button', { name: 'Save' }).click();

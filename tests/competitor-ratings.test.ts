@@ -20,7 +20,10 @@ function mkCompetitor(over: Partial<Competitor> & { id: string; fleetIds: string
     seriesId: 's1',
     sailNumber: '1',
     name: 'Helm',
+    club: '',
     gender: '',
+    age: null,
+    createdAt: 0,
     ...over,
   };
 }
