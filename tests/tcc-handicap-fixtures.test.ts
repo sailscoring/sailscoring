@@ -1,174 +1,111 @@
 /**
  * Declarative test runner for TCC handicap scoring fixtures.
  *
- * Each YAML file in tests/fixtures/scoring/tcc-handicap/ describes a single
- * handicap race: fleet config, start time, competitor ratings, finish times,
- * and expected per-boat results (ET, CT, TCF, rank, points).
- *
- * Adding a new .yaml file is enough to add a new test.
+ * Each YAML in tests/fixtures/scoring/tcc-handicap/ describes a handicap
+ * race: fleet config, start time, competitor ratings, finish times, per-race
+ * expected arithmetic (ET, CT, TCF, rank, points), and the series-level
+ * standings block. This runner drives them through both calculateFleetStandings
+ * (for standings) and calculateHandicapRaceScores (for per-race arithmetic).
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'fs';
-import { join } from 'path';
-import { parse as parseYaml } from 'yaml';
-import { calculateHandicapRaceScores } from '@/lib/scoring';
-import type { Competitor, Fleet, Finish, RaceStart } from '@/lib/types';
-
-// ─── Fixture schema ───────────────────────────────────────────────────────────
-
-interface FixtureFleet {
-  scoringSystem: 'irc' | 'py';
-}
-
-interface FixtureCompetitor {
-  sailNumber: string;
-  name: string;
-  ircTcc?: number;
-  pyNumber?: number;
-}
-
-interface FixtureFinish {
-  sailor: string;
-  finishTime?: string;
-  code?: string;
-}
-
-interface FixtureExpected {
-  sailor: string;
-  rank: number | null;
-  points: number;
-  elapsedTime: number | null;
-  correctedTime: number | null;
-  tcfApplied: number | null;
-}
-
-interface FixtureRejected {
-  sailor: string;
-  reason: string;
-}
-
-interface HandicapFixture {
-  description: string;
-  rrs_notes?: string;
-  fleet: FixtureFleet;
-  startTime: string;
-  competitors: FixtureCompetitor[];
-  finishes: FixtureFinish[];
-  expected: FixtureExpected[];
-  rejectedCompetitors?: FixtureRejected[];
-}
-
-// ─── Test runner ─────────────────────────────────────────────────────────────
+import { join } from 'node:path';
+import { calculateFleetStandings, calculateHandicapRaceScores } from '@/lib/scoring';
+import { buildFixtureInputs, loadFixturesFromDir } from './fixtures/scoring/types';
+import type { Finish } from '@/lib/types';
 
 const FIXTURE_DIR = join(__dirname, 'fixtures/scoring/tcc-handicap');
 
 describe('TCC handicap scoring fixtures', () => {
-  const yamlFiles = readdirSync(FIXTURE_DIR)
-    .filter((f) => f.endsWith('.yaml'))
-    .sort();
+  const loaded = loadFixturesFromDir(FIXTURE_DIR);
 
-  if (yamlFiles.length === 0) {
+  if (loaded.length === 0) {
     it('has at least one fixture', () => {
-      expect(yamlFiles.length).toBeGreaterThan(0);
+      expect(loaded.length).toBeGreaterThan(0);
     });
+    return;
   }
 
-  for (const file of yamlFiles) {
-    const yamlPath = join(FIXTURE_DIR, file);
-    const yamlSource = readFileSync(yamlPath, 'utf-8');
-    let fixture: HandicapFixture;
-    try {
-      fixture = parseYaml(yamlSource) as HandicapFixture;
-    } catch (e) {
-      it(`${file} — parses without error`, () => { throw e; });
-      continue;
-    }
-
+  for (const { yamlPath, fixture } of loaded) {
     it(fixture.description, () => {
-      const fleet: Fleet = {
-        id: 'fl-0',
-        seriesId: 's1',
-        name: 'Fleet',
-        displayOrder: 0,
-        scoringSystem: fixture.fleet.scoringSystem,
-      };
+      const { competitors, fleets, races, finishes, raceStarts, discardThresholds, dnfScoring, sailToId } =
+        buildFixtureInputs(fixture);
+      const fleet = fleets[0];
 
-      const sailToId = new Map(fixture.competitors.map((c, i) => [c.sailNumber, `c-${i}`]));
+      // ─── Per-race arithmetic (CT, TCF, rank) ────────────────────────────
+      for (let ri = 0; ri < fixture.races.length; ri++) {
+        const fixtureRace = fixture.races[ri];
+        if (!fixtureRace.expected) continue;
 
-      const competitors: Competitor[] = fixture.competitors.map((c, i) => ({
-        id: `c-${i}`,
-        seriesId: 's1',
-        fleetIds: ['fl-0'],
-        sailNumber: c.sailNumber,
-        name: c.name,
-        club: '',
-        gender: '',
-        age: null,
-        createdAt: 0,
-        ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
-        ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
-      }));
+        const raceId = races[ri].id;
+        const raceStart = raceStarts.find((rs) => rs.raceId === raceId);
+        if (!raceStart) throw new Error(`${yamlPath}: race ${ri + 1} has no startTime`);
+        const raceFinishes: Finish[] = finishes.filter((f) => f.raceId === raceId);
 
-      const raceStart: RaceStart = {
-        id: 'rs-0',
-        raceId: 'r-0',
-        fleetIds: ['fl-0'],
-        startTime: fixture.startTime,
-      };
+        const { scores, rejections } = calculateHandicapRaceScores(raceFinishes, competitors, raceStart, fleet);
 
-      const finishes: Finish[] = fixture.finishes.map((f, i) => ({
-        id: `fin-${i}`,
-        raceId: 'r-0',
-        competitorId: sailToId.get(f.sailor) ?? null,
-        sortOrder: null,
-        ...(f.finishTime ? { finishTime: f.finishTime } : {}),
-        resultCode: (f.code as Finish['resultCode']) ?? null,
-        startPresent: null,
-        penaltyCode: null,
-        penaltyOverride: null,
-        redressMethod: null,
-        redressExcludeRaces: null,
-        redressIncludeRaces: null,
-        redressIncludeAllLater: false,
-        redressPoints: null,
-      }));
+        for (const exp of fixtureRace.expected) {
+          const cid = sailToId.get(exp.sailor);
+          if (!cid) throw new Error(`${yamlPath}: unknown sailor "${exp.sailor}" in race.expected`);
+          const score = scores.get(cid);
+          expect(score, `sailor ${exp.sailor} score`).toBeDefined();
+          if (!score) continue;
 
-      const { scores, rejections } = calculateHandicapRaceScores(finishes, competitors, raceStart, fleet);
-
-      for (const exp of fixture.expected) {
-        const competitorId = sailToId.get(exp.sailor);
-        if (!competitorId) {
-          throw new Error(`Fixture "${fixture.description}": unknown sailor "${exp.sailor}" in expected`);
+          expect(score.rank, `sailor ${exp.sailor} rank`).toBe(exp.rank);
+          expect(score.points, `sailor ${exp.sailor} points`).toBe(exp.points);
+          if (exp.elapsedTime !== undefined) {
+            expect(score.elapsedTime, `sailor ${exp.sailor} elapsedTime`).toBe(exp.elapsedTime);
+          }
+          if (exp.tcfApplied !== undefined) {
+            expect(score.tcfApplied, `sailor ${exp.sailor} tcfApplied`).toBe(exp.tcfApplied);
+          }
+          if (exp.correctedTime !== undefined) {
+            if (exp.correctedTime !== null && score.correctedTime !== null) {
+              expect(score.correctedTime, `sailor ${exp.sailor} correctedTime`).toBeCloseTo(exp.correctedTime, 2);
+            } else {
+              expect(score.correctedTime, `sailor ${exp.sailor} correctedTime`).toBe(exp.correctedTime);
+            }
+          }
         }
-        const score = scores.get(competitorId);
-        expect(score, `score for sailor ${exp.sailor}`).toBeDefined();
-        if (!score) continue;
 
-        expect(score.rank, `sailor ${exp.sailor} rank`).toBe(exp.rank);
-        expect(score.points, `sailor ${exp.sailor} points`).toBe(exp.points);
-        expect(score.elapsedTime, `sailor ${exp.sailor} elapsedTime`).toBe(exp.elapsedTime);
-        expect(score.tcfApplied, `sailor ${exp.sailor} tcfApplied`).toBe(exp.tcfApplied);
-        if (exp.correctedTime !== null && score.correctedTime !== null) {
-          expect(score.correctedTime, `sailor ${exp.sailor} correctedTime`).toBeCloseTo(exp.correctedTime, 2);
-        } else {
-          expect(score.correctedTime, `sailor ${exp.sailor} correctedTime`).toBe(exp.correctedTime);
+        // Per-race rejections
+        const expectedRejections = fixtureRace.rejected ?? [];
+        expect(rejections.length, 'rejection count').toBe(expectedRejections.length);
+        for (const exp of expectedRejections) {
+          const cid = sailToId.get(exp.sailor);
+          if (!cid) throw new Error(`${yamlPath}: unknown sailor "${exp.sailor}" in rejected`);
+          const rejection = rejections.find((r) => r.competitorId === cid);
+          expect(rejection, `rejection for sailor ${exp.sailor}`).toBeDefined();
+          expect(rejection?.reason, `rejection reason for ${exp.sailor}`).toBe(exp.reason);
+          expect(scores.has(cid), `sailor ${exp.sailor} should not be in scores`).toBe(false);
         }
       }
 
-      // Verify rejected competitors
-      const expectedRejections = fixture.rejectedCompetitors ?? [];
-      expect(rejections.length, 'rejection count').toBe(expectedRejections.length);
-      for (const exp of expectedRejections) {
-        const competitorId = sailToId.get(exp.sailor);
-        if (!competitorId) {
-          throw new Error(`Fixture "${fixture.description}": unknown sailor "${exp.sailor}" in rejectedCompetitors`);
-        }
-        const rejection = rejections.find((r) => r.competitorId === competitorId);
-        expect(rejection, `rejection for sailor ${exp.sailor}`).toBeDefined();
-        expect(rejection?.reason, `rejection reason for sailor ${exp.sailor}`).toBe(exp.reason);
-        // Rejected competitors must not appear in scores
-        expect(scores.has(competitorId), `sailor ${exp.sailor} should not be in scores`).toBe(false);
+      // ─── Series standings ───────────────────────────────────────────────
+      const { fleetStandings } = calculateFleetStandings(
+        fleets,
+        competitors,
+        races,
+        finishes,
+        discardThresholds,
+        dnfScoring,
+        raceStarts,
+      );
+      const standings = fleetStandings[0].standings;
+      const standingsBySail = new Map(standings.map((s) => [s.competitor.sailNumber, s]));
+
+      for (const exp of fixture.expected.standings) {
+        const standing = standingsBySail.get(exp.sailor);
+        expect(standing, `No standing for sailor ${exp.sailor}`).toBeDefined();
+        if (!standing) continue;
+        const label = `sailor ${exp.sailor}`;
+
+        expect(standing.rank, `${label}: rank`).toBe(exp.rank);
+        expect(standing.racePoints, `${label}: racePoints`).toEqual(exp.racePoints);
+        expect(standing.raceCodes, `${label}: raceCodes`).toEqual(exp.raceCodes);
+        expect(standing.raceDiscards, `${label}: raceDiscards`).toEqual(exp.raceDiscards);
+        expect(standing.totalPoints, `${label}: totalPoints`).toBe(exp.totalPoints);
+        expect(standing.netPoints, `${label}: netPoints`).toBe(exp.netPoints);
       }
     });
   }

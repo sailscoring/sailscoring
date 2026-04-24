@@ -14,9 +14,13 @@ notes: |
     Beta:  ratio = 3300/3600 = 0.916666...,  fair = 0.916666...,
            adj = 0.15 × −0.083333... = −0.0125, new = 0.9875
 
+series:
+  discardThresholds: []
+
 fleet:
   scoringSystem: nhc
   alpha: 0.15
+
 competitors:
   - sailNumber: "1"
     name: "Alpha"
@@ -27,8 +31,10 @@ competitors:
   - sailNumber: "3"
     name: "Gamma"
     # no nhcStartingTcf — must be rejected
+
 races:
-  - startTime: "14:00:00"
+  - number: 1
+    startTime: "14:00:00"
     finishes:
       - sailor: "1"
         finishTime: "14:50:00"
@@ -65,3 +71,20 @@ races:
     rejected:
       - sailor: "3"
         reason: "no_starting_tcf"
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2

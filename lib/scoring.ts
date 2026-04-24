@@ -987,12 +987,21 @@ function calculateHandicapStandings(
     };
   });
 
-  // Rank by netPoints (tie-break: most first places, then last race)
+  // Rank by netPoints (tie-break: most first places, then last race).
+  // Tied competitors share the same rank, matching calculateStandings.
   standings.sort((a, b) => {
     if (a.netPoints !== b.netPoints) return a.netPoints - b.netPoints;
     return tieBreak(a, b, races.length);
   });
-  standings.forEach((s, i) => { s.rank = i + 1; });
+  let hrank = 1;
+  for (let i = 0; i < standings.length; i++) {
+    if (i > 0 && isTied(standings[i - 1], standings[i], races.length)) {
+      standings[i].rank = standings[i - 1].rank;
+    } else {
+      standings[i].rank = hrank;
+    }
+    hrank++;
+  }
 
   return {
     standings,

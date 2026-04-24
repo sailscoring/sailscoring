@@ -4,15 +4,17 @@ notes: |
 
   Echo is excluded from CT_avg, mean(TCF), and finisherCount.
   Echo's newTcf must equal its tcfApplied (0.98) — unchanged.
-  Echo gets penalty points = finishers + 1 = 5 (rated count is 5; n+1=6
-  but finisher count is 4, so rated penalty = 5+1 — actually penalty is
-  rated_total + 1 = 6 for our impl).
+  Echo gets penalty points = fleet entries + 1 = 6.
 
   Aggregates and other boats unchanged from 01.
+
+series:
+  discardThresholds: []
 
 fleet:
   scoringSystem: nhc
   alpha: 0.15
+
 competitors:
   - sailNumber: "1"
     name: "Alpha"
@@ -29,8 +31,10 @@ competitors:
   - sailNumber: "5"
     name: "Echo"
     nhcStartingTcf: 0.980
+
 races:
-  - startTime: "14:00:00"
+  - number: 1
+    startTime: "14:00:00"
     finishes:
       - sailor: "1"
         finishTime: "14:50:00"
@@ -97,3 +101,41 @@ races:
         code: "DNF"
         # No nhc sub-object; newTcf == tcfApplied
         newTcf: 0.980
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 4
+      sailor: "4"
+      racePoints: [4]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 5
+      sailor: "5"
+      racePoints: [6]
+      raceCodes: ["DNF"]
+      raceDiscards: [false]
+      totalPoints: 6
+      netPoints: 6

@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>NHC1 — multi-race: race N+1 uses race N's newTcf as tcfApplied — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; font-size: 0.9em; }
+td, th { text-align: left; padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All NHC examples</a></p>
+<h1>NHC1 — multi-race: race N+1 uses race N's newTcf as tcfApplied</h1>
+
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> NHC1 &nbsp;&nbsp;
+  <strong>α (blend factor):</strong> 0.15
+</div>
+<pre style="margin:0.6em 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">4 boats, 3 races, α = 0.15.
+Race 1: ETs 3000/3600/4200/4800 (matches fixture 01).
+Race 2: shaken up — Alpha now slow (4500), Delta now fast (3300); Beta/Gamma unchanged.
+Race 3: same finishes as race 2.
+
+Verifies the propagation contract: each boat's &quot;TCF used&quot; in race N
+equals its &quot;newTcf&quot; from race N-1.
+
+Series totals (no discards):
+  Alpha: 1 + 4 + 4 = 9  (one 1st, two 4ths)
+  Beta:  2 + 2 + 2 = 6  (three 2nds, no wins)
+  Gamma: 3 + 3 + 3 = 9  (three 3rds, no wins)
+  Delta: 4 + 1 + 1 = 6  (two wins, one 4th)
+
+A8.2 tie-breaking (most firsts): Delta beats Beta (2 vs 0);
+Alpha beats Gamma (1 vs 0). Final order: Delta, Beta, Alpha, Gamma.</pre>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">─── Race 1 ─────────────────────────────────────────────────────────────────
+  ─── Race 2 ─────────────────────────────────────────────────────────────────
+  ─── Race 3 ─────────────────────────────────────────────────────────────────</pre>
+<h2 style="margin-top:1.5em;">Race 1</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00 &nbsp;
+  <strong>α:</strong> 0.15 &nbsp;
+  <strong>Finishers:</strong> 4 &nbsp;
+  <strong>CT<sub>avg</sub>:</strong> 67m 15s &nbsp;
+  <strong>mean(TCF):</strong> 1.0250
+</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>ET</th><th>TCF<sub>applied</sub></th><th>CT</th>
+  <th>CT<sub>avg</sub>/CT</th><th>fair TCF</th><th>adj</th><th>new TCF</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">14:50:00</td>
+  <td class="mono">50m 00s</td>
+  <td class="mono">0.9500</td>
+  <td class="mono">47m 30s</td>
+  <td class="mono">1.4158</td>
+  <td class="mono">1.3450</td>
+  <td class="mono">+0.0592</td>
+  <td class="mono">1.0092</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Beta</td>
+  <td class="mono">2</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.1208</td>
+  <td class="mono">1.1208</td>
+  <td class="mono">+0.0181</td>
+  <td class="mono">1.0181</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Gamma</td>
+  <td class="mono">3</td>
+  <td class="mono">15:10:00</td>
+  <td class="mono">70m 00s</td>
+  <td class="mono">1.0500</td>
+  <td class="mono">73m 30s</td>
+  <td class="mono">0.9150</td>
+  <td class="mono">0.9607</td>
+  <td class="mono">-0.0134</td>
+  <td class="mono">1.0366</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Delta</td>
+  <td class="mono">4</td>
+  <td class="mono">15:20:00</td>
+  <td class="mono">80m 00s</td>
+  <td class="mono">1.1000</td>
+  <td class="mono">88m 00s</td>
+  <td class="mono">0.7642</td>
+  <td class="mono">0.8406</td>
+  <td class="mono">-0.0389</td>
+  <td class="mono">1.0611</td>
+  <td>4</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Race 2</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00 &nbsp;
+  <strong>α:</strong> 0.15 &nbsp;
+  <strong>Finishers:</strong> 4 &nbsp;
+  <strong>CT<sub>avg</sub>:</strong> 66m 56s &nbsp;
+  <strong>mean(TCF):</strong> 1.0313
+</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>ET</th><th>TCF<sub>applied</sub></th><th>CT</th>
+  <th>CT<sub>avg</sub>/CT</th><th>fair TCF</th><th>adj</th><th>new TCF</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Delta</td>
+  <td class="mono">4</td>
+  <td class="mono">14:55:00</td>
+  <td class="mono">55m 00s</td>
+  <td class="mono">1.0611</td>
+  <td class="mono">58m 22s</td>
+  <td class="mono">1.1468</td>
+  <td class="mono">1.2168</td>
+  <td class="mono">+0.0234</td>
+  <td class="mono">1.0845</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Beta</td>
+  <td class="mono">2</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0181</td>
+  <td class="mono">61m 05s</td>
+  <td class="mono">1.0956</td>
+  <td class="mono">1.1154</td>
+  <td class="mono">+0.0146</td>
+  <td class="mono">1.0327</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Gamma</td>
+  <td class="mono">3</td>
+  <td class="mono">15:10:00</td>
+  <td class="mono">70m 00s</td>
+  <td class="mono">1.0366</td>
+  <td class="mono">72m 34s</td>
+  <td class="mono">0.9223</td>
+  <td class="mono">0.9561</td>
+  <td class="mono">-0.0121</td>
+  <td class="mono">1.0245</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">15:15:00</td>
+  <td class="mono">75m 00s</td>
+  <td class="mono">1.0092</td>
+  <td class="mono">75m 42s</td>
+  <td class="mono">0.8842</td>
+  <td class="mono">0.8923</td>
+  <td class="mono">-0.0175</td>
+  <td class="mono">0.9917</td>
+  <td>4</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Race 3</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00 &nbsp;
+  <strong>α:</strong> 0.15 &nbsp;
+  <strong>Finishers:</strong> 4 &nbsp;
+  <strong>CT<sub>avg</sub>:</strong> 66m 56s &nbsp;
+  <strong>mean(TCF):</strong> 1.0334
+</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>ET</th><th>TCF<sub>applied</sub></th><th>CT</th>
+  <th>CT<sub>avg</sub>/CT</th><th>fair TCF</th><th>adj</th><th>new TCF</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Delta</td>
+  <td class="mono">4</td>
+  <td class="mono">14:55:00</td>
+  <td class="mono">55m 00s</td>
+  <td class="mono">1.0845</td>
+  <td class="mono">59m 39s</td>
+  <td class="mono">1.1221</td>
+  <td class="mono">1.2168</td>
+  <td class="mono">+0.0199</td>
+  <td class="mono">1.1043</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Beta</td>
+  <td class="mono">2</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0327</td>
+  <td class="mono">61m 58s</td>
+  <td class="mono">1.0801</td>
+  <td class="mono">1.1154</td>
+  <td class="mono">+0.0124</td>
+  <td class="mono">1.0451</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Gamma</td>
+  <td class="mono">3</td>
+  <td class="mono">15:10:00</td>
+  <td class="mono">70m 00s</td>
+  <td class="mono">1.0245</td>
+  <td class="mono">71m 43s</td>
+  <td class="mono">0.9332</td>
+  <td class="mono">0.9561</td>
+  <td class="mono">-0.0103</td>
+  <td class="mono">1.0143</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">15:15:00</td>
+  <td class="mono">75m 00s</td>
+  <td class="mono">0.9917</td>
+  <td class="mono">74m 23s</td>
+  <td class="mono">0.8998</td>
+  <td class="mono">0.8923</td>
+  <td class="mono">-0.0149</td>
+  <td class="mono">0.9768</td>
+  <td>4</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>R2</th><th>R3</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Delta</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td><td class="mono">1</td><td class="mono">1</td>
+  <td class="mono">6</td>
+  <td class="mono">6</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Beta</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td><td class="mono">2</td><td class="mono">2</td>
+  <td class="mono">6</td>
+  <td class="mono">6</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td><td class="mono">4</td><td class="mono">4</td>
+  <td class="mono">9</td>
+  <td class="mono">9</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Gamma</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td><td class="mono">3</td><td class="mono">3</td>
+  <td class="mono">9</td>
+  <td class="mono">9</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

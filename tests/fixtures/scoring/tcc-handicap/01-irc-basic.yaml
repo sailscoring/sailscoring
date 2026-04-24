@@ -9,9 +9,12 @@ rrs_notes: "CT = ET × TCC; boats rank by lowest corrected time regardless of wh
 #
 # Boat 2 finished last on elapsed time but wins on corrected time.
 
+series:
+  discardThresholds: []
+
 fleet:
   scoringSystem: irc
-startTime: "14:05:00"
+
 competitors:
   - sailNumber: "1"
     name: "Alpha"
@@ -22,29 +25,57 @@ competitors:
   - sailNumber: "3"
     name: "Gamma"
     ircTcc: 0.95
-finishes:
-  - sailor: "1"
-    finishTime: "15:05:00"
-  - sailor: "2"
-    finishTime: "15:12:58"
-  - sailor: "3"
-    finishTime: "15:08:30"
+
+races:
+  - number: 1
+    startTime: "14:05:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "15:05:00"
+      - sailor: "2"
+        finishTime: "15:12:58"
+      - sailor: "3"
+        finishTime: "15:08:30"
+    expected:
+      - sailor: "1"
+        rank: 3
+        points: 3.0
+        elapsedTime: 3600
+        correctedTime: 3780.0
+        tcfApplied: 1.05
+      - sailor: "2"
+        rank: 1
+        points: 1.0
+        elapsedTime: 4078
+        correctedTime: 3588.64
+        tcfApplied: 0.88
+      - sailor: "3"
+        rank: 2
+        points: 2.0
+        elapsedTime: 3810
+        correctedTime: 3619.5
+        tcfApplied: 0.95
+
 expected:
-  - sailor: "1"
-    rank: 3
-    points: 3.0
-    elapsedTime: 3600
-    correctedTime: 3780.0
-    tcfApplied: 1.05
-  - sailor: "2"
-    rank: 1
-    points: 1.0
-    elapsedTime: 4078
-    correctedTime: 3588.64
-    tcfApplied: 0.88
-  - sailor: "3"
-    rank: 2
-    points: 2.0
-    elapsedTime: 3810
-    correctedTime: 3619.5
-    tcfApplied: 0.95
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "3"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "1"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3

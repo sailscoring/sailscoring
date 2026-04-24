@@ -6,7 +6,8 @@
 <style>
 body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
 h1 { font-size: 1.4em; }
-table { border-collapse: collapse; width: 100%; margin-top: 0.8em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
 td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
 th { background: #f5f5f0; font-weight: bold; }
 tr:nth-child(even) { background: #fafafa; }
@@ -19,8 +20,7 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 <h1>IRC — competitor with no TCC is excluded from scoring; others scored normally</h1>
 <p style="font-style:italic; color:#444;">A boat entered in a handicap fleet with no rating is rejected from scoring entirely. It does not appear in results and does not affect fleet size or other competitors' points.</p>
 <div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
-  <strong>Scoring system:</strong> IRC &nbsp;&nbsp;
-  <strong>Gun time:</strong> 14:00:00
+  <strong>Scoring system:</strong> IRC
 </div>
 <pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Rated fleet size = 2 (Boat 2 excluded), so penalty = 3.
 Start 14:00:00 (= 50400 s since midnight)
@@ -31,7 +31,11 @@ Boat 3 (TCC 0.95): finish 15:03:00  ET = 3780 s   CT = 3780 × 0.95 = 3591.0 s  
 
 Boat 2 has a recorded finish time but no TCC, so it is excluded from scoring.
     no ircTcc — unrated
-  sailor &quot;2&quot; is excluded — no expected entry</pre>
+      sailor &quot;2&quot; is excluded — no expected entry</pre>
+<h2 style="margin-top:1.5em;">Race arithmetic</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00
+</div>
 <table>
 <thead>
 <tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
@@ -58,6 +62,30 @@ Boat 2 has a recorded finish time but no TCC, so it is excluded from scoring.
   <td class="mono">1.0500</td>
   <td class="mono">68m 15s</td>
   <td>2</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Gamma</td>
+  <td class="mono">3</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
 </tr>
 </tbody>
 </table>

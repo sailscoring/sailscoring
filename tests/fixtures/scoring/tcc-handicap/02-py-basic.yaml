@@ -10,9 +10,12 @@ rrs_notes: "TCF = 1000 ÷ PY; otherwise identical to IRC. A lower PY number mean
 # Boat 2 is the fastest type (PY 900) but finished in the middle;
 # its higher TCF inflates its corrected time above Boat 1.
 
+series:
+  discardThresholds: []
+
 fleet:
   scoringSystem: py
-startTime: "14:00:00"
+
 competitors:
   - sailNumber: "1"
     name: "Alpha"
@@ -23,29 +26,57 @@ competitors:
   - sailNumber: "3"
     name: "Gamma"
     pyNumber: 1100
-finishes:
-  - sailor: "1"
-    finishTime: "15:00:00"
-  - sailor: "2"
-    finishTime: "14:55:00"
-  - sailor: "3"
-    finishTime: "15:10:00"
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "15:00:00"
+      - sailor: "2"
+        finishTime: "14:55:00"
+      - sailor: "3"
+        finishTime: "15:10:00"
+    expected:
+      - sailor: "1"
+        rank: 1
+        points: 1.0
+        elapsedTime: 3600
+        correctedTime: 3600.0
+        tcfApplied: 1.0
+      - sailor: "2"
+        rank: 2
+        points: 2.0
+        elapsedTime: 3300
+        correctedTime: 3666.67
+        tcfApplied: 1.1111111111111112
+      - sailor: "3"
+        rank: 3
+        points: 3.0
+        elapsedTime: 4200
+        correctedTime: 3818.18
+        tcfApplied: 0.9090909090909091
+
 expected:
-  - sailor: "1"
-    rank: 1
-    points: 1.0
-    elapsedTime: 3600
-    correctedTime: 3600.0
-    tcfApplied: 1.0
-  - sailor: "2"
-    rank: 2
-    points: 2.0
-    elapsedTime: 3300
-    correctedTime: 3666.67
-    tcfApplied: 1.1111111111111112
-  - sailor: "3"
-    rank: 3
-    points: 3.0
-    elapsedTime: 4200
-    correctedTime: 3818.18
-    tcfApplied: 0.9090909090909091
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3

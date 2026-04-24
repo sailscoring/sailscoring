@@ -6,7 +6,8 @@
 <style>
 body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
 h1 { font-size: 1.4em; }
-table { border-collapse: collapse; width: 100%; margin-top: 0.8em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
 td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
 th { background: #f5f5f0; font-weight: bold; }
 tr:nth-child(even) { background: #fafafa; }
@@ -19,8 +20,7 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 <h1>PY — TCF derived from integer Portsmouth Yardstick number</h1>
 <p style="font-style:italic; color:#444;">TCF = 1000 ÷ PY; otherwise identical to IRC. A lower PY number means a faster boat type.</p>
 <div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
-  <strong>Scoring system:</strong> PY &nbsp;&nbsp;
-  <strong>Gun time:</strong> 14:00:00
+  <strong>Scoring system:</strong> PY
 </div>
 <pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Start 14:00:00 (= 50400 s since midnight)
 
@@ -30,6 +30,10 @@ Boat 3 (PY 1100): finish 15:10:00  ET = 4200 s   TCF = 0.909   CT = 3818.18 s  �
 
 Boat 2 is the fastest type (PY 900) but finished in the middle;
 its higher TCF inflates its corrected time above Boat 1.</pre>
+<h2 style="margin-top:1.5em;">Race arithmetic</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00
+</div>
 <table>
 <thead>
 <tr><th>Rank</th><th>Name</th><th>Sail #</th><th>PY</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
@@ -67,6 +71,38 @@ its higher TCF inflates its corrected time above Boat 1.</pre>
   <td class="mono">0.9091 (1000/PY)</td>
   <td class="mono">63m 38s</td>
   <td>3</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Beta</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Gamma</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
 </tr>
 </tbody>
 </table>

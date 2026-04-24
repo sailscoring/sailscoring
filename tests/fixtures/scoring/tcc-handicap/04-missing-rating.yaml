@@ -10,9 +10,12 @@ rrs_notes: "A boat entered in a handicap fleet with no rating is rejected from s
 #
 # Boat 2 has a recorded finish time but no TCC, so it is excluded from scoring.
 
+series:
+  discardThresholds: []
+
 fleet:
   scoringSystem: irc
-startTime: "14:00:00"
+
 competitors:
   - sailNumber: "1"
     name: "Alpha"
@@ -23,27 +26,48 @@ competitors:
   - sailNumber: "3"
     name: "Gamma"
     ircTcc: 0.95
-finishes:
-  - sailor: "1"
-    finishTime: "15:05:00"
-  - sailor: "2"
-    finishTime: "15:10:00"
-  - sailor: "3"
-    finishTime: "15:03:00"
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "15:05:00"
+      - sailor: "2"
+        finishTime: "15:10:00"
+      - sailor: "3"
+        finishTime: "15:03:00"
+    expected:
+      - sailor: "1"
+        rank: 2
+        points: 2.0
+        elapsedTime: 3900
+        correctedTime: 4095.0
+        tcfApplied: 1.05
+      # sailor "2" is excluded — no expected entry
+      - sailor: "3"
+        rank: 1
+        points: 1.0
+        elapsedTime: 3780
+        correctedTime: 3591.0
+        tcfApplied: 0.95
+    rejected:
+      - sailor: "2"
+        reason: no_rating
+
 expected:
-  - sailor: "1"
-    rank: 2
-    points: 2.0
-    elapsedTime: 3900
-    correctedTime: 4095.0
-    tcfApplied: 1.05
-  # sailor "2" is excluded — no expected entry
-  - sailor: "3"
-    rank: 1
-    points: 1.0
-    elapsedTime: 3780
-    correctedTime: 3591.0
-    tcfApplied: 0.95
-rejectedCompetitors:
-  - sailor: "2"
-    reason: no_rating
+  standings:
+    - rank: 1
+      sailor: "3"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "1"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2

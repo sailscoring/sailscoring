@@ -8,9 +8,22 @@ notes: |
   Verifies the propagation contract: each boat's "TCF used" in race N
   equals its "newTcf" from race N-1.
 
+  Series totals (no discards):
+    Alpha: 1 + 4 + 4 = 9  (one 1st, two 4ths)
+    Beta:  2 + 2 + 2 = 6  (three 2nds, no wins)
+    Gamma: 3 + 3 + 3 = 9  (three 3rds, no wins)
+    Delta: 4 + 1 + 1 = 6  (two wins, one 4th)
+
+  A8.2 tie-breaking (most firsts): Delta beats Beta (2 vs 0);
+  Alpha beats Gamma (1 vs 0). Final order: Delta, Beta, Alpha, Gamma.
+
+series:
+  discardThresholds: []
+
 fleet:
   scoringSystem: nhc
   alpha: 0.15
+
 competitors:
   - sailNumber: "1"
     name: "Alpha"
@@ -26,7 +39,8 @@ competitors:
     nhcStartingTcf: 1.100
 races:
   # ─── Race 1 ─────────────────────────────────────────────────────────────────
-  - startTime: "14:00:00"
+  - number: 1
+    startTime: "14:00:00"
     finishes:
       - sailor: "1"
         finishTime: "14:50:00"
@@ -83,7 +97,8 @@ races:
         adjustment: -0.03890625
         newTcf: 1.06109375
   # ─── Race 2 ─────────────────────────────────────────────────────────────────
-  - startTime: "14:00:00"
+  - number: 2
+    startTime: "14:00:00"
     finishes:
       - sailor: "1"
         finishTime: "15:15:00"  # ET 4500 — Alpha slow
@@ -140,7 +155,8 @@ races:
         adjustment: 0.02336132812499997
         newTcf: 1.0844550781250002
   # ─── Race 3 ─────────────────────────────────────────────────────────────────
-  - startTime: "14:00:00"
+  - number: 3
+    startTime: "14:00:00"
     finishes:
       - sailor: "1"
         finishTime: "15:15:00"
@@ -196,3 +212,34 @@ races:
         fairTcf: 1.2168359375
         adjustment: 0.019857128906249966
         newTcf: 1.10431220703125
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "4"
+      racePoints: [4, 1, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 6
+      netPoints: 6
+    - rank: 2
+      sailor: "2"
+      racePoints: [2, 2, 2]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 6
+      netPoints: 6
+    - rank: 3
+      sailor: "1"
+      racePoints: [1, 4, 4]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 9
+      netPoints: 9
+    - rank: 4
+      sailor: "3"
+      racePoints: [3, 3, 3]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 9
+      netPoints: 9

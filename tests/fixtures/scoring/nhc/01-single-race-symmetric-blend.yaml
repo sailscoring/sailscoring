@@ -12,9 +12,13 @@ notes: |
   CT_avg = 4035.00, mean(TCF) = 1.025.
   Fast boats (low CT) gain TCF; slow boats (high CT) lose TCF.
 
+series:
+  discardThresholds: []
+
 fleet:
   scoringSystem: nhc
   alpha: 0.15
+
 competitors:
   - sailNumber: "1"
     name: "Alpha"
@@ -28,8 +32,10 @@ competitors:
   - sailNumber: "4"
     name: "Delta"
     nhcStartingTcf: 1.100
+
 races:
-  - startTime: "14:00:00"
+  - number: 1
+    startTime: "14:00:00"
     finishes:
       - sailor: "1"
         finishTime: "14:50:00"
@@ -85,3 +91,34 @@ races:
         fairTcf: 0.84062500
         adjustment: -0.03890625
         newTcf: 1.06109375
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 4
+      sailor: "4"
+      racePoints: [4]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4

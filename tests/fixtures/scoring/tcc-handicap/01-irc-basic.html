@@ -6,7 +6,8 @@
 <style>
 body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
 h1 { font-size: 1.4em; }
-table { border-collapse: collapse; width: 100%; margin-top: 0.8em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
 td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
 th { background: #f5f5f0; font-weight: bold; }
 tr:nth-child(even) { background: #fafafa; }
@@ -19,8 +20,7 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 <h1>IRC — corrected-time order differs from elapsed-time order</h1>
 <p style="font-style:italic; color:#444;">CT = ET × TCC; boats rank by lowest corrected time regardless of who crossed first.</p>
 <div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
-  <strong>Scoring system:</strong> IRC &nbsp;&nbsp;
-  <strong>Gun time:</strong> 14:05:00
+  <strong>Scoring system:</strong> IRC
 </div>
 <pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Start 14:05:00 (= 50700 s since midnight)
 
@@ -29,6 +29,10 @@ Boat 2: finish 15:12:58  ET = 4078 s   CT = 4078 × 0.88 = 3588.64 s  → 1st
 Boat 3: finish 15:08:30  ET = 3810 s   CT = 3810 × 0.95 = 3619.50 s  → 2nd
 
 Boat 2 finished last on elapsed time but wins on corrected time.</pre>
+<h2 style="margin-top:1.5em;">Race arithmetic</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:05:00
+</div>
 <table>
 <thead>
 <tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
@@ -66,6 +70,38 @@ Boat 2 finished last on elapsed time but wins on corrected time.</pre>
   <td class="mono">1.0500</td>
   <td class="mono">63m 00s</td>
   <td>3</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Beta</td>
+  <td class="mono">2</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Gamma</td>
+  <td class="mono">3</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
 </tr>
 </tbody>
 </table>
