@@ -180,6 +180,24 @@ export default function HelpPage() {
           Sailwave exports.
         </p>
         <p>
+          In <strong className="text-foreground">handicap</strong> mode, the importer infers each
+          fleet&apos;s scoring system from the rating columns it finds. If every boat in a CSV fleet
+          carries one rating system (say IRC), one fleet is created and configured for IRC. If the
+          fleet has a mix — IRC for some boats, ECHO for others — the importer splits it into{' '}
+          <code className="text-foreground text-sm">CR 0 (IRC)</code> and{' '}
+          <code className="text-foreground text-sm">CR 0 (ECHO)</code>; each boat joins the
+          fleet(s) matching their populated ratings. The mapping dialog lists the planned fleets
+          before you confirm, with a per-fleet checkbox to also score the group on{' '}
+          <strong className="text-foreground">scratch</strong> alongside (for line-honours awards).
+        </p>
+        <p>
+          When the CSV has no <em>Class</em> column and no existing competitor in the series has
+          a class set, the importer falls back to writing the original fleet name into{' '}
+          <strong className="text-foreground">Class</strong>. This preserves the practical
+          &ldquo;Cruisers 2&rdquo; grouping when the fleet column is being used as a class label
+          and boats end up split across rating fleets.
+        </p>
+        <p>
           Clicking <strong className="text-foreground">Import</strong> adds any new competitors and
           updates existing ones matched by sail number. When an existing competitor&apos;s fields are
           unchanged by the import, they are counted as{' '}

@@ -8,6 +8,7 @@ import type {
   RaceStartRepository,
 } from './repository';
 import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart } from './types';
+import { NHC_DEFAULT_ALPHA, ECHO_DEFAULT_ALPHA } from './scoring';
 
 export const DEFAULT_FLEET_NAME = 'Default';
 
@@ -238,10 +239,22 @@ export async function deleteSeriesCascade(seriesId: string): Promise<void> {
 /**
  * Find a fleet by name (case-insensitive) or create it.
  * Blank name → "Default".
+ * `options.scoringSystem` is applied only when *creating* a new fleet — this
+ * function never mutates an existing fleet's system. NHC/ECHO get their
+ * default alpha when not explicitly provided.
  * Returns the fleetId.
  */
-export async function ensureFleet(seriesId: string, name: string): Promise<string> {
+export async function ensureFleet(
+  seriesId: string,
+  name: string,
+  options?: {
+    scoringSystem?: Fleet['scoringSystem'];
+    nhcAlpha?: number;
+    echoAlpha?: number;
+  },
+): Promise<string> {
   const fleetName = name.trim() || DEFAULT_FLEET_NAME;
+  const scoringSystem = options?.scoringSystem ?? 'scratch';
   // Wrap read + write in a transaction so parallel callers don't each compute
   // maxOrder from the same baseline and end up with colliding displayOrders.
   return db.transaction('rw', db.fleets, async () => {
@@ -258,7 +271,9 @@ export async function ensureFleet(seriesId: string, name: string): Promise<strin
       seriesId,
       name: fleetName,
       displayOrder: maxOrder + 1,
-      scoringSystem: 'scratch',
+      scoringSystem,
+      ...(scoringSystem === 'nhc' ? { nhcAlpha: options?.nhcAlpha ?? NHC_DEFAULT_ALPHA } : {}),
+      ...(scoringSystem === 'echo' ? { echoAlpha: options?.echoAlpha ?? ECHO_DEFAULT_ALPHA } : {}),
     };
     await db.fleets.add(newFleet);
     return newFleet.id;

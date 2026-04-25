@@ -2,9 +2,16 @@
 
 import { useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import Papa from 'papaparse';
-import { competitorRepo, fleetRepo, seriesRepo, ensureFleet } from '@/lib/dexie-repository';
+import { competitorRepo, fleetRepo, seriesRepo, ensureFleet, DEFAULT_FLEET_NAME } from '@/lib/dexie-repository';
 import { db } from '@/lib/db';
 import { parseFleetCell } from '@/lib/csv-import';
+import {
+  planFleetCreation,
+  type PlanRow,
+  type RatingSystem,
+  type FleetPlan,
+  type ProposedFleet,
+} from '@/lib/competitor-import-plan';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -73,6 +80,16 @@ type ImportFlow =
       currentFields: CompetitorFieldKey[];
       /** Proposed enabled optional fields (includes currentFields ∪ additions). */
       proposedFields: CompetitorFieldKey[];
+      /** Series scoring mode at upload time — drives whether the planner
+       *  splits handicap fleets or falls through to one scratch fleet per
+       *  CSV name. */
+      seriesScoringMode: 'scratch' | 'handicap';
+      /** True iff at least one existing competitor in the series has a
+       *  boatClass — disables the "fleet name → boatClass" fallback. */
+      existingHasBoatClass: boolean;
+      /** User toggle per CSV-fleet-name canonical group: should an extra
+       *  scratch sibling be created (for line honours)? */
+      alsoCreateScratch: Record<string, boolean>;
     }
   | { step: 'done'; added: number; updated: number; unchanged: number; fleetsCreated: string[]; errors: { rowIndex: number; reason: string }[] };
 
@@ -192,6 +209,61 @@ function reconcileColumnMap(columnMap: ColumnMap, proposed: PrimaryPersonLabel):
   return out;
 }
 
+/** Map from the CSV import dropdown's rating-field values to the four
+ *  rating systems the planner cares about. */
+const RATING_FIELD_TO_SYSTEM: Partial<Record<CompetitorField, RatingSystem>> = {
+  tcc: 'irc',
+  py: 'py',
+  nhcStartingTcf: 'nhc',
+  echoStartingTcf: 'echo',
+};
+
+/** Extract per-row planning data: the parsed fleet column values and the
+ *  set of rating systems the row has a (non-blank, finite) value for. */
+function extractPlanRows(rows: string[][], columnMap: ColumnMap): PlanRow[] {
+  // Pre-index columns by role so we don't iterate the whole map per row.
+  let fleetCol = -1;
+  const ratingCols: { col: number; system: RatingSystem }[] = [];
+  for (const [colStr, field] of Object.entries(columnMap)) {
+    const col = parseInt(colStr, 10);
+    if (field === 'fleet') fleetCol = col;
+    const system = RATING_FIELD_TO_SYSTEM[field];
+    if (system) ratingCols.push({ col, system });
+  }
+  return rows.map((row) => {
+    const fleetCell = fleetCol >= 0 ? (row[fleetCol]?.trim() ?? '') : '';
+    const csvFleetNames = parseFleetCell(fleetCell);
+    const ratings = new Set<RatingSystem>();
+    for (const { col, system } of ratingCols) {
+      const raw = row[col]?.trim();
+      if (!raw) continue;
+      const parsed = parseFloat(raw);
+      if (Number.isFinite(parsed)) ratings.add(system);
+    }
+    return { csvFleetNames, ratings };
+  });
+}
+
+/** Group ProposedFleet entries by their originating CSV fleet name (insertion order). */
+function groupProposedByCsvName(proposed: ProposedFleet[]): [string, ProposedFleet[]][] {
+  const groups = new Map<string, ProposedFleet[]>();
+  for (const p of proposed) {
+    const arr = groups.get(p.csvFleetName);
+    if (arr) arr.push(p);
+    else groups.set(p.csvFleetName, [p]);
+  }
+  return [...groups.entries()];
+}
+
+/** Display name for a fleet's scoring system in the wizard's plan section. */
+const SCORING_SYSTEM_LABEL: Record<ProposedFleet['scoringSystem'], string> = {
+  scratch: 'Scratch',
+  irc: 'IRC',
+  py: 'PY',
+  nhc: 'NHC',
+  echo: 'ECHO',
+};
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export interface CompetitorImportHandle {
@@ -254,6 +326,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         const firstImport = existingCompetitors.length === 0;
         const currentPrimary = series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
         const currentFields = series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
+        const seriesScoringMode = series?.scoringMode ?? 'scratch';
+        const existingHasBoatClass = existingCompetitors.some((c) => !!c.boatClass);
 
         // Propose a primary label. The CSV drives the choice on the first
         // import, and also on later imports when the series is still on the
@@ -298,6 +372,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
           proposedPrimary,
           currentFields,
           proposedFields,
+          seriesScoringMode,
+          existingHasBoatClass,
+          alsoCreateScratch: {},
         });
       },
     });
@@ -306,7 +383,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
 
   async function handleImport() {
     if (importFlow.step !== 'mapping') return;
-    const { rows, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields } = importFlow;
+    const { rows, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, alsoCreateScratch } = importFlow;
 
     // Persist series-level proposals (primary label + additively-enabled fields)
     // before touching competitors so downstream UI reads the correct config.
@@ -333,8 +410,42 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       if (arr) arr.push(c);
       else bysail.set(key, [c]);
     }
-    const existingFleetNames = new Set(fleets.map((f) => f.name.toLowerCase()));
-    const newFleetNames = new Set<string>();
+
+    // Plan fleet creation: decide which fleets to create (or reuse) and
+    // which CSV rows belong in each. Materialize the plan up-front so the
+    // row loop just looks up fleet IDs by row index.
+    const planRows = extractPlanRows(rows, columnMap);
+    const csvHasClassColumn = Object.values(columnMap).includes('boatClass');
+    const plan = planFleetCreation({
+      rows: planRows,
+      existingFleets: fleets,
+      existingCompetitors: existing,
+      csvHasClassColumn,
+      seriesScoringMode,
+      alsoCreateScratch,
+    });
+
+    const fleetIdByPlanKey = new Map<string, string>();
+    const newFleetNames: string[] = [];
+    for (const p of plan.proposed) {
+      if (p.isExisting && p.existingFleetId) {
+        fleetIdByPlanKey.set(p.key, p.existingFleetId);
+      } else {
+        const id = await ensureFleet(seriesId, p.name, { scoringSystem: p.scoringSystem });
+        fleetIdByPlanKey.set(p.key, id);
+        newFleetNames.push(p.name);
+      }
+    }
+    // Per-row resolved fleet IDs (deduped, preserving insertion order).
+    const fleetIdsByRow: string[][] = rows.map(() => []);
+    for (const p of plan.proposed) {
+      const fid = fleetIdByPlanKey.get(p.key);
+      if (!fid) continue;
+      for (const i of p.rowIndices) {
+        if (!fleetIdsByRow[i].includes(fid)) fleetIdsByRow[i].push(fid);
+      }
+    }
+
     let added = 0;
     let updated = 0;
     let unchanged = 0;
@@ -388,18 +499,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const parsedAge = age ? parseInt(age, 10) : null;
       const normGender = gender.toUpperCase();
 
-      const fleetNames = parseFleetCell(fleet);
-      const resolvedFleetIds =
-        fleetNames.length === 0
-          ? [await ensureFleet(seriesId, '')]
-          : await Promise.all(fleetNames.map((n) => ensureFleet(seriesId, n)));
-      const fleetIds = [...new Set(resolvedFleetIds)];
-      for (const fn of fleetNames) {
-        if (fn.trim() && !existingFleetNames.has(fn.trim().toLowerCase())) {
-          newFleetNames.add(fn.trim());
-          existingFleetNames.add(fn.trim().toLowerCase());
-        }
-      }
+      const fleetIds = fleetIdsByRow[i];
 
       const sailCandidates = bysail.get(normSail) ?? [];
       const existingCompetitor = sailCandidates.length <= 1
@@ -416,7 +516,13 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const echoStartingTcf = parsedEcho != null && !isNaN(parsedEcho) ? parsedEcho : existingCompetitor?.echoStartingTcf;
 
       const resolvedBoatName = boatName || existingCompetitor?.boatName || '';
-      const resolvedBoatClass = boatClass || existingCompetitor?.boatClass || '';
+      // boatClass fallback: when neither the CSV nor any existing competitor
+      // provides a boatClass, fall back to the original CSV fleet name so
+      // grouping like "Cruisers 2" survives even when split into rating fleets.
+      const fleetNameFallback = plan.shouldFillBoatClassFromFleetName
+        ? (planRows[i].csvFleetNames[0]?.trim() || DEFAULT_FLEET_NAME)
+        : '';
+      const resolvedBoatClass = boatClass || existingCompetitor?.boatClass || fleetNameFallback || '';
       const resolvedCrewName = crewName || existingCompetitor?.crewName || '';
       const resolvedHelm = helmRole || existingCompetitor?.helm || '';
       const resolvedOwner = ownerRole || existingCompetitor?.owner || '';
@@ -472,7 +578,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     }
 
     await seriesRepo.touch(seriesId);
-    setImportFlow({ step: 'done', added, updated, unchanged, fleetsCreated: [...newFleetNames], errors });
+    setImportFlow({ step: 'done', added, updated, unchanged, fleetsCreated: newFleetNames, errors });
   }
 
   return (
@@ -546,9 +652,34 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
               });
             }
 
+            function toggleAlsoScratch(csvFleetName: string, checked: boolean) {
+              setImportFlow((f) => {
+                if (f.step !== 'mapping') return f;
+                const next = { ...f.alsoCreateScratch };
+                if (checked) next[csvFleetName] = true;
+                else delete next[csvFleetName];
+                return { ...f, alsoCreateScratch: next };
+              });
+            }
+
             const primaryChanged = flow.proposedPrimary !== flow.currentPrimary;
             const fieldAdditions = flow.proposedFields.filter((f) => !flow.currentFields.includes(f));
             const fieldRemovals = flow.currentFields.filter((f) => !flow.proposedFields.includes(f));
+
+            // Recompute the plan on every render — it's cheap and depends on
+            // column mappings + the also-scratch toggle, both of which the
+            // user edits inside this dialog.
+            const planRows = extractPlanRows(flow.rows, flow.columnMap);
+            const csvHasClassColumn = Object.values(flow.columnMap).includes('boatClass');
+            const livePlan = planFleetCreation({
+              rows: planRows,
+              existingFleets: fleets,
+              existingCompetitors: flow.existingHasBoatClass ? [{ boatClass: 'x' }] : [],
+              csvHasClassColumn,
+              seriesScoringMode: flow.seriesScoringMode,
+              alsoCreateScratch: flow.alsoCreateScratch,
+            });
+            const planGroups = groupProposedByCsvName(livePlan.proposed);
 
             return (
               <div className="space-y-4 overflow-y-auto max-h-[60vh]">
@@ -624,6 +755,58 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
                     </div>
                   )}
                 </div>
+
+                {/* Fleets to create / reuse */}
+                {planGroups.length > 0 && (
+                  <div className="rounded-md border p-3 space-y-2 bg-muted/30">
+                    <p className="text-sm font-medium">Fleets</p>
+                    <div className="space-y-2">
+                      {planGroups.map(([csvName, group]) => {
+                        // Show the also-scratch toggle only for groups where
+                        // at least one rating system was inferred (non-scratch).
+                        const hasRatingFleet = group.some((p) => p.scoringSystem !== 'scratch');
+                        return (
+                          <div key={csvName} className="space-y-0.5">
+                            <p className="text-xs font-mono text-muted-foreground">
+                              {csvName}
+                            </p>
+                            <ul className="text-sm pl-3 space-y-0.5">
+                              {group.map((p) => (
+                                <li key={p.key} className="flex items-baseline gap-2">
+                                  <span className="font-medium">{p.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {SCORING_SYSTEM_LABEL[p.scoringSystem]}
+                                    {' · '}
+                                    {p.rowIndices.length} {p.rowIndices.length === 1 ? 'boat' : 'boats'}
+                                    {p.isExisting && ' · existing'}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                            {hasRatingFleet && (
+                              <label className="flex items-center gap-1.5 text-xs pl-3 pt-0.5 cursor-pointer text-muted-foreground">
+                                <input
+                                  type="checkbox"
+                                  checked={flow.alsoCreateScratch[csvName] === true}
+                                  onChange={(e) => toggleAlsoScratch(csvName, e.target.checked)}
+                                  className="h-3.5 w-3.5"
+                                />
+                                Also score {csvName} on scratch (line honours)
+                              </label>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {livePlan.shouldFillBoatClassFromFleetName && (
+                      <p className="text-xs text-muted-foreground border-t pt-2">
+                        No Class column detected — the original fleet name will be saved
+                        as each boat&rsquo;s class so the grouping isn&rsquo;t lost when
+                        boats are split into rating fleets.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <Table className="table-fixed">
                   <TableHeader>
