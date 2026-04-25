@@ -31,7 +31,6 @@ function callPlan(overrides: Partial<FleetPlanInput>) {
     existingFleets: [],
     existingCompetitors: [],
     csvHasClassColumn: false,
-    seriesScoringMode: 'handicap',
     alsoCreateScratch: {},
   };
   return planFleetCreation({ ...defaults, ...overrides });
@@ -39,29 +38,33 @@ function callPlan(overrides: Partial<FleetPlanInput>) {
 
 // ── Decision-table cases ────────────────────────────────────────────────────
 
-describe('planFleetCreation — scratch-mode series', () => {
-  it('passes through one scratch fleet per CSV name regardless of ratings', () => {
+describe('planFleetCreation — column mappings drive system choice', () => {
+  it('proposes handicap fleets whenever a rating column is mapped, regardless of any series-level mode', () => {
+    // The planner has no notion of series scoringMode — column mappings
+    // are authoritative. The importer is responsible for flipping the
+    // series mode to 'handicap' when the plan creates handicap fleets.
     const plan = callPlan({
-      seriesScoringMode: 'scratch',
       rows: [
         row(['CR 0'], ['irc']),
         row(['CR 0'], ['echo']),
         row(['CR 1'], ['irc']),
       ],
     });
-    expect(plan.proposed).toHaveLength(2);
+    expect(plan.proposed).toHaveLength(3);
     expect(plan.proposed[0]).toMatchObject({
-      name: 'CR 0',
-      scoringSystem: 'scratch',
-      source: 'no-ratings',
-      isExisting: false,
-      rowIndices: [0, 1],
+      name: 'CR 0 (ECHO)',
+      scoringSystem: 'echo',
+      source: 'rating-split',
     });
     expect(plan.proposed[1]).toMatchObject({
+      name: 'CR 0 (IRC)',
+      scoringSystem: 'irc',
+      source: 'rating-split',
+    });
+    expect(plan.proposed[2]).toMatchObject({
       name: 'CR 1',
-      scoringSystem: 'scratch',
-      isExisting: false,
-      rowIndices: [2],
+      scoringSystem: 'irc',
+      source: 'rating-single',
     });
   });
 });

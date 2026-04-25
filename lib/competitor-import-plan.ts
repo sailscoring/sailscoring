@@ -1,23 +1,27 @@
 /**
  * Pure planning logic for the CSV competitor import wizard's fleet
- * auto-creation step. Given the parsed rows, the existing fleets, and a
- * couple of series-level flags, decide which fleets need to be created or
- * reused and which CSV rows belong in each.
+ * auto-creation step. Given the parsed rows and the existing fleets,
+ * decide which fleets need to be created or reused and which CSV rows
+ * belong in each.
  *
- * Decision summary (per CSV-fleet-name group):
+ * Decision summary (per CSV-fleet-name group, by count of distinct rating
+ * systems present in the group's rows):
  *
- *   handicap-mode series, count distinct rating systems present:
- *     0 → one scratch fleet, name = bare group name; all rows join.
- *     1 → one fleet of that system, name = bare group name (suffixed if
- *         the bare name is taken by a different system in the DB);
- *         all rows join.
- *     2+ → one fleet per system, name = "<group> (<SYSTEM>)";
- *          rated rows join the fleet(s) matching their populated rating(s);
- *          rating-less rows join all of the auto-created handicap fleets
- *          for the group (DNC pollution is the right pressure on a
- *          placeholder rating).
+ *   0 → one scratch fleet, name = bare group name; all rows join.
+ *   1 → one fleet of that system, name = bare group name (suffixed if
+ *       the bare name is taken by a different system in the DB);
+ *       all rows join.
+ *   2+ → one fleet per system, name = "<group> (<SYSTEM>)";
+ *        rated rows join the fleet(s) matching their populated rating(s);
+ *        rating-less rows join all of the auto-created handicap fleets
+ *        for the group (DNC pollution is the right pressure on a
+ *        placeholder rating).
  *
- *   scratch-mode series → one scratch fleet per group (current behaviour).
+ * The planner deliberately doesn't take the series-level scoringMode as an
+ * input: column mappings carry the user's intent. If the user mapped a
+ * rating column, the resulting fleets are handicap-system; the importer
+ * is responsible for flipping the series scoringMode to 'handicap' to
+ * match. Anyone wanting a scratch import maps rating columns to (ignore).
  *
  * The optional "also create scratch" toggle (per group, present only when
  * at least one rating system is in play) appends an extra scratch sibling
@@ -97,7 +101,6 @@ export type FleetPlanInput = {
   existingCompetitors: Pick<Competitor, 'boatClass'>[];
   /** True iff the CSV has a column mapped to boatClass. */
   csvHasClassColumn: boolean;
-  seriesScoringMode: 'scratch' | 'handicap';
   /** Per CSV fleet name (canonical case as it appears in the plan), true
    *  to also create a scratch sibling for line honours. Ignored for
    *  no-rating groups (their main fleet is already scratch). */
@@ -157,7 +160,7 @@ function membershipForSystem(
 }
 
 export function planFleetCreation(input: FleetPlanInput): FleetPlan {
-  const { rows, existingFleets, existingCompetitors, csvHasClassColumn, seriesScoringMode, alsoCreateScratch } = input;
+  const { rows, existingFleets, existingCompetitors, csvHasClassColumn, alsoCreateScratch } = input;
 
   const groups = groupRows(rows);
   const proposed: ProposedFleet[] = [];
@@ -166,10 +169,7 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
 
   // Iterate groups in insertion order (= first-appearance order in the CSV).
   for (const group of groups.values()) {
-    const isScratchMode = seriesScoringMode === 'scratch';
-    const systems: RatingSystem[] = isScratchMode
-      ? []
-      : Array.from(group.presentSystems).sort();
+    const systems: RatingSystem[] = Array.from(group.presentSystems).sort();
 
     if (systems.length === 0) {
       // No ratings (or scratch-mode series) → one scratch fleet, bare name.
@@ -253,7 +253,6 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
     // Optional scratch sibling — only when at least one rating system was
     // in play (a no-rating group's main fleet is already scratch).
     const wantsScratch =
-      !isScratchMode &&
       systems.length >= 1 &&
       alsoCreateScratch[group.canonicalName] === true;
     if (wantsScratch) {

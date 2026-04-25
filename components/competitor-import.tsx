@@ -73,9 +73,10 @@ type ImportFlow =
       currentFields: CompetitorFieldKey[];
       /** Proposed enabled optional fields (includes currentFields ∪ additions). */
       proposedFields: CompetitorFieldKey[];
-      /** Series scoring mode at upload time — drives whether the planner
-       *  splits handicap fleets or falls through to one scratch fleet per
-       *  CSV name. */
+      /** Series scoring mode at upload time. The planner doesn't take this
+       *  as input — column mappings drive system choice. We track it here
+       *  only so the importer knows whether to flip the series to
+       *  'handicap' on confirm (when the plan produces handicap fleets). */
       seriesScoringMode: 'scratch' | 'handicap';
       /** True iff at least one existing competitor in the series has a
        *  boatClass — disables the "fleet name → boatClass" fallback. */
@@ -357,23 +358,6 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     if (importFlow.step !== 'mapping') return;
     const { rows, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, alsoCreateScratch } = importFlow;
 
-    // Persist series-level proposals (primary label + additively-enabled fields)
-    // before touching competitors so downstream UI reads the correct config.
-    const seriesPatch: {
-      primaryPersonLabel?: PrimaryPersonLabel;
-      enabledCompetitorFields?: CompetitorFieldKey[];
-      lastModifiedAt?: number;
-    } = {};
-    if (proposedPrimary !== currentPrimary) seriesPatch.primaryPersonLabel = proposedPrimary;
-    const fieldsChanged =
-      proposedFields.length !== currentFields.length ||
-      proposedFields.some((f, i) => f !== currentFields[i]);
-    if (fieldsChanged) seriesPatch.enabledCompetitorFields = proposedFields;
-    if (Object.keys(seriesPatch).length > 0) {
-      seriesPatch.lastModifiedAt = Date.now();
-      await db.series.update(seriesId, seriesPatch);
-    }
-
     const existing = await competitorRepo.listBySeries(seriesId);
     const bysail = new Map<string, Competitor[]>();
     for (const c of existing) {
@@ -393,9 +377,32 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       existingFleets: fleets,
       existingCompetitors: existing,
       csvHasClassColumn,
-      seriesScoringMode,
       alsoCreateScratch,
     });
+
+    // Persist series-level proposals (primary label, additively-enabled
+    // fields, and — if the plan produced handicap fleets — flipping the
+    // series to handicap mode) before touching competitors so downstream
+    // UI reads the correct config.
+    const seriesPatch: {
+      primaryPersonLabel?: PrimaryPersonLabel;
+      enabledCompetitorFields?: CompetitorFieldKey[];
+      scoringMode?: 'scratch' | 'handicap';
+      lastModifiedAt?: number;
+    } = {};
+    if (proposedPrimary !== currentPrimary) seriesPatch.primaryPersonLabel = proposedPrimary;
+    const fieldsChanged =
+      proposedFields.length !== currentFields.length ||
+      proposedFields.some((f, i) => f !== currentFields[i]);
+    if (fieldsChanged) seriesPatch.enabledCompetitorFields = proposedFields;
+    const planHasHandicapFleet = plan.proposed.some((p) => p.scoringSystem !== 'scratch');
+    if (seriesScoringMode === 'scratch' && planHasHandicapFleet) {
+      seriesPatch.scoringMode = 'handicap';
+    }
+    if (Object.keys(seriesPatch).length > 0) {
+      seriesPatch.lastModifiedAt = Date.now();
+      await db.series.update(seriesId, seriesPatch);
+    }
 
     const fleetIdByPlanKey = new Map<string, string>();
     const newFleetNames: string[] = [];
@@ -648,7 +655,6 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
               existingFleets: fleets,
               existingCompetitors: flow.existingHasBoatClass ? [{ boatClass: 'x' }] : [],
               csvHasClassColumn,
-              seriesScoringMode: flow.seriesScoringMode,
               alsoCreateScratch: flow.alsoCreateScratch,
             });
             const planGroups = groupProposedByCsvName(livePlan.proposed);
