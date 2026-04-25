@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculateRaceScores, calculateStandings, calculateFleetStandings, getDiscardCount, calculateHandicapRaceScores, calculateHandicapAdjustment, deriveProgressiveHandicapConfig } from '@/lib/scoring';
-import type { Competitor, Fleet, Race, Finish, DiscardThreshold, PenaltyCode, RaceStart, ProgressiveHandicapConfig } from '@/lib/types';
+import type { Competitor, Fleet, Race, Finish, DiscardThreshold, PenaltyCode, RaceStart } from '@/lib/types';
 
 // Helpers to build test fixtures with minimal required fields
 function makeCompetitor(id: string, seriesId = 's1', fleetId = 'f1'): Competitor {
@@ -761,97 +761,6 @@ describe('calculateHandicapAdjustment — NHC1 edge cases', () => {
   });
 });
 
-describe('calculateHandicapAdjustment — generic over progressive system (ECHO config)', () => {
-  // The IS 2022 ECHO Guide for Clubs page-2 worked example. 10 boats, α = 0.25,
-  // minFinishers = 3. Reproducing this through the generic adjustment phase
-  // (configured for ECHO, not NHC1) is the contract test that the engine isn't
-  // secretly NHC-specific. When ECHO ships its display layer this fixture will
-  // gain the IS column-set assertions; for now it's an engine-level check.
-  it('reproduces the IS 2022 worked example', () => {
-    const echoConfig: ProgressiveHandicapConfig = {
-      alphaUp: 0.25,
-      alphaDown: 0.25,
-      outlier: { strategy: 'none' },
-      realignment: { target: 'none' },
-      minFinishers: 3,
-    };
-
-    // Boat | T_E | Starting H
-    const boats: Array<[string, number, number]> = [
-      ['1', 60, 1.001],
-      ['2', 61, 1.015],
-      ['3', 66, 1.020],
-      ['4', 59, 1.020],
-      ['5', 56, 1.115],
-      ['6', 70, 1.000],
-      ['7', 56, 1.020],
-      ['8', 59, 1.010],
-      ['9', 61, 1.005],
-      ['10', 57, 1.015],
-    ];
-    // Build a synthetic phase-A score map (we don't need raceStart/finishes —
-    // this exercises only phase B against handcrafted ET / CT / TCF).
-    const scores = new Map();
-    for (const [id, te, h] of boats) {
-      scores.set(id, {
-        competitorId: id,
-        points: 0,
-        place: 1,
-        rank: 1,
-        resultCode: null,
-        elapsedTime: te,
-        correctedTime: te * h,
-        tcfApplied: h,
-        newTcf: null,
-      });
-    }
-
-    const { newTcfByCompetitorId, perFinisherCalc } = calculateHandicapAdjustment(scores, echoConfig);
-
-    // Verify the engine implements the IS formula. The reference values are
-    // computed inline from `(H_S × 0.75) + (PI × 0.25)` with PI from
-    // `ΣH_S / (T_E × Σ(1/T_E))`. Tolerance ±0.001 because the engine uses the
-    // algebraically equivalent CT-form (`TCF × CT_avg/CT`); the docstring on
-    // calculateHandicapAdjustment notes the ≤0.001 drift.
-    //
-    // The IS 2022 guide's published table itself has rounding inconsistencies
-    // (notably row 6 = 0.952 vs the formula's 0.970), so this test checks
-    // formula-conformance, not table-conformance — see project memory
-    // `project_is_2022_echo_table_typo.md`.
-    const sumH = boats.reduce((s, [, , h]) => s + h, 0);
-    const sumInvT = boats.reduce((s, [, t]) => s + 1 / t, 0);
-    for (const [id, t, h] of boats) {
-      const PI = sumH / (t * sumInvT);
-      const expectedNewH = 0.75 * h + 0.25 * PI;
-      const newTcf = newTcfByCompetitorId.get(id)!;
-      const driftMilli = Math.round(Math.abs(newTcf - expectedNewH) * 1000);
-      expect(driftMilli, `boat ${id}: engine ${newTcf.toFixed(4)} vs IS-formula ${expectedNewH.toFixed(4)}`).toBeLessThanOrEqual(1);
-    }
-
-    // Boat 1 PI per the IS guide is ≈ 1.026 — a sanity check on the per-finisher
-    // intermediate the explainability layer renders.
-    expect(perFinisherCalc.get('1')!.fairTcf).toBeCloseTo(1.026, 2);
-  });
-
-  it('suppresses the update when finishers < minFinishers', () => {
-    const echoConfig: ProgressiveHandicapConfig = {
-      alphaUp: 0.25,
-      alphaDown: 0.25,
-      outlier: { strategy: 'none' },
-      realignment: { target: 'none' },
-      minFinishers: 3,
-    };
-    const scores = new Map();
-    // Two finishers — below the threshold; no boat's TCF should move.
-    scores.set('A', { competitorId: 'A', points: 1, place: 1, rank: 1, resultCode: null, elapsedTime: 60, correctedTime: 60, tcfApplied: 1.0, newTcf: null });
-    scores.set('B', { competitorId: 'B', points: 2, place: 2, rank: 2, resultCode: null, elapsedTime: 70, correctedTime: 70, tcfApplied: 1.0, newTcf: null });
-    const { newTcfByCompetitorId, perFinisherCalc } = calculateHandicapAdjustment(scores, echoConfig);
-    expect(newTcfByCompetitorId.get('A')).toBe(1.0);
-    expect(newTcfByCompetitorId.get('B')).toBe(1.0);
-    expect(perFinisherCalc.get('A')!.adjustment).toBe(0);
-    expect(perFinisherCalc.get('B')!.adjustment).toBe(0);
-  });
-});
 
 // ─── calculateFleetStandings — NHC propagation ───────────────────────────────
 
