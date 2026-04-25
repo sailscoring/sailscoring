@@ -213,7 +213,7 @@ td.rank2 { background: #6a91c5; }
 td.rank3 { background: #da6841; }
 td.discard { background: #f2f2f2; }
 td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
-${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\n' : ''}</style>
+${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.nhc-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.nhc-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.nhc-explainer p:last-child { margin-bottom: 0; }\ndiv.nhc-explainer .formula { font-family: monospace; }\ndiv.nhc-explainer dl { margin: 4px 0 0 0; }\ndiv.nhc-explainer dt { font-weight: bold; display: inline; }\ndiv.nhc-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.nhc-explainer dd:after { content: ""; display: block; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.echo-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.echo-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.echo-explainer p:last-child { margin-bottom: 0; }\ndiv.echo-explainer .formula { font-family: monospace; }\ndiv.echo-explainer dl { margin: 4px 0 0 0; }\ndiv.echo-explainer dt { font-weight: bold; display: inline; }\ndiv.echo-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.echo-explainer dd:after { content: ""; display: block; }\n' : ''}</style>
 </head>
 <body${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).length > 0 ? ` class="${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).join(' ')}"` : ''}>
 <table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
@@ -232,8 +232,8 @@ ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 <style>div.applicant-break {page-break-after:always;}</style>
 ${generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
 ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
-${hasNhcDetail ? renderNhcToggle() : ''}
-${hasEchoDetail ? renderEchoToggle() : ''}
+${hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : ''}
+${hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : ''}
 ${renderSummaryTable(standings, races, hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, primaryHeader)}
 ${races.map((race) => renderRaceTable(race, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, primaryHeader)).join('\n')}
 <p class="hardleft"></p>
@@ -288,6 +288,43 @@ cb.addEventListener('change',function(){
   else{document.body.classList.add('hide-echo-detail');localStorage.setItem(KEY,'false');}
 });
 })();</script>`;
+}
+
+/** Prose block explaining the NHC rating-calculation columns and formula.
+ *  Carries the `nhc-detail` class so it shows and hides under the same
+ *  viewer toggle as the per-row calculation columns. Generic — the live
+ *  α value for each race is shown in the per-race fleet header line. */
+function renderNhcExplainer(): string {
+  return `<div class="nhc-explainer nhc-detail">
+<p><strong>NHC</strong> is a progressive handicap. Each boat&rsquo;s TCF starts from the fleet rating list and shifts after every race based on how its corrected time compared to the fleet average.</p>
+<p>After each race the new rating is computed as <span class="formula">New TCF = TCF + &alpha; &times; (Fair TCF &minus; TCF)</span>, where &alpha; (shown in the per-race fleet header) controls how much weight a single race carries. <em>Fair TCF</em> is the rating that would have given this boat the fleet&rsquo;s average corrected time.</p>
+<p>Column meanings:</p>
+<dl>
+<dt>CT ratio</dt><dd>&mdash; this boat&rsquo;s corrected time divided by the fleet average.</dd>
+<dt>Fair TCF</dt><dd>&mdash; the TCF that would have produced the average CT.</dd>
+<dt>Adjustment</dt><dd>&mdash; &alpha; &times; (Fair TCF &minus; TCF), the signed shift applied to TCF.</dd>
+<dt>New TCF</dt><dd>&mdash; the rating to apply in the next race. Non-finishers carry their TCF unchanged.</dd>
+</dl>
+</div>`;
+}
+
+/** Prose block explaining the ECHO rating-calculation columns and formula.
+ *  Carries the `echo-detail` class so it shows and hides under the same
+ *  viewer toggle as the per-row calculation columns. Generic — the live
+ *  &alpha;, &Sigma;H_S, and &Sigma;(1/T_E) for each race are shown in the
+ *  per-race fleet header line. */
+function renderEchoExplainer(): string {
+  return `<div class="echo-explainer echo-detail">
+<p><strong>ECHO</strong> is the Irish Sailing progressive handicap. Each boat&rsquo;s handicap H starts from the rated list and shifts after every race based on a Performance Index measuring how the boat sailed relative to the fleet.</p>
+<p>After each race the new handicap is computed as <span class="formula">New H = H + &alpha; &times; (PI &minus; H)</span>, with <span class="formula">PI = &Sigma;H_S / (T_E &times; &Sigma;(1/T_E))</span>. &alpha;, &Sigma;H_S, and &Sigma;(1/T_E) are shown in the per-race fleet header. The rating update is suppressed when fewer than three boats finish.</p>
+<p>Column meanings:</p>
+<dl>
+<dt>1/T_E</dt><dd>&mdash; reciprocal of this boat&rsquo;s elapsed time, in s&minus;&sup1;.</dd>
+<dt>PI</dt><dd>&mdash; Performance Index for this boat in this race.</dd>
+<dt>Adjustment</dt><dd>&mdash; &alpha; &times; (PI &minus; H), the signed shift applied to H.</dd>
+<dt>New H</dt><dd>&mdash; the handicap to apply in the next race. Non-finishers carry their H unchanged.</dd>
+</dl>
+</div>`;
 }
 
 // ---- Summary table ----

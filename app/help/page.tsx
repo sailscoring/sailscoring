@@ -39,6 +39,7 @@ export default function HelpPage() {
           ['#redress', 'Redress (RDG)'],
           ['#start-check-in', 'Start check-in'],
           ['#reading-the-standings', 'Reading the standings'],
+          ['#rating-systems', 'Rating systems'],
           ['#discard-rules', 'Discard rules'],
           ['#a53-scoring', 'A5.3 starting-area scoring'],
           ['#saving-and-sharing', 'Saving and sharing a series'],
@@ -476,6 +477,64 @@ export default function HelpPage() {
           <strong className="text-foreground">x</strong>) to download a self-contained results
           page you can email or host on your club website. To push results directly to a web server,
           see <a href="#publishing-results" className="underline">Publishing results via FTP</a>.
+        </p>
+      </Section>
+
+      <Section id="rating-systems" title="Rating systems">
+        <p>
+          Sail Scoring supports several scoring systems. Pick the right one per fleet
+          on the <strong className="text-foreground">Settings</strong> tab.
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li>
+            <strong className="text-foreground">Scratch</strong> — position-based scoring
+            with no time correction. The first boat across the line wins. Used for
+            one-design fleets and any fleet where boats race on equal terms.
+          </li>
+          <li>
+            <strong className="text-foreground">IRC</strong> — static handicap. Each boat
+            carries a published TCC; corrected time is elapsed time × TCC. Ratings do not
+            change race to race within a series.
+          </li>
+          <li>
+            <strong className="text-foreground">PY (Portsmouth Yardstick)</strong> —
+            static handicap for mixed dinghy fleets. Each class carries a published PY
+            number; corrected time is elapsed time × 1000 / PY.
+          </li>
+          <li>
+            <strong className="text-foreground">NHC</strong> — the RYA National Handicap
+            for Cruisers. A <em>progressive</em> handicap: each boat starts from a
+            published TCF and the rating is adjusted after every race based on how the
+            boat performed against the fleet average.
+          </li>
+          <li>
+            <strong className="text-foreground">ECHO</strong> — the Irish Sailing
+            progressive handicap. Each boat starts from a published handicap H and
+            the rating is adjusted after every race based on a Performance Index
+            measuring the boat&rsquo;s performance relative to the fleet.
+          </li>
+        </ul>
+        <p>
+          For NHC and ECHO, the published HTML results page includes a{' '}
+          <strong className="text-foreground">
+            Show NHC/ECHO rating calculations
+          </strong>{' '}
+          checkbox at the top. Ticking it reveals the per-race intermediate values
+          (CT ratio, Fair TCF, Adjustment, New TCF for NHC; 1/T_E, PI, Adjustment,
+          New H for ECHO) along with a brief explainer of the formula. Sailors and
+          rating officers can use those columns to verify the rating updates with a
+          calculator. The toggle is off by default — readers who only want the
+          standings see a clean page; those who want the math tick the box.
+        </p>
+        <p>
+          Whether to publish the rating calculations is a per-series setting on the{' '}
+          <strong className="text-foreground">Settings</strong> tab — under{' '}
+          <strong className="text-foreground">Publishing</strong>, uncheck{' '}
+          <strong className="text-foreground">
+            Publish NHC rating calculations alongside results
+          </strong>{' '}
+          to omit the toggle and its columns from the published page. The setting is on
+          by default and applies to both NHC and ECHO fleets.
         </p>
       </Section>
 

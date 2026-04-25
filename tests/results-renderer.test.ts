@@ -500,4 +500,81 @@ describe('renderSeriesHtml NHC viewer toggle', () => {
     expect(html).not.toContain('sailscoring:nhc-explain-visible');
     expect(html).toContain('<body>');
   });
+
+  it('emits the NHC prose explainer with the nhc-detail class when explainability is published', () => {
+    const html = renderSeriesHtml(nhcFixture());
+    expect(html).toContain('class="nhc-explainer nhc-detail"');
+    expect(html).toContain('New TCF = TCF + &alpha;');
+    expect(html).toContain('Fair TCF');
+    expect(html).toContain('Non-finishers carry their TCF unchanged');
+  });
+
+  it('omits the NHC explainer when explainability is not published', () => {
+    const html = renderSeriesHtml(nhcFixture(false));
+    expect(html).not.toContain('nhc-explainer');
+  });
+
+  it('omits the NHC explainer on non-NHC fleets', () => {
+    const html = renderSeriesHtml(MINIMAL);
+    expect(html).not.toContain('nhc-explainer');
+  });
+});
+
+// ---- ECHO viewer toggle ----
+
+function echoFixture(withExplain = true): SeriesResultsData {
+  const echoHeader = {
+    alpha: 0.1,
+    finisherCount: 3,
+    sumH: 3.0,
+    sumReciprocalEt: 0.0008,
+    updateSuppressed: false,
+  };
+  const race: RaceData = {
+    raceNumber: 1,
+    date: '2025-06-01',
+    label: 'R1',
+    anchorId: 'r1',
+    isEcho: true,
+    ...(withExplain ? { echoHeader } : {}),
+    results: [
+      {
+        rank: 1, sailNumber: '42', helm: 'Alice',
+        place: 1, points: 1, resultCode: null, penaltyCode: null, penaltyOverride: null,
+        tcc: 1.0, finishTime: '14:58:20',
+        elapsedTimeSecs: 3500, correctedTimeSecs: 3500,
+        ...(withExplain ? {
+          echo: { startingH: 1.0, newH: 1.012, reciprocalEt: 0.000286, pi: 1.071, adjustment: 0.0071, isFinisher: true },
+        } : {}),
+      },
+    ],
+  };
+  return {
+    series: { name: 'ECHO Series', venue: 'HYC' },
+    enabledCompetitorFields: [],
+    races: [race],
+    standings: [
+      makeStanding(1, '42', 'Alice', [{ points: 1, podiumRank: 1 }]),
+    ],
+  };
+}
+
+describe('renderSeriesHtml ECHO viewer toggle', () => {
+  it('emits the ECHO prose explainer with the echo-detail class when explainability is published', () => {
+    const html = renderSeriesHtml(echoFixture());
+    expect(html).toContain('class="echo-explainer echo-detail"');
+    expect(html).toContain('New H = H + &alpha;');
+    expect(html).toContain('Performance Index');
+    expect(html).toContain('Non-finishers carry their H unchanged');
+  });
+
+  it('omits the ECHO explainer when explainability is not published', () => {
+    const html = renderSeriesHtml(echoFixture(false));
+    expect(html).not.toContain('echo-explainer');
+  });
+
+  it('omits the ECHO explainer on non-ECHO fleets', () => {
+    const html = renderSeriesHtml(MINIMAL);
+    expect(html).not.toContain('echo-explainer');
+  });
 });
