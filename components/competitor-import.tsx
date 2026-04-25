@@ -4,7 +4,7 @@ import { useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import Papa from 'papaparse';
 import { competitorRepo, fleetRepo, seriesRepo, ensureFleet, DEFAULT_FLEET_NAME } from '@/lib/dexie-repository';
 import { db } from '@/lib/db';
-import { parseFleetCell } from '@/lib/csv-import';
+import { parseFleetCell, autoDetectField, type CompetitorField } from '@/lib/csv-import';
 import {
   planFleetCreation,
   type PlanRow,
@@ -51,13 +51,6 @@ import { log } from '@/lib/debug';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-/** Internal dropdown targets. The single required primary-name slot is `primary`;
- *  its dropdown label is rendered dynamically from the series primary label.
- *  `helm` and `owner` are optional *role* targets — shown only when the primary
- *  label doesn't already occupy that role. Under the hood both route to
- *  `Competitor.helm` / `Competitor.owner`, or to `Competitor.name` when they
- *  match the primary. */
-type CompetitorField = 'sailNumber' | 'boatName' | 'boatClass' | 'primary' | 'helm' | 'owner' | 'crewName' | 'club' | 'gender' | 'age' | 'fleet' | 'tcc' | 'py' | 'nhcStartingTcf' | 'echoStartingTcf' | 'ignore';
 type ColumnMap = Record<number, CompetitorField>;
 
 type ImportFlow =
@@ -153,27 +146,6 @@ function sameFleetIdSet(a: string[], b: string[]): boolean {
   const set = new Set(a);
   for (const id of b) if (!set.has(id)) return false;
   return true;
-}
-
-function autoDetectField(header: string): CompetitorField {
-  const h = header.trim().toLowerCase();
-  if (/sail/.test(h)) return 'sailNumber';
-  if (/\bboat\b/.test(h)) return 'boatName';
-  if (/\bclass\b/.test(h)) return 'boatClass';
-  if (/crew/.test(h)) return 'crewName';
-  if (/\bhelm\b|skipper/.test(h)) return 'helm';
-  if (/\bowner\b|\bentrant\b/.test(h)) return 'owner';
-  if (/name/.test(h)) return 'primary';
-  if (/club/.test(h)) return 'club';
-  if (/gender|sex/.test(h)) return 'gender';
-  if (/age/.test(h)) return 'age';
-  if (/fleet|division/.test(h)) return 'fleet';
-  if (/tcc|irc.*rating|rating.*irc/.test(h)) return 'tcc';
-  if (/\bpy\b|portsmouth/.test(h)) return 'py';
-  if (/\bnhc\b|nhc.*tcf|nhc.*rating/.test(h)) return 'nhcStartingTcf';
-  if (/\becho\b|echo.*tcf|echo.*rating|echo.*handicap/.test(h)) return 'echoStartingTcf';
-  if (/starting.*tcf/.test(h)) return 'nhcStartingTcf';
-  return 'ignore';
 }
 
 /** Propose a primary-person label from the detected column roles. Matches
