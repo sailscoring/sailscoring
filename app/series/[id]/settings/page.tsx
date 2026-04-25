@@ -282,14 +282,14 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
   );
 }
 
-function PublishingCard({ seriesId, series, anyNhcFleet }: { seriesId: string; series: Series; anyNhcFleet: boolean }) {
+function PublishingCard({ seriesId, series, anyProgressiveFleet }: { seriesId: string; series: Series; anyProgressiveFleet: boolean }) {
   const [expanded, setExpanded] = useState(false);
 
   const includeJson = series.includeJsonExport ?? true;
   const publishRatingCalcs = series.publishRatingCalculations ?? true;
   const summaryParts = [
     includeJson ? 'JSON export included' : 'JSON export excluded',
-    ...(anyNhcFleet ? [publishRatingCalcs ? 'rating calculations published' : 'rating calculations hidden'] : []),
+    ...(anyProgressiveFleet ? [publishRatingCalcs ? 'rating calculations published' : 'rating calculations hidden'] : []),
   ];
   const summary = summaryParts.join(' · ');
 
@@ -328,7 +328,7 @@ function PublishingCard({ seriesId, series, anyNhcFleet }: { seriesId: string; s
               </p>
             </div>
           </div>
-          {anyNhcFleet && (
+          {anyProgressiveFleet && (
             <div className="flex items-start gap-2.5">
               <input
                 id="publishRatingCalculations"
@@ -341,12 +341,13 @@ function PublishingCard({ seriesId, series, anyNhcFleet }: { seriesId: string; s
               />
               <div>
                 <label htmlFor="publishRatingCalculations" className="text-sm font-medium cursor-pointer">
-                  Publish NHC rating calculations alongside results
+                  Publish progressive rating calculations alongside results
                 </label>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Adds per-race rating-calculation columns (CT ratio, Fair TCF, Adjustment, New TCF)
-                  and a fleet header line so competitors can verify each new TCF with a calculator.
-                  The rating, finish, elapsed, and corrected-time columns are always shown.
+                  Adds per-race rating-calculation columns and a brief explainer so competitors can
+                  verify each rating update with a calculator. NHC fleets get CT ratio, Fair TCF,
+                  Adjustment, and New TCF; ECHO fleets get 1/T_E, PI, Adjustment, and New H. The
+                  rating, finish, elapsed, and corrected-time columns are always shown.
                 </p>
               </div>
             </div>
@@ -393,7 +394,7 @@ export default function SettingsPage({
   if (series === undefined) return <p className="text-muted-foreground">Loading…</p>;
   if (series === null) return <p className="text-muted-foreground">Series not found.</p>;
 
-  const anyNhcFleet = fleets.some((f) => f.scoringSystem === 'nhc');
+  const anyProgressiveFleet = fleets.some((f) => f.scoringSystem === 'nhc' || f.scoringSystem === 'echo');
 
   const hasFileHistory = series.lastSnapshotId !== null;
   const isModified =
@@ -516,7 +517,7 @@ export default function SettingsPage({
         }}
       />
       <CompetitorFieldsCard seriesId={seriesId} series={series} />
-      <PublishingCard seriesId={seriesId} series={series} anyNhcFleet={anyNhcFleet} />
+      <PublishingCard seriesId={seriesId} series={series} anyProgressiveFleet={anyProgressiveFleet} />
 
       <input
         ref={fileInputRef}

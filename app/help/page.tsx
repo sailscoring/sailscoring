@@ -531,10 +531,10 @@ export default function HelpPage() {
           <strong className="text-foreground">Settings</strong> tab — under{' '}
           <strong className="text-foreground">Publishing</strong>, uncheck{' '}
           <strong className="text-foreground">
-            Publish NHC rating calculations alongside results
+            Publish progressive rating calculations alongside results
           </strong>{' '}
           to omit the toggle and its columns from the published page. The setting is on
-          by default and applies to both NHC and ECHO fleets.
+          by default and shows up whenever the series has at least one NHC or ECHO fleet.
         </p>
       </Section>
 

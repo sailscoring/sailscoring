@@ -56,7 +56,7 @@ export interface Series {
   ftpPath: string;   // saved remote path for this series (empty if not yet published)
   bilgeBundle: BilgeBundle | null;
   includeJsonExport: boolean;  // embed public JSON export in exported HTML (default true)
-  publishRatingCalculations?: boolean;  // NHC rating-calculation explainability columns/header (default true)
+  publishRatingCalculations?: boolean;  // NHC/ECHO progressive rating-calculation explainability columns/header (default true)
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)
