@@ -180,6 +180,60 @@ export interface NhcRaceAggregates {
   meanTcf: number;   // mean of tcfApplied across finishers
 }
 
+// Per-finisher intermediates produced by the handicap-adjustment phase.
+// Generic across progressive systems (NHC, ECHO, etc.); the orchestrator
+// copies these into the per-system display field on HandicapRaceScore
+// (currently `nhc?: NhcRaceCalc`; ECHO will copy into `echo?: EchoRaceCalc`).
+export interface ProgressiveRaceCalc {
+  ctRatio: number;       // CT_avg / CT_i
+  fairTcf: number;       // TCF_i × ctRatio  (≡ Q_i / PI_i)
+  adjustment: number;    // signed: α × (fairTcf − TCF_i)
+  alphaApplied: number;  // α actually used this race (per-boat in SWNHC2015 outliers)
+}
+
+// Fleet-race-level aggregates from the handicap-adjustment phase.
+export interface ProgressiveRaceAggregates {
+  alpha: number;
+  finisherCount: number;
+  ctAvg: number;     // seconds — mean of corrected times across finishers
+  meanTcf: number;   // mean of tcfApplied across finishers
+}
+
+// Configuration profile that drives the handicap-adjustment phase. One profile
+// per progressive system (NHC1, ECHO, SWNHC2015, RYA NHC 2015). See
+// docs/design/handicap-scoring.md for the per-system parameter table.
+export interface ProgressiveHandicapConfig {
+  // Blend rates. Setting alphaUp === alphaDown gives symmetric adjustment.
+  alphaUp: number;                 // applied when Q_i > H_i (boat over-performed)
+  alphaDown: number;               // applied when Q_i ≤ H_i
+
+  outlier:
+    | { strategy: 'none' }
+    | {
+        // RYA NHC 2015: clamp the boat's effective corrected time to ±k SDs
+        // of fleet T_C, then recompute Q_i from the clamped value.
+        strategy: 'cap-input';
+        sdThresholdFast: number;
+        sdThresholdSlow: number;
+      }
+    | {
+        // SWNHC2015: keep T_E, but reduce α for boats whose Q/H ratio is far
+        // from fleet mean.
+        strategy: 'reduce-alpha';
+        sdThresholdUp: number;
+        sdThresholdDown: number;
+        alphaUpReduced: number;
+        alphaDownReduced: number;
+      };
+
+  realignment:
+    | { target: 'none' }
+    | { target: 'prior-mean';   minFinishers: number; includeDNC: boolean }
+    | { target: 'base-numbers'; includeDNC: boolean };
+
+  minFinishers: number;            // skip the update entirely if fewer than this finished
+}
+
 // Persistent per-(race, competitor, fleet) TCF snapshot. Derived state — rebuilt
 // by the scoring engine on every recompute, persisted so file/JSON imports render
 // without re-scoring and so non-finishers (no Finish row) still carry a record.

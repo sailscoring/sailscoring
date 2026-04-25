@@ -47,7 +47,7 @@ races:
         points: 4.0
         elapsedTime: null
         correctedTime: null
-        tcfApplied: null
+        tcfApplied: 1.0   # the TCF that would have applied if Beta had finished
       - sailor: "3"
         rank: 2
         points: 2.0

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateRaceScores, calculateStandings, calculateFleetStandings, getDiscardCount, calculateNhcRaceScores } from '@/lib/scoring';
-import type { Competitor, Fleet, Race, Finish, DiscardThreshold, PenaltyCode, RaceStart } from '@/lib/types';
+import { calculateRaceScores, calculateStandings, calculateFleetStandings, getDiscardCount, calculateHandicapRaceScores, calculateHandicapAdjustment, deriveProgressiveHandicapConfig } from '@/lib/scoring';
+import type { Competitor, Fleet, Race, Finish, DiscardThreshold, PenaltyCode, RaceStart, ProgressiveHandicapConfig } from '@/lib/types';
 
 // Helpers to build test fixtures with minimal required fields
 function makeCompetitor(id: string, seriesId = 's1', fleetId = 'f1'): Competitor {
@@ -678,9 +678,9 @@ describe('calculateStandings — unknown finishes (null competitorId)', () => {
   });
 });
 
-// ─── calculateNhcRaceScores ──────────────────────────────────────────────────
+// ─── calculateHandicapAdjustment (NHC1-style + ECHO config) ──────────────────
 
-describe('calculateNhcRaceScores — edge cases', () => {
+describe('calculateHandicapAdjustment — NHC1 edge cases', () => {
   function nhcFleet(alpha = 0.15): Fleet {
     return { id: 'fl-0', seriesId: 's1', name: 'NHC', displayOrder: 0, scoringSystem: 'nhc', nhcAlpha: alpha };
   }
@@ -694,14 +694,23 @@ describe('calculateNhcRaceScores — edge cases', () => {
     return { id: `f-${competitorId}`, raceId: 'r-0', competitorId, sortOrder: null, ...(finishTime ? { finishTime } : {}), resultCode: code, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, redressIncludeAllLater: false, redressPoints: null };
   }
 
+  // Drives both phases in sequence the same way the orchestrator does, so the
+  // tests verify the contract between phases as well as the math.
+  function runRace(fleet: Fleet, cs: Competitor[], tcf: Map<string, number>, finishes: Finish[]) {
+    const { scores } = calculateHandicapRaceScores(finishes, cs, start(), tcf);
+    const config = deriveProgressiveHandicapConfig(fleet)!;
+    const adj = calculateHandicapAdjustment(scores, config);
+    return { scores, ...adj };
+  }
+
   it('α = 0 produces no movement (newTcf == tcfApplied)', () => {
     const fleet = nhcFleet(0);
     const cs = [comp('A', 1.0), comp('B', 1.0)];
     const tcf = new Map([['A', 1.0], ['B', 1.0]]);
     const finishes = [fin('A', '14:50:00'), fin('B', '15:00:00')];
-    const { scores } = calculateNhcRaceScores(finishes, cs, start(), fleet, tcf);
-    expect(scores.get('A')!.newTcf).toBeCloseTo(1.0, 6);
-    expect(scores.get('B')!.newTcf).toBeCloseTo(1.0, 6);
+    const { newTcfByCompetitorId } = runRace(fleet, cs, tcf, finishes);
+    expect(newTcfByCompetitorId.get('A')).toBeCloseTo(1.0, 6);
+    expect(newTcfByCompetitorId.get('B')).toBeCloseTo(1.0, 6);
   });
 
   it('α = 1 snaps newTcf to fairTcf', () => {
@@ -709,12 +718,12 @@ describe('calculateNhcRaceScores — edge cases', () => {
     const cs = [comp('A', 1.0), comp('B', 1.0)];
     const tcf = new Map([['A', 1.0], ['B', 1.0]]);
     const finishes = [fin('A', '14:50:00'), fin('B', '15:10:00')];
-    const { scores } = calculateNhcRaceScores(finishes, cs, start(), fleet, tcf);
+    const { newTcfByCompetitorId, perFinisherCalc } = runRace(fleet, cs, tcf, finishes);
     // CT_A = 3000, CT_B = 4200, CT_avg = 3600
     // fair_A = 1.0 × 3600/3000 = 1.2; fair_B = 1.0 × 3600/4200 = 0.857142...
-    expect(scores.get('A')!.newTcf).toBeCloseTo(1.2, 6);
-    expect(scores.get('A')!.nhc?.fairTcf).toBeCloseTo(1.2, 6);
-    expect(scores.get('B')!.newTcf).toBeCloseTo(3600 / 4200, 6);
+    expect(newTcfByCompetitorId.get('A')).toBeCloseTo(1.2, 6);
+    expect(perFinisherCalc.get('A')!.fairTcf).toBeCloseTo(1.2, 6);
+    expect(newTcfByCompetitorId.get('B')).toBeCloseTo(3600 / 4200, 6);
   });
 
   it('single-finisher race produces no movement (ratio = 1)', () => {
@@ -722,11 +731,11 @@ describe('calculateNhcRaceScores — edge cases', () => {
     const cs = [comp('A', 1.0)];
     const tcf = new Map([['A', 1.0]]);
     const finishes = [fin('A', '14:50:00')];
-    const { scores, nhcAggregates } = calculateNhcRaceScores(finishes, cs, start(), fleet, tcf);
-    expect(nhcAggregates.finisherCount).toBe(1);
-    expect(scores.get('A')!.nhc?.ctRatio).toBeCloseTo(1, 6);
-    expect(scores.get('A')!.nhc?.adjustment).toBeCloseTo(0, 6);
-    expect(scores.get('A')!.newTcf).toBeCloseTo(1.0, 6);
+    const { newTcfByCompetitorId, perFinisherCalc, aggregates } = runRace(fleet, cs, tcf, finishes);
+    expect(aggregates.finisherCount).toBe(1);
+    expect(perFinisherCalc.get('A')!.ctRatio).toBeCloseTo(1, 6);
+    expect(perFinisherCalc.get('A')!.adjustment).toBeCloseTo(0, 6);
+    expect(newTcfByCompetitorId.get('A')).toBeCloseTo(1.0, 6);
   });
 
   it('all-DNF race leaves all TCFs unchanged and emits zero finisher aggregates', () => {
@@ -734,23 +743,113 @@ describe('calculateNhcRaceScores — edge cases', () => {
     const cs = [comp('A', 1.0), comp('B', 1.05)];
     const tcf = new Map([['A', 1.0], ['B', 1.05]]);
     const finishes = [fin('A', undefined, 'DNF'), fin('B', undefined, 'DNF')];
-    const { scores, nhcAggregates, newTcfByCompetitorId } = calculateNhcRaceScores(finishes, cs, start(), fleet, tcf);
-    expect(nhcAggregates.finisherCount).toBe(0);
-    expect(scores.get('A')!.newTcf).toBe(1.0);
-    expect(scores.get('B')!.newTcf).toBe(1.05);
+    const { newTcfByCompetitorId, aggregates } = runRace(fleet, cs, tcf, finishes);
+    expect(aggregates.finisherCount).toBe(0);
     expect(newTcfByCompetitorId.get('A')).toBe(1.0);
     expect(newTcfByCompetitorId.get('B')).toBe(1.05);
   });
 
-  it('uses the per-competitor TCF map, not the master rating', () => {
+  it('phase A applies the supplied TCF map, not the competitor master rating', () => {
     // Competitor's nhcStartingTcf is 1.0 but the running map has them at 1.20 (e.g. after race 1)
     const fleet = nhcFleet();
     const cs = [comp('A', 1.0), comp('B', 1.0)];
     const tcf = new Map([['A', 1.20], ['B', 0.80]]);
     const finishes = [fin('A', '14:50:00'), fin('B', '15:00:00')];
-    const { scores } = calculateNhcRaceScores(finishes, cs, start(), fleet, tcf);
+    const { scores } = runRace(fleet, cs, tcf, finishes);
     expect(scores.get('A')!.tcfApplied).toBe(1.20);
     expect(scores.get('B')!.tcfApplied).toBe(0.80);
+  });
+});
+
+describe('calculateHandicapAdjustment — generic over progressive system (ECHO config)', () => {
+  // The IS 2022 ECHO Guide for Clubs page-2 worked example. 10 boats, α = 0.25,
+  // minFinishers = 3. Reproducing this through the generic adjustment phase
+  // (configured for ECHO, not NHC1) is the contract test that the engine isn't
+  // secretly NHC-specific. When ECHO ships its display layer this fixture will
+  // gain the IS column-set assertions; for now it's an engine-level check.
+  it('reproduces the IS 2022 worked example', () => {
+    const echoConfig: ProgressiveHandicapConfig = {
+      alphaUp: 0.25,
+      alphaDown: 0.25,
+      outlier: { strategy: 'none' },
+      realignment: { target: 'none' },
+      minFinishers: 3,
+    };
+
+    // Boat | T_E | Starting H
+    const boats: Array<[string, number, number]> = [
+      ['1', 60, 1.001],
+      ['2', 61, 1.015],
+      ['3', 66, 1.020],
+      ['4', 59, 1.020],
+      ['5', 56, 1.115],
+      ['6', 70, 1.000],
+      ['7', 56, 1.020],
+      ['8', 59, 1.010],
+      ['9', 61, 1.005],
+      ['10', 57, 1.015],
+    ];
+    // Build a synthetic phase-A score map (we don't need raceStart/finishes —
+    // this exercises only phase B against handcrafted ET / CT / TCF).
+    const scores = new Map();
+    for (const [id, te, h] of boats) {
+      scores.set(id, {
+        competitorId: id,
+        points: 0,
+        place: 1,
+        rank: 1,
+        resultCode: null,
+        elapsedTime: te,
+        correctedTime: te * h,
+        tcfApplied: h,
+        newTcf: null,
+      });
+    }
+
+    const { newTcfByCompetitorId, perFinisherCalc } = calculateHandicapAdjustment(scores, echoConfig);
+
+    // Verify the engine implements the IS formula. The reference values are
+    // computed inline from `(H_S × 0.75) + (PI × 0.25)` with PI from
+    // `ΣH_S / (T_E × Σ(1/T_E))`. Tolerance ±0.001 because the engine uses the
+    // algebraically equivalent CT-form (`TCF × CT_avg/CT`); the docstring on
+    // calculateHandicapAdjustment notes the ≤0.001 drift.
+    //
+    // The IS 2022 guide's published table itself has rounding inconsistencies
+    // (notably row 6 = 0.952 vs the formula's 0.970), so this test checks
+    // formula-conformance, not table-conformance — see project memory
+    // `project_is_2022_echo_table_typo.md`.
+    const sumH = boats.reduce((s, [, , h]) => s + h, 0);
+    const sumInvT = boats.reduce((s, [, t]) => s + 1 / t, 0);
+    for (const [id, t, h] of boats) {
+      const PI = sumH / (t * sumInvT);
+      const expectedNewH = 0.75 * h + 0.25 * PI;
+      const newTcf = newTcfByCompetitorId.get(id)!;
+      const driftMilli = Math.round(Math.abs(newTcf - expectedNewH) * 1000);
+      expect(driftMilli, `boat ${id}: engine ${newTcf.toFixed(4)} vs IS-formula ${expectedNewH.toFixed(4)}`).toBeLessThanOrEqual(1);
+    }
+
+    // Boat 1 PI per the IS guide is ≈ 1.026 — a sanity check on the per-finisher
+    // intermediate the explainability layer renders.
+    expect(perFinisherCalc.get('1')!.fairTcf).toBeCloseTo(1.026, 2);
+  });
+
+  it('suppresses the update when finishers < minFinishers', () => {
+    const echoConfig: ProgressiveHandicapConfig = {
+      alphaUp: 0.25,
+      alphaDown: 0.25,
+      outlier: { strategy: 'none' },
+      realignment: { target: 'none' },
+      minFinishers: 3,
+    };
+    const scores = new Map();
+    // Two finishers — below the threshold; no boat's TCF should move.
+    scores.set('A', { competitorId: 'A', points: 1, place: 1, rank: 1, resultCode: null, elapsedTime: 60, correctedTime: 60, tcfApplied: 1.0, newTcf: null });
+    scores.set('B', { competitorId: 'B', points: 2, place: 2, rank: 2, resultCode: null, elapsedTime: 70, correctedTime: 70, tcfApplied: 1.0, newTcf: null });
+    const { newTcfByCompetitorId, perFinisherCalc } = calculateHandicapAdjustment(scores, echoConfig);
+    expect(newTcfByCompetitorId.get('A')).toBe(1.0);
+    expect(newTcfByCompetitorId.get('B')).toBe(1.0);
+    expect(perFinisherCalc.get('A')!.adjustment).toBe(0);
+    expect(perFinisherCalc.get('B')!.adjustment).toBe(0);
   });
 });
 

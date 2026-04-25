@@ -32,6 +32,14 @@ describe('TCC handicap scoring fixtures', () => {
         buildFixtureInputs(fixture);
       const fleet = fleets[0];
 
+      // Build the static applied-TCF map (callers are now responsible for this).
+      const tcfMap = new Map<string, number>();
+      for (const c of competitors) {
+        if (fleet.scoringSystem === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
+        else if (fleet.scoringSystem === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
+      }
+      const ratedCompetitors = competitors.filter((c) => tcfMap.has(c.id));
+
       // ─── Per-race arithmetic (CT, TCF, rank) ────────────────────────────
       for (let ri = 0; ri < fixture.races.length; ri++) {
         const fixtureRace = fixture.races[ri];
@@ -42,7 +50,7 @@ describe('TCC handicap scoring fixtures', () => {
         if (!raceStart) throw new Error(`${yamlPath}: race ${ri + 1} has no startTime`);
         const raceFinishes: Finish[] = finishes.filter((f) => f.raceId === raceId);
 
-        const { scores, rejections } = calculateHandicapRaceScores(raceFinishes, competitors, raceStart, fleet);
+        const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap);
 
         for (const exp of fixtureRace.expected) {
           const cid = sailToId.get(exp.sailor);
@@ -67,18 +75,6 @@ describe('TCC handicap scoring fixtures', () => {
             }
           }
         }
-
-        // Per-race rejections
-        const expectedRejections = fixtureRace.rejected ?? [];
-        expect(rejections.length, 'rejection count').toBe(expectedRejections.length);
-        for (const exp of expectedRejections) {
-          const cid = sailToId.get(exp.sailor);
-          if (!cid) throw new Error(`${yamlPath}: unknown sailor "${exp.sailor}" in rejected`);
-          const rejection = rejections.find((r) => r.competitorId === cid);
-          expect(rejection, `rejection for sailor ${exp.sailor}`).toBeDefined();
-          expect(rejection?.reason, `rejection reason for ${exp.sailor}`).toBe(exp.reason);
-          expect(scores.has(cid), `sailor ${exp.sailor} should not be in scores`).toBe(false);
-        }
       }
 
       // ─── Series standings ───────────────────────────────────────────────
@@ -91,7 +87,22 @@ describe('TCC handicap scoring fixtures', () => {
         dnfScoring,
         raceStarts,
       );
-      const standings = fleetStandings[0].standings;
+      const fleetResult = fleetStandings[0];
+      const standings = fleetResult.standings;
+
+      // Rejection check is now orchestrator-level, applied across the whole series.
+      // Fixtures may declare rejections per-race; collect them all into one set
+      // because the unified semantics are "competitors with no rating are excluded".
+      const expectedRejectionSailors = new Set<string>();
+      for (const fr of fixture.races) {
+        for (const r of fr.rejected ?? []) expectedRejectionSailors.add(r.sailor);
+      }
+      const expectedRejectionIds = new Set([...expectedRejectionSailors].map((s) => sailToId.get(s)!));
+      expect(new Set(fleetResult.rejections.map((r) => r.competitorId))).toEqual(expectedRejectionIds);
+      for (const sailor of expectedRejectionSailors) {
+        const cid = sailToId.get(sailor)!;
+        expect(standings.find((s) => s.competitor.id === cid), `rejected ${sailor} should not appear in standings`).toBeUndefined();
+      }
       const standingsBySail = new Map(standings.map((s) => [s.competitor.sailNumber, s]));
 
       for (const exp of fixture.expected.standings) {

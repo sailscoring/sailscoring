@@ -548,7 +548,15 @@ ECHO are mathematically a single algorithm with different parameter
 choices. We implement them as one engine driven by a configuration
 profile, with a profile per system.
 
-**The four steps**
+**Pipeline shape.** Each race in a progressive-handicap fleet runs
+through two phases: race scoring (corrected times, places, points —
+identical across IRC, PY, NHC, ECHO) followed by a separate handicap
+adjustment phase that consumes the applied TCFs and elapsed times
+from race scoring and produces the TCFs for the next race. The
+adjustment phase is driven by a `ProgressiveHandicapConfig` per
+system, not by hard-coded NHC logic.
+
+**The four steps** (handicap adjustment phase)
 
 1. **Compute the per-boat fair handicap** for each finisher —
    identical across all profiles:

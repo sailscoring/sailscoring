@@ -247,8 +247,7 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
   }
   const sys = fixture.fleet.scoringSystem;
   const sysUpper = sys.toUpperCase();
-  const { competitors, fleets, races, finishes, raceStarts } = buildFixtureInputs(fixture);
-  const fleet = fleets[0];
+  const { competitors, races, finishes, raceStarts } = buildFixtureInputs(fixture);
   const competitorByIdMap = new Map(competitors.map((c) => [c.id, c]));
 
   const raceSections = fixture.races.map((fixtureRace, ri) => {
@@ -256,7 +255,13 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
     const raceStart = raceStarts.find((rs) => rs.raceId === raceId);
     if (!raceStart) return '';
     const raceFinishes = finishes.filter((f) => f.raceId === raceId);
-    const { scores } = calculateHandicapRaceScores(raceFinishes, competitors, raceStart, fleet);
+    const tcfMap = new Map<string, number>();
+    for (const c of competitors) {
+      if (sys === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
+      else if (sys === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
+    }
+    const ratedCompetitors = competitors.filter((c) => tcfMap.has(c.id));
+    const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap);
 
     const finishTimeByCompetitorId = new Map(
       raceFinishes.filter((f) => f.competitorId && f.finishTime).map((f) => [f.competitorId!, f.finishTime!]),

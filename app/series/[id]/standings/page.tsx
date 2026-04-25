@@ -178,9 +178,20 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
           return [race.id, scoreMap] as const;
         }
 
-        const scores = isHandicap && raceStart
-          ? calculateHandicapRaceScores(finishesForRace, fleetCompetitors, raceStart, fleet).scores
-          : calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries');
+        let scores;
+        if (isHandicap && raceStart) {
+          // Build the applied-TCF map from each competitor's static rating
+          // (IRC/PY only — NHC took the early-return path above).
+          const tcfMap = new Map<string, number>();
+          for (const c of fleetCompetitors) {
+            if (fleet.scoringSystem === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
+            else if (fleet.scoringSystem === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
+          }
+          const ratedFleetCompetitors = fleetCompetitors.filter((c) => tcfMap.has(c.id));
+          scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap).scores;
+        } else {
+          scores = calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries');
+        }
         const scoreMap = new Map<string, RaceScoreCellForRender>(
           [...scores.entries()].map(([id, s]) => [
             id,

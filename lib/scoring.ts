@@ -1,4 +1,4 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold, ScoringRejection, NhcRaceAggregates, NhcTcfRecord } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold, ScoringRejection, NhcRaceAggregates, NhcTcfRecord, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates } from './types';
 import { getCodeDefinition } from './scoring-codes';
 
 export const NHC_DEFAULT_ALPHA = 0.15;
@@ -186,38 +186,41 @@ function parseTimeToSeconds(t: string | undefined): number | null {
 }
 
 /**
- * Calculate handicap race scores for a single fleet using time-on-time correction (IRC/PY).
+ * Phase A — race scoring. Calculates per-race scores for a time-corrected fleet
+ * (IRC, PY, or any progressive system) using time-on-time correction:
  *
- * CT = ET × TCF,  where ET = finishTime − startTime (both in seconds-since-midnight).
- * Competitors rank by lowest CT; points assign 1, 2, 3… as in scratch.
- * Coded finishes (DNS, DNF, etc.) receive fleet-size-based penalty points — no time needed.
- * A competitor with no rating gets penalty points but place/CT are null.
+ *   CT = ET × TCF   where ET = finishTime − startTime (seconds-since-midnight)
+ *
+ * The applied TCF for each competitor is supplied in `appliedTcfByCompetitorId`.
+ * The caller is responsible for resolving where that TCF comes from:
+ *   · static fleet (IRC)  → competitor.ircTcc
+ *   · static fleet (PY)   → 1000 / competitor.pyNumber
+ *   · progressive fleet   → the running TCF carried forward from prior races
+ *
+ * Competitors lacking a TCF must be filtered out by the caller before invoking
+ * this function (and a `ScoringRejection` emitted there). Every competitor
+ * passed in must have an entry in the TCF map.
+ *
+ * Coded finishes (DNS, DNF, etc.) receive fleet-size-based penalty points.
+ * Penalty points use fleet size as the base — no A5.3 distinction in handicap.
+ *
+ * This phase has no knowledge of α, no concept of "next race", and no
+ * progressive-system branching.
  *
  * @param finishes  All Finish records for this race (may span multiple fleets)
- * @param competitors  Competitors in this fleet only
+ * @param competitors  Rated competitors in this fleet only (callers filter non-rated)
  * @param raceStart  The RaceStart that covers this fleet (provides gun time)
- * @param fleet  The fleet being scored (determines scoringSystem / TCF derivation)
+ * @param appliedTcfByCompetitorId  Per-competitor TCF used this race
  */
 export function calculateHandicapRaceScores(
   finishes: Finish[],
   competitors: Competitor[],
   raceStart: RaceStart,
-  fleet: Fleet,
-): { scores: Map<string, HandicapRaceScore>; rejections: ScoringRejection[] } {
+  appliedTcfByCompetitorId: Map<string, number>,
+): { scores: Map<string, HandicapRaceScore> } {
   const startSeconds = parseTimeToSeconds(raceStart.startTime);
 
-  // Partition: competitors without a rating are rejected, not scored
-  const rejections: ScoringRejection[] = [];
-  const rated: Competitor[] = [];
-  for (const competitor of competitors) {
-    if (getTCF(competitor, fleet) !== null) {
-      rated.push(competitor);
-    } else {
-      rejections.push({ competitorId: competitor.id, reason: 'no_rating' });
-    }
-  }
-
-  const n = rated.length;
+  const n = competitors.length;
   const penaltyPoints = n + 1;
 
   const finishMap = new Map(
@@ -226,172 +229,7 @@ export function calculateHandicapRaceScores(
       .map((f) => [f.competitorId, f]),
   );
 
-  // First pass: compute ET, CT, TCF for each rated competitor; collect scored finishes
-  interface Candidate {
-    competitorId: string;
-    elapsedTime: number | null;
-    correctedTime: number | null;
-    tcfApplied: number | null;
-    resultCode: ResultCode | null;
-    isFinisher: boolean; // has a finish time and a valid TCF
-  }
-
-  const candidates: Candidate[] = [];
-  for (const competitor of rated) {
-    const finish = finishMap.get(competitor.id);
-    const tcf = getTCF(competitor, fleet)!;
-
-    if (!finish) {
-      // Implicit DNC
-      candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: null, resultCode: 'DNC', isFinisher: false });
-      continue;
-    }
-
-    if (finish.resultCode !== null) {
-      // Explicit result code — no time scoring
-      candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: null, resultCode: finish.resultCode, isFinisher: false });
-      continue;
-    }
-
-    const finishSeconds = parseTimeToSeconds(finish.finishTime);
-
-    if (finishSeconds === null || startSeconds === null) {
-      // Missing time data — treat as DNF
-      candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: null, resultCode: 'DNF', isFinisher: false });
-      continue;
-    }
-
-    const et = finishSeconds - startSeconds;
-    const ct = et * tcf;
-    candidates.push({
-      competitorId: competitor.id,
-      elapsedTime: et,
-      correctedTime: ct,
-      tcfApplied: tcf,
-      resultCode: null,
-      isFinisher: true,
-    });
-  }
-
-  // Sort finishers by corrected time ascending; stable sort (by competitorId for ties)
-  const finishers = candidates
-    .filter((c) => c.isFinisher)
-    .sort((a, b) => a.correctedTime! - b.correctedTime! || a.competitorId.localeCompare(b.competitorId));
-
-  // Build result map
-  const scores = new Map<string, HandicapRaceScore>();
-
-  // Assign ranks and points to finishers (tied CT = averaged ranks, same as scratch)
-  let fleetRank = 1;
-  let fi = 0;
-  while (fi < finishers.length) {
-    const ct = finishers[fi].correctedTime!;
-    let fj = fi;
-    while (fj < finishers.length && finishers[fj].correctedTime === ct) fj++;
-    const tiedCount = fj - fi;
-    const avgPoints = fleetRank + (tiedCount - 1) / 2;
-    for (let k = fi; k < fj; k++) {
-      const c = finishers[k];
-      scores.set(c.competitorId, {
-        competitorId: c.competitorId,
-        points: avgPoints,
-        place: fi + 1,  // crossing-order position within fleet (1-based)
-        rank: fleetRank,
-        resultCode: null,
-        elapsedTime: c.elapsedTime,
-        correctedTime: c.correctedTime,
-        tcfApplied: c.tcfApplied,
-        newTcf: null,
-      });
-    }
-    fleetRank += tiedCount;
-    fi = fj;
-  }
-
-  // Assign penalty points to non-finishers
-  for (const c of candidates) {
-    if (scores.has(c.competitorId)) continue; // already scored as finisher
-
-    const def = c.resultCode !== null ? getCodeDefinition(c.resultCode) : null;
-    // For handicap, always use fleet-size-based penalty (no A5.3 distinction)
-    const pts = (def?.pointsMethod.type === 'fixed_penalty') ? penaltyPoints : penaltyPoints;
-    scores.set(c.competitorId, {
-      competitorId: c.competitorId,
-      points: pts,
-      place: null,
-      rank: null,
-      resultCode: c.resultCode,
-      elapsedTime: c.elapsedTime,
-      correctedTime: null,
-      tcfApplied: c.tcfApplied,
-      newTcf: null,
-    });
-  }
-
-  return { scores, rejections };
-}
-
-/**
- * Calculate handicap race scores for a single fleet using NHC1 progressive
- * time-on-time correction. Algorithm: Sailwave-style symmetric blend.
- *
- *   CT_i  = ET_i × TCF_i           (TCF_i is the running, race-N TCF)
- *   Q_i   = TCF_i × CT_avg / CT_i  (the "fair" TCF — what would have given CT_avg)
- *   ΔTCF  = α × (Q_i − TCF_i)      (signed: fast boats positive, slow negative)
- *   newTcf = TCF_i + ΔTCF
- *
- * Non-finishers carry their TCF unchanged into the next race. CT_avg and the
- * mean TCF are computed across finishers only.
- *
- * Note on Q_i form: Sailwave's reference NHC1 uses an algebraically distinct
- * P50 form (Q_i = O_i × P50, where O_i = 1/ET_i and P50 = mean(TCF) / mean(O)).
- * That form exactly conserves the fleet TCF mean. The simple `TCF × CT_avg/CT`
- * form used here drifts ≤0.001 from the P50 form on real club fleets — well
- * under Sailwave's 3-dp precision — and lets the published "Fair TCF" column
- * close arithmetically with the displayed "CT ratio" (the explainability
- * verification contract). Picked the simple form for that reason.
- *
- * @param finishes  All Finish records for this race (may span multiple fleets)
- * @param competitors  Competitors in this fleet only
- * @param raceStart  The RaceStart that covers this fleet
- * @param fleet  The fleet (provides α via fleet.nhcAlpha; defaults to 0.15)
- * @param currentTcfByCompetitorId  Per-competitor TCF for this race (the running map)
- */
-export function calculateNhcRaceScores(
-  finishes: Finish[],
-  competitors: Competitor[],
-  raceStart: RaceStart,
-  fleet: Fleet,
-  currentTcfByCompetitorId: Map<string, number>,
-): {
-  scores: Map<string, HandicapRaceScore>;
-  rejections: ScoringRejection[];
-  nhcAggregates: NhcRaceAggregates;
-  newTcfByCompetitorId: Map<string, number>;
-} {
-  const alpha = fleet.nhcAlpha ?? NHC_DEFAULT_ALPHA;
-  const startSeconds = parseTimeToSeconds(raceStart.startTime);
-
-  // Reject competitors lacking a current TCF (no starting TCF and never raced)
-  const rejections: ScoringRejection[] = [];
-  const rated: Competitor[] = [];
-  for (const competitor of competitors) {
-    if (currentTcfByCompetitorId.has(competitor.id)) {
-      rated.push(competitor);
-    } else {
-      rejections.push({ competitorId: competitor.id, reason: 'no_starting_tcf' });
-    }
-  }
-
-  const n = rated.length;
-  const penaltyPoints = n + 1;
-
-  const finishMap = new Map(
-    finishes
-      .filter((f): f is Finish & { competitorId: string } => f.competitorId !== null)
-      .map((f) => [f.competitorId, f]),
-  );
-
+  // First pass: compute ET, CT, TCF for each competitor
   interface Candidate {
     competitorId: string;
     elapsedTime: number | null;
@@ -402,9 +240,14 @@ export function calculateNhcRaceScores(
   }
 
   const candidates: Candidate[] = [];
-  for (const competitor of rated) {
+  for (const competitor of competitors) {
     const finish = finishMap.get(competitor.id);
-    const tcf = currentTcfByCompetitorId.get(competitor.id)!;
+    const tcf = appliedTcfByCompetitorId.get(competitor.id);
+    if (tcf == null) {
+      // Caller contract violation — every passed competitor should have a TCF.
+      // Skip to keep results well-formed; the orchestrator emits the rejection.
+      continue;
+    }
 
     if (!finish) {
       candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: tcf, resultCode: 'DNC', isFinisher: false });
@@ -421,30 +264,17 @@ export function calculateNhcRaceScores(
     }
     const et = finishSeconds - startSeconds;
     const ct = et * tcf;
-    candidates.push({
-      competitorId: competitor.id,
-      elapsedTime: et,
-      correctedTime: ct,
-      tcfApplied: tcf,
-      resultCode: null,
-      isFinisher: true,
-    });
+    candidates.push({ competitorId: competitor.id, elapsedTime: et, correctedTime: ct, tcfApplied: tcf, resultCode: null, isFinisher: true });
   }
 
-  const finishers = candidates.filter((c) => c.isFinisher);
-  const finisherCount = finishers.length;
-  const ctSum = finishers.reduce((s, c) => s + c.correctedTime!, 0);
-  const tcfSum = finishers.reduce((s, c) => s + c.tcfApplied, 0);
-  const ctAvg = finisherCount > 0 ? ctSum / finisherCount : 0;
-  const meanTcf = finisherCount > 0 ? tcfSum / finisherCount : 0;
-
-  // Sort finishers by corrected time ascending (stable by competitorId)
-  finishers.sort((a, b) => a.correctedTime! - b.correctedTime! || a.competitorId.localeCompare(b.competitorId));
+  // Sort finishers by corrected time ascending; stable by competitorId
+  const finishers = candidates
+    .filter((c) => c.isFinisher)
+    .sort((a, b) => a.correctedTime! - b.correctedTime! || a.competitorId.localeCompare(b.competitorId));
 
   const scores = new Map<string, HandicapRaceScore>();
-  const newTcfByCompetitorId = new Map<string, number>();
 
-  // Assign ranks and points to finishers, computing NHC blend for each
+  // Assign ranks and points to finishers (tied CT = averaged ranks)
   let fleetRank = 1;
   let fi = 0;
   while (fi < finishers.length) {
@@ -455,10 +285,6 @@ export function calculateNhcRaceScores(
     const avgPoints = fleetRank + (tiedCount - 1) / 2;
     for (let k = fi; k < fj; k++) {
       const c = finishers[k];
-      const ctRatio = c.correctedTime! > 0 ? ctAvg / c.correctedTime! : 1;
-      const fairTcf = c.tcfApplied * ctRatio;
-      const adjustment = alpha * (fairTcf - c.tcfApplied);
-      const newTcf = c.tcfApplied + adjustment;
       scores.set(c.competitorId, {
         competitorId: c.competitorId,
         points: avgPoints,
@@ -468,16 +294,15 @@ export function calculateNhcRaceScores(
         elapsedTime: c.elapsedTime,
         correctedTime: c.correctedTime,
         tcfApplied: c.tcfApplied,
-        newTcf,
-        nhc: { ctRatio, fairTcf, adjustment, alphaApplied: alpha },
+        newTcf: null,
       });
-      newTcfByCompetitorId.set(c.competitorId, newTcf);
     }
     fleetRank += tiedCount;
     fi = fj;
   }
 
-  // Non-finishers: penalty points, TCF unchanged
+  // Penalty points for non-finishers; tcfApplied is the TCF that *would have*
+  // been used, preserved for the audit trail (matters for progressive systems).
   for (const c of candidates) {
     if (scores.has(c.competitorId)) continue;
     scores.set(c.competitorId, {
@@ -489,17 +314,128 @@ export function calculateNhcRaceScores(
       elapsedTime: c.elapsedTime,
       correctedTime: null,
       tcfApplied: c.tcfApplied,
-      newTcf: c.tcfApplied,
+      newTcf: null,
     });
-    newTcfByCompetitorId.set(c.competitorId, c.tcfApplied);
+  }
+
+  return { scores };
+}
+
+/**
+ * Phase B — handicap adjustment. Given the per-race scores from
+ * `calculateHandicapRaceScores` and a `ProgressiveHandicapConfig`, computes the
+ * TCF that each competitor will carry into race N+1, plus the per-finisher
+ * intermediates and fleet-level aggregates needed for explainability.
+ *
+ * Generic across progressive systems. The first-pass implementation supports
+ * the NHC1 case only — `alphaUp === alphaDown`, `outlier.strategy === 'none'`,
+ * `realignment.target === 'none'`, `minFinishers === 1`. ECHO will land via
+ * configuration alone (α = 0.25, `minFinishers = 3`); SWNHC2015 and RYA NHC
+ * 2015 require populating the other config branches and are unimplemented
+ * here. The schema is in place so type signatures don't shift each time.
+ *
+ * Algorithm (NHC1 / ECHO):
+ *
+ *   CT_i      = ET_i × TCF_i           (already done in phase A)
+ *   Q_i       = TCF_i × CT_avg / CT_i  (≡ IS Performance Index)
+ *   newTcf    = TCF_i + α × (Q_i − TCF_i)
+ *   non-finisher → newTcf = TCF_i (unchanged)
+ *
+ * Note on Q_i form: Sailwave's reference NHC1 uses an algebraically distinct
+ * P50 form (Q_i = O_i × P50). The simple `TCF × CT_avg/CT` form used here
+ * drifts ≤0.001 from P50 on real club fleets — well under Sailwave's 3-dp
+ * precision — and lets the published "Fair TCF" column close arithmetically
+ * with the displayed "CT ratio" (the explainability verification contract).
+ *
+ * If fewer than `config.minFinishers` boats finished, the update is suppressed
+ * for the whole fleet: every competitor's `newTcf` equals their `tcfApplied`.
+ * Aggregates still report the actual finisher count for the explainability
+ * "rating update suppressed" line.
+ *
+ * @param scores  Phase A scores for the rated competitors of one fleet
+ * @param config  Profile that drives the blend / outlier / realignment steps
+ */
+export function calculateHandicapAdjustment(
+  scores: Map<string, HandicapRaceScore>,
+  config: ProgressiveHandicapConfig,
+): {
+  newTcfByCompetitorId: Map<string, number>;
+  perFinisherCalc: Map<string, ProgressiveRaceCalc>;
+  aggregates: ProgressiveRaceAggregates;
+} {
+  if (config.outlier.strategy !== 'none') {
+    throw new Error(`calculateHandicapAdjustment: outlier strategy '${config.outlier.strategy}' is not yet implemented`);
+  }
+  if (config.realignment.target !== 'none') {
+    throw new Error(`calculateHandicapAdjustment: realignment target '${config.realignment.target}' is not yet implemented`);
+  }
+  if (config.alphaUp !== config.alphaDown) {
+    throw new Error('calculateHandicapAdjustment: asymmetric alpha is not yet implemented');
+  }
+  const alpha = config.alphaUp;
+
+  const finisherEntries: Array<[string, HandicapRaceScore]> = [];
+  for (const entry of scores) {
+    const [, s] = entry;
+    if (s.tcfApplied != null && s.correctedTime != null && s.elapsedTime != null && s.resultCode == null) {
+      finisherEntries.push(entry);
+    }
+  }
+  const finisherCount = finisherEntries.length;
+  const ctSum = finisherEntries.reduce((sum, [, s]) => sum + s.correctedTime!, 0);
+  const tcfSum = finisherEntries.reduce((sum, [, s]) => sum + s.tcfApplied!, 0);
+  const ctAvg = finisherCount > 0 ? ctSum / finisherCount : 0;
+  const meanTcf = finisherCount > 0 ? tcfSum / finisherCount : 0;
+
+  const newTcfByCompetitorId = new Map<string, number>();
+  const perFinisherCalc = new Map<string, ProgressiveRaceCalc>();
+
+  const updateSuppressed = finisherCount < config.minFinishers;
+
+  // Finishers: blend toward Q_i (or carry forward unchanged if suppressed).
+  for (const [cid, s] of finisherEntries) {
+    const ctRatio = s.correctedTime! > 0 ? ctAvg / s.correctedTime! : 1;
+    const fairTcf = s.tcfApplied! * ctRatio;
+    const adjustment = updateSuppressed ? 0 : alpha * (fairTcf - s.tcfApplied!);
+    const newTcf = s.tcfApplied! + adjustment;
+    perFinisherCalc.set(cid, { ctRatio, fairTcf, adjustment, alphaApplied: alpha });
+    newTcfByCompetitorId.set(cid, newTcf);
+  }
+
+  // Non-finishers: TCF carries forward unchanged.
+  for (const [cid, s] of scores) {
+    if (newTcfByCompetitorId.has(cid)) continue;
+    if (s.tcfApplied != null) {
+      newTcfByCompetitorId.set(cid, s.tcfApplied);
+    }
   }
 
   return {
-    scores,
-    rejections,
-    nhcAggregates: { alpha, finisherCount, ctAvg, meanTcf },
     newTcfByCompetitorId,
+    perFinisherCalc,
+    aggregates: { alpha, finisherCount, ctAvg, meanTcf },
   };
+}
+
+/**
+ * Build the `ProgressiveHandicapConfig` for a fleet. Returns `null` for static
+ * fleets (scratch, IRC, PY) — the orchestrator skips phase B in that case.
+ *
+ * NHC1 maps to a symmetric blend with no outlier handling and no realignment.
+ * Future systems (ECHO, SWNHC2015, RYA NHC 2015) plug in additional cases.
+ */
+export function deriveProgressiveHandicapConfig(fleet: Fleet): ProgressiveHandicapConfig | null {
+  if (fleet.scoringSystem === 'nhc') {
+    const alpha = fleet.nhcAlpha ?? NHC_DEFAULT_ALPHA;
+    return {
+      alphaUp: alpha,
+      alphaDown: alpha,
+      outlier: { strategy: 'none' },
+      realignment: { target: 'none' },
+      minFinishers: 1,
+    };
+  }
+  return null;
 }
 
 /**
@@ -787,12 +723,21 @@ export function calculateStandings(
 }
 
 /**
- * Calculate series standings for a time-corrected (IRC/PY) fleet.
+ * Calculate series standings for a time-corrected fleet (IRC, PY, or NHC).
  *
- * For each race that has a matching RaceStart for this fleet, calls
- * calculateHandicapRaceScores to derive CT-based points. Races without a
- * start time fall back to scratch scoring so the series remains live.
- * Discards are applied the same way as scratch standings.
+ * Orchestrates the two-phase pipeline:
+ *
+ *   1. Build the per-competitor applied-TCF map. For static fleets it's
+ *      derived once from competitor.ircTcc / pyNumber. For progressive fleets
+ *      it's seeded from competitor.nhcStartingTcf and then advanced after each
+ *      race using the adjustment phase's output.
+ *   2. For each race: phase A (`calculateHandicapRaceScores`) computes places
+ *      and CT; phase B (`calculateHandicapAdjustment`, only for progressive
+ *      fleets) computes the TCFs for race N+1 plus per-finisher intermediates
+ *      and fleet aggregates for explainability.
+ *
+ * Races without a start time fall back to scratch scoring so the series stays
+ * live. Discards apply identically to scratch standings.
  */
 function calculateHandicapStandings(
   competitors: Competitor[],
@@ -804,20 +749,32 @@ function calculateHandicapStandings(
 ): {
   standings: Standing[];
   rejections: ScoringRejection[];
-  // NHC-only outputs (populated when fleet.scoringSystem === 'nhc')
+  // Progressive-only outputs (populated when fleet.scoringSystem === 'nhc')
   nhcRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
   nhcAggregatesByRaceId?: Map<string, NhcRaceAggregates>;
   nhcTcfHistory?: NhcTcfRecord[];
 } {
-  const isNhc = fleet.scoringSystem === 'nhc';
+  const config = deriveProgressiveHandicapConfig(fleet);
+  const isProgressive = config !== null;
+
+  // Build the initial applied-TCF map and emit rejections for missing ratings.
+  // For static fleets this map never changes; for progressive fleets it gets
+  // advanced after every race using phase B's newTcfByCompetitorId.
+  const appliedTcfMap = new Map<string, number>();
+  const allRejections: ScoringRejection[] = [];
+  const rejectedIds = new Set<string>();
+  const noTcfReason: ScoringRejection['reason'] = isProgressive ? 'no_starting_tcf' : 'no_rating';
+  for (const c of competitors) {
+    const tcf = isProgressive ? (c.nhcStartingTcf ?? null) : getTCF(c, fleet);
+    if (tcf == null) {
+      rejectedIds.add(c.id);
+      allRejections.push({ competitorId: c.id, reason: noTcfReason });
+    } else {
+      appliedTcfMap.set(c.id, tcf);
+    }
+  }
 
   if (competitors.length === 0 || races.length === 0) {
-    // Even with no races, identify competitors who lack a rating / starting TCF
-    const reason: ScoringRejection['reason'] = isNhc ? 'no_starting_tcf' : 'no_rating';
-    const rejections: ScoringRejection[] = competitors
-      .filter((c) => isNhc ? c.nhcStartingTcf == null : getTCF(c, fleet) === null)
-      .map((c) => ({ competitorId: c.id, reason }));
-    const rejectedIds = new Set(rejections.map((r) => r.competitorId));
     const rated = competitors.filter((c) => !rejectedIds.has(c.id));
     return {
       standings: rated.map((c, i) => ({
@@ -833,8 +790,8 @@ function calculateHandicapStandings(
         raceDiscards: [],
         raceNonDiscardable: [],
       })),
-      rejections,
-      ...(isNhc ? { nhcRaceScoresByRaceId: new Map(), nhcAggregatesByRaceId: new Map(), nhcTcfHistory: [] } : {}),
+      rejections: allRejections,
+      ...(isProgressive ? { nhcRaceScoresByRaceId: new Map(), nhcAggregatesByRaceId: new Map(), nhcTcfHistory: [] } : {}),
     };
   }
 
@@ -853,26 +810,12 @@ function calculateHandicapStandings(
     finishesByRace.set(finish.raceId, list);
   }
 
-  // Collect rejections across all races (deduplicated)
-  const rejectedIds = new Set<string>();
-  const allRejections: ScoringRejection[] = [];
+  const ratedCompetitors = competitors.filter((c) => !rejectedIds.has(c.id));
 
-  // NHC: running per-competitor TCF map, initialised from each competitor's nhcStartingTcf.
-  // Competitors without a starting TCF are rejected; everyone else propagates through races.
-  const nhcTcfMap = new Map<string, number>();
+  // Progressive-system outputs collected across races (NHC for now).
   const nhcRaceScoresByRaceId = new Map<string, Map<string, HandicapRaceScore>>();
   const nhcAggregatesByRaceId = new Map<string, NhcRaceAggregates>();
   const nhcTcfHistory: NhcTcfRecord[] = [];
-  if (isNhc) {
-    for (const c of competitors) {
-      if (c.nhcStartingTcf != null) {
-        nhcTcfMap.set(c.id, c.nhcStartingTcf);
-      } else {
-        rejectedIds.add(c.id);
-        allRejections.push({ competitorId: c.id, reason: 'no_starting_tcf' });
-      }
-    }
-  }
 
   const competitorRacePoints = new Map<string, number[]>();
   const competitorRaceCodes = new Map<string, (ResultCode | null)[]>();
@@ -892,34 +835,51 @@ function calculateHandicapStandings(
     const raceStart = startsByRaceId.get(race.id);
 
     let scores: Map<string, { points: number; resultCode: ResultCode | null }>;
-    if (raceStart && isNhc) {
-      // NHC fleet: thread the running TCF map through the race, then merge newTcfs back in
-      const ratedCompetitors = competitors.filter((c) => !rejectedIds.has(c.id));
-      const result = calculateNhcRaceScores(raceFinishes, ratedCompetitors, raceStart, fleet, nhcTcfMap);
-      scores = result.scores;
-      nhcRaceScoresByRaceId.set(race.id, result.scores);
-      nhcAggregatesByRaceId.set(race.id, result.nhcAggregates);
-      for (const [cid, newTcf] of result.newTcfByCompetitorId) {
-        const tcfApplied = nhcTcfMap.get(cid)!;
-        nhcTcfMap.set(cid, newTcf);
-        nhcTcfHistory.push({
-          id: `${race.id}-${cid}-${fleet.id}`,
-          raceId: race.id,
-          competitorId: cid,
-          fleetId: fleet.id,
-          tcfApplied,
-          newTcf,
-        });
-      }
-    } else if (raceStart) {
-      const result = calculateHandicapRaceScores(raceFinishes, competitors, raceStart, fleet);
-      scores = result.scores;
-      for (const r of result.rejections) {
-        if (!rejectedIds.has(r.competitorId)) {
-          rejectedIds.add(r.competitorId);
-          allRejections.push(r);
+    if (raceStart) {
+      // Phase A — race scoring (applies to both static and progressive fleets)
+      const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, appliedTcfMap);
+      let raceScores = phaseA.scores;
+
+      // Phase B — handicap adjustment (progressive fleets only)
+      if (config) {
+        const phaseB = calculateHandicapAdjustment(raceScores, config);
+
+        // Merge phase-B outputs back into the per-boat scores: newTcf for
+        // every competitor; per-finisher intermediates copied into the
+        // system-named display field (currently `nhc`).
+        const merged = new Map<string, HandicapRaceScore>();
+        for (const [cid, s] of raceScores) {
+          const newTcf = phaseB.newTcfByCompetitorId.get(cid) ?? s.tcfApplied;
+          const calc = phaseB.perFinisherCalc.get(cid);
+          merged.set(cid, {
+            ...s,
+            newTcf,
+            ...(calc ? { nhc: calc } : {}),
+          });
+        }
+        raceScores = merged;
+
+        nhcRaceScoresByRaceId.set(race.id, raceScores);
+        nhcAggregatesByRaceId.set(race.id, phaseB.aggregates);
+
+        // Audit trail: one record per (race, competitor) covering both
+        // finishers and non-finishers (so an absent Finish row still leaves
+        // a TCF history entry).
+        for (const [cid, newTcf] of phaseB.newTcfByCompetitorId) {
+          const tcfApplied = appliedTcfMap.get(cid)!;
+          nhcTcfHistory.push({
+            id: `${race.id}-${cid}-${fleet.id}`,
+            raceId: race.id,
+            competitorId: cid,
+            fleetId: fleet.id,
+            tcfApplied,
+            newTcf,
+          });
+          appliedTcfMap.set(cid, newTcf);
         }
       }
+
+      scores = raceScores;
     } else {
       // No start recorded yet — fall back to scratch scoring
       const scratchScores = calculateRaceScores(raceFinishes, competitors, 'seriesEntries');
@@ -937,14 +897,12 @@ function calculateHandicapStandings(
     }
   }
 
-  const rated = competitors.filter((c) => !rejectedIds.has(c.id));
-
   const discardCount = Math.min(
     getDiscardCount(races.length, discardThresholds),
     races.length,
   );
 
-  const standings: Standing[] = rated.map((competitor) => {
+  const standings: Standing[] = ratedCompetitors.map((competitor) => {
     const racePoints = competitorRacePoints.get(competitor.id)!;
     const raceCodes = competitorRaceCodes.get(competitor.id)!;
     const racePenaltyCodes = competitorRacePenaltyCodes.get(competitor.id)!;
@@ -1006,7 +964,7 @@ function calculateHandicapStandings(
   return {
     standings,
     rejections: allRejections,
-    ...(isNhc ? { nhcRaceScoresByRaceId, nhcAggregatesByRaceId, nhcTcfHistory } : {}),
+    ...(isProgressive ? { nhcRaceScoresByRaceId, nhcAggregatesByRaceId, nhcTcfHistory } : {}),
   };
 }
 
