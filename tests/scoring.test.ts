@@ -762,6 +762,118 @@ describe('calculateHandicapAdjustment — NHC1 edge cases', () => {
 });
 
 
+// ─── calculateHandicapRaceScores — penalty bases (A5.2/A5.3, rated-only) ─────
+
+describe('calculateHandicapRaceScores — penalty points', () => {
+  function ircFleet(): Fleet {
+    return { id: 'fl-0', seriesId: 's1', name: 'IRC', displayOrder: 0, scoringSystem: 'irc' };
+  }
+  function comp(id: string, ircTcc?: number): Competitor {
+    return { id, seriesId: 's1', fleetIds: ['fl-0'], sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0, ...(ircTcc != null ? { ircTcc } : {}) };
+  }
+  function start(): RaceStart {
+    return { id: 'rs-0', raceId: 'r-0', fleetIds: ['fl-0'], startTime: '14:00:00' };
+  }
+  function fin(competitorId: string, finishTime?: string, code: Finish['resultCode'] = null, startPresent: boolean | null = null): Finish {
+    return {
+      id: `f-${competitorId}`,
+      raceId: 'r-0',
+      competitorId,
+      sortOrder: null,
+      ...(finishTime ? { finishTime } : {}),
+      resultCode: code,
+      startPresent,
+      penaltyCode: null,
+      penaltyOverride: null,
+      redressMethod: null,
+      redressExcludeRaces: null,
+      redressIncludeRaces: null,
+      redressIncludeAllLater: false,
+      redressPoints: null,
+    };
+  }
+  // Reference fleet: 5 rated boats. Validates `ircFleet` is wired up
+  // correctly and exercises the default A5.2 path before the A5.3 cases.
+  it('A5.2 (default): DNF and DNC both score entries+1', () => {
+    const cs = ['A', 'B', 'C', 'D', 'E'].map((id) => comp(id, 1.0));
+    const tcf = new Map(cs.map((c) => [c.id, 1.0]));
+    const finishes = [
+      fin('A', '14:50:00'),
+      fin('B', '15:00:00'),
+      fin('C', '15:10:00'),
+      fin('D', undefined, 'DNF'),
+      fin('E', undefined, 'DNC'),
+    ];
+    expect(ircFleet().id).toBe('fl-0');
+    const { scores } = calculateHandicapRaceScores(finishes, cs, start(), tcf);
+    expect(scores.get('D')!.points).toBe(6);
+    expect(scores.get('E')!.points).toBe(6);
+  });
+
+  it('A5.3 (no check-in data): DNF uses starters+1, DNC uses entries+1', () => {
+    // starters fallback = finishes where resultCode !== 'DNC' = 4 (A, B, C, D)
+    // → DNF = 5; DNC = 6 (entries-base, unaffected by A5.3).
+    const cs = ['A', 'B', 'C', 'D', 'E'].map((id) => comp(id, 1.0));
+    const tcf = new Map(cs.map((c) => [c.id, 1.0]));
+    const finishes = [
+      fin('A', '14:50:00'),
+      fin('B', '15:00:00'),
+      fin('C', '15:10:00'),
+      fin('D', undefined, 'DNF'),
+      fin('E', undefined, 'DNC'),
+    ];
+    const { scores } = calculateHandicapRaceScores(finishes, cs, start(), tcf, 'startingArea');
+    expect(scores.get('D')!.points).toBe(5);
+    expect(scores.get('E')!.points).toBe(6);
+  });
+
+  it('A5.3 with check-in data: starters = boats present at the line', () => {
+    const cs = ['A', 'B', 'C', 'D', 'E'].map((id) => comp(id, 1.0));
+    const tcf = new Map(cs.map((c) => [c.id, 1.0]));
+    const finishes = [
+      fin('A', '14:50:00', null, true),
+      fin('B', '15:00:00', null, true),
+      fin('C', '15:10:00', null, true),
+      fin('D', undefined, 'DNF', true),
+      fin('E', undefined, 'DNC', false),
+    ];
+    const { scores } = calculateHandicapRaceScores(finishes, cs, start(), tcf, 'startingArea');
+    expect(scores.get('D')!.points).toBe(5); // starters = 4, +1
+    expect(scores.get('E')!.points).toBe(6); // entries = 5, +1
+  });
+
+  it('rated-only: penalty base ignores unrated boats stripped by the orchestrator', () => {
+    // Fleet has 5 boats but only 3 are rated. Caller passes the 3 rated.
+    // Penalty base = 3 → DNF/DNC = 4.
+    const cs = ['A', 'B', 'C'].map((id) => comp(id, 1.0));
+    const tcf = new Map(cs.map((c) => [c.id, 1.0]));
+    const finishes = [
+      fin('A', '14:50:00'),
+      fin('B', '15:00:00'),
+      fin('C', undefined, 'DNF'),
+    ];
+    const { scores } = calculateHandicapRaceScores(finishes, cs, start(), tcf);
+    expect(scores.get('C')!.points).toBe(4);
+  });
+
+  it('rated-only A5.3: starter count excludes unrated finish rows', () => {
+    // 3 rated boats (A, B finish; C DNF) plus an unrated boat X with a finish row
+    // that the orchestrator did NOT include in `competitors`. X should not enter
+    // the starters count: starters = 3 (A, B, C non-DNC) → DNF = 4.
+    const cs = ['A', 'B', 'C'].map((id) => comp(id, 1.0));
+    const tcf = new Map(cs.map((c) => [c.id, 1.0]));
+    const finishes = [
+      fin('A', '14:50:00'),
+      fin('B', '15:00:00'),
+      fin('C', undefined, 'DNF'),
+      fin('X', '14:55:00'), // unrated; not in `competitors`
+    ];
+    const { scores } = calculateHandicapRaceScores(finishes, cs, start(), tcf, 'startingArea');
+    expect(scores.get('C')!.points).toBe(4);
+  });
+});
+
+
 // ─── calculateFleetStandings — NHC propagation ───────────────────────────────
 
 describe('calculateFleetStandings — NHC progressive handicap', () => {

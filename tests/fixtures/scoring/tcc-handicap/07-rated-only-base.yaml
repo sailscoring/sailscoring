@@ -1,0 +1,104 @@
+description: "IRC — penalty base counts rated boats only; unrated boats don't bloat penalties"
+rrs_notes: "An unrated boat in a handicap fleet cannot be scored, so it is excluded from the standings entirely. It also doesn't enter the penalty base — DNC and DNF use rated fleet size + 1, not total entries + 1."
+
+# 5 boats are entered in the fleet but only 3 (Alpha, Charlie, Echo) carry a TCC.
+# Bravo and Delta are unrated and are dropped before scoring.
+#
+# Rated fleet size = 3 → entries-based penalty = 4.
+# A5.2 default (no A5.3 in this fixture), so DNF and DNC both score 4.
+#
+# Start 14:00:00
+#
+# Boat 1 (TCC 1.0): finish 14:50:00  ET = 3000  CT = 3000.0  → 1st  (1 pt)
+# Boat 2 (no TCC):  finish 14:55:00  — excluded (no rating)
+# Boat 3 (TCC 1.0): finish 15:00:00  ET = 3600  CT = 3600.0  → 2nd  (2 pt)
+# Boat 4 (no TCC):  DNF              — excluded (no rating)
+# Boat 5 (TCC 1.0): DNC                                       → 4 pt (rated-only entries+1)
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    ircTcc: 1.0
+  - sailNumber: "2"
+    name: "Bravo"
+    # no ircTcc — unrated, dropped before scoring
+  - sailNumber: "3"
+    name: "Charlie"
+    ircTcc: 1.0
+  - sailNumber: "4"
+    name: "Delta"
+    # no ircTcc — unrated, dropped before scoring
+  - sailNumber: "5"
+    name: "Echo"
+    ircTcc: 1.0
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "14:50:00"
+      - sailor: "2"
+        finishTime: "14:55:00"
+      - sailor: "3"
+        finishTime: "15:00:00"
+      - sailor: "4"
+        code: "DNF"
+      - sailor: "5"
+        code: "DNC"
+    expected:
+      - sailor: "1"
+        rank: 1
+        points: 1.0
+        elapsedTime: 3000
+        correctedTime: 3000.0
+        tcfApplied: 1.0
+      # Bravo (sailor 2) excluded — no expected entry
+      - sailor: "3"
+        rank: 2
+        points: 2.0
+        elapsedTime: 3600
+        correctedTime: 3600.0
+        tcfApplied: 1.0
+      # Delta (sailor 4) excluded — no expected entry
+      - sailor: "5"
+        rank: null
+        points: 4.0
+        elapsedTime: null
+        correctedTime: null
+        tcfApplied: 1.0
+    rejected:
+      - sailor: "2"
+        reason: no_rating
+      - sailor: "4"
+        reason: no_rating
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "3"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "5"
+      racePoints: [4]
+      raceCodes: ["DNC"]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4

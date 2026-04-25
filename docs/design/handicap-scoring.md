@@ -1108,8 +1108,10 @@ series file format — it is re-derived on load. This is sufficient for
 static-TCF systems (IRC, PY) where the rating doesn't change, but Phase 2
 will need to persist it (see Phase 2 open questions).
 
-Coded finishes (DNS, DNC, DNF, etc.) receive penalty points (fleet size + 1)
-regardless of their elapsed time — same as scratch.
+Coded finishes (DNS, DNC, DNF, etc.) are scored through the same per-code
+penalty rules as scratch (RRS A5.2 default; A5.3 when the series is
+configured for `startingArea`). The penalty base N is the rated fleet
+size — unrated boats are excluded from scoring and don't enter the count.
 
 ---
 
@@ -1212,9 +1214,11 @@ They still appear in results; they simply have no corrected time and no place.
 
 ### The `dnfScoring` setting
 
-The existing `dnfScoring: 'seriesEntries' | 'startingArea'` (A5.2/A5.3) applies
-equally to handicap races. Penalty points for coded finishes use fleet-size-based
-formulas, not time-based formulas.
+The series-level `dnfScoring: 'seriesEntries' | 'startingArea'` (A5.2/A5.3)
+applies equally to handicap races. Codes whose penalty base is `'starters'`
+(DNF, DNS, OCS, RET, DSQ, …) score `starters + 1` under A5.3; codes with base
+`'entries'` (DNC, BFD) always score `entries + 1`. The starters and entries
+counts are taken over the rated fleet only.
 
 ---
 

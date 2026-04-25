@@ -50,7 +50,7 @@ describe('TCC handicap scoring fixtures', () => {
         if (!raceStart) throw new Error(`${yamlPath}: race ${ri + 1} has no startTime`);
         const raceFinishes: Finish[] = finishes.filter((f) => f.raceId === raceId);
 
-        const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap);
+        const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap, dnfScoring);
 
         for (const exp of fixtureRace.expected) {
           const cid = sailToId.get(exp.sailor);

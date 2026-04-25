@@ -215,8 +215,10 @@ function parseTimeToSeconds(t: string | undefined): number | null {
  * this function (and a `ScoringRejection` emitted there). Every competitor
  * passed in must have an entry in the TCF map.
  *
- * Coded finishes (DNS, DNF, etc.) receive fleet-size-based penalty points.
- * Penalty points use fleet size as the base — no A5.3 distinction in handicap.
+ * Coded finishes are scored through the same per-code penalty rules as scratch
+ * (RRS A5.2 default; A5.3 when `dnfScoring === 'startingArea'`). The penalty
+ * base N is the rated fleet size — unrated boats can't be scored in this
+ * fleet, so they don't enter the count for A5.2 entries or A5.3 starters.
  *
  * This phase has no knowledge of α, no concept of "next race", and no
  * progressive-system branching.
@@ -225,23 +227,39 @@ function parseTimeToSeconds(t: string | undefined): number | null {
  * @param competitors  Rated competitors in this fleet only (callers filter non-rated)
  * @param raceStart  The RaceStart that covers this fleet (provides gun time)
  * @param appliedTcfByCompetitorId  Per-competitor TCF used this race
+ * @param dnfScoring  'seriesEntries' (A5.2, default) or 'startingArea' (A5.3)
  */
 export function calculateHandicapRaceScores(
   finishes: Finish[],
   competitors: Competitor[],
   raceStart: RaceStart,
   appliedTcfByCompetitorId: Map<string, number>,
+  dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
 ): { scores: Map<string, HandicapRaceScore> } {
   const startSeconds = parseTimeToSeconds(raceStart.startTime);
 
   const n = competitors.length;
-  const penaltyPoints = n + 1;
+  const seriesEntryPenalty = n + 1;
+
+  const ratedIds = new Set(competitors.map((c) => c.id));
 
   const finishMap = new Map(
     finishes
       .filter((f): f is Finish & { competitorId: string } => f.competitorId !== null)
       .map((f) => [f.competitorId, f]),
   );
+
+  // A5.3 starting-area penalty: count only rated boats — unrated boats aren't
+  // scored in this fleet, so they don't enter the starters count either.
+  let startingAreaPenalty = seriesEntryPenalty;
+  if (dnfScoring === 'startingArea') {
+    const ratedFinishes = Array.from(finishMap.values()).filter((f) => ratedIds.has(f.competitorId));
+    const hasCheckinData = ratedFinishes.some((f) => f.startPresent === true);
+    const startingAreaCount = hasCheckinData
+      ? ratedFinishes.filter((f) => f.startPresent === true).length
+      : ratedFinishes.filter((f) => f.resultCode !== 'DNC').length;
+    startingAreaPenalty = startingAreaCount + 1;
+  }
 
   // First pass: compute ET, CT, TCF for each competitor
   interface Candidate {
@@ -319,9 +337,15 @@ export function calculateHandicapRaceScores(
   // been used, preserved for the audit trail (matters for progressive systems).
   for (const c of candidates) {
     if (scores.has(c.competitorId)) continue;
+    const def = c.resultCode ? getCodeDefinition(c.resultCode) : undefined;
+    const points = penaltyPoints(
+      def?.pointsMethod ?? { type: 'fixed_penalty', penaltyBase: 'entries' },
+      seriesEntryPenalty,
+      startingAreaPenalty,
+    );
     scores.set(c.competitorId, {
       competitorId: c.competitorId,
-      points: penaltyPoints,
+      points,
       place: null,
       rank: null,
       resultCode: c.resultCode,
@@ -788,6 +812,7 @@ function calculateHandicapStandings(
   raceStarts: RaceStart[],
   fleet: Fleet,
   discardThresholds: DiscardThreshold[] = [],
+  dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
 ): {
   standings: Standing[];
   rejections: ScoringRejection[];
@@ -891,7 +916,7 @@ function calculateHandicapStandings(
     let scores: Map<string, { points: number; resultCode: ResultCode | null }>;
     if (raceStart) {
       // Phase A — race scoring (applies to both static and progressive fleets)
-      const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, appliedTcfMap);
+      const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, appliedTcfMap, dnfScoring);
       let raceScores = phaseA.scores;
 
       // Phase B — handicap adjustment (progressive fleets only)
@@ -958,7 +983,7 @@ function calculateHandicapStandings(
       scores = raceScores;
     } else {
       // No start recorded yet — fall back to scratch scoring
-      const scratchScores = calculateRaceScores(raceFinishes, competitors, 'seriesEntries');
+      const scratchScores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
       scores = new Map([...scratchScores.entries()].map(([id, s]) => [id, { points: s.points, resultCode: s.resultCode }]));
     }
 
@@ -1115,6 +1140,7 @@ export function calculateFleetStandings(
         raceStarts,
         fleet,
         discardThresholds,
+        dnfScoring,
       );
       return { fleet, standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, nhcTcfHistory };
     }

@@ -213,7 +213,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
             else if (fleet.scoringSystem === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
           }
           const ratedFleetCompetitors = fleetCompetitors.filter((c) => tcfMap.has(c.id));
-          scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap).scores;
+          scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap, series.dnfScoring ?? 'seriesEntries').scores;
         } else {
           scores = calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries');
         }

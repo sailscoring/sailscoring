@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>IRC under A5.3 — DNF uses starters+1, DNC keeps entries+1 — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All IRC handicap examples</a></p>
+<h1>IRC under A5.3 — DNF uses starters+1, DNC keeps entries+1</h1>
+<p style="font-style:italic; color:#444;">RRS A5.3 is the alternative penalty rule: codes whose penalty base is 'starters' (DNF, DNS, OCS, RET, DSQ…) score the number of boats that came to the starting area + 1 instead of series entries + 1. Codes whose base is 'entries' (DNC, BFD) are unaffected. The setting applies equally to scratch and handicap fleets.</p>
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> IRC
+</div>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Fleet size = 5 (entries-base penalty = 6).
+Check-in data is recorded (startPresent set on every row).
+Boats present at the line: 1, 2, 3, 4 → starters = 4 (starters-base penalty = 5).
+E (Echo) was absent → DNC.
+
+Start 14:00:00
+
+Boat 1 (TCC 1.0): finish 14:50:00  ET = 3000  CT = 3000.0  → 1st  (1 pt)
+Boat 2 (TCC 1.0): finish 15:00:00  ET = 3600  CT = 3600.0  → 2nd  (2 pt)
+Boat 3 (TCC 1.0): finish 15:10:00  ET = 4200  CT = 4200.0  → 3rd  (3 pt)
+Boat 4 (TCC 1.0): DNF                                       → 5 pt (starters+1, A5.3)
+Boat 5 (TCC 1.0): DNC                                       → 6 pt (entries+1, unchanged)</pre>
+<h2 style="margin-top:1.5em;">Race arithmetic</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">1.000</td>
+  <td class="mono">14:50:00</td>
+  <td class="mono">50m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">50m 00s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Bravo</td>
+  <td class="mono">2</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">60m 00s</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Charlie</td>
+  <td class="mono">3</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:10:00</td>
+  <td class="mono">70m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">70m 00s</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Delta</td>
+  <td class="mono">4</td>
+  <td class="mono">1.000</td>
+  <td class="mono">DNF</td>
+  <td class="mono">—</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">—</td>
+  <td>6</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Echo</td>
+  <td class="mono">5</td>
+  <td class="mono">1.000</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">—</td>
+  <td>6</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Bravo</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Charlie</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Delta</td>
+  <td class="mono">4</td>
+  <td class="mono">DNF</td>
+  <td class="mono">5</td>
+  <td class="mono">5</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td>Echo</td>
+  <td class="mono">5</td>
+  <td class="mono">DNC</td>
+  <td class="mono">6</td>
+  <td class="mono">6</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>
