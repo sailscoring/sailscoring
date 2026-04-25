@@ -69,6 +69,7 @@ interface CompetitorFormData {
   ircTcc: string;       // decimal string, e.g. "0.972"; empty if not set
   pyNumber: string;     // integer string, e.g. "1034"; empty if not set
   nhcStartingTcf: string; // decimal string, e.g. "1.005"; empty if not set
+  echoStartingTcf: string; // decimal string, e.g. "1.020"; empty if not set
 }
 
 const emptyForm: CompetitorFormData = {
@@ -86,6 +87,7 @@ const emptyForm: CompetitorFormData = {
   ircTcc: '',
   pyNumber: '',
   nhcStartingTcf: '',
+  echoStartingTcf: '',
 };
 
 function MissingRatingIcon({ missing }: { missing: MissingRating[] }) {
@@ -150,9 +152,11 @@ function CompetitorForm({
   const ircFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'irc').map((f) => f.name);
   const pyFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'py').map((f) => f.name);
   const nhcFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'nhc').map((f) => f.name);
+  const echoFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'echo').map((f) => f.name);
   const needsIrcTcc = ircFleetNames.length > 0;
   const needsPyNumber = pyFleetNames.length > 0;
   const needsNhcStartingTcf = nhcFleetNames.length > 0;
+  const needsEchoStartingTcf = echoFleetNames.length > 0;
 
   function set<K extends keyof CompetitorFormData>(field: K, value: CompetitorFormData[K]) {
     setData((d) => ({ ...d, [field]: value }));
@@ -202,6 +206,13 @@ function CompetitorForm({
       const tcf = parseFloat(data.nhcStartingTcf);
       if (isNaN(tcf) || tcf < 0.5 || tcf > 2.0) {
         setError('Starting TCF must be a decimal number (typically 0.5–2.0, e.g. 1.005).');
+        return;
+      }
+    }
+    if (needsEchoStartingTcf && data.echoStartingTcf.trim()) {
+      const tcf = parseFloat(data.echoStartingTcf);
+      if (isNaN(tcf) || tcf < 0.5 || tcf > 2.0) {
+        setError('ECHO starting handicap must be a decimal number (typically 0.5–2.0, e.g. 1.020).');
         return;
       }
     }
@@ -419,6 +430,20 @@ function CompetitorForm({
             )}
           </div>
         )}
+        {needsEchoStartingTcf && (
+          <div className="space-y-1.5">
+            <Label htmlFor="echoStartingTcf">ECHO starting handicap</Label>
+            <Input
+              id="echoStartingTcf"
+              value={data.echoStartingTcf}
+              onChange={(e) => set('echoStartingTcf', e.target.value)}
+              placeholder="e.g. 1.020"
+            />
+            {!data.echoStartingTcf.trim() && (
+              <p className="text-sm text-amber-600">{requiredForFleetsHint(echoFleetNames)}</p>
+            )}
+          </div>
+        )}
       </div>
       {!showMore && extraRoleFields.length > 0 && (
         <button
@@ -467,6 +492,7 @@ export default function CompetitorsPage({
   const showIrc = (fleets ?? []).some((f) => f.scoringSystem === 'irc');
   const showPy = (fleets ?? []).some((f) => f.scoringSystem === 'py');
   const showNhc = (fleets ?? []).some((f) => f.scoringSystem === 'nhc');
+  const showEcho = (fleets ?? []).some((f) => f.scoringSystem === 'echo');
 
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -503,14 +529,16 @@ export default function CompetitorsPage({
     }
   });
 
-  function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'pyNumber' | 'nhcStartingTcf'> {
+  function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'pyNumber' | 'nhcStartingTcf' | 'echoStartingTcf'> {
     const tcc = data.ircTcc.trim() ? parseFloat(data.ircTcc.trim()) : undefined;
     const py = data.pyNumber.trim() ? parseInt(data.pyNumber.trim(), 10) : undefined;
     const nhc = data.nhcStartingTcf.trim() ? parseFloat(data.nhcStartingTcf.trim()) : undefined;
+    const echo = data.echoStartingTcf.trim() ? parseFloat(data.echoStartingTcf.trim()) : undefined;
     return {
       ...(tcc != null && !isNaN(tcc) ? { ircTcc: tcc } : {}),
       ...(py != null && !isNaN(py) ? { pyNumber: py } : {}),
       ...(nhc != null && !isNaN(nhc) ? { nhcStartingTcf: nhc } : {}),
+      ...(echo != null && !isNaN(echo) ? { echoStartingTcf: echo } : {}),
     };
   }
 
@@ -570,6 +598,7 @@ export default function CompetitorsPage({
     if (!updated.ircTcc) delete updated.ircTcc;
     if (!updated.pyNumber) delete updated.pyNumber;
     if (!updated.nhcStartingTcf) delete updated.nhcStartingTcf;
+    if (!updated.echoStartingTcf) delete updated.echoStartingTcf;
     if (!data.boatName.trim()) delete updated.boatName;
     if (!data.boatClass.trim()) delete updated.boatClass;
     if (!data.owner.trim()) delete updated.owner;
@@ -653,6 +682,7 @@ export default function CompetitorsPage({
               {showIrc && <TableHead>IRC TCC</TableHead>}
               {showPy && <TableHead>PY</TableHead>}
               {showNhc && <TableHead>NHC TCF</TableHead>}
+              {showEcho && <TableHead>ECHO H</TableHead>}
               {showGender && <TableHead>Gender</TableHead>}
               {showAge && <TableHead>Age</TableHead>}
               <TableHead className="w-20" />
@@ -711,6 +741,13 @@ export default function CompetitorsPage({
                   <TableCell className="font-mono">
                     {c.fleetIds.some((id) => fleetById.get(id)?.scoringSystem === 'nhc')
                       ? (c.nhcStartingTcf ?? '—')
+                      : '—'}
+                  </TableCell>
+                )}
+                {showEcho && (
+                  <TableCell className="font-mono">
+                    {c.fleetIds.some((id) => fleetById.get(id)?.scoringSystem === 'echo')
+                      ? (c.echoStartingTcf ?? '—')
                       : '—'}
                   </TableCell>
                 )}
@@ -776,6 +813,7 @@ export default function CompetitorsPage({
                 ircTcc: editingCompetitor.ircTcc?.toString() ?? '',
                 pyNumber: editingCompetitor.pyNumber?.toString() ?? '',
                 nhcStartingTcf: editingCompetitor.nhcStartingTcf?.toString() ?? '',
+                echoStartingTcf: editingCompetitor.echoStartingTcf?.toString() ?? '',
               }}
               onSave={handleEdit}
               onCancel={() => setEditingCompetitor(null)}

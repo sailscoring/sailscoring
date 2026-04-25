@@ -48,9 +48,11 @@ export interface PublicSeriesExport {
   fleets: {
     name: string;
     displayOrder: number;
-    scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc';
+    scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
     /** NHC blend rate α (present iff scoringSystem === 'nhc'). */
     nhcAlpha?: number;
+    /** ECHO blend rate α (present iff scoringSystem === 'echo'). */
+    echoAlpha?: number;
   }[];
   competitors: {
     sailNumber: string;
@@ -70,6 +72,8 @@ export interface PublicSeriesExport {
     pyNumber?: number;
     /** NHC starting TCF (race-1 input). */
     nhcStartingTcf?: number;
+    /** ECHO starting handicap (race-1 input). */
+    echoStartingTcf?: number;
   }[];
   races: {
     raceNumber: number;
@@ -104,6 +108,11 @@ export interface PublicSeriesExport {
      *  the explainability fleet header line, plus the per-boat intermediate
      *  calculations needed to reproduce New TCF. */
     nhcByFleet?: Record<string, NhcRaceFleetExport>;
+    /** ECHO per-fleet scoring intermediates for this race (one entry per
+     *  ECHO fleet, keyed by fleet name). Carries the IS-formula fleet
+     *  inputs (ΣH_S, Σ(1/T_E)) so a downstream consumer can reproduce
+     *  PI = ΣH_S / (T_E × Σ(1/T_E)) directly. */
+    echoByFleet?: Record<string, EchoRaceFleetExport>;
   }[];
   standings: {
     fleetName: string;
@@ -138,6 +147,34 @@ export interface NhcRaceFleetExport {
     ctRatio?: number;
     fairTcf?: number;
     adjustment?: number;
+  }[];
+}
+
+/** Per-(race, fleet) ECHO scoring details for the public export.
+ *  Same per-row shape as NHC; the fleet-level header carries the
+ *  IS-formula inputs (sumH, sumReciprocalEt) and the suppression flag. */
+export interface EchoRaceFleetExport {
+  alpha: number;
+  finisherCount: number;
+  ctAvgSecs: number;
+  meanTcf: number;
+  /** ΣH_S — sum of starting handicaps across finishers. */
+  sumH: number;
+  /** Σ(1/T_E) — sum of reciprocals of elapsed times across finishers. */
+  sumReciprocalEt: number;
+  /** True when the IS guide's ≤2-finisher gate fired (no rating update). */
+  updateSuppressed: boolean;
+  rows: {
+    sailNumber: string;
+    tcfApplied: number;
+    newTcf: number;
+    /** Intermediates present iff the boat finished this race. */
+    ctRatio?: number;
+    fairTcf?: number;        // = PI_i in IS notation
+    adjustment?: number;
+    /** 1/T_E_i in seconds⁻¹ — present iff the boat finished. Lets a
+     *  consumer verify Σ(1/T_E) by summing the column. */
+    reciprocalEt?: number;
   }[];
 }
 
@@ -202,6 +239,39 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
     }
   }
 
+  // Same indexing for ECHO fleets.
+  const echoByFleetByRaceId = new Map<string, Map<string, EchoRaceFleetExport>>();
+  for (const fr of fleetStandings) {
+    if (!fr.echoRaceScoresByRaceId || !fr.echoAggregatesByRaceId) continue;
+    const fleetName = isSingleDefault ? 'Default' : fr.fleet.name;
+    for (const [raceId, scores] of fr.echoRaceScoresByRaceId) {
+      const agg = fr.echoAggregatesByRaceId.get(raceId);
+      if (!agg) continue;
+      const rows = [...scores.entries()]
+        .filter(([, s]) => s.tcfApplied != null && s.newTcf != null)
+        .map(([cid, s]) => ({
+          sailNumber: sailNumberById.get(cid) ?? cid,
+          tcfApplied: s.tcfApplied!,
+          newTcf: s.newTcf!,
+          ...(s.echo ? { ctRatio: s.echo.ctRatio, fairTcf: s.echo.fairTcf, adjustment: s.echo.adjustment } : {}),
+          ...(s.elapsedTime != null && s.elapsedTime > 0 && s.resultCode == null ? { reciprocalEt: 1 / s.elapsedTime } : {}),
+        }));
+      const entry: EchoRaceFleetExport = {
+        alpha: agg.alpha,
+        finisherCount: agg.finisherCount,
+        ctAvgSecs: agg.ctAvg,
+        meanTcf: agg.meanTcf,
+        sumH: agg.sumH,
+        sumReciprocalEt: agg.sumReciprocalEt,
+        updateSuppressed: agg.updateSuppressed,
+        rows,
+      };
+      const byFleet = echoByFleetByRaceId.get(raceId) ?? new Map();
+      byFleet.set(fleetName, entry);
+      echoByFleetByRaceId.set(raceId, byFleet);
+    }
+  }
+
   const exportedRaces = races.map((race) => {
     const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
     const raceScores = calculateRaceScores(finishesForRace, competitors, series.dnfScoring);
@@ -247,12 +317,17 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
     const nhcByFleet = nhcByFleetMap && nhcByFleetMap.size > 0
       ? Object.fromEntries(nhcByFleetMap)
       : undefined;
+    const echoByFleetMap = echoByFleetByRaceId.get(race.id);
+    const echoByFleet = echoByFleetMap && echoByFleetMap.size > 0
+      ? Object.fromEntries(echoByFleetMap)
+      : undefined;
     return {
       raceNumber: race.raceNumber,
       date: race.date,
       starts,
       finishes,
       ...(nhcByFleet ? { nhcByFleet } : {}),
+      ...(echoByFleet ? { echoByFleet } : {}),
     };
   });
 
@@ -304,6 +379,7 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
       ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
+      ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
     })),
     competitors: competitors.map((c) => ({
       sailNumber: c.sailNumber,
@@ -320,6 +396,7 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
+      ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
     })),
     races: exportedRaces,
     standings: exportedStandings,
@@ -406,6 +483,7 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
         displayOrder: f.displayOrder,
         scoringSystem: f.scoringSystem,
         ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
+        ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       });
     }
 
@@ -431,10 +509,12 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
+        ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
       });
     }
 
-    // Build (sailNumber, fleetName) → competitorId map for NHC history reconstruction.
+    // Build (sailNumber, fleetName) → competitorId map for progressive-TCF
+    // history reconstruction (NHC and ECHO share the same DB table).
     // A boat in two NHC fleets needs distinct rows per fleet — keyed by both.
     const competitorIdBySailFleetName = new Map<string, string>();
     for (const c of data.competitors) {
@@ -499,11 +579,31 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
       }
 
       // Reconstruct nhcTcfHistory rows from per-(race, fleet) intermediates.
-      // Engine-recompute would also work, but persisting directly avoids needing
-      // to re-score on every render after import.
+      // Engine-recompute would also work, but persisting directly avoids
+      // needing to re-score on every render after import. The same table
+      // covers ECHO history.
       const nhcByFleet = race.nhcByFleet;
       if (nhcByFleet) {
         for (const [fleetName, entry] of Object.entries(nhcByFleet)) {
+          const fleetId = fleetIdByName.get(fleetName);
+          if (!fleetId) continue;
+          for (const row of entry.rows) {
+            const competitorId = competitorIdBySailFleetName.get(`${row.sailNumber}\0${fleetName}`);
+            if (!competitorId) continue;
+            await db.nhcTcfHistory.add({
+              id: crypto.randomUUID(),
+              raceId,
+              competitorId,
+              fleetId,
+              tcfApplied: row.tcfApplied,
+              newTcf: row.newTcf,
+            });
+          }
+        }
+      }
+      const echoByFleet = race.echoByFleet;
+      if (echoByFleet) {
+        for (const [fleetName, entry] of Object.entries(echoByFleet)) {
           const fleetId = fleetIdByName.get(fleetName);
           if (!fleetId) continue;
           for (const row of entry.rows) {

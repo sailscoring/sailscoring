@@ -49,19 +49,28 @@ export interface FixtureRaceExpected {
   elapsedTime?: number | null;
   correctedTime?: number | null;
   tcfApplied?: number | null;
-  // NHC-specific
+  // Progressive (NHC / ECHO) — the same intermediates under different
+  // notation. ECHO fixtures may use `pi` and `newH` as aliases of
+  // `fairTcf` and `newTcf` for IS-formula fidelity in the YAML source.
   newTcf?: number | null;
+  newH?: number | null;
   ctRatio?: number;
   fairTcf?: number;
+  pi?: number;
   adjustment?: number;
+  reciprocalEt?: number;
   code?: string;
 }
 
 export interface FixtureAggregates {
   alpha: number;
   finisherCount: number;
-  ctAvg: number;
-  meanTcf: number;
+  ctAvg?: number;
+  meanTcf?: number;
+  // ECHO-specific aggregates (IS-formula fleet header)
+  sumH?: number;
+  sumReciprocalEt?: number;
+  updateSuppressed?: boolean;
 }
 
 export interface FixtureRejection {
@@ -99,11 +108,12 @@ export interface FixtureCompetitor {
   ircTcc?: number;
   pyNumber?: number;
   nhcStartingTcf?: number;
+  echoStartingTcf?: number;
 }
 
 export interface FixtureFleet {
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc';
-  alpha?: number;            // NHC only
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
+  alpha?: number;            // NHC and ECHO (mapped to nhcAlpha / echoAlpha)
 }
 
 export interface Fixture {
@@ -146,13 +156,14 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
   let fleets: Fleet[];
   let fleetIdByName: Map<string, string>;
   if (topFleet) {
+    const alphaField = topFleet.scoringSystem === 'echo' ? 'echoAlpha' : 'nhcAlpha';
     fleets = [{
       id: 'fl-0',
       seriesId: 's1',
       name: 'Fleet',
       displayOrder: 0,
       scoringSystem: topFleet.scoringSystem,
-      ...(topFleet.alpha != null ? { nhcAlpha: topFleet.alpha } : {}),
+      ...(topFleet.alpha != null ? { [alphaField]: topFleet.alpha } : {}),
     }];
     fleetIdByName = new Map([['Fleet', 'fl-0']]);
   } else if (hasPerCompetitorFleet) {
@@ -194,6 +205,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
+      ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
     };
   });
 

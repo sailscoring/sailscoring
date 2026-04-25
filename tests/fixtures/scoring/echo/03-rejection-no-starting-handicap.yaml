@@ -1,0 +1,64 @@
+description: "ECHO — competitor without echoStartingTcf is rejected from the fleet"
+notes: |
+  ECHO requires every competitor to have an opening handicap before scoring.
+  A boat without `echoStartingTcf` is rejected with reason `no_starting_tcf`
+  and excluded from per-race scores and from the series standings.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: echo
+  alpha: 0.25
+
+competitors:
+  - sailNumber: "1"
+    name: "Has-Handicap"
+    echoStartingTcf: 1.000
+  - sailNumber: "2"
+    name: "Has-Handicap-2"
+    echoStartingTcf: 1.020
+  - sailNumber: "3"
+    name: "Has-Handicap-3"
+    echoStartingTcf: 1.050
+  - sailNumber: "X"
+    name: "No-Handicap"
+    # echoStartingTcf intentionally omitted
+
+races:
+  - number: 1
+    startTime: "12:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "13:00:00"
+      - sailor: "2"
+        finishTime: "13:01:00"
+      - sailor: "3"
+        finishTime: "13:02:00"
+    rejected:
+      - sailor: "X"
+        reason: "no_starting_tcf"
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3

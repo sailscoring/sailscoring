@@ -378,8 +378,10 @@ enforce this gate.
 #### Worked example (IS 2022 Guide, page 2)
 
 The IS guide presents a 10-boat worked example with α = 0.25.
-Reproduced here in full: this is the canonical verification target,
-and our implementation must reproduce these numbers exactly.
+Reproduced here as the canonical verification target. Our
+implementation reproduces every value *from the formula*; the IS
+table itself has a small typo on row 6 (and minor presentation
+glitches on rows 3 and 9 — see notes below).
 
 | Boat | T_E | 1/T_E    | Starting H | PI    | New H |
 |------|-----|----------|------------|-------|-------|
@@ -388,7 +390,7 @@ and our implementation must reproduce these numbers exactly.
 | 3    | 66  | 0.01515  | 1.020      | 0.937 | 0.999 |
 | 4    | 59  | 0.01695  | 1.020      | 1.043 | 1.026 |
 | 5    | 56  | 0.01786  | 1.115      | 1.099 | 1.111 |
-| 6    | 70  | 0.01429  | 1.000      | 0.879 | 0.952 |
+| 6 †  | 70  | 0.01429  | 1.000      | 0.879 | 0.952 |
 | 7    | 56  | 0.01786  | 1.020      | 1.099 | 1.040 |
 | 8    | 59  | 0.01695  | 1.010      | 1.043 | 1.018 |
 | 9    | 61  | 0.01639  | 1.005      | 1.006 | 1.005 |
@@ -407,6 +409,18 @@ new_H_1 = (1 − 0.25) × 1.001 + 0.25 × 1.026
         = 0.75075 + 0.25650
         ≈ 1.007
 ```
+
+> **† Row 6 typo.** The IS table prints New H = 0.952 for Boat 6, but
+> the formula `0.75 × 1.000 + 0.25 × 0.879 = 0.96975` gives **0.970**.
+> The PI column value (0.879) is correct — only the New H entry is
+> wrong. Our engine matches the formula and emits 0.970 (rounded to
+> 3 dp). Two further presentation glitches in the IS table: row 3
+> prints PI = 0.937 where the formula gives 0.933, and row 9 prints
+> PI = 1.006 where the formula gives 1.009 (Boat 9 must equal Boat 2
+> at PI = 1.009 since both have T_E = 61). The implementation
+> reproduces the formula in every row; the canonical scoring fixture
+> at `tests/fixtures/scoring/echo/01-is-2022-worked-example.yaml`
+> records the formula-correct values.
 
 #### Opening handicaps
 

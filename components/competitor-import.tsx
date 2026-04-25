@@ -50,7 +50,7 @@ import { log } from '@/lib/debug';
  *  label doesn't already occupy that role. Under the hood both route to
  *  `Competitor.helm` / `Competitor.owner`, or to `Competitor.name` when they
  *  match the primary. */
-type CompetitorField = 'sailNumber' | 'boatName' | 'boatClass' | 'primary' | 'helm' | 'owner' | 'crewName' | 'club' | 'gender' | 'age' | 'fleet' | 'tcc' | 'py' | 'nhcStartingTcf' | 'ignore';
+type CompetitorField = 'sailNumber' | 'boatName' | 'boatClass' | 'primary' | 'helm' | 'owner' | 'crewName' | 'club' | 'gender' | 'age' | 'fleet' | 'tcc' | 'py' | 'nhcStartingTcf' | 'echoStartingTcf' | 'ignore';
 type ColumnMap = Record<number, CompetitorField>;
 
 type ImportFlow =
@@ -97,6 +97,7 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   tcc: 'IRC TCC',
   py: 'PY number',
   nhcStartingTcf: 'NHC starting TCF',
+  echoStartingTcf: 'ECHO starting handicap',
   ignore: '(ignore)',
 };
 
@@ -122,6 +123,7 @@ function buildFieldLabels(primary: PrimaryPersonLabel): Partial<Record<Competito
     tcc: STATIC_FIELD_LABELS.tcc,
     py: STATIC_FIELD_LABELS.py,
     nhcStartingTcf: STATIC_FIELD_LABELS.nhcStartingTcf,
+    echoStartingTcf: STATIC_FIELD_LABELS.echoStartingTcf,
     ignore: STATIC_FIELD_LABELS.ignore,
   });
   return labels;
@@ -151,7 +153,9 @@ function autoDetectField(header: string): CompetitorField {
   if (/fleet|division/.test(h)) return 'fleet';
   if (/tcc|irc.*rating|rating.*irc/.test(h)) return 'tcc';
   if (/\bpy\b|portsmouth/.test(h)) return 'py';
-  if (/\bnhc\b|starting.*tcf|nhc.*tcf|nhc.*rating/.test(h)) return 'nhcStartingTcf';
+  if (/\bnhc\b|nhc.*tcf|nhc.*rating/.test(h)) return 'nhcStartingTcf';
+  if (/\becho\b|echo.*tcf|echo.*rating|echo.*handicap/.test(h)) return 'echoStartingTcf';
+  if (/starting.*tcf/.test(h)) return 'nhcStartingTcf';
   return 'ignore';
 }
 
@@ -354,6 +358,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let tcc = '';
       let py = '';
       let nhcStartingTcfStr = '';
+      let echoStartingTcfStr = '';
       Object.entries(columnMap).forEach(([colStr, field]) => {
         const col = parseInt(colStr, 10);
         const val = row[col]?.trim() ?? '';
@@ -371,6 +376,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'tcc') tcc = val;
         else if (field === 'py') py = val;
         else if (field === 'nhcStartingTcf') nhcStartingTcfStr = val;
+        else if (field === 'echoStartingTcf') echoStartingTcfStr = val;
       });
 
       if (!sailNumber) {
@@ -403,9 +409,11 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const parsedTcc = tcc ? parseFloat(tcc) : null;
       const parsedPy = py ? parseInt(py, 10) : null;
       const parsedNhc = nhcStartingTcfStr ? parseFloat(nhcStartingTcfStr) : null;
+      const parsedEcho = echoStartingTcfStr ? parseFloat(echoStartingTcfStr) : null;
       const ircTcc = parsedTcc != null && !isNaN(parsedTcc) ? parsedTcc : existingCompetitor?.ircTcc;
       const pyNumber = parsedPy != null && !isNaN(parsedPy) ? parsedPy : existingCompetitor?.pyNumber;
       const nhcStartingTcf = parsedNhc != null && !isNaN(parsedNhc) ? parsedNhc : existingCompetitor?.nhcStartingTcf;
+      const echoStartingTcf = parsedEcho != null && !isNaN(parsedEcho) ? parsedEcho : existingCompetitor?.echoStartingTcf;
 
       const resolvedBoatName = boatName || existingCompetitor?.boatName || '';
       const resolvedBoatClass = boatClass || existingCompetitor?.boatClass || '';
@@ -430,6 +438,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(ircTcc != null ? { ircTcc } : {}),
         ...(pyNumber != null ? { pyNumber } : {}),
         ...(nhcStartingTcf != null ? { nhcStartingTcf } : {}),
+        ...(echoStartingTcf != null ? { echoStartingTcf } : {}),
       };
 
       if (
@@ -446,7 +455,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         existingCompetitor.age === competitor.age &&
         existingCompetitor.ircTcc === competitor.ircTcc &&
         existingCompetitor.pyNumber === competitor.pyNumber &&
-        existingCompetitor.nhcStartingTcf === competitor.nhcStartingTcf
+        existingCompetitor.nhcStartingTcf === competitor.nhcStartingTcf &&
+        existingCompetitor.echoStartingTcf === competitor.echoStartingTcf
       ) {
         unchanged++;
         continue;

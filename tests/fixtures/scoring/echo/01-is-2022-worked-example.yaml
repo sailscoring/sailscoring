@@ -1,0 +1,262 @@
+description: "ECHO — Irish Sailing 2022 ECHO Guide for Clubs, page 2 worked example"
+notes: |
+  10-boat single race with α = 0.25 (the IS-recommended 75/25 split for club racing).
+  Reproduces the canonical worked example from the Irish Sailing 2022 guide. Start at
+  12:00:00; T_E values from the guide are scaled to seconds (T_minutes × 60).
+
+  Engine output matches the IS Performance Index formula exactly:
+    PI_i = ΣH_S / (T_E_i × Σ(1/T_E))
+    new_H_i = (1 − α) × H_i + α × PI_i
+
+  Three rows in the IS guide table differ from the formula's true output:
+    Row 6 (T_E=70, H=1.000): IS table shows new_H=0.952; formula gives 0.970.
+        The PI value of 0.879 is correct; the printed new_H is a typo.
+    Row 3 (T_E=66): IS table prints PI=0.937; formula gives 0.933.
+    Row 9 (T_E=61): IS table prints PI=1.006; formula gives 1.009.
+        (Boats 2 and 9 share T_E=61, so their PI must be identical;
+         Boat 2's printed PI=1.009 matches the formula.)
+
+  The engine matches the formula in every row. The expected new_H values below
+  are the formula-correct values — see project_is_2022_echo_table_typo memory.
+
+  Computed reference values (full precision):
+    ΣH_S            = 10.221
+    Σ(1/T_E)        ≈ 0.00276745386 (in 1/seconds)
+    CT_avg          = 3706.71
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: echo
+  alpha: 0.25
+
+competitors:
+  - sailNumber: "1"
+    name: "Boat 1"
+    echoStartingTcf: 1.001
+  - sailNumber: "2"
+    name: "Boat 2"
+    echoStartingTcf: 1.015
+  - sailNumber: "3"
+    name: "Boat 3"
+    echoStartingTcf: 1.020
+  - sailNumber: "4"
+    name: "Boat 4"
+    echoStartingTcf: 1.020
+  - sailNumber: "5"
+    name: "Boat 5"
+    echoStartingTcf: 1.115
+  - sailNumber: "6"
+    name: "Boat 6"
+    echoStartingTcf: 1.000
+  - sailNumber: "7"
+    name: "Boat 7"
+    echoStartingTcf: 1.020
+  - sailNumber: "8"
+    name: "Boat 8"
+    echoStartingTcf: 1.010
+  - sailNumber: "9"
+    name: "Boat 9"
+    echoStartingTcf: 1.005
+  - sailNumber: "10"
+    name: "Boat 10"
+    echoStartingTcf: 1.015
+
+races:
+  - number: 1
+    startTime: "12:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "13:00:00"   # 60 min
+      - sailor: "2"
+        finishTime: "13:01:00"   # 61 min
+      - sailor: "3"
+        finishTime: "13:06:00"   # 66 min
+      - sailor: "4"
+        finishTime: "12:59:00"   # 59 min
+      - sailor: "5"
+        finishTime: "12:56:00"   # 56 min
+      - sailor: "6"
+        finishTime: "13:10:00"   # 70 min
+      - sailor: "7"
+        finishTime: "12:56:00"   # 56 min
+      - sailor: "8"
+        finishTime: "12:59:00"   # 59 min
+      - sailor: "9"
+        finishTime: "13:01:00"   # 61 min
+      - sailor: "10"
+        finishTime: "12:57:00"   # 57 min
+    aggregates:
+      alpha: 0.25
+      finisherCount: 10
+      ctAvg: 3706.71
+      meanTcf: 1.0221
+      sumH: 10.221
+      sumReciprocalEt: 0.0027674538632992
+      updateSuppressed: false
+    expected:
+      # Ranks by corrected time ascending: 7, 10, 8, 1, 4, 9, 2, 5, 3, 6
+      - sailor: "1"
+        rank: 4
+        points: 4
+        elapsedTime: 3600
+        correctedTime: 3603.6
+        tcfApplied: 1.001
+        pi: 1.025913
+        adjustment: 0.006228
+        newTcf: 1.007228
+      - sailor: "2"
+        rank: 7
+        points: 7
+        elapsedTime: 3660
+        correctedTime: 3714.9
+        tcfApplied: 1.015
+        pi: 1.009095
+        adjustment: -0.001476
+        newTcf: 1.013524
+      - sailor: "3"
+        rank: 9
+        points: 9
+        elapsedTime: 3960
+        correctedTime: 4039.2
+        tcfApplied: 1.020
+        pi: 0.932648
+        adjustment: -0.021838
+        newTcf: 0.998162
+      - sailor: "4"
+        rank: 5
+        points: 5
+        elapsedTime: 3540
+        correctedTime: 3610.8
+        tcfApplied: 1.020
+        pi: 1.043301
+        adjustment: 0.005825
+        newTcf: 1.025825
+      - sailor: "5"
+        rank: 8
+        points: 8
+        elapsedTime: 3360
+        correctedTime: 3746.4
+        tcfApplied: 1.115
+        pi: 1.099192
+        adjustment: -0.003952
+        newTcf: 1.111048
+      - sailor: "6"
+        rank: 10
+        points: 10
+        elapsedTime: 4200
+        correctedTime: 4200.0
+        tcfApplied: 1.000
+        pi: 0.879354
+        adjustment: -0.030162
+        newTcf: 0.969838
+      - sailor: "7"
+        rank: 1
+        points: 1
+        elapsedTime: 3360
+        correctedTime: 3427.2
+        tcfApplied: 1.020
+        pi: 1.099192
+        adjustment: 0.019798
+        newTcf: 1.039798
+      - sailor: "8"
+        rank: 3
+        points: 3
+        elapsedTime: 3540
+        correctedTime: 3575.4
+        tcfApplied: 1.010
+        pi: 1.043301
+        adjustment: 0.008325
+        newTcf: 1.018325
+      - sailor: "9"
+        rank: 6
+        points: 6
+        elapsedTime: 3660
+        correctedTime: 3678.3
+        tcfApplied: 1.005
+        pi: 1.009095
+        adjustment: 0.001024
+        newTcf: 1.006024
+      - sailor: "10"
+        rank: 2
+        points: 2
+        elapsedTime: 3420
+        correctedTime: 3471.3
+        tcfApplied: 1.015
+        pi: 1.079908
+        adjustment: 0.016227
+        newTcf: 1.031227
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "7"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "10"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "8"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 4
+      sailor: "1"
+      racePoints: [4]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 5
+      sailor: "4"
+      racePoints: [5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5
+    - rank: 6
+      sailor: "9"
+      racePoints: [6]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 6
+      netPoints: 6
+    - rank: 7
+      sailor: "2"
+      racePoints: [7]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 7
+      netPoints: 7
+    - rank: 8
+      sailor: "5"
+      racePoints: [8]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 8
+      netPoints: 8
+    - rank: 9
+      sailor: "3"
+      racePoints: [9]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 9
+      netPoints: 9
+    - rank: 10
+      sailor: "6"
+      racePoints: [10]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 10
+      netPoints: 10

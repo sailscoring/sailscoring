@@ -1,0 +1,101 @@
+description: "ECHO — fewer than three finishers suppresses the rating update"
+notes: |
+  Per the IS guide sample SI 12: "Handicaps shall not be adjusted after a race
+  in which two or less boats finish." Four boats race; only two finish (the
+  others DNF). Engine must not advance any handicap; every boat's new_H equals
+  its starting handicap. Aggregates report `updateSuppressed: true`.
+
+  Race results (corrected times, ranks, points) still compute normally — the
+  gate is on the handicap update only, not on race scoring.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: echo
+  alpha: 0.25
+
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    echoStartingTcf: 1.000
+  - sailNumber: "2"
+    name: "Bravo"
+    echoStartingTcf: 1.020
+  - sailNumber: "3"
+    name: "Charlie"
+    echoStartingTcf: 1.050
+  - sailNumber: "4"
+    name: "Delta"
+    echoStartingTcf: 0.980
+
+races:
+  - number: 1
+    startTime: "12:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "13:00:00"
+      - sailor: "2"
+        finishTime: "13:05:00"
+      - sailor: "3"
+        code: "DNF"
+      - sailor: "4"
+        code: "DNF"
+    aggregates:
+      alpha: 0.25
+      finisherCount: 2
+      updateSuppressed: true
+    expected:
+      - sailor: "1"
+        rank: 1
+        points: 1
+        tcfApplied: 1.000
+        newTcf: 1.000           # unchanged — gate fired
+      - sailor: "2"
+        rank: 2
+        points: 2
+        tcfApplied: 1.020
+        newTcf: 1.020           # unchanged
+      - sailor: "3"
+        rank: null
+        points: 5               # entries (4) + 1
+        code: "DNF"
+        tcfApplied: 1.050
+        newTcf: 1.050           # unchanged (non-finisher anyway)
+      - sailor: "4"
+        rank: null
+        points: 5
+        code: "DNF"
+        tcfApplied: 0.980
+        newTcf: 0.980
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "3"
+      racePoints: [5]
+      raceCodes: ["DNF"]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5
+    - rank: 3
+      sailor: "4"
+      racePoints: [5]
+      raceCodes: ["DNF"]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5

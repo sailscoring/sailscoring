@@ -66,8 +66,9 @@ export default function HelpPage() {
           stored locally in your browser and nothing is sent to a server.
         </p>
         <p>
-          The current version supports position-based (scratch) scoring for one or more fleets
-          across multiple races. Time-based and handicap scoring are on the roadmap.
+          The current version supports position-based (scratch) scoring, static handicap
+          scoring (IRC, PY), and progressive handicap scoring (NHC1, ECHO) for one or
+          more fleets across multiple races.
         </p>
       </Section>
 

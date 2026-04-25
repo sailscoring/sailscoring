@@ -1,0 +1,91 @@
+description: "ECHO — α = 0.50 (50/50 split, regatta preset)"
+notes: |
+  Per the IS 2022 guide: "Irish Sailing recommends 75/25 for club racing and
+  50/50 for regattas and major events." The 50/50 split is the more aggressive
+  preset — handicaps move twice as far per race compared with the club default.
+
+  Same 3-boat fleet as fixture 04 race 1. Compare adjustments: at α=0.25 Boat 1
+  moved by +0.010051; at α=0.50 it moves by +0.020101 (twice the displacement).
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: echo
+  alpha: 0.50
+
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    echoStartingTcf: 1.000
+  - sailNumber: "2"
+    name: "Bravo"
+    echoStartingTcf: 1.020
+  - sailNumber: "3"
+    name: "Charlie"
+    echoStartingTcf: 1.050
+
+races:
+  - number: 1
+    startTime: "12:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "13:00:00"
+      - sailor: "2"
+        finishTime: "13:01:00"
+      - sailor: "3"
+        finishTime: "13:02:00"
+    aggregates:
+      alpha: 0.50
+      finisherCount: 3
+      ctAvg: 3746.4
+      meanTcf: 1.023333333
+      sumH: 3.07
+      sumReciprocalEt: 0.000819819026
+      updateSuppressed: false
+    expected:
+      - sailor: "1"
+        rank: 1
+        points: 1
+        tcfApplied: 1.000
+        pi: 1.040202
+        adjustment: 0.020101
+        newTcf: 1.020101
+      - sailor: "2"
+        rank: 2
+        points: 2
+        tcfApplied: 1.020
+        pi: 1.023150
+        adjustment: 0.001575
+        newTcf: 1.021575
+      - sailor: "3"
+        rank: 3
+        points: 3
+        tcfApplied: 1.050
+        pi: 1.006648
+        adjustment: -0.021676
+        newTcf: 1.028324
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>ECHO — fewer than three finishers suppresses the rating update — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; font-size: 0.9em; }
+td, th { text-align: left; padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All ECHO examples</a></p>
+<h1>ECHO — fewer than three finishers suppresses the rating update</h1>
+
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> ECHO &nbsp;&nbsp;
+  <strong>α (blend factor):</strong> 0.25
+</div>
+<pre style="margin:0.6em 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Per the IS guide sample SI 12: &quot;Handicaps shall not be adjusted after a race
+in which two or less boats finish.&quot; Four boats race; only two finish (the
+others DNF). Engine must not advance any handicap; every boat's new_H equals
+its starting handicap. Aggregates report `updateSuppressed: true`.
+
+Race results (corrected times, ranks, points) still compute normally — the
+gate is on the handicap update only, not on race scoring.</pre>
+
+<h2 style="margin-top:1.5em;">Race 1</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 12:00:00 &nbsp;
+  <strong>α:</strong> 0.25 &nbsp;
+  <strong>Finishers:</strong> 2 &nbsp;
+  <strong>ΣH<sub>S</sub>:</strong> 2.020 &nbsp;
+  <strong>Σ(1/T<sub>E</sub>):</strong> 0.00053419 &nbsp; <strong style="color:#a40">Rating update suppressed (fewer than 3 finishers)</strong>
+</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>T<sub>E</sub></th><th>1/T<sub>E</sub></th>
+  <th>Starting H</th><th>CT</th><th>PI</th><th>adj</th><th>New H</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">13:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">0.00027778</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0504</td>
+  <td class="mono">+0.0000</td>
+  <td class="mono">1.0000</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Bravo</td>
+  <td class="mono">2</td>
+  <td class="mono">13:05:00</td>
+  <td class="mono">65m 00s</td>
+  <td class="mono">0.00025641</td>
+  <td class="mono">1.0200</td>
+  <td class="mono">66m 18s</td>
+  <td class="mono">0.9696</td>
+  <td class="mono">+0.0000</td>
+  <td class="mono">1.0200</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Charlie</td>
+  <td class="mono">3</td>
+  <td class="mono">DNF</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.0500</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.0500</td>
+  <td>5</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Delta</td>
+  <td class="mono">4</td>
+  <td class="mono">DNF</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">0.9800</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">0.9800</td>
+  <td>5</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Bravo</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Charlie</td>
+  <td class="mono">3</td>
+  <td class="mono">DNF</td>
+  <td class="mono">5</td>
+  <td class="mono">5</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Delta</td>
+  <td class="mono">4</td>
+  <td class="mono">DNF</td>
+  <td class="mono">5</td>
+  <td class="mono">5</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

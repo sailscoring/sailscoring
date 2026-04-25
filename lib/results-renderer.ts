@@ -49,10 +49,20 @@ export interface RaceData {
    *  the base rating/finish/elapsed/corrected columns still render when the
    *  scorer has opted out of publishing rating calculations. */
   isNhc?: boolean;
+  /** True when the fleet uses ECHO scoring. Drives the "Starting H" rating
+   *  column label and, when echoHeader is also set, the IS-notation
+   *  explainability columns (1/T_E, PI, Adjustment, New H) hidden under
+   *  the ECHO viewer toggle. */
+  isEcho?: boolean;
   /** NHC fleet-race-level aggregates. When set, renders the rating-calculation
    *  fleet header line above the race table and extra explainability columns
    *  (CT ratio, Fair TCF, Adjustment, New TCF) under the viewer toggle. */
   nhcHeader?: NhcHeaderData;
+  /** ECHO fleet-race-level aggregates. When set, renders the IS-notation
+   *  fleet header line (α · Finishers · ΣH_S · Σ(1/T_E)) above the race
+   *  table and the ECHO explainability columns (1/T_E, PI, Adjustment,
+   *  New H) under the ECHO viewer toggle. */
+  echoHeader?: EchoHeaderData;
 }
 
 export interface NhcHeaderData {
@@ -60,6 +70,17 @@ export interface NhcHeaderData {
   finisherCount: number;
   ctAvgSecs: number;
   meanTcf: number;
+}
+
+export interface EchoHeaderData {
+  alpha: number;
+  finisherCount: number;
+  /** ΣH_S — sum of starting handicaps across finishers (Irish Sailing 2022 guide). */
+  sumH: number;
+  /** Σ(1/T_E) — sum of reciprocals of elapsed times across finishers. */
+  sumReciprocalEt: number;
+  /** True when the IS guide's ≤2-finisher gate fired (no rating update). */
+  updateSuppressed: boolean;
 }
 
 export interface RaceResultData {
@@ -86,6 +107,8 @@ export interface RaceResultData {
   correctedTimeSecs?: number; // float seconds (elapsedTimeSecs × tcc)
   // NHC fields — only set for NHC fleets when explainability is enabled
   nhc?: NhcCellData;
+  // ECHO fields — only set for ECHO fleets when explainability is enabled
+  echo?: EchoCellData;
 }
 
 /** NHC per-finisher intermediates for the explainability columns. Set on
@@ -97,6 +120,25 @@ export interface NhcCellData {
   newTcf: number;
   ctRatio?: number;
   fairTcf?: number;
+  adjustment?: number;
+  isFinisher: boolean;
+}
+
+/** ECHO per-finisher intermediates for the IS-notation explainability
+ *  columns. Set on every ECHO competitor (including non-finishers — for
+ *  non-finishers the cell renderer leaves intermediate columns blank and
+ *  shows "unchanged" in the New H column). */
+export interface EchoCellData {
+  /** Starting handicap H entering this race (= rrat snapshot). */
+  startingH: number;
+  /** Handicap to apply in race N+1. */
+  newH: number;
+  /** 1/T_E in seconds⁻¹ — finishers only. Lets a verifier sum the column
+   *  to recover Σ(1/T_E) shown in the fleet header. */
+  reciprocalEt?: number;
+  /** Performance Index = ΣH_S / (T_E_i × Σ(1/T_E)) — finishers only. */
+  pi?: number;
+  /** α × (PI − H), signed — finishers only. */
   adjustment?: number;
   isFinisher: boolean;
 }
@@ -144,6 +186,7 @@ export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercen
   const showCrewName = enabledCompetitorFields.includes('crewName');
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
   const hasNhcDetail = races.some((r) => r.nhcHeader != null);
+  const hasEchoDetail = races.some((r) => r.echoHeader != null);
 
   return `<!doctype html>
 <html lang="en">
@@ -170,9 +213,9 @@ td.rank2 { background: #6a91c5; }
 td.rank3 { background: #da6841; }
 td.discard { background: #f2f2f2; }
 td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
-${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\n' : ''}</style>
+${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\n' : ''}</style>
 </head>
-<body${hasNhcDetail ? ' class="hide-nhc-detail"' : ''}>
+<body${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).length > 0 ? ` class="${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).join(' ')}"` : ''}>
 <table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
 <tbody>
 <tr>
@@ -190,12 +233,14 @@ ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 ${generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
 ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${hasNhcDetail ? renderNhcToggle() : ''}
+${hasEchoDetail ? renderEchoToggle() : ''}
 ${renderSummaryTable(standings, races, hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, primaryHeader)}
 ${races.map((race) => renderRaceTable(race, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, primaryHeader)).join('\n')}
 <p class="hardleft"></p>
 <p class="hardright"></p>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}">Open in Sail Scoring</a>` : ''}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
+${hasEchoDetail ? renderEchoToggleScript() : ''}
 </body>
 </html>`;
 }
@@ -220,6 +265,27 @@ if(visible){document.body.classList.remove('hide-nhc-detail');cb.checked=true;}
 cb.addEventListener('change',function(){
   if(cb.checked){document.body.classList.remove('hide-nhc-detail');localStorage.setItem(KEY,'true');}
   else{document.body.classList.add('hide-nhc-detail');localStorage.setItem(KEY,'false');}
+});
+})();</script>`;
+}
+
+/** Viewer-facing toggle for ECHO rating-calculation columns. Same pattern
+ *  as the NHC toggle but with its own body class and storage key — a
+ *  series can have both NHC and ECHO fleets and toggle each independently. */
+function renderEchoToggle(): string {
+  return `<p class="echo-toggle"><label><input type="checkbox" id="echo-detail-toggle"> Show ECHO rating calculations</label></p>`;
+}
+
+function renderEchoToggleScript(): string {
+  return `<script>(function(){
+var KEY='sailscoring:echo-explain-visible';
+var cb=document.getElementById('echo-detail-toggle');
+if(!cb)return;
+var visible=localStorage.getItem(KEY)==='true';
+if(visible){document.body.classList.remove('hide-echo-detail');cb.checked=true;}
+cb.addEventListener('change',function(){
+  if(cb.checked){document.body.classList.remove('hide-echo-detail');localStorage.setItem(KEY,'true');}
+  else{document.body.classList.add('hide-echo-detail');localStorage.setItem(KEY,'false');}
 });
 })();</script>`;
 }
@@ -322,10 +388,13 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
   const dateStr = formatIsoDate(race.date);
   const startStr = race.startTime ? ` &mdash; Start: ${esc(race.startTime)}` : '';
   const isNhc = race.isNhc === true || race.nhcHeader != null;
+  const isEcho = race.isEcho === true || race.echoHeader != null;
   const hasExplain = race.nhcHeader != null;
+  const hasEchoExplain = race.echoHeader != null;
   const hasHandicapCols = race.results.some((r) => r.tcc != null);
-  const ratingLabel = isNhc ? 'TCF' : 'TCC';
-  const ratingColClass = isNhc ? 'tcf' : 'tcc';
+  // ECHO uses "Starting H" per the IS guide; NHC uses "TCF"; static handicap fleets use "TCC".
+  const ratingLabel = isEcho ? 'Starting H' : (isNhc ? 'TCF' : 'TCC');
+  const ratingColClass = isEcho ? 'starth' : (isNhc ? 'tcf' : 'tcc');
   // Detect ties in within-fleet rank
   const rankCounts = new Map<number, number>();
   for (const r of race.results) {
@@ -352,6 +421,7 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
           ]
         : [];
       const nhcCells = hasExplain ? renderNhcCells(r) : [];
+      const echoCells = hasEchoExplain ? renderEchoCells(r) : [];
       return [
         `<tr class="${rowClass} racerow">`,
         `<td>${rankText}</td>`,
@@ -363,6 +433,7 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
         ...(showOwner ? [`<td>${esc(r.owner ?? '')}</td>`] : []),
         ...handicapCells,
         ...nhcCells,
+        ...echoCells,
         `<td>${pointsText}</td>`,
         `</tr>`,
       ].join('\n');
@@ -370,7 +441,7 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
     .join('\n');
 
   const baseColCount = 4 + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0);
-  const colCount = baseColCount + (hasHandicapCols ? 4 : 0) + (hasExplain ? 4 : 0);
+  const colCount = baseColCount + (hasHandicapCols ? 4 : 0) + (hasExplain ? 4 : 0) + (hasEchoExplain ? 4 : 0);
   const handicapHeaders = hasHandicapCols
     ? `\n<th>Finish</th>\n<th>ET</th>\n<th>${ratingLabel}</th>\n<th>CT</th>`
     : '';
@@ -386,22 +457,33 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
   const nhcSubheading = hasExplain
     ? `<p class="nhc-fleet-header nhc-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: NHC1 &middot; α = ${race.nhcHeader!.alpha} &middot; Finishers: ${race.nhcHeader!.finisherCount} &middot; CT_avg: ${formatCorrectedSecs(race.nhcHeader!.ctAvgSecs)} &middot; mean TCF: ${race.nhcHeader!.meanTcf.toFixed(4)}</p>`
     : '';
+  // ECHO IS-notation columns: 1/T_E, PI, Adjustment, New H — all hidden under
+  // the ECHO viewer toggle. Header reproduces the IS-formula inputs.
+  const echoHeaders = hasEchoExplain
+    ? '\n<th class="echo-detail">1/T_E</th>\n<th class="echo-detail">PI</th>\n<th class="echo-detail">Adjustment</th>\n<th class="echo-detail">New H</th>'
+    : '';
+  const echoCols = hasEchoExplain
+    ? '\n<col class="recip echo-detail" />\n<col class="pi echo-detail" />\n<col class="adjustment echo-detail" />\n<col class="newh echo-detail" />'
+    : '';
+  const echoSubheading = hasEchoExplain
+    ? `<p class="echo-fleet-header echo-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: ECHO &middot; α = ${race.echoHeader!.alpha} &middot; Finishers: ${race.echoHeader!.finisherCount} &middot; ΣH_S = ${race.echoHeader!.sumH.toFixed(3)} &middot; Σ(1/T_E) = ${race.echoHeader!.sumReciprocalEt.toFixed(5)}${race.echoHeader!.updateSuppressed ? ' &middot; <strong>Rating update suppressed (fewer than 3 finishers)</strong>' : ''}</p>`
+    : '';
 
   const primaryTh = esc(showCrewName ? `${primaryHeader} / Crew` : primaryHeader);
   return `<h3 class="racetitle" id="${esc(race.anchorId)}">${esc(race.label)}&nbsp;&mdash;&nbsp;${dateStr}${startStr}</h3>
-${nhcSubheading}<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+${nhcSubheading}${echoSubheading}<table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
 <col class="rank" />
 <col class="sailno" />
 ${showBoatName ? '<col class="boatname" />\n' : ''}${showBoatClass ? '<col class="boatclass" />\n' : ''}<col class="helmname" />
-${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\n' : ''}${handicapCols}${nhcCols}
+${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\n' : ''}${handicapCols}${nhcCols}${echoCols}
 <col class="points" />
 </colgroup>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
 <th>Sail</th>
-${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? '\n<th>Helm</th>' : ''}${showOwner ? '\n<th>Owner</th>' : ''}${handicapHeaders}${nhcHeaders}
+${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? '\n<th>Helm</th>' : ''}${showOwner ? '\n<th>Owner</th>' : ''}${handicapHeaders}${nhcHeaders}${echoHeaders}
 <th>Points</th>
 </tr>
 </thead>
@@ -443,6 +525,42 @@ function renderNhcCells(r: RaceResultData): string[] {
     `<td class="mono nhc-detail">${nhc.fairTcf != null ? nhc.fairTcf.toFixed(4) : ''}</td>`,
     `<td class="mono nhc-detail">${nhc.adjustment != null ? formatSigned(nhc.adjustment, 4) : ''}</td>`,
     `<td class="mono nhc-detail">${nhc.newTcf.toFixed(3)}</td>`,
+  ];
+}
+
+/** Render the four ECHO IS-notation explainability cells for one row. The
+ *  rating/finish/ET/CT columns (always-visible) carry the static handicap
+ *  data; this helper only emits the four cells that hide under the ECHO
+ *  viewer toggle.
+ *
+ *  Non-finishers leave the three computational cells blank and show
+ *  "unchanged" in the New H column. The verification contract: a competitor
+ *  with a calculator should be able to reproduce New H from these published
+ *  values via H + α × (PI − H), with PI verifiable from ΣH_S, T_E, and the
+ *  fleet-header Σ(1/T_E). */
+function renderEchoCells(r: RaceResultData): string[] {
+  const echo = r.echo;
+  if (!echo) {
+    return [
+      `<td class="echo-detail"></td>`,
+      `<td class="echo-detail"></td>`,
+      `<td class="echo-detail"></td>`,
+      `<td class="echo-detail"></td>`,
+    ];
+  }
+  if (!echo.isFinisher) {
+    return [
+      `<td class="echo-detail"></td>`,
+      `<td class="echo-detail"></td>`,
+      `<td class="echo-detail"></td>`,
+      `<td class="mono echo-detail">unchanged</td>`,
+    ];
+  }
+  return [
+    `<td class="mono echo-detail">${echo.reciprocalEt != null ? echo.reciprocalEt.toFixed(5) : ''}</td>`,
+    `<td class="mono echo-detail">${echo.pi != null ? echo.pi.toFixed(4) : ''}</td>`,
+    `<td class="mono echo-detail">${echo.adjustment != null ? formatSigned(echo.adjustment, 4) : ''}</td>`,
+    `<td class="mono echo-detail">${echo.newH.toFixed(3)}</td>`,
   ];
 }
 
@@ -565,7 +683,7 @@ export function assembleSeriesResultsData(
     netPoints: number;
     raceDiscards: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; newTcf?: number | null; nhc?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; newTcf?: number | null; elapsedTime?: number | null; nhc?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
   competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; ircTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
@@ -579,17 +697,22 @@ export function assembleSeriesResultsData(
     /** ID of the fleet being rendered */
     fleetId?: string;
     /** Scoring system of the fleet */
-    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc';
+    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
     /** When set (NHC fleets only), per-race aggregates that drive the
      *  rating-calculation fleet header line above each race table and the
      *  per-row explainability columns. Pass undefined to suppress the
      *  explainability columns even on NHC fleets (e.g. publishing toggle off). */
     nhcAggregatesByRaceId?: Map<string, NhcHeaderData>;
+    /** When set (ECHO fleets only), per-race aggregates that drive the
+     *  IS-notation fleet header line and ECHO explainability columns. Pass
+     *  undefined to suppress the explainability columns even on ECHO fleets. */
+    echoAggregatesByRaceId?: Map<string, EchoHeaderData>;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, primaryPersonLabel } = options ?? {};
-  const isHandicap = scoringSystem === 'irc' || scoringSystem === 'py' || scoringSystem === 'nhc';
+  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel } = options ?? {};
+  const isHandicap = scoringSystem === 'irc' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
+  const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
 
   // Build a map of raceId → startTime for this fleet
   const startTimeByRaceId = new Map<string, string>();
@@ -620,7 +743,7 @@ export function assembleSeriesResultsData(
           tcc = competitor.ircTcc;
         } else if (scoringSystem === 'py' && competitor.pyNumber != null && competitor.pyNumber > 0) {
           tcc = 1000 / competitor.pyNumber;
-        } else if (scoringSystem === 'nhc' && score.tcfApplied != null) {
+        } else if ((scoringSystem === 'nhc' || scoringSystem === 'echo') && score.tcfApplied != null) {
           tcc = score.tcfApplied;
         }
         if (tcc != null && score.finishTime) {
@@ -636,6 +759,21 @@ export function assembleSeriesResultsData(
             newTcf: score.newTcf,
             isFinisher: score.nhc != null,
             ...(score.nhc ? { ctRatio: score.nhc.ctRatio, fairTcf: score.nhc.fairTcf, adjustment: score.nhc.adjustment } : {}),
+          }
+        : undefined;
+
+      const echoCell: EchoCellData | undefined = isEchoExplain && score.tcfApplied != null && score.newTcf != null
+        ? {
+            startingH: score.tcfApplied,
+            newH: score.newTcf,
+            isFinisher: score.echo != null,
+            ...(score.echo
+              ? {
+                  pi: score.echo.fairTcf,
+                  adjustment: score.echo.adjustment,
+                  ...(elapsedTimeSecs != null && elapsedTimeSecs > 0 ? { reciprocalEt: 1 / elapsedTimeSecs } : {}),
+                }
+              : {}),
           }
         : undefined;
 
@@ -658,6 +796,7 @@ export function assembleSeriesResultsData(
         ...(elapsedTimeSecs != null ? { elapsedTimeSecs } : {}),
         ...(correctedTimeSecs != null ? { correctedTimeSecs } : {}),
         ...(nhcCell ? { nhc: nhcCell } : {}),
+        ...(echoCell ? { echo: echoCell } : {}),
       });
     }
 
@@ -670,6 +809,7 @@ export function assembleSeriesResultsData(
     });
 
     const nhcHeader = isNhcExplain ? nhcAggregatesByRaceId!.get(race.id) : undefined;
+    const echoHeader = isEchoExplain ? echoAggregatesByRaceId!.get(race.id) : undefined;
 
     return {
       raceNumber: race.raceNumber,
@@ -678,8 +818,10 @@ export function assembleSeriesResultsData(
       anchorId: `r${race.raceNumber}`,
       ...(startTime ? { startTime } : {}),
       ...(scoringSystem === 'nhc' ? { isNhc: true } : {}),
+      ...(scoringSystem === 'echo' ? { isEcho: true } : {}),
       results,
       ...(nhcHeader ? { nhcHeader } : {}),
+      ...(echoHeader ? { echoHeader } : {}),
     };
   });
 

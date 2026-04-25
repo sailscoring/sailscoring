@@ -1,12 +1,14 @@
 /**
- * Declarative test runner for NHC handicap scoring fixtures.
+ * Declarative test runner for ECHO handicap scoring fixtures.
  *
- * Each YAML in tests/fixtures/scoring/nhc/ describes one or more NHC1-scored
- * races: fleet config (with α), starting TCFs, finish times, per-race expected
- * per-boat results, per-race aggregates, and the series-level standings block.
+ * Each YAML in tests/fixtures/scoring/echo/ describes one or more ECHO-scored
+ * races: fleet config (with α), starting handicaps (Irish Sailing 2022 ECHO
+ * Guide notation), finish times, per-race expected per-boat results, per-race
+ * aggregates (including ΣH_S and Σ(1/T_E)), and the series-level standings.
  *
- * Multi-race fixtures verify the running TCF map: race N+1 uses race N's
- * newTcf as its tcfApplied.
+ * Multi-race fixtures verify the running handicap map: race N+1 uses race N's
+ * new_H as its tcfApplied. The ≤2-finisher gate (sample SI 12) is exercised
+ * by a dedicated fixture.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -14,9 +16,9 @@ import { join } from 'node:path';
 import { calculateFleetStandings } from '@/lib/scoring';
 import { buildFixtureInputs, loadFixturesFromDir } from './fixtures/scoring/types';
 
-const FIXTURE_DIR = join(__dirname, 'fixtures/scoring/nhc');
+const FIXTURE_DIR = join(__dirname, 'fixtures/scoring/echo');
 
-describe('NHC handicap scoring fixtures', () => {
+describe('ECHO handicap scoring fixtures', () => {
   const loaded = loadFixturesFromDir(FIXTURE_DIR);
 
   if (loaded.length === 0) {
@@ -42,8 +44,8 @@ describe('NHC handicap scoring fixtures', () => {
       );
       const result = fleetStandings[0];
       const { standings, rejections } = result;
-      const nhcRaceScoresByRaceId = result.nhcRaceScoresByRaceId!;
-      const nhcAggregatesByRaceId = result.nhcAggregatesByRaceId!;
+      const echoRaceScoresByRaceId = result.echoRaceScoresByRaceId!;
+      const echoAggregatesByRaceId = result.echoAggregatesByRaceId!;
 
       // ─── Per-race arithmetic, aggregates, rejections ────────────────────
       for (let ri = 0; ri < fixture.races.length; ri++) {
@@ -52,22 +54,33 @@ describe('NHC handicap scoring fixtures', () => {
         const raceLabel = `race ${ri + 1}`;
 
         if (fixtureRace.aggregates) {
-          const aggs = nhcAggregatesByRaceId.get(raceId);
+          const aggs = echoAggregatesByRaceId.get(raceId);
           expect(aggs, `${raceLabel} aggregates`).toBeDefined();
           if (aggs) {
             expect(aggs.alpha, `${raceLabel} alpha`).toBeCloseTo(fixtureRace.aggregates.alpha, 6);
             expect(aggs.finisherCount, `${raceLabel} finisherCount`).toBe(fixtureRace.aggregates.finisherCount);
+            // ctAvg / meanTcf are optional in ECHO fixtures — they're a NHC
+            // legacy and the IS notation prefers ΣH_S / Σ(1/T_E).
             if (fixtureRace.aggregates.ctAvg != null) {
               expect(aggs.ctAvg, `${raceLabel} ctAvg`).toBeCloseTo(fixtureRace.aggregates.ctAvg, 4);
             }
             if (fixtureRace.aggregates.meanTcf != null) {
               expect(aggs.meanTcf, `${raceLabel} meanTcf`).toBeCloseTo(fixtureRace.aggregates.meanTcf, 6);
             }
+            if (fixtureRace.aggregates.sumH != null) {
+              expect(aggs.sumH, `${raceLabel} sumH`).toBeCloseTo(fixtureRace.aggregates.sumH, 6);
+            }
+            if (fixtureRace.aggregates.sumReciprocalEt != null) {
+              expect(aggs.sumReciprocalEt, `${raceLabel} sumReciprocalEt`).toBeCloseTo(fixtureRace.aggregates.sumReciprocalEt, 8);
+            }
+            if (fixtureRace.aggregates.updateSuppressed != null) {
+              expect(aggs.updateSuppressed, `${raceLabel} updateSuppressed`).toBe(fixtureRace.aggregates.updateSuppressed);
+            }
           }
         }
 
         if (fixtureRace.expected) {
-          const scores = nhcRaceScoresByRaceId.get(raceId);
+          const scores = echoRaceScoresByRaceId.get(raceId);
           expect(scores, `${raceLabel} scores`).toBeDefined();
           if (!scores) continue;
 
@@ -97,35 +110,40 @@ describe('NHC handicap scoring fixtures', () => {
                 expect(score.tcfApplied, `${raceLabel} ${exp.sailor} tcfApplied`).toBe(exp.tcfApplied);
               }
             }
-            if (exp.newTcf !== undefined) {
-              if (exp.newTcf !== null && score.newTcf !== null) {
-                expect(score.newTcf, `${raceLabel} ${exp.sailor} newTcf`).toBeCloseTo(exp.newTcf, 6);
+            // ECHO fixtures may use either `newTcf` or `newH` (alias) — check both.
+            // 4 dp precision suffices: user-visible precision is 3 dp; the
+            // verification contract is "engine output rounds to the same 3 dp
+            // as the formula" rather than "engine output equals the formula
+            // to all double-precision digits."
+            const expectedNew = exp.newTcf ?? exp.newH;
+            if (expectedNew !== undefined) {
+              if (expectedNew !== null && score.newTcf !== null) {
+                expect(score.newTcf, `${raceLabel} ${exp.sailor} newTcf`).toBeCloseTo(expectedNew, 4);
               } else {
-                expect(score.newTcf, `${raceLabel} ${exp.sailor} newTcf`).toBe(exp.newTcf);
+                expect(score.newTcf, `${raceLabel} ${exp.sailor} newTcf`).toBe(expectedNew);
               }
             }
             if (exp.code) {
               expect(score.resultCode, `${raceLabel} ${exp.sailor} resultCode`).toBe(exp.code);
             }
-            if (exp.ctRatio != null) {
-              expect(score.nhc?.ctRatio, `${raceLabel} ${exp.sailor} ctRatio`).toBeCloseTo(exp.ctRatio, 6);
-            }
-            if (exp.fairTcf != null) {
-              expect(score.nhc?.fairTcf, `${raceLabel} ${exp.sailor} fairTcf`).toBeCloseTo(exp.fairTcf, 6);
+            // ECHO fixtures use `pi` (Performance Index in IS notation) which
+            // maps to score.echo.fairTcf. They may also still use `fairTcf`.
+            const expectedPi = exp.pi ?? exp.fairTcf;
+            if (expectedPi != null) {
+              expect(score.echo?.fairTcf, `${raceLabel} ${exp.sailor} pi`).toBeCloseTo(expectedPi, 4);
             }
             if (exp.adjustment != null) {
-              expect(score.nhc?.adjustment, `${raceLabel} ${exp.sailor} adjustment`).toBeCloseTo(exp.adjustment, 6);
+              expect(score.echo?.adjustment, `${raceLabel} ${exp.sailor} adjustment`).toBeCloseTo(exp.adjustment, 4);
             }
           }
         }
 
-        // Per-race `rejected` — NHC rejections are fleet-level (reported once,
-        // not per race). Verify the rejected competitor is absent from per-race
-        // scores; the canonical rejection list is asserted at series level below.
+        // Per-race `rejected` — ECHO rejections are fleet-level. Verify
+        // rejected competitors are absent from per-race scores.
         for (const rej of fixtureRace.rejected ?? []) {
           const cid = sailToId.get(rej.sailor);
           if (!cid) throw new Error(`${yamlPath}: unknown sailor "${rej.sailor}" in rejected`);
-          const scores = nhcRaceScoresByRaceId.get(raceId);
+          const scores = echoRaceScoresByRaceId.get(raceId);
           expect(scores?.has(cid) ?? false, `${raceLabel} ${rej.sailor} should not be in scores`).toBe(false);
         }
       }

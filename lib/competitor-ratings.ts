@@ -7,6 +7,7 @@ export function fleetRatingLabel(fleet: Fleet): string | null {
   if (fleet.scoringSystem === 'irc') return 'IRC TCC';
   if (fleet.scoringSystem === 'py') return 'PY number';
   if (fleet.scoringSystem === 'nhc') return 'NHC starting TCF';
+  if (fleet.scoringSystem === 'echo') return 'ECHO starting handicap';
   return null;
 }
 

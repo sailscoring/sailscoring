@@ -192,7 +192,7 @@ function fmtSeconds(s: number | null | undefined): string {
   return `${m}m ${sec.toString().padStart(2, '0')}s`;
 }
 
-function fmtTcf(tcf: number | null | undefined, sys: 'irc' | 'py' | 'nhc'): string {
+function fmtTcf(tcf: number | null | undefined, sys: 'irc' | 'py' | 'nhc' | 'echo'): string {
   if (tcf === null || tcf === undefined) return '—';
   const suffix = sys === 'py' ? ' (1000/PY)' : '';
   return `${tcf.toFixed(4)}${suffix}`;
@@ -490,11 +490,154 @@ ${renderStandingsTable(fixture)}
 `;
 }
 
+// ─── ECHO renderer ───────────────────────────────────────────────────────────
+
+function generateEchoFixtureHtml(fixture: Fixture, yamlSource: string): string {
+  if (!fixture.fleet || fixture.fleet.scoringSystem !== 'echo') {
+    throw new Error(`Expected ECHO fleet, got ${fixture.fleet?.scoringSystem}`);
+  }
+  const { competitors, fleets, races, finishes, raceStarts, discardThresholds, dnfScoring } = buildFixtureInputs(fixture);
+
+  const { fleetStandings } = calculateFleetStandings(
+    fleets,
+    competitors,
+    races,
+    finishes,
+    discardThresholds,
+    dnfScoring,
+    raceStarts,
+  );
+  const fleetResult = fleetStandings[0];
+  const echoRaceScoresByRaceId = fleetResult.echoRaceScoresByRaceId!;
+  const echoAggregatesByRaceId = fleetResult.echoAggregatesByRaceId!;
+
+  const competitorByIdMap = new Map(competitors.map((c) => [c.id, c]));
+
+  const raceSections = fixture.races.map((fixtureRace, ri) => {
+    const raceId = races[ri].id;
+    const scores = echoRaceScoresByRaceId.get(raceId);
+    const aggs = echoAggregatesByRaceId.get(raceId);
+    if (!scores || !aggs) return '';
+
+    const raceFinishes = finishes.filter((f) => f.raceId === raceId);
+    const finishTimeByCompetitorId = new Map(
+      raceFinishes.filter((f) => f.competitorId && f.finishTime).map((f) => [f.competitorId!, f.finishTime!]),
+    );
+
+    const sortedScores = [...scores.entries()].sort((a, b) => {
+      const ra = a[1].rank ?? Infinity;
+      const rb = b[1].rank ?? Infinity;
+      if (ra !== rb) return ra - rb;
+      return a[0].localeCompare(b[0]);
+    });
+
+    const rows = sortedScores.map(([cId, score]) => {
+      const c = competitorByIdMap.get(cId)!;
+      const finishTimeDisplay = finishTimeByCompetitorId.get(cId) ?? (score.resultCode ?? '—');
+      const rankDisplay = score.rank !== null ? score.rank.toString() : '—';
+      const reciprocalEt = score.elapsedTime != null && score.elapsedTime > 0 && score.resultCode == null
+        ? 1 / score.elapsedTime
+        : null;
+      const pi = score.echo?.fairTcf;
+      const adjustment = score.echo?.adjustment;
+      return `<tr>
+  <td>${esc(rankDisplay)}</td>
+  <td>${esc(c.name)}</td>
+  <td class="mono">${esc(c.sailNumber)}</td>
+  <td class="mono">${esc(finishTimeDisplay)}</td>
+  <td class="mono">${esc(fmtSeconds(score.elapsedTime))}</td>
+  <td class="mono">${reciprocalEt !== null ? reciprocalEt.toFixed(8) : '—'}</td>
+  <td class="mono">${esc(fmtTcf(score.tcfApplied, 'echo'))}</td>
+  <td class="mono">${esc(fmtSeconds(score.correctedTime))}</td>
+  <td class="mono">${pi !== undefined ? esc(pi.toFixed(4)) : '—'}</td>
+  <td class="mono">${adjustment !== undefined ? esc((adjustment >= 0 ? '+' : '') + adjustment.toFixed(4)) : '—'}</td>
+  <td class="mono">${esc(fmtTcf(score.newTcf, 'echo'))}</td>
+  <td>${esc(fmtPoints(score.points))}</td>
+</tr>`;
+    }).join('\n');
+
+    const raceLabel = `Race ${fixtureRace.number ?? ri + 1}`;
+    const suppressedNote = aggs.updateSuppressed
+      ? ' &nbsp; <strong style="color:#a40">Rating update suppressed (fewer than 3 finishers)</strong>'
+      : '';
+
+    return `<h2 style="margin-top:1.5em;">${esc(raceLabel)}</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> ${esc(fixtureRace.startTime ?? '')} &nbsp;
+  <strong>α:</strong> ${aggs.alpha.toFixed(2)} &nbsp;
+  <strong>Finishers:</strong> ${aggs.finisherCount} &nbsp;
+  <strong>ΣH<sub>S</sub>:</strong> ${aggs.sumH.toFixed(3)} &nbsp;
+  <strong>Σ(1/T<sub>E</sub>):</strong> ${aggs.sumReciprocalEt.toFixed(8)}${suppressedNote}
+</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>T<sub>E</sub></th><th>1/T<sub>E</sub></th>
+  <th>Starting H</th><th>CT</th><th>PI</th><th>adj</th><th>New H</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+${rows}
+</tbody>
+</table>`;
+  }).join('\n');
+
+  const notesHtml = fixture.rrs_notes
+    ? `<p style="font-style:italic; color:#444;">${esc(fixture.rrs_notes)}</p>`
+    : '';
+
+  const comments = extractComments(yamlSource);
+  const commentsHtml = comments
+    ? `<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">${esc(comments)}</pre>`
+    : '';
+
+  const notesPara = fixture.notes
+    ? `<pre style="margin:0.6em 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">${esc(fixture.notes.trim())}</pre>`
+    : '';
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>${esc(fixture.description)} — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; font-size: 0.9em; }
+td, th { text-align: left; padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All ECHO examples</a></p>
+<h1>${esc(fixture.description)}</h1>
+${notesHtml}
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> ECHO &nbsp;&nbsp;
+  <strong>α (blend factor):</strong> ${fixture.fleet.alpha?.toFixed(2) ?? '—'}
+</div>
+${notesPara}
+${commentsHtml}
+${raceSections}
+${renderStandingsTable(fixture)}
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>
+`;
+}
+
 // ─── Dispatcher ──────────────────────────────────────────────────────────────
 
 function generateFixtureHtml(fixture: Fixture, yamlSource: string): string {
   const sys = fixture.fleet?.scoringSystem ?? 'scratch';
   if (sys === 'nhc') return generateNhcFixtureHtml(fixture, yamlSource);
+  if (sys === 'echo') return generateEchoFixtureHtml(fixture, yamlSource);
   if (sys === 'irc' || sys === 'py') return generateHandicapFixtureHtml(fixture, yamlSource);
   return generateScratchFixtureHtml(fixture, yamlSource);
 }
@@ -521,6 +664,10 @@ const CATEGORY_META: Record<string, { title: string; intro: string }> = {
   nhc: {
     title: 'NHC progressive handicap',
     intro: 'Progressive handicap (NHC1): each boat’s TCF is updated after every race\n  based on its finish, so fast boats acquire higher TCFs and slow boats lower\n  ones. Race N+1 uses race N’s updated TCF. The blend factor α controls how\n  quickly the TCF responds to each race’s result.',
+  },
+  echo: {
+    title: 'ECHO progressive handicap',
+    intro: 'ECHO (Echo Handicapping System): the Irish national progressive performance\n  handicap, used for cruiser racing across Ireland. Each boat’s handicap is\n  blended with its Performance Index (PI) after every race. Default α = 0.25\n  for club racing; 0.50 for regattas. Reference: Irish Sailing 2022 ECHO Guide\n  for Clubs.',
   },
 };
 

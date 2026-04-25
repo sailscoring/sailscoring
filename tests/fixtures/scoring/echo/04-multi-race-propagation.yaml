@@ -1,0 +1,138 @@
+description: "ECHO — multi-race handicap propagation across two races"
+notes: |
+  Three boats over two races. Verifies the running handicap map: race 2's
+  applied handicap is race 1's new_H. Engine matches the IS PI formula at
+  every step.
+
+  Initial handicaps:  Alpha=1.000, Bravo=1.020, Charlie=1.050.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: echo
+  alpha: 0.25
+
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    echoStartingTcf: 1.000
+  - sailNumber: "2"
+    name: "Bravo"
+    echoStartingTcf: 1.020
+  - sailNumber: "3"
+    name: "Charlie"
+    echoStartingTcf: 1.050
+
+races:
+  - number: 1
+    startTime: "12:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "13:00:00"   # 60 min
+      - sailor: "2"
+        finishTime: "13:01:00"   # 61 min
+      - sailor: "3"
+        finishTime: "13:02:00"   # 62 min
+    aggregates:
+      alpha: 0.25
+      finisherCount: 3
+      ctAvg: 3746.4
+      meanTcf: 1.023333333
+      sumH: 3.07
+      sumReciprocalEt: 0.000819819026
+      updateSuppressed: false
+    expected:
+      - sailor: "1"
+        rank: 1
+        points: 1
+        elapsedTime: 3600
+        correctedTime: 3600.0
+        tcfApplied: 1.000
+        pi: 1.040202
+        adjustment: 0.010051
+        newTcf: 1.010051
+      - sailor: "2"
+        rank: 2
+        points: 2
+        elapsedTime: 3660
+        correctedTime: 3733.2
+        tcfApplied: 1.020
+        pi: 1.023150
+        adjustment: 0.000787
+        newTcf: 1.020787
+      - sailor: "3"
+        rank: 3
+        points: 3
+        elapsedTime: 3720
+        correctedTime: 3906.0
+        tcfApplied: 1.050
+        pi: 1.006648
+        adjustment: -0.010838
+        newTcf: 1.039162
+
+  - number: 2
+    startTime: "12:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "12:59:40"   # 3580s
+      - sailor: "2"
+        finishTime: "13:01:20"   # 3680s
+      - sailor: "3"
+        finishTime: "13:01:40"   # 3700s
+    aggregates:
+      alpha: 0.25
+      finisherCount: 3
+      sumH: 3.07
+      updateSuppressed: false
+    expected:
+      # Race 2's tcfApplied for each boat is race 1's newTcf — the
+      # propagation contract.
+      - sailor: "1"
+        rank: 1
+        points: 1
+        elapsedTime: 3580
+        tcfApplied: 1.010051
+        pi: 1.044078
+        adjustment: 0.008507
+        newTcf: 1.018557
+      - sailor: "2"
+        rank: 2
+        points: 2
+        elapsedTime: 3680
+        tcfApplied: 1.020787
+        pi: 1.015706
+        adjustment: -0.001270
+        newTcf: 1.019517
+      - sailor: "3"
+        rank: 3
+        points: 3
+        elapsedTime: 3700
+        tcfApplied: 1.039162
+        pi: 1.010216
+        adjustment: -0.007236
+        newTcf: 1.031925
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1, 1]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 2
+      sailor: "2"
+      racePoints: [2, 2]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 3
+      sailor: "3"
+      racePoints: [3, 3]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 6
+      netPoints: 6

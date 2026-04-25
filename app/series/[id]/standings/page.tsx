@@ -121,12 +121,13 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
 
   const results: { fleetName: string; isDefault: boolean; html: string }[] = [];
 
-  for (const { fleet, standings, nhcRaceScoresByRaceId, nhcAggregatesByRaceId } of fleetResults) {
+  for (const { fleet, standings, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId } of fleetResults) {
     const fleetCompetitorIds = new Set(standings.map((s) => s.competitor.id));
 
     // Per-fleet race score maps (only this fleet's competitors)
     const isHandicap = fleet.scoringSystem !== 'scratch';
     const isNhc = fleet.scoringSystem === 'nhc';
+    const isEcho = fleet.scoringSystem === 'echo';
     const raceStartByRaceId = new Map(
       allRaceStarts
         .filter((rs) => rs.fleetIds.includes(fleet.id))
@@ -143,6 +144,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
       tcfApplied?: number | null;
       newTcf?: number | null;
       nhc?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number };
+      echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number };
     };
     const raceScoresByRaceId = new Map<string, Map<string, RaceScoreCellForRender>>(
       races.map((race) => {
@@ -172,6 +174,29 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
                 tcfApplied: s.tcfApplied,
                 newTcf: s.newTcf,
                 ...(s.nhc ? { nhc: s.nhc } : {}),
+              },
+            ]),
+          );
+          return [race.id, scoreMap] as const;
+        }
+
+        if (isEcho && echoRaceScoresByRaceId) {
+          // ECHO: scores already computed by calculateFleetStandings.
+          const echoScores = echoRaceScoresByRaceId.get(race.id);
+          const scoreMap = new Map<string, RaceScoreCellForRender>(
+            [...(echoScores ?? new Map()).entries()].map(([id, s]) => [
+              id,
+              {
+                points: s.points,
+                place: s.place,
+                rank: s.rank,
+                resultCode: s.resultCode,
+                penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
+                penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
+                finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                tcfApplied: s.tcfApplied,
+                newTcf: s.newTcf,
+                ...(s.echo ? { echo: s.echo } : {}),
               },
             ]),
           );
@@ -213,7 +238,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
     const competitorsById = new Map(competitors.map((c) => [c.id, c]));
     const fleetName = isSingleDefault ? undefined : fleet.name;
 
-    // Build NHC aggregates header map iff fleet is NHC AND publishing toggle is on
+    // Build NHC / ECHO aggregates header maps iff publishing toggle is on
     const publishRatingCalcs = series.publishRatingCalculations ?? true;
     const nhcAggregatesForRender = isNhc && publishRatingCalcs && nhcAggregatesByRaceId
       ? new Map([...nhcAggregatesByRaceId.entries()].map(([raceId, agg]) => [raceId, {
@@ -221,6 +246,15 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
           finisherCount: agg.finisherCount,
           ctAvgSecs: agg.ctAvg,
           meanTcf: agg.meanTcf,
+        }]))
+      : undefined;
+    const echoAggregatesForRender = isEcho && publishRatingCalcs && echoAggregatesByRaceId
+      ? new Map([...echoAggregatesByRaceId.entries()].map(([raceId, agg]) => [raceId, {
+          alpha: agg.alpha,
+          finisherCount: agg.finisherCount,
+          sumH: agg.sumH,
+          sumReciprocalEt: agg.sumReciprocalEt,
+          updateSuppressed: agg.updateSuppressed,
         }]))
       : undefined;
 
@@ -239,6 +273,7 @@ async function buildFleetHtmlFiles(seriesId: string): Promise<{ fleetName: strin
         scoringSystem: fleet.scoringSystem,
         primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
         ...(nhcAggregatesForRender ? { nhcAggregatesByRaceId: nhcAggregatesForRender } : {}),
+        ...(echoAggregatesForRender ? { echoAggregatesByRaceId: echoAggregatesForRender } : {}),
       },
     );
 

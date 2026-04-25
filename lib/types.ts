@@ -67,8 +67,9 @@ export interface Fleet {
   seriesId: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
   nhcAlpha?: number;  // present iff scoringSystem === 'nhc'; default 0.15
+  echoAlpha?: number; // present iff scoringSystem === 'echo'; default 0.25 (75/25 club racing)
 }
 
 export interface RaceStart {
@@ -96,6 +97,7 @@ export interface Competitor {
   ircTcc?: number;    // IRC Time Correction Coefficient, e.g. 0.972
   pyNumber?: number;  // RYA Portsmouth Yardstick number, e.g. 1034
   nhcStartingTcf?: number;  // initial TCF for NHC fleets; required for NHC competitors
+  echoStartingTcf?: number; // initial TCF for ECHO fleets; required for ECHO competitors
 }
 
 export interface Race {
@@ -162,6 +164,7 @@ export interface HandicapRaceScore extends RaceScore {
   tcfApplied: number | null;     // TCF used this race (TCC, 1000/PY, or NHC race-N TCF); null if no rating
   newTcf: number | null;         // TCF for race N+1; null for static systems (IRC/PY) or no rating
   nhc?: NhcRaceCalc;             // present iff fleet.scoringSystem === 'nhc' AND finisher
+  echo?: EchoRaceCalc;           // present iff fleet.scoringSystem === 'echo' AND finisher
 }
 
 // NHC per-finisher intermediate calculations (for explainability)
@@ -178,6 +181,31 @@ export interface NhcRaceAggregates {
   finisherCount: number;
   ctAvg: number;     // seconds — mean of corrected times across finishers
   meanTcf: number;   // mean of tcfApplied across finishers
+}
+
+// ECHO per-finisher intermediate calculations (for explainability).
+// Same shape as NhcRaceCalc — kept as a separate type so the renderer
+// dispatches on the populated field, and so future ECHO-specific fields
+// (e.g. Standard TCF clamp markers) can be added without disturbing NHC.
+export interface EchoRaceCalc {
+  ctRatio: number;       // CT_avg / CT_i  (= PI_i / H_i)
+  fairTcf: number;       // PI_i  (= ΣH_S / (T_E_i × Σ(1/T_E)))
+  adjustment: number;    // signed: α × (PI_i − H_i)
+  alphaApplied: number;  // α actually used this race
+}
+
+// ECHO fleet-race-level aggregates (for the IS-notation fleet header).
+// Adds sumH (ΣH_S) and sumReciprocalEt (Σ(1/T_E)) so a scorer can
+// reproduce PI_i = ΣH_S / (T_E_i × Σ(1/T_E)) directly from the
+// published table — no algebraic substitutions required.
+export interface EchoRaceAggregates {
+  alpha: number;
+  finisherCount: number;
+  ctAvg: number;            // seconds — mean of corrected times across finishers
+  meanTcf: number;          // mean of tcfApplied across finishers (== ΣH_S / N)
+  sumH: number;             // ΣH_S — sum of starting handicaps across finishers
+  sumReciprocalEt: number;  // Σ(1/T_E) — seconds⁻¹
+  updateSuppressed: boolean; // true when finisherCount < minFinishers (≤2 for ECHO)
 }
 
 // Per-finisher intermediates produced by the handicap-adjustment phase.
@@ -232,6 +260,13 @@ export interface ProgressiveHandicapConfig {
     | { target: 'base-numbers'; includeDNC: boolean };
 
   minFinishers: number;            // skip the update entirely if fewer than this finished
+
+  // How to compute the per-boat fair handicap Q_i. Algebraically equivalent
+  // for tightly-clustered fleets; diverges for diverse fleets. ECHO must use
+  // 'is-pi' (the IS 2022 guide formula) so the published Σ(1/T_E) and ΣH_S
+  // header values reproduce the per-boat PI exactly. NHC uses 'ct-mean'
+  // (TCF × CT_avg / CT_i) for backward compatibility with existing fleets.
+  formulaForm: 'ct-mean' | 'is-pi';
 }
 
 // Persistent per-(race, competitor, fleet) TCF snapshot. Derived state — rebuilt

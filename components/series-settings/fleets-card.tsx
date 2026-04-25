@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { StartSequenceEditor } from './start-sequence-editor';
-import { NHC_DEFAULT_ALPHA } from '@/lib/scoring';
+import { NHC_DEFAULT_ALPHA, ECHO_DEFAULT_ALPHA } from '@/lib/scoring';
 
 export type FleetsCardProps = {
   seriesId: string;
@@ -90,11 +90,13 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     const wasScratch = fleet.scoringSystem === 'scratch';
     const willBeScratch = system === 'scratch';
 
-    // When switching INTO NHC, seed the default α; when switching OUT, drop it.
+    // Seed the default α when switching INTO a progressive system; drop it
+    // when switching OUT (NHC and ECHO each have their own α field).
     const next: Fleet = {
       ...fleet,
       scoringSystem: system,
       ...(system === 'nhc' ? { nhcAlpha: fleet.nhcAlpha ?? NHC_DEFAULT_ALPHA } : { nhcAlpha: undefined }),
+      ...(system === 'echo' ? { echoAlpha: fleet.echoAlpha ?? ECHO_DEFAULT_ALPHA } : { echoAlpha: undefined }),
     };
 
     if (wasScratch === willBeScratch) {
@@ -143,6 +145,15 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1) return;
     if (parsed === fleet.nhcAlpha) return;
     await fleetRepo.save({ ...fleet, nhcAlpha: parsed });
+  }
+
+  async function commitEchoAlpha(fleet: Fleet, raw: string) {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1) return;
+    if (parsed === fleet.echoAlpha) return;
+    await fleetRepo.save({ ...fleet, echoAlpha: parsed });
   }
 
   async function confirmSwitchToScratch() {
@@ -233,6 +244,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                       <SelectItem value="irc">IRC</SelectItem>
                       <SelectItem value="py">PY</SelectItem>
                       <SelectItem value="nhc">NHC</SelectItem>
+                      <SelectItem value="echo">ECHO</SelectItem>
                     </SelectContent>
                   </Select>
                   {fleet.scoringSystem === 'nhc' && (
@@ -253,6 +265,27 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                           }
                         }}
                         title="NHC blend rate (0 < α ≤ 1; default 0.15)"
+                      />
+                    </label>
+                  )}
+                  {fleet.scoringSystem === 'echo' && (
+                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                      α
+                      <Input
+                        type="number"
+                        defaultValue={fleet.echoAlpha ?? ECHO_DEFAULT_ALPHA}
+                        step="0.01"
+                        min="0.01"
+                        max="1"
+                        className="w-16 h-7 text-xs"
+                        onBlur={(e) => commitEchoAlpha(fleet, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            commitEchoAlpha(fleet, (e.target as HTMLInputElement).value);
+                          }
+                        }}
+                        title="ECHO blend rate (0 < α ≤ 1; 0.25 club / 0.50 regatta — IS 2022 guide)"
                       />
                     </label>
                   )}
@@ -407,6 +440,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
             : sorted.map((f) => {
                 if (f.scoringSystem === 'scratch') return f.name;
                 if (f.scoringSystem === 'nhc') return `${f.name} (NHC, α=${f.nhcAlpha ?? NHC_DEFAULT_ALPHA})`;
+                if (f.scoringSystem === 'echo') return `${f.name} (ECHO, α=${f.echoAlpha ?? ECHO_DEFAULT_ALPHA})`;
                 return `${f.name} (${f.scoringSystem.toUpperCase()})`;
               }).join(' · ')}
         </p>

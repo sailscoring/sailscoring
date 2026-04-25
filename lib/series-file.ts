@@ -19,8 +19,9 @@ interface SeriesFileFleet {
   id: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
   nhcAlpha?: number;  // present iff scoringSystem === 'nhc'
+  echoAlpha?: number; // present iff scoringSystem === 'echo'
 }
 
 interface SeriesFileBilgeBundle {
@@ -69,6 +70,7 @@ interface SeriesFileCompetitor {
   ircTcc?: number;
   pyNumber?: number;
   nhcStartingTcf?: number;
+  echoStartingTcf?: number;
 }
 
 interface SeriesFileFinish {
@@ -210,6 +212,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
       ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
+      ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
     })),
     series: {
       id: series.id,
@@ -254,6 +257,7 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
+      ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
     })),
     races: races.map((r) => ({
       id: r.id,
@@ -367,6 +371,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
         displayOrder: f.displayOrder,
         scoringSystem: f.scoringSystem,
         ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
+        ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       });
     }
 
@@ -390,6 +395,7 @@ export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
+        ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
       });
     }
 
@@ -496,6 +502,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
         displayOrder: f.displayOrder,
         scoringSystem: f.scoringSystem,
         ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
+        ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       });
     }
 
@@ -519,6 +526,7 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
+        ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
       });
     }
 

@@ -1,13 +1,16 @@
 /**
- * NHC TCF history persistence — recompute and write fresh records to the DB.
+ * Progressive-handicap TCF history persistence — recompute and write fresh
+ * records to the DB. Covers both NHC and ECHO fleets (their TCF history is
+ * stored in the same `nhcTcfHistory` table; the table name is internal and
+ * predates the addition of ECHO).
  *
- * The history is purely derived state (recomputable from finishes + starting TCFs
- * + α). We persist it so the series file format and public JSON export can carry
- * it without callers needing to re-score, and so non-finishers (which have no
- * Finish row) still leave a trail.
+ * The history is purely derived state (recomputable from finishes + starting
+ * TCFs + α). We persist it so the series file format and public JSON export
+ * can carry it without callers needing to re-score, and so non-finishers
+ * (which have no Finish row) still leave a trail.
  *
- * This helper does a full overwrite of all NHC fleets' history for the series.
- * Cheap at realistic scales (≤30 boats × ≤20 races × N fleets).
+ * This helper does a full overwrite of all progressive fleets' history for
+ * the series. Cheap at realistic scales (≤30 boats × ≤20 races × N fleets).
  */
 
 import { db } from './db';
@@ -21,8 +24,10 @@ export async function recomputeNhcHistoryForSeries(seriesId: string): Promise<vo
     db.races.where('seriesId').equals(seriesId).sortBy('raceNumber'),
   ]);
   if (!series) return;
-  const nhcFleetIds = fleets.filter((f) => f.scoringSystem === 'nhc').map((f) => f.id);
-  if (nhcFleetIds.length === 0) {
+  const progressiveFleetIds = fleets
+    .filter((f) => f.scoringSystem === 'nhc' || f.scoringSystem === 'echo')
+    .map((f) => f.id);
+  if (progressiveFleetIds.length === 0) {
     // Nothing to do; clean up any stale rows for this series's races
     if (races.length > 0) {
       await db.nhcTcfHistory.where('raceId').anyOf(races.map((r) => r.id)).delete();

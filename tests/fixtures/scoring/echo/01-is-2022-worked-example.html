@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>ECHO — Irish Sailing 2022 ECHO Guide for Clubs, page 2 worked example — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; font-size: 0.9em; }
+td, th { text-align: left; padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All ECHO examples</a></p>
+<h1>ECHO — Irish Sailing 2022 ECHO Guide for Clubs, page 2 worked example</h1>
+
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> ECHO &nbsp;&nbsp;
+  <strong>α (blend factor):</strong> 0.25
+</div>
+<pre style="margin:0.6em 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">10-boat single race with α = 0.25 (the IS-recommended 75/25 split for club racing).
+Reproduces the canonical worked example from the Irish Sailing 2022 guide. Start at
+12:00:00; T_E values from the guide are scaled to seconds (T_minutes × 60).
+
+Engine output matches the IS Performance Index formula exactly:
+  PI_i = ΣH_S / (T_E_i × Σ(1/T_E))
+  new_H_i = (1 − α) × H_i + α × PI_i
+
+Three rows in the IS guide table differ from the formula's true output:
+  Row 6 (T_E=70, H=1.000): IS table shows new_H=0.952; formula gives 0.970.
+      The PI value of 0.879 is correct; the printed new_H is a typo.
+  Row 3 (T_E=66): IS table prints PI=0.937; formula gives 0.933.
+  Row 9 (T_E=61): IS table prints PI=1.006; formula gives 1.009.
+      (Boats 2 and 9 share T_E=61, so their PI must be identical;
+       Boat 2's printed PI=1.009 matches the formula.)
+
+The engine matches the formula in every row. The expected new_H values below
+are the formula-correct values — see project_is_2022_echo_table_typo memory.
+
+Computed reference values (full precision):
+  ΣH_S            = 10.221
+  Σ(1/T_E)        ≈ 0.00276745386 (in 1/seconds)
+  CT_avg          = 3706.71</pre>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Ranks by corrected time ascending: 7, 10, 8, 1, 4, 9, 2, 5, 3, 6</pre>
+<h2 style="margin-top:1.5em;">Race 1</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 12:00:00 &nbsp;
+  <strong>α:</strong> 0.25 &nbsp;
+  <strong>Finishers:</strong> 10 &nbsp;
+  <strong>ΣH<sub>S</sub>:</strong> 10.221 &nbsp;
+  <strong>Σ(1/T<sub>E</sub>):</strong> 0.00276745
+</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>T<sub>E</sub></th><th>1/T<sub>E</sub></th>
+  <th>Starting H</th><th>CT</th><th>PI</th><th>adj</th><th>New H</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Boat 7</td>
+  <td class="mono">7</td>
+  <td class="mono">12:56:00</td>
+  <td class="mono">56m 00s</td>
+  <td class="mono">0.00029762</td>
+  <td class="mono">1.0200</td>
+  <td class="mono">57m 07s</td>
+  <td class="mono">1.0992</td>
+  <td class="mono">+0.0198</td>
+  <td class="mono">1.0398</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Boat 10</td>
+  <td class="mono">10</td>
+  <td class="mono">12:57:00</td>
+  <td class="mono">57m 00s</td>
+  <td class="mono">0.00029240</td>
+  <td class="mono">1.0150</td>
+  <td class="mono">57m 51s</td>
+  <td class="mono">1.0799</td>
+  <td class="mono">+0.0162</td>
+  <td class="mono">1.0312</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Boat 8</td>
+  <td class="mono">8</td>
+  <td class="mono">12:59:00</td>
+  <td class="mono">59m 00s</td>
+  <td class="mono">0.00028249</td>
+  <td class="mono">1.0100</td>
+  <td class="mono">59m 35s</td>
+  <td class="mono">1.0433</td>
+  <td class="mono">+0.0083</td>
+  <td class="mono">1.0183</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Boat 1</td>
+  <td class="mono">1</td>
+  <td class="mono">13:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">0.00027778</td>
+  <td class="mono">1.0010</td>
+  <td class="mono">60m 04s</td>
+  <td class="mono">1.0259</td>
+  <td class="mono">+0.0062</td>
+  <td class="mono">1.0072</td>
+  <td>4</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td>Boat 4</td>
+  <td class="mono">4</td>
+  <td class="mono">12:59:00</td>
+  <td class="mono">59m 00s</td>
+  <td class="mono">0.00028249</td>
+  <td class="mono">1.0200</td>
+  <td class="mono">60m 11s</td>
+  <td class="mono">1.0433</td>
+  <td class="mono">+0.0058</td>
+  <td class="mono">1.0258</td>
+  <td>5</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td>Boat 9</td>
+  <td class="mono">9</td>
+  <td class="mono">13:01:00</td>
+  <td class="mono">61m 00s</td>
+  <td class="mono">0.00027322</td>
+  <td class="mono">1.0050</td>
+  <td class="mono">61m 18s</td>
+  <td class="mono">1.0091</td>
+  <td class="mono">+0.0010</td>
+  <td class="mono">1.0060</td>
+  <td>6</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td>Boat 2</td>
+  <td class="mono">2</td>
+  <td class="mono">13:01:00</td>
+  <td class="mono">61m 00s</td>
+  <td class="mono">0.00027322</td>
+  <td class="mono">1.0150</td>
+  <td class="mono">61m 55s</td>
+  <td class="mono">1.0091</td>
+  <td class="mono">-0.0015</td>
+  <td class="mono">1.0135</td>
+  <td>7</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td>Boat 5</td>
+  <td class="mono">5</td>
+  <td class="mono">12:56:00</td>
+  <td class="mono">56m 00s</td>
+  <td class="mono">0.00029762</td>
+  <td class="mono">1.1150</td>
+  <td class="mono">62m 26s</td>
+  <td class="mono">1.0992</td>
+  <td class="mono">-0.0040</td>
+  <td class="mono">1.1110</td>
+  <td>8</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td>Boat 3</td>
+  <td class="mono">3</td>
+  <td class="mono">13:06:00</td>
+  <td class="mono">66m 00s</td>
+  <td class="mono">0.00025253</td>
+  <td class="mono">1.0200</td>
+  <td class="mono">67m 19s</td>
+  <td class="mono">0.9326</td>
+  <td class="mono">-0.0218</td>
+  <td class="mono">0.9982</td>
+  <td>9</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td>Boat 6</td>
+  <td class="mono">6</td>
+  <td class="mono">13:10:00</td>
+  <td class="mono">70m 00s</td>
+  <td class="mono">0.00023810</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">70m 00s</td>
+  <td class="mono">0.8794</td>
+  <td class="mono">-0.0302</td>
+  <td class="mono">0.9698</td>
+  <td>10</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Boat 7</td>
+  <td class="mono">7</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Boat 10</td>
+  <td class="mono">10</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Boat 8</td>
+  <td class="mono">8</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Boat 1</td>
+  <td class="mono">1</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td>Boat 4</td>
+  <td class="mono">4</td>
+  <td class="mono">5</td>
+  <td class="mono">5</td>
+  <td class="mono">5</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td>Boat 9</td>
+  <td class="mono">9</td>
+  <td class="mono">6</td>
+  <td class="mono">6</td>
+  <td class="mono">6</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td>Boat 2</td>
+  <td class="mono">2</td>
+  <td class="mono">7</td>
+  <td class="mono">7</td>
+  <td class="mono">7</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td>Boat 5</td>
+  <td class="mono">5</td>
+  <td class="mono">8</td>
+  <td class="mono">8</td>
+  <td class="mono">8</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td>Boat 3</td>
+  <td class="mono">3</td>
+  <td class="mono">9</td>
+  <td class="mono">9</td>
+  <td class="mono">9</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td>Boat 6</td>
+  <td class="mono">6</td>
+  <td class="mono">10</td>
+  <td class="mono">10</td>
+  <td class="mono">10</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

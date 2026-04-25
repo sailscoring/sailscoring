@@ -1,0 +1,85 @@
+description: "ECHO — non-finisher (DNF) carries handicap unchanged"
+notes: |
+  Three boats finish, one DNFs. Per the IS guide: "Boats which did not finish or
+  did not start do not affect the performance index and their handicap remains
+  unchanged for the next race." DNF row contributes nothing to ΣH_S or
+  Σ(1/T_E); its newTcf equals its starting handicap.
+
+  Three finishers ≥ 3, so the rating update is not suppressed.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: echo
+  alpha: 0.25
+
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    echoStartingTcf: 1.000
+  - sailNumber: "2"
+    name: "Bravo"
+    echoStartingTcf: 1.020
+  - sailNumber: "3"
+    name: "Charlie"
+    echoStartingTcf: 1.050
+  - sailNumber: "4"
+    name: "Delta"
+    echoStartingTcf: 0.980
+
+races:
+  - number: 1
+    startTime: "12:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "13:00:00"   # 60 min
+      - sailor: "2"
+        finishTime: "13:01:00"   # 61 min
+      - sailor: "3"
+        finishTime: "13:02:00"   # 62 min
+      - sailor: "4"
+        code: "DNF"
+    aggregates:
+      alpha: 0.25
+      finisherCount: 3
+      updateSuppressed: false
+    expected:
+      - sailor: "4"
+        rank: null
+        points: 5             # entries (4) + 1
+        code: "DNF"
+        tcfApplied: 0.980
+        newTcf: 0.980          # unchanged
+
+expected:
+  standings:
+    # Ranks by net points (corrected times determine race finish order)
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 4
+      sailor: "4"
+      racePoints: [5]
+      raceCodes: ["DNF"]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5

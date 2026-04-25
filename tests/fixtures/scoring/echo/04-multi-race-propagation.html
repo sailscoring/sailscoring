@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>ECHO — multi-race handicap propagation across two races — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; font-size: 0.9em; }
+td, th { text-align: left; padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All ECHO examples</a></p>
+<h1>ECHO — multi-race handicap propagation across two races</h1>
+
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> ECHO &nbsp;&nbsp;
+  <strong>α (blend factor):</strong> 0.25
+</div>
+<pre style="margin:0.6em 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Three boats over two races. Verifies the running handicap map: race 2's
+applied handicap is race 1's new_H. Engine matches the IS PI formula at
+every step.
+
+Initial handicaps:  Alpha=1.000, Bravo=1.020, Charlie=1.050.</pre>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Race 2's tcfApplied for each boat is race 1's newTcf — the
+      propagation contract.</pre>
+<h2 style="margin-top:1.5em;">Race 1</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 12:00:00 &nbsp;
+  <strong>α:</strong> 0.25 &nbsp;
+  <strong>Finishers:</strong> 3 &nbsp;
+  <strong>ΣH<sub>S</sub>:</strong> 3.070 &nbsp;
+  <strong>Σ(1/T<sub>E</sub>):</strong> 0.00081982
+</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>T<sub>E</sub></th><th>1/T<sub>E</sub></th>
+  <th>Starting H</th><th>CT</th><th>PI</th><th>adj</th><th>New H</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">13:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">0.00027778</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0402</td>
+  <td class="mono">+0.0101</td>
+  <td class="mono">1.0101</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Bravo</td>
+  <td class="mono">2</td>
+  <td class="mono">13:01:00</td>
+  <td class="mono">61m 00s</td>
+  <td class="mono">0.00027322</td>
+  <td class="mono">1.0200</td>
+  <td class="mono">62m 13s</td>
+  <td class="mono">1.0231</td>
+  <td class="mono">+0.0008</td>
+  <td class="mono">1.0208</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Charlie</td>
+  <td class="mono">3</td>
+  <td class="mono">13:02:00</td>
+  <td class="mono">62m 00s</td>
+  <td class="mono">0.00026882</td>
+  <td class="mono">1.0500</td>
+  <td class="mono">65m 06s</td>
+  <td class="mono">1.0066</td>
+  <td class="mono">-0.0108</td>
+  <td class="mono">1.0392</td>
+  <td>3</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Race 2</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 12:00:00 &nbsp;
+  <strong>α:</strong> 0.25 &nbsp;
+  <strong>Finishers:</strong> 3 &nbsp;
+  <strong>ΣH<sub>S</sub>:</strong> 3.070 &nbsp;
+  <strong>Σ(1/T<sub>E</sub>):</strong> 0.00082134
+</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>T<sub>E</sub></th><th>1/T<sub>E</sub></th>
+  <th>Starting H</th><th>CT</th><th>PI</th><th>adj</th><th>New H</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">12:59:40</td>
+  <td class="mono">59m 40s</td>
+  <td class="mono">0.00027933</td>
+  <td class="mono">1.0101</td>
+  <td class="mono">60m 16s</td>
+  <td class="mono">1.0441</td>
+  <td class="mono">+0.0085</td>
+  <td class="mono">1.0186</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Bravo</td>
+  <td class="mono">2</td>
+  <td class="mono">13:01:20</td>
+  <td class="mono">61m 20s</td>
+  <td class="mono">0.00027174</td>
+  <td class="mono">1.0208</td>
+  <td class="mono">62m 36s</td>
+  <td class="mono">1.0157</td>
+  <td class="mono">-0.0013</td>
+  <td class="mono">1.0195</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Charlie</td>
+  <td class="mono">3</td>
+  <td class="mono">13:01:40</td>
+  <td class="mono">61m 40s</td>
+  <td class="mono">0.00027027</td>
+  <td class="mono">1.0392</td>
+  <td class="mono">64m 05s</td>
+  <td class="mono">1.0102</td>
+  <td class="mono">-0.0072</td>
+  <td class="mono">1.0319</td>
+  <td>3</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>R2</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td><td class="mono">1</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Bravo</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td><td class="mono">2</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Charlie</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td><td class="mono">3</td>
+  <td class="mono">6</td>
+  <td class="mono">6</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

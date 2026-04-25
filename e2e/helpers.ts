@@ -63,7 +63,7 @@ export async function setScoringMode(page: Page, mode: 'scratch' | 'handicap'): 
  */
 export async function addCompetitor(
   page: Page,
-  data: { sailNumber: string; name: string; club?: string; fleet?: string; ircTcc?: string; pyNumber?: string; nhcStartingTcf?: string },
+  data: { sailNumber: string; name: string; club?: string; fleet?: string; ircTcc?: string; pyNumber?: string; nhcStartingTcf?: string; echoStartingTcf?: string },
 ): Promise<void> {
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill(data.sailNumber);
@@ -79,6 +79,7 @@ export async function addCompetitor(
   if (data.ircTcc) await page.getByLabel('IRC TCC', { exact: true }).fill(data.ircTcc);
   if (data.pyNumber) await page.getByLabel('PY number', { exact: true }).fill(data.pyNumber);
   if (data.nhcStartingTcf) await page.getByLabel('NHC starting TCF', { exact: true }).fill(data.nhcStartingTcf);
+  if (data.echoStartingTcf) await page.getByLabel('ECHO starting handicap', { exact: true }).fill(data.echoStartingTcf);
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: data.sailNumber })).toBeVisible();
 }
