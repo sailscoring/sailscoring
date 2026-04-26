@@ -41,6 +41,8 @@ import {
   missingRatings,
   formatMissingRatings,
   requiredForFleetsHint,
+  competitorRatings,
+  configuredRatingSystems,
   type MissingRating,
 } from '@/lib/competitor-ratings';
 import {
@@ -89,6 +91,19 @@ const emptyForm: CompetitorFormData = {
   nhcStartingTcf: '',
   echoStartingTcf: '',
 };
+
+function TruncatedCell({ value }: { value: string | null | undefined }) {
+  const text = value ?? '';
+  return (
+    <TableCell>
+      {text ? (
+        <div className="max-w-[24ch] truncate" title={text}>
+          {text}
+        </div>
+      ) : null}
+    </TableCell>
+  );
+}
 
 function MissingRatingIcon({ missing }: { missing: MissingRating[] }) {
   if (missing.length === 0) return null;
@@ -489,10 +504,9 @@ export default function CompetitorsPage({
   const primaryFieldLabel = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const multipleFleets = (fleets ?? []).length > 1;
-  const showIrc = (fleets ?? []).some((f) => f.scoringSystem === 'irc');
-  const showPy = (fleets ?? []).some((f) => f.scoringSystem === 'py');
-  const showNhc = (fleets ?? []).some((f) => f.scoringSystem === 'nhc');
-  const showEcho = (fleets ?? []).some((f) => f.scoringSystem === 'echo');
+  const ratingSystems = configuredRatingSystems(fleets ?? []);
+  const showRating = ratingSystems.length > 0;
+  const showRatingLabels = ratingSystems.length > 1;
 
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -673,19 +687,16 @@ export default function CompetitorsPage({
               <TableHead>Sail no.</TableHead>
               {showBoat && <TableHead>Boat</TableHead>}
               {showClass && <TableHead>Class</TableHead>}
-              <TableHead>{primaryFieldLabel}</TableHead>
-              {showHelm && <TableHead>Helm</TableHead>}
-              {showOwner && <TableHead>Owner</TableHead>}
-              {showCrew && <TableHead>Crew</TableHead>}
+              <TableHead className="whitespace-normal break-words">{primaryFieldLabel}</TableHead>
+              {showHelm && <TableHead className="whitespace-normal break-words">Helm</TableHead>}
+              {showOwner && <TableHead className="whitespace-normal break-words">Owner</TableHead>}
+              {showCrew && <TableHead className="whitespace-normal break-words">Crew</TableHead>}
               {showClub && <TableHead>Club</TableHead>}
-              {multipleFleets && <TableHead>Fleet</TableHead>}
-              {showIrc && <TableHead>IRC TCC</TableHead>}
-              {showPy && <TableHead>PY</TableHead>}
-              {showNhc && <TableHead>NHC TCF</TableHead>}
-              {showEcho && <TableHead>ECHO H</TableHead>}
+              {multipleFleets && <TableHead className="whitespace-normal break-words">Fleet</TableHead>}
+              {showRating && <TableHead>Rating</TableHead>}
               {showGender && <TableHead>Gender</TableHead>}
               {showAge && <TableHead>Age</TableHead>}
-              <TableHead className="w-20" />
+              <TableHead className="w-0 p-0" />
             </TableRow>
           </TableHeader>
           <TableBody ref={tbodyRef}>
@@ -693,7 +704,7 @@ export default function CompetitorsPage({
               <TableRow
                 key={c.id}
                 tabIndex={0}
-                className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                className="group/row focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                 onKeyDown={(e) => {
                   if (e.key === 'e') {
                     e.preventDefault();
@@ -715,46 +726,29 @@ export default function CompetitorsPage({
                   <MissingRatingIcon missing={missingRatings(c, fleetById)} />
                   {c.sailNumber}
                 </TableCell>
-                {showBoat && <TableCell>{c.boatName ?? ''}</TableCell>}
-                {showClass && <TableCell>{c.boatClass ?? ''}</TableCell>}
-                <TableCell>{c.name}</TableCell>
-                {showHelm && <TableCell>{c.helm ?? ''}</TableCell>}
-                {showOwner && <TableCell>{c.owner ?? ''}</TableCell>}
-                {showCrew && <TableCell>{c.crewName ?? ''}</TableCell>}
-                {showClub && <TableCell>{c.club}</TableCell>}
-                {multipleFleets && <TableCell>{c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ')}</TableCell>}
-                {showIrc && (
+                {showBoat && <TruncatedCell value={c.boatName} />}
+                {showClass && <TruncatedCell value={c.boatClass} />}
+                <TableCell className="whitespace-normal break-words">{c.name}</TableCell>
+                {showHelm && <TableCell className="whitespace-normal break-words">{c.helm ?? ''}</TableCell>}
+                {showOwner && <TableCell className="whitespace-normal break-words">{c.owner ?? ''}</TableCell>}
+                {showCrew && <TableCell className="whitespace-normal break-words">{c.crewName ?? ''}</TableCell>}
+                {showClub && <TruncatedCell value={c.club} />}
+                {multipleFleets && <TableCell className="whitespace-normal break-words">{c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ')}</TableCell>}
+                {showRating && (
                   <TableCell className="font-mono">
-                    {c.fleetIds.some((id) => fleetById.get(id)?.scoringSystem === 'irc')
-                      ? (c.ircTcc ?? '—')
-                      : '—'}
-                  </TableCell>
-                )}
-                {showPy && (
-                  <TableCell className="font-mono">
-                    {c.fleetIds.some((id) => fleetById.get(id)?.scoringSystem === 'py')
-                      ? (c.pyNumber ?? '—')
-                      : '—'}
-                  </TableCell>
-                )}
-                {showNhc && (
-                  <TableCell className="font-mono">
-                    {c.fleetIds.some((id) => fleetById.get(id)?.scoringSystem === 'nhc')
-                      ? (c.nhcStartingTcf ?? '—')
-                      : '—'}
-                  </TableCell>
-                )}
-                {showEcho && (
-                  <TableCell className="font-mono">
-                    {c.fleetIds.some((id) => fleetById.get(id)?.scoringSystem === 'echo')
-                      ? (c.echoStartingTcf ?? '—')
-                      : '—'}
+                    {(() => {
+                      const ratings = competitorRatings(c, fleetById);
+                      if (ratings.length === 0) return '—';
+                      return ratings
+                        .map((r) => (showRatingLabels ? `${r.value} ${r.label}` : r.value))
+                        .join(' · ');
+                    })()}
                   </TableCell>
                 )}
                 {showGender && <TableCell>{c.gender}</TableCell>}
                 {showAge && <TableCell>{c.age ?? ''}</TableCell>}
-                <TableCell>
-                  <div className="flex gap-1">
+                <TableCell className="w-0 p-0 relative">
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 rounded-md bg-background/90 px-1 opacity-0 pointer-events-none transition-opacity group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto">
                     <Button
                       variant="ghost"
                       size="icon"

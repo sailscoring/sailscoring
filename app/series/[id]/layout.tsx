@@ -59,7 +59,7 @@ export default function SeriesLayout({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-screen-2xl mx-auto">
       <div>
         <h1 className="text-2xl font-semibold">{series.name}</h1>
         {(series.venue || series.startDate) && (

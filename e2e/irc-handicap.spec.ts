@@ -48,6 +48,7 @@ test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
   const tccs: Record<string, string> = { IRC1: '1.000', IRC2: '1.050', IRC3: '1.100' };
   for (const c of boats) {
     const row = page.getByRole('row').filter({ hasText: c.sailNumber });
+    await row.hover();
     await row.getByRole('button', { name: /Edit/ }).click();
     // With IRC fleet checked, TCC input is visible
     await expect(page.getByLabel('IRC TCC', { exact: true })).toBeVisible();

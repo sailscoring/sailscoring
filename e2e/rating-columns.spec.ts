@@ -2,11 +2,11 @@ import { test, expect } from './fixtures';
 import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
 
 /**
- * E2E test for issue #72: handicap rating columns in competitors list.
+ * E2E test for issue #72: handicap rating column in the competitors list.
  *
- * Verifies that PY / IRC TCC columns appear in the competitors table
- * when the series has fleets using those scoring systems, and that
- * scratch-only series show no rating columns.
+ * Verifies that a Rating column appears in the competitors table when the
+ * series has fleets using a non-scratch scoring system, and that scratch-only
+ * series show no Rating column.
  */
 
 test('rating columns appear for handicap fleets', async ({ page }) => {
@@ -29,10 +29,9 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
     await expect(page.getByRole('cell', { name: c.sail })).toBeVisible();
   }
 
-  // ── 4. No rating columns yet (fleet is still scratch-scored) ─────────────
+  // ── 4. No Rating column yet (fleet is still scratch-scored) ─────────────
   const header = page.getByRole('row').first();
-  await expect(header.getByRole('columnheader', { name: 'PY' })).not.toBeVisible();
-  await expect(header.getByRole('columnheader', { name: 'IRC TCC' })).not.toBeVisible();
+  await expect(header.getByRole('columnheader', { name: 'Rating' })).not.toBeVisible();
 
   // ── 5. Switch to handicap mode and change fleet scoring system to PY ──────
   await setScoringMode(page, 'handicap');
@@ -48,18 +47,17 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
   const pyNumbers: Record<string, string> = { PY1: '1034', PY2: '1087' };
   for (const sail of ['PY1', 'PY2']) {
     const row = page.getByRole('row').filter({ hasText: sail });
+    await row.hover();
     await row.getByRole('button', { name: /Edit/ }).click();
     await page.getByLabel('PY number', { exact: true }).fill(pyNumbers[sail]);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: sail })).toBeVisible();
   }
 
-  // ── 7. PY column now visible with correct values ─────────────────────────
-  await expect(header.getByRole('columnheader', { name: 'PY' })).toBeVisible();
-  // IRC column should NOT appear (no IRC fleet)
-  await expect(header.getByRole('columnheader', { name: 'IRC TCC' })).not.toBeVisible();
+  // ── 7. Rating column now visible with correct values ─────────────────────
+  await expect(header.getByRole('columnheader', { name: 'Rating' })).toBeVisible();
 
-  // Check rating values in each row
+  // Single-system series: cells show the bare value, no system label suffix.
   const py1Row = page.getByRole('row').filter({ hasText: 'PY1' });
   const py2Row = page.getByRole('row').filter({ hasText: 'PY2' });
   await expect(py1Row).toContainText('1034');

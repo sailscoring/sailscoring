@@ -75,7 +75,7 @@ function NewSeriesContent() {
 
   if (!isQuick) {
     return (
-      <div className="max-w-md space-y-6">
+      <div className="max-w-md mx-auto space-y-6">
         <p className="text-muted-foreground">Creating series…</p>
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
@@ -107,7 +107,7 @@ function NewSeriesContent() {
   }
 
   return (
-    <div className="max-w-md space-y-6">
+    <div className="max-w-md mx-auto space-y-6">
       <h1 className="text-2xl font-semibold">New series</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">

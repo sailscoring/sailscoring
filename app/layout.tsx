@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             Help
           </Link>
         </header>
-        <main className="px-6 py-8 max-w-5xl mx-auto">{children}</main>
+        <main className="px-6 py-8">{children}</main>
       </body>
     </html>
   );

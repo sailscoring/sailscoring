@@ -16,7 +16,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
 
 export default function HelpPage() {
   return (
-    <div className="max-w-2xl space-y-10">
+    <div className="max-w-2xl mx-auto space-y-10">
       <div>
         <h1 className="text-2xl font-semibold">Help</h1>
         <p className="mt-2 text-muted-foreground">

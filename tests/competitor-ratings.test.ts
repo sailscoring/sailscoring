@@ -5,6 +5,8 @@ import {
   missingRatings,
   formatMissingRatings,
   requiredForFleetsHint,
+  competitorRatings,
+  configuredRatingSystems,
 } from '@/lib/competitor-ratings';
 
 function mkFleet(over: Partial<Fleet> & { id: string; name: string; scoringSystem: Fleet['scoringSystem'] }): Fleet {
@@ -105,6 +107,75 @@ describe('formatMissingRatings', () => {
         { fleetName: 'Echo', ratingLabel: 'NHC starting TCF' },
       ]),
     ).toBe('Missing: IRC TCC (Cruisers), NHC starting TCF (Echo)');
+  });
+});
+
+describe('competitorRatings', () => {
+  const irc = mkFleet({ id: 'irc', name: 'Cruisers', scoringSystem: 'irc' });
+  const py = mkFleet({ id: 'py', name: 'Whitesails', scoringSystem: 'py' });
+  const nhc = mkFleet({ id: 'nhc', name: 'NHC', scoringSystem: 'nhc' });
+  const echo = mkFleet({ id: 'echo', name: 'ECHO', scoringSystem: 'echo' });
+  const scratch = mkFleet({ id: 's', name: 'OD', scoringSystem: 'scratch' });
+
+  it('returns the rating value for a single-fleet competitor', () => {
+    const c = mkCompetitor({ id: 'c1', fleetIds: ['irc'], ircTcc: 0.972 });
+    expect(competitorRatings(c, fleetMap([irc]))).toEqual([
+      { system: 'irc', label: 'IRC', value: '0.972' },
+    ]);
+  });
+
+  it('shows em-dash placeholder when the rating is missing', () => {
+    const c = mkCompetitor({ id: 'c1', fleetIds: ['py'] });
+    expect(competitorRatings(c, fleetMap([py]))).toEqual([
+      { system: 'py', label: 'PY', value: '—' },
+    ]);
+  });
+
+  it('returns one entry per distinct system across multiple fleets', () => {
+    const c = mkCompetitor({
+      id: 'c1',
+      fleetIds: ['irc', 'echo'],
+      ircTcc: 0.972,
+      echoStartingTcf: 1.018,
+    });
+    expect(competitorRatings(c, fleetMap([irc, echo]))).toEqual([
+      { system: 'irc', label: 'IRC', value: '0.972' },
+      { system: 'echo', label: 'ECHO', value: '1.018' },
+    ]);
+  });
+
+  it('skips scratch fleets', () => {
+    const c = mkCompetitor({ id: 'c1', fleetIds: ['s', 'py'], pyNumber: 1034 });
+    expect(competitorRatings(c, fleetMap([scratch, py]))).toEqual([
+      { system: 'py', label: 'PY', value: '1034' },
+    ]);
+  });
+
+  it('returns an empty list when no fleets contribute a rating', () => {
+    const c = mkCompetitor({ id: 'c1', fleetIds: ['s'] });
+    expect(competitorRatings(c, fleetMap([scratch]))).toEqual([]);
+  });
+
+  it('uses NHC starting TCF for NHC fleets', () => {
+    const c = mkCompetitor({ id: 'c1', fleetIds: ['nhc'], nhcStartingTcf: 1.005 });
+    expect(competitorRatings(c, fleetMap([nhc]))).toEqual([
+      { system: 'nhc', label: 'NHC', value: '1.005' },
+    ]);
+  });
+});
+
+describe('configuredRatingSystems', () => {
+  const irc = mkFleet({ id: 'irc', name: 'Cruisers', scoringSystem: 'irc' });
+  const echo = mkFleet({ id: 'echo', name: 'ECHO', scoringSystem: 'echo' });
+  const echo2 = mkFleet({ id: 'echo2', name: 'ECHO 2', scoringSystem: 'echo' });
+  const scratch = mkFleet({ id: 's', name: 'OD', scoringSystem: 'scratch' });
+
+  it('returns distinct non-scratch systems in fleet order', () => {
+    expect(configuredRatingSystems([scratch, echo, irc, echo2])).toEqual(['echo', 'irc']);
+  });
+
+  it('returns an empty list when only scratch fleets exist', () => {
+    expect(configuredRatingSystems([scratch])).toEqual([]);
   });
 });
 

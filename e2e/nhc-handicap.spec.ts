@@ -57,6 +57,7 @@ test('NHC fleet: standings + propagation across two races', async ({ page }) => 
   }
   for (const sailNumber of ['NHC1', 'NHC2']) {
     const row = page.getByRole('row').filter({ hasText: sailNumber });
+    await row.hover();
     await row.getByRole('button', { name: /Edit/ }).click();
     await expect(page.getByLabel('NHC starting TCF', { exact: true })).toBeVisible();
     await page.getByLabel('NHC starting TCF', { exact: true }).fill('1.000');
@@ -150,6 +151,7 @@ test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page 
   }
   for (const sailNumber of ['AA', 'BB']) {
     const row = page.getByRole('row').filter({ hasText: sailNumber });
+    await row.hover();
     await row.getByRole('button', { name: /Edit/ }).click();
     await expect(page.getByLabel('NHC starting TCF', { exact: true })).toBeVisible();
     await page.getByLabel('NHC starting TCF', { exact: true }).fill('1.000');

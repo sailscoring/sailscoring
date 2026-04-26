@@ -55,6 +55,7 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
   // ── 2. Set PY numbers on the PY boats ────────────────────────────────────
   for (const { sail, py } of [{ sail: 'P1', py: '1000' }, { sail: 'P2', py: '1100' }]) {
     const row = page.getByRole('row').filter({ hasText: sail });
+    await row.hover();
     await row.getByRole('button', { name: /Edit/ }).click();
     await page.getByLabel('PY number', { exact: true }).fill(py);
     await page.getByRole('button', { name: 'Save' }).click();
@@ -169,6 +170,7 @@ test('auto-slot: a late timed entry inserts at its correct crossing-order slot',
   // Set a PY number so CT is defined (value is irrelevant to auto-slot)
   for (const sail of ['A1', 'A2', 'A3']) {
     const r = page.getByRole('row').filter({ hasText: sail });
+    await r.hover();
     await r.getByRole('button', { name: /Edit/ }).click();
     await page.getByLabel('PY number', { exact: true }).fill('1000');
     await page.getByRole('button', { name: 'Save' }).click();

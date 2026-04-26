@@ -39,3 +39,67 @@ export function requiredForFleetsHint(fleetNames: string[]): string {
   const suffix = fleetNames.length === 1 ? 'fleet' : 'fleets';
   return `Required for ${fleetNames.join(', ')} ${suffix}.`;
 }
+
+export type RatingSystemCode = 'irc' | 'py' | 'nhc' | 'echo';
+
+export type RatingDisplay = {
+  system: RatingSystemCode;
+  label: string;
+  value: string;
+};
+
+const RATING_LABEL: Record<RatingSystemCode, string> = {
+  irc: 'IRC',
+  py: 'PY',
+  nhc: 'NHC',
+  echo: 'ECHO',
+};
+
+function ratingValueFor(competitor: Competitor, system: RatingSystemCode): string {
+  switch (system) {
+    case 'irc':
+      return competitor.ircTcc != null ? String(competitor.ircTcc) : '—';
+    case 'py':
+      return competitor.pyNumber != null ? String(competitor.pyNumber) : '—';
+    case 'nhc':
+      return competitor.nhcStartingTcf != null ? String(competitor.nhcStartingTcf) : '—';
+    case 'echo':
+      return competitor.echoStartingTcf != null ? String(competitor.echoStartingTcf) : '—';
+  }
+}
+
+/** Rating values to display for a competitor in the Competitors table.
+ *  Returns one entry per non-scratch scoring system that any of the
+ *  competitor's fleets uses, deduplicated, in fleet order. */
+export function competitorRatings(
+  competitor: Competitor,
+  fleetById: Map<string, Fleet>,
+): RatingDisplay[] {
+  const seen = new Set<RatingSystemCode>();
+  const out: RatingDisplay[] = [];
+  for (const id of competitor.fleetIds) {
+    const f = fleetById.get(id);
+    if (!f || f.scoringSystem === 'scratch' || seen.has(f.scoringSystem)) continue;
+    seen.add(f.scoringSystem);
+    out.push({
+      system: f.scoringSystem,
+      label: RATING_LABEL[f.scoringSystem],
+      value: ratingValueFor(competitor, f.scoringSystem),
+    });
+  }
+  return out;
+}
+
+/** The set of distinct non-scratch scoring systems present across the given
+ *  fleets, in insertion order. Used to decide whether the Rating column
+ *  should append system labels (only useful when more than one applies). */
+export function configuredRatingSystems(fleets: Fleet[]): RatingSystemCode[] {
+  const seen = new Set<RatingSystemCode>();
+  const out: RatingSystemCode[] = [];
+  for (const f of fleets) {
+    if (f.scoringSystem === 'scratch' || seen.has(f.scoringSystem)) continue;
+    seen.add(f.scoringSystem);
+    out.push(f.scoringSystem);
+  }
+  return out;
+}
