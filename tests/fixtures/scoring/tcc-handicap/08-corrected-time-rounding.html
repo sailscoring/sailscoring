@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>IRC — corrected time rounded to whole seconds; sub-second float jitter must not reverse rank — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All IRC handicap examples</a></p>
+<h1>IRC — corrected time rounded to whole seconds; sub-second float jitter must not reverse rank</h1>
+<p style="font-style:italic; color:#444;">HalSail and Sailwave round corrected time to whole seconds for both ranking and display. Two boats whose float CTs differ by &lt;1 s but round to the same integer second tie under RRS A7.</p>
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> IRC
+</div>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Reproduces Volvo DLR 2025 CR2 IRC Race 2:
+
+Start 14:00:00 (= 50400 s since midnight)
+
+Boat 1357 (TCC 0.975): finish 14:44:27 → ET 2667 s → CT 2667 × 0.975 = 2600.325
+Boat 7347 (TCC 0.970): finish 14:44:40 → ET 2680 s → CT 2680 × 0.970 = 2599.600
+
+Both round half-up to 2600, so they tie at the line. Without rounding, the
+floats differ by ~0.7 s and rank reverses relative to HalSail.
+
+Boat 0001 (TCC 1.000): finish 14:50:00 → ET 3000 s → CT 3000.0 → 3rd, no tie.</pre>
+<h2 style="margin-top:1.5em;">Race arithmetic</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Humdinger</td>
+  <td class="mono">1357</td>
+  <td class="mono">0.975</td>
+  <td class="mono">14:44:27</td>
+  <td class="mono">44m 27s</td>
+  <td class="mono">0.9750</td>
+  <td class="mono">43m 20s</td>
+  <td>1.5</td>
+</tr>
+<tr>
+  <td>1</td>
+  <td>Daydream Believer</td>
+  <td class="mono">7347</td>
+  <td class="mono">0.970</td>
+  <td class="mono">14:44:40</td>
+  <td class="mono">44m 40s</td>
+  <td class="mono">0.9700</td>
+  <td class="mono">43m 20s</td>
+  <td>1.5</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Tail Ender</td>
+  <td class="mono">0001</td>
+  <td class="mono">1.000</td>
+  <td class="mono">14:50:00</td>
+  <td class="mono">50m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">50m 00s</td>
+  <td>3</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Humdinger</td>
+  <td class="mono">1357</td>
+  <td class="mono">1.5</td>
+  <td class="mono">1.5</td>
+  <td class="mono">1.5</td>
+</tr>
+<tr>
+  <td>1</td>
+  <td>Daydream Believer</td>
+  <td class="mono">7347</td>
+  <td class="mono">1.5</td>
+  <td class="mono">1.5</td>
+  <td class="mono">1.5</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Tail Ender</td>
+  <td class="mono">0001</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

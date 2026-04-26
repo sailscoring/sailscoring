@@ -37,7 +37,7 @@ races:
     aggregates:
       alpha: 0.25
       finisherCount: 3
-      ctAvg: 3746.4
+      ctAvg: 3746.333333
       meanTcf: 1.023333333
       sumH: 3.07
       sumReciprocalEt: 0.000819819026
@@ -47,7 +47,7 @@ races:
         rank: 1
         points: 1
         elapsedTime: 3600
-        correctedTime: 3600.0
+        correctedTime: 3600
         tcfApplied: 1.000
         pi: 1.040202
         adjustment: 0.010051
@@ -56,7 +56,7 @@ races:
         rank: 2
         points: 2
         elapsedTime: 3660
-        correctedTime: 3733.2
+        correctedTime: 3733
         tcfApplied: 1.020
         pi: 1.023150
         adjustment: 0.000787
@@ -65,7 +65,7 @@ races:
         rank: 3
         points: 3
         elapsedTime: 3720
-        correctedTime: 3906.0
+        correctedTime: 3906
         tcfApplied: 1.050
         pi: 1.006648
         adjustment: -0.010838

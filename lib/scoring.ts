@@ -5,6 +5,13 @@ export const NHC_DEFAULT_ALPHA = 0.15;
 export const ECHO_DEFAULT_ALPHA = 0.25;  // Irish Sailing 2022 ECHO Guide: 75/25 club racing
 export const ECHO_REGATTA_ALPHA = 0.50;  // Irish Sailing 2022 ECHO Guide: 50/50 regattas/major events
 
+// Round-half-up to whole seconds. Matches HalSail/Sailwave display and ranking,
+// so ties surface at the second boundary instead of being broken by sub-second
+// float jitter (see issue #97).
+export function roundCorrectedSecs(elapsedSecs: number, tcf: number): number {
+  return Math.floor(elapsedSecs * tcf + 0.5);
+}
+
 /**
  * Calculate race scores for all competitors in a series.
  *
@@ -295,7 +302,7 @@ export function calculateHandicapRaceScores(
       continue;
     }
     const et = finishSeconds - startSeconds;
-    const ct = et * tcf;
+    const ct = roundCorrectedSecs(et, tcf);
     candidates.push({ competitorId: competitor.id, elapsedTime: et, correctedTime: ct, tcfApplied: tcf, resultCode: null, isFinisher: true });
   }
 

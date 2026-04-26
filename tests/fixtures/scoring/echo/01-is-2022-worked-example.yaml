@@ -19,10 +19,10 @@ notes: |
   The engine matches the formula in every row. The expected new_H values below
   are the formula-correct values — see project_is_2022_echo_table_typo memory.
 
-  Computed reference values (full precision):
+  Computed reference values:
     ΣH_S            = 10.221
     Σ(1/T_E)        ≈ 0.00276745386 (in 1/seconds)
-    CT_avg          = 3706.71
+    CT_avg          = 3706.6  (mean of rounded per-boat CTs)
 
 series:
   discardThresholds: []
@@ -90,7 +90,7 @@ races:
     aggregates:
       alpha: 0.25
       finisherCount: 10
-      ctAvg: 3706.71
+      ctAvg: 3706.6
       meanTcf: 1.0221
       sumH: 10.221
       sumReciprocalEt: 0.0027674538632992
@@ -101,7 +101,7 @@ races:
         rank: 4
         points: 4
         elapsedTime: 3600
-        correctedTime: 3603.6
+        correctedTime: 3604
         tcfApplied: 1.001
         pi: 1.025913
         adjustment: 0.006228
@@ -110,7 +110,7 @@ races:
         rank: 7
         points: 7
         elapsedTime: 3660
-        correctedTime: 3714.9
+        correctedTime: 3715
         tcfApplied: 1.015
         pi: 1.009095
         adjustment: -0.001476
@@ -119,7 +119,7 @@ races:
         rank: 9
         points: 9
         elapsedTime: 3960
-        correctedTime: 4039.2
+        correctedTime: 4039
         tcfApplied: 1.020
         pi: 0.932648
         adjustment: -0.021838
@@ -128,7 +128,7 @@ races:
         rank: 5
         points: 5
         elapsedTime: 3540
-        correctedTime: 3610.8
+        correctedTime: 3611
         tcfApplied: 1.020
         pi: 1.043301
         adjustment: 0.005825
@@ -137,7 +137,7 @@ races:
         rank: 8
         points: 8
         elapsedTime: 3360
-        correctedTime: 3746.4
+        correctedTime: 3746
         tcfApplied: 1.115
         pi: 1.099192
         adjustment: -0.003952
@@ -146,7 +146,7 @@ races:
         rank: 10
         points: 10
         elapsedTime: 4200
-        correctedTime: 4200.0
+        correctedTime: 4200
         tcfApplied: 1.000
         pi: 0.879354
         adjustment: -0.030162
@@ -155,7 +155,7 @@ races:
         rank: 1
         points: 1
         elapsedTime: 3360
-        correctedTime: 3427.2
+        correctedTime: 3427
         tcfApplied: 1.020
         pi: 1.099192
         adjustment: 0.019798
@@ -164,7 +164,7 @@ races:
         rank: 3
         points: 3
         elapsedTime: 3540
-        correctedTime: 3575.4
+        correctedTime: 3575
         tcfApplied: 1.010
         pi: 1.043301
         adjustment: 0.008325
@@ -173,7 +173,7 @@ races:
         rank: 6
         points: 6
         elapsedTime: 3660
-        correctedTime: 3678.3
+        correctedTime: 3678
         tcfApplied: 1.005
         pi: 1.009095
         adjustment: 0.001024
@@ -182,7 +182,7 @@ races:
         rank: 2
         points: 2
         elapsedTime: 3420
-        correctedTime: 3471.3
+        correctedTime: 3471
         tcfApplied: 1.015
         pi: 1.079908
         adjustment: 0.016227

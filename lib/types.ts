@@ -160,7 +160,7 @@ export interface RaceScore {
 // Calculated, not stored — extends RaceScore with handicap time fields
 export interface HandicapRaceScore extends RaceScore {
   elapsedTime: number | null;    // seconds; null for coded finishes or missing start time
-  correctedTime: number | null;  // seconds; null for coded finishes or missing rating
+  correctedTime: number | null;  // integer seconds, rounded half-up; null for coded finishes or missing rating
   tcfApplied: number | null;     // TCF used this race (TCC, 1000/PY, or NHC race-N TCF); null if no rating
   newTcf: number | null;         // TCF for race N+1; null for static systems (IRC/PY) or no rating
   nhc?: NhcRaceCalc;             // present iff fleet.scoringSystem === 'nhc' AND finisher

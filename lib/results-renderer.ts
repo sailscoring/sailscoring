@@ -4,6 +4,7 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
   isFieldDisabledByPrimary,
 } from './competitor-fields';
+import { roundCorrectedSecs } from './scoring';
 
 // ---- Input types ----
 
@@ -104,7 +105,7 @@ export interface RaceResultData {
   tcc?: number;              // Time Correction Factor (TCC for IRC, 1000/PY for PY)
   finishTime?: string;       // "HH:MM:SS"
   elapsedTimeSecs?: number;  // integer seconds (finishTime − startTime)
-  correctedTimeSecs?: number; // float seconds (elapsedTimeSecs × tcc)
+  correctedTimeSecs?: number; // integer seconds, rounded half-up (elapsedTimeSecs × tcc)
   // NHC fields — only set for NHC fleets when explainability is enabled
   nhc?: NhcCellData;
   // ECHO fields — only set for ECHO fleets when explainability is enabled
@@ -680,14 +681,10 @@ function formatDurationSecs(secs: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-/** Format corrected time (float seconds) as H:MM:SS.d or M:SS.d */
+/** Format corrected time as H:MM:SS or M:SS. Per-finisher CT is already
+ *  integer seconds; the NHC ctAvg header is a float, so round half-up here. */
 function formatCorrectedSecs(secs: number): string {
-  const h = Math.floor(secs / 3600);
-  const rem = secs % 3600;
-  const m = Math.floor(rem / 60);
-  const s = (rem % 60).toFixed(1);
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${s.padStart(4, '0')}`;
-  return `${m}:${s.padStart(4, '0')}`;
+  return formatDurationSecs(Math.floor(secs + 0.5));
 }
 
 /** Escape HTML special characters */
@@ -786,7 +783,7 @@ export function assembleSeriesResultsData(
         if (tcc != null && score.finishTime) {
           const finishSecs = parseTimeSecs(score.finishTime);
           elapsedTimeSecs = finishSecs - startSecs;
-          correctedTimeSecs = elapsedTimeSecs * tcc;
+          correctedTimeSecs = roundCorrectedSecs(elapsedTimeSecs, tcc);
         }
       }
 

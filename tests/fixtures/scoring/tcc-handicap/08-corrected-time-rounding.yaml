@@ -1,0 +1,85 @@
+description: "IRC — corrected time rounded to whole seconds; sub-second float jitter must not reverse rank"
+rrs_notes: "HalSail and Sailwave round corrected time to whole seconds for both ranking and display. Two boats whose float CTs differ by <1 s but round to the same integer second tie under RRS A7."
+
+# Reproduces Volvo DLR 2025 CR2 IRC Race 2:
+#
+# Start 14:00:00 (= 50400 s since midnight)
+#
+# Boat 1357 (TCC 0.975): finish 14:44:27 → ET 2667 s → CT 2667 × 0.975 = 2600.325
+# Boat 7347 (TCC 0.970): finish 14:44:40 → ET 2680 s → CT 2680 × 0.970 = 2599.600
+#
+# Both round half-up to 2600, so they tie at the line. Without rounding, the
+# floats differ by ~0.7 s and rank reverses relative to HalSail.
+#
+# Boat 0001 (TCC 1.000): finish 14:50:00 → ET 3000 s → CT 3000.0 → 3rd, no tie.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - sailNumber: "1357"
+    name: "Humdinger"
+    ircTcc: 0.975
+  - sailNumber: "7347"
+    name: "Daydream Believer"
+    ircTcc: 0.970
+  - sailNumber: "0001"
+    name: "Tail Ender"
+    ircTcc: 1.000
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - sailor: "1357"
+        finishTime: "14:44:27"
+      - sailor: "7347"
+        finishTime: "14:44:40"
+      - sailor: "0001"
+        finishTime: "14:50:00"
+    expected:
+      - sailor: "1357"
+        rank: 1
+        points: 1.5
+        elapsedTime: 2667
+        correctedTime: 2600
+        tcfApplied: 0.975
+      - sailor: "7347"
+        rank: 1
+        points: 1.5
+        elapsedTime: 2680
+        correctedTime: 2600
+        tcfApplied: 0.970
+      - sailor: "0001"
+        rank: 3
+        points: 3
+        elapsedTime: 3000
+        correctedTime: 3000
+        tcfApplied: 1.000
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1357"
+      racePoints: [1.5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1.5
+      netPoints: 1.5
+    - rank: 1
+      sailor: "7347"
+      racePoints: [1.5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1.5
+      netPoints: 1.5
+    - rank: 3
+      sailor: "0001"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3

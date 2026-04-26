@@ -38,7 +38,7 @@ races:
     aggregates:
       alpha: 0.50
       finisherCount: 3
-      ctAvg: 3746.4
+      ctAvg: 3746.333333
       meanTcf: 1.023333333
       sumH: 3.07
       sumReciprocalEt: 0.000819819026
