@@ -304,8 +304,8 @@ function renderNhcExplainer(): string {
 <dt>CT ratio</dt><dd>&mdash; this boat&rsquo;s corrected time divided by the fleet average.</dd>
 <dt>Fair TCF</dt><dd>&mdash; the TCF that would have produced the average CT.</dd>
 <dt>Adjustment</dt><dd>&mdash; &alpha; &times; (Fair TCF &minus; TCF), the signed shift applied to TCF.</dd>
-<dt>New TCF</dt><dd>&mdash; the rating to apply in the next race. Non-finishers carry their TCF unchanged.</dd>
 </dl>
+<p>The resulting <strong>New TCF</strong> (always shown alongside Finish/ET/TCF/CT) is the rating to apply in the next race. Non-finishers carry their TCF unchanged.</p>
 </div>`;
 }
 
@@ -323,8 +323,8 @@ function renderEchoExplainer(): string {
 <dt>1/T_E</dt><dd>&mdash; reciprocal of this boat&rsquo;s elapsed time, in s&minus;&sup1;.</dd>
 <dt>PI</dt><dd>&mdash; Performance Index for this boat in this race.</dd>
 <dt>Adjustment</dt><dd>&mdash; &alpha; &times; (PI &minus; H), the signed shift applied to H.</dd>
-<dt>New H</dt><dd>&mdash; the handicap to apply in the next race. Non-finishers carry their H unchanged.</dd>
 </dl>
+<p>The resulting <strong>New H</strong> (always shown alongside Finish/ET/Starting H/CT) is the handicap to apply in the next race. Non-finishers carry their H unchanged.</p>
 </div>`;
 }
 
@@ -458,6 +458,8 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
             `<td class="mono">${r.correctedTimeSecs != null ? formatCorrectedSecs(r.correctedTimeSecs) : ''}</td>`,
           ]
         : [];
+      const nhcNewTcfCell = isNhc ? [renderNhcNewTcfCell(r)] : [];
+      const echoNewHCell = isEcho ? [renderEchoNewHCell(r)] : [];
       const nhcCells = hasExplain ? renderNhcCells(r) : [];
       const echoCells = hasEchoExplain ? renderEchoCells(r) : [];
       return [
@@ -470,6 +472,8 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
         ...(showHelm ? [`<td>${esc(r.helmRole ?? '')}</td>`] : []),
         ...(showOwner ? [`<td>${esc(r.owner ?? '')}</td>`] : []),
         ...handicapCells,
+        ...nhcNewTcfCell,
+        ...echoNewHCell,
         ...nhcCells,
         ...echoCells,
         `<td>${pointsText}</td>`,
@@ -479,29 +483,43 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
     .join('\n');
 
   const baseColCount = 4 + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0);
-  const colCount = baseColCount + (hasHandicapCols ? 4 : 0) + (hasExplain ? 4 : 0) + (hasEchoExplain ? 4 : 0);
+  const colCount = baseColCount
+    + (hasHandicapCols ? 4 : 0)
+    + (isNhc ? 1 : 0) + (hasExplain ? 3 : 0)
+    + (isEcho ? 1 : 0) + (hasEchoExplain ? 3 : 0);
   const handicapHeaders = hasHandicapCols
     ? `\n<th>Finish</th>\n<th>ET</th>\n<th>${ratingLabel}</th>\n<th>CT</th>`
     : '';
   const handicapCols = hasHandicapCols
     ? `\n<col class="finish" />\n<col class="et" />\n<col class="${ratingColClass}" />\n<col class="ct" />`
     : '';
+  // "New TCF" is always visible for NHC fleets (alongside Finish/ET/TCF/CT) —
+  // it's the next-race rating, the headline output of progressive scoring, so
+  // it shows even when the scorer has opted out of publishing the underlying
+  // calculations. The CT ratio / Fair TCF / Adjustment columns remain under
+  // the calculation toggle for verification.
+  const nhcNewTcfHeader = isNhc ? '\n<th>New TCF</th>' : '';
+  const nhcNewTcfCol = isNhc ? '\n<col class="newtcf" />' : '';
   const nhcHeaders = hasExplain
-    ? '\n<th class="nhc-detail">CT ratio</th>\n<th class="nhc-detail">Fair TCF</th>\n<th class="nhc-detail">Adjustment</th>\n<th class="nhc-detail">New TCF</th>'
+    ? '\n<th class="nhc-detail">CT ratio</th>\n<th class="nhc-detail">Fair TCF</th>\n<th class="nhc-detail">Adjustment</th>'
     : '';
   const nhcCols = hasExplain
-    ? '\n<col class="ctratio nhc-detail" />\n<col class="fairtcf nhc-detail" />\n<col class="adjustment nhc-detail" />\n<col class="newtcf nhc-detail" />'
+    ? '\n<col class="ctratio nhc-detail" />\n<col class="fairtcf nhc-detail" />\n<col class="adjustment nhc-detail" />'
     : '';
   const nhcSubheading = hasExplain
     ? `<p class="nhc-fleet-header nhc-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: NHC1 &middot; α = ${race.nhcHeader!.alpha} &middot; Finishers: ${race.nhcHeader!.finisherCount} &middot; CT_avg: ${formatCorrectedSecs(race.nhcHeader!.ctAvgSecs)} &middot; mean TCF: ${race.nhcHeader!.meanTcf.toFixed(4)}</p>`
     : '';
-  // ECHO IS-notation columns: 1/T_E, PI, Adjustment, New H — all hidden under
-  // the ECHO viewer toggle. Header reproduces the IS-formula inputs.
+  // ECHO IS-notation columns: 1/T_E, PI, Adjustment hide under the calculation
+  // toggle; New H is always visible for ECHO fleets so competitors see next
+  // race's handicap regardless of whether the math is being published. Header
+  // reproduces the IS-formula inputs.
+  const echoNewHHeader = isEcho ? '\n<th>New H</th>' : '';
+  const echoNewHCol = isEcho ? '\n<col class="newh" />' : '';
   const echoHeaders = hasEchoExplain
-    ? '\n<th class="echo-detail">1/T_E</th>\n<th class="echo-detail">PI</th>\n<th class="echo-detail">Adjustment</th>\n<th class="echo-detail">New H</th>'
+    ? '\n<th class="echo-detail">1/T_E</th>\n<th class="echo-detail">PI</th>\n<th class="echo-detail">Adjustment</th>'
     : '';
   const echoCols = hasEchoExplain
-    ? '\n<col class="recip echo-detail" />\n<col class="pi echo-detail" />\n<col class="adjustment echo-detail" />\n<col class="newh echo-detail" />'
+    ? '\n<col class="recip echo-detail" />\n<col class="pi echo-detail" />\n<col class="adjustment echo-detail" />'
     : '';
   const echoSubheading = hasEchoExplain
     ? `<p class="echo-fleet-header echo-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: ECHO &middot; α = ${race.echoHeader!.alpha} &middot; Finishers: ${race.echoHeader!.finisherCount} &middot; ΣH_S = ${race.echoHeader!.sumH.toFixed(3)} &middot; Σ(1/T_E) = ${race.echoHeader!.sumReciprocalEt.toFixed(5)}${race.echoHeader!.updateSuppressed ? ' &middot; <strong>Rating update suppressed (fewer than 3 finishers)</strong>' : ''}</p>`
@@ -514,14 +532,14 @@ ${nhcSubheading}${echoSubheading}<table class="racetable" cellspacing="0" cellpa
 <col class="rank" />
 <col class="sailno" />
 ${showBoatName ? '<col class="boatname" />\n' : ''}${showBoatClass ? '<col class="boatclass" />\n' : ''}<col class="helmname" />
-${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\n' : ''}${handicapCols}${nhcCols}${echoCols}
+${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\n' : ''}${handicapCols}${nhcNewTcfCol}${echoNewHCol}${nhcCols}${echoCols}
 <col class="points" />
 </colgroup>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
 <th>Sail</th>
-${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? '\n<th>Helm</th>' : ''}${showOwner ? '\n<th>Owner</th>' : ''}${handicapHeaders}${nhcHeaders}${echoHeaders}
+${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? '\n<th>Helm</th>' : ''}${showOwner ? '\n<th>Owner</th>' : ''}${handicapHeaders}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
 <th>Points</th>
 </tr>
 </thead>
@@ -531,74 +549,72 @@ ${rows}
 </table>`;
 }
 
-/** Render the four NHC explainability cells for one row. Rating/finish/ET/CT
- *  have been promoted to always-visible columns so non-scratch race tables
- *  always carry that data; this helper only emits the four cells that hide
- *  under the viewer toggle.
+/** Render the always-visible "New TCF" cell for one row. The next-race rating
+ *  is the headline output of progressive scoring, so we surface it alongside
+ *  Finish/ET/TCF/CT rather than hiding it under the calculation toggle.
+ *  Non-finishers carry their TCF unchanged; the cell shows "unchanged". */
+function renderNhcNewTcfCell(r: RaceResultData): string {
+  const nhc = r.nhc;
+  if (!nhc) return `<td></td>`;
+  if (!nhc.isFinisher) return `<td class="mono">unchanged</td>`;
+  return `<td class="mono">${nhc.newTcf.toFixed(3)}</td>`;
+}
+
+/** Render the three NHC explainability cells for one row. Rating/finish/ET/CT
+ *  and New TCF are always-visible columns rendered elsewhere; this helper
+ *  only emits the three cells that hide under the viewer toggle.
  *
- *  Non-finishers leave the three computational cells blank and show
- *  "unchanged" in the New TCF column. The verification contract: a competitor
- *  with a calculator should be able to reproduce New TCF from these published
- *  values via TCF + α × (Fair TCF − TCF). */
+ *  Non-finishers leave the three computational cells blank. The verification
+ *  contract: a competitor with a calculator should be able to reproduce the
+ *  always-visible New TCF from these published values via
+ *  TCF + α × (Fair TCF − TCF). */
 function renderNhcCells(r: RaceResultData): string[] {
   const nhc = r.nhc;
-  if (!nhc) {
+  if (!nhc || !nhc.isFinisher) {
     return [
       `<td class="nhc-detail"></td>`,
       `<td class="nhc-detail"></td>`,
       `<td class="nhc-detail"></td>`,
-      `<td class="nhc-detail"></td>`,
-    ];
-  }
-  if (!nhc.isFinisher) {
-    return [
-      `<td class="nhc-detail"></td>`,
-      `<td class="nhc-detail"></td>`,
-      `<td class="nhc-detail"></td>`,
-      `<td class="mono nhc-detail">unchanged</td>`,
     ];
   }
   return [
     `<td class="mono nhc-detail">${nhc.ctRatio != null ? nhc.ctRatio.toFixed(4) : ''}</td>`,
     `<td class="mono nhc-detail">${nhc.fairTcf != null ? nhc.fairTcf.toFixed(4) : ''}</td>`,
     `<td class="mono nhc-detail">${nhc.adjustment != null ? formatSigned(nhc.adjustment, 4) : ''}</td>`,
-    `<td class="mono nhc-detail">${nhc.newTcf.toFixed(3)}</td>`,
   ];
 }
 
-/** Render the four ECHO IS-notation explainability cells for one row. The
- *  rating/finish/ET/CT columns (always-visible) carry the static handicap
- *  data; this helper only emits the four cells that hide under the ECHO
- *  viewer toggle.
+/** Render the always-visible "New H" cell for one row. Mirrors
+ *  renderNhcNewTcfCell for ECHO. */
+function renderEchoNewHCell(r: RaceResultData): string {
+  const echo = r.echo;
+  if (!echo) return `<td></td>`;
+  if (!echo.isFinisher) return `<td class="mono">unchanged</td>`;
+  return `<td class="mono">${echo.newH.toFixed(3)}</td>`;
+}
+
+/** Render the three ECHO IS-notation explainability cells for one row. The
+ *  rating/finish/ET/CT columns and New H (always-visible) are rendered
+ *  elsewhere; this helper only emits the three cells that hide under the
+ *  ECHO viewer toggle.
  *
- *  Non-finishers leave the three computational cells blank and show
- *  "unchanged" in the New H column. The verification contract: a competitor
- *  with a calculator should be able to reproduce New H from these published
- *  values via H + α × (PI − H), with PI verifiable from ΣH_S, T_E, and the
- *  fleet-header Σ(1/T_E). */
+ *  Non-finishers leave the three computational cells blank. The verification
+ *  contract: a competitor with a calculator should be able to reproduce the
+ *  always-visible New H from these published values via H + α × (PI − H),
+ *  with PI verifiable from ΣH_S, T_E, and the fleet-header Σ(1/T_E). */
 function renderEchoCells(r: RaceResultData): string[] {
   const echo = r.echo;
-  if (!echo) {
+  if (!echo || !echo.isFinisher) {
     return [
       `<td class="echo-detail"></td>`,
       `<td class="echo-detail"></td>`,
       `<td class="echo-detail"></td>`,
-      `<td class="echo-detail"></td>`,
-    ];
-  }
-  if (!echo.isFinisher) {
-    return [
-      `<td class="echo-detail"></td>`,
-      `<td class="echo-detail"></td>`,
-      `<td class="echo-detail"></td>`,
-      `<td class="mono echo-detail">unchanged</td>`,
     ];
   }
   return [
     `<td class="mono echo-detail">${echo.reciprocalEt != null ? echo.reciprocalEt.toFixed(5) : ''}</td>`,
     `<td class="mono echo-detail">${echo.pi != null ? echo.pi.toFixed(4) : ''}</td>`,
     `<td class="mono echo-detail">${echo.adjustment != null ? formatSigned(echo.adjustment, 4) : ''}</td>`,
-    `<td class="mono echo-detail">${echo.newH.toFixed(3)}</td>`,
   ];
 }
 
@@ -787,21 +803,27 @@ export function assembleSeriesResultsData(
         }
       }
 
-      const nhcCell: NhcCellData | undefined = isNhcExplain && score.tcfApplied != null && score.newTcf != null
+      // The next-race rating (newTcf / newH) is shown unconditionally for NHC/ECHO
+      // fleets — it's the headline output of progressive scoring, useful even when
+      // the scorer has opted out of publishing the underlying calculations. The
+      // calc-detail fields (ctRatio/fairTcf/adjustment for NHC; pi/reciprocalEt
+      // for ECHO) only get attached when explainability is being published; the
+      // renderer hides them under the viewer toggle.
+      const nhcCell: NhcCellData | undefined = scoringSystem === 'nhc' && score.tcfApplied != null && score.newTcf != null
         ? {
             tcfApplied: score.tcfApplied,
             newTcf: score.newTcf,
             isFinisher: score.nhc != null,
-            ...(score.nhc ? { ctRatio: score.nhc.ctRatio, fairTcf: score.nhc.fairTcf, adjustment: score.nhc.adjustment } : {}),
+            ...(isNhcExplain && score.nhc ? { ctRatio: score.nhc.ctRatio, fairTcf: score.nhc.fairTcf, adjustment: score.nhc.adjustment } : {}),
           }
         : undefined;
 
-      const echoCell: EchoCellData | undefined = isEchoExplain && score.tcfApplied != null && score.newTcf != null
+      const echoCell: EchoCellData | undefined = scoringSystem === 'echo' && score.tcfApplied != null && score.newTcf != null
         ? {
             startingH: score.tcfApplied,
             newH: score.newTcf,
             isFinisher: score.echo != null,
-            ...(score.echo
+            ...(isEchoExplain && score.echo
               ? {
                   pi: score.echo.fairTcf,
                   adjustment: score.echo.adjustment,

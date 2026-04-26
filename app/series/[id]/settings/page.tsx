@@ -346,8 +346,8 @@ function PublishingCard({ seriesId, series, anyProgressiveFleet }: { seriesId: s
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Adds per-race rating-calculation columns and a brief explainer so competitors can
                   verify each rating update with a calculator. NHC fleets get CT ratio, Fair TCF,
-                  Adjustment, and New TCF; ECHO fleets get 1/T_E, PI, Adjustment, and New H. The
-                  rating, finish, elapsed, and corrected-time columns are always shown.
+                  and Adjustment; ECHO fleets get 1/T_E, PI, and Adjustment. The rating, finish,
+                  elapsed, corrected-time, and next-rating columns are always shown.
                 </p>
               </div>
             </div>

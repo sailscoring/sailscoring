@@ -548,16 +548,20 @@ export default function HelpPage() {
           </li>
         </ul>
         <p>
-          For NHC and ECHO, the published HTML results page includes a{' '}
+          For NHC and ECHO, every per-race table includes a{' '}
+          <strong className="text-foreground">New TCF</strong> (or{' '}
+          <strong className="text-foreground">New H</strong>) column showing the rating
+          to apply in the next race — that&rsquo;s usually the most-asked-about output
+          of progressive scoring, so it&rsquo;s always visible. Above the table, a{' '}
           <strong className="text-foreground">
             Show NHC/ECHO rating calculations
           </strong>{' '}
-          checkbox at the top. Ticking it reveals the per-race intermediate values
-          (CT ratio, Fair TCF, Adjustment, New TCF for NHC; 1/T_E, PI, Adjustment,
-          New H for ECHO) along with a brief explainer of the formula. Sailors and
-          rating officers can use those columns to verify the rating updates with a
-          calculator. The toggle is off by default — readers who only want the
-          standings see a clean page; those who want the math tick the box.
+          checkbox reveals the per-race intermediate values (CT ratio, Fair TCF,
+          Adjustment for NHC; 1/T_E, PI, Adjustment for ECHO) along with a brief
+          explainer of the formula. Sailors and rating officers can use those columns
+          to verify the rating updates with a calculator. The toggle is off by default
+          — readers who only want the standings and next ratings see a clean page;
+          those who want the math tick the box.
         </p>
         <p>
           Whether to publish the rating calculations is a per-series setting on the{' '}

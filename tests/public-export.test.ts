@@ -81,18 +81,19 @@ describe('renderSeriesHtml — NHC explainability', () => {
               finishTime: '14:50:00',
               elapsedTimeSecs: 3000,
               correctedTimeSecs: 3000,
-              ...(toggleOn ? {
-                nhc: { tcfApplied: 1.0, newTcf: 1.015, ctRatio: 1.10, fairTcf: 1.10, adjustment: 0.015, isFinisher: true },
-              } : {}),
+              // newTcf shows in the always-visible column even with the toggle off;
+              // the calc fields (ctRatio/fairTcf/adjustment) only land on the cell
+              // when explainability is being published.
+              nhc: toggleOn
+                ? { tcfApplied: 1.0, newTcf: 1.015, ctRatio: 1.10, fairTcf: 1.10, adjustment: 0.015, isFinisher: true }
+                : { tcfApplied: 1.0, newTcf: 1.015, isFinisher: true },
             },
             {
               sailNumber: '2', helm: 'Beta',
               place: null, rank: null, points: 4,
               resultCode: 'DNF', penaltyCode: null, penaltyOverride: null,
               tcc: 1.05,
-              ...(toggleOn ? {
-                nhc: { tcfApplied: 1.05, newTcf: 1.05, isFinisher: false },
-              } : {}),
+              nhc: { tcfApplied: 1.05, newTcf: 1.05, isFinisher: false },
             },
           ],
         },
@@ -110,7 +111,9 @@ describe('renderSeriesHtml — NHC explainability', () => {
     expect(html).toContain('<th class="nhc-detail">CT ratio</th>');
     expect(html).toContain('<th class="nhc-detail">Fair TCF</th>');
     expect(html).toContain('<th class="nhc-detail">Adjustment</th>');
-    expect(html).toContain('<th class="nhc-detail">New TCF</th>');
+    // New TCF is always-visible (no nhc-detail class)
+    expect(html).toContain('<th>New TCF</th>');
+    expect(html).not.toContain('<th class="nhc-detail">New TCF</th>');
   });
 
   it('renders per-finisher NHC values to the documented precision', () => {
@@ -127,14 +130,22 @@ describe('renderSeriesHtml — NHC explainability', () => {
     expect(html).toContain('unchanged');
   });
 
-  it('omits rating-calculation columns and fleet header when nhcHeader is absent (toggle off)', () => {
+  it('omits calc-detail columns and fleet header when nhcHeader is absent, but keeps New TCF', () => {
     const html = renderSeriesHtml(nhcData(false));
     expect(html).not.toContain('Rating system: NHC1');
     expect(html).not.toContain('<th class="nhc-detail">CT ratio</th>');
     expect(html).not.toContain('<th class="nhc-detail">Fair TCF</th>');
     expect(html).not.toContain('<th class="nhc-detail">Adjustment</th>');
-    expect(html).not.toContain('<th class="nhc-detail">New TCF</th>');
-    // But rating, finish, elapsed, and corrected columns stay visible
+    // New TCF is always-visible for NHC fleets — the next-race rating shows
+    // even when the scorer has opted out of publishing the underlying math.
+    expect(html).toContain('<th>New TCF</th>');
+    expect(html).toContain('<col class="newtcf" />');
+    expect(html).toMatch(/<td class="mono">1\.015<\/td>/);
+    expect(html).toContain('unchanged');
+    // The toggle, body class, and explainer prose remain absent.
+    expect(html).not.toContain('nhc-detail-toggle');
+    expect(html).not.toContain('nhc-explainer');
+    // Rating, finish, elapsed, and corrected columns stay visible too
     expect(html).toContain('<th>TCF</th>');
     expect(html).toContain('<th>Finish</th>');
     expect(html).toContain('<th>ET</th>');
