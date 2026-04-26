@@ -151,6 +151,43 @@ Sailwave's behaviour here is worth checking before designing.
 
 ---
 
+## Deferred handicap-system work
+
+Variants and refinements of the existing handicap engine, designed against
+the relevant specifications but not implemented. Held back pending real
+demand from a target series. Detail in `docs/design/handicap-scoring.md`.
+
+### RYA NHC 2015
+
+The published RYA NHC algorithm — asymmetric coefficients, base-number
+realignment, finisher-only adjustment. Distinct from the implemented NHC1
+(Sailwave's built-in α=0.15 symmetric variant).
+
+### SWNHC2015
+
+Sailwave's implementation of NHC 2015. Deviates from the published RYA
+spec in specific edge cases.
+
+### Scoring-inquiry rating adjustments
+
+NHC and ECHO can be configured to exclude specific results (e.g. RDG, BFD,
+DSQ) from the rating calculation while still counting them for series
+points. Currently every participating boat is adjusted on every race.
+
+### Series-level rating-history page
+
+A view across the whole series showing each boat's rating evolution race
+by race, with the existing per-race explainability columns rolled up.
+Per-race explainability is implemented; the series-level rollup is not.
+
+### Phase 3: ORC Club
+
+A more elaborate handicap system used internationally for offshore
+racing, distinct from IRC. Out of scope for HYC and IODAI but the
+obvious next system after IRC, NHC, and ECHO.
+
+---
+
 ## AI and automation
 
 ### LLM-drafted changelog entries

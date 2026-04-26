@@ -48,18 +48,26 @@ Build the smallest version of Sail Scoring that can score real events for two ta
 
 1. **IODAI events** -- position-based scratch scoring for large one-design fleets with mixed-division finish entry, standard Appendix A scoring, and result codes. (See [IODAI use case](requirements/iodai-use-case.md).) **Status: complete.** Milestone 1 delivered the full IODAI workflow including scratch scoring, all RRS Appendix A result codes, discards, CSV competitor import, and results publishing.
 
-2. **HYC Autumn League** -- time-based finish entry with handicap correction (IRC and progressive HPH/NHC), dual scoring from a single finish time, and per-race rating adjustments. (See [HYC use case](requirements/hyc-use-case.md).) **Status: partially complete.** Phase 1 handicap scoring (IRC and PY with static correction factors) is built, along with multi-fleet competitors, the finish sheet model for mixed timed/untimed entry, and per-fleet start groups. The remaining work is progressive handicaps (HPH/NHC): the NHC1 adjustment algorithm, per-race rating persistence, and the race commit workflow.
+2. **HYC Autumn League** -- time-based finish entry with handicap correction (IRC and progressive HPH/NHC), dual scoring from a single finish time, and per-race rating adjustments. (See [HYC use case](requirements/hyc-use-case.md).) **Status: complete.** Phase 1 (IRC, PY) and Phase 2 (NHC1 progressive handicap and ECHO) are built, along with multi-fleet competitors, the finish sheet model for mixed timed/untimed entry, per-fleet start groups, per-race rating persistence, and rating-calculation explainability. Several handicap-system variants and refinements are deferred — see `docs/design/handicap-scoring.md` and the horizon doc.
 
 The MVP must demonstrate that Sail Scoring can handle both of these use cases end-to-end: from event setup and competitor registration, through result entry and scoring, to published standings.
 
 ### Stealth Beta
 
-Once the MVP is functional, introduce it to a small number of carefully chosen early adopters:
+**Status: in progress.** The stealth beta has begun with scorers at HYC, who are currently reviewing historical events in the application. Live race-day scoring has not yet been attempted.
+
+The intent of this phase is to introduce the application to a small number of carefully chosen early adopters:
 
 - **Goal:** Validate that the application works in real scoring conditions, collect feedback, and build confidence before any wider release.
 - **Audience:** Trusted scorers at HYC and IODAI, and potentially one or two other Irish clubs with similar needs.
 - **First impressions matter.** Early adopters are doing the project a favour by investing their time and trust. The application must be reliable, the results must be correct, and the experience must be noticeably better than Sailwave for their use cases -- even if feature coverage is narrower.
 - **Deployment:** Hosted as a web application, with hosting costs borne by the project founder during this period.
+
+### Full-Stack Transition
+
+The MVP is a local-first web application with data stored in the browser via IndexedDB ([ADR-003](design/decisions/003-application-architecture.md)). The transition to a full-stack application — server-side database, user accounts, multi-device access, scorer collaboration — is an inevitability, not a question of if. ADR-003 was structured to make this a migration rather than a rewrite: the repository pattern, the pure scoring engine, shared TypeScript types, and JSON export/import as the migration format are all in place.
+
+Whether this transition becomes essential during the stealth beta is unclear. The local-first model causes friction even for early adopters: data is trapped in one browser, results visible to one scorer aren't visible to others, and collaboration depends on shared `.sailscoring` files. Whether that friction is tolerable for the duration of the beta — or materially gets in the way of validating the product — will become clearer as scorers move from reviewing historical events to scoring live ones.
 
 ### Near-Term Non-Goals
 
