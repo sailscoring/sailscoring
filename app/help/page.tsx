@@ -31,6 +31,7 @@ export default function HelpPage() {
           ['#creating-a-series', 'Creating a series'],
           ['#adding-competitors', 'Adding competitors'],
           ['#fleets', 'Fleets'],
+          ['#start-sequences', 'Start sequences'],
           ['#importing-competitors', 'Importing competitors from CSV'],
           ['#adding-races', 'Adding races'],
           ['#entering-results', 'Entering results'],
@@ -153,6 +154,38 @@ export default function HelpPage() {
           with the ↑/↓ buttons (which determines the order they appear in standings and
           exports), and rename any fleet with the{' '}
           <strong className="text-foreground">Rename</strong> button.
+        </p>
+      </Section>
+
+      <Section id="start-sequences" title="Start sequences">
+        <p>
+          For handicap series with multiple fleets starting at staggered times, the{' '}
+          <strong className="text-foreground">Default start sequence</strong> editor (in{' '}
+          <strong className="text-foreground">Settings ▸ Fleets</strong>, visible only in
+          handicap mode) lets you describe how fleets are grouped at the start line and how
+          long the gap is between consecutive starts. Once configured, creating a new race
+          asks only for the first start time and generates the rest automatically.
+        </p>
+        <p>
+          Each row is one starting signal. Add a row with{' '}
+          <strong className="text-foreground">+ Add start group</strong>, drop one or more
+          fleets into it from the dropdown, and — for every row after the first — set the
+          interval, in minutes, between this start and the previous one. So a row labelled{' '}
+          <em>+5 min after Start 2</em> means this fleet starts five minutes after Start 2,
+          regardless of where Start 2 itself sits.
+        </p>
+        <p>
+          A typical Saturday-afternoon club setup with three classes at 5-minute intervals
+          looks like this:
+        </p>
+        <ul className="ml-6 list-disc space-y-1">
+          <li>Start 1: <em>Class A</em></li>
+          <li>Start 2: <em>Class B</em>, +5 min after Start 1</li>
+          <li>Start 3: <em>Class C</em>, +5 min after Start 2</li>
+        </ul>
+        <p>
+          With a first start of 14:05, that resolves to 14:05 / 14:10 / 14:15. The new-race
+          dialog shows the resolved times as a preview before you confirm.
         </p>
       </Section>
 

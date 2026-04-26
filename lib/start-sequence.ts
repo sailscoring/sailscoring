@@ -21,10 +21,10 @@ function formatTime(totalSeconds: number): string {
 /**
  * Generate race starts from a default start sequence and a first start time.
  *
- * Each start group in the sequence has an offset in minutes from the first start.
- * The first group's offset is always 0 (ignored if non-zero).
+ * Each start group's `intervalMinutes` is the gap to the previous start. The
+ * first group's interval is always 0 (ignored if non-zero).
  *
- * @param groups - The default start sequence groups (sorted by offset)
+ * @param groups - The default start sequence groups, in start order
  * @param firstStartTime - The time of the first start, e.g. "14:05:00"
  * @returns Array of { fleetIds, startTime } for each start group
  */
@@ -36,8 +36,12 @@ export function generateStarts(
 
   const baseSeconds = parseTime(firstStartTime);
 
-  return groups.map((group, i) => ({
-    fleetIds: group.fleetIds,
-    startTime: formatTime(baseSeconds + (i === 0 ? 0 : group.offsetMinutes * 60)),
-  }));
+  let cumulativeMinutes = 0;
+  return groups.map((group, i) => {
+    if (i > 0) cumulativeMinutes += group.intervalMinutes;
+    return {
+      fleetIds: group.fleetIds,
+      startTime: formatTime(baseSeconds + cumulativeMinutes * 60),
+    };
+  });
 }

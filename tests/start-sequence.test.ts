@@ -7,19 +7,19 @@ describe('generateStarts', () => {
     expect(generateStarts([], '14:00:00')).toEqual([]);
   });
 
-  it('generates a single start with no offset', () => {
+  it('generates a single start with no interval', () => {
     const groups: StartGroup[] = [
-      { fleetIds: ['f1', 'f2'], offsetMinutes: 0 },
+      { fleetIds: ['f1', 'f2'], intervalMinutes: 0 },
     ];
     expect(generateStarts(groups, '14:05:00')).toEqual([
       { fleetIds: ['f1', 'f2'], startTime: '14:05:00' },
     ]);
   });
 
-  it('generates multiple starts with offsets', () => {
+  it('generates two starts separated by an interval', () => {
     const groups: StartGroup[] = [
-      { fleetIds: ['ilca7', 'ilca6', 'ilca4'], offsetMinutes: 0 },
-      { fleetIds: ['py', 'm15'], offsetMinutes: 3 },
+      { fleetIds: ['ilca7', 'ilca6', 'ilca4'], intervalMinutes: 0 },
+      { fleetIds: ['py', 'm15'], intervalMinutes: 3 },
     ];
     expect(generateStarts(groups, '14:05:00')).toEqual([
       { fleetIds: ['ilca7', 'ilca6', 'ilca4'], startTime: '14:05:00' },
@@ -27,11 +27,11 @@ describe('generateStarts', () => {
     ]);
   });
 
-  it('handles three start groups with different offsets', () => {
+  it('accumulates intervals across three start groups', () => {
     const groups: StartGroup[] = [
-      { fleetIds: ['c1'], offsetMinutes: 0 },
-      { fleetIds: ['c2'], offsetMinutes: 5 },
-      { fleetIds: ['c3'], offsetMinutes: 10 },
+      { fleetIds: ['c1'], intervalMinutes: 0 },
+      { fleetIds: ['c2'], intervalMinutes: 5 },
+      { fleetIds: ['c3'], intervalMinutes: 5 },
     ];
     expect(generateStarts(groups, '13:00:00')).toEqual([
       { fleetIds: ['c1'], startTime: '13:00:00' },
@@ -42,8 +42,8 @@ describe('generateStarts', () => {
 
   it('handles start times near midnight', () => {
     const groups: StartGroup[] = [
-      { fleetIds: ['f1'], offsetMinutes: 0 },
-      { fleetIds: ['f2'], offsetMinutes: 5 },
+      { fleetIds: ['f1'], intervalMinutes: 0 },
+      { fleetIds: ['f2'], intervalMinutes: 5 },
     ];
     expect(generateStarts(groups, '23:57:00')).toEqual([
       { fleetIds: ['f1'], startTime: '23:57:00' },
@@ -51,10 +51,10 @@ describe('generateStarts', () => {
     ]);
   });
 
-  it('ignores non-zero offset on first group', () => {
+  it('ignores non-zero interval on first group', () => {
     const groups: StartGroup[] = [
-      { fleetIds: ['f1'], offsetMinutes: 10 },
-      { fleetIds: ['f2'], offsetMinutes: 3 },
+      { fleetIds: ['f1'], intervalMinutes: 10 },
+      { fleetIds: ['f2'], intervalMinutes: 3 },
     ];
     expect(generateStarts(groups, '14:00:00')).toEqual([
       { fleetIds: ['f1'], startTime: '14:00:00' },

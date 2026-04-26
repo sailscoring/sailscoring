@@ -11,9 +11,12 @@ import { disambiguateSeriesName } from './series-name';
 // scorer-private fields: snapshotId, snapshotHistory, ftpHost, ftpPath, bilgeBundle,
 // and all internal UUIDs (competitors are keyed by sailNumber instead).
 
-/** Start sequence group as it appears in the public export. Matches the shape
- *  of `StartGroup` in `types.ts` but refers to fleets by name rather than by
- *  internal UUID (mirroring how `races[].starts` does). */
+/** Start sequence group as it appears in the public export. Refers to fleets
+ *  by name rather than by internal UUID (mirroring how `races[].starts` does).
+ *  Unlike the internal `StartGroup`, the public schema carries cumulative
+ *  minutes from the first start — unambiguous in JSON-as-data, and stable for
+ *  downstream consumers (e.g. bilge). The export converts intervals → cumulative
+ *  on the way out, and the importer converts cumulative → intervals on the way in. */
 export interface ExportStartGroup {
   fleetNames: string[];
   offsetMinutes: number;
@@ -349,11 +352,15 @@ export async function buildPublicExport(seriesId: string): Promise<PublicSeriesE
     })),
   }));
 
+  let cumulativeOffset = 0;
   const exportedDefaultStartSequence: ExportStartGroup[] | undefined = series.defaultStartSequence?.length
-    ? series.defaultStartSequence.map((g) => ({
-        fleetNames: g.fleetIds.map((id) => fleetNameById.get(id) ?? id),
-        offsetMinutes: g.offsetMinutes,
-      }))
+    ? series.defaultStartSequence.map((g, i) => {
+        if (i > 0) cumulativeOffset += g.intervalMinutes;
+        return {
+          fleetNames: g.fleetIds.map((id) => fleetNameById.get(id) ?? id),
+          offsetMinutes: cumulativeOffset,
+        };
+      })
     : undefined;
 
   return {
@@ -439,14 +446,21 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
   }
 
   await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory], async () => {
-    // Resolve exported defaultStartSequence (fleetNames) → internal fleetIds.
+    // Resolve exported defaultStartSequence (fleetNames) → internal fleetIds,
+    // and convert cumulative offsets back to per-step intervals.
     const importedDefaultStartSequence = data.series.defaultStartSequence?.length
-      ? data.series.defaultStartSequence
-          .map((g) => ({
-            fleetIds: g.fleetNames.map((n) => fleetIdByName.get(n)).filter((id): id is string => id != null),
-            offsetMinutes: g.offsetMinutes,
-          }))
-          .filter((g) => g.fleetIds.length > 0)
+      ? (() => {
+          const resolved = data.series.defaultStartSequence!
+            .map((g) => ({
+              fleetIds: g.fleetNames.map((n) => fleetIdByName.get(n)).filter((id): id is string => id != null),
+              offsetMinutes: g.offsetMinutes,
+            }))
+            .filter((g) => g.fleetIds.length > 0);
+          return resolved.map((g, i) => ({
+            fleetIds: g.fleetIds,
+            intervalMinutes: i === 0 ? 0 : Math.max(0, g.offsetMinutes - resolved[i - 1].offsetMinutes),
+          }));
+        })()
       : undefined;
 
     await db.series.add({

@@ -35,8 +35,8 @@ export function StartSequenceEditor({ value, fleets, onSave }: StartSequenceEdit
   const unassignedFleets = fleets.filter((f) => !assignedFleetIds.has(f.id));
 
   function addGroup() {
-    const offset = groups.length === 0 ? 0 : (groups[groups.length - 1].offsetMinutes + 3);
-    setGroups([...groups, { fleetIds: [], offsetMinutes: offset }]);
+    const intervalMinutes = groups.length === 0 ? 0 : 3;
+    setGroups([...groups, { fleetIds: [], intervalMinutes }]);
     setDirty(true);
   }
 
@@ -55,8 +55,8 @@ export function StartSequenceEditor({ value, fleets, onSave }: StartSequenceEdit
     setDirty(true);
   }
 
-  function setOffset(groupIndex: number, minutes: number) {
-    setGroups(groups.map((g, i) => i === groupIndex ? { ...g, offsetMinutes: minutes } : g));
+  function setInterval(groupIndex: number, minutes: number) {
+    setGroups(groups.map((g, i) => i === groupIndex ? { ...g, intervalMinutes: minutes } : g));
     setDirty(true);
   }
 
@@ -104,11 +104,11 @@ export function StartSequenceEditor({ value, fleets, onSave }: StartSequenceEdit
                 type="number"
                 min={1}
                 max={30}
-                value={group.offsetMinutes}
-                onChange={(e) => setOffset(i, parseInt(e.target.value, 10) || 0)}
+                value={group.intervalMinutes}
+                onChange={(e) => setInterval(i, parseInt(e.target.value, 10) || 0)}
                 className="w-14 h-6 text-xs text-center"
               />
-              <span className="text-xs text-muted-foreground">min</span>
+              <span className="text-xs text-muted-foreground">min after Start {i}</span>
             </div>
           )}
           <Button type="button" variant="ghost" size="sm" className="h-6 px-1 text-muted-foreground" onClick={() => removeGroup(i)}>×</Button>

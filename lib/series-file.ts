@@ -8,9 +8,14 @@ import { disambiguateSeriesName } from './series-name';
 /** File format version. v2 adds `Competitor.owner` and `Series.primaryPersonLabel`.
  *  v1 files load cleanly — the parser defaults the new primary label to
  *  "competitor" (the pre-v2 behaviour was effectively helm-labelled but
- *  tolerating a generic label loses nothing). */
-export const FORMAT_VERSION = 2;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2];
+ *  tolerating a generic label loses nothing).
+ *
+ *  v3 changes `Series.defaultStartSequence[*]` from `offsetMinutes` (cumulative
+ *  minutes from the first start) to `intervalMinutes` (gap to the previous
+ *  start). The parser converts v1/v2 sequences on read so callers always see
+ *  the v3 shape — see #95 for why the data model changed. */
+export const FORMAT_VERSION = 3;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -321,7 +326,24 @@ export function parseSeriesFile(content: string): SeriesFile {
   if (!Array.isArray(obj.fleets)) throw new Error('Invalid file: missing fleets');
   if (!Array.isArray(obj.competitors)) throw new Error('Invalid file: missing competitors');
   if (!Array.isArray(obj.races)) throw new Error('Invalid file: missing races');
+
+  if (obj.formatVersion < 3) migrateStartSequenceCumulativeToIntervals(obj.series);
+
   return data as SeriesFile;
+}
+
+/** v1/v2 → v3: `defaultStartSequence[i].offsetMinutes` (cumulative from first
+ *  start) becomes `intervalMinutes` (gap to previous start). Mutates in place. */
+function migrateStartSequenceCumulativeToIntervals(series: unknown): void {
+  if (typeof series !== 'object' || series === null) return;
+  const s = series as { defaultStartSequence?: unknown };
+  if (!Array.isArray(s.defaultStartSequence) || s.defaultStartSequence.length === 0) return;
+  const legacy = s.defaultStartSequence as { fleetIds: string[]; offsetMinutes: number }[];
+  const intervals: StartGroup[] = legacy.map((g, i) => ({
+    fleetIds: g.fleetIds,
+    intervalMinutes: i === 0 ? 0 : Math.max(0, g.offsetMinutes - legacy[i - 1].offsetMinutes),
+  }));
+  s.defaultStartSequence = intervals;
 }
 
 // ---- Open as new series ----

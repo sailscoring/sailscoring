@@ -257,7 +257,7 @@ export default function RacesPage({
                     {' — '}
                     {s.fleetIds.map((id) => fleetNameById.get(id) ?? id).join(', ')}
                     {i > 0 && startSequence && (
-                      <span className="text-xs text-muted-foreground ml-1">(+{startSequence[i].offsetMinutes} min)</span>
+                      <span className="text-xs text-muted-foreground ml-1">(+{startSequence[i].intervalMinutes} min after Start {i})</span>
                     )}
                   </p>
                 ))}

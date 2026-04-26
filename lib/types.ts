@@ -28,7 +28,7 @@ export type PrimaryPersonLabel = 'competitor' | 'entrant' | 'helm' | 'owner';
 
 export interface StartGroup {
   fleetIds: string[];       // fleets sharing this starting signal
-  offsetMinutes: number;    // minutes after the first start (0 for the first group)
+  intervalMinutes: number;  // minutes after the previous start (0 for the first group)
 }
 
 export interface Series {
