@@ -256,7 +256,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                         step="0.01"
                         min="0.01"
                         max="1"
-                        className="w-16 h-7 text-xs"
+                        className="w-16 h-7 text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         onBlur={(e) => commitAlpha(fleet, e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
@@ -277,7 +277,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                         step="0.01"
                         min="0.01"
                         max="1"
-                        className="w-16 h-7 text-xs"
+                        className="w-16 h-7 text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         onBlur={(e) => commitEchoAlpha(fleet, e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
