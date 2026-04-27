@@ -13,7 +13,11 @@
     "test:e2e": "playwright test",
     "deploy": "vercel deploy",
     "deploy:prod": "vercel deploy --prod",
-    "generate:fixtures": "tsx scripts/render-scoring-fixtures.ts"
+    "generate:fixtures": "tsx scripts/render-scoring-fixtures.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "db:auth:generate": "better-auth generate --config lib/auth.ts --output lib/db/schema/auth.ts -y"
   },
   "dependencies": {
     "@types/papaparse": "^5.5.2",
@@ -31,6 +35,7 @@
     "react": "19.2.5",
     "react-dom": "19.2.5",
     "resend": "^6.12.2",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
   },
