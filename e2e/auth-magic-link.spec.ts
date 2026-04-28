@@ -52,7 +52,8 @@ test.describe('@auth magic-link sign-in', () => {
 
     await expect(page).toHaveURL(/\/account/);
     await expect(page.getByText(email)).toBeVisible();
-    await expect(page.getByText(/workspace$/i)).toBeVisible();
+    // The value (`<localpart>'s workspace`), not the label.
+    await expect(page.getByText(/'s workspace$/i)).toBeVisible();
   });
 
   test('signs out from /account', async ({ page }) => {

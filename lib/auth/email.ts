@@ -16,7 +16,14 @@ export async function sendMagicLinkEmail(args: {
   const { to, url } = args;
   const from = process.env.RESEND_FROM || FROM_DEFAULT;
 
-  if (!process.env.RESEND_API_KEY) {
+  // RFC 6761 reserves the `.test` TLD for testing; route every such
+  // address through the file logger so the @auth Playwright suite
+  // works the same locally (where RESEND_API_KEY may be set from
+  // `vercel env pull`) and in CI (where it isn't). This also catches
+  // the case where Resend is configured but unavailable.
+  const isTestAddress = /\.test$/i.test(to);
+
+  if (isTestAddress || !process.env.RESEND_API_KEY) {
     console.log(`[magic-link] to=${to} url=${url}`);
     try {
       const file = path.join(process.cwd(), 'tests', '.magic-links.log');
