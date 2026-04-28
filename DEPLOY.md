@@ -210,6 +210,34 @@ pnpm dev
 hits `/api/health`, `/sign-in`, or `/account` will fail (Postgres not
 configured) — that's expected.
 
+### With a local Postgres (podman-remote)
+
+Development typically runs inside a dev container. To run Postgres
+*outside* that container — on the host's user-level podman daemon —
+use `podman-remote`. The `-remote` suffix is what makes the command
+reach across the container boundary; plain `podman` would only see the
+dev container's own (rootless) namespace.
+
+```sh
+podman-remote run -d --name sailscoring-pg -p 5432:5432 \
+  -e POSTGRES_USER=sailscoring \
+  -e POSTGRES_PASSWORD=sailscoring \
+  -e POSTGRES_DB=sailscoring \
+  docker.io/library/postgres:17
+```
+
+The Postgres container listens on the host. From inside the dev
+container, reach it at the host address — e.g. `host.containers.internal`
+when the dev container is itself podman-managed:
+
+```
+DATABASE_URL=postgres://sailscoring:sailscoring@host.containers.internal:5432/sailscoring
+```
+
+Apply migrations with `pnpm db:migrate`. Stop with
+`podman-remote stop sailscoring-pg`; data persists in the container
+until you `podman-remote rm` it.
+
 ### With the full server backend
 
 After step 6 you should have these in `.env.local`:
