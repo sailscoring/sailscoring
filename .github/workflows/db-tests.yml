@@ -46,6 +46,9 @@ jobs:
       - name: Apply Drizzle migrations
         run: pnpm db:migrate
 
+      - name: Run schema-level Vitest suite (tests/db)
+        run: pnpm test:unit tests/db
+
       - name: Install Playwright browsers
         run: pnpm exec playwright install chromium --with-deps
 

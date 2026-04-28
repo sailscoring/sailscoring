@@ -1,20 +1,313 @@
-import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import {
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  jsonb,
+  boolean,
+  integer,
+  real,
+  index,
+  uniqueIndex,
+  check,
+} from 'drizzle-orm/pg-core';
 
 import { organization } from './auth';
+import type {
+  CompetitorFieldKey,
+  DiscardThreshold,
+  PrimaryPersonLabel,
+  StartGroup,
+  BilgeBundle,
+} from '@/lib/types';
 
 /**
- * ADR-008 Phase 1 placeholder. Real columns land in Phase 2 once the
- * full data model is translated from `lib/repository.ts` interfaces into
- * a Drizzle schema. Today this exists only so the foreign key from a
- * series to its workspace (= Better Auth organization) is exercised end
- * to end and so the migration pipeline has something non-empty to
- * generate.
+ * ADR-008 Phase 2 schema. Mirrors `lib/types.ts` 1:1.
+ *
+ * Conventions:
+ * - UUID primary keys; client-supplied (matches Dexie + JSON file format).
+ * - `workspace_id` references the Better Auth `organization.id`. Denormalised
+ *   onto `series`, `fleets`, `competitors`, `races` so tenancy filters are a
+ *   single indexed lookup; child rows of races (`race_starts`, `finishes`,
+ *   `nhc_tcf_records`) reach the workspace via their parent and don't carry
+ *   the column. App-level invariant: child saves copy `workspace_id` from
+ *   the parent series.
+ * - `version` + `updated_at` on every mutable row. Saves bump `version`;
+ *   Phase 4 wires the 409 response.
+ * - JSONB for arrays/objects we never query by content (start sequences,
+ *   discard thresholds, bilge bundle, redress arrays). `competitors.fleet_ids`
+ *   uses a real `uuid[]` with a GIN index because we *do* filter by fleet.
  */
-export const series = pgTable('series', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspaceId: text('workspace_id')
+
+// Reusable mutable-row columns.
+const versionCol = integer('version').notNull().default(1);
+const updatedAtCol = timestamp('updated_at', { withTimezone: true })
+  .notNull()
+  .defaultNow();
+
+export const series = pgTable(
+  'series',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    venue: text('venue').notNull().default(''),
+    // ISO date strings ("YYYY-MM-DD"); the engine reads them as text.
+    startDate: text('start_date').notNull().default(''),
+    endDate: text('end_date').notNull().default(''),
+    venueLogoUrl: text('venue_logo_url').notNull().default(''),
+    eventLogoUrl: text('event_logo_url').notNull().default(''),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    // File-tracking fields. Mostly carried for round-trip with the
+    // .sailscoring file format and migration of local-first data.
+    lastSnapshotId: uuid('last_snapshot_id'),
+    lastSavedAt: timestamp('last_saved_at', { withTimezone: true }),
+    lastModifiedAt: timestamp('last_modified_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    snapshotHistory: jsonb('snapshot_history')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    // Scoring config.
+    scoringMode: text('scoring_mode').notNull().default('scratch'),
+    defaultStartSequence: jsonb('default_start_sequence').$type<StartGroup[]>(),
+    discardThresholds: jsonb('discard_thresholds')
+      .$type<DiscardThreshold[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    dnfScoring: text('dnf_scoring').notNull().default('seriesEntries'),
+    // Publishing.
+    ftpHost: text('ftp_host').notNull().default(''),
+    ftpPath: text('ftp_path').notNull().default(''),
+    bilgeBundle: jsonb('bilge_bundle').$type<BilgeBundle | null>(),
+    includeJsonExport: boolean('include_json_export').notNull().default(true),
+    publishRatingCalculations: boolean('publish_rating_calculations')
+      .notNull()
+      .default(true),
+    // Display.
+    enabledCompetitorFields: jsonb('enabled_competitor_fields')
+      .$type<CompetitorFieldKey[]>()
+      .notNull()
+      .default(sql`'["boatName","club"]'::jsonb`),
+    primaryPersonLabel: text('primary_person_label')
+      .$type<PrimaryPersonLabel>()
+      .notNull()
+      .default('competitor'),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+  },
+  (table) => [
+    index('series_workspace_idx').on(table.workspaceId),
+    check(
+      'series_scoring_mode_chk',
+      sql`${table.scoringMode} in ('scratch','handicap')`,
+    ),
+    check(
+      'series_dnf_scoring_chk',
+      sql`${table.dnfScoring} in ('seriesEntries','startingArea')`,
+    ),
+    check(
+      'series_primary_person_label_chk',
+      sql`${table.primaryPersonLabel} in ('competitor','entrant','helm','owner')`,
+    ),
+  ],
+);
+
+export const fleets = pgTable(
+  'fleets',
+  {
+    id: uuid('id').primaryKey(),
+    seriesId: uuid('series_id')
+      .notNull()
+      .references(() => series.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    displayOrder: integer('display_order').notNull(),
+    scoringSystem: text('scoring_system').notNull(),
+    nhcAlpha: real('nhc_alpha'),
+    echoAlpha: real('echo_alpha'),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+  },
+  (table) => [
+    index('fleets_series_order_idx').on(table.seriesId, table.displayOrder),
+    index('fleets_workspace_idx').on(table.workspaceId),
+    check(
+      'fleets_scoring_system_chk',
+      sql`${table.scoringSystem} in ('scratch','irc','py','nhc','echo')`,
+    ),
+  ],
+);
+
+export const competitors = pgTable(
+  'competitors',
+  {
+    id: uuid('id').primaryKey(),
+    seriesId: uuid('series_id')
+      .notNull()
+      .references(() => series.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    fleetIds: uuid('fleet_ids').array().notNull(),
+    sailNumber: text('sail_number').notNull(),
+    boatName: text('boat_name'),
+    boatClass: text('boat_class'),
+    name: text('name').notNull(),
+    owner: text('owner'),
+    helm: text('helm'),
+    crewName: text('crew_name'),
+    club: text('club').notNull().default(''),
+    gender: text('gender').notNull().default(''),
+    age: integer('age'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    ircTcc: real('irc_tcc'),
+    pyNumber: real('py_number'),
+    nhcStartingTcf: real('nhc_starting_tcf'),
+    echoStartingTcf: real('echo_starting_tcf'),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+  },
+  (table) => [
+    index('competitors_series_idx').on(table.seriesId),
+    index('competitors_workspace_idx').on(table.workspaceId),
+    index('competitors_fleet_gin').using('gin', table.fleetIds),
+    check(
+      'competitors_gender_chk',
+      sql`${table.gender} in ('M','F','')`,
+    ),
+  ],
+);
+
+export const races = pgTable(
+  'races',
+  {
+    id: uuid('id').primaryKey(),
+    seriesId: uuid('series_id')
+      .notNull()
+      .references(() => series.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    raceNumber: integer('race_number').notNull(),
+    date: text('date').notNull().default(''),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+  },
+  (table) => [
+    uniqueIndex('races_series_number_uidx').on(table.seriesId, table.raceNumber),
+    index('races_workspace_idx').on(table.workspaceId),
+  ],
+);
+
+export const raceStarts = pgTable(
+  'race_starts',
+  {
+    id: uuid('id').primaryKey(),
+    raceId: uuid('race_id')
+      .notNull()
+      .references(() => races.id, { onDelete: 'cascade' }),
+    fleetIds: uuid('fleet_ids').array().notNull(),
+    startTime: text('start_time').notNull(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+  },
+  (table) => [index('race_starts_race_idx').on(table.raceId)],
+);
+
+export const finishes = pgTable(
+  'finishes',
+  {
+    id: uuid('id').primaryKey(),
+    raceId: uuid('race_id')
+      .notNull()
+      .references(() => races.id, { onDelete: 'cascade' }),
+    competitorId: uuid('competitor_id').references(() => competitors.id, {
+      onDelete: 'cascade',
+    }),
+    unknownSailNumber: text('unknown_sail_number'),
+    sortOrder: integer('sort_order'),
+    finishTime: text('finish_time'),
+    resultCode: text('result_code'),
+    startPresent: boolean('start_present'),
+    penaltyCode: text('penalty_code'),
+    penaltyOverride: real('penalty_override'),
+    redressMethod: text('redress_method'),
+    redressExcludeRaces: jsonb('redress_exclude_races').$type<number[]>(),
+    redressIncludeRaces: jsonb('redress_include_races').$type<number[]>(),
+    redressIncludeAllLater: boolean('redress_include_all_later')
+      .notNull()
+      .default(false),
+    redressPoints: real('redress_points'),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+  },
+  (table) => [
+    index('finishes_race_idx').on(table.raceId),
+    index('finishes_competitor_idx').on(table.competitorId),
+  ],
+);
+
+/**
+ * Persistent per-(race, competitor, fleet) TCF snapshot. Derived state —
+ * rebuilt by the scoring engine on every recompute. Persisted so file/JSON
+ * imports render without re-scoring and so non-finishers (no Finish row)
+ * still carry a record. No `version` column: derived data is replaced
+ * wholesale, never edited.
+ */
+export const nhcTcfRecords = pgTable(
+  'nhc_tcf_records',
+  {
+    id: uuid('id').primaryKey(),
+    raceId: uuid('race_id')
+      .notNull()
+      .references(() => races.id, { onDelete: 'cascade' }),
+    competitorId: uuid('competitor_id')
+      .notNull()
+      .references(() => competitors.id, { onDelete: 'cascade' }),
+    fleetId: uuid('fleet_id')
+      .notNull()
+      .references(() => fleets.id, { onDelete: 'cascade' }),
+    tcfApplied: real('tcf_applied').notNull(),
+    newTcf: real('new_tcf').notNull(),
+  },
+  (table) => [
+    uniqueIndex('nhc_tcf_records_uidx').on(
+      table.raceId,
+      table.competitorId,
+      table.fleetId,
+    ),
+    index('nhc_tcf_records_race_idx').on(table.raceId),
+  ],
+);
+
+/**
+ * Idempotency-key store. Phase 5 wraps every write endpoint to look up the
+ * key before invoking the handler, and to write the response on the way out.
+ * The structure lands in Phase 2 so the migration is a single file. TTL
+ * cleanup is deferred (cron in Phase 4 territory).
+ */
+export const idempotencyKeys = pgTable('idempotency_keys', {
+  workspaceId: text('workspace_id').notNull(),
+  key: text('key').notNull(),
+  status: integer('status').notNull(),
+  body: jsonb('body').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
-    .references(() => organization.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+    .defaultNow(),
+}, (table) => [
+  uniqueIndex('idempotency_keys_pk').on(table.workspaceId, table.key),
+]);
