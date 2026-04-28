@@ -1,10 +1,10 @@
-import 'server-only';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres, { type Sql } from 'postgres';
 
+import * as authSchema from './schema/auth';
 import * as series from './schema/series';
 
-const schema = { ...series };
+const schema = { ...authSchema, ...series };
 
 export type SailScoringDb = PostgresJsDatabase<typeof schema>;
 
