@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 
 import { requireSession } from '@/lib/auth/require-session';
 import { getDb } from '@/lib/db/client';
-import { organization } from '@/lib/db/schema/auth';
+import { member, organization } from '@/lib/db/schema/auth';
 import { SignOutButton } from './sign-out-button';
 
 export const dynamic = 'force-dynamic';
@@ -13,20 +13,24 @@ export default async function AccountPage() {
   // auth a known failure mode.
   const session = await requireSession();
 
-  const activeOrgId = session.session.activeOrganizationId;
-  let activeWorkspace: { id: string; name: string; slug: string } | null = null;
-  if (activeOrgId) {
-    const rows = await getDb()
-      .select({
-        id: organization.id,
-        name: organization.name,
-        slug: organization.slug,
-      })
-      .from(organization)
-      .where(eq(organization.id, activeOrgId))
-      .limit(1);
-    activeWorkspace = rows[0] ?? null;
-  }
+  // Phase 1 has one workspace per user. Read directly from member +
+  // organization rather than session.activeOrganizationId — Better Auth
+  // queues user.create.after past the session-create transaction, so
+  // activeOrganizationId is null on the very first session of a new
+  // user. A real "switch workspace" UI lands in Phase 4.
+  const rows = await getDb()
+    .select({
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+      role: member.role,
+    })
+    .from(member)
+    .innerJoin(organization, eq(member.organizationId, organization.id))
+    .where(eq(member.userId, session.user.id))
+    .orderBy(member.createdAt)
+    .limit(1);
+  const workspace = rows[0] ?? null;
 
   return (
     <section className="max-w-xl">
@@ -42,11 +46,13 @@ export default async function AccountPage() {
           </>
         )}
         <dt className="text-muted-foreground">Workspace</dt>
-        <dd>{activeWorkspace ? activeWorkspace.name : '—'}</dd>
-        {activeWorkspace && (
+        <dd>{workspace ? workspace.name : '—'}</dd>
+        {workspace && (
           <>
             <dt className="text-muted-foreground">Slug</dt>
-            <dd className="font-mono">{activeWorkspace.slug}</dd>
+            <dd className="font-mono">{workspace.slug}</dd>
+            <dt className="text-muted-foreground">Role</dt>
+            <dd>{workspace.role}</dd>
           </>
         )}
       </dl>

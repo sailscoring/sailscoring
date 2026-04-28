@@ -2,7 +2,6 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink } from 'better-auth/plugins/magic-link';
 import { organization } from 'better-auth/plugins/organization';
-import { eq } from 'drizzle-orm';
 
 import { sendMagicLinkEmail } from '@/lib/auth/email';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
@@ -59,11 +58,16 @@ export const auth = betterAuth({
       create: {
         async after(user) {
           // Auto-create a personal workspace on sign-up. The organization
-          // plugin doesn't expose an autoCreate option today; calling
+          // plugin doesn't expose an autoCreate option today, and calling
           // auth.api.createOrganization from inside this hook fails the
-          // plugin's session check, so insert the organization + owner
-          // member rows directly. session.create.before below picks up
-          // the new org and sets it active on the first session.
+          // plugin's session check (UNAUTHORIZED on ctx.request without
+          // a session). Insert the organization + owner member rows
+          // directly. activeOrganizationId is intentionally not set
+          // here — Better Auth queues create.after past the
+          // surrounding transaction, so the session row would already
+          // be committed by the time we run. /account derives the
+          // workspace from member rows for now; a real switch-workspace
+          // flow lands in Phase 4.
           const db = getDb();
           const orgId = randomId('org');
           const memberId = randomId('mem');
@@ -81,21 +85,6 @@ export const auth = betterAuth({
             role: 'owner',
             createdAt: now,
           });
-        },
-      },
-    },
-    session: {
-      create: {
-        async before(session) {
-          if (session.activeOrganizationId) return;
-          const rows = await getDb()
-            .select({ id: authSchema.member.organizationId })
-            .from(authSchema.member)
-            .where(eq(authSchema.member.userId, session.userId))
-            .limit(1);
-          const first = rows[0];
-          if (!first) return;
-          return { data: { ...session, activeOrganizationId: first.id } };
         },
       },
     },
