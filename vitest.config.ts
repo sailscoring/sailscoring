@@ -10,6 +10,9 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
   },
   resolve: {
-    alias: { '@': resolve(__dirname, '.') },
+    alias: {
+      '@': resolve(__dirname, '.'),
+      'server-only': resolve(__dirname, 'tests/server-only.shim.ts'),
+    },
   },
 });
