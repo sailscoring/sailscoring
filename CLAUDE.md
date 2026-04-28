@@ -24,6 +24,11 @@ Pure logic lives in `lib/`; pages and UI in `app/`. Key lib modules: `scoring.ts
 
 See `docs/` for design docs, ADRs, requirements, and glossary. `reference/` holds PDFs of comparable tools and the RRS (Appendix A governs scoring).
 
+The full-stack transition (ADR-008) is under way. Phase 1 has wired the server backend without changing user-visible behaviour:
+- Drizzle schema in `lib/db/schema/`, lazy client in `lib/db/client.ts`, migrations in `drizzle/`
+- Better Auth in `lib/auth.ts` with magic-link + organization plugins; mounted at `app/api/auth/[...all]/route.ts`
+- `USE_SERVER_DATA` flag in `lib/flags.ts` (server-only, default off; UI consumers land in Phase 3)
+
 ## Repository and Licensing
 
 - **GitHub:** `github.com/sailscoring/sailscoring` (private; org is `sailscoring`)

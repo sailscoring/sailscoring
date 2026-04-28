@@ -23,7 +23,7 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install chromium --with-deps
 
-      - run: pnpm run test:e2e
+      - run: pnpm run test:e2e --grep-invert "@auth"
         env:
           NEXT_PUBLIC_APP_URL: http://localhost:3000
           NEXT_PUBLIC_BILGE_URL: https://bilge.sailscoring.ie

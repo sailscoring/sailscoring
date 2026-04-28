@@ -13,6 +13,7 @@
 /playwright-report
 /blob-report
 /playwright/.cache
+tests/.magic-links.log
 
 # next.js
 /.next/
