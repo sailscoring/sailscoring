@@ -151,13 +151,18 @@ that domain.
 ```sh
 vercel env add DATABASE_URL          # already present from Neon integration
 vercel env add BETTER_AUTH_SECRET    # value: openssl rand -base64 32
-vercel env add BETTER_AUTH_URL       # https://app.sailscoring.ie (Production)
+vercel env add BETTER_AUTH_URL       # Production: https://app.sailscoring.ie; Development: http://localhost:3000
 vercel env add RESEND_API_KEY
 vercel env add RESEND_FROM           # "Sail Scoring <noreply@sailscoring.ie>"
 ```
 
-For Preview deployments set `BETTER_AUTH_URL` to `https://$VERCEL_URL` — the
-auth wiring also appends `process.env.VERCEL_URL` to `trustedOrigins`.
+Set `BETTER_AUTH_URL` only for Production and Development. **Leave it
+unset for Preview** — preview deployments live at per-deploy hostnames
+(`*.vercel.app`), so a fixed value would scope the session cookie to
+the wrong host and point magic-link emails at production. With it
+unset, Better Auth derives the base URL from the request, and
+`lib/auth.ts` already appends `process.env.VERCEL_URL` to
+`trustedOrigins` for previews.
 
 #### 4. Pull into `.env.local`
 
