@@ -18,15 +18,13 @@ export async function sendMagicLinkEmail(args: {
 
   if (!process.env.RESEND_API_KEY) {
     console.log(`[magic-link] to=${to} url=${url}`);
-    if (process.env.NODE_ENV !== 'production') {
-      try {
-        const file = path.join(process.cwd(), 'tests', '.magic-links.log');
-        await fs.mkdir(path.dirname(file), { recursive: true });
-        const line = `${new Date().toISOString()}\t${to}\t${url}\n`;
-        await fs.appendFile(file, line, 'utf8');
-      } catch {
-        // best-effort; do not fail sign-in if the log file cannot be written
-      }
+    try {
+      const file = path.join(process.cwd(), 'tests', '.magic-links.log');
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      const line = `${new Date().toISOString()}\t${to}\t${url}\n`;
+      await fs.appendFile(file, line, 'utf8');
+    } catch {
+      // best-effort; do not fail sign-in if the log file cannot be written
     }
     return;
   }

@@ -66,6 +66,7 @@ test.describe('@auth magic-link sign-in', () => {
     await expect(page).toHaveURL(/\/account/);
 
     await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.waitForURL('/');
     await page.goto('/account');
     await expect(page).toHaveURL(/\/sign-in/);
   });
