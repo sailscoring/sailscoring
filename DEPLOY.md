@@ -142,7 +142,7 @@ Vercel auto-injects `DATABASE_URL` per environment.
 
 #### 2. Provision Resend
 
-Create a Resend account, add `mail.sailscoring.ie` as a sending domain, and
+Create a Resend account, add `sailscoring.ie` as a sending domain, and
 copy the SPF/DKIM records to your DNS provider. Issue an API key scoped to
 that domain.
 
@@ -153,7 +153,7 @@ vercel env add DATABASE_URL          # already present from Neon integration
 vercel env add BETTER_AUTH_SECRET    # value: openssl rand -base64 32
 vercel env add BETTER_AUTH_URL       # https://app.sailscoring.ie (Production)
 vercel env add RESEND_API_KEY
-vercel env add EMAIL_FROM            # "Sail Scoring <noreply@mail.sailscoring.ie>"
+vercel env add RESEND_FROM           # "Sail Scoring <noreply@sailscoring.ie>"
 ```
 
 For Preview deployments set `BETTER_AUTH_URL` to `https://$VERCEL_URL` — the
@@ -188,7 +188,7 @@ DATABASE_URL=postgres://...
 BETTER_AUTH_SECRET=<openssl rand -base64 32>
 BETTER_AUTH_URL=http://localhost:3000
 RESEND_API_KEY=<optional in dev — leave blank to log magic links to console>
-EMAIL_FROM="Sail Scoring <noreply@mail.sailscoring.ie>"
+RESEND_FROM="Sail Scoring <noreply@sailscoring.ie>"
 ```
 
 To debug scupper calls in the browser console:

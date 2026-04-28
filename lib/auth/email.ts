@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-const FROM_DEFAULT = 'Sail Scoring <noreply@mail.sailscoring.ie>';
+const FROM_DEFAULT = 'Sail Scoring <noreply@sailscoring.ie>';
 
 /**
  * Send a magic-link email via Resend in production. In dev/CI when
@@ -14,7 +14,7 @@ export async function sendMagicLinkEmail(args: {
   url: string;
 }): Promise<void> {
   const { to, url } = args;
-  const from = process.env.EMAIL_FROM || FROM_DEFAULT;
+  const from = process.env.RESEND_FROM || FROM_DEFAULT;
 
   if (!process.env.RESEND_API_KEY) {
     console.log(`[magic-link] to=${to} url=${url}`);
