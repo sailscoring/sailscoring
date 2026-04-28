@@ -14,9 +14,9 @@
     "deploy": "vercel deploy",
     "deploy:prod": "vercel deploy --prod",
     "generate:fixtures": "tsx scripts/render-scoring-fixtures.ts",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx scripts/db-migrate.ts",
-    "db:studio": "drizzle-kit studio",
+    "db:generate": "tsx --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs generate",
+    "db:migrate": "tsx --env-file-if-exists=.env.local scripts/db-migrate.ts",
+    "db:studio": "tsx --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs studio",
     "db:auth:generate": "better-auth generate --config lib/auth.ts --output lib/db/schema/auth.ts -y"
   },
   "dependencies": {
