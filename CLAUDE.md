@@ -24,10 +24,15 @@ Pure logic lives in `lib/`; pages and UI in `app/`. Key lib modules: `scoring.ts
 
 See `docs/` for design docs, ADRs, requirements, and glossary. `reference/` holds PDFs of comparable tools and the RRS (Appendix A governs scoring).
 
-The full-stack transition (ADR-008) is under way. Phase 1 has wired the server backend without changing user-visible behaviour:
-- Drizzle schema in `lib/db/schema/`, lazy client in `lib/db/client.ts`, migrations in `drizzle/`
-- Better Auth in `lib/auth.ts` with magic-link + organization plugins; mounted at `app/api/auth/[...all]/route.ts`
-- `USE_SERVER_DATA` flag in `lib/flags.ts` (server-only, default off; UI consumers land in Phase 3)
+The full-stack transition (ADR-008) is under way. Phase 1 wired Better Auth + Postgres without changing user-visible behaviour. Phase 2 has built the full server-side data layer; the UI still reads/writes via Dexie until Phase 3 swaps the imports.
+
+- **Schema** — Drizzle in `lib/db/schema/` (mirrors `lib/types.ts`), lazy client in `lib/db/client.ts`, migrations in `drizzle/`
+- **Validation** — Zod schemas in `lib/validation/`, used at every `/api/v1` boundary
+- **Repositories** — server-side in `lib/postgres-repository.ts` (workspace-scoped, `server-only`); client-side mirror in `lib/api-repository.ts`
+- **Auth** — Better Auth in `lib/auth.ts`; `lib/auth/require-workspace.ts` is the single seam every server caller goes through
+- **REST surface** — `/api/v1/...` routes; route files are thin glue, logic lives in `lib/api-handlers/`. `Idempotency-Key` replays are handled by the `workspaceRoute` wrapper in `app/api/v1/_lib/handler.ts`
+- **Feature flag** — `USE_SERVER_DATA` in `lib/flags.ts` (server-only, default off; UI consumers land in Phase 3)
+- **DB tests** — Vitest tests under `tests/db/`, `tests/postgres-repository.test.ts`, `tests/auth/`, `tests/api/` skip when `DATABASE_URL` is unset; CI provides it. See `DEPLOY.md` for the local-Postgres setup via `podman-remote`.
 
 ## Repository and Licensing
 

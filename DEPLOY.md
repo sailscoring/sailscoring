@@ -207,8 +207,8 @@ pnpm dev
 ```
 
 `/`, `/series/...`, `/settings`, `/help`, `/import` work fully. Anything that
-hits `/api/health`, `/sign-in`, or `/account` will fail (Postgres not
-configured) — that's expected.
+hits `/api/health`, `/api/v1/...`, `/sign-in`, or `/account` will fail
+(Postgres not configured) — that's expected.
 
 ### With a local Postgres (podman-remote)
 
@@ -237,6 +237,12 @@ DATABASE_URL=postgres://sailscoring:sailscoring@host.containers.internal:5432/sa
 Apply migrations with `pnpm db:migrate`. Stop with
 `podman-remote stop sailscoring-pg`; data persists in the container
 until you `podman-remote rm` it.
+
+The Vitest suites under `tests/db/`, `tests/postgres-repository.test.ts`,
+`tests/auth/`, and `tests/api/` exercise the live database. They skip
+when `DATABASE_URL` is unset, so `pnpm test:unit` is safe to run
+without Postgres but will only validate the pure-logic surface. With
+`DATABASE_URL` exported, the same command runs everything.
 
 ### With the full server backend
 
