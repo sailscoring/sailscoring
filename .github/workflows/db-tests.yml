@@ -46,8 +46,8 @@ jobs:
       - name: Apply Drizzle migrations
         run: pnpm db:migrate
 
-      - name: Run schema-, repository-, and auth-level Vitest suites
-        run: pnpm test:unit tests/db tests/postgres-repository.test.ts tests/auth
+      - name: Run server-side Vitest suites (schema, repos, auth, api)
+        run: pnpm test:unit tests/db tests/postgres-repository.test.ts tests/auth tests/api
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install chromium --with-deps
