@@ -2,8 +2,23 @@
 
 import { use, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { competitorRepo, fleetRepo, raceRepo, finishRepo, raceStartRepo, seriesRepo } from '@/lib/dexie-repository';
+import { useRepos } from '@/lib/repos';
+import { useSeries, useTouchSeries } from '@/hooks/use-series';
+import { useCompetitorsBySeries, useSaveCompetitor } from '@/hooks/use-competitors';
+import { useFleetsBySeries } from '@/hooks/use-fleets';
+import { useRace, useRacesBySeries } from '@/hooks/use-races';
+import {
+  useDeleteFinish,
+  useDeleteFinishesByRace,
+  useFinishesByRace,
+  useSaveFinish,
+  useSaveFinishes,
+} from '@/hooks/use-finishes';
+import {
+  useDeleteRaceStart,
+  useRaceStartsByRace,
+  useSaveRaceStart,
+} from '@/hooks/use-race-starts';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -87,32 +102,28 @@ export default function ResultEntryPage({
   const { id: seriesId, raceId } = use(params);
   const router = useRouter();
 
-  const competitors = useLiveQuery(
-    () => competitorRepo.listBySeries(seriesId),
-    [seriesId],
-  );
-  const series = useLiveQuery(() => seriesRepo.get(seriesId), [seriesId]);
+  const { finishRepo } = useRepos();
+  const { data: competitors } = useCompetitorsBySeries(seriesId);
+  const { data: series } = useSeries(seriesId);
   const showCrew =
     (series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields()).includes('crewName');
   const primaryFieldLabel =
     PRIMARY_PERSON_LABEL_TEXT[series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL];
-  const race = useLiveQuery(async () => (await raceRepo.get(raceId)) ?? null, [raceId]);
-  const savedFinishes = useLiveQuery(
-    () => finishRepo.listByRace(raceId),
-    [raceId],
-  );
-  const fleets = useLiveQuery(
-    () => fleetRepo.listBySeries(seriesId),
-    [seriesId],
-  );
-  const allSeriesRaces = useLiveQuery(
-    () => raceRepo.listBySeries(seriesId),
-    [seriesId],
-  );
-  const raceStarts = useLiveQuery(
-    () => raceStartRepo.listByRace(raceId),
-    [raceId],
-  ) ?? [];
+  const { data: race } = useRace(raceId);
+  const { data: savedFinishes } = useFinishesByRace(raceId);
+  const { data: fleets } = useFleetsBySeries(seriesId);
+  const { data: allSeriesRaces } = useRacesBySeries(seriesId);
+  const { data: raceStartsData } = useRaceStartsByRace(raceId);
+  const raceStarts = raceStartsData ?? [];
+
+  const saveCompetitor = useSaveCompetitor();
+  const saveFinish = useSaveFinish();
+  const deleteFinish = useDeleteFinish();
+  const saveFinishes = useSaveFinishes();
+  const deleteFinishesByRace = useDeleteFinishesByRace();
+  const saveRaceStart = useSaveRaceStart();
+  const deleteRaceStartMutation = useDeleteRaceStart();
+  const touchSeries = useTouchSeries();
 
   // Finishing order: unified crossing-order list (row index = sortOrder). ADR-007.
   const [finishingOrder, setFinishingOrder] = useState<FinishEntry[]>([]);
@@ -370,14 +381,14 @@ export default function ResultEntryPage({
       fleetIds: startFleetIds,
       startTime: normalizedStart,
     };
-    await raceStartRepo.save(raceStart);
-    await seriesRepo.touch(seriesId);
+    await saveRaceStart.mutateAsync(raceStart);
+    await touchSeries.mutateAsync(seriesId);
     setStartDialog(null);
   }
 
   async function handleDeleteStart(id: string) {
-    await raceStartRepo.delete(id);
-    await seriesRepo.touch(seriesId);
+    await deleteRaceStartMutation.mutateAsync({ id, raceId });
+    await touchSeries.mutateAsync(seriesId);
   }
 
   useGlobalKeyDown((e) => {
@@ -854,17 +865,17 @@ export default function ResultEntryPage({
       if (existing && existing.sortOrder === null && existing.resultCode === null) {
         if (isImplicitlyPresent) {
           // Check-in-only record but competitor is also in finishing order — mark explicitly absent
-          await finishRepo.save({ ...existing, startPresent: false });
+          await saveFinish.mutateAsync({ ...existing, startPresent: false });
         } else {
           // Pure check-in-only record — delete it entirely
-          await finishRepo.delete(existing.id);
+          await deleteFinish.mutateAsync({ id: existing.id, raceId });
         }
       } else if (existing) {
         // Has other data — clear just the flag
-        await finishRepo.save({ ...existing, startPresent: false });
+        await saveFinish.mutateAsync({ ...existing, startPresent: false });
       } else {
         // Implicitly present via finishing order but no DB record yet — create explicit absence record
-        await finishRepo.save({
+        await saveFinish.mutateAsync({
           id: crypto.randomUUID(),
           raceId,
           competitorId: competitor.id,
@@ -883,9 +894,9 @@ export default function ResultEntryPage({
     } else {
       // Check: set startPresent = true
       if (existing) {
-        await finishRepo.save({ ...existing, startPresent: true });
+        await saveFinish.mutateAsync({ ...existing, startPresent: true });
       } else {
-        await finishRepo.save({
+        await saveFinish.mutateAsync({
           id: crypto.randomUUID(),
           raceId,
           competitorId: competitor.id,
@@ -902,7 +913,7 @@ export default function ResultEntryPage({
         });
       }
     }
-    await seriesRepo.touch(seriesId);
+    await touchSeries.mutateAsync(seriesId);
   }
 
   function openAddCompetitorForm() {
@@ -946,8 +957,8 @@ export default function ResultEntryPage({
         age: null,
         createdAt: Date.now(),
       };
-      await competitorRepo.save(competitor);
-      await seriesRepo.touch(seriesId);
+      await saveCompetitor.mutateAsync(competitor);
+      await touchSeries.mutateAsync(seriesId);
 
       // Resolve the unknown entry to the new competitor
       const eid = resolvingEntry.tempId;
@@ -1082,9 +1093,9 @@ export default function ResultEntryPage({
       }
 
       log('result-entry', 'saving finishes', { raceId, count: finishes.length });
-      await finishRepo.deleteByRace(raceId);
-      await finishRepo.saveMany(finishes);
-      await seriesRepo.touch(seriesId);
+      await deleteFinishesByRace.mutateAsync(raceId);
+      await saveFinishes.mutateAsync(finishes);
+      await touchSeries.mutateAsync(seriesId);
       router.push(`/series/${seriesId}/races`);
     } catch (err) {
       console.error(err);
