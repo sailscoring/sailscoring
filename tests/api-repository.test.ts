@@ -9,6 +9,7 @@ import {
   fleetRepo,
   ftpServerRepo,
   listSeriesNames,
+  pruneFleet,
   raceRepo,
   raceStartRepo,
   seriesRepo,
@@ -279,6 +280,44 @@ describe('api-repository routing', () => {
     expect(urls).toContain(`/api/v1/series/${id}/races`);
     expect(urls).toContain(`/api/v1/series/${id}/competitors`);
     expect(urls).toContain(`/api/v1/series/${id}/fleets`);
+  });
+
+  test('pruneFleet deletes when no competitor references the fleet', async () => {
+    const seriesId = 'c0c0c0c0-1111-4222-8333-cccccccccccc';
+    const fleetId = 'd0d0d0d0-1111-4222-8333-dddddddddddd';
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === 'DELETE') return Promise.resolve(jsonResponse(204));
+      return Promise.resolve(jsonResponse(200, [])); // empty competitor list
+    });
+    await pruneFleet(seriesId, fleetId);
+    const urls = fetchMock.mock.calls.map((c) => c[0]);
+    expect(urls).toContain(`/api/v1/series/${seriesId}/competitors`);
+    expect(urls).toContain(`/api/v1/series/${seriesId}/fleets/${fleetId}`);
+    const deleteCall = fetchMock.mock.calls.find((c) => c[1]?.method === 'DELETE');
+    expect(deleteCall).toBeTruthy();
+  });
+
+  test('pruneFleet skips delete when a competitor still references the fleet', async () => {
+    const seriesId = 'c1c1c1c1-1111-4222-8333-cccccccccccc';
+    const fleetId = 'd1d1d1d1-1111-4222-8333-dddddddddddd';
+    const competitor: Competitor = {
+      id: 'c2c2c2c2-1111-4222-8333-cccccccccccc',
+      seriesId,
+      fleetIds: [fleetId],
+      sailNumber: '1',
+      name: 'X',
+      club: '',
+      gender: '',
+      age: null,
+      createdAt: 0,
+    };
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === 'DELETE') return Promise.resolve(jsonResponse(204));
+      return Promise.resolve(jsonResponse(200, [competitor]));
+    });
+    await pruneFleet(seriesId, fleetId);
+    const deleteCalls = fetchMock.mock.calls.filter((c) => c[1]?.method === 'DELETE');
+    expect(deleteCalls).toHaveLength(0);
   });
 
   test('ensureFleet POSTs name + options and returns the fleetId', async () => {

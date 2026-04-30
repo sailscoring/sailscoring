@@ -315,6 +315,22 @@ export async function deleteSeriesCascade(seriesId: string): Promise<void> {
 }
 
 /**
+ * Delete a fleet only if no competitor in the series references it.
+ * Mirror of the Dexie helper used by the fleets-card "remove fleet" flow.
+ * Implemented client-side as list-then-delete; concurrent edits in the
+ * same workspace would surface as a 409 in Phase 4 once `version` is
+ * wired into the delete path.
+ */
+export async function pruneFleet(seriesId: string, fleetId: string): Promise<void> {
+  const competitors = await competitorRepo.listBySeries(seriesId);
+  const inUse = competitors.some((c) => c.fleetIds.includes(fleetId));
+  if (inUse) return;
+  await apiFetch(`/api/v1/series/${seriesId}/fleets/${fleetId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
  * Find or create a fleet by case-insensitive name. Mirror of the Dexie
  * helper used by the CSV competitor importer. The server endpoint wraps
  * the lookup-then-insert in a Postgres transaction guarded by an
