@@ -2,8 +2,17 @@
 
 import { use, useRef, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { raceRepo, finishRepo, seriesRepo, fleetRepo, raceStartRepo } from '@/lib/dexie-repository';
+import { useRepos } from '@/lib/repos';
+import { useSeries, useTouchSeries } from '@/hooks/use-series';
+import {
+  useDeleteRace,
+  useRacesBySeries,
+  useSaveRace,
+} from '@/hooks/use-races';
+import { useDeleteFinishesByRace } from '@/hooks/use-finishes';
+import { useFleetsBySeries } from '@/hooks/use-fleets';
+import { useFinishesByRace } from '@/hooks/use-finishes';
+import { useSaveRaceStart } from '@/hooks/use-race-starts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,14 +32,17 @@ import { generateStarts } from '@/lib/start-sequence';
 
 function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
   const router = useRouter();
-  const finishes = useLiveQuery(() => finishRepo.listByRace(race.id), [race.id]);
+  const { data: finishes } = useFinishesByRace(race.id);
+  const deleteFinishes = useDeleteFinishesByRace();
+  const deleteRace = useDeleteRace();
+  const touchSeries = useTouchSeries();
   const finisherCount = finishes?.filter((f) => f.sortOrder !== null).length;
 
   async function handleDelete() {
     if (!confirm(`Delete Race ${race.raceNumber}? This will also delete all results for this race.`)) return;
-    await finishRepo.deleteByRace(race.id);
-    await raceRepo.delete(race.id);
-    await seriesRepo.touch(seriesId);
+    await deleteFinishes.mutateAsync(race.id);
+    await deleteRace.mutateAsync({ id: race.id, seriesId });
+    await touchSeries.mutateAsync(seriesId);
   }
 
   return (
@@ -93,9 +105,13 @@ export default function RacesPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: seriesId } = use(params);
-  const races = useLiveQuery(() => raceRepo.listBySeries(seriesId), [seriesId]);
-  const series = useLiveQuery(() => seriesRepo.get(seriesId), [seriesId]);
-  const fleets = useLiveQuery(() => fleetRepo.listBySeries(seriesId), [seriesId]);
+  const { raceRepo } = useRepos();
+  const { data: races } = useRacesBySeries(seriesId);
+  const { data: series } = useSeries(seriesId);
+  const { data: fleets } = useFleetsBySeries(seriesId);
+  const saveRace = useSaveRace();
+  const saveRaceStart = useSaveRaceStart();
+  const touchSeries = useTouchSeries();
   const raceListRef = useRef<HTMLDivElement>(null);
   const didAutoFocus = useRef(false);
 
@@ -152,8 +168,8 @@ export default function RacesPage({
       createdAt: Date.now(),
     };
     log('races', 'adding', race);
-    await raceRepo.save(race);
-    await seriesRepo.touch(seriesId);
+    await saveRace.mutateAsync(race);
+    await touchSeries.mutateAsync(seriesId);
   }
 
   async function handleAddRaceHandicap() {
@@ -177,12 +193,12 @@ export default function RacesPage({
       createdAt: Date.now(),
     };
     log('races', 'adding with starts', race);
-    await raceRepo.save(race);
+    await saveRace.mutateAsync(race);
 
     // Create RaceStart records from the start sequence
     const starts = generateStarts(startSequence!, normalized);
     for (const start of starts) {
-      await raceStartRepo.save({
+      await saveRaceStart.mutateAsync({
         id: crypto.randomUUID(),
         raceId: race.id,
         fleetIds: start.fleetIds,
@@ -190,7 +206,7 @@ export default function RacesPage({
       });
     }
 
-    await seriesRepo.touch(seriesId);
+    await touchSeries.mutateAsync(seriesId);
     setShowNewRaceDialog(false);
   }
 
