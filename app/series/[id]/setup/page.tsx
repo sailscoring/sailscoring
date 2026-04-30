@@ -2,10 +2,11 @@
 
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { seriesRepo, fleetRepo, competitorRepo, listSeriesNames } from '@/lib/dexie-repository';
+import { useRepos } from '@/lib/repos';
+import { useSeries, useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
+import { useFleetsBySeries, useSaveFleet } from '@/hooks/use-fleets';
+import { useCompetitorsBySeries } from '@/hooks/use-competitors';
 import { isDuplicateSeriesName } from '@/lib/series-name';
-import { db } from '@/lib/db';
 import type { Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -28,11 +29,14 @@ function Step1({
   seriesId: string;
   onNext: () => void;
 }) {
+  const updateSeries = useUpdateSeries();
+  const touchSeries = useTouchSeries();
+  const { listSeriesNames } = useRepos();
   const [nextError, setNextError] = useState<string | null>(null);
 
   async function persist(patch: Partial<Series>) {
-    await db.series.update(seriesId, patch);
-    await seriesRepo.touch(seriesId);
+    await updateSeries.mutateAsync({ id: seriesId, patch });
+    await touchSeries.mutateAsync(seriesId);
   }
 
   async function validateName(name: string): Promise<string | null> {
@@ -82,8 +86,8 @@ function Step2({
   onNext: () => void;
   onBack: () => void;
 }) {
-  const competitors = useLiveQuery(() => competitorRepo.listBySeries(seriesId), [seriesId]);
-  const fleets = useLiveQuery(() => fleetRepo.listBySeries(seriesId), [seriesId]);
+  const { data: competitors } = useCompetitorsBySeries(seriesId);
+  const { data: fleets } = useFleetsBySeries(seriesId);
   const count = competitors?.length ?? 0;
   const [lastImportResult, setLastImportResult] = useState<{ added: number; fleetsCreated: string[] } | null>(null);
 
@@ -143,18 +147,23 @@ function Step3({
   onNext: () => void;
   onBack: () => void;
 }) {
+  const updateSeries = useUpdateSeries();
+  const touchSeries = useTouchSeries();
+  const saveFleet = useSaveFleet();
+  const { fleetRepo } = useRepos();
+
   async function handleScoringMode(mode: 'scratch' | 'handicap') {
     if (mode === series.scoringMode) return;
-    await db.series.update(seriesId, { scoringMode: mode });
+    await updateSeries.mutateAsync({ id: seriesId, patch: { scoringMode: mode } });
     if (mode === 'scratch') {
       const fleets = await fleetRepo.listBySeries(seriesId);
       for (const f of fleets) {
         if (f.scoringSystem !== 'scratch') {
-          await fleetRepo.save({ ...f, scoringSystem: 'scratch' });
+          await saveFleet.mutateAsync({ ...f, scoringSystem: 'scratch' });
         }
       }
     }
-    await seriesRepo.touch(seriesId);
+    await touchSeries.mutateAsync(seriesId);
   }
 
   return (
@@ -217,9 +226,12 @@ function Step4({
   onBack: () => void;
   onFinish: () => void;
 }) {
+  const updateSeries = useUpdateSeries();
+  const touchSeries = useTouchSeries();
+
   async function persist(patch: Partial<Series>) {
-    await db.series.update(seriesId, patch);
-    await seriesRepo.touch(seriesId);
+    await updateSeries.mutateAsync({ id: seriesId, patch });
+    await touchSeries.mutateAsync(seriesId);
   }
 
   return (
@@ -242,10 +254,10 @@ export default function SetupPage({
 }) {
   const { id: seriesId } = use(params);
   const router = useRouter();
-  const series = useLiveQuery(() => seriesRepo.get(seriesId), [seriesId]);
+  const { data: series, isLoading } = useSeries(seriesId);
   const [step, setStep] = useState(1);
 
-  if (series === undefined) {
+  if (isLoading || series === undefined) {
     return <p className="text-muted-foreground">Loading…</p>;
   }
   if (series === null) {

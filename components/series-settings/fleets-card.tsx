@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { fleetRepo, competitorRepo, seriesRepo, raceRepo, finishRepo } from '@/lib/dexie-repository';
-import { db } from '@/lib/db';
+import { useRepos } from '@/lib/repos';
+import { useFleetsBySeries, useDeleteFleet, useSaveFleet } from '@/hooks/use-fleets';
+import { useSaveCompetitor } from '@/hooks/use-competitors';
+import { useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
 import type { Fleet, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,7 +34,14 @@ export type FleetsCardProps = {
 
 export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardProps) {
   const isWizard = mode === 'wizard';
-  const fleets = useLiveQuery(() => fleetRepo.listBySeries(seriesId), [seriesId]) ?? [];
+  const { competitorRepo, raceRepo, finishRepo } = useRepos();
+  const { data: fleetsData } = useFleetsBySeries(seriesId);
+  const fleets = fleetsData ?? [];
+  const saveFleet = useSaveFleet();
+  const deleteFleetMutation = useDeleteFleet();
+  const saveCompetitor = useSaveCompetitor();
+  const touchSeries = useTouchSeries();
+  const updateSeries = useUpdateSeries();
   const [expanded, setExpanded] = useState(isWizard);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -58,7 +66,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     // displayOrder (which a historical race in ensureFleet could produce).
     for (let i = 0; i < reordered.length; i++) {
       if (reordered[i].displayOrder !== i) {
-        await fleetRepo.save({ ...reordered[i], displayOrder: i });
+        await saveFleet.mutateAsync({ ...reordered[i], displayOrder: i });
       }
     }
   }
@@ -79,7 +87,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
         setRenameError(`"${newName}" already exists.`);
         return;
       }
-      await fleetRepo.save({ ...fleet, name: newName });
+      await saveFleet.mutateAsync({ ...fleet, name: newName });
     }
     setRenamingId(null);
     setRenameError('');
@@ -100,7 +108,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     };
 
     if (wasScratch === willBeScratch) {
-      await fleetRepo.save(next);
+      await saveFleet.mutateAsync(next);
       return;
     }
 
@@ -110,7 +118,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
         competitorsInFleet.filter((c) => c.fleetIds.includes(fleet.id)).map((c) => c.id),
       );
       if (fleetCompetitorIds.size === 0) {
-        await fleetRepo.save(next);
+        await saveFleet.mutateAsync(next);
         return;
       }
       const races = await raceRepo.listBySeries(seriesId);
@@ -131,7 +139,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
         });
         return;
       }
-      await fleetRepo.save(next);
+      await saveFleet.mutateAsync(next);
       return;
     }
 
@@ -144,7 +152,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     const parsed = Number(trimmed);
     if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1) return;
     if (parsed === fleet.nhcAlpha) return;
-    await fleetRepo.save({ ...fleet, nhcAlpha: parsed });
+    await saveFleet.mutateAsync({ ...fleet, nhcAlpha: parsed });
   }
 
   async function commitEchoAlpha(fleet: Fleet, raw: string) {
@@ -153,12 +161,12 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     const parsed = Number(trimmed);
     if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1) return;
     if (parsed === fleet.echoAlpha) return;
-    await fleetRepo.save({ ...fleet, echoAlpha: parsed });
+    await saveFleet.mutateAsync({ ...fleet, echoAlpha: parsed });
   }
 
   async function confirmSwitchToScratch() {
     if (!confirmToScratch) return;
-    await fleetRepo.save(confirmToScratch.fleet);
+    await saveFleet.mutateAsync(confirmToScratch.fleet);
     setConfirmToScratch(null);
   }
 
@@ -173,14 +181,14 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
       return;
     }
     const maxOrder = fleets.reduce((max, f) => Math.max(max, f.displayOrder), -1);
-    await fleetRepo.save({
+    await saveFleet.mutateAsync({
       id: crypto.randomUUID(),
       seriesId,
       name,
       displayOrder: maxOrder + 1,
       scoringSystem: 'scratch',
     });
-    await seriesRepo.touch(seriesId);
+    await touchSeries.mutateAsync(seriesId);
     setNewFleetName('');
     setNewFleetError('');
     setAddingFleet(false);
@@ -193,12 +201,12 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
       for (const c of competitorsInFleet) {
         if (c.fleetIds.includes(fleet.id)) {
           const remaining = c.fleetIds.filter((id) => id !== fleet.id);
-          await competitorRepo.save({ ...c, fleetIds: remaining.length > 0 ? remaining : c.fleetIds });
+          await saveCompetitor.mutateAsync({ ...c, fleetIds: remaining.length > 0 ? remaining : c.fleetIds });
         }
       }
     }
-    await fleetRepo.delete(fleet.id);
-    await seriesRepo.touch(seriesId);
+    await deleteFleetMutation.mutateAsync({ id: fleet.id, seriesId });
+    await touchSeries.mutateAsync(seriesId);
     setConfirmDeleteFleet(null);
   }
 
@@ -373,8 +381,8 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
           value={series.defaultStartSequence}
           fleets={sorted}
           onSave={async (next) => {
-            await db.series.update(seriesId, { defaultStartSequence: next });
-            await seriesRepo.touch(seriesId);
+            await updateSeries.mutateAsync({ id: seriesId, patch: { defaultStartSequence: next } });
+            await touchSeries.mutateAsync(seriesId);
           }}
         />
       )}
