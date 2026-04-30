@@ -76,9 +76,7 @@ class ApiFleetRepository implements FleetRepository {
   }
 
   async delete(id: string): Promise<void> {
-    // Same caveat as get — see above.
-    void id;
-    throw new Error('ApiFleetRepository.delete(id) requires seriesId; use saveAll/list');
+    await apiFetch(`/api/v1/fleets/${id}`, { method: 'DELETE' });
   }
 
   async deleteBySeries(seriesId: string): Promise<void> {
@@ -109,8 +107,7 @@ class ApiCompetitorRepository implements CompetitorRepository {
   }
 
   async delete(id: string): Promise<void> {
-    void id;
-    throw new Error('ApiCompetitorRepository.delete(id) requires seriesId');
+    await apiFetch(`/api/v1/competitors/${id}`, { method: 'DELETE' });
   }
 
   async deleteBySeries(seriesId: string): Promise<void> {
@@ -140,8 +137,7 @@ class ApiRaceRepository implements RaceRepository {
   }
 
   async delete(id: string): Promise<void> {
-    void id;
-    throw new Error('ApiRaceRepository.delete(id) requires seriesId');
+    await apiFetch(`/api/v1/races/${id}`, { method: 'DELETE' });
   }
 
   async deleteBySeries(seriesId: string): Promise<void> {
@@ -172,8 +168,7 @@ class ApiRaceStartRepository implements RaceStartRepository {
   }
 
   async delete(id: string): Promise<void> {
-    void id;
-    throw new Error('ApiRaceStartRepository.delete(id) requires raceId');
+    await apiFetch(`/api/v1/race-starts/${id}`, { method: 'DELETE' });
   }
 
   async deleteByRace(raceId: string): Promise<void> {
@@ -230,8 +225,7 @@ class ApiFinishRepository implements FinishRepository {
   }
 
   async delete(id: string): Promise<void> {
-    void id;
-    throw new Error('ApiFinishRepository.delete(id) requires raceId');
+    await apiFetch(`/api/v1/finishes/${id}`, { method: 'DELETE' });
   }
 
   async deleteByRace(raceId: string): Promise<void> {

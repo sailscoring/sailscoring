@@ -50,6 +50,19 @@ export async function deleteFinish(
 }
 
 /**
+ * Flat delete: DELETE /api/v1/finishes/:id. Tenancy via the
+ * PostgresFinishRepository, which joins to races and checks the parent
+ * race's workspace_id; cross-workspace ids are no-ops.
+ */
+export async function deleteFinishFlat(
+  workspace: WorkspaceContext,
+  id: string,
+): Promise<void> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.finishes.delete(id);
+}
+
+/**
  * Bulk upsert. The body is `{ finishes: Finish[] }`. All finishes must
  * share the path's raceId; mixed-race batches are rejected.
  */

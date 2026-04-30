@@ -48,3 +48,16 @@ export async function deleteRaceStart(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.raceStarts.delete(startId);
 }
+
+/**
+ * Flat delete: DELETE /api/v1/race-starts/:id. Tenancy via the
+ * PostgresRaceStartRepository, which joins to races and checks the
+ * parent race's workspace_id; cross-workspace ids are no-ops.
+ */
+export async function deleteRaceStartFlat(
+  workspace: WorkspaceContext,
+  id: string,
+): Promise<void> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.raceStarts.delete(id);
+}

@@ -65,6 +65,18 @@ export async function deleteFleet(
   await repos.fleets.delete(fleetId);
 }
 
+/**
+ * Flat delete: DELETE /api/v1/fleets/:id. Tenancy via the repository
+ * layer (fleets.workspace_id); cross-workspace ids are no-ops.
+ */
+export async function deleteFleetFlat(
+  workspace: WorkspaceContext,
+  id: string,
+): Promise<void> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.fleets.delete(id);
+}
+
 export async function ensureFleet(
   workspace: WorkspaceContext,
   seriesId: string,

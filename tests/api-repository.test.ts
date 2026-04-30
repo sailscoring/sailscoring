@@ -282,6 +282,46 @@ describe('api-repository routing', () => {
     expect(urls).toContain(`/api/v1/series/${id}/fleets`);
   });
 
+  test('fleetRepo.delete DELETEs the flat /api/v1/fleets/:id route', async () => {
+    const id = 'aaaa1111-1111-4222-8333-aaaaaaaaaaaa';
+    fetchMock.mockResolvedValueOnce(jsonResponse(204));
+    await fleetRepo.delete(id);
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/v1/fleets/${id}`);
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+  });
+
+  test('competitorRepo.delete DELETEs the flat /api/v1/competitors/:id route', async () => {
+    const id = 'bbbb1111-1111-4222-8333-bbbbbbbbbbbb';
+    fetchMock.mockResolvedValueOnce(jsonResponse(204));
+    await competitorRepo.delete(id);
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/v1/competitors/${id}`);
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+  });
+
+  test('raceRepo.delete DELETEs the flat /api/v1/races/:id route', async () => {
+    const id = 'cccc1111-1111-4222-8333-cccccccccccc';
+    fetchMock.mockResolvedValueOnce(jsonResponse(204));
+    await raceRepo.delete(id);
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/v1/races/${id}`);
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+  });
+
+  test('raceStartRepo.delete DELETEs the flat /api/v1/race-starts/:id route', async () => {
+    const id = 'dddd1111-1111-4222-8333-dddddddddddd';
+    fetchMock.mockResolvedValueOnce(jsonResponse(204));
+    await raceStartRepo.delete(id);
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/v1/race-starts/${id}`);
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+  });
+
+  test('finishRepo.delete DELETEs the flat /api/v1/finishes/:id route', async () => {
+    const id = 'eeee1111-1111-4222-8333-eeeeeeeeeeee';
+    fetchMock.mockResolvedValueOnce(jsonResponse(204));
+    await finishRepo.delete(id);
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/v1/finishes/${id}`);
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+  });
+
   test('competitorRepo.get hits the flat /api/v1/competitors/:id route', async () => {
     const id = 'e1e1e1e1-1111-4222-8333-eeeeeeeeeeee';
     const competitor: Competitor = {

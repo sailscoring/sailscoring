@@ -77,3 +77,12 @@ export async function getRaceFlat(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   return repos.races.get(raceId);
 }
+
+/** Flat delete: DELETE /api/v1/races/:raceId. Cross-workspace ids are no-ops. */
+export async function deleteRaceFlat(
+  workspace: WorkspaceContext,
+  raceId: string,
+): Promise<void> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.races.delete(raceId);
+}

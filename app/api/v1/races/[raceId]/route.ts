@@ -1,4 +1,4 @@
-import { getRaceFlat } from '@/lib/api-handlers/races';
+import { deleteRaceFlat, getRaceFlat } from '@/lib/api-handlers/races';
 import { NotFoundError, workspaceRoute } from '../../_lib/handler';
 
 export const dynamic = 'force-dynamic';
@@ -9,4 +9,8 @@ export const GET = workspaceRoute<Params, unknown>(async (_req, { workspace, par
   const race = await getRaceFlat(workspace, params.raceId);
   if (!race) throw new NotFoundError('race');
   return race;
+});
+
+export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
+  await deleteRaceFlat(workspace, params.raceId);
 });

@@ -77,3 +77,12 @@ export async function getCompetitorFlat(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   return repos.competitors.get(id);
 }
+
+/** Flat delete: DELETE /api/v1/competitors/:id. Cross-workspace ids are no-ops. */
+export async function deleteCompetitorFlat(
+  workspace: WorkspaceContext,
+  id: string,
+): Promise<void> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.competitors.delete(id);
+}
