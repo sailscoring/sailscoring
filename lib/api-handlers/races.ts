@@ -62,3 +62,18 @@ export async function deleteRace(
   if (!existing || existing.seriesId !== seriesId) return;
   await repos.races.delete(raceId);
 }
+
+/**
+ * Flat lookup: GET /api/v1/races/:raceId. Workspace tenancy is enforced
+ * by the repository layer (races.workspace_id is denormalised onto the
+ * row), so an id from another workspace returns 404. Useful for callers
+ * that hold only a child id — e.g. lib/api-repository.ts's
+ * RaceRepository.get(id), and any future public-API consumer.
+ */
+export async function getRaceFlat(
+  workspace: WorkspaceContext,
+  raceId: string,
+): Promise<Race | undefined> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  return repos.races.get(raceId);
+}

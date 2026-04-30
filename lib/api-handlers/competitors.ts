@@ -64,3 +64,16 @@ export async function deleteCompetitor(
   if (!existing || existing.seriesId !== seriesId) return;
   await repos.competitors.delete(competitorId);
 }
+
+/**
+ * Flat lookup: GET /api/v1/competitors/:id. Tenancy is enforced by the
+ * repository layer (competitors.workspace_id is denormalised onto the
+ * row); cross-workspace ids return 404. Symmetrical with `getRaceFlat`.
+ */
+export async function getCompetitorFlat(
+  workspace: WorkspaceContext,
+  id: string,
+): Promise<Competitor | undefined> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  return repos.competitors.get(id);
+}

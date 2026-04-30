@@ -98,8 +98,7 @@ class ApiCompetitorRepository implements CompetitorRepository {
   }
 
   get(id: string): Promise<Competitor | undefined> {
-    void id;
-    return Promise.resolve(undefined);
+    return apiFetch<Competitor | undefined>(`/api/v1/competitors/${id}`, { allow404: true });
   }
 
   save(c: Competitor): Promise<Competitor> {
@@ -130,8 +129,7 @@ class ApiRaceRepository implements RaceRepository {
   }
 
   get(id: string): Promise<Race | undefined> {
-    void id;
-    return Promise.resolve(undefined);
+    return apiFetch<Race | undefined>(`/api/v1/races/${id}`, { allow404: true });
   }
 
   save(r: Race): Promise<Race> {

@@ -282,6 +282,38 @@ describe('api-repository routing', () => {
     expect(urls).toContain(`/api/v1/series/${id}/fleets`);
   });
 
+  test('competitorRepo.get hits the flat /api/v1/competitors/:id route', async () => {
+    const id = 'e1e1e1e1-1111-4222-8333-eeeeeeeeeeee';
+    const competitor: Competitor = {
+      id, seriesId: 'fafafafa-1111-4222-8333-ffffffffffff',
+      fleetIds: [], sailNumber: '1', name: 'X',
+      club: '', gender: '', age: null, createdAt: 0,
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, competitor));
+    const got = await competitorRepo.get(id);
+    expect(got).toEqual(competitor);
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/v1/competitors/${id}`);
+  });
+
+  test('competitorRepo.get returns undefined on 404', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(404, { error: 'not-found' }));
+    expect(await competitorRepo.get('e2e2e2e2-1111-4222-8333-eeeeeeeeeeee')).toBeUndefined();
+  });
+
+  test('raceRepo.get hits the flat /api/v1/races/:id route', async () => {
+    const id = 'a3a3a3a3-1111-4222-8333-aaaaaaaaaaaa';
+    const race: Race = { id, seriesId: 'b3b3b3b3-1111-4222-8333-bbbbbbbbbbbb', raceNumber: 1, date: '', createdAt: 0 };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, race));
+    const got = await raceRepo.get(id);
+    expect(got).toEqual(race);
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/v1/races/${id}`);
+  });
+
+  test('raceRepo.get returns undefined on 404', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(404, { error: 'not-found' }));
+    expect(await raceRepo.get('a4a4a4a4-1111-4222-8333-aaaaaaaaaaaa')).toBeUndefined();
+  });
+
   test('pruneFleet deletes when no competitor references the fleet', async () => {
     const seriesId = 'c0c0c0c0-1111-4222-8333-cccccccccccc';
     const fleetId = 'd0d0d0d0-1111-4222-8333-dddddddddddd';
