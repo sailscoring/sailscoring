@@ -2,10 +2,14 @@
 
 import { use, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { seriesRepo, fleetRepo, raceRepo, listSeriesNames } from '@/lib/dexie-repository';
+import { useRepos } from '@/lib/repos';
+import {
+  useSeries,
+  useTouchSeries,
+  useUpdateSeries,
+} from '@/hooks/use-series';
+import { useFleetsBySeries, useSaveFleet } from '@/hooks/use-fleets';
 import { isDuplicateSeriesName } from '@/lib/series-name';
-import { db } from '@/lib/db';
 import type { CompetitorFieldKey, PrimaryPersonLabel } from '@/lib/types';
 import { BasicsCard } from '@/components/series-settings/basics-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
@@ -43,6 +47,10 @@ import {
 import type { Series } from '@/lib/types';
 
 function ScoringModeCard({ seriesId, series }: { seriesId: string; series: Series }) {
+  const { raceRepo, finishRepo, fleetRepo } = useRepos();
+  const updateSeries = useUpdateSeries();
+  const touchSeries = useTouchSeries();
+  const saveFleet = useSaveFleet();
   const [expanded, setExpanded] = useState(false);
   const [locked, setLocked] = useState(false);
   const [lockReason, setLockReason] = useState('');
@@ -52,30 +60,33 @@ function ScoringModeCard({ seriesId, series }: { seriesId: string; series: Serie
     (async () => {
       const races = await raceRepo.listBySeries(seriesId);
       if (races.length === 0) { setLocked(false); return; }
-      const raceIds = races.map((r) => r.id);
-      const finishes = await db.finishes.where('raceId').anyOf(raceIds).limit(1).toArray();
-      if (finishes.length > 0) {
+      let hasAnyFinish = false;
+      for (const r of races) {
+        const finishes = await finishRepo.listByRace(r.id);
+        if (finishes.length > 0) { hasAnyFinish = true; break; }
+      }
+      if (hasAnyFinish) {
         setLocked(true);
         setLockReason('Scoring mode is locked because races have finishes. Remove all finishes to change it.');
       } else {
         setLocked(false);
       }
     })();
-  }, [seriesId]);
+  }, [seriesId, raceRepo, finishRepo]);
 
   async function handleChange(mode: 'scratch' | 'handicap') {
     if (locked || mode === series.scoringMode) return;
-    await db.series.update(seriesId, { scoringMode: mode });
+    await updateSeries.mutateAsync({ id: seriesId, patch: { scoringMode: mode } });
     // When switching to scratch, reset all fleet scoring systems to scratch
     if (mode === 'scratch') {
       const fleets = await fleetRepo.listBySeries(seriesId);
       for (const f of fleets) {
         if (f.scoringSystem !== 'scratch') {
-          await fleetRepo.save({ ...f, scoringSystem: 'scratch' });
+          await saveFleet.mutateAsync({ ...f, scoringSystem: 'scratch' });
         }
       }
     }
-    await seriesRepo.touch(seriesId);
+    await touchSeries.mutateAsync(seriesId);
   }
 
   const summary = series.scoringMode === 'handicap'
@@ -142,10 +153,11 @@ function ScoringModeCard({ seriesId, series }: { seriesId: string; series: Serie
 
 
 function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: Series }) {
+  const updateSeries = useUpdateSeries();
   const [expanded, setExpanded] = useState(false);
   // Mirror the persisted array into local state so the checkbox updates
-  // instantly on click — the async db.update that follows would otherwise
-  // leave the controlled <input> at the old value until useLiveQuery reruns.
+  // instantly on click — the async save that follows would otherwise leave
+  // the controlled <input> at the old value until the query refetches.
   const persisted = series.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
   const primaryLabel: PrimaryPersonLabel = series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
   const [localEnabled, setLocalEnabled] = useState<CompetitorFieldKey[]>(persisted);
@@ -165,18 +177,24 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
     if (checked) next.add(field); else next.delete(field);
     const nextArray = ALL_COMPETITOR_FIELDS.filter((f) => next.has(f));
     setLocalEnabled(nextArray);
-    await db.series.update(seriesId, {
-      enabledCompetitorFields: nextArray,
-      // eslint-disable-next-line react-hooks/purity -- Date.now() runs inside an async event handler, not render.
-      lastModifiedAt: Date.now(),
+    await updateSeries.mutateAsync({
+      id: seriesId,
+      patch: {
+        enabledCompetitorFields: nextArray,
+        // eslint-disable-next-line react-hooks/purity -- Date.now() runs inside an async event handler, not render.
+        lastModifiedAt: Date.now(),
+      },
     });
   }
 
   async function changePrimary(label: PrimaryPersonLabel) {
-    await db.series.update(seriesId, {
-      primaryPersonLabel: label,
-      // eslint-disable-next-line react-hooks/purity -- Date.now() runs inside an async event handler, not render.
-      lastModifiedAt: Date.now(),
+    await updateSeries.mutateAsync({
+      id: seriesId,
+      patch: {
+        primaryPersonLabel: label,
+        // eslint-disable-next-line react-hooks/purity -- Date.now() runs inside an async event handler, not render.
+        lastModifiedAt: Date.now(),
+      },
     });
   }
 
@@ -283,6 +301,7 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
 }
 
 function PublishingCard({ seriesId, series, anyProgressiveFleet }: { seriesId: string; series: Series; anyProgressiveFleet: boolean }) {
+  const updateSeries = useUpdateSeries();
   const [expanded, setExpanded] = useState(false);
 
   const includeJson = series.includeJsonExport ?? true;
@@ -313,7 +332,7 @@ function PublishingCard({ seriesId, series, anyProgressiveFleet }: { seriesId: s
               type="checkbox"
               checked={includeJson}
               onChange={(e) => {
-                db.series.update(seriesId, { includeJsonExport: e.target.checked });
+                updateSeries.mutate({ id: seriesId, patch: { includeJsonExport: e.target.checked } });
               }}
               className="mt-0.5 h-4 w-4 shrink-0"
             />
@@ -335,7 +354,7 @@ function PublishingCard({ seriesId, series, anyProgressiveFleet }: { seriesId: s
                 type="checkbox"
                 checked={publishRatingCalcs}
                 onChange={(e) => {
-                  db.series.update(seriesId, { publishRatingCalculations: e.target.checked });
+                  updateSeries.mutate({ id: seriesId, patch: { publishRatingCalculations: e.target.checked } });
                 }}
                 className="mt-0.5 h-4 w-4 shrink-0"
               />
@@ -385,13 +404,16 @@ export default function SettingsPage({
 }) {
   const { id: seriesId } = use(params);
   const router = useRouter();
-  const series = useLiveQuery(async () => (await seriesRepo.get(seriesId)) ?? null, [seriesId]);
-  const fleets = useLiveQuery(() => fleetRepo.listBySeries(seriesId), [seriesId]) ?? [];
+  const { listSeriesNames } = useRepos();
+  const { data: series, isLoading } = useSeries(seriesId);
+  const { data: fleetsData } = useFleetsBySeries(seriesId);
+  const fleets = fleetsData ?? [];
+  const updateSeries = useUpdateSeries();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [updateFlow, setUpdateFlow] = useState<UpdateFlow>({ step: 'idle' });
 
-  if (series === undefined) return <p className="text-muted-foreground">Loading…</p>;
+  if (isLoading || series === undefined) return <p className="text-muted-foreground">Loading…</p>;
   if (series === null) return <p className="text-muted-foreground">Series not found.</p>;
 
   const anyProgressiveFleet = fleets.some((f) => f.scoringSystem === 'nhc' || f.scoringSystem === 'echo');
@@ -504,8 +526,10 @@ export default function SettingsPage({
             : null;
         }}
         onChange={async (patch) => {
-          const trimmed: typeof patch = { ...patch };
-          await db.series.update(seriesId, { ...trimmed, lastModifiedAt: Date.now() });
+          await updateSeries.mutateAsync({
+            id: seriesId,
+            patch: { ...patch, lastModifiedAt: Date.now() },
+          });
         }}
       />
       <ScoringModeCard seriesId={seriesId} series={series} />
@@ -513,7 +537,10 @@ export default function SettingsPage({
       <ScoringCard
         value={series}
         onChange={async (patch) => {
-          await db.series.update(seriesId, { ...patch, lastModifiedAt: Date.now() });
+          await updateSeries.mutateAsync({
+            id: seriesId,
+            patch: { ...patch, lastModifiedAt: Date.now() },
+          });
         }}
       />
       <CompetitorFieldsCard seriesId={seriesId} series={series} />
