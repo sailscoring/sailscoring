@@ -274,3 +274,17 @@ export const raceRepo: RaceRepository = new ApiRaceRepository();
 export const raceStartRepo: RaceStartRepository = new ApiRaceStartRepository();
 export const finishRepo: FinishRepository = new ApiFinishRepository();
 export const ftpServerRepo: FtpServerRepository = new ApiFtpServerRepository();
+
+/**
+ * Mirror of `listSeriesNames` from `lib/dexie-repository.ts`. Used by the
+ * "new series" / "rename series" duplicate-name check. Workspaces are
+ * small, so projecting names from the full series list is acceptable.
+ * If list sizes ever justify it, add a `?fields=names` projection on
+ * `/api/v1/series` and switch this helper.
+ */
+export async function listSeriesNames(
+  opts: { excludeId?: string } = {},
+): Promise<string[]> {
+  const all = await seriesRepo.list();
+  return all.filter((s) => s.id !== opts.excludeId).map((s) => s.name);
+}

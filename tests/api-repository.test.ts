@@ -5,6 +5,7 @@ import {
   finishRepo,
   fleetRepo,
   ftpServerRepo,
+  listSeriesNames,
   raceRepo,
   raceStartRepo,
   seriesRepo,
@@ -239,5 +240,19 @@ describe('api-repository routing', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(204));
     await ftpServerRepo.delete('dddddddd-1111-4222-8333-dddddddddddd');
     expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+  });
+
+  test('listSeriesNames projects names from the series list', async () => {
+    const a: Series = { ...stubSeries, id: 'aaaaaaaa-1111-4222-8333-aaaaaaaaaaaa', name: 'Spring' };
+    const b: Series = { ...stubSeries, id: 'bbbbbbbb-1111-4222-8333-bbbbbbbbbbbb', name: 'Autumn' };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { items: [a, b] }));
+    expect(await listSeriesNames()).toEqual(['Spring', 'Autumn']);
+  });
+
+  test('listSeriesNames excludes the given id', async () => {
+    const a: Series = { ...stubSeries, id: 'aaaaaaaa-1111-4222-8333-aaaaaaaaaaaa', name: 'Spring' };
+    const b: Series = { ...stubSeries, id: 'bbbbbbbb-1111-4222-8333-bbbbbbbbbbbb', name: 'Autumn' };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { items: [a, b] }));
+    expect(await listSeriesNames({ excludeId: a.id })).toEqual(['Autumn']);
   });
 });
