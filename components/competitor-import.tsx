@@ -2,8 +2,11 @@
 
 import { useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import Papa from 'papaparse';
-import { competitorRepo, fleetRepo, seriesRepo, ensureFleet, DEFAULT_FLEET_NAME } from '@/lib/dexie-repository';
-import { db } from '@/lib/db';
+import { useRepos } from '@/lib/repos';
+import { useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
+import { useEnsureFleet } from '@/hooks/use-fleets';
+import { useSaveCompetitor } from '@/hooks/use-competitors';
+import { DEFAULT_FLEET_NAME } from '@/lib/dexie-repository';
 import { parseFleetCell, autoDetectField, type CompetitorField } from '@/lib/csv-import';
 import {
   planFleetCreation,
@@ -259,6 +262,11 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
   onComplete?: (result: ImportResult | null) => void;
   trigger?: React.ReactNode;
 }>(function CompetitorImport({ seriesId, fleets, onComplete, trigger }, ref) {
+  const { seriesRepo, competitorRepo } = useRepos();
+  const updateSeries = useUpdateSeries();
+  const touchSeries = useTouchSeries();
+  const ensureFleetMutation = useEnsureFleet();
+  const saveCompetitor = useSaveCompetitor();
   const [importFlow, setImportFlow] = useState<ImportFlow>({ step: 'idle' });
   const csvInputRef = useRef<HTMLInputElement>(null);
 
@@ -401,7 +409,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     }
     if (Object.keys(seriesPatch).length > 0) {
       seriesPatch.lastModifiedAt = Date.now();
-      await db.series.update(seriesId, seriesPatch);
+      await updateSeries.mutateAsync({ id: seriesId, patch: seriesPatch });
     }
 
     const fleetIdByPlanKey = new Map<string, string>();
@@ -410,7 +418,11 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       if (p.isExisting && p.existingFleetId) {
         fleetIdByPlanKey.set(p.key, p.existingFleetId);
       } else {
-        const id = await ensureFleet(seriesId, p.name, { scoringSystem: p.scoringSystem });
+        const id = await ensureFleetMutation.mutateAsync({
+          seriesId,
+          name: p.name,
+          options: { scoringSystem: p.scoringSystem },
+        });
         fleetIdByPlanKey.set(p.key, id);
         newFleetNames.push(p.name);
       }
@@ -548,7 +560,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       }
 
       log('competitors', existingCompetitor ? 'import-update' : 'import-add', competitor);
-      await competitorRepo.save(competitor);
+      await saveCompetitor.mutateAsync(competitor);
       if (existingCompetitor) {
         updated++;
       } else {
@@ -556,7 +568,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       }
     }
 
-    await seriesRepo.touch(seriesId);
+    await touchSeries.mutateAsync(seriesId);
     setImportFlow({ step: 'done', added, updated, unchanged, fleetsCreated: newFleetNames, errors });
   }
 

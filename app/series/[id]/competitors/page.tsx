@@ -1,8 +1,13 @@
 'use client';
 
 import { use, useState, useRef, useEffect } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { competitorRepo, fleetRepo, seriesRepo } from '@/lib/dexie-repository';
+import { useSeries, useTouchSeries } from '@/hooks/use-series';
+import { useFleetsBySeries } from '@/hooks/use-fleets';
+import {
+  useCompetitorsBySeries,
+  useDeleteCompetitor,
+  useSaveCompetitor,
+} from '@/hooks/use-competitors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -488,15 +493,12 @@ export default function CompetitorsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: seriesId } = use(params);
-  const competitors = useLiveQuery(
-    () => competitorRepo.listBySeries(seriesId),
-    [seriesId],
-  );
-  const fleets = useLiveQuery(
-    () => fleetRepo.listBySeries(seriesId),
-    [seriesId],
-  );
-  const series = useLiveQuery(() => seriesRepo.get(seriesId), [seriesId]);
+  const { data: competitors } = useCompetitorsBySeries(seriesId);
+  const { data: fleets } = useFleetsBySeries(seriesId);
+  const { data: series } = useSeries(seriesId);
+  const saveCompetitor = useSaveCompetitor();
+  const deleteCompetitor = useDeleteCompetitor();
+  const touchSeries = useTouchSeries();
   const enabledFields: CompetitorFieldKey[] =
     series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
   const primaryLabel: PrimaryPersonLabel =
@@ -580,8 +582,8 @@ export default function CompetitorsPage({
       ...ratingFieldsFromForm(data),
     };
     log('competitors', 'adding', competitor);
-    await competitorRepo.save(competitor);
-    await seriesRepo.touch(seriesId);
+    await saveCompetitor.mutateAsync(competitor);
+    await touchSeries.mutateAsync(seriesId);
     setShowAddForm(false);
   }
 
@@ -619,16 +621,16 @@ export default function CompetitorsPage({
     if (!data.helm.trim()) delete updated.helm;
     if (!data.crewName.trim()) delete updated.crewName;
     log('competitors', 'updating', updated);
-    await competitorRepo.save(updated);
-    await seriesRepo.touch(seriesId);
+    await saveCompetitor.mutateAsync(updated);
+    await touchSeries.mutateAsync(seriesId);
     setEditingCompetitor(null);
   }
 
   async function handleDelete(competitor: Competitor) {
     if (!confirm(`Delete ${competitor.name} (${competitor.sailNumber})?`)) return;
     log('competitors', 'deleting', competitor.id);
-    await competitorRepo.delete(competitor.id);
-    await seriesRepo.touch(seriesId);
+    await deleteCompetitor.mutateAsync({ id: competitor.id, seriesId });
+    await touchSeries.mutateAsync(seriesId);
   }
 
 
