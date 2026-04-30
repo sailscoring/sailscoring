@@ -3,6 +3,7 @@ import type {
   SeriesRepository,
   CompetitorRepository,
   FleetRepository,
+  FtpServerRepository,
   RaceRepository,
   FinishRepository,
   RaceStartRepository,
@@ -152,17 +153,18 @@ class DexieRaceStartRepository implements RaceStartRepository {
   }
 }
 
-class DexieFtpServerRepository {
+class DexieFtpServerRepository implements FtpServerRepository {
   list(): Promise<FtpServer[]> {
     return db.ftpServers.toArray();
   }
 
   async save(server: FtpServer): Promise<FtpServer> {
-    const id = await db.ftpServers.put(server);
-    return { ...server, id: id as number };
+    const withId: FtpServer = server.id ? server : { ...server, id: crypto.randomUUID() };
+    await db.ftpServers.put(withId);
+    return withId;
   }
 
-  delete(id: number): Promise<void> {
+  delete(id: string): Promise<void> {
     return db.ftpServers.delete(id);
   }
 }
@@ -206,7 +208,7 @@ export const fleetRepo: FleetRepository = new DexieFleetRepository();
 export const raceRepo: RaceRepository = new DexieRaceRepository();
 export const finishRepo: FinishRepository = new DexieFinishRepository();
 export const raceStartRepo: RaceStartRepository = new DexieRaceStartRepository();
-export const ftpServerRepo = new DexieFtpServerRepository();
+export const ftpServerRepo: FtpServerRepository = new DexieFtpServerRepository();
 
 /**
  * Delete every child row that belongs (directly or via race) to the given series.

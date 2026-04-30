@@ -1,4 +1,4 @@
-import type { Series, Competitor, Fleet, Race, Finish, RaceStart } from './types';
+import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart } from './types';
 
 export interface FleetRepository {
   listBySeries(seriesId: string): Promise<Fleet[]>;
@@ -49,4 +49,16 @@ export interface RaceStartRepository {
   delete(id: string): Promise<void>;
   deleteByRace(raceId: string): Promise<void>;
   deleteByRaces(raceIds: string[]): Promise<void>;
+}
+
+/**
+ * Workspace-scoped FTP server credentials. Local Dexie store and remote
+ * Postgres store both implement this interface; the Postgres backend
+ * encrypts the password column at the application layer (lib/crypto.ts)
+ * per ADR-008's sustainability posture.
+ */
+export interface FtpServerRepository {
+  list(): Promise<FtpServer[]>;
+  save(server: FtpServer): Promise<FtpServer>;
+  delete(id: string): Promise<void>;
 }

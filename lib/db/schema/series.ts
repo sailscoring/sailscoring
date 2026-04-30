@@ -295,6 +295,33 @@ export const nhcTcfRecords = pgTable(
 );
 
 /**
+ * FTP server credentials, workspace-scoped. The password column holds the
+ * AES-256-GCM ciphertext produced by `lib/crypto.ts` (IV + tag + ciphertext,
+ * base64) — never the plaintext. Repository code is the only consumer that
+ * encrypts or decrypts; HTTP handlers move plaintext only over TLS.
+ */
+export const ftpServers = pgTable(
+  'ftp_servers',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    host: text('host').notNull(),
+    port: integer('port').notNull().default(21),
+    username: text('username').notNull(),
+    encryptedPassword: text('encrypted_password').notNull(),
+    ftps: boolean('ftps').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+  },
+  (table) => [index('ftp_servers_workspace_idx').on(table.workspaceId)],
+);
+
+/**
  * Idempotency-key store. Phase 5 wraps every write endpoint to look up the
  * key before invoking the handler, and to write the response on the way out.
  * The structure lands in Phase 2 so the migration is a single file. TTL

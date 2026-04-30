@@ -1,12 +1,14 @@
 import 'server-only';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
+import { decryptCredential, encryptCredential } from './crypto';
 import { getDb, type SailScoringDb } from './db/client';
 import * as schema from './db/schema';
 import type {
   CompetitorRepository,
   FinishRepository,
   FleetRepository,
+  FtpServerRepository,
   RaceRepository,
   RaceStartRepository,
   SeriesRepository,
@@ -15,6 +17,7 @@ import type {
   Competitor,
   Fleet,
   Finish,
+  FtpServer,
   PenaltyCode,
   Race,
   RaceStart,
@@ -905,6 +908,74 @@ function finishUpdateSetExcluded() {
   };
 }
 
+// ─── FTP servers ─────────────────────────────────────────────────────────────
+
+export class PostgresFtpServerRepository implements FtpServerRepository {
+  private readonly db: SailScoringDb;
+  private readonly workspaceId: string;
+
+  constructor(ctx: RepoCtx) {
+    this.db = ctx.db ?? getDb();
+    this.workspaceId = ctx.workspaceId;
+  }
+
+  async list(): Promise<FtpServer[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.ftpServers)
+      .where(eq(schema.ftpServers.workspaceId, this.workspaceId))
+      .orderBy(schema.ftpServers.createdAt);
+    return rows.map((row) => ({
+      id: row.id,
+      host: row.host,
+      port: row.port,
+      username: row.username,
+      password: decryptCredential(row.encryptedPassword),
+      ftps: row.ftps,
+    }));
+  }
+
+  async save(server: FtpServer): Promise<FtpServer> {
+    const values = {
+      id: server.id,
+      workspaceId: this.workspaceId,
+      host: server.host,
+      port: server.port,
+      username: server.username,
+      encryptedPassword: encryptCredential(server.password),
+      ftps: server.ftps,
+    };
+    await this.db
+      .insert(schema.ftpServers)
+      .values(values)
+      .onConflictDoUpdate({
+        target: schema.ftpServers.id,
+        targetWhere: eq(schema.ftpServers.workspaceId, this.workspaceId),
+        set: {
+          host: values.host,
+          port: values.port,
+          username: values.username,
+          encryptedPassword: values.encryptedPassword,
+          ftps: values.ftps,
+          version: sql`${schema.ftpServers.version} + 1`,
+          updatedAt: sql`now()`,
+        },
+      });
+    return server;
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.db
+      .delete(schema.ftpServers)
+      .where(
+        and(
+          eq(schema.ftpServers.id, id),
+          eq(schema.ftpServers.workspaceId, this.workspaceId),
+        ),
+      );
+  }
+}
+
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
 export function createRepos(ctx: RepoCtx) {
@@ -915,5 +986,6 @@ export function createRepos(ctx: RepoCtx) {
     races: new PostgresRaceRepository(ctx),
     raceStarts: new PostgresRaceStartRepository(ctx),
     finishes: new PostgresFinishRepository(ctx),
+    ftpServers: new PostgresFtpServerRepository(ctx),
   };
 }

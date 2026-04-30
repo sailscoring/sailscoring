@@ -408,4 +408,53 @@ describe.skipIf(skip)('postgres repositories', () => {
     await reposA.series.delete(sA.id);
     await reposB.series.delete(sB.id);
   });
+
+  // ─── FtpServerRepository ───────────────────────────────────────────────────
+
+  test('FtpServerRepository: round-trips, encrypts at rest, isolates by workspace', async () => {
+    process.env.CREDENTIAL_KEY = 'a'.repeat(64);
+    const { _resetKeyCache } = await import('@/lib/crypto');
+    _resetKeyCache();
+
+    const reposA = createRepos({ db, workspaceId: workspaceA });
+    const reposB = createRepos({ db, workspaceId: workspaceB });
+    const id = uuid();
+    const server = {
+      id,
+      host: 'ftp.example.com',
+      port: 21,
+      username: 'sailor',
+      password: 'super-secret',
+      ftps: true,
+    };
+    await reposA.ftpServers.save(server);
+
+    const fromA = await reposA.ftpServers.list();
+    expect(fromA).toHaveLength(1);
+    expect(fromA[0].password).toBe('super-secret');
+
+    const fromB = await reposB.ftpServers.list();
+    expect(fromB).toEqual([]);
+
+    const [row] = await db
+      .select()
+      .from(schema.ftpServers)
+      .where(eq(schema.ftpServers.id, id));
+    expect(row.encryptedPassword).not.toContain('super-secret');
+    expect(row.version).toBe(1);
+
+    await reposA.ftpServers.save({ ...server, password: 'rotated' });
+    const [row2] = await db
+      .select()
+      .from(schema.ftpServers)
+      .where(eq(schema.ftpServers.id, id));
+    expect(row2.version).toBe(2);
+    expect(row2.encryptedPassword).not.toBe(row.encryptedPassword);
+
+    await reposB.ftpServers.delete(id);
+    expect((await reposA.ftpServers.list())).toHaveLength(1);
+
+    await reposA.ftpServers.delete(id);
+    expect((await reposA.ftpServers.list())).toEqual([]);
+  });
 });

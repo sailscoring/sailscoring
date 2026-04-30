@@ -37,6 +37,33 @@ export class SailScoringDb extends Dexie {
         }));
       });
     });
+    // v3: ADR-008 Phase 3 parity. Convert ftpServers' auto-incrementing number
+    // primary key to a string UUID, matching the server-side schema. Dexie
+    // does not allow changing a primary key in place, so we read all rows,
+    // clear the table, and re-insert with fresh UUIDs.
+    this.version(3).stores({ ftpServers: 'id' }).upgrade(async (tx) => {
+      const ftpTable = tx.table('ftpServers');
+      const existing = (await ftpTable.toArray()) as Array<{
+        host: string;
+        port: number;
+        username: string;
+        password: string;
+        ftps: boolean;
+      }>;
+      await ftpTable.clear();
+      if (existing.length > 0) {
+        await ftpTable.bulkAdd(
+          existing.map((row) => ({
+            id: crypto.randomUUID(),
+            host: row.host,
+            port: row.port,
+            username: row.username,
+            password: row.password,
+            ftps: row.ftps,
+          })),
+        );
+      }
+    });
   }
 }
 

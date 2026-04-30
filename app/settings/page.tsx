@@ -35,7 +35,7 @@ function FtpServerDialog({
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     await ftpServerRepo.save({
-      ...(initial?.id !== undefined ? { id: initial.id } : {}),
+      id: initial?.id ?? crypto.randomUUID(),
       host: host.trim(),
       port,
       username: username.trim(),
@@ -150,7 +150,7 @@ export default function SettingsPage() {
     setDialog({ open: false, server: null });
   }
 
-  async function handleDelete(id: number) {
+  async function handleDelete(id: string) {
     await ftpServerRepo.delete(id);
   }
 
@@ -196,7 +196,7 @@ export default function SettingsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleDelete(server.id!)}
+                    onClick={() => handleDelete(server.id)}
                     aria-label={`Delete ${server.host}`}
                   >
                     <Trash2 className="h-4 w-4" />

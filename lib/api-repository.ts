@@ -11,6 +11,7 @@ import type {
   CompetitorRepository,
   FinishRepository,
   FleetRepository,
+  FtpServerRepository,
   RaceRepository,
   RaceStartRepository,
   SeriesRepository,
@@ -19,6 +20,7 @@ import type {
   Competitor,
   Finish,
   Fleet,
+  FtpServer,
   Race,
   RaceStart,
   Series,
@@ -248,9 +250,27 @@ class ApiFinishRepository implements FinishRepository {
   }
 }
 
+class ApiFtpServerRepository implements FtpServerRepository {
+  list(): Promise<FtpServer[]> {
+    return apiFetch<FtpServer[]>('/api/v1/ftp-servers');
+  }
+
+  save(server: FtpServer): Promise<FtpServer> {
+    return apiFetch<FtpServer>(`/api/v1/ftp-servers/${server.id}`, {
+      method: 'PUT',
+      body: server,
+    });
+  }
+
+  async delete(id: string): Promise<void> {
+    await apiFetch(`/api/v1/ftp-servers/${id}`, { method: 'DELETE' });
+  }
+}
+
 export const seriesRepo: SeriesRepository = new ApiSeriesRepository();
 export const fleetRepo: FleetRepository = new ApiFleetRepository();
 export const competitorRepo: CompetitorRepository = new ApiCompetitorRepository();
 export const raceRepo: RaceRepository = new ApiRaceRepository();
 export const raceStartRepo: RaceStartRepository = new ApiRaceStartRepository();
 export const finishRepo: FinishRepository = new ApiFinishRepository();
+export const ftpServerRepo: FtpServerRepository = new ApiFtpServerRepository();

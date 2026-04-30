@@ -720,7 +720,7 @@ function FtpUploadDialog({
     if (!open || !ftpServers) return;
     if (series.ftpHost) {
       const match = ftpServers.find((s) => s.host === series.ftpHost);
-      setSelectedServerId(match?.id !== undefined ? String(match.id) : '');
+      setSelectedServerId(match?.id ?? '');
     } else {
       setSelectedServerId('');
     }
@@ -733,8 +733,7 @@ function FtpUploadDialog({
   }
 
   async function handleUpload() {
-    const serverId = parseInt(selectedServerId);
-    const server = ftpServers?.find((s) => s.id === serverId);
+    const server = ftpServers?.find((s) => s.id === selectedServerId);
     if (!server || fleetPaths.some((p) => !p.trim())) return;
 
     setUploadState('uploading');
@@ -800,7 +799,7 @@ function FtpUploadDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {ftpServers?.map((s) => (
-                    <SelectItem key={s.id} value={String(s.id)}>
+                    <SelectItem key={s.id} value={s.id}>
                       {s.ftps ? 'ftps' : 'ftp'}://{s.host}:{s.port}
                     </SelectItem>
                   ))}

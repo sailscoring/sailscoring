@@ -15,6 +15,13 @@
       "when": 1777403305209,
       "tag": "0001_groovy_anita_blake",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777530523223,
+      "tag": "0002_clumsy_mathemanic",
+      "breakpoints": true
     }
   ]
 }

@@ -4,11 +4,20 @@ import {
   competitorRepo,
   finishRepo,
   fleetRepo,
+  ftpServerRepo,
   raceRepo,
   raceStartRepo,
   seriesRepo,
 } from '@/lib/api-repository';
-import type { Competitor, Finish, Fleet, Race, RaceStart, Series } from '@/lib/types';
+import type {
+  Competitor,
+  Finish,
+  Fleet,
+  FtpServer,
+  Race,
+  RaceStart,
+  Series,
+} from '@/lib/types';
 
 const fetchMock = vi.fn();
 
@@ -203,5 +212,32 @@ describe('api-repository routing', () => {
     for (const call of fetchMock.mock.calls) {
       expect(call[1].method).toBe('POST');
     }
+  });
+
+  test('ftpServerRepo.list hits /api/v1/ftp-servers', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, []));
+    await ftpServerRepo.list();
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/ftp-servers');
+  });
+
+  test('ftpServerRepo.save PUTs to /api/v1/ftp-servers/:id', async () => {
+    const server: FtpServer = {
+      id: 'cccccccc-1111-4222-8333-cccccccccccc',
+      host: 'ftp.example.com',
+      port: 21,
+      username: 'u',
+      password: 'p',
+      ftps: false,
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, server));
+    await ftpServerRepo.save(server);
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/v1/ftp-servers/${server.id}`);
+    expect(fetchMock.mock.calls[0][1].method).toBe('PUT');
+  });
+
+  test('ftpServerRepo.delete DELETEs to /api/v1/ftp-servers/:id', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(204));
+    await ftpServerRepo.delete('dddddddd-1111-4222-8333-dddddddddddd');
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
   });
 });

@@ -294,7 +294,7 @@ export interface BilgeBundle {
 }
 
 export interface FtpServer {
-  id?: number;   // auto-increment primary key; undefined before first save
+  id: string;
   host: string;
   port: number;
   username: string;
