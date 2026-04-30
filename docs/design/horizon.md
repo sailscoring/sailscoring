@@ -118,6 +118,18 @@ as attribution in the snapshot history entries in the series file format.
 
 *(Was GitHub issue #37)*
 
+### Lock or archive a finished series
+
+Once a series is over, the scorer should be able to mark it as finished — locking it
+read-only so further edits aren't possible without an explicit unlock. Protects the
+authoritative record from accidental changes (a stray keystroke on the standings tab
+months later) and makes the series' status explicit in the UI.
+
+Open questions: lock granularity (whole series vs. per-race); how unlock works and
+whether it leaves an audit trail; whether locking is distinct from "archiving" (hiding
+from the active list) or the same action; interaction with revision history once that
+exists.
+
 ---
 
 ## Esoteric scoring engine requirements
