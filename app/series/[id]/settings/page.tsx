@@ -2,6 +2,7 @@
 
 import { use, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRepos } from '@/lib/repos';
 import {
   useSeries,
@@ -9,6 +10,7 @@ import {
   useUpdateSeries,
 } from '@/hooks/use-series';
 import { useFleetsBySeries, useSaveFleet } from '@/hooks/use-fleets';
+import { queryKeys } from '@/hooks/query-keys';
 import { isDuplicateSeriesName } from '@/lib/series-name';
 import type { CompetitorFieldKey, PrimaryPersonLabel } from '@/lib/types';
 import { BasicsCard } from '@/components/series-settings/basics-card';
@@ -404,6 +406,7 @@ export default function SettingsPage({
 }) {
   const { id: seriesId } = use(params);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { listSeriesNames } = useRepos();
   const { data: series, isLoading } = useSeries(seriesId);
   const { data: fleetsData } = useFleetsBySeries(seriesId);
@@ -426,6 +429,11 @@ export default function SettingsPage({
     setSaving(true);
     try {
       await saveSeriesFile(seriesId);
+      // saveSeriesFile writes lastSnapshotId / lastSavedAt directly via
+      // db.series.update — bypassing the React Query cache. Force a refetch
+      // so the file card reflects the new state and the "Update from File"
+      // button becomes visible.
+      await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(seriesId) });
     } catch (err) {
       console.error(err);
     } finally {
@@ -472,9 +480,21 @@ export default function SettingsPage({
     try {
       if (asNewCopy) {
         const newId = await openSeriesFromFile(file);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
         router.push(`/series/${newId}/races`);
       } else {
         await updateSeriesFromFile(seriesId, file);
+        // updateSeriesFromFile and the import-from-file flow both write
+        // directly to dexie; invalidate every cached read of this series
+        // so the layout heading and the races/competitors lists pick up
+        // the new state on the next route.
+        await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(seriesId) });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(seriesId) });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.competitors.bySeries(seriesId) });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.races.bySeries(seriesId) });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.finishes.all });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.raceStarts.all });
         router.push(`/series/${seriesId}/races`);
       }
     } catch (err) {

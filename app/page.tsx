@@ -3,9 +3,11 @@
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Trash2 } from 'lucide-react';
 import { useRepos } from '@/lib/repos';
 import { useSeriesList, useDeleteSeriesCascade } from '@/hooks/use-series';
+import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
@@ -86,6 +88,7 @@ function SeriesCard({
 
 export default function HomePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { seriesRepo } = useRepos();
   const { data: seriesList } = useSeriesList();
   const deleteCascade = useDeleteSeriesCascade();
@@ -169,9 +172,19 @@ export default function HomePage() {
     try {
       if (asNewCopy) {
         const newId = await openSeriesFromFile(file);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
         router.push(`/series/${newId}/races`);
       } else {
         await updateSeriesFromFile(existing.id, file);
+        // The file-replay path bypasses the React Query cache; force every
+        // affected query to refetch before we route to the next page.
+        await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(existing.id) });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(existing.id) });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.competitors.bySeries(existing.id) });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.races.bySeries(existing.id) });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.finishes.all });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.raceStarts.all });
         router.push(`/series/${existing.id}/races`);
       }
     } catch (err) {
