@@ -4,6 +4,7 @@ import {
   competitorRepo,
   deleteSeriesCascade,
   deleteSeriesChildren,
+  ensureFleet,
   finishRepo,
   fleetRepo,
   ftpServerRepo,
@@ -278,5 +279,23 @@ describe('api-repository routing', () => {
     expect(urls).toContain(`/api/v1/series/${id}/races`);
     expect(urls).toContain(`/api/v1/series/${id}/competitors`);
     expect(urls).toContain(`/api/v1/series/${id}/fleets`);
+  });
+
+  test('ensureFleet POSTs name + options and returns the fleetId', async () => {
+    const seriesId = 'a0a0a0a0-1111-4222-8333-aaaaaaaaaaaa';
+    const fleetId = 'b0b0b0b0-1111-4222-8333-bbbbbbbbbbbb';
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { fleetId }));
+    const result = await ensureFleet(seriesId, 'Cruisers', {
+      scoringSystem: 'irc',
+    });
+    expect(result).toBe(fleetId);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `/api/v1/series/${seriesId}/fleets/ensure`,
+    );
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      name: 'Cruisers',
+      scoringSystem: 'irc',
+    });
   });
 });

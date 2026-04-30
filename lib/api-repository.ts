@@ -313,3 +313,29 @@ export async function deleteSeriesChildren(seriesId: string): Promise<void> {
 export async function deleteSeriesCascade(seriesId: string): Promise<void> {
   await seriesRepo.delete(seriesId);
 }
+
+/**
+ * Find or create a fleet by case-insensitive name. Mirror of the Dexie
+ * helper used by the CSV competitor importer. The server endpoint wraps
+ * the lookup-then-insert in a Postgres transaction guarded by an
+ * advisory lock keyed on series id, so concurrent imports never produce
+ * duplicate fleets.
+ *
+ * `scoringSystem` and the alpha defaults apply only when *creating* a
+ * new fleet.
+ */
+export async function ensureFleet(
+  seriesId: string,
+  name: string,
+  options?: {
+    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
+    nhcAlpha?: number;
+    echoAlpha?: number;
+  },
+): Promise<string> {
+  const { fleetId } = await apiFetch<{ fleetId: string }>(
+    `/api/v1/series/${seriesId}/fleets/ensure`,
+    { method: 'POST', body: { name, ...options } },
+  );
+  return fleetId;
+}

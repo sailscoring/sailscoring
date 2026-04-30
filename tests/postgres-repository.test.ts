@@ -409,6 +409,48 @@ describe.skipIf(skip)('postgres repositories', () => {
     await reposB.series.delete(sB.id);
   });
 
+  // ─── FleetRepository.ensureFleet ───────────────────────────────────────────
+
+  test('FleetRepository.ensureFleet returns existing id, then creates idempotently', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+
+    const idA = await repos.fleets.ensureFleet(s.id, 'Cruisers', {
+      scoringSystem: 'irc',
+    });
+    const idAagain = await repos.fleets.ensureFleet(s.id, 'cruisers'); // case-insensitive
+    expect(idAagain).toBe(idA);
+
+    const idB = await repos.fleets.ensureFleet(s.id, 'Echo', {
+      scoringSystem: 'echo',
+    });
+    expect(idB).not.toBe(idA);
+
+    const list = await repos.fleets.listBySeries(s.id);
+    expect(list.map((f) => f.name).sort()).toEqual(['Cruisers', 'Echo']);
+    const echo = list.find((f) => f.name === 'Echo');
+    expect(echo).toMatchObject({ scoringSystem: 'echo' });
+    expect(echo!.echoAlpha).toBeGreaterThan(0);
+    // displayOrder is assigned monotonically.
+    expect(list.map((f) => f.displayOrder).sort()).toEqual([0, 1]);
+
+    await repos.series.delete(s.id);
+  });
+
+  test('FleetRepository.ensureFleet rejects a series in another workspace', async () => {
+    const reposA = createRepos({ db, workspaceId: workspaceA });
+    const reposB = createRepos({ db, workspaceId: workspaceB });
+    const s = makeSeries();
+    await reposA.series.save(s);
+
+    await expect(reposB.fleets.ensureFleet(s.id, 'Cruisers')).rejects.toThrow(
+      /not in workspace/,
+    );
+
+    await reposA.series.delete(s.id);
+  });
+
   // ─── FtpServerRepository ───────────────────────────────────────────────────
 
   test('FtpServerRepository: round-trips, encrypts at rest, isolates by workspace', async () => {

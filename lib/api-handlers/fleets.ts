@@ -3,7 +3,7 @@ import 'server-only';
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
-import { fleetInputSchema } from '@/lib/validation/fleet';
+import { ensureFleetInputSchema, fleetInputSchema } from '@/lib/validation/fleet';
 import type { Fleet } from '@/lib/types';
 
 async function assertSeriesInWorkspace(
@@ -63,4 +63,20 @@ export async function deleteFleet(
   const existing = await repos.fleets.get(fleetId);
   if (!existing || existing.seriesId !== seriesId) return;
   await repos.fleets.delete(fleetId);
+}
+
+export async function ensureFleet(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<{ fleetId: string }> {
+  await assertSeriesInWorkspace(workspace, seriesId);
+  const input = ensureFleetInputSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const fleetId = await repos.fleets.ensureFleet(seriesId, input.name, {
+    scoringSystem: input.scoringSystem,
+    nhcAlpha: input.nhcAlpha,
+    echoAlpha: input.echoAlpha,
+  });
+  return { fleetId };
 }

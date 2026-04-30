@@ -4,6 +4,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { decryptCredential, encryptCredential } from './crypto';
 import { getDb, type SailScoringDb } from './db/client';
 import * as schema from './db/schema';
+import { ECHO_DEFAULT_ALPHA, NHC_DEFAULT_ALPHA } from './scoring';
 import type {
   CompetitorRepository,
   FinishRepository,
@@ -376,6 +377,97 @@ export class PostgresFleetRepository implements FleetRepository {
           eq(schema.fleets.workspaceId, this.workspaceId),
         ),
       );
+  }
+
+  /**
+   * Find-or-create a fleet by case-insensitive name, atomically.
+   *
+   * Wraps the lookup-then-insert in a transaction guarded by
+   * `pg_advisory_xact_lock`, keyed on the series id, so concurrent
+   * ensureFleet calls for the same series serialise rather than racing
+   * to insert duplicates. Mirrors `ensureFleet` in lib/dexie-repository.ts.
+   *
+   * `scoringSystem` and the alpha defaults apply only when *creating*
+   * a new fleet — never mutates an existing fleet. Blank name → "Default".
+   */
+  async ensureFleet(
+    seriesId: string,
+    name: string,
+    options?: {
+      scoringSystem?: Fleet['scoringSystem'];
+      nhcAlpha?: number;
+      echoAlpha?: number;
+    },
+  ): Promise<string> {
+    const fleetName = name.trim() || 'Default';
+    const scoringSystem = options?.scoringSystem ?? 'scratch';
+    return this.db.transaction(async (tx) => {
+      // Verify the parent series belongs to this workspace before holding a
+      // lock. A miss here means a tenancy violation, not a missing series —
+      // surface it as such.
+      const [seriesRow] = await tx
+        .select({ id: schema.series.id })
+        .from(schema.series)
+        .where(
+          and(
+            eq(schema.series.id, seriesId),
+            eq(schema.series.workspaceId, this.workspaceId),
+          ),
+        )
+        .limit(1);
+      if (!seriesRow) {
+        throw new Error(`series ${seriesId} not in workspace`);
+      }
+
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${`ensure-fleet:${seriesId}`}, 0))`,
+      );
+
+      const [existing] = await tx
+        .select()
+        .from(schema.fleets)
+        .where(
+          and(
+            eq(schema.fleets.seriesId, seriesId),
+            eq(schema.fleets.workspaceId, this.workspaceId),
+            sql`lower(${schema.fleets.name}) = lower(${fleetName})`,
+          ),
+        )
+        .limit(1);
+      if (existing) return existing.id;
+
+      const [orderRow] = await tx
+        .select({
+          max: sql<number>`coalesce(max(${schema.fleets.displayOrder}), -1)`,
+        })
+        .from(schema.fleets)
+        .where(
+          and(
+            eq(schema.fleets.seriesId, seriesId),
+            eq(schema.fleets.workspaceId, this.workspaceId),
+          ),
+        );
+      const displayOrder = (orderRow?.max ?? -1) + 1;
+
+      const id = crypto.randomUUID();
+      await tx.insert(schema.fleets).values({
+        id,
+        seriesId,
+        workspaceId: this.workspaceId,
+        name: fleetName,
+        displayOrder,
+        scoringSystem,
+        nhcAlpha:
+          scoringSystem === 'nhc'
+            ? (options?.nhcAlpha ?? NHC_DEFAULT_ALPHA)
+            : null,
+        echoAlpha:
+          scoringSystem === 'echo'
+            ? (options?.echoAlpha ?? ECHO_DEFAULT_ALPHA)
+            : null,
+      });
+      return id;
+    });
   }
 }
 
