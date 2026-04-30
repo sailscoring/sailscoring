@@ -3,9 +3,9 @@
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { Trash2 } from 'lucide-react';
-import { seriesRepo, deleteSeriesCascade } from '@/lib/dexie-repository';
+import { useRepos } from '@/lib/repos';
+import { useSeriesList, useDeleteSeriesCascade } from '@/hooks/use-series';
 import { Button } from '@/components/ui/button';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
@@ -86,7 +86,9 @@ function SeriesCard({
 
 export default function HomePage() {
   const router = useRouter();
-  const seriesList = useLiveQuery(() => seriesRepo.list(), []);
+  const { seriesRepo } = useRepos();
+  const { data: seriesList } = useSeriesList();
+  const deleteCascade = useDeleteSeriesCascade();
   const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [openFlow, setOpenFlow] = useState<OpenFlow>({ step: 'idle' });
@@ -105,7 +107,7 @@ export default function HomePage() {
     if (!pendingDelete) return;
     const seriesId = pendingDelete.id;
     setPendingDelete(null);
-    await deleteSeriesCascade(seriesId);
+    await deleteCascade.mutateAsync(seriesId);
   }
 
   function handleOpenSeriesClick() {

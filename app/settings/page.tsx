@@ -1,9 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { Eye, EyeOff, Pencil, Trash2 } from 'lucide-react';
-import { ftpServerRepo } from '@/lib/dexie-repository';
+import {
+  useDeleteFtpServer,
+  useFtpServers,
+  useSaveFtpServer,
+} from '@/hooks/use-ftp-servers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,6 +28,7 @@ function FtpServerDialog({
   initial: FtpServer | null;
   onClose: () => void;
 }) {
+  const saveFtpServer = useSaveFtpServer();
   const [host, setHost] = useState(initial?.host ?? '');
   const [port, setPort] = useState(initial?.port ?? 21);
   const [username, setUsername] = useState(initial?.username ?? '');
@@ -34,7 +38,7 @@ function FtpServerDialog({
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    await ftpServerRepo.save({
+    await saveFtpServer.mutateAsync({
       id: initial?.id ?? crypto.randomUUID(),
       host: host.trim(),
       port,
@@ -132,7 +136,8 @@ function FtpServerDialog({
 }
 
 export default function SettingsPage() {
-  const ftpServers = useLiveQuery(() => ftpServerRepo.list(), []);
+  const { data: ftpServers } = useFtpServers();
+  const deleteFtpServer = useDeleteFtpServer();
   const [dialog, setDialog] = useState<{ open: boolean; server: FtpServer | null }>({
     open: false,
     server: null,
@@ -151,7 +156,7 @@ export default function SettingsPage() {
   }
 
   async function handleDelete(id: string) {
-    await ftpServerRepo.delete(id);
+    await deleteFtpServer.mutateAsync(id);
   }
 
   return (

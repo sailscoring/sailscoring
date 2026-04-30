@@ -2,17 +2,19 @@
 
 import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { seriesRepo, listSeriesNames } from '@/lib/dexie-repository';
+import { useRepos } from '@/lib/repos';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Series } from '@/lib/types';
+import type { SeriesRepository } from '@/lib/repository';
 import { defaultEnabledCompetitorFields, DEFAULT_PRIMARY_PERSON_LABEL } from '@/lib/competitor-fields';
 import { generateUniquePlaceholderName } from '@/lib/placeholder-names';
 import { isDuplicateSeriesName } from '@/lib/series-name';
 import { log } from '@/lib/debug';
 
 async function doCreateSeries(
+  repo: SeriesRepository,
   seriesName: string,
   seriesVenue: string,
   seriesDate: string,
@@ -42,7 +44,7 @@ async function doCreateSeries(
     primaryPersonLabel: DEFAULT_PRIMARY_PERSON_LABEL,
   };
   log('series', 'creating', series);
-  await seriesRepo.save(series);
+  await repo.save(series);
   return series.id;
 }
 
@@ -51,6 +53,7 @@ function NewSeriesContent() {
   const searchParams = useSearchParams();
   const isQuick = searchParams.get('quick') === '1';
   const didCreate = useRef(false);
+  const { seriesRepo, listSeriesNames } = useRepos();
 
   const [name, setName] = useState('');
   const [venue, setVenue] = useState('');
@@ -64,14 +67,14 @@ function NewSeriesContent() {
     didCreate.current = true;
     (async () => {
       const existing = await listSeriesNames();
-      return doCreateSeries(generateUniquePlaceholderName(existing), '', '');
+      return doCreateSeries(seriesRepo, generateUniquePlaceholderName(existing), '', '');
     })().then((id) => {
       router.push(`/series/${id}/setup`);
     }).catch((err) => {
       console.error(err);
       setError('Failed to create series.');
     });
-  }, [isQuick, router]);
+  }, [isQuick, router, seriesRepo, listSeriesNames]);
 
   if (!isQuick) {
     return (
@@ -97,7 +100,7 @@ function NewSeriesContent() {
     setSaving(true);
     setError('');
     try {
-      const id = await doCreateSeries(trimmed, venue.trim(), startDate);
+      const id = await doCreateSeries(seriesRepo, trimmed, venue.trim(), startDate);
       router.push(`/series/${id}/competitors`);
     } catch (err) {
       console.error(err);

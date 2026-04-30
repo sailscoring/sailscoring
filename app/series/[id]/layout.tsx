@@ -3,8 +3,7 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { seriesRepo } from '@/lib/dexie-repository';
+import { useSeries } from '@/hooks/use-series';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown, useChordShortcut } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
@@ -27,7 +26,7 @@ export default function SeriesLayout({
   const { id } = use(params);
   const pathname = usePathname();
   const router = useRouter();
-  const series = useLiveQuery(async () => (await seriesRepo.get(id)) ?? null, [id]);
+  const { data: series, isLoading } = useSeries(id);
   const [showHelp, setShowHelp] = useState(false);
 
   useChordShortcut({
@@ -50,7 +49,7 @@ export default function SeriesLayout({
     }
   });
 
-  if (series === undefined) {
+  if (isLoading || series === undefined) {
     return <p className="text-muted-foreground">Loading…</p>;
   }
 
