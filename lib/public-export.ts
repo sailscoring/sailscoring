@@ -183,18 +183,35 @@ export interface EchoRaceFleetExport {
 
 // ---- Builder ----
 
-export async function buildPublicExport(seriesId: string): Promise<PublicSeriesExport | null> {
+/**
+ * Repository surface needed to read a series for export.
+ * Callers pass the runtime-selected backend (dexie or api), so the
+ * export path works in either mode.
+ */
+export interface ExportRepos {
+  seriesRepo: typeof seriesRepo;
+  competitorRepo: typeof competitorRepo;
+  raceRepo: typeof raceRepo;
+  fleetRepo: typeof fleetRepo;
+  finishRepo: typeof finishRepo;
+  raceStartRepo: typeof raceStartRepo;
+}
+
+export async function buildPublicExport(
+  seriesId: string,
+  repos: ExportRepos = { seriesRepo, competitorRepo, raceRepo, fleetRepo, finishRepo, raceStartRepo },
+): Promise<PublicSeriesExport | null> {
   const [series, competitors, races, fleets] = await Promise.all([
-    seriesRepo.get(seriesId),
-    competitorRepo.listBySeries(seriesId),
-    raceRepo.listBySeries(seriesId),
-    fleetRepo.listBySeries(seriesId),
+    repos.seriesRepo.get(seriesId),
+    repos.competitorRepo.listBySeries(seriesId),
+    repos.raceRepo.listBySeries(seriesId),
+    repos.fleetRepo.listBySeries(seriesId),
   ]);
   if (!series || competitors.length === 0 || races.length === 0) return null;
 
   const [allFinishes, allRaceStarts] = await Promise.all([
-    finishRepo.listBySeries(seriesId, competitors.map((c) => c.id)),
-    raceStartRepo.listByRaces(races.map((r) => r.id)),
+    repos.finishRepo.listBySeries(seriesId, competitors.map((c) => c.id)),
+    repos.raceStartRepo.listByRaces(races.map((r) => r.id)),
   ]);
 
   const { fleetStandings } = calculateFleetStandings(
