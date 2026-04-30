@@ -288,3 +288,28 @@ export async function listSeriesNames(
   const all = await seriesRepo.list();
   return all.filter((s) => s.id !== opts.excludeId).map((s) => s.name);
 }
+
+/**
+ * Delete every child row (fleets, competitors, races, plus their FK-
+ * cascaded descendants: race-starts, finishes, nhc-tcf-records) but
+ * leave the series row itself in place. Mirror of the Dexie helper used
+ * by `lib/series-file.ts`'s "update from file" flow.
+ *
+ * Server-side FK constraints handle race-starts/finishes/nhc-tcf-records
+ * — deleting races cascades to all of them. We only need to clear the
+ * three top-level child collections.
+ */
+export async function deleteSeriesChildren(seriesId: string): Promise<void> {
+  await raceRepo.deleteBySeries(seriesId);
+  await competitorRepo.deleteBySeries(seriesId);
+  await fleetRepo.deleteBySeries(seriesId);
+}
+
+/**
+ * Delete a series and every child row. Mirror of the Dexie helper.
+ * The Postgres schema's `onDelete: 'cascade'` on every child series_id
+ * FK does the work; this wrapper exists so callers don't need to know.
+ */
+export async function deleteSeriesCascade(seriesId: string): Promise<void> {
+  await seriesRepo.delete(seriesId);
+}

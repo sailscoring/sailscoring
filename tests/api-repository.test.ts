@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
   competitorRepo,
+  deleteSeriesCascade,
+  deleteSeriesChildren,
   finishRepo,
   fleetRepo,
   ftpServerRepo,
@@ -254,5 +256,27 @@ describe('api-repository routing', () => {
     const b: Series = { ...stubSeries, id: 'bbbbbbbb-1111-4222-8333-bbbbbbbbbbbb', name: 'Autumn' };
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { items: [a, b] }));
     expect(await listSeriesNames({ excludeId: a.id })).toEqual(['Autumn']);
+  });
+
+  test('deleteSeriesCascade DELETEs the series; children cascade server-side', async () => {
+    const id = 'eeeeeeee-1111-4222-8333-eeeeeeeeeeee';
+    fetchMock.mockResolvedValueOnce(jsonResponse(204));
+    await deleteSeriesCascade(id);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/v1/series/${id}`);
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+  });
+
+  test('deleteSeriesChildren clears races, competitors, and fleets', async () => {
+    const id = 'ffffffff-1111-4222-8333-ffffffffffff';
+    // Each deleteBySeries lists-then-fans-out; respond fresh per call (Response
+    // bodies are single-use, so mockResolvedValue with one Response would
+    // throw on the second read).
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse(200, [])));
+    await deleteSeriesChildren(id);
+    const urls = fetchMock.mock.calls.map((c) => c[0]);
+    expect(urls).toContain(`/api/v1/series/${id}/races`);
+    expect(urls).toContain(`/api/v1/series/${id}/competitors`);
+    expect(urls).toContain(`/api/v1/series/${id}/fleets`);
   });
 });
