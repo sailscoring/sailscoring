@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import type { Fleet } from '@/lib/types';
 
-import { uuidSchema } from './common';
+import { uuidSchema, versionSchema } from './common';
 
 export const scoringSystemSchema = z.enum([
   'scratch',
@@ -20,6 +20,7 @@ export const fleetSchema = z.object({
   scoringSystem: scoringSystemSchema,
   nhcAlpha: z.number().optional(),
   echoAlpha: z.number().optional(),
+  version: versionSchema,
 });
 
 export const fleetInputSchema = fleetSchema.extend({

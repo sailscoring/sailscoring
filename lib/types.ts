@@ -60,6 +60,10 @@ export interface Series {
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)
+  // Server-side concurrency token (ADR-008 Phase 4). Populated by the
+  // Postgres-backed read path; absent in local-mode (Dexie) and stripped
+  // from the .sailscoring file format and public JSON export.
+  version?: number;
 }
 
 export interface Fleet {
@@ -70,6 +74,7 @@ export interface Fleet {
   scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
   nhcAlpha?: number;  // present iff scoringSystem === 'nhc'; default 0.15
   echoAlpha?: number; // present iff scoringSystem === 'echo'; default 0.25 (75/25 club racing)
+  version?: number;   // server-side concurrency token (see Series.version)
 }
 
 export interface RaceStart {
@@ -77,6 +82,7 @@ export interface RaceStart {
   raceId: string;
   fleetIds: string[];   // all fleets sharing this gun time
   startTime: string;    // "HH:MM:SS"
+  version?: number;     // server-side concurrency token (see Series.version)
 }
 
 export interface Competitor {
@@ -98,6 +104,7 @@ export interface Competitor {
   pyNumber?: number;  // RYA Portsmouth Yardstick number, e.g. 1034
   nhcStartingTcf?: number;  // initial TCF for NHC fleets; required for NHC competitors
   echoStartingTcf?: number; // initial TCF for ECHO fleets; required for ECHO competitors
+  version?: number;         // server-side concurrency token (see Series.version)
 }
 
 export interface Race {
@@ -106,6 +113,7 @@ export interface Race {
   raceNumber: number;
   date: string;        // ISO date string
   createdAt: number;
+  version?: number;    // server-side concurrency token (see Series.version)
 }
 
 export type ResultCode =
@@ -146,6 +154,7 @@ export interface Finish {
   redressIncludeRaces: number[] | null; // include-mode: use only these races (overrides method default)
   redressIncludeAllLater: boolean;      // include-mode: also include all races after max(redressIncludeRaces)
   redressPoints: number | null;         // stated-method: scorer-entered points value
+  version?: number;                     // server-side concurrency token (see Series.version)
 }
 
 // Calculated, not stored
@@ -300,6 +309,7 @@ export interface FtpServer {
   username: string;
   password: string;
   ftps: boolean;
+  version?: number;  // server-side concurrency token (see Series.version)
 }
 
 export interface Standing {

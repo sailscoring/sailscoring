@@ -5,14 +5,16 @@ import { decryptCredential, encryptCredential } from './crypto';
 import { getDb, type SailScoringDb } from './db/client';
 import * as schema from './db/schema';
 import { ECHO_DEFAULT_ALPHA, NHC_DEFAULT_ALPHA } from './scoring';
-import type {
-  CompetitorRepository,
-  FinishRepository,
-  FleetRepository,
-  FtpServerRepository,
-  RaceRepository,
-  RaceStartRepository,
-  SeriesRepository,
+import {
+  ConflictError,
+  type CompetitorRepository,
+  type FinishRepository,
+  type FleetRepository,
+  type FtpServerRepository,
+  type RaceRepository,
+  type RaceStartRepository,
+  type SaveOpts,
+  type SeriesRepository,
 } from './repository';
 import type {
   Competitor,
@@ -35,8 +37,12 @@ import type {
  * - Reads of child resources (race-starts, finishes, NHC TCF records) reach
  *   the workspace via their parent — methods that take `raceId` first verify
  *   the race belongs to a series in this workspace.
- * - Saves bump `version`. Phase 4 will add an `expectedVersion` parameter
- *   and surface 409s; Phase 2 is unconditional-bump only.
+ * - Saves bump `version`. When `opts.expectedVersion` is supplied, the
+ *   update is a compare-and-swap: it succeeds only if the row in the
+ *   database is still at that version, otherwise `ConflictError` is
+ *   thrown and the route handler returns 409. When omitted, the upsert
+ *   is unconditional — used for first-write (insert) and authoritative
+ *   import paths.
  * - Mappers below isolate the Drizzle row shape from the app types in
  *   `lib/types.ts`. App types use epoch ms for timestamps; Drizzle gives
  *   us `Date` objects; the conversion is the one place that knows.
@@ -83,6 +89,7 @@ function seriesRowToType(row: SeriesRow): Series {
     publishRatingCalculations: row.publishRatingCalculations,
     enabledCompetitorFields: row.enabledCompetitorFields,
     primaryPersonLabel: row.primaryPersonLabel,
+    version: row.version,
   };
 }
 
@@ -95,6 +102,7 @@ function fleetRowToType(row: FleetRow): Fleet {
     scoringSystem: row.scoringSystem as Fleet['scoringSystem'],
     ...(row.nhcAlpha != null ? { nhcAlpha: row.nhcAlpha } : {}),
     ...(row.echoAlpha != null ? { echoAlpha: row.echoAlpha } : {}),
+    version: row.version,
   };
 }
 
@@ -118,6 +126,7 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     ...(row.pyNumber != null ? { pyNumber: row.pyNumber } : {}),
     ...(row.nhcStartingTcf != null ? { nhcStartingTcf: row.nhcStartingTcf } : {}),
     ...(row.echoStartingTcf != null ? { echoStartingTcf: row.echoStartingTcf } : {}),
+    version: row.version,
   };
 }
 
@@ -128,6 +137,7 @@ function raceRowToType(row: RaceRow): Race {
     raceNumber: row.raceNumber,
     date: row.date,
     createdAt: row.createdAt.getTime(),
+    version: row.version,
   };
 }
 
@@ -137,6 +147,7 @@ function raceStartRowToType(row: RaceStartRow): RaceStart {
     raceId: row.raceId,
     fleetIds: row.fleetIds,
     startTime: row.startTime,
+    version: row.version,
   };
 }
 
@@ -159,7 +170,87 @@ function finishRowToType(row: FinishRow): Finish {
     redressIncludeRaces: row.redressIncludeRaces,
     redressIncludeAllLater: row.redressIncludeAllLater,
     redressPoints: row.redressPoints,
+    version: row.version,
   };
+}
+
+// ─── Concurrency helper ─────────────────────────────────────────────────────
+
+type Versionable =
+  | typeof schema.series
+  | typeof schema.fleets
+  | typeof schema.competitors
+  | typeof schema.races
+  | typeof schema.ftpServers;
+
+type RaceScopedVersionable = typeof schema.raceStarts | typeof schema.finishes;
+
+/**
+ * Build a `ConflictError` carrying the current `version` from the database,
+ * so the route handler can pass it back in the 409 detail. The query
+ * repeats the tenancy filter so a row that exists in a different workspace
+ * (which shouldn't happen — UUIDs are unique) does not leak its version.
+ *
+ * Two overloads — one for top-level rows that carry `workspace_id`, one for
+ * race-scoped child rows where tenancy is enforced via the parent race's
+ * `workspace_id`.
+ */
+async function buildConflictError(
+  db: SailScoringDb,
+  table: Versionable,
+  id: string,
+  workspaceId: string,
+  expectedVersion: number,
+): Promise<ConflictError>;
+async function buildConflictError(
+  db: SailScoringDb,
+  table: RaceScopedVersionable,
+  id: string,
+  workspaceId: string,
+  expectedVersion: number,
+  via: 'parent-race',
+): Promise<ConflictError>;
+async function buildConflictError(
+  db: SailScoringDb,
+  table: Versionable | RaceScopedVersionable,
+  id: string,
+  workspaceId: string,
+  expectedVersion: number,
+  via?: 'parent-race',
+): Promise<ConflictError> {
+  let row: { version: number } | undefined;
+  if (via === 'parent-race') {
+    const t = table as RaceScopedVersionable;
+    const [r] = await db
+      .select({ version: t.version })
+      .from(t)
+      .innerJoin(schema.races, eq(t.raceId, schema.races.id))
+      .where(
+        and(
+          eq(t.id, id),
+          eq(schema.races.workspaceId, workspaceId),
+        ),
+      )
+      .limit(1);
+    row = r;
+  } else {
+    const t = table as Versionable;
+    const [r] = await db
+      .select({ version: t.version })
+      .from(t)
+      .where(
+        and(
+          eq(t.id, id),
+          eq(t.workspaceId, workspaceId),
+        ),
+      )
+      .limit(1);
+    row = r;
+  }
+  return new ConflictError({
+    expectedVersion,
+    currentVersion: row?.version,
+  });
 }
 
 // ─── Series ───────────────────────────────────────────────────────────────────
@@ -196,7 +287,7 @@ export class PostgresSeriesRepository implements SeriesRepository {
     return row ? seriesRowToType(row) : undefined;
   }
 
-  async save(s: Series): Promise<Series> {
+  async save(s: Series, opts?: SaveOpts): Promise<Series> {
     const insertValues = {
       id: s.id,
       workspaceId: this.workspaceId,
@@ -223,6 +314,56 @@ export class PostgresSeriesRepository implements SeriesRepository {
       enabledCompetitorFields: s.enabledCompetitorFields,
       primaryPersonLabel: s.primaryPersonLabel,
     };
+    const updateSet = {
+      name: insertValues.name,
+      venue: insertValues.venue,
+      startDate: insertValues.startDate,
+      endDate: insertValues.endDate,
+      venueLogoUrl: insertValues.venueLogoUrl,
+      eventLogoUrl: insertValues.eventLogoUrl,
+      lastSnapshotId: insertValues.lastSnapshotId,
+      lastSavedAt: insertValues.lastSavedAt,
+      lastModifiedAt: insertValues.lastModifiedAt,
+      snapshotHistory: insertValues.snapshotHistory,
+      scoringMode: insertValues.scoringMode,
+      defaultStartSequence: insertValues.defaultStartSequence,
+      discardThresholds: insertValues.discardThresholds,
+      dnfScoring: insertValues.dnfScoring,
+      ftpHost: insertValues.ftpHost,
+      ftpPath: insertValues.ftpPath,
+      bilgeBundle: insertValues.bilgeBundle,
+      includeJsonExport: insertValues.includeJsonExport,
+      publishRatingCalculations: insertValues.publishRatingCalculations,
+      enabledCompetitorFields: insertValues.enabledCompetitorFields,
+      primaryPersonLabel: insertValues.primaryPersonLabel,
+    };
+    if (opts?.expectedVersion !== undefined) {
+      const [row] = await this.db
+        .update(schema.series)
+        .set({
+          ...updateSet,
+          version: sql`${schema.series.version} + 1`,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(schema.series.id, s.id),
+            eq(schema.series.workspaceId, this.workspaceId),
+            eq(schema.series.version, opts.expectedVersion),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw await buildConflictError(
+          this.db,
+          schema.series,
+          s.id,
+          this.workspaceId,
+          opts.expectedVersion,
+        );
+      }
+      return seriesRowToType(row);
+    }
     const [row] = await this.db
       .insert(schema.series)
       .values(insertValues)
@@ -234,27 +375,7 @@ export class PostgresSeriesRepository implements SeriesRepository {
         // tenancy boundary intact.
         targetWhere: eq(schema.series.workspaceId, this.workspaceId),
         set: {
-          name: insertValues.name,
-          venue: insertValues.venue,
-          startDate: insertValues.startDate,
-          endDate: insertValues.endDate,
-          venueLogoUrl: insertValues.venueLogoUrl,
-          eventLogoUrl: insertValues.eventLogoUrl,
-          lastSnapshotId: insertValues.lastSnapshotId,
-          lastSavedAt: insertValues.lastSavedAt,
-          lastModifiedAt: insertValues.lastModifiedAt,
-          snapshotHistory: insertValues.snapshotHistory,
-          scoringMode: insertValues.scoringMode,
-          defaultStartSequence: insertValues.defaultStartSequence,
-          discardThresholds: insertValues.discardThresholds,
-          dnfScoring: insertValues.dnfScoring,
-          ftpHost: insertValues.ftpHost,
-          ftpPath: insertValues.ftpPath,
-          bilgeBundle: insertValues.bilgeBundle,
-          includeJsonExport: insertValues.includeJsonExport,
-          publishRatingCalculations: insertValues.publishRatingCalculations,
-          enabledCompetitorFields: insertValues.enabledCompetitorFields,
-          primaryPersonLabel: insertValues.primaryPersonLabel,
+          ...updateSet,
           version: sql`${schema.series.version} + 1`,
           updatedAt: sql`now()`,
         },
@@ -326,7 +447,7 @@ export class PostgresFleetRepository implements FleetRepository {
     return row ? fleetRowToType(row) : undefined;
   }
 
-  async save(fleet: Fleet): Promise<Fleet> {
+  async save(fleet: Fleet, opts?: SaveOpts): Promise<Fleet> {
     const values = {
       id: fleet.id,
       seriesId: fleet.seriesId,
@@ -337,6 +458,40 @@ export class PostgresFleetRepository implements FleetRepository {
       nhcAlpha: fleet.nhcAlpha ?? null,
       echoAlpha: fleet.echoAlpha ?? null,
     };
+    const updateSet = {
+      name: values.name,
+      displayOrder: values.displayOrder,
+      scoringSystem: values.scoringSystem,
+      nhcAlpha: values.nhcAlpha,
+      echoAlpha: values.echoAlpha,
+    };
+    if (opts?.expectedVersion !== undefined) {
+      const [row] = await this.db
+        .update(schema.fleets)
+        .set({
+          ...updateSet,
+          version: sql`${schema.fleets.version} + 1`,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(schema.fleets.id, fleet.id),
+            eq(schema.fleets.workspaceId, this.workspaceId),
+            eq(schema.fleets.version, opts.expectedVersion),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw await buildConflictError(
+          this.db,
+          schema.fleets,
+          fleet.id,
+          this.workspaceId,
+          opts.expectedVersion,
+        );
+      }
+      return fleetRowToType(row);
+    }
     const [row] = await this.db
       .insert(schema.fleets)
       .values(values)
@@ -344,11 +499,7 @@ export class PostgresFleetRepository implements FleetRepository {
         target: schema.fleets.id,
         targetWhere: eq(schema.fleets.workspaceId, this.workspaceId),
         set: {
-          name: values.name,
-          displayOrder: values.displayOrder,
-          scoringSystem: values.scoringSystem,
-          nhcAlpha: values.nhcAlpha,
-          echoAlpha: values.echoAlpha,
+          ...updateSet,
           version: sql`${schema.fleets.version} + 1`,
           updatedAt: sql`now()`,
         },
@@ -510,7 +661,7 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
     return row ? competitorRowToType(row) : undefined;
   }
 
-  async save(c: Competitor): Promise<Competitor> {
+  async save(c: Competitor, opts?: SaveOpts): Promise<Competitor> {
     const values = {
       id: c.id,
       seriesId: c.seriesId,
@@ -532,6 +683,50 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
       nhcStartingTcf: c.nhcStartingTcf ?? null,
       echoStartingTcf: c.echoStartingTcf ?? null,
     };
+    const updateSet = {
+      fleetIds: values.fleetIds,
+      sailNumber: values.sailNumber,
+      boatName: values.boatName,
+      boatClass: values.boatClass,
+      name: values.name,
+      owner: values.owner,
+      helm: values.helm,
+      crewName: values.crewName,
+      club: values.club,
+      gender: values.gender,
+      age: values.age,
+      ircTcc: values.ircTcc,
+      pyNumber: values.pyNumber,
+      nhcStartingTcf: values.nhcStartingTcf,
+      echoStartingTcf: values.echoStartingTcf,
+    };
+    if (opts?.expectedVersion !== undefined) {
+      const [row] = await this.db
+        .update(schema.competitors)
+        .set({
+          ...updateSet,
+          version: sql`${schema.competitors.version} + 1`,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(schema.competitors.id, c.id),
+            eq(schema.competitors.workspaceId, this.workspaceId),
+            eq(schema.competitors.version, opts.expectedVersion),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw await buildConflictError(
+          this.db,
+          schema.competitors,
+          c.id,
+          this.workspaceId,
+          opts.expectedVersion,
+        );
+      }
+      return competitorRowToType(row);
+    }
     const [row] = await this.db
       .insert(schema.competitors)
       .values(values)
@@ -539,21 +734,7 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
         target: schema.competitors.id,
         targetWhere: eq(schema.competitors.workspaceId, this.workspaceId),
         set: {
-          fleetIds: values.fleetIds,
-          sailNumber: values.sailNumber,
-          boatName: values.boatName,
-          boatClass: values.boatClass,
-          name: values.name,
-          owner: values.owner,
-          helm: values.helm,
-          crewName: values.crewName,
-          club: values.club,
-          gender: values.gender,
-          age: values.age,
-          ircTcc: values.ircTcc,
-          pyNumber: values.pyNumber,
-          nhcStartingTcf: values.nhcStartingTcf,
-          echoStartingTcf: values.echoStartingTcf,
+          ...updateSet,
           version: sql`${schema.competitors.version} + 1`,
           updatedAt: sql`now()`,
         },
@@ -624,7 +805,7 @@ export class PostgresRaceRepository implements RaceRepository {
     return row ? raceRowToType(row) : undefined;
   }
 
-  async save(r: Race): Promise<Race> {
+  async save(r: Race, opts?: SaveOpts): Promise<Race> {
     const values = {
       id: r.id,
       seriesId: r.seriesId,
@@ -633,6 +814,37 @@ export class PostgresRaceRepository implements RaceRepository {
       date: r.date,
       createdAt: new Date(r.createdAt),
     };
+    const updateSet = {
+      raceNumber: values.raceNumber,
+      date: values.date,
+    };
+    if (opts?.expectedVersion !== undefined) {
+      const [row] = await this.db
+        .update(schema.races)
+        .set({
+          ...updateSet,
+          version: sql`${schema.races.version} + 1`,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(schema.races.id, r.id),
+            eq(schema.races.workspaceId, this.workspaceId),
+            eq(schema.races.version, opts.expectedVersion),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw await buildConflictError(
+          this.db,
+          schema.races,
+          r.id,
+          this.workspaceId,
+          opts.expectedVersion,
+        );
+      }
+      return raceRowToType(row);
+    }
     const [row] = await this.db
       .insert(schema.races)
       .values(values)
@@ -640,8 +852,7 @@ export class PostgresRaceRepository implements RaceRepository {
         target: schema.races.id,
         targetWhere: eq(schema.races.workspaceId, this.workspaceId),
         set: {
-          raceNumber: values.raceNumber,
-          date: values.date,
+          ...updateSet,
           version: sql`${schema.races.version} + 1`,
           updatedAt: sql`now()`,
         },
@@ -746,7 +957,7 @@ export class PostgresRaceStartRepository implements RaceStartRepository {
     return rows.map(raceStartRowToType);
   }
 
-  async save(s: RaceStart): Promise<RaceStart> {
+  async save(s: RaceStart, opts?: SaveOpts): Promise<RaceStart> {
     if (!(await isRaceInWorkspace(this.db, this.workspaceId, s.raceId))) {
       throw new Error(`race ${s.raceId} not in workspace`);
     }
@@ -756,14 +967,45 @@ export class PostgresRaceStartRepository implements RaceStartRepository {
       fleetIds: s.fleetIds,
       startTime: s.startTime,
     };
+    const updateSet = {
+      fleetIds: values.fleetIds,
+      startTime: values.startTime,
+    };
+    if (opts?.expectedVersion !== undefined) {
+      const [row] = await this.db
+        .update(schema.raceStarts)
+        .set({
+          ...updateSet,
+          version: sql`${schema.raceStarts.version} + 1`,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(schema.raceStarts.id, s.id),
+            eq(schema.raceStarts.raceId, s.raceId),
+            eq(schema.raceStarts.version, opts.expectedVersion),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw await buildConflictError(
+          this.db,
+          schema.raceStarts,
+          s.id,
+          this.workspaceId,
+          opts.expectedVersion,
+          'parent-race',
+        );
+      }
+      return raceStartRowToType(row);
+    }
     const [row] = await this.db
       .insert(schema.raceStarts)
       .values(values)
       .onConflictDoUpdate({
         target: schema.raceStarts.id,
         set: {
-          fleetIds: values.fleetIds,
-          startTime: values.startTime,
+          ...updateSet,
           version: sql`${schema.raceStarts.version} + 1`,
           updatedAt: sql`now()`,
         },
@@ -859,11 +1101,39 @@ export class PostgresFinishRepository implements FinishRepository {
     return rows.map(finishRowToType);
   }
 
-  async save(f: Finish): Promise<Finish> {
+  async save(f: Finish, opts?: SaveOpts): Promise<Finish> {
     if (!(await isRaceInWorkspace(this.db, this.workspaceId, f.raceId))) {
       throw new Error(`race ${f.raceId} not in workspace`);
     }
     const values = finishToRow(f);
+    if (opts?.expectedVersion !== undefined) {
+      const [row] = await this.db
+        .update(schema.finishes)
+        .set({
+          ...finishUpdateSet(values),
+          version: sql`${schema.finishes.version} + 1`,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(schema.finishes.id, f.id),
+            eq(schema.finishes.raceId, f.raceId),
+            eq(schema.finishes.version, opts.expectedVersion),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw await buildConflictError(
+          this.db,
+          schema.finishes,
+          f.id,
+          this.workspaceId,
+          opts.expectedVersion,
+          'parent-race',
+        );
+      }
+      return finishRowToType(row);
+    }
     const [row] = await this.db
       .insert(schema.finishes)
       .values(values)
@@ -1024,10 +1294,11 @@ export class PostgresFtpServerRepository implements FtpServerRepository {
       username: row.username,
       password: decryptCredential(row.encryptedPassword),
       ftps: row.ftps,
+      version: row.version,
     }));
   }
 
-  async save(server: FtpServer): Promise<FtpServer> {
+  async save(server: FtpServer, opts?: SaveOpts): Promise<FtpServer> {
     const values = {
       id: server.id,
       workspaceId: this.workspaceId,
@@ -1037,23 +1308,54 @@ export class PostgresFtpServerRepository implements FtpServerRepository {
       encryptedPassword: encryptCredential(server.password),
       ftps: server.ftps,
     };
-    await this.db
+    const updateSet = {
+      host: values.host,
+      port: values.port,
+      username: values.username,
+      encryptedPassword: values.encryptedPassword,
+      ftps: values.ftps,
+    };
+    if (opts?.expectedVersion !== undefined) {
+      const [row] = await this.db
+        .update(schema.ftpServers)
+        .set({
+          ...updateSet,
+          version: sql`${schema.ftpServers.version} + 1`,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(schema.ftpServers.id, server.id),
+            eq(schema.ftpServers.workspaceId, this.workspaceId),
+            eq(schema.ftpServers.version, opts.expectedVersion),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw await buildConflictError(
+          this.db,
+          schema.ftpServers,
+          server.id,
+          this.workspaceId,
+          opts.expectedVersion,
+        );
+      }
+      return { ...server, version: row.version };
+    }
+    const [row] = await this.db
       .insert(schema.ftpServers)
       .values(values)
       .onConflictDoUpdate({
         target: schema.ftpServers.id,
         targetWhere: eq(schema.ftpServers.workspaceId, this.workspaceId),
         set: {
-          host: values.host,
-          port: values.port,
-          username: values.username,
-          encryptedPassword: values.encryptedPassword,
-          ftps: values.ftps,
+          ...updateSet,
           version: sql`${schema.ftpServers.version} + 1`,
           updatedAt: sql`now()`,
         },
-      });
-    return server;
+      })
+      .returning();
+    return { ...server, version: row.version };
   }
 
   async delete(id: string): Promise<void> {

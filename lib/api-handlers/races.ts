@@ -41,6 +41,7 @@ export async function putRace(
   seriesId: string,
   pathRaceId: string,
   body: unknown,
+  opts?: { expectedVersion?: number },
 ): Promise<Race> {
   await assertSeriesInWorkspace(workspace, seriesId);
   const input = raceInputSchema.parse(body);
@@ -48,7 +49,7 @@ export async function putRace(
   if (id !== pathRaceId) throw new NotFoundError('race id mismatch');
   if (input.seriesId !== seriesId) throw new NotFoundError('race series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  return repos.races.save({ ...input, id });
+  return repos.races.save({ ...input, id }, { expectedVersion: opts?.expectedVersion });
 }
 
 export async function deleteRace(

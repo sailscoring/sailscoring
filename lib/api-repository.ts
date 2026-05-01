@@ -14,6 +14,7 @@ import type {
   FtpServerRepository,
   RaceRepository,
   RaceStartRepository,
+  SaveOpts,
   SeriesRepository,
 } from './repository';
 import type {
@@ -38,8 +39,12 @@ class ApiSeriesRepository implements SeriesRepository {
     return apiFetch<Series | undefined>(`/api/v1/series/${id}`, { allow404: true });
   }
 
-  save(s: Series): Promise<Series> {
-    return apiFetch<Series>(`/api/v1/series/${s.id}`, { method: 'PUT', body: s });
+  save(s: Series, opts?: SaveOpts): Promise<Series> {
+    return apiFetch<Series>(`/api/v1/series/${s.id}`, {
+      method: 'PUT',
+      body: s,
+      expectedVersion: opts?.expectedVersion,
+    });
   }
 
   async delete(id: string): Promise<void> {
@@ -68,10 +73,11 @@ class ApiFleetRepository implements FleetRepository {
     ).catch(() => undefined);
   }
 
-  save(fleet: Fleet): Promise<Fleet> {
+  save(fleet: Fleet, opts?: SaveOpts): Promise<Fleet> {
     return apiFetch<Fleet>(`/api/v1/series/${fleet.seriesId}/fleets/${fleet.id}`, {
       method: 'PUT',
       body: fleet,
+      expectedVersion: opts?.expectedVersion,
     });
   }
 
@@ -99,10 +105,10 @@ class ApiCompetitorRepository implements CompetitorRepository {
     return apiFetch<Competitor | undefined>(`/api/v1/competitors/${id}`, { allow404: true });
   }
 
-  save(c: Competitor): Promise<Competitor> {
+  save(c: Competitor, opts?: SaveOpts): Promise<Competitor> {
     return apiFetch<Competitor>(
       `/api/v1/series/${c.seriesId}/competitors/${c.id}`,
-      { method: 'PUT', body: c },
+      { method: 'PUT', body: c, expectedVersion: opts?.expectedVersion },
     );
   }
 
@@ -129,10 +135,11 @@ class ApiRaceRepository implements RaceRepository {
     return apiFetch<Race | undefined>(`/api/v1/races/${id}`, { allow404: true });
   }
 
-  save(r: Race): Promise<Race> {
+  save(r: Race, opts?: SaveOpts): Promise<Race> {
     return apiFetch<Race>(`/api/v1/series/${r.seriesId}/races/${r.id}`, {
       method: 'PUT',
       body: r,
+      expectedVersion: opts?.expectedVersion,
     });
   }
 
@@ -160,10 +167,11 @@ class ApiRaceStartRepository implements RaceStartRepository {
     return lists.flat();
   }
 
-  save(s: RaceStart): Promise<RaceStart> {
+  save(s: RaceStart, opts?: SaveOpts): Promise<RaceStart> {
     return apiFetch<RaceStart>(`/api/v1/races/${s.raceId}/starts/${s.id}`, {
       method: 'PUT',
       body: s,
+      expectedVersion: opts?.expectedVersion,
     });
   }
 
@@ -198,10 +206,11 @@ class ApiFinishRepository implements FinishRepository {
     return lists.flat();
   }
 
-  save(f: Finish): Promise<Finish> {
+  save(f: Finish, opts?: SaveOpts): Promise<Finish> {
     return apiFetch<Finish>(`/api/v1/races/${f.raceId}/finishes/${f.id}`, {
       method: 'PUT',
       body: f,
+      expectedVersion: opts?.expectedVersion,
     });
   }
 
@@ -247,10 +256,11 @@ class ApiFtpServerRepository implements FtpServerRepository {
     return apiFetch<FtpServer[]>('/api/v1/ftp-servers');
   }
 
-  save(server: FtpServer): Promise<FtpServer> {
+  save(server: FtpServer, opts?: SaveOpts): Promise<FtpServer> {
     return apiFetch<FtpServer>(`/api/v1/ftp-servers/${server.id}`, {
       method: 'PUT',
       body: server,
+      expectedVersion: opts?.expectedVersion,
     });
   }
 

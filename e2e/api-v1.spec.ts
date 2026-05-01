@@ -1,7 +1,5 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-
 import { test, expect } from './fixtures';
+import { signInFreshUser } from './helpers';
 
 /**
  * Smoke test for /api/v1: signs in via magic link, then exercises the
@@ -11,44 +9,13 @@ import { test, expect } from './fixtures';
  * tests/api/.
  */
 
-const MAGIC_LINKS_LOG = path.join(process.cwd(), 'tests', '.magic-links.log');
-
-async function readLatestMagicLink(forEmail: string): Promise<string> {
-  for (let attempt = 0; attempt < 20; attempt++) {
-    try {
-      const content = await fs.readFile(MAGIC_LINKS_LOG, 'utf8');
-      const lines = content.trim().split('\n').reverse();
-      for (const line of lines) {
-        const [, email, url] = line.split('\t');
-        if (email === forEmail && url) return url;
-      }
-    } catch {
-      // file may not exist yet
-    }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error(`No magic link found for ${forEmail}`);
-}
-
 function uuid() {
   return crypto.randomUUID();
 }
 
 test.describe('@auth /api/v1', () => {
-  test.beforeAll(async () => {
-    await fs.mkdir(path.dirname(MAGIC_LINKS_LOG), { recursive: true });
-    await fs.writeFile(MAGIC_LINKS_LOG, '', 'utf8');
-  });
-
   test('signs in then PUTs, GETs, lists, and DELETEs a series', async ({ page, request }) => {
-    const email = `apiv1-${Date.now()}@sailscoring.test`;
-
-    await page.goto('/sign-in');
-    await page.getByLabel('Email').fill(email);
-    await page.getByRole('button', { name: 'Send magic link' }).click();
-    const link = await readLatestMagicLink(email);
-    await page.goto(link);
-    await expect(page).toHaveURL(/\/account/);
+    await signInFreshUser(page, 'apiv1');
 
     // Pull the session cookies from the browser context to drive the API
     // request as the same user.

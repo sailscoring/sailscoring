@@ -43,6 +43,7 @@ export async function putFleet(
   seriesId: string,
   pathFleetId: string,
   body: unknown,
+  opts?: { expectedVersion?: number },
 ): Promise<Fleet> {
   await assertSeriesInWorkspace(workspace, seriesId);
   const input = fleetInputSchema.parse(body);
@@ -50,7 +51,7 @@ export async function putFleet(
   if (id !== pathFleetId) throw new NotFoundError('fleet id mismatch with path');
   if (input.seriesId !== seriesId) throw new NotFoundError('fleet series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  return repos.fleets.save({ ...input, id });
+  return repos.fleets.save({ ...input, id }, { expectedVersion: opts?.expectedVersion });
 }
 
 export async function deleteFleet(

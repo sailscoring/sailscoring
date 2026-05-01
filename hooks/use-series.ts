@@ -39,7 +39,13 @@ export function useSaveSeries() {
   const { seriesRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (series: Series) => seriesRepo.save(series),
+    mutationFn: (series: Series) => {
+      // Pull `version` from the cached row to drive optimistic concurrency
+      // when running against the server backend. Local-mode (Dexie) ignores
+      // the option since there's a single writer.
+      const cached = qc.getQueryData<Series | null>(queryKeys.series.detail(series.id));
+      return seriesRepo.save(series, { expectedVersion: cached?.version });
+    },
     onSuccess: (saved) => {
       qc.setQueryData(queryKeys.series.detail(saved.id), saved);
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });
@@ -60,7 +66,7 @@ export function useUpdateSeries() {
       const cached = qc.getQueryData<Series | null>(queryKeys.series.detail(id));
       const current = cached ?? (await seriesRepo.get(id)) ?? null;
       if (!current) throw new Error(`series ${id} not found`);
-      return seriesRepo.save({ ...current, ...patch });
+      return seriesRepo.save({ ...current, ...patch }, { expectedVersion: current.version });
     },
     onSuccess: (saved) => {
       qc.setQueryData(queryKeys.series.detail(saved.id), saved);

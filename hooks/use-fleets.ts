@@ -19,7 +19,13 @@ export function useSaveFleet() {
   const { fleetRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (fleet: Fleet) => fleetRepo.save(fleet),
+    mutationFn: (fleet: Fleet) => {
+      // The fleets list is the only cached source — there's no per-fleet
+      // detail query — so we look up `version` from the list.
+      const list = qc.getQueryData<Fleet[]>(queryKeys.fleets.bySeries(fleet.seriesId));
+      const cached = list?.find((f) => f.id === fleet.id);
+      return fleetRepo.save(fleet, { expectedVersion: cached?.version });
+    },
     onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(saved.seriesId) });
     },

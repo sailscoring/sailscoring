@@ -8,12 +8,15 @@ import {
   requireWorkspace,
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
+import { ConflictError } from '@/lib/repository';
 
 import {
   lookupIdempotency,
   readIdempotencyKey,
   storeIdempotency,
 } from './idempotency';
+
+export { ConflictError };
 
 /**
  * Common wrapper for `/api/v1` route handlers.
@@ -33,13 +36,6 @@ export class NotFoundError extends Error {
   constructor(public readonly resource?: string) {
     super(resource ? `not-found: ${resource}` : 'not-found');
     this.name = 'NotFoundError';
-  }
-}
-
-export class ConflictError extends Error {
-  constructor(public readonly detail?: unknown) {
-    super('conflict');
-    this.name = 'ConflictError';
   }
 }
 
@@ -126,6 +122,23 @@ export function errorToResponse(err: unknown): Response {
   }
   console.error('unhandled route error:', err);
   return Response.json({ error: 'internal' }, { status: 500 });
+}
+
+/**
+ * Read `If-Match` from the request and parse it as the optimistic-concurrency
+ * `expectedVersion`. Returns `undefined` when the header is absent (no CAS
+ * check requested). Returns `undefined` for malformed values rather than
+ * throwing — a missing CAS is identical to an unconditional save, and the
+ * UI is the only legitimate caller.
+ */
+export function parseIfMatch(req: NextRequest): number | undefined {
+  const raw = req.headers.get('if-match');
+  if (!raw) return undefined;
+  // Strip quotes (RFC 7232 strong ETag form) — clients commonly send a
+  // bare integer, but a quoted form must round-trip cleanly.
+  const trimmed = raw.replace(/^"|"$/g, '').trim();
+  const n = Number(trimmed);
+  return Number.isInteger(n) && n > 0 ? n : undefined;
 }
 
 /** Parse a JSON body and validate with the given Zod schema; throws BadRequestError. */

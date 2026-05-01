@@ -23,7 +23,9 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install chromium --with-deps
 
-      - run: pnpm run test:e2e --grep-invert "@auth"
+      # No `E2E_SERVER_MODE` here: the playwright config defaults to the
+      # local-first project, which excludes @auth/@server specs.
+      - run: pnpm run test:e2e
         env:
           NEXT_PUBLIC_APP_URL: http://localhost:3000
           NEXT_PUBLIC_BILGE_URL: https://bilge.sailscoring.ie

@@ -29,6 +29,7 @@ export async function putFinish(
   raceId: string,
   pathFinishId: string,
   body: unknown,
+  opts?: { expectedVersion?: number },
 ): Promise<Finish> {
   await assertRaceInWorkspace(workspace, raceId);
   const input = finishInputSchema.parse(body);
@@ -36,7 +37,10 @@ export async function putFinish(
   if (id !== pathFinishId) throw new NotFoundError('finish id mismatch');
   if (input.raceId !== raceId) throw new NotFoundError('finish race mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  return repos.finishes.save({ ...input, id });
+  return repos.finishes.save(
+    { ...input, id },
+    { expectedVersion: opts?.expectedVersion },
+  );
 }
 
 export async function deleteFinish(

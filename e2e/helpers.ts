@@ -1,5 +1,54 @@
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+
+/**
+ * The dev/CI Resend stub appends each magic-link issuance to this file as
+ * a TSV: `<timestamp>\t<email>\t<url>`. Tests poll it after triggering a
+ * sign-in to retrieve the link instead of going through real email.
+ */
+const MAGIC_LINKS_LOG = path.join(process.cwd(), 'tests', '.magic-links.log');
+
+/**
+ * Wait for the most recent magic-link issued to `forEmail` to appear in
+ * the local TSV log and return its URL. Polls for ~5 seconds.
+ */
+export async function readLatestMagicLink(forEmail: string): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    try {
+      const content = await fs.readFile(MAGIC_LINKS_LOG, 'utf8');
+      const lines = content.trim().split('\n').reverse();
+      for (const line of lines) {
+        const [, email, url] = line.split('\t');
+        if (email === forEmail && url) return url;
+      }
+    } catch {
+      // file may not exist yet
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error(`No magic link found for ${forEmail}`);
+}
+
+/**
+ * Sign a fresh user into the app via the magic-link flow. Used by every
+ * server-mode e2e test — server mode has no anonymous browsing, so each
+ * test starts from /sign-in and lands at /account before any series work.
+ *
+ * Returns the email that was used so callers can assert against it.
+ */
+export async function signInFreshUser(page: Page, prefix: string): Promise<string> {
+  const email = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@sailscoring.test`;
+  await page.goto('/sign-in');
+  await page.getByLabel('Email').fill(email);
+  await page.getByRole('button', { name: 'Send magic link' }).click();
+  const link = await readLatestMagicLink(email);
+  await page.goto(link);
+  await expect(page).toHaveURL(/\/account/);
+  return email;
+}
 
 /**
  * Create a new series using the quick-create form (bypasses the wizard).

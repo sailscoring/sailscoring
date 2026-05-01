@@ -27,7 +27,14 @@ export function useSaveRace() {
   const { raceRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (race: Race) => raceRepo.save(race),
+    mutationFn: (race: Race) => {
+      const cached =
+        qc.getQueryData<Race | null>(queryKeys.races.detail(race.id)) ??
+        qc
+          .getQueryData<Race[]>(queryKeys.races.bySeries(race.seriesId))
+          ?.find((r) => r.id === race.id);
+      return raceRepo.save(race, { expectedVersion: cached?.version });
+    },
     onSuccess: (saved) => {
       qc.setQueryData(queryKeys.races.detail(saved.id), saved);
       qc.invalidateQueries({ queryKey: queryKeys.races.bySeries(saved.seriesId) });

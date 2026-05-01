@@ -9,7 +9,7 @@ import type {
   PrimaryPersonLabel,
 } from '@/lib/types';
 
-import { epochMsSchema, isoDateSchema, uuidSchema } from './common';
+import { epochMsSchema, isoDateSchema, uuidSchema, versionSchema } from './common';
 
 export const competitorFieldKeySchema = z.enum([
   'boatName',
@@ -76,11 +76,13 @@ export const seriesSchema = z.object({
   publishRatingCalculations: z.boolean().optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
   primaryPersonLabel: primaryPersonLabelSchema,
+  version: versionSchema,
 });
 
 /** Write-side schema. The id is optional — clients commonly generate UUIDs
- *  but the server may also generate one for new series. version isn't part
- *  of the create payload (server-managed). */
+ *  but the server may also generate one for new series. The optional
+ *  `version` flows through from a prior GET; the API handler converts it
+ *  into an If-Match-style CAS check at the repository layer. */
 export const seriesInputSchema = seriesSchema.extend({
   id: uuidSchema.optional(),
 });

@@ -15,9 +15,11 @@
  * `PersistQueryClientProvider` Suspense boundary plus a near-zero
  * throttle, both of which are larger than this commit warrants.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState, type ReactNode } from 'react';
 
+import { ConflictNoticeProvider, useNotifyConflict } from '@/components/conflict-notice';
+import { ConflictApiError } from '@/lib/api-client';
 import { RepoProvider } from '@/lib/repos';
 
 function createQueryClient(): QueryClient {
@@ -44,7 +46,35 @@ export function Providers({
 
   return (
     <QueryClientProvider client={queryClient}>
-      <RepoProvider useServerData={useServerData}>{children}</RepoProvider>
+      <ConflictNoticeProvider>
+        <ConflictMutationSubscriber />
+        <RepoProvider useServerData={useServerData}>{children}</RepoProvider>
+      </ConflictNoticeProvider>
     </QueryClientProvider>
   );
+}
+
+/**
+ * Subscribes to the QueryClient's mutation cache and reacts to any
+ * mutation that fails with a 409 (`ConflictApiError`). On each match:
+ * invalidate every cached query so the UI re-fetches authoritative
+ * server state, and surface the generic refresh notice. Phase 8 will
+ * replace this with per-field reconciliation; the global hammer is the
+ * Phase 4 scope.
+ */
+function ConflictMutationSubscriber() {
+  const notify = useNotifyConflict();
+  const qc = useQueryClient();
+  useEffect(() => {
+    const unsub = qc.getMutationCache().subscribe((event) => {
+      if (event.type !== 'updated') return;
+      const error = event.mutation.state.error;
+      if (error instanceof ConflictApiError) {
+        notify();
+        qc.invalidateQueries();
+      }
+    });
+    return () => unsub();
+  }, [qc, notify]);
+  return null;
 }

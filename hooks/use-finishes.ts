@@ -28,7 +28,11 @@ export function useSaveFinish() {
   const { finishRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (finish: Finish) => finishRepo.save(finish),
+    mutationFn: (finish: Finish) => {
+      const list = qc.getQueryData<Finish[]>(queryKeys.finishes.byRace(finish.raceId));
+      const cached = list?.find((f) => f.id === finish.id);
+      return finishRepo.save(finish, { expectedVersion: cached?.version });
+    },
     onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: queryKeys.finishes.byRace(saved.raceId) });
       qc.invalidateQueries({ queryKey: queryKeys.finishes.all });

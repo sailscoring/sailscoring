@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import type { Competitor } from '@/lib/types';
 
-import { epochMsSchema, uuidSchema } from './common';
+import { epochMsSchema, uuidSchema, versionSchema } from './common';
 
 export const genderSchema = z.enum(['M', 'F', '']);
 
@@ -25,6 +25,7 @@ export const competitorSchema = z.object({
   pyNumber: z.number().optional(),
   nhcStartingTcf: z.number().optional(),
   echoStartingTcf: z.number().optional(),
+  version: versionSchema,
 });
 
 export const competitorInputSchema = competitorSchema.extend({

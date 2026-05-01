@@ -1,9 +1,45 @@
 import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart } from './types';
 
+/**
+ * Thrown by the Postgres-backed `save*` methods when a compare-and-swap
+ * fails: the row's `version` in the database no longer matches the
+ * caller's `expectedVersion`. The `/api/v1` wrapper maps this to a 409.
+ *
+ * Lives here (not in a route-handler module) so server-side callers can
+ * import it without crossing the repository boundary.
+ */
+export class ConflictError extends Error {
+  constructor(
+    public readonly detail?: { expectedVersion?: number; currentVersion?: number },
+  ) {
+    super('conflict');
+    this.name = 'ConflictError';
+  }
+}
+
+/**
+ * Optional knobs threaded through every save method (ADR-008 Phase 4).
+ *
+ * `expectedVersion` carries the row's `version` from the prior read.
+ * Postgres-backed repositories interpret it as a compare-and-swap:
+ * the update succeeds only if the row in the database is still at
+ * `expectedVersion`; otherwise a `ConflictError` is thrown and the API
+ * layer returns 409. Dexie ignores the field — local mode has a single
+ * writer.
+ *
+ * Omit `expectedVersion` for authoritative writes (file imports, the
+ * server-side migration endpoint, fresh row creation). Bulk writes
+ * (`FinishRepository.saveMany`) are authoritative by construction; per-row
+ * CAS lands with the Phase 8 finish-entry autosave refactor.
+ */
+export interface SaveOpts {
+  expectedVersion?: number;
+}
+
 export interface FleetRepository {
   listBySeries(seriesId: string): Promise<Fleet[]>;
   get(id: string): Promise<Fleet | undefined>;
-  save(fleet: Fleet): Promise<Fleet>;
+  save(fleet: Fleet, opts?: SaveOpts): Promise<Fleet>;
   delete(id: string): Promise<void>;
   deleteBySeries(seriesId: string): Promise<void>;
 }
@@ -11,7 +47,7 @@ export interface FleetRepository {
 export interface SeriesRepository {
   list(): Promise<Series[]>;
   get(id: string): Promise<Series | undefined>;
-  save(series: Series): Promise<Series>;
+  save(series: Series, opts?: SaveOpts): Promise<Series>;
   delete(id: string): Promise<void>;
   touch(id: string): Promise<void>;
 }
@@ -19,7 +55,7 @@ export interface SeriesRepository {
 export interface CompetitorRepository {
   listBySeries(seriesId: string): Promise<Competitor[]>;
   get(id: string): Promise<Competitor | undefined>;
-  save(competitor: Competitor): Promise<Competitor>;
+  save(competitor: Competitor, opts?: SaveOpts): Promise<Competitor>;
   delete(id: string): Promise<void>;
   deleteBySeries(seriesId: string): Promise<void>;
 }
@@ -27,7 +63,7 @@ export interface CompetitorRepository {
 export interface RaceRepository {
   listBySeries(seriesId: string): Promise<Race[]>;
   get(id: string): Promise<Race | undefined>;
-  save(race: Race): Promise<Race>;
+  save(race: Race, opts?: SaveOpts): Promise<Race>;
   delete(id: string): Promise<void>;
   deleteBySeries(seriesId: string): Promise<void>;
 }
@@ -35,7 +71,7 @@ export interface RaceRepository {
 export interface FinishRepository {
   listByRace(raceId: string): Promise<Finish[]>;
   listBySeries(seriesId: string, competitorIds: string[]): Promise<Finish[]>;
-  save(finish: Finish): Promise<Finish>;
+  save(finish: Finish, opts?: SaveOpts): Promise<Finish>;
   saveMany(finishes: Finish[]): Promise<void>;
   delete(id: string): Promise<void>;
   deleteByRace(raceId: string): Promise<void>;
@@ -45,7 +81,7 @@ export interface FinishRepository {
 export interface RaceStartRepository {
   listByRace(raceId: string): Promise<RaceStart[]>;
   listByRaces(raceIds: string[]): Promise<RaceStart[]>;
-  save(raceStart: RaceStart): Promise<RaceStart>;
+  save(raceStart: RaceStart, opts?: SaveOpts): Promise<RaceStart>;
   delete(id: string): Promise<void>;
   deleteByRace(raceId: string): Promise<void>;
   deleteByRaces(raceIds: string[]): Promise<void>;
@@ -59,6 +95,6 @@ export interface RaceStartRepository {
  */
 export interface FtpServerRepository {
   list(): Promise<FtpServer[]>;
-  save(server: FtpServer): Promise<FtpServer>;
+  save(server: FtpServer, opts?: SaveOpts): Promise<FtpServer>;
   delete(id: string): Promise<void>;
 }

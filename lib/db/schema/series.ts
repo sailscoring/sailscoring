@@ -322,16 +322,19 @@ export const ftpServers = pgTable(
 );
 
 /**
- * Idempotency-key store. Phase 5 wraps every write endpoint to look up the
- * key before invoking the handler, and to write the response on the way out.
- * The structure lands in Phase 2 so the migration is a single file. TTL
- * cleanup is deferred (cron in Phase 4 territory).
+ * Idempotency-key store. The wrapper in `app/api/v1/_lib/handler.ts` writes
+ * the response body and status here on every successful write so a replay
+ * with the same `Idempotency-Key` header returns the cached response without
+ * re-running the handler. TTL cleanup is deferred (cron in Phase 4 territory).
+ *
+ * `body` is nullable: 204 responses (DELETE, touch) carry no body, but we
+ * still want to record the replay so a re-issue returns 204 immediately.
  */
 export const idempotencyKeys = pgTable('idempotency_keys', {
   workspaceId: text('workspace_id').notNull(),
   key: text('key').notNull(),
   status: integer('status').notNull(),
-  body: jsonb('body').notNull(),
+  body: jsonb('body'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),

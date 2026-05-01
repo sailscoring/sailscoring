@@ -28,12 +28,16 @@ export async function putFtpServer(
   workspace: WorkspaceContext,
   pathId: string,
   body: unknown,
+  opts?: { expectedVersion?: number },
 ): Promise<FtpServer> {
   const input = ftpServerInputSchema.parse(body);
   const id = input.id ?? pathId;
   if (id !== pathId) throw new NotFoundError('ftp-server id mismatch with path');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  return repos.ftpServers.save({ ...input, id });
+  return repos.ftpServers.save(
+    { ...input, id },
+    { expectedVersion: opts?.expectedVersion },
+  );
 }
 
 export async function deleteFtpServer(

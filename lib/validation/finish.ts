@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import type { Finish, ResultCode, PenaltyCode } from '@/lib/types';
 
-import { uuidSchema, wallClockSchema } from './common';
+import { uuidSchema, versionSchema, wallClockSchema } from './common';
 
 export const resultCodeSchema = z.enum([
   'DNC',
@@ -38,6 +38,7 @@ export const finishSchema = z.object({
   redressIncludeRaces: z.array(z.number().int()).nullable(),
   redressIncludeAllLater: z.boolean(),
   redressPoints: z.number().nullable(),
+  version: versionSchema,
 });
 
 export const finishInputSchema = finishSchema.extend({

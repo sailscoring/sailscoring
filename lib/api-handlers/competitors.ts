@@ -43,6 +43,7 @@ export async function putCompetitor(
   seriesId: string,
   pathCompetitorId: string,
   body: unknown,
+  opts?: { expectedVersion?: number },
 ): Promise<Competitor> {
   await assertSeriesInWorkspace(workspace, seriesId);
   const input = competitorInputSchema.parse(body);
@@ -50,7 +51,10 @@ export async function putCompetitor(
   if (id !== pathCompetitorId) throw new NotFoundError('competitor id mismatch');
   if (input.seriesId !== seriesId) throw new NotFoundError('competitor series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  return repos.competitors.save({ ...input, id });
+  return repos.competitors.save(
+    { ...input, id },
+    { expectedVersion: opts?.expectedVersion },
+  );
 }
 
 export async function deleteCompetitor(

@@ -18,3 +18,11 @@ export const wallClockSchema = z.string();
 
 /** Epoch milliseconds, as produced by Date.now(). */
 export const epochMsSchema = z.number().int();
+
+/**
+ * Server-side concurrency token (ADR-008 Phase 4). Optional on every
+ * mutable resource: present on rows read from Postgres, absent in
+ * local-mode (Dexie) and stripped from the .sailscoring file format
+ * and public JSON export.
+ */
+export const versionSchema = z.number().int().positive().optional();

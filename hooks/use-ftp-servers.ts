@@ -19,7 +19,11 @@ export function useSaveFtpServer() {
   const { ftpServerRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (server: FtpServer) => ftpServerRepo.save(server),
+    mutationFn: (server: FtpServer) => {
+      const list = qc.getQueryData<FtpServer[]>(queryKeys.ftpServers.list());
+      const cached = list?.find((s) => s.id === server.id);
+      return ftpServerRepo.save(server, { expectedVersion: cached?.version });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.ftpServers.list() });
     },

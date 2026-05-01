@@ -19,7 +19,13 @@ export function useSaveCompetitor() {
   const { competitorRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (competitor: Competitor) => competitorRepo.save(competitor),
+    mutationFn: (competitor: Competitor) => {
+      const list = qc.getQueryData<Competitor[]>(
+        queryKeys.competitors.bySeries(competitor.seriesId),
+      );
+      const cached = list?.find((c) => c.id === competitor.id);
+      return competitorRepo.save(competitor, { expectedVersion: cached?.version });
+    },
     onSuccess: (saved) => {
       qc.invalidateQueries({
         queryKey: queryKeys.competitors.bySeries(saved.seriesId),

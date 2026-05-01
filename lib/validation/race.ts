@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import type { Race } from '@/lib/types';
 
-import { epochMsSchema, isoDateSchema, uuidSchema } from './common';
+import { epochMsSchema, isoDateSchema, uuidSchema, versionSchema } from './common';
 
 export const raceSchema = z.object({
   id: uuidSchema,
@@ -10,6 +10,7 @@ export const raceSchema = z.object({
   raceNumber: z.number().int().positive(),
   date: isoDateSchema,
   createdAt: epochMsSchema,
+  version: versionSchema,
 });
 
 export const raceInputSchema = raceSchema.extend({

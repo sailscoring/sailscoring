@@ -51,6 +51,13 @@ export interface ApiFetchOptions {
   body?: unknown;
   /** Sets Idempotency-Key on writes. Defaults to a fresh UUID for non-GET methods. */
   idempotencyKey?: string | null;
+  /**
+   * Compare-and-swap token (ADR-008 Phase 4). When set, sent as
+   * `If-Match: <version>` on the request; the server-side route handler
+   * reads it and threads it into the repository as `expectedVersion`.
+   * Mismatches return 409 → `ConflictApiError`.
+   */
+  expectedVersion?: number;
   /** Returning `null` instead of throwing on 404. Used by `get(id)` lookups. */
   allow404?: boolean;
   /** Custom Zod-shaped validator. */
@@ -70,6 +77,9 @@ export async function apiFetch<T = unknown>(
   }
   if (method !== 'GET' && opts.idempotencyKey !== null) {
     headers['idempotency-key'] = opts.idempotencyKey ?? crypto.randomUUID();
+  }
+  if (opts.expectedVersion !== undefined) {
+    headers['if-match'] = String(opts.expectedVersion);
   }
 
   const res = await fetch(path, {

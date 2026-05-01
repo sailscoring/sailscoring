@@ -2,13 +2,14 @@ import { z } from 'zod';
 
 import type { RaceStart } from '@/lib/types';
 
-import { uuidSchema, wallClockSchema } from './common';
+import { uuidSchema, versionSchema, wallClockSchema } from './common';
 
 export const raceStartSchema = z.object({
   id: uuidSchema,
   raceId: uuidSchema,
   fleetIds: z.array(uuidSchema),
   startTime: wallClockSchema,
+  version: versionSchema,
 });
 
 export const raceStartInputSchema = raceStartSchema.extend({

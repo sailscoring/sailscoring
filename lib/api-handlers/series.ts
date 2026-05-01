@@ -23,6 +23,7 @@ export async function putSeries(
   workspace: WorkspaceContext,
   pathId: string,
   body: unknown,
+  opts?: { expectedVersion?: number },
 ): Promise<Series> {
   const input = seriesInputSchema.parse(body);
   const id = input.id ?? pathId;
@@ -59,7 +60,7 @@ export async function putSeries(
     enabledCompetitorFields: input.enabledCompetitorFields,
     primaryPersonLabel: input.primaryPersonLabel,
   };
-  return repos.series.save(merged);
+  return repos.series.save(merged, { expectedVersion: opts?.expectedVersion });
 }
 
 export async function deleteSeries(workspace: WorkspaceContext, id: string): Promise<void> {

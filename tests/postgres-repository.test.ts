@@ -284,8 +284,8 @@ describe.skipIf(skip)('postgres repositories', () => {
     const start: RaceStart = { id: uuid(), raceId: race.id, fleetIds: [fleet], startTime: '11:00:00' };
     await repos.raceStarts.save(start);
 
-    expect(await repos.raceStarts.listByRace(race.id)).toEqual([start]);
-    expect((await repos.raceStarts.listByRaces([race.id]))[0]).toEqual(start);
+    expect(await repos.raceStarts.listByRace(race.id)).toEqual([{ ...start, version: 1 }]);
+    expect((await repos.raceStarts.listByRaces([race.id]))[0]).toEqual({ ...start, version: 1 });
 
     const finish: Finish = {
       id: uuid(), raceId: race.id, competitorId: competitor.id,
@@ -403,7 +403,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     await reposA.raceStarts.deleteByRaces([raceA.id, raceB.id]);
 
     expect(await reposA.raceStarts.listByRace(raceA.id)).toEqual([]);
-    expect(await reposB.raceStarts.listByRace(raceB.id)).toEqual([startB]);
+    expect(await reposB.raceStarts.listByRace(raceB.id)).toEqual([{ ...startB, version: 1 }]);
 
     await reposA.series.delete(sA.id);
     await reposB.series.delete(sB.id);

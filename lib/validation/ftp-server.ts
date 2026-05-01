@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import type { FtpServer } from '@/lib/types';
 
-import { uuidSchema } from './common';
+import { uuidSchema, versionSchema } from './common';
 
 export const ftpServerSchema = z.object({
   id: uuidSchema,
@@ -11,6 +11,7 @@ export const ftpServerSchema = z.object({
   username: z.string().min(1),
   password: z.string(),
   ftps: z.boolean(),
+  version: versionSchema,
 });
 
 export const ftpServerInputSchema = ftpServerSchema.extend({
