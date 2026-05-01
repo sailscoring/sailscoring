@@ -20,9 +20,9 @@
     "db:auth:generate": "better-auth generate --config lib/auth.ts --output lib/db/schema/auth.ts -y"
   },
   "dependencies": {
-    "@tanstack/query-sync-storage-persister": "^5.100.6",
-    "@tanstack/react-query": "^5.100.6",
-    "@tanstack/react-query-persist-client": "^5.100.6",
+    "@tanstack/query-sync-storage-persister": "^5.100.7",
+    "@tanstack/react-query": "^5.100.7",
+    "@tanstack/react-query-persist-client": "^5.100.7",
     "@types/papaparse": "^5.5.2",
     "better-auth": "^1.6.9",
     "class-variance-authority": "^0.7.1",
@@ -40,7 +40,7 @@
     "resend": "^6.12.2",
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.5.0",
-    "zod": "^4.3.6"
+    "zod": "^4.4.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
