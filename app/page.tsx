@@ -142,6 +142,7 @@ export default function HomePage() {
       // No match — open as new
       setOpenFlow({ step: 'working' });
       const newId = await openSeriesFromFile(parsed);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
       router.push(`/series/${newId}/races`);
       return;
     }
@@ -156,6 +157,7 @@ export default function HomePage() {
     if (choice === 'new-copy') {
       setOpenFlow({ step: 'working' });
       const newId = await openSeriesFromFile(file);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
       router.push(`/series/${newId}/races`);
       return;
     }
