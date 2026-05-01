@@ -37,33 +37,45 @@ export class SailScoringDb extends Dexie {
         }));
       });
     });
-    // v3: ADR-008 Phase 3 parity. Convert ftpServers' auto-incrementing number
-    // primary key to a string UUID, matching the server-side schema. Dexie
-    // does not allow changing a primary key in place, so we read all rows,
-    // clear the table, and re-insert with fresh UUIDs.
-    this.version(3).stores({ ftpServers: 'id' }).upgrade(async (tx) => {
-      const ftpTable = tx.table('ftpServers');
-      const existing = (await ftpTable.toArray()) as Array<{
-        host: string;
-        port: number;
-        username: string;
-        password: string;
-        ftps: boolean;
-      }>;
-      await ftpTable.clear();
-      if (existing.length > 0) {
-        await ftpTable.bulkAdd(
-          existing.map((row) => ({
-            id: crypto.randomUUID(),
-            host: row.host,
-            port: row.port,
-            username: row.username,
-            password: row.password,
-            ftps: row.ftps,
-          })),
-        );
-      }
-    });
+    // v3–v6: ADR-008 Phase 3 parity. Convert ftpServers' primary key from
+    // auto-incrementing number to UUID string, matching the server-side
+    // schema. Dexie cannot change a primary key in place ("Not yet support
+    // for changing primary key"), so the swap is staged across four
+    // versions: stash existing rows (v3), drop the old table (v4), recreate
+    // with the new PK and restore (v5), drop the stash (v6).
+    this.version(3)
+      .stores({ ftpServersStashV3: '++stashId' })
+      .upgrade(async (tx) => {
+        const rows = await tx.table('ftpServers').toArray();
+        if (rows.length > 0) {
+          await tx.table('ftpServersStashV3').bulkAdd(rows);
+        }
+      });
+    this.version(4).stores({ ftpServers: null });
+    this.version(5)
+      .stores({ ftpServers: 'id', ftpServersStashV3: '++stashId' })
+      .upgrade(async (tx) => {
+        const stashed = (await tx.table('ftpServersStashV3').toArray()) as Array<{
+          host: string;
+          port: number;
+          username: string;
+          password: string;
+          ftps: boolean;
+        }>;
+        if (stashed.length > 0) {
+          await tx.table('ftpServers').bulkAdd(
+            stashed.map((row) => ({
+              id: crypto.randomUUID(),
+              host: row.host,
+              port: row.port,
+              username: row.username,
+              password: row.password,
+              ftps: row.ftps,
+            })),
+          );
+        }
+      });
+    this.version(6).stores({ ftpServersStashV3: null });
   }
 }
 
