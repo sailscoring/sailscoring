@@ -37,9 +37,10 @@ application is being validated.
 
 ## Non-Goals
 
-- **Offline-first editing.** Read-only offline access is acceptable if it
-  falls out of the chosen stack; durable offline writes (sync engine,
-  CRDTs) are explicitly out of scope.
+- **Offline editing.** Read-only offline was an aspiration in early
+  drafts of this ADR; the `persistQueryClient` prototype in Phase 3
+  caused more confusion than value and was removed. Both read-only and
+  durable offline writes (sync engine, CRDTs) are now out of scope.
 - Mobile-native applications.
 - Public API for third-party clients. Anticipated but a follow-up ADR.
 - Custom per-club domains. Sub-paths under the app domain are sufficient
@@ -75,7 +76,7 @@ URL-redirect transition window, as ADR-004 always anticipated.
 | ORM | Drizzle | Ratifies ADR-003; first-class TypeScript |
 | Auth | Better Auth with Drizzle adapter | Deviates from ADR-003's choice of Auth.js v5; see below |
 | Email | Resend | Magic-link login + transactional |
-| Reactivity | TanStack Query | Replaces Dexie's `useLiveQuery`; persistent cache provides natural read-only offline |
+| Reactivity | TanStack Query | Replaces Dexie's `useLiveQuery`; explicit invalidation per mutation |
 | Migration | Existing JSON export/import | Already the canonical interchange format |
 
 ## Data model changes
@@ -117,15 +118,25 @@ series; scoring engine inputs are unchanged.
 
 ### Concurrency
 
-Each mutable row gets a `version` integer (or `updated_at` timestamp).
+Each mutable row gets a `version` integer and `updated_at` timestamp.
 Mutations include the expected version; mismatches return a 409 with the
-current state. Last-write-wins is acceptable in practice — panels rarely
-edit the same record simultaneously — but explicit detection avoids silent
+current state and (once collaboration lands) the actor of the conflicting
+change. Last-write-wins is acceptable in practice — panels rarely edit the
+same record simultaneously — but explicit detection avoids silent
 overwrites.
 
-Awareness ("Mark edited race 3 just now") is deferred. A later iteration
-can add it via SSE or a Vercel Queues fan-out without changing the data
-model.
+Awareness ("Mark edited race 3 just now") is delivered through the
+activity log, not via SSE or Vercel Queues. The
+[scorer-collaboration requirements](../../requirements/scorer-collaboration.md)
+spell out the model: a chronological log of action-level events, surfaced
+per-series and per-record, gives scorers enough confidence about the
+current state without committing to real-time presence.
+
+The collaboration phase requires a per-row autosave refactor of the race
+finish-entry page (today a batch save model), so a stale-data refresh is
+non-destructive when concurrent edits are in flight. This is the largest
+UI-side change collaboration brings; flagged here so it is not missed in
+that phase's scoping.
 
 ## Authentication and accounts
 
@@ -178,52 +189,75 @@ The pure scoring engine (`lib/scoring.ts`) is untouched.
 ## UI reactivity
 
 `useLiveQuery` (Dexie's reactive primitive, used in ~10 components) is
-replaced with **TanStack Query** hooks backed by server actions. Mutations
-invalidate query keys explicitly; optimistic updates are added per mutation
-where the UX warrants it.
+replaced with **TanStack Query** hooks backed by route handlers via
+`lib/api-repository.ts`. Mutations invalidate query keys explicitly;
+optimistic updates are added per mutation where the UX warrants it.
 
-TanStack Query's `persistQueryClient` against IndexedDB or localStorage
-gives a **natural read-only offline posture** without committing to a sync
-engine: cached series data remains visible while offline, writes fail with
-a clear error. This is the "if it's natural" offline support called for in
-this ADR's goals; it is not full offline editing.
+`persistQueryClient` was prototyped during Phase 3 and removed: a stale
+local cache without an explicit sync surface caused more confusion than
+the read-only offline posture was worth. Offline support is no longer
+claimed; this ADR's earlier goal of "read-only offline as a side effect"
+is dropped.
 
 ## Publishing model
 
 The full-stack app introduces an integrated publishing path that
-**replaces bilge entirely**.
+**replaces bilge entirely**. It lands with bilge decommission, not earlier
+— the existing local-mode publishing paths (HTML download, FTP upload,
+publish-to-bilge) keep working through Phases 4–6.
 
-- A series in a workspace has a "Publish" action.
-- Publishing renders the same HTML produced by `lib/results-renderer.ts`
-  and serves it from the app at a stable URL — for example
-  `app.sailscoring.ie/public/{workspace-slug}/{series-slug}`.
-- Pages are generated on-demand and cached using Next.js 16 Cache
-  Components (`use cache`, `cacheTag`); `updateTag` invalidates on each
-  publish. Usage is isolated behind a thin internal helper (e.g.
-  `lib/published-cache.ts`) so the cache-API surface is one file to
-  revisit if it changes — see *Sustainability posture* below.
+When the new path lands:
+
+- A series has an explicit "Publish" action.
+- Publishing runs `lib/results-renderer.ts` against the current state to
+  produce **static HTML** and stores the result in **Vercel Blob** (public
+  access). Re-publishing overwrites the blob; edits do not auto-publish.
+  This matches the scorer mental model — explicit publish, point-in-time
+  results — and is what the
+  [scorer-collaboration requirements](../../requirements/scorer-collaboration.md)
+  imply for trust around "what is currently published."
+- Public URLs: `/p/{slug}` where `slug` is the kebab-cased series name
+  plus a short random suffix, set at first publish, stable forever. No
+  user-typed slug; no namespace coordination with API routes; no
+  prediction of future reserved words.
+- The route handler at `/p/{slug}` reads the stored HTML and serves it
+  with `Cache-Control` + `ETag` headers. No Cache Components, no
+  render-on-demand, no `lib/published-cache.ts` helper.
+- The in-app dialog shows the public URL, the publish timestamp, and an
+  "X edits since last publish" hint sourced from the version delta on
+  the series row.
+- Multi-fleet bundles produce one blob per fleet, with a parent index
+  page listing them — mirroring today's bilge layout so a re-publish to
+  the same series produces the same URL shape.
 - Public URLs are read-only and unauthenticated.
-- Visibility settings: **unlisted** (default; URL-only access) and
-  **listed** (appears on the workspace's public index).
+
+User and org slugs are out of scope until the org-based collaboration
+phase. Personal workspaces never expose a vanity prefix; their published
+series live under `/p/{slug}` only. Once orgs exist, they can claim
+vanity URLs (e.g. `/o/{org-slug}/{series-slug}`) as aliases over the
+canonical `/p/{slug}` — the original URL never changes identity.
+Visibility (listed/unlisted) lands with orgs since "listed" needs a
+public index destination.
 
 ### bilge retirement
 
-bilge was always a stopgap (ADR-004). Its retirement trigger fires when
-this transition ships. Concretely:
+bilge was always a stopgap (ADR-004). Its retirement is a single phase
+that builds the replacement publishing path *and* drains old URLs:
 
-1. The "Publish to bilge" action is removed from the app once the in-app
-   publishing path ships. Subsequent publishes go through the new path
-   only.
-2. Existing bilge URLs stay reachable for a transition window. The series
+1. Build the new publish-to-blob-storage path described above and ship
+   it to personal workspaces.
+2. The in-app "Publish to bilge" action is removed; subsequent publishes
+   go through the new path only.
+3. Existing bilge URLs stay reachable for a transition window. The series
    data already records `publishing.uuid` and `publishing.pages` (slug +
-   URL) per ADR-004; on first publish through the new path, the app
+   URL) per ADR-004; on first re-publish through the new path, the app
    generates redirect mappings for those slugs. Implementation can be as
    light as overwriting each affected bilge slug's HTML with a
    meta-refresh + canonical link to the new app URL — no code change to
    bilge required.
-3. After a defined transition window (e.g. 6 months from cutover), bilge
-   is taken offline. Any remaining slugs return 410 Gone. The Vercel
-   project, Blob storage, and KV are decommissioned.
+4. After a defined transition window (e.g. 6 months), bilge is taken
+   offline. Any remaining slugs return 410 Gone. The Vercel project,
+   Blob storage, and KV are decommissioned.
 
 ## Public API forward-compatibility
 
@@ -356,10 +390,12 @@ revert the API repository if needed.
 import `db` directly (`app/page.tsx`, `app/series/[id]/**`,
 `components/series-settings/*`, `components/competitor-import.tsx`) to
 use `lib/api-repository.ts`. Replace every `useLiveQuery` call with a
-TanStack Query hook; mutations invalidate keys explicitly. Wire
-`persistQueryClient` for read-only offline. Enforce the repository
-boundary via a lint rule banning direct `db.` imports outside
+TanStack Query hook; mutations invalidate keys explicitly. Enforce the
+repository boundary via a lint rule banning direct `db.` imports outside
 `lib/dexie-repository.ts`.
+
+(`persistQueryClient` was prototyped here and removed before merge —
+see *UI reactivity* above.)
 
 **Exit criteria.** With `USE_SERVER_DATA=on`, the entire app works
 end-to-end against Postgres in development; with it off, the existing
@@ -368,45 +404,54 @@ local-first app is unchanged. Side-by-side e2e runs in both modes.
 **Size.** ~2 weeks. The largest UI-layer change of the transition.
 **Rollback.** Flip the flag.
 
-### Phase 4 — Collaboration and publishing
+### Phase 4 — Personal workspaces and concurrency
 
-**Goal.** A panel of scorers can share a series; a series can be
-published at a stable public URL.
+**Goal.** `USE_SERVER_DATA=on` runs the full IODAI and HYC scoring
+workflows end-to-end against Postgres in personal workspaces, with the
+same publishing UX as local mode (HTML download, FTP upload, publish to
+bilge).
 
-**Work.** Workspace invitation flow (Better Auth invitations). Membership
-management UI (add/remove, change role). Last-write-wins concurrency:
-add `version` columns and surface 409s in the UI. New publishing path:
-`/public/{workspace-slug}/{series-slug}` rendered from
-`lib/results-renderer.ts` with Next.js Cache Components (`use cache` +
-`cacheTag`); `updateTag` on publish. Replace the in-app "Publish to
-bilge" action with the new publish action. Listed/unlisted visibility
-toggle.
+This is a deliberate KISS scope: collaboration features and the bilge
+replacement are explicitly out, so the cutover (Phase 6) and migration
+UX (Phase 5) can ship without waiting on either. HYC scorers can use the
+new stack as personal-workspace users initially, exchanging
+`.sailscoring` files between panel members exactly as they do today on
+the local-first stack.
 
-**Exit criteria.** Two test accounts in one workspace can both edit a
-series and see each other's changes after a refresh. Publishing a series
-produces a public URL that updates within seconds of the next publish
-action.
+**Work.** Optimistic concurrency: thread `expectedVersion` through every
+`save*` repository method and surface 409s with a generic
+"refresh-and-retry" toast — no merge dialog, no actor attribution (those
+land in Phase 8). End-to-end verification of every scoring workflow
+under `USE_SERVER_DATA=on`, with side-by-side e2e suites in both modes.
+Small `/account` pass so a personal-workspace user has a sensible
+identity home (signed-in email + workspace name + sign-out).
 
-**Size.** ~2 weeks. **Rollback.** Disable the publish UI; collaboration
-is harder to roll back, so test thoroughly before this phase ships.
+**Exit criteria.** Full IODAI and HYC workflows run end-to-end against
+Postgres including publishing via the existing local-mode paths.
+Multi-tab same-user 409s are detected and surfaced cleanly. Local-first
+build is unchanged.
+
+**Size.** ~2 weeks. **Rollback.** Flip the flag.
 
 ### Phase 5 — Migration UX
 
-**Goal.** Existing beta users can move their local data into a workspace
-without losing anything.
+**Goal.** Existing beta users can move their local data into a personal
+workspace without losing anything.
 
 **Work.** "Import from browser" wizard reads IndexedDB via the retained
 Dexie repository, serialises each series via `lib/series-file.ts`, POSTs
 to a new `/api/v1/import` endpoint that writes via the Postgres
 repositories. Idempotent re-runs. "Local archive" view for series
-already imported. On the first publish of a migrated series, write
-redirect HTML to its existing bilge slugs (meta-refresh + canonical
-link) — no code change in bilge required. Validate with at least one
-HYC beta user on a real historical series.
+already imported. Validate with at least one HYC beta user on a real
+historical series.
+
+Bilge URL redirect mappings move out of this phase to bilge
+decommission (Phase 7), where they belong now that the bilge replacement
+lives in the same phase.
 
 **Exit criteria.** A beta user with existing local data can sign up,
-import, and continue working with full fidelity. Old bilge URLs redirect
-to the new app URLs. Re-running the wizard is safe.
+import into their personal workspace, and continue working with full
+fidelity. Re-running the wizard is safe.
 
 **Size.** ~1–2 weeks. **Rollback.** Wizard is opt-in and idempotent;
 failed runs don't damage local data.
@@ -414,53 +459,127 @@ failed runs don't damage local data.
 ### Phase 6 — Cutover
 
 **Goal.** Production runs against Postgres; local-first mode is no
-longer the default.
+longer the default. Both IODAI and HYC are on the new stack as
+personal-workspace users.
 
 **Work.** Flip `USE_SERVER_DATA` on by default. Hide the local-first
 entry points behind a "Local archive" view. User comms to existing beta
 scorers prompting them to import. Update help docs
-(`app/help/page.tsx`), CLAUDE.md, and README. Remove the "Publish to
-bilge" upload code path from the app entirely.
+(`app/help/page.tsx`), CLAUDE.md, and README.
+
+The "Publish to bilge" code path stays in tree until Phase 7 — that's
+the phase that builds the replacement and removes bilge upload.
 
 **Exit criteria.** Every active beta user is signed in and using the
 server backend. Local code paths retained but not reachable from the
-main nav.
+main nav. HYC scoring panel members continue exchanging `.sailscoring`
+files where they need to collaborate within a series, until Phase 8
+lands.
 
 **Size.** ~1 week of work plus a coordinated comms window.
 **Rollback.** The flag remains in place during a stabilisation window so
 individual users can revert if needed; local data is not deleted.
 
-### Phase 7 — bilge decommission
+### Phase 7 — Bilge replacement and decommission
 
-**Goal.** ADR-004's retirement trigger fires.
+**Goal.** The new publish-to-blob-storage path is live; bilge is
+retired.
 
-**Work.** After ~6 months of redirect-only operation (or once
-redirect-hit logs show negligible traffic), bilge slugs switch to
-returning 410 Gone. The bilge Vercel project, Blob storage, KV, and
+**Work.** Build the new publish-to-blob-storage path described in the
+*Publishing model* section. The explicit "Publish" action runs
+`lib/results-renderer.ts`, uploads to Vercel Blob (public access), and
+writes a `published_series` row with the slug, blob URL, and content
+hash. New public route `/p/{slug}` serves the stored HTML with
+`Cache-Control` + `ETag`. Standings UI swaps to the new dialog. The
+in-app "Publish to bilge" action is removed.
+
+For each series previously published to bilge, the first re-publish
+through the new path generates redirect HTML for the affected bilge
+slugs (meta-refresh + canonical link to the new app URL — no code
+change to bilge required). After ~6 months of redirect-only operation
+(or once redirect-hit logs show negligible traffic), bilge slugs switch
+to returning 410 Gone. The bilge Vercel project, Blob storage, KV, and
 Resend templates are deleted. ADR-004 is marked **Superseded by
 ADR-008**.
 
-**Exit criteria.** `bilge.sailscoring.ie` returns 410. The bilge
-repository is archived.
+**Exit criteria.** Personal-workspace publishing produces a public URL
+served from Vercel Blob. Existing bilge URLs redirect to the new app
+URL. After the transition window: `bilge.sailscoring.ie` returns 410;
+the bilge repository is archived.
 
-**Size.** ~2–3 days, mostly calendar-gated. **Rollback.** None —
-irreversible.
+**Size.** ~1–2 weeks of build, plus the ~6-month calendar window before
+final decommission. **Rollback.** Final 410 cutover is irreversible;
+the build phase rolls back like any other (revert the deploy).
+
+### Phase 8 — Org-based collaboration
+
+**Goal.** Panels of scorers can share a workspace; concurrent edits are
+detectable and resolvable; an activity log records what happened, when,
+and by whom.
+
+**Work.**
+
+- Org creation as an admin-approved, out-of-band review process — a
+  user submits a request from `/account`, the project owner approves
+  manually. No self-service org creation initially.
+- Invitation flow (Better Auth invitations plugin), members management
+  UI, role changes, "Move series to workspace…" action.
+- Workspace switcher in the global header; remove the "first by
+  createdAt" fallback in `lib/auth/require-workspace.ts`.
+- **Activity log:** a workspace-scoped, action-vocabulary-driven log
+  written in the `workspaceRoute` wrapper for every mutation. Surfaced
+  as a per-series Activity tab, recency strips on the series list, and
+  per-record stamps in the competitor edit dialog. The log is the
+  primary collaboration affordance per the
+  [scorer-collaboration requirements](../../requirements/scorer-collaboration.md)
+  — not real-time presence.
+- **Conflict dialog:** 409 responses are extended to include the actor
+  and timestamp of the conflicting change; the UI renders a per-field
+  dialog with formatted before/after values and "keep mine" / "use the
+  current value" actions, matching the conflict-handling section of the
+  scorer-collaboration requirements.
+- **Per-row autosave refactor of the race finish-entry page** (today a
+  batch save model). Required so a stale-data refresh is non-destructive
+  with concurrent editors. Largest UI-side change in this phase.
+- User and org slug claim flows, in **separate namespaces**. User slugs
+  drive attribution (e.g. profile route under `/u/{slug}`); org slugs
+  can claim vanity URLs as aliases over the canonical `/p/{slug}`
+  publishing path from Phase 7.
+- Listed/unlisted visibility toggle and a workspace public index.
+
+**Exit criteria.** HYC scoring panel can score a live race day on the
+new stack with multiple scorers concurrently. Two test accounts in one
+workspace can both edit a series and see each other's changes through
+the activity log; the conflict dialog fires for genuinely simultaneous
+edits to the same record.
+
+**Size.** ~4–5 weeks. The largest phase after Phase 3.
+**Rollback.** Org features can be hidden via flag; collaboration is
+harder to fully roll back, so test thoroughly before this phase ships.
 
 ### Sequencing notes
 
 - Phases 1–3 can land at any point in the calendar; they're invisible
   to production users.
-- Phase 4 should land before any HYC live race-day scoring begins, so
-  scorers publish via the real path from day one.
+- Phase 4's KISS scope was chosen to unblock the cutover (Phase 6) — it
+  is the smallest credible bundle of work to ship `USE_SERVER_DATA=on`.
 - Phase 5 is gated on Phase 2's import endpoint and can be developed in
   parallel with Phase 4.
 - Phase 6 should not happen mid-series — pick a quiet point in the
-  racing calendar.
-- Phase 7 is calendar-only; no engineering blocker once Phase 6 ships.
+  racing calendar. After Phase 6, HYC scoring panel members continue
+  exchanging `.sailscoring` files for within-series collaboration until
+  Phase 8 lands.
+- Phase 7 (bilge replacement and decommission) lands before Phase 8:
+  the new publishing path is a pre-requisite for org-based publishing,
+  and the calendar gate for final bilge takedown can run in parallel
+  with Phase 8 work.
+- Phase 8 should land before any HYC live race-day scoring that depends
+  on multiple scorers editing simultaneously; until then, panel members
+  divide work by series the same way they do today.
 
-**Total active engineering: ~9–12 weeks of focused work** before
-Phase 7's wait period. Only Phases 4 and 6 have hard external timing
-constraints.
+**Total active engineering: ~10–13 weeks of focused work** before final
+bilge takedown. Phase 6 is the only phase with a hard external timing
+constraint; Phases 4–8 ladder cleanly.
 
 ## Sustainability posture
 
@@ -485,7 +604,6 @@ ADR-008 adopts the report's concrete recommendations:
 | Build with plain `next build` / `next start`; no Vercel-only `next.config` features | Keeps OpenNext / self-host migration available via the Next.js 16.2 stable Adapter API |
 | Auth checks in route handlers and repositories, not only middleware | CVE-2025-29927 made middleware-only auth a known failure mode |
 | Encrypt sensitive credentials at the application layer | The April 2026 Vercel breach exfiltrated plaintext "non-sensitive" env vars |
-| Wrap Cache Components calls (`use cache`, `cacheTag`, `updateTag`) in a thin helper | The cache API has churned twice in 18 months; isolate the seam |
 | Scheduled CI dump-and-restore of the database onto vanilla Postgres | Catches accidental dependence on Neon-specific extensions |
 | Scheduled Next.js minor (quarterly) and major (annual) upgrade cadence | Drift is more expensive than churn |
 
@@ -498,11 +616,9 @@ duplicated here.
 
 ### Positive
 
-- Scorers can use the app from any device, share series with their panel,
-  and update results without exchanging files.
+- Scorers can use the app from any device. From Phase 8, panels can
+  share series and update results without exchanging files.
 - Server-of-record eliminates IndexedDB eviction risk on iOS Safari.
-- Free read-only offline as a side effect of TanStack Query's persistent
-  cache, without a sync engine.
 - Better Auth + Drizzle + Postgres unblocks a public API as a follow-up
   rather than a rewrite; the api-keys and OIDC-provider plugins shorten
   that follow-up materially.
@@ -540,16 +656,20 @@ duplicated here.
 
 ## Open questions
 
-- **Workspace creation UX.** Auto-create a personal workspace on signup?
-  Allow renaming? Allow ownership transfer? Likely yes to all; deferred
-  to implementation.
-- **Public workspace index.** Does a workspace have a public landing page
-  listing its public series? Probably yes — replaces what bilge's `/l/`
-  prefix listing does today, for account-bound publishing.
+- **Workspace creation UX.** Personal workspace is auto-created on
+  signup (settled — Phase 1). Org creation is admin-approved and
+  out-of-band, landing in Phase 8. Renaming and ownership transfer are
+  deferred to implementation in Phase 8.
+- **Public workspace index.** A workspace has a public landing page
+  listing its listed series — lands in Phase 8 alongside the
+  listed/unlisted toggle. Replaces what bilge's `/l/` prefix listing
+  does today.
 - **Pricing.** Free during beta. Pricing model deferred to a separate
   ADR (tied to ADR-003's open-source-vs-commercial question).
-- **Scorer attribution in scoring history.** Anticipated by the horizon
-  doc once we have user emails; should be wired in this transition.
+- **Scorer attribution in scoring history.** Wired through the activity
+  log in Phase 8 — actor (`user.id` + email + display name) is captured
+  in every log entry and surfaced in the conflict dialog and per-record
+  stamps.
 
 ## Related Decisions
 

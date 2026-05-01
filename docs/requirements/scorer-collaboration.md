@@ -3,6 +3,12 @@
 How multiple scorers work together on a single event, and what the
 application needs to support.
 
+These requirements are implemented by the org-based collaboration phase
+of [ADR-008](../design/decisions/008-full-stack-transition.md) (Phase 8).
+Earlier phases ship personal workspaces only; panel members continue to
+exchange `.sailscoring` files for within-series collaboration until
+Phase 8 lands.
+
 ## How Scorers Work in Practice
 
 Scoring work at an event follows a natural sequence of phases, each with
