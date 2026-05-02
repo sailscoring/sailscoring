@@ -4,8 +4,8 @@ import { useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import Papa from 'papaparse';
 import { useRepos } from '@/lib/repos';
 import { useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
-import { useEnsureFleet } from '@/hooks/use-fleets';
-import { useSaveCompetitor } from '@/hooks/use-competitors';
+import { useSaveFleets } from '@/hooks/use-fleets';
+import { useSaveCompetitors } from '@/hooks/use-competitors';
 import { DEFAULT_FLEET_NAME } from '@/lib/dexie-repository';
 import { parseFleetCell, autoDetectField, type CompetitorField } from '@/lib/csv-import';
 import {
@@ -265,8 +265,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
   const { seriesRepo, competitorRepo } = useRepos();
   const updateSeries = useUpdateSeries();
   const touchSeries = useTouchSeries();
-  const ensureFleetMutation = useEnsureFleet();
-  const saveCompetitor = useSaveCompetitor();
+  const saveFleets = useSaveFleets();
+  const saveCompetitors = useSaveCompetitors();
   const [importFlow, setImportFlow] = useState<ImportFlow>({ step: 'idle' });
   const csvInputRef = useRef<HTMLInputElement>(null);
 
@@ -414,18 +414,29 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
 
     const fleetIdByPlanKey = new Map<string, string>();
     const newFleetNames: string[] = [];
+    const fleetsToCreate: Fleet[] = [];
+    let nextDisplayOrder = fleets.reduce(
+      (max, f) => Math.max(max, f.displayOrder),
+      -1,
+    ) + 1;
     for (const p of plan.proposed) {
       if (p.isExisting && p.existingFleetId) {
         fleetIdByPlanKey.set(p.key, p.existingFleetId);
       } else {
-        const id = await ensureFleetMutation.mutateAsync({
+        const id = crypto.randomUUID();
+        fleetIdByPlanKey.set(p.key, id);
+        fleetsToCreate.push({
+          id,
           seriesId,
           name: p.name,
-          options: { scoringSystem: p.scoringSystem },
+          displayOrder: nextDisplayOrder++,
+          scoringSystem: p.scoringSystem,
         });
-        fleetIdByPlanKey.set(p.key, id);
         newFleetNames.push(p.name);
       }
+    }
+    if (fleetsToCreate.length > 0) {
+      await saveFleets.mutateAsync(fleetsToCreate);
     }
     // Per-row resolved fleet IDs (deduped, preserving insertion order).
     const fleetIdsByRow: string[][] = rows.map(() => []);
@@ -441,6 +452,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     let updated = 0;
     let unchanged = 0;
     const errors: { rowIndex: number; reason: string }[] = [];
+    const competitorsToSave: Competitor[] = [];
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -560,7 +572,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       }
 
       log('competitors', existingCompetitor ? 'import-update' : 'import-add', competitor);
-      await saveCompetitor.mutateAsync(competitor);
+      competitorsToSave.push(competitor);
       if (existingCompetitor) {
         updated++;
       } else {
@@ -568,6 +580,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       }
     }
 
+    if (competitorsToSave.length > 0) {
+      await saveCompetitors.mutateAsync(competitorsToSave);
+    }
     await touchSeries.mutateAsync(seriesId);
     setImportFlow({ step: 'done', added, updated, unchanged, fleetsCreated: newFleetNames, errors });
   }
