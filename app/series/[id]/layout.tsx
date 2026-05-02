@@ -3,7 +3,9 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSeries } from '@/hooks/use-series';
+import { queryKeys } from '@/hooks/query-keys';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown, useChordShortcut } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
@@ -26,6 +28,7 @@ export default function SeriesLayout({
   const { id } = use(params);
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: series, isLoading } = useSeries(id);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -45,7 +48,11 @@ export default function SeriesLayout({
     } else if (e.ctrlKey && !e.metaKey && e.key === 's' && !/\/races\/[^/]+/.test(pathname)) {
       // Ctrl+S saves to file from any series page except finish entry (which owns Ctrl+S itself)
       e.preventDefault();
-      saveSeriesFile(id).catch(console.error);
+      saveSeriesFile(id)
+        .then(() =>
+          queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(id) }),
+        )
+        .catch(console.error);
     }
   });
 
