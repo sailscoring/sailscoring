@@ -485,18 +485,21 @@ export default function SettingsPage({
         router.push(`/series/${newId}/races`);
       } else {
         await updateSeriesFromFile(seriesId, file, repos);
-        // updateSeriesFromFile and the import-from-file flow both write
-        // through the repos layer, bypassing the React Query cache;
-        // invalidate every cached read of this series so the layout heading
-        // and the races/competitors lists pick up the new state on the next
-        // route.
+        // updateSeriesFromFile bypasses the React Query cache. The series
+        // row keeps its id so invalidate is fine, but every child entity
+        // (fleets, competitors, races, race-starts, finishes) is reissued
+        // a fresh UUID inside writeFleetsCompetitorsRaces. Plain
+        // invalidate leaves the stale OLD lists in cache; the next page
+        // mount renders them stale-while-revalidate, then the components
+        // fetch by-OLD-id child queries that 404 because the old rows
+        // are gone. removeQueries forces the next mount to fetch fresh.
         await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(seriesId) });
         await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(seriesId) });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.competitors.bySeries(seriesId) });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.races.bySeries(seriesId) });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.finishes.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.raceStarts.all });
+        queryClient.removeQueries({ queryKey: queryKeys.fleets.all });
+        queryClient.removeQueries({ queryKey: queryKeys.competitors.all });
+        queryClient.removeQueries({ queryKey: queryKeys.races.all });
+        queryClient.removeQueries({ queryKey: queryKeys.finishes.all });
+        queryClient.removeQueries({ queryKey: queryKeys.raceStarts.all });
         router.push(`/series/${seriesId}/races`);
       }
     } catch (err) {
