@@ -409,6 +409,117 @@ describe.skipIf(skip)('postgres repositories', () => {
     await reposB.series.delete(sB.id);
   });
 
+  // ─── FleetRepository.saveMany ──────────────────────────────────────────────
+
+  test('FleetRepository.saveMany inserts a batch and upserts on re-run', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+
+    const fleets: Fleet[] = [
+      { id: uuid(), seriesId: s.id, name: 'IRC 1', displayOrder: 0, scoringSystem: 'irc' },
+      { id: uuid(), seriesId: s.id, name: 'PY', displayOrder: 1, scoringSystem: 'py' },
+      { id: uuid(), seriesId: s.id, name: 'NHC', displayOrder: 2, scoringSystem: 'nhc', nhcAlpha: 0.4 },
+    ];
+    await repos.fleets.saveMany(fleets);
+
+    const list = await repos.fleets.listBySeries(s.id);
+    expect(list.map((f) => f.name)).toEqual(['IRC 1', 'PY', 'NHC']);
+    expect(list.find((f) => f.name === 'NHC')!.nhcAlpha).toBe(0.4);
+
+    // Mutate one row and re-run; the other rows are unchanged.
+    const updated = fleets.map((f) =>
+      f.name === 'IRC 1' ? { ...f, name: 'IRC Class 1' } : f,
+    );
+    await repos.fleets.saveMany(updated);
+    const reread = await repos.fleets.listBySeries(s.id);
+    expect(reread.find((f) => f.id === fleets[0].id)!.name).toBe('IRC Class 1');
+    expect(reread.find((f) => f.id === fleets[0].id)!.version).toBe(2);
+    expect(reread.find((f) => f.id === fleets[1].id)!.version).toBe(2);
+
+    await repos.series.delete(s.id);
+  });
+
+  test('FleetRepository.saveMany rejects a series in another workspace', async () => {
+    const reposA = createRepos({ db, workspaceId: workspaceA });
+    const reposB = createRepos({ db, workspaceId: workspaceB });
+    const s = makeSeries();
+    await reposA.series.save(s);
+
+    await expect(
+      reposB.fleets.saveMany([
+        { id: uuid(), seriesId: s.id, name: 'X', displayOrder: 0, scoringSystem: 'scratch' },
+      ]),
+    ).rejects.toThrow(/not in workspace/);
+
+    expect(await reposB.fleets.listBySeries(s.id)).toEqual([]);
+    await reposA.series.delete(s.id);
+  });
+
+  test('FleetRepository.saveMany with empty array is a no-op', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    await expect(repos.fleets.saveMany([])).resolves.toBeUndefined();
+  });
+
+  // ─── CompetitorRepository.saveMany ─────────────────────────────────────────
+
+  test('CompetitorRepository.saveMany inserts and upserts a batch', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+    const fleet = uuid();
+    await repos.fleets.save({ id: fleet, seriesId: s.id, name: 'F', displayOrder: 0, scoringSystem: 'irc' });
+
+    const competitors: Competitor[] = [];
+    for (let i = 0; i < 25; i++) {
+      competitors.push({
+        id: uuid(), seriesId: s.id, fleetIds: [fleet],
+        sailNumber: String(1000 + i),
+        name: `Helm ${i}`,
+        club: 'HYC', gender: '', age: null, createdAt: Date.now(),
+      });
+    }
+    await repos.competitors.saveMany(competitors);
+
+    const list = await repos.competitors.listBySeries(s.id);
+    expect(list).toHaveLength(25);
+    expect(new Set(list.map((c) => c.id))).toEqual(new Set(competitors.map((c) => c.id)));
+
+    // Re-run with mutated names; rows are upserted in place.
+    const renamed = competitors.map((c) => ({ ...c, name: `Renamed ${c.sailNumber}` }));
+    await repos.competitors.saveMany(renamed);
+    const reread = await repos.competitors.listBySeries(s.id);
+    expect(reread.every((c) => c.name.startsWith('Renamed '))).toBe(true);
+    expect(reread.every((c) => (c.version ?? 0) === 2)).toBe(true);
+
+    await repos.series.delete(s.id);
+  });
+
+  test('CompetitorRepository.saveMany rejects a series in another workspace', async () => {
+    const reposA = createRepos({ db, workspaceId: workspaceA });
+    const reposB = createRepos({ db, workspaceId: workspaceB });
+    const s = makeSeries();
+    await reposA.series.save(s);
+
+    await expect(
+      reposB.competitors.saveMany([
+        {
+          id: uuid(), seriesId: s.id, fleetIds: [],
+          sailNumber: '1', name: 'X', club: '', gender: '', age: null,
+          createdAt: Date.now(),
+        },
+      ]),
+    ).rejects.toThrow(/not in workspace/);
+
+    expect(await reposB.competitors.listBySeries(s.id)).toEqual([]);
+    await reposA.series.delete(s.id);
+  });
+
+  test('CompetitorRepository.saveMany with empty array is a no-op', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    await expect(repos.competitors.saveMany([])).resolves.toBeUndefined();
+  });
+
   // ─── FleetRepository.ensureFleet ───────────────────────────────────────────
 
   test('FleetRepository.ensureFleet returns existing id, then creates idempotently', async () => {

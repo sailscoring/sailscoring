@@ -29,7 +29,8 @@ export class ConflictError extends Error {
  *
  * Omit `expectedVersion` for authoritative writes (file imports, the
  * server-side migration endpoint, fresh row creation). Bulk writes
- * (`FinishRepository.saveMany`) are authoritative by construction; per-row
+ * (`FleetRepository.saveMany`, `CompetitorRepository.saveMany`,
+ * `FinishRepository.saveMany`) are authoritative by construction; per-row
  * CAS lands with the Phase 8 finish-entry autosave refactor.
  */
 export interface SaveOpts {
@@ -40,6 +41,7 @@ export interface FleetRepository {
   listBySeries(seriesId: string): Promise<Fleet[]>;
   get(id: string): Promise<Fleet | undefined>;
   save(fleet: Fleet, opts?: SaveOpts): Promise<Fleet>;
+  saveMany(fleets: Fleet[]): Promise<void>;
   delete(id: string): Promise<void>;
   deleteBySeries(seriesId: string): Promise<void>;
 }
@@ -56,6 +58,7 @@ export interface CompetitorRepository {
   listBySeries(seriesId: string): Promise<Competitor[]>;
   get(id: string): Promise<Competitor | undefined>;
   save(competitor: Competitor, opts?: SaveOpts): Promise<Competitor>;
+  saveMany(competitors: Competitor[]): Promise<void>;
   delete(id: string): Promise<void>;
   deleteBySeries(seriesId: string): Promise<void>;
 }

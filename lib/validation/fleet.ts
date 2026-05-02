@@ -27,6 +27,11 @@ export const fleetInputSchema = fleetSchema.extend({
   id: uuidSchema.optional(),
 });
 
+/** Bulk-write payload. Mirrors `FleetRepository.saveMany`. */
+export const fleetsBulkInputSchema = z.object({
+  fleets: z.array(fleetInputSchema),
+});
+
 export const ensureFleetInputSchema = z.object({
   name: z.string(),
   scoringSystem: scoringSystemSchema.optional(),

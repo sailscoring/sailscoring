@@ -157,6 +157,39 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await series.deleteSeries(ctxA, otherSeriesId);
   });
 
+  // ─── Bulk fleets ───────────────────────────────────────────────────────────
+
+  test('fleets.bulkPutFleets inserts a batch and rejects mismatched seriesId', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+
+    const inputs = [
+      { id: uuid(), seriesId, name: 'IRC', displayOrder: 0, scoringSystem: 'irc' as const },
+      { id: uuid(), seriesId, name: 'PY', displayOrder: 1, scoringSystem: 'py' as const },
+    ];
+    const result = await fleets.bulkPutFleets(ctxA, seriesId, { fleets: inputs });
+    expect(result).toEqual({ count: 2 });
+    const list = await fleets.listFleets(ctxA, seriesId);
+    expect(list.map((f) => f.name).sort()).toEqual(['IRC', 'PY']);
+
+    // Mixed seriesId is rejected.
+    const otherSeriesId = uuid();
+    await series.putSeries(ctxA, otherSeriesId, sampleSeries(otherSeriesId));
+    await expect(
+      fleets.bulkPutFleets(ctxA, seriesId, {
+        fleets: [{ id: uuid(), seriesId: otherSeriesId, name: 'X', displayOrder: 0, scoringSystem: 'scratch' as const }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    // Cross-workspace returns NotFound on parent series.
+    await expect(
+      fleets.bulkPutFleets(ctxB, seriesId, { fleets: [] }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await series.deleteSeries(ctxA, seriesId);
+    await series.deleteSeries(ctxA, otherSeriesId);
+  });
+
   // ─── Competitors ───────────────────────────────────────────────────────────
 
   test('competitors: list/get/put round-trips optional fields', async () => {
@@ -183,6 +216,47 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await competitors.deleteCompetitor(ctxA, seriesId, compId);
     await expect(competitors.getCompetitor(ctxA, seriesId, compId)).rejects.toBeInstanceOf(NotFoundError);
     await series.deleteSeries(ctxA, seriesId);
+  });
+
+  // ─── Bulk competitors ──────────────────────────────────────────────────────
+
+  test('competitors.bulkPutCompetitors inserts a batch and rejects mismatched seriesId', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'F', displayOrder: 0, scoringSystem: 'irc' as const,
+    });
+
+    const inputs = Array.from({ length: 10 }, (_, i) => ({
+      id: uuid(),
+      seriesId,
+      fleetIds: [fleetId],
+      sailNumber: String(2000 + i),
+      name: `Helm ${i}`,
+      club: '', gender: '' as const, age: null,
+      createdAt: Date.now(),
+    }));
+    const result = await competitors.bulkPutCompetitors(ctxA, seriesId, { competitors: inputs });
+    expect(result).toEqual({ count: 10 });
+    const list = await competitors.listCompetitors(ctxA, seriesId);
+    expect(list).toHaveLength(10);
+
+    // Mixed seriesId is rejected.
+    const otherSeriesId = uuid();
+    await series.putSeries(ctxA, otherSeriesId, sampleSeries(otherSeriesId));
+    await expect(
+      competitors.bulkPutCompetitors(ctxA, seriesId, {
+        competitors: [{
+          id: uuid(), seriesId: otherSeriesId, fleetIds: [],
+          sailNumber: '1', name: 'X', club: '', gender: '' as const, age: null,
+          createdAt: Date.now(),
+        }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await series.deleteSeries(ctxA, seriesId);
+    await series.deleteSeries(ctxA, otherSeriesId);
   });
 
   // ─── Races + race starts + finishes (bulk + single) ───────────────────────

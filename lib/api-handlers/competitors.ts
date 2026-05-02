@@ -3,7 +3,10 @@ import 'server-only';
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
-import { competitorInputSchema } from '@/lib/validation/competitor';
+import {
+  competitorInputSchema,
+  competitorsBulkInputSchema,
+} from '@/lib/validation/competitor';
 import type { Competitor } from '@/lib/types';
 
 async function assertSeriesInWorkspace(
@@ -67,6 +70,32 @@ export async function deleteCompetitor(
   const existing = await repos.competitors.get(competitorId);
   if (!existing || existing.seriesId !== seriesId) return;
   await repos.competitors.delete(competitorId);
+}
+
+/**
+ * Bulk upsert. The body is `{ competitors: Competitor[] }`. All
+ * competitors must share the path's seriesId; mixed-series batches are
+ * rejected.
+ */
+export async function bulkPutCompetitors(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<{ count: number }> {
+  await assertSeriesInWorkspace(workspace, seriesId);
+  const input = competitorsBulkInputSchema.parse(body);
+  for (const c of input.competitors) {
+    if (c.seriesId !== seriesId) {
+      throw new NotFoundError('bulk competitor series mismatch');
+    }
+  }
+  const competitors: Competitor[] = input.competitors.map((c) => ({
+    ...c,
+    id: c.id ?? crypto.randomUUID(),
+  }));
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.competitors.saveMany(competitors);
+  return { count: competitors.length };
 }
 
 /**

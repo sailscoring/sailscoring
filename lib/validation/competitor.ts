@@ -32,6 +32,11 @@ export const competitorInputSchema = competitorSchema.extend({
   id: uuidSchema.optional(),
 });
 
+/** Bulk-write payload. Mirrors `CompetitorRepository.saveMany`. */
+export const competitorsBulkInputSchema = z.object({
+  competitors: z.array(competitorInputSchema),
+});
+
 const _competitorFromZod: Competitor = undefined as unknown as z.infer<typeof competitorSchema>;
 const _competitorFromTs: z.infer<typeof competitorSchema> = undefined as unknown as Competitor;
 void _competitorFromZod;

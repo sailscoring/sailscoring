@@ -3,7 +3,11 @@ import 'server-only';
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
-import { ensureFleetInputSchema, fleetInputSchema } from '@/lib/validation/fleet';
+import {
+  ensureFleetInputSchema,
+  fleetInputSchema,
+  fleetsBulkInputSchema,
+} from '@/lib/validation/fleet';
 import type { Fleet } from '@/lib/types';
 
 async function assertSeriesInWorkspace(
@@ -76,6 +80,31 @@ export async function deleteFleetFlat(
 ): Promise<void> {
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.fleets.delete(id);
+}
+
+/**
+ * Bulk upsert. The body is `{ fleets: Fleet[] }`. All fleets must share
+ * the path's seriesId; mixed-series batches are rejected.
+ */
+export async function bulkPutFleets(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<{ count: number }> {
+  await assertSeriesInWorkspace(workspace, seriesId);
+  const input = fleetsBulkInputSchema.parse(body);
+  for (const f of input.fleets) {
+    if (f.seriesId !== seriesId) {
+      throw new NotFoundError('bulk fleet series mismatch');
+    }
+  }
+  const fleets: Fleet[] = input.fleets.map((f) => ({
+    ...f,
+    id: f.id ?? crypto.randomUUID(),
+  }));
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.fleets.saveMany(fleets);
+  return { count: fleets.length };
 }
 
 export async function ensureFleet(

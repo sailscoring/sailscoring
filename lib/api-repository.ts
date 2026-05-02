@@ -81,6 +81,19 @@ class ApiFleetRepository implements FleetRepository {
     });
   }
 
+  async saveMany(fleets: Fleet[]): Promise<void> {
+    if (fleets.length === 0) return;
+    const seriesIds = new Set(fleets.map((f) => f.seriesId));
+    if (seriesIds.size !== 1) {
+      throw new Error('saveMany: all fleets must share a seriesId');
+    }
+    const [seriesId] = seriesIds;
+    await apiFetch(`/api/v1/series/${seriesId}/fleets`, {
+      method: 'POST',
+      body: { fleets },
+    });
+  }
+
   async delete(id: string): Promise<void> {
     await apiFetch(`/api/v1/fleets/${id}`, { method: 'DELETE' });
   }
@@ -110,6 +123,19 @@ class ApiCompetitorRepository implements CompetitorRepository {
       `/api/v1/series/${c.seriesId}/competitors/${c.id}`,
       { method: 'PUT', body: c, expectedVersion: opts?.expectedVersion },
     );
+  }
+
+  async saveMany(competitors: Competitor[]): Promise<void> {
+    if (competitors.length === 0) return;
+    const seriesIds = new Set(competitors.map((c) => c.seriesId));
+    if (seriesIds.size !== 1) {
+      throw new Error('saveMany: all competitors must share a seriesId');
+    }
+    const [seriesId] = seriesIds;
+    await apiFetch(`/api/v1/series/${seriesId}/competitors`, {
+      method: 'POST',
+      body: { competitors },
+    });
   }
 
   async delete(id: string): Promise<void> {

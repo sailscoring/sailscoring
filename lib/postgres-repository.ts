@@ -508,6 +508,45 @@ export class PostgresFleetRepository implements FleetRepository {
     return fleetRowToType(row);
   }
 
+  async saveMany(fleets: Fleet[]): Promise<void> {
+    if (fleets.length === 0) return;
+    const seriesIds = [...new Set(fleets.map((f) => f.seriesId))];
+    const owned = await filterSeriesIdsByWorkspace(
+      this.db,
+      this.workspaceId,
+      seriesIds,
+    );
+    if (owned.length !== seriesIds.length) {
+      throw new Error('some series not in workspace');
+    }
+    const values = fleets.map((f) => ({
+      id: f.id,
+      seriesId: f.seriesId,
+      workspaceId: this.workspaceId,
+      name: f.name,
+      displayOrder: f.displayOrder,
+      scoringSystem: f.scoringSystem,
+      nhcAlpha: f.nhcAlpha ?? null,
+      echoAlpha: f.echoAlpha ?? null,
+    }));
+    await this.db
+      .insert(schema.fleets)
+      .values(values)
+      .onConflictDoUpdate({
+        target: schema.fleets.id,
+        targetWhere: eq(schema.fleets.workspaceId, this.workspaceId),
+        set: {
+          name: sql`excluded.name`,
+          displayOrder: sql`excluded.display_order`,
+          scoringSystem: sql`excluded.scoring_system`,
+          nhcAlpha: sql`excluded.nhc_alpha`,
+          echoAlpha: sql`excluded.echo_alpha`,
+          version: sql`${schema.fleets.version} + 1`,
+          updatedAt: sql`now()`,
+        },
+      });
+  }
+
   async delete(id: string): Promise<void> {
     await this.db
       .delete(schema.fleets)
@@ -743,6 +782,66 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
     return competitorRowToType(row);
   }
 
+  async saveMany(competitors: Competitor[]): Promise<void> {
+    if (competitors.length === 0) return;
+    const seriesIds = [...new Set(competitors.map((c) => c.seriesId))];
+    const owned = await filterSeriesIdsByWorkspace(
+      this.db,
+      this.workspaceId,
+      seriesIds,
+    );
+    if (owned.length !== seriesIds.length) {
+      throw new Error('some series not in workspace');
+    }
+    const values = competitors.map((c) => ({
+      id: c.id,
+      seriesId: c.seriesId,
+      workspaceId: this.workspaceId,
+      fleetIds: c.fleetIds,
+      sailNumber: c.sailNumber,
+      boatName: c.boatName ?? null,
+      boatClass: c.boatClass ?? null,
+      name: c.name,
+      owner: c.owner ?? null,
+      helm: c.helm ?? null,
+      crewName: c.crewName ?? null,
+      club: c.club,
+      gender: c.gender,
+      age: c.age,
+      createdAt: new Date(c.createdAt),
+      ircTcc: c.ircTcc ?? null,
+      pyNumber: c.pyNumber ?? null,
+      nhcStartingTcf: c.nhcStartingTcf ?? null,
+      echoStartingTcf: c.echoStartingTcf ?? null,
+    }));
+    await this.db
+      .insert(schema.competitors)
+      .values(values)
+      .onConflictDoUpdate({
+        target: schema.competitors.id,
+        targetWhere: eq(schema.competitors.workspaceId, this.workspaceId),
+        set: {
+          fleetIds: sql`excluded.fleet_ids`,
+          sailNumber: sql`excluded.sail_number`,
+          boatName: sql`excluded.boat_name`,
+          boatClass: sql`excluded.boat_class`,
+          name: sql`excluded.name`,
+          owner: sql`excluded.owner`,
+          helm: sql`excluded.helm`,
+          crewName: sql`excluded.crew_name`,
+          club: sql`excluded.club`,
+          gender: sql`excluded.gender`,
+          age: sql`excluded.age`,
+          ircTcc: sql`excluded.irc_tcc`,
+          pyNumber: sql`excluded.py_number`,
+          nhcStartingTcf: sql`excluded.nhc_starting_tcf`,
+          echoStartingTcf: sql`excluded.echo_starting_tcf`,
+          version: sql`${schema.competitors.version} + 1`,
+          updatedAt: sql`now()`,
+        },
+      });
+  }
+
   async delete(id: string): Promise<void> {
     await this.db
       .delete(schema.competitors)
@@ -900,6 +999,24 @@ async function filterRaceIdsByWorkspace(
       and(
         inArray(schema.races.id, raceIds),
         eq(schema.races.workspaceId, workspaceId),
+      ),
+    );
+  return rows.map((r) => r.id);
+}
+
+async function filterSeriesIdsByWorkspace(
+  db: SailScoringDb,
+  workspaceId: string,
+  seriesIds: string[],
+): Promise<string[]> {
+  if (seriesIds.length === 0) return [];
+  const rows = await db
+    .select({ id: schema.series.id })
+    .from(schema.series)
+    .where(
+      and(
+        inArray(schema.series.id, seriesIds),
+        eq(schema.series.workspaceId, workspaceId),
       ),
     );
   return rows.map((r) => r.id);

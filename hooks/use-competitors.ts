@@ -37,6 +37,24 @@ export function useSaveCompetitor() {
   });
 }
 
+export function useSaveCompetitors() {
+  const { competitorRepo } = useRepos();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (competitors: Competitor[]) =>
+      competitorRepo.saveMany(competitors),
+    onSuccess: (_void, competitors) => {
+      const seriesIds = new Set(competitors.map((c) => c.seriesId));
+      for (const seriesId of seriesIds) {
+        qc.invalidateQueries({
+          queryKey: queryKeys.competitors.bySeries(seriesId),
+        });
+      }
+    },
+    scope: { id: 'competitors' },
+  });
+}
+
 export function useDeleteCompetitor() {
   const { competitorRepo } = useRepos();
   const qc = useQueryClient();

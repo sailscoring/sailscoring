@@ -53,6 +53,11 @@ class DexieCompetitorRepository implements CompetitorRepository {
     return competitor;
   }
 
+  async saveMany(competitors: Competitor[]): Promise<void> {
+    if (competitors.length === 0) return;
+    await db.competitors.bulkPut(competitors);
+  }
+
   delete(id: string): Promise<void> {
     return db.competitors.delete(id);
   }
@@ -184,6 +189,11 @@ class DexieFleetRepository implements FleetRepository {
   async save(fleet: Fleet): Promise<Fleet> {
     await db.fleets.put(fleet);
     return fleet;
+  }
+
+  async saveMany(fleets: Fleet[]): Promise<void> {
+    if (fleets.length === 0) return;
+    await db.fleets.bulkPut(fleets);
   }
 
   delete(id: string): Promise<void> {

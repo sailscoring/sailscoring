@@ -35,6 +35,21 @@ export function useSaveFleet() {
   });
 }
 
+export function useSaveFleets() {
+  const { fleetRepo } = useRepos();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fleets: Fleet[]) => fleetRepo.saveMany(fleets),
+    onSuccess: (_void, fleets) => {
+      const seriesIds = new Set(fleets.map((f) => f.seriesId));
+      for (const seriesId of seriesIds) {
+        qc.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(seriesId) });
+      }
+    },
+    scope: { id: 'fleets' },
+  });
+}
+
 export function useDeleteFleet() {
   const { fleetRepo } = useRepos();
   const qc = useQueryClient();
