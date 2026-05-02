@@ -67,3 +67,57 @@ test('three-start sequence at 5-minute intervals resolves to distinct start time
   await expect(page.getByText('14:10:00')).toBeVisible();
   await expect(page.getByText('14:15:00')).toBeVisible();
 });
+
+test('deleting a fleet strips it from the default start sequence and existing race starts', async ({ page }) => {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+  await createSeriesQuick(page, { name: 'Fleet Delete Sequence Cleanup' });
+  await createFleets(page, ['Class A', 'Class B', 'Class C']);
+  await setScoringMode(page, 'handicap');
+
+  // Build a sequence: Start 1 = Class A, Start 2 = Class B + Class C.
+  const fleetsRow = page.locator('h2', { hasText: 'Fleets' }).locator('..');
+  await fleetsRow.getByRole('button', { name: /Edit/ }).click();
+  const editor = page.getByText('Default start sequence').locator('..');
+
+  await editor.getByRole('button', { name: '+ Add start group' }).click();
+  await editor.getByRole('combobox').last().click();
+  await page.getByRole('option', { name: 'Class A' }).click();
+
+  await editor.getByRole('button', { name: '+ Add start group' }).click();
+  await editor.getByRole('combobox').last().click();
+  await page.getByRole('option', { name: 'Class B' }).click();
+  await editor.getByRole('combobox').last().click();
+  await page.getByRole('option', { name: 'Class C' }).click();
+  await editor.locator('input[type="number"]').last().fill('5');
+
+  await editor.getByRole('button', { name: 'Save sequence' }).click();
+  await page.getByRole('button', { name: 'Done' }).first().click();
+
+  // Create a race so the sequence gets materialised into raceStarts rows.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByLabel('First start time').fill('14:05:00');
+  await page.getByRole('button', { name: 'Create race' }).click();
+
+  // Delete Class B from Settings. The trigger is the destructive × on its row;
+  // the dialog confirms with a "Delete fleet" button.
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await fleetsRow.getByRole('button', { name: /Edit/ }).click();
+  const classBRow = page.locator('[data-testid="fleet-row"]').filter({ hasText: 'Class B' });
+  await classBRow.getByTitle('Delete fleet').click();
+  await page.getByRole('button', { name: 'Delete fleet' }).click();
+
+  // Default start sequence editor: Class B gone, no orphan UUID chip.
+  await expect(editor.getByText('Class B')).toHaveCount(0);
+  await expect(editor.getByText(UUID_RE)).toHaveCount(0);
+  await expect(editor.getByText('Class A')).toBeVisible();
+  await expect(editor.getByText('Class C')).toBeVisible();
+
+  // Race detail: the second start now reads "Class C" only — no orphan UUID.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText(/14:05:00.*Class A/)).toBeVisible();
+  await expect(page.getByText(/14:10:00.*Class C/)).toBeVisible();
+  await expect(page.getByText(UUID_RE)).toHaveCount(0);
+});

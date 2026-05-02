@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRepos } from '@/lib/repos';
 import { useFleetsBySeries, useDeleteFleet, useSaveFleet } from '@/hooks/use-fleets';
 import { useSaveCompetitor } from '@/hooks/use-competitors';
+import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
 import { useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
 import type { Fleet, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -34,12 +35,14 @@ export type FleetsCardProps = {
 
 export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardProps) {
   const isWizard = mode === 'wizard';
-  const { competitorRepo, raceRepo, finishRepo } = useRepos();
+  const { competitorRepo, raceRepo, finishRepo, raceStartRepo } = useRepos();
   const { data: fleetsData } = useFleetsBySeries(seriesId);
   const fleets = fleetsData ?? [];
   const saveFleet = useSaveFleet();
   const deleteFleetMutation = useDeleteFleet();
   const saveCompetitor = useSaveCompetitor();
+  const saveRaceStart = useSaveRaceStart();
+  const deleteRaceStart = useDeleteRaceStart();
   const touchSeries = useTouchSeries();
   const updateSeries = useUpdateSeries();
   const [expanded, setExpanded] = useState(isWizard);
@@ -202,6 +205,30 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
         if (c.fleetIds.includes(fleet.id)) {
           const remaining = c.fleetIds.filter((id) => id !== fleet.id);
           await saveCompetitor.mutateAsync({ ...c, fleetIds: remaining.length > 0 ? remaining : c.fleetIds });
+        }
+      }
+    }
+    const seq = series.defaultStartSequence;
+    if (seq?.some((g) => g.fleetIds.includes(fleet.id))) {
+      const next = seq
+        .map((g) => ({ ...g, fleetIds: g.fleetIds.filter((id) => id !== fleet.id) }))
+        .filter((g) => g.fleetIds.length > 0);
+      await updateSeries.mutateAsync({
+        id: seriesId,
+        patch: { defaultStartSequence: next.length > 0 ? next : undefined },
+      });
+    }
+    const races = await raceRepo.listBySeries(seriesId);
+    const raceIds = races.map((r) => r.id);
+    if (raceIds.length > 0) {
+      const allStarts = await raceStartRepo.listByRaces(raceIds);
+      for (const s of allStarts) {
+        if (!s.fleetIds.includes(fleet.id)) continue;
+        const remaining = s.fleetIds.filter((id) => id !== fleet.id);
+        if (remaining.length === 0) {
+          await deleteRaceStart.mutateAsync({ id: s.id, raceId: s.raceId });
+        } else {
+          await saveRaceStart.mutateAsync({ ...s, fleetIds: remaining });
         }
       }
     }
