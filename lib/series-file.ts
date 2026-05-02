@@ -173,10 +173,14 @@ export function checkLineage(localSeries: Series, file: SeriesFile): LineageStat
 
 // ---- Build and save ----
 
-export async function saveSeriesFile(
+/** Build the in-memory SeriesFile for a series without side effects.
+ *  Used by `saveSeriesFile` (which then downloads + bumps the snapshot)
+ *  and by the Phase 5 migration flow (which builds from Dexie repos and
+ *  then writes via API repos through `openSeriesFromFile`). */
+export async function buildSeriesFile(
   seriesId: string,
   repos: SeriesFileRepos,
-): Promise<void> {
+): Promise<SeriesFile> {
   const series = await repos.seriesRepo.get(seriesId);
   if (!series) throw new Error(`Series ${seriesId} not found`);
 
@@ -327,6 +331,17 @@ export async function saveSeriesFile(
       : {}),
   };
 
+  return file;
+}
+
+export async function saveSeriesFile(
+  seriesId: string,
+  repos: SeriesFileRepos,
+): Promise<void> {
+  const file = await buildSeriesFile(seriesId, repos);
+  const series = await repos.seriesRepo.get(seriesId);
+  if (!series) throw new Error(`Series ${seriesId} not found`);
+
   // Trigger download
   const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -345,9 +360,9 @@ export async function saveSeriesFile(
   await repos.seriesRepo.save(
     {
       ...series,
-      lastSnapshotId: snapshotId,
+      lastSnapshotId: file.snapshotId,
       lastSavedAt: now,
-      snapshotHistory,
+      snapshotHistory: file.snapshotHistory,
     },
     { expectedVersion: series.version },
   );

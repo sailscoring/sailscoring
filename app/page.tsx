@@ -11,6 +11,7 @@ import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
+import { MigrationBanner } from '@/components/migration-banner';
 import {
   Dialog,
   DialogContent,
@@ -216,6 +217,8 @@ export default function HomePage() {
           </Button>
         </div>
       </div>
+
+      <MigrationBanner />
 
       {seriesList === undefined && (
         <p className="text-muted-foreground">Loading…</p>

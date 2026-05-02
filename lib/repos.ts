@@ -19,7 +19,12 @@ import * as dexie from './dexie-repository';
 
 export type Repos = typeof dexie;
 
-const RepoContext = createContext<Repos | null>(null);
+interface RepoContextValue {
+  repos: Repos;
+  serverMode: boolean;
+}
+
+const RepoContext = createContext<RepoContextValue | null>(null);
 
 export function RepoProvider({
   useServerData,
@@ -28,7 +33,10 @@ export function RepoProvider({
   useServerData: boolean;
   children: ReactNode;
 }) {
-  const value: Repos = useServerData ? api : dexie;
+  const value: RepoContextValue = {
+    repos: useServerData ? api : dexie,
+    serverMode: useServerData,
+  };
   return createElement(RepoContext.Provider, { value }, children);
 }
 
@@ -37,5 +45,15 @@ export function useRepos(): Repos {
   if (!ctx) {
     throw new Error('useRepos must be used inside <RepoProvider>');
   }
-  return ctx;
+  return ctx.repos;
+}
+
+/** Phase 5 migration UX needs to know whether the runtime backend is the
+ *  API (server mode) or Dexie. Other callers stay on `useRepos()`. */
+export function useServerMode(): boolean {
+  const ctx = useContext(RepoContext);
+  if (!ctx) {
+    throw new Error('useServerMode must be used inside <RepoProvider>');
+  }
+  return ctx.serverMode;
 }
