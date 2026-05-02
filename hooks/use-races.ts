@@ -39,6 +39,9 @@ export function useSaveRace() {
       qc.setQueryData(queryKeys.races.detail(saved.id), saved);
       qc.invalidateQueries({ queryKey: queryKeys.races.bySeries(saved.seriesId) });
     },
+    // Serialize so a rapid second save sees the cache update from the first
+    // and sends the fresh `expectedVersion`. See useSaveSeries for context.
+    scope: { id: 'races' },
   });
 }
 

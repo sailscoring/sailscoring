@@ -60,8 +60,11 @@ export function BasicsCard({
     setChanged(true);
     if ('name' in patch) setNameError(null);
     // In wizard mode, propagate every change so the parent can persist live.
+    // Swallow rejections so a failed save (e.g. ConflictApiError) doesn't
+    // escape as an unhandled rejection — the global ConflictNoticeProvider
+    // surfaces 409s and triggers the refetch.
     if (isWizard) {
-      onChange(patch);
+      Promise.resolve(onChange(patch)).catch(() => {});
       if ('name' in patch && validateName) {
         const err = await validateName((patch.name ?? '').trim() || value.name);
         if (err) setNameError(err);

@@ -50,6 +50,10 @@ export function useSaveSeries() {
       qc.setQueryData(queryKeys.series.detail(saved.id), saved);
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });
     },
+    // Serialize series writes so a rapid second mutate sees the cache update
+    // from the first's onSuccess and sends the fresh `expectedVersion`. Without
+    // this, two parallel mutates both read V0 and the second 409s.
+    scope: { id: 'series' },
   });
 }
 
@@ -72,6 +76,8 @@ export function useUpdateSeries() {
       qc.setQueryData(queryKeys.series.detail(saved.id), saved);
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });
     },
+    // See useSaveSeries — same scope so update/save serialize together.
+    scope: { id: 'series' },
   });
 }
 

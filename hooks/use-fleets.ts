@@ -29,6 +29,9 @@ export function useSaveFleet() {
     onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(saved.seriesId) });
     },
+    // Serialize so a rapid second save sees the cache update from the first
+    // and sends the fresh `expectedVersion`. See useSaveSeries for context.
+    scope: { id: 'fleets' },
   });
 }
 

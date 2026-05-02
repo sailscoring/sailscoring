@@ -33,16 +33,24 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
     setChanged(false);
   }
 
+  // Wizard-mode autosave fires onChange without awaiting (the input mustn't
+  // block on the network). Wrap with a swallowing catch so a rejected save
+  // — e.g. ConflictApiError — doesn't escape as an unhandled rejection.
+  // Errors are surfaced globally by <ConflictNoticeProvider> in app/providers.
+  function fireWizardSave(patch: Partial<ScoringValues>) {
+    Promise.resolve(onChange(patch)).catch(() => {});
+  }
+
   function updateThresholds(next: DiscardThreshold[]) {
     setThresholds(next);
     setChanged(true);
-    if (isWizard) onChange({ discardThresholds: next });
+    if (isWizard) fireWizardSave({ discardThresholds: next });
   }
 
   function updateDnf(next: Series['dnfScoring']) {
     setDnfScoring(next);
     setChanged(true);
-    if (isWizard) onChange({ dnfScoring: next });
+    if (isWizard) fireWizardSave({ dnfScoring: next });
   }
 
   function updateThreshold(index: number, field: keyof DiscardThreshold, value: number) {

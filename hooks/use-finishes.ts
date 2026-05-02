@@ -37,6 +37,10 @@ export function useSaveFinish() {
       qc.invalidateQueries({ queryKey: queryKeys.finishes.byRace(saved.raceId) });
       qc.invalidateQueries({ queryKey: queryKeys.finishes.all });
     },
+    // Serialize so a rapid second save sees the cache update from the first
+    // and sends the fresh `expectedVersion`. See useSaveSeries for context.
+    // Shared with useSaveFinishes so single + bulk saves don't race.
+    scope: { id: 'finishes' },
   });
 }
 
@@ -52,6 +56,7 @@ export function useSaveFinishes() {
       }
       qc.invalidateQueries({ queryKey: queryKeys.finishes.all });
     },
+    scope: { id: 'finishes' },
   });
 }
 

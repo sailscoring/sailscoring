@@ -31,6 +31,9 @@ export function useSaveCompetitor() {
         queryKey: queryKeys.competitors.bySeries(saved.seriesId),
       });
     },
+    // Serialize so a rapid second save sees the cache update from the first
+    // and sends the fresh `expectedVersion`. See useSaveSeries for context.
+    scope: { id: 'competitors' },
   });
 }
 
