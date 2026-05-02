@@ -503,24 +503,22 @@ async function writeFleetsCompetitorsRaces(
   competitorIdMap: Map<string, string>,
   raceIdMap: Map<string, string>,
 ): Promise<void> {
-  await Promise.all(
-    file.fleets.map((f) =>
-      repos.fleetRepo.save({
-        id: fleetIdMap.get(f.id)!,
-        seriesId,
-        name: f.name,
-        displayOrder: f.displayOrder,
-        scoringSystem: f.scoringSystem,
-        ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
-        ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
-      }),
-    ),
+  await repos.fleetRepo.saveMany(
+    file.fleets.map((f) => ({
+      id: fleetIdMap.get(f.id)!,
+      seriesId,
+      name: f.name,
+      displayOrder: f.displayOrder,
+      scoringSystem: f.scoringSystem,
+      ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
+      ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
+    })),
   );
 
-  await Promise.all(
+  await repos.competitorRepo.saveMany(
     file.competitors.map((c) => {
       const fleetIds = c.fleetIds.map((id) => fleetIdMap.get(id)!).filter(Boolean);
-      return repos.competitorRepo.save({
+      return {
         id: competitorIdMap.get(c.id)!,
         seriesId,
         fleetIds,
@@ -539,7 +537,7 @@ async function writeFleetsCompetitorsRaces(
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
-      });
+      };
     }),
   );
 
