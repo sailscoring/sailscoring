@@ -7,9 +7,7 @@ const config = [
       // ADR-008 Phase 3 lockdown: direct Dexie access lives in the
       // repository layer. UI files go through lib/repos.ts (useRepos)
       // and the resource hooks in hooks/use-*.ts. The allowlist below
-      // exempts the repository layer itself and the file-format /
-      // import-export modules whose conversion is queued behind the UI
-      // swap.
+      // exempts only the repository layer itself.
       'no-restricted-imports': ['error', {
         paths: [{
           name: '@/lib/db',
@@ -23,9 +21,6 @@ const config = [
     files: [
       'lib/db.ts',
       'lib/dexie-repository.ts',
-      'lib/nhc-persistence.ts',
-      'lib/series-file.ts',
-      'lib/public-export.ts',
       'lib/db/**',
     ],
     rules: { 'no-restricted-imports': 'off' },

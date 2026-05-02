@@ -42,6 +42,11 @@ export const auth = betterAuth({
     provider: 'pg',
     schema: authSchema,
   }),
+  // Better Auth's default `/sign-in*` rate limit is 3 requests / 10s per IP.
+  // The Playwright server-mode suite signs in many fresh users in parallel
+  // from a single localhost IP and trips the limit. Opt-out via the env
+  // var, set by `playwright.config.ts` only in server-mode CI.
+  rateLimit: process.env.E2E_DISABLE_RATE_LIMIT === '1' ? { enabled: false } : undefined,
   emailAndPassword: {
     enabled: false,
   },

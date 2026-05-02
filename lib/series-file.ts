@@ -1,9 +1,41 @@
-import type { Series, ResultCode, PenaltyCode, DiscardThreshold, RaceStart, CompetitorFieldKey, PrimaryPersonLabel, StartGroup, NhcTcfRecord } from './types';
-import { db } from './db';
-import { deleteSeriesChildren, listSeriesNames } from './dexie-repository';
+import type {
+  Series,
+  ResultCode,
+  PenaltyCode,
+  DiscardThreshold,
+  Finish,
+  CompetitorFieldKey,
+  PrimaryPersonLabel,
+  StartGroup,
+  NhcTcfRecord,
+} from './types';
 import { defaultEnabledCompetitorFields, DEFAULT_PRIMARY_PERSON_LABEL } from './competitor-fields';
-import { recomputeNhcHistoryForSeries } from './nhc-persistence';
+import { calculateFleetStandings } from './scoring';
 import { disambiguateSeriesName } from './series-name';
+import type {
+  CompetitorRepository,
+  FinishRepository,
+  FleetRepository,
+  RaceRepository,
+  RaceStartRepository,
+  SeriesRepository,
+} from './repository';
+
+/**
+ * Repository surface needed to save / open / update a series file. Both
+ * `lib/api-repository.ts` and `lib/dexie-repository.ts` export this exact
+ * shape, so callers pass the runtime-selected backend via `useRepos()`.
+ */
+export interface SeriesFileRepos {
+  seriesRepo: SeriesRepository;
+  competitorRepo: CompetitorRepository;
+  fleetRepo: FleetRepository;
+  raceRepo: RaceRepository;
+  raceStartRepo: RaceStartRepository;
+  finishRepo: FinishRepository;
+  listSeriesNames(opts?: { excludeId?: string }): Promise<string[]>;
+  deleteSeriesChildren(seriesId: string): Promise<void>;
+}
 
 /** File format version. v2 adds `Competitor.owner` and `Series.primaryPersonLabel`.
  *  v1 files load cleanly — the parser defaults the new primary label to
@@ -141,39 +173,50 @@ export function checkLineage(localSeries: Series, file: SeriesFile): LineageStat
 
 // ---- Build and save ----
 
-export async function saveSeriesFile(seriesId: string): Promise<void> {
-  const series = await db.series.get(seriesId);
+export async function saveSeriesFile(
+  seriesId: string,
+  repos: SeriesFileRepos,
+): Promise<void> {
+  const series = await repos.seriesRepo.get(seriesId);
   if (!series) throw new Error(`Series ${seriesId} not found`);
 
-  // Refresh NHC TCF history before reading from DB so the file carries the
-  // current scoring engine's view, not whatever was last persisted.
-  await recomputeNhcHistoryForSeries(seriesId);
+  const [competitorsUnsorted, fleetsUnsorted, racesUnsorted] = await Promise.all([
+    repos.competitorRepo.listBySeries(seriesId),
+    repos.fleetRepo.listBySeries(seriesId),
+    repos.raceRepo.listBySeries(seriesId),
+  ]);
+  // Both repository implementations sort by these keys already; sort
+  // defensively so the file is deterministic regardless of backend.
+  const competitors = [...competitorsUnsorted].sort((a, b) =>
+    a.sailNumber.localeCompare(b.sailNumber),
+  );
+  const fleets = [...fleetsUnsorted].sort((a, b) => a.displayOrder - b.displayOrder);
+  const races = [...racesUnsorted].sort((a, b) => a.raceNumber - b.raceNumber);
 
-  const competitors = await db.competitors
-    .where('seriesId')
-    .equals(seriesId)
-    .sortBy('sailNumber');
-  const fleets = await db.fleets
-    .where('seriesId')
-    .equals(seriesId)
-    .sortBy('displayOrder');
-  const races = await db.races
-    .where('seriesId')
-    .equals(seriesId)
-    .sortBy('raceNumber');
   const raceIds = races.map((r) => r.id);
-  const allFinishes =
-    raceIds.length > 0
-      ? await db.finishes.where('raceId').anyOf(raceIds).toArray()
-      : [];
-  const allRaceStarts: RaceStart[] =
-    raceIds.length > 0
-      ? await db.raceStarts.where('raceId').anyOf(raceIds).toArray()
-      : [];
-  const allNhcTcfHistory: NhcTcfRecord[] =
-    raceIds.length > 0
-      ? await db.nhcTcfHistory.where('raceId').anyOf(raceIds).toArray()
-      : [];
+  const competitorIds = competitors.map((c) => c.id);
+
+  const [allFinishes, allRaceStarts] = await Promise.all([
+    repos.finishRepo.listBySeries(seriesId, competitorIds),
+    repos.raceStartRepo.listByRaces(raceIds),
+  ]);
+
+  // Compute progressive-handicap (NHC/ECHO) TCF history from the engine
+  // rather than reading it from a persisted table. The history is purely
+  // derived state; computing on demand removes the only consumer of the
+  // nhcTcfHistory table.
+  const { fleetStandings } = calculateFleetStandings(
+    fleets,
+    competitors,
+    races,
+    allFinishes,
+    series.discardThresholds ?? [],
+    series.dnfScoring ?? 'seriesEntries',
+    allRaceStarts,
+  );
+  const allNhcTcfHistory: NhcTcfRecord[] = fleetStandings.flatMap(
+    (fr) => fr.nhcTcfHistory ?? [],
+  );
 
   const finishesByRace = new Map<string, SeriesFileFinish[]>();
   for (const f of allFinishes) {
@@ -295,13 +338,19 @@ export async function saveSeriesFile(seriesId: string): Promise<void> {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
-  // Record the save
+  // Record the save. CAS via `expectedVersion` so a concurrent edit in
+  // another tab surfaces as 409 → refresh-and-retry rather than silently
+  // overwriting the other tab's snapshot lineage.
   const now = Date.now();
-  await db.series.update(seriesId, {
-    lastSnapshotId: snapshotId,
-    lastSavedAt: now,
-    snapshotHistory,
-  });
+  await repos.seriesRepo.save(
+    {
+      ...series,
+      lastSnapshotId: snapshotId,
+      lastSavedAt: now,
+      snapshotHistory,
+    },
+    { expectedVersion: series.version },
+  );
 }
 
 // ---- Parse ----
@@ -348,176 +397,115 @@ function migrateStartSequenceCumulativeToIntervals(series: unknown): void {
 
 // ---- Open as new series ----
 
-export async function openSeriesFromFile(file: SeriesFile): Promise<string> {
+export async function openSeriesFromFile(
+  file: SeriesFile,
+  repos: SeriesFileRepos,
+): Promise<string> {
   const newSeriesId = crypto.randomUUID();
   const now = Date.now();
-  const name = disambiguateSeriesName(file.series.name, await listSeriesNames());
+  const name = disambiguateSeriesName(file.series.name, await repos.listSeriesNames());
 
-  // Remap IDs to avoid conflicts with existing DB records
+  // Remap IDs to avoid conflicts with existing DB records.
   const fleetIdMap = new Map(file.fleets.map((f) => [f.id, crypto.randomUUID()]));
   const competitorIdMap = new Map(file.competitors.map((c) => [c.id, crypto.randomUUID()]));
   const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
 
-  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory], async () => {
-    await db.series.add({
-      id: newSeriesId,
-      name,
-      venue: file.series.venue,
-      startDate: file.series.startDate,
-      endDate: file.series.endDate,
-      venueLogoUrl: file.series.venueLogoUrl,
-      eventLogoUrl: file.series.eventLogoUrl,
-      createdAt: now,
-      lastSnapshotId: file.snapshotId,
-      lastSavedAt: null,
-      lastModifiedAt: now,
-      snapshotHistory: [...file.snapshotHistory],
-      scoringMode: file.series.scoringMode,
-      defaultStartSequence: file.series.defaultStartSequence,
-      discardThresholds: file.series.discardThresholds,
-      dnfScoring: file.series.dnfScoring,
-      ftpHost: file.series.ftpHost,
-      ftpPath: file.series.ftpPath,
-      bilgeBundle: file.series.bilgeBundle,
-      includeJsonExport: file.series.includeJsonExport,
-      publishRatingCalculations: file.series.publishRatingCalculations ?? true,
-      enabledCompetitorFields: file.series.enabledCompetitorFields,
-      primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-    });
-
-    for (const f of file.fleets) {
-      await db.fleets.add({
-        id: fleetIdMap.get(f.id)!,
-        seriesId: newSeriesId,
-        name: f.name,
-        displayOrder: f.displayOrder,
-        scoringSystem: f.scoringSystem,
-        ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
-        ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
-      });
-    }
-
-    for (const c of file.competitors) {
-      const fleetIds = c.fleetIds.map((id) => fleetIdMap.get(id)!).filter(Boolean);
-      await db.competitors.add({
-        id: competitorIdMap.get(c.id)!,
-        seriesId: newSeriesId,
-        fleetIds,
-        sailNumber: c.sailNumber,
-        ...(c.boatName ? { boatName: c.boatName } : {}),
-        ...(c.boatClass ? { boatClass: c.boatClass } : {}),
-        name: c.name,
-        ...(c.owner ? { owner: c.owner } : {}),
-        ...(c.helm ? { helm: c.helm } : {}),
-        ...(c.crewName ? { crewName: c.crewName } : {}),
-        club: c.club,
-        gender: c.gender,
-        age: c.age,
-        createdAt: now,
-        ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
-        ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
-        ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
-        ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
-      });
-    }
-
-    for (const r of file.races) {
-      const newRaceId = raceIdMap.get(r.id)!;
-      await db.races.add({
-        id: newRaceId,
-        seriesId: newSeriesId,
-        raceNumber: r.raceNumber,
-        date: r.date,
-        createdAt: now,
-      });
-      for (const s of r.starts) {
-        await db.raceStarts.add({
-          id: crypto.randomUUID(),
-          raceId: newRaceId,
-          fleetIds: s.fleetIds.map((id) => fleetIdMap.get(id) ?? id),
-          startTime: s.startTime,
-        });
-      }
-      for (const f of r.finishes) {
-        const mappedCompetitorId = f.competitorId
-          ? (competitorIdMap.get(f.competitorId) ?? null)
-          : null;
-        await db.finishes.add({
-          id: crypto.randomUUID(),
-          raceId: newRaceId,
-          competitorId: mappedCompetitorId,
-          unknownSailNumber: f.unknownSailNumber,
-          sortOrder: f.sortOrder,
-          ...(f.finishTime ? { finishTime: f.finishTime } : {}),
-          resultCode: f.resultCode,
-          startPresent: f.startPresent,
-          penaltyCode: f.penaltyCode,
-          penaltyOverride: f.penaltyOverride,
-          redressMethod: f.redressMethod ?? null,
-          redressExcludeRaces: f.redressExcludeRaces ?? null,
-          redressIncludeRaces: f.redressIncludeRaces ?? null,
-          redressIncludeAllLater: f.redressIncludeAllLater ?? false,
-          redressPoints: f.redressPoints ?? null,
-        });
-      }
-    }
-
-    for (const h of file.nhcTcfHistory ?? []) {
-      const raceId = raceIdMap.get(h.raceId);
-      const competitorId = competitorIdMap.get(h.competitorId);
-      const fleetId = fleetIdMap.get(h.fleetId);
-      if (!raceId || !competitorId || !fleetId) continue;
-      await db.nhcTcfHistory.add({
-        id: crypto.randomUUID(),
-        raceId,
-        competitorId,
-        fleetId,
-        tcfApplied: h.tcfApplied,
-        newTcf: h.newTcf,
-      });
-    }
+  // Series first (FK target for everything below). No expectedVersion —
+  // fresh row, authoritative write per `SaveOpts` doc-comment.
+  await repos.seriesRepo.save({
+    id: newSeriesId,
+    name,
+    venue: file.series.venue,
+    startDate: file.series.startDate,
+    endDate: file.series.endDate,
+    venueLogoUrl: file.series.venueLogoUrl,
+    eventLogoUrl: file.series.eventLogoUrl,
+    createdAt: now,
+    lastSnapshotId: file.snapshotId,
+    lastSavedAt: null,
+    lastModifiedAt: now,
+    snapshotHistory: [...file.snapshotHistory],
+    scoringMode: file.series.scoringMode,
+    defaultStartSequence: file.series.defaultStartSequence,
+    discardThresholds: file.series.discardThresholds,
+    dnfScoring: file.series.dnfScoring,
+    ftpHost: file.series.ftpHost,
+    ftpPath: file.series.ftpPath,
+    bilgeBundle: file.series.bilgeBundle,
+    includeJsonExport: file.series.includeJsonExport,
+    publishRatingCalculations: file.series.publishRatingCalculations ?? true,
+    enabledCompetitorFields: file.series.enabledCompetitorFields,
+    primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
   });
+
+  await writeFleetsCompetitorsRaces(repos, file, newSeriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
 
   return newSeriesId;
 }
 
 // ---- Update existing series from file ----
 
-export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): Promise<void> {
+export async function updateSeriesFromFile(
+  seriesId: string,
+  file: SeriesFile,
+  repos: SeriesFileRepos,
+): Promise<void> {
   const now = Date.now();
+
+  const current = await repos.seriesRepo.get(seriesId);
+  if (!current) throw new Error(`Series ${seriesId} not found`);
 
   const fleetIdMap = new Map(file.fleets.map((f) => [f.id, crypto.randomUUID()]));
   const competitorIdMap = new Map(file.competitors.map((c) => [c.id, crypto.randomUUID()]));
   const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
 
-  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory], async () => {
-    await deleteSeriesChildren(seriesId);
+  // Children first; the series row stays so its createdAt and any
+  // workspace-side bookkeeping survive the replay.
+  await repos.deleteSeriesChildren(seriesId);
 
-    await db.series.update(seriesId, {
-      name: file.series.name,
-      venue: file.series.venue,
-      startDate: file.series.startDate,
-      endDate: file.series.endDate,
-      venueLogoUrl: file.series.venueLogoUrl,
-      eventLogoUrl: file.series.eventLogoUrl,
-      lastSnapshotId: file.snapshotId,
-      lastModifiedAt: now,
-      snapshotHistory: [...file.snapshotHistory],
-      scoringMode: file.series.scoringMode,
-      defaultStartSequence: file.series.defaultStartSequence,
-      discardThresholds: file.series.discardThresholds,
-      dnfScoring: file.series.dnfScoring,
-      ftpHost: file.series.ftpHost,
-      ftpPath: file.series.ftpPath,
-      bilgeBundle: file.series.bilgeBundle,
-      includeJsonExport: file.series.includeJsonExport,
-      publishRatingCalculations: file.series.publishRatingCalculations ?? true,
-      enabledCompetitorFields: file.series.enabledCompetitorFields,
-      primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-    });
+  // Authoritative file-replay write — no `expectedVersion`. The user has
+  // already confirmed the lineage dialog ("Update" or "Replace local copy").
+  await repos.seriesRepo.save({
+    ...current,
+    name: file.series.name,
+    venue: file.series.venue,
+    startDate: file.series.startDate,
+    endDate: file.series.endDate,
+    venueLogoUrl: file.series.venueLogoUrl,
+    eventLogoUrl: file.series.eventLogoUrl,
+    lastSnapshotId: file.snapshotId,
+    lastModifiedAt: now,
+    snapshotHistory: [...file.snapshotHistory],
+    scoringMode: file.series.scoringMode,
+    defaultStartSequence: file.series.defaultStartSequence,
+    discardThresholds: file.series.discardThresholds,
+    dnfScoring: file.series.dnfScoring,
+    ftpHost: file.series.ftpHost,
+    ftpPath: file.series.ftpPath,
+    bilgeBundle: file.series.bilgeBundle,
+    includeJsonExport: file.series.includeJsonExport,
+    publishRatingCalculations: file.series.publishRatingCalculations ?? true,
+    enabledCompetitorFields: file.series.enabledCompetitorFields,
+    primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+  });
 
-    for (const f of file.fleets) {
-      await db.fleets.add({
+  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
+}
+
+// ---- Internal: shared body for open and update ----
+
+async function writeFleetsCompetitorsRaces(
+  repos: SeriesFileRepos,
+  file: SeriesFile,
+  seriesId: string,
+  now: number,
+  fleetIdMap: Map<string, string>,
+  competitorIdMap: Map<string, string>,
+  raceIdMap: Map<string, string>,
+): Promise<void> {
+  await Promise.all(
+    file.fleets.map((f) =>
+      repos.fleetRepo.save({
         id: fleetIdMap.get(f.id)!,
         seriesId,
         name: f.name,
@@ -525,12 +513,14 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
         scoringSystem: f.scoringSystem,
         ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
         ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
-      });
-    }
+      }),
+    ),
+  );
 
-    for (const c of file.competitors) {
+  await Promise.all(
+    file.competitors.map((c) => {
       const fleetIds = c.fleetIds.map((id) => fleetIdMap.get(id)!).filter(Boolean);
-      await db.competitors.add({
+      return repos.competitorRepo.save({
         id: competitorIdMap.get(c.id)!,
         seriesId,
         fleetIds,
@@ -550,30 +540,38 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
       });
-    }
+    }),
+  );
 
-    for (const r of file.races) {
-      const newRaceId = raceIdMap.get(r.id)!;
-      await db.races.add({
-        id: newRaceId,
-        seriesId,
-        raceNumber: r.raceNumber,
-        date: r.date,
-        createdAt: now,
-      });
-      for (const s of r.starts) {
-        await db.raceStarts.add({
+  // Races sequentially because their starts and finishes FK back to the
+  // race row that has to exist first. Inside each race we batch.
+  for (const r of file.races) {
+    const newRaceId = raceIdMap.get(r.id)!;
+    await repos.raceRepo.save({
+      id: newRaceId,
+      seriesId,
+      raceNumber: r.raceNumber,
+      date: r.date,
+      createdAt: now,
+    });
+
+    await Promise.all(
+      r.starts.map((s) =>
+        repos.raceStartRepo.save({
           id: crypto.randomUUID(),
           raceId: newRaceId,
           fleetIds: s.fleetIds.map((id) => fleetIdMap.get(id) ?? id),
           startTime: s.startTime,
-        });
-      }
-      for (const f of r.finishes) {
+        }),
+      ),
+    );
+
+    if (r.finishes.length > 0) {
+      const finishes: Finish[] = r.finishes.map((f) => {
         const mappedCompetitorId = f.competitorId
           ? (competitorIdMap.get(f.competitorId) ?? null)
           : null;
-        await db.finishes.add({
+        return {
           id: crypto.randomUUID(),
           raceId: newRaceId,
           competitorId: mappedCompetitorId,
@@ -589,25 +587,14 @@ export async function updateSeriesFromFile(seriesId: string, file: SeriesFile): 
           redressIncludeRaces: f.redressIncludeRaces ?? null,
           redressIncludeAllLater: f.redressIncludeAllLater ?? false,
           redressPoints: f.redressPoints ?? null,
-        });
-      }
-    }
-
-    for (const h of file.nhcTcfHistory ?? []) {
-      const raceId = raceIdMap.get(h.raceId);
-      const competitorId = competitorIdMap.get(h.competitorId);
-      const fleetId = fleetIdMap.get(h.fleetId);
-      if (!raceId || !competitorId || !fleetId) continue;
-      await db.nhcTcfHistory.add({
-        id: crypto.randomUUID(),
-        raceId,
-        competitorId,
-        fleetId,
-        tcfApplied: h.tcfApplied,
-        newTcf: h.newTcf,
+        };
       });
+      await repos.finishRepo.saveMany(finishes);
     }
-  });
+  }
+
+  // NHC tcf history is no longer persisted — the only consumer was the
+  // file-export path, which now recomputes via calculateFleetStandings.
 }
 
 function slugify(name: string): string {

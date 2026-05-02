@@ -51,6 +51,13 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: SERVER_MODE ? { USE_SERVER_DATA: 'true' } : {},
+    env: SERVER_MODE
+      ? {
+          USE_SERVER_DATA: 'true',
+          // Disable Better Auth rate limiting — many parallel sign-ins
+          // from one IP would otherwise trip the 3-req/10-s default.
+          E2E_DISABLE_RATE_LIMIT: '1',
+        }
+      : {},
   },
 });

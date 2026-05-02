@@ -1,6 +1,19 @@
-import type { ResultCode, PenaltyCode, DiscardThreshold, CompetitorFieldKey, PrimaryPersonLabel } from './types';
-import { db } from './db';
-import { seriesRepo, competitorRepo, raceRepo, finishRepo, fleetRepo, raceStartRepo, listSeriesNames } from './dexie-repository';
+import type {
+  ResultCode,
+  PenaltyCode,
+  DiscardThreshold,
+  CompetitorFieldKey,
+  PrimaryPersonLabel,
+  Finish,
+} from './types';
+import type {
+  CompetitorRepository,
+  FinishRepository,
+  FleetRepository,
+  RaceRepository,
+  RaceStartRepository,
+  SeriesRepository,
+} from './repository';
 import { calculateFleetStandings, calculateRaceScores } from './scoring';
 import { defaultEnabledCompetitorFields, DEFAULT_PRIMARY_PERSON_LABEL } from './competitor-fields';
 import { disambiguateSeriesName } from './series-name';
@@ -189,17 +202,25 @@ export interface EchoRaceFleetExport {
  * export path works in either mode.
  */
 export interface ExportRepos {
-  seriesRepo: typeof seriesRepo;
-  competitorRepo: typeof competitorRepo;
-  raceRepo: typeof raceRepo;
-  fleetRepo: typeof fleetRepo;
-  finishRepo: typeof finishRepo;
-  raceStartRepo: typeof raceStartRepo;
+  seriesRepo: SeriesRepository;
+  competitorRepo: CompetitorRepository;
+  raceRepo: RaceRepository;
+  fleetRepo: FleetRepository;
+  finishRepo: FinishRepository;
+  raceStartRepo: RaceStartRepository;
+}
+
+/**
+ * Repository surface for the public-JSON import path. Adds the
+ * `listSeriesNames` helper used to disambiguate the new series name.
+ */
+export interface ImportRepos extends ExportRepos {
+  listSeriesNames(opts?: { excludeId?: string }): Promise<string[]>;
 }
 
 export async function buildPublicExport(
   seriesId: string,
-  repos: ExportRepos = { seriesRepo, competitorRepo, raceRepo, fleetRepo, finishRepo, raceStartRepo },
+  repos: ExportRepos,
 ): Promise<PublicSeriesExport | null> {
   const [series, competitors, races, fleets] = await Promise.all([
     repos.seriesRepo.get(seriesId),
@@ -433,11 +454,18 @@ export async function buildPublicExport(
  * Create a new series from a PublicSeriesExport. Fresh UUIDs are assigned to all
  * entities — the imported series has no file history, no snapshot lineage, and no
  * publishing config. Returns the new seriesId.
+ *
+ * NHC/ECHO TCF history is *not* persisted — the engine recomputes it from
+ * finishes + starting TCFs on next render, matching what the file-export
+ * path now does.
  */
-export async function importPublicExport(data: PublicSeriesExport): Promise<string> {
+export async function importPublicExport(
+  data: PublicSeriesExport,
+  repos: ImportRepos,
+): Promise<string> {
   const newSeriesId = crypto.randomUUID();
   const now = Date.now();
-  const seriesName = disambiguateSeriesName(data.series.name, await listSeriesNames());
+  const seriesName = disambiguateSeriesName(data.series.name, await repos.listSeriesNames());
 
   // Each competitor gets a unique UUID. Key by (sailNumber, fleetNames) to handle
   // collisions where different-fleet boats share a sail number.
@@ -462,52 +490,52 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
     fleetIdByName.set(f.name, crypto.randomUUID());
   }
 
-  await db.transaction('rw', [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory], async () => {
-    // Resolve exported defaultStartSequence (fleetNames) → internal fleetIds,
-    // and convert cumulative offsets back to per-step intervals.
-    const importedDefaultStartSequence = data.series.defaultStartSequence?.length
-      ? (() => {
-          const resolved = data.series.defaultStartSequence!
-            .map((g) => ({
-              fleetIds: g.fleetNames.map((n) => fleetIdByName.get(n)).filter((id): id is string => id != null),
-              offsetMinutes: g.offsetMinutes,
-            }))
-            .filter((g) => g.fleetIds.length > 0);
-          return resolved.map((g, i) => ({
-            fleetIds: g.fleetIds,
-            intervalMinutes: i === 0 ? 0 : Math.max(0, g.offsetMinutes - resolved[i - 1].offsetMinutes),
-          }));
-        })()
-      : undefined;
+  // Resolve exported defaultStartSequence (fleetNames) → internal fleetIds,
+  // and convert cumulative offsets back to per-step intervals.
+  const importedDefaultStartSequence = data.series.defaultStartSequence?.length
+    ? (() => {
+        const resolved = data.series.defaultStartSequence!
+          .map((g) => ({
+            fleetIds: g.fleetNames.map((n) => fleetIdByName.get(n)).filter((id): id is string => id != null),
+            offsetMinutes: g.offsetMinutes,
+          }))
+          .filter((g) => g.fleetIds.length > 0);
+        return resolved.map((g, i) => ({
+          fleetIds: g.fleetIds,
+          intervalMinutes: i === 0 ? 0 : Math.max(0, g.offsetMinutes - resolved[i - 1].offsetMinutes),
+        }));
+      })()
+    : undefined;
 
-    await db.series.add({
-      id: newSeriesId,
-      name: seriesName,
-      venue: data.series.venue,
-      startDate: data.series.startDate,
-      endDate: data.series.endDate,
-      venueLogoUrl: data.series.venueLogoUrl ?? '',
-      eventLogoUrl: data.series.eventLogoUrl ?? '',
-      createdAt: now,
-      lastSnapshotId: null,
-      lastSavedAt: null,
-      lastModifiedAt: now,
-      snapshotHistory: [],
-      scoringMode: data.series.scoringMode,
-      ...(importedDefaultStartSequence?.length ? { defaultStartSequence: importedDefaultStartSequence } : {}),
-      discardThresholds: data.series.discardThresholds,
-      dnfScoring: data.series.dnfScoring,
-      ftpHost: '',
-      ftpPath: '',
-      bilgeBundle: null,
-      includeJsonExport: true,
-      ...(data.series.publishRatingCalculations != null ? { publishRatingCalculations: data.series.publishRatingCalculations } : {}),
-      enabledCompetitorFields: data.series.displayFields ?? defaultEnabledCompetitorFields(),
-      primaryPersonLabel: data.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-    });
+  await repos.seriesRepo.save({
+    id: newSeriesId,
+    name: seriesName,
+    venue: data.series.venue,
+    startDate: data.series.startDate,
+    endDate: data.series.endDate,
+    venueLogoUrl: data.series.venueLogoUrl ?? '',
+    eventLogoUrl: data.series.eventLogoUrl ?? '',
+    createdAt: now,
+    lastSnapshotId: null,
+    lastSavedAt: null,
+    lastModifiedAt: now,
+    snapshotHistory: [],
+    scoringMode: data.series.scoringMode,
+    ...(importedDefaultStartSequence?.length ? { defaultStartSequence: importedDefaultStartSequence } : {}),
+    discardThresholds: data.series.discardThresholds,
+    dnfScoring: data.series.dnfScoring,
+    ftpHost: '',
+    ftpPath: '',
+    bilgeBundle: null,
+    includeJsonExport: true,
+    ...(data.series.publishRatingCalculations != null ? { publishRatingCalculations: data.series.publishRatingCalculations } : {}),
+    enabledCompetitorFields: data.series.displayFields ?? defaultEnabledCompetitorFields(),
+    primaryPersonLabel: data.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+  });
 
-    for (const f of data.fleets) {
-      await db.fleets.add({
+  await Promise.all(
+    data.fleets.map((f) =>
+      repos.fleetRepo.save({
         id: fleetIdByName.get(f.name)!,
         seriesId: newSeriesId,
         name: f.name,
@@ -515,14 +543,16 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
         scoringSystem: f.scoringSystem,
         ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
         ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
-      });
-    }
+      }),
+    ),
+  );
 
-    for (const c of data.competitors) {
+  await Promise.all(
+    data.competitors.map((c) => {
       const fleetIds = c.fleetNames
         .map((n) => fleetIdByName.get(n))
         .filter((id): id is string => id != null);
-      await db.competitors.add({
+      return repos.competitorRepo.save({
         id: competitorIdBySailFleet.get(competitorKey(c.sailNumber, c.fleetNames))!,
         seriesId: newSeriesId,
         fleetIds,
@@ -542,117 +572,75 @@ export async function importPublicExport(data: PublicSeriesExport): Promise<stri
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
       });
-    }
+    }),
+  );
 
-    // Build (sailNumber, fleetName) → competitorId map for progressive-TCF
-    // history reconstruction (NHC and ECHO share the same DB table).
-    // A boat in two NHC fleets needs distinct rows per fleet — keyed by both.
-    const competitorIdBySailFleetName = new Map<string, string>();
-    for (const c of data.competitors) {
-      const cId = competitorIdBySailFleet.get(competitorKey(c.sailNumber, c.fleetNames));
-      if (!cId) continue;
-      for (const fn of c.fleetNames) {
-        competitorIdBySailFleetName.set(`${c.sailNumber}\0${fn}`, cId);
-      }
-    }
+  // Races sequentially because their starts and finishes FK back to the
+  // race row that has to exist first. Inside each race we batch.
+  for (const race of data.races) {
+    const raceId = crypto.randomUUID();
+    await repos.raceRepo.save({
+      id: raceId,
+      seriesId: newSeriesId,
+      raceNumber: race.raceNumber,
+      date: race.date,
+      createdAt: now,
+    });
 
-    for (const race of data.races) {
-      const raceId = crypto.randomUUID();
-      await db.races.add({
-        id: raceId,
-        seriesId: newSeriesId,
-        raceNumber: race.raceNumber,
-        date: race.date,
-        createdAt: now,
-      });
-      for (const start of race.starts) {
-        const startFleetIds = start.fleetNames
-          .map((n) => fleetIdByName.get(n))
-          .filter((id): id is string => id != null);
-        if (startFleetIds.length > 0) {
-          await db.raceStarts.add({
+    await Promise.all(
+      race.starts
+        .map((start) => ({
+          ...start,
+          startFleetIds: start.fleetNames
+            .map((n) => fleetIdByName.get(n))
+            .filter((id): id is string => id != null),
+        }))
+        .filter((s) => s.startFleetIds.length > 0)
+        .map((s) =>
+          repos.raceStartRepo.save({
             id: crypto.randomUUID(),
             raceId,
-            fleetIds: startFleetIds,
-            startTime: start.startTime,
-          });
-        }
-      }
-      const usedIds = new Set<string>();
-      for (const finish of race.finishes) {
-        // A finish with unknownSailNumber set (and typically empty sailNumber)
-        // represents an unresolved crossing — store it with competitorId: null
-        // so it survives the round trip.
-        const exportedUnknownSail = finish.unknownSailNumber;
-        const candidates = finish.sailNumber
-          ? competitorIdsBySail.get(finish.sailNumber) ?? []
-          : [];
-        const competitorId = candidates.find((id) => !usedIds.has(id)) ?? candidates[0];
-        if (!competitorId && !exportedUnknownSail) continue;
-        if (competitorId) usedIds.add(competitorId);
-        await db.finishes.add({
-          id: crypto.randomUUID(),
-          raceId,
-          competitorId: competitorId ?? null,
-          ...(!competitorId && exportedUnknownSail ? { unknownSailNumber: exportedUnknownSail } : {}),
-          sortOrder: finish.sortOrder,
-          ...(finish.finishTime ? { finishTime: finish.finishTime } : {}),
-          resultCode: finish.resultCode,
-          startPresent: finish.startPresent,
-          penaltyCode: finish.penaltyCode ?? null,
-          penaltyOverride: finish.penaltyOverride ?? null,
-          redressMethod: finish.redressMethod ?? null,
-          redressExcludeRaces: finish.redressExcludeRaces ?? null,
-          redressIncludeRaces: finish.redressIncludeRaces ?? null,
-          redressIncludeAllLater: finish.redressIncludeAllLater ?? false,
-          redressPoints: finish.redressPoints ?? null,
-        });
-      }
+            fleetIds: s.startFleetIds,
+            startTime: s.startTime,
+          }),
+        ),
+    );
 
-      // Reconstruct nhcTcfHistory rows from per-(race, fleet) intermediates.
-      // Engine-recompute would also work, but persisting directly avoids
-      // needing to re-score on every render after import. The same table
-      // covers ECHO history.
-      const nhcByFleet = race.nhcByFleet;
-      if (nhcByFleet) {
-        for (const [fleetName, entry] of Object.entries(nhcByFleet)) {
-          const fleetId = fleetIdByName.get(fleetName);
-          if (!fleetId) continue;
-          for (const row of entry.rows) {
-            const competitorId = competitorIdBySailFleetName.get(`${row.sailNumber}\0${fleetName}`);
-            if (!competitorId) continue;
-            await db.nhcTcfHistory.add({
-              id: crypto.randomUUID(),
-              raceId,
-              competitorId,
-              fleetId,
-              tcfApplied: row.tcfApplied,
-              newTcf: row.newTcf,
-            });
-          }
-        }
-      }
-      const echoByFleet = race.echoByFleet;
-      if (echoByFleet) {
-        for (const [fleetName, entry] of Object.entries(echoByFleet)) {
-          const fleetId = fleetIdByName.get(fleetName);
-          if (!fleetId) continue;
-          for (const row of entry.rows) {
-            const competitorId = competitorIdBySailFleetName.get(`${row.sailNumber}\0${fleetName}`);
-            if (!competitorId) continue;
-            await db.nhcTcfHistory.add({
-              id: crypto.randomUUID(),
-              raceId,
-              competitorId,
-              fleetId,
-              tcfApplied: row.tcfApplied,
-              newTcf: row.newTcf,
-            });
-          }
-        }
-      }
+    const usedIds = new Set<string>();
+    const finishes: Finish[] = [];
+    for (const finish of race.finishes) {
+      // A finish with unknownSailNumber set (and typically empty sailNumber)
+      // represents an unresolved crossing — store it with competitorId: null
+      // so it survives the round trip.
+      const exportedUnknownSail = finish.unknownSailNumber;
+      const candidates = finish.sailNumber
+        ? competitorIdsBySail.get(finish.sailNumber) ?? []
+        : [];
+      const competitorId = candidates.find((id) => !usedIds.has(id)) ?? candidates[0];
+      if (!competitorId && !exportedUnknownSail) continue;
+      if (competitorId) usedIds.add(competitorId);
+      finishes.push({
+        id: crypto.randomUUID(),
+        raceId,
+        competitorId: competitorId ?? null,
+        ...(!competitorId && exportedUnknownSail ? { unknownSailNumber: exportedUnknownSail } : {}),
+        sortOrder: finish.sortOrder,
+        ...(finish.finishTime ? { finishTime: finish.finishTime } : {}),
+        resultCode: finish.resultCode,
+        startPresent: finish.startPresent,
+        penaltyCode: finish.penaltyCode ?? null,
+        penaltyOverride: finish.penaltyOverride ?? null,
+        redressMethod: finish.redressMethod ?? null,
+        redressExcludeRaces: finish.redressExcludeRaces ?? null,
+        redressIncludeRaces: finish.redressIncludeRaces ?? null,
+        redressIncludeAllLater: finish.redressIncludeAllLater ?? false,
+        redressPoints: finish.redressPoints ?? null,
+      });
     }
-  });
+    if (finishes.length > 0) {
+      await repos.finishRepo.saveMany(finishes);
+    }
+  }
 
   return newSeriesId;
 }

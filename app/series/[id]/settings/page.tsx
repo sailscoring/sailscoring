@@ -407,7 +407,8 @@ export default function SettingsPage({
   const { id: seriesId } = use(params);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { listSeriesNames } = useRepos();
+  const repos = useRepos();
+  const { listSeriesNames } = repos;
   const { data: series, isLoading } = useSeries(seriesId);
   const { data: fleetsData } = useFleetsBySeries(seriesId);
   const fleets = fleetsData ?? [];
@@ -428,9 +429,9 @@ export default function SettingsPage({
   async function handleSaveToFile() {
     setSaving(true);
     try {
-      await saveSeriesFile(seriesId);
+      await saveSeriesFile(seriesId, repos);
       // saveSeriesFile writes lastSnapshotId / lastSavedAt directly via
-      // db.series.update — bypassing the React Query cache. Force a refetch
+      // the seriesRepo, bypassing the React Query cache. Force a refetch
       // so the file card reflects the new state and the "Update from File"
       // button becomes visible.
       await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(seriesId) });
@@ -479,15 +480,16 @@ export default function SettingsPage({
     setUpdateFlow({ step: 'working' });
     try {
       if (asNewCopy) {
-        const newId = await openSeriesFromFile(file);
+        const newId = await openSeriesFromFile(file, repos);
         await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
         router.push(`/series/${newId}/races`);
       } else {
-        await updateSeriesFromFile(seriesId, file);
+        await updateSeriesFromFile(seriesId, file, repos);
         // updateSeriesFromFile and the import-from-file flow both write
-        // directly to dexie; invalidate every cached read of this series
-        // so the layout heading and the races/competitors lists pick up
-        // the new state on the next route.
+        // through the repos layer, bypassing the React Query cache;
+        // invalidate every cached read of this series so the layout heading
+        // and the races/competitors lists pick up the new state on the next
+        // route.
         await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(seriesId) });
         await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
         await queryClient.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(seriesId) });

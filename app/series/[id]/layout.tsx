@@ -9,6 +9,7 @@ import { queryKeys } from '@/hooks/query-keys';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown, useChordShortcut } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
+import { useRepos } from '@/lib/repos';
 import { saveSeriesFile } from '@/lib/series-file';
 
 const tabs = [
@@ -29,6 +30,7 @@ export default function SeriesLayout({
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const repos = useRepos();
   const { data: series, isLoading } = useSeries(id);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -48,7 +50,7 @@ export default function SeriesLayout({
     } else if (e.ctrlKey && !e.metaKey && e.key === 's' && !/\/races\/[^/]+/.test(pathname)) {
       // Ctrl+S saves to file from any series page except finish entry (which owns Ctrl+S itself)
       e.preventDefault();
-      saveSeriesFile(id)
+      saveSeriesFile(id, repos)
         .then(() =>
           queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(id) }),
         )

@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useRepos } from '@/lib/repos';
 import { importPublicExport, type PublicSeriesExport } from '@/lib/public-export';
 
 type State =
@@ -21,6 +22,7 @@ type State =
 
 export default function ImportPage() {
   const router = useRouter();
+  const repos = useRepos();
   const [state, setState] = useState<State>({ step: 'loading' });
 
   // One-shot parse of the URL fragment on mount. `window.location` is not
@@ -56,7 +58,7 @@ export default function ImportPage() {
     const { data } = state;
     setState({ step: 'working' });
     try {
-      const newId = await importPublicExport(data);
+      const newId = await importPublicExport(data, repos);
       router.replace(`/series/${newId}/standings`);
     } catch (err) {
       console.error(err);

@@ -89,7 +89,8 @@ function SeriesCard({
 export default function HomePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { seriesRepo } = useRepos();
+  const repos = useRepos();
+  const { seriesRepo } = repos;
   const { data: seriesList } = useSeriesList();
   const deleteCascade = useDeleteSeriesCascade();
   const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
@@ -141,7 +142,7 @@ export default function HomePage() {
     if (!existing) {
       // No match — open as new
       setOpenFlow({ step: 'working' });
-      const newId = await openSeriesFromFile(parsed);
+      const newId = await openSeriesFromFile(parsed, repos);
       await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
       router.push(`/series/${newId}/races`);
       return;
@@ -156,7 +157,7 @@ export default function HomePage() {
 
     if (choice === 'new-copy') {
       setOpenFlow({ step: 'working' });
-      const newId = await openSeriesFromFile(file);
+      const newId = await openSeriesFromFile(file, repos);
       await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
       router.push(`/series/${newId}/races`);
       return;
@@ -173,11 +174,11 @@ export default function HomePage() {
     setOpenFlow({ step: 'working' });
     try {
       if (asNewCopy) {
-        const newId = await openSeriesFromFile(file);
+        const newId = await openSeriesFromFile(file, repos);
         await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
         router.push(`/series/${newId}/races`);
       } else {
-        await updateSeriesFromFile(existing.id, file);
+        await updateSeriesFromFile(existing.id, file, repos);
         // The file-replay path bypasses the React Query cache; force every
         // affected query to refetch before we route to the next page.
         await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(existing.id) });
