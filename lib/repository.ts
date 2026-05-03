@@ -64,11 +64,16 @@ export interface SaveOpts {
  * Only `sortOrder` changes — full Finish rows are written via single-row
  * `save` calls. The reorder path stays small so drag-and-drop and tie
  * toggles can write the affected window of rows in one round-trip.
+ *
+ * `expectedVersion` is optional. If present, the Postgres backend treats
+ * it as a CAS predicate; if absent (e.g. a row freshly inserted in the
+ * cache that hasn't received its version from the server yet) the
+ * update is unconditional.
  */
 export interface FinishReorderItem {
   id: string;
   sortOrder: number | null;
-  expectedVersion: number;
+  expectedVersion?: number;
 }
 
 /** Result row from a successful reorder — UI patches the cache by id. */

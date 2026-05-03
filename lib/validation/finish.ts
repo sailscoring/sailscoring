@@ -53,7 +53,9 @@ export const finishesBulkInputSchema = z.object({
 /**
  * Per-row CAS reorder payload (ADR-008 Phase 6). Drives the
  * `FinishRepository.reorderSortOrders` path used by drag-reorder and tie
- * toggles on the autosave finish-entry page.
+ * toggles on the autosave finish-entry page. `expectedVersion` is
+ * optional — a freshly-inserted row in the cache may not yet have a
+ * version; in that case the server applies an unconditional update.
  */
 export const finishesReorderInputSchema = z.object({
   items: z
@@ -61,7 +63,7 @@ export const finishesReorderInputSchema = z.object({
       z.object({
         id: uuidSchema,
         sortOrder: z.number().int().nullable(),
-        expectedVersion: z.number().int().positive(),
+        expectedVersion: z.number().int().positive().optional(),
       }),
     )
     .min(1),

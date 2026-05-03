@@ -1314,6 +1314,15 @@ export class PostgresFinishRepository implements FinishRepository {
       const updated: FinishReorderResult[] = [];
       const stale: string[] = [];
       for (const item of items) {
+        const whereClauses = [
+          eq(schema.finishes.id, item.id),
+          eq(schema.finishes.raceId, raceId),
+        ];
+        // CAS only when the caller supplied a version; freshly-inserted
+        // rows in the client cache may not have one yet.
+        if (item.expectedVersion !== undefined) {
+          whereClauses.push(eq(schema.finishes.version, item.expectedVersion));
+        }
         const [row] = await tx
           .update(schema.finishes)
           .set({
@@ -1321,20 +1330,15 @@ export class PostgresFinishRepository implements FinishRepository {
             version: sql`${schema.finishes.version} + 1`,
             updatedAt: sql`now()`,
           })
-          .where(
-            and(
-              eq(schema.finishes.id, item.id),
-              eq(schema.finishes.raceId, raceId),
-              eq(schema.finishes.version, item.expectedVersion),
-            ),
-          )
+          .where(and(...whereClauses))
           .returning({
             id: schema.finishes.id,
             sortOrder: schema.finishes.sortOrder,
             version: schema.finishes.version,
           });
         if (!row) {
-          stale.push(item.id);
+          // No CAS → no stale-version case; the row simply doesn't exist.
+          if (item.expectedVersion !== undefined) stale.push(item.id);
         } else {
           updated.push(row);
         }
@@ -1357,11 +1361,13 @@ export class PostgresFinishRepository implements FinishRepository {
             ),
           );
         const currentById = new Map(rows.map((r) => [r.id, r.version]));
+        // `stale` only collects rows with a CAS predicate (expectedVersion
+        // was supplied), so the assertion below is safe.
         const rowConflicts = items
           .filter((item) => stale.includes(item.id))
           .map((item) => ({
             id: item.id,
-            expectedVersion: item.expectedVersion,
+            expectedVersion: item.expectedVersion!,
             currentVersion: currentById.get(item.id),
           }));
         throw new ConflictError({ rowConflicts });
