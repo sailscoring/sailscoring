@@ -212,37 +212,36 @@ hits `/api/health`, `/api/v1/...`, `/sign-in`, or `/account` will fail
 
 ### With a local Postgres (podman-remote)
 
-Development typically runs inside a dev container. To run Postgres
-*outside* that container — on the host's user-level podman daemon —
-use `podman-remote`. The `-remote` suffix is what makes the command
-reach across the container boundary; plain `podman` would only see the
-dev container's own (rootless) namespace.
+Bring up the local container:
 
 ```sh
-podman-remote run -d --name sailscoring-pg -p 5432:5432 \
-  -e POSTGRES_USER=sailscoring \
-  -e POSTGRES_PASSWORD=sailscoring \
-  -e POSTGRES_DB=sailscoring \
-  docker.io/library/postgres:17
+pnpm db:up
 ```
 
-The Postgres container listens on the host. From inside the dev
-container, reach it at the host address — e.g. `host.containers.internal`
-when the dev container is itself podman-managed:
+This is idempotent — safe to run repeatedly — and exits non-zero if a
+container named `sailscoring-pg` already exists with a different port
+mapping (recreate it as the script's error suggests). It uses
+`podman-remote` because the canonical dev environment is a podman-
+managed dev container that talks to a rootless podman daemon on the
+host. See `scripts/db-up.sh` for the details.
+
+The container listens on `localhost:5432` from the host. From inside
+the dev container, reach it at `host.containers.internal:5432`:
 
 ```
 DATABASE_URL=postgres://sailscoring:sailscoring@host.containers.internal:5432/sailscoring
 ```
 
 Apply migrations with `pnpm db:migrate`. Stop with
-`podman-remote stop sailscoring-pg`; data persists in the container
-until you `podman-remote rm` it.
+`podman-remote stop sailscoring-pg`; data persists until you
+`podman-remote rm` it.
 
 The Vitest suites under `tests/db/`, `tests/postgres-repository.test.ts`,
 `tests/auth/`, and `tests/api/` exercise the live database. They skip
-when `DATABASE_URL` is unset, so `pnpm test:unit` is safe to run
-without Postgres but will only validate the pure-logic surface. With
-`DATABASE_URL` exported, the same command runs everything.
+when `DATABASE_URL` is unset. `pnpm test:unit` skips them; `pnpm
+test:unit:db` brings the container up via the `pretest` hook, sets
+`DATABASE_URL` to the local URL, and runs the full suite. See
+`docs/local-dev-scripts.md` for the full picture.
 
 ### With the full server backend
 

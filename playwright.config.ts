@@ -8,15 +8,21 @@ import { defineConfig, devices } from '@playwright/test';
  *   `DATABASE_URL`, no auth. Specs tagged `@auth` or `@server` are
  *   filtered out. This is what `e2e-tests.yml` runs.
  *
- * - `E2E_SERVER_MODE=1 DATABASE_URL=… pnpm test:e2e`: the full-stack
- *   build with `USE_SERVER_DATA=true`. Each spec must sign in via the
- *   magic-link helpers in `e2e/helpers.ts`. Only specs tagged `@auth`
- *   or `@server` are run. This is what `db-tests.yml` runs.
+ * - `pnpm test:e2e:server`: the full-stack build with
+ *   `USE_SERVER_DATA=true` and `E2E_SERVER_MODE=1`. Each spec must
+ *   sign in via the magic-link helpers in `e2e/helpers.ts`. Only
+ *   specs tagged `@auth` or `@server` are run. This is what
+ *   `db-tests.yml` runs. The `pretest:e2e:server` script hook also
+ *   ensures the local Postgres container is up via `db-up.sh`.
  *
  * Mutual exclusion means both modes share the same port and `.next`
- * directory; only one webServer ever runs at a time. Each invocation
- * sets its own runtime env (notably `USE_SERVER_DATA`, which Next.js
- * reads at build time inside the static evaluation of `lib/flags.ts`).
+ * directory; only one webServer ever runs at a time.
+ *
+ * The webServer command is `pnpm start:test`, which is a small bash
+ * wrapper (scripts/start-test.sh) that sources .env.test for
+ * BETTER_AUTH_SECRET, BETTER_AUTH_URL, and NEXT_PUBLIC_APP_URL,
+ * defaults DATABASE_URL to the local Postgres URL, then runs
+ * `pnpm build && pnpm start`. See docs/local-dev-scripts.md.
  */
 
 const SERVER_MODE = process.env.E2E_SERVER_MODE === '1';
@@ -47,7 +53,7 @@ export default defineConfig({
         },
   ],
   webServer: {
-    command: 'pnpm build && pnpm start',
+    command: 'pnpm start:test',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

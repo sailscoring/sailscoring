@@ -14,8 +14,8 @@ Sail Scoring is a sail racing scoring application for managing regattas, series,
 - **Styling:** Tailwind CSS v4, shadcn/ui components (`components/ui/`)
 - **Storage:** IndexedDB via Dexie.js (`lib/db.ts`, `lib/dexie-repository.ts`)
 - **Package manager:** pnpm; Node 24.x
-- **Unit/integration tests:** Vitest (`tests/` — run with `pnpm test:unit`)
-- **E2E tests:** Playwright (`e2e/` — run with `pnpm test:e2e`)
+- **Unit/integration tests:** Vitest (`tests/` — `pnpm test:unit` runs no-DB tests; `pnpm test:unit:db` adds the Postgres-backed ones)
+- **E2E tests:** Playwright (`e2e/` — `pnpm test:e2e` runs the local-first specs; `pnpm test:e2e:server` runs the auth/server-mode specs). See `docs/local-dev-scripts.md` for the full picture.
 - **Deploy:** Vercel (`pnpm deploy` / `pnpm deploy:prod`); see `DEPLOY.md` for custom domain setup
 
 ## Source Layout
@@ -32,7 +32,7 @@ The full-stack transition (ADR-008) is under way. Phases 1–3 are complete: Bet
 - **Auth** — Better Auth in `lib/auth.ts`; `lib/auth/require-workspace.ts` is the single seam every server caller goes through
 - **REST surface** — `/api/v1/...` routes; route files are thin glue, logic lives in `lib/api-handlers/`. `Idempotency-Key` replays are handled by the `workspaceRoute` wrapper in `app/api/v1/_lib/handler.ts`
 - **Feature flag** — `USE_SERVER_DATA` in `lib/flags.ts` (server-only, default off until Phase 6 cutover)
-- **DB tests** — Vitest tests under `tests/db/`, `tests/postgres-repository.test.ts`, `tests/auth/`, `tests/api/` skip when `DATABASE_URL` is unset; CI provides it. See `DEPLOY.md` for the local-Postgres setup via `podman-remote`.
+- **DB tests** — Vitest tests under `tests/db/`, `tests/postgres-repository.test.ts`, `tests/auth/`, `tests/api/` skip when `DATABASE_URL` is unset; CI provides it. Locally use `pnpm test:unit:db` (or `pnpm db:up` first and then `pnpm test:unit`); see `docs/local-dev-scripts.md`.
 
 ## Repository and Licensing
 
@@ -52,11 +52,17 @@ The `idea` GitHub label is deprecated — use `docs/design/horizon.md` instead.
 
 ## MANDATORY: Run Tests Before Every Push
 
-**ALWAYS run `pnpm test:e2e` and `pnpm lint` before `git push`.** Do not push unless both pass.
+**ALWAYS run `pnpm lint`, `pnpm test:unit`, `pnpm test:e2e`, and `pnpm test:e2e:server` before `git push`.** Do not push unless all four pass.
+The `:server` variant covers the auth/server-mode specs; the default `test:e2e` covers the local-first specs. They're mutually exclusive — both have to run.
+The `pretest:e2e:server` hook will start the local Postgres container automatically (see `docs/local-dev-scripts.md`).
 If a test or lint check fails due to a code change you made, fix it before pushing — do not defer fixes to a follow-up commit.
 If a check was already failing before your change, note it explicitly and confirm with the user before pushing.
 
 This rule has no exceptions. Forgetting it has caused broken commits in the past.
+
+## Use named pnpm scripts, not env-var prefixes
+
+When running tests, builds, or dev servers, use the named `pnpm` scripts (`pnpm test:unit:db`, `pnpm test:e2e:server`, `pnpm start:test`, `pnpm db:up`, etc.). Do not prefix invocations with env vars like `E2E_SERVER_MODE=1 pnpm exec playwright test` or `DATABASE_URL=… pnpm test:unit` — the named scripts encode the right configuration (DATABASE_URL default, BETTER_AUTH_* values, mode flags) and keep local invocations, permission rules, and CI consistent. If a needed combination doesn't exist as a script, add it in `package.json` rather than running inline. See `docs/local-dev-scripts.md`.
 
 ## Feature Checklist
 
