@@ -35,7 +35,7 @@ async function createSeriesWithData(page: Page): Promise<string> {
   await page.getByText('Race 1').click();
   await page.getByLabel('Sail number').fill('42');
   await page.getByRole('button', { name: 'Add' }).click();
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   await page.getByRole('link', { name: 'Standings' }).click();
 

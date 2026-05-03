@@ -128,7 +128,8 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
   await expect(page.getByTestId('move-up-P2')).toHaveCount(0);
 
   // ── 6. Save and verify per-fleet ranks in standings ───────────────────────
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   await page.getByRole('link', { name: 'Standings' }).click();
@@ -237,11 +238,13 @@ test('scoring-system change blocked: Scratch → PY with untimed finishes', asyn
   await page.getByPlaceholder('14:05:00').fill('14:00:00');
   await page.getByRole('checkbox', { name: 'Dinghy' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
-  await page.getByRole('button', { name: 'Done' }).click();
+  // Race-starts panel's Done button (the back-to-races bottom button has the same label).
+  await page.getByRole('button', { name: 'Done' }).first().click();
 
   await page.getByLabel('Sail number').fill('B1');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── Settings: try to switch Dinghy fleet → PY. Should be blocked. ─────────
@@ -300,8 +303,10 @@ test('finish blocked for competitor whose fleet has no start when handicap fleet
   await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
 
-  // Close the starts editor so only the finish entry UI is active.
-  await page.getByRole('button', { name: 'Done' }).click();
+  // Close the starts editor so only the finish entry UI is active. Two
+  // 'Done' buttons exist on this page — the starts panel's and the
+  // back-to-races bottom button. The starts one comes first.
+  await page.getByRole('button', { name: 'Done' }).first().click();
 
   // ── Try to finish G1 (ILCA, no start) — should be blocked ────────────────
   const sailInput = page.getByLabel('Sail number');
@@ -318,7 +323,7 @@ test('finish blocked for competitor whose fleet has no start when handicap fleet
   await page.getByPlaceholder('14:05:00').fill('14:05:00');
   await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
-  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Done' }).first().click();
 
   await sailInput.fill('G1');
   await sailInput.press('Enter');

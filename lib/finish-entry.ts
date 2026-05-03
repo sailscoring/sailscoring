@@ -1,3 +1,5 @@
+import type { Finish, PenaltyCode, ResultCode } from './types';
+
 /**
  * Computes the displayed finish position for each competitor in the ordering,
  * accounting for ties. Boats in tiedWithPrevious share the position of the
@@ -22,6 +24,144 @@ export function computePositions(order: string[], tiedWithPrevious: Set<string>)
     nextPos++;
   }
   return positions;
+}
+
+/**
+ * One row in the visible finishing-order list. Mirrors the row model the
+ * autosave finish-entry page renders. Unknown rows use the underlying
+ * Finish row's `id` as their entry-key — no separate `tempId` is needed
+ * once savedFinishes is the source of truth.
+ */
+export type FinishEntry =
+  | { kind: 'known'; competitorId: string; finishId: string; version?: number }
+  | { kind: 'unknown'; finishId: string; version?: number; sailNumber: string };
+
+export function entryKey(e: FinishEntry): string {
+  return e.kind === 'known' ? e.competitorId : e.finishId;
+}
+
+/** Redress configuration carried alongside a competitor's Finish row. */
+export interface RedressEntry {
+  method: 'all_races' | 'races_before' | 'stated';
+  poolMode: 'none' | 'exclude' | 'include';
+  excludeRaces: number[];
+  includeRaces: number[];
+  includeAllLater: boolean;
+  statedPoints: string;
+}
+
+/**
+ * Pure derivation of every "view model" the finish-entry page renders,
+ * from the canonical Finish[] returned by `useFinishesByRace` (ADR-008
+ * Phase 6). Replaces the page's prior model of duplicating this data into
+ * useState collections + a Save button.
+ *
+ * Returned maps are keyed by `competitorId` (or by `entryKey` for ties +
+ * finishTimes, which need to address unknown rows too). Per-finish row
+ * metadata (id, version) is exposed via `finishByEntryKey` so per-row
+ * mutations can thread `expectedVersion` cleanly.
+ *
+ * Display order is sortOrder ASC — sortOrders are guaranteed distinct
+ * per race by the autosave write paths, so the order is stable. Ties
+ * are read from `Finish.tiedWithPrevious`, not from sortOrder equality.
+ */
+export function deriveFinishState(savedFinishes: Finish[]): {
+  finishingOrder: FinishEntry[];
+  nonFinisherCodes: Map<string, ResultCode>;
+  finishTimes: Map<string, string>;
+  tiedWithPrevious: Set<string>;
+  finisherPenalties: Map<string, { code: PenaltyCode; override: number | null }>;
+  redressEntries: Map<string, RedressEntry>;
+  finishByEntryKey: Map<string, Finish>;
+  finishByCompetitorId: Map<string, Finish>;
+} {
+  const positionedFinishes = savedFinishes
+    .filter((f) => f.sortOrder !== null)
+    .sort((a, b) => a.sortOrder! - b.sortOrder!);
+
+  const finishingOrder: FinishEntry[] = positionedFinishes.map((f) =>
+    f.competitorId !== null
+      ? { kind: 'known', competitorId: f.competitorId, finishId: f.id, version: f.version }
+      : { kind: 'unknown', finishId: f.id, version: f.version, sailNumber: f.unknownSailNumber ?? '' },
+  );
+
+  const finishedIds = new Set(
+    finishingOrder.flatMap((e) => (e.kind === 'known' ? [e.competitorId] : [])),
+  );
+
+  const nonFinisherCodes = new Map<string, ResultCode>();
+  for (const finish of savedFinishes) {
+    if (
+      finish.sortOrder === null &&
+      finish.resultCode &&
+      finish.resultCode !== 'DNC' &&
+      finish.competitorId &&
+      !finishedIds.has(finish.competitorId)
+    ) {
+      nonFinisherCodes.set(finish.competitorId, finish.resultCode);
+    }
+  }
+
+  const finisherPenalties = new Map<string, { code: PenaltyCode; override: number | null }>();
+  for (const finish of savedFinishes) {
+    if (finish.penaltyCode && finish.competitorId && finishedIds.has(finish.competitorId)) {
+      finisherPenalties.set(finish.competitorId, {
+        code: finish.penaltyCode,
+        override: finish.penaltyOverride ?? null,
+      });
+    }
+  }
+
+  const redressEntries = new Map<string, RedressEntry>();
+  for (const finish of savedFinishes) {
+    if (finish.resultCode === 'RDG' && finish.competitorId && finish.redressMethod) {
+      const hasExclude = (finish.redressExcludeRaces?.length ?? 0) > 0;
+      const hasInclude =
+        (finish.redressIncludeRaces?.length ?? 0) > 0 || finish.redressIncludeAllLater;
+      redressEntries.set(finish.competitorId, {
+        method: finish.redressMethod as RedressEntry['method'],
+        poolMode: hasExclude ? 'exclude' : hasInclude ? 'include' : 'none',
+        excludeRaces: finish.redressExcludeRaces ?? [],
+        includeRaces: finish.redressIncludeRaces ?? [],
+        includeAllLater: finish.redressIncludeAllLater ?? false,
+        statedPoints: finish.redressPoints != null ? String(finish.redressPoints) : '',
+      });
+    }
+  }
+
+  const finishTimes = new Map<string, string>();
+  for (const finish of savedFinishes) {
+    if (finish.finishTime && finish.competitorId) {
+      finishTimes.set(finish.competitorId, finish.finishTime);
+    }
+  }
+
+  const tiedWithPrevious = new Set<string>();
+  for (let i = 0; i < positionedFinishes.length; i++) {
+    if (positionedFinishes[i].tiedWithPrevious) {
+      tiedWithPrevious.add(entryKey(finishingOrder[i]));
+    }
+  }
+
+  const finishByEntryKey = new Map<string, Finish>();
+  for (let i = 0; i < positionedFinishes.length; i++) {
+    finishByEntryKey.set(entryKey(finishingOrder[i]), positionedFinishes[i]);
+  }
+  const finishByCompetitorId = new Map<string, Finish>();
+  for (const f of savedFinishes) {
+    if (f.competitorId) finishByCompetitorId.set(f.competitorId, f);
+  }
+
+  return {
+    finishingOrder,
+    nonFinisherCodes,
+    finishTimes,
+    tiedWithPrevious,
+    finisherPenalties,
+    redressEntries,
+    finishByEntryKey,
+    finishByCompetitorId,
+  };
 }
 
 /**

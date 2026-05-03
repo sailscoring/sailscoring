@@ -119,8 +119,14 @@ test('tie checkbox: moving a tied row clears the tie', async ({ page }) => {
     await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
 
-  // Tick T2 as tied with T1
-  await page.getByTestId('tie-T2').check();
+  // Tick T2 as tied with T1 — wait for the Add saves to settle so the
+  // controlled checkbox state survives concurrent in-flight mutations.
+  // .click() rather than .check(): .check() retries the click if it
+  // doesn't see the state transition immediately, and in autosave mode
+  // the React re-render lands a tick after the native click — fast
+  // enough for .toBeChecked() but slower than .check()'s tight loop.
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('tie-T2').click();
   await expect(page.getByTestId('tie-T2')).toBeChecked();
 
   // Move T2 down — tie should be cleared
@@ -157,7 +163,10 @@ test('tie checkbox: moving group leader clears follower tie', async ({ page }) =
   }
 
   // Tie Y with X
-  await page.getByTestId('tie-Y').check();
+  // Wait for the Add saves to settle, then click (.check() is too eager —
+  // see the comment in the previous test).
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('tie-Y').click();
   await expect(page.getByTestId('tie-Y')).toBeChecked();
 
   // Move X down — X was the group leader, so Y's tie should be cleared

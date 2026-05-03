@@ -64,7 +64,7 @@ test('logo URLs appear as img tags in exported HTML', async ({ page }) => {
   await page.getByText('Race 1').click();
   await page.getByLabel('Sail number').fill('1');
   await page.getByRole('button', { name: 'Add' }).click();
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   // ── 4. Export HTML and verify logo img tags ───────────────────────────────
   await page.getByRole('link', { name: 'Standings' }).click();

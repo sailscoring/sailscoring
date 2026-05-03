@@ -88,7 +88,8 @@ test('ECHO fleet: standings + propagation across two races', async ({ page }) =>
     await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 6. Race 2: same finishes (different starting H apply this race) ───────
@@ -110,7 +111,8 @@ test('ECHO fleet: standings + propagation across two races', async ({ page }) =>
     await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 7. Verify standings page shows ECHO label ────────────────────────────

@@ -84,7 +84,8 @@ test('sail number collision across fleets is disambiguated at finish entry', asy
   await sailInput.fill('22');
   await sailInput.press('Enter');
 
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 8. Check standings — both fleets should have correct results ──────────

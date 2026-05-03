@@ -48,7 +48,8 @@ test('DNS, RET, and DSQ codes are assignable and appear in standings', async ({ 
   await page.getByTestId('non-finisher-404').getByRole('combobox').click();
   await page.getByRole('option', { name: 'DSQ' }).click();
 
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   await page.getByRole('link', { name: 'Standings' }).click();
@@ -113,7 +114,8 @@ test('BFD is not struck through and shown in red when a discard is active', asyn
     await page.getByLabel('Sail number').fill(sail);
     await page.getByRole('button', { name: 'Add' }).click();
   }
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // Race 2: same order
@@ -122,7 +124,8 @@ test('BFD is not struck through and shown in red when a discard is active', asyn
     await page.getByLabel('Sail number').fill(sail);
     await page.getByRole('button', { name: 'Add' }).click();
   }
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // Race 3: Bob=1st, Carol=2nd, Dave=3rd; Alice=BFD
@@ -133,7 +136,8 @@ test('BFD is not struck through and shown in red when a discard is active', asyn
   }
   await page.getByTestId('non-finisher-1001').getByRole('combobox').click();
   await page.getByRole('option', { name: 'BFD' }).click();
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // Add discard rule (1 discard from 3 races)
@@ -211,7 +215,8 @@ test('ZFP penalty can be set on a finisher and appears in standings with amber s
   // ZFP badge should appear next to Alice in the finisher list
   await expect(page.getByText('ZFP').first()).toBeVisible();
 
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   await page.getByRole('link', { name: 'Standings' }).click();

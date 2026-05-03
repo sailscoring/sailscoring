@@ -49,7 +49,8 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
   }
   await page.getByTestId('non-finisher-7').getByRole('combobox').click();
   await page.getByRole('option', { name: 'DNF' }).click();
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 5. Enter Race 2: Carol 1st, Alice 2nd, Bob=implicit DNC ──────────────
@@ -58,7 +59,8 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
     await page.getByLabel('Sail number').fill(sail);
     await page.getByRole('button', { name: 'Add' }).click();
   }
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 6. Navigate to Standings and trigger export ───────────────────────────
@@ -244,7 +246,8 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
     await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
 
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 7. Navigate to Standings and export IRC fleet HTML ────────────────────
@@ -439,7 +442,7 @@ test('export HTML → import URL round-trip creates a new series', async ({ page
     await page.getByLabel('Sail number').fill(sail);
     await page.getByRole('button', { name: 'Add' }).click();
   }
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   await page.getByRole('link', { name: 'Standings' }).click();
   const download = await Promise.all([

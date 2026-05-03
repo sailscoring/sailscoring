@@ -81,7 +81,8 @@ test('import per-race finish sheet from CSV', async ({ page }) => {
   await expect(nonFinisher).toContainText('DNF');
 
   // ── 7. Save and verify round-trip ──────────────────────────────────────────
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
   await expect(page.getByText(/3 finishers/)).toBeVisible();
 
@@ -117,7 +118,8 @@ test('finish sheet CSV import replaces existing finishes', async ({ page }) => {
     await page.getByLabel('Sail number').fill(sail);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 3. Re-open; import a CSV in REVERSE order ──────────────────────────────

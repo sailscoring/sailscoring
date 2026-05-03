@@ -1,19 +1,19 @@
 'use client';
 
-import { use, useState, useRef, useEffect } from 'react';
+import { use, useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useRepos } from '@/lib/repos';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSeries, useTouchSeries } from '@/hooks/use-series';
 import { useCompetitorsBySeries, useSaveCompetitor } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useRace, useRacesBySeries } from '@/hooks/use-races';
 import {
   useDeleteFinish,
-  useDeleteFinishesByRace,
   useFinishesByRace,
+  useReorderFinishes,
   useSaveFinish,
-  useSaveFinishes,
 } from '@/hooks/use-finishes';
+import { queryKeys } from '@/hooks/query-keys';
 import {
   useDeleteRaceStart,
   useRaceStartsByRace,
@@ -43,6 +43,12 @@ import {
 } from '@/components/ui/select';
 import { X, AlertTriangle, Flag, Scale, Plus, Pencil, Trash2 } from 'lucide-react';
 import type { Competitor, Finish, ResultCode, PenaltyCode, RaceStart } from '@/lib/types';
+import {
+  deriveFinishState,
+  entryKey,
+  type FinishEntry,
+  type RedressEntry,
+} from '@/lib/finish-entry';
 import { calculateStandings } from '@/lib/scoring';
 import { CheckSquare, Square } from 'lucide-react';
 import { log } from '@/lib/debug';
@@ -54,17 +60,8 @@ import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 
 type NonFinisherCode = ResultCode | 'implicit-dnc';
 
-type RedressMethod = 'all_races' | 'races_before' | 'stated';
-type RedressPoolMode = 'none' | 'exclude' | 'include';
-
-interface RedressEntry {
-  method: RedressMethod;
-  poolMode: RedressPoolMode;
-  excludeRaces: number[];
-  includeRaces: number[];
-  includeAllLater: boolean;
-  statedPoints: string;
-}
+type RedressMethod = RedressEntry['method'];
+type RedressPoolMode = RedressEntry['poolMode'];
 
 interface RedressDialogState extends RedressEntry {
   competitorId: string;
@@ -77,12 +74,27 @@ interface NonFinisherEntry {
   code: NonFinisherCode;
 }
 
-type FinishEntry =
-  | { kind: 'known'; competitorId: string }
-  | { kind: 'unknown'; tempId: string; sailNumber: string };
-
-function entryId(e: FinishEntry): string {
-  return e.kind === 'known' ? e.competitorId : e.tempId;
+/** Build a fresh, fully-defaulted Finish row with the supplied overrides. */
+function makeFinish(raceId: string, overrides: Partial<Finish> & Pick<Finish, 'id'>): Finish {
+  return {
+    id: overrides.id,
+    raceId,
+    competitorId: overrides.competitorId ?? null,
+    ...(overrides.unknownSailNumber != null ? { unknownSailNumber: overrides.unknownSailNumber } : {}),
+    sortOrder: overrides.sortOrder ?? null,
+    tiedWithPrevious: overrides.tiedWithPrevious ?? false,
+    ...(overrides.finishTime != null ? { finishTime: overrides.finishTime } : {}),
+    resultCode: overrides.resultCode ?? null,
+    startPresent: overrides.startPresent ?? null,
+    penaltyCode: overrides.penaltyCode ?? null,
+    penaltyOverride: overrides.penaltyOverride ?? null,
+    redressMethod: overrides.redressMethod ?? null,
+    redressExcludeRaces: overrides.redressExcludeRaces ?? null,
+    redressIncludeRaces: overrides.redressIncludeRaces ?? null,
+    redressIncludeAllLater: overrides.redressIncludeAllLater ?? false,
+    redressPoints: overrides.redressPoints ?? null,
+    ...(overrides.version != null ? { version: overrides.version } : {}),
+  };
 }
 
 /** Render "Helm / Crew" when the series has crew names enabled and a crew is
@@ -101,8 +113,8 @@ export default function ResultEntryPage({
 }) {
   const { id: seriesId, raceId } = use(params);
   const router = useRouter();
+  const qc = useQueryClient();
 
-  const { finishRepo } = useRepos();
   const { data: competitors } = useCompetitorsBySeries(seriesId);
   const { data: series } = useSeries(seriesId);
   const showCrew =
@@ -119,24 +131,31 @@ export default function ResultEntryPage({
   const saveCompetitor = useSaveCompetitor();
   const saveFinish = useSaveFinish();
   const deleteFinish = useDeleteFinish();
-  const saveFinishes = useSaveFinishes();
-  const deleteFinishesByRace = useDeleteFinishesByRace();
+  const reorderFinishes = useReorderFinishes();
   const saveRaceStart = useSaveRaceStart();
   const deleteRaceStartMutation = useDeleteRaceStart();
   const touchSeries = useTouchSeries();
 
-  // Finishing order: unified crossing-order list (row index = sortOrder). ADR-007.
-  const [finishingOrder, setFinishingOrder] = useState<FinishEntry[]>([]);
-  // Non-finisher codes: competitorId → code (only explicit overrides from implicit DNC)
-  const [nonFinisherCodes, setNonFinisherCodes] = useState<Map<string, ResultCode>>(
-    new Map(),
+  // Source of truth: every visible "view model" derives from savedFinishes.
+  // No parallel useState collections + Save button — each interaction writes
+  // through to the server immediately (ADR-008 Phase 6).
+  const derived = useMemo(
+    () => deriveFinishState(savedFinishes ?? []),
+    [savedFinishes],
   );
-  // Entry ID of a row to briefly flash (recent auto-slot, auto-slide, or scratch reorder).
+  const {
+    finishingOrder,
+    nonFinisherCodes,
+    finishTimes,
+    tiedWithPrevious,
+    finisherPenalties,
+    redressEntries,
+    finishByEntryKey,
+    finishByCompetitorId,
+  } = derived;
+
+  // Entry-key of a row to briefly flash (recent auto-slot, scratch reorder).
   const [flashedRowId, setFlashedRowId] = useState<string | null>(null);
-  // Entry IDs of rows marked "tied with previous row" — simultaneous-finish case on scratch rows.
-  // The scoring engine applies RRS A8.1 averaged ranks to boats sharing the same sortOrder.
-  const [tiedWithPrevious, setTiedWithPrevious] = useState<Set<string>>(new Set());
-  const initialTiesRef = useRef<Set<string>>(new Set());
 
   const [activeTab, setActiveTab] = useState<'finish' | 'checkin'>('finish');
   const [sailInput, setSailInput] = useState('');
@@ -150,8 +169,6 @@ export default function ResultEntryPage({
   const [newCompetitorFleet, setNewCompetitorFleet] = useState('');
   const [addCompetitorError, setAddCompetitorError] = useState('');
   const [addingCompetitor, setAddingCompetitor] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
   // Pending time entry: competitor confirmed, waiting for finish time before adding to list
   const [pendingTimeEntry, setPendingTimeEntry] = useState<{ competitor: Competitor } | null>(null);
   const [pendingTimeValue, setPendingTimeValue] = useState('');
@@ -164,105 +181,58 @@ export default function ResultEntryPage({
   const [startTimeInput, setStartTimeInput] = useState('');
   const [startFleetIds, setStartFleetIds] = useState<string[]>([]);
   const [startDialogError, setStartDialogError] = useState('');
-  const [initialized, setInitialized] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showAllCheckin, setShowAllCheckin] = useState(false);
-  // Finish times: competitorId → "HH:MM:SS"
-  const [finishTimes, setFinishTimes] = useState<Map<string, string>>(new Map());
-  const initialFinishTimesRef = useRef<Map<string, string>>(new Map());
-  // Additive penalties: entryId → { code, override }
-  const [finisherPenalties, setFinisherPenalties] = useState<Map<string, { code: PenaltyCode; override: number | null }>>(new Map());
-  const initialPenaltiesRef = useRef<Map<string, { code: PenaltyCode; override: number | null }>>(new Map());
-  // Redress: competitorId → redress entry
-  const [redressEntries, setRedressEntries] = useState<Map<string, RedressEntry>>(new Map());
-  const initialRedressRef = useRef<Map<string, RedressEntry>>(new Map());
+  // Per-row UI overlay for the finish-time inputs: while a row's input is
+  // focused we show the in-progress text; on blur we normalize and persist.
+  const [editingTimes, setEditingTimes] = useState<Map<string, string>>(new Map());
   const [redressDialog, setRedressDialog] = useState<RedressDialogState | null>(null);
   // Penalty editor dialog
   const [editingPenaltyEntryId, setEditingPenaltyEntryId] = useState<string | null>(null);
   const [pendingPenaltyCode, setPendingPenaltyCode] = useState<PenaltyCode | 'none'>('none');
   const [pendingPenaltyOverride, setPendingPenaltyOverride] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const initialOrderRef = useRef<FinishEntry[]>([]);
-  const initialCodesRef = useRef<Map<string, ResultCode>>(new Map());
   const finishSheetImportRef = useRef<FinishSheetImportHandle>(null);
 
-  // Initialize form state from saved finishes once loaded
-  if (!initialized && competitors !== undefined && savedFinishes !== undefined) {
-    // Row order is crossing order (ADR-007). Build the list sorted by the stored sortOrder.
-    const positionedFinishes = savedFinishes
-      .filter((f) => f.sortOrder !== null)
-      .sort((a, b) => a.sortOrder! - b.sortOrder!);
+  // Optimistic cache patch: write the new shape immediately so the UI
+  // updates before the server round-trip resolves. Mutation onError will
+  // roll back by invalidating the query if the save fails.
+  function patchCache(updater: (rows: Finish[]) => Finish[]) {
+    const key = queryKeys.finishes.byRace(raceId);
+    const prev = qc.getQueryData<Finish[]>(key) ?? [];
+    qc.setQueryData<Finish[]>(key, updater(prev));
+  }
 
-    const order: FinishEntry[] = positionedFinishes.map((f) => {
-      if (f.competitorId !== null) {
-        return { kind: 'known', competitorId: f.competitorId };
-      } else {
-        return { kind: 'unknown', tempId: crypto.randomUUID(), sailNumber: f.unknownSailNumber ?? '' };
-      }
-    });
-
-    const finishedIds = new Set(
-      order.flatMap((e) => e.kind === 'known' ? [e.competitorId] : []),
-    );
-    const codes = new Map<string, ResultCode>();
-    for (const finish of savedFinishes) {
-      if (finish.sortOrder === null && finish.resultCode && finish.resultCode !== 'DNC' && finish.competitorId && !finishedIds.has(finish.competitorId)) {
-        codes.set(finish.competitorId, finish.resultCode);
-      }
-    }
-
-    const penalties = new Map<string, { code: PenaltyCode; override: number | null }>();
-    for (const finish of savedFinishes) {
-      if (finish.penaltyCode && finish.competitorId && finishedIds.has(finish.competitorId)) {
-        penalties.set(finish.competitorId, { code: finish.penaltyCode, override: finish.penaltyOverride ?? null });
-      }
-    }
-
-    const redress = new Map<string, RedressEntry>();
-    for (const finish of savedFinishes) {
-      if (finish.resultCode === 'RDG' && finish.competitorId && finish.redressMethod) {
-        const hasExclude = (finish.redressExcludeRaces?.length ?? 0) > 0;
-        const hasInclude = (finish.redressIncludeRaces?.length ?? 0) > 0 || finish.redressIncludeAllLater;
-        redress.set(finish.competitorId, {
-          method: finish.redressMethod as RedressMethod,
-          poolMode: hasExclude ? 'exclude' : hasInclude ? 'include' : 'none',
-          excludeRaces: finish.redressExcludeRaces ?? [],
-          includeRaces: finish.redressIncludeRaces ?? [],
-          includeAllLater: finish.redressIncludeAllLater ?? false,
-          statedPoints: finish.redressPoints != null ? String(finish.redressPoints) : '',
-        });
+  /**
+   * Apply a new ordered list of entries (with optional ties) to the
+   * server: write distinct sortOrders and the `tiedWithPrevious` flag
+   * for every row whose values changed. Caller is responsible for
+   * inserts/deletes — this only renumbers + retags existing rows.
+   */
+  function commitOrderChange(targetOrder: FinishEntry[], targetTies: Set<string>) {
+    const updates: Finish[] = [];
+    for (let i = 0; i < targetOrder.length; i++) {
+      const entry = targetOrder[i];
+      const finish = finishByEntryKey.get(entryKey(entry));
+      if (!finish) continue;
+      const targetSortOrder = i + 1;
+      const targetTied = i > 0 && targetTies.has(entryKey(entry));
+      if (
+        finish.sortOrder !== targetSortOrder ||
+        finish.tiedWithPrevious !== targetTied
+      ) {
+        updates.push({ ...finish, sortOrder: targetSortOrder, tiedWithPrevious: targetTied });
       }
     }
-
-    const times = new Map<string, string>();
-    for (const finish of savedFinishes) {
-      if (finish.finishTime && finish.competitorId) {
-        times.set(finish.competitorId, finish.finishTime);
-      }
-    }
-
-    // Derive the "tied with previous" set from consecutive equal sortOrder values.
-    const ties = new Set<string>();
-    for (let i = 1; i < positionedFinishes.length; i++) {
-      if (positionedFinishes[i].sortOrder === positionedFinishes[i - 1].sortOrder) {
-        ties.add(entryId(order[i]));
-      }
-    }
-
-    initialOrderRef.current = [...order];
-    initialCodesRef.current = new Map(codes);
-    initialPenaltiesRef.current = new Map(penalties);
-    initialRedressRef.current = new Map(redress);
-    initialFinishTimesRef.current = new Map(times);
-    initialTiesRef.current = new Set(ties);
-    setFinishingOrder(order);
-    setTiedWithPrevious(ties);
-    setNonFinisherCodes(codes);
-    setFinisherPenalties(penalties);
-    setRedressEntries(redress);
-    setFinishTimes(times);
-    setInitialized(true);
+    if (updates.length === 0) return;
+    const updatedById = new Map(updates.map((u) => [u.id, u]));
+    patchCache((rows) => rows.map((r) => updatedById.get(r.id) ?? r));
+    // Each row needs its own save (sortOrder + boolean both change). The
+    // shared `finishes` mutation scope serializes these writes against
+    // the per-row save path, so a follow-on edit waits for the last
+    // reorder save's onSuccess to land the bumped version.
+    for (const u of updates) saveFinish.mutate(u);
+    void touchSeries.mutateAsync(seriesId);
   }
 
   // Focus sail input as soon as the UI first renders (race + competitors loaded)
@@ -290,57 +260,12 @@ export default function ResultEntryPage({
     return () => clearTimeout(t);
   }, [flashedRowId]);
 
-  function isDirty(): boolean {
-    if (!initialized) return false;
-    // Order matters: compare finishingOrder against initial order by entry ID.
-    const initOrder = initialOrderRef.current;
-    if (finishingOrder.length !== initOrder.length) return true;
-    for (let i = 0; i < finishingOrder.length; i++) {
-      if (entryId(finishingOrder[i]) !== entryId(initOrder[i])) return true;
-    }
-    const initCodes = initialCodesRef.current;
-    if (nonFinisherCodes.size !== initCodes.size) return true;
-    for (const [k, v] of nonFinisherCodes) {
-      if (initCodes.get(k) !== v) return true;
-    }
-    const initPenalties = initialPenaltiesRef.current;
-    if (finisherPenalties.size !== initPenalties.size) return true;
-    for (const [k, v] of finisherPenalties) {
-      const init = initPenalties.get(k);
-      if (!init || init.code !== v.code || init.override !== v.override) return true;
-    }
-    const initRedress = initialRedressRef.current;
-    if (redressEntries.size !== initRedress.size) return true;
-    for (const [k, v] of redressEntries) {
-      const init = initRedress.get(k);
-      if (!init) return true;
-      if (init.method !== v.method || init.poolMode !== v.poolMode ||
-          init.statedPoints !== v.statedPoints || init.includeAllLater !== v.includeAllLater ||
-          JSON.stringify(init.excludeRaces) !== JSON.stringify(v.excludeRaces) ||
-          JSON.stringify(init.includeRaces) !== JSON.stringify(v.includeRaces)) return true;
-    }
-    const initTimes = initialFinishTimesRef.current;
-    if (finishTimes.size !== initTimes.size) return true;
-    for (const [k, v] of finishTimes) {
-      if (initTimes.get(k) !== v) return true;
-    }
-    const initTies = initialTiesRef.current;
-    if (tiedWithPrevious.size !== initTies.size) return true;
-    for (const k of tiedWithPrevious) {
-      if (!initTies.has(k)) return true;
-    }
-    return false;
+  // No isDirty / leave-confirm — every interaction persists immediately.
+  function leave() {
+    router.push(`/series/${seriesId}/races`);
   }
 
-  function tryLeave() {
-    if (isDirty()) {
-      setShowLeaveConfirm(true);
-    } else {
-      router.push(`/series/${seriesId}/races`);
-    }
-  }
-
-  // Ctrl+Enter to save; Esc to cancel; c to toggle check-in tab
+  // Esc to leave; c to toggle check-in tab
   function openAddStart() {
     setStartsExpanded(true);
     setStartTimeInput('');
@@ -392,15 +317,12 @@ export default function ResultEntryPage({
   }
 
   useGlobalKeyDown((e) => {
-    if (e.ctrlKey && e.key === 'Enter') {
-      e.preventDefault();
-      handleSave();
-    } else if (
+    if (
       e.key === 'Escape' &&
       !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')
     ) {
       e.preventDefault();
-      tryLeave();
+      leave();
     } else if (
       e.key === 'c' &&
       !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')
@@ -491,26 +413,55 @@ export default function ResultEntryPage({
   // Timed entries are auto-slotted immediately before the next later-timed row, preserving
   // the relative order of scratch rows (time-order invariant, ADR-007).
   function addKnownFinisher(competitor: Competitor, finishTime?: string) {
-    const newEntry: FinishEntry = { kind: 'known', competitorId: competitor.id };
-
+    // Compute the target insertion index in the visible finishing order.
+    let insertAt = finishingOrder.length;
     if (finishTime) {
-      setFinishTimes((prev) => new Map(prev).set(competitor.id, finishTime));
-      setFinishingOrder((order) => {
-        // Find the first existing entry whose stored finishTime is later than the new one.
-        let insertAt = order.length;
-        for (let i = 0; i < order.length; i++) {
-          const existingTime = finishTimes.get(entryId(order[i]));
-          if (existingTime !== undefined && existingTime > finishTime) {
-            insertAt = i;
-            break;
-          }
+      for (let i = 0; i < finishingOrder.length; i++) {
+        const existingTime = finishTimes.get(entryKey(finishingOrder[i]));
+        if (existingTime !== undefined && existingTime > finishTime) {
+          insertAt = i;
+          break;
         }
-        return [...order.slice(0, insertAt), newEntry, ...order.slice(insertAt)];
-      });
-      setFlashedRowId(competitor.id);
-    } else {
-      setFinishingOrder((order) => [...order, newEntry]);
+      }
     }
+
+    // Reuse the existing Finish row if the competitor was already checked in;
+    // otherwise insert a fresh row.
+    const existing = finishByCompetitorId.get(competitor.id);
+    const finishId = existing?.id ?? crypto.randomUUID();
+    const newRow: Finish = existing
+      ? {
+          ...existing,
+          sortOrder: insertAt + 1,
+          tiedWithPrevious: false,
+          ...(finishTime ? { finishTime } : {}),
+        }
+      : makeFinish(raceId, {
+          id: finishId,
+          competitorId: competitor.id,
+          sortOrder: insertAt + 1,
+          startPresent: true,
+          ...(finishTime ? { finishTime } : {}),
+        });
+
+    // Build the order *after* insertion so commitOrderChange can renumber
+    // displaced rows.
+    const newEntry: FinishEntry = {
+      kind: 'known', competitorId: competitor.id, finishId, version: existing?.version,
+    };
+    const targetOrder = [
+      ...finishingOrder.slice(0, insertAt),
+      newEntry,
+      ...finishingOrder.slice(insertAt),
+    ];
+
+    patchCache((rows) => existing
+      ? rows.map((r) => (r.id === existing.id ? newRow : r))
+      : [...rows, newRow]);
+    saveFinish.mutate(newRow);
+    if (finishTime) setFlashedRowId(competitor.id);
+    // Renumber displaced rows.
+    commitOrderChange(targetOrder, tiedWithPrevious);
     setSailInput('');
     setInputError('');
     setPendingUnknownSail(null);
@@ -571,8 +522,15 @@ export default function ResultEntryPage({
   }
 
   function recordAsUnknown(sail: string) {
-    const tempId = crypto.randomUUID();
-    setFinishingOrder((order) => [...order, { kind: 'unknown', tempId, sailNumber: sail }]);
+    const finishId = crypto.randomUUID();
+    const newRow = makeFinish(raceId, {
+      id: finishId,
+      competitorId: null,
+      unknownSailNumber: sail,
+      sortOrder: finishingOrder.length + 1,
+    });
+    patchCache((rows) => [...rows, newRow]);
+    saveFinish.mutate(newRow);
     setPendingUnknownSail(null);
     setSailInput('');
     setInputError('');
@@ -609,37 +567,46 @@ export default function ResultEntryPage({
   }
 
   function removeFinisher(eid: string) {
-    setFinishingOrder((order) => order.filter((e) => entryId(e) !== eid));
-    setFinisherPenalties((prev) => {
-      const next = new Map(prev);
-      next.delete(eid);
-      return next;
-    });
-    setRedressEntries((prev) => {
-      const next = new Map(prev);
-      next.delete(eid);
-      return next;
-    });
-    setFinishTimes((prev) => {
-      const next = new Map(prev);
-      next.delete(eid);
-      return next;
-    });
-    setTiedWithPrevious((prev) => {
-      if (!prev.has(eid)) return prev;
-      const next = new Set(prev);
-      next.delete(eid);
-      return next;
-    });
+    const finish = finishByEntryKey.get(eid);
+    if (!finish) return;
+    // Preserve startPresent across remove: if the row was checked in,
+    // retain it as a check-in-only record (sortOrder=null, fields cleared).
+    const next: Finish | null =
+      finish.startPresent === true
+        ? {
+            ...finish,
+            sortOrder: null,
+            tiedWithPrevious: false,
+            resultCode: null,
+            penaltyCode: null,
+            penaltyOverride: null,
+            redressMethod: null,
+            redressExcludeRaces: null,
+            redressIncludeRaces: null,
+            redressIncludeAllLater: false,
+            redressPoints: null,
+            ...(finish.finishTime ? { finishTime: undefined } : {}),
+          }
+        : null;
+    if (next) {
+      patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
+      saveFinish.mutate(next);
+    } else {
+      patchCache((rows) => rows.filter((r) => r.id !== finish.id));
+      deleteFinish.mutate({ id: finish.id, raceId });
+    }
+    // Renumber remaining rows so sortOrders stay 1-based contiguous.
+    const remaining = finishingOrder.filter((e) => entryKey(e) !== eid);
+    const remainingTies = new Set(tiedWithPrevious);
+    remainingTies.delete(eid);
+    commitOrderChange(remaining, remainingTies);
   }
 
   function toggleTiedWithPrevious(eid: string) {
-    setTiedWithPrevious((prev) => {
-      const next = new Set(prev);
-      if (next.has(eid)) next.delete(eid);
-      else next.add(eid);
-      return next;
-    });
+    const newTies = new Set(tiedWithPrevious);
+    if (newTies.has(eid)) newTies.delete(eid);
+    else newTies.add(eid);
+    commitOrderChange(finishingOrder, newTies);
   }
 
   /**
@@ -650,45 +617,29 @@ export default function ResultEntryPage({
    * the time-order invariant.
    */
   function moveRow(index: number, direction: -1 | 1) {
-    setFinishingOrder((order) => {
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= order.length) return order;
-      const next = [...order];
-      const movedEid = entryId(next[index]);
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= finishingOrder.length) return;
+    const next = [...finishingOrder];
+    const movedEid = entryKey(next[index]);
+    const newTies = new Set(tiedWithPrevious);
 
-      // If the row immediately below the moved row was tied with it,
-      // that tie now refers to the row above the vacated slot — preserve it
-      // only if the moved row was itself tied (i.e. the group continues).
-      // Otherwise clear it, since the tie target is gone.
-      const belowIndex = index + 1;
-      if (belowIndex < next.length) {
-        const belowEid = entryId(next[belowIndex]);
-        if (tiedWithPrevious.has(belowEid) && !tiedWithPrevious.has(movedEid)) {
-          // The moved row was the group leader — the row below loses its tie.
-          setTiedWithPrevious((prev) => {
-            const s = new Set(prev);
-            s.delete(belowEid);
-            return s;
-          });
-        }
-        // If movedEid was also tied (mid-group), belowEid's tie naturally
-        // transfers to the row above — no change needed.
+    // If the row immediately below the moved row was tied with it,
+    // that tie now refers to the row above the vacated slot — preserve it
+    // only if the moved row was itself tied (i.e. the group continues).
+    const belowIndex = index + 1;
+    if (belowIndex < next.length) {
+      const belowEid = entryKey(next[belowIndex]);
+      if (newTies.has(belowEid) && !newTies.has(movedEid)) {
+        newTies.delete(belowEid);
       }
+    }
+    // Always clear the tie on the moved row itself.
+    newTies.delete(movedEid);
 
-      // Always clear the tie on the moved row itself.
-      if (tiedWithPrevious.has(movedEid)) {
-        setTiedWithPrevious((prev) => {
-          const s = new Set(prev);
-          s.delete(movedEid);
-          return s;
-        });
-      }
-
-      const [moved] = next.splice(index, 1);
-      next.splice(targetIndex, 0, moved);
-      setFlashedRowId(entryId(moved));
-      return next;
-    });
+    const [moved] = next.splice(index, 1);
+    next.splice(targetIndex, 0, moved);
+    setFlashedRowId(entryKey(moved));
+    commitOrderChange(next, newTies);
   }
 
   /**
@@ -697,25 +648,30 @@ export default function ResultEntryPage({
    * the moved row briefly flashes at its new position.
    */
   function reslotTimedRow(eid: string, nextTime: string) {
-    setFinishingOrder((order) => {
-      const currentIndex = order.findIndex((e) => entryId(e) === eid);
-      if (currentIndex === -1) return order;
-      const without = [...order.slice(0, currentIndex), ...order.slice(currentIndex + 1)];
-      let insertAt = without.length;
-      for (let i = 0; i < without.length; i++) {
-        const otherId = entryId(without[i]);
-        if (otherId === eid) continue;
-        const otherTime = finishTimes.get(otherId);
-        if (otherTime !== undefined && otherTime > nextTime) {
-          insertAt = i;
-          break;
-        }
+    const currentIndex = finishingOrder.findIndex((e) => entryKey(e) === eid);
+    if (currentIndex === -1) return;
+    const without = [
+      ...finishingOrder.slice(0, currentIndex),
+      ...finishingOrder.slice(currentIndex + 1),
+    ];
+    let insertAt = without.length;
+    for (let i = 0; i < without.length; i++) {
+      const otherId = entryKey(without[i]);
+      if (otherId === eid) continue;
+      const otherTime = finishTimes.get(otherId);
+      if (otherTime !== undefined && otherTime > nextTime) {
+        insertAt = i;
+        break;
       }
-      if (insertAt === currentIndex) return order;
-      const next = [...without.slice(0, insertAt), order[currentIndex], ...without.slice(insertAt)];
-      setFlashedRowId(eid);
-      return next;
-    });
+    }
+    if (insertAt === currentIndex) return;
+    const reordered = [
+      ...without.slice(0, insertAt),
+      finishingOrder[currentIndex],
+      ...without.slice(insertAt),
+    ];
+    setFlashedRowId(eid);
+    commitOrderChange(reordered, tiedWithPrevious);
   }
 
   function openPenaltyEditor(eid: string) {
@@ -727,19 +683,22 @@ export default function ResultEntryPage({
 
   function applyPenalty() {
     if (!editingPenaltyEntryId) return;
-    if (pendingPenaltyCode === 'none') {
-      // Clear penalty
-      setFinisherPenalties((prev) => {
-        const next = new Map(prev);
-        next.delete(editingPenaltyEntryId);
-        return next;
-      });
-    } else {
-      const override = pendingPenaltyOverride.trim() ? Number(pendingPenaltyOverride) : null;
-      setFinisherPenalties((prev) =>
-        new Map(prev).set(editingPenaltyEntryId, { code: pendingPenaltyCode as PenaltyCode, override }),
-      );
+    const competitorId = editingPenaltyEntryId;
+    const finish = finishByCompetitorId.get(competitorId);
+    if (!finish) {
+      setEditingPenaltyEntryId(null);
+      return;
     }
+    const next: Finish = pendingPenaltyCode === 'none'
+      ? { ...finish, penaltyCode: null, penaltyOverride: null }
+      : {
+          ...finish,
+          penaltyCode: pendingPenaltyCode as PenaltyCode,
+          penaltyOverride: pendingPenaltyOverride.trim() ? Number(pendingPenaltyOverride) : null,
+        };
+    patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
+    saveFinish.mutate(next);
+    void touchSeries.mutateAsync(seriesId);
     setEditingPenaltyEntryId(null);
   }
 
@@ -761,75 +720,120 @@ export default function ResultEntryPage({
   function applyRedress() {
     if (!redressDialog) return;
     const { competitorId, isFinisher, ...entry } = redressDialog;
-    setRedressEntries((prev) => new Map(prev).set(competitorId, {
-      method: entry.method,
-      poolMode: entry.poolMode,
-      excludeRaces: entry.excludeRaces,
-      includeRaces: entry.includeRaces,
-      includeAllLater: entry.includeAllLater,
-      statedPoints: entry.statedPoints,
-    }));
-    if (!isFinisher) {
-      setNonFinisherCodes((m) => new Map(m).set(competitorId, 'RDG'));
+    const redressFields: Partial<Finish> = {
+      redressMethod: entry.method,
+      redressExcludeRaces: entry.poolMode === 'exclude' ? entry.excludeRaces : null,
+      redressIncludeRaces: entry.poolMode === 'include' ? entry.includeRaces : null,
+      redressIncludeAllLater: entry.poolMode === 'include' ? entry.includeAllLater : false,
+      redressPoints: entry.method === 'stated' ? (Number(entry.statedPoints) || null) : null,
+    };
+    const existing = finishByCompetitorId.get(competitorId);
+    let next: Finish;
+    if (existing) {
+      // RDG marks redress in both the engine and the derived view-model,
+      // for finishers and non-finishers alike. The finisher row keeps its
+      // sortOrder; the scoring engine treats the row as RDG (replaces points
+      // with the A9 average) but the display still shows the position.
+      next = {
+        ...existing,
+        ...redressFields,
+        resultCode: 'RDG' as ResultCode,
+      };
+    } else {
+      next = makeFinish(raceId, {
+        id: crypto.randomUUID(),
+        competitorId,
+        sortOrder: null,
+        resultCode: 'RDG',
+        ...redressFields,
+      });
     }
+    patchCache((rows) => existing
+      ? rows.map((r) => (r.id === existing.id ? next : r))
+      : [...rows, next]);
+    saveFinish.mutate(next);
+    void touchSeries.mutateAsync(seriesId);
     setRedressDialog(null);
   }
 
   function removeRedress() {
     if (!redressDialog) return;
     const { competitorId, isFinisher } = redressDialog;
-    setRedressEntries((prev) => {
-      const next = new Map(prev);
-      next.delete(competitorId);
-      return next;
-    });
-    if (!isFinisher) {
-      setNonFinisherCodes((m) => {
-        const next = new Map(m);
-        next.delete(competitorId);
-        return next;
-      });
+    const existing = finishByCompetitorId.get(competitorId);
+    if (!existing) {
+      setRedressDialog(null);
+      return;
     }
+    if (isFinisher) {
+      // Clear redress fields, keep the finisher row.
+      const next: Finish = {
+        ...existing,
+        resultCode: null,
+        redressMethod: null,
+        redressExcludeRaces: null,
+        redressIncludeRaces: null,
+        redressIncludeAllLater: false,
+        redressPoints: null,
+      };
+      patchCache((rows) => rows.map((r) => (r.id === existing.id ? next : r)));
+      saveFinish.mutate(next);
+    } else {
+      // Non-finisher RDG → revert to implicit DNC: drop the row entirely.
+      patchCache((rows) => rows.filter((r) => r.id !== existing.id));
+      deleteFinish.mutate({ id: existing.id, raceId });
+    }
+    void touchSeries.mutateAsync(seriesId);
     setRedressDialog(null);
   }
 
   /**
    * Replace the finishing order, finish times, and non-finisher codes from a
-   * CSV import. Clears state not expressible in the v1 CSV format (ties,
-   * penalties, redress) — the scorer re-adds those in the editor if needed.
-   * State only; the scorer clicks "Save results" to persist.
+   * CSV import. Destructive: deletes the existing finishes for this race
+   * before writing the imported batch. Clears state not expressible in the
+   * v1 CSV format (ties, penalties, redress) — the scorer re-adds those in
+   * the editor afterwards. Each row is saved individually so the per-row
+   * version model stays consistent with the rest of the autosave path.
    */
-  function applyCsvImport(imported: ParseFinishSheetResult) {
+  async function applyCsvImport(imported: ParseFinishSheetResult) {
     const finishers = imported.finishes
       .filter((f) => f.sortOrder !== null)
       .sort((a, b) => a.sortOrder! - b.sortOrder!);
-
-    const order: FinishEntry[] = [];
-    const times = new Map<string, string>();
-    for (const f of finishers) {
+    const newRows: Finish[] = [];
+    finishers.forEach((f, i) => {
       if (f.competitorId !== null) {
-        order.push({ kind: 'known', competitorId: f.competitorId });
-        if (f.finishTime) times.set(f.competitorId, f.finishTime);
+        newRows.push(makeFinish(raceId, {
+          id: crypto.randomUUID(),
+          competitorId: f.competitorId,
+          sortOrder: i + 1,
+          ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+        }));
       } else {
-        const tempId = crypto.randomUUID();
-        order.push({ kind: 'unknown', tempId, sailNumber: f.unknownSailNumber ?? '' });
-        if (f.finishTime) times.set(tempId, f.finishTime);
+        newRows.push(makeFinish(raceId, {
+          id: crypto.randomUUID(),
+          competitorId: null,
+          unknownSailNumber: f.unknownSailNumber ?? '',
+          sortOrder: i + 1,
+          ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+        }));
       }
-    }
-
-    const codes = new Map<string, ResultCode>();
+    });
     for (const f of imported.finishes) {
       if (f.sortOrder === null && f.resultCode && f.competitorId) {
-        codes.set(f.competitorId, f.resultCode);
+        newRows.push(makeFinish(raceId, {
+          id: crypto.randomUUID(),
+          competitorId: f.competitorId,
+          sortOrder: null,
+          resultCode: f.resultCode,
+        }));
       }
     }
-
-    setFinishingOrder(order);
-    setFinishTimes(times);
-    setNonFinisherCodes(codes);
-    setTiedWithPrevious(new Set());
-    setFinisherPenalties(new Map());
-    setRedressEntries(new Map());
+    const existing = savedFinishes ?? [];
+    patchCache(() => newRows);
+    await Promise.all(
+      existing.map((f) => deleteFinish.mutateAsync({ id: f.id, raceId })),
+    );
+    await Promise.all(newRows.map((f) => saveFinish.mutateAsync(f)));
+    void touchSeries.mutateAsync(seriesId);
     setSailInput('');
     setInputError('');
     setPendingUnknownSail(null);
@@ -842,15 +846,45 @@ export default function ResultEntryPage({
   }
 
   function setNonFinisherCode(competitorId: string, code: NonFinisherCode) {
+    const existing = finishByCompetitorId.get(competitorId);
     if (code === 'implicit-dnc') {
-      setNonFinisherCodes((m) => {
-        const next = new Map(m);
-        next.delete(competitorId);
-        return next;
-      });
+      // Clear the explicit code. If the row holds nothing else (no
+      // startPresent), drop it entirely; otherwise just null the code.
+      if (!existing) return;
+      if (existing.startPresent === null) {
+        patchCache((rows) => rows.filter((r) => r.id !== existing.id));
+        deleteFinish.mutate({ id: existing.id, raceId });
+      } else {
+        const next: Finish = { ...existing, resultCode: null };
+        patchCache((rows) => rows.map((r) => (r.id === existing.id ? next : r)));
+        saveFinish.mutate(next);
+      }
+    } else if (existing) {
+      // Clear redress fields when switching away from RDG to another code.
+      const next: Finish = {
+        ...existing,
+        resultCode: code,
+        sortOrder: null,
+        tiedWithPrevious: false,
+        redressMethod: null,
+        redressExcludeRaces: null,
+        redressIncludeRaces: null,
+        redressIncludeAllLater: false,
+        redressPoints: null,
+      };
+      patchCache((rows) => rows.map((r) => (r.id === existing.id ? next : r)));
+      saveFinish.mutate(next);
     } else {
-      setNonFinisherCodes((m) => new Map(m).set(competitorId, code));
+      const next = makeFinish(raceId, {
+        id: crypto.randomUUID(),
+        competitorId,
+        sortOrder: null,
+        resultCode: code,
+      });
+      patchCache((rows) => [...rows, next]);
+      saveFinish.mutate(next);
     }
+    void touchSeries.mutateAsync(seriesId);
   }
 
   async function toggleStartPresent(competitor: Competitor) {
@@ -948,6 +982,10 @@ export default function ResultEntryPage({
     try {
       // Use selected fleet ID, falling back to the first available fleet
       const fleetId = newCompetitorFleet || (fleets ?? [])[0]?.id || '';
+      // Event-handler time, not render time — the purity rule's render-reachability
+      // analysis traces handlers more aggressively after the Phase 6 refactor.
+      // eslint-disable-next-line react-hooks/purity
+      const createdAt = Date.now();
       const competitor: Competitor = {
         id: crypto.randomUUID(),
         seriesId,
@@ -957,150 +995,28 @@ export default function ResultEntryPage({
         club: '',
         gender: '',
         age: null,
-        createdAt: Date.now(),
+        createdAt,
       };
       await saveCompetitor.mutateAsync(competitor);
       await touchSeries.mutateAsync(seriesId);
 
-      // Resolve the unknown entry to the new competitor
-      const eid = resolvingEntry.tempId;
-      setFinishingOrder((order) =>
-        order.map((e) =>
-          e.kind === 'unknown' && e.tempId === eid
-            ? { kind: 'known', competitorId: competitor.id }
-            : e,
-        ),
-      );
+      // Resolve the unknown entry to the new competitor: update the
+      // existing unknown finish row in place with the new competitorId.
+      const finish = finishByEntryKey.get(resolvingEntry.finishId);
+      if (finish) {
+        const next: Finish = {
+          ...finish,
+          competitorId: competitor.id,
+          unknownSailNumber: undefined,
+        };
+        patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
+        await saveFinish.mutateAsync(next);
+      }
       closeResolveDialog();
     } catch (err) {
       console.error(err);
       setAddCompetitorError('Failed to add competitor. Please try again.');
       setAddingCompetitor(false);
-    }
-  }
-
-  async function handleSave() {
-    setSaving(true);
-    setSaveError('');
-    try {
-      // Preserve startPresent data from existing finishes (set via check-in)
-      const existing = await finishRepo.listByRace(raceId);
-      const startPresentMap = new Map(
-        existing
-          .filter((f): f is Finish & { competitorId: string } => f.competitorId !== null && f.startPresent !== null)
-          .map((f) => [f.competitorId, f.startPresent as boolean]),
-      );
-
-      const finishes: Finish[] = [];
-
-      // Finishers — sortOrder is the row index (crossing-order, ADR-007).
-      // Per ADR-008 Phase 6 (#111): sortOrders stay distinct (1..N); ties
-      // are stored on the boolean `tiedWithPrevious` so display order
-      // remains stable. The scoring engine averages ranks across rows
-      // marked tied.
-      finishingOrder.forEach((entry, index) => {
-        const sortOrder = index + 1;
-        const tied = index > 0 && tiedWithPrevious.has(entryId(entry));
-        if (entry.kind === 'known') {
-          const penalty = finisherPenalties.get(entry.competitorId);
-          const rdg = redressEntries.get(entry.competitorId);
-          const ft = finishTimes.get(entry.competitorId);
-          finishes.push({
-            id: crypto.randomUUID(),
-            raceId,
-            competitorId: entry.competitorId,
-            sortOrder,
-            tiedWithPrevious: tied,
-            resultCode: rdg ? 'RDG' : null,
-            startPresent: startPresentMap.get(entry.competitorId) ?? true,
-            penaltyCode: penalty?.code ?? null,
-            penaltyOverride: penalty?.override ?? null,
-            redressMethod: rdg?.method ?? null,
-            redressExcludeRaces: rdg?.poolMode === 'exclude' ? rdg.excludeRaces : null,
-            redressIncludeRaces: rdg?.poolMode === 'include' ? rdg.includeRaces : null,
-            redressIncludeAllLater: rdg?.poolMode === 'include' ? (rdg.includeAllLater ?? false) : false,
-            redressPoints: rdg?.method === 'stated' ? (Number(rdg.statedPoints) || null) : null,
-            ...(ft ? { finishTime: ft } : {}),
-          });
-        } else {
-          finishes.push({
-            id: crypto.randomUUID(),
-            raceId,
-            competitorId: null,
-            unknownSailNumber: entry.sailNumber,
-            sortOrder,
-            tiedWithPrevious: tied,
-            resultCode: null,
-            startPresent: null,
-            penaltyCode: null,
-            penaltyOverride: null,
-            redressMethod: null,
-            redressExcludeRaces: null,
-            redressIncludeRaces: null,
-            redressIncludeAllLater: false,
-            redressPoints: null,
-          });
-        }
-      });
-
-      // Non-finishers with explicit codes
-      for (const [competitorId, code] of nonFinisherCodes) {
-        if (!finishedIds.has(competitorId)) {
-          const rdg = code === 'RDG' ? redressEntries.get(competitorId) : undefined;
-          finishes.push({
-            id: crypto.randomUUID(),
-            raceId,
-            competitorId,
-            sortOrder: null,
-            tiedWithPrevious: false,
-            resultCode: code,
-            startPresent: startPresentMap.get(competitorId) ?? null,
-            penaltyCode: null,
-            penaltyOverride: null,
-            redressMethod: rdg?.method ?? null,
-            redressExcludeRaces: rdg?.poolMode === 'exclude' ? rdg.excludeRaces : null,
-            redressIncludeRaces: rdg?.poolMode === 'include' ? rdg.includeRaces : null,
-            redressIncludeAllLater: rdg?.poolMode === 'include' ? (rdg.includeAllLater ?? false) : false,
-            redressPoints: rdg?.method === 'stated' ? (Number(rdg.statedPoints) || null) : null,
-          });
-        }
-      }
-
-      // Check-in-only records: competitors with startPresent=true but not in finish list or codes
-      const accountedIds = new Set([
-        ...finishingOrder.flatMap((e) => e.kind === 'known' ? [e.competitorId] : []),
-        ...nonFinisherCodes.keys(),
-      ]);
-      for (const [competitorId, present] of startPresentMap) {
-        if (present && !accountedIds.has(competitorId)) {
-          finishes.push({
-            id: crypto.randomUUID(),
-            raceId,
-            competitorId,
-            sortOrder: null,
-            tiedWithPrevious: false,
-            resultCode: null,
-            startPresent: true,
-            penaltyCode: null,
-            penaltyOverride: null,
-            redressMethod: null,
-            redressExcludeRaces: null,
-            redressIncludeRaces: null,
-            redressIncludeAllLater: false,
-            redressPoints: null,
-          });
-        }
-      }
-
-      log('result-entry', 'saving finishes', { raceId, count: finishes.length });
-      await deleteFinishesByRace.mutateAsync(raceId);
-      await saveFinishes.mutateAsync(finishes);
-      await touchSeries.mutateAsync(seriesId);
-      router.push(`/series/${seriesId}/races`);
-    } catch (err) {
-      console.error(err);
-      setSaveError('Failed to save results. Please try again.');
-      setSaving(false);
     }
   }
 
@@ -1143,11 +1059,34 @@ export default function ResultEntryPage({
 
   const unknownCount = finishingOrder.filter((e) => e.kind === 'unknown').length;
 
+  // Status pill: any in-flight save / delete / reorder reads "Saving…",
+  // otherwise "All changes saved." Phase 7 will swap the otherwise-static
+  // "saved" text for richer collaboration affordances; chunk-5's row-conflict
+  // dialog will surface 409s alongside this pill.
+  const isSaving =
+    saveFinish.isPending || deleteFinish.isPending || reorderFinishes.isPending;
+  const statusLabel = isSaving ? 'Saving…' : 'All changes saved';
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Race {race.raceNumber} — results</h2>
-        <p className="text-sm text-muted-foreground">{race.date}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Race {race.raceNumber} — results</h2>
+          <p className="text-sm text-muted-foreground">{race.date}</p>
+        </div>
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="autosave-status"
+          className={cn(
+            'shrink-0 rounded-full border px-2.5 py-0.5 text-xs',
+            isSaving
+              ? 'border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+              : 'border-muted bg-muted/40 text-muted-foreground',
+          )}
+        >
+          {statusLabel}
+        </div>
       </div>
 
       {/* Tab selector */}
@@ -1477,7 +1416,7 @@ export default function ResultEntryPage({
                       setHighlightedIndex(-1);
                       setSailInput('');
                     } else {
-                      tryLeave();
+                      leave();
                     }
                   } else if (e.key === 'Tab' && suggestions.length > 0) {
                     e.preventDefault();
@@ -1575,7 +1514,7 @@ export default function ResultEntryPage({
 
           <ol className="space-y-1.5">
             {finishingOrder.map((entry, index) => {
-              const eid = entryId(entry);
+              const eid = entryKey(entry);
               const rowNumber = index + 1;
               const isFlashed = flashedRowId === eid;
               const isTimed = entry.kind === 'known' && needsFinishTime(entry.competitorId);
@@ -1583,7 +1522,7 @@ export default function ResultEntryPage({
               if (entry.kind === 'unknown') {
                 return (
                   <li
-                    key={entry.tempId}
+                    key={entry.finishId}
                     className={cn(
                       'flex items-center gap-3 border border-amber-400 rounded-lg px-4 py-2.5 bg-amber-50 dark:bg-amber-950 transition-colors',
                       isFlashed && 'ring-2 ring-primary',
@@ -1690,14 +1629,27 @@ export default function ResultEntryPage({
                   {isTimed ? (
                     <input
                       type="text"
-                      value={finishTimes.get(entry.competitorId) ?? ''}
-                      onChange={(e) => setFinishTimes((prev) => new Map(prev).set(entry.competitorId, e.target.value))}
+                      value={editingTimes.get(entry.competitorId) ?? finishTimes.get(entry.competitorId) ?? ''}
+                      onChange={(e) =>
+                        setEditingTimes((prev) => new Map(prev).set(entry.competitorId, e.target.value))
+                      }
                       onBlur={(e) => {
+                        const competitorId = entry.competitorId;
                         const normalized = normalizeTimeInput(e.target.value);
-                        if (normalized) {
-                          setFinishTimes((prev) => new Map(prev).set(entry.competitorId, normalized));
-                          reslotTimedRow(entry.competitorId, normalized);
-                        }
+                        setEditingTimes((prev) => {
+                          const nextMap = new Map(prev);
+                          nextMap.delete(competitorId);
+                          return nextMap;
+                        });
+                        if (!normalized) return;
+                        if (normalized === finishTimes.get(competitorId)) return;
+                        const finish = finishByCompetitorId.get(competitorId);
+                        if (!finish) return;
+                        const updated: Finish = { ...finish, finishTime: normalized };
+                        patchCache((rows) => rows.map((r) => (r.id === finish.id ? updated : r)));
+                        saveFinish.mutate(updated);
+                        void touchSeries.mutateAsync(seriesId);
+                        reslotTimedRow(competitorId, normalized);
                       }}
                       placeholder="HH:MM:SS"
                       aria-label={`Finish time for ${competitor.sailNumber}`}
@@ -1814,13 +1766,8 @@ export default function ResultEntryPage({
                       if (v === 'RDG') {
                         openRedressDialog(competitor.id, false, code);
                       } else {
-                        if (code === 'RDG') {
-                          setRedressEntries((prev) => {
-                            const next = new Map(prev);
-                            next.delete(competitor.id);
-                            return next;
-                          });
-                        }
+                        // setNonFinisherCode clears redress fields on the row
+                        // when transitioning away from RDG.
                         setNonFinisherCode(competitor.id, v as NonFinisherCode);
                       }
                     }}
@@ -1844,43 +1791,15 @@ export default function ResultEntryPage({
       </div>}
 
       <div className="flex gap-3 items-center border-t pt-4">
-        <Button onClick={handleSave} disabled={saving} title="Save results (⌃↵)">
-          {saving ? 'Saving…' : 'Save results'}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={tryLeave}
-          disabled={saving}
-        >
-          Cancel
+        <Button variant="outline" onClick={leave} data-testid="back-to-races">
+          Done
         </Button>
         <div className="ml-auto text-sm text-muted-foreground">
           {finishingOrder.length} finisher{finishingOrder.length === 1 ? '' : 's'}
           {unknownCount > 0 && ` (${unknownCount} unknown)`},{' '}
           {nonFinishers.length} non-finisher{nonFinishers.length === 1 ? '' : 's'}
         </div>
-        {saveError && <p className="text-sm text-destructive">{saveError}</p>}
       </div>
-
-      <Dialog open={showLeaveConfirm} onOpenChange={(open) => { if (!open) setShowLeaveConfirm(false); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Unsaved changes</DialogTitle>
-            <DialogDescription>You have unsaved changes. Save before leaving?</DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-3 pt-2">
-            <Button onClick={() => { setShowLeaveConfirm(false); handleSave(); }}>
-              Save results
-            </Button>
-            <Button variant="outline" onClick={() => { setShowLeaveConfirm(false); router.push(`/series/${seriesId}/races`); }}>
-              Discard
-            </Button>
-            <Button variant="ghost" onClick={() => setShowLeaveConfirm(false)}>
-              Cancel
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Resolve unknown competitor dialog */}
       <Dialog
@@ -1920,14 +1839,17 @@ export default function ResultEntryPage({
                       className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-accent text-sm text-left"
                       onClick={() => {
                         if (!resolvingEntry) return;
-                        const eid = resolvingEntry.tempId;
-                        setFinishingOrder((order) =>
-                          order.map((e) =>
-                            e.kind === 'unknown' && e.tempId === eid
-                              ? { kind: 'known', competitorId: competitor.id }
-                              : e,
-                          ),
-                        );
+                        const finish = finishByEntryKey.get(resolvingEntry.finishId);
+                        if (finish) {
+                          const next: Finish = {
+                            ...finish,
+                            competitorId: competitor.id,
+                            unknownSailNumber: undefined,
+                          };
+                          patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
+                          saveFinish.mutate(next);
+                          void touchSeries.mutateAsync(seriesId);
+                        }
                         closeResolveDialog();
                       }}
                     >

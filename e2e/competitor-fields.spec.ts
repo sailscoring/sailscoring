@@ -60,7 +60,7 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
   await page.getByText('Race 1').click();
   await page.getByLabel('Sail number').fill('14702');
   await page.getByRole('button', { name: 'Add' }).click();
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   // ── 9. Export HTML and verify combined "Helm / Crew" rendering ──────────
   await page.getByRole('link', { name: 'Standings' }).click();
@@ -107,7 +107,7 @@ test('class field shows Class column and exports in results', async ({ page }) =
   await page.getByText('Race 1').click();
   await page.getByLabel('Sail number').fill('207112');
   await page.getByRole('button', { name: 'Add' }).click();
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   await page.getByRole('link', { name: 'Standings' }).click();
   const [download] = await Promise.all([

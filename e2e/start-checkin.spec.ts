@@ -61,7 +61,8 @@ test('start check-in marks boats present and affects A5.3 standings', async ({ p
     await page.getByLabel('Sail number').fill(sail);
     await page.getByRole('button', { name: 'Add' }).click();
   }
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 6. Race 2: check in Alice, Bob, Carol; then enter Carol as finisher ───
@@ -103,7 +104,8 @@ test('start check-in marks boats present and affects A5.3 standings', async ({ p
   await expect(aliceRow.getByRole('combobox')).toContainText('DNF');
   await expect(bobRow.getByRole('combobox')).toContainText('DNF');
 
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 7. Check standings reflect A5.3 scoring ───────────────────────────────

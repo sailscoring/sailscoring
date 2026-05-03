@@ -131,10 +131,10 @@ test.describe('@server series file save / open / update, server mode', () => {
     await page.getByText('Race 1').click();
     await page.getByLabel('Sail number').fill('1234');
     await page.getByRole('button', { name: 'Add' }).click();
-    await page.getByRole('button', { name: 'Save results' }).click();
-    // Save results navigates back to the races index when the writes settle.
-    // Wait for it before navigating to Settings — otherwise the finish save
-    // can still be in flight when saveSeriesFile reads.
+    // Wait for autosave to settle before navigating away — otherwise an in-flight
+    // finish save can race saveSeriesFile reading from the DB.
+    await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+    await page.getByTestId('back-to-races').click();
     await expect(page).toHaveURL(/\/races$/);
 
     // Save to file from Settings — exercises saveSeriesFile against Postgres.

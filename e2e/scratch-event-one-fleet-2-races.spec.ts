@@ -88,7 +88,8 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   await page.getByTestId('non-finisher-1004').getByRole('combobox').click();
   await page.getByRole('option', { name: 'DNF' }).click();
 
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // Race 1 had 3 finishers (1001, 1002, 1003); Race 2 still empty
@@ -109,7 +110,8 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   await page.getByTestId('non-finisher-1002').getByRole('combobox').click();
   await page.getByRole('option', { name: 'OCS' }).click();
 
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // Both races now have 3 finishers each (1003, 1001, 1005 in Race 2)
@@ -275,7 +277,8 @@ test('unknown finish can be recorded and resolved', async ({ page }) => {
   await expect(page.getByText('Bob')).toBeVisible();
 
   // Save succeeds
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 });
 
@@ -313,7 +316,8 @@ test('unknown finish resolved by adding a new competitor', async ({ page }) => {
   await expect(page.getByText('Bob')).toBeVisible();
 
   // Save succeeds
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // New competitor is now in the series
@@ -343,7 +347,8 @@ test('unknown finish survives save and reload', async ({ page }) => {
   await expect(page.getByText('Unknown — not registered')).toBeVisible();
 
   // Save and navigate back
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
   await page.getByText('Race 1').click();
 
@@ -376,7 +381,8 @@ test('unresolved unknown finish is excluded from standings', async ({ page }) =>
   await page.getByRole('button', { name: 'Add' }).click();
   await page.getByRole('button', { name: 'Record as unknown' }).click();
 
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // Check standings
@@ -443,7 +449,8 @@ test('move controls reorder scratch rows in the finishing list', async ({ page }
   await expect(page.getByTestId('move-down-102')).toBeDisabled();
 
   // ── 4. Save and confirm redirect ──────────────────────────────────────────
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
   await expect(page.getByText('3 finishers')).toBeVisible();
 });

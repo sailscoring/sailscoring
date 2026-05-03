@@ -73,7 +73,7 @@ test('FTP upload dialog: shows configured server; shows no-servers message after
   await page.getByText('Race 1').click();
   await page.getByLabel('Sail number').fill('1');
   await page.getByRole('button', { name: 'Add' }).click();
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   await page.getByRole('link', { name: 'Standings' }).click();
 

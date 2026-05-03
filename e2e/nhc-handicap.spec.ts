@@ -89,7 +89,8 @@ test('NHC fleet: standings + propagation across two races', async ({ page }) => 
     await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 6. Race 2: same finishes (different TCFs apply this race) ─────────────
@@ -110,7 +111,8 @@ test('NHC fleet: standings + propagation across two races', async ({ page }) => 
     await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 7. Verify standings page shows NHC label ─────────────────────────────
@@ -180,7 +182,8 @@ test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page 
     await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByTestId('back-to-races').click();
 
   // Race 2: same — A 50, B 60.
   await page.getByText('Race 2').click();
@@ -199,7 +202,7 @@ test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page 
     await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   // ── Capture pre-edit standings HTML — race 2 should show "1.015" for A ───
   await page.getByRole('link', { name: 'Standings' }).click();
@@ -211,7 +214,7 @@ test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page 
   await page.getByText('Race 1').click();
   await page.getByTestId('finish-time-AA').fill('15:00:00');
   await page.getByTestId('finish-time-BB').fill('14:50:00');
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   // ── After edit, B is the fast boat — race 2's TCF used for B should now be 1.015 ──
   await page.getByRole('link', { name: 'Standings' }).click();

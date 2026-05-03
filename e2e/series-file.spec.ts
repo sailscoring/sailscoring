@@ -153,7 +153,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   await page.getByText('Race 1').click();
   await page.getByLabel('Sail number').fill('1234');
   await page.getByRole('button', { name: 'Add' }).click();
-  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   // ── Save to file and verify JSON ──────────────────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
