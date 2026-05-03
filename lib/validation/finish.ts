@@ -50,6 +50,23 @@ export const finishesBulkInputSchema = z.object({
   finishes: z.array(finishInputSchema),
 });
 
+/**
+ * Per-row CAS reorder payload (ADR-008 Phase 6). Drives the
+ * `FinishRepository.reorderSortOrders` path used by drag-reorder and tie
+ * toggles on the autosave finish-entry page.
+ */
+export const finishesReorderInputSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        id: uuidSchema,
+        sortOrder: z.number().int().nullable(),
+        expectedVersion: z.number().int().positive(),
+      }),
+    )
+    .min(1),
+});
+
 const _finishFromZod: Finish = undefined as unknown as z.infer<typeof finishSchema>;
 const _finishFromTs: z.infer<typeof finishSchema> = undefined as unknown as Finish;
 void _finishFromZod;

@@ -10,7 +10,27 @@ import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart } fr
  */
 export class ConflictError extends Error {
   constructor(
-    public readonly detail?: { expectedVersion?: number; currentVersion?: number },
+    public readonly detail?: {
+      expectedVersion?: number;
+      currentVersion?: number;
+      /** ISO-8601; the row's `updated_at` at the moment of conflict. */
+      updatedAt?: string;
+      /**
+       * Reserved for ADR-008 Phase 7 (`updated_by` column populated by the
+       * `workspaceRoute` wrapper). Phase 6 leaves this `undefined`.
+       */
+      actor?: { id: string; email?: string; displayName?: string };
+      /**
+       * Per-row CAS failures from a bulk operation
+       * (`FinishRepository.reorderSortOrders`). Each entry names a single
+       * id whose version no longer matches.
+       */
+      rowConflicts?: Array<{
+        id: string;
+        expectedVersion: number;
+        currentVersion?: number;
+      }>;
+    },
   ) {
     super('conflict');
     this.name = 'ConflictError';
@@ -30,11 +50,32 @@ export class ConflictError extends Error {
  * Omit `expectedVersion` for authoritative writes (file imports, the
  * server-side migration endpoint, fresh row creation). Bulk writes
  * (`FleetRepository.saveMany`, `CompetitorRepository.saveMany`,
- * `FinishRepository.saveMany`) are authoritative by construction; per-row
- * CAS lands with the Phase 8 finish-entry autosave refactor.
+ * `FinishRepository.saveMany`) are authoritative by construction. The
+ * autosave-driven finish-entry path uses single-row `save` (CAS) plus
+ * `FinishRepository.reorderSortOrders` (per-row CAS on a focused payload)
+ * — see ADR-008 Phase 6.
  */
 export interface SaveOpts {
   expectedVersion?: number;
+}
+
+/**
+ * Per-row CAS reorder payload for `FinishRepository.reorderSortOrders`.
+ * Only `sortOrder` changes — full Finish rows are written via single-row
+ * `save` calls. The reorder path stays small so drag-and-drop and tie
+ * toggles can write the affected window of rows in one round-trip.
+ */
+export interface FinishReorderItem {
+  id: string;
+  sortOrder: number | null;
+  expectedVersion: number;
+}
+
+/** Result row from a successful reorder — UI patches the cache by id. */
+export interface FinishReorderResult {
+  id: string;
+  sortOrder: number | null;
+  version: number;
 }
 
 export interface FleetRepository {
@@ -76,6 +117,17 @@ export interface FinishRepository {
   listBySeries(seriesId: string, competitorIds: string[]): Promise<Finish[]>;
   save(finish: Finish, opts?: SaveOpts): Promise<Finish>;
   saveMany(finishes: Finish[]): Promise<void>;
+  /**
+   * Update only `sortOrder` on a window of finishes, with per-row CAS.
+   * Used by the autosave finish-entry page for drag-reorder and tie toggles
+   * (ADR-008 Phase 6). All items must belong to `raceId`. If any row's
+   * `version` no longer matches, throws `ConflictError` with the conflicting
+   * ids in the detail and applies no writes.
+   */
+  reorderSortOrders(
+    raceId: string,
+    items: FinishReorderItem[],
+  ): Promise<FinishReorderResult[]>;
   delete(id: string): Promise<void>;
   deleteByRace(raceId: string): Promise<void>;
   deleteByRaces(raceIds: string[]): Promise<void>;

@@ -15,6 +15,7 @@ import postgres, { type Sql } from 'postgres';
 
 import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
+import { ConflictError } from '@/lib/repository';
 import type {
   Competitor,
   Finish,
@@ -347,6 +348,136 @@ describe.skipIf(skip)('postgres repositories', () => {
     expect(reread.every((f) => (f.sortOrder ?? 0) > 100)).toBe(true);
 
     await repos.series.delete(s.id);
+  });
+
+  test('FinishRepository.reorderSortOrders applies CAS-checked sortOrder updates', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+    const fleet = uuid();
+    await repos.fleets.save({ id: fleet, seriesId: s.id, name: 'F', displayOrder: 0, scoringSystem: 'scratch' });
+    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    await repos.races.save(race);
+
+    const competitors: Competitor[] = [];
+    const finishes: Finish[] = [];
+    for (let i = 0; i < 4; i++) {
+      const c: Competitor = {
+        id: uuid(), seriesId: s.id, fleetIds: [fleet],
+        sailNumber: String(200 + i), name: `Boat ${i}`,
+        club: '', gender: '', age: null, createdAt: Date.now(),
+      };
+      competitors.push(c);
+      await repos.competitors.save(c);
+      const saved = await repos.finishes.save({
+        id: uuid(), raceId: race.id, competitorId: c.id,
+        sortOrder: i + 1, resultCode: null, startPresent: null,
+        penaltyCode: null, penaltyOverride: null,
+        redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+        redressIncludeAllLater: false, redressPoints: null,
+      });
+      finishes.push(saved);
+    }
+
+    // Reverse the order — every row's sortOrder changes.
+    const reversed = finishes.map((f, i) => ({
+      id: f.id,
+      sortOrder: finishes.length - i,
+      expectedVersion: f.version!,
+    }));
+    const results = await repos.finishes.reorderSortOrders(race.id, reversed);
+    expect(results).toHaveLength(4);
+    for (const r of results) {
+      expect(r.version).toBe(2);
+    }
+
+    const reread = await repos.finishes.listByRace(race.id);
+    const byId = new Map(reread.map((f) => [f.id, f.sortOrder]));
+    for (const item of reversed) {
+      expect(byId.get(item.id)).toBe(item.sortOrder);
+    }
+
+    await repos.series.delete(s.id);
+  });
+
+  test('FinishRepository.reorderSortOrders aborts the whole batch on a stale version', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+    const fleet = uuid();
+    await repos.fleets.save({ id: fleet, seriesId: s.id, name: 'F', displayOrder: 0, scoringSystem: 'scratch' });
+    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    await repos.races.save(race);
+
+    const competitors: Competitor[] = [];
+    const finishes: Finish[] = [];
+    for (let i = 0; i < 3; i++) {
+      const c: Competitor = {
+        id: uuid(), seriesId: s.id, fleetIds: [fleet],
+        sailNumber: String(300 + i), name: `Boat ${i}`,
+        club: '', gender: '', age: null, createdAt: Date.now(),
+      };
+      competitors.push(c);
+      await repos.competitors.save(c);
+      const saved = await repos.finishes.save({
+        id: uuid(), raceId: race.id, competitorId: c.id,
+        sortOrder: i + 1, resultCode: null, startPresent: null,
+        penaltyCode: null, penaltyOverride: null,
+        redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+        redressIncludeAllLater: false, redressPoints: null,
+      });
+      finishes.push(saved);
+    }
+
+    // Bump finishes[1] out of band to simulate a concurrent edit.
+    const concurrent = await repos.finishes.save({
+      ...finishes[1],
+      finishTime: '12:34:56',
+    }, { expectedVersion: finishes[1].version });
+    expect(concurrent.version).toBe(2);
+
+    const items = finishes.map((f, i) => ({
+      id: f.id,
+      sortOrder: 100 + i,
+      expectedVersion: f.version!,
+    }));
+    const err = await repos.finishes
+      .reorderSortOrders(race.id, items)
+      .then(() => null)
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ConflictError);
+    const detail = (err as ConflictError).detail;
+    expect(detail?.rowConflicts).toHaveLength(1);
+    expect(detail?.rowConflicts?.[0].id).toBe(finishes[1].id);
+    expect(detail?.rowConflicts?.[0].expectedVersion).toBe(finishes[1].version);
+    expect(detail?.rowConflicts?.[0].currentVersion).toBe(2);
+
+    // Nothing was written — the still-fresh rows kept their original sortOrders.
+    const reread = await repos.finishes.listByRace(race.id);
+    const byId = new Map(reread.map((f) => [f.id, f.sortOrder]));
+    expect(byId.get(finishes[0].id)).toBe(1);
+    expect(byId.get(finishes[2].id)).toBe(3);
+
+    await repos.series.delete(s.id);
+  });
+
+  test('FinishRepository.reorderSortOrders rejects a race in another workspace', async () => {
+    const reposA = createRepos({ db, workspaceId: workspaceA });
+    const reposB = createRepos({ db, workspaceId: workspaceB });
+    const s = makeSeries();
+    await reposA.series.save(s);
+    const fleet = uuid();
+    await reposA.fleets.save({ id: fleet, seriesId: s.id, name: 'F', displayOrder: 0, scoringSystem: 'scratch' });
+    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    await reposA.races.save(race);
+
+    await expect(
+      reposB.finishes.reorderSortOrders(race.id, [
+        { id: uuid(), sortOrder: 1, expectedVersion: 1 },
+      ]),
+    ).rejects.toThrow(/not in workspace/);
+
+    await reposA.series.delete(s.id);
   });
 
   test('Finish.save against a race in another workspace is rejected', async () => {

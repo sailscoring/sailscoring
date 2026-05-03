@@ -32,8 +32,27 @@ export class NotFoundApiError extends ApiError {
   }
 }
 
+/**
+ * Mirror of the server-side `ConflictError.detail` envelope. Optional
+ * everywhere — older endpoints only carry `expectedVersion` /
+ * `currentVersion`. The actor field is reserved for ADR-008 Phase 7.
+ */
+export interface ConflictDetail {
+  expectedVersion?: number;
+  currentVersion?: number;
+  /** ISO-8601; the row's `updated_at` at the moment of conflict. */
+  updatedAt?: string;
+  actor?: { id: string; email?: string; displayName?: string };
+  /** Per-row CAS failures from a bulk operation (Phase 6 reorder). */
+  rowConflicts?: Array<{
+    id: string;
+    expectedVersion: number;
+    currentVersion?: number;
+  }>;
+}
+
 export class ConflictApiError extends ApiError {
-  constructor(public readonly detail?: unknown) {
+  constructor(public readonly detail?: ConflictDetail) {
     super('conflict', 409);
     this.name = 'ConflictApiError';
   }
@@ -103,7 +122,7 @@ export async function apiFetch<T = unknown>(
     if (res.status === 401) throw new AuthError();
     if (res.status === 403) throw new ForbiddenApiError(typeof errBody === 'object' ? errBody?.reason : undefined);
     if (res.status === 404) throw new NotFoundApiError(typeof errBody === 'object' ? errBody?.resource : undefined);
-    if (res.status === 409) throw new ConflictApiError(typeof errBody === 'object' ? errBody?.detail : undefined);
+    if (res.status === 409) throw new ConflictApiError(typeof errBody === 'object' ? errBody?.detail as ConflictDetail | undefined : undefined);
     if (res.status === 400) throw new ValidationApiError(typeof errBody === 'object' ? errBody?.issues : undefined);
     throw new ApiError(`HTTP ${res.status}`, res.status);
   }

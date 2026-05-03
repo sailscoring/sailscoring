@@ -9,6 +9,8 @@
 import { apiFetch } from './api-client';
 import type {
   CompetitorRepository,
+  FinishReorderItem,
+  FinishReorderResult,
   FinishRepository,
   FleetRepository,
   FtpServerRepository,
@@ -257,6 +259,18 @@ class ApiFinishRepository implements FinishRepository {
         }),
       ),
     );
+  }
+
+  async reorderSortOrders(
+    raceId: string,
+    items: FinishReorderItem[],
+  ): Promise<FinishReorderResult[]> {
+    if (items.length === 0) return [];
+    const { results } = await apiFetch<{ results: FinishReorderResult[] }>(
+      `/api/v1/races/${raceId}/finishes/reorder`,
+      { method: 'PATCH', body: { items } },
+    );
+    return results;
   }
 
   async delete(id: string): Promise<void> {

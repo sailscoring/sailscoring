@@ -55,7 +55,7 @@ function makeRepo(initial: Series): { repo: SeriesRepository; current: () => Ser
     save: async (s, opts?: SaveOpts) => {
       if (opts?.expectedVersion !== undefined && opts.expectedVersion !== (current.version ?? 0)) {
         throw new ConflictApiError({
-          actualVersion: current.version,
+          currentVersion: current.version,
           expectedVersion: opts.expectedVersion,
         });
       }

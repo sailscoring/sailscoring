@@ -120,10 +120,12 @@ describe.skipIf(skip)('optimistic concurrency (CAS via expectedVersion)', () => 
       thrown = err;
     }
     expect(thrown).toBeInstanceOf(ConflictError);
-    expect((thrown as ConflictError).detail).toEqual({
+    expect((thrown as ConflictError).detail).toMatchObject({
       expectedVersion: 1,
       currentVersion: 2,
     });
+    // Phase 6 added `updatedAt` to the conflict envelope; Phase 7 will add `actor`.
+    expect((thrown as ConflictError).detail?.updatedAt).toBeTypeOf('string');
 
     // Re-read; retry; succeeds.
     const fresh = await tabB.series.get(initial.id);
