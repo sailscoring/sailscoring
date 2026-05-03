@@ -3,11 +3,28 @@
 How multiple scorers work together on a single event, and what the
 application needs to support.
 
-These requirements are implemented by the org-based collaboration phase
-of [ADR-008](../design/decisions/008-full-stack-transition.md) (Phase 8).
+These requirements are implemented across the org-based collaboration
+phases of [ADR-008](../design/decisions/008-full-stack-transition.md):
+
+- **Phase 5.5 (#111)** ships per-row autosave on the race finish-entry
+  page and the row-scoped conflict dialog. Satisfies *Autosave individual
+  edits* and the basic shape of *Conflict Handling*.
+- **Phase 8a (#112)** ships workspace sharing, manual org provisioning,
+  copy-to-workspace, and actor attribution (`updated_by` column +
+  enriched 409 envelope). Together with #111, this satisfies
+  *Optimistic concurrency, not locking*, *No series-level locking*, and
+  the actor-attribution requirement of *Conflict Handling*.
+- **Phase 8b** ships the activity log proper (per-series Activity tab,
+  recency strips, per-record stamps), self-service org administration,
+  and listed/unlisted visibility. This is what fully delivers
+  *The log over real-time presence* — the per-row `updated_by`
+  down-payment in 8a is enough for "edited by Sarah at 14:23" in the
+  conflict dialog, but the chronological log surfaces and the
+  protest-committee accountability use case land here.
+
 Earlier phases ship personal workspaces only; panel members continue to
 exchange `.sailscoring` files for within-series collaboration until
-Phase 8 lands.
+Phase 8a lands.
 
 ## How Scorers Work in Practice
 
