@@ -24,7 +24,7 @@ Pure logic lives in `lib/`; pages and UI in `app/`. Key lib modules: `scoring.ts
 
 See `docs/` for design docs, ADRs, requirements, and glossary. `reference/` holds PDFs of comparable tools and the RRS (Appendix A governs scoring).
 
-The full-stack transition (ADR-008) is under way. Phases 1–3 are complete: Better Auth + Postgres, the full server-side data layer, and the UI swap onto `lib/api-repository.ts` (with a lint rule banning direct `lib/db` imports outside the Dexie repository). Phase 4 (personal workspaces + concurrency + `USE_SERVER_DATA` verification) is next; collaboration features and the bilge replacement land in later phases.
+The full-stack transition (ADR-008) is under way. Phases 1–4 are complete: Better Auth + Postgres, the full server-side data layer, the UI swap onto `lib/api-repository.ts` (with a lint rule banning direct `lib/db` imports outside the Dexie repository), and optimistic concurrency on every single-row write. Phase 5 (migration UX) is in flight. Next up: #111 (per-row autosave on finish entry, which also closes the silent-overwrite hole on `FinishRepository.saveMany`) → #112 (Phase 8a: org-sharing core for HYC panel collaboration) → Phase 6 cutover → Phase 7 bilge replacement → Phase 8b residuals. Phase 8 was split and reordered so HYC's panel gets server-of-record + collaboration in the same flag flip rather than living through a `.sailscoring` file-exchange gap after cutover.
 
 - **Schema** — Drizzle in `lib/db/schema/` (mirrors `lib/types.ts`), lazy client in `lib/db/client.ts`, migrations in `drizzle/`
 - **Validation** — Zod schemas in `lib/validation/`, used at every `/api/v1` boundary
