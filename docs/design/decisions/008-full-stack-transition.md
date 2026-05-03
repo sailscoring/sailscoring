@@ -136,9 +136,9 @@ Concurrent editing requires a per-row autosave refactor of the race
 finish-entry page (today a batch save model), so a stale-data refresh is
 non-destructive when concurrent edits are in flight. This is the largest
 UI-side change collaboration brings, and it is also where the silent
-overwrite hole on `FinishRepository.saveMany` is closed. It lands as a
-dedicated pre-8a item (issue #111) rather than inside the org-collaboration
-phase itself.
+overwrite hole on `FinishRepository.saveMany` is closed. It lands as
+Phase 6 (issue #111) — a dedicated refactor before the org-sharing work
+in Phase 7.
 
 ## Authentication and accounts
 
@@ -342,8 +342,8 @@ codebase.
 
 Phasing is for incremental verification, not a long parallel period.
 Each phase produces a verifiable internal milestone. The
-`USE_SERVER_DATA` feature flag (off by default until Phase 6) keeps
-production users on the local-first build throughout Phases 1–5.
+`USE_SERVER_DATA` feature flag (off by default until Phase 8) keeps
+production users on the local-first build throughout Phases 1–7.
 
 ### Phase 1 — Foundation
 
@@ -414,8 +414,8 @@ same publishing UX as local mode (HTML download, FTP upload, publish to
 bilge).
 
 A deliberate KISS scope: collaboration features and the bilge
-replacement were explicitly out, so the cutover (Phase 6) and migration
-UX (Phase 5) could ship without waiting on either.
+replacement were explicitly out, so the cutover and migration UX
+(Phase 5) could ship without waiting on either.
 
 **Work landed.** Optimistic concurrency: `expectedVersion` is threaded
 through every single-row `save*` repository method, with 409s surfaced
@@ -447,7 +447,7 @@ already imported. Validate with at least one HYC beta user on a real
 historical series.
 
 Bilge URL redirect mappings move out of this phase to bilge
-decommission (Phase 7), where they belong now that the bilge replacement
+decommission (Phase 9), where they belong now that the bilge replacement
 lives in the same phase.
 
 **Exit criteria.** A beta user with existing local data can sign up,
@@ -457,7 +457,7 @@ fidelity. Re-running the wizard is safe.
 **Size.** ~1–2 weeks. **Rollback.** Wizard is opt-in and idempotent;
 failed runs don't damage local data.
 
-### Phase 5.5 — Per-row autosave on finish entry *(pre-8a)*
+### Phase 6 — Per-row autosave on finish entry
 
 **Goal.** Replace the batch Save button on the race finish-entry page
 with per-row autosave, and close the silent-overwrite hole on
@@ -465,16 +465,17 @@ with per-row autosave, and close the silent-overwrite hole on
 
 **Why now.** Phase 4 deliberately left bulk-save paths without per-row
 CAS, on the grounds that this refactor would land with org
-collaboration. With Phase 8 split (see below) and HYC collaboration
-prioritised ahead of cutover, the autosave refactor is the natural
-prerequisite — it's the largest single chunk of UI work in the
-collaboration story, it stands alone, and shipping it first lets 8a
-focus on org-sharing infrastructure rather than a finish-entry rewrite.
+collaboration. With HYC collaboration prioritised ahead of cutover, the
+autosave refactor is the natural prerequisite — it's the largest single
+chunk of UI work in the collaboration story, it stands alone, and
+shipping it first lets Phase 7 focus on org-sharing infrastructure
+rather than a finish-entry rewrite.
 
 **Work.** Per-row autosave on every interaction except drag-reorder
 (which stays bulk but gains per-row CAS). Status pill replaces the Save
 button. Row-scoped conflict dialog (without rich actor attribution —
-that lands in 8a). State model collapses; `isDirty` tracking goes away.
+that lands in Phase 7). State model collapses; `isDirty` tracking goes
+away.
 
 **Exit criteria.** The finish-entry page has no Save button. Two-tab
 same-user concurrent saves on the same race surface a row-scoped 409.
@@ -482,23 +483,77 @@ No silent-overwrite path remains on `FinishRepository.saveMany`.
 
 **Size.** ~5 days. Tracked by #111. **Rollback.** Revertible deploy.
 
-### Phase 6 — Cutover
+### Phase 7 — Org-sharing core
+
+**Goal.** HYC's scoring panel can share a workspace and collaborate
+safely on a series. Optimistic concurrency on every write, clean 409s
+with actor attribution, no silent overwrites. Manual workspace
+administration via CLI; no other publishing changes; no activity log.
+
+The panel coordinates "who is scoring which series" out of band, so the
+application's job is to make collisions visible and recoverable — not
+to prevent them. The richer collaboration UX (full activity log,
+self-service org admin, vanity URLs, listed/unlisted) lands in
+Phase 10 once Phase 9 is in.
+
+**Pre-requisite.** Phase 6 (#111) closes the silent-overwrite hole on
+`FinishRepository.saveMany` and lands the row-scoped conflict dialog.
+Phase 7 builds on both.
+
+**Work.**
+
+- **Workspace switcher** in the global header, wired to Better Auth's
+  `setActiveOrganization`. Removes the `createdAt` membership fallback
+  in `lib/auth/require-workspace.ts`.
+- **Manual provisioning CLI** (`scripts/provision-org.ts`) for
+  `create-org`, `add-member`, `set-role`, `list-members`,
+  `remove-member`. Replaces the originally planned invitation/members
+  management UI; self-service flows land in Phase 10.
+- **"Copy to workspace…" action** on a series. Copy rather than move so
+  a botched copy is recoverable — the personal-workspace original stays
+  intact. Generates fresh UUIDs, copies all child rows, strips
+  workspace-scoped references (FTP server, publishing state).
+- **Actor attribution on conflicts.** `updated_by` text column on every
+  mutable row, populated by the `workspaceRoute` wrapper. 409 envelope
+  grows `actor` (id + email/displayName) + `updatedAt`. The row-scoped
+  conflict dialog from Phase 6 picks them up: "Edited by Sarah at
+  14:23" instead of "someone."
+- **CAS audit on remaining `saveMany` paths.** Walk every caller of the
+  bulk paths (fleets, competitors, race-starts) and either confirm
+  authoritative-by-construction or add per-row CAS. Likely no code
+  change; closes the case rather than leaving it implicit.
+- **`/workspace` settings hub.** Rename `/settings` → `/workspace`.
+  Page titled "Workspace settings: *Workspace Name*", with FTP servers
+  as a card and section structure ready to grow into members /
+  invitations / danger-zone in Phase 10. `/account` remains the
+  user-level page.
+
+**Exit criteria.** HYC org workspace provisioned by hand; panel members
+sign in and switch into it; same series and FTP credentials visible to
+all members; concurrent edits anywhere surface clean 409s with actor
+attribution; personal-workspace series can be copied into the HYC
+workspace; local-first build unchanged.
+
+**Size.** ~7 days end-to-end. Tracked by #112.
+**Rollback.** Org features hide behind a flag; manual data unaffected.
+
+### Phase 8 — Cutover
 
 **Goal.** Production runs against Postgres; local-first mode is no
 longer the default. Both IODAI and HYC are on the new stack — IODAI as
 a personal-workspace user, HYC as a panel sharing the org workspace
-provisioned in 8a.
+provisioned in Phase 7.
 
 **Work.** Flip `USE_SERVER_DATA` on by default. Hide the local-first
 entry points behind a "Local archive" view. User comms to existing beta
 scorers prompting them to import. Update help docs
 (`app/help/page.tsx`), CLAUDE.md, and README.
 
-Under the new ordering, 8a lands before cutover, so HYC gets
-server-of-record *and* panel collaboration in the same flag flip rather
-than living through a `.sailscoring` file-exchange gap. The "Publish to
-bilge" code path stays in tree until Phase 7 — that's the phase that
-builds the replacement and removes bilge upload.
+With Phase 7 in place, cutover delivers server-of-record *and* panel
+collaboration in the same flag flip rather than leaving HYC scorers in
+a `.sailscoring` file-exchange gap. The "Publish to bilge" code path
+stays in tree until Phase 9 — that's the phase that builds the
+replacement and removes bilge upload.
 
 **Exit criteria.** Every active beta user is signed in and using the
 server backend. Local code paths retained but not reachable from the
@@ -509,7 +564,7 @@ one of cutover.
 **Rollback.** The flag remains in place during a stabilisation window so
 individual users can revert if needed; local data is not deleted.
 
-### Phase 7 — Bilge replacement and decommission
+### Phase 9 — Bilge replacement and decommission
 
 **Goal.** The new publish-to-blob-storage path is live; bilge is
 retired.
@@ -540,143 +595,85 @@ the bilge repository is archived.
 final decommission. **Rollback.** Final 410 cutover is irreversible;
 the build phase rolls back like any other (revert the deploy).
 
-### Phase 8 — Org-based collaboration
-
-Phase 8 splits into **8a** (org-sharing infrastructure that lands
-*before* cutover so HYC gets collaboration in the same flag flip as
-server-of-record) and **8b** (publishing-coupled bits and the rest of
-the original Phase 8 backlog, gated on Phase 7).
-
-#### Phase 8a — Org-sharing core *(reduced scope, before Phase 6)*
-
-**Goal.** HYC's scoring panel can share a workspace and collaborate
-safely on a series. Optimistic concurrency on every write, clean 409s
-with actor attribution, no silent overwrites. Manual workspace
-administration via CLI; no other publishing changes; no activity log.
-
-The panel coordinates "who is scoring which series" out of band, so the
-application's job is to make collisions visible and recoverable — not
-to prevent them.
-
-**Pre-requisite.** #111 (per-row autosave on finish entry, Phase 5.5)
-closes the silent-overwrite hole on `FinishRepository.saveMany` and
-lands the row-scoped conflict dialog. 8a builds on both.
-
-**Work.**
-
-- **Workspace switcher** in the global header, wired to Better Auth's
-  `setActiveOrganization`. Removes the `createdAt` membership fallback
-  in `lib/auth/require-workspace.ts`.
-- **Manual provisioning CLI** (`scripts/provision-org.ts`) for
-  `create-org`, `add-member`, `set-role`, `list-members`,
-  `remove-member`. Replaces the original Phase 8 invitation/members
-  management UI; self-service flows land in 8b.
-- **"Copy to workspace…" action** on a series. Copy rather than move so
-  a botched copy is recoverable — the personal-workspace original stays
-  intact. Generates fresh UUIDs, copies all child rows, strips
-  workspace-scoped references (FTP server, publishing state).
-- **Actor attribution on conflicts.** `updated_by` text column on every
-  mutable row, populated by the `workspaceRoute` wrapper. 409 envelope
-  grows `actor` (id + email/displayName) + `updatedAt`. The row-scoped
-  conflict dialog from #111 picks them up: "Edited by Sarah at 14:23"
-  instead of "someone."
-- **CAS audit on remaining `saveMany` paths.** Walk every caller of the
-  bulk paths (fleets, competitors, race-starts) and either confirm
-  authoritative-by-construction or add per-row CAS. Likely no code
-  change; closes the case rather than leaving it implicit.
-- **`/workspace` settings hub.** Rename `/settings` → `/workspace`.
-  Page titled "Workspace settings: *Workspace Name*", with FTP servers
-  as a card and section structure ready to grow into members /
-  invitations / danger-zone in 8b. `/account` remains the user-level
-  page.
-
-**Exit criteria.** HYC org workspace provisioned by hand; panel members
-sign in and switch into it; same series and FTP credentials visible to
-all members; concurrent edits anywhere surface clean 409s with actor
-attribution; personal-workspace series can be copied into the HYC
-workspace; local-first build unchanged.
-
-**Size.** ~7 days end-to-end. Tracked by #112.
-**Rollback.** Org features hide behind a flag; manual data unaffected.
-
-#### Phase 8b — Publishing-coupled and self-service collaboration
+### Phase 10 — Publishing-coupled and self-service collaboration
 
 **Goal.** Everything from the original Phase 8 backlog that was either
-deferred from 8a or genuinely depends on Phase 7's `/p/{slug}`
+deferred from Phase 7 or genuinely depends on Phase 9's `/p/{slug}`
 publishing path being live.
 
 **Work.**
 
-- **Self-service org creation** via the admin-approved, out-of-band
-  review process originally described for Phase 8: a user submits a
-  request from `/account`, project owner approves manually. Replaces
-  the manual CLI from 8a.
+- **Self-service org creation** via an admin-approved, out-of-band
+  review process: a user submits a request from `/account`, project
+  owner approves manually. Replaces the manual CLI from Phase 7.
 - **Invitation flow** (Better Auth invitations plugin), members
-  management UI, role changes — the full administration surface 8a
-  deferred.
+  management UI, role changes — the full administration surface
+  Phase 7 deferred.
 - **Activity log proper.** Workspace-scoped, action-vocabulary-driven
   log written in the `workspaceRoute` wrapper for every mutation.
   Surfaced as a per-series Activity tab, recency strips on the series
   list, and per-record stamps in the competitor edit dialog. The log
   is the primary collaboration affordance per the
   [scorer-collaboration requirements](../../requirements/scorer-collaboration.md).
-  8a's `updated_by` column is the foundation; 8b adds the explicit
-  log table and the surfaces.
+  Phase 7's `updated_by` column is the foundation; Phase 10 adds the
+  explicit log table and the surfaces.
 - User and org slug claim flows, in **separate namespaces**. User slugs
   drive attribution (e.g. profile route under `/u/{slug}`); org slugs
   can claim vanity URLs as aliases over the canonical `/p/{slug}`
-  publishing path from Phase 7.
+  publishing path from Phase 9.
 - Listed/unlisted visibility toggle and a workspace public index.
 
 **Exit criteria.** Two test accounts in one workspace can both edit a
 series and see each other's changes through the activity log. Org
 admins can self-serve invitations and member management. Org-slug
 vanity URLs alias `/p/{slug}` correctly. HYC scoring panel can score a
-live race day on the new stack with multiple scorers concurrently —
-this is the original Phase 8 exit criterion, now split between 8a
-(safety) and 8b (rich UX).
+live race day on the new stack with multiple scorers concurrently with
+the full collaboration UX — Phase 7 covered the safety floor; Phase 10
+covers the rich UX.
 
-**Size.** ~3–4 weeks (the residual after 8a + #111 are deducted from
-the original Phase 8 estimate).
-**Rollback.** Activity log + slug surfaces hide behind flags; 8a
+**Size.** ~3–4 weeks (the residual after Phase 7 + Phase 6 are deducted
+from the original Phase 8 estimate).
+**Rollback.** Activity log + slug surfaces hide behind flags; Phase 7
 collaboration remains usable independently.
 
 ### Sequencing notes
 
-The original ADR had cutover (6) → bilge replacement (7) → org
-collaboration (8). That order has been reshuffled to prioritise HYC
-panel collaboration: the panel was going to live through a `.sailscoring`
-file-exchange gap between cutover and Phase 8. Splitting Phase 8 and
-landing the safety-critical half (8a) before cutover removes that gap
-without delaying anything else materially.
+The original ADR ordered cutover → bilge replacement → org
+collaboration as Phases 6 → 7 → 8. That order was reshuffled to
+prioritise HYC panel collaboration: the panel was going to live through
+a `.sailscoring` file-exchange gap between cutover and the original
+Phase 8. The collaboration phase split into a safety-critical half
+(now Phase 7) and a richer-UX half (now Phase 10), with the
+safety-critical half landing *before* cutover. The autosave refactor
+that Phase 4 deferred became a standalone Phase 6.
 
-Current order: **5 → 5.5 (#111) → 8a (#112) → 6 → 7 → 8b.**
+Current order: **5 → 6 (#111) → 7 (#112) → 8 → 9 → 10.**
 
 - Phases 1–4 are complete; 5 is in flight.
-- Phase 5.5 (#111) closes the silent-overwrite hole on
+- Phase 6 (#111) closes the silent-overwrite hole on
   `FinishRepository.saveMany` that Phase 4 deferred. It also fixes the
   long-standing Save-button UX wart on finish entry. Lands as a
-  standalone refactor before 8a so 8a can focus on org-sharing
-  infrastructure rather than a finish-entry rewrite.
+  standalone refactor before Phase 7 so the org-sharing work can focus
+  on infrastructure rather than a finish-entry rewrite.
 - Phase 5 is gated on Phase 2's import endpoint and was developed in
   parallel with Phase 4.
-- Phase 8a is gated on #111 (autosave + row-scoped conflict dialog) and
-  on Phase 5 being far enough along that beta users can move existing
-  series into the new org workspace.
-- Phase 6 should not happen mid-series — pick a quiet point in the
-  racing calendar. With 8a in place, cutover delivers
+- Phase 7 is gated on Phase 6 (autosave + row-scoped conflict dialog)
+  and on Phase 5 being far enough along that beta users can move
+  existing series into the new org workspace.
+- Phase 8 should not happen mid-series — pick a quiet point in the
+  racing calendar. With Phase 7 in place, cutover delivers
   server-of-record *and* panel collaboration in the same flag flip.
-- Phase 7 (bilge replacement and decommission) lands after cutover:
-  the new publishing path is a pre-requisite for 8b's org-slug vanity
-  URLs and listed/unlisted toggle.
-- Phase 8b lands when the residual collaboration UX (full activity log,
+- Phase 9 (bilge replacement and decommission) lands after cutover:
+  the new publishing path is a pre-requisite for Phase 10's org-slug
+  vanity URLs and listed/unlisted toggle.
+- Phase 10 lands when the residual collaboration UX (full activity log,
   self-service org admin, vanity URLs) becomes the next priority. Not
   blocked on the calendar gate for final bilge takedown.
 
 **Total active engineering: ~10–13 weeks of focused work** before final
-bilge takedown — unchanged in aggregate, redistributed in order. Phase 6
-is the only phase with a hard external timing constraint; the rest
-ladder cleanly.
+bilge takedown — unchanged in aggregate, redistributed in order.
+Phase 8 (cutover) is the only phase with a hard external timing
+constraint; the rest ladder cleanly.
 
 ## Sustainability posture
 
@@ -713,10 +710,10 @@ duplicated here.
 
 ### Positive
 
-- Scorers can use the app from any device. From Phase 8a, panels can
+- Scorers can use the app from any device. From Phase 7, panels can
   share series and update results without exchanging files; richer
   collaboration affordances (activity log, self-service org admin)
-  follow in 8b.
+  follow in Phase 10.
 - Server-of-record eliminates IndexedDB eviction risk on iOS Safari.
 - Better Auth + Drizzle + Postgres unblocks a public API as a follow-up
   rather than a rewrite; the api-keys and OIDC-provider plugins shorten
@@ -756,21 +753,22 @@ duplicated here.
 ## Open questions
 
 - **Workspace creation UX.** Personal workspace is auto-created on
-  signup (settled — Phase 1). Org creation is manual via CLI in Phase 8a
+  signup (settled — Phase 1). Org creation is manual via CLI in Phase 7
   (a small admin script over the Better Auth organization API);
-  self-service request + admin-approved review lands in Phase 8b.
-  Renaming, ownership transfer, and members management are all 8b.
+  self-service request + admin-approved review lands in Phase 10.
+  Renaming, ownership transfer, and members management are all
+  Phase 10.
 - **Public workspace index.** A workspace has a public landing page
-  listing its listed series — lands in Phase 8b alongside the
+  listing its listed series — lands in Phase 10 alongside the
   listed/unlisted toggle. Replaces what bilge's `/l/` prefix listing
   does today.
 - **Pricing.** Free during beta. Pricing model deferred to a separate
   ADR (tied to ADR-003's open-source-vs-commercial question).
-- **Scorer attribution in scoring history.** Down-payment in Phase 8a
+- **Scorer attribution in scoring history.** Down-payment in Phase 7
   via an `updated_by` text column on every mutable row, surfaced in the
   409 envelope and the row-scoped conflict dialog. Full activity log
   (per-series Activity tab, recency strips, per-record stamps) lands in
-  Phase 8b on top of that foundation.
+  Phase 10 on top of that foundation.
 
 ## Related Decisions
 
