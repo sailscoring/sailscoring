@@ -240,6 +240,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       raceId: race.id,
       competitorId: competitor.id,
       sortOrder: 3,
+      tiedWithPrevious: false,
       finishTime: '12:34:56',
       resultCode: 'RDG',
       startPresent: true,

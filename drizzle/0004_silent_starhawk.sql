@@ -1,0 +1,1 @@
+ALTER TABLE "finishes" ADD COLUMN "tied_with_previous" boolean DEFAULT false NOT NULL;

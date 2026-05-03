@@ -880,6 +880,7 @@ export default function ResultEntryPage({
           raceId,
           competitorId: competitor.id,
           sortOrder: null,
+          tiedWithPrevious: false,
           resultCode: null,
           startPresent: false,
           penaltyCode: null,
@@ -901,6 +902,7 @@ export default function ResultEntryPage({
           raceId,
           competitorId: competitor.id,
           sortOrder: null,
+          tiedWithPrevious: false,
           resultCode: null,
           startPresent: true,
           penaltyCode: null,
@@ -992,19 +994,13 @@ export default function ResultEntryPage({
       const finishes: Finish[] = [];
 
       // Finishers — sortOrder is the row index (crossing-order, ADR-007).
-      // Rows marked "tied with previous" share sortOrder with the preceding row
-      // so the scoring engine applies RRS A8.1 averaged ranks.
-      const sortOrders: number[] = [];
+      // Per ADR-008 Phase 6 (#111): sortOrders stay distinct (1..N); ties
+      // are stored on the boolean `tiedWithPrevious` so display order
+      // remains stable. The scoring engine averages ranks across rows
+      // marked tied.
       finishingOrder.forEach((entry, index) => {
-        const eid = entryId(entry);
-        if (index > 0 && tiedWithPrevious.has(eid)) {
-          sortOrders.push(sortOrders[index - 1]);
-        } else {
-          sortOrders.push(index + 1);
-        }
-      });
-      finishingOrder.forEach((entry, index) => {
-        const sortOrder = sortOrders[index];
+        const sortOrder = index + 1;
+        const tied = index > 0 && tiedWithPrevious.has(entryId(entry));
         if (entry.kind === 'known') {
           const penalty = finisherPenalties.get(entry.competitorId);
           const rdg = redressEntries.get(entry.competitorId);
@@ -1014,6 +1010,7 @@ export default function ResultEntryPage({
             raceId,
             competitorId: entry.competitorId,
             sortOrder,
+            tiedWithPrevious: tied,
             resultCode: rdg ? 'RDG' : null,
             startPresent: startPresentMap.get(entry.competitorId) ?? true,
             penaltyCode: penalty?.code ?? null,
@@ -1032,6 +1029,7 @@ export default function ResultEntryPage({
             competitorId: null,
             unknownSailNumber: entry.sailNumber,
             sortOrder,
+            tiedWithPrevious: tied,
             resultCode: null,
             startPresent: null,
             penaltyCode: null,
@@ -1054,6 +1052,7 @@ export default function ResultEntryPage({
             raceId,
             competitorId,
             sortOrder: null,
+            tiedWithPrevious: false,
             resultCode: code,
             startPresent: startPresentMap.get(competitorId) ?? null,
             penaltyCode: null,
@@ -1079,6 +1078,7 @@ export default function ResultEntryPage({
             raceId,
             competitorId,
             sortOrder: null,
+            tiedWithPrevious: false,
             resultCode: null,
             startPresent: true,
             penaltyCode: null,

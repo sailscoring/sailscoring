@@ -28,6 +28,7 @@ export const finishSchema = z.object({
   competitorId: uuidSchema.nullable(),
   unknownSailNumber: z.string().optional(),
   sortOrder: z.number().int().nullable(),
+  tiedWithPrevious: z.boolean(),
   finishTime: wallClockSchema.optional(),
   resultCode: resultCodeSchema.nullable(),
   startPresent: z.boolean().nullable(),

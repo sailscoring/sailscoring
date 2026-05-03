@@ -22,7 +22,7 @@ const FINISH_BASE: Finish = {
   redressMethod: null,
   redressExcludeRaces: null,
   redressIncludeRaces: null,
-  redressIncludeAllLater: false,
+  tiedWithPrevious: false, redressIncludeAllLater: false,
   redressPoints: null,
 };
 

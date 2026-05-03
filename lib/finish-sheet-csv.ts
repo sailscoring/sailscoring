@@ -73,6 +73,7 @@ export function autoDetectFinishSheetField(header: string): FinishSheetField {
 
 function blankFinish(): Omit<Finish, 'id' | 'raceId' | 'competitorId' | 'sortOrder' | 'resultCode'> {
   return {
+    tiedWithPrevious: false,
     startPresent: null,
     penaltyCode: null,
     penaltyOverride: null,

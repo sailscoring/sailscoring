@@ -99,8 +99,9 @@ export function calculateRaceScores(
   }
 
   // Assign within-fleet sequential ranks and average points for tied boats (RRS A8.1).
-  // Sort finishers by cross-fleet place; assign fleet ranks 1, 2, 3 … in that order.
-  // Boats tied on the water (equal sortOrder — crossing-order index) share averaged consecutive ranks.
+  // Sort finishers by cross-fleet place (always distinct sortOrder per ADR-008
+  // Phase 6 #111). Tie groups are detected by walking consecutive finishers
+  // and reading their `tiedWithPrevious` flag from the underlying Finish row.
   const finishers = [...result.entries()]
     .filter(([, score]) => score.place !== null)
     .sort((a, b) => a[1].place! - b[1].place! || a[0].localeCompare(b[0]));
@@ -108,10 +109,16 @@ export function calculateRaceScores(
   let fleetRank = 1;
   let fi = 0;
   while (fi < finishers.length) {
-    const pos = finishers[fi][1].place!;
-    // Find all boats tied at this cross-fleet position
-    let fj = fi;
-    while (fj < finishers.length && finishers[fj][1].place === pos) fj++;
+    // Walk forward while the next finisher is marked tiedWithPrevious. A
+    // group is the run [fi, fj). The leader's tiedWithPrevious flag is
+    // ignored — a tie chains backwards from row N to row N-1.
+    let fj = fi + 1;
+    while (
+      fj < finishers.length &&
+      finishMap.get(finishers[fj][0])?.tiedWithPrevious === true
+    ) {
+      fj++;
+    }
     const tiedCount = fj - fi;
     // They occupy fleet ranks fleetRank … fleetRank+tiedCount-1; average those ranks.
     const baseRank = fleetRank;

@@ -30,6 +30,8 @@ import type {
 export interface FixtureFinish {
   sailor: string;
   position?: number;                        // scratch: finishing position
+  /** Marks this finisher as tied with the immediately-prior row (RRS A8.1). */
+  tiedWithPrevious?: boolean;
   finishTime?: string;                      // handicap: wall-clock finish time
   code?: ResultCode;
   startPresent?: boolean;
@@ -240,6 +242,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
         raceId,
         competitorId,
         sortOrder: f.position ?? null,
+        tiedWithPrevious: f.tiedWithPrevious ?? false,
         ...(f.finishTime ? { finishTime: f.finishTime } : {}),
         resultCode: f.code ?? null,
         startPresent: f.startPresent ?? null,

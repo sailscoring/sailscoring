@@ -104,6 +104,9 @@ export interface PublicSeriesExport {
        *  but no matching competitor). When present, `sailNumber` is empty. */
       unknownSailNumber?: string;
       sortOrder: number | null;
+      /** Marks the finisher as tied with the prior row (RRS A8.1). Optional
+       *  in the export; older exports default to false on import. */
+      tiedWithPrevious?: boolean;
       finishTime?: string;
       resultCode: ResultCode | null;
       startPresent: boolean | null;
@@ -321,6 +324,7 @@ export async function buildPublicExport(
       return {
         sailNumber: sailNumberById.get(competitorId) ?? competitorId,
         sortOrder: finish?.sortOrder ?? null,
+        ...(finish?.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
         ...(finish?.finishTime ? { finishTime: finish.finishTime } : {}),
         resultCode: score.resultCode,
         startPresent: finish?.startPresent ?? null,
@@ -343,6 +347,7 @@ export async function buildPublicExport(
         sailNumber: '',
         ...(f.unknownSailNumber ? { unknownSailNumber: f.unknownSailNumber } : {}),
         sortOrder: f.sortOrder ?? null,
+        ...(f.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
         ...(f.finishTime ? { finishTime: f.finishTime } : {}),
         resultCode: f.resultCode,
         startPresent: f.startPresent ?? null,
@@ -625,6 +630,7 @@ export async function importPublicExport(
         competitorId: competitorId ?? null,
         ...(!competitorId && exportedUnknownSail ? { unknownSailNumber: exportedUnknownSail } : {}),
         sortOrder: finish.sortOrder,
+        tiedWithPrevious: finish.tiedWithPrevious ?? false,
         ...(finish.finishTime ? { finishTime: finish.finishTime } : {}),
         resultCode: finish.resultCode,
         startPresent: finish.startPresent,

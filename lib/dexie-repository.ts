@@ -95,26 +95,41 @@ class DexieRaceRepository implements RaceRepository {
   }
 }
 
+/**
+ * Ensures every row read from Dexie has a defined `tiedWithPrevious`.
+ * Existing series files written before ADR-008 Phase 6 (#111) lack the
+ * field; legacy rows default to `false` (not tied) so the engine and UI
+ * see a consistent shape.
+ */
+function normalizeFinish(f: Finish): Finish {
+  return f.tiedWithPrevious === undefined
+    ? { ...f, tiedWithPrevious: false }
+    : f;
+}
+
 class DexieFinishRepository implements FinishRepository {
-  listByRace(raceId: string): Promise<Finish[]> {
-    return db.finishes.where('raceId').equals(raceId).toArray();
+  async listByRace(raceId: string): Promise<Finish[]> {
+    const rows = await db.finishes.where('raceId').equals(raceId).toArray();
+    return rows.map(normalizeFinish);
   }
 
   async listBySeries(seriesId: string, competitorIds: string[]): Promise<Finish[]> {
     if (competitorIds.length === 0) return [];
-    return db.finishes
+    const rows = await db.finishes
       .where('competitorId')
       .anyOf(competitorIds)
       .toArray();
+    return rows.map(normalizeFinish);
   }
 
   async save(finish: Finish): Promise<Finish> {
-    await db.finishes.put(finish);
-    return finish;
+    const normalized = normalizeFinish(finish);
+    await db.finishes.put(normalized);
+    return normalized;
   }
 
   async saveMany(finishes: Finish[]): Promise<void> {
-    await db.finishes.bulkPut(finishes);
+    await db.finishes.bulkPut(finishes.map(normalizeFinish));
   }
 
   /**

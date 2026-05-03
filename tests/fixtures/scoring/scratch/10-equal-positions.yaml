@@ -28,7 +28,8 @@ races:
       - sailor: "202"
         position: 2   # tied with Carol: each scores (2+3)/2 = 2.5
       - sailor: "303"
-        position: 2   # tied with Bob
+        position: 3
+        tiedWithPrevious: true   # tied with Bob
       - sailor: "404"
         position: 4   # next available place after the two-way tie
 

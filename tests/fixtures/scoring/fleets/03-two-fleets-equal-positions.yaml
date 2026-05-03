@@ -39,7 +39,8 @@ races:
       - sailor: "J2"
         position: 2    # tied with J3: each scores (2+3)/2 = 2.5 within Junior fleet
       - sailor: "J3"
-        position: 2    # tied with J2
+        position: 3
+        tiedWithPrevious: true   # tied with J2
       - sailor: "S1"
         position: 4    # 4th overall, but 1st in Senior fleet → rank 1 → scores 1
       - sailor: "S2"

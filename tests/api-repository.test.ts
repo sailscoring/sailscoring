@@ -181,7 +181,7 @@ describe('api-repository routing', () => {
       redressMethod: null,
       redressExcludeRaces: null,
       redressIncludeRaces: null,
-      redressIncludeAllLater: false,
+      tiedWithPrevious: false, redressIncludeAllLater: false,
       redressPoints: null,
     };
     fetchMock.mockResolvedValueOnce(jsonResponse(200, f));
@@ -200,7 +200,7 @@ describe('api-repository routing', () => {
       penaltyCode: null, penaltyOverride: null,
       redressMethod: null, redressExcludeRaces: null,
       redressIncludeRaces: null,
-      redressIncludeAllLater: false, redressPoints: null,
+      tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
     });
     fetchMock.mockImplementation(() => Promise.resolve(jsonResponse(200, { count: 2 })));
     await finishRepo.saveMany([

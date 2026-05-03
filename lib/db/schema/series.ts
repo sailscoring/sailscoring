@@ -240,6 +240,9 @@ export const finishes = pgTable(
     }),
     unknownSailNumber: text('unknown_sail_number'),
     sortOrder: integer('sort_order'),
+    // Tied with the immediately-prior row at the same display position.
+    // Engine averages ranks per RRS A8.1; display sortOrder stays distinct.
+    tiedWithPrevious: boolean('tied_with_previous').notNull().default(false),
     finishTime: text('finish_time'),
     resultCode: text('result_code'),
     startPresent: boolean('start_present'),

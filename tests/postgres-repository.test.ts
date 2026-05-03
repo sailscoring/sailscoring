@@ -294,7 +294,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       resultCode: null, startPresent: true,
       penaltyCode: null, penaltyOverride: null,
       redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
-      redressIncludeAllLater: false, redressPoints: null,
+      tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
     };
     await repos.finishes.save(finish);
 
@@ -332,7 +332,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       resultCode: null, startPresent: null,
       penaltyCode: null, penaltyOverride: null,
       redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
-      redressIncludeAllLater: false, redressPoints: null,
+      tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
     }));
 
     await repos.finishes.saveMany(finishes);
@@ -374,7 +374,7 @@ describe.skipIf(skip)('postgres repositories', () => {
         sortOrder: i + 1, resultCode: null, startPresent: null,
         penaltyCode: null, penaltyOverride: null,
         redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
-        redressIncludeAllLater: false, redressPoints: null,
+        tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
       });
       finishes.push(saved);
     }
@@ -424,7 +424,7 @@ describe.skipIf(skip)('postgres repositories', () => {
         sortOrder: i + 1, resultCode: null, startPresent: null,
         penaltyCode: null, penaltyOverride: null,
         redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
-        redressIncludeAllLater: false, redressPoints: null,
+        tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
       });
       finishes.push(saved);
     }
@@ -503,7 +503,7 @@ describe.skipIf(skip)('postgres repositories', () => {
         sortOrder: 1, resultCode: null, startPresent: null,
         penaltyCode: null, penaltyOverride: null,
         redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
-        redressIncludeAllLater: false, redressPoints: null,
+        tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
       }),
     ).rejects.toThrow();
 

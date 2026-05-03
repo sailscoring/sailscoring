@@ -36,20 +36,22 @@ races:
   - number: 1
     finishes:
       - sailor: "101"
-        position: 2
+        position: 1
       - sailor: "202"
         position: 2
+        tiedWithPrevious: true
       - sailor: "303"
-        position: 4
+        position: 3
 
   - number: 2
     finishes:
       - sailor: "101"
-        position: 2
+        position: 1
       - sailor: "202"
         position: 2
+        tiedWithPrevious: true
       - sailor: "303"
-        position: 4
+        position: 3
 
 expected:
   standings:

@@ -143,6 +143,12 @@ export interface Finish {
   competitorId: string | null;    // null for unresolved unknown finishes
   unknownSailNumber?: string;     // set when competitorId is null
   sortOrder: number | null;       // crossing-order index in the unified finish sheet; null for coded finishes (except RDG: may be set alongside RDG)
+  // Per ADR-008 Phase 6 (#111): explicit tie marker. The scoring engine
+  // treats a finisher with `tiedWithPrevious === true` as sharing the
+  // immediately-prior row's place (RRS A8.1 averaged ranks). Stored
+  // separately from sortOrder so the visible row order stays stable —
+  // sortOrders remain monotonically increasing per race.
+  tiedWithPrevious: boolean;
   finishTime?: string;            // "HH:MM:SS" — time of day the boat crossed the line; ET = finishTime − startTime
   resultCode: ResultCode | null;  // null if sortOrder is set (RDG may coexist with sortOrder)
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded

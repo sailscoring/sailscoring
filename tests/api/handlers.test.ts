@@ -295,7 +295,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
         penaltyCode: null, penaltyOverride: null,
         redressMethod: null, redressExcludeRaces: null,
         redressIncludeRaces: null,
-        redressIncludeAllLater: false, redressPoints: null,
+        tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
       })),
     });
     expect(bulk.count).toBe(3);
@@ -325,7 +325,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
           penaltyCode: null, penaltyOverride: null,
           redressMethod: null, redressExcludeRaces: null,
           redressIncludeRaces: null,
-          redressIncludeAllLater: false, redressPoints: null,
+          tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
         }],
       }),
     ).rejects.toBeInstanceOf(NotFoundError);

@@ -115,6 +115,8 @@ interface SeriesFileFinish {
   competitorId: string | null;
   unknownSailNumber?: string;
   sortOrder: number | null;
+  /** Optional in the file format — older files default to `false` on import. */
+  tiedWithPrevious?: boolean;
   finishTime?: string;
   resultCode: ResultCode | null;
   startPresent: boolean | null;
@@ -230,6 +232,7 @@ export async function buildSeriesFile(
       competitorId: f.competitorId,
       unknownSailNumber: f.unknownSailNumber,
       sortOrder: f.sortOrder,
+      ...(f.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
       ...(f.finishTime ? { finishTime: f.finishTime } : {}),
       resultCode: f.resultCode,
       startPresent: f.startPresent,
@@ -590,6 +593,7 @@ async function writeFleetsCompetitorsRaces(
           competitorId: mappedCompetitorId,
           unknownSailNumber: f.unknownSailNumber,
           sortOrder: f.sortOrder,
+          tiedWithPrevious: f.tiedWithPrevious ?? false,
           ...(f.finishTime ? { finishTime: f.finishTime } : {}),
           resultCode: f.resultCode,
           startPresent: f.startPresent,
