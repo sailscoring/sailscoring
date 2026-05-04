@@ -26,6 +26,7 @@
     "db:studio": "tsx --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs studio",
     "db:auth:generate": "better-auth generate --config lib/auth.ts --output lib/db/schema/auth.ts -y",
     "provision-org": "tsx --env-file-if-exists=.env.local scripts/provision-org.ts",
+    "change-email": "tsx --env-file-if-exists=.env.local scripts/change-email.ts",
     "deploy": "vercel deploy",
     "deploy:prod": "vercel deploy --prod",
     "generate:fixtures": "tsx scripts/render-scoring-fixtures.ts"
