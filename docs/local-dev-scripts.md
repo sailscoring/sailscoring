@@ -10,6 +10,7 @@ from?", start here.
 | Command                  | What it does                                         | Needs Postgres? |
 |--------------------------|------------------------------------------------------|-----------------|
 | `pnpm dev`               | Start Next.js in dev mode (uses `.env.local`)        | Only if you exercise auth/server routes |
+| `pnpm dev:local`         | `pnpm dev` with `DATABASE_URL` overridden to the local container | Yes (auto-starts via `db:up`)  |
 | `pnpm build`             | Production build (uses `.env.local`)                 | No              |
 | `pnpm start`             | Run a production build (uses `.env.local`)           | Only if you exercise auth/server routes |
 | `pnpm start:test`        | Build + start with `.env.test` baked in              | Yes (auto-starts via `db:up`)  |
@@ -29,9 +30,10 @@ from?", start here.
 | `pnpm deploy`            | `vercel deploy` (preview)                            | -               |
 | `pnpm deploy:prod`       | `vercel deploy --prod`                               | -               |
 
-The `pretest:unit:db`, `pretest:e2e:server`, and `predb:migrate:test`
-lifecycle hooks call `scripts/db-up.sh` automatically — you never need
-to start the container by hand before running those commands.
+The `predev:local`, `pretest:unit:db`, `pretest:e2e:server`, and
+`predb:migrate:test` lifecycle hooks call `scripts/db-up.sh`
+automatically — you never need to start the container by hand before
+running those commands.
 
 ## Files under `scripts/`
 
