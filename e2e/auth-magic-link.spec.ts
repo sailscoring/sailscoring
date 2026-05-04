@@ -26,8 +26,12 @@ test.describe('@auth magic-link sign-in', () => {
 
     await expect(page).toHaveURL(/\/account/);
     await expect(page.getByText(email)).toBeVisible();
-    // The value (`<localpart>'s workspace`), not the label.
-    await expect(page.getByText(/'s workspace$/i)).toBeVisible();
+    // The value (`<localpart>'s workspace`), not the label. Scoped to
+    // <main> because the Phase 7 workspace switcher in the header now
+    // also shows the same name.
+    await expect(
+      page.getByRole('main').getByText(/'s workspace$/i),
+    ).toBeVisible();
   });
 
   test('signs out from /account', async ({ page }) => {

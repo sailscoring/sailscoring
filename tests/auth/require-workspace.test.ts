@@ -108,23 +108,74 @@ describe.skipIf(skip)('resolveWorkspace', () => {
     expect(ctx).toMatchObject({ workspaceId: orgB, role: 'member' });
   });
 
-  test('falls back to the oldest membership when activeOrganizationId is null', async () => {
-    const { resolveWorkspace } = await import('@/lib/auth/require-workspace');
-    const userId = await makeUser(`fallback-${Date.now()}@sailscoring.test`);
-    const orgA = await makeOrg('Older');
-    const orgB = await makeOrg('Newer');
+  test('throws no-active-workspace when activeOrganizationId is null and the user has multiple memberships', async () => {
+    const { resolveWorkspace, ForbiddenError } = await import(
+      '@/lib/auth/require-workspace'
+    );
+    const userId = await makeUser(`multi-${Date.now()}@sailscoring.test`);
+    const orgA = await makeOrg('A');
+    const orgB = await makeOrg('B');
     await makeMember(orgA, userId, 'owner', new Date(Date.now() - 60_000));
     await makeMember(orgB, userId, 'admin', new Date());
+
+    const err = await resolveWorkspace({
+      userId,
+      email: 'a@b',
+      activeOrganizationId: null,
+    }).catch((e) => e);
+    expect(err).toBeInstanceOf(ForbiddenError);
+    expect((err as InstanceType<typeof ForbiddenError>).reason).toBe(
+      'no-active-workspace',
+    );
+  });
+
+  test('bootstrap-picks the only membership when activeOrganizationId is null', async () => {
+    const { resolveWorkspace } = await import('@/lib/auth/require-workspace');
+    const userId = await makeUser(`solo-pick-${Date.now()}@sailscoring.test`);
+    const onlyOrg = await makeOrg('Only');
+    await makeMember(onlyOrg, userId, 'owner', new Date());
 
     const ctx = await resolveWorkspace({
       userId,
       email: 'a@b',
       activeOrganizationId: null,
     });
-    expect(ctx).toMatchObject({ workspaceId: orgA, role: 'owner' });
+    expect(ctx).toMatchObject({ workspaceId: onlyOrg, role: 'owner' });
   });
 
-  test('falls back when activeOrganizationId points to an org the user is not a member of', async () => {
+  test('bootstrap-pick persists the choice back to the session row when sessionId is provided', async () => {
+    const { resolveWorkspace } = await import('@/lib/auth/require-workspace');
+    const userId = await makeUser(`persist-${Date.now()}@sailscoring.test`);
+    const onlyOrg = await makeOrg('Persist');
+    await makeMember(onlyOrg, userId, 'owner', new Date());
+
+    const sessionId = `ses_${uuid().replace(/-/g, '')}`;
+    await db.insert(schema.session).values({
+      id: sessionId,
+      userId,
+      token: sessionId,
+      expiresAt: new Date(Date.now() + 60_000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await resolveWorkspace({
+      userId,
+      email: 'a@b',
+      activeOrganizationId: null,
+      sessionId,
+    });
+
+    const [row] = await db
+      .select({ activeOrganizationId: schema.session.activeOrganizationId })
+      .from(schema.session)
+      .where(eq(schema.session.id, sessionId));
+    expect(row.activeOrganizationId).toBe(onlyOrg);
+
+    await db.delete(schema.session).where(eq(schema.session.id, sessionId));
+  });
+
+  test('falls back to the only membership when activeOrganizationId is stale', async () => {
     const { resolveWorkspace } = await import('@/lib/auth/require-workspace');
     const userId = await makeUser(`stale-${Date.now()}@sailscoring.test`);
     const orgA = await makeOrg('Member');
@@ -137,6 +188,22 @@ describe.skipIf(skip)('resolveWorkspace', () => {
       activeOrganizationId: stale,
     });
     expect(ctx).toMatchObject({ workspaceId: orgA });
+  });
+
+  test('throws no-active-workspace when activeOrganizationId is stale and the user has multiple memberships', async () => {
+    const { resolveWorkspace, ForbiddenError } = await import(
+      '@/lib/auth/require-workspace'
+    );
+    const userId = await makeUser(`stale-multi-${Date.now()}@sailscoring.test`);
+    const orgA = await makeOrg('A2');
+    const orgB = await makeOrg('B2');
+    const stale = await makeOrg('Stale2');
+    await makeMember(orgA, userId, 'owner', new Date());
+    await makeMember(orgB, userId, 'member', new Date());
+
+    await expect(
+      resolveWorkspace({ userId, email: 'a@b', activeOrganizationId: stale }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
 

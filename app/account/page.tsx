@@ -13,11 +13,10 @@ export default async function AccountPage() {
   // auth a known failure mode.
   const session = await requireSession();
 
-  // Phase 1 has one workspace per user. Read directly from member +
-  // organization rather than session.activeOrganizationId — Better Auth
-  // queues user.create.after past the session-create transaction, so
-  // activeOrganizationId is null on the very first session of a new
-  // user. A real "switch workspace" UI lands in Phase 4.
+  // Show the *active* workspace (matches what every server-rendered page
+  // sees via `requireWorkspace`), not "first by createdAt." The Phase 7
+  // workspace switcher is the source of truth for picking among multiple
+  // memberships; this page just reflects the current pick.
   const rows = await getDb()
     .select({
       id: organization.id,
@@ -28,9 +27,11 @@ export default async function AccountPage() {
     .from(member)
     .innerJoin(organization, eq(member.organizationId, organization.id))
     .where(eq(member.userId, session.user.id))
-    .orderBy(member.createdAt)
-    .limit(1);
-  const workspace = rows[0] ?? null;
+    .orderBy(member.createdAt);
+  const activeId = session.session.activeOrganizationId ?? null;
+  const workspace =
+    (activeId ? rows.find((r) => r.id === activeId) : null) ??
+    (rows.length === 1 ? rows[0] : null);
 
   return (
     <section className="max-w-xl">
@@ -53,6 +54,15 @@ export default async function AccountPage() {
             <dd className="font-mono">{workspace.slug}</dd>
             <dt className="text-muted-foreground">Role</dt>
             <dd>{workspace.role}</dd>
+          </>
+        )}
+        {rows.length > 1 && (
+          <>
+            <dt className="text-muted-foreground">Memberships</dt>
+            <dd>
+              {rows.length} workspace{rows.length === 1 ? '' : 's'} — switch
+              from the header.
+            </dd>
           </>
         )}
       </dl>
