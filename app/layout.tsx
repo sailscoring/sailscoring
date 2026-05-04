@@ -80,6 +80,14 @@ export default async function RootLayout({
               >
                 Workspace Settings
               </Link>
+              {header && (
+                <Link
+                  href="/account"
+                  className="text-sm text-muted-foreground hover:underline"
+                >
+                  Account
+                </Link>
+              )}
               <Link
                 href="/help"
                 className="text-sm text-muted-foreground hover:underline"
