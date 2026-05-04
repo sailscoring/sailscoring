@@ -3,6 +3,11 @@ import path from 'node:path';
 
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import { and, eq } from 'drizzle-orm';
+import postgres from 'postgres';
+
+import * as schema from '@/lib/db/schema';
 
 /**
  * The dev/CI Resend stub appends each magic-link issuance to this file as
@@ -103,6 +108,114 @@ export async function setScoringMode(page: Page, mode: 'scratch' | 'handicap'): 
   const label = mode === 'handicap' ? 'Handicap (time-corrected)' : 'Scratch (position-based)';
   await page.getByText(label).click();
   await page.getByRole('button', { name: 'Done' }).click();
+}
+
+/**
+ * Direct-write helpers for ADR-008 Phase 7 server-mode tests that need
+ * to provision an org workspace and add members programmatically. The
+ * Better Auth organization plugin's HTTP endpoints all require a session
+ * — direct Drizzle writes mirror what `scripts/provision-org.ts` does
+ * for production. The local Postgres URL is hard-wired because every
+ * server-mode invocation goes through `pnpm test:e2e:server` which sets
+ * the same DATABASE_URL.
+ */
+const E2E_DB_URL =
+  process.env.DATABASE_URL ??
+  'postgres://sailscoring:sailscoring@localhost:5432/sailscoring';
+
+function adminDb() {
+  const sql = postgres(E2E_DB_URL, { max: 1, prepare: false });
+  return { db: drizzle(sql, { schema }), close: () => sql.end() };
+}
+
+function randomId(prefix: string): string {
+  return `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
+}
+
+/**
+ * Create an organization workspace with a unique slug. Returns the
+ * organization id so the caller can pass it to `addMemberByEmail` and
+ * use it as the active workspace.
+ */
+export async function createOrgWorkspace(name: string): Promise<{ id: string; slug: string }> {
+  const { db, close } = adminDb();
+  try {
+    const id = randomId('org');
+    const slug = `e2e-${id.slice(4, 16)}`;
+    await db.insert(schema.organization).values({
+      id,
+      name,
+      slug,
+      createdAt: new Date(),
+    });
+    return { id, slug };
+  } finally {
+    await close();
+  }
+}
+
+/**
+ * Add an existing user (looked up by email — they must have signed in
+ * once already) to an organization with the given role. Used by the
+ * Phase 7 cross-cutting tests to put two users in the same workspace
+ * for the actor-attribution conflict scenario.
+ */
+export async function addMemberByEmail(
+  orgId: string,
+  email: string,
+  role: 'owner' | 'admin' | 'member' = 'member',
+): Promise<void> {
+  const { db, close } = adminDb();
+  try {
+    const [user] = await db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, email.toLowerCase()))
+      .limit(1);
+    if (!user) {
+      throw new Error(`addMemberByEmail: user "${email}" not found`);
+    }
+    const [existing] = await db
+      .select({ id: schema.member.id })
+      .from(schema.member)
+      .where(
+        and(
+          eq(schema.member.organizationId, orgId),
+          eq(schema.member.userId, user.id),
+        ),
+      )
+      .limit(1);
+    if (existing) return;
+    await db.insert(schema.member).values({
+      id: randomId('mem'),
+      organizationId: orgId,
+      userId: user.id,
+      role,
+      createdAt: new Date(),
+    });
+  } finally {
+    await close();
+  }
+}
+
+/**
+ * Set the signed-in browser's active workspace and reload. The header
+ * switcher is the production path; this mirrors the same call so tests
+ * can position themselves into a particular workspace deterministically.
+ */
+export async function setActiveWorkspace(
+  page: Page,
+  organizationId: string,
+): Promise<void> {
+  await page.evaluate(async (orgId) => {
+    const res = await fetch('/api/auth/organization/set-active', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ organizationId: orgId }),
+    });
+    if (!res.ok) throw new Error(`set-active failed: ${res.status}`);
+  }, organizationId);
+  await page.reload();
 }
 
 /**
