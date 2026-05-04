@@ -24,11 +24,12 @@ function trustedOrigins(): string[] {
   return origins;
 }
 
-function defaultPersonalWorkspaceName(email: string, fallback?: string | null): string {
-  if (fallback && fallback.trim().length > 0) return `${fallback}'s workspace`;
-  const localPart = email.split('@')[0] ?? email;
-  return `${localPart}'s workspace`;
-}
+/** Personal workspaces all share the same generic name — they belong to
+ * exactly one user, who already sees their own email and name on
+ * `/account`. The switcher therefore reads "My Workspace" no matter who
+ * is signed in. Existing rows from before this rename keep whatever name
+ * they were created with; the switcher renders that as-is. */
+const PERSONAL_WORKSPACE_NAME = 'My Workspace';
 
 function randomId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
@@ -79,7 +80,7 @@ export const auth = betterAuth({
           const now = new Date();
           await db.insert(authSchema.organization).values({
             id: orgId,
-            name: defaultPersonalWorkspaceName(user.email, user.name),
+            name: PERSONAL_WORKSPACE_NAME,
             slug: `u-${user.id.slice(0, 16)}`,
             createdAt: now,
           });

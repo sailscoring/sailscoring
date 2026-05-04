@@ -511,6 +511,7 @@ export default function SettingsPage({
 
   return (
     <div className="space-y-6 max-w-lg">
+      <CopySeriesToWorkspaceCard seriesId={seriesId} seriesName={series.name} />
       {/* File card */}
       <div className={`border rounded-lg p-5 space-y-4 ${!hasFileHistory ? 'opacity-70' : ''}`}>
         <div>
@@ -571,7 +572,6 @@ export default function SettingsPage({
       />
       <CompetitorFieldsCard seriesId={seriesId} series={series} />
       <PublishingCard seriesId={seriesId} series={series} anyProgressiveFleet={anyProgressiveFleet} />
-      <CopySeriesToWorkspaceCard seriesId={seriesId} seriesName={series.name} />
 
       <input
         ref={fileInputRef}

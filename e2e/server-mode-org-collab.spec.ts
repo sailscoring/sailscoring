@@ -109,11 +109,11 @@ test.describe('@server copy series to workspace', () => {
     // Source still intact: switch back via the header dropdown and verify.
     await page.goto('/');
     await page.getByTestId('workspace-switcher').click();
-    // Menuitem accessibility name is "<workspace name> <role>", so the
-    // regex matches the workspace-name segment anywhere in the label.
+    // Personal workspaces are all named "My Workspace" since Phase 7's
+    // UI pass — pick that menuitem.
     await page
       .getByRole('menuitem')
-      .filter({ hasText: /'s workspace/ })
+      .filter({ hasText: 'My Workspace' })
       .click();
     await page.waitForURL(/\/$/);
     await expect(page.getByText(sourceName)).toBeVisible();

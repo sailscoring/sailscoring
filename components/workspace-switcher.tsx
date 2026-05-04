@@ -65,17 +65,10 @@ export function WorkspaceSwitcher({
     }
   }
 
-  // Single membership: flat label, no menu noise.
-  if (memberships.length === 1) {
-    return (
-      <span
-        className="text-sm text-muted-foreground"
-        data-testid="workspace-switcher-static"
-      >
-        {memberships[0].name}
-      </span>
-    );
-  }
+  // Single-membership users still get the dropdown rather than a flat
+  // label: the chevron is the visual cue that the workspace name is an
+  // affordance (and where to go to add a second one once self-service
+  // org creation lands in Phase 10).
 
   return (
     <DropdownMenu>

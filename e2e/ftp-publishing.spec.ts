@@ -83,7 +83,7 @@ test('FTP upload dialog: shows configured server; shows no-servers message after
   await page.getByRole('button', { name: 'Upload via FTP' }).click();
   await expect(page.getByRole('dialog', { name: 'Upload via FTP' })).toBeVisible();
   await expect(page.getByText('No FTP servers configured.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Add one in Workspace.' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Add one in Workspace Settings.' })).toBeVisible();
   // Upload button should not be present when there are no servers
   await expect(page.getByRole('button', { name: 'Upload' })).not.toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();

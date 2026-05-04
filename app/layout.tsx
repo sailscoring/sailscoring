@@ -78,7 +78,7 @@ export default async function RootLayout({
                 href="/workspace"
                 className="text-sm text-muted-foreground hover:underline"
               >
-                Workspace
+                Workspace Settings
               </Link>
               <Link
                 href="/help"

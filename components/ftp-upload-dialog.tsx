@@ -149,7 +149,7 @@ export function FtpUploadDialog({
           <p className="text-sm text-muted-foreground">
             No FTP servers configured.{' '}
             <Link href="/workspace" className="underline" onClick={onClose}>
-              Add one in Workspace.
+              Add one in Workspace Settings.
             </Link>
           </p>
         ) : (

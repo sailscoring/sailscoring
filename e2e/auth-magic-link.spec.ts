@@ -26,11 +26,12 @@ test.describe('@auth magic-link sign-in', () => {
 
     await expect(page).toHaveURL(/\/account/);
     await expect(page.getByText(email)).toBeVisible();
-    // The value (`<localpart>'s workspace`), not the label. Scoped to
-    // <main> because the Phase 7 workspace switcher in the header now
-    // also shows the same name.
+    // Personal workspaces are all named "My Workspace" — the user's own
+    // identity is on /account two lines up, no need to repeat it.
+    // Scoped to <main> because the Phase 7 workspace switcher in the
+    // header also shows the workspace name.
     await expect(
-      page.getByRole('main').getByText(/'s workspace$/i),
+      page.getByRole('main').getByText('My Workspace'),
     ).toBeVisible();
   });
 
