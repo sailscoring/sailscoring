@@ -28,6 +28,7 @@ export default function HelpPage() {
         <p className="font-medium text-foreground">On this page</p>
         {[
           ['#what-is-sail-scoring', 'What is Sail Scoring?'],
+          ['#signing-in', 'Signing in and workspaces'],
           ['#creating-a-series', 'Creating a series'],
           ['#adding-competitors', 'Adding competitors'],
           ['#fleets', 'Fleets'],
@@ -63,14 +64,57 @@ export default function HelpPage() {
           a Windows laptop and a steep learning curve.
         </p>
         <p>
-          This is an early preview, released to gather feedback from scorers before a wider launch.
-          A later version will be fully web-hosted with data stored centrally. For now, data is
-          stored locally in your browser and nothing is sent to a server.
+          You sign in with your email; series, competitors, races, and results are saved to your
+          account as you work. Scoring panels at clubs share a single workspace so the whole
+          team sees the same series in real time.
         </p>
         <p>
-          The current version supports position-based (scratch) scoring, static handicap
+          Sail Scoring supports position-based (scratch) scoring, static handicap
           scoring (IRC, PY), and progressive handicap scoring (NHC1, ECHO) for one or
           more fleets across multiple races.
+        </p>
+      </Section>
+
+      <Section id="signing-in" title="Signing in and workspaces">
+        <p>
+          Sail Scoring uses passwordless email sign-in. From the home screen, click{' '}
+          <strong className="text-foreground">Sign in</strong>, enter your email, and click the
+          link the app sends you. The link expires after five minutes; request a fresh one any
+          time.
+        </p>
+        <p>
+          When you first sign in you land in your{' '}
+          <strong className="text-foreground">personal workspace</strong> — labelled{' '}
+          <em>My Workspace</em> in the workspace switcher to the right of the page logo. Anything
+          you create here is private to your account and only visible to you.
+        </p>
+        <p>
+          Club scoring panels share an{' '}
+          <strong className="text-foreground">org workspace</strong>: every panel member can see
+          and edit the same series, FTP credentials, and workspace settings. Org workspaces are
+          set up by the project owner — email{' '}
+          <a href="mailto:hello@sailscoring.ie" className="underline">hello@sailscoring.ie</a>{' '}
+          with the panel members&apos; emails and a workspace name. Once you&apos;re added, the
+          workspace switcher in the header shows both your personal workspace and the shared one;
+          pick the shared one and the rest of the app reorients onto the panel&apos;s data.
+        </p>
+        <p>
+          To move a series from your personal workspace into a shared one, open its{' '}
+          <strong className="text-foreground">Settings</strong> tab and use the{' '}
+          <strong className="text-foreground">Copy to another workspace</strong> card at the top.
+          The original stays in your personal workspace; the copy lands in the target workspace
+          with a fresh history. FTP credentials and bilge publishing state are not carried over.
+        </p>
+        <p>
+          Concurrent edits between scorers in a shared workspace are detected per row. If two
+          scorers edit the same finish at the same moment, the second writer sees a clean
+          conflict dialog naming the first scorer rather than silently overwriting their work.
+        </p>
+        <p>
+          Account info (your email, the active workspace, sign-out) is at{' '}
+          <strong className="text-foreground">Account</strong> in the page header. Workspace-
+          scoped settings (FTP servers, the workspace name) are at{' '}
+          <strong className="text-foreground">Workspace Settings</strong> next to it.
         </p>
       </Section>
 
@@ -641,12 +685,12 @@ export default function HelpPage() {
 
       <Section id="saving-and-sharing" title="Saving and sharing a series">
         <p>
-          All changes are saved automatically to your browser&apos;s local storage — you do not need
-          to manually save while scoring. Your data persists across sessions on the same device
-          and browser.
+          All changes are saved automatically to your account as you score — there is no Save
+          button. The series is reachable from any device you sign in on, and panel members in
+          a shared org workspace see edits in close to real time.
         </p>
         <p>
-          To back up a series or share it with a co-scorer, open the{' '}
+          To back up a series or share it with someone outside your workspace, open the{' '}
           <strong className="text-foreground">Settings</strong> tab and click{' '}
           <strong className="text-foreground">Save to File</strong>. This downloads a{' '}
           <code className="text-foreground text-sm">.sailscoring</code> file containing the
@@ -657,15 +701,22 @@ export default function HelpPage() {
           To open a series from a file, click{' '}
           <strong className="text-foreground">Open Series</strong> on the home screen and select
           the <code className="text-foreground text-sm">.sailscoring</code> file. If the series
-          is already on your device, you will be asked whether to update your local copy or open
-          a second copy.
+          is already in your workspace, you will be asked whether to update the existing copy or
+          open it as a separate one.
         </p>
         <p>
-          If a co-scorer has saved a newer version of the file, open the{' '}
-          <strong className="text-foreground">Settings</strong> tab and click{' '}
-          <strong className="text-foreground">Update from File</strong> to pull in their changes.
-          The app checks whether the incoming file is a clean continuation of your local copy and
-          warns you if both copies have diverged.
+          To bring a series someone else is scoring into your workspace, open the{' '}
+          <strong className="text-foreground">Settings</strong> tab on the existing series and
+          click <strong className="text-foreground">Update from File</strong>. The app checks
+          whether the incoming file is a clean continuation of the workspace copy and warns you
+          if both copies have diverged.
+        </p>
+        <p>
+          If you used Sail Scoring before sign-in was required and have series saved in this
+          browser, the home page shows a banner offering to{' '}
+          <strong className="text-foreground">Move to my account</strong>. The migration runs
+          one series at a time and is safe to re-run — the banner only counts series that
+          haven&apos;t already been moved.
         </p>
       </Section>
 
