@@ -68,18 +68,10 @@ import {
   PenaltyEditorDialog,
   type PenaltyDraft,
 } from '@/components/penalty-editor-dialog';
+import { RedressDialog } from '@/components/redress-dialog';
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 
 type NonFinisherCode = ResultCode | 'implicit-dnc';
-
-type RedressMethod = RedressEntry['method'];
-type RedressPoolMode = RedressEntry['poolMode'];
-
-interface RedressDialogState extends RedressEntry {
-  competitorId: string;
-  isFinisher: boolean;
-  previousCode?: NonFinisherCode;   // for non-finisher: revert on cancel
-}
 
 interface NonFinisherEntry {
   competitor: Competitor;
@@ -181,7 +173,7 @@ export default function ResultEntryPage({
     | null
   >(null);
   const [retryingConflict, setRetryingConflict] = useState(false);
-  const [redressDialog, setRedressDialog] = useState<RedressDialogState | null>(null);
+  const [redressDialog, setRedressDialog] = useState<{ competitorId: string; isFinisher: boolean } | null>(null);
   // Penalty editor dialog: competitorId of the row being edited, or null.
   const [editingPenaltyEntryId, setEditingPenaltyEntryId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -765,24 +757,13 @@ export default function ResultEntryPage({
     setEditingPenaltyEntryId(null);
   }
 
-  function openRedressDialog(competitorId: string, isFinisher: boolean, previousCode?: NonFinisherCode) {
-    const existingEntry = redressEntries.get(competitorId);
-    setRedressDialog({
-      competitorId,
-      isFinisher,
-      previousCode,
-      method: existingEntry?.method ?? 'all_races',
-      poolMode: existingEntry?.poolMode ?? 'none',
-      excludeRaces: existingEntry?.excludeRaces ?? [],
-      includeRaces: existingEntry?.includeRaces ?? [],
-      includeAllLater: existingEntry?.includeAllLater ?? false,
-      statedPoints: existingEntry?.statedPoints ?? '',
-    });
+  function openRedressDialog(competitorId: string, isFinisher: boolean) {
+    setRedressDialog({ competitorId, isFinisher });
   }
 
-  function applyRedress() {
+  function applyRedress(entry: RedressEntry) {
     if (!redressDialog) return;
-    const { competitorId, isFinisher, ...entry } = redressDialog;
+    const { competitorId } = redressDialog;
     const redressFields: Partial<Finish> = {
       redressMethod: entry.method,
       redressExcludeRaces: entry.poolMode === 'exclude' ? entry.excludeRaces : null,
@@ -1770,7 +1751,7 @@ export default function ResultEntryPage({
                   {code === 'RDG' && (
                     <button
                       type="button"
-                      onClick={() => openRedressDialog(competitor.id, false, 'RDG')}
+                      onClick={() => openRedressDialog(competitor.id, false)}
                       aria-label={`Edit redress for ${competitor.sailNumber}`}
                       title="Edit redress"
                       className="text-amber-600 hover:text-amber-700 shrink-0"
@@ -1782,7 +1763,7 @@ export default function ResultEntryPage({
                     value={code}
                     onValueChange={(v) => {
                       if (v === 'RDG') {
-                        openRedressDialog(competitor.id, false, code);
+                        openRedressDialog(competitor.id, false);
                       } else {
                         // setNonFinisherCode clears redress fields on the row
                         // when transitioning away from RDG.
@@ -1977,169 +1958,27 @@ export default function ResultEntryPage({
         onCancel={() => setEditingPenaltyEntryId(null)}
       />
 
-      {/* Redress dialog */}
-      <Dialog open={redressDialog !== null} onOpenChange={(open) => { if (!open) setRedressDialog(null); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              Redress (RDG) — {redressDialog ? (competitorMap.get(redressDialog.competitorId)?.sailNumber ?? '') : ''}
-            </DialogTitle>
-            <DialogDescription>
-              RRS A9: replace score with average from a pool of races.
-              {redressDialog?.isFinisher && (() => {
-                const idx = finishingOrder.findIndex(
-                  (e) => e.kind === 'known' && e.competitorId === redressDialog.competitorId,
-                );
-                return idx >= 0 ? <> Finish position {idx + 1} is kept.</> : null;
-              })()}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Method (RRS A9)</label>
-              <div className="space-y-1.5">
-                {([
-                  { value: 'all_races', label: 'A9(a) — average of all races in the series' },
-                  { value: 'races_before', label: `A9(b) — average of races before race ${race?.raceNumber ?? ''}` },
-                  { value: 'stated', label: 'A9(c) — scorer-stated points' },
-                ] as { value: RedressMethod; label: string }[]).map(({ value, label }) => (
-                  <label key={value} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input
-                      type="radio"
-                      name="rdg-method"
-                      value={value}
-                      checked={redressDialog?.method === value}
-                      onChange={() => setRedressDialog((d) => d ? { ...d, method: value } : null)}
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {redressDialog?.method === 'stated' && (
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Points</label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.1"
-                  placeholder="e.g. 3.5"
-                  value={redressDialog.statedPoints}
-                  onChange={(e) => setRedressDialog((d) => d ? { ...d, statedPoints: e.target.value } : null)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyRedress(); } }}
-                  autoFocus
-                />
-              </div>
-            )}
-
-            {redressDialog?.method !== 'stated' && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Pool restriction</label>
-                <div className="space-y-1.5">
-                  {([
-                    { value: 'none', label: 'No restriction' },
-                    { value: 'exclude', label: 'Exclude specific races from pool' },
-                    { value: 'include', label: 'Include only specific races' },
-                  ] as { value: RedressPoolMode; label: string }[]).map(({ value, label }) => (
-                    <label key={value} className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="radio"
-                        name="rdg-pool"
-                        value={value}
-                        checked={redressDialog?.poolMode === value}
-                        onChange={() => setRedressDialog((d) => d ? { ...d, poolMode: value } : null)}
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-
-                {redressDialog?.poolMode === 'exclude' && (
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Races to exclude:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {(allSeriesRaces ?? []).sort((a, b) => a.raceNumber - b.raceNumber).map((r) => {
-                        const selected = redressDialog.excludeRaces.includes(r.raceNumber);
-                        return (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => setRedressDialog((d) => {
-                              if (!d) return null;
-                              const races = selected
-                                ? d.excludeRaces.filter((n) => n !== r.raceNumber)
-                                : [...d.excludeRaces, r.raceNumber];
-                              return { ...d, excludeRaces: races };
-                            })}
-                            className={cn(
-                              'text-xs px-2 py-0.5 rounded border transition-colors',
-                              selected
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-background hover:bg-accent border-input',
-                            )}
-                          >
-                            R{r.raceNumber}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {redressDialog?.poolMode === 'include' && (
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground">Races to include:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {(allSeriesRaces ?? []).sort((a, b) => a.raceNumber - b.raceNumber).map((r) => {
-                        const selected = redressDialog.includeRaces.includes(r.raceNumber);
-                        return (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => setRedressDialog((d) => {
-                              if (!d) return null;
-                              const races = selected
-                                ? d.includeRaces.filter((n) => n !== r.raceNumber)
-                                : [...d.includeRaces, r.raceNumber];
-                              return { ...d, includeRaces: races };
-                            })}
-                            className={cn(
-                              'text-xs px-2 py-0.5 rounded border transition-colors',
-                              selected
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-background hover:bg-accent border-input',
-                            )}
-                          >
-                            R{r.raceNumber}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {redressDialog.method !== 'races_before' && (
-                      <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={redressDialog.includeAllLater}
-                          onChange={(e) => setRedressDialog((d) => d ? { ...d, includeAllLater: e.target.checked } : null)}
-                        />
-                        Include all later races
-                      </label>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={applyRedress}>Apply</Button>
-            {redressEntries.has(redressDialog?.competitorId ?? '') && (
-              <Button variant="outline" onClick={removeRedress}>Remove redress</Button>
-            )}
-            <Button variant="ghost" onClick={() => setRedressDialog(null)}>Cancel</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <RedressDialog
+        competitor={
+          redressDialog
+            ? { id: redressDialog.competitorId, sailNumber: competitorMap.get(redressDialog.competitorId)?.sailNumber ?? '' }
+            : null
+        }
+        currentFinishPosition={(() => {
+          if (!redressDialog?.isFinisher) return null;
+          const idx = finishingOrder.findIndex(
+            (e) => e.kind === 'known' && e.competitorId === redressDialog.competitorId,
+          );
+          return idx >= 0 ? idx + 1 : null;
+        })()}
+        seedEntry={redressDialog ? redressEntries.get(redressDialog.competitorId) ?? null : null}
+        currentRaceNumber={race?.raceNumber}
+        availableRaces={allSeriesRaces ?? []}
+        canRemove={redressDialog ? redressEntries.has(redressDialog.competitorId) : false}
+        onApply={applyRedress}
+        onRemove={removeRedress}
+        onCancel={() => setRedressDialog(null)}
+      />
 
       {/* Summary badges */}
       {nonFinishers.some((nf) => nf.code !== 'implicit-dnc') && (
