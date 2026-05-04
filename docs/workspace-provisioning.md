@@ -14,9 +14,28 @@ The default sign-in flow already gives every user a personal workspace
 
 ## HYC workflow
 
-1. **Each panel member signs in once.** This creates the user row.
-   The CLI looks members up by email, so they have to exist before
-   step 3.
+1. **Each panel member exists as a user.** The CLI looks members up by
+   email in step 3, so the user row has to exist first. Two ways to
+   get there:
+
+   - **Ask them to sign in once.** The magic-link flow creates the
+     user row and a personal workspace as a side effect.
+   - **Pre-create the user.** Useful when you want them on the panel
+     before they've ever signed in, or for setting up the workspace
+     the moment a new scorer is onboarded:
+
+     ```bash
+     pnpm provision-org pre-create-user alice@example.com --name "Alice Adams"
+     ```
+
+     `--name` is required — it's what shows up in the workspace
+     switcher and on the panel's member list until the user updates
+     it themselves. Pre-created rows match the sign-up hook exactly
+     (user row + `My Workspace` personal workspace + owner
+     membership), so when Alice later requests a magic link Better
+     Auth recognises the email and signs her straight in — no
+     duplicate, and the panel membership added in step 3 is already
+     waiting.
 
 2. **Create the workspace.**
 

@@ -15,15 +15,19 @@
  *
  * Usage (production: against the production DATABASE_URL):
  *   pnpm tsx scripts/provision-org.ts create-org "HYC Scoring Panel" --slug hyc
+ *   pnpm tsx scripts/provision-org.ts pre-create-user alice@example.com --name "Alice Adams"
  *   pnpm tsx scripts/provision-org.ts add-member hyc alice@example.com --role owner
  *   pnpm tsx scripts/provision-org.ts add-member hyc bob@example.com
  *   pnpm tsx scripts/provision-org.ts list-members hyc
  *   pnpm tsx scripts/provision-org.ts set-role hyc bob@example.com admin
  *   pnpm tsx scripts/provision-org.ts remove-member hyc bob@example.com
  *
- * Members must already exist as users — the CLI looks them up by email.
- * Get every panel member to sign in once first (creates their personal
- * workspace and the user row) before adding them here.
+ * `add-member` looks members up by email, so they must exist as users
+ * first. Either get them to sign in once (the magic-link flow creates the
+ * user row and a personal workspace), or seed them ahead of time with
+ * `pre-create-user`. Pre-created rows match what the sign-up hook in
+ * lib/auth.ts produces, so when the user later requests a magic link
+ * Better Auth recognises the email and signs them straight in.
  */
 
 import { and, eq, or } from 'drizzle-orm';
@@ -74,6 +78,63 @@ async function findUserByEmail(
     .where(eq(user.email, email.toLowerCase()))
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * Personal-workspace name used by the sign-up hook in `lib/auth.ts`.
+ * Duplicated here on purpose — keeping the constant private to auth.ts
+ * avoids accidentally importing the full Better Auth bundle into this
+ * CLI; the workspace switcher already renders existing rows as-is, so
+ * the two values just need to stay in sync by inspection.
+ */
+const PERSONAL_WORKSPACE_NAME = 'My Workspace';
+
+export async function preCreateUser(
+  db: SailScoringDb,
+  args: { email: string; name: string },
+): Promise<{ userId: string; email: string; name: string; personalWorkspaceId: string }> {
+  const email = args.email.trim().toLowerCase();
+  const name = args.name.trim();
+  if (!email) throw new Error('email is required');
+  if (!name) throw new Error('name is required');
+
+  const existing = await findUserByEmail(db, email);
+  if (existing) {
+    throw new Error(`user "${email}" already exists (id: ${existing.id})`);
+  }
+
+  // Mirror lib/auth.ts databaseHooks.user.create.after — we are taking
+  // the same direct-write path the sign-up hook takes, so a later
+  // magic-link sign-in finds the user row by email and proceeds without
+  // creating a duplicate. emailVerified stays false; Better Auth flips
+  // it on first successful magic-link sign-in.
+  const userId = randomId('usr');
+  const orgId = randomId('org');
+  const memberId = randomId('mem');
+  const now = new Date();
+
+  await db.insert(user).values({
+    id: userId,
+    name,
+    email,
+    emailVerified: false,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(organization).values({
+    id: orgId,
+    name: PERSONAL_WORKSPACE_NAME,
+    slug: `u-${userId.slice(0, 16)}`,
+    createdAt: now,
+  });
+  await db.insert(member).values({
+    id: memberId,
+    organizationId: orgId,
+    userId,
+    role: 'owner',
+    createdAt: now,
+  });
+  return { userId, email, name, personalWorkspaceId: orgId };
 }
 
 export async function createOrg(
@@ -255,12 +316,14 @@ function usage(): string {
   return `provision-org — ADR-008 Phase 7 manual org administration
 
   create-org <name> [--slug <slug>]
+  pre-create-user <email> --name <full-name>
   add-member <org-slug-or-id> <email> [--role owner|admin|member]
   set-role <org-slug-or-id> <email> <role>
   remove-member <org-slug-or-id> <email>
   list-members <org-slug-or-id>
 
-Members must already exist (i.e. signed in once). Reads DATABASE_URL.`;
+Members must already exist (signed in once, or seeded via pre-create-user).
+Reads DATABASE_URL.`;
 }
 
 export async function runCli(argv: string[]): Promise<number> {
@@ -280,6 +343,19 @@ export async function runCli(argv: string[]): Promise<number> {
         if (!name) throw new Error('create-org: <name> is required');
         const result = await createOrg(db, { name, slug: flags.slug });
         console.log(`created org "${result.name}" (slug: ${result.slug}, id: ${result.id})`);
+        return 0;
+      }
+      case 'pre-create-user': {
+        const [email] = positional;
+        if (!email) throw new Error('pre-create-user: <email> is required');
+        const name = flags.name;
+        if (!name || name === 'true') {
+          throw new Error('pre-create-user: --name <full-name> is required');
+        }
+        const result = await preCreateUser(db, { email, name });
+        console.log(
+          `pre-created user ${result.email} (id: ${result.userId}, personal workspace: ${result.personalWorkspaceId})`,
+        );
         return 0;
       }
       case 'add-member': {
