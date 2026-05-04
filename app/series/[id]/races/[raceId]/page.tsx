@@ -59,6 +59,11 @@ import { cn } from '@/lib/utils';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import { FinishSheetImport, type FinishSheetImportHandle } from '@/components/finish-sheet-import';
+import {
+  RaceStartDialog,
+  type RaceStartDialogMode,
+  type RaceStartDraft,
+} from '@/components/race-start-dialog';
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 
 type NonFinisherCode = ResultCode | 'implicit-dnc';
@@ -147,10 +152,7 @@ export default function ResultEntryPage({
   // Race starts section
   const [startsExpanded, setStartsExpanded] = useState(false);
   // Race starts dialog
-  const [startDialog, setStartDialog] = useState<{ editingId: string | null } | null>(null);
-  const [startTimeInput, setStartTimeInput] = useState('');
-  const [startFleetIds, setStartFleetIds] = useState<string[]>([]);
-  const [startDialogError, setStartDialogError] = useState('');
+  const [startDialogMode, setStartDialogMode] = useState<RaceStartDialogMode | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [showAllCheckin, setShowAllCheckin] = useState(false);
   // Per-row UI overlay for the finish-time inputs: while a row's input is
@@ -361,47 +363,23 @@ export default function ResultEntryPage({
   // Esc to leave; c to toggle check-in tab
   function openAddStart() {
     setStartsExpanded(true);
-    setStartTimeInput('');
-    setStartFleetIds([]);
-    setStartDialogError('');
-    setStartDialog({ editingId: null });
+    setStartDialogMode({ kind: 'add' });
   }
 
   function openEditStart(s: RaceStart) {
-    setStartTimeInput(s.startTime);
-    setStartFleetIds([...s.fleetIds]);
-    setStartDialogError('');
-    setStartDialog({ editingId: s.id });
+    setStartDialogMode({ kind: 'edit', start: s });
   }
 
-  async function handleSaveStart() {
-    const normalizedStart = normalizeTimeInput(startTimeInput);
-    if (!normalizedStart) {
-      setStartDialogError('Enter a valid time, e.g. 14:05:00 or 140500.');
-      return;
-    }
-    if (startFleetIds.length === 0) {
-      setStartDialogError('Select at least one fleet.');
-      return;
-    }
-    // Validate: no fleet in two start groups for this race
-    const otherStarts = raceStarts.filter((s) => s.id !== startDialog?.editingId);
-    const usedFleetIds = new Set(otherStarts.flatMap((s) => s.fleetIds));
-    const conflict = startFleetIds.find((id) => usedFleetIds.has(id));
-    if (conflict) {
-      const name = fleets?.find((f) => f.id === conflict)?.name ?? conflict;
-      setStartDialogError(`Fleet "${name}" is already in another start group.`);
-      return;
-    }
+  async function handleSaveStart(draft: RaceStartDraft) {
     const raceStart: RaceStart = {
-      id: startDialog?.editingId ?? crypto.randomUUID(),
+      id: draft.editingId ?? crypto.randomUUID(),
       raceId,
-      fleetIds: startFleetIds,
-      startTime: normalizedStart,
+      fleetIds: draft.fleetIds,
+      startTime: draft.startTime,
     };
     await saveRaceStart.mutateAsync(raceStart);
     await touchSeries.mutateAsync(seriesId);
-    setStartDialog(null);
+    setStartDialogMode(null);
   }
 
   async function handleDeleteStart(id: string) {
@@ -1380,57 +1358,13 @@ export default function ResultEntryPage({
         </div>
       )}
 
-      {/* Add / Edit start dialog */}
-      <Dialog open={startDialog !== null} onOpenChange={(open) => { if (!open) setStartDialog(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{startDialog?.editingId ? 'Edit start' : 'Add start'}</DialogTitle>
-            <DialogDescription>Record the gun time for a group of fleets.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Gun time</label>
-              <input
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm font-mono shadow-sm"
-                value={startTimeInput}
-                onChange={(e) => { setStartTimeInput(e.target.value); setStartDialogError(''); }}
-                placeholder="14:05:00"
-                autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveStart(); }}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Fleets in this start</label>
-              <div className="space-y-1.5">
-                {(fleets ?? []).map((f) => (
-                  <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={startFleetIds.includes(f.id)}
-                      onChange={(e) => {
-                        setStartFleetIds((prev) =>
-                          e.target.checked ? [...prev, f.id] : prev.filter((id) => id !== f.id),
-                        );
-                        setStartDialogError('');
-                      }}
-                      className="h-4 w-4 rounded border"
-                    />
-                    {f.name}
-                    {f.scoringSystem !== 'scratch' && (
-                      <span className="text-xs text-muted-foreground">({f.scoringSystem.toUpperCase()})</span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
-            {startDialogError && <p className="text-sm text-destructive">{startDialogError}</p>}
-          </div>
-          <div className="flex justify-end gap-2 mt-2">
-            <Button variant="outline" onClick={() => setStartDialog(null)}>Cancel</Button>
-            <Button onClick={handleSaveStart}>Save</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <RaceStartDialog
+        mode={startDialogMode}
+        raceStarts={raceStarts}
+        fleets={fleets ?? []}
+        onSave={handleSaveStart}
+        onCancel={() => setStartDialogMode(null)}
+      />
 
       {activeTab === 'finish' && <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Left: finishing order */}
