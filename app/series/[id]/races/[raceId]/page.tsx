@@ -3,8 +3,8 @@
 import { use, useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { ConflictApiError, type ConflictDetail } from '@/lib/api-client';
 import { RowConflictDialog } from '@/components/row-conflict-dialog';
+import { useFinishConflictDialog } from '@/hooks/use-finish-conflict-dialog';
 import { useSeries, useTouchSeries } from '@/hooks/use-series';
 import { useCompetitorsBySeries, useSaveCompetitor } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
@@ -149,30 +149,19 @@ export default function ResultEntryPage({
   // Per-row UI overlay for the finish-time inputs: while a row's input is
   // focused we show the in-progress text; on blur we normalize and persist.
   const [editingTimes, setEditingTimes] = useState<Map<string, string>>(new Map());
-  // Row-scoped conflict state: holds the user's payload that 409'd plus the
-  // server-side detail (updatedAt, actor) for the dialog. Only one conflict
-  // is shown at a time — sequentially-fired mutations queue behind the
-  // dialog's resolution.
-  const [conflict, setConflict] = useState<
-    | {
-        finishId: string;
-        rowLabel: string;
-        /**
-         * The user's intended change. For saves, the Finish payload they
-         * tried to write. For deletes, a sentinel — "Keep mine" retries
-         * the delete; "Use current" dismisses.
-         */
-        pendingPayload: Finish | { kind: 'delete' };
-        detail?: ConflictDetail;
-      }
-    | null
-  >(null);
-  const [retryingConflict, setRetryingConflict] = useState(false);
   const [redressDialog, setRedressDialog] = useState<{ competitorId: string; isFinisher: boolean } | null>(null);
   // Penalty editor dialog: competitorId of the row being edited, or null.
   const [editingPenaltyEntryId, setEditingPenaltyEntryId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const finishSheetImportRef = useRef<FinishSheetImportHandle>(null);
+
+  const conflictDialog = useFinishConflictDialog({
+    raceId,
+    competitors,
+    finishingOrder,
+    saveFinish,
+    deleteFinish,
+  });
 
   // Optimistic cache patch: write the new shape immediately so the UI
   // updates before the server round-trip resolves. Mutation onError will
@@ -181,110 +170,6 @@ export default function ResultEntryPage({
     const key = queryKeys.finishes.byRace(raceId);
     const prev = qc.getQueryData<Finish[]>(key) ?? [];
     qc.setQueryData<Finish[]>(key, updater(prev));
-  }
-
-  /**
-   * Build a human-readable label for the conflict dialog: "Row 4 (sail
-   * 1234, Alice)" for a finisher; "Sail 1234 (Alice)" for a non-finisher
-   * row with a code; "Unknown sail 9999" for unresolved entries.
-   */
-  function rowLabelForFinish(finish: Finish | undefined, fallbackId: string): string {
-    if (!finish) return `Finish ${fallbackId.slice(0, 8)}`;
-    if (finish.competitorId === null) {
-      return `Unknown sail ${finish.unknownSailNumber ?? '?'}`;
-    }
-    const competitor = competitors?.find((c) => c.id === finish.competitorId);
-    const sail = competitor?.sailNumber ?? '?';
-    const name = competitor?.name ?? '';
-    if (finish.sortOrder !== null) {
-      // Position in the visible list — re-derived from the cache.
-      const idx = finishingOrder.findIndex((e) => entryKey(e) === finish.competitorId);
-      const pos = idx >= 0 ? idx + 1 : finish.sortOrder;
-      return `Row ${pos} (sail ${sail}${name ? `, ${name}` : ''})`;
-    }
-    return `Sail ${sail}${name ? ` (${name})` : ''}`;
-  }
-
-  // Subscribe to mutation 409s scoped to `finishes` and surface them in
-  // the row-scoped conflict dialog. The global ConflictMutationSubscriber
-  // skips these explicitly (see app/providers.tsx).
-  useEffect(() => {
-    const unsub = qc.getMutationCache().subscribe((event) => {
-      if (event.type !== 'updated') return;
-      if (event.mutation.options.scope?.id !== 'finishes') return;
-      const error = event.mutation.state.error;
-      if (!(error instanceof ConflictApiError)) return;
-      // If we're already showing a dialog for the same row, leave it alone.
-      if (conflict !== null) return;
-      const variables = event.mutation.state.variables as
-        | Finish
-        | { id: string; raceId: string };
-      if (!variables || typeof variables !== 'object') return;
-      let finishId: string;
-      let pending: Finish | { kind: 'delete' };
-      if ('competitorId' in variables) {
-        // Single-row save (Finish).
-        finishId = (variables as Finish).id;
-        pending = variables as Finish;
-      } else {
-        // Single-row delete.
-        finishId = (variables as { id: string }).id;
-        pending = { kind: 'delete' };
-      }
-      // Refresh the cache so the dialog shows server truth behind it.
-      void qc.invalidateQueries({ queryKey: queryKeys.finishes.byRace(raceId) });
-      const cached = qc.getQueryData<Finish[]>(queryKeys.finishes.byRace(raceId));
-      const liveRow = cached?.find((r) => r.id === finishId);
-      setConflict({
-        finishId,
-        rowLabel: rowLabelForFinish(liveRow, finishId),
-        pendingPayload: pending,
-        detail: error.detail,
-      });
-    });
-    return () => unsub();
-    // The subscriber closes over `conflict` and `competitors` for label
-    // building; recreate on changes so labels stay current.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qc, raceId, conflict, competitors, finishingOrder]);
-
-  async function resolveConflictKeepMine() {
-    if (!conflict) return;
-    setRetryingConflict(true);
-    try {
-      // Refetch to get the fresh version, then retry the user's payload
-      // against that baseline.
-      await qc.invalidateQueries({ queryKey: queryKeys.finishes.byRace(raceId) });
-      const fresh = qc.getQueryData<Finish[]>(queryKeys.finishes.byRace(raceId));
-      const current = fresh?.find((r) => r.id === conflict.finishId);
-      if (conflict.pendingPayload && 'kind' in conflict.pendingPayload) {
-        // Delete retry — fire it again; the row is gone now if it never existed.
-        if (current) {
-          await deleteFinish.mutateAsync({ id: conflict.finishId, raceId });
-        }
-      } else {
-        const retry: Finish = {
-          ...conflict.pendingPayload,
-          version: current?.version,
-        };
-        patchCache((rows) =>
-          rows.some((r) => r.id === retry.id)
-            ? rows.map((r) => (r.id === retry.id ? retry : r))
-            : [...rows, retry],
-        );
-        await saveFinish.mutateAsync(retry);
-      }
-      setConflict(null);
-    } catch {
-      // If the retry itself 409s, the subscriber re-opens with fresh detail.
-    } finally {
-      setRetryingConflict(false);
-    }
-  }
-
-  function resolveConflictUseCurrent() {
-    void qc.invalidateQueries({ queryKey: queryKeys.finishes.byRace(raceId) });
-    setConflict(null);
   }
 
   /**
@@ -1778,22 +1663,7 @@ export default function ResultEntryPage({
         </div>
       </div>
 
-      <RowConflictDialog
-        info={
-          conflict
-            ? {
-                finishId: conflict.finishId,
-                rowLabel: conflict.rowLabel,
-                updatedAt: conflict.detail?.updatedAt,
-                actor: conflict.detail?.actor,
-              }
-            : null
-        }
-        retrying={retryingConflict}
-        onKeepMine={resolveConflictKeepMine}
-        onUseCurrent={resolveConflictUseCurrent}
-        onDismiss={resolveConflictUseCurrent}
-      />
+      <RowConflictDialog {...conflictDialog.dialogProps} />
 
       <ResolveUnknownDialog
         unknownSailNumber={resolvingEntry?.sailNumber ?? null}
