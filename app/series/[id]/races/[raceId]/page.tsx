@@ -44,7 +44,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { X, AlertTriangle, Flag, Scale, Plus, Pencil, Trash2 } from 'lucide-react';
-import type { Competitor, Finish, ResultCode, PenaltyCode, RaceStart } from '@/lib/types';
+import type { Competitor, Finish, ResultCode, RaceStart } from '@/lib/types';
 import {
   deriveFinishState,
   entryKey,
@@ -64,6 +64,10 @@ import {
   type RaceStartDialogMode,
   type RaceStartDraft,
 } from '@/components/race-start-dialog';
+import {
+  PenaltyEditorDialog,
+  type PenaltyDraft,
+} from '@/components/penalty-editor-dialog';
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 
 type NonFinisherCode = ResultCode | 'implicit-dnc';
@@ -178,10 +182,8 @@ export default function ResultEntryPage({
   >(null);
   const [retryingConflict, setRetryingConflict] = useState(false);
   const [redressDialog, setRedressDialog] = useState<RedressDialogState | null>(null);
-  // Penalty editor dialog
+  // Penalty editor dialog: competitorId of the row being edited, or null.
   const [editingPenaltyEntryId, setEditingPenaltyEntryId] = useState<string | null>(null);
-  const [pendingPenaltyCode, setPendingPenaltyCode] = useState<PenaltyCode | 'none'>('none');
-  const [pendingPenaltyOverride, setPendingPenaltyOverride] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
   const finishSheetImportRef = useRef<FinishSheetImportHandle>(null);
 
@@ -745,28 +747,18 @@ export default function ResultEntryPage({
     commitOrderChange(reordered, tiedWithPrevious);
   }
 
-  function openPenaltyEditor(eid: string) {
-    const existing = finisherPenalties.get(eid);
-    setPendingPenaltyCode(existing?.code ?? 'none');
-    setPendingPenaltyOverride(existing?.override != null ? String(existing.override) : '');
-    setEditingPenaltyEntryId(eid);
-  }
-
-  function applyPenalty() {
+  function applyPenalty(draft: PenaltyDraft) {
     if (!editingPenaltyEntryId) return;
-    const competitorId = editingPenaltyEntryId;
-    const finish = finishByCompetitorId.get(competitorId);
+    const finish = finishByCompetitorId.get(editingPenaltyEntryId);
     if (!finish) {
       setEditingPenaltyEntryId(null);
       return;
     }
-    const next: Finish = pendingPenaltyCode === 'none'
-      ? { ...finish, penaltyCode: null, penaltyOverride: null }
-      : {
-          ...finish,
-          penaltyCode: pendingPenaltyCode as PenaltyCode,
-          penaltyOverride: pendingPenaltyOverride.trim() ? Number(pendingPenaltyOverride) : null,
-        };
+    const next: Finish = {
+      ...finish,
+      penaltyCode: draft.code,
+      penaltyOverride: draft.override,
+    };
     patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
     saveFinish.mutate(next);
     void touchSeries.mutateAsync(seriesId);
@@ -1704,14 +1696,14 @@ export default function ResultEntryPage({
                     <Badge
                       variant="outline"
                       className="text-xs shrink-0 cursor-pointer"
-                      onClick={() => openPenaltyEditor(entry.competitorId)}
+                      onClick={() => setEditingPenaltyEntryId(entry.competitorId)}
                     >
                       {penalty.code}
                       {penalty.override != null ? ` (${penalty.override}${penalty.code === 'DPI' ? 'pts' : '%'})` : ''}
                     </Badge>
                   )}
                   <button
-                    onClick={() => openPenaltyEditor(entry.competitorId)}
+                    onClick={() => setEditingPenaltyEntryId(entry.competitorId)}
                     aria-label={`Set penalty for ${competitor.sailNumber}`}
                     title="Set scoring penalty"
                     className="text-muted-foreground hover:text-foreground shrink-0"
@@ -1974,68 +1966,16 @@ export default function ResultEntryPage({
         </DialogContent>
       </Dialog>
 
-      {/* Penalty editor dialog */}
-      <Dialog open={editingPenaltyEntryId !== null} onOpenChange={(open) => { if (!open) setEditingPenaltyEntryId(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              Scoring penalty — {editingPenaltyEntryId ? (competitorMap.get(editingPenaltyEntryId)?.sailNumber ?? '') : ''}
-            </DialogTitle>
-            <DialogDescription>
-              Additive penalty codes (A6.2): other boats keep their scores.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Penalty</label>
-              <Select value={pendingPenaltyCode} onValueChange={(v) => { setPendingPenaltyCode(v as PenaltyCode | 'none'); setPendingPenaltyOverride(''); }}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No penalty</SelectItem>
-                  <SelectItem value="ZFP">ZFP — Z Flag (20%)</SelectItem>
-                  <SelectItem value="SCP">SCP — Scoring Penalty (%)</SelectItem>
-                  <SelectItem value="DPI">DPI — Discretionary Points</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {(pendingPenaltyCode as string) === 'SCP' && (
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Percentage (default 20)</label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={100}
-                  placeholder="20"
-                  value={pendingPenaltyOverride}
-                  onChange={(e) => setPendingPenaltyOverride(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyPenalty(); } }}
-                  autoFocus
-                />
-              </div>
-            )}
-            {(pendingPenaltyCode as string) === 'DPI' && (
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Points to add</label>
-                <Input
-                  type="number"
-                  min={1}
-                  placeholder="e.g. 2"
-                  value={pendingPenaltyOverride}
-                  onChange={(e) => setPendingPenaltyOverride(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyPenalty(); } }}
-                  autoFocus
-                />
-              </div>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={applyPenalty}>Apply</Button>
-            <Button variant="ghost" onClick={() => setEditingPenaltyEntryId(null)}>Cancel</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PenaltyEditorDialog
+        competitor={
+          editingPenaltyEntryId
+            ? { id: editingPenaltyEntryId, sailNumber: competitorMap.get(editingPenaltyEntryId)?.sailNumber ?? '' }
+            : null
+        }
+        initialPenalty={editingPenaltyEntryId ? finisherPenalties.get(editingPenaltyEntryId) ?? null : null}
+        onApply={applyPenalty}
+        onCancel={() => setEditingPenaltyEntryId(null)}
+      />
 
       {/* Redress dialog */}
       <Dialog open={redressDialog !== null} onOpenChange={(open) => { if (!open) setRedressDialog(null); }}>
