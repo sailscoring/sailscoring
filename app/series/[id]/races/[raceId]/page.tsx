@@ -69,6 +69,7 @@ import {
   type PenaltyDraft,
 } from '@/components/penalty-editor-dialog';
 import { RedressDialog } from '@/components/redress-dialog';
+import { ResolveUnknownDialog } from '@/components/resolve-unknown-dialog';
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 
 type NonFinisherCode = ResultCode | 'implicit-dnc';
@@ -134,12 +135,6 @@ export default function ResultEntryPage({
   const [inputError, setInputError] = useState('');
   const [pendingUnknownSail, setPendingUnknownSail] = useState<string | null>(null);
   const [resolvingEntry, setResolvingEntry] = useState<(FinishEntry & { kind: 'unknown' }) | null>(null);
-  const [showAddCompetitorForm, setShowAddCompetitorForm] = useState(false);
-  const [newCompetitorSail, setNewCompetitorSail] = useState('');
-  const [newCompetitorName, setNewCompetitorName] = useState('');
-  const [newCompetitorFleet, setNewCompetitorFleet] = useState('');
-  const [addCompetitorError, setAddCompetitorError] = useState('');
-  const [addingCompetitor, setAddingCompetitor] = useState(false);
   // Pending time entry: competitor confirmed, waiting for finish time before adding to list
   const [pendingTimeEntry, setPendingTimeEntry] = useState<{ competitor: Competitor } | null>(null);
   const [pendingTimeValue, setPendingTimeValue] = useState('');
@@ -996,72 +991,55 @@ export default function ResultEntryPage({
     await touchSeries.mutateAsync(seriesId);
   }
 
-  function openAddCompetitorForm() {
-    setNewCompetitorSail(resolvingEntry?.sailNumber ?? '');
-    setNewCompetitorName('');
-    setNewCompetitorFleet(fleets?.[0]?.name ?? '');
-    setAddCompetitorError('');
-    setShowAddCompetitorForm(true);
-  }
-
   function closeResolveDialog() {
     setResolvingEntry(null);
-    setShowAddCompetitorForm(false);
-    setNewCompetitorSail('');
-    setNewCompetitorName('');
-    setAddCompetitorError('');
-    setAddingCompetitor(false);
     inputRef.current?.focus();
   }
 
-  async function handleAddCompetitor() {
+  function linkUnknownToCompetitor(competitorId: string) {
     if (!resolvingEntry) return;
-    const name = newCompetitorName.trim();
-    const sail = newCompetitorSail.trim().toUpperCase();
-    if (!name) { setAddCompetitorError(`${primaryFieldLabel} name is required.`); return; }
-    if (!sail) { setAddCompetitorError('Sail number is required.'); return; }
-
-    setAddingCompetitor(true);
-    setAddCompetitorError('');
-    try {
-      // Use selected fleet ID, falling back to the first available fleet
-      const fleetId = newCompetitorFleet || (fleets ?? [])[0]?.id || '';
-      // Event-handler time, not render time — the purity rule's render-reachability
-      // analysis traces handlers more aggressively after the Phase 6 refactor.
-      // eslint-disable-next-line react-hooks/purity
-      const createdAt = Date.now();
-      const competitor: Competitor = {
-        id: crypto.randomUUID(),
-        seriesId,
-        fleetIds: fleetId ? [fleetId] : [],
-        sailNumber: sail,
-        name,
-        club: '',
-        gender: '',
-        age: null,
-        createdAt,
+    const finish = finishByEntryKey.get(resolvingEntry.finishId);
+    if (finish) {
+      const next: Finish = {
+        ...finish,
+        competitorId,
+        unknownSailNumber: undefined,
       };
-      await saveCompetitor.mutateAsync(competitor);
-      await touchSeries.mutateAsync(seriesId);
-
-      // Resolve the unknown entry to the new competitor: update the
-      // existing unknown finish row in place with the new competitorId.
-      const finish = finishByEntryKey.get(resolvingEntry.finishId);
-      if (finish) {
-        const next: Finish = {
-          ...finish,
-          competitorId: competitor.id,
-          unknownSailNumber: undefined,
-        };
-        patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
-        await saveFinish.mutateAsync(next);
-      }
-      closeResolveDialog();
-    } catch (err) {
-      console.error(err);
-      setAddCompetitorError('Failed to add competitor. Please try again.');
-      setAddingCompetitor(false);
+      patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
+      saveFinish.mutate(next);
+      void touchSeries.mutateAsync(seriesId);
     }
+    closeResolveDialog();
+  }
+
+  async function handleResolveNew(input: { sailNumber: string; name: string; fleetId: string }) {
+    if (!resolvingEntry) return;
+    const createdAt = Date.now();
+    const competitor: Competitor = {
+      id: crypto.randomUUID(),
+      seriesId,
+      fleetIds: input.fleetId ? [input.fleetId] : [],
+      sailNumber: input.sailNumber,
+      name: input.name,
+      club: '',
+      gender: '',
+      age: null,
+      createdAt,
+    };
+    await saveCompetitor.mutateAsync(competitor);
+    await touchSeries.mutateAsync(seriesId);
+
+    const finish = finishByEntryKey.get(resolvingEntry.finishId);
+    if (finish) {
+      const next: Finish = {
+        ...finish,
+        competitorId: competitor.id,
+        unknownSailNumber: undefined,
+      };
+      patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
+      await saveFinish.mutateAsync(next);
+    }
+    closeResolveDialog();
   }
 
   const codeLabels: Record<NonFinisherCode, string> = {
@@ -1817,135 +1795,16 @@ export default function ResultEntryPage({
         onDismiss={resolveConflictUseCurrent}
       />
 
-      {/* Resolve unknown competitor dialog */}
-      <Dialog
-        open={resolvingEntry !== null}
-        onOpenChange={(open) => { if (!open) closeResolveDialog(); }}
-      >
-        <DialogContent
-          className="max-w-sm"
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.stopPropagation();
-              closeResolveDialog();
-            }
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Resolve sail {resolvingEntry?.sailNumber}</DialogTitle>
-            <DialogDescription>
-              {!showAddCompetitorForm
-                ? 'Select a registered competitor, or add a new one.'
-                : 'Add a new competitor and link them to this finish.'}
-            </DialogDescription>
-          </DialogHeader>
-
-          {!showAddCompetitorForm ? (
-            <>
-              <div className="space-y-1 max-h-52 overflow-y-auto">
-                {nonFinishers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground px-3 py-2">
-                    No unfinished competitors available.
-                  </p>
-                ) : (
-                  nonFinishers.map(({ competitor }) => (
-                    <button
-                      key={competitor.id}
-                      type="button"
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-accent text-sm text-left"
-                      onClick={() => {
-                        if (!resolvingEntry) return;
-                        const finish = finishByEntryKey.get(resolvingEntry.finishId);
-                        if (finish) {
-                          const next: Finish = {
-                            ...finish,
-                            competitorId: competitor.id,
-                            unknownSailNumber: undefined,
-                          };
-                          patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
-                          saveFinish.mutate(next);
-                          void touchSeries.mutateAsync(seriesId);
-                        }
-                        closeResolveDialog();
-                      }}
-                    >
-                      <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
-                      <span className="flex-1 truncate">{displayHelmCrew(competitor, showCrew)}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <div className="flex-1 border-t" />
-                <span>or</span>
-                <div className="flex-1 border-t" />
-              </div>
-              <Button variant="outline" size="sm" onClick={openAddCompetitorForm}>
-                Add new competitor
-              </Button>
-              <Button variant="ghost" size="sm" onClick={closeResolveDialog}>
-                Keep as unknown
-              </Button>
-            </>
-          ) : (
-            <>
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium" htmlFor="resolve-sail">Sail number</label>
-                  <Input
-                    id="resolve-sail"
-                    value={newCompetitorSail}
-                    onChange={(e) => setNewCompetitorSail(e.target.value)}
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium" htmlFor="resolve-name">{primaryFieldLabel} name *</label>
-                  <Input
-                    id="resolve-name"
-                    value={newCompetitorName}
-                    onChange={(e) => setNewCompetitorName(e.target.value)}
-                    autoComplete="off"
-                    autoFocus
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCompetitor(); } }}
-                  />
-                </div>
-                {(fleets ?? []).length > 1 && (
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium" htmlFor="resolve-fleet">Fleet</label>
-                    <Select value={newCompetitorFleet} onValueChange={setNewCompetitorFleet}>
-                      <SelectTrigger id="resolve-fleet">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(fleets ?? []).map((f) => (
-                          <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                {addCompetitorError && (
-                  <p className="text-sm text-destructive">{addCompetitorError}</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleAddCompetitor} disabled={addingCompetitor} size="sm">
-                  {addingCompetitor ? 'Adding…' : 'Add and resolve'}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAddCompetitorForm(false)}
-                  disabled={addingCompetitor}
-                >
-                  Back
-                </Button>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <ResolveUnknownDialog
+        unknownSailNumber={resolvingEntry?.sailNumber ?? null}
+        candidates={nonFinishers.map((nf) => nf.competitor)}
+        fleets={fleets ?? []}
+        primaryFieldLabel={primaryFieldLabel}
+        showCrew={showCrew}
+        onResolveExisting={linkUnknownToCompetitor}
+        onResolveNew={handleResolveNew}
+        onCancel={closeResolveDialog}
+      />
 
       <PenaltyEditorDialog
         competitor={
