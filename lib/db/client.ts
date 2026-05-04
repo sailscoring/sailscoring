@@ -24,7 +24,7 @@ function ensureDatabaseUrl(): string {
  */
 export function getDb(): SailScoringDb {
   if (!cachedDb) {
-    cachedClient = postgres(ensureDatabaseUrl(), { prepare: false });
+    cachedClient = postgres(ensureDatabaseUrl(), { prepare: false, idle_timeout: 30 });
     cachedDb = drizzle(cachedClient, { schema });
   }
   return cachedDb;
@@ -32,7 +32,7 @@ export function getDb(): SailScoringDb {
 
 export function getDbClient(): Sql {
   if (!cachedClient) {
-    cachedClient = postgres(ensureDatabaseUrl(), { prepare: false });
+    cachedClient = postgres(ensureDatabaseUrl(), { prepare: false, idle_timeout: 30 });
   }
   return cachedClient;
 }
