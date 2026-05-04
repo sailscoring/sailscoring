@@ -103,6 +103,7 @@ Development is *only* used to populate `.env.local` via `vercel env pull`.
 | `BETTER_AUTH_URL`              | `https://app.sailscoring.ie` | **unset**    | `http://localhost:3000` | no         |
 | `RESEND_API_KEY`               | from Resend          | from Resend          | unset (recommended)  | yes for prod/preview |
 | `RESEND_FROM`                  | `Sail Scoring <noreply@sailscoring.ie>` | same | same         | no |
+| `CREDENTIAL_KEY`               | random (set, **permanent**) | random (set, **permanent**) | random (set) | yes for prod/preview |
 | `USE_SERVER_DATA`              | unset (Phase 1)      | unset (Phase 1)      | unset (Phase 1)      | no         |
 | `NEXT_PUBLIC_APP_URL`          | `https://app.sailscoring.ie` | unset / preview URL  | `http://localhost:3000` | no  |
 | `NEXT_PUBLIC_BILGE_URL`        | `https://bilge.sailscoring.ie` | (same)     | (same)               | no         |
@@ -129,6 +130,19 @@ already appends `process.env.VERCEL_URL` to `trustedOrigins` for previews.
 **`RESEND_API_KEY`** — leaving this unset in Development is the recommended
 default. The dev sender (`lib/auth/email.ts`) falls back to `console.log` +
 `tests/.magic-links.log`, which is exactly what the e2e suite reads.
+
+**`CREDENTIAL_KEY`** — 32-byte symmetric key (64 hex chars) used by
+`lib/crypto.ts` to AES-256-GCM-encrypt FTP server passwords at the application
+layer before they hit Postgres. Generate with `openssl rand -hex 32`. Without
+it, any write to `/api/v1/ftp-servers/...` returns 500 with
+`"CREDENTIAL_KEY is not set"` in the function logs.
+
+Treat the key as **permanent for the lifetime of the data**: rotating or
+losing it makes every previously-stored FTP password undecryptable. If you
+ever need to rotate, you must re-enter every FTP server password after the
+swap. Use the **same value** in Production and Preview because they share the
+same Neon database — a preview deploy reading a row written by production
+needs the same key. Development can use a different value (its own DB).
 
 **`USE_SERVER_DATA`** — server-only flag (do *not* prefix with
 `NEXT_PUBLIC_`). Off by default through Phase 5; explicitly setting it to
@@ -160,6 +174,14 @@ vercel env add RESEND_API_KEY
 
 vercel env add RESEND_FROM
 # All three environments: "Sail Scoring <noreply@sailscoring.ie>"
+
+vercel env add CREDENTIAL_KEY
+# Generate value: openssl rand -hex 32
+# Production and Preview: paste the SAME value, mark sensitive
+#   (they share the Neon DB — different keys would break decrypts across envs)
+# Development: paste a different value, leave non-sensitive
+# Stash the production value in your password manager; losing it means
+# every stored FTP password becomes undecryptable.
 ```
 
 ## 6. Pull env vars locally
@@ -251,6 +273,7 @@ After step 6 you should have these in `.env.local`:
 DATABASE_URL=postgres://...                 # from Neon (Development branch)
 BETTER_AUTH_SECRET=...                      # 32+ chars random
 BETTER_AUTH_URL=http://localhost:3000
+CREDENTIAL_KEY=...                          # 64 hex chars (`openssl rand -hex 32`)
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_BILGE_URL=https://bilge.sailscoring.ie
 NEXT_PUBLIC_BILGE_API_KEY=...
