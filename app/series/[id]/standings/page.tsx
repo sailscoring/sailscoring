@@ -60,33 +60,6 @@ import { uploadToBilge, lookupPrefix, checkPublishStatus, publishedUrl, fetchPol
 import { slugify, isValidPrefix } from '@/lib/bilge-slug';
 import type { Standing, DiscardThreshold, Fleet, Series, BilgeBundle, CompetitorFieldKey, PrimaryPersonLabel, Competitor, ResultCode, PenaltyCode } from '@/lib/types';
 
-function PointsCell({
-  points,
-  isBest,
-  resultCode,
-}: {
-  points: number;
-  isBest: boolean;
-  resultCode?: string;
-}) {
-  const isPenalty = resultCode !== null && resultCode !== undefined;
-  return (
-    <TableCell
-      className={cn(
-        'text-center tabular-nums',
-        isBest && 'font-semibold',
-        isPenalty && 'text-muted-foreground',
-      )}
-      title={resultCode ?? undefined}
-    >
-      {points}
-      {isPenalty && (
-        <span className="text-xs ml-0.5 text-muted-foreground">({resultCode})</span>
-      )}
-    </TableCell>
-  );
-}
-
 function seriesSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'series';
 }
