@@ -521,6 +521,11 @@ async function writeFleetsCompetitorsRaces(
   competitorIdMap: Map<string, string>,
   raceIdMap: Map<string, string>,
 ): Promise<void> {
+  // Phase 7 audit: every `saveMany`/`save` below is authoritative-by-
+  // construction. Either we just minted `seriesId` (open-as-new) or
+  // `deleteSeriesChildren` cleared the prior child rows (update-from-
+  // file). All ids are freshly generated; no concurrent writer can
+  // race against rows that don't exist yet.
   await repos.fleetRepo.saveMany(
     file.fleets.map((f) => ({
       id: fleetIdMap.get(f.id)!,

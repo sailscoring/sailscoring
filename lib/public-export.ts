@@ -644,6 +644,10 @@ export async function importPublicExport(
       });
     }
     if (finishes.length > 0) {
+      // Phase 7 audit: authoritative-by-construction. `newSeriesId`,
+      // every fleet/competitor/race id, and every finish id were freshly
+      // minted earlier in this function — there is no existing row this
+      // bulk insert could race against.
       await repos.finishRepo.saveMany(finishes);
     }
   }

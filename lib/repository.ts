@@ -46,6 +46,15 @@ export class ConflictError extends Error {
  * serializes them, so a window of related rows lands consistently
  * without needing a bespoke bulk endpoint.
  *
+ * Phase 7 audit (issue #112) walked every `saveMany` caller and
+ * confirmed each is authoritative-by-construction. The relevant
+ * call sites carry `// Phase 7 audit:` comments documenting the
+ * invariant they rely on. The known soft spot is the CSV competitor
+ * importer's update branch — it overwrites in-progress hand-edits
+ * during the rare window where a panel member edits a competitor at
+ * the moment another runs an import. Acceptable tradeoff: imports are
+ * a setup-time event, not concurrent with race-day edits.
+ *
  * `updatedBy` is the Better Auth user id of the actor performing the
  * write (ADR-008 Phase 7). Postgres-backed repositories stamp it onto
  * the row's `updated_by` column so 409s can name the conflicting actor

@@ -436,6 +436,10 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       }
     }
     if (fleetsToCreate.length > 0) {
+      // Phase 7 audit: authoritative-by-construction. `fleetsToCreate`
+      // is the new-fleet branch only — each id was freshly minted above
+      // (`crypto.randomUUID()`); existing fleets are looked up and their
+      // ids reused without going through this code path.
       await saveFleets.mutateAsync(fleetsToCreate);
     }
     // Per-row resolved fleet IDs (deduped, preserving insertion order).
@@ -581,6 +585,12 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     }
 
     if (competitorsToSave.length > 0) {
+      // Phase 7 audit: this is the one bulk path that updates *existing*
+      // rows (matched-by-sail-number). It does not pass `expectedVersion`,
+      // so a hand-edit in flight when a panel member runs an import would
+      // be silently overwritten. Acceptable tradeoff: CSV import is a
+      // setup-time event, not concurrent with race-day edits. See the
+      // Phase 7 audit note in lib/repository.ts SaveOpts doc-comment.
       await saveCompetitors.mutateAsync(competitorsToSave);
     }
     await touchSeries.mutateAsync(seriesId);
