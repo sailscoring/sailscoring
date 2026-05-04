@@ -39,23 +39,6 @@ export function useSaveFinish() {
     },
     // Serialize so a rapid second save sees the cache update from the first
     // and sends the fresh `expectedVersion`. See useSaveSeries for context.
-    // Shared with useSaveFinishes so single + bulk saves don't race.
-    scope: { id: 'finishes' },
-  });
-}
-
-export function useSaveFinishes() {
-  const { finishRepo } = useRepos();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (finishes: Finish[]) => finishRepo.saveMany(finishes),
-    onSuccess: (_void, finishes) => {
-      const raceIds = new Set(finishes.map((f) => f.raceId));
-      for (const raceId of raceIds) {
-        qc.invalidateQueries({ queryKey: queryKeys.finishes.byRace(raceId) });
-      }
-      qc.invalidateQueries({ queryKey: queryKeys.finishes.all });
-    },
     scope: { id: 'finishes' },
   });
 }
