@@ -1,6 +1,6 @@
 # ADR-008: Full-Stack Transition
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Date:** 2026-04-26
 
@@ -457,7 +457,7 @@ fidelity. Re-running the wizard is safe.
 **Size.** ~1–2 weeks. **Rollback.** Wizard is opt-in and idempotent;
 failed runs don't damage local data.
 
-### Phase 6 — Per-row autosave on finish entry
+### Phase 6 — Per-row autosave on finish entry *(complete)*
 
 **Goal.** Replace the batch Save button on the race finish-entry page
 with per-row autosave, and close the silent-overwrite hole on
@@ -481,9 +481,10 @@ away.
 same-user concurrent saves on the same race surface a row-scoped 409.
 No silent-overwrite path remains on `FinishRepository.saveMany`.
 
-**Size.** ~5 days. Tracked by #111. **Rollback.** Revertible deploy.
+**Size.** ~5 days. Tracked by #111, closed `2026-05-04`, landed
+`3aaa301`. **Rollback.** Revertible deploy.
 
-### Phase 7 — Org-sharing core
+### Phase 7 — Org-sharing core *(complete)*
 
 **Goal.** HYC's scoring panel can share a workspace and collaborate
 safely on a series. Optimistic concurrency on every write, clean 409s
@@ -534,7 +535,8 @@ all members; concurrent edits anywhere surface clean 409s with actor
 attribution; personal-workspace series can be copied into the HYC
 workspace; local-first build unchanged.
 
-**Size.** ~7 days end-to-end. Tracked by #112.
+**Size.** ~7 days end-to-end. Tracked by #112, closed `2026-05-04`,
+landed `b0d856f`.
 **Rollback.** Org features hide behind a flag; manual data unaffected.
 
 ### Phase 8 — Cutover
@@ -649,7 +651,7 @@ that Phase 4 deferred became a standalone Phase 6.
 
 Current order: **5 → 6 (#111) → 7 (#112) → 8 → 9 → 10.**
 
-- Phases 1–4 are complete; 5 is in flight.
+- Phases 1–4, 6, and 7 are complete; 5 is in flight in parallel.
 - Phase 6 (#111) closes the silent-overwrite hole on
   `FinishRepository.saveMany` that Phase 4 deferred. It also fixes the
   long-standing Save-button UX wart on finish entry. Lands as a
