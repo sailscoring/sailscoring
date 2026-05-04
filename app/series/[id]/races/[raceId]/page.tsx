@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { RowConflictDialog } from '@/components/row-conflict-dialog';
 import { useFinishConflictDialog } from '@/hooks/use-finish-conflict-dialog';
+import {
+  useFinishEntry,
+  type NonFinisherCode,
+} from '@/hooks/use-finish-entry';
 import { useSeries, useTouchSeries } from '@/hooks/use-series';
 import { useCompetitorsBySeries, useSaveCompetitor } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
@@ -72,13 +76,6 @@ import { RedressDialog } from '@/components/redress-dialog';
 import { ResolveUnknownDialog } from '@/components/resolve-unknown-dialog';
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 
-type NonFinisherCode = ResultCode | 'implicit-dnc';
-
-interface NonFinisherEntry {
-  competitor: Competitor;
-  code: NonFinisherCode;
-}
-
 export default function ResultEntryPage({
   params,
 }: {
@@ -117,7 +114,6 @@ export default function ResultEntryPage({
   );
   const {
     finishingOrder,
-    nonFinisherCodes,
     finishTimes,
     tiedWithPrevious,
     finisherPenalties,
@@ -126,33 +122,17 @@ export default function ResultEntryPage({
     finishByCompetitorId,
   } = derived;
 
-  // Entry-key of a row to briefly flash (recent auto-slot, scratch reorder).
-  const [flashedRowId, setFlashedRowId] = useState<string | null>(null);
-
   const [activeTab, setActiveTab] = useState<'finish' | 'checkin'>('finish');
-  const [sailInput, setSailInput] = useState('');
   const [checkinInput, setCheckinInput] = useState('');
-  const [inputError, setInputError] = useState('');
-  const [pendingUnknownSail, setPendingUnknownSail] = useState<string | null>(null);
   const [resolvingEntry, setResolvingEntry] = useState<(FinishEntry & { kind: 'unknown' }) | null>(null);
-  // Pending time entry: competitor confirmed, waiting for finish time before adding to list
-  const [pendingTimeEntry, setPendingTimeEntry] = useState<{ competitor: Competitor } | null>(null);
-  const [pendingTimeValue, setPendingTimeValue] = useState('');
-  const [pendingTimeError, setPendingTimeError] = useState('');
-  const pendingTimeInputRef = useRef<HTMLInputElement>(null);
   // Race starts section
   const [startsExpanded, setStartsExpanded] = useState(false);
   // Race starts dialog
   const [startDialogMode, setStartDialogMode] = useState<RaceStartDialogMode | null>(null);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [showAllCheckin, setShowAllCheckin] = useState(false);
-  // Per-row UI overlay for the finish-time inputs: while a row's input is
-  // focused we show the in-progress text; on blur we normalize and persist.
-  const [editingTimes, setEditingTimes] = useState<Map<string, string>>(new Map());
   const [redressDialog, setRedressDialog] = useState<{ competitorId: string; isFinisher: boolean } | null>(null);
   // Penalty editor dialog: competitorId of the row being edited, or null.
   const [editingPenaltyEntryId, setEditingPenaltyEntryId] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const finishSheetImportRef = useRef<FinishSheetImportHandle>(null);
 
   const conflictDialog = useFinishConflictDialog({
@@ -172,62 +152,43 @@ export default function ResultEntryPage({
     qc.setQueryData<Finish[]>(key, updater(prev));
   }
 
-  /**
-   * Apply a new ordered list of entries (with optional ties) to the
-   * server: write distinct sortOrders and the `tiedWithPrevious` flag
-   * for every row whose values changed. Caller is responsible for
-   * inserts/deletes — this only renumbers + retags existing rows.
-   */
-  function commitOrderChange(targetOrder: FinishEntry[], targetTies: Set<string>) {
-    const updates: Finish[] = [];
-    for (let i = 0; i < targetOrder.length; i++) {
-      const entry = targetOrder[i];
-      const finish = finishByEntryKey.get(entryKey(entry));
-      if (!finish) continue;
-      const targetSortOrder = i + 1;
-      const targetTied = i > 0 && targetTies.has(entryKey(entry));
-      if (
-        finish.sortOrder !== targetSortOrder ||
-        finish.tiedWithPrevious !== targetTied
-      ) {
-        updates.push({ ...finish, sortOrder: targetSortOrder, tiedWithPrevious: targetTied });
-      }
-    }
-    if (updates.length === 0) return;
-    const updatedById = new Map(updates.map((u) => [u.id, u]));
-    patchCache((rows) => rows.map((r) => updatedById.get(r.id) ?? r));
-    // Each row needs its own save (sortOrder + boolean both change). The
-    // shared `finishes` mutation scope serializes these writes against
-    // the per-row save path, so a follow-on edit waits for the last
-    // reorder save's onSuccess to land the bumped version.
-    for (const u of updates) saveFinish.mutate(u);
-    void touchSeries.mutateAsync(seriesId);
-  }
+  const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
+  const isHandicapSeries = series?.scoringMode === 'handicap';
 
-  // Focus sail input as soon as the UI first renders (race + competitors loaded)
-  const didFocusRef = useRef(false);
-  useEffect(() => {
-    if (!didFocusRef.current && race != null && competitors != null) {
-      didFocusRef.current = true;
-      inputRef.current?.focus();
-    }
-  }, [race, competitors]);
-
-  // Focus the time input when a pending time entry appears; return focus to sail input when it clears
-  useEffect(() => {
-    if (pendingTimeEntry) {
-      pendingTimeInputRef.current?.focus();
-    } else {
-      inputRef.current?.focus();
-    }
-  }, [pendingTimeEntry]);
-
-  // Clear the row flash after a short delay so the animation only plays once per trigger.
-  useEffect(() => {
-    if (flashedRowId === null) return;
-    const t = setTimeout(() => setFlashedRowId(null), 900);
-    return () => clearTimeout(t);
-  }, [flashedRowId]);
+  const finishEntry = useFinishEntry({
+    raceId,
+    seriesId,
+    isHandicapSeries,
+    competitors: competitors ?? [],
+    fleets: fleets ?? [],
+    fleetById,
+    raceStarts,
+    savedFinishes,
+    derived,
+    saveFinish,
+    deleteFinish,
+    touchSeries,
+    patchCache,
+    ready: race != null && competitors != null,
+  });
+  const {
+    sailInput, setSailInput,
+    inputError, setInputError,
+    pendingUnknownSail, setPendingUnknownSail,
+    highlightedIndex, setHighlightedIndex,
+    pendingTimeEntry, setPendingTimeEntry,
+    pendingTimeValue, setPendingTimeValue,
+    pendingTimeError, setPendingTimeError,
+    pendingTimeInputRef,
+    flashedRowId,
+    editingTimes, setEditingTimes,
+    inputRef,
+    nonFinishers, suggestions,
+    needsFinishTime,
+    addFinisher, commitCompetitor,
+    confirmPendingTime, cancelPendingTime, recordAsUnknown,
+    removeFinisher, toggleTiedWithPrevious, moveRow, reslotTimedRow,
+  } = finishEntry;
 
   // No isDirty / leave-confirm — every interaction persists immediately.
   function leave() {
@@ -299,325 +260,8 @@ export default function ResultEntryPage({
   }
 
   const competitorMap = new Map(competitors.map((c) => [c.id, c]));
-  const sailMap = new Map<string, Competitor[]>();
-  for (const c of competitors) {
-    const key = c.sailNumber.toUpperCase();
-    const arr = sailMap.get(key);
-    if (arr) arr.push(c);
-    else sailMap.set(key, [c]);
-  }
-  const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const showFleetBadge = (fleets ?? []).length > 1 || (fleets ?? []).some((f) => f.name !== 'Default');
-  const hasNonScratchFleets = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
-  const isHandicapSeries = series?.scoringMode === 'handicap';
-  // Fleet IDs that have a recorded start time for this race
-  const fleetIdsWithStartTimes = new Set(raceStarts.flatMap((s) => s.fleetIds));
-  // Returns true if this competitor needs a finish time recorded.
-  // Both conditions must hold: the fleet has a start time AND uses handicap scoring.
-  // Scratch fleets never need finish times, even when they have a recorded start.
-  const needsFinishTime = (competitorId: string): boolean => {
-    const c = competitorMap.get(competitorId);
-    if (!c) return false;
-    return c.fleetIds.some((id) => {
-      const fleet = fleetById.get(id);
-      return fleet !== undefined && fleet.scoringSystem !== 'scratch' && fleetIdsWithStartTimes.has(id);
-    });
-  };
-
-  // Returns true if this competitor has at least one fleet with a start configured
-  // for this race. When any handicap fleet exists in the series, every finished
-  // competitor must have a corresponding start — otherwise we can't determine
-  // whether they need a finish time.
-  const hasStartForRace = (competitorId: string): boolean => {
-    const c = competitorMap.get(competitorId);
-    if (!c) return false;
-    return c.fleetIds.some((id) => fleetIdsWithStartTimes.has(id));
-  };
-
-  // Competitors not yet in the finishing order (only known finishers consume a competitor slot)
-  const finishedIds = new Set(
-    finishingOrder.flatMap((e) => e.kind === 'known' ? [e.competitorId] : []),
-  );
-  const nonFinishers: NonFinisherEntry[] = competitors
-    .filter((c) => !finishedIds.has(c.id))
-    .map((c) => {
-      const explicitCode = nonFinisherCodes.get(c.id);
-      const isPresent = savedFinishes?.some((f) => f.competitorId === c.id && f.startPresent === true);
-      return {
-        competitor: c,
-        code: explicitCode ?? (isPresent ? 'DNF' : 'implicit-dnc'),
-      };
-    });
-  const suggestions = sailInput.trim()
-    ? nonFinishers.filter(({ competitor }) =>
-        competitor.sailNumber.toUpperCase().startsWith(sailInput.trim().toUpperCase()),
-      )
-    : [];
-
-  // Core "add this competitor to the finishing order" — optionally with a pre-known finish time.
-  // Timed entries are auto-slotted immediately before the next later-timed row, preserving
-  // the relative order of scratch rows (time-order invariant, ADR-007).
-  function addKnownFinisher(competitor: Competitor, finishTime?: string) {
-    // Compute the target insertion index in the visible finishing order.
-    let insertAt = finishingOrder.length;
-    if (finishTime) {
-      for (let i = 0; i < finishingOrder.length; i++) {
-        const existingTime = finishTimes.get(entryKey(finishingOrder[i]));
-        if (existingTime !== undefined && existingTime > finishTime) {
-          insertAt = i;
-          break;
-        }
-      }
-    }
-
-    // Reuse the existing Finish row if the competitor was already checked in;
-    // otherwise insert a fresh row.
-    const existing = finishByCompetitorId.get(competitor.id);
-    const finishId = existing?.id ?? crypto.randomUUID();
-    const newRow: Finish = existing
-      ? {
-          ...existing,
-          sortOrder: insertAt + 1,
-          tiedWithPrevious: false,
-          ...(finishTime ? { finishTime } : {}),
-        }
-      : makeFinish(raceId, {
-          id: finishId,
-          competitorId: competitor.id,
-          sortOrder: insertAt + 1,
-          startPresent: true,
-          ...(finishTime ? { finishTime } : {}),
-        });
-
-    // Build the order *after* insertion so commitOrderChange can renumber
-    // displaced rows.
-    const newEntry: FinishEntry = {
-      kind: 'known', competitorId: competitor.id, finishId, version: existing?.version,
-    };
-    const targetOrder = [
-      ...finishingOrder.slice(0, insertAt),
-      newEntry,
-      ...finishingOrder.slice(insertAt),
-    ];
-
-    patchCache((rows) => existing
-      ? rows.map((r) => (r.id === existing.id ? newRow : r))
-      : [...rows, newRow]);
-    saveFinish.mutate(newRow);
-    if (finishTime) setFlashedRowId(competitor.id);
-    // Renumber displaced rows.
-    commitOrderChange(targetOrder, tiedWithPrevious);
-    setSailInput('');
-    setInputError('');
-    setPendingUnknownSail(null);
-    setHighlightedIndex(-1);
-    inputRef.current?.focus();
-    log('result-entry', 'added finisher', { sail: competitor.sailNumber, competitorId: competitor.id });
-  }
-
-  // Route a resolved competitor through time-entry if their fleet has a start time.
-  // In a handicap series, block competitors whose fleet has no start configured.
-  // The scorer needs to add a start for every fleet before entering finishes.
-  function commitCompetitor(competitor: Competitor) {
-    if (isHandicapSeries && !hasStartForRace(competitor.id)) {
-      const fleetNames = competitor.fleetIds
-        .map((id) => fleetById.get(id)?.name)
-        .filter(Boolean)
-        .join(', ');
-      setSailInput('');
-      setHighlightedIndex(-1);
-      setPendingUnknownSail(null);
-      setInputError(`${competitor.sailNumber} cannot be finished — no start configured for fleet ${fleetNames}. Add a start for this fleet first.`);
-      return;
-    }
-    if (needsFinishTime(competitor.id)) {
-      setSailInput('');
-      setInputError('');
-      setHighlightedIndex(-1);
-      setPendingTimeEntry({ competitor });
-      setPendingTimeValue('');
-      setPendingTimeError('');
-    } else {
-      addKnownFinisher(competitor);
-    }
-  }
-
-  function confirmPendingTime() {
-    if (!pendingTimeEntry) return;
-    if (!pendingTimeValue.trim()) {
-      setPendingTimeError('Finish time is required.');
-      return;
-    }
-    const time = normalizeTimeInput(pendingTimeValue);
-    if (!time) {
-      setPendingTimeError('Enter a valid time, e.g. 14:32:10 or 143210.');
-      return;
-    }
-    addKnownFinisher(pendingTimeEntry.competitor, time);
-    setPendingTimeEntry(null);
-    setPendingTimeValue('');
-    setPendingTimeError('');
-  }
-
-  function cancelPendingTime() {
-    setPendingTimeEntry(null);
-    setPendingTimeValue('');
-    setPendingTimeError('');
-    inputRef.current?.focus();
-  }
-
-  function recordAsUnknown(sail: string) {
-    const finishId = crypto.randomUUID();
-    const newRow = makeFinish(raceId, {
-      id: finishId,
-      competitorId: null,
-      unknownSailNumber: sail,
-      sortOrder: finishingOrder.length + 1,
-    });
-    patchCache((rows) => [...rows, newRow]);
-    saveFinish.mutate(newRow);
-    setPendingUnknownSail(null);
-    setSailInput('');
-    setInputError('');
-    inputRef.current?.focus();
-    log('result-entry', 'recorded unknown finisher', { sail });
-  }
-
-  function addFinisher() {
-    if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
-      commitCompetitor(suggestions[highlightedIndex].competitor);
-      return;
-    }
-
-    const sail = sailInput.trim().toUpperCase();
-    if (!sail) return;
-
-    const candidates = sailMap.get(sail);
-    if (!candidates || candidates.length === 0) {
-      setPendingUnknownSail(sail);
-      setInputError(`Sail number "${sail}" not found in this series.`);
-      return;
-    }
-    const unfinished = candidates.filter((c) => !finishedIds.has(c.id));
-    if (unfinished.length === 0) {
-      setInputError(`${sail} is already in the finishing order.`);
-      return;
-    }
-    if (unfinished.length > 1) {
-      setInputError(`Multiple boats with sail ${sail} — select from the list.`);
-      return;
-    }
-
-    commitCompetitor(unfinished[0]);
-  }
-
-  function removeFinisher(eid: string) {
-    const finish = finishByEntryKey.get(eid);
-    if (!finish) return;
-    // Preserve startPresent across remove: if the row was checked in,
-    // retain it as a check-in-only record (sortOrder=null, fields cleared).
-    const next: Finish | null =
-      finish.startPresent === true
-        ? {
-            ...finish,
-            sortOrder: null,
-            tiedWithPrevious: false,
-            resultCode: null,
-            penaltyCode: null,
-            penaltyOverride: null,
-            redressMethod: null,
-            redressExcludeRaces: null,
-            redressIncludeRaces: null,
-            redressIncludeAllLater: false,
-            redressPoints: null,
-            ...(finish.finishTime ? { finishTime: undefined } : {}),
-          }
-        : null;
-    if (next) {
-      patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
-      saveFinish.mutate(next);
-    } else {
-      patchCache((rows) => rows.filter((r) => r.id !== finish.id));
-      deleteFinish.mutate({ id: finish.id, raceId });
-    }
-    // Renumber remaining rows so sortOrders stay 1-based contiguous.
-    const remaining = finishingOrder.filter((e) => entryKey(e) !== eid);
-    const remainingTies = new Set(tiedWithPrevious);
-    remainingTies.delete(eid);
-    commitOrderChange(remaining, remainingTies);
-  }
-
-  function toggleTiedWithPrevious(eid: string) {
-    const newTies = new Set(tiedWithPrevious);
-    if (newTies.has(eid)) newTies.delete(eid);
-    else newTies.add(eid);
-    commitOrderChange(finishingOrder, newTies);
-  }
-
-  /**
-   * Move a scratch row by one step in the given direction. No-op if it would
-   * fall off the list. Scratch rows can freely move past timed rows; the
-   * moved row briefly flashes at its new position as a visual confirmation.
-   * Timed rows never have move affordances — their position is determined by
-   * the time-order invariant.
-   */
-  function moveRow(index: number, direction: -1 | 1) {
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= finishingOrder.length) return;
-    const next = [...finishingOrder];
-    const movedEid = entryKey(next[index]);
-    const newTies = new Set(tiedWithPrevious);
-
-    // If the row immediately below the moved row was tied with it,
-    // that tie now refers to the row above the vacated slot — preserve it
-    // only if the moved row was itself tied (i.e. the group continues).
-    const belowIndex = index + 1;
-    if (belowIndex < next.length) {
-      const belowEid = entryKey(next[belowIndex]);
-      if (newTies.has(belowEid) && !newTies.has(movedEid)) {
-        newTies.delete(belowEid);
-      }
-    }
-    // Always clear the tie on the moved row itself.
-    newTies.delete(movedEid);
-
-    const [moved] = next.splice(index, 1);
-    next.splice(targetIndex, 0, moved);
-    setFlashedRowId(entryKey(moved));
-    commitOrderChange(next, newTies);
-  }
-
-  /**
-   * Re-slot a row that already has a finish time after its time has been edited
-   * so the time-order invariant holds. Scratch rows keep their relative order;
-   * the moved row briefly flashes at its new position.
-   */
-  function reslotTimedRow(eid: string, nextTime: string) {
-    const currentIndex = finishingOrder.findIndex((e) => entryKey(e) === eid);
-    if (currentIndex === -1) return;
-    const without = [
-      ...finishingOrder.slice(0, currentIndex),
-      ...finishingOrder.slice(currentIndex + 1),
-    ];
-    let insertAt = without.length;
-    for (let i = 0; i < without.length; i++) {
-      const otherId = entryKey(without[i]);
-      if (otherId === eid) continue;
-      const otherTime = finishTimes.get(otherId);
-      if (otherTime !== undefined && otherTime > nextTime) {
-        insertAt = i;
-        break;
-      }
-    }
-    if (insertAt === currentIndex) return;
-    const reordered = [
-      ...without.slice(0, insertAt),
-      finishingOrder[currentIndex],
-      ...without.slice(insertAt),
-    ];
-    setFlashedRowId(eid);
-    commitOrderChange(reordered, tiedWithPrevious);
-  }
+  const finishedIds = finishEntry.finishedIds;
 
   function applyPenalty(draft: PenaltyDraft) {
     if (!editingPenaltyEntryId) return;
