@@ -39,14 +39,26 @@ async function loadHeaderState(): Promise<HeaderState | null> {
     .innerJoin(organization, eq(member.organizationId, organization.id))
     .where(eq(member.userId, session.user.id))
     .orderBy(member.createdAt);
+  const memberships = rows.map((r) => ({
+    organizationId: r.organizationId,
+    name: r.name,
+    slug: r.slug,
+    role: r.role as WorkspaceMembership['role'],
+  }));
+  const sessionActiveId = session.session.activeOrganizationId ?? null;
+  // Mirror requireWorkspace's bootstrap-pick: a fresh login has
+  // activeOrganizationId=null on the session row, but the user's
+  // personal workspace exists and every server request will resolve
+  // to it. Reflect that in the switcher so the dropdown doesn't read
+  // "Select workspace…" for a workspace the user is in fact already in.
+  const resolvedActive =
+    (sessionActiveId &&
+      memberships.find((m) => m.organizationId === sessionActiveId)
+        ?.organizationId) ||
+    (memberships.length === 1 ? memberships[0].organizationId : null);
   return {
-    memberships: rows.map((r) => ({
-      organizationId: r.organizationId,
-      name: r.name,
-      slug: r.slug,
-      role: r.role as WorkspaceMembership['role'],
-    })),
-    activeOrganizationId: session.session.activeOrganizationId ?? null,
+    memberships,
+    activeOrganizationId: resolvedActive,
   };
 }
 
