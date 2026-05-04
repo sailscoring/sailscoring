@@ -6,8 +6,6 @@ import type {
   FtpServerRepository,
   RaceRepository,
   FinishRepository,
-  FinishReorderItem,
-  FinishReorderResult,
   RaceStartRepository,
 } from './repository';
 import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart } from './types';
@@ -130,28 +128,6 @@ class DexieFinishRepository implements FinishRepository {
 
   async saveMany(finishes: Finish[]): Promise<void> {
     await db.finishes.bulkPut(finishes.map(normalizeFinish));
-  }
-
-  /**
-   * Local mode has a single writer, so per-row CAS is a no-op — we just
-   * write the new sortOrders. Mirrors the Postgres path's return shape so
-   * callers can treat both backends uniformly.
-   */
-  async reorderSortOrders(
-    raceId: string,
-    items: FinishReorderItem[],
-  ): Promise<FinishReorderResult[]> {
-    if (items.length === 0) return [];
-    return db.transaction('rw', db.finishes, async () => {
-      const results: FinishReorderResult[] = [];
-      for (const item of items) {
-        const row = await db.finishes.get(item.id);
-        if (!row || row.raceId !== raceId) continue;
-        await db.finishes.put({ ...row, sortOrder: item.sortOrder });
-        results.push({ id: item.id, sortOrder: item.sortOrder, version: 0 });
-      }
-      return results;
-    });
   }
 
   delete(id: string): Promise<void> {

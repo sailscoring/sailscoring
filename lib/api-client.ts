@@ -43,12 +43,6 @@ export interface ConflictDetail {
   /** ISO-8601; the row's `updated_at` at the moment of conflict. */
   updatedAt?: string;
   actor?: { id: string; email?: string; displayName?: string };
-  /** Per-row CAS failures from a bulk operation (Phase 6 reorder). */
-  rowConflicts?: Array<{
-    id: string;
-    expectedVersion: number;
-    currentVersion?: number;
-  }>;
 }
 
 export class ConflictApiError extends ApiError {

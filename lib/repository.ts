@@ -20,16 +20,6 @@ export class ConflictError extends Error {
        * `workspaceRoute` wrapper). Phase 6 leaves this `undefined`.
        */
       actor?: { id: string; email?: string; displayName?: string };
-      /**
-       * Per-row CAS failures from a bulk operation
-       * (`FinishRepository.reorderSortOrders`). Each entry names a single
-       * id whose version no longer matches.
-       */
-      rowConflicts?: Array<{
-        id: string;
-        expectedVersion: number;
-        currentVersion?: number;
-      }>;
     },
   ) {
     super('conflict');
@@ -51,36 +41,13 @@ export class ConflictError extends Error {
  * server-side migration endpoint, fresh row creation). Bulk writes
  * (`FleetRepository.saveMany`, `CompetitorRepository.saveMany`,
  * `FinishRepository.saveMany`) are authoritative by construction. The
- * autosave-driven finish-entry path uses single-row `save` (CAS) plus
- * `FinishRepository.reorderSortOrders` (per-row CAS on a focused payload)
- * — see ADR-008 Phase 6.
+ * autosave-driven finish-entry path uses per-row `save` calls — each
+ * threads its own `expectedVersion` and the shared mutation scope
+ * serializes them, so a window of related rows lands consistently
+ * without needing a bespoke bulk endpoint.
  */
 export interface SaveOpts {
   expectedVersion?: number;
-}
-
-/**
- * Per-row CAS reorder payload for `FinishRepository.reorderSortOrders`.
- * Only `sortOrder` changes — full Finish rows are written via single-row
- * `save` calls. The reorder path stays small so drag-and-drop and tie
- * toggles can write the affected window of rows in one round-trip.
- *
- * `expectedVersion` is optional. If present, the Postgres backend treats
- * it as a CAS predicate; if absent (e.g. a row freshly inserted in the
- * cache that hasn't received its version from the server yet) the
- * update is unconditional.
- */
-export interface FinishReorderItem {
-  id: string;
-  sortOrder: number | null;
-  expectedVersion?: number;
-}
-
-/** Result row from a successful reorder — UI patches the cache by id. */
-export interface FinishReorderResult {
-  id: string;
-  sortOrder: number | null;
-  version: number;
 }
 
 export interface FleetRepository {
@@ -122,17 +89,6 @@ export interface FinishRepository {
   listBySeries(seriesId: string, competitorIds: string[]): Promise<Finish[]>;
   save(finish: Finish, opts?: SaveOpts): Promise<Finish>;
   saveMany(finishes: Finish[]): Promise<void>;
-  /**
-   * Update only `sortOrder` on a window of finishes, with per-row CAS.
-   * Used by the autosave finish-entry page for drag-reorder and tie toggles
-   * (ADR-008 Phase 6). All items must belong to `raceId`. If any row's
-   * `version` no longer matches, throws `ConflictError` with the conflicting
-   * ids in the detail and applies no writes.
-   */
-  reorderSortOrders(
-    raceId: string,
-    items: FinishReorderItem[],
-  ): Promise<FinishReorderResult[]>;
   delete(id: string): Promise<void>;
   deleteByRace(raceId: string): Promise<void>;
   deleteByRaces(raceIds: string[]): Promise<void>;

@@ -3,13 +3,8 @@ import 'server-only';
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
-import {
-  finishInputSchema,
-  finishesBulkInputSchema,
-  finishesReorderInputSchema,
-} from '@/lib/validation/finish';
+import { finishInputSchema, finishesBulkInputSchema } from '@/lib/validation/finish';
 import type { Finish } from '@/lib/types';
-import type { FinishReorderResult } from '@/lib/repository';
 
 async function assertRaceInWorkspace(
   workspace: WorkspaceContext,
@@ -94,23 +89,4 @@ export async function bulkPutFinishes(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.finishes.saveMany(finishes);
   return { count: finishes.length };
-}
-
-/**
- * Per-row CAS reorder. Used by the autosave finish-entry page (ADR-008
- * Phase 6) for drag-reorder and tie toggles. Returns the new
- * `{id, sortOrder, version}` triples on success; throws `ConflictError`
- * (→ 409 with rowConflicts in the detail) if any row's `expectedVersion`
- * is stale, in which case no writes happen.
- */
-export async function reorderFinishes(
-  workspace: WorkspaceContext,
-  raceId: string,
-  body: unknown,
-): Promise<{ results: FinishReorderResult[] }> {
-  await assertRaceInWorkspace(workspace, raceId);
-  const input = finishesReorderInputSchema.parse(body);
-  const repos = createRepos({ workspaceId: workspace.workspaceId });
-  const results = await repos.finishes.reorderSortOrders(raceId, input.items);
-  return { results };
 }

@@ -12,7 +12,6 @@ import { useRace, useRacesBySeries } from '@/hooks/use-races';
 import {
   useDeleteFinish,
   useFinishesByRace,
-  useReorderFinishes,
   useSaveFinish,
 } from '@/hooks/use-finishes';
 import { queryKeys } from '@/hooks/query-keys';
@@ -133,7 +132,6 @@ export default function ResultEntryPage({
   const saveCompetitor = useSaveCompetitor();
   const saveFinish = useSaveFinish();
   const deleteFinish = useDeleteFinish();
-  const reorderFinishes = useReorderFinishes();
   const saveRaceStart = useSaveRaceStart();
   const deleteRaceStartMutation = useDeleteRaceStart();
   const touchSeries = useTouchSeries();
@@ -259,31 +257,18 @@ export default function ResultEntryPage({
       if (conflict !== null) return;
       const variables = event.mutation.state.variables as
         | Finish
-        | { id: string; raceId: string }
-        | { raceId: string; items: { id: string }[] };
+        | { id: string; raceId: string };
+      if (!variables || typeof variables !== 'object') return;
       let finishId: string;
       let pending: Finish | { kind: 'delete' };
-      if (variables && typeof variables === 'object' && 'kind' in variables === false) {
-        if ('items' in variables && Array.isArray(variables.items)) {
-          // Reorder bulk: pick the first conflicting row from the detail.
-          const first = error.detail?.rowConflicts?.[0]?.id ?? variables.items[0]?.id;
-          if (!first) return;
-          finishId = first;
-          // No retryable single payload for a multi-row reorder — treat as
-          // "Use current" only by passing the delete sentinel; the user
-          // re-applies the reorder if they want to keep theirs.
-          pending = { kind: 'delete' };
-        } else if ('competitorId' in variables) {
-          // Single-row save (Finish).
-          finishId = (variables as Finish).id;
-          pending = variables as Finish;
-        } else {
-          // Single-row delete.
-          finishId = (variables as { id: string }).id;
-          pending = { kind: 'delete' };
-        }
+      if ('competitorId' in variables) {
+        // Single-row save (Finish).
+        finishId = (variables as Finish).id;
+        pending = variables as Finish;
       } else {
-        return;
+        // Single-row delete.
+        finishId = (variables as { id: string }).id;
+        pending = { kind: 'delete' };
       }
       // Refresh the cache so the dialog shows server truth behind it.
       void qc.invalidateQueries({ queryKey: queryKeys.finishes.byRace(raceId) });
@@ -1201,8 +1186,7 @@ export default function ResultEntryPage({
   // otherwise "All changes saved." Phase 7 will swap the otherwise-static
   // "saved" text for richer collaboration affordances; chunk-5's row-conflict
   // dialog will surface 409s alongside this pill.
-  const isSaving =
-    saveFinish.isPending || deleteFinish.isPending || reorderFinishes.isPending;
+  const isSaving = saveFinish.isPending || deleteFinish.isPending;
   const statusLabel = isSaving ? 'Saving…' : 'All changes saved';
 
   return (

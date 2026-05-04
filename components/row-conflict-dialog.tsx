@@ -41,6 +41,10 @@ export interface RowConflictInfo {
   actor?: { displayName?: string; email?: string };
 }
 
+// The pendingPayload kind === 'delete' branch handled in the page covers
+// retrying a delete after "Keep mine"; keeping it as a sentinel even
+// though the per-row save flow only sets it for delete mutations today.
+
 export function RowConflictDialog({
   info,
   retrying,

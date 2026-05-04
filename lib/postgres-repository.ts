@@ -8,8 +8,6 @@ import { ECHO_DEFAULT_ALPHA, NHC_DEFAULT_ALPHA } from './scoring';
 import {
   ConflictError,
   type CompetitorRepository,
-  type FinishReorderItem,
-  type FinishReorderResult,
   type FinishRepository,
   type FleetRepository,
   type FtpServerRepository,
@@ -1295,86 +1293,6 @@ export class PostgresFinishRepository implements FinishRepository {
           updatedAt: sql`now()`,
         },
       });
-  }
-
-  /**
-   * Per-row CAS reorder. All-or-nothing: if any item's `expectedVersion`
-   * doesn't match, the transaction aborts with a `ConflictError` listing
-   * every conflicting id, and no rows are written. Used by the autosave
-   * finish-entry page (ADR-008 Phase 6) for drag-reorder and tie toggles.
-   */
-  async reorderSortOrders(
-    raceId: string,
-    items: FinishReorderItem[],
-  ): Promise<FinishReorderResult[]> {
-    if (items.length === 0) return [];
-    if (!(await isRaceInWorkspace(this.db, this.workspaceId, raceId))) {
-      throw new Error(`race ${raceId} not in workspace`);
-    }
-    return this.db.transaction(async (tx) => {
-      const updated: FinishReorderResult[] = [];
-      const stale: string[] = [];
-      for (const item of items) {
-        const whereClauses = [
-          eq(schema.finishes.id, item.id),
-          eq(schema.finishes.raceId, raceId),
-        ];
-        // CAS only when the caller supplied a version; freshly-inserted
-        // rows in the client cache may not have one yet.
-        if (item.expectedVersion !== undefined) {
-          whereClauses.push(eq(schema.finishes.version, item.expectedVersion));
-        }
-        const [row] = await tx
-          .update(schema.finishes)
-          .set({
-            sortOrder: item.sortOrder,
-            version: sql`${schema.finishes.version} + 1`,
-            updatedAt: sql`now()`,
-          })
-          .where(and(...whereClauses))
-          .returning({
-            id: schema.finishes.id,
-            sortOrder: schema.finishes.sortOrder,
-            version: schema.finishes.version,
-          });
-        if (!row) {
-          // No CAS → no stale-version case; the row simply doesn't exist.
-          if (item.expectedVersion !== undefined) stale.push(item.id);
-        } else {
-          updated.push(row);
-        }
-      }
-      if (stale.length > 0) {
-        // Look up the current versions of the conflicting rows so the
-        // client can refresh selectively. The select runs *after* aborting
-        // (we throw, which rolls the tx back) — values reflect the pre-tx
-        // state, which is what the client needs.
-        const rows = await tx
-          .select({
-            id: schema.finishes.id,
-            version: schema.finishes.version,
-          })
-          .from(schema.finishes)
-          .where(
-            and(
-              eq(schema.finishes.raceId, raceId),
-              inArray(schema.finishes.id, stale),
-            ),
-          );
-        const currentById = new Map(rows.map((r) => [r.id, r.version]));
-        // `stale` only collects rows with a CAS predicate (expectedVersion
-        // was supplied), so the assertion below is safe.
-        const rowConflicts = items
-          .filter((item) => stale.includes(item.id))
-          .map((item) => ({
-            id: item.id,
-            expectedVersion: item.expectedVersion!,
-            currentVersion: currentById.get(item.id),
-          }));
-        throw new ConflictError({ rowConflicts });
-      }
-      return updated;
-    });
   }
 
   async delete(id: string): Promise<void> {
