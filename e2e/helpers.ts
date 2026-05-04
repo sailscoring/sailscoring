@@ -40,7 +40,8 @@ export async function readLatestMagicLink(forEmail: string): Promise<string> {
 /**
  * Sign a fresh user into the app via the magic-link flow. Used by every
  * server-mode e2e test — server mode has no anonymous browsing, so each
- * test starts from /sign-in and lands at /account before any series work.
+ * test starts from /sign-in and lands on the home page before any series
+ * work.
  *
  * Returns the email that was used so callers can assert against it.
  */
@@ -51,7 +52,7 @@ export async function signInFreshUser(page: Page, prefix: string): Promise<strin
   await page.getByRole('button', { name: 'Send sign-in link' }).click();
   const link = await readLatestMagicLink(email);
   await page.goto(link);
-  await expect(page).toHaveURL(/\/account/);
+  await expect(page).toHaveURL(/\/$/);
   return email;
 }
 

@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 
 export function SignInForm() {
   const searchParams = useSearchParams();
-  const callbackURL = searchParams.get('callbackURL') ?? '/account';
+  const callbackURL = searchParams.get('callbackURL') ?? '/';
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

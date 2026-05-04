@@ -24,7 +24,11 @@ test.describe('@auth magic-link sign-in', () => {
     const link = await readLatestMagicLink(email);
     await page.goto(link);
 
-    await expect(page).toHaveURL(/\/account/);
+    // Default callback lands the user on the home page.
+    await expect(page).toHaveURL(/\/$/);
+
+    // /account renders the email + active workspace.
+    await page.goto('/account');
     await expect(page.getByText(email)).toBeVisible();
     // Personal workspaces are all named "My Workspace" — the user's own
     // identity is on /account two lines up, no need to repeat it.
@@ -43,8 +47,9 @@ test.describe('@auth magic-link sign-in', () => {
     await page.getByRole('button', { name: 'Send sign-in link' }).click();
     const link = await readLatestMagicLink(email);
     await page.goto(link);
-    await expect(page).toHaveURL(/\/account/);
+    await expect(page).toHaveURL(/\/$/);
 
+    await page.goto('/account');
     await page.getByRole('button', { name: 'Sign out' }).click();
     await page.waitForURL(/\/sign-in/);
     await page.goto('/account');
