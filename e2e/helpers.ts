@@ -48,7 +48,7 @@ export async function signInFreshUser(page: Page, prefix: string): Promise<strin
   const email = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@sailscoring.test`;
   await page.goto('/sign-in');
   await page.getByLabel('Email').fill(email);
-  await page.getByRole('button', { name: 'Send magic link' }).click();
+  await page.getByRole('button', { name: 'Send sign-in link' }).click();
   const link = await readLatestMagicLink(email);
   await page.goto(link);
   await expect(page).toHaveURL(/\/account/);

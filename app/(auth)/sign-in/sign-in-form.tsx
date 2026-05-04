@@ -25,7 +25,7 @@ export function SignInForm() {
     });
     if (error) {
       setStatus('error');
-      setErrorMessage(error.message ?? 'Could not send magic link');
+      setErrorMessage(error.message ?? 'Could not send sign-in link');
       return;
     }
     setStatus('sent');
@@ -59,7 +59,7 @@ export function SignInForm() {
             />
           </div>
           <Button type="submit" disabled={status === 'sending' || !email}>
-            {status === 'sending' ? 'Sending…' : 'Send magic link'}
+            {status === 'sending' ? 'Sending…' : 'Send sign-in link'}
           </Button>
           {status === 'error' && errorMessage && (
             <p className="text-sm text-red-600">{errorMessage}</p>

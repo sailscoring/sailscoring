@@ -18,7 +18,7 @@ test.describe('@auth magic-link sign-in', () => {
 
     await page.goto('/sign-in');
     await page.getByLabel('Email').fill(email);
-    await page.getByRole('button', { name: 'Send magic link' }).click();
+    await page.getByRole('button', { name: 'Send sign-in link' }).click();
     await expect(page.getByText(/Check your inbox/i)).toBeVisible();
 
     const link = await readLatestMagicLink(email);
@@ -40,7 +40,7 @@ test.describe('@auth magic-link sign-in', () => {
 
     await page.goto('/sign-in');
     await page.getByLabel('Email').fill(email);
-    await page.getByRole('button', { name: 'Send magic link' }).click();
+    await page.getByRole('button', { name: 'Send sign-in link' }).click();
     const link = await readLatestMagicLink(email);
     await page.goto(link);
     await expect(page).toHaveURL(/\/account/);
