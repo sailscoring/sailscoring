@@ -1,0 +1,353 @@
+/**
+ * ADR-008 Phase 7 — manual workspace (organization) administration.
+ *
+ * Self-service org creation, invitations, and members management land in
+ * Phase 10. Until then this CLI is the only way to provision an
+ * organization workspace and add HYC's panel members to it.
+ *
+ * Operations write directly to the Better Auth Drizzle tables. The
+ * organization plugin's HTTP endpoints all require a session (see
+ * `node_modules/better-auth/dist/plugins/organization/routes/*`), which
+ * makes them awkward for an out-of-process admin script. The
+ * personal-workspace creation in `lib/auth.ts:76-92` already takes the
+ * direct-write approach for the same reason — keep the two paths
+ * symmetrical.
+ *
+ * Usage (production: against the production DATABASE_URL):
+ *   pnpm tsx scripts/provision-org.ts create-org "HYC Scoring Panel" --slug hyc
+ *   pnpm tsx scripts/provision-org.ts add-member hyc alice@example.com --role owner
+ *   pnpm tsx scripts/provision-org.ts add-member hyc bob@example.com
+ *   pnpm tsx scripts/provision-org.ts list-members hyc
+ *   pnpm tsx scripts/provision-org.ts set-role hyc bob@example.com admin
+ *   pnpm tsx scripts/provision-org.ts remove-member hyc bob@example.com
+ *
+ * Members must already exist as users — the CLI looks them up by email.
+ * Get every panel member to sign in once first (creates their personal
+ * workspace and the user row) before adding them here.
+ */
+
+import { and, eq, or } from 'drizzle-orm';
+
+import { getDb, getDbClient, type SailScoringDb } from '@/lib/db/client';
+import { member, organization, user } from '@/lib/db/schema/auth';
+
+export type Role = 'owner' | 'admin' | 'member';
+
+const ROLES: Role[] = ['owner', 'admin', 'member'];
+
+function isRole(value: string): value is Role {
+  return (ROLES as string[]).includes(value);
+}
+
+function randomId(prefix: string): string {
+  return `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
+}
+
+function defaultSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64);
+}
+
+async function findOrgBySlugOrId(
+  db: SailScoringDb,
+  slugOrId: string,
+): Promise<{ id: string; name: string; slug: string } | null> {
+  const [row] = await db
+    .select({ id: organization.id, name: organization.name, slug: organization.slug })
+    .from(organization)
+    .where(or(eq(organization.slug, slugOrId), eq(organization.id, slugOrId)))
+    .limit(1);
+  return row ?? null;
+}
+
+async function findUserByEmail(
+  db: SailScoringDb,
+  email: string,
+): Promise<{ id: string; email: string; name: string } | null> {
+  const [row] = await db
+    .select({ id: user.id, email: user.email, name: user.name })
+    .from(user)
+    .where(eq(user.email, email.toLowerCase()))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function createOrg(
+  db: SailScoringDb,
+  args: { name: string; slug?: string },
+): Promise<{ id: string; name: string; slug: string }> {
+  const name = args.name.trim();
+  if (!name) throw new Error('org name is required');
+  const slug = (args.slug ?? defaultSlug(name)).trim();
+  if (!slug) throw new Error('slug is required (could not derive from name)');
+
+  const existing = await findOrgBySlugOrId(db, slug);
+  if (existing) throw new Error(`org with slug "${slug}" already exists`);
+
+  const id = randomId('org');
+  await db.insert(organization).values({
+    id,
+    name,
+    slug,
+    createdAt: new Date(),
+  });
+  return { id, name, slug };
+}
+
+export async function addMember(
+  db: SailScoringDb,
+  args: { orgSlugOrId: string; email: string; role?: Role },
+): Promise<{ memberId: string; userId: string; role: Role; organizationId: string }> {
+  const role = args.role ?? 'member';
+  if (!isRole(role)) {
+    throw new Error(`invalid role "${role}" (expected one of: ${ROLES.join(', ')})`);
+  }
+  const org = await findOrgBySlugOrId(db, args.orgSlugOrId);
+  if (!org) throw new Error(`org "${args.orgSlugOrId}" not found`);
+
+  const u = await findUserByEmail(db, args.email);
+  if (!u) {
+    throw new Error(
+      `user "${args.email}" not found — ask them to sign in once first to create the user row`,
+    );
+  }
+
+  const [existing] = await db
+    .select({ id: member.id, role: member.role })
+    .from(member)
+    .where(and(eq(member.organizationId, org.id), eq(member.userId, u.id)))
+    .limit(1);
+  if (existing) {
+    throw new Error(
+      `${args.email} is already a member of "${org.slug}" (role: ${existing.role})`,
+    );
+  }
+
+  const memberId = randomId('mem');
+  await db.insert(member).values({
+    id: memberId,
+    organizationId: org.id,
+    userId: u.id,
+    role,
+    createdAt: new Date(),
+  });
+  return { memberId, userId: u.id, role, organizationId: org.id };
+}
+
+export async function setRole(
+  db: SailScoringDb,
+  args: { orgSlugOrId: string; email: string; role: Role },
+): Promise<{ memberId: string; userId: string; role: Role }> {
+  if (!isRole(args.role)) {
+    throw new Error(`invalid role "${args.role}" (expected one of: ${ROLES.join(', ')})`);
+  }
+  const org = await findOrgBySlugOrId(db, args.orgSlugOrId);
+  if (!org) throw new Error(`org "${args.orgSlugOrId}" not found`);
+
+  const u = await findUserByEmail(db, args.email);
+  if (!u) throw new Error(`user "${args.email}" not found`);
+
+  const [existing] = await db
+    .select({ id: member.id })
+    .from(member)
+    .where(and(eq(member.organizationId, org.id), eq(member.userId, u.id)))
+    .limit(1);
+  if (!existing) {
+    throw new Error(`${args.email} is not a member of "${org.slug}"`);
+  }
+  await db.update(member).set({ role: args.role }).where(eq(member.id, existing.id));
+  return { memberId: existing.id, userId: u.id, role: args.role };
+}
+
+export async function removeMember(
+  db: SailScoringDb,
+  args: { orgSlugOrId: string; email: string },
+): Promise<{ removed: boolean }> {
+  const org = await findOrgBySlugOrId(db, args.orgSlugOrId);
+  if (!org) throw new Error(`org "${args.orgSlugOrId}" not found`);
+
+  const u = await findUserByEmail(db, args.email);
+  if (!u) throw new Error(`user "${args.email}" not found`);
+
+  const result = await db
+    .delete(member)
+    .where(and(eq(member.organizationId, org.id), eq(member.userId, u.id)));
+  // postgres-js delete doesn't return rowCount through Drizzle's typing;
+  // a follow-up SELECT is the cheap way to confirm removal.
+  const [stillThere] = await db
+    .select({ id: member.id })
+    .from(member)
+    .where(and(eq(member.organizationId, org.id), eq(member.userId, u.id)))
+    .limit(1);
+  void result;
+  return { removed: !stillThere };
+}
+
+export interface MemberRow {
+  email: string;
+  name: string;
+  role: Role;
+  joinedAt: Date;
+}
+
+export async function listMembers(
+  db: SailScoringDb,
+  args: { orgSlugOrId: string },
+): Promise<{ org: { id: string; name: string; slug: string }; members: MemberRow[] }> {
+  const org = await findOrgBySlugOrId(db, args.orgSlugOrId);
+  if (!org) throw new Error(`org "${args.orgSlugOrId}" not found`);
+
+  const rows = await db
+    .select({
+      email: user.email,
+      name: user.name,
+      role: member.role,
+      joinedAt: member.createdAt,
+    })
+    .from(member)
+    .innerJoin(user, eq(member.userId, user.id))
+    .where(eq(member.organizationId, org.id))
+    .orderBy(member.createdAt);
+  return {
+    org,
+    members: rows.map((r) => ({
+      email: r.email,
+      name: r.name,
+      role: r.role as Role,
+      joinedAt: r.joinedAt,
+    })),
+  };
+}
+
+// ─── CLI dispatcher ──────────────────────────────────────────────────────────
+
+interface ParsedFlags {
+  positional: string[];
+  flags: Record<string, string>;
+}
+
+function parseArgs(argv: string[]): ParsedFlags {
+  const positional: string[] = [];
+  const flags: Record<string, string> = {};
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg.startsWith('--')) {
+      const key = arg.slice(2);
+      const next = argv[i + 1];
+      if (next === undefined || next.startsWith('--')) {
+        flags[key] = 'true';
+      } else {
+        flags[key] = next;
+        i++;
+      }
+    } else {
+      positional.push(arg);
+    }
+  }
+  return { positional, flags };
+}
+
+function usage(): string {
+  return `provision-org — ADR-008 Phase 7 manual org administration
+
+  create-org <name> [--slug <slug>]
+  add-member <org-slug-or-id> <email> [--role owner|admin|member]
+  set-role <org-slug-or-id> <email> <role>
+  remove-member <org-slug-or-id> <email>
+  list-members <org-slug-or-id>
+
+Members must already exist (i.e. signed in once). Reads DATABASE_URL.`;
+}
+
+export async function runCli(argv: string[]): Promise<number> {
+  const [subcommand, ...rest] = argv;
+  if (!subcommand || subcommand === '--help' || subcommand === '-h') {
+    console.log(usage());
+    return subcommand ? 0 : 1;
+  }
+
+  const { positional, flags } = parseArgs(rest);
+  const db = getDb();
+
+  try {
+    switch (subcommand) {
+      case 'create-org': {
+        const [name] = positional;
+        if (!name) throw new Error('create-org: <name> is required');
+        const result = await createOrg(db, { name, slug: flags.slug });
+        console.log(`created org "${result.name}" (slug: ${result.slug}, id: ${result.id})`);
+        return 0;
+      }
+      case 'add-member': {
+        const [orgSlugOrId, email] = positional;
+        if (!orgSlugOrId || !email) {
+          throw new Error('add-member: <org-slug-or-id> <email> are required');
+        }
+        const role = (flags.role as Role) ?? 'member';
+        const result = await addMember(db, { orgSlugOrId, email, role });
+        console.log(`added ${email} to ${orgSlugOrId} as ${result.role}`);
+        return 0;
+      }
+      case 'set-role': {
+        const [orgSlugOrId, email, role] = positional;
+        if (!orgSlugOrId || !email || !role) {
+          throw new Error('set-role: <org-slug-or-id> <email> <role> are required');
+        }
+        if (!isRole(role)) {
+          throw new Error(`invalid role "${role}" (expected one of: ${ROLES.join(', ')})`);
+        }
+        const result = await setRole(db, { orgSlugOrId, email, role });
+        console.log(`set ${email} role to ${result.role} in ${orgSlugOrId}`);
+        return 0;
+      }
+      case 'remove-member': {
+        const [orgSlugOrId, email] = positional;
+        if (!orgSlugOrId || !email) {
+          throw new Error('remove-member: <org-slug-or-id> <email> are required');
+        }
+        const result = await removeMember(db, { orgSlugOrId, email });
+        if (result.removed) {
+          console.log(`removed ${email} from ${orgSlugOrId}`);
+        } else {
+          console.log(`${email} was not a member of ${orgSlugOrId}`);
+        }
+        return 0;
+      }
+      case 'list-members': {
+        const [orgSlugOrId] = positional;
+        if (!orgSlugOrId) throw new Error('list-members: <org-slug-or-id> is required');
+        const { org, members } = await listMembers(db, { orgSlugOrId });
+        console.log(`${org.name} (slug: ${org.slug}, id: ${org.id})`);
+        if (members.length === 0) {
+          console.log('  (no members)');
+        } else {
+          for (const m of members) {
+            const joined = m.joinedAt.toISOString().slice(0, 10);
+            console.log(`  ${m.role.padEnd(6)}  ${m.email.padEnd(40)}  ${m.name || '(no name)'}  joined ${joined}`);
+          }
+        }
+        return 0;
+      }
+      default:
+        console.error(`unknown subcommand: ${subcommand}\n`);
+        console.error(usage());
+        return 1;
+    }
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    return 1;
+  }
+}
+
+// ESM "main module" check. `tsx scripts/provision-org.ts` runs this file
+// directly; importing it from a test does not.
+const isMain = import.meta.url === `file://${process.argv[1]}`;
+if (isMain) {
+  const code = await runCli(process.argv.slice(2));
+  await getDbClient().end();
+  process.exit(code);
+}
