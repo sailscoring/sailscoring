@@ -8,3 +8,10 @@ updates:
       all-dependencies:
         patterns:
           - "*"
+    ignore:
+      # ESLint 10 is incompatible with eslint-plugin-react@7.37.5 (pulled in
+      # transitively by eslint-config-next). Tracked upstream at
+      # jsx-eslint/eslint-plugin-react#3977 / PR #3979. Re-enable once that
+      # ships and eslint-config-next picks it up.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
