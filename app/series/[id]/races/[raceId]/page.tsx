@@ -24,6 +24,7 @@ import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
   PRIMARY_PERSON_LABEL_TEXT,
+  displayHelmCrew,
 } from '@/lib/competitor-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,6 +48,7 @@ import type { Competitor, Finish, ResultCode, PenaltyCode, RaceStart } from '@/l
 import {
   deriveFinishState,
   entryKey,
+  makeFinish,
   type FinishEntry,
   type RedressEntry,
 } from '@/lib/finish-entry';
@@ -73,38 +75,6 @@ interface RedressDialogState extends RedressEntry {
 interface NonFinisherEntry {
   competitor: Competitor;
   code: NonFinisherCode;
-}
-
-/** Build a fresh, fully-defaulted Finish row with the supplied overrides. */
-function makeFinish(raceId: string, overrides: Partial<Finish> & Pick<Finish, 'id'>): Finish {
-  return {
-    id: overrides.id,
-    raceId,
-    competitorId: overrides.competitorId ?? null,
-    ...(overrides.unknownSailNumber != null ? { unknownSailNumber: overrides.unknownSailNumber } : {}),
-    sortOrder: overrides.sortOrder ?? null,
-    tiedWithPrevious: overrides.tiedWithPrevious ?? false,
-    ...(overrides.finishTime != null ? { finishTime: overrides.finishTime } : {}),
-    resultCode: overrides.resultCode ?? null,
-    startPresent: overrides.startPresent ?? null,
-    penaltyCode: overrides.penaltyCode ?? null,
-    penaltyOverride: overrides.penaltyOverride ?? null,
-    redressMethod: overrides.redressMethod ?? null,
-    redressExcludeRaces: overrides.redressExcludeRaces ?? null,
-    redressIncludeRaces: overrides.redressIncludeRaces ?? null,
-    redressIncludeAllLater: overrides.redressIncludeAllLater ?? false,
-    redressPoints: overrides.redressPoints ?? null,
-    ...(overrides.version != null ? { version: overrides.version } : {}),
-  };
-}
-
-/** Render "Helm / Crew" when the series has crew names enabled and a crew is
- *  set; otherwise just the helm. Used in autocomplete rows and finish lists. */
-function displayHelmCrew(competitor: Pick<Competitor, 'name' | 'crewName'>, showCrew: boolean): string {
-  if (showCrew && competitor.crewName && competitor.crewName.trim()) {
-    return `${competitor.name} / ${competitor.crewName}`;
-  }
-  return competitor.name;
 }
 
 export default function ResultEntryPage({

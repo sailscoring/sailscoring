@@ -1,4 +1,16 @@
-import type { CompetitorFieldKey, PrimaryPersonLabel } from './types';
+import type { Competitor, CompetitorFieldKey, PrimaryPersonLabel } from './types';
+
+/** Render "Helm / Crew" when the series has crew names enabled and a crew is
+ *  set; otherwise just the helm. Used in autocomplete rows and finish lists. */
+export function displayHelmCrew(
+  competitor: Pick<Competitor, 'name' | 'crewName'>,
+  showCrew: boolean,
+): string {
+  if (showCrew && competitor.crewName && competitor.crewName.trim()) {
+    return `${competitor.name} / ${competitor.crewName}`;
+  }
+  return competitor.name;
+}
 
 /** Canonical ordering of all configurable competitor fields. The settings UI
  *  and any UI that lists fields should iterate over this in this order.

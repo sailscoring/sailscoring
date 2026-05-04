@@ -1,5 +1,31 @@
 import type { Finish, PenaltyCode, ResultCode } from './types';
 
+/** Build a fresh, fully-defaulted Finish row with the supplied overrides. */
+export function makeFinish(
+  raceId: string,
+  overrides: Partial<Finish> & Pick<Finish, 'id'>,
+): Finish {
+  return {
+    id: overrides.id,
+    raceId,
+    competitorId: overrides.competitorId ?? null,
+    ...(overrides.unknownSailNumber != null ? { unknownSailNumber: overrides.unknownSailNumber } : {}),
+    sortOrder: overrides.sortOrder ?? null,
+    tiedWithPrevious: overrides.tiedWithPrevious ?? false,
+    ...(overrides.finishTime != null ? { finishTime: overrides.finishTime } : {}),
+    resultCode: overrides.resultCode ?? null,
+    startPresent: overrides.startPresent ?? null,
+    penaltyCode: overrides.penaltyCode ?? null,
+    penaltyOverride: overrides.penaltyOverride ?? null,
+    redressMethod: overrides.redressMethod ?? null,
+    redressExcludeRaces: overrides.redressExcludeRaces ?? null,
+    redressIncludeRaces: overrides.redressIncludeRaces ?? null,
+    redressIncludeAllLater: overrides.redressIncludeAllLater ?? false,
+    redressPoints: overrides.redressPoints ?? null,
+    ...(overrides.version != null ? { version: overrides.version } : {}),
+  };
+}
+
 /**
  * Computes the displayed finish position for each competitor in the ordering,
  * accounting for ties. Boats in tiedWithPrevious share the position of the
