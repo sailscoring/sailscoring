@@ -21,6 +21,7 @@ from?", start here.
 | `pnpm test:e2e:server`   | Playwright, full-stack build, only `@auth`/`@server` specs | Yes (auto-starts via `db:up`)  |
 | `pnpm db:up`             | Bring up the local Postgres container, idempotent    | (it *is* the DB)|
 | `pnpm db:migrate`        | Apply Drizzle migrations (uses `.env.local`)         | Yes             |
+| `pnpm db:migrate:test`   | Apply Drizzle migrations to the local container      | Yes (auto-starts via `db:up`)  |
 | `pnpm db:generate`       | Generate Drizzle migrations from schema              | No              |
 | `pnpm db:studio`         | Drizzle Studio against `.env.local`'s `DATABASE_URL` | Yes             |
 | `pnpm db:auth:generate`  | Regenerate `lib/db/schema/auth.ts` from Better Auth  | No              |
@@ -28,9 +29,9 @@ from?", start here.
 | `pnpm deploy`            | `vercel deploy` (preview)                            | -               |
 | `pnpm deploy:prod`       | `vercel deploy --prod`                               | -               |
 
-The `pretest:unit:db` and `pretest:e2e:server` lifecycle hooks call
-`scripts/db-up.sh` automatically — you never need to start the
-container by hand before running those tests.
+The `pretest:unit:db`, `pretest:e2e:server`, and `predb:migrate:test`
+lifecycle hooks call `scripts/db-up.sh` automatically — you never need
+to start the container by hand before running those commands.
 
 ## Files under `scripts/`
 

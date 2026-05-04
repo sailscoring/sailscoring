@@ -19,6 +19,8 @@
     "db:up": "./scripts/db-up.sh",
     "db:generate": "tsx --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs generate",
     "db:migrate": "tsx --env-file-if-exists=.env.local scripts/db-migrate.ts",
+    "db:migrate:test": "DATABASE_URL=postgres://sailscoring:sailscoring@localhost:5432/sailscoring tsx scripts/db-migrate.ts",
+    "predb:migrate:test": "./scripts/db-up.sh",
     "db:studio": "tsx --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs studio",
     "db:auth:generate": "better-auth generate --config lib/auth.ts --output lib/db/schema/auth.ts -y",
     "deploy": "vercel deploy",
