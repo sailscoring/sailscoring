@@ -148,8 +148,8 @@ export function FtpUploadDialog({
         {noServers ? (
           <p className="text-sm text-muted-foreground">
             No FTP servers configured.{' '}
-            <Link href="/settings" className="underline" onClick={onClose}>
-              Add one in Settings.
+            <Link href="/workspace" className="underline" onClick={onClose}>
+              Add one in Workspace.
             </Link>
           </p>
         ) : (

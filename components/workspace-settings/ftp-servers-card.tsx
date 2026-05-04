@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Eye, EyeOff, Pencil, Trash2 } from 'lucide-react';
+
 import {
   useDeleteFtpServer,
   useFtpServers,
@@ -135,7 +136,7 @@ function FtpServerDialog({
   );
 }
 
-export default function SettingsPage() {
+export function FtpServersCard({ workspaceShared }: { workspaceShared: boolean }) {
   const { data: ftpServers } = useFtpServers();
   const deleteFtpServer = useDeleteFtpServer();
   const [dialog, setDialog] = useState<{ open: boolean; server: FtpServer | null }>({
@@ -160,63 +161,60 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-lg mx-auto">
-      <h1 className="text-2xl font-semibold">Settings</h1>
-
-      <div className="border rounded-lg p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">FTP servers</h2>
-          <Button size="sm" variant="outline" onClick={openAdd}>
-            Add server
-          </Button>
-        </div>
-
-        {ftpServers === undefined && (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        )}
-
-        {ftpServers !== undefined && ftpServers.length === 0 && (
-          <p className="text-sm text-muted-foreground">No FTP servers configured.</p>
-        )}
-
-        {ftpServers !== undefined && ftpServers.length > 0 && (
-          <div className="space-y-2">
-            {ftpServers.map((server) => (
-              <div
-                key={server.id}
-                className="flex items-center justify-between border rounded-md px-3 py-2"
-              >
-                <p className="text-sm font-medium">
-                  {server.ftps ? 'ftps' : 'ftp'}://{server.host}:{server.port}
-                </p>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => openEdit(server)}
-                    aria-label={`Edit ${server.host}`}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(server.id)}
-                    aria-label={`Delete ${server.host}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <p className="text-xs text-muted-foreground">
-          FTP server credentials are stored on this device only and are never included in series
-          file exports.
-        </p>
+    <div className="border rounded-lg p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium">FTP servers</h2>
+        <Button size="sm" variant="outline" onClick={openAdd}>
+          Add server
+        </Button>
       </div>
+
+      {ftpServers === undefined && (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      )}
+
+      {ftpServers !== undefined && ftpServers.length === 0 && (
+        <p className="text-sm text-muted-foreground">No FTP servers configured.</p>
+      )}
+
+      {ftpServers !== undefined && ftpServers.length > 0 && (
+        <div className="space-y-2">
+          {ftpServers.map((server) => (
+            <div
+              key={server.id}
+              className="flex items-center justify-between border rounded-md px-3 py-2"
+            >
+              <p className="text-sm font-medium">
+                {server.ftps ? 'ftps' : 'ftp'}://{server.host}:{server.port}
+              </p>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => openEdit(server)}
+                  aria-label={`Edit ${server.host}`}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleDelete(server.id)}
+                  aria-label={`Delete ${server.host}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        {workspaceShared
+          ? 'FTP server credentials are shared with everyone in this workspace and are never included in series file exports.'
+          : 'FTP server credentials are stored on this device only and are never included in series file exports.'}
+      </p>
 
       <FtpServerDialog
         key={dialog.server?.id ?? 'new'}

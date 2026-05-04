@@ -5,7 +5,7 @@ import { createSeriesQuick } from './helpers';
  * E2E tests for FTP publishing (issue #54).
  *
  * Covers:
- *   - Adding, editing, and deleting an FTP server in global Settings
+ *   - Adding, editing, and deleting an FTP server in workspace settings
  *   - FTP upload dialog on the Standings tab shows the configured server
  *   - FTP upload dialog shows a "no servers" message when none are configured
  *
@@ -14,8 +14,10 @@ import { createSeriesQuick } from './helpers';
  */
 
 test('FTP server settings: add, edit, delete', async ({ page }) => {
-  await page.goto('/settings');
-  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await page.goto('/workspace');
+  await expect(
+    page.getByRole('heading', { name: /Workspace settings/ }),
+  ).toBeVisible();
   await expect(page.getByText('No FTP servers configured.')).toBeVisible();
 
   // ── Add ──────────────────────────────────────────────────────────────────
@@ -45,7 +47,7 @@ test('FTP server settings: add, edit, delete', async ({ page }) => {
 });
 
 test('FTP server settings: password visibility toggle', async ({ page }) => {
-  await page.goto('/settings');
+  await page.goto('/workspace');
   await page.getByRole('button', { name: 'Add server' }).click();
   await page.locator('#ftp-password').fill('s3cret');
 
@@ -77,17 +79,17 @@ test('FTP upload dialog: shows configured server; shows no-servers message after
 
   await page.getByRole('link', { name: 'Standings' }).click();
 
-  // ── No servers configured: dialog shows the link to Settings ─────────────
+  // ── No servers configured: dialog shows the link to Workspace ────────────
   await page.getByRole('button', { name: 'Upload via FTP' }).click();
   await expect(page.getByRole('dialog', { name: 'Upload via FTP' })).toBeVisible();
   await expect(page.getByText('No FTP servers configured.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Add one in Settings.' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Add one in Workspace.' })).toBeVisible();
   // Upload button should not be present when there are no servers
   await expect(page.getByRole('button', { name: 'Upload' })).not.toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
 
   // ── Add a server ─────────────────────────────────────────────────────────
-  await page.goto('/settings');
+  await page.goto('/workspace');
   await page.getByRole('button', { name: 'Add server' }).click();
   await page.getByLabel('Host').fill('ftp.example.com');
   await page.getByLabel('Username').fill('scorer');

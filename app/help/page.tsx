@@ -694,7 +694,7 @@ export default function HelpPage() {
         </p>
         <p>
           <strong className="text-foreground">FTP one-time setup:</strong> open{' '}
-          <strong className="text-foreground">Settings</strong> (link in the page header) and click{' '}
+          <strong className="text-foreground">Workspace</strong> (link in the page header) and click{' '}
           <strong className="text-foreground">Add server</strong>. Enter a label (e.g.{' '}
           <em>Club website</em>), the FTP hostname, port (default 21), username, and password.
           Tick <strong className="text-foreground">FTPS (TLS)</strong> if your host requires an
