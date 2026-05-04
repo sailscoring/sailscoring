@@ -359,6 +359,26 @@ export async function pruneFleet(seriesId: string, fleetId: string): Promise<voi
 }
 
 /**
+ * ADR-008 Phase 7 — copy a series into another workspace the caller is
+ * a member of. Server-only feature; there's no Dexie equivalent because
+ * local-first mode has only the implicit "this device" workspace.
+ *
+ * Returns the new series id in the target workspace. After success,
+ * callers typically need to call `authClient.organization.setActive()`
+ * to switch the session into the target workspace before navigating
+ * to `/series/{newId}/...`.
+ */
+export async function copySeriesToWorkspace(
+  sourceSeriesId: string,
+  body: { targetWorkspaceId: string; name?: string },
+): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(`/api/v1/series/${sourceSeriesId}/copy`, {
+    method: 'POST',
+    body,
+  });
+}
+
+/**
  * Find or create a fleet by case-insensitive name. Mirror of the Dexie
  * helper used by the CSV competitor importer. The server endpoint wraps
  * the lookup-then-insert in a Postgres transaction guarded by an

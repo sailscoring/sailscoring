@@ -16,6 +16,7 @@ import type { CompetitorFieldKey, PrimaryPersonLabel } from '@/lib/types';
 import { BasicsCard } from '@/components/series-settings/basics-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
+import { CopySeriesToWorkspaceCard } from '@/components/copy-series-to-workspace-card';
 import {
   ALL_COMPETITOR_FIELDS,
   COMPETITOR_FIELD_LABELS,
@@ -570,6 +571,7 @@ export default function SettingsPage({
       />
       <CompetitorFieldsCard seriesId={seriesId} series={series} />
       <PublishingCard seriesId={seriesId} series={series} anyProgressiveFleet={anyProgressiveFleet} />
+      <CopySeriesToWorkspaceCard seriesId={seriesId} seriesName={series.name} />
 
       <input
         ref={fileInputRef}

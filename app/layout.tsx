@@ -12,6 +12,7 @@ import {
   WorkspaceSwitcher,
   type WorkspaceMembership,
 } from '@/components/workspace-switcher';
+import { WorkspaceMembershipsProvider } from '@/components/workspace-memberships-provider';
 
 export const metadata: Metadata = {
   title: 'Sail Scoring',
@@ -59,30 +60,35 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body>
         <Providers useServerData={USE_SERVER_DATA}>
-          <header className="border-b px-6 py-3 flex items-baseline gap-3">
-            <Link href="/" className="font-semibold hover:underline">
-              Sail Scoring
-            </Link>
-            {header && (
-              <WorkspaceSwitcher
-                memberships={header.memberships}
-                activeOrganizationId={header.activeOrganizationId}
-              />
-            )}
-            <Link
-              href="/workspace"
-              className="text-sm text-muted-foreground hover:underline"
-            >
-              Workspace
-            </Link>
-            <Link
-              href="/help"
-              className="text-sm text-muted-foreground hover:underline"
-            >
-              Help
-            </Link>
-          </header>
-          <main className="px-6 py-8">{children}</main>
+          <WorkspaceMembershipsProvider
+            memberships={header?.memberships ?? []}
+            activeOrganizationId={header?.activeOrganizationId ?? null}
+          >
+            <header className="border-b px-6 py-3 flex items-baseline gap-3">
+              <Link href="/" className="font-semibold hover:underline">
+                Sail Scoring
+              </Link>
+              {header && (
+                <WorkspaceSwitcher
+                  memberships={header.memberships}
+                  activeOrganizationId={header.activeOrganizationId}
+                />
+              )}
+              <Link
+                href="/workspace"
+                className="text-sm text-muted-foreground hover:underline"
+              >
+                Workspace
+              </Link>
+              <Link
+                href="/help"
+                className="text-sm text-muted-foreground hover:underline"
+              >
+                Help
+              </Link>
+            </header>
+            <main className="px-6 py-8">{children}</main>
+          </WorkspaceMembershipsProvider>
         </Providers>
       </body>
     </html>
