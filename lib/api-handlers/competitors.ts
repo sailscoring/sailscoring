@@ -56,7 +56,7 @@ export async function putCompetitor(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   return repos.competitors.save(
     { ...input, id },
-    { expectedVersion: opts?.expectedVersion },
+    { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
 }
 
@@ -94,7 +94,7 @@ export async function bulkPutCompetitors(
     id: c.id ?? crypto.randomUUID(),
   }));
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  await repos.competitors.saveMany(competitors);
+  await repos.competitors.saveMany(competitors, { updatedBy: workspace.userId });
   return { count: competitors.length };
 }
 

@@ -45,6 +45,11 @@ const versionCol = integer('version').notNull().default(1);
 const updatedAtCol = timestamp('updated_at', { withTimezone: true })
   .notNull()
   .defaultNow();
+// ADR-008 Phase 7: actor attribution. Nullable — pre-Phase-7 rows render
+// as "unknown" until next write rather than backfilled. References
+// `user.id` semantically; not a real FK, so deleting a user doesn't cascade
+// or block (orphan rows just lose their attribution display).
+const updatedByCol = text('updated_by');
 
 export const series = pgTable(
   'series',
@@ -101,6 +106,7 @@ export const series = pgTable(
       .default('competitor'),
     version: versionCol,
     updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
   },
   (table) => [
     index('series_workspace_idx').on(table.workspaceId),
@@ -136,6 +142,7 @@ export const fleets = pgTable(
     echoAlpha: real('echo_alpha'),
     version: versionCol,
     updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
   },
   (table) => [
     index('fleets_series_order_idx').on(table.seriesId, table.displayOrder),
@@ -177,6 +184,7 @@ export const competitors = pgTable(
     echoStartingTcf: real('echo_starting_tcf'),
     version: versionCol,
     updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
   },
   (table) => [
     index('competitors_series_idx').on(table.seriesId),
@@ -206,6 +214,7 @@ export const races = pgTable(
       .defaultNow(),
     version: versionCol,
     updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
   },
   (table) => [
     uniqueIndex('races_series_number_uidx').on(table.seriesId, table.raceNumber),
@@ -224,6 +233,7 @@ export const raceStarts = pgTable(
     startTime: text('start_time').notNull(),
     version: versionCol,
     updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
   },
   (table) => [index('race_starts_race_idx').on(table.raceId)],
 );
@@ -257,6 +267,7 @@ export const finishes = pgTable(
     redressPoints: real('redress_points'),
     version: versionCol,
     updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
   },
   (table) => [
     index('finishes_race_idx').on(table.raceId),
@@ -320,6 +331,7 @@ export const ftpServers = pgTable(
       .defaultNow(),
     version: versionCol,
     updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
   },
   (table) => [index('ftp_servers_workspace_idx').on(table.workspaceId)],
 );

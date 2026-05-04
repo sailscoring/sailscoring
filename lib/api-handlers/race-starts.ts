@@ -39,7 +39,7 @@ export async function putRaceStart(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   return repos.raceStarts.save(
     { ...input, id },
-    { expectedVersion: opts?.expectedVersion },
+    { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
 }
 

@@ -36,6 +36,13 @@
       "when": 1777819321580,
       "tag": "0004_silent_starhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777888678863,
+      "tag": "0005_futuristic_mercury",
+      "breakpoints": true
     }
   ]
 }

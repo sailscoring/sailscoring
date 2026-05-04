@@ -39,7 +39,7 @@ export async function putFinish(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   return repos.finishes.save(
     { ...input, id },
-    { expectedVersion: opts?.expectedVersion },
+    { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
 }
 
@@ -87,6 +87,6 @@ export async function bulkPutFinishes(
     id: f.id ?? crypto.randomUUID(),
   }));
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  await repos.finishes.saveMany(finishes);
+  await repos.finishes.saveMany(finishes, { updatedBy: workspace.userId });
   return { count: finishes.length };
 }

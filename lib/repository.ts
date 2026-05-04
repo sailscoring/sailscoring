@@ -45,16 +45,23 @@ export class ConflictError extends Error {
  * threads its own `expectedVersion` and the shared mutation scope
  * serializes them, so a window of related rows lands consistently
  * without needing a bespoke bulk endpoint.
+ *
+ * `updatedBy` is the Better Auth user id of the actor performing the
+ * write (ADR-008 Phase 7). Postgres-backed repositories stamp it onto
+ * the row's `updated_by` column so 409s can name the conflicting actor
+ * and so a future activity log (Phase 10) has the foundation it needs.
+ * Dexie ignores the field — local mode has a single user.
  */
 export interface SaveOpts {
   expectedVersion?: number;
+  updatedBy?: string;
 }
 
 export interface FleetRepository {
   listBySeries(seriesId: string): Promise<Fleet[]>;
   get(id: string): Promise<Fleet | undefined>;
   save(fleet: Fleet, opts?: SaveOpts): Promise<Fleet>;
-  saveMany(fleets: Fleet[]): Promise<void>;
+  saveMany(fleets: Fleet[], opts?: SaveOpts): Promise<void>;
   delete(id: string): Promise<void>;
   deleteBySeries(seriesId: string): Promise<void>;
 }
@@ -71,7 +78,7 @@ export interface CompetitorRepository {
   listBySeries(seriesId: string): Promise<Competitor[]>;
   get(id: string): Promise<Competitor | undefined>;
   save(competitor: Competitor, opts?: SaveOpts): Promise<Competitor>;
-  saveMany(competitors: Competitor[]): Promise<void>;
+  saveMany(competitors: Competitor[], opts?: SaveOpts): Promise<void>;
   delete(id: string): Promise<void>;
   deleteBySeries(seriesId: string): Promise<void>;
 }
@@ -88,7 +95,7 @@ export interface FinishRepository {
   listByRace(raceId: string): Promise<Finish[]>;
   listBySeries(seriesId: string, competitorIds: string[]): Promise<Finish[]>;
   save(finish: Finish, opts?: SaveOpts): Promise<Finish>;
-  saveMany(finishes: Finish[]): Promise<void>;
+  saveMany(finishes: Finish[], opts?: SaveOpts): Promise<void>;
   delete(id: string): Promise<void>;
   deleteByRace(raceId: string): Promise<void>;
   deleteByRaces(raceIds: string[]): Promise<void>;

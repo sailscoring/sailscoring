@@ -49,7 +49,10 @@ export async function putRace(
   if (id !== pathRaceId) throw new NotFoundError('race id mismatch');
   if (input.seriesId !== seriesId) throw new NotFoundError('race series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  return repos.races.save({ ...input, id }, { expectedVersion: opts?.expectedVersion });
+  return repos.races.save(
+    { ...input, id },
+    { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
+  );
 }
 
 export async function deleteRace(

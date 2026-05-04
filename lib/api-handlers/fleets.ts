@@ -55,7 +55,10 @@ export async function putFleet(
   if (id !== pathFleetId) throw new NotFoundError('fleet id mismatch with path');
   if (input.seriesId !== seriesId) throw new NotFoundError('fleet series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  return repos.fleets.save({ ...input, id }, { expectedVersion: opts?.expectedVersion });
+  return repos.fleets.save(
+    { ...input, id },
+    { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
+  );
 }
 
 export async function deleteFleet(
@@ -103,7 +106,7 @@ export async function bulkPutFleets(
     id: f.id ?? crypto.randomUUID(),
   }));
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  await repos.fleets.saveMany(fleets);
+  await repos.fleets.saveMany(fleets, { updatedBy: workspace.userId });
   return { count: fleets.length };
 }
 
@@ -119,6 +122,7 @@ export async function ensureFleet(
     scoringSystem: input.scoringSystem,
     nhcAlpha: input.nhcAlpha,
     echoAlpha: input.echoAlpha,
+    updatedBy: workspace.userId,
   });
   return { fleetId };
 }

@@ -219,11 +219,17 @@ async function buildConflictError(
   expectedVersion: number,
   via?: 'parent-race',
 ): Promise<ConflictError> {
-  let row: { version: number; updatedAt: Date } | undefined;
+  let row:
+    | { version: number; updatedAt: Date; updatedBy: string | null }
+    | undefined;
   if (via === 'parent-race') {
     const t = table as RaceScopedVersionable;
     const [r] = await db
-      .select({ version: t.version, updatedAt: t.updatedAt })
+      .select({
+        version: t.version,
+        updatedAt: t.updatedAt,
+        updatedBy: t.updatedBy,
+      })
       .from(t)
       .innerJoin(schema.races, eq(t.raceId, schema.races.id))
       .where(
@@ -237,7 +243,11 @@ async function buildConflictError(
   } else {
     const t = table as Versionable;
     const [r] = await db
-      .select({ version: t.version, updatedAt: t.updatedAt })
+      .select({
+        version: t.version,
+        updatedAt: t.updatedAt,
+        updatedBy: t.updatedBy,
+      })
       .from(t)
       .where(
         and(
@@ -248,11 +258,33 @@ async function buildConflictError(
       .limit(1);
     row = r;
   }
+
+  let actor: { id: string; email?: string; displayName?: string } | undefined;
+  if (row?.updatedBy) {
+    const [u] = await db
+      .select({ id: schema.user.id, email: schema.user.email, name: schema.user.name })
+      .from(schema.user)
+      .where(eq(schema.user.id, row.updatedBy))
+      .limit(1);
+    if (u) {
+      actor = {
+        id: u.id,
+        email: u.email,
+        displayName: u.name && u.name.trim().length > 0 ? u.name : undefined,
+      };
+    } else {
+      // Edge case: actor user has been deleted since the row was last
+      // written. Surface the id so the dialog still has *something*
+      // beyond "elsewhere"; the row-conflict dialog falls back gracefully.
+      actor = { id: row.updatedBy };
+    }
+  }
+
   return new ConflictError({
     expectedVersion,
     currentVersion: row?.version,
     updatedAt: row?.updatedAt?.toISOString(),
-    // `actor` populated in ADR-008 Phase 7 once the `updated_by` column lands.
+    actor,
   });
 }
 
@@ -291,6 +323,7 @@ export class PostgresSeriesRepository implements SeriesRepository {
   }
 
   async save(s: Series, opts?: SaveOpts): Promise<Series> {
+    const updatedBy = opts?.updatedBy ?? null;
     const insertValues = {
       id: s.id,
       workspaceId: this.workspaceId,
@@ -316,6 +349,7 @@ export class PostgresSeriesRepository implements SeriesRepository {
       publishRatingCalculations: s.publishRatingCalculations ?? true,
       enabledCompetitorFields: s.enabledCompetitorFields,
       primaryPersonLabel: s.primaryPersonLabel,
+      updatedBy,
     };
     const updateSet = {
       name: insertValues.name,
@@ -339,6 +373,7 @@ export class PostgresSeriesRepository implements SeriesRepository {
       publishRatingCalculations: insertValues.publishRatingCalculations,
       enabledCompetitorFields: insertValues.enabledCompetitorFields,
       primaryPersonLabel: insertValues.primaryPersonLabel,
+      updatedBy,
     };
     if (opts?.expectedVersion !== undefined) {
       const [row] = await this.db
@@ -398,6 +433,12 @@ export class PostgresSeriesRepository implements SeriesRepository {
       );
   }
 
+  /**
+   * Bumps `lastModifiedAt` + `version` without touching any payload field.
+   * `updatedBy` is not stamped here because `touch` is the file-tracking
+   * heartbeat — it isn't a user edit. Phase 10's activity log will treat
+   * touches separately from real writes for the same reason.
+   */
   async touch(id: string): Promise<void> {
     await this.db
       .update(schema.series)
@@ -451,6 +492,7 @@ export class PostgresFleetRepository implements FleetRepository {
   }
 
   async save(fleet: Fleet, opts?: SaveOpts): Promise<Fleet> {
+    const updatedBy = opts?.updatedBy ?? null;
     const values = {
       id: fleet.id,
       seriesId: fleet.seriesId,
@@ -460,6 +502,7 @@ export class PostgresFleetRepository implements FleetRepository {
       scoringSystem: fleet.scoringSystem,
       nhcAlpha: fleet.nhcAlpha ?? null,
       echoAlpha: fleet.echoAlpha ?? null,
+      updatedBy,
     };
     const updateSet = {
       name: values.name,
@@ -467,6 +510,7 @@ export class PostgresFleetRepository implements FleetRepository {
       scoringSystem: values.scoringSystem,
       nhcAlpha: values.nhcAlpha,
       echoAlpha: values.echoAlpha,
+      updatedBy,
     };
     if (opts?.expectedVersion !== undefined) {
       const [row] = await this.db
@@ -511,8 +555,9 @@ export class PostgresFleetRepository implements FleetRepository {
     return fleetRowToType(row);
   }
 
-  async saveMany(fleets: Fleet[]): Promise<void> {
+  async saveMany(fleets: Fleet[], opts?: SaveOpts): Promise<void> {
     if (fleets.length === 0) return;
+    const updatedBy = opts?.updatedBy ?? null;
     const seriesIds = [...new Set(fleets.map((f) => f.seriesId))];
     const owned = await filterSeriesIdsByWorkspace(
       this.db,
@@ -531,6 +576,7 @@ export class PostgresFleetRepository implements FleetRepository {
       scoringSystem: f.scoringSystem,
       nhcAlpha: f.nhcAlpha ?? null,
       echoAlpha: f.echoAlpha ?? null,
+      updatedBy,
     }));
     await this.db
       .insert(schema.fleets)
@@ -544,6 +590,7 @@ export class PostgresFleetRepository implements FleetRepository {
           scoringSystem: sql`excluded.scoring_system`,
           nhcAlpha: sql`excluded.nhc_alpha`,
           echoAlpha: sql`excluded.echo_alpha`,
+          updatedBy: sql`excluded.updated_by`,
           version: sql`${schema.fleets.version} + 1`,
           updatedAt: sql`now()`,
         },
@@ -590,6 +637,7 @@ export class PostgresFleetRepository implements FleetRepository {
       scoringSystem?: Fleet['scoringSystem'];
       nhcAlpha?: number;
       echoAlpha?: number;
+      updatedBy?: string;
     },
   ): Promise<string> {
     const fleetName = name.trim() || 'Default';
@@ -658,6 +706,7 @@ export class PostgresFleetRepository implements FleetRepository {
           scoringSystem === 'echo'
             ? (options?.echoAlpha ?? ECHO_DEFAULT_ALPHA)
             : null,
+        updatedBy: options?.updatedBy ?? null,
       });
       return id;
     });
@@ -704,6 +753,7 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
   }
 
   async save(c: Competitor, opts?: SaveOpts): Promise<Competitor> {
+    const updatedBy = opts?.updatedBy ?? null;
     const values = {
       id: c.id,
       seriesId: c.seriesId,
@@ -724,6 +774,7 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
       pyNumber: c.pyNumber ?? null,
       nhcStartingTcf: c.nhcStartingTcf ?? null,
       echoStartingTcf: c.echoStartingTcf ?? null,
+      updatedBy,
     };
     const updateSet = {
       fleetIds: values.fleetIds,
@@ -741,6 +792,7 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
       pyNumber: values.pyNumber,
       nhcStartingTcf: values.nhcStartingTcf,
       echoStartingTcf: values.echoStartingTcf,
+      updatedBy,
     };
     if (opts?.expectedVersion !== undefined) {
       const [row] = await this.db
@@ -785,8 +837,9 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
     return competitorRowToType(row);
   }
 
-  async saveMany(competitors: Competitor[]): Promise<void> {
+  async saveMany(competitors: Competitor[], opts?: SaveOpts): Promise<void> {
     if (competitors.length === 0) return;
+    const updatedBy = opts?.updatedBy ?? null;
     const seriesIds = [...new Set(competitors.map((c) => c.seriesId))];
     const owned = await filterSeriesIdsByWorkspace(
       this.db,
@@ -816,6 +869,7 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
       pyNumber: c.pyNumber ?? null,
       nhcStartingTcf: c.nhcStartingTcf ?? null,
       echoStartingTcf: c.echoStartingTcf ?? null,
+      updatedBy,
     }));
     await this.db
       .insert(schema.competitors)
@@ -839,6 +893,7 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
           pyNumber: sql`excluded.py_number`,
           nhcStartingTcf: sql`excluded.nhc_starting_tcf`,
           echoStartingTcf: sql`excluded.echo_starting_tcf`,
+          updatedBy: sql`excluded.updated_by`,
           version: sql`${schema.competitors.version} + 1`,
           updatedAt: sql`now()`,
         },
@@ -908,6 +963,7 @@ export class PostgresRaceRepository implements RaceRepository {
   }
 
   async save(r: Race, opts?: SaveOpts): Promise<Race> {
+    const updatedBy = opts?.updatedBy ?? null;
     const values = {
       id: r.id,
       seriesId: r.seriesId,
@@ -915,10 +971,12 @@ export class PostgresRaceRepository implements RaceRepository {
       raceNumber: r.raceNumber,
       date: r.date,
       createdAt: new Date(r.createdAt),
+      updatedBy,
     };
     const updateSet = {
       raceNumber: values.raceNumber,
       date: values.date,
+      updatedBy,
     };
     if (opts?.expectedVersion !== undefined) {
       const [row] = await this.db
@@ -1081,15 +1139,18 @@ export class PostgresRaceStartRepository implements RaceStartRepository {
     if (!(await isRaceInWorkspace(this.db, this.workspaceId, s.raceId))) {
       throw new Error(`race ${s.raceId} not in workspace`);
     }
+    const updatedBy = opts?.updatedBy ?? null;
     const values = {
       id: s.id,
       raceId: s.raceId,
       fleetIds: s.fleetIds,
       startTime: s.startTime,
+      updatedBy,
     };
     const updateSet = {
       fleetIds: values.fleetIds,
       startTime: values.startTime,
+      updatedBy,
     };
     if (opts?.expectedVersion !== undefined) {
       const [row] = await this.db
@@ -1225,12 +1286,14 @@ export class PostgresFinishRepository implements FinishRepository {
     if (!(await isRaceInWorkspace(this.db, this.workspaceId, f.raceId))) {
       throw new Error(`race ${f.raceId} not in workspace`);
     }
-    const values = finishToRow(f);
+    const updatedBy = opts?.updatedBy ?? null;
+    const values = { ...finishToRow(f), updatedBy };
     if (opts?.expectedVersion !== undefined) {
       const [row] = await this.db
         .update(schema.finishes)
         .set({
           ...finishUpdateSet(values),
+          updatedBy,
           version: sql`${schema.finishes.version} + 1`,
           updatedAt: sql`now()`,
         })
@@ -1261,6 +1324,7 @@ export class PostgresFinishRepository implements FinishRepository {
         target: schema.finishes.id,
         set: {
           ...finishUpdateSet(values),
+          updatedBy,
           version: sql`${schema.finishes.version} + 1`,
           updatedAt: sql`now()`,
         },
@@ -1269,8 +1333,9 @@ export class PostgresFinishRepository implements FinishRepository {
     return finishRowToType(row);
   }
 
-  async saveMany(finishes: Finish[]): Promise<void> {
+  async saveMany(finishes: Finish[], opts?: SaveOpts): Promise<void> {
     if (finishes.length === 0) return;
+    const updatedBy = opts?.updatedBy ?? null;
     // Verify every parent race is in this workspace before writing anything.
     const raceIds = [...new Set(finishes.map((f) => f.raceId))];
     const owned = await filterRaceIdsByWorkspace(
@@ -1281,7 +1346,7 @@ export class PostgresFinishRepository implements FinishRepository {
     if (owned.length !== raceIds.length) {
       throw new Error('some races not in workspace');
     }
-    const values = finishes.map(finishToRow);
+    const values = finishes.map((f) => ({ ...finishToRow(f), updatedBy }));
     await this.db
       .insert(schema.finishes)
       .values(values)
@@ -1289,6 +1354,7 @@ export class PostgresFinishRepository implements FinishRepository {
         target: schema.finishes.id,
         set: {
           ...finishUpdateSetExcluded(),
+          updatedBy: sql`excluded.updated_by`,
           version: sql`${schema.finishes.version} + 1`,
           updatedAt: sql`now()`,
         },
@@ -1422,6 +1488,7 @@ export class PostgresFtpServerRepository implements FtpServerRepository {
   }
 
   async save(server: FtpServer, opts?: SaveOpts): Promise<FtpServer> {
+    const updatedBy = opts?.updatedBy ?? null;
     const values = {
       id: server.id,
       workspaceId: this.workspaceId,
@@ -1430,6 +1497,7 @@ export class PostgresFtpServerRepository implements FtpServerRepository {
       username: server.username,
       encryptedPassword: encryptCredential(server.password),
       ftps: server.ftps,
+      updatedBy,
     };
     const updateSet = {
       host: values.host,
@@ -1437,6 +1505,7 @@ export class PostgresFtpServerRepository implements FtpServerRepository {
       username: values.username,
       encryptedPassword: values.encryptedPassword,
       ftps: values.ftps,
+      updatedBy,
     };
     if (opts?.expectedVersion !== undefined) {
       const [row] = await this.db

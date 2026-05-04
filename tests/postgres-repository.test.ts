@@ -610,4 +610,58 @@ describe.skipIf(skip)('postgres repositories', () => {
     await reposA.ftpServers.delete(id);
     expect((await reposA.ftpServers.list())).toEqual([]);
   });
+
+  // ─── ADR-008 Phase 7 actor attribution ─────────────────────────────────────
+
+  test('ConflictError carries actor info from the row that beat us to the write', async () => {
+    const { ConflictError } = await import('@/lib/repository');
+    const reposA = createRepos({ db, workspaceId: workspaceA });
+
+    // Seed a user and stamp the row with their id.
+    const userId = `usr_${uuid().replace(/-/g, '')}`;
+    await db.insert(schema.user).values({
+      id: userId,
+      name: 'Sarah Scorer',
+      email: `sarah-${userId}@sailscoring.test`,
+      emailVerified: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const seeded = await reposA.series.save(makeSeries(), { updatedBy: userId });
+    // Bump server-side so the next save's expectedVersion is stale.
+    await reposA.series.save(seeded, {
+      expectedVersion: seeded.version,
+      updatedBy: userId,
+    });
+
+    const err = await reposA.series
+      .save(seeded, { expectedVersion: seeded.version, updatedBy: userId })
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictError);
+    const detail = (err as InstanceType<typeof ConflictError>).detail;
+    expect(detail?.currentVersion).toBe(seeded.version + 1);
+    expect(detail?.actor).toEqual({
+      id: userId,
+      email: `sarah-${userId}@sailscoring.test`,
+      displayName: 'Sarah Scorer',
+    });
+
+    await db.delete(schema.user).where(eq(schema.user.id, userId));
+  });
+
+  test('ConflictError leaves actor undefined for pre-Phase-7 rows (no updatedBy)', async () => {
+    const { ConflictError } = await import('@/lib/repository');
+    const reposA = createRepos({ db, workspaceId: workspaceA });
+
+    // Seed without updatedBy (pre-Phase-7 simulation).
+    const seeded = await reposA.series.save(makeSeries());
+    await reposA.series.save(seeded, { expectedVersion: seeded.version });
+
+    const err = await reposA.series
+      .save(seeded, { expectedVersion: seeded.version })
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictError);
+    expect((err as InstanceType<typeof ConflictError>).detail?.actor).toBeUndefined();
+  });
 });

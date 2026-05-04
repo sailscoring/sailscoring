@@ -36,7 +36,7 @@ export async function putFtpServer(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   return repos.ftpServers.save(
     { ...input, id },
-    { expectedVersion: opts?.expectedVersion },
+    { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
 }
 

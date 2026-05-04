@@ -60,7 +60,10 @@ export async function putSeries(
     enabledCompetitorFields: input.enabledCompetitorFields,
     primaryPersonLabel: input.primaryPersonLabel,
   };
-  return repos.series.save(merged, { expectedVersion: opts?.expectedVersion });
+  return repos.series.save(merged, {
+    expectedVersion: opts?.expectedVersion,
+    updatedBy: workspace.userId,
+  });
 }
 
 export async function deleteSeries(workspace: WorkspaceContext, id: string): Promise<void> {
