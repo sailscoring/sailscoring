@@ -6,6 +6,7 @@ import './globals.css';
 import { Providers } from './providers';
 import { USE_SERVER_DATA } from '@/lib/flags';
 import { getOptionalSession } from '@/lib/auth/require-session';
+import { personalWorkspaceSlug } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
 import {
@@ -51,11 +52,15 @@ async function loadHeaderState(): Promise<HeaderState | null> {
   // personal workspace exists and every server request will resolve
   // to it. Reflect that in the switcher so the dropdown doesn't read
   // "Select workspace…" for a workspace the user is in fact already in.
+  const personalSlug = personalWorkspaceSlug(session.user.id);
   const resolvedActive =
     (sessionActiveId &&
       memberships.find((m) => m.organizationId === sessionActiveId)
         ?.organizationId) ||
-    (memberships.length === 1 ? memberships[0].organizationId : null);
+    (memberships.length === 1
+      ? memberships[0].organizationId
+      : (memberships.find((m) => m.slug === personalSlug)?.organizationId ??
+        null));
   return {
     memberships,
     activeOrganizationId: resolvedActive,

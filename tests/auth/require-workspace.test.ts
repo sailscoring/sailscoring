@@ -54,13 +54,13 @@ describe.skipIf(skip)('resolveWorkspace', () => {
     return id;
   }
 
-  async function makeOrg(name: string): Promise<string> {
+  async function makeOrg(name: string, slug?: string): Promise<string> {
     const id = `org_${uuid().replace(/-/g, '')}`;
     cleanupOrgIds.push(id);
     await db.insert(schema.organization).values({
       id,
       name,
-      slug: `${name.toLowerCase()}-${id.slice(4, 12)}`,
+      slug: slug ?? `${name.toLowerCase()}-${id.slice(4, 12)}`,
       createdAt: new Date(),
     });
     return id;
@@ -108,15 +108,40 @@ describe.skipIf(skip)('resolveWorkspace', () => {
     expect(ctx).toMatchObject({ workspaceId: orgB, role: 'member' });
   });
 
-  test('throws no-active-workspace when activeOrganizationId is null and the user has multiple memberships', async () => {
-    const { resolveWorkspace, ForbiddenError } = await import(
+  test('bootstrap-picks the personal workspace when activeOrganizationId is null and the user has multiple memberships', async () => {
+    const { resolveWorkspace, personalWorkspaceSlug } = await import(
       '@/lib/auth/require-workspace'
     );
     const userId = await makeUser(`multi-${Date.now()}@sailscoring.test`);
+    const personalOrg = await makeOrg(
+      'My Workspace',
+      personalWorkspaceSlug(userId),
+    );
+    const sharedOrg = await makeOrg('HYC');
+    // Personal workspace newer than the shared one — confirms we pick by
+    // slug, not by createdAt.
+    await makeMember(sharedOrg, userId, 'admin', new Date(Date.now() - 60_000));
+    await makeMember(personalOrg, userId, 'owner', new Date());
+
+    const ctx = await resolveWorkspace({
+      userId,
+      email: 'a@b',
+      activeOrganizationId: null,
+    });
+    expect(ctx).toMatchObject({ workspaceId: personalOrg, role: 'owner' });
+  });
+
+  test('throws no-active-workspace when activeOrganizationId is null and the user has only invited memberships', async () => {
+    const { resolveWorkspace, ForbiddenError } = await import(
+      '@/lib/auth/require-workspace'
+    );
+    const userId = await makeUser(`invited-${Date.now()}@sailscoring.test`);
+    // Two invited memberships, no personal workspace — the user must
+    // explicitly pick one via the switcher.
     const orgA = await makeOrg('A');
     const orgB = await makeOrg('B');
-    await makeMember(orgA, userId, 'owner', new Date(Date.now() - 60_000));
-    await makeMember(orgB, userId, 'admin', new Date());
+    await makeMember(orgA, userId, 'admin', new Date(Date.now() - 60_000));
+    await makeMember(orgB, userId, 'member', new Date());
 
     const err = await resolveWorkspace({
       userId,
@@ -190,15 +215,37 @@ describe.skipIf(skip)('resolveWorkspace', () => {
     expect(ctx).toMatchObject({ workspaceId: orgA });
   });
 
-  test('throws no-active-workspace when activeOrganizationId is stale and the user has multiple memberships', async () => {
-    const { resolveWorkspace, ForbiddenError } = await import(
+  test('falls back to the personal workspace when activeOrganizationId is stale and the user has multiple memberships', async () => {
+    const { resolveWorkspace, personalWorkspaceSlug } = await import(
       '@/lib/auth/require-workspace'
     );
     const userId = await makeUser(`stale-multi-${Date.now()}@sailscoring.test`);
-    const orgA = await makeOrg('A2');
-    const orgB = await makeOrg('B2');
+    const personalOrg = await makeOrg(
+      'My Workspace',
+      personalWorkspaceSlug(userId),
+    );
+    const sharedOrg = await makeOrg('B2');
     const stale = await makeOrg('Stale2');
-    await makeMember(orgA, userId, 'owner', new Date());
+    await makeMember(personalOrg, userId, 'owner', new Date());
+    await makeMember(sharedOrg, userId, 'member', new Date());
+
+    const ctx = await resolveWorkspace({
+      userId,
+      email: 'a@b',
+      activeOrganizationId: stale,
+    });
+    expect(ctx).toMatchObject({ workspaceId: personalOrg, role: 'owner' });
+  });
+
+  test('throws no-active-workspace when activeOrganizationId is stale and the user has only invited memberships', async () => {
+    const { resolveWorkspace, ForbiddenError } = await import(
+      '@/lib/auth/require-workspace'
+    );
+    const userId = await makeUser(`stale-invited-${Date.now()}@sailscoring.test`);
+    const orgA = await makeOrg('A3');
+    const orgB = await makeOrg('B3');
+    const stale = await makeOrg('Stale3');
+    await makeMember(orgA, userId, 'admin', new Date());
     await makeMember(orgB, userId, 'member', new Date());
 
     await expect(
