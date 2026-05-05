@@ -43,6 +43,13 @@
       "when": 1777888678863,
       "tag": "0005_futuristic_mercury",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778008154688,
+      "tag": "0006_brainy_black_bolt",
+      "breakpoints": true
     }
   ]
 }

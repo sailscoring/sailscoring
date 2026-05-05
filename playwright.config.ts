@@ -63,6 +63,10 @@ export default defineConfig({
           // Disable Better Auth rate limiting — many parallel sign-ins
           // from one IP would otherwise trip the 3-req/10-s default.
           E2E_DISABLE_RATE_LIMIT: '1',
+          // Turn the feedback feature on for e2e. The `.test` TLD makes
+          // `lib/feedback/email.ts` route to `tests/.feedback.log`
+          // instead of Resend, even if RESEND_API_KEY is set.
+          FEEDBACK_TO: 'feedback@sailscoring.test',
         }
       : {},
   },

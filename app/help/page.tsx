@@ -47,6 +47,7 @@ export default function HelpPage() {
           ['#saving-and-sharing', 'Saving and sharing a series'],
           ['#publishing-results', 'Publishing results'],
           ['#json-export', 'JSON data export and Open in Sail Scoring'],
+          ['#sending-feedback', 'Sending feedback'],
           ['#keyboard-shortcuts', 'Keyboard shortcuts'],
         ].map(([href, label]) => (
           <div key={href}>
@@ -796,6 +797,21 @@ export default function HelpPage() {
           <strong className="text-foreground">Include data export in published results</strong>{' '}
           in the <strong className="text-foreground">Publishing</strong> card. The footer will
           revert to a plain link with no Open in Sail Scoring option.
+        </p>
+      </Section>
+
+      <Section id="sending-feedback" title="Sending feedback">
+        <p>
+          Found a bug, have a question, or want to suggest an improvement? Open the
+          user menu in the top-right of the header (your email address) and click{' '}
+          <strong className="text-foreground">Send feedback</strong>. Type your
+          message and hit <strong className="text-foreground">Send</strong>.
+        </p>
+        <p>
+          The form automatically attaches the page you were on, your signed-in
+          email address, and the browser you&apos;re using — they&apos;re shown
+          in the dialog before you submit. To keep abuse in check, each account
+          can send up to five messages per hour.
         </p>
       </Section>
 

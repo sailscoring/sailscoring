@@ -6,3 +6,4 @@ export * from './race';
 export * from './race-start';
 export * from './finish';
 export * from './ftp-server';
+export * from './feedback';

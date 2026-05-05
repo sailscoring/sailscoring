@@ -337,6 +337,36 @@ export const ftpServers = pgTable(
 );
 
 /**
+ * Feedback submissions. Write-once sink populated by the in-app feedback
+ * form (issue #123). The table doubles as the rate-limit log: the handler
+ * counts rows for the submitting user inside the past hour to enforce the
+ * per-user cap. Identifying fields are snapshotted at submit time so
+ * historical rows survive user/email changes; `workspace_id` is kept for
+ * ops/forwarding context and cascades when an org is deleted.
+ */
+export const feedback = pgTable(
+  'feedback',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull(),
+    userEmail: text('user_email').notNull(),
+    message: text('message').notNull(),
+    pageUrl: text('page_url').notNull(),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('feedback_user_created_idx').on(table.userId, table.createdAt.desc()),
+    index('feedback_workspace_idx').on(table.workspaceId),
+  ],
+);
+
+/**
  * Idempotency-key store. The wrapper in `app/api/v1/_lib/handler.ts` writes
  * the response body and status here on every successful write so a replay
  * with the same `Idempotency-Key` header returns the cached response without

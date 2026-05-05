@@ -101,7 +101,12 @@ export default async function RootLayout({
                 >
                   Help
                 </Link>
-                {header && <UserMenu email={header.email} />}
+                {header && (
+                  <UserMenu
+                    email={header.email}
+                    feedbackEnabled={Boolean(process.env.FEEDBACK_TO)}
+                  />
+                )}
               </div>
             </header>
             <main className="px-6 py-8">{children}</main>

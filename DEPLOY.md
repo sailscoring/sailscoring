@@ -169,6 +169,7 @@ Development is *only* used to populate `.env.local` via `vercel env pull`.
 | `BETTER_AUTH_URL`              | `https://app.sailscoring.ie` | **unset**    | `http://localhost:3000` | no         |
 | `RESEND_API_KEY`               | from Resend          | from Resend          | unset (recommended)  | yes for prod/preview |
 | `RESEND_FROM`                  | `Sail Scoring <noreply@sailscoring.ie>` | same | same         | no |
+| `FEEDBACK_TO`                  | `mark@hyc.ie` (or destination of choice) | unset (recommended) | unset (recommended) | no |
 | `CREDENTIAL_KEY`               | random (set, **permanent**) | random (set, **permanent**) | random (set) | yes for prod/preview |
 | `USE_SERVER_DATA`              | unset (Phase 1)      | unset (Phase 1)      | unset (Phase 1)      | no         |
 | `NEXT_PUBLIC_APP_URL`          | `https://app.sailscoring.ie` | unset / preview URL  | `http://localhost:3000` | no  |
@@ -196,6 +197,15 @@ already appends `process.env.VERCEL_URL` to `trustedOrigins` for previews.
 **`RESEND_API_KEY`** — leaving this unset in Development is the recommended
 default. The dev sender (`lib/auth/email.ts`) falls back to `console.log` +
 `tests/.magic-links.log`, which is exactly what the e2e suite reads.
+
+**`FEEDBACK_TO`** — gates the in-app feedback form (#123). When unset, the
+"Send feedback" item is hidden from the user menu and `POST /api/v1/feedback`
+returns 404. When set, submissions are emailed via Resend to this address;
+the user's email is set as the `Reply-To` so a forward from
+`mark@sailscoring.ie` round-trips cleanly. Set it for Production only; leave
+unset on Preview and Development to avoid noise. There's no code default —
+that's deliberate, so a forgotten env var fails closed instead of mailing the
+wrong inbox.
 
 **`CREDENTIAL_KEY`** — 32-byte symmetric key (64 hex chars) used by
 `lib/crypto.ts` to AES-256-GCM-encrypt FTP server passwords at the application
