@@ -96,7 +96,7 @@ export function FeedbackDialog({
             </DialogFooter>
           </div>
         ) : (
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form onSubmit={onSubmit} className="space-y-4 min-w-0">
             <div className="space-y-1.5">
               <label htmlFor="feedback-message" className="text-sm font-medium">
                 Message
@@ -117,15 +117,15 @@ export function FeedbackDialog({
               </div>
             </div>
 
-            <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1 min-w-0">
               <div className="font-medium text-foreground">We&apos;ll include:</div>
-              <div>
+              <div className="break-all">
                 <span className="font-mono">From:</span> {userEmail}
               </div>
-              <div className="truncate">
+              <div className="break-all">
                 <span className="font-mono">Page:</span> {pageUrl || '—'}
               </div>
-              <div className="truncate">
+              <div className="break-all">
                 <span className="font-mono">Browser:</span> {userAgent || '—'}
               </div>
             </div>
