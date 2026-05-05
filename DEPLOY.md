@@ -50,12 +50,77 @@ create a new one. This writes `.vercel/project.json`.
 ## 3. Provision Neon Postgres
 
 In the Vercel dashboard: **Storage → Create Database → Neon (Marketplace)**.
-Create separate branches for **Production**, **Preview**, and **Development**;
-Vercel auto-injects `DATABASE_URL` (and `DATABASE_URL_UNPOOLED`) per
-environment.
+This creates a Neon project with a `main` branch that backs **Production**,
+auto-forks a fresh branch per **Preview** deployment, and injects
+`DATABASE_URL` + `DATABASE_URL_UNPOOLED` for both.
 
-The Neon integration is the only source of `DATABASE_URL` — do not set it
-manually.
+It does **not** auto-branch for **Development**. Without intervention,
+`vercel env pull` lands the prod main connection string in `.env.local` —
+local migrations and tests would hit production. So we override.
+
+### One-time: create a dev branch
+
+In the Neon console:
+
+1. Open the project → **Branches** → **Create branch**.
+2. Name `dev`, parent `main`, type **Schema only**. (Schema-only avoids
+   cloning real members' data into screenshots, logs, and dev tooling.)
+3. Copy the **pooled** and **unpooled** connection strings from the
+   branch's overview.
+
+Override the Development env vars in Vercel:
+
+```sh
+vercel env add DATABASE_URL development \
+  --value '<pooled>' --yes
+
+vercel env add DATABASE_URL_UNPOOLED development \
+  --value '<unpooled>' --yes --force
+```
+
+`--force` on the second is needed because the integration sets
+`DATABASE_URL_UNPOOLED` for all three envs as a single record; without it,
+the add fails. After both, run `vercel env pull` and confirm `.env.local`
+shows the **dev branch** host (`ep-<dev>...`), not prod main.
+
+### Initialise the schema
+
+A schema-only Neon branch carries the table DDL but not the
+`drizzle.__drizzle_migrations` history. Drizzle would re-run every
+migration and fail on the first `CREATE TABLE`. Reset and rebuild:
+
+```sql
+-- Run in the Neon SQL editor against the dev branch
+BEGIN;
+DROP SCHEMA IF EXISTS public CASCADE;
+DROP SCHEMA IF EXISTS drizzle CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO neondb_owner;
+COMMIT;
+```
+
+Then locally:
+
+```sh
+pnpm db:migrate
+```
+
+This rebuilds the full schema from the migration files with a populated
+migration history. After this, `pnpm db:migrate` is idempotent — re-running
+picks up new migrations only.
+
+### Refreshing the dev branch
+
+When the dev branch's data drifts in ways you don't want, delete it in
+the Neon console and repeat the steps above. The Vercel overrides need to
+change because the new branch has new connection strings.
+
+### Unused Postgres env vars
+
+The Marketplace integration also injects `POSTGRES_*`, `PG*`, and
+`NEON_PROJECT_ID`. None are read by app code — only `DATABASE_URL` and
+`DATABASE_URL_UNPOOLED` are. Delete the rest with `vercel env rm <NAME>
+--yes` to keep `vercel env pull` output clean.
 
 ## 4. Provision Resend
 
@@ -98,7 +163,8 @@ Development is *only* used to populate `.env.local` via `vercel env pull`.
 
 | Variable                       | Production           | Preview              | Development          | Sensitive? |
 |--------------------------------|----------------------|----------------------|----------------------|------------|
-| `DATABASE_URL`                 | from Neon            | from Neon            | from Neon            | (managed)  |
+| `DATABASE_URL`                 | from Neon (main)     | from Neon (auto-fork)| from Neon (dev branch — see step 3) | (managed for prod/preview, manually overridden for dev) |
+| `DATABASE_URL_UNPOOLED`        | from Neon (main)     | from Neon (auto-fork)| from Neon (dev branch — see step 3) | (managed for prod/preview, manually overridden for dev) |
 | `BETTER_AUTH_SECRET`           | random (set)         | random (set)         | random (set)         | yes for prod/preview, no for dev |
 | `BETTER_AUTH_URL`              | `https://app.sailscoring.ie` | **unset**    | `http://localhost:3000` | no         |
 | `RESEND_API_KEY`               | from Resend          | from Resend          | unset (recommended)  | yes for prod/preview |
@@ -200,9 +266,13 @@ present.
 pnpm db:migrate
 ```
 
-The script reads `.env.local` automatically (`tsx --env-file-if-exists=.env.local`)
-and applies the SQL files in `drizzle/` to the database. CI does the same with
-`DATABASE_URL` from job env. Two related scripts:
+The script reads `.env.local` automatically and applies pending migrations
+in `drizzle/`. Idempotent — re-running picks up new migrations only. CI
+does the same with `DATABASE_URL` from job env, and Vercel deploys run the
+same migrate step before each `next build` (see [Schema
+migrations](#schema-migrations) for the full picture).
+
+Two related scripts:
 
 - `pnpm db:generate` — regenerate `drizzle/*.sql` from changes to
   `lib/db/schema/*.ts`
