@@ -364,6 +364,56 @@ node --env-file-if-exists=.env.local -e '
 
 ---
 
+## Schema migrations
+
+### How migrations are applied
+
+The Vercel `build` script runs `tsx scripts/db-migrate.ts && next build`.
+Each deployment migrates its own database before serving traffic:
+
+- **Production** — applies pending migrations to the Neon `main` branch, then
+  the new function code goes live a few seconds later.
+- **Preview** — the Vercel↔Neon integration auto-forks a fresh Neon branch
+  per preview deployment; the build migrates that fork in isolation.
+- **Development (local)** — `pnpm db:migrate` runs the same script. It
+  prefers `DATABASE_URL_UNPOOLED` and falls back to `DATABASE_URL`.
+
+Migrations must use the **unpooled** connection. PgBouncer transaction-mode
+pooling — what Neon's `-pooler` host gives you — breaks DDL.
+
+Drizzle's `__drizzle_migrations` table makes the runner idempotent, so
+re-running on every deploy is safe.
+
+### Expand-contract: migrations must be backwards-compatible
+
+Build-time migrate means the schema is updated a few seconds **before** the
+new function code goes live. For that window, old code runs against new
+schema. Every migration has to survive that. (Old schema vs. new code is also
+possible if a deploy fails mid-flip; same defence applies.)
+
+The rules:
+
+- **Adding a column** — must be nullable or have a default. Old code ignores
+  it; safe to land in one deploy.
+- **Renaming a column** — never in one step. Add the new column, deploy code
+  that writes both, backfill, deploy code that reads from the new column,
+  deploy code that stops writing the old, drop the old column. Five deploys
+  minimum.
+- **Removing a column** — stop writing it (deploy 1), drop it (deploy 2).
+- **Tightening a constraint** (`NOT NULL`, FK, `UNIQUE`) — backfill or clean
+  offending rows first (deploy 1), add the constraint in a separate
+  migration (deploy 2). A single migration that backfills *and* tightens
+  will fail on prod the moment the data isn't already clean.
+- **Locking DDL** — Drizzle's generated `ALTER`s are lightweight in normal
+  cases, but anything that rewrites a table or holds an `ACCESS EXCLUSIVE`
+  lock needs to be applied out-of-band against prod with a maintenance plan,
+  not via the deploy.
+
+If a change can't be done as one of the above, do it as a sequence of
+deploys, not as one clever migration.
+
+---
+
 ## Custom domain
 
 To serve the app from `app.sailscoring.ie`:
