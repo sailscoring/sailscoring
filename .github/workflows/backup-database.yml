@@ -1,0 +1,66 @@
+name: Database backup
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # 06:00 UTC daily
+  workflow_dispatch:      # manual trigger for first-run + ad-hoc
+
+permissions:
+  id-token: write   # required for AWS OIDC federation
+  contents: read
+
+concurrency:
+  group: backup-database
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install Postgres 17 client
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          # Ubuntu runners ship postgresql-client-16, and /usr/bin/pg_dump is a
+          # pg_wrapper that resolves to the older binary. Put v17 first on PATH
+          # for subsequent steps; the explicit absolute-path call below also
+          # fails fast if the v17 binary somehow isn't there.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_BACKUP_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Dump and upload
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BUCKET: ${{ vars.AWS_BACKUP_BUCKET }}
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%dT%H-%M-%SZ)
+          DAY=$(date -u +%Y/%m/%d)
+          KEY="daily/${DAY}/sailscoring-${DATE}.dump"
+          DUMP="${RUNNER_TEMP}/sailscoring.dump"
+          # Dump to a local file before uploading so a pg_dump failure can
+          # never leave a partial / empty object behind in the bucket.
+          # Streaming via | aws s3 cp - races: the upload often completes with
+          # what the pipe delivered (potentially zero bytes) before pipefail
+          # surfaces the upstream error, and the bad object is then locked
+          # under compliance retention for the lock window.
+          pg_dump \
+            --format=custom \
+            --no-owner --no-privileges \
+            --verbose \
+            --file="$DUMP" \
+            "$DATABASE_URL"
+          aws s3 cp "$DUMP" "s3://${BUCKET}/${KEY}"
+          echo "::notice::Uploaded s3://${BUCKET}/${KEY} ($(stat -c%s "$DUMP") bytes)"
