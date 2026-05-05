@@ -438,8 +438,9 @@ node --env-file-if-exists=.env.local -e '
 
 ### How migrations are applied
 
-The Vercel `build` script runs `tsx scripts/db-migrate.ts && next build`.
-Each deployment migrates its own database before serving traffic:
+Vercel runs the `vercel-build` script — `tsx scripts/db-migrate.ts && next
+build` — for every deployment, migrating that environment's own database
+before serving traffic:
 
 - **Production** — applies pending migrations to the Neon `main` branch, then
   the new function code goes live a few seconds later.
