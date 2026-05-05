@@ -3,7 +3,6 @@ import { eq } from 'drizzle-orm';
 import { requireSession } from '@/lib/auth/require-session';
 import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
-import { SignOutButton } from './sign-out-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,8 +65,6 @@ export default async function AccountPage() {
           </>
         )}
       </dl>
-
-      <SignOutButton />
     </section>
   );
 }

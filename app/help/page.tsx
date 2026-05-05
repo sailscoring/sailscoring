@@ -111,10 +111,11 @@ export default function HelpPage() {
           conflict dialog naming the first scorer rather than silently overwriting their work.
         </p>
         <p>
-          Account info (your email, the active workspace, sign-out) is at{' '}
-          <strong className="text-foreground">Account</strong> in the page header. Workspace-
-          scoped settings (FTP servers, the workspace name) are at{' '}
-          <strong className="text-foreground">Workspace Settings</strong> next to it.
+          Account info (your email, the active workspace, sign-out) is in the user menu on the
+          right of the page header — click your email address. Workspace-scoped settings (FTP
+          servers, the workspace name) are in the workspace switcher next to the{' '}
+          <strong className="text-foreground">Sail Scoring</strong> logo — click the workspace
+          name and choose <strong className="text-foreground">Workspace settings</strong>.
         </p>
       </Section>
 
@@ -744,8 +745,9 @@ export default function HelpPage() {
           scupper service — the browser cannot connect to an FTP server directly.
         </p>
         <p>
-          <strong className="text-foreground">FTP one-time setup:</strong> open{' '}
-          <strong className="text-foreground">Workspace Settings</strong> (link in the page header) and click{' '}
+          <strong className="text-foreground">FTP one-time setup:</strong> open the workspace
+          switcher in the page header and choose{' '}
+          <strong className="text-foreground">Workspace settings</strong>, then click{' '}
           <strong className="text-foreground">Add server</strong>. Enter a label (e.g.{' '}
           <em>Club website</em>), the FTP hostname, port (default 21), username, and password.
           Tick <strong className="text-foreground">FTPS (TLS)</strong> if your host requires an

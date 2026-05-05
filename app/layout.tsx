@@ -14,6 +14,7 @@ import {
   type WorkspaceMembership,
 } from '@/components/workspace-switcher';
 import { WorkspaceMembershipsProvider } from '@/components/workspace-memberships-provider';
+import { UserMenu } from '@/components/user-menu';
 
 export const metadata: Metadata = {
   title: 'Sail Scoring',
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
 interface HeaderState {
   memberships: WorkspaceMembership[];
   activeOrganizationId: string | null;
+  email: string;
 }
 
 async function loadHeaderState(): Promise<HeaderState | null> {
@@ -64,6 +66,7 @@ async function loadHeaderState(): Promise<HeaderState | null> {
   return {
     memberships,
     activeOrganizationId: resolvedActive,
+    email: session.user.email,
   };
 }
 
@@ -91,26 +94,15 @@ export default async function RootLayout({
                   activeOrganizationId={header.activeOrganizationId}
                 />
               )}
-              <Link
-                href="/workspace"
-                className="text-sm text-muted-foreground hover:underline"
-              >
-                Workspace Settings
-              </Link>
-              {header && (
+              <div className="ml-auto flex items-baseline gap-3">
                 <Link
-                  href="/account"
+                  href="/help"
                   className="text-sm text-muted-foreground hover:underline"
                 >
-                  Account
+                  Help
                 </Link>
-              )}
-              <Link
-                href="/help"
-                className="text-sm text-muted-foreground hover:underline"
-              >
-                Help
-              </Link>
+                {header && <UserMenu email={header.email} />}
+              </div>
             </header>
             <main className="px-6 py-8">{children}</main>
           </WorkspaceMembershipsProvider>

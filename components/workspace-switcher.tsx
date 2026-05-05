@@ -16,6 +16,7 @@
  */
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 
 import { authClient } from '@/lib/auth-client';
@@ -105,6 +106,10 @@ export function WorkspaceSwitcher({
             <span className="text-xs text-muted-foreground">{m.role}</span>
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/workspace">Workspace settings</Link>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

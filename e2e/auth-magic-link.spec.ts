@@ -27,19 +27,17 @@ test.describe('@auth magic-link sign-in', () => {
     // Default callback lands the user on the home page.
     await expect(page).toHaveURL(/\/$/);
 
-    // /account renders the email + active workspace.
+    // /account renders the email + active workspace. Scope to <main>
+    // because the header user menu also shows the email and the
+    // workspace switcher also shows the workspace name.
     await page.goto('/account');
-    await expect(page.getByText(email)).toBeVisible();
-    // Personal workspaces are all named "My Workspace" — the user's own
-    // identity is on /account two lines up, no need to repeat it.
-    // Scoped to <main> because the Phase 7 workspace switcher in the
-    // header also shows the workspace name.
+    await expect(page.getByRole('main').getByText(email)).toBeVisible();
     await expect(
       page.getByRole('main').getByText('My Workspace'),
     ).toBeVisible();
   });
 
-  test('signs out from /account', async ({ page }) => {
+  test('signs out from header user menu', async ({ page }) => {
     const email = `auth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-out@sailscoring.test`;
 
     await page.goto('/sign-in');
@@ -49,8 +47,8 @@ test.describe('@auth magic-link sign-in', () => {
     await page.goto(link);
     await expect(page).toHaveURL(/\/$/);
 
-    await page.goto('/account');
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByTestId('user-menu').click();
+    await page.getByRole('menuitem', { name: 'Sign out' }).click();
     await page.waitForURL(/\/sign-in/);
     await page.goto('/account');
     await expect(page).toHaveURL(/\/sign-in/);
