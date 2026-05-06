@@ -50,6 +50,13 @@
       "when": 1778008154688,
       "tag": "0006_brainy_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778107616515,
+      "tag": "0007_aromatic_iron_fist",
+      "breakpoints": true
     }
   ]
 }

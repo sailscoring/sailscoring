@@ -44,11 +44,17 @@ export const auth = betterAuth({
     provider: 'pg',
     schema: authSchema,
   }),
-  // Better Auth's default `/sign-in*` rate limit is 3 requests / 10s per IP.
-  // The Playwright server-mode suite signs in many fresh users in parallel
-  // from a single localhost IP and trips the limit. Opt-out via the env
+  // Sign-up = first magic-link verify, so the magic-link send endpoint is
+  // the only realistic reputation-burn surface. Tighten it to 5 sends /
+  // 600s per IP (set on the magicLink plugin below) and back the limiter
+  // with Postgres so the cap holds across Vercel function instances. The
+  // Playwright server-mode suite signs in many fresh users in parallel
+  // from one localhost IP and would trip any limit — opt out via the env
   // var, set by `playwright.config.ts` only in server-mode CI.
-  rateLimit: process.env.E2E_DISABLE_RATE_LIMIT === '1' ? { enabled: false } : undefined,
+  rateLimit:
+    process.env.E2E_DISABLE_RATE_LIMIT === '1'
+      ? { enabled: false }
+      : { enabled: true, storage: 'database' },
   emailAndPassword: {
     enabled: false,
   },
@@ -63,6 +69,7 @@ export const auth = betterAuth({
           .limit(1);
         await sendMagicLinkEmail({ to: email, url, isNewUser: !existing });
       },
+      rateLimit: { window: 600, max: 5 },
     }),
     organization(),
   ],

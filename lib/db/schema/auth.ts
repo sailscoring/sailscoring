@@ -4,6 +4,8 @@ import {
   text,
   timestamp,
   boolean,
+  bigint,
+  integer,
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -134,6 +136,17 @@ export const invitation = pgTable(
     index("invitation_email_idx").on(table.email),
   ],
 );
+
+// Better Auth's built-in rate limiter writes here when
+// `rateLimit.storage === 'database'`. Field names match the model schema in
+// @better-auth/core/db/get-tables (key/count/lastRequest); column names follow
+// our snake_case convention.
+export const rateLimit = pgTable("rate_limit", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});
 
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
