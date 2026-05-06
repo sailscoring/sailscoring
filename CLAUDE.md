@@ -76,6 +76,10 @@ When implementing any new user-facing feature, ensure the following are covered 
 - **CSV import and public JSON export** — if the feature extends the shape of competitors, races, or any other data users import or export, check whether `app/series/[id]/competitors/page.tsx` (CSV import) and `lib/public-export.ts` (JSON export/import) need to carry the new field. These are easy to miss because they live outside `lib/types.ts` — but silently dropping a field on import or export is just as bad as silently dropping it on a file round-trip.
 - **Scoring fixtures** — if the feature changes or extends scoring logic in `lib/scoring.ts`, add one or more declarative YAML fixtures in `tests/fixtures/scoring/`. Fixtures are designed to be read and verified by human scorers, not just by the test runner. After adding fixtures, run `pnpm generate:fixtures` and commit the regenerated `.html` files alongside the `.yaml` files. See `tests/fixtures/scoring/README.md`.
 
+## Contact Email
+
+User-facing contact for feedback and support is **mark@hyc.ie**. Do not use `mark@sailscoring.ie` in product copy or docs — that mailbox isn't set up yet.
+
 ## Tone and Humour
 
 The project aims to be credible and serious — scorers are exacting people — but a little wry humour is welcome. The bar: the name must do real communicative work, the nautical connection must be genuine, and it belongs in structure (a module name, a section heading), not inline prose. Example: **bilge** — the temporary results publishing service; bilge is dirty water you pump out before the real plumbing is installed. If a sailor wouldn't immediately recognise the term as correct, it's too cute.

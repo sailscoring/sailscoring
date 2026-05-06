@@ -15,6 +15,7 @@ import {
 } from '@/components/workspace-switcher';
 import { WorkspaceMembershipsProvider } from '@/components/workspace-memberships-provider';
 import { UserMenu } from '@/components/user-menu';
+import { StealthBetaBanner } from '@/components/stealth-beta-banner';
 
 export const metadata: Metadata = {
   title: 'Sail Scoring',
@@ -109,6 +110,9 @@ export default async function RootLayout({
                 )}
               </div>
             </header>
+            {header && header.memberships.length === 1 && (
+              <StealthBetaBanner />
+            )}
             <main className="px-6 py-8">{children}</main>
           </WorkspaceMembershipsProvider>
         </Providers>
