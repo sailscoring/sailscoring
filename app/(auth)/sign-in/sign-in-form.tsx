@@ -38,27 +38,6 @@ export function SignInForm() {
         Enter your email and we&apos;ll send you a one-time link.
       </p>
 
-      <aside
-        data-testid="stealth-beta-notice"
-        className="mb-6 rounded-md border px-4 py-3 text-sm text-muted-foreground"
-      >
-        <p className="mb-2">
-          Sail Scoring is in stealth beta, running trials with sailing clubs in Ireland.
-        </p>
-        <p className="mb-2">
-          You&apos;re welcome to try it out — feedback to{' '}
-          <a href="mailto:mark@hyc.ie" className="underline">
-            mark@hyc.ie
-          </a>{' '}
-          is appreciated.
-        </p>
-        <p>
-          <strong>Heads up:</strong> while we&apos;re still iterating, accounts
-          created outside our trial cohort may be deleted (with a copy of your
-          data emailed back) after a couple of weeks.
-        </p>
-      </aside>
-
       {status === 'sent' ? (
         <p className="text-sm">
           Check your inbox at <strong>{email}</strong>. The link expires in 5

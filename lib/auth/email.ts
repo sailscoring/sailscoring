@@ -9,11 +9,34 @@ const FROM_DEFAULT = 'Sail Scoring <noreply@sailscoring.ie>';
  * `tests/.magic-links.log` so e2e tests can read the most recent link
  * without needing to scrape stdout.
  */
+const STEALTH_BETA_TEXT = `
+A note before you dive in: Sail Scoring is in stealth beta, running trials
+with sailing clubs in Ireland. You're very welcome to try it out — feedback
+to mark@hyc.ie is appreciated.
+
+While we're still iterating, accounts created outside our trial cohort may
+be deleted (with a copy of your data emailed back) after a couple of weeks.
+`;
+
+const STEALTH_BETA_HTML = `
+<hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb">
+<p style="color:#6b7280;font-size:14px;margin:0 0 8px">
+  A note before you dive in: Sail Scoring is in stealth beta, running trials
+  with sailing clubs in Ireland. You're very welcome to try it out — feedback
+  to <a href="mailto:mark@hyc.ie">mark@hyc.ie</a> is appreciated.
+</p>
+<p style="color:#6b7280;font-size:14px;margin:0">
+  While we're still iterating, accounts created outside our trial cohort may
+  be deleted (with a copy of your data emailed back) after a couple of weeks.
+</p>
+`;
+
 export async function sendMagicLinkEmail(args: {
   to: string;
   url: string;
+  isNewUser?: boolean;
 }): Promise<void> {
-  const { to, url } = args;
+  const { to, url, isNewUser = false } = args;
   const from = process.env.RESEND_FROM || FROM_DEFAULT;
 
   // RFC 6761 reserves the `.test` TLD for testing; route every such
@@ -42,8 +65,8 @@ export async function sendMagicLinkEmail(args: {
     from,
     to,
     subject: 'Sign in to Sail Scoring',
-    text: `Click to sign in: ${url}\n\nThis link is single-use and expires in 5 minutes.`,
+    text: `Click to sign in: ${url}\n\nThis link is single-use and expires in 5 minutes.${isNewUser ? STEALTH_BETA_TEXT : ''}`,
     html: `<p><a href="${url}">Sign in to Sail Scoring</a></p>
-<p>This link is single-use and expires in 5 minutes.</p>`,
+<p>This link is single-use and expires in 5 minutes.</p>${isNewUser ? STEALTH_BETA_HTML : ''}`,
   });
 }

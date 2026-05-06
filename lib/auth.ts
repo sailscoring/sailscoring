@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink } from 'better-auth/plugins/magic-link';
 import { organization } from 'better-auth/plugins/organization';
+import { eq } from 'drizzle-orm';
 
 import { sendMagicLinkEmail } from '@/lib/auth/email';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
@@ -54,7 +55,13 @@ export const auth = betterAuth({
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
-        await sendMagicLinkEmail({ to: email, url });
+        const db = getDb();
+        const [existing] = await db
+          .select({ id: authSchema.user.id })
+          .from(authSchema.user)
+          .where(eq(authSchema.user.email, email.toLowerCase()))
+          .limit(1);
+        await sendMagicLinkEmail({ to: email, url, isNewUser: !existing });
       },
     }),
     organization(),
