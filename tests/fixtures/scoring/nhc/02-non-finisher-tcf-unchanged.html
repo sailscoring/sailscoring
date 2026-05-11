@@ -21,30 +21,33 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 
 <div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
   <strong>Scoring system:</strong> NHC1 &nbsp;&nbsp;
-  <strong>α (blend factor):</strong> 0.15
+  <strong>α (blend factor):</strong> —
 </div>
-<pre style="margin:0.6em 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Same setup as 01 plus a 5th boat (Echo, TCF 0.98) that DNFs.
+<pre style="margin:0.6em 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Same finisher setup as 01 plus a 5th boat (Echo, TCF 0.98) that DNFs.
 
-Echo is excluded from CT_avg, mean(TCF), and finisherCount.
+Echo is excluded from CT_avg, mean(TCF), and finisherCount, so the
+fleet aggregates and other boats' values are identical to fixture 01.
 Echo's newTcf must equal its tcfApplied (0.98) — unchanged.
-Echo gets penalty points = fleet entries + 1 = 6.
-
-Aggregates and other boats unchanged from 01.</pre>
+Echo gets penalty points = fleet entries + 1 = 6.</pre>
 <pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">No nhc sub-object; newTcf == tcfApplied</pre>
 <h2 style="margin-top:1.5em;">Race 1</h2>
 <div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
   <strong>Gun time:</strong> 14:00:00 &nbsp;
-  <strong>α:</strong> 0.15 &nbsp;
   <strong>Finishers:</strong> 4 &nbsp;
   <strong>CT<sub>avg</sub>:</strong> 67m 15s &nbsp;
   <strong>mean(TCF):</strong> 1.0250
 </div>
+<div style="margin:0 0 0.6em; color:#444; font-size:90%;"><strong>μ(S):</strong> 1.0127 &nbsp;
+  <strong>σ(S):</strong> 0.2347 &nbsp;
+  <strong>extreme if S &gt; 1.3647 or &lt; 0.7780</strong> (1) &nbsp;
+  <strong>P50:</strong> 0.646154 &nbsp; <strong>W51:</strong> 0.588785 &nbsp;
+  <strong>Z51:</strong> 0.997030</div>
 <table>
 <thead>
 <tr>
   <th>Rank</th><th>Name</th><th>Sail #</th>
   <th>Finish time</th><th>ET</th><th>TCF<sub>applied</sub></th><th>CT</th>
-  <th>CT<sub>avg</sub>/CT</th><th>fair TCF</th><th>adj</th><th>new TCF</th>
+  <th>Q</th><th>S</th><th>α</th><th>Z</th><th>adj</th><th>new TCF</th>
   <th>Points</th>
 </tr>
 </thead>
@@ -57,10 +60,12 @@ Aggregates and other boats unchanged from 01.</pre>
   <td class="mono">50m 00s</td>
   <td class="mono">0.9500</td>
   <td class="mono">47m 30s</td>
-  <td class="mono">1.4158</td>
-  <td class="mono">1.3450</td>
-  <td class="mono">+0.0592</td>
-  <td class="mono">1.0092</td>
+  <td class="mono">1.2923</td>
+  <td class="mono">1.3603</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.0183</td>
+  <td class="mono">+0.0650</td>
+  <td class="mono">1.0150</td>
   <td>1</td>
 </tr>
 <tr>
@@ -71,10 +76,12 @@ Aggregates and other boats unchanged from 01.</pre>
   <td class="mono">60m 00s</td>
   <td class="mono">1.0000</td>
   <td class="mono">60m 00s</td>
-  <td class="mono">1.1208</td>
-  <td class="mono">1.1208</td>
-  <td class="mono">+0.0181</td>
-  <td class="mono">1.0181</td>
+  <td class="mono">1.0769</td>
+  <td class="mono">1.0769</td>
+  <td class="mono">0.150</td>
+  <td class="mono">0.9972</td>
+  <td class="mono">-0.0060</td>
+  <td class="mono">0.9940</td>
   <td>2</td>
 </tr>
 <tr>
@@ -85,10 +92,12 @@ Aggregates and other boats unchanged from 01.</pre>
   <td class="mono">70m 00s</td>
   <td class="mono">1.0500</td>
   <td class="mono">73m 30s</td>
-  <td class="mono">0.9150</td>
-  <td class="mono">0.9607</td>
-  <td class="mono">-0.0134</td>
-  <td class="mono">1.0366</td>
+  <td class="mono">0.9231</td>
+  <td class="mono">0.8791</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.0187</td>
+  <td class="mono">-0.0340</td>
+  <td class="mono">1.0160</td>
   <td>3</td>
 </tr>
 <tr>
@@ -99,10 +108,12 @@ Aggregates and other boats unchanged from 01.</pre>
   <td class="mono">80m 00s</td>
   <td class="mono">1.1000</td>
   <td class="mono">88m 00s</td>
-  <td class="mono">0.7642</td>
-  <td class="mono">0.8406</td>
-  <td class="mono">-0.0389</td>
-  <td class="mono">1.0611</td>
+  <td class="mono">0.8077</td>
+  <td class="mono">0.7343 †</td>
+  <td class="mono">0.075</td>
+  <td class="mono">1.0781</td>
+  <td class="mono">-0.0250</td>
+  <td class="mono">1.0750</td>
   <td>4</td>
 </tr>
 <tr>
@@ -112,6 +123,8 @@ Aggregates and other boats unchanged from 01.</pre>
   <td class="mono">DNF</td>
   <td class="mono">—</td>
   <td class="mono">0.9800</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
   <td class="mono">—</td>
   <td class="mono">—</td>
   <td class="mono">—</td>

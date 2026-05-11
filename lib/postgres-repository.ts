@@ -4,7 +4,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { decryptCredential, encryptCredential } from './crypto';
 import { getDb, type SailScoringDb } from './db/client';
 import * as schema from './db/schema';
-import { ECHO_DEFAULT_ALPHA, NHC_DEFAULT_ALPHA } from './scoring';
+import { ECHO_DEFAULT_ALPHA } from './scoring';
 import {
   ConflictError,
   type CompetitorRepository,
@@ -100,7 +100,6 @@ function fleetRowToType(row: FleetRow): Fleet {
     name: row.name,
     displayOrder: row.displayOrder,
     scoringSystem: row.scoringSystem as Fleet['scoringSystem'],
-    ...(row.nhcAlpha != null ? { nhcAlpha: row.nhcAlpha } : {}),
     ...(row.echoAlpha != null ? { echoAlpha: row.echoAlpha } : {}),
     version: row.version,
   };
@@ -500,7 +499,6 @@ export class PostgresFleetRepository implements FleetRepository {
       name: fleet.name,
       displayOrder: fleet.displayOrder,
       scoringSystem: fleet.scoringSystem,
-      nhcAlpha: fleet.nhcAlpha ?? null,
       echoAlpha: fleet.echoAlpha ?? null,
       updatedBy,
     };
@@ -508,7 +506,6 @@ export class PostgresFleetRepository implements FleetRepository {
       name: values.name,
       displayOrder: values.displayOrder,
       scoringSystem: values.scoringSystem,
-      nhcAlpha: values.nhcAlpha,
       echoAlpha: values.echoAlpha,
       updatedBy,
     };
@@ -574,7 +571,6 @@ export class PostgresFleetRepository implements FleetRepository {
       name: f.name,
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
-      nhcAlpha: f.nhcAlpha ?? null,
       echoAlpha: f.echoAlpha ?? null,
       updatedBy,
     }));
@@ -588,7 +584,6 @@ export class PostgresFleetRepository implements FleetRepository {
           name: sql`excluded.name`,
           displayOrder: sql`excluded.display_order`,
           scoringSystem: sql`excluded.scoring_system`,
-          nhcAlpha: sql`excluded.nhc_alpha`,
           echoAlpha: sql`excluded.echo_alpha`,
           updatedBy: sql`excluded.updated_by`,
           version: sql`${schema.fleets.version} + 1`,
@@ -635,7 +630,6 @@ export class PostgresFleetRepository implements FleetRepository {
     name: string,
     options?: {
       scoringSystem?: Fleet['scoringSystem'];
-      nhcAlpha?: number;
       echoAlpha?: number;
       updatedBy?: string;
     },
@@ -698,10 +692,6 @@ export class PostgresFleetRepository implements FleetRepository {
         name: fleetName,
         displayOrder,
         scoringSystem,
-        nhcAlpha:
-          scoringSystem === 'nhc'
-            ? (options?.nhcAlpha ?? NHC_DEFAULT_ALPHA)
-            : null,
         echoAlpha:
           scoringSystem === 'echo'
             ? (options?.echoAlpha ?? ECHO_DEFAULT_ALPHA)

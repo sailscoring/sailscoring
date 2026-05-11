@@ -1,23 +1,24 @@
-description: "NHC1 — single race, symmetric blend across 4 boats"
+description: "NHC1 — single race, SWNHC2015 blend with one slow-extreme boat"
 notes: |
-  Start 14:00:00 (= 50400 s). α = 0.15.
-  Four boats with starting TCFs 0.95, 1.00, 1.05, 1.10.
+  Four boats with starting TCFs 0.95 / 1.00 / 1.05 / 1.10.
+  SWNHC2015 default profile: α_p/n/px/nx = 0.30 / 0.15 / 0.15 / 0.075,
+  σ thresholds 1.5 over / 1.0 under, MinFin 3.
 
-  Boat   TCF    ET     CT       ratio    fair     adj       new
-  Alpha  0.950  3000   2850.00  1.4158   1.3450   +0.0593   1.0093
-  Beta   1.000  3600   3600.00  1.1208   1.1208   +0.0181   1.0181
-  Gamma  1.050  4200   4410.00  0.9150   0.9607   −0.0134   1.0366
-  Delta  1.100  4800   5280.00  0.7642   0.8406   −0.0389   1.0611
+  Boat   TCF    ET     CT       Q         S         extreme   α        Z          NewTCF
+  Alpha  0.950  3000   2850     1.2923    1.3603    no        0.300    1.0183     1.015
+  Beta   1.000  3600   3600     1.0769    1.0769    no        0.150    0.9972     0.994
+  Gamma  1.050  4200   4410     0.9231    0.8791    no        0.150    1.0187     1.016
+  Delta  1.100  4800   5280     0.8077    0.7343    yes †     0.075    1.0781     1.075
 
-  CT_avg = 4035.00, mean(TCF) = 1.025.
-  Fast boats (low CT) gain TCF; slow boats (high CT) lose TCF.
+  Delta's S = 0.7343 < sLo = 0.7780, so it's classified extreme-slow.
+  All other boats are non-extreme. Realignment factor Z51 ≈ 0.9970
+  preserves ΣTCF (sum of newTcf = 4.100 = ΣL exactly after rounding).
 
 series:
   discardThresholds: []
 
 fleet:
   scoringSystem: nhc
-  alpha: 0.15
 
 competitors:
   - sailNumber: "1"
@@ -46,51 +47,72 @@ races:
       - sailor: "4"
         finishTime: "15:20:00"
     aggregates:
-      alpha: 0.15
       finisherCount: 4
       ctAvg: 4035.0
       meanTcf: 1.025
+      p50: 0.6461538462
+      w51: 0.5887850467
+      sMean: 1.0126583942
+      sStdev: 0.2346998003
+      sHi: 1.3647080947
+      sLo: 0.7779585939
+      extremeCount: 1
+      realignmentFactor: 0.9970302028
+      updateSuppressed: false
     expected:
       - sailor: "1"
         rank: 1
         points: 1.0
         elapsedTime: 3000
         correctedTime: 2850.0
-        tcfApplied: 0.950
-        ctRatio: 1.4157894737
-        fairTcf: 1.345
-        adjustment: 0.05925
-        newTcf: 1.00925
+        tcfApplied: 0.95
+        newTcf: 1.015
+        fairTcf: 1.2923076923
+        compScore: 1.3603238866
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.018271028
+        adjustment: 0.065
       - sailor: "2"
         rank: 2
         points: 2.0
         elapsedTime: 3600
         correctedTime: 3600.0
-        tcfApplied: 1.000
-        ctRatio: 1.1208333333
-        fairTcf: 1.1208333333
-        adjustment: 0.0181249999
-        newTcf: 1.0181249999
+        tcfApplied: 1.0
+        newTcf: 0.994
+        fairTcf: 1.0769230769
+        compScore: 1.0769230769
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 0.9971962617
+        adjustment: -0.006
       - sailor: "3"
         rank: 3
         points: 3.0
         elapsedTime: 4200
         correctedTime: 4410.0
-        tcfApplied: 1.050
-        ctRatio: 0.9149659864
-        fairTcf: 0.9607142857
-        adjustment: -0.0133928571
-        newTcf: 1.0366071429
+        tcfApplied: 1.05
+        newTcf: 1.016
+        fairTcf: 0.9230769231
+        compScore: 0.8791208791
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 1.0186682243
+        adjustment: -0.034
       - sailor: "4"
         rank: 4
         points: 4.0
         elapsedTime: 4800
         correctedTime: 5280.0
-        tcfApplied: 1.100
-        ctRatio: 0.7642045455
-        fairTcf: 0.84062500
-        adjustment: -0.03890625
-        newTcf: 1.06109375
+        tcfApplied: 1.1
+        newTcf: 1.075
+        fairTcf: 0.8076923077
+        compScore: 0.7342657343
+        isExtreme: true
+        extremeDirection: "slow"
+        alphaApplied: 0.075
+        provisionalTcf: 1.0780769231
+        adjustment: -0.025
 
 expected:
   standings:

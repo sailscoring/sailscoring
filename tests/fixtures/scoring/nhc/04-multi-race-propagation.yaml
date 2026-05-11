@@ -1,12 +1,13 @@
 description: "NHC1 — multi-race: race N+1 uses race N's newTcf as tcfApplied"
 notes: |
-  4 boats, 3 races, α = 0.15.
-  Race 1: ETs 3000/3600/4200/4800 (matches fixture 01).
-  Race 2: shaken up — Alpha now slow (4500), Delta now fast (3300); Beta/Gamma unchanged.
+  4 boats, 3 races, SWNHC2015 default profile.
+
+  Race 1: starting TCFs 0.95/1.00/1.05/1.10; ETs 3000/3600/4200/4800.
+  Race 2: shaken up — Alpha slow (4500), Delta fast (3300); Beta/Gamma unchanged.
   Race 3: same finishes as race 2.
 
-  Verifies the propagation contract: each boat's "TCF used" in race N
-  equals its "newTcf" from race N-1.
+  Verifies the propagation contract: each boat's tcfApplied in race N
+  equals its newTcf from race N-1 (after 3-dp rounding).
 
   Series totals (no discards):
     Alpha: 1 + 4 + 4 = 9  (one 1st, two 4ths)
@@ -22,7 +23,6 @@ series:
 
 fleet:
   scoringSystem: nhc
-  alpha: 0.15
 
 competitors:
   - sailNumber: "1"
@@ -37,6 +37,7 @@ competitors:
   - sailNumber: "4"
     name: "Delta"
     nhcStartingTcf: 1.100
+
 races:
   # ─── Race 1 ─────────────────────────────────────────────────────────────────
   - number: 1
@@ -51,10 +52,18 @@ races:
       - sailor: "4"
         finishTime: "15:20:00"
     aggregates:
-      alpha: 0.15
       finisherCount: 4
       ctAvg: 4035.0
       meanTcf: 1.025
+      p50: 0.6461538462
+      w51: 0.5887850467
+      sMean: 1.0126583942
+      sStdev: 0.2346998003
+      sHi: 1.3647080947
+      sLo: 0.7779585939
+      extremeCount: 1
+      realignmentFactor: 0.9970302028
+      updateSuppressed: false
     expected:
       - sailor: "1"
         rank: 1
@@ -62,40 +71,53 @@ races:
         elapsedTime: 3000
         correctedTime: 2850.0
         tcfApplied: 0.95
-        ctRatio: 1.4157894736842105
-        fairTcf: 1.345
-        adjustment: 0.05925
-        newTcf: 1.00925
+        newTcf: 1.015
+        fairTcf: 1.2923076923
+        compScore: 1.3603238866
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.018271028
+        adjustment: 0.065
       - sailor: "2"
         rank: 2
         points: 2.0
         elapsedTime: 3600
         correctedTime: 3600.0
         tcfApplied: 1.0
-        ctRatio: 1.1208333333333333
-        fairTcf: 1.1208333333333333
-        adjustment: 0.018125
-        newTcf: 1.018125
+        newTcf: 0.994
+        fairTcf: 1.0769230769
+        compScore: 1.0769230769
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 0.9971962617
+        adjustment: -0.006
       - sailor: "3"
         rank: 3
         points: 3.0
         elapsedTime: 4200
         correctedTime: 4410.0
         tcfApplied: 1.05
-        ctRatio: 0.9149659863945578
-        fairTcf: 0.9607142857142857
-        adjustment: -0.0133928571428571
-        newTcf: 1.0366071428571428
+        newTcf: 1.016
+        fairTcf: 0.9230769231
+        compScore: 0.8791208791
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 1.0186682243
+        adjustment: -0.034
       - sailor: "4"
         rank: 4
         points: 4.0
         elapsedTime: 4800
         correctedTime: 5280.0
         tcfApplied: 1.1
-        ctRatio: 0.7642045454545454
-        fairTcf: 0.8406250000000001
-        adjustment: -0.03890625
-        newTcf: 1.06109375
+        newTcf: 1.075
+        fairTcf: 0.8076923077
+        compScore: 0.7342657343
+        isExtreme: true
+        extremeDirection: "slow"
+        alphaApplied: 0.075
+        provisionalTcf: 1.0780769231
+        adjustment: -0.025
   # ─── Race 2 ─────────────────────────────────────────────────────────────────
   - number: 2
     startTime: "14:00:00"
@@ -109,51 +131,72 @@ races:
       - sailor: "4"
         finishTime: "14:55:00"  # ET 3300 — Delta fast
     aggregates:
-      alpha: 0.15
       finisherCount: 4
-      ctAvg: 4015.75
-      meanTcf: 1.0312689732142857
+      ctAvg: 3990.25
+      meanTcf: 1.025
+      p50: 0.6563409563
+      w51: 0.6278722467
+      sMean: 0.9989118986
+      sStdev: 0.108579822
+      sHi: 1.1617816316
+      sLo: 0.8903320765
+      extremeCount: 1
+      realignmentFactor: 0.9982068692
+      updateSuppressed: false
     expected:
-      - sailor: "1"
-        rank: 4
-        points: 4.0
-        elapsedTime: 4500
-        correctedTime: 4542
-        tcfApplied: 1.00925
-        ctRatio: 0.8841369440774989
-        fairTcf: 0.8923152108102157
-        adjustment: -0.017540218378467642
-        newTcf: 0.9917097816215323
-      - sailor: "2"
-        rank: 2
-        points: 2.0
-        elapsedTime: 3600
-        correctedTime: 3665
-        tcfApplied: 1.018125
-        ctRatio: 1.0957025920873125
-        fairTcf: 1.1155622015688949
-        adjustment: 0.014615580235334234
-        newTcf: 1.0327405802353342
-      - sailor: "3"
-        rank: 3
-        points: 3.0
-        elapsedTime: 4200
-        correctedTime: 4354
-        tcfApplied: 1.0366071428571428
-        ctRatio: 0.9223128158015618
-        fairTcf: 0.9560760528085832
-        adjustment: -0.012079663507283943
-        newTcf: 1.0245274793498589
       - sailor: "4"
         rank: 1
         points: 1.0
         elapsedTime: 3300
-        correctedTime: 3502
-        tcfApplied: 1.0610937500000002
-        ctRatio: 1.14670188463735
-        fairTcf: 1.2167582029019133
-        adjustment: 0.023349667935286967
-        newTcf: 1.084443417935287
+        correctedTime: 3548.0
+        tcfApplied: 1.075
+        newTcf: 1.093
+        fairTcf: 1.1933471933
+        compScore: 1.1100904124
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.0949757709
+        adjustment: 0.018
+      - sailor: "2"
+        rank: 2
+        points: 2.0
+        elapsedTime: 3600
+        correctedTime: 3578.0
+        tcfApplied: 0.994
+        newTcf: 1.008
+        fairTcf: 1.0939015939
+        compScore: 1.1005046216
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.0097361233
+        adjustment: 0.014
+      - sailor: "3"
+        rank: 3
+        points: 3.0
+        elapsedTime: 4200
+        correctedTime: 4267.0
+        tcfApplied: 1.016
+        newTcf: 0.996
+        fairTcf: 0.9376299376
+        compScore: 0.9228641118
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 0.9981440529
+        adjustment: -0.02
+      - sailor: "1"
+        rank: 4
+        points: 4.0
+        elapsedTime: 4500
+        correctedTime: 4568.0
+        tcfApplied: 1.015
+        newTcf: 1.003
+        fairTcf: 0.8751212751
+        compScore: 0.8621884484
+        isExtreme: true
+        extremeDirection: "slow"
+        alphaApplied: 0.075
+        provisionalTcf: 1.0045090956
+        adjustment: -0.012
   # ─── Race 3 ─────────────────────────────────────────────────────────────────
   - number: 3
     startTime: "14:00:00"
@@ -167,51 +210,72 @@ races:
       - sailor: "4"
         finishTime: "14:55:00"
     aggregates:
-      alpha: 0.15
       finisherCount: 4
-      ctAvg: 4015.75
-      meanTcf: 1.0333553147855032
+      ctAvg: 3983.0
+      meanTcf: 1.025
+      p50: 0.6563409563
+      w51: 0.6303145374
+      sMean: 0.9977320197
+      sStdev: 0.0940219467
+      sHi: 1.1387649398
+      sLo: 0.903710073
+      extremeCount: 1
+      realignmentFactor: 0.9988448251
+      updateSuppressed: false
     expected:
-      - sailor: "1"
-        rank: 4
-        points: 4.0
-        elapsedTime: 4500
-        correctedTime: 4463
-        tcfApplied: 0.9917097816215323
-        ctRatio: 0.8997871386959444
-        fairTcf: 0.8923277068220185
-        adjustment: -0.014907311219927083
-        newTcf: 0.9768024704016053
-      - sailor: "2"
-        rank: 2
-        points: 2.0
-        elapsedTime: 3600
-        correctedTime: 3718
-        tcfApplied: 1.0327405802353342
-        ctRatio: 1.0800833781603012
-        fairTcf: 1.1154459346638093
-        adjustment: 0.012405803164271256
-        newTcf: 1.0451463833996055
-      - sailor: "3"
-        rank: 3
-        points: 3.0
-        elapsedTime: 4200
-        correctedTime: 4303
-        tcfApplied: 1.0245274793498589
-        ctRatio: 0.9332442481989309
-        fairTcf: 0.9561343772250048
-        adjustment: -0.010258965318728108
-        newTcf: 1.0142685140311307
       - sailor: "4"
         rank: 1
         points: 1.0
         elapsedTime: 3300
-        correctedTime: 3579
-        tcfApplied: 1.084443417935287
-        ctRatio: 1.1220312936574461
-        fairTcf: 1.2167794511242327
-        adjustment: 0.01985040497834184
-        newTcf: 1.104293822913629
+        correctedTime: 3607.0
+        tcfApplied: 1.093
+        newTcf: 1.108
+        fairTcf: 1.1933471933
+        compScore: 1.0918089601
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.1089079295
+        adjustment: 0.015
+      - sailor: "2"
+        rank: 2
+        points: 2.0
+        elapsedTime: 3600
+        correctedTime: 3629.0
+        tcfApplied: 1.008
+        newTcf: 1.02
+        fairTcf: 1.0939015939
+        compScore: 1.0852198352
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.0207572687
+        adjustment: 0.012
+      - sailor: "3"
+        rank: 3
+        points: 3.0
+        elapsedTime: 4200
+        correctedTime: 4183.0
+        tcfApplied: 0.996
+        newTcf: 0.981
+        fairTcf: 0.9376299376
+        compScore: 0.9413955197
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 0.9816674009
+        adjustment: -0.015
+      - sailor: "1"
+        rank: 4
+        points: 4.0
+        elapsedTime: 4500
+        correctedTime: 4513.0
+        tcfApplied: 1.003
+        newTcf: 0.992
+        fairTcf: 0.8751212751
+        compScore: 0.8725037638
+        isExtreme: true
+        extremeDirection: "slow"
+        alphaApplied: 0.075
+        provisionalTcf: 0.9934090956
+        adjustment: -0.011
 
 expected:
   standings:

@@ -57,7 +57,6 @@ interface SeriesFileFleet {
   name: string;
   displayOrder: number;
   scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
-  nhcAlpha?: number;  // present iff scoringSystem === 'nhc'
   echoAlpha?: number; // present iff scoringSystem === 'echo'
 }
 
@@ -266,7 +265,6 @@ export async function buildSeriesFile(
       name: f.name,
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
-      ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
     })),
     series: {
@@ -533,7 +531,6 @@ async function writeFleetsCompetitorsRaces(
       name: f.name,
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
-      ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
     })),
   );

@@ -218,7 +218,6 @@ export async function copySeries(
           name: f.name,
           displayOrder: f.displayOrder,
           scoringSystem: f.scoringSystem,
-          nhcAlpha: f.nhcAlpha ?? null,
           echoAlpha: f.echoAlpha ?? null,
         })),
       );

@@ -140,12 +140,12 @@ describe.skipIf(skip)('schema round-trip', () => {
       primaryPersonLabel: seriesRow.primaryPersonLabel,
     });
 
-    // Fleets — one per scoring system to exercise nhcAlpha/echoAlpha.
+    // Fleets — one per scoring system to exercise echoAlpha.
     const fleets: Fleet[] = [
       { id: uuid(), seriesId, name: 'Scratch', displayOrder: 0, scoringSystem: 'scratch' },
       { id: uuid(), seriesId, name: 'IRC',     displayOrder: 1, scoringSystem: 'irc' },
       { id: uuid(), seriesId, name: 'PY',      displayOrder: 2, scoringSystem: 'py' },
-      { id: uuid(), seriesId, name: 'NHC',     displayOrder: 3, scoringSystem: 'nhc',  nhcAlpha: 0.18 },
+      { id: uuid(), seriesId, name: 'NHC',     displayOrder: 3, scoringSystem: 'nhc' },
       { id: uuid(), seriesId, name: 'ECHO',    displayOrder: 4, scoringSystem: 'echo', echoAlpha: 0.30 },
     ];
     for (const f of fleets) {
@@ -156,7 +156,6 @@ describe.skipIf(skip)('schema round-trip', () => {
         name: f.name,
         displayOrder: f.displayOrder,
         scoringSystem: f.scoringSystem,
-        nhcAlpha: f.nhcAlpha ?? null,
         echoAlpha: f.echoAlpha ?? null,
       });
     }
@@ -330,7 +329,6 @@ describe.skipIf(skip)('schema round-trip', () => {
         name: f.name,
         displayOrder: f.displayOrder,
         scoringSystem: f.scoringSystem,
-        nhcAlpha: f.nhcAlpha ?? null,
         echoAlpha: f.echoAlpha ?? null,
       });
     }

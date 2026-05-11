@@ -65,8 +65,6 @@ export interface PublicSeriesExport {
     name: string;
     displayOrder: number;
     scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
-    /** NHC blend rate α (present iff scoringSystem === 'nhc'). */
-    nhcAlpha?: number;
     /** ECHO blend rate α (present iff scoringSystem === 'echo'). */
     echoAlpha?: number;
   }[];
@@ -152,19 +150,35 @@ export interface PublicSeriesExport {
   }[];
 }
 
-/** Per-(race, fleet) NHC scoring details for the public export. */
+/** Per-(race, fleet) NHC scoring details for the public export.
+ *  Mirrors the SWNHC2015 spreadsheet output — every per-finisher
+ *  intermediate the algorithm uses, plus the fleet-level constants
+ *  (P50, W51, σ(S), thresholds, realignment factor). A consumer with
+ *  this data can reproduce every NewTcf to 3 dp. */
 export interface NhcRaceFleetExport {
-  alpha: number;
   finisherCount: number;
   ctAvgSecs: number;
   meanTcf: number;
+  p50: number;
+  w51: number | null;
+  sMean: number;
+  sStdev: number;
+  sHi: number;
+  sLo: number;
+  extremeCount: number;
+  realignmentFactor: number;
+  updateSuppressed: boolean;
   rows: {
     sailNumber: string;
     tcfApplied: number;
     newTcf: number;
     /** Intermediates present iff the boat finished this race. */
-    ctRatio?: number;
     fairTcf?: number;
+    compScore?: number;
+    isExtreme?: boolean;
+    extremeDirection?: 'fast' | 'slow';
+    alphaApplied?: number;
+    provisionalTcf?: number;
     adjustment?: number;
   }[];
 }
@@ -268,13 +282,29 @@ export async function buildPublicExport(
           sailNumber: sailNumberById.get(cid) ?? cid,
           tcfApplied: s.tcfApplied!,
           newTcf: s.newTcf!,
-          ...(s.nhc ? { ctRatio: s.nhc.ctRatio, fairTcf: s.nhc.fairTcf, adjustment: s.nhc.adjustment } : {}),
+          ...(s.nhc ? {
+            fairTcf: s.nhc.fairTcf,
+            compScore: s.nhc.compScore,
+            isExtreme: s.nhc.isExtreme,
+            ...(s.nhc.extremeDirection ? { extremeDirection: s.nhc.extremeDirection } : {}),
+            alphaApplied: s.nhc.alphaApplied,
+            provisionalTcf: s.nhc.provisionalTcf,
+            adjustment: s.nhc.adjustment,
+          } : {}),
         }));
       const entry: NhcRaceFleetExport = {
-        alpha: agg.alpha,
         finisherCount: agg.finisherCount,
         ctAvgSecs: agg.ctAvg,
         meanTcf: agg.meanTcf,
+        p50: agg.p50,
+        w51: agg.w51,
+        sMean: agg.sMean,
+        sStdev: agg.sStdev,
+        sHi: agg.sHi,
+        sLo: agg.sLo,
+        extremeCount: agg.extremeCount,
+        realignmentFactor: agg.realignmentFactor,
+        updateSuppressed: agg.updateSuppressed,
         rows,
       };
       const byFleet = nhcByFleetByRaceId.get(raceId) ?? new Map();
@@ -428,7 +458,6 @@ export async function buildPublicExport(
       name: f.name,
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
-      ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
     })),
     competitors: competitors.map((c) => ({
@@ -546,7 +575,6 @@ export async function importPublicExport(
         name: f.name,
         displayOrder: f.displayOrder,
         scoringSystem: f.scoringSystem,
-        ...(f.nhcAlpha != null ? { nhcAlpha: f.nhcAlpha } : {}),
         ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       }),
     ),

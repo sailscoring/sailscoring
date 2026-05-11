@@ -398,8 +398,11 @@ function generateNhcFixtureHtml(fixture: Fixture, yamlSource: string): string {
       const c = competitorByIdMap.get(cId)!;
       const finishTimeDisplay = finishTimeByCompetitorId.get(cId) ?? (score.resultCode ?? '—');
       const rankDisplay = score.rank !== null ? score.rank.toString() : '—';
-      const ctRatio = score.nhc?.ctRatio;
       const fairTcf = score.nhc?.fairTcf;
+      const compScore = score.nhc?.compScore;
+      const isExtreme = score.nhc?.isExtreme === true;
+      const alphaApplied = score.nhc?.alphaApplied;
+      const provisionalTcf = score.nhc?.provisionalTcf;
       const adjustment = score.nhc?.adjustment;
       return `<tr>
   <td>${esc(rankDisplay)}</td>
@@ -409,8 +412,10 @@ function generateNhcFixtureHtml(fixture: Fixture, yamlSource: string): string {
   <td class="mono">${esc(fmtSeconds(score.elapsedTime))}</td>
   <td class="mono">${esc(fmtTcf(score.tcfApplied, 'nhc'))}</td>
   <td class="mono">${esc(fmtSeconds(score.correctedTime))}</td>
-  <td class="mono">${ctRatio !== undefined ? esc(ctRatio.toFixed(4)) : '—'}</td>
   <td class="mono">${fairTcf !== undefined ? esc(fairTcf.toFixed(4)) : '—'}</td>
+  <td class="mono">${compScore !== undefined ? esc(compScore.toFixed(4) + (isExtreme ? ' †' : '')) : '—'}</td>
+  <td class="mono">${alphaApplied !== undefined ? esc(alphaApplied.toFixed(3)) : '—'}</td>
+  <td class="mono">${provisionalTcf !== undefined ? esc(provisionalTcf.toFixed(4)) : '—'}</td>
   <td class="mono">${adjustment !== undefined ? esc((adjustment >= 0 ? '+' : '') + adjustment.toFixed(4)) : '—'}</td>
   <td class="mono">${esc(fmtTcf(score.newTcf, 'nhc'))}</td>
   <td>${esc(fmtPoints(score.points))}</td>
@@ -418,21 +423,28 @@ function generateNhcFixtureHtml(fixture: Fixture, yamlSource: string): string {
     }).join('\n');
 
     const raceLabel = `Race ${fixtureRace.number ?? ri + 1}`;
+    const headerLine = aggs.updateSuppressed
+      ? `<strong>Rating update suppressed</strong> (finishers ${aggs.finisherCount} &lt; MinFin 3)`
+      : `<strong>μ(S):</strong> ${aggs.sMean.toFixed(4)} &nbsp;
+  <strong>σ(S):</strong> ${aggs.sStdev.toFixed(4)} &nbsp;
+  <strong>extreme if S &gt; ${aggs.sHi.toFixed(4)} or &lt; ${aggs.sLo.toFixed(4)}</strong> (${aggs.extremeCount}) &nbsp;
+  <strong>P50:</strong> ${aggs.p50.toFixed(6)}${aggs.w51 != null ? ` &nbsp; <strong>W51:</strong> ${aggs.w51.toFixed(6)}` : ''} &nbsp;
+  <strong>Z51:</strong> ${aggs.realignmentFactor.toFixed(6)}`;
 
     return `<h2 style="margin-top:1.5em;">${esc(raceLabel)}</h2>
 <div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
   <strong>Gun time:</strong> ${esc(fixtureRace.startTime ?? '')} &nbsp;
-  <strong>α:</strong> ${aggs.alpha.toFixed(2)} &nbsp;
   <strong>Finishers:</strong> ${aggs.finisherCount} &nbsp;
   <strong>CT<sub>avg</sub>:</strong> ${fmtSeconds(aggs.ctAvg)} &nbsp;
   <strong>mean(TCF):</strong> ${aggs.meanTcf.toFixed(4)}
 </div>
+<div style="margin:0 0 0.6em; color:#444; font-size:90%;">${headerLine}</div>
 <table>
 <thead>
 <tr>
   <th>Rank</th><th>Name</th><th>Sail #</th>
   <th>Finish time</th><th>ET</th><th>TCF<sub>applied</sub></th><th>CT</th>
-  <th>CT<sub>avg</sub>/CT</th><th>fair TCF</th><th>adj</th><th>new TCF</th>
+  <th>Q</th><th>S</th><th>α</th><th>Z</th><th>adj</th><th>new TCF</th>
   <th>Points</th>
 </tr>
 </thead>

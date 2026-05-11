@@ -72,7 +72,6 @@ export interface Fleet {
   name: string;
   displayOrder: number;
   scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
-  nhcAlpha?: number;  // present iff scoringSystem === 'nhc'; default 0.15
   echoAlpha?: number; // present iff scoringSystem === 'echo'; default 0.25 (75/25 club racing)
   version?: number;   // server-side concurrency token (see Series.version)
 }
@@ -182,20 +181,37 @@ export interface HandicapRaceScore extends RaceScore {
   echo?: EchoRaceCalc;           // present iff fleet.scoringSystem === 'echo' AND finisher
 }
 
-// NHC per-finisher intermediate calculations (for explainability)
+// NHC per-finisher intermediate calculations (for explainability).
+// Surfaces the SWNHC2015 intermediates a competitor needs to verify their
+// rating update: Q_i (fair TCF), S_i (comparative score), extreme flag, the
+// per-boat α actually applied, the pre-realignment blend Z_i, and the
+// final signed adjustment.
 export interface NhcRaceCalc {
-  ctRatio: number;       // CT_avg / CT_i
-  fairTcf: number;       // TCF_i × ctRatio  (≡ Q_i)
-  adjustment: number;    // signed: α × (fairTcf − TCF_i)
-  alphaApplied: number;  // α actually used this race
+  fairTcf: number;          // Q_i = O_i × P50    (Family-B / IS-PI form)
+  compScore: number;        // S_i = Q_i / TCF_i
+  isExtreme: boolean;       // S_i outside [μ(S)−1·σ, μ(S)+1.5·σ]
+  extremeDirection?: 'fast' | 'slow';  // populated iff isExtreme
+  alphaApplied: number;     // one of alphaP / alphaN / alphaPX / alphaNX
+  provisionalTcf: number;   // Z_i — blended, pre-realignment
+  adjustment: number;       // signed: newTcf − tcfApplied (post-realign)
 }
 
-// NHC fleet-race-level aggregates (for the explainability fleet header)
+// NHC fleet-race-level aggregates (for the explainability fleet header).
+// Exposes every fleet-level constant the SWNHC2015 algorithm uses so a
+// scorer with the published table can reproduce every finisher's New TCF.
 export interface NhcRaceAggregates {
-  alpha: number;
   finisherCount: number;
-  ctAvg: number;     // seconds — mean of corrected times across finishers
-  meanTcf: number;   // mean of tcfApplied across finishers
+  ctAvg: number;             // seconds — mean of corrected times across finishers
+  meanTcf: number;           // mean of tcfApplied across finishers
+  p50: number;               // mean(L) / mean(O)
+  w51: number | null;        // mean(L_non-ext) / mean(O_non-ext); null if non-ext is empty (falls back to p50)
+  sMean: number;             // μ(S) across finishers
+  sStdev: number;            // σ(S) — population
+  sHi: number;               // sMean + sdOver·sStdev   (default sdOver = 1.5)
+  sLo: number;               // sMean − sdUnder·sStdev  (default sdUnder = 1.0)
+  extremeCount: number;
+  realignmentFactor: number; // Z51 = ΣL / ΣZ over finishers
+  updateSuppressed: boolean; // true when finisherCount < minFin
 }
 
 // ECHO per-finisher intermediate calculations (for explainability).
@@ -224,23 +240,14 @@ export interface EchoRaceAggregates {
 }
 
 // Per-finisher intermediates produced by the handicap-adjustment phase.
-// Generic across progressive systems (NHC, ECHO, etc.); the orchestrator
-// copies these into the per-system display field on HandicapRaceScore
-// (currently `nhc?: NhcRaceCalc`; ECHO will copy into `echo?: EchoRaceCalc`).
-export interface ProgressiveRaceCalc {
-  ctRatio: number;       // CT_avg / CT_i
-  fairTcf: number;       // TCF_i × ctRatio  (≡ Q_i / PI_i)
-  adjustment: number;    // signed: α × (fairTcf − TCF_i)
-  alphaApplied: number;  // α actually used this race (per-boat in SWNHC2015 outliers)
-}
+// Engine-internal union: NHC and ECHO emit structurally-different shapes.
+// The orchestrator dispatches by `isNhc`/`isEcho` (derived from the same
+// config) and stores the result on the per-system display field.
+export type ProgressiveRaceCalc = NhcRaceCalc | EchoRaceCalc;
 
 // Fleet-race-level aggregates from the handicap-adjustment phase.
-export interface ProgressiveRaceAggregates {
-  alpha: number;
-  finisherCount: number;
-  ctAvg: number;     // seconds — mean of corrected times across finishers
-  meanTcf: number;   // mean of tcfApplied across finishers
-}
+// Engine-internal union — see ProgressiveRaceCalc.
+export type ProgressiveRaceAggregates = NhcRaceAggregates | EchoRaceAggregates;
 
 // Configuration profile that drives the handicap-adjustment phase. One profile
 // per progressive system (NHC1, ECHO, SWNHC2015, RYA NHC 2015). See
@@ -261,12 +268,14 @@ export interface ProgressiveHandicapConfig {
       }
     | {
         // SWNHC2015: keep T_E, but reduce α for boats whose Q/H ratio is far
-        // from fleet mean.
+        // from fleet mean. The non-extreme branch optionally recomputes P50
+        // from the non-extreme subset (W51) before blending.
         strategy: 'reduce-alpha';
         sdThresholdUp: number;
         sdThresholdDown: number;
         alphaUpReduced: number;
         alphaDownReduced: number;
+        recomputeP50ForNonExtreme: boolean;  // SWNHC2015 sets true
       };
 
   realignment:
@@ -277,11 +286,25 @@ export interface ProgressiveHandicapConfig {
   minFinishers: number;            // skip the update entirely if fewer than this finished
 
   // How to compute the per-boat fair handicap Q_i. Algebraically equivalent
-  // for tightly-clustered fleets; diverges for diverse fleets. ECHO must use
-  // 'is-pi' (the IS 2022 guide formula) so the published Σ(1/T_E) and ΣH_S
-  // header values reproduce the per-boat PI exactly. NHC uses 'ct-mean'
-  // (TCF × CT_avg / CT_i) for backward compatibility with existing fleets.
+  // for tightly-clustered fleets; diverges for diverse fleets. ECHO and
+  // NHC1 (= SWNHC2015) both use 'is-pi' (the IS 2022 guide / P50 form) so
+  // the published intermediates reproduce Q_i exactly.
   formulaForm: 'ct-mean' | 'is-pi';
+}
+
+// User-facing NHC parameter set. Currently internal-only — sourced from the
+// engine's DEFAULT_NHC_PROFILE constant; not persisted to the series file or
+// database. Future milestone: surface as named profiles per series and per
+// workspace (see docs/design/horizon.md).
+export interface NhcProfile {
+  name: string;
+  alphaP: number;    // non-extreme over-performer blend rate
+  alphaN: number;    // non-extreme under-performer blend rate
+  alphaPX: number;   // extreme over-performer blend rate
+  alphaNX: number;   // extreme under-performer blend rate
+  sdOver: number;    // extreme threshold above μ(S), in SDs
+  sdUnder: number;   // extreme threshold below μ(S), in SDs
+  minFin: number;    // minimum finishers; below this no rating updates
 }
 
 // Persistent per-(race, competitor, fleet) TCF snapshot. Derived state — rebuilt

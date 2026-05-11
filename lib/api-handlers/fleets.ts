@@ -120,7 +120,6 @@ export async function ensureFleet(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const fleetId = await repos.fleets.ensureFleet(seriesId, input.name, {
     scoringSystem: input.scoringSystem,
-    nhcAlpha: input.nhcAlpha,
     echoAlpha: input.echoAlpha,
     updatedBy: workspace.userId,
   });

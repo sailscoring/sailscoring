@@ -173,14 +173,14 @@ describe.skipIf(skip)('postgres repositories', () => {
 
   // ─── FleetRepository ───────────────────────────────────────────────────────
 
-  test('FleetRepository: round-trips alpha values for NHC and ECHO', async () => {
+  test('FleetRepository: round-trips echoAlpha for ECHO', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     const s = makeSeries();
     await repos.series.save(s);
 
     const fleets: Fleet[] = [
       { id: uuid(), seriesId: s.id, name: 'Scratch', displayOrder: 0, scoringSystem: 'scratch' },
-      { id: uuid(), seriesId: s.id, name: 'NHC', displayOrder: 1, scoringSystem: 'nhc', nhcAlpha: 0.18 },
+      { id: uuid(), seriesId: s.id, name: 'NHC', displayOrder: 1, scoringSystem: 'nhc' },
       { id: uuid(), seriesId: s.id, name: 'ECHO', displayOrder: 2, scoringSystem: 'echo', echoAlpha: 0.30 },
     ];
     for (const f of fleets) await repos.fleets.save(f);
@@ -188,10 +188,9 @@ describe.skipIf(skip)('postgres repositories', () => {
     const list = await repos.fleets.listBySeries(s.id);
     expect(list).toHaveLength(3);
     expect(list[0]).toMatchObject({ name: 'Scratch', scoringSystem: 'scratch' });
-    expect(list[1]).toMatchObject({ name: 'NHC', scoringSystem: 'nhc', nhcAlpha: 0.18 });
+    expect(list[1]).toMatchObject({ name: 'NHC', scoringSystem: 'nhc' });
     expect(list[1]).not.toHaveProperty('echoAlpha');
     expect(list[2]).toMatchObject({ name: 'ECHO', scoringSystem: 'echo', echoAlpha: 0.30 });
-    expect(list[2]).not.toHaveProperty('nhcAlpha');
 
     await repos.fleets.deleteBySeries(s.id);
     expect(await repos.fleets.listBySeries(s.id)).toEqual([]);
@@ -419,13 +418,13 @@ describe.skipIf(skip)('postgres repositories', () => {
     const fleets: Fleet[] = [
       { id: uuid(), seriesId: s.id, name: 'IRC 1', displayOrder: 0, scoringSystem: 'irc' },
       { id: uuid(), seriesId: s.id, name: 'PY', displayOrder: 1, scoringSystem: 'py' },
-      { id: uuid(), seriesId: s.id, name: 'NHC', displayOrder: 2, scoringSystem: 'nhc', nhcAlpha: 0.4 },
+      { id: uuid(), seriesId: s.id, name: 'NHC', displayOrder: 2, scoringSystem: 'nhc' },
     ];
     await repos.fleets.saveMany(fleets);
 
     const list = await repos.fleets.listBySeries(s.id);
     expect(list.map((f) => f.name)).toEqual(['IRC 1', 'PY', 'NHC']);
-    expect(list.find((f) => f.name === 'NHC')!.nhcAlpha).toBe(0.4);
+    expect(list.find((f) => f.name === 'NHC')!.scoringSystem).toBe('nhc');
 
     // Mutate one row and re-run; the other rows are unchanged.
     const updated = fleets.map((f) =>

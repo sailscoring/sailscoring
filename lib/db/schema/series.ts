@@ -138,7 +138,6 @@ export const fleets = pgTable(
     name: text('name').notNull(),
     displayOrder: integer('display_order').notNull(),
     scoringSystem: text('scoring_system').notNull(),
-    nhcAlpha: real('nhc_alpha'),
     echoAlpha: real('echo_alpha'),
     version: versionCol,
     updatedAt: updatedAtCol,

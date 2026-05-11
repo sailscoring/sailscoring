@@ -683,8 +683,11 @@ describe('calculateStandings — unknown finishes (null competitorId)', () => {
 // ─── calculateHandicapAdjustment (NHC1-style + ECHO config) ──────────────────
 
 describe('calculateHandicapAdjustment — NHC1 edge cases', () => {
-  function nhcFleet(alpha = 0.15): Fleet {
-    return { id: 'fl-0', seriesId: 's1', name: 'NHC', displayOrder: 0, scoringSystem: 'nhc', nhcAlpha: alpha };
+  // Legacy `_alpha` arg accepted for call-site compatibility; SWNHC2015 reads
+  // its parameters from DEFAULT_NHC_PROFILE. These tests will be revisited in
+  // the fixture-regeneration phase.
+  function nhcFleet(_alpha?: number): Fleet {
+    return { id: 'fl-0', seriesId: 's1', name: 'NHC', displayOrder: 0, scoringSystem: 'nhc' };
   }
   function comp(id: string, startTcf?: number): Competitor {
     return { id, seriesId: 's1', fleetIds: ['fl-0'], sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0, ...(startTcf != null ? { nhcStartingTcf: startTcf } : {}) };
@@ -705,38 +708,43 @@ describe('calculateHandicapAdjustment — NHC1 edge cases', () => {
     return { scores, ...adj };
   }
 
-  it('α = 0 produces no movement (newTcf == tcfApplied)', () => {
-    const fleet = nhcFleet(0);
+  it('fewer than MinFin finishers suppresses the update (newTcf == tcfApplied)', () => {
+    // SWNHC2015's MinFin = 3; with only 2 finishers every boat keeps its TCF.
+    const fleet = nhcFleet();
     const cs = [comp('A', 1.0), comp('B', 1.0)];
     const tcf = new Map([['A', 1.0], ['B', 1.0]]);
     const finishes = [fin('A', '14:50:00'), fin('B', '15:00:00')];
-    const { newTcfByCompetitorId } = runRace(fleet, cs, tcf, finishes);
+    const { newTcfByCompetitorId, aggregates, perFinisherCalc } = runRace(fleet, cs, tcf, finishes);
+    expect((aggregates as { updateSuppressed: boolean }).updateSuppressed).toBe(true);
     expect(newTcfByCompetitorId.get('A')).toBeCloseTo(1.0, 6);
     expect(newTcfByCompetitorId.get('B')).toBeCloseTo(1.0, 6);
+    // Suppressed → no per-finisher intermediates emitted.
+    expect(perFinisherCalc.size).toBe(0);
   });
 
-  it('α = 1 snaps newTcf to fairTcf', () => {
-    const fleet = nhcFleet(1.0);
-    const cs = [comp('A', 1.0), comp('B', 1.0)];
-    const tcf = new Map([['A', 1.0], ['B', 1.0]]);
-    const finishes = [fin('A', '14:50:00'), fin('B', '15:10:00')];
-    const { newTcfByCompetitorId, perFinisherCalc } = runRace(fleet, cs, tcf, finishes);
-    // CT_A = 3000, CT_B = 4200, CT_avg = 3600
-    // fair_A = 1.0 × 3600/3000 = 1.2; fair_B = 1.0 × 3600/4200 = 0.857142...
-    expect(newTcfByCompetitorId.get('A')).toBeCloseTo(1.2, 6);
-    expect(perFinisherCalc.get('A')!.fairTcf).toBeCloseTo(1.2, 6);
-    expect(newTcfByCompetitorId.get('B')).toBeCloseTo(3600 / 4200, 6);
+  it('asymmetric blend: a clear non-extreme over-performer uses α=0.30', () => {
+    // Three boats so MinFin is met. Boat A is fast (non-extreme over),
+    // expected α = 0.30. The others bracket the fleet so A isn't extreme.
+    const fleet = nhcFleet();
+    const cs = [comp('A', 1.0), comp('B', 1.0), comp('C', 1.0)];
+    const tcf = new Map([['A', 1.0], ['B', 1.0], ['C', 1.0]]);
+    const finishes = [fin('A', '14:50:00'), fin('B', '15:00:00'), fin('C', '15:10:00')];
+    const { perFinisherCalc } = runRace(fleet, cs, tcf, finishes);
+    const a = perFinisherCalc.get('A')!;
+    // Narrowing union: NHC path populates compScore & isExtreme.
+    expect('compScore' in a ? a.compScore : null).toBeGreaterThan(1.0);
+    expect('isExtreme' in a ? a.isExtreme : null).toBe(false);
+    expect(a.alphaApplied).toBeCloseTo(0.30, 6);
   });
 
-  it('single-finisher race produces no movement (ratio = 1)', () => {
+  it('single-finisher race triggers suppression (n=1 < MinFin=3)', () => {
     const fleet = nhcFleet();
     const cs = [comp('A', 1.0)];
     const tcf = new Map([['A', 1.0]]);
     const finishes = [fin('A', '14:50:00')];
-    const { newTcfByCompetitorId, perFinisherCalc, aggregates } = runRace(fleet, cs, tcf, finishes);
+    const { newTcfByCompetitorId, aggregates } = runRace(fleet, cs, tcf, finishes);
     expect(aggregates.finisherCount).toBe(1);
-    expect(perFinisherCalc.get('A')!.ctRatio).toBeCloseTo(1, 6);
-    expect(perFinisherCalc.get('A')!.adjustment).toBeCloseTo(0, 6);
+    expect((aggregates as { updateSuppressed: boolean }).updateSuppressed).toBe(true);
     expect(newTcfByCompetitorId.get('A')).toBeCloseTo(1.0, 6);
   });
 
@@ -879,8 +887,11 @@ describe('calculateHandicapRaceScores — penalty points', () => {
 // ─── calculateFleetStandings — NHC propagation ───────────────────────────────
 
 describe('calculateFleetStandings — NHC progressive handicap', () => {
-  function nhcFleet(alpha = 0.15): Fleet {
-    return { id: 'fl-0', seriesId: 's1', name: 'NHC', displayOrder: 0, scoringSystem: 'nhc', nhcAlpha: alpha };
+  // Legacy `_alpha` arg accepted for call-site compatibility; SWNHC2015 reads
+  // its parameters from DEFAULT_NHC_PROFILE. These tests will be revisited in
+  // the fixture-regeneration phase.
+  function nhcFleet(_alpha?: number): Fleet {
+    return { id: 'fl-0', seriesId: 's1', name: 'NHC', displayOrder: 0, scoringSystem: 'nhc' };
   }
   function nhcComp(id: string, startTcf?: number): Competitor {
     return { id, seriesId: 's1', fleetIds: ['fl-0'], sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0, ...(startTcf != null ? { nhcStartingTcf: startTcf } : {}) };
@@ -935,20 +946,21 @@ describe('calculateFleetStandings — NHC progressive handicap', () => {
   });
 
   it('retroactive edit propagates: changing race 1 finish affects race 2 tcfApplied', () => {
-    const fleet = nhcFleet(0.5);  // larger α for visibility
-    const comps = [nhcComp('A', 1.0), nhcComp('B', 1.0)];
+    // Three boats so MinFin=3 is met and the rating update actually runs.
+    const fleet = nhcFleet();
+    const comps = [nhcComp('A', 1.0), nhcComp('B', 1.0), nhcComp('C', 1.0)];
     const races: Race[] = [
       { id: 'r1', seriesId: 's1', raceNumber: 1, date: '2025-01-01', createdAt: 0 },
       { id: 'r2', seriesId: 's1', raceNumber: 2, date: '2025-01-02', createdAt: 0 },
     ];
     const finishesV1: Finish[] = [
-      fin('r1', 'A', '14:50:00'), fin('r1', 'B', '15:00:00'),
-      fin('r2', 'A', '14:50:00'), fin('r2', 'B', '15:00:00'),
+      fin('r1', 'A', '14:50:00'), fin('r1', 'B', '15:00:00'), fin('r1', 'C', '15:10:00'),
+      fin('r2', 'A', '14:50:00'), fin('r2', 'B', '15:00:00'), fin('r2', 'C', '15:10:00'),
     ];
     const finishesV2: Finish[] = [
-      // swap A and B finish times in race 1
-      fin('r1', 'A', '15:00:00'), fin('r1', 'B', '14:50:00'),
-      fin('r2', 'A', '14:50:00'), fin('r2', 'B', '15:00:00'),
+      // Swap A and C finish times in race 1: A is now slow, C is fast.
+      fin('r1', 'A', '15:10:00'), fin('r1', 'B', '15:00:00'), fin('r1', 'C', '14:50:00'),
+      fin('r2', 'A', '14:50:00'), fin('r2', 'B', '15:00:00'), fin('r2', 'C', '15:10:00'),
     ];
     const v1 = calculateFleetStandings([fleet], comps, races, finishesV1, [], 'seriesEntries', [rs('r1'), rs('r2')]);
     const v2 = calculateFleetStandings([fleet], comps, races, finishesV2, [], 'seriesEntries', [rs('r1'), rs('r2')]);

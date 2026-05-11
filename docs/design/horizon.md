@@ -186,14 +186,42 @@ demand from a target series. Detail in `docs/design/handicap-scoring.md`.
 
 ### RYA NHC 2015
 
-The published RYA NHC algorithm — asymmetric coefficients, base-number
-realignment, finisher-only adjustment. Distinct from the implemented NHC1
-(Sailwave's built-in α=0.15 symmetric variant).
+The published RYA NHC algorithm — symmetric `α = 0.3`, T_C-based extreme
+clamping (`cap-input` outlier strategy), base-number realignment anchored
+to `H0`. Distinct from the implemented NHC1 (SWNHC2015) which uses
+asymmetric blend rates, classifies on `S = Q/L`, and realigns to the
+fleet's prior sum.
 
-### SWNHC2015
+### User-visible NHC profiles (per-series and per-workspace)
 
-Sailwave's implementation of NHC 2015. Deviates from the published RYA
-spec in specific edge cases.
+NHC1 (SWNHC2015) currently runs from an internal `DEFAULT_NHC_PROFILE`
+constant — the seven Eskdale spreadsheet parameters (α_p/n/px/nx, σ
+thresholds over/under, MinFin) are hard-coded. A future milestone
+exposes named profiles per series, with scorers picking by name in the
+fleet settings:
+
+- **Per-series profiles.** `Series.nhcProfiles: NhcProfile[]` with a
+  fleet-side `Fleet.nhcProfileId` pointer. Auto-created `"NHC1 (Sailwave)"`
+  default profile so existing series keep stock parameters; scorers can
+  add a `"HPH (aggressive)"` variant in the same series for an A/B run
+  across two NHC fleets. Lock parameters after the first race scores to
+  prevent retroactive rescoring; offer "duplicate profile" to fork an
+  experiment.
+- **Per-workspace profile library.** Workspace owners maintain a list
+  of named profiles that get copied into new series at creation time.
+  HYC could define the "HPH" profile once, every new HYC series picks it
+  up automatically. Open questions: how does a personal-workspace scorer
+  pick up a club's profile set (export/import JSON? join-org copy?);
+  when the workspace edits a profile, do existing series get the
+  update or stay frozen (lean: frozen — series are historical records).
+- **Profile attribution in published HTML.** Once workspace-sharing
+  lands, the per-race fleet header can carry the profile name and source
+  (`Rating system: NHC1 (HPH-aggressive) — sourced from Howth YC`),
+  surfacing "this series used a custom profile" without exposing the raw
+  parameters inline.
+
+See the scoping discussion in #135 for full options analysis and the
+KISS path that landed first (single hard-coded internal profile).
 
 ### Scoring-inquiry rating adjustments
 

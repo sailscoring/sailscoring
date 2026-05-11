@@ -1,0 +1,289 @@
+description: "NHC1 — Puppeteer HPH R1, Sailwave SWNHC2015 verification (n=14)"
+notes: |
+  Howth YC One Designs Series 1, Tuesday 5 May 2026, Puppeteer HPH fleet.
+  Start 19:15:00. 14 finishers. Source: Sailwave NHC1 output
+  (reference/data/2026-hyc-club-racing/tues-series-1-pup-hph-sailwave.htm).
+
+  Every NewRating below is the value Sailwave published — independent
+  verification that the SWNHC2015 implementation reproduces Sailwave to 3 dp.
+  See docs/notes/sailwave-nhc1-reverse-engineering.md for the algorithm and
+  reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py for the
+  Python reference (nr_swnhc2015_full).
+
+  Five boats are extreme under SWNHC2015's S = Q/L classification with
+  asymmetric thresholds (sHi = μ + 1.5σ, sLo = μ − 1.0σ):
+    fast (S > sHi):  Harlequin, Ibis
+    slow (S < sLo):  Geppetto, Mojo, Yelllow Peril
+  (The §9 "SLOW" set of three boats in the reverse-engineering note was
+  produced by an earlier candidate algorithm — Family-B with a one-sided
+  T_C-based cap — not the final SWNHC2015 algorithm.)
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: nhc
+
+competitors:
+  - sailNumber: "2021"
+    name: "David Clarke"
+    nhcStartingTcf: 1.350
+  - sailNumber: "385"
+    name: "S. Knowles"
+    nhcStartingTcf: 1.350
+  - sailNumber: "310"
+    name: "Dylan Murray"
+    nhcStartingTcf: 1.350
+  - sailNumber: "15"
+    name: "Alan Pearson / Alan Blay"
+    nhcStartingTcf: 1.350
+  - sailNumber: "187"
+    name: "McKeon / Dunne"
+    nhcStartingTcf: 1.250
+  - sailNumber: "5526"
+    name: "Gerard Kennedy"
+    nhcStartingTcf: 1.275
+  - sailNumber: "22"
+    name: "Ian Dickson"
+    nhcStartingTcf: 1.350
+  - sailNumber: "20"
+    name: "Terry Harvey"
+    nhcStartingTcf: 1.320
+  - sailNumber: "254"
+    name: "Declan Browne"
+    nhcStartingTcf: 1.345
+  - sailNumber: "101"
+    name: "Hogan / Dyson"
+    nhcStartingTcf: 1.200
+  - sailNumber: "245"
+    name: "Olibhe Ni Bhraonain & Peter Wilson"
+    nhcStartingTcf: 1.150
+  - sailNumber: "219"
+    name: "O'Reilly / McDyer"
+    nhcStartingTcf: 1.250
+  - sailNumber: "79"
+    name: "Francisco Martinez"
+    nhcStartingTcf: 1.175
+  - sailNumber: "6413"
+    name: "Neil Murphy / Conor Costello"
+    nhcStartingTcf: 1.350
+
+races:
+  - number: 1
+    startTime: "19:15:00"
+    finishes:
+      - sailor: "2021"
+        finishTime: "19:43:46"
+      - sailor: "385"
+        finishTime: "19:43:56"
+      - sailor: "310"
+        finishTime: "19:46:55"
+      - sailor: "15"
+        finishTime: "19:48:16"
+      - sailor: "187"
+        finishTime: "19:51:20"
+      - sailor: "5526"
+        finishTime: "19:51:16"
+      - sailor: "22"
+        finishTime: "19:49:54"
+      - sailor: "20"
+        finishTime: "19:51:00"
+      - sailor: "254"
+        finishTime: "19:52:22"
+      - sailor: "101"
+        finishTime: "19:57:54"
+      - sailor: "245"
+        finishTime: "20:00:22"
+      - sailor: "219"
+        finishTime: "19:57:10"
+      - sailor: "79"
+        finishTime: "19:59:58"
+      - sailor: "6413"
+        finishTime: "19:54:20"
+    aggregates:
+      finisherCount: 14
+      extremeCount: 5
+      updateSuppressed: false
+    expected:
+      # Sailwave-published NewRating values — verify SWNHC2015 to 3 dp.
+      - sailor: "2021"
+        rank: 1
+        points: 1.0
+        tcfApplied: 1.350
+        newTcf: 1.385
+        isExtreme: true
+        extremeDirection: "fast"
+      - sailor: "385"
+        rank: 2
+        points: 2.0
+        tcfApplied: 1.350
+        newTcf: 1.383
+        isExtreme: true
+        extremeDirection: "fast"
+      - sailor: "310"
+        rank: 3
+        points: 3.0
+        tcfApplied: 1.350
+        newTcf: 1.382
+      - sailor: "15"
+        rank: 4
+        points: 4.0
+        tcfApplied: 1.350
+        newTcf: 1.365
+      - sailor: "187"
+        rank: 5
+        points: 5.0
+        tcfApplied: 1.250
+        newTcf: 1.259
+      - sailor: "5526"
+        rank: 6
+        points: 6.0
+        tcfApplied: 1.275
+        newTcf: 1.277
+      - sailor: "22"
+        rank: 7
+        points: 7.0
+        tcfApplied: 1.350
+        newTcf: 1.345
+      - sailor: "20"
+        rank: 8
+        points: 8.0
+        tcfApplied: 1.320
+        newTcf: 1.312
+      - sailor: "254"
+        rank: 9
+        points: 9.0
+        tcfApplied: 1.345
+        newTcf: 1.326
+      - sailor: "101"
+        rank: 10
+        points: 10.0
+        tcfApplied: 1.200
+        newTcf: 1.179
+      - sailor: "245"
+        rank: 11
+        points: 11.0
+        tcfApplied: 1.150
+        newTcf: 1.128
+      - sailor: "219"
+        rank: 12
+        points: 12.0
+        tcfApplied: 1.250
+        newTcf: 1.233
+        isExtreme: true
+        extremeDirection: "slow"
+      - sailor: "79"
+        rank: 13
+        points: 13.0
+        tcfApplied: 1.175
+        newTcf: 1.159
+        isExtreme: true
+        extremeDirection: "slow"
+      - sailor: "6413"
+        rank: 14
+        points: 14.0
+        tcfApplied: 1.350
+        newTcf: 1.331
+        isExtreme: true
+        extremeDirection: "slow"
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "2021"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "385"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "310"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 4
+      sailor: "15"
+      racePoints: [4]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 5
+      sailor: "187"
+      racePoints: [5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5
+    - rank: 6
+      sailor: "5526"
+      racePoints: [6]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 6
+      netPoints: 6
+    - rank: 7
+      sailor: "22"
+      racePoints: [7]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 7
+      netPoints: 7
+    - rank: 8
+      sailor: "20"
+      racePoints: [8]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 8
+      netPoints: 8
+    - rank: 9
+      sailor: "254"
+      racePoints: [9]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 9
+      netPoints: 9
+    - rank: 10
+      sailor: "101"
+      racePoints: [10]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 10
+      netPoints: 10
+    - rank: 11
+      sailor: "245"
+      racePoints: [11]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 11
+      netPoints: 11
+    - rank: 12
+      sailor: "219"
+      racePoints: [12]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 12
+      netPoints: 12
+    - rank: 13
+      sailor: "79"
+      racePoints: [13]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 13
+      netPoints: 13
+    - rank: 14
+      sailor: "6413"
+      racePoints: [14]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 14
+      netPoints: 14

@@ -1,19 +1,17 @@
 description: "NHC1 — non-finisher carries TCF unchanged into next race"
 notes: |
-  Same setup as 01 plus a 5th boat (Echo, TCF 0.98) that DNFs.
+  Same finisher setup as 01 plus a 5th boat (Echo, TCF 0.98) that DNFs.
 
-  Echo is excluded from CT_avg, mean(TCF), and finisherCount.
+  Echo is excluded from CT_avg, mean(TCF), and finisherCount, so the
+  fleet aggregates and other boats' values are identical to fixture 01.
   Echo's newTcf must equal its tcfApplied (0.98) — unchanged.
   Echo gets penalty points = fleet entries + 1 = 6.
-
-  Aggregates and other boats unchanged from 01.
 
 series:
   discardThresholds: []
 
 fleet:
   scoringSystem: nhc
-  alpha: 0.15
 
 competitors:
   - sailNumber: "1"
@@ -47,60 +45,81 @@ races:
       - sailor: "5"
         code: "DNF"
     aggregates:
-      alpha: 0.15
       finisherCount: 4
       ctAvg: 4035.0
       meanTcf: 1.025
+      p50: 0.6461538462
+      w51: 0.5887850467
+      sMean: 1.0126583942
+      sStdev: 0.2346998003
+      sHi: 1.3647080947
+      sLo: 0.7779585939
+      extremeCount: 1
+      realignmentFactor: 0.9970302028
+      updateSuppressed: false
     expected:
       - sailor: "1"
         rank: 1
         points: 1.0
         elapsedTime: 3000
         correctedTime: 2850.0
-        tcfApplied: 0.950
-        ctRatio: 1.4157894737
-        fairTcf: 1.345
-        adjustment: 0.05925
-        newTcf: 1.00925
+        tcfApplied: 0.95
+        newTcf: 1.015
+        fairTcf: 1.2923076923
+        compScore: 1.3603238866
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.018271028
+        adjustment: 0.065
       - sailor: "2"
         rank: 2
         points: 2.0
         elapsedTime: 3600
         correctedTime: 3600.0
-        tcfApplied: 1.000
-        ctRatio: 1.1208333333
-        fairTcf: 1.1208333333
-        adjustment: 0.0181249999
-        newTcf: 1.0181249999
+        tcfApplied: 1.0
+        newTcf: 0.994
+        fairTcf: 1.0769230769
+        compScore: 1.0769230769
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 0.9971962617
+        adjustment: -0.006
       - sailor: "3"
         rank: 3
         points: 3.0
         elapsedTime: 4200
         correctedTime: 4410.0
-        tcfApplied: 1.050
-        ctRatio: 0.9149659864
-        fairTcf: 0.9607142857
-        adjustment: -0.0133928571
-        newTcf: 1.0366071429
+        tcfApplied: 1.05
+        newTcf: 1.016
+        fairTcf: 0.9230769231
+        compScore: 0.8791208791
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 1.0186682243
+        adjustment: -0.034
       - sailor: "4"
         rank: 4
         points: 4.0
         elapsedTime: 4800
         correctedTime: 5280.0
-        tcfApplied: 1.100
-        ctRatio: 0.7642045455
-        fairTcf: 0.84062500
-        adjustment: -0.03890625
-        newTcf: 1.06109375
+        tcfApplied: 1.1
+        newTcf: 1.075
+        fairTcf: 0.8076923077
+        compScore: 0.7342657343
+        isExtreme: true
+        extremeDirection: "slow"
+        alphaApplied: 0.075
+        provisionalTcf: 1.0780769231
+        adjustment: -0.025
       - sailor: "5"
         rank: null
         points: 6.0
         elapsedTime: null
         correctedTime: null
-        tcfApplied: 0.980
+        tcfApplied: 0.98
         code: "DNF"
         # No nhc sub-object; newTcf == tcfApplied
-        newTcf: 0.980
+        newTcf: 0.98
 
 expected:
   standings:

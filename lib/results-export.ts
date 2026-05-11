@@ -106,7 +106,7 @@ export async function buildFleetHtmlFiles(
       finishTime: string | null;
       tcfApplied?: number | null;
       newTcf?: number | null;
-      nhc?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number };
+      nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number };
       echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number };
     };
     const raceScoresByRaceId = new Map<string, Map<string, RaceScoreCellForRender>>(
@@ -205,10 +205,18 @@ export async function buildFleetHtmlFiles(
     const publishRatingCalcs = series.publishRatingCalculations ?? true;
     const nhcAggregatesForRender = isNhc && publishRatingCalcs && nhcAggregatesByRaceId
       ? new Map([...nhcAggregatesByRaceId.entries()].map(([raceId, agg]) => [raceId, {
-          alpha: agg.alpha,
           finisherCount: agg.finisherCount,
           ctAvgSecs: agg.ctAvg,
           meanTcf: agg.meanTcf,
+          p50: agg.p50,
+          w51: agg.w51,
+          sMean: agg.sMean,
+          sStdev: agg.sStdev,
+          sHi: agg.sHi,
+          sLo: agg.sLo,
+          extremeCount: agg.extremeCount,
+          realignmentFactor: agg.realignmentFactor,
+          updateSuppressed: agg.updateSuppressed,
         }]))
       : undefined;
     const echoAggregatesForRender = isEcho && publishRatingCalcs && echoAggregatesByRaceId

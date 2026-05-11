@@ -1,9 +1,28 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold, ScoringRejection, NhcRaceAggregates, EchoRaceAggregates, NhcTcfRecord, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, NhcTcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates } from './types';
 import { getCodeDefinition } from './scoring-codes';
 
-export const NHC_DEFAULT_ALPHA = 0.15;
 export const ECHO_DEFAULT_ALPHA = 0.25;  // Irish Sailing 2022 ECHO Guide: 75/25 club racing
 export const ECHO_REGATTA_ALPHA = 0.50;  // Irish Sailing 2022 ECHO Guide: 50/50 regattas/major events
+
+// Stock SWNHC2015 spreadsheet constants (Jon Eskdale, version 2014-01-05-0).
+// Reverse-engineered to match Sailwave NHC1 output to 3 dp across all
+// finishers of all five HYC test fleets. See:
+//   - docs/notes/sailwave-nhc1-reverse-engineering.md §10
+//   - reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py
+//
+// User-visible profile selection (and a workspace-level profile library) is
+// a future milestone (see docs/design/horizon.md). For now, every NHC fleet
+// uses this single hard-coded profile.
+export const DEFAULT_NHC_PROFILE: NhcProfile = {
+  name: 'NHC1 (Sailwave)',
+  alphaP: 0.300,
+  alphaN: 0.150,
+  alphaPX: 0.150,
+  alphaNX: 0.075,
+  sdOver: 1.5,
+  sdUnder: 1.0,
+  minFin: 3,
+};
 
 // Round-half-up to whole seconds. Matches HalSail/Sailwave display and ranking,
 // so ties surface at the second boundary instead of being broken by sub-second
@@ -379,30 +398,19 @@ export function calculateHandicapRaceScores(
  * TCF that each competitor will carry into race N+1, plus the per-finisher
  * intermediates and fleet-level aggregates needed for explainability.
  *
- * Generic across progressive systems. The first-pass implementation supports
- * the NHC1 case only — `alphaUp === alphaDown`, `outlier.strategy === 'none'`,
- * `realignment.target === 'none'`, `minFinishers === 1`. ECHO will land via
- * configuration alone (α = 0.25, `minFinishers = 3`); SWNHC2015 and RYA NHC
- * 2015 require populating the other config branches and are unimplemented
- * here. The schema is in place so type signatures don't shift each time.
+ * Branches by outlier strategy:
+ *   - `reduce-alpha` → SWNHC2015 (Sailwave NHC1). Six-step procedure with
+ *     asymmetric blend rates, asymmetric extreme classification on S = Q/L,
+ *     a non-extreme-only W51 multiplier, and a final fleet-sum realignment.
+ *     Emits NhcRaceCalc / NhcRaceAggregates.
+ *   - `none` → ECHO and any other symmetric-blend single-step systems. Uses
+ *     the IS-PI fair-handicap formula. Emits EchoRaceCalc / EchoRaceAggregates.
  *
- * Algorithm (NHC1 / ECHO):
- *
- *   CT_i      = ET_i × TCF_i           (already done in phase A)
- *   Q_i       = TCF_i × CT_avg / CT_i  (≡ IS Performance Index)
- *   newTcf    = TCF_i + α × (Q_i − TCF_i)
- *   non-finisher → newTcf = TCF_i (unchanged)
- *
- * Note on Q_i form: Sailwave's reference NHC1 uses an algebraically distinct
- * P50 form (Q_i = O_i × P50). The simple `TCF × CT_avg/CT` form used here
- * drifts ≤0.001 from P50 on real club fleets — well under Sailwave's 3-dp
- * precision — and lets the published "Fair TCF" column close arithmetically
- * with the displayed "CT ratio" (the explainability verification contract).
- *
- * If fewer than `config.minFinishers` boats finished, the update is suppressed
- * for the whole fleet: every competitor's `newTcf` equals their `tcfApplied`.
- * Aggregates still report the actual finisher count for the explainability
- * "rating update suppressed" line.
+ * Non-finishers (DNC, DNF, RET) keep their TCF unchanged in both branches.
+ * When the finisher count is below `config.minFinishers`, the update is
+ * suppressed for the whole fleet; aggregates still report the actual finisher
+ * count so the explainability layer can render the "rating update suppressed"
+ * line.
  *
  * @param scores  Phase A scores for the rated competitors of one fleet
  * @param config  Profile that drives the blend / outlier / realignment steps
@@ -415,17 +423,6 @@ export function calculateHandicapAdjustment(
   perFinisherCalc: Map<string, ProgressiveRaceCalc>;
   aggregates: ProgressiveRaceAggregates;
 } {
-  if (config.outlier.strategy !== 'none') {
-    throw new Error(`calculateHandicapAdjustment: outlier strategy '${config.outlier.strategy}' is not yet implemented`);
-  }
-  if (config.realignment.target !== 'none') {
-    throw new Error(`calculateHandicapAdjustment: realignment target '${config.realignment.target}' is not yet implemented`);
-  }
-  if (config.alphaUp !== config.alphaDown) {
-    throw new Error('calculateHandicapAdjustment: asymmetric alpha is not yet implemented');
-  }
-  const alpha = config.alphaUp;
-
   const finisherEntries: Array<[string, HandicapRaceScore]> = [];
   for (const entry of scores) {
     const [, s] = entry;
@@ -433,25 +430,213 @@ export function calculateHandicapAdjustment(
       finisherEntries.push(entry);
     }
   }
+
+  if (config.outlier.strategy === 'reduce-alpha') {
+    return swnhc2015Adjustment(scores, finisherEntries, config, config.outlier);
+  }
+  return symmetricBlendAdjustment(scores, finisherEntries, config);
+}
+
+/**
+ * SWNHC2015 spreadsheet algorithm (Eskdale, version 2014-01-05-0).
+ * Reverse-engineered from `2026 Tues Series 1- Pup HPH R1.xls` against
+ * Sailwave's published NewRating; matches every published value to 3 dp
+ * across the five HYC test fleets (n=34 finishers).
+ *
+ * See:
+ *   - docs/notes/sailwave-nhc1-reverse-engineering.md §10 (algorithm)
+ *   - reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py
+ *     (the Python reference `nr_swnhc2015_full` this transcribes)
+ */
+function swnhc2015Adjustment(
+  scores: Map<string, HandicapRaceScore>,
+  finisherEntries: Array<[string, HandicapRaceScore]>,
+  config: ProgressiveHandicapConfig,
+  outlier: Extract<ProgressiveHandicapConfig['outlier'], { strategy: 'reduce-alpha' }>,
+): {
+  newTcfByCompetitorId: Map<string, number>;
+  perFinisherCalc: Map<string, ProgressiveRaceCalc>;
+  aggregates: ProgressiveRaceAggregates;
+} {
+  const finisherCount = finisherEntries.length;
+  const newTcfByCompetitorId = new Map<string, number>();
+  const perFinisherCalc = new Map<string, ProgressiveRaceCalc>();
+
+  // Carry-forward for non-finishers. Same in suppressed and normal paths.
+  const carryForwardNonFinishers = () => {
+    for (const [cid, s] of scores) {
+      if (newTcfByCompetitorId.has(cid)) continue;
+      if (s.tcfApplied != null) newTcfByCompetitorId.set(cid, s.tcfApplied);
+    }
+  };
+
+  // Suppression gate. No update — every competitor keeps their tcfApplied.
+  if (finisherCount < config.minFinishers) {
+    for (const [cid, s] of finisherEntries) {
+      if (s.tcfApplied != null) newTcfByCompetitorId.set(cid, s.tcfApplied);
+    }
+    carryForwardNonFinishers();
+    const ctSum = finisherEntries.reduce((sum, [, s]) => sum + s.correctedTime!, 0);
+    const tcfSum = finisherEntries.reduce((sum, [, s]) => sum + s.tcfApplied!, 0);
+    const aggregates: NhcRaceAggregates = {
+      finisherCount,
+      ctAvg: finisherCount > 0 ? ctSum / finisherCount : 0,
+      meanTcf: finisherCount > 0 ? tcfSum / finisherCount : 0,
+      p50: 0,
+      w51: null,
+      sMean: 0,
+      sStdev: 0,
+      sHi: 0,
+      sLo: 0,
+      extremeCount: 0,
+      realignmentFactor: 1,
+      updateSuppressed: true,
+    };
+    return { newTcfByCompetitorId, perFinisherCalc, aggregates };
+  }
+
+  // Per-boat baselines, indexed parallel to finisherEntries.
+  const L = finisherEntries.map(([, s]) => s.tcfApplied!);
+  const ET = finisherEntries.map(([, s]) => s.elapsedTime!);
+  const CT = finisherEntries.map(([, s]) => s.correctedTime!);
+
+  // Step 1. Performance index O_i = 100 / minutes; fleet P50 = mean(L) / mean(O).
+  //         Q_i = O_i × P50 is the Family-B fair handicap (preserves Σ Q = Σ L
+  //         by construction).
+  const O = ET.map((t) => 100 / (t / 60));
+  const meanL = L.reduce((a, b) => a + b, 0) / finisherCount;
+  const meanO = O.reduce((a, b) => a + b, 0) / finisherCount;
+  const p50 = meanO > 0 ? meanL / meanO : 1;
+  const Q = O.map((o) => o * p50);
+
+  // Step 2. Comparative score S_i = Q_i / L_i. Classify extreme on asymmetric
+  //         SD thresholds of S (population σ, not sample σ).
+  const S = Q.map((q, i) => (L[i] > 0 ? q / L[i] : 1));
+  const sMean = S.reduce((a, b) => a + b, 0) / finisherCount;
+  const sStdev = Math.sqrt(
+    S.reduce((sum, s) => sum + (s - sMean) ** 2, 0) / finisherCount,
+  );
+  const sHi = sMean + outlier.sdThresholdUp * sStdev;
+  const sLo = sMean - outlier.sdThresholdDown * sStdev;
+  const extreme = S.map((s) => s > sHi || s < sLo);
+  const extremeDirection: Array<'fast' | 'slow' | null> = S.map((s, i) =>
+    !extreme[i] ? null : s > sHi ? 'fast' : 'slow',
+  );
+
+  // Step 3. Non-extreme branch: optionally recompute W51 from non-extreme
+  //         subset only. Fall back to P50 when the subset is empty or the
+  //         recompute is disabled.
+  const nonExtIdx: number[] = [];
+  for (let i = 0; i < finisherCount; i++) if (!extreme[i]) nonExtIdx.push(i);
+  let w51: number | null;
+  if (outlier.recomputeP50ForNonExtreme && nonExtIdx.length > 0) {
+    const meanLn = nonExtIdx.reduce((sum, i) => sum + L[i], 0) / nonExtIdx.length;
+    const meanOn = nonExtIdx.reduce((sum, i) => sum + O[i], 0) / nonExtIdx.length;
+    w51 = meanOn > 0 ? meanLn / meanOn : p50;
+  } else {
+    w51 = null;
+  }
+  const w51Eff = w51 ?? p50;
+  const X = O.map((o) => o * w51Eff);
+
+  // Step 4. Per-boat α from the four-way table (extreme × direction).
+  //         Extreme boats blend against original Q_i; non-extreme against X_i.
+  const alphaApplied = new Array<number>(finisherCount);
+  const target = new Array<number>(finisherCount);
+  for (let i = 0; i < finisherCount; i++) {
+    if (extreme[i]) {
+      target[i] = Q[i];
+      alphaApplied[i] = Q[i] > L[i] ? outlier.alphaUpReduced : outlier.alphaDownReduced;
+    } else {
+      target[i] = X[i];
+      alphaApplied[i] = X[i] > L[i] ? config.alphaUp : config.alphaDown;
+    }
+  }
+
+  // Step 5. Blend: Z_i = α_i × target_i + (1 − α_i) × L_i.
+  const Z = new Array<number>(finisherCount);
+  for (let i = 0; i < finisherCount; i++) {
+    Z[i] = alphaApplied[i] * target[i] + (1 - alphaApplied[i]) * L[i];
+  }
+
+  // Step 6. Realign by Z51 = ΣL / ΣZ over finishers; final value rounded to
+  //         3 dp (matches Sailwave's published NewRating column).
+  const sumL = L.reduce((a, b) => a + b, 0);
+  const sumZ = Z.reduce((a, b) => a + b, 0);
+  const z51 = sumZ > 0 ? sumL / sumZ : 1;
+
+  for (let i = 0; i < finisherCount; i++) {
+    const [cid, s] = finisherEntries[i];
+    const newTcf = Math.round(Z[i] * z51 * 1000) / 1000;
+    const calc: NhcRaceCalc = {
+      fairTcf: Q[i],
+      compScore: S[i],
+      isExtreme: extreme[i],
+      ...(extremeDirection[i] ? { extremeDirection: extremeDirection[i]! } : {}),
+      alphaApplied: alphaApplied[i],
+      provisionalTcf: Z[i],
+      adjustment: newTcf - s.tcfApplied!,
+    };
+    perFinisherCalc.set(cid, calc);
+    newTcfByCompetitorId.set(cid, newTcf);
+  }
+
+  carryForwardNonFinishers();
+
+  const ctSum = CT.reduce((a, b) => a + b, 0);
+  const aggregates: NhcRaceAggregates = {
+    finisherCount,
+    ctAvg: ctSum / finisherCount,
+    meanTcf: meanL,
+    p50,
+    w51,
+    sMean,
+    sStdev,
+    sHi,
+    sLo,
+    extremeCount: extreme.filter(Boolean).length,
+    realignmentFactor: z51,
+    updateSuppressed: false,
+  };
+
+  return { newTcfByCompetitorId, perFinisherCalc, aggregates };
+}
+
+/**
+ * Symmetric single-blend path (ECHO and any future single-α progressive
+ * systems with no outlier handling and no realignment).
+ *
+ *   Q_i       = ΣH / (T_E_i · Σ(1/T_E))        (IS-PI / Family-B form)
+ *   newTcf    = TCF_i + α × (Q_i − TCF_i)
+ *
+ * The legacy ct-mean Q form (Q_i = TCF_i × CT_avg / CT_i) is preserved on the
+ * `formulaForm === 'ct-mean'` branch for completeness, but no current
+ * production config uses it (NHC1 now goes through SWNHC2015).
+ */
+function symmetricBlendAdjustment(
+  scores: Map<string, HandicapRaceScore>,
+  finisherEntries: Array<[string, HandicapRaceScore]>,
+  config: ProgressiveHandicapConfig,
+): {
+  newTcfByCompetitorId: Map<string, number>;
+  perFinisherCalc: Map<string, ProgressiveRaceCalc>;
+  aggregates: ProgressiveRaceAggregates;
+} {
+  const alpha = config.alphaUp;
   const finisherCount = finisherEntries.length;
   const ctSum = finisherEntries.reduce((sum, [, s]) => sum + s.correctedTime!, 0);
   const tcfSum = finisherEntries.reduce((sum, [, s]) => sum + s.tcfApplied!, 0);
-  const sumReciprocalEt = finisherEntries.reduce((sum, [, s]) => sum + (s.elapsedTime! > 0 ? 1 / s.elapsedTime! : 0), 0);
+  const sumReciprocalEt = finisherEntries.reduce(
+    (sum, [, s]) => sum + (s.elapsedTime! > 0 ? 1 / s.elapsedTime! : 0),
+    0,
+  );
   const ctAvg = finisherCount > 0 ? ctSum / finisherCount : 0;
   const meanTcf = finisherCount > 0 ? tcfSum / finisherCount : 0;
+  const updateSuppressed = finisherCount < config.minFinishers;
 
   const newTcfByCompetitorId = new Map<string, number>();
   const perFinisherCalc = new Map<string, ProgressiveRaceCalc>();
 
-  const updateSuppressed = finisherCount < config.minFinishers;
-
-  // Finishers: blend toward Q_i (or carry forward unchanged if suppressed).
-  // Two formula forms produce the same result for tightly-clustered fleets but
-  // diverge for diverse ones:
-  //   'ct-mean': Q_i = TCF_i × CT_avg / CT_i  — NHC default, simpler.
-  //   'is-pi':   Q_i = ΣH / (T_E × Σ(1/T_E)) — Irish Sailing 2022 ECHO Guide
-  //              formula. Required for ECHO so the published Σ(1/T_E) and
-  //              ΣH_S header values reproduce per-boat PI exactly.
   for (const [cid, s] of finisherEntries) {
     let fairTcf: number;
     if (config.formulaForm === 'is-pi') {
@@ -464,42 +649,54 @@ export function calculateHandicapAdjustment(
     const ctRatio = s.tcfApplied! > 0 ? fairTcf / s.tcfApplied! : 1;
     const adjustment = updateSuppressed ? 0 : alpha * (fairTcf - s.tcfApplied!);
     const newTcf = s.tcfApplied! + adjustment;
-    perFinisherCalc.set(cid, { ctRatio, fairTcf, adjustment, alphaApplied: alpha });
+    const calc: EchoRaceCalc = { ctRatio, fairTcf, adjustment, alphaApplied: alpha };
+    perFinisherCalc.set(cid, calc);
     newTcfByCompetitorId.set(cid, newTcf);
   }
 
-  // Non-finishers: TCF carries forward unchanged.
   for (const [cid, s] of scores) {
     if (newTcfByCompetitorId.has(cid)) continue;
-    if (s.tcfApplied != null) {
-      newTcfByCompetitorId.set(cid, s.tcfApplied);
-    }
+    if (s.tcfApplied != null) newTcfByCompetitorId.set(cid, s.tcfApplied);
   }
 
-  return {
-    newTcfByCompetitorId,
-    perFinisherCalc,
-    aggregates: { alpha, finisherCount, ctAvg, meanTcf },
+  const aggregates: EchoRaceAggregates = {
+    alpha,
+    finisherCount,
+    ctAvg,
+    meanTcf,
+    sumH: tcfSum,
+    sumReciprocalEt,
+    updateSuppressed,
   };
+
+  return { newTcfByCompetitorId, perFinisherCalc, aggregates };
 }
 
 /**
  * Build the `ProgressiveHandicapConfig` for a fleet. Returns `null` for static
  * fleets (scratch, IRC, PY) — the orchestrator skips phase B in that case.
  *
- * NHC1 maps to a symmetric blend with no outlier handling and no realignment.
- * Future systems (ECHO, SWNHC2015, RYA NHC 2015) plug in additional cases.
+ * NHC1 sources its parameters from `DEFAULT_NHC_PROFILE` (the stock SWNHC2015
+ * constants). User-visible profile selection is a future milestone; today
+ * every NHC fleet uses the same parameters.
  */
 export function deriveProgressiveHandicapConfig(fleet: Fleet): ProgressiveHandicapConfig | null {
   if (fleet.scoringSystem === 'nhc') {
-    const alpha = fleet.nhcAlpha ?? NHC_DEFAULT_ALPHA;
+    const p = DEFAULT_NHC_PROFILE;
     return {
-      alphaUp: alpha,
-      alphaDown: alpha,
-      outlier: { strategy: 'none' },
-      realignment: { target: 'none' },
-      minFinishers: 1,
-      formulaForm: 'ct-mean',
+      alphaUp: p.alphaP,
+      alphaDown: p.alphaN,
+      outlier: {
+        strategy: 'reduce-alpha',
+        sdThresholdUp: p.sdOver,
+        sdThresholdDown: p.sdUnder,
+        alphaUpReduced: p.alphaPX,
+        alphaDownReduced: p.alphaNX,
+        recomputeP50ForNonExtreme: true,
+      },
+      realignment: { target: 'prior-mean', minFinishers: p.minFin, includeDNC: false },
+      minFinishers: p.minFin,
+      formulaForm: 'is-pi',
     };
   }
   if (fleet.scoringSystem === 'echo') {
@@ -940,6 +1137,9 @@ function calculateHandicapStandings(
         // Merge phase-B outputs back into the per-boat scores: newTcf for
         // every competitor; per-finisher intermediates copied into the
         // per-system display field (`nhc` for NHC fleets, `echo` for ECHO).
+        // The engine produces NhcRaceCalc when outlier.strategy === 'reduce-alpha'
+        // and EchoRaceCalc otherwise; isNhc/isEcho is derived from the same
+        // config so the cast is safe.
         const merged = new Map<string, HandicapRaceScore>();
         for (const [cid, s] of raceScores) {
           const newTcf = phaseB.newTcfByCompetitorId.get(cid) ?? s.tcfApplied;
@@ -947,34 +1147,18 @@ function calculateHandicapStandings(
           merged.set(cid, {
             ...s,
             newTcf,
-            ...(calc && isNhc ? { nhc: calc } : {}),
-            ...(calc && isEcho ? { echo: calc } : {}),
+            ...(calc && isNhc ? { nhc: calc as NhcRaceCalc } : {}),
+            ...(calc && isEcho ? { echo: calc as EchoRaceCalc } : {}),
           });
         }
         raceScores = merged;
 
         if (isNhc) {
           nhcRaceScoresByRaceId.set(race.id, raceScores);
-          nhcAggregatesByRaceId.set(race.id, phaseB.aggregates);
+          nhcAggregatesByRaceId.set(race.id, phaseB.aggregates as NhcRaceAggregates);
         } else if (isEcho) {
           echoRaceScoresByRaceId.set(race.id, raceScores);
-          // ECHO aggregates carry the IS-formula inputs (ΣH_S, Σ(1/T_E))
-          // alongside the shared aggregates so the explainability fleet
-          // header can reproduce PI = ΣH_S / (T_E × Σ(1/T_E)) directly.
-          let sumH = 0;
-          let sumReciprocalEt = 0;
-          for (const [, s] of raceScores) {
-            if (s.tcfApplied != null && s.elapsedTime != null && s.elapsedTime > 0 && s.resultCode == null) {
-              sumH += s.tcfApplied;
-              sumReciprocalEt += 1 / s.elapsedTime;
-            }
-          }
-          echoAggregatesByRaceId.set(race.id, {
-            ...phaseB.aggregates,
-            sumH,
-            sumReciprocalEt,
-            updateSuppressed: phaseB.aggregates.finisherCount < config.minFinishers,
-          });
+          echoAggregatesByRaceId.set(race.id, phaseB.aggregates as EchoRaceAggregates);
         }
 
         // Audit trail: one record per (race, competitor) covering both

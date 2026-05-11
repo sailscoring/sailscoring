@@ -57,7 +57,9 @@ describe('ECHO handicap scoring fixtures', () => {
           const aggs = echoAggregatesByRaceId.get(raceId);
           expect(aggs, `${raceLabel} aggregates`).toBeDefined();
           if (aggs) {
-            expect(aggs.alpha, `${raceLabel} alpha`).toBeCloseTo(fixtureRace.aggregates.alpha, 6);
+            if (fixtureRace.aggregates.alpha != null) {
+              expect(aggs.alpha, `${raceLabel} alpha`).toBeCloseTo(fixtureRace.aggregates.alpha, 6);
+            }
             expect(aggs.finisherCount, `${raceLabel} finisherCount`).toBe(fixtureRace.aggregates.finisherCount);
             // ctAvg / meanTcf are optional in ECHO fixtures — they're a NHC
             // legacy and the IS notation prefers ΣH_S / Σ(1/T_E).

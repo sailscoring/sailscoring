@@ -393,7 +393,6 @@ export async function ensureFleet(
   name: string,
   options?: {
     scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
-    nhcAlpha?: number;
     echoAlpha?: number;
   },
 ): Promise<string> {

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta name="viewport" content="width=device-width">
-<title>NHC1 — competitor without starting TCF is rejected, not scored — Sail Scoring</title>
+<title>NHC1 — competitor without starting TCF is rejected; sub-MinFin suppresses update — Sail Scoring</title>
 <style>
 body { font: 100% arial, helvetica, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; color: #222; }
 h1 { font-size: 1.4em; }
@@ -17,40 +17,34 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 </head>
 <body>
 <p><a href="../">&larr; All NHC examples</a></p>
-<h1>NHC1 — competitor without starting TCF is rejected, not scored</h1>
+<h1>NHC1 — competitor without starting TCF is rejected; sub-MinFin suppresses update</h1>
 
 <div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
   <strong>Scoring system:</strong> NHC1 &nbsp;&nbsp;
-  <strong>α (blend factor):</strong> 0.15
+  <strong>α (blend factor):</strong> —
 </div>
-<pre style="margin:0.6em 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">3 boats; one (Gamma) has no nhcStartingTcf at all.
-Gamma must be rejected with reason 'no_starting_tcf' and absent from scores.
-Aggregates and other boats reflect the 2-boat fleet.
+<pre style="margin:0.6em 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">3 boats; one (Gamma) has no nhcStartingTcf at all and must be rejected
+with reason 'no_starting_tcf'.
 
-Computation for the 2 rated boats:
-  Alpha: TCF 1.0, ET 3000, CT 3000.0
-  Beta:  TCF 1.0, ET 3600, CT 3600.0
-  CT_avg = 3300.0,  mean(TCF) = 1.0
-
-  Alpha: ratio = 3300/3000 = 1.10,  fair = 1.10,
-         adj = 0.15 × 0.10 = 0.015,  new = 1.015
-  Beta:  ratio = 3300/3600 = 0.916666...,  fair = 0.916666...,
-         adj = 0.15 × −0.083333... = −0.0125, new = 0.9875</pre>
+After rejection, only 2 boats race — under SWNHC2015's MinFin = 3 the
+rating update is suppressed for the whole fleet. Alpha and Beta keep
+their starting TCF (1.000) unchanged, and the aggregate fields
+(p50, σ, etc.) report defaults with updateSuppressed = true.</pre>
 <pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">no nhcStartingTcf — must be rejected</pre>
 <h2 style="margin-top:1.5em;">Race 1</h2>
 <div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
   <strong>Gun time:</strong> 14:00:00 &nbsp;
-  <strong>α:</strong> 0.15 &nbsp;
   <strong>Finishers:</strong> 2 &nbsp;
   <strong>CT<sub>avg</sub>:</strong> 55m 00s &nbsp;
   <strong>mean(TCF):</strong> 1.0000
 </div>
+<div style="margin:0 0 0.6em; color:#444; font-size:90%;"><strong>Rating update suppressed</strong> (finishers 2 &lt; MinFin 3)</div>
 <table>
 <thead>
 <tr>
   <th>Rank</th><th>Name</th><th>Sail #</th>
   <th>Finish time</th><th>ET</th><th>TCF<sub>applied</sub></th><th>CT</th>
-  <th>CT<sub>avg</sub>/CT</th><th>fair TCF</th><th>adj</th><th>new TCF</th>
+  <th>Q</th><th>S</th><th>α</th><th>Z</th><th>adj</th><th>new TCF</th>
   <th>Points</th>
 </tr>
 </thead>
@@ -63,10 +57,12 @@ Computation for the 2 rated boats:
   <td class="mono">50m 00s</td>
   <td class="mono">1.0000</td>
   <td class="mono">50m 00s</td>
-  <td class="mono">1.1000</td>
-  <td class="mono">1.1000</td>
-  <td class="mono">+0.0150</td>
-  <td class="mono">1.0150</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.0000</td>
   <td>1</td>
 </tr>
 <tr>
@@ -77,10 +73,12 @@ Computation for the 2 rated boats:
   <td class="mono">60m 00s</td>
   <td class="mono">1.0000</td>
   <td class="mono">60m 00s</td>
-  <td class="mono">0.9167</td>
-  <td class="mono">0.9167</td>
-  <td class="mono">-0.0125</td>
-  <td class="mono">0.9875</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.0000</td>
   <td>2</td>
 </tr>
 </tbody>

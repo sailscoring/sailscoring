@@ -51,9 +51,10 @@ export interface FixtureRaceExpected {
   elapsedTime?: number | null;
   correctedTime?: number | null;
   tcfApplied?: number | null;
-  // Progressive (NHC / ECHO) — the same intermediates under different
-  // notation. ECHO fixtures may use `pi` and `newH` as aliases of
-  // `fairTcf` and `newTcf` for IS-formula fidelity in the YAML source.
+  // Progressive (NHC / ECHO) — the per-system intermediates. ECHO uses
+  // `ctRatio`/`fairTcf`/`adjustment`/`reciprocalEt` (or aliases `pi`/`newH`).
+  // NHC (SWNHC2015) uses `fairTcf`/`compScore`/`isExtreme`/`alphaApplied`/
+  // `provisionalTcf`/`adjustment`.
   newTcf?: number | null;
   newH?: number | null;
   ctRatio?: number;
@@ -61,18 +62,33 @@ export interface FixtureRaceExpected {
   pi?: number;
   adjustment?: number;
   reciprocalEt?: number;
+  // NHC-only (SWNHC2015)
+  compScore?: number;
+  isExtreme?: boolean;
+  extremeDirection?: 'fast' | 'slow';
+  alphaApplied?: number;
+  provisionalTcf?: number;
   code?: string;
 }
 
 export interface FixtureAggregates {
-  alpha: number;
   finisherCount: number;
   ctAvg?: number;
   meanTcf?: number;
   // ECHO-specific aggregates (IS-formula fleet header)
+  alpha?: number;
   sumH?: number;
   sumReciprocalEt?: number;
   updateSuppressed?: boolean;
+  // NHC-specific aggregates (SWNHC2015 fleet header)
+  p50?: number;
+  w51?: number | null;
+  sMean?: number;
+  sStdev?: number;
+  sHi?: number;
+  sLo?: number;
+  extremeCount?: number;
+  realignmentFactor?: number;
 }
 
 export interface FixtureRejection {
@@ -115,7 +131,7 @@ export interface FixtureCompetitor {
 
 export interface FixtureFleet {
   scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
-  alpha?: number;            // NHC and ECHO (mapped to nhcAlpha / echoAlpha)
+  alpha?: number;            // ECHO only (mapped to echoAlpha); NHC ignores
 }
 
 export interface Fixture {
@@ -158,14 +174,15 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
   let fleets: Fleet[];
   let fleetIdByName: Map<string, string>;
   if (topFleet) {
-    const alphaField = topFleet.scoringSystem === 'echo' ? 'echoAlpha' : 'nhcAlpha';
     fleets = [{
       id: 'fl-0',
       seriesId: 's1',
       name: 'Fleet',
       displayOrder: 0,
       scoringSystem: topFleet.scoringSystem,
-      ...(topFleet.alpha != null ? { [alphaField]: topFleet.alpha } : {}),
+      ...(topFleet.scoringSystem === 'echo' && topFleet.alpha != null
+        ? { echoAlpha: topFleet.alpha }
+        : {}),
     }];
     fleetIdByName = new Map([['Fleet', 'fl-0']]);
   } else if (hasPerCompetitorFleet) {

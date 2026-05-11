@@ -132,10 +132,10 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const fleetId = uuid();
     const fleet = {
       id: fleetId, seriesId, name: 'NHC',
-      displayOrder: 0, scoringSystem: 'nhc' as const, nhcAlpha: 0.18,
+      displayOrder: 0, scoringSystem: 'nhc' as const,
     };
     const created = await fleets.putFleet(ctxA, seriesId, fleetId, fleet);
-    expect(created).toMatchObject({ id: fleetId, scoringSystem: 'nhc', nhcAlpha: 0.18 });
+    expect(created).toMatchObject({ id: fleetId, scoringSystem: 'nhc' });
 
     const list = await fleets.listFleets(ctxA, seriesId);
     expect(list.map((f) => f.id)).toContain(fleetId);

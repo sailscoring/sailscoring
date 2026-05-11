@@ -67,10 +67,28 @@ export interface RaceData {
 }
 
 export interface NhcHeaderData {
-  alpha: number;
   finisherCount: number;
   ctAvgSecs: number;
   meanTcf: number;
+  /** Fleet-wide P50 = mean(L) / mean(O). */
+  p50: number;
+  /** Non-extreme W51 = mean(L_non-ext) / mean(O_non-ext); null when the
+   *  recompute didn't run (no non-extreme subset, or strategy disabled). */
+  w51: number | null;
+  /** μ(S) — fleet mean of comparative scores S = Q/L. */
+  sMean: number;
+  /** σ(S) — population standard deviation of S. */
+  sStdev: number;
+  /** Upper extreme threshold: sMean + sdOver·sStdev. */
+  sHi: number;
+  /** Lower extreme threshold: sMean − sdUnder·sStdev. */
+  sLo: number;
+  /** Count of boats classified as extreme this race. */
+  extremeCount: number;
+  /** Z51 = ΣL / ΣZ over finishers — fleet-sum realignment factor. */
+  realignmentFactor: number;
+  /** True when finisherCount < MinFin (3 by default); no rating update. */
+  updateSuppressed: boolean;
 }
 
 export interface EchoHeaderData {
@@ -112,15 +130,26 @@ export interface RaceResultData {
   echo?: EchoCellData;
 }
 
-/** NHC per-finisher intermediates for the explainability columns. Set on
- *  every NHC competitor (including non-finishers — for non-finishers the
- *  cell renderer leaves intermediate columns blank and shows "unchanged"
+/** NHC per-finisher intermediates for the SWNHC2015 explainability columns.
+ *  Set on every NHC competitor (including non-finishers — for non-finishers
+ *  the cell renderer leaves intermediate columns blank and shows "unchanged"
  *  in the New TCF column). */
 export interface NhcCellData {
   tcfApplied: number;
   newTcf: number;
-  ctRatio?: number;
+  /** Q_i = O_i × P50 — fair TCF (4 dp). */
   fairTcf?: number;
+  /** S_i = Q_i / tcfApplied — comparative score (4 dp). */
+  compScore?: number;
+  /** True iff S_i fell outside [sLo, sHi]. */
+  isExtreme?: boolean;
+  /** Direction of extreme classification; absent for non-extreme rows. */
+  extremeDirection?: 'fast' | 'slow';
+  /** Per-boat α actually used (one of alphaP/alphaN/alphaPX/alphaNX). */
+  alphaApplied?: number;
+  /** Z_i — blended pre-realignment value. New TCF = Z_i × Z51, rounded. */
+  provisionalTcf?: number;
+  /** Signed: newTcf − tcfApplied (post-realignment). */
   adjustment?: number;
   isFinisher: boolean;
 }
@@ -297,15 +326,24 @@ cb.addEventListener('change',function(){
  *  α value for each race is shown in the per-race fleet header line. */
 function renderNhcExplainer(): string {
   return `<div class="nhc-explainer nhc-detail">
-<p><strong>NHC</strong> is a progressive handicap. Each boat&rsquo;s TCF starts from the fleet rating list and shifts after every race based on how its corrected time compared to the fleet average.</p>
-<p>After each race the new rating is computed as <span class="formula">New TCF = TCF + &alpha; &times; (Fair TCF &minus; TCF)</span>, where &alpha; (shown in the per-race fleet header) controls how much weight a single race carries. <em>Fair TCF</em> is the rating that would have given this boat the fleet&rsquo;s average corrected time.</p>
+<p><strong>NHC1</strong> is a progressive handicap. Each boat&rsquo;s TCF starts from the fleet rating list and shifts after every race based on how its corrected time compared to the fleet average. Sail Scoring implements the <em>SWNHC2015</em> algorithm (matches Sailwave NHC1 to 3 dp).</p>
+<p>For each finisher: a <em>fair TCF</em> <span class="formula">Q = O &times; P50</span> is computed (where O = 100 &divide; minutes elapsed and P50 = mean(TCF) &divide; mean(O)). The <em>comparative score</em> <span class="formula">S = Q &divide; TCF</span> measures over- or under-performance. Boats with S far from the fleet mean &mdash; outside <span class="formula">&mu;(S) &plus; 1.5&middot;&sigma;(S)</span> or <span class="formula">&mu;(S) &minus; 1.0&middot;&sigma;(S)</span>, marked &dagger; &mdash; are classified <em>extreme</em> and blend more slowly.</p>
+<p>The blend rate &alpha; depends on direction &times; extreme:</p>
+<dl>
+<dt>0.30</dt><dd>&mdash; non-extreme over-performer (TCF goes up).</dd>
+<dt>0.15</dt><dd>&mdash; non-extreme under-performer.</dd>
+<dt>0.15</dt><dd>&mdash; extreme over-performer.</dd>
+<dt>0.075</dt><dd>&mdash; extreme under-performer.</dd>
+</dl>
 <p>Column meanings:</p>
 <dl>
-<dt>CT ratio</dt><dd>&mdash; this boat&rsquo;s corrected time divided by the fleet average.</dd>
-<dt>Fair TCF</dt><dd>&mdash; the TCF that would have produced the average CT.</dd>
-<dt>Adjustment</dt><dd>&mdash; &alpha; &times; (Fair TCF &minus; TCF), the signed shift applied to TCF.</dd>
+<dt>Q</dt><dd>&mdash; fair TCF for this boat in this race.</dd>
+<dt>S</dt><dd>&mdash; comparative score Q &divide; TCF; &dagger; marks an extreme classification.</dd>
+<dt>&alpha;</dt><dd>&mdash; the blend rate actually applied to this boat.</dd>
+<dt>Z</dt><dd>&mdash; the blended provisional TCF before fleet-sum realignment.</dd>
+<dt>Adjustment</dt><dd>&mdash; signed shift (New TCF &minus; TCF, post-realignment).</dd>
 </dl>
-<p>The resulting <strong>New TCF</strong> (always shown alongside Finish/ET/TCF/CT) is the rating to apply in the next race. Non-finishers carry their TCF unchanged.</p>
+<p>Finally the whole fleet is realigned by <span class="formula">Z51 = &Sigma;TCF &divide; &Sigma;Z</span> (shown in the per-race fleet header) so the total fleet rating is preserved. <strong>New TCF = round(Z &times; Z51, 3)</strong> is the rating to apply in the next race. Non-finishers carry their TCF unchanged.</p>
 </div>`;
 }
 
@@ -485,7 +523,7 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
   const baseColCount = 4 + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0);
   const colCount = baseColCount
     + (hasHandicapCols ? 4 : 0)
-    + (isNhc ? 1 : 0) + (hasExplain ? 3 : 0)
+    + (isNhc ? 1 : 0) + (hasExplain ? 5 : 0)
     + (isEcho ? 1 : 0) + (hasEchoExplain ? 3 : 0);
   const handicapHeaders = hasHandicapCols
     ? `\n<th>Finish</th>\n<th>ET</th>\n<th>${ratingLabel}</th>\n<th>CT</th>`
@@ -496,18 +534,20 @@ function renderRaceTable(race: RaceData, showBoatName: boolean, showBoatClass: b
   // "New TCF" is always visible for NHC fleets (alongside Finish/ET/TCF/CT) —
   // it's the next-race rating, the headline output of progressive scoring, so
   // it shows even when the scorer has opted out of publishing the underlying
-  // calculations. The CT ratio / Fair TCF / Adjustment columns remain under
-  // the calculation toggle for verification.
+  // calculations. The five SWNHC2015 explainability columns (Q, S, α, Z,
+  // Adjustment) remain under the calculation toggle for verification.
   const nhcNewTcfHeader = isNhc ? '\n<th>New TCF</th>' : '';
   const nhcNewTcfCol = isNhc ? '\n<col class="newtcf" />' : '';
   const nhcHeaders = hasExplain
-    ? '\n<th class="nhc-detail">CT ratio</th>\n<th class="nhc-detail">Fair TCF</th>\n<th class="nhc-detail">Adjustment</th>'
+    ? '\n<th class="nhc-detail">Q</th>\n<th class="nhc-detail">S</th>\n<th class="nhc-detail">α</th>\n<th class="nhc-detail">Z</th>\n<th class="nhc-detail">Adjustment</th>'
     : '';
   const nhcCols = hasExplain
-    ? '\n<col class="ctratio nhc-detail" />\n<col class="fairtcf nhc-detail" />\n<col class="adjustment nhc-detail" />'
+    ? '\n<col class="fairtcf nhc-detail" />\n<col class="compscore nhc-detail" />\n<col class="alpha nhc-detail" />\n<col class="provisional nhc-detail" />\n<col class="adjustment nhc-detail" />'
     : '';
   const nhcSubheading = hasExplain
-    ? `<p class="nhc-fleet-header nhc-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: NHC1 &middot; α = ${race.nhcHeader!.alpha} &middot; Finishers: ${race.nhcHeader!.finisherCount} &middot; CT_avg: ${formatCorrectedSecs(race.nhcHeader!.ctAvgSecs)} &middot; mean TCF: ${race.nhcHeader!.meanTcf.toFixed(4)}</p>`
+    ? (race.nhcHeader!.updateSuppressed
+        ? `<p class="nhc-fleet-header nhc-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: NHC1 (SWNHC2015) &middot; Finishers: ${race.nhcHeader!.finisherCount} &middot; <strong>Rating update suppressed (fewer than 3 finishers)</strong></p>`
+        : `<p class="nhc-fleet-header nhc-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: NHC1 (SWNHC2015) &middot; Finishers: ${race.nhcHeader!.finisherCount} &middot; μ(S) = ${race.nhcHeader!.sMean.toFixed(4)} &middot; σ(S) = ${race.nhcHeader!.sStdev.toFixed(4)} &middot; extreme if S &gt; ${race.nhcHeader!.sHi.toFixed(4)} or S &lt; ${race.nhcHeader!.sLo.toFixed(4)} (${race.nhcHeader!.extremeCount} this race) &middot; P50 = ${race.nhcHeader!.p50.toFixed(6)}${race.nhcHeader!.w51 != null ? ` &middot; W51 = ${race.nhcHeader!.w51.toFixed(6)}` : ''} &middot; Z51 = ${race.nhcHeader!.realignmentFactor.toFixed(6)}</p>`)
     : '';
   // ECHO IS-notation columns: 1/T_E, PI, Adjustment hide under the calculation
   // toggle; New H is always visible for ECHO fleets so competitors see next
@@ -560,14 +600,18 @@ function renderNhcNewTcfCell(r: RaceResultData): string {
   return `<td class="mono">${nhc.newTcf.toFixed(3)}</td>`;
 }
 
-/** Render the three NHC explainability cells for one row. Rating/finish/ET/CT
- *  and New TCF are always-visible columns rendered elsewhere; this helper
- *  only emits the three cells that hide under the viewer toggle.
+/** Render the five SWNHC2015 explainability cells for one row. Rating/finish/
+ *  ET/CT and New TCF are always-visible columns rendered elsewhere; this
+ *  helper only emits the five cells that hide under the viewer toggle.
  *
- *  Non-finishers leave the three computational cells blank. The verification
- *  contract: a competitor with a calculator should be able to reproduce the
- *  always-visible New TCF from these published values via
- *  TCF + α × (Fair TCF − TCF). */
+ *  Non-finishers leave the five computational cells blank. The verification
+ *  contract: a competitor with a calculator should be able to reproduce
+ *  the always-visible New TCF from these published values and the
+ *  fleet-header Z51 via   New TCF ≈ round(Z × Z51, 3).
+ *
+ *  The S cell carries a † marker when the boat was classified as extreme
+ *  (so the four-way α split — non-ext 0.30/0.15 vs extreme 0.15/0.075 — is
+ *  visible at a glance). */
 function renderNhcCells(r: RaceResultData): string[] {
   const nhc = r.nhc;
   if (!nhc || !nhc.isFinisher) {
@@ -575,11 +619,18 @@ function renderNhcCells(r: RaceResultData): string[] {
       `<td class="nhc-detail"></td>`,
       `<td class="nhc-detail"></td>`,
       `<td class="nhc-detail"></td>`,
+      `<td class="nhc-detail"></td>`,
+      `<td class="nhc-detail"></td>`,
     ];
   }
+  const sCell = nhc.compScore != null
+    ? `${nhc.compScore.toFixed(4)}${nhc.isExtreme ? ' &dagger;' : ''}`
+    : '';
   return [
-    `<td class="mono nhc-detail">${nhc.ctRatio != null ? nhc.ctRatio.toFixed(4) : ''}</td>`,
     `<td class="mono nhc-detail">${nhc.fairTcf != null ? nhc.fairTcf.toFixed(4) : ''}</td>`,
+    `<td class="mono nhc-detail">${sCell}</td>`,
+    `<td class="mono nhc-detail">${nhc.alphaApplied != null ? nhc.alphaApplied.toFixed(3) : ''}</td>`,
+    `<td class="mono nhc-detail">${nhc.provisionalTcf != null ? nhc.provisionalTcf.toFixed(4) : ''}</td>`,
     `<td class="mono nhc-detail">${nhc.adjustment != null ? formatSigned(nhc.adjustment, 4) : ''}</td>`,
   ];
 }
@@ -733,7 +784,7 @@ export function assembleSeriesResultsData(
     netPoints: number;
     raceDiscards: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; newTcf?: number | null; elapsedTime?: number | null; nhc?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
   competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; ircTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
@@ -814,7 +865,15 @@ export function assembleSeriesResultsData(
             tcfApplied: score.tcfApplied,
             newTcf: score.newTcf,
             isFinisher: score.nhc != null,
-            ...(isNhcExplain && score.nhc ? { ctRatio: score.nhc.ctRatio, fairTcf: score.nhc.fairTcf, adjustment: score.nhc.adjustment } : {}),
+            ...(isNhcExplain && score.nhc ? {
+              fairTcf: score.nhc.fairTcf,
+              compScore: score.nhc.compScore,
+              isExtreme: score.nhc.isExtreme,
+              ...(score.nhc.extremeDirection ? { extremeDirection: score.nhc.extremeDirection } : {}),
+              alphaApplied: score.nhc.alphaApplied,
+              provisionalTcf: score.nhc.provisionalTcf,
+              adjustment: score.nhc.adjustment,
+            } : {}),
           }
         : undefined;
 

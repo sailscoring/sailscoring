@@ -9,7 +9,7 @@ import type {
   RaceStartRepository,
 } from './repository';
 import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart } from './types';
-import { NHC_DEFAULT_ALPHA, ECHO_DEFAULT_ALPHA } from './scoring';
+import { ECHO_DEFAULT_ALPHA } from './scoring';
 
 export const DEFAULT_FLEET_NAME = 'Default';
 
@@ -267,7 +267,7 @@ export async function deleteSeriesCascade(seriesId: string): Promise<void> {
  * Find a fleet by name (case-insensitive) or create it.
  * Blank name → "Default".
  * `options.scoringSystem` is applied only when *creating* a new fleet — this
- * function never mutates an existing fleet's system. NHC/ECHO get their
+ * function never mutates an existing fleet's system. ECHO gets its
  * default alpha when not explicitly provided.
  * Returns the fleetId.
  */
@@ -276,7 +276,6 @@ export async function ensureFleet(
   name: string,
   options?: {
     scoringSystem?: Fleet['scoringSystem'];
-    nhcAlpha?: number;
     echoAlpha?: number;
   },
 ): Promise<string> {
@@ -299,7 +298,6 @@ export async function ensureFleet(
       name: fleetName,
       displayOrder: maxOrder + 1,
       scoringSystem,
-      ...(scoringSystem === 'nhc' ? { nhcAlpha: options?.nhcAlpha ?? NHC_DEFAULT_ALPHA } : {}),
       ...(scoringSystem === 'echo' ? { echoAlpha: options?.echoAlpha ?? ECHO_DEFAULT_ALPHA } : {}),
     };
     await db.fleets.add(newFleet);

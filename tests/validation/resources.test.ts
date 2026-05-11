@@ -16,7 +16,6 @@ const FLEET: Fleet = {
   name: 'NHC',
   displayOrder: 0,
   scoringSystem: 'nhc',
-  nhcAlpha: 0.15,
 };
 
 const COMPETITOR: Competitor = {

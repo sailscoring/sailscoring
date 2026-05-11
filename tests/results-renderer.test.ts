@@ -402,7 +402,12 @@ describe('assembleSeriesResultsData', () => {
 // ---- NHC viewer toggle ----
 
 function nhcFixture(withExplain = true): SeriesResultsData {
-  const nhcHeader = { alpha: 0.5, finisherCount: 2, ctAvgSecs: 3600, meanTcf: 1.0 };
+  const nhcHeader = {
+    finisherCount: 2, ctAvgSecs: 3600, meanTcf: 1.0,
+    p50: 0.999, w51: null, sMean: 1.0, sStdev: 0.03,
+    sHi: 1.045, sLo: 0.97, extremeCount: 0,
+    realignmentFactor: 1.0, updateSuppressed: false,
+  };
   const race: RaceData = {
     raceNumber: 1,
     date: '2025-06-01',
@@ -419,7 +424,7 @@ function nhcFixture(withExplain = true): SeriesResultsData {
         // newTcf flows through to the always-visible column even when the
         // calc-detail fields are suppressed.
         nhc: withExplain
-          ? { tcfApplied: 1.0, newTcf: 1.014, ctRatio: 0.972, fairTcf: 1.029, adjustment: 0.029, isFinisher: true }
+          ? { tcfApplied: 1.0, newTcf: 1.014, fairTcf: 1.029, compScore: 1.029, isExtreme: false, alphaApplied: 0.3, provisionalTcf: 1.014, adjustment: 0.014, isFinisher: true }
           : { tcfApplied: 1.0, newTcf: 1.014, isFinisher: true },
       },
       {
@@ -428,7 +433,7 @@ function nhcFixture(withExplain = true): SeriesResultsData {
         tcc: 1.0, finishTime: '15:01:40',
         elapsedTimeSecs: 3700, correctedTimeSecs: 3700,
         nhc: withExplain
-          ? { tcfApplied: 1.0, newTcf: 0.986, ctRatio: 1.028, fairTcf: 0.973, adjustment: -0.027, isFinisher: true }
+          ? { tcfApplied: 1.0, newTcf: 0.986, fairTcf: 0.973, compScore: 0.973, isExtreme: false, alphaApplied: 0.15, provisionalTcf: 0.996, adjustment: -0.014, isFinisher: true }
           : { tcfApplied: 1.0, newTcf: 0.986, isFinisher: true },
       },
     ],
@@ -456,15 +461,18 @@ describe('renderSeriesHtml NHC viewer toggle', () => {
 
   it('tags only the rating-calculation columns with nhc-detail', () => {
     const html = renderSeriesHtml(nhcFixture());
-    // Only the calculation columns hide under the toggle
-    expect(html).toContain('<th class="nhc-detail">CT ratio</th>');
-    expect(html).toContain('<th class="nhc-detail">Fair TCF</th>');
+    // Only the SWNHC2015 calculation columns hide under the toggle
+    expect(html).toContain('<th class="nhc-detail">Q</th>');
+    expect(html).toContain('<th class="nhc-detail">S</th>');
+    expect(html).toContain('<th class="nhc-detail">α</th>');
+    expect(html).toContain('<th class="nhc-detail">Z</th>');
     expect(html).toContain('<th class="nhc-detail">Adjustment</th>');
     // New TCF stays always-visible (no nhc-detail class)
     expect(html).not.toContain('<th class="nhc-detail">New TCF</th>');
     expect(html).not.toContain('<col class="newtcf nhc-detail" />');
     // <col> elements
-    expect(html).toContain('<col class="ctratio nhc-detail" />');
+    expect(html).toContain('<col class="fairtcf nhc-detail" />');
+    expect(html).toContain('<col class="compscore nhc-detail" />');
     // Fleet-header <p>
     expect(html).toContain('class="nhc-fleet-header nhc-detail"');
   });
@@ -504,7 +512,7 @@ describe('renderSeriesHtml NHC viewer toggle', () => {
     expect(html).toMatch(/<td class="mono">0\.986<\/td>/);
     // The fleet-header line and calc-detail columns are absent
     expect(html).not.toContain('Rating system: NHC1');
-    expect(html).not.toContain('<th class="nhc-detail">CT ratio</th>');
+    expect(html).not.toContain('<th class="nhc-detail">Q</th>');
     expect(html).not.toContain('<th class="nhc-detail">New TCF</th>');
   });
 
@@ -519,8 +527,8 @@ describe('renderSeriesHtml NHC viewer toggle', () => {
   it('emits the NHC prose explainer with the nhc-detail class when explainability is published', () => {
     const html = renderSeriesHtml(nhcFixture());
     expect(html).toContain('class="nhc-explainer nhc-detail"');
-    expect(html).toContain('New TCF = TCF + &alpha;');
-    expect(html).toContain('Fair TCF');
+    expect(html).toContain('SWNHC2015');
+    expect(html).toContain('Q = O &times; P50');
     expect(html).toContain('Non-finishers carry their TCF unchanged');
   });
 

@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>NHC1 — Puppeteer HPH R1, Sailwave SWNHC2015 verification (n=14) — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; font-size: 0.9em; }
+td, th { text-align: left; padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All NHC examples</a></p>
+<h1>NHC1 — Puppeteer HPH R1, Sailwave SWNHC2015 verification (n=14)</h1>
+
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> NHC1 &nbsp;&nbsp;
+  <strong>α (blend factor):</strong> —
+</div>
+<pre style="margin:0.6em 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Howth YC One Designs Series 1, Tuesday 5 May 2026, Puppeteer HPH fleet.
+Start 19:15:00. 14 finishers. Source: Sailwave NHC1 output
+(reference/data/2026-hyc-club-racing/tues-series-1-pup-hph-sailwave.htm).
+
+Every NewRating below is the value Sailwave published — independent
+verification that the SWNHC2015 implementation reproduces Sailwave to 3 dp.
+See docs/notes/sailwave-nhc1-reverse-engineering.md for the algorithm and
+reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py for the
+Python reference (nr_swnhc2015_full).
+
+Five boats are extreme under SWNHC2015's S = Q/L classification with
+asymmetric thresholds (sHi = μ + 1.5σ, sLo = μ − 1.0σ):
+  fast (S &gt; sHi):  Harlequin, Ibis
+  slow (S &lt; sLo):  Geppetto, Mojo, Yelllow Peril
+(The §9 &quot;SLOW&quot; set of three boats in the reverse-engineering note was
+produced by an earlier candidate algorithm — Family-B with a one-sided
+T_C-based cap — not the final SWNHC2015 algorithm.)</pre>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Sailwave-published NewRating values — verify SWNHC2015 to 3 dp.</pre>
+<h2 style="margin-top:1.5em;">Race 1</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 19:15:00 &nbsp;
+  <strong>Finishers:</strong> 14 &nbsp;
+  <strong>CT<sub>avg</sub>:</strong> 47m 29s &nbsp;
+  <strong>mean(TCF):</strong> 1.2904
+</div>
+<div style="margin:0 0 0.6em; color:#444; font-size:90%;"><strong>μ(S):</strong> 0.9967 &nbsp;
+  <strong>σ(S):</strong> 0.1053 &nbsp;
+  <strong>extreme if S &gt; 1.1546 or &lt; 0.8915</strong> (5) &nbsp;
+  <strong>P50:</strong> 0.468325 &nbsp; <strong>W51:</strong> 0.472996 &nbsp;
+  <strong>Z51:</strong> 0.994873</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>ET</th><th>TCF<sub>applied</sub></th><th>CT</th>
+  <th>Q</th><th>S</th><th>α</th><th>Z</th><th>adj</th><th>new TCF</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>David Clarke</td>
+  <td class="mono">2021</td>
+  <td class="mono">19:43:46</td>
+  <td class="mono">28m 46s</td>
+  <td class="mono">1.3500</td>
+  <td class="mono">38m 50s</td>
+  <td class="mono">1.6280</td>
+  <td class="mono">1.2059 †</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.3917</td>
+  <td class="mono">+0.0350</td>
+  <td class="mono">1.3850</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>S. Knowles</td>
+  <td class="mono">385</td>
+  <td class="mono">19:43:56</td>
+  <td class="mono">28m 56s</td>
+  <td class="mono">1.3500</td>
+  <td class="mono">39m 04s</td>
+  <td class="mono">1.6186</td>
+  <td class="mono">1.1990 †</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.3903</td>
+  <td class="mono">+0.0330</td>
+  <td class="mono">1.3830</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Dylan Murray</td>
+  <td class="mono">310</td>
+  <td class="mono">19:46:55</td>
+  <td class="mono">31m 55s</td>
+  <td class="mono">1.3500</td>
+  <td class="mono">43m 05s</td>
+  <td class="mono">1.4673</td>
+  <td class="mono">1.0869</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.3896</td>
+  <td class="mono">+0.0320</td>
+  <td class="mono">1.3820</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Alan Pearson / Alan Blay</td>
+  <td class="mono">15</td>
+  <td class="mono">19:48:16</td>
+  <td class="mono">33m 16s</td>
+  <td class="mono">1.3500</td>
+  <td class="mono">44m 55s</td>
+  <td class="mono">1.4078</td>
+  <td class="mono">1.0428</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.3715</td>
+  <td class="mono">+0.0150</td>
+  <td class="mono">1.3650</td>
+  <td>4</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td>McKeon / Dunne</td>
+  <td class="mono">187</td>
+  <td class="mono">19:51:20</td>
+  <td class="mono">36m 20s</td>
+  <td class="mono">1.2500</td>
+  <td class="mono">45m 25s</td>
+  <td class="mono">1.2890</td>
+  <td class="mono">1.0312</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.2655</td>
+  <td class="mono">+0.0090</td>
+  <td class="mono">1.2590</td>
+  <td>5</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td>Gerard Kennedy</td>
+  <td class="mono">5526</td>
+  <td class="mono">19:51:16</td>
+  <td class="mono">36m 16s</td>
+  <td class="mono">1.2750</td>
+  <td class="mono">46m 14s</td>
+  <td class="mono">1.2913</td>
+  <td class="mono">1.0128</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.2838</td>
+  <td class="mono">+0.0020</td>
+  <td class="mono">1.2770</td>
+  <td>6</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td>Ian Dickson</td>
+  <td class="mono">22</td>
+  <td class="mono">19:49:54</td>
+  <td class="mono">34m 54s</td>
+  <td class="mono">1.3500</td>
+  <td class="mono">47m 07s</td>
+  <td class="mono">1.3419</td>
+  <td class="mono">0.9940</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.3516</td>
+  <td class="mono">-0.0050</td>
+  <td class="mono">1.3450</td>
+  <td>7</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td>Terry Harvey</td>
+  <td class="mono">20</td>
+  <td class="mono">19:51:00</td>
+  <td class="mono">36m 00s</td>
+  <td class="mono">1.3200</td>
+  <td class="mono">47m 31s</td>
+  <td class="mono">1.3009</td>
+  <td class="mono">0.9855</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.3191</td>
+  <td class="mono">-0.0080</td>
+  <td class="mono">1.3120</td>
+  <td>8</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td>Declan Browne</td>
+  <td class="mono">254</td>
+  <td class="mono">19:52:22</td>
+  <td class="mono">37m 22s</td>
+  <td class="mono">1.3450</td>
+  <td class="mono">50m 15s</td>
+  <td class="mono">1.2533</td>
+  <td class="mono">0.9318</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.3331</td>
+  <td class="mono">-0.0190</td>
+  <td class="mono">1.3260</td>
+  <td>9</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td>Hogan / Dyson</td>
+  <td class="mono">101</td>
+  <td class="mono">19:57:54</td>
+  <td class="mono">42m 54s</td>
+  <td class="mono">1.2000</td>
+  <td class="mono">51m 29s</td>
+  <td class="mono">1.0917</td>
+  <td class="mono">0.9097</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.1854</td>
+  <td class="mono">-0.0210</td>
+  <td class="mono">1.1790</td>
+  <td>10</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td>Olibhe Ni Bhraonain &amp; Peter Wilson</td>
+  <td class="mono">245</td>
+  <td class="mono">20:00:22</td>
+  <td class="mono">45m 22s</td>
+  <td class="mono">1.1500</td>
+  <td class="mono">52m 10s</td>
+  <td class="mono">1.0323</td>
+  <td class="mono">0.8977</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.1339</td>
+  <td class="mono">-0.0220</td>
+  <td class="mono">1.1280</td>
+  <td>11</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td>O'Reilly / McDyer</td>
+  <td class="mono">219</td>
+  <td class="mono">19:57:10</td>
+  <td class="mono">42m 10s</td>
+  <td class="mono">1.2500</td>
+  <td class="mono">52m 43s</td>
+  <td class="mono">1.1107</td>
+  <td class="mono">0.8885 †</td>
+  <td class="mono">0.075</td>
+  <td class="mono">1.2395</td>
+  <td class="mono">-0.0170</td>
+  <td class="mono">1.2330</td>
+  <td>12</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td>Francisco Martinez</td>
+  <td class="mono">79</td>
+  <td class="mono">19:59:58</td>
+  <td class="mono">44m 58s</td>
+  <td class="mono">1.1750</td>
+  <td class="mono">52m 50s</td>
+  <td class="mono">1.0415</td>
+  <td class="mono">0.8864 †</td>
+  <td class="mono">0.075</td>
+  <td class="mono">1.1650</td>
+  <td class="mono">-0.0160</td>
+  <td class="mono">1.1590</td>
+  <td>13</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td>Neil Murphy / Conor Costello</td>
+  <td class="mono">6413</td>
+  <td class="mono">19:54:20</td>
+  <td class="mono">39m 20s</td>
+  <td class="mono">1.3500</td>
+  <td class="mono">53m 06s</td>
+  <td class="mono">1.1907</td>
+  <td class="mono">0.8820 †</td>
+  <td class="mono">0.075</td>
+  <td class="mono">1.3380</td>
+  <td class="mono">-0.0190</td>
+  <td class="mono">1.3310</td>
+  <td>14</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>David Clarke</td>
+  <td class="mono">2021</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>S. Knowles</td>
+  <td class="mono">385</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Dylan Murray</td>
+  <td class="mono">310</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Alan Pearson / Alan Blay</td>
+  <td class="mono">15</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td>McKeon / Dunne</td>
+  <td class="mono">187</td>
+  <td class="mono">5</td>
+  <td class="mono">5</td>
+  <td class="mono">5</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td>Gerard Kennedy</td>
+  <td class="mono">5526</td>
+  <td class="mono">6</td>
+  <td class="mono">6</td>
+  <td class="mono">6</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td>Ian Dickson</td>
+  <td class="mono">22</td>
+  <td class="mono">7</td>
+  <td class="mono">7</td>
+  <td class="mono">7</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td>Terry Harvey</td>
+  <td class="mono">20</td>
+  <td class="mono">8</td>
+  <td class="mono">8</td>
+  <td class="mono">8</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td>Declan Browne</td>
+  <td class="mono">254</td>
+  <td class="mono">9</td>
+  <td class="mono">9</td>
+  <td class="mono">9</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td>Hogan / Dyson</td>
+  <td class="mono">101</td>
+  <td class="mono">10</td>
+  <td class="mono">10</td>
+  <td class="mono">10</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td>Olibhe Ni Bhraonain &amp; Peter Wilson</td>
+  <td class="mono">245</td>
+  <td class="mono">11</td>
+  <td class="mono">11</td>
+  <td class="mono">11</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td>O'Reilly / McDyer</td>
+  <td class="mono">219</td>
+  <td class="mono">12</td>
+  <td class="mono">12</td>
+  <td class="mono">12</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td>Francisco Martinez</td>
+  <td class="mono">79</td>
+  <td class="mono">13</td>
+  <td class="mono">13</td>
+  <td class="mono">13</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td>Neil Murphy / Conor Costello</td>
+  <td class="mono">6413</td>
+  <td class="mono">14</td>
+  <td class="mono">14</td>
+  <td class="mono">14</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

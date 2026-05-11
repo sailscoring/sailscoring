@@ -18,7 +18,6 @@ export const fleetSchema = z.object({
   name: z.string(),
   displayOrder: z.number().int(),
   scoringSystem: scoringSystemSchema,
-  nhcAlpha: z.number().optional(),
   echoAlpha: z.number().optional(),
   version: versionSchema,
 });
@@ -35,7 +34,6 @@ export const fleetsBulkInputSchema = z.object({
 export const ensureFleetInputSchema = z.object({
   name: z.string(),
   scoringSystem: scoringSystemSchema.optional(),
-  nhcAlpha: z.number().optional(),
   echoAlpha: z.number().optional(),
 });
 

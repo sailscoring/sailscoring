@@ -55,13 +55,37 @@ describe('NHC handicap scoring fixtures', () => {
           const aggs = nhcAggregatesByRaceId.get(raceId);
           expect(aggs, `${raceLabel} aggregates`).toBeDefined();
           if (aggs) {
-            expect(aggs.alpha, `${raceLabel} alpha`).toBeCloseTo(fixtureRace.aggregates.alpha, 6);
             expect(aggs.finisherCount, `${raceLabel} finisherCount`).toBe(fixtureRace.aggregates.finisherCount);
             if (fixtureRace.aggregates.ctAvg != null) {
               expect(aggs.ctAvg, `${raceLabel} ctAvg`).toBeCloseTo(fixtureRace.aggregates.ctAvg, 4);
             }
             if (fixtureRace.aggregates.meanTcf != null) {
               expect(aggs.meanTcf, `${raceLabel} meanTcf`).toBeCloseTo(fixtureRace.aggregates.meanTcf, 6);
+            }
+            if (fixtureRace.aggregates.p50 != null) {
+              expect(aggs.p50, `${raceLabel} p50`).toBeCloseTo(fixtureRace.aggregates.p50, 6);
+            }
+            if (fixtureRace.aggregates.w51 !== undefined) {
+              if (fixtureRace.aggregates.w51 === null) {
+                expect(aggs.w51, `${raceLabel} w51`).toBeNull();
+              } else {
+                expect(aggs.w51, `${raceLabel} w51`).toBeCloseTo(fixtureRace.aggregates.w51, 6);
+              }
+            }
+            if (fixtureRace.aggregates.sMean != null) {
+              expect(aggs.sMean, `${raceLabel} sMean`).toBeCloseTo(fixtureRace.aggregates.sMean, 6);
+            }
+            if (fixtureRace.aggregates.sStdev != null) {
+              expect(aggs.sStdev, `${raceLabel} sStdev`).toBeCloseTo(fixtureRace.aggregates.sStdev, 6);
+            }
+            if (fixtureRace.aggregates.extremeCount != null) {
+              expect(aggs.extremeCount, `${raceLabel} extremeCount`).toBe(fixtureRace.aggregates.extremeCount);
+            }
+            if (fixtureRace.aggregates.realignmentFactor != null) {
+              expect(aggs.realignmentFactor, `${raceLabel} realignmentFactor`).toBeCloseTo(fixtureRace.aggregates.realignmentFactor, 6);
+            }
+            if (fixtureRace.aggregates.updateSuppressed != null) {
+              expect(aggs.updateSuppressed, `${raceLabel} updateSuppressed`).toBe(fixtureRace.aggregates.updateSuppressed);
             }
           }
         }
@@ -107,11 +131,20 @@ describe('NHC handicap scoring fixtures', () => {
             if (exp.code) {
               expect(score.resultCode, `${raceLabel} ${exp.sailor} resultCode`).toBe(exp.code);
             }
-            if (exp.ctRatio != null) {
-              expect(score.nhc?.ctRatio, `${raceLabel} ${exp.sailor} ctRatio`).toBeCloseTo(exp.ctRatio, 6);
-            }
             if (exp.fairTcf != null) {
               expect(score.nhc?.fairTcf, `${raceLabel} ${exp.sailor} fairTcf`).toBeCloseTo(exp.fairTcf, 6);
+            }
+            if (exp.compScore != null) {
+              expect(score.nhc?.compScore, `${raceLabel} ${exp.sailor} compScore`).toBeCloseTo(exp.compScore, 6);
+            }
+            if (exp.isExtreme != null) {
+              expect(score.nhc?.isExtreme, `${raceLabel} ${exp.sailor} isExtreme`).toBe(exp.isExtreme);
+            }
+            if (exp.alphaApplied != null) {
+              expect(score.nhc?.alphaApplied, `${raceLabel} ${exp.sailor} alphaApplied`).toBeCloseTo(exp.alphaApplied, 6);
+            }
+            if (exp.provisionalTcf != null) {
+              expect(score.nhc?.provisionalTcf, `${raceLabel} ${exp.sailor} provisionalTcf`).toBeCloseTo(exp.provisionalTcf, 6);
             }
             if (exp.adjustment != null) {
               expect(score.nhc?.adjustment, `${raceLabel} ${exp.sailor} adjustment`).toBeCloseTo(exp.adjustment, 6);
