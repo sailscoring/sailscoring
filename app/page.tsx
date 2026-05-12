@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { Trash2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { useRepos } from '@/lib/repos';
 import { useSeriesList, useDeleteSeriesCascade } from '@/hooks/use-series';
 import { queryKeys } from '@/hooks/query-keys';
@@ -136,20 +136,26 @@ export default function HomePage() {
       return;
     }
 
-    // Check if a series with the same seriesId already exists
-    const all = await seriesRepo.list();
-    const existing = all.find((s) => s.id === parsed.seriesId);
+    setOpenFlow({ step: 'working' });
 
-    if (!existing) {
-      // No match — open as new
-      setOpenFlow({ step: 'working' });
-      const newId = await openSeriesFromFile(parsed, repos);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
-      router.push(`/series/${newId}/races`);
-      return;
+    try {
+      // Check if a series with the same seriesId already exists
+      const all = await seriesRepo.list();
+      const existing = all.find((s) => s.id === parsed.seriesId);
+
+      if (!existing) {
+        // No match — open as new
+        const newId = await openSeriesFromFile(parsed, repos);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
+        router.push(`/series/${newId}/races`);
+        return;
+      }
+
+      setOpenFlow({ step: 'disambiguate', file: parsed, existing });
+    } catch (err) {
+      console.error(err);
+      setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
     }
-
-    setOpenFlow({ step: 'disambiguate', file: parsed, existing });
   }
 
   async function handleDisambiguate(choice: 'update' | 'new-copy') {
@@ -158,9 +164,14 @@ export default function HomePage() {
 
     if (choice === 'new-copy') {
       setOpenFlow({ step: 'working' });
-      const newId = await openSeriesFromFile(file, repos);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
-      router.push(`/series/${newId}/races`);
+      try {
+        const newId = await openSeriesFromFile(file, repos);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
+        router.push(`/series/${newId}/races`);
+      } catch (err) {
+        console.error(err);
+        setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
+      }
       return;
     }
 
@@ -379,6 +390,26 @@ export default function HomePage() {
               Replace local copy
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Working dialog */}
+      <Dialog open={openFlow.step === 'working'}>
+        <DialogContent
+          showCloseButton={false}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Opening series…</DialogTitle>
+            <DialogDescription>
+              Loading the series file. This may take a moment for large series.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center py-2">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
         </DialogContent>
       </Dialog>
 
