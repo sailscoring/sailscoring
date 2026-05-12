@@ -786,6 +786,12 @@ export default function HelpPage() {
           tell apart.
         </p>
         <p>
+          If you&apos;re signed in and belong to more than one workspace — for example a personal
+          workspace and a shared panel — the confirmation dialog includes a{' '}
+          <strong className="text-foreground">Workspace</strong> picker so you can choose where
+          the series lands. It defaults to the workspace you&apos;re currently in.
+        </p>
+        <p>
           The footer also embeds a JSON snapshot of the results in the page source, available
           to clubs or third parties who want to consume the data programmatically. The snapshot
           contains only the public results; scorer-private information (file history, FTP

@@ -27,6 +27,54 @@ import {
   signInFreshUser,
 } from './helpers';
 
+function makeImportUrl(seriesName: string): string {
+  const publicExport = {
+    version: 1,
+    exportedAt: '2025-06-14T10:00:00.000Z',
+    series: {
+      name: seriesName,
+      venue: 'Test YC',
+      startDate: '2025-06-14',
+      endDate: '',
+      discardThresholds: [],
+      dnfScoring: 'seriesEntries',
+      displayFields: ['club'],
+      scoringMode: 'scratch',
+    },
+    fleets: [{ name: 'Default', displayOrder: 0, scoringSystem: 'scratch' }],
+    competitors: [
+      { sailNumber: '1', name: 'Alice', club: 'TYC', gender: '', age: null, fleetNames: ['Default'] },
+      { sailNumber: '2', name: 'Bob', club: 'TYC', gender: '', age: null, fleetNames: ['Default'] },
+    ],
+    races: [
+      {
+        raceNumber: 1,
+        date: '2025-06-14',
+        starts: [],
+        finishes: [
+          { sailNumber: '1', sortOrder: 1, resultCode: null, startPresent: null },
+          { sailNumber: '2', sortOrder: 2, resultCode: null, startPresent: null },
+        ],
+      },
+    ],
+    standings: [
+      {
+        fleetName: 'Default',
+        rows: [
+          { rank: 1, sailNumber: '1', name: 'Alice', racePoints: [1], raceCodes: [null], raceDiscards: [false], totalPoints: 1, netPoints: 1 },
+          { rank: 2, sailNumber: '2', name: 'Bob', racePoints: [2], raceCodes: [null], raceDiscards: [false], totalPoints: 2, netPoints: 2 },
+        ],
+      },
+    ],
+  };
+  const b64url = Buffer.from(JSON.stringify(publicExport), 'utf-8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `/import#data=${b64url}`;
+}
+
 test.describe('@server workspace switcher', () => {
   test('flips the visible series listing between workspaces', async ({ page }) => {
     const email = await signInFreshUser(page, 'switcher');
@@ -212,5 +260,72 @@ test.describe('@server actor attribution on a shared workspace', () => {
         throw new Error(`pageA errors:\n${errorsA.join('\n')}`);
       }
     }
+  });
+});
+
+test.describe('@server Open in Sail Scoring workspace picker', () => {
+  test('imports into the chosen workspace and flips the active workspace', async ({
+    page,
+  }) => {
+    const stamp = Date.now();
+    const email = await signInFreshUser(page, `import-target-${stamp}`);
+
+    // Provision an org workspace and add the signed-in user. They now have
+    // two memberships (personal + org), so the picker should appear.
+    const orgName = `Import Target Org ${stamp}`;
+    const org = await createOrgWorkspace(orgName);
+    await addMemberByEmail(org.id, email, 'owner');
+
+    // Reload so the layout picks up the new membership. Active workspace
+    // is still the personal one at this point.
+    await page.goto('/');
+    await expect(page.getByTestId('workspace-switcher')).toContainText(
+      'My Workspace',
+    );
+
+    // Open the import URL. Picker should be visible and default to the
+    // active (personal) workspace name.
+    const seriesName = `Imported Into Org ${stamp}`;
+    await page.goto(makeImportUrl(seriesName));
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByTestId('import-target-workspace')).toBeVisible();
+    await expect(page.getByTestId('import-target-workspace')).toContainText(
+      'My Workspace',
+    );
+
+    // Pick the org workspace and confirm the import.
+    await page.getByTestId('import-target-workspace').click();
+    await page.getByRole('option').filter({ hasText: orgName }).click();
+    await page.getByRole('button', { name: 'Open series' }).click();
+
+    // Landed on the new series' standings page.
+    await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/standings$/);
+    await expect(page.getByText('Alice')).toBeVisible();
+    // Header switcher reflects the flipped active workspace.
+    await expect(page.getByTestId('workspace-switcher')).toContainText(orgName);
+
+    // Series listing in the org workspace shows the import.
+    await page.goto('/');
+    await expect(page.getByText(seriesName)).toBeVisible();
+
+    // Series listing in the personal workspace does not. Switch via the
+    // header dropdown — the personal workspace's id isn't exposed here,
+    // but the menu is the production path anyway.
+    await page.getByTestId('workspace-switcher').click();
+    await page
+      .getByRole('menuitem')
+      .filter({ hasText: 'My Workspace' })
+      .click();
+    await page.waitForURL(/\/$/);
+    await expect(page.getByText(seriesName)).not.toBeVisible();
+  });
+
+  test('no picker for a single-workspace signed-in user', async ({ page }) => {
+    await signInFreshUser(page, `import-single-${Date.now()}`);
+    await page.goto(makeImportUrl(`Single Workspace Import ${Date.now()}`));
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(
+      page.getByTestId('import-target-workspace'),
+    ).not.toBeVisible();
   });
 });
