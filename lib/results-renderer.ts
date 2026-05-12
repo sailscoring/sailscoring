@@ -268,7 +268,7 @@ ${renderSummaryTable(standings, races, hasDiscards, showBoatName, showBoatClass,
 ${races.map((race) => renderRaceTable(race, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, primaryHeader)).join('\n')}
 <p class="hardleft"></p>
 <p class="hardright"></p>
-<p>Sail Scoring &mdash; <a href="https://sailscoring.ie">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}">Open in Sail Scoring</a>` : ''}</p>
+<p>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
 </body>

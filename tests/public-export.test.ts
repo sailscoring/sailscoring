@@ -43,6 +43,13 @@ describe('renderSeriesHtml with openInAppUrl', () => {
     expect(html).toContain(`href="${appUrl}"`);
   });
 
+  it('breaks out of any host iframe via target="_top"', () => {
+    // bilge-published results are embedded in iframes on club sites (e.g.
+    // hyc.ie/results). Without target="_top" the app would load inside the
+    // iframe and the auth cookie would be treated as third-party. See #134.
+    expect(html).toMatch(/href="https:\/\/app\.sailscoring\.ie\/import#data=abc123"[^>]*target="_top"[^>]*rel="noopener"[^>]*>Open in Sail Scoring/);
+  });
+
   it('does not show the Download results (JSON) link', () => {
     expect(html).not.toContain('Download results (JSON)');
     expect(html).not.toContain('_ssDownload');
