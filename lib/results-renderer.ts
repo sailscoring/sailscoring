@@ -268,7 +268,10 @@ ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : ''}
 ${hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : ''}
 ${renderSummaryTable(standings, races, hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, primaryHeader)}
-${races.map((race) => renderRaceTable(race, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, primaryHeader)).join('\n')}
+${races
+  .filter((race) => race.results.length > 0)
+  .map((race) => renderRaceTable(race, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, primaryHeader))
+  .join('\n')}
 <p class="hardleft"></p>
 <p class="hardright"></p>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}</p>
@@ -406,8 +409,10 @@ function renderSummaryTable(
     `<th>${esc(showCrewName ? `${primaryHeader} / Crew` : primaryHeader)}</th>`,
     ...(showHelm ? ['<th>Helm</th>'] : []),
     ...(showOwner ? ['<th>Owner</th>'] : []),
-    ...races.map(
-      (r) => `<th><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a></th>`,
+    ...races.map((r) =>
+      r.results.length > 0
+        ? `<th><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a></th>`
+        : `<th>${esc(r.label)}</th>`,
     ),
     '<th>Total</th>',
     ...(hasDiscards ? ['<th>Nett</th>'] : []),

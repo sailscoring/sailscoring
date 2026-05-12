@@ -122,25 +122,33 @@ export async function buildFleetHtmlFiles(
         const fleetCompetitors = competitors.filter((c) => fleetCompetitorIds.has(c.id));
         const raceStart = raceStartByRaceId.get(race.id);
 
+        // Per-race tables list only competitors with an explicit Finish row
+        // for this race; implicit DNCs (no Finish row) still appear in the
+        // summary table via standings but not in the individual race table.
+        // See #130.
+        const hasExplicitFinish = (id: string) => finishByCompetitorId.has(id);
+
         if (isNhc && nhcRaceScoresByRaceId) {
           // NHC: scores already computed by calculateFleetStandings (with running TCF map)
           const nhcScores = nhcRaceScoresByRaceId.get(race.id);
           const scoreMap = new Map<string, RaceScoreCellForRender>(
-            [...(nhcScores ?? new Map()).entries()].map(([id, s]) => [
-              id,
-              {
-                points: s.points,
-                place: s.place,
-                rank: s.rank,
-                resultCode: s.resultCode,
-                penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
-                penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
-                finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
-                tcfApplied: s.tcfApplied,
-                newTcf: s.newTcf,
-                ...(s.nhc ? { nhc: s.nhc } : {}),
-              },
-            ]),
+            [...(nhcScores ?? new Map()).entries()]
+              .filter(([id]) => hasExplicitFinish(id))
+              .map(([id, s]) => [
+                id,
+                {
+                  points: s.points,
+                  place: s.place,
+                  rank: s.rank,
+                  resultCode: s.resultCode,
+                  penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
+                  penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
+                  finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                  tcfApplied: s.tcfApplied,
+                  newTcf: s.newTcf,
+                  ...(s.nhc ? { nhc: s.nhc } : {}),
+                },
+              ]),
           );
           return [race.id, scoreMap] as const;
         }
@@ -149,21 +157,23 @@ export async function buildFleetHtmlFiles(
           // ECHO: scores already computed by calculateFleetStandings.
           const echoScores = echoRaceScoresByRaceId.get(race.id);
           const scoreMap = new Map<string, RaceScoreCellForRender>(
-            [...(echoScores ?? new Map()).entries()].map(([id, s]) => [
-              id,
-              {
-                points: s.points,
-                place: s.place,
-                rank: s.rank,
-                resultCode: s.resultCode,
-                penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
-                penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
-                finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
-                tcfApplied: s.tcfApplied,
-                newTcf: s.newTcf,
-                ...(s.echo ? { echo: s.echo } : {}),
-              },
-            ]),
+            [...(echoScores ?? new Map()).entries()]
+              .filter(([id]) => hasExplicitFinish(id))
+              .map(([id, s]) => [
+                id,
+                {
+                  points: s.points,
+                  place: s.place,
+                  rank: s.rank,
+                  resultCode: s.resultCode,
+                  penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
+                  penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
+                  finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                  tcfApplied: s.tcfApplied,
+                  newTcf: s.newTcf,
+                  ...(s.echo ? { echo: s.echo } : {}),
+                },
+              ]),
           );
           return [race.id, scoreMap] as const;
         }
@@ -183,18 +193,20 @@ export async function buildFleetHtmlFiles(
           scores = calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries');
         }
         const scoreMap = new Map<string, RaceScoreCellForRender>(
-          [...scores.entries()].map(([id, s]) => [
-            id,
-            {
-              points: s.points,
-              place: s.place,
-              rank: s.rank,
-              resultCode: s.resultCode,
-              penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
-              penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
-              finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
-            },
-          ]),
+          [...scores.entries()]
+            .filter(([id]) => hasExplicitFinish(id))
+            .map(([id, s]) => [
+              id,
+              {
+                points: s.points,
+                place: s.place,
+                rank: s.rank,
+                resultCode: s.resultCode,
+                penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
+                penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
+                finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+              },
+            ]),
         );
         return [race.id, scoreMap] as const;
       }),

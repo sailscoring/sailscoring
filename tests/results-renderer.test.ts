@@ -310,6 +310,92 @@ describe('renderSeriesHtml', () => {
   });
 });
 
+// ---- Per-race table excludes implicit DNCs (#130) ----
+
+describe('renderSeriesHtml per-race table (#130)', () => {
+  // Extract the body of the racetable for race N — used to assert that an
+  // implicit DNC competitor is absent from the per-race rows even when their
+  // sail number appears elsewhere (e.g. summary table).
+  function raceTableBody(html: string, anchorId: string): string {
+    const idx = html.indexOf(`id="${anchorId}"`);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    const after = html.slice(idx);
+    const tableStart = after.indexOf('<table class="racetable"');
+    const tableEnd = after.indexOf('</table>', tableStart);
+    return after.slice(tableStart, tableEnd);
+  }
+
+  it('keeps explicit non-finisher codes in the per-race table', () => {
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: [],
+      races: [makeRace(1, [['1', 'A', 1, null], ['2', 'B', 5, 'DNC']])],
+      standings: [
+        makeStanding(1, '1', 'A', [{ points: 1, podiumRank: 1 }]),
+        makeStanding(2, '2', 'B', [{ points: 5, resultCode: 'DNC' }]),
+      ],
+    };
+    const html = renderSeriesHtml(data);
+    const body = raceTableBody(html, 'r1');
+    expect(body).toContain('>1<');
+    expect(body).toContain('>2<');
+    expect(body).toContain('5 DNC');
+  });
+
+  it('omits implicit DNCs (absent from RaceData.results) from the per-race table while the summary table still shows them', () => {
+    // The caller (lib/results-export.ts) filters its score map down to
+    // competitors with an explicit Finish row before assembly, so an implicit
+    // DNC never appears in race.results — only as a DNC cell in standings.
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: [],
+      races: [makeRace(1, [['1', 'A', 1, null]])],
+      standings: [
+        makeStanding(1, '1', 'A', [{ points: 1, podiumRank: 1 }]),
+        makeStanding(2, '99', 'Ghost', [{ points: 3, resultCode: 'DNC' }]),
+      ],
+    };
+    const html = renderSeriesHtml(data);
+    // Implicit DNC competitor visible in the summary
+    expect(html).toContain('Ghost');
+    expect(html).toContain('3 DNC');
+    // …but not in the per-race table
+    const body = raceTableBody(html, 'r1');
+    expect(body).not.toContain('Ghost');
+    expect(body).not.toContain('>99<');
+  });
+
+  it('omits the race section entirely when no competitor has an explicit Finish for that race', () => {
+    // Race 2 has zero results (every competitor in the series was an implicit
+    // DNC). Per #129 this race is also excluded from scoring; per #130 the
+    // race section should disappear from the HTML.
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: [],
+      races: [
+        makeRace(1, [['1', 'A', 1, null]]),
+        { raceNumber: 2, date: '2025-06-08', label: 'R2', anchorId: 'r2', results: [] },
+      ],
+      standings: [
+        makeStanding(1, '1', 'A', [
+          { points: 1, podiumRank: 1 },
+          { points: 3, resultCode: 'DNC' },
+        ]),
+      ],
+    };
+    const html = renderSeriesHtml(data);
+    // R1 still renders normally with anchor + table
+    expect(html).toContain('id="r1"');
+    expect(html).toContain('<a class="racelink" href="#r1">R1</a>');
+    // R2 has no detail section: no anchor heading, no race table
+    expect(html).not.toContain('id="r2"');
+    expect(html).not.toMatch(/<h3 class="racetitle"[^>]*>R2/);
+    // Summary header for R2 is plain text, not an anchor link
+    expect(html).not.toContain('href="#r2"');
+    expect(html).toContain('<th>R2</th>');
+  });
+});
+
 // ---- assembleSeriesResultsData ----
 
 describe('assembleSeriesResultsData', () => {
