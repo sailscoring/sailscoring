@@ -106,7 +106,7 @@ function StandingRow({
   showCrew,
   showClub,
 }: StandingRowProps) {
-  const { rank, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable } = standing;
+  const { rank, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded } = standing;
 
   // Highlight rank 1 row
   const isFirst = rank === 1;
@@ -133,6 +133,7 @@ function StandingRow({
       {racePoints.map((points, i) => {
         const isDiscard = raceDiscards[i] ?? false;
         const isNonDiscardable = raceNonDiscardable[i] ?? false;
+        const isExcluded = raceExcluded?.[i] ?? false;
         const code = raceCodes[i];
         const penaltyCode = racePenaltyCodes?.[i] ?? null;
         const penaltyOverride = racePenaltyOverrides?.[i] ?? null;
@@ -144,6 +145,17 @@ function StandingRow({
               : `${penaltyCode}(${penaltyOverride}%)`
             : penaltyCode
           : null;
+        if (isExcluded) {
+          return (
+            <TableCell
+              key={i}
+              className="text-center text-muted-foreground"
+              title="No finishers in this race — excluded from scoring"
+            >
+              —
+            </TableCell>
+          );
+        }
         return (
           <TableCell
             key={i}

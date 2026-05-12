@@ -354,6 +354,7 @@ export interface Standing {
   raceDiscards: boolean[];               // true = this race is discarded from series total
   raceNonDiscardable: boolean[];         // true = this code cannot be excluded by discard rules (DNE, BFD)
   raceRedressFlags: boolean[];           // true = this race score was calculated via RDG (A9 average)
+  raceExcluded: boolean[];               // true = nobody finished this race; it scores 0 and does not count toward discards
 }
 
 export type ScoringRejectionReason = 'no_rating' | 'no_starting_tcf';

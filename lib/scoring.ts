@@ -801,6 +801,7 @@ export function calculateStandings(
         netPoints: 0,
         raceDiscards: [],
         raceNonDiscardable: [],
+        raceExcluded: [],
       })),
       circularRedressRaces: [],
     };
@@ -833,17 +834,25 @@ export function calculateStandings(
   // All RDG assignments: { competitorId, raceIdx, finish }
   const rdgAssignments: Array<{ competitorId: string; raceIdx: number; finish: Finish }> = [];
 
+  // Races with no finishers (every entry is a non-finish code, or no entries
+  // at all) are excluded from scoring per issue #129: they score 0 for every
+  // competitor, do not count toward the discard threshold, and are not
+  // available in the RDG pool.
+  const raceExcluded = new Array<boolean>(races.length).fill(false);
+
   for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
     const race = races[raceIdx];
     const raceFinishes = (finishesByRace.get(race.id) ?? []).filter((f) => f.competitorId !== null && competitorIds.has(f.competitorId));
     const raceFinishMap = new Map(raceFinishes.map((f) => [f.competitorId!, f]));
     const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
+    const hasFinisher = [...scores.values()].some((s) => s.place !== null);
+    raceExcluded[raceIdx] = !hasFinisher;
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
-      const points = score?.points ?? competitors.length + 1;
+      const rawPoints = score?.points ?? competitors.length + 1;
       const code = score ? score.resultCode : 'DNC';
       const finish = raceFinishMap.get(competitor.id);
-      competitorRacePoints.get(competitor.id)!.push(points);
+      competitorRacePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : rawPoints);
       competitorRaceCodes.get(competitor.id)!.push(code);
       competitorRacePenaltyCodes.get(competitor.id)!.push(finish?.penaltyCode ?? null);
       competitorRacePenaltyOverrides.get(competitor.id)!.push(finish?.penaltyOverride ?? null);
@@ -921,6 +930,10 @@ export function calculateStandings(
         }
       }
 
+      // Excluded races (no finishers) are not in the RDG pool — they aren't
+      // a "race sailed" for averaging purposes.
+      poolIndices = poolIndices.filter((i) => !raceExcluded[i]);
+
       const poolPoints = poolIndices.map((i) => allPoints[i]);
       if (poolPoints.length === 0) {
         redressScore = competitors.length + 1; // empty pool → DNF score
@@ -935,9 +948,11 @@ export function calculateStandings(
     // resultCode 'RDG' is already in competitorRaceCodes from the first pass
   }
 
+  // Discard threshold counts only races that actually happened (per issue #129).
+  const sailedRaceCount = raceExcluded.filter((x) => !x).length;
   const discardCount = Math.min(
-    getDiscardCount(races.length, discardThresholds),
-    races.length,
+    getDiscardCount(sailedRaceCount, discardThresholds),
+    sailedRaceCount,
   );
 
   // Build initial standings with discard info
@@ -956,12 +971,13 @@ export function calculateStandings(
       return def ? !def.discardable : false;
     });
 
-    // Select worst N discardable scores to discard; non-discardable races are skipped.
+    // Select worst N discardable scores to discard. Excluded races (no
+    // finishers) and codes that protect against discard are skipped.
     const raceDiscards = new Array<boolean>(racePoints.length).fill(false);
     if (discardCount > 0) {
       const discardable = racePoints
         .map((p, i) => ({ p, i }))
-        .filter(({ i }) => !raceNonDiscardable[i]);
+        .filter(({ i }) => !raceNonDiscardable[i] && !raceExcluded[i]);
       discardable.sort((a, b) => b.p - a.p || a.i - b.i);
       const effectiveCount = Math.min(discardCount, discardable.length);
       for (let d = 0; d < effectiveCount; d++) {
@@ -974,7 +990,7 @@ export function calculateStandings(
       0,
     );
 
-    return { rank: 0, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable };
+    return { rank: 0, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded] };
   });
 
   // Sort: lowest net points wins, tie-break per RRS A8.2 (uses all race points)
@@ -1073,6 +1089,7 @@ function calculateHandicapStandings(
         netPoints: 0,
         raceDiscards: [],
         raceNonDiscardable: [],
+        raceExcluded: [],
       })),
       rejections: allRejections,
       ...(isNhc ? { nhcRaceScoresByRaceId: new Map(), nhcAggregatesByRaceId: new Map() } : {}),
@@ -1120,11 +1137,17 @@ function calculateHandicapStandings(
     competitorRaceRedressFlags.set(competitor.id, []);
   }
 
-  for (const race of races) {
+  // Races with no finishers (every entry is a non-finish code, or no entries
+  // at all) are excluded from scoring per issue #129: 0 points for everyone
+  // and they do not count toward the discard threshold.
+  const raceExcluded = new Array<boolean>(races.length).fill(false);
+
+  for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
+    const race = races[raceIdx];
     const raceFinishes = finishesByRace.get(race.id) ?? [];
     const raceStart = startsByRaceId.get(race.id);
 
-    let scores: Map<string, { points: number; resultCode: ResultCode | null }>;
+    let scores: Map<string, { points: number; place: number | null; resultCode: ResultCode | null }>;
     if (raceStart) {
       // Phase A — race scoring (applies to both static and progressive fleets)
       const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, appliedTcfMap, dnfScoring);
@@ -1182,13 +1205,17 @@ function calculateHandicapStandings(
     } else {
       // No start recorded yet — fall back to scratch scoring
       const scratchScores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
-      scores = new Map([...scratchScores.entries()].map(([id, s]) => [id, { points: s.points, resultCode: s.resultCode }]));
+      scores = new Map([...scratchScores.entries()].map(([id, s]) => [id, { points: s.points, place: s.place, resultCode: s.resultCode }]));
     }
+
+    const hasFinisher = [...scores.values()].some((s) => s.place !== null);
+    raceExcluded[raceIdx] = !hasFinisher;
 
     for (const competitor of competitors) {
       if (rejectedIds.has(competitor.id)) continue; // excluded from scoring
       const score = scores.get(competitor.id);
-      competitorRacePoints.get(competitor.id)!.push(score?.points ?? competitors.length + 1);
+      const rawPoints = score?.points ?? competitors.length + 1;
+      competitorRacePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : rawPoints);
       competitorRaceCodes.get(competitor.id)!.push(score !== undefined ? score.resultCode : 'DNC');
       competitorRacePenaltyCodes.get(competitor.id)!.push(null);
       competitorRacePenaltyOverrides.get(competitor.id)!.push(null);
@@ -1196,9 +1223,11 @@ function calculateHandicapStandings(
     }
   }
 
+  // Discard threshold counts only races that actually happened (per issue #129).
+  const sailedRaceCount = raceExcluded.filter((x) => !x).length;
   const discardCount = Math.min(
-    getDiscardCount(races.length, discardThresholds),
-    races.length,
+    getDiscardCount(sailedRaceCount, discardThresholds),
+    sailedRaceCount,
   );
 
   const standings: Standing[] = ratedCompetitors.map((competitor) => {
@@ -1217,10 +1246,11 @@ function calculateHandicapStandings(
     let netPoints = totalPoints;
     const raceDiscards = racePoints.map(() => false);
     if (discardCount > 0) {
-      // Discard worst non-protected scores
+      // Discard worst non-protected scores; excluded races (no finishers) are
+      // ineligible.
       const indexed = racePoints
         .map((p, i) => ({ p, i }))
-        .filter(({ i }) => !raceNonDiscardable[i])
+        .filter(({ i }) => !raceNonDiscardable[i] && !raceExcluded[i])
         .sort((a, b) => b.p - a.p);
       const toDiscard = indexed.slice(0, discardCount);
       for (const { i } of toDiscard) {
@@ -1241,6 +1271,7 @@ function calculateHandicapStandings(
       netPoints,
       raceDiscards,
       raceNonDiscardable,
+      raceExcluded: [...raceExcluded],
     };
   });
 

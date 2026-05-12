@@ -61,6 +61,9 @@ describe('scoring fixtures', () => {
           if (expected.raceNonDiscardable !== undefined) {
             expect(standing.raceNonDiscardable, `${label}: raceNonDiscardable`).toEqual(expected.raceNonDiscardable);
           }
+          if (expected.raceExcluded !== undefined) {
+            expect(standing.raceExcluded, `${label}: raceExcluded`).toEqual(expected.raceExcluded);
+          }
           if (expected.racePenaltyCodes !== undefined) {
             expect(standing.racePenaltyCodes, `${label}: racePenaltyCodes`).toEqual(expected.racePenaltyCodes);
           }

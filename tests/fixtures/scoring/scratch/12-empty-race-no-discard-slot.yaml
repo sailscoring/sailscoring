@@ -1,0 +1,108 @@
+description: "Scratch — all-DNC race does not consume a discard slot (issue #129)"
+rrs_notes: >
+  Issue #129: an all-DNC race must not count toward the discard threshold.
+
+  5 scheduled races, but race 3 is all-DNC. The discard threshold says
+  "1 discard at 5 races sailed". Because only 4 races were actually sailed,
+  the threshold does not fire — no discards.
+
+  Without the fix this fixture would have triggered a discard (race count
+  = 5 ≥ threshold) and every boat would have discarded the all-DNC penalty
+  (6 pts), which is exactly the bug the issue calls out.
+
+  Also covers the edge case from issue #129 open questions: race 5 has a
+  single finisher and the rest DNC — this is *not* an empty race, it scores
+  normally (the single finisher gets 1 pt, others get 6 pts DNC).
+
+series:
+  discardThresholds:
+    - minRaces: 5
+      discardCount: 1
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+
+  - number: 2
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+
+  # Race 3: abandoned, all DNC → excluded from scoring.
+  - number: 3
+    finishes:
+      - sailor: "101"
+        code: DNC
+      - sailor: "202"
+        code: DNC
+      - sailor: "303"
+        code: DNC
+
+  - number: 4
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+
+  # Race 5: only Alice finishes — this *is* a valid race (one finisher),
+  # so it scores normally. Bob and Carol get DNC = N+1 = 4 pts each.
+  - number: 5
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        code: DNC
+      - sailor: "303"
+        code: DNC
+
+# 4 sailed races (race 3 excluded). Threshold "5 races → 1 discard" doesn't
+# fire because sailedRaceCount = 4. No discards. Excluded race contributes 0.
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 1, 0, 1, 1]
+      raceCodes: [null, null, "DNC", null, null]
+      raceDiscards: [false, false, false, false, false]
+      raceExcluded: [false, false, true, false, false]
+      totalPoints: 4
+      netPoints: 4
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [2, 2, 0, 2, 4]
+      raceCodes: [null, null, "DNC", null, "DNC"]
+      raceDiscards: [false, false, false, false, false]
+      raceExcluded: [false, false, true, false, false]
+      totalPoints: 10
+      netPoints: 10
+
+    - rank: 3
+      sailor: "303"
+      racePoints: [3, 3, 0, 3, 4]
+      raceCodes: [null, null, "DNC", null, "DNC"]
+      raceDiscards: [false, false, false, false, false]
+      raceExcluded: [false, false, true, false, false]
+      totalPoints: 13
+      netPoints: 13

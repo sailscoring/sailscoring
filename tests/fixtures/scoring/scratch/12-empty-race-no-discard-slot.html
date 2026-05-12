@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="description" content="sail scoring results">
 <meta name="viewport" content="width=device-width">
-<title>Results for Two fleets (Junior 3, Senior 2) — penalty points and finish ranks are fleet-scoped — Junior</title>
+<title>Results for Scratch — all-DNC race does not consume a discard slot (issue #129)</title>
 <style type="text/css">
 body {font: 100% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
@@ -32,7 +32,7 @@ td.excluded { color: #888; text-align: center; }
 <tr>
 <td width="30%"></td>
 <td width="40%" align="center">
-<h1>Two fleets (Junior 3, Senior 2) — penalty points and finish ranks are fleet-scoped</h1>
+<h1>Scratch — all-DNC race does not consume a discard slot (issue #129)</h1>
 
 </td>
 <td width="30%"></td>
@@ -41,31 +41,29 @@ td.excluded { color: #888; text-align: center; }
 </table>
 <div style="clear:both;"></div>
 <div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
-<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A5.3: penalty = N+1 where N is the number of boats in the fleet, not the total entries across all fleets. With 3 Juniors, Junior DNC = 4. With 2 Seniors, Senior DNC = 3.
-Finish points equal the boat's within-fleet rank, not its absolute cross-fleet position. A boat finishing 4th overall but 1st in its fleet scores 1 point.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">All 5 finish cleanly. Positions are cross-fleet absolute finish order.
-    J3 DNC → 4 points (Junior N+1 = 3+1 = 4, not 6 = total N+1)
-    S2 absent → implicit DNC → 3 points (Senior N+1 = 2+1 = 3, not 6 = total N+1)
-      S2 has no entry — implicit DNC
-Junior standings (N=3, DNC = 4):
-  J1:  rank1 + rank1 = 2
-  J2:  rank2 + rank2 = 4
-  J3:  rank3 + DNC(4) = 7  ← DNC scores 4, not 6 (total fleet would be 5+1=6)
-
-Senior standings (N=2, DNC = 3):
-  S1:  rank1(pos4) + rank1(pos3) = 2  ← 4th overall but 1st in fleet → 1 pt each race
-  S2:  rank2(pos5) + DNC(3) = 5  ← implicit DNC scores 3, not 6</pre>
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">Issue #129: an all-DNC race must not count toward the discard threshold.
+5 scheduled races, but race 3 is all-DNC. The discard threshold says &quot;1 discard at 5 races sailed&quot;. Because only 4 races were actually sailed, the threshold does not fire — no discards.
+Without the fix this fixture would have triggered a discard (race count = 5 ≥ threshold) and every boat would have discarded the all-DNC penalty (6 pts), which is exactly the bug the issue calls out.
+Also covers the edge case from issue #129 open questions: race 5 has a single finisher and the rest DNC — this is *not* an empty race, it scores normally (the single finisher gets 1 pt, others get 6 pts DNC).</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> 1 discard from race 5. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Race 3: abandoned, all DNC → excluded from scoring.
+  Race 5: only Alice finishes — this *is* a valid race (one finisher),
+  so it scores normally. Bob and Carol get DNC = N+1 = 4 pts each.
+4 sailed races (race 3 excluded). Threshold &quot;5 races → 1 discard&quot; doesn't
+fire because sailedRaceCount = 4. No discards. Excluded race contributes 0.</pre>
 </div>
 <style>div.applicant-break {page-break-after:always;}</style>
 
-<h2>Junior</h2>
+
 
 
 <table class="summarytable" cellspacing="0" cellpadding="0" border="0">
-<colgroup span="7">
+<colgroup span="10">
 <col class="rank" />
 <col class="sailno" />
 <col class="boatname" />
 <col class="helmname" />
+<col class="race" />
+<col class="race" />
+<col class="race" />
 <col class="race" />
 <col class="race" />
 <col class="total" />
@@ -78,36 +76,48 @@ Senior standings (N=2, DNC = 3):
 <th>Competitor</th>
 <th><a class="racelink" href="#r1">R1</a></th>
 <th><a class="racelink" href="#r2">R2</a></th>
+<th><a class="racelink" href="#r3">R3</a></th>
+<th><a class="racelink" href="#r4">R4</a></th>
+<th><a class="racelink" href="#r5">R5</a></th>
 <th>Total</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd summaryrow">
 <td>1st</td>
-<td>J1</td>
+<td>101</td>
 <td></td>
-<td>Alice Junior</td>
+<td>Alice</td>
 <td class="rank1">1</td>
 <td class="rank1">1</td>
-<td>2</td>
+<td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
+<td class="rank1">1</td>
+<td class="rank1">1</td>
+<td>4</td>
 </tr>
 <tr class="even summaryrow">
 <td>2nd</td>
-<td>J2</td>
+<td>202</td>
 <td></td>
-<td>Bob Junior</td>
+<td>Bob</td>
 <td class="rank2">2</td>
 <td class="rank2">2</td>
-<td>4</td>
+<td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
+<td class="rank2">2</td>
+<td>4 DNC</td>
+<td>10</td>
 </tr>
 <tr class="odd summaryrow">
 <td>3rd</td>
-<td>J3</td>
+<td>303</td>
 <td></td>
-<td>Carol Junior</td>
+<td>Carol</td>
+<td class="rank3">3</td>
+<td class="rank3">3</td>
+<td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
 <td class="rank3">3</td>
 <td>4 DNC</td>
-<td>7</td>
+<td>13</td>
 </tr>
 </tbody>
 </table>
@@ -133,23 +143,23 @@ Senior standings (N=2, DNC = 3):
 <tbody>
 <tr class="odd racerow">
 <td>1</td>
-<td>J1</td>
+<td>101</td>
 <td></td>
-<td>Alice Junior</td>
+<td>Alice</td>
 <td>1</td>
 </tr>
 <tr class="even racerow">
 <td>2</td>
-<td>J2</td>
+<td>202</td>
 <td></td>
-<td>Bob Junior</td>
+<td>Bob</td>
 <td>2</td>
 </tr>
 <tr class="odd racerow">
 <td>3</td>
-<td>J3</td>
+<td>303</td>
 <td></td>
-<td>Carol Junior</td>
+<td>Carol</td>
 <td>3</td>
 </tr>
 </tbody>
@@ -176,74 +186,71 @@ Senior standings (N=2, DNC = 3):
 <tbody>
 <tr class="odd racerow">
 <td>1</td>
-<td>J1</td>
+<td>101</td>
 <td></td>
-<td>Alice Junior</td>
+<td>Alice</td>
 <td>1</td>
 </tr>
 <tr class="even racerow">
 <td>2</td>
-<td>J2</td>
+<td>202</td>
 <td></td>
-<td>Bob Junior</td>
+<td>Bob</td>
 <td>2</td>
 </tr>
 <tr class="odd racerow">
+<td>3</td>
+<td>303</td>
 <td></td>
-<td>J3</td>
+<td>Carol</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r3">R3&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="boatname" />
+<col class="helmname" />
+
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Boat</th>
+<th>Competitor</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
 <td></td>
-<td>Carol Junior</td>
+<td>101</td>
+<td></td>
+<td>Alice</td>
+<td>4 DNC</td>
+</tr>
+<tr class="even racerow">
+<td></td>
+<td>202</td>
+<td></td>
+<td>Bob</td>
+<td>4 DNC</td>
+</tr>
+<tr class="odd racerow">
+<td></td>
+<td>303</td>
+<td></td>
+<td>Carol</td>
 <td>4 DNC</td>
 </tr>
 </tbody>
 </table>
-
-<h2>Senior</h2>
-
-
-<table class="summarytable" cellspacing="0" cellpadding="0" border="0">
-<colgroup span="7">
-<col class="rank" />
-<col class="sailno" />
-<col class="boatname" />
-<col class="helmname" />
-<col class="race" />
-<col class="race" />
-<col class="total" />
-</colgroup>
-<thead>
-<tr class="titlerow">
-<th>Rank</th>
-<th>Sail</th>
-<th>Boat</th>
-<th>Competitor</th>
-<th><a class="racelink" href="#r1">R1</a></th>
-<th><a class="racelink" href="#r2">R2</a></th>
-<th>Total</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd summaryrow">
-<td>1st</td>
-<td>S1</td>
-<td></td>
-<td>Dave Senior</td>
-<td class="rank1">1</td>
-<td class="rank1">1</td>
-<td>2</td>
-</tr>
-<tr class="even summaryrow">
-<td>2nd</td>
-<td>S2</td>
-<td></td>
-<td>Eve Senior</td>
-<td class="rank2">2</td>
-<td>3 DNC</td>
-<td>5</td>
-</tr>
-</tbody>
-</table>
-<h3 class="racetitle" id="r1">R1&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<h3 class="racetitle" id="r4">R4&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
 <table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="5">
 <col class="rank" />
@@ -265,21 +272,28 @@ Senior standings (N=2, DNC = 3):
 <tbody>
 <tr class="odd racerow">
 <td>1</td>
-<td>S1</td>
+<td>101</td>
 <td></td>
-<td>Dave Senior</td>
+<td>Alice</td>
 <td>1</td>
 </tr>
 <tr class="even racerow">
 <td>2</td>
-<td>S2</td>
+<td>202</td>
 <td></td>
-<td>Eve Senior</td>
+<td>Bob</td>
 <td>2</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>303</td>
+<td></td>
+<td>Carol</td>
+<td>3</td>
 </tr>
 </tbody>
 </table>
-<h3 class="racetitle" id="r2">R2&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<h3 class="racetitle" id="r5">R5&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
 <table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="5">
 <col class="rank" />
@@ -301,21 +315,27 @@ Senior standings (N=2, DNC = 3):
 <tbody>
 <tr class="odd racerow">
 <td>1</td>
-<td>S1</td>
+<td>101</td>
 <td></td>
-<td>Dave Senior</td>
+<td>Alice</td>
 <td>1</td>
 </tr>
 <tr class="even racerow">
 <td></td>
-<td>S2</td>
+<td>202</td>
 <td></td>
-<td>Eve Senior</td>
-<td>3 DNC</td>
+<td>Bob</td>
+<td>4 DNC</td>
+</tr>
+<tr class="odd racerow">
+<td></td>
+<td>303</td>
+<td></td>
+<td>Carol</td>
+<td>4 DNC</td>
 </tr>
 </tbody>
 </table>
-
 <p class="hardleft"></p>
 <p class="hardright"></p>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a></p>

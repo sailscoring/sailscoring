@@ -1,0 +1,134 @@
+description: "Scratch — race with no finishers (all DNC) is excluded from scoring"
+rrs_notes: >
+  Issue #129: a race where every entry resolves to a non-finish code (here
+  DNC for every competitor) must not count toward standings. It contributes
+  0 points to each boat, does not count toward the discard threshold, and
+  does not consume a discard slot.
+
+  Without exclusion: race 3 would score every boat at N+1=6 pts (DNC). With
+  a 1-discard threshold at 5 races, the discarded slot would be the all-DNC
+  race for every boat (since 6 is the worst score), masking the bug. To
+  surface the effect this fixture uses a 4-race series (under the 5-race
+  threshold) so no discard applies — the all-DNC race must instead be
+  excluded outright.
+
+series:
+  discardThresholds:
+    - minRaces: 5
+      discardCount: 1
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+  - sailNumber: "505"
+    name: "Eve"
+
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+      - sailor: "505"
+        position: 5
+
+  - number: 2
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+      - sailor: "505"
+        position: 5
+
+  # Race 3 is abandoned — every competitor is recorded DNC. The race is
+  # excluded from scoring (0 points for everyone, not a "race sailed").
+  - number: 3
+    finishes:
+      - sailor: "101"
+        code: DNC
+      - sailor: "202"
+        code: DNC
+      - sailor: "303"
+        code: DNC
+      - sailor: "404"
+        code: DNC
+      - sailor: "505"
+        code: DNC
+
+  - number: 4
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+      - sailor: "505"
+        position: 5
+
+# Race 3 is excluded → contributes 0 to every total. Discards: 4 sailed races
+# is below the 5-race threshold, so no discards apply.
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 1, 0, 1]
+      raceCodes: [null, null, "DNC", null]
+      raceDiscards: [false, false, false, false]
+      raceExcluded: [false, false, true, false]
+      totalPoints: 3
+      netPoints: 3
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [2, 2, 0, 2]
+      raceCodes: [null, null, "DNC", null]
+      raceDiscards: [false, false, false, false]
+      raceExcluded: [false, false, true, false]
+      totalPoints: 6
+      netPoints: 6
+
+    - rank: 3
+      sailor: "303"
+      racePoints: [3, 3, 0, 3]
+      raceCodes: [null, null, "DNC", null]
+      raceDiscards: [false, false, false, false]
+      raceExcluded: [false, false, true, false]
+      totalPoints: 9
+      netPoints: 9
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 4, 0, 4]
+      raceCodes: [null, null, "DNC", null]
+      raceDiscards: [false, false, false, false]
+      raceExcluded: [false, false, true, false]
+      totalPoints: 12
+      netPoints: 12
+
+    - rank: 5
+      sailor: "505"
+      racePoints: [5, 5, 0, 5]
+      raceCodes: [null, null, "DNC", null]
+      raceDiscards: [false, false, false, false]
+      raceExcluded: [false, false, true, false]
+      totalPoints: 15
+      netPoints: 15

@@ -144,6 +144,7 @@ export interface PublicSeriesExport {
       racePenaltyOverrides: (number | null)[];
       raceNonDiscardable: boolean[];
       raceRedressFlags: boolean[];
+      raceExcluded: boolean[];
       totalPoints: number;
       netPoints: number;
     }[];
@@ -420,6 +421,7 @@ export async function buildPublicExport(
       racePenaltyOverrides: s.racePenaltyOverrides,
       raceNonDiscardable: s.raceNonDiscardable,
       raceRedressFlags: s.raceRedressFlags,
+      raceExcluded: s.raceExcluded,
       totalPoints: s.totalPoints,
       netPoints: s.netPoints,
     })),

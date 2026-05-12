@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="description" content="sail scoring results">
 <meta name="viewport" content="width=device-width">
-<title>Results for Scratch — A5.3 starting-area scoring with start check-in data</title>
+<title>Results for Scratch — race with no finishers (all DNC) is excluded from scoring</title>
 <style type="text/css">
 body {font: 100% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
@@ -32,7 +32,7 @@ td.excluded { color: #888; text-align: center; }
 <tr>
 <td width="30%"></td>
 <td width="40%" align="center">
-<h1>Scratch — A5.3 starting-area scoring with start check-in data</h1>
+<h1>Scratch — race with no finishers (all DNC) is excluded from scoring</h1>
 
 </td>
 <td width="30%"></td>
@@ -41,20 +41,11 @@ td.excluded { color: #888; text-align: center; }
 </table>
 <div style="clear:both;"></div>
 <div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
-<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A5.3 (alternative): DNF, OCS and similar codes score the number of boats that came to the starting area plus one. DNC (did not compete) always scores series entries + 1. Race 2 has only 3 boats checked in to the starting area: starting-area penalty = 4. Series entries = 5: DNC penalty = 6 regardless.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.3 (starting area).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">All 5 boats finish cleanly
-    Only Alice, Bob, Carol come to the starting area (startPresent: true).
-    David and Eve do not appear (implicit DNC).
-    Alice gets DNF, Bob gets OCS, Carol finishes 1st.
-    A5.3: starting-area count = 3 (boats with startPresent=true) → penalty = 4.
-    DNC (David implicit, Eve implicit) still scores series entries + 1 = 6.
-      David (&quot;404&quot;) has no record — implicit DNC, scores 6
-      Eve (&quot;505&quot;) has no record — implicit DNC, scores 6
-Points summary (starting-area penalty = 4, series-entry penalty = 6):
-  Carol:  3 + 1 = 4    (3rd in race 1, 1st in race 2)
-  Alice:  1 + 4 = 5    (1st in race 1, DNF in race 2 — scores starting-area penalty)
-  Bob:    2 + 4 = 6    (2nd in race 1, OCS in race 2 — scores starting-area penalty)
-  David:  4 + 6 = 10   (4th in race 1, implicit DNC in race 2 — scores series-entry penalty)
-  Eve:    5 + 6 = 11   (5th in race 1, implicit DNC in race 2 — scores series-entry penalty)</pre>
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">Issue #129: a race where every entry resolves to a non-finish code (here DNC for every competitor) must not count toward standings. It contributes 0 points to each boat, does not count toward the discard threshold, and does not consume a discard slot.
+Without exclusion: race 3 would score every boat at N+1=6 pts (DNC). With a 1-discard threshold at 5 races, the discarded slot would be the all-DNC race for every boat (since 6 is the worst score), masking the bug. To surface the effect this fixture uses a 4-race series (under the 5-race threshold) so no discard applies — the all-DNC race must instead be excluded outright.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> 1 discard from race 5. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Race 3 is abandoned — every competitor is recorded DNC. The race is
+  excluded from scoring (0 points for everyone, not a &quot;race sailed&quot;).
+Race 3 is excluded → contributes 0 to every total. Discards: 4 sailed races
+is below the 5-race threshold, so no discards apply.</pre>
 </div>
 <style>div.applicant-break {page-break-after:always;}</style>
 
@@ -62,11 +53,13 @@ Points summary (starting-area penalty = 4, series-entry penalty = 6):
 
 
 <table class="summarytable" cellspacing="0" cellpadding="0" border="0">
-<colgroup span="7">
+<colgroup span="9">
 <col class="rank" />
 <col class="sailno" />
 <col class="boatname" />
 <col class="helmname" />
+<col class="race" />
+<col class="race" />
 <col class="race" />
 <col class="race" />
 <col class="total" />
@@ -79,36 +72,44 @@ Points summary (starting-area penalty = 4, series-entry penalty = 6):
 <th>Competitor</th>
 <th><a class="racelink" href="#r1">R1</a></th>
 <th><a class="racelink" href="#r2">R2</a></th>
+<th><a class="racelink" href="#r3">R3</a></th>
+<th><a class="racelink" href="#r4">R4</a></th>
 <th>Total</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd summaryrow">
 <td>1st</td>
-<td>303</td>
-<td></td>
-<td>Carol</td>
-<td class="rank3">3</td>
-<td class="rank1">1</td>
-<td>4</td>
-</tr>
-<tr class="even summaryrow">
-<td>2nd</td>
 <td>101</td>
 <td></td>
 <td>Alice</td>
 <td class="rank1">1</td>
-<td>4 DNF</td>
-<td>5</td>
+<td class="rank1">1</td>
+<td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
+<td class="rank1">1</td>
+<td>3</td>
 </tr>
-<tr class="odd summaryrow">
-<td>3rd</td>
+<tr class="even summaryrow">
+<td>2nd</td>
 <td>202</td>
 <td></td>
 <td>Bob</td>
 <td class="rank2">2</td>
-<td>4 OCS</td>
+<td class="rank2">2</td>
+<td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
+<td class="rank2">2</td>
 <td>6</td>
+</tr>
+<tr class="odd summaryrow">
+<td>3rd</td>
+<td>303</td>
+<td></td>
+<td>Carol</td>
+<td class="rank3">3</td>
+<td class="rank3">3</td>
+<td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
+<td class="rank3">3</td>
+<td>9</td>
 </tr>
 <tr class="even summaryrow">
 <td>4th</td>
@@ -116,8 +117,10 @@ Points summary (starting-area penalty = 4, series-entry penalty = 6):
 <td></td>
 <td>David</td>
 <td>4</td>
-<td>6 DNC</td>
-<td>10</td>
+<td>4</td>
+<td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
+<td>4</td>
+<td>12</td>
 </tr>
 <tr class="odd summaryrow">
 <td>5th</td>
@@ -125,8 +128,10 @@ Points summary (starting-area penalty = 4, series-entry penalty = 6):
 <td></td>
 <td>Eve</td>
 <td>5</td>
-<td>6 DNC</td>
-<td>11</td>
+<td>5</td>
+<td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
+<td>5</td>
+<td>15</td>
 </tr>
 </tbody>
 </table>
@@ -209,24 +214,81 @@ Points summary (starting-area penalty = 4, series-entry penalty = 6):
 <tbody>
 <tr class="odd racerow">
 <td>1</td>
-<td>303</td>
+<td>101</td>
 <td></td>
-<td>Carol</td>
+<td>Alice</td>
 <td>1</td>
 </tr>
 <tr class="even racerow">
+<td>2</td>
+<td>202</td>
+<td></td>
+<td>Bob</td>
+<td>2</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>303</td>
+<td></td>
+<td>Carol</td>
+<td>3</td>
+</tr>
+<tr class="even racerow">
+<td>4</td>
+<td>404</td>
+<td></td>
+<td>David</td>
+<td>4</td>
+</tr>
+<tr class="odd racerow">
+<td>5</td>
+<td>505</td>
+<td></td>
+<td>Eve</td>
+<td>5</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r3">R3&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="boatname" />
+<col class="helmname" />
+
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Boat</th>
+<th>Competitor</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
 <td></td>
 <td>101</td>
 <td></td>
 <td>Alice</td>
-<td>4 DNF</td>
+<td>6 DNC</td>
 </tr>
-<tr class="odd racerow">
+<tr class="even racerow">
 <td></td>
 <td>202</td>
 <td></td>
 <td>Bob</td>
-<td>4 OCS</td>
+<td>6 DNC</td>
+</tr>
+<tr class="odd racerow">
+<td></td>
+<td>303</td>
+<td></td>
+<td>Carol</td>
+<td>6 DNC</td>
 </tr>
 <tr class="even racerow">
 <td></td>
@@ -241,6 +303,63 @@ Points summary (starting-area penalty = 4, series-entry penalty = 6):
 <td></td>
 <td>Eve</td>
 <td>6 DNC</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r4">R4&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="boatname" />
+<col class="helmname" />
+
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail</th>
+<th>Boat</th>
+<th>Competitor</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td>1</td>
+<td>101</td>
+<td></td>
+<td>Alice</td>
+<td>1</td>
+</tr>
+<tr class="even racerow">
+<td>2</td>
+<td>202</td>
+<td></td>
+<td>Bob</td>
+<td>2</td>
+</tr>
+<tr class="odd racerow">
+<td>3</td>
+<td>303</td>
+<td></td>
+<td>Carol</td>
+<td>3</td>
+</tr>
+<tr class="even racerow">
+<td>4</td>
+<td>404</td>
+<td></td>
+<td>David</td>
+<td>4</td>
+</tr>
+<tr class="odd racerow">
+<td>5</td>
+<td>505</td>
+<td></td>
+<td>Eve</td>
+<td>5</td>
 </tr>
 </tbody>
 </table>
