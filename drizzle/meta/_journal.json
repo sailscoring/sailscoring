@@ -64,6 +64,13 @@
       "when": 1778492925917,
       "tag": "0008_pale_korath",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778569118652,
+      "tag": "0009_lazy_reavers",
+      "breakpoints": true
     }
   ]
 }

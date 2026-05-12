@@ -90,6 +90,10 @@ export const series = pgTable(
     // Publishing.
     ftpHost: text('ftp_host').notNull().default(''),
     ftpPath: text('ftp_path').notNull().default(''),
+    ftpPaths: jsonb('ftp_paths')
+      .$type<Record<string, string>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     bilgeBundle: jsonb('bilge_bundle').$type<BilgeBundle | null>(),
     includeJsonExport: boolean('include_json_export').notNull().default(true),
     publishRatingCalculations: boolean('publish_rating_calculations')

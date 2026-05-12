@@ -81,6 +81,7 @@ interface SeriesFileSeries {
   dnfScoring: 'seriesEntries' | 'startingArea';
   ftpHost: string;
   ftpPath: string;
+  ftpPaths?: Record<string, string>;  // v4+; absent in older files
   bilgeBundle: SeriesFileBilgeBundle | null;
   includeJsonExport: boolean;
   enabledCompetitorFields: CompetitorFieldKey[];
@@ -279,6 +280,9 @@ export async function buildSeriesFile(
       dnfScoring: series.dnfScoring,
       ftpHost: series.ftpHost ?? '',
       ftpPath: series.ftpPath ?? '',
+      ...(series.ftpPaths && Object.keys(series.ftpPaths).length > 0
+        ? { ftpPaths: series.ftpPaths }
+        : {}),
       bilgeBundle: series.bilgeBundle ? {
         uuid: series.bilgeBundle.uuid,
         prefix: series.bilgeBundle.prefix,
@@ -411,6 +415,22 @@ function migrateStartSequenceCumulativeToIntervals(series: unknown): void {
   s.defaultStartSequence = intervals;
 }
 
+/** Rewrite ftpPaths keys through a fleet-id remap. Entries pointing at fleets
+ *  that aren't in the remap are dropped (the file referenced a fleet that no
+ *  longer exists in the export). */
+function remapFtpPaths(
+  ftpPaths: Record<string, string> | undefined,
+  fleetIdMap: Map<string, string>,
+): Record<string, string> {
+  if (!ftpPaths) return {};
+  const out: Record<string, string> = {};
+  for (const [oldId, path] of Object.entries(ftpPaths)) {
+    const newId = fleetIdMap.get(oldId);
+    if (newId) out[newId] = path;
+  }
+  return out;
+}
+
 // ---- Open as new series ----
 
 export async function openSeriesFromFile(
@@ -447,6 +467,7 @@ export async function openSeriesFromFile(
     dnfScoring: file.series.dnfScoring,
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
+    ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
     bilgeBundle: file.series.bilgeBundle,
     includeJsonExport: file.series.includeJsonExport,
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
@@ -498,6 +519,7 @@ export async function updateSeriesFromFile(
     dnfScoring: file.series.dnfScoring,
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
+    ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
     bilgeBundle: file.series.bilgeBundle,
     includeJsonExport: file.series.includeJsonExport,
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,

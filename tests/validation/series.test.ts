@@ -30,6 +30,7 @@ const VALID_SERIES: Series = {
   dnfScoring: 'seriesEntries',
   ftpHost: '',
   ftpPath: '',
+  ftpPaths: {},
   bilgeBundle: null,
   includeJsonExport: true,
   publishRatingCalculations: true,

@@ -25,9 +25,8 @@ import { useFtpServers } from '@/hooks/use-ftp-servers';
 import { uploadViaScupper } from '@/lib/scupper';
 import {
   buildFleetHtmlFiles,
-  fleetFtpPath,
+  derivePrefillPaths,
   seriesSlug,
-  stripFleetSuffix,
 } from '@/lib/results-export';
 import type { Fleet, Series } from '@/lib/types';
 
@@ -66,11 +65,8 @@ export function FtpUploadDialog({
   useEffect(() => {
     if (!open) return;
     setUploadState('idle');
-    const base = series.ftpPath ?? '';
     setFleetPaths(
-      fleets.length === 0
-        ? [base]
-        : fleets.map((f) => fleetFtpPath(base, f.name, isSingleDefault)),
+      derivePrefillPaths(fleets, series.ftpPaths, series.ftpPath ?? '', isSingleDefault),
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -104,6 +100,12 @@ export function FtpUploadDialog({
       return;
     }
 
+    // Match each fleetFile back to its fleet id by name. buildFleetHtmlFiles
+    // returns one entry per fleet in fleet order, so the indices align — but
+    // be explicit so a future refactor that drops empty fleets stays correct.
+    const fleetByName = new Map(fleets.map((f) => [f.name, f]));
+
+    const uploadedPaths: Record<string, string> = {};
     for (let i = 0; i < fleetFiles.length; i++) {
       const path = (fleetPaths[i] ?? '').trim();
       if (!path) continue;
@@ -120,15 +122,17 @@ export function FtpUploadDialog({
         setUploadState({ success: false, error: result.error });
         return;
       }
+      const fleet = fleetByName.get(fleetFiles[i].fleetName);
+      if (fleet) uploadedPaths[fleet.id] = path;
     }
 
-    // Save the base path (strip fleet suffix from first fleet's path for multi-fleet)
-    const savedPath = fleetFiles.length > 1 && fleetPaths[0]
-      ? stripFleetSuffix(fleetPaths[0].trim(), fleetFiles[0].fleetName)
-      : (fleetPaths[0] ?? '').trim();
+    // Persist verbatim per-fleet paths so the next dialog open reproduces
+    // exactly what the user typed (#131). Merge into existing ftpPaths so
+    // fleets that weren't uploaded this round retain their prior entry.
+    const mergedPaths = { ...(series.ftpPaths ?? {}), ...uploadedPaths };
     await updateSeries.mutateAsync({
       id: series.id,
-      patch: { ftpHost: server.host, ftpPath: savedPath },
+      patch: { ftpHost: server.host, ftpPaths: mergedPaths },
     });
     setUploadState({ success: true });
   }

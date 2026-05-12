@@ -53,7 +53,8 @@ export interface Series {
   dnfScoring: 'seriesEntries' | 'startingArea';  // A5.2 (default) or A5.3
   // Publishing
   ftpHost: string;   // saved FTP server host for this series (empty if not yet published)
-  ftpPath: string;   // saved remote path for this series (empty if not yet published)
+  ftpPath: string;   // legacy single path; falls back here when ftpPaths has no entry for a fleet (series uploaded before per-fleet paths landed)
+  ftpPaths: Record<string, string>;  // last-uploaded remote path per fleet, keyed by fleetId
   bilgeBundle: BilgeBundle | null;
   includeJsonExport: boolean;  // embed public JSON export in exported HTML (default true)
   publishRatingCalculations?: boolean;  // NHC/ECHO progressive rating-calculation explainability columns/header (default true)

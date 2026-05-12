@@ -61,6 +61,7 @@ const stubSeries: Series = {
   dnfScoring: 'seriesEntries',
   ftpHost: '',
   ftpPath: '',
+  ftpPaths: {},
   bilgeBundle: null,
   includeJsonExport: true,
   publishRatingCalculations: true,

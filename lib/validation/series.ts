@@ -71,6 +71,7 @@ export const seriesSchema = z.object({
   dnfScoring: z.enum(['seriesEntries', 'startingArea']),
   ftpHost: z.string(),
   ftpPath: z.string(),
+  ftpPaths: z.record(z.string(), z.string()),
   bilgeBundle: bilgeBundleSchema.nullable(),
   includeJsonExport: z.boolean(),
   publishRatingCalculations: z.boolean().optional(),

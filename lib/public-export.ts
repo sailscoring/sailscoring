@@ -21,7 +21,7 @@ import { disambiguateSeriesName } from './series-name';
 // ---- Public export type ----
 //
 // A stripped-down, public-facing snapshot of a series. Intentionally excludes all
-// scorer-private fields: snapshotId, snapshotHistory, ftpHost, ftpPath, bilgeBundle,
+// scorer-private fields: snapshotId, snapshotHistory, ftpHost, ftpPath, ftpPaths, bilgeBundle,
 // and all internal UUIDs (competitors are keyed by sailNumber instead).
 
 /** Start sequence group as it appears in the public export. Refers to fleets
@@ -560,6 +560,7 @@ export async function importPublicExport(
     dnfScoring: data.series.dnfScoring,
     ftpHost: '',
     ftpPath: '',
+    ftpPaths: {},
     bilgeBundle: null,
     includeJsonExport: true,
     ...(data.series.publishRatingCalculations != null ? { publishRatingCalculations: data.series.publishRatingCalculations } : {}),

@@ -58,6 +58,7 @@ function sampleSeries(id: string) {
     dnfScoring: 'seriesEntries' as const,
     ftpHost: '',
     ftpPath: '',
+    ftpPaths: {},
     bilgeBundle: null,
     includeJsonExport: true,
     publishRatingCalculations: true,

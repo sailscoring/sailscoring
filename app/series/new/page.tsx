@@ -38,6 +38,7 @@ async function doCreateSeries(
     dnfScoring: 'seriesEntries',
     ftpHost: '',
     ftpPath: '',
+    ftpPaths: {},
     bilgeBundle: null,
     includeJsonExport: true,
     enabledCompetitorFields: defaultEnabledCompetitorFields(),

@@ -1,0 +1,1 @@
+ALTER TABLE "series" ADD COLUMN "ftp_paths" jsonb DEFAULT '{}'::jsonb NOT NULL;

@@ -32,18 +32,20 @@ export function fleetFtpPath(base: string, fleetName: string, isSingleDefault: b
   return base + suffix;
 }
 
-/** Strip the fleet suffix from a fleet-specific path to recover the base path. */
-export function stripFleetSuffix(path: string, fleetName: string): string {
-  const suffix = '-' + seriesSlug(fleetName);
-  const lastDot = path.lastIndexOf('.');
-  const lastSlash = path.lastIndexOf('/');
-  if (lastDot > lastSlash) {
-    const stem = path.slice(0, lastDot);
-    if (stem.endsWith(suffix)) return stem.slice(0, -suffix.length) + path.slice(lastDot);
-  } else if (path.endsWith(suffix)) {
-    return path.slice(0, -suffix.length);
-  }
-  return path;
+/** Derive prefilled FTP paths for the dialog. Per-fleet `ftpPaths` entries
+ *  are used verbatim; missing entries fall back to deriving from the legacy
+ *  `ftpPath` (older series uploaded before per-fleet paths landed — #131). */
+export function derivePrefillPaths(
+  fleets: { id: string; name: string }[],
+  ftpPaths: Record<string, string> | undefined,
+  legacyFtpPath: string,
+  isSingleDefault: boolean,
+): string[] {
+  const stored = ftpPaths ?? {};
+  if (fleets.length === 0) return [legacyFtpPath];
+  return fleets.map(
+    (f) => stored[f.id] ?? fleetFtpPath(legacyFtpPath, f.name, isSingleDefault),
+  );
 }
 
 /** Build one HTML string per fleet. Returns [{fleetName, html}]. */

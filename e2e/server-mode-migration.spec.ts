@@ -53,6 +53,7 @@ test.describe('@server migration banner', () => {
           dnfScoring: 'seriesEntries',
           ftpHost: '',
           ftpPath: '',
+          ftpPaths: {},
           bilgeBundle: null,
           includeJsonExport: true,
           enabledCompetitorFields: ['boatName', 'helm', 'crewName', 'club'],
