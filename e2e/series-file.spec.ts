@@ -240,6 +240,44 @@ test('series file: clean lineage updates series in place', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Updated by Co-scorer' })).toBeVisible();
 });
 
+test('series file: Open Series shows working dialog while loading file (#139)', async ({ page }) => {
+  // ── Create series and save to file ────────────────────────────────────────
+  await createSeriesQuick(page, { name: 'Working Dialog Test' });
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const original = await saveToFile(page);
+
+  // Rewrite seriesId so the open hits the "no-existing" branch (the path with
+  // the most visible delay — fans out into many writes before routing).
+  const fresh: SeriesFile = {
+    ...original,
+    seriesId: 'fresh-series-' + Date.now(),
+    series: { ...original.series, id: 'fresh-series-' + Date.now(), name: 'Working Dialog Reopened' },
+  };
+
+  // ── Go home and trigger Open Series ──────────────────────────────────────
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Series' })).toBeVisible();
+
+  const [fileChooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('button', { name: 'Open Series' }).click(),
+  ]);
+  await fileChooser.setFiles({
+    name: 'fresh.sailscoring',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(fresh)),
+  });
+
+  // ── Working dialog must appear before navigation completes ───────────────
+  await expect(page.getByRole('dialog', { name: /Opening series/ })).toBeVisible();
+
+  // ── …and disappear once we land on the Races tab ─────────────────────────
+  await expect(page).toHaveURL(/\/series\/[^/]+\/races$/);
+  await expect(page.getByRole('dialog', { name: /Opening series/ })).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Working Dialog Reopened' })).toBeVisible();
+});
+
 test('series file: diverged snapshot shows conflict dialog; open as new copy creates second series', async ({ page }) => {
   // ── Create series and save to file ────────────────────────────────────────
   await createSeriesQuick(page, { name: 'Diverged Original' });
