@@ -138,6 +138,36 @@ describe('calculateRaceScores', () => {
     expect(scores.get('B')?.points).toBe(1);
   });
 
+  it('A5.3 starters count is fleet-scoped when called with cross-fleet finishes', () => {
+    // Regression: results-export.ts passes all-fleet finishes but per-fleet
+    // competitors. The A5.3 starting-area count must filter to the fleet's
+    // competitors, otherwise RET/DNF in a small fleet gets inflated by
+    // starters from other fleets.
+    //
+    // Squib Scr: 5 competitors (A–E); 4 finish, 1 RET → starters = 5, RET = 6.
+    // Puppeteer (P1–P10): 10 boats finishing in their own start.
+    const squib = ['A', 'B', 'C', 'D', 'E'].map((id) => makeCompetitor(id, 's1', 'squib'));
+    const puppeteer = Array.from({ length: 10 }, (_, i) =>
+      makeCompetitor(`P${i + 1}`, 's1', 'puppeteer'),
+    );
+    const finishes = [
+      makeFinish('r1', 'A', 1),
+      makeFinish('r1', 'B', 2),
+      makeFinish('r1', 'C', 3),
+      makeFinish('r1', 'D', 4),
+      makeFinish('r1', 'E', null, 'RET'),
+      ...puppeteer.map((c, i) => makeFinish('r1', c.id, i + 1)),
+    ];
+    const scores = calculateRaceScores(finishes, squib, 'startingArea');
+    // starters in Squib = 4 finishers + 1 RET = 5; RET points = 5 + 1 = 6.
+    // (Bug behaviour: 4 + 10 + 1 RET = 15 non-DNC → RET = 16.)
+    expect(scores.get('E')?.points).toBe(6);
+    expect(scores.get('E')?.resultCode).toBe('RET');
+    // Sanity: finishers in Squib still get their own positions.
+    expect(scores.get('A')?.points).toBe(1);
+    expect(scores.get('D')?.points).toBe(4);
+  });
+
   it('averages points for a three-way tie', () => {
     // A, B, C tied — each scores (1+2+3)/3 = 2; D at position 4 scores 4
     const finishes = [

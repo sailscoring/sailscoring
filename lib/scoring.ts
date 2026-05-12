@@ -55,22 +55,27 @@ export function calculateRaceScores(
 ): Map<string, RaceScore> {
   const n = competitors.length;
   const seriesEntryPenalty = n + 1;
+  const competitorIds = new Set(competitors.map((c) => c.id));
+
+  // Boats from other fleets are scored separately; counting them as starters
+  // here would inflate the A5.3 penalty. Mirrors calculateHandicapRaceScores.
+  const fleetFinishes = finishes.filter(
+    (f) => f.competitorId !== null && competitorIds.has(f.competitorId),
+  );
 
   // Under A5.3, compute a per-race penalty for 'starters'-base codes.
   // 'entries'-base codes (DNC, BFD) always use seriesEntryPenalty regardless.
   let startingAreaPenalty = seriesEntryPenalty;
   if (dnfScoring === 'startingArea') {
-    const hasCheckinData = finishes.some((f) => f.startPresent === true);
+    const hasCheckinData = fleetFinishes.some((f) => f.startPresent === true);
     const startingAreaCount = hasCheckinData
-      ? finishes.filter((f) => f.startPresent === true).length
-      : finishes.filter((f) => f.resultCode !== 'DNC').length;
+      ? fleetFinishes.filter((f) => f.startPresent === true).length
+      : fleetFinishes.filter((f) => f.resultCode !== 'DNC').length;
     startingAreaPenalty = startingAreaCount + 1;
   }
 
   const finishMap = new Map(
-    finishes
-      .filter((f): f is Finish & { competitorId: string } => f.competitorId !== null)
-      .map((f) => [f.competitorId, f]),
+    fleetFinishes.map((f) => [f.competitorId as string, f]),
   );
 
   const result = new Map<string, RaceScore>();
