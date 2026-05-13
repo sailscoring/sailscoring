@@ -30,10 +30,11 @@ from?", start here.
 | `pnpm deploy`            | `vercel deploy` (preview)                            | -               |
 | `pnpm deploy:prod`       | `vercel deploy --prod`                               | -               |
 
-The `predev:local`, `pretest:unit:db`, `pretest:e2e:server`, and
-`predb:migrate:test` lifecycle hooks call `scripts/db-up.sh`
-automatically — you never need to start the container by hand before
-running those commands.
+The `predev:local`, `pretest:unit:db`, and `predb:migrate:test`
+lifecycle hooks call `scripts/db-up.sh` automatically; `pretest:e2e:server`
+runs `pnpm db:migrate:test`, which also brings the container up via its
+own `predb:migrate:test` hook. You never need to start the container by
+hand before running those commands.
 
 ## Files under `scripts/`
 
@@ -99,7 +100,10 @@ pnpm test:e2e
 ```
 pnpm test:e2e:server
   ├─ pretest:e2e:server
-  │   └─ scripts/db-up.sh
+  │   └─ pnpm db:migrate:test
+  │       ├─ predb:migrate:test
+  │       │   └─ scripts/db-up.sh   ← starts/verifies sailscoring-pg container
+  │       └─ scripts/db-migrate.ts  ← applies Drizzle migrations (idempotent)
   └─ USE_SERVER_DATA=true E2E_SERVER_MODE=1 DATABASE_URL=… playwright test
       └─ chromium-server project, grep=@auth|@server
       └─ webServer: pnpm start:test
