@@ -159,6 +159,20 @@ For Preview/Production:
    registrar (it coexists with the existing SPF record — TXT allows multiple
    values on the same name), and click **Verify**. Data is volume-gated and
    may take 24-48h (or longer at our current send rates) to populate.
+7. **Configure DMARC with aggregate reporting.** Sign up at
+   [dmarc.postmarkapp.com](https://dmarc.postmarkapp.com/) (free, no account
+   needed) with the domain + an email to receive weekly digests. Postmark
+   issues an `rua` address; publish it in a `_dmarc.sailscoring.ie` TXT record:
+
+   ```
+   v=DMARC1; p=none; pct=100; rua=mailto:<postmark-address>; sp=none; aspf=r;
+   ```
+
+   Keep `p=none` until at least 1-2 weeks of reports confirm only legitimate
+   senders are aligning — then ramp to `p=quarantine; pct=10` and up. Do **not**
+   set `aspf=s` (strict SPF alignment) while sending via Resend: Return-Path is
+   on `send.sailscoring.ie`, From is on the apex, so strict would fail SPF
+   alignment and Gmail would quarantine everything.
 
 ## 5. Set Vercel environment variables
 
