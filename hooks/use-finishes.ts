@@ -17,10 +17,15 @@ export function useFinishesByRace(raceId: string) {
 
 export function useFinishesBySeries(seriesId: string, competitorIds: string[]) {
   const { finishRepo } = useRepos();
+  const enabled = competitorIds.length > 0;
   return useQuery<Finish[]>({
     queryKey: [...queryKeys.finishes.bySeries(seriesId), [...competitorIds].sort()],
     queryFn: () => finishRepo.listBySeries(seriesId, competitorIds),
-    enabled: competitorIds.length > 0,
+    enabled,
+    // When the input list is empty the query is disabled; without an initial
+    // value `data` stays undefined forever, which trips loading guards in
+    // callers like the Standings tab (see #116).
+    initialData: enabled ? undefined : ([] as Finish[]),
   });
 }
 
