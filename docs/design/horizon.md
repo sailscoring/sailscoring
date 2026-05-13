@@ -145,6 +145,48 @@ Open questions: copy vs. move semantics; what identity carries over (snapshot hi
 scorer attribution, IDs) and what gets re-stamped; whether the source and copy stay
 linked or diverge cleanly; permission model for who can copy out of an org workspace.
 
+### Reconsider snapshot lineage once file-sharing is no longer the collaboration mechanism
+
+`Series.lastSnapshotId`, `Series.snapshotHistory`, and `checkLineage()` exist to make
+`.sailscoring` file exchange between scorers safe — classifying an incoming file as
+`identical` / `clean` / `diverged` before clobbering local changes. The mechanism is
+woven through `lib/types.ts`, `lib/series-file.ts`, the Postgres schema, validation,
+API handlers, and the Open/Save dialogs in settings.
+
+After Phase 8 (server-of-record) and Phase 10 (collaboration UX) land, two scorers in
+the same workspace edit the same row with `lastModifiedAt` doing conflict detection,
+and cross-workspace sharing is "copy to my workspace" (which already resets lineage).
+The only residual role for `.sailscoring` files is backup / occasional offline rescue,
+none of which needs a multi-step history — a single "exported from" marker would do.
+
+Once Phase 8 is stable, decide whether to keep the lineage as-is, simplify to a single
+"last exported snapshot id", or remove it entirely and treat every file open as
+diverged (matching cross-workspace copy semantics). Knock-on effects on the series-file
+format (potential `formatVersion` bump), the Postgres schema, and the Open dialog UX.
+
+*(Was GitHub issue #127)*
+
+### Feature gating by org membership
+
+A way to gate features on workspace membership, in two shapes: (a) any onboarded club
+workspace (vs the auto-provisioned personal one) — bilge publishing is the candidate;
+(b) a specific org — FTP publishing is HYC-specific today and is the obvious first
+case. Useful for staged rollouts: turn a feature on for one club, gather feedback,
+then promote.
+
+Implementation sketch: extend `lib/auth/require-workspace.ts` to attach a `features`
+set / `hasFeature()` helper to every `/api/v1` request, mirrored client-side by a
+`useFeatures()` hook backed by `/api/v1/me`. Storage in the existing `organization.metadata`
+JSON column (no schema change) covers both shapes — `{ kind: 'personal' | 'club',
+enabledFeatures: string[] }`. A single `lib/features.ts` registry keeps keys typed.
+
+Open questions: hardcoded constants vs DB-backed metadata (probably constants until
+there are more than a handful of features and clubs); whether role factors in
+(probably not initially). Gating only applies under `USE_SERVER_DATA` — pre-cutover
+users get every feature.
+
+*(Was GitHub issue #120)*
+
 ---
 
 ## Esoteric scoring engine requirements
@@ -240,6 +282,60 @@ Per-race explainability is implemented; the series-level rollup is not.
 A more elaborate handicap system used internationally for offshore
 racing, distinct from IRC. Out of scope for HYC and IODAI but the
 obvious next system after IRC, NHC, and ECHO.
+
+---
+
+## ADR-008 cutover tail
+
+Post-cutover work designed in [ADR-008](decisions/008-full-stack-transition.md)
+but not actively tracked as issues. Captured here so the residual scope isn't
+lost between Phase 8 stabilising and the next push on full-stack work.
+
+### Remove `USE_SERVER_DATA=false` and the local-first build paths
+
+The flag stays in place during the Phase 8 stabilisation window so individual
+deployments can revert. Once stable, drop the flag and everything it gates:
+the Dexie repository, the IndexedDB-backed pages, the "Move to my account"
+migration banner, the "Local archive" view, and the lint-rule carve-outs that
+allow direct `lib/db` imports inside `lib/dexie-repository.ts`. Mostly a
+delete-only pass — the architectural work was done in Phases 1–7.
+
+The series file format and import endpoint stay (backup / hand-off use case),
+but `lib/dexie-repository.ts` and the IndexedDB schema go.
+
+### Bilge replacement and decommission (Phase 9)
+
+Build the integrated publishing path described in ADR-008 *Publishing model*:
+explicit "Publish" action runs `lib/results-renderer.ts`, uploads to Vercel
+Blob, public route at `/p/{slug}` serves the stored HTML with `Cache-Control`
++ `ETag`. Remove the in-app "Publish to bilge" action when the new path lands.
+
+Bilge URL transition: on first re-publish through the new path, generate a
+meta-refresh + canonical-link redirect HTML for each prior bilge slug — no
+code change to bilge required. After ~6 months (or when redirect-hit logs
+show negligible traffic), bilge slugs return 410 Gone; the bilge Vercel
+project, Blob storage, KV, and Resend templates are deleted; the bilge repo
+is archived; ADR-004 is marked **Superseded by ADR-008**.
+
+### Phase 10 — self-service collaboration UX
+
+Everything from the original Phase 8 backlog deferred from Phase 7 or gated
+on Phase 9's `/p/{slug}` path:
+
+- **Self-service org creation** via an admin-approved request from `/account`,
+  replacing the manual `scripts/provision-org.ts` CLI from Phase 7.
+- **Invitation flow** (Better Auth invitations plugin), members management
+  UI, role changes — the full administration surface Phase 7 deferred.
+- **Activity log proper.** Workspace-scoped, action-vocabulary-driven log
+  written in the `workspaceRoute` wrapper for every mutation. Surfaced as a
+  per-series Activity tab, recency strips on the series list, and per-record
+  stamps in the competitor edit dialog. Phase 7's `updated_by` column is the
+  foundation; Phase 10 adds the explicit log table and the surfaces.
+- **User and org slug claim flows** in separate namespaces. User slugs drive
+  attribution (e.g. `/u/{slug}` profile route); org slugs claim vanity URLs
+  as aliases over the canonical `/p/{slug}` publishing path.
+- **Listed/unlisted visibility toggle** and a workspace public index —
+  replaces what bilge's `/l/` prefix listing does today.
 
 ---
 
