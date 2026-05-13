@@ -75,6 +75,7 @@ export const seriesSchema = z.object({
   bilgeBundle: bilgeBundleSchema.nullable(),
   includeJsonExport: z.boolean(),
   publishRatingCalculations: z.boolean().optional(),
+  showPerRaceRatingsInSummary: z.boolean().optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
   primaryPersonLabel: primaryPersonLabelSchema,
   version: versionSchema,

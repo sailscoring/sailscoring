@@ -89,6 +89,7 @@ interface SeriesFileSeries {
   scoringMode: 'scratch' | 'handicap';
   defaultStartSequence?: StartGroup[];
   publishRatingCalculations?: boolean;
+  showPerRaceRatingsInSummary?: boolean;
 }
 
 interface SeriesFileCompetitor {
@@ -297,6 +298,7 @@ export async function buildSeriesFile(
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.defaultStartSequence?.length ? { defaultStartSequence: series.defaultStartSequence } : {}),
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
+      ...(series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: series.showPerRaceRatingsInSummary } : {}),
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -471,6 +473,7 @@ export async function openSeriesFromFile(
     bilgeBundle: file.series.bilgeBundle,
     includeJsonExport: file.series.includeJsonExport,
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
+    showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
   });
@@ -523,6 +526,7 @@ export async function updateSeriesFromFile(
     bilgeBundle: file.series.bilgeBundle,
     includeJsonExport: file.series.includeJsonExport,
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
+    showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
   });

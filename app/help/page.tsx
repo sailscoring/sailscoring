@@ -619,6 +619,18 @@ export default function HelpPage() {
           to omit the toggle and its columns from the published page. The setting is on
           by default and shows up whenever the series has at least one NHC or ECHO fleet.
         </p>
+        <p>
+          The summary table on NHC and ECHO fleets includes a seed-rating column (the
+          competitor&rsquo;s starting TCF or H) and prints the applied rating in small
+          text beneath each score from race 2 onwards — race 1&rsquo;s rating is the
+          seed, so it&rsquo;s shown in the dedicated column rather than repeated under
+          each R1 cell. This is independent of the rating-calculations toggle and can
+          be switched off via{' '}
+          <strong className="text-foreground">
+            Show per-race ratings in summary table
+          </strong>{' '}
+          in the same Publishing card.
+        </p>
       </Section>
 
       <Section id="discard-rules" title="Discard rules">

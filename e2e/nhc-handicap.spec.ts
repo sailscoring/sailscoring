@@ -131,6 +131,15 @@ test('NHC fleet: standings + propagation across two races', async ({ page }) => 
   expect(html).toContain('1.027');
   expect(html).toContain('0.986');
   expect(html).toContain('0.988');
+
+  // Summary table shows the NHC1 seed-rating column (default on) and an
+  // applied-rating sub-text below each R2 score. R1 is suppressed because
+  // the seed column carries it.
+  expect(html).toContain('<th>NHC1</th>');
+  expect(html).toMatch(/<td class="seedrating">1\.000<\/td>/);
+  expect(html).toContain('<span class="rating">1.027</span>');
+  expect(html).toContain('<span class="rating">0.986</span>');
+  expect(html).toContain('<span class="rating">0.988</span>');
 });
 
 test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page }) => {

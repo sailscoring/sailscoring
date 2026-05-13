@@ -1,0 +1,1 @@
+ALTER TABLE "series" ADD COLUMN "show_per_race_ratings_in_summary" boolean DEFAULT true NOT NULL;

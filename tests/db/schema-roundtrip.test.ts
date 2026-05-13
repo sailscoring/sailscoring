@@ -110,6 +110,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       bilgeBundle: bilge,
       includeJsonExport: false,
       publishRatingCalculations: false,
+      showPerRaceRatingsInSummary: false,
       enabledCompetitorFields: ['boatName', 'boatClass', 'helm', 'crewName', 'club'],
       primaryPersonLabel: 'helm',
     };
@@ -138,6 +139,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       bilgeBundle: seriesRow.bilgeBundle,
       includeJsonExport: seriesRow.includeJsonExport,
       publishRatingCalculations: seriesRow.publishRatingCalculations,
+      showPerRaceRatingsInSummary: seriesRow.showPerRaceRatingsInSummary,
       enabledCompetitorFields: seriesRow.enabledCompetitorFields,
       primaryPersonLabel: seriesRow.primaryPersonLabel,
     });
@@ -309,6 +311,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       bilgeBundle: seriesRow.bilgeBundle,
       includeJsonExport: seriesRow.includeJsonExport,
       publishRatingCalculations: seriesRow.publishRatingCalculations,
+      showPerRaceRatingsInSummary: seriesRow.showPerRaceRatingsInSummary,
       enabledCompetitorFields: seriesRow.enabledCompetitorFields,
       primaryPersonLabel: seriesRow.primaryPersonLabel,
       version: 1,

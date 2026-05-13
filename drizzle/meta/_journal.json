@@ -71,6 +71,13 @@
       "when": 1778569118652,
       "tag": "0009_lazy_reavers",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778692555756,
+      "tag": "0010_same_ares",
+      "breakpoints": true
     }
   ]
 }

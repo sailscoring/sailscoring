@@ -46,6 +46,7 @@ test.describe('@auth /api/v1', () => {
       bilgeBundle: null,
       includeJsonExport: true,
       publishRatingCalculations: true,
+      showPerRaceRatingsInSummary: true,
       enabledCompetitorFields: ['boatName', 'club'],
       primaryPersonLabel: 'competitor',
     };

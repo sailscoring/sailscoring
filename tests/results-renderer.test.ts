@@ -413,7 +413,7 @@ describe('assembleSeriesResultsData', () => {
   const standings = [
     {
       rank: 1,
-      competitor: { sailNumber: '42', name: 'Alice' },
+      competitor: { id: 'c1', sailNumber: '42', name: 'Alice' },
       racePoints: [1, 2],
       raceCodes: [null, null] as (ResultCode | null)[],
       totalPoints: 3,
@@ -422,7 +422,7 @@ describe('assembleSeriesResultsData', () => {
     },
     {
       rank: 2,
-      competitor: { sailNumber: '99', name: 'Bob' },
+      competitor: { id: 'c2', sailNumber: '99', name: 'Bob' },
       racePoints: [2, 1],
       raceCodes: [null, null] as (ResultCode | null)[],
       totalPoints: 3,
@@ -685,5 +685,179 @@ describe('renderSeriesHtml ECHO viewer toggle', () => {
   it('omits the ECHO explainer on non-ECHO fleets', () => {
     const html = renderSeriesHtml(MINIMAL);
     expect(html).not.toContain('echo-explainer');
+  });
+});
+
+// ---- Per-race ratings in summary (#140) ----
+
+describe('renderSeriesHtml — per-race ratings in summary', () => {
+  function summaryFixture(
+    system: 'nhc' | 'echo' | undefined,
+    showPerRaceRatings: boolean,
+    opts?: { withSeed?: boolean; r2DiscardForAlice?: boolean },
+  ): SeriesResultsData {
+    const withSeed = opts?.withSeed ?? true;
+    const r2DiscardForAlice = opts?.r2DiscardForAlice ?? false;
+    const aliceStanding: StandingRowData = {
+      rank: 1,
+      sailNumber: '42',
+      helm: 'Alice',
+      ...(withSeed ? { seedRating: 1.350 } : {}),
+      raceScores: [
+        { points: 1, resultCode: null, isDiscard: false, podiumRank: 1, penaltyCode: null, penaltyOverride: null, isRedress: false },
+        { points: 2, resultCode: null, isDiscard: r2DiscardForAlice, podiumRank: 2, penaltyCode: null, penaltyOverride: null, isRedress: false, appliedRating: 1.365 },
+      ],
+      totalPoints: 3,
+      netPoints: 3,
+    };
+    const bobStanding: StandingRowData = {
+      rank: 2,
+      sailNumber: '99',
+      helm: 'Bob',
+      ...(withSeed ? { seedRating: 1.200 } : {}),
+      raceScores: [
+        { points: 2, resultCode: null, isDiscard: false, podiumRank: 2, penaltyCode: null, penaltyOverride: null, isRedress: false },
+        { points: 1, resultCode: null, isDiscard: false, podiumRank: 1, penaltyCode: null, penaltyOverride: null, isRedress: false, appliedRating: 1.220 },
+      ],
+      totalPoints: 3,
+      netPoints: 3,
+    };
+    return {
+      series: { name: 'Progressive Series', venue: 'HYC' },
+      enabledCompetitorFields: ['club'],
+      races: [
+        makeRace(1, [['42', 'Alice', 1, null], ['99', 'Bob', 2, null]]),
+        makeRace(2, [['99', 'Bob', 1, null], ['42', 'Alice', 2, null]]),
+      ],
+      standings: [aliceStanding, bobStanding],
+      ...(system ? { progressiveScoringSystem: system } : {}),
+      ...(showPerRaceRatings ? { showPerRaceRatings: true } : {}),
+    };
+  }
+
+  it('renders an NHC1 seed column and applied-rating sub-text for NHC fleets when the toggle is on', () => {
+    const html = renderSeriesHtml(summaryFixture('nhc', true));
+    expect(html).toContain('<th>NHC1</th>');
+    expect(html).toContain('<td class="seedrating">1.350</td>');
+    expect(html).toContain('<td class="seedrating">1.200</td>');
+    expect(html).toContain('<span class="rating">1.365</span>');
+    expect(html).toContain('<span class="rating">1.220</span>');
+  });
+
+  it('renders an ECHO seed column header for ECHO fleets', () => {
+    const html = renderSeriesHtml(summaryFixture('echo', true));
+    expect(html).toContain('<th>ECHO</th>');
+  });
+
+  it('suppresses applied-rating sub-text in R1 (the seed column carries it)', () => {
+    const html = renderSeriesHtml(summaryFixture('nhc', true));
+    // R1 score cell for Alice — match the first td in the R1 row position
+    // by checking that no <span class="rating"> appears immediately around
+    // a "1" or "2" before R2's content.
+    const summaryMatch = html.match(/<table class="summarytable"[\s\S]*?<\/table>/);
+    expect(summaryMatch).not.toBeNull();
+    const summary = summaryMatch![0];
+    // Two appliedRating spans only (one per row, R2 only).
+    expect((summary.match(/<span class="rating">/g) ?? []).length).toBe(2);
+  });
+
+  it('omits the seed column and rating sub-text when the toggle is off, even on NHC', () => {
+    const html = renderSeriesHtml(summaryFixture('nhc', false));
+    expect(html).not.toContain('<th>NHC1</th>');
+    expect(html).not.toContain('class="seedrating"');
+    expect(html).not.toContain('<span class="rating">');
+  });
+
+  it('omits the seed column on non-progressive fleets even when the toggle is on', () => {
+    const html = renderSeriesHtml(summaryFixture(undefined, true));
+    expect(html).not.toContain('<th>NHC1</th>');
+    expect(html).not.toContain('<th>ECHO</th>');
+    expect(html).not.toContain('class="seedrating"');
+    expect(html).not.toContain('<span class="rating">');
+  });
+
+  it('still renders the applied-rating sub-text inside discard cells', () => {
+    const html = renderSeriesHtml(summaryFixture('nhc', true, { r2DiscardForAlice: true }));
+    expect(html).toMatch(/<td class="discard[^"]*">[\s\S]*?<span class="rating">1\.365<\/span>/);
+  });
+});
+
+describe('assembleSeriesResultsData — per-race ratings wiring', () => {
+  const series = { name: 'Progressive', venue: 'HYC' };
+  const races = [
+    { id: 'r1', raceNumber: 1, date: '2025-06-01' },
+    { id: 'r2', raceNumber: 2, date: '2025-06-08' },
+  ];
+  const competitors = [
+    { id: 'c1', sailNumber: '42', name: 'Alice', nhcStartingTcf: 1.350 },
+    { id: 'c2', sailNumber: '99', name: 'Bob', nhcStartingTcf: 1.200 },
+  ];
+  const competitorsById = new Map(competitors.map((c) => [c.id, c]));
+  const standings = [
+    {
+      rank: 1,
+      competitor: { id: 'c1', sailNumber: '42', name: 'Alice' },
+      racePoints: [1, 2],
+      raceCodes: [null, null] as (ResultCode | null)[],
+      totalPoints: 3,
+      netPoints: 3,
+      raceDiscards: [false, false],
+    },
+    {
+      rank: 2,
+      competitor: { id: 'c2', sailNumber: '99', name: 'Bob' },
+      racePoints: [2, 1],
+      raceCodes: [null, null] as (ResultCode | null)[],
+      totalPoints: 3,
+      netPoints: 3,
+      raceDiscards: [false, false],
+    },
+  ];
+  const raceScoresByRaceId = new Map([
+    ['r1', new Map([
+      ['c1', { points: 1, place: 1, rank: 1, resultCode: null as ResultCode | null, tcfApplied: 1.350, newTcf: 1.365 }],
+      ['c2', { points: 2, place: 2, rank: 2, resultCode: null as ResultCode | null, tcfApplied: 1.200, newTcf: 1.220 }],
+    ])],
+    ['r2', new Map([
+      ['c1', { points: 2, place: 2, rank: 2, resultCode: null as ResultCode | null, tcfApplied: 1.365, newTcf: 1.378 }],
+      ['c2', { points: 1, place: 1, rank: 1, resultCode: null as ResultCode | null, tcfApplied: 1.220, newTcf: 1.235 }],
+    ])],
+  ]);
+  const seedRatingByCompetitorId = new Map([['c1', 1.350], ['c2', 1.200]]);
+  const now = new Date(2025, 5, 14, 19, 0);
+
+  it('populates seedRating and R2 appliedRating but not R1 appliedRating', () => {
+    const data = assembleSeriesResultsData(
+      series, races, standings, raceScoresByRaceId, competitorsById, ['club'], now,
+      undefined,
+      { scoringSystem: 'nhc', showPerRaceRatings: true, seedRatingByCompetitorId },
+    );
+    expect(data.progressiveScoringSystem).toBe('nhc');
+    expect(data.showPerRaceRatings).toBe(true);
+    expect(data.standings[0].seedRating).toBe(1.350);
+    expect(data.standings[1].seedRating).toBe(1.200);
+    expect(data.standings[0].raceScores[0].appliedRating).toBeUndefined();
+    expect(data.standings[0].raceScores[1].appliedRating).toBe(1.365);
+    expect(data.standings[1].raceScores[1].appliedRating).toBe(1.220);
+  });
+
+  it('does not populate per-race ratings when the toggle is off', () => {
+    const data = assembleSeriesResultsData(
+      series, races, standings, raceScoresByRaceId, competitorsById, ['club'], now,
+      undefined,
+      { scoringSystem: 'nhc', showPerRaceRatings: false, seedRatingByCompetitorId },
+    );
+    expect(data.showPerRaceRatings).toBeUndefined();
+    expect(data.standings[0].raceScores[1].appliedRating).toBeUndefined();
+  });
+
+  it('does not surface a progressive scoring system for non-progressive fleets', () => {
+    const data = assembleSeriesResultsData(
+      series, races, standings, raceScoresByRaceId, competitorsById, ['club'], now,
+      undefined,
+      { scoringSystem: 'scratch', showPerRaceRatings: true },
+    );
+    expect(data.progressiveScoringSystem).toBeUndefined();
+    expect(data.standings[0].seedRating).toBeUndefined();
   });
 });

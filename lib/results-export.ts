@@ -217,6 +217,17 @@ export async function buildFleetHtmlFiles(
 
     // Build NHC / ECHO aggregates header maps iff publishing toggle is on
     const publishRatingCalcs = series.publishRatingCalculations ?? true;
+    const showPerRaceRatings = series.showPerRaceRatingsInSummary ?? true;
+    // Build seed-rating map for NHC/ECHO fleets — populated from the
+    // competitor's initial TCF/H. Restricted to this fleet's competitors.
+    const seedRatingByCompetitorId = (isNhc || isEcho)
+      ? new Map<string, number>(
+          competitors
+            .filter((c) => fleetCompetitorIds.has(c.id))
+            .map((c) => [c.id, isNhc ? c.nhcStartingTcf : c.echoStartingTcf] as const)
+            .filter((entry): entry is [string, number] => entry[1] != null),
+        )
+      : undefined;
     const nhcAggregatesForRender = isNhc && publishRatingCalcs && nhcAggregatesByRaceId
       ? new Map([...nhcAggregatesByRaceId.entries()].map(([raceId, agg]) => [raceId, {
           finisherCount: agg.finisherCount,
@@ -259,6 +270,8 @@ export async function buildFleetHtmlFiles(
         primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
         ...(nhcAggregatesForRender ? { nhcAggregatesByRaceId: nhcAggregatesForRender } : {}),
         ...(echoAggregatesForRender ? { echoAggregatesByRaceId: echoAggregatesForRender } : {}),
+        showPerRaceRatings,
+        ...(seedRatingByCompetitorId ? { seedRatingByCompetitorId } : {}),
       },
     );
 

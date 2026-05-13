@@ -58,6 +58,8 @@ export interface PublicSeriesExport {
     scoringMode: 'scratch' | 'handicap';
     /** NHC publish-rating-calculations toggle (display hint). */
     publishRatingCalculations?: boolean;
+    /** NHC/ECHO summary per-race rating toggle (display hint). */
+    showPerRaceRatingsInSummary?: boolean;
     /** Default start sequence used when new races are created. */
     defaultStartSequence?: ExportStartGroup[];
   };
@@ -454,6 +456,7 @@ export async function buildPublicExport(
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
+      ...(series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: series.showPerRaceRatingsInSummary } : {}),
       ...(exportedDefaultStartSequence ? { defaultStartSequence: exportedDefaultStartSequence } : {}),
     },
     fleets: fleets.map((f) => ({
@@ -566,6 +569,7 @@ export async function importPublicExport(
     bilgeBundle: null,
     includeJsonExport: true,
     ...(data.series.publishRatingCalculations != null ? { publishRatingCalculations: data.series.publishRatingCalculations } : {}),
+    ...(data.series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: data.series.showPerRaceRatingsInSummary } : {}),
     enabledCompetitorFields: data.series.displayFields ?? defaultEnabledCompetitorFields(),
     primaryPersonLabel: data.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
   });

@@ -99,6 +99,9 @@ export const series = pgTable(
     publishRatingCalculations: boolean('publish_rating_calculations')
       .notNull()
       .default(true),
+    showPerRaceRatingsInSummary: boolean('show_per_race_ratings_in_summary')
+      .notNull()
+      .default(true),
     // Display.
     enabledCompetitorFields: jsonb('enabled_competitor_fields')
       .$type<CompetitorFieldKey[]>()

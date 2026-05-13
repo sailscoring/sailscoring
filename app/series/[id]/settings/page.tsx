@@ -309,9 +309,15 @@ function PublishingCard({ seriesId, series, anyProgressiveFleet }: { seriesId: s
 
   const includeJson = series.includeJsonExport ?? true;
   const publishRatingCalcs = series.publishRatingCalculations ?? true;
+  const showPerRaceRatings = series.showPerRaceRatingsInSummary ?? true;
   const summaryParts = [
     includeJson ? 'JSON export included' : 'JSON export excluded',
-    ...(anyProgressiveFleet ? [publishRatingCalcs ? 'rating calculations published' : 'rating calculations hidden'] : []),
+    ...(anyProgressiveFleet
+      ? [
+          publishRatingCalcs ? 'rating calculations published' : 'rating calculations hidden',
+          showPerRaceRatings ? 'per-race ratings shown in summary' : 'per-race ratings hidden in summary',
+        ]
+      : []),
   ];
   const summary = summaryParts.join(' · ');
 
@@ -370,6 +376,29 @@ function PublishingCard({ seriesId, series, anyProgressiveFleet }: { seriesId: s
                   verify each rating update with a calculator. NHC fleets get CT ratio, Fair TCF,
                   and Adjustment; ECHO fleets get 1/T_E, PI, and Adjustment. The rating, finish,
                   elapsed, corrected-time, and next-rating columns are always shown.
+                </p>
+              </div>
+            </div>
+          )}
+          {anyProgressiveFleet && (
+            <div className="flex items-start gap-2.5">
+              <input
+                id="showPerRaceRatingsInSummary"
+                type="checkbox"
+                checked={showPerRaceRatings}
+                onChange={(e) => {
+                  updateSeries.mutate({ id: seriesId, patch: { showPerRaceRatingsInSummary: e.target.checked } });
+                }}
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              <div>
+                <label htmlFor="showPerRaceRatingsInSummary" className="text-sm font-medium cursor-pointer">
+                  Show per-race ratings in summary table
+                </label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  For NHC and ECHO fleets, adds a seed-rating column to the summary table and
+                  prints the applied rating in small text beneath each score from race 2 onwards.
+                  Race 1&rsquo;s rating is the seed, shown in the dedicated column.
                 </p>
               </div>
             </div>
