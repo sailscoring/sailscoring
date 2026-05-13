@@ -194,6 +194,7 @@ Development is *only* used to populate `.env.local` via `vercel env pull`.
 | `FEEDBACK_TO`                  | `mark@hyc.ie` (or destination of choice) | unset (recommended) | unset (recommended) | no |
 | `CREDENTIAL_KEY`               | random (set, **permanent**) | random (set, **permanent**) | random (set) | yes for prod/preview |
 | `USE_SERVER_DATA`              | unset (Phase 1)      | unset (Phase 1)      | unset (Phase 1)      | no         |
+| `CRON_SECRET`                  | random (set)         | unset (recommended)  | unset                | yes        |
 | `NEXT_PUBLIC_APP_URL`          | `https://app.sailscoring.ie` | unset / preview URL  | `http://localhost:3000` | no  |
 | `NEXT_PUBLIC_BILGE_URL`        | `https://bilge.sailscoring.ie` | (same)     | (same)               | no         |
 | `NEXT_PUBLIC_BILGE_API_KEY`    | from bilge project   | from bilge project   | from bilge project   | no         |
@@ -251,6 +252,13 @@ server backend. Leave unset for now.
 Scoring" links in exported HTML. The auth client *does not* use this; it
 relies on the current page origin so the same code works in dev, on previews,
 and in production.
+
+**`CRON_SECRET`** — shared secret for the daily Vercel cron defined in
+`vercel.json` (`/api/cron/sweep-idempotency`, issue #126). Vercel injects
+`Authorization: Bearer ${CRON_SECRET}` on scheduled invocations; the route
+rejects any other caller. Generate with `openssl rand -hex 32`. Set on
+Production only — preview deployments don't run crons. Without it the route
+returns 503 so the cron is loudly broken rather than silently open.
 
 ### CLI commands
 

@@ -10,7 +10,8 @@ import * as schema from '@/lib/db/schema';
  * the way out. The structure landed in PR #1's schema; this is the
  * library code that uses it.
  *
- * TTL cleanup is deferred (cron in Phase 4 territory).
+ * TTL cleanup runs as a daily Vercel cron — see
+ * `app/api/cron/sweep-idempotency/route.ts`.
  */
 
 export const IDEMPOTENCY_HEADER = 'idempotency-key';

@@ -78,6 +78,13 @@
       "when": 1778692555756,
       "tag": "0010_same_ares",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778709662578,
+      "tag": "0011_cool_boom_boom",
+      "breakpoints": true
     }
   ]
 }

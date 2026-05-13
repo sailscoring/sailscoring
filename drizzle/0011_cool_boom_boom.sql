@@ -1,0 +1,2 @@
+ALTER TABLE "idempotency_keys" ADD CONSTRAINT "idempotency_keys_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "idempotency_keys_created_idx" ON "idempotency_keys" USING btree ("created_at");

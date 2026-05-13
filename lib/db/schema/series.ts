@@ -376,13 +376,17 @@ export const feedback = pgTable(
  * Idempotency-key store. The wrapper in `app/api/v1/_lib/handler.ts` writes
  * the response body and status here on every successful write so a replay
  * with the same `Idempotency-Key` header returns the cached response without
- * re-running the handler. TTL cleanup is deferred (cron in Phase 4 territory).
+ * re-running the handler. A daily Vercel cron
+ * (`app/api/cron/sweep-idempotency/route.ts`) deletes rows older than the
+ * replay window so the table stays bounded.
  *
  * `body` is nullable: 204 responses (DELETE, touch) carry no body, but we
  * still want to record the replay so a re-issue returns 204 immediately.
  */
 export const idempotencyKeys = pgTable('idempotency_keys', {
-  workspaceId: text('workspace_id').notNull(),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => organization.id, { onDelete: 'cascade' }),
   key: text('key').notNull(),
   status: integer('status').notNull(),
   body: jsonb('body'),
@@ -391,4 +395,5 @@ export const idempotencyKeys = pgTable('idempotency_keys', {
     .defaultNow(),
 }, (table) => [
   uniqueIndex('idempotency_keys_pk').on(table.workspaceId, table.key),
+  index('idempotency_keys_created_idx').on(table.createdAt),
 ]);
