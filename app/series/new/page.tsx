@@ -2,7 +2,9 @@
 
 import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRepos } from '@/lib/repos';
+import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,6 +57,7 @@ function NewSeriesContent() {
   const isQuick = searchParams.get('quick') === '1';
   const didCreate = useRef(false);
   const { seriesRepo, listSeriesNames } = useRepos();
+  const queryClient = useQueryClient();
 
   const [name, setName] = useState('');
   const [venue, setVenue] = useState('');
@@ -69,13 +72,16 @@ function NewSeriesContent() {
     (async () => {
       const existing = await listSeriesNames();
       return doCreateSeries(seriesRepo, generateUniquePlaceholderName(existing), '', '');
-    })().then((id) => {
+    })().then(async (id) => {
+      // The home page's series list is cached; invalidate so the new series
+      // appears when the user navigates back.
+      await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
       router.push(`/series/${id}/setup`);
     }).catch((err) => {
       console.error(err);
       setError('Failed to create series.');
     });
-  }, [isQuick, router, seriesRepo, listSeriesNames]);
+  }, [isQuick, router, seriesRepo, listSeriesNames, queryClient]);
 
   if (!isQuick) {
     return (
@@ -102,6 +108,7 @@ function NewSeriesContent() {
     setError('');
     try {
       const id = await doCreateSeries(seriesRepo, trimmed, venue.trim(), startDate);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
       router.push(`/series/${id}/competitors`);
     } catch (err) {
       console.error(err);
