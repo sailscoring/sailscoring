@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRepos } from '@/lib/repos';
 import { useFleetsBySeries, useDeleteFleet, useSaveFleet } from '@/hooks/use-fleets';
-import { useSaveCompetitor } from '@/hooks/use-competitors';
+import { useSaveCompetitors } from '@/hooks/use-competitors';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
 import { useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
 import type { Fleet, Series } from '@/lib/types';
@@ -40,7 +40,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
   const fleets = fleetsData ?? [];
   const saveFleet = useSaveFleet();
   const deleteFleetMutation = useDeleteFleet();
-  const saveCompetitor = useSaveCompetitor();
+  const saveCompetitors = useSaveCompetitors();
   const saveRaceStart = useSaveRaceStart();
   const deleteRaceStart = useDeleteRaceStart();
   const touchSeries = useTouchSeries();
@@ -189,14 +189,13 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
 
   async function handleDeleteFleet(fleet: Fleet) {
     const competitorsInFleet = await competitorRepo.listBySeries(seriesId);
-    const count = competitorsInFleet.filter((c) => c.fleetIds.includes(fleet.id)).length;
-    if (count > 0) {
-      for (const c of competitorsInFleet) {
-        if (c.fleetIds.includes(fleet.id)) {
-          const remaining = c.fleetIds.filter((id) => id !== fleet.id);
-          await saveCompetitor.mutateAsync({ ...c, fleetIds: remaining.length > 0 ? remaining : c.fleetIds });
-        }
-      }
+    // Skip competitors whose only fleet is this one — keep them on the original
+    // fleet list rather than leaving them unassigned (matches prior behaviour).
+    const patched = competitorsInFleet
+      .filter((c) => c.fleetIds.includes(fleet.id) && c.fleetIds.length > 1)
+      .map((c) => ({ ...c, fleetIds: c.fleetIds.filter((id) => id !== fleet.id) }));
+    if (patched.length > 0) {
+      await saveCompetitors.mutateAsync(patched);
     }
     const seq = series.defaultStartSequence;
     if (seq?.some((g) => g.fleetIds.includes(fleet.id))) {
@@ -212,19 +211,18 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     const raceIds = races.map((r) => r.id);
     if (raceIds.length > 0) {
       const allStarts = await raceStartRepo.listByRaces(raceIds);
-      for (const s of allStarts) {
-        if (!s.fleetIds.includes(fleet.id)) continue;
-        const remaining = s.fleetIds.filter((id) => id !== fleet.id);
-        if (remaining.length === 0) {
-          await deleteRaceStart.mutateAsync({ id: s.id, raceId: s.raceId });
-        } else {
-          await saveRaceStart.mutateAsync({ ...s, fleetIds: remaining });
-        }
-      }
+      const affected = allStarts.filter((s) => s.fleetIds.includes(fleet.id));
+      await Promise.all(
+        affected.map((s) => {
+          const remaining = s.fleetIds.filter((id) => id !== fleet.id);
+          return remaining.length === 0
+            ? deleteRaceStart.mutateAsync({ id: s.id, raceId: s.raceId })
+            : saveRaceStart.mutateAsync({ ...s, fleetIds: remaining });
+        }),
+      );
     }
     await deleteFleetMutation.mutateAsync({ id: fleet.id, seriesId });
     await touchSeries.mutateAsync(seriesId);
-    setConfirmDeleteFleet(null);
   }
 
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
@@ -416,7 +414,17 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setConfirmDeleteFleet(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => confirmDeleteFleet && handleDeleteFleet(confirmDeleteFleet)}>Delete fleet</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const fleet = confirmDeleteFleet;
+                if (!fleet) return;
+                setConfirmDeleteFleet(null);
+                void handleDeleteFleet(fleet);
+              }}
+            >
+              Delete fleet
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
