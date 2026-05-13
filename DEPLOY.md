@@ -151,6 +151,14 @@ For Preview/Production:
 4. Click **Verify DNS Records**. Propagation usually takes minutes.
 5. **API Keys → Create API Key** with send-only access. Save the value for
    step 5.
+6. **Register the domain in [Google Postmaster Tools](https://postmaster.google.com/)**.
+   It exposes Gmail's view of our sending reputation, authentication pass
+   rates, and spam-rate complaints — the only way to diagnose Gmail
+   deliverability issues without guessing. Add `sailscoring.ie`, copy the
+   `google-site-verification=<token>` TXT record into the apex at the DNS
+   registrar (it coexists with the existing SPF record — TXT allows multiple
+   values on the same name), and click **Verify**. Data is volume-gated and
+   may take 24-48h (or longer at our current send rates) to populate.
 
 ## 5. Set Vercel environment variables
 
