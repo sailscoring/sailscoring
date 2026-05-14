@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useImperativeHandle, forwardRef } from 'react';
+import { useState, useRef, useImperativeHandle, forwardRef, useMemo, useCallback, memo } from 'react';
 import Papa from 'papaparse';
 import { useRepos } from '@/lib/repos';
 import { useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
@@ -89,6 +89,8 @@ type ImportFlow =
       alsoCreateScratch: Record<string, boolean>;
     }
   | { step: 'done'; added: number; updated: number; unchanged: number; fleetsCreated: string[]; errors: { rowIndex: number; reason: string }[] };
+
+type MappingFlow = Extract<ImportFlow, { step: 'mapping' }>;
 
 export interface ImportResult {
   added: number;
@@ -239,6 +241,338 @@ const SCORING_SYSTEM_LABEL: Record<ProposedFleet['scoringSystem'], string> = {
   nhc: 'NHC',
   echo: 'ECHO',
 };
+
+// ── Mapping table ───────────────────────────────────────────────────────────
+
+/** One column-mapping row. Memoized so it re-renders only when its own
+ *  column value, the sample text, or the (primary-dependent) field labels
+ *  change — not for every unrelated wizard state change. */
+const MappingRow = memo(function MappingRow({
+  header,
+  colIndex,
+  columnValue,
+  sampleText,
+  fieldLabels,
+  onChange,
+}: {
+  header: string;
+  colIndex: number;
+  columnValue: CompetitorField;
+  sampleText: string;
+  fieldLabels: Partial<Record<CompetitorField, string>>;
+  onChange: (index: number, value: CompetitorField) => void;
+}) {
+  return (
+    <TableRow>
+      <TableCell className="font-mono text-sm truncate">{header || `Column ${colIndex + 1}`}</TableCell>
+      <TableCell>
+        <Select
+          value={columnValue}
+          onValueChange={(v) => onChange(colIndex, v as CompetitorField)}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.keys(fieldLabels) as CompetitorField[]).map((field) => (
+              <SelectItem key={field} value={field}>
+                {fieldLabels[field]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell className="text-sm text-muted-foreground truncate">
+        {sampleText}
+      </TableCell>
+    </TableRow>
+  );
+});
+
+/** The column-mapping table. Memoized so primary-radio / optional-field /
+ *  also-scratch toggles — which don't touch `columnMap`, `fieldLabels`, or
+ *  `onChange` — skip re-rendering the whole table (and its ~14 SelectItems
+ *  per row). */
+const MappingTable = memo(function MappingTable({
+  headers,
+  columnMap,
+  sampleTexts,
+  fieldLabels,
+  onChange,
+}: {
+  headers: string[];
+  columnMap: ColumnMap;
+  sampleTexts: string[];
+  fieldLabels: Partial<Record<CompetitorField, string>>;
+  onChange: (index: number, value: CompetitorField) => void;
+}) {
+  return (
+    <Table className="table-fixed">
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-1/5">Column</TableHead>
+          <TableHead className="w-1/5">Map to</TableHead>
+          <TableHead className="w-3/5">Sample values</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {headers.map((header, i) => (
+          <MappingRow
+            key={i}
+            header={header}
+            colIndex={i}
+            columnValue={columnMap[i]}
+            sampleText={sampleTexts[i]}
+            fieldLabels={fieldLabels}
+            onChange={onChange}
+          />
+        ))}
+      </TableBody>
+    </Table>
+  );
+});
+
+/** The mapping dialog's body: series-level proposals, the fleet plan
+ *  summary, and the column-mapping table. Lifted out of the inline IIFE
+ *  it used to live in so it can host the hooks that stabilize the props
+ *  passed down to `<MappingTable>`. */
+function MappingDialogBody({
+  flow,
+  setFlow,
+  fleets,
+}: {
+  flow: MappingFlow;
+  setFlow: React.Dispatch<React.SetStateAction<ImportFlow>>;
+  fleets: Fleet[];
+}) {
+  const fieldLabels = useMemo(
+    () => buildFieldLabels(flow.proposedPrimary),
+    [flow.proposedPrimary],
+  );
+  const targets = Object.values(flow.columnMap);
+  const primaryCount = targets.filter((t) => t === 'primary').length;
+  const sailCount = targets.filter((t) => t === 'sailNumber').length;
+  const hasPrimary = primaryCount >= 1;
+  const hasSail = sailCount >= 1;
+  const tooManyPrimaries = primaryCount > 1;
+  const tooManySails = sailCount > 1;
+
+  const updateColumn = useCallback((index: number, value: CompetitorField) => {
+    setFlow((f) =>
+      f.step === 'mapping'
+        ? { ...f, columnMap: { ...f.columnMap, [index]: value } }
+        : f,
+    );
+  }, [setFlow]);
+
+  const updatePrimary = useCallback((label: PrimaryPersonLabel) => {
+    setFlow((f) => {
+      if (f.step !== 'mapping') return f;
+      const nextMap = reconcileColumnMap(f.columnMap, label);
+      // Drop optional additions that are disabled by the new primary.
+      const nextProposedFields = f.proposedFields.filter(
+        (field) => !isFieldDisabledByPrimary(field, label),
+      );
+      return { ...f, proposedPrimary: label, columnMap: nextMap, proposedFields: nextProposedFields };
+    });
+  }, [setFlow]);
+
+  const toggleField = useCallback((field: CompetitorFieldKey, checked: boolean) => {
+    setFlow((f) => {
+      if (f.step !== 'mapping') return f;
+      const set = new Set(f.proposedFields);
+      if (checked) set.add(field); else set.delete(field);
+      const nextArray = ALL_COMPETITOR_FIELDS.filter((ff) => set.has(ff));
+      return { ...f, proposedFields: nextArray };
+    });
+  }, [setFlow]);
+
+  const toggleAlsoScratch = useCallback((csvFleetName: string, checked: boolean) => {
+    setFlow((f) => {
+      if (f.step !== 'mapping') return f;
+      const next = { ...f.alsoCreateScratch };
+      if (checked) next[csvFleetName] = true;
+      else delete next[csvFleetName];
+      return { ...f, alsoCreateScratch: next };
+    });
+  }, [setFlow]);
+
+  const primaryChanged = flow.proposedPrimary !== flow.currentPrimary;
+  const fieldAdditions = flow.proposedFields.filter((f) => !flow.currentFields.includes(f));
+  const fieldRemovals = flow.currentFields.filter((f) => !flow.proposedFields.includes(f));
+
+  // Recompute the plan on every render — it's cheap and depends on
+  // column mappings + the also-scratch toggle, both of which the
+  // user edits inside this dialog.
+  const planRows = extractPlanRows(flow.rows, flow.columnMap);
+  const csvHasClassColumn = Object.values(flow.columnMap).includes('boatClass');
+  const livePlan = planFleetCreation({
+    rows: planRows,
+    existingFleets: fleets,
+    existingCompetitors: flow.existingHasBoatClass ? [{ boatClass: 'x' }] : [],
+    csvHasClassColumn,
+    alsoCreateScratch: flow.alsoCreateScratch,
+  });
+  const planGroups = groupProposedByCsvName(livePlan.proposed);
+
+  // Pre-join each column's sample values once — headers and sampleRows are
+  // fixed for the import session, so this never recomputes after mount.
+  const sampleTexts = useMemo(
+    () => flow.headers.map((_, i) =>
+      flow.sampleRows
+        .map((row) => row[i]?.trim() ?? '')
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(', ') || '—',
+    ),
+    [flow.headers, flow.sampleRows],
+  );
+
+  return (
+    <div className="space-y-4 overflow-y-auto max-h-[60vh]">
+      {/* Series-level proposals */}
+      <div className="rounded-md border p-3 space-y-3 bg-muted/30">
+        <div className="space-y-1">
+          <p className="text-sm font-medium">Primary identifier</p>
+          <p className="text-xs text-muted-foreground">
+            The required name column for every competitor. Used as the primary
+            column heading throughout results.
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1">
+            {PRIMARY_PERSON_LABELS.map((label) => (
+              <label key={label} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  name="importPrimary"
+                  value={label}
+                  checked={flow.proposedPrimary === label}
+                  onChange={() => updatePrimary(label)}
+                  className="h-3.5 w-3.5"
+                />
+                {PRIMARY_PERSON_LABEL_TEXT[label]}
+                {label === flow.currentPrimary && (
+                  <span className="text-xs text-muted-foreground">(current)</span>
+                )}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-medium">Optional fields to show</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
+            {ALL_COMPETITOR_FIELDS.map((field) => {
+              const disabled = isFieldDisabledByPrimary(field, flow.proposedPrimary);
+              return (
+                <label
+                  key={field}
+                  className={`flex items-center gap-1.5 text-sm ${disabled ? 'opacity-50' : 'cursor-pointer'}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={flow.proposedFields.includes(field) && !disabled}
+                    disabled={disabled}
+                    onChange={(e) => toggleField(field, e.target.checked)}
+                    className="h-3.5 w-3.5"
+                  />
+                  {COMPETITOR_FIELD_LABELS[field]}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+        {(primaryChanged || fieldAdditions.length > 0 || fieldRemovals.length > 0) && (
+          <div className="text-xs text-muted-foreground space-y-0.5 border-t pt-2">
+            {primaryChanged && (
+              <p>
+                Primary identifier: <span className="font-medium">{PRIMARY_PERSON_LABEL_TEXT[flow.currentPrimary]}</span>
+                {' → '}
+                <span className="font-medium">{PRIMARY_PERSON_LABEL_TEXT[flow.proposedPrimary]}</span>
+              </p>
+            )}
+            {fieldAdditions.length > 0 && (
+              <p>
+                Enabling optional fields: {fieldAdditions.map((f) => COMPETITOR_FIELD_LABELS[f]).join(', ')}
+              </p>
+            )}
+            {fieldRemovals.length > 0 && (
+              <p>
+                Disabling optional fields: {fieldRemovals.map((f) => COMPETITOR_FIELD_LABELS[f]).join(', ')}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Fleets to create / reuse */}
+      {planGroups.length > 0 && (
+        <div className="rounded-md border p-3 space-y-2 bg-muted/30">
+          <p className="text-sm font-medium">Fleets</p>
+          <div className="space-y-2">
+            {planGroups.map(([csvName, group]) => {
+              // Show the also-scratch toggle only for groups where
+              // at least one rating system was inferred (non-scratch).
+              const hasRatingFleet = group.some((p) => p.scoringSystem !== 'scratch');
+              return (
+                <div key={csvName} className="space-y-0.5">
+                  <p className="text-xs font-mono text-muted-foreground">
+                    {csvName}
+                  </p>
+                  <ul className="text-sm pl-3 space-y-0.5">
+                    {group.map((p) => (
+                      <li key={p.key} className="flex items-baseline gap-2">
+                        <span className="font-medium">{p.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {SCORING_SYSTEM_LABEL[p.scoringSystem]}
+                          {' · '}
+                          {p.rowIndices.length} {p.rowIndices.length === 1 ? 'boat' : 'boats'}
+                          {p.isExisting && ' · existing'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {hasRatingFleet && (
+                    <label className="flex items-center gap-1.5 text-xs pl-3 pt-0.5 cursor-pointer text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={flow.alsoCreateScratch[csvName] === true}
+                        onChange={(e) => toggleAlsoScratch(csvName, e.target.checked)}
+                        className="h-3.5 w-3.5"
+                      />
+                      Also score {csvName} on scratch (line honours)
+                    </label>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {livePlan.shouldFillBoatClassFromFleetName && (
+            <p className="text-xs text-muted-foreground border-t pt-2">
+              No Class column detected — the original fleet name will be saved
+              as each boat&rsquo;s class so the grouping isn&rsquo;t lost when
+              boats are split into rating fleets.
+            </p>
+          )}
+        </div>
+      )}
+
+      <MappingTable
+        headers={flow.headers}
+        columnMap={flow.columnMap}
+        sampleTexts={sampleTexts}
+        fieldLabels={fieldLabels}
+        onChange={updateColumn}
+      />
+      {(!hasSail || !hasPrimary || tooManyPrimaries || tooManySails) && (
+        <div className="text-xs text-destructive space-y-0.5">
+          {!hasSail && <p>Map one column to Sail number.</p>}
+          {tooManySails && <p>Only one column may be Sail number.</p>}
+          {!hasPrimary && <p>Map one column to {PRIMARY_PERSON_LABEL_TEXT[flow.proposedPrimary]} name (primary).</p>}
+          {tooManyPrimaries && <p>Only one column may be the primary name.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Component ───────────────────────────────────────────────────────────────
 
@@ -627,253 +961,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
               column to assign a competitor to multiple fleets, e.g. <code>PY|M15</code>.
             </DialogDescription>
           </DialogHeader>
-          {importFlow.step === 'mapping' && (() => {
-            const flow = importFlow;
-            const fieldLabels = buildFieldLabels(flow.proposedPrimary);
-            const targets = Object.values(flow.columnMap);
-            const primaryCount = targets.filter((t) => t === 'primary').length;
-            const sailCount = targets.filter((t) => t === 'sailNumber').length;
-            const hasPrimary = primaryCount >= 1;
-            const hasSail = sailCount >= 1;
-            const tooManyPrimaries = primaryCount > 1;
-            const tooManySails = sailCount > 1;
-
-            function updateColumn(index: number, value: CompetitorField) {
-              setImportFlow((f) =>
-                f.step === 'mapping'
-                  ? { ...f, columnMap: { ...f.columnMap, [index]: value } }
-                  : f,
-              );
-            }
-
-            function updatePrimary(label: PrimaryPersonLabel) {
-              setImportFlow((f) => {
-                if (f.step !== 'mapping') return f;
-                const nextMap = reconcileColumnMap(f.columnMap, label);
-                // Drop optional additions that are disabled by the new primary.
-                const nextProposedFields = f.proposedFields.filter(
-                  (field) => !isFieldDisabledByPrimary(field, label),
-                );
-                return { ...f, proposedPrimary: label, columnMap: nextMap, proposedFields: nextProposedFields };
-              });
-            }
-
-            function toggleField(field: CompetitorFieldKey, checked: boolean) {
-              setImportFlow((f) => {
-                if (f.step !== 'mapping') return f;
-                const set = new Set(f.proposedFields);
-                if (checked) set.add(field); else set.delete(field);
-                const nextArray = ALL_COMPETITOR_FIELDS.filter((ff) => set.has(ff));
-                return { ...f, proposedFields: nextArray };
-              });
-            }
-
-            function toggleAlsoScratch(csvFleetName: string, checked: boolean) {
-              setImportFlow((f) => {
-                if (f.step !== 'mapping') return f;
-                const next = { ...f.alsoCreateScratch };
-                if (checked) next[csvFleetName] = true;
-                else delete next[csvFleetName];
-                return { ...f, alsoCreateScratch: next };
-              });
-            }
-
-            const primaryChanged = flow.proposedPrimary !== flow.currentPrimary;
-            const fieldAdditions = flow.proposedFields.filter((f) => !flow.currentFields.includes(f));
-            const fieldRemovals = flow.currentFields.filter((f) => !flow.proposedFields.includes(f));
-
-            // Recompute the plan on every render — it's cheap and depends on
-            // column mappings + the also-scratch toggle, both of which the
-            // user edits inside this dialog.
-            const planRows = extractPlanRows(flow.rows, flow.columnMap);
-            const csvHasClassColumn = Object.values(flow.columnMap).includes('boatClass');
-            const livePlan = planFleetCreation({
-              rows: planRows,
-              existingFleets: fleets,
-              existingCompetitors: flow.existingHasBoatClass ? [{ boatClass: 'x' }] : [],
-              csvHasClassColumn,
-              alsoCreateScratch: flow.alsoCreateScratch,
-            });
-            const planGroups = groupProposedByCsvName(livePlan.proposed);
-
-            return (
-              <div className="space-y-4 overflow-y-auto max-h-[60vh]">
-                {/* Series-level proposals */}
-                <div className="rounded-md border p-3 space-y-3 bg-muted/30">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Primary identifier</p>
-                    <p className="text-xs text-muted-foreground">
-                      The required name column for every competitor. Used as the primary
-                      column heading throughout results.
-                    </p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1">
-                      {PRIMARY_PERSON_LABELS.map((label) => (
-                        <label key={label} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                          <input
-                            type="radio"
-                            name="importPrimary"
-                            value={label}
-                            checked={flow.proposedPrimary === label}
-                            onChange={() => updatePrimary(label)}
-                            className="h-3.5 w-3.5"
-                          />
-                          {PRIMARY_PERSON_LABEL_TEXT[label]}
-                          {label === flow.currentPrimary && (
-                            <span className="text-xs text-muted-foreground">(current)</span>
-                          )}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Optional fields to show</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
-                      {ALL_COMPETITOR_FIELDS.map((field) => {
-                        const disabled = isFieldDisabledByPrimary(field, flow.proposedPrimary);
-                        return (
-                          <label
-                            key={field}
-                            className={`flex items-center gap-1.5 text-sm ${disabled ? 'opacity-50' : 'cursor-pointer'}`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={flow.proposedFields.includes(field) && !disabled}
-                              disabled={disabled}
-                              onChange={(e) => toggleField(field, e.target.checked)}
-                              className="h-3.5 w-3.5"
-                            />
-                            {COMPETITOR_FIELD_LABELS[field]}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  {(primaryChanged || fieldAdditions.length > 0 || fieldRemovals.length > 0) && (
-                    <div className="text-xs text-muted-foreground space-y-0.5 border-t pt-2">
-                      {primaryChanged && (
-                        <p>
-                          Primary identifier: <span className="font-medium">{PRIMARY_PERSON_LABEL_TEXT[flow.currentPrimary]}</span>
-                          {' → '}
-                          <span className="font-medium">{PRIMARY_PERSON_LABEL_TEXT[flow.proposedPrimary]}</span>
-                        </p>
-                      )}
-                      {fieldAdditions.length > 0 && (
-                        <p>
-                          Enabling optional fields: {fieldAdditions.map((f) => COMPETITOR_FIELD_LABELS[f]).join(', ')}
-                        </p>
-                      )}
-                      {fieldRemovals.length > 0 && (
-                        <p>
-                          Disabling optional fields: {fieldRemovals.map((f) => COMPETITOR_FIELD_LABELS[f]).join(', ')}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Fleets to create / reuse */}
-                {planGroups.length > 0 && (
-                  <div className="rounded-md border p-3 space-y-2 bg-muted/30">
-                    <p className="text-sm font-medium">Fleets</p>
-                    <div className="space-y-2">
-                      {planGroups.map(([csvName, group]) => {
-                        // Show the also-scratch toggle only for groups where
-                        // at least one rating system was inferred (non-scratch).
-                        const hasRatingFleet = group.some((p) => p.scoringSystem !== 'scratch');
-                        return (
-                          <div key={csvName} className="space-y-0.5">
-                            <p className="text-xs font-mono text-muted-foreground">
-                              {csvName}
-                            </p>
-                            <ul className="text-sm pl-3 space-y-0.5">
-                              {group.map((p) => (
-                                <li key={p.key} className="flex items-baseline gap-2">
-                                  <span className="font-medium">{p.name}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {SCORING_SYSTEM_LABEL[p.scoringSystem]}
-                                    {' · '}
-                                    {p.rowIndices.length} {p.rowIndices.length === 1 ? 'boat' : 'boats'}
-                                    {p.isExisting && ' · existing'}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                            {hasRatingFleet && (
-                              <label className="flex items-center gap-1.5 text-xs pl-3 pt-0.5 cursor-pointer text-muted-foreground">
-                                <input
-                                  type="checkbox"
-                                  checked={flow.alsoCreateScratch[csvName] === true}
-                                  onChange={(e) => toggleAlsoScratch(csvName, e.target.checked)}
-                                  className="h-3.5 w-3.5"
-                                />
-                                Also score {csvName} on scratch (line honours)
-                              </label>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {livePlan.shouldFillBoatClassFromFleetName && (
-                      <p className="text-xs text-muted-foreground border-t pt-2">
-                        No Class column detected — the original fleet name will be saved
-                        as each boat&rsquo;s class so the grouping isn&rsquo;t lost when
-                        boats are split into rating fleets.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <Table className="table-fixed">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-1/5">Column</TableHead>
-                      <TableHead className="w-1/5">Map to</TableHead>
-                      <TableHead className="w-3/5">Sample values</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {flow.headers.map((header, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-mono text-sm truncate">{header || `Column ${i + 1}`}</TableCell>
-                        <TableCell>
-                          <Select
-                            value={flow.columnMap[i]}
-                            onValueChange={(v) => updateColumn(i, v as CompetitorField)}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {(Object.keys(fieldLabels) as CompetitorField[]).map((field) => (
-                                <SelectItem key={field} value={field}>
-                                  {fieldLabels[field]}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground truncate">
-                          {flow.sampleRows
-                            .map((row) => row[i]?.trim() ?? '')
-                            .filter(Boolean)
-                            .slice(0, 3)
-                            .join(', ') || '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {(!hasSail || !hasPrimary || tooManyPrimaries || tooManySails) && (
-                  <div className="text-xs text-destructive space-y-0.5">
-                    {!hasSail && <p>Map one column to Sail number.</p>}
-                    {tooManySails && <p>Only one column may be Sail number.</p>}
-                    {!hasPrimary && <p>Map one column to {PRIMARY_PERSON_LABEL_TEXT[flow.proposedPrimary]} name (primary).</p>}
-                    {tooManyPrimaries && <p>Only one column may be the primary name.</p>}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          {importFlow.step === 'mapping' && (
+            <MappingDialogBody flow={importFlow} setFlow={setImportFlow} fleets={fleets} />
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={resetImport}>Cancel</Button>
             <Button
