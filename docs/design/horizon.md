@@ -277,11 +277,52 @@ A view across the whole series showing each boat's rating evolution race
 by race, with the existing per-race explainability columns rolled up.
 Per-race explainability is implemented; the series-level rollup is not.
 
+### ECHO certificate-layer features
+
+The first ECHO pass implements the per-race performance-index blend only.
+The formal Irish Sailing *ECHO Rules* document defines a certificate-
+administration layer that production ECHO clubs run on top of that
+algorithm — out of scope for the first pass, captured so it isn't lost:
+
+- **Standard TCF per boat** (Rule 6) — the IS-issued certificate rating;
+  a per-competitor field alongside the progressive handicap.
+- **Hard limits on Current TCF** (Rules 6.6, 8.3) — Current TCF clamped
+  to Standard TCF × [0.925, 1.12]; a post-blend clamp on the new handicap.
+- **Block Adjustment** (Appendix E) — a scorer-triggered season-start
+  action scaling every Current TCF by ΣStandard / ΣCurrent.
+- **Provisional TCF status** (Rules 7.2, 8.1) — newly-rated boats whose
+  results don't drive other boats' updates while their own TCF settles;
+  affects whether a boat contributes to ΣH_S and Σ(1/T_E).
+
+Detail in `docs/design/handicap-scoring.md` (ECHO → "Out of scope (first
+ECHO pass): certificate-layer features").
+
+### Carry-over of starting handicaps between series
+
+Progressive systems (NHC, ECHO) need a starting handicap for race 1 of
+each series. Today the scorer enters it per competitor by hand. A future
+flow could auto-carry each boat's end-of-last-series TCF into the new
+series.
+
+Open question first: the HYC Championships data shows boats starting a
+series on a TCF that differs from their carried-over master rating, so
+the real-world convention isn't pinned down — straight carry-over, a
+class-baseline reset between seasons, or deliberate manual entry. Ask the
+fleet scorer before building anything.
+
 ### Phase 3: ORC Club
 
 A more elaborate handicap system used internationally for offshore
 racing, distinct from IRC. Out of scope for HYC and IODAI but the
 obvious next system after IRC, NHC, and ECHO.
+
+### ORC advanced methods (PCS, Custom Courses)
+
+Beyond ORC Club itself, ORC defines Performance Curve Scoring (PCS) and
+Custom Courses — scoring that models a boat's speed against the actual
+wind conditions and course geometry of each race rather than a single
+time allowance. Far horizon; only relevant if a target series runs full
+ORC International scoring.
 
 ---
 

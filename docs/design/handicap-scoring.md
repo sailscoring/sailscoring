@@ -1,16 +1,16 @@
 # Handicap Scoring
 
 Design and implementation record for time-based handicap scoring. Phase 1
-(static TCF — IRC and PY) is complete. Phase 2's first pass shipped NHC1
-(Sailwave's built-in progressive handicap) with the rating-calculation
-explainability plumbing — but the algorithm itself does not match Sailwave
-and needs a fix to align with the SWNHC2015 spreadsheet (the actual
-algorithm Sailwave uses internally; full analysis at
-[`docs/notes/sailwave-nhc1-reverse-engineering.md`](../notes/sailwave-nhc1-reverse-engineering.md)).
-ECHO is the next progressive system to implement; its design is recorded
-below against the Irish Sailing 2022 *ECHO Guide for Clubs* as the
-canonical reference. RYA NHC 2015 (a related but distinct algorithm) and
-scoring-inquiry exclusions remain deferred. Covers mathematics,
+(static TCF — IRC and PY) is complete. Phase 2 (progressive handicaps) is
+complete for the two systems HYC and the Irish cruiser circuit use: NHC1
+(Sailwave's built-in progressive handicap) matches the SWNHC2015
+spreadsheet to 3 dp — the actual algorithm Sailwave uses internally; full
+analysis at
+[`docs/notes/sailwave-nhc1-reverse-engineering.md`](../notes/sailwave-nhc1-reverse-engineering.md)
+— and ECHO matches the Irish Sailing 2022 *ECHO Guide for Clubs*. Both
+ship with the rating-calculation explainability layer. RYA NHC 2015 (a
+related but distinct algorithm), scoring-inquiry exclusions, and the ECHO
+certificate-administration layer remain deferred. Covers mathematics,
 architecture, and implementation status.
 
 ---
@@ -90,19 +90,21 @@ to the scorer.
 
 ## Phase 2: Progressive handicaps — NHC and ECHO
 
-> **Status:** NHC1 (= SWNHC2015) ✓ Implemented. The engine matches
-> Sailwave's NewRating output to 3 dp across all 34 finishers of the five
-> HYC reverse-engineering test fleets; see
+> **Status:** NHC1 (= SWNHC2015) and ECHO both ✓ Implemented. NHC1's
+> engine matches Sailwave's NewRating output to 3 dp across all 34
+> finishers of the five HYC reverse-engineering test fleets; see
 > [`docs/notes/sailwave-nhc1-reverse-engineering.md`](../notes/sailwave-nhc1-reverse-engineering.md)
 > for the algorithm derivation and
 > `tests/fixtures/scoring/nhc/05-puppeteer-hph-sailwave-verified.yaml`
 > for the gold-standard test fixture. The SWNHC2015 parameters live in
 > `lib/scoring.ts:DEFAULT_NHC_PROFILE`; user-visible profile selection is
-> a future milestone (see [`docs/design/horizon.md`](horizon.md)).
-> **ECHO is next in line for implementation** — see the ECHO section
-> below; the IS 2022 worked example is the verification fixture.
-> Deferred: RYA NHC 2015, scoring-inquiry rating adjustments, and the
-> series-level Rating-history page.
+> a future milestone (see [`docs/design/horizon.md`](horizon.md)). ECHO
+> reproduces the IS 2022 worked example exactly — see the ECHO section
+> below and `tests/fixtures/scoring/echo/01-is-2022-worked-example.yaml`.
+> Deferred: RYA NHC 2015, scoring-inquiry rating adjustments, the
+> series-level Rating-history page, and the ECHO certificate-
+> administration layer (Standard TCF, hard limits, Block Adjustment,
+> Provisional TCF status — see [`docs/design/horizon.md`](horizon.md)).
 
 ### NHC (National Handicap for Cruisers)
 
@@ -239,7 +241,16 @@ fallback looks like when a scorer doesn't supply one.
 See `docs/notes/sailwave-excel-handicap-protocol.md` for the full spreadsheet
 analysis.
 
-### ECHO
+### ECHO ✓ Implemented
+
+> **Status:** Engine ✓ in `lib/scoring.ts` (the symmetric single-blend
+> path). Per-competitor `echoStartingTcf`, per-fleet `echoAlpha` with
+> club/regatta presets, the two-finisher gate, TCF-history persistence,
+> public JSON export, and the ECHO explainability column set are all in
+> place. Verified against the IS 2022 worked example in
+> `tests/fixtures/scoring/echo/01-is-2022-worked-example.yaml`. Deferred:
+> the certificate-administration layer (see "Out of scope (first ECHO
+> pass)" below and [`docs/design/horizon.md`](horizon.md)).
 
 > **Canonical reference:** Irish Sailing's *ECHO Guide for Clubs*
 > (2022, Liam Lynch / Ratings & Handicapping Steering Group). The
@@ -462,9 +473,10 @@ ultimate outcome is the development of progressive ECHO").
 
 #### Out of scope (first ECHO pass): certificate-layer features
 
-Three features from the formal Rules apply to ECHO in production
+Four features from the formal Rules apply to ECHO in production
 but are not part of the per-race algorithm. Out of scope for the
-first pass; flagged here so they are not forgotten:
+first pass; flagged here and tracked in
+[`docs/design/horizon.md`](horizon.md) so they are not forgotten:
 
 - **Standard TCF per boat** (Rule 6) — the IS-issued certificate
   rating that anchors hard limits and Block Adjustments. Could be
@@ -632,26 +644,26 @@ retroactively move and change all subsequent race results.
 **Implementation staging**
 
 1. **NHC1 first pass — wrong algorithm.** ✓ Landed in commit `db39652`,
-   but with a symmetric ct-mean blend (no outliers, no realignment) that
-   does not match Sailwave. The engine and persistence are correct; only
-   the profile parameters and the inner blend logic are wrong.
-2. **NHC1 fix — match Sailwave (= SWNHC2015 spreadsheet).** ← next.
-   Wire up the `reduce-alpha` outlier strategy with the
-   `recomputeP50ForNonExtreme` flag, switch to asymmetric α
-   (0.30 over / 0.15 under, halved for extremes), enable `prior-mean`
-   realignment with `minFinishers = 3`, and regenerate the four
-   `tests/fixtures/scoring/nhc/` YAML fixtures against
-   `nr_swnhc2015_full` from `reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py`.
-   Update the rating-calculation explainability layer to surface the
-   new intermediate values (Q, S, extreme flag, T-or-Y, realignment
-   factor) — see "Rating calculation explainability" below.
-3. **Add ECHO.** Configuration-only addition (α = 0.25 default,
-   `minFinishers = 3`); reuses the NHC1 code path. Adds the ECHO
-   column set to the explainability layer (independent IS-notation
-   columns; no shared display with NHC).
-4. **Add RYA NHC 2015.** Adds the `H0` field on competitor, the
-   `cap-input` outlier strategy, `base-numbers` realignment, and DNC
-   realignment. Biggest data-model delta; comes last.
+   with a symmetric ct-mean blend (no outliers, no realignment) that did
+   not match Sailwave. Engine and persistence correct; the profile
+   parameters and inner blend logic were superseded by step 2.
+2. **NHC1 fix — match Sailwave (= SWNHC2015 spreadsheet).** ✓ Landed in
+   commit `e232d31` (#135). The `reduce-alpha` outlier strategy with the
+   `recomputeP50ForNonExtreme` flag, asymmetric α (0.30 over / 0.15
+   under, halved for extremes), and `prior-mean` realignment with
+   `minFinishers = 3` are all wired up; the `tests/fixtures/scoring/nhc/`
+   fixtures are regenerated against the SWNHC2015 reference and the
+   rating-calculation explainability layer surfaces Q, S, the extreme
+   flag, α, and the realignment factor.
+3. **Add ECHO.** ✓ Landed in commit `0136311`. A configuration-only
+   addition (α = 0.25 default, `minFinishers = 3`) on the symmetric
+   single-blend path; adds the ECHO column set to the explainability
+   layer (independent IS-notation columns; no shared display with NHC).
+4. **Add RYA NHC 2015.** Deferred — tracked in
+   [`docs/design/horizon.md`](horizon.md). Adds the `H0` field on
+   competitor, the `cap-input` outlier strategy, `base-numbers`
+   realignment, and DNC realignment. Biggest data-model delta; held back
+   pending real demand from a target series.
 
 ### Scoring-inquiry adjustments
 
@@ -699,16 +711,16 @@ but the master `comprating` is not advanced.
 
 ### Rating calculation explainability ✓ Implemented
 
-> **Status:** SWNHC2015 column set ✓ live in `lib/results-renderer.ts` and
-> `lib/public-export.ts`. The five per-finisher columns (Q, S, α, Z,
-> Adjustment) hide under the existing viewer toggle alongside an updated
-> prose explainer; the per-race fleet header carries μ(S), σ(S), the
-> asymmetric thresholds, P50, W51 (when recomputed), and the realignment
-> factor Z51. The `publishRatingCalculations` series-level setting still
-> controls whether the columns and toggle are emitted. Deferred (unchanged):
-> ECHO's own column set (specified below in IS notation; rendered
-> independently when ECHO ships), the RYA NHC 2015 variant extension
-> (Tt-substitution columns plus base-numbers realignment), the
+> **Status:** SWNHC2015 and ECHO column sets both ✓ live in
+> `lib/results-renderer.ts` and `lib/public-export.ts`. NHC1's five
+> per-finisher columns (Q, S, α, Z, Adjustment) hide under the viewer
+> toggle alongside a prose explainer; the per-race fleet header carries
+> μ(S), σ(S), the asymmetric thresholds, P50, W51 (when recomputed), and
+> the realignment factor Z51. ECHO's column set renders independently in
+> IS notation (Starting H, T_E, 1/T_E, CT, PI, Adjustment, New H). The
+> `publishRatingCalculations` series-level setting controls whether the
+> columns and toggle are emitted. Deferred: the RYA NHC 2015 variant
+> extension (Tt-substitution columns plus base-numbers realignment), the
 > series-level Rating-history page, and scoring-inquiry exclusion
 > rendering.
 
@@ -878,14 +890,14 @@ forward unchanged. Reason: [free text]."
 #### Placement in HTML output
 
 Per-race (**implemented**): the explainability columns render inline in
-the same race table, with a single viewer toggle — "Show NHC rating
-calculations" — that hides or shows them. Defaults to hidden; the
-viewer's preference is persisted in `localStorage`. The original plan
-was a collapsed-by-default appendix section, but inline-with-toggle
-proved simpler and kept the CT column adjacent to corrected-time context
-already in the table. A series-level `publishRatingCalculations`
-setting (default `true`) controls whether the columns and toggle are
-emitted at all.
+the same race table, with a per-system viewer toggle — "Show NHC rating
+calculations" / "Show ECHO rating calculations" — that hides or shows
+them. Defaults to hidden; the viewer's preference is persisted in
+`localStorage`. The original plan was a collapsed-by-default appendix
+section, but inline-with-toggle proved simpler and kept the CT column
+adjacent to corrected-time context already in the table. A series-level
+`publishRatingCalculations` setting (default `true`) controls whether
+the columns and toggle are emitted at all.
 
 Series-level (**deferred**): a "Rating history" page showing, for
 each boat, a row per race with `TCF_in → new_TCF` and the adjustment.
@@ -905,9 +917,9 @@ rows against manual calculation before locking column widths.
 
 Internal representation uses the P50 form (`Q = O · P50`), which matches
 the SWNHC2015 spreadsheet, preserves `Σ Q = Σ TCF` exactly, and avoids
-per-boat division by CT. The current code's `CT_avg / CT_i` ct-mean form
-is *not* algebraically equivalent and will be replaced as part of the
-NHC1 fix. (See
+per-boat division by CT. The first-pass `CT_avg / CT_i` ct-mean form is
+*not* algebraically equivalent and was replaced by the NHC1 fix (commit
+`e232d31`). (See
 [`docs/notes/sailwave-nhc1-reverse-engineering.md`](../notes/sailwave-nhc1-reverse-engineering.md)
 §7 for the side-by-side analysis of the two forms.)
 
@@ -1204,9 +1216,10 @@ All steps implemented. Key commits and issues for reference:
 
 ## Phase 2 open questions
 
-The NHC1 algorithm is fully specified from a copy of the SWNHC2015
+The NHC1 algorithm was reverse-engineered from a copy of the SWNHC2015
 spreadsheet that produced a real race
-(`reference/data/2026-hyc-club-racing/2026 Tues Series 1- Pup HPH R1.xls`).
+(`reference/data/2026-hyc-club-racing/2026 Tues Series 1- Pup HPH R1.xls`)
+and is now implemented (commit `e232d31`).
 See [`docs/notes/sailwave-nhc1-reverse-engineering.md`](../notes/sailwave-nhc1-reverse-engineering.md)
 for the algorithm, the verification across five HYC race-fleets at zero
 error, and a side-by-side comparison with RYA NHC 2015. The earlier
