@@ -99,6 +99,19 @@ record.
 
 *(Was GitHub issue #7)*
 
+### Recover a deleted series
+
+Revision history (above) covers reverting changes *within* a series. The complementary
+gap is bringing back a series that was deleted outright — an accidental delete of the
+whole record, not a bad edit inside it. Deleting a series should be a soft delete: the
+row is marked deleted and hidden from the active list, but recoverable for some window
+rather than destroyed immediately.
+
+Open questions: retention window before a soft-deleted series is purged for good;
+whether recovery is a self-service "trash" view or an admin/support action; how it
+interacts with workspace scoping (a deleted series stays in its workspace) and with the
+JSON export.
+
 ### Changelog on published results pages
 
 Each time a scorer publishes an update, the change should be recorded in a changelog
