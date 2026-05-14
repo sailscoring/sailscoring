@@ -17,6 +17,7 @@ import {
   useDeleteFinish,
   useFinishesByRace,
   useSaveFinish,
+  useSaveFinishes,
 } from '@/hooks/use-finishes';
 import { queryKeys } from '@/hooks/query-keys';
 import {
@@ -102,6 +103,7 @@ export default function ResultEntryPage({
 
   const saveCompetitor = useSaveCompetitor();
   const saveFinish = useSaveFinish();
+  const saveFinishes = useSaveFinishes();
   const deleteFinish = useDeleteFinish();
   const saveRaceStart = useSaveRaceStart();
   const deleteRaceStartMutation = useDeleteRaceStart();
@@ -359,8 +361,10 @@ export default function ResultEntryPage({
    * CSV import. Destructive: deletes the existing finishes for this race
    * before writing the imported batch. Clears state not expressible in the
    * v1 CSV format (ties, penalties, redress) — the scorer re-adds those in
-   * the editor afterwards. Each row is saved individually so the per-row
-   * version model stays consistent with the rest of the autosave path.
+   * the editor afterwards. The imported batch is authoritative by
+   * construction, so the new rows go through one bulk save rather than the
+   * per-row CAS path used for interactive autosave. The existing rows are
+   * still deleted one at a time pending a bulk-DELETE endpoint (#110).
    */
   async function applyCsvImport(imported: ParseFinishSheetResult) {
     const finishers = imported.finishes
@@ -400,7 +404,7 @@ export default function ResultEntryPage({
     await Promise.all(
       existing.map((f) => deleteFinish.mutateAsync({ id: f.id, raceId })),
     );
-    await Promise.all(newRows.map((f) => saveFinish.mutateAsync(f)));
+    await saveFinishes.mutateAsync(newRows);
     void touchSeries.mutateAsync(seriesId);
     setSailInput('');
     setInputError('');
@@ -608,7 +612,8 @@ export default function ResultEntryPage({
   // otherwise "All changes saved." Phase 7 will swap the otherwise-static
   // "saved" text for richer collaboration affordances; chunk-5's row-conflict
   // dialog will surface 409s alongside this pill.
-  const isSaving = saveFinish.isPending || deleteFinish.isPending;
+  const isSaving =
+    saveFinish.isPending || saveFinishes.isPending || deleteFinish.isPending;
   const statusLabel = isSaving ? 'Saving…' : 'All changes saved';
 
   return (
