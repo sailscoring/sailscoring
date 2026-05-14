@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRepos } from '@/lib/repos';
-import { useFleetsBySeries, useDeleteFleet, useSaveFleet } from '@/hooks/use-fleets';
+import { useFleetsBySeries, useDeleteFleet, useSaveFleet, useSaveFleets } from '@/hooks/use-fleets';
 import { useSaveCompetitors } from '@/hooks/use-competitors';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
 import { useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
@@ -39,6 +39,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
   const { data: fleetsData } = useFleetsBySeries(seriesId);
   const fleets = fleetsData ?? [];
   const saveFleet = useSaveFleet();
+  const saveFleets = useSaveFleets();
   const deleteFleetMutation = useDeleteFleet();
   const saveCompetitors = useSaveCompetitors();
   const saveRaceStart = useSaveRaceStart();
@@ -67,10 +68,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     reordered.splice(swapIndex, 0, moved);
     // Renumber rather than swap values: this self-heals fleets that share a
     // displayOrder (which a historical race in ensureFleet could produce).
-    for (let i = 0; i < reordered.length; i++) {
-      if (reordered[i].displayOrder !== i) {
-        await saveFleet.mutateAsync({ ...reordered[i], displayOrder: i });
-      }
+    const changed = reordered
+      .map((f, i) => (f.displayOrder === i ? null : { ...f, displayOrder: i }))
+      .filter((f): f is Fleet => f !== null);
+    if (changed.length > 0) {
+      await saveFleets.mutateAsync(changed);
     }
   }
 
