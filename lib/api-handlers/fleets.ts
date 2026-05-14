@@ -110,6 +110,20 @@ export async function bulkPutFleets(
   return { count: fleets.length };
 }
 
+/**
+ * Collection delete: DELETE /api/v1/series/:id/fleets — drop every fleet
+ * in the series in one round-trip. The repo method is workspace-scoped,
+ * so the `assertSeriesInWorkspace` guard is the tenancy check.
+ */
+export async function bulkDeleteFleets(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<void> {
+  await assertSeriesInWorkspace(workspace, seriesId);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.fleets.deleteBySeries(seriesId);
+}
+
 export async function ensureFleet(
   workspace: WorkspaceContext,
   seriesId: string,

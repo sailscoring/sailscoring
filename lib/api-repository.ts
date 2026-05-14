@@ -99,13 +99,7 @@ class ApiFleetRepository implements FleetRepository {
   }
 
   async deleteBySeries(seriesId: string): Promise<void> {
-    // No collection-delete endpoint today — fan out one per fleet.
-    const fleets = await this.listBySeries(seriesId);
-    await Promise.all(
-      fleets.map((f) =>
-        apiFetch(`/api/v1/series/${seriesId}/fleets/${f.id}`, { method: 'DELETE' }),
-      ),
-    );
+    await apiFetch(`/api/v1/series/${seriesId}/fleets`, { method: 'DELETE' });
   }
 }
 
@@ -143,12 +137,7 @@ class ApiCompetitorRepository implements CompetitorRepository {
   }
 
   async deleteBySeries(seriesId: string): Promise<void> {
-    const competitors = await this.listBySeries(seriesId);
-    await Promise.all(
-      competitors.map((c) =>
-        apiFetch(`/api/v1/series/${seriesId}/competitors/${c.id}`, { method: 'DELETE' }),
-      ),
-    );
+    await apiFetch(`/api/v1/series/${seriesId}/competitors`, { method: 'DELETE' });
   }
 }
 
@@ -174,12 +163,7 @@ class ApiRaceRepository implements RaceRepository {
   }
 
   async deleteBySeries(seriesId: string): Promise<void> {
-    const races = await this.listBySeries(seriesId);
-    await Promise.all(
-      races.map((r) =>
-        apiFetch(`/api/v1/series/${seriesId}/races/${r.id}`, { method: 'DELETE' }),
-      ),
-    );
+    await apiFetch(`/api/v1/series/${seriesId}/races`, { method: 'DELETE' });
   }
 }
 
@@ -225,12 +209,7 @@ class ApiRaceStartRepository implements RaceStartRepository {
   }
 
   async deleteByRace(raceId: string): Promise<void> {
-    const starts = await this.listByRace(raceId);
-    await Promise.all(
-      starts.map((s) =>
-        apiFetch(`/api/v1/races/${raceId}/starts/${s.id}`, { method: 'DELETE' }),
-      ),
-    );
+    await apiFetch(`/api/v1/races/${raceId}/starts`, { method: 'DELETE' });
   }
 
   async deleteByRaces(raceIds: string[]): Promise<void> {
@@ -283,12 +262,7 @@ class ApiFinishRepository implements FinishRepository {
   }
 
   async deleteByRace(raceId: string): Promise<void> {
-    const finishes = await this.listByRace(raceId);
-    await Promise.all(
-      finishes.map((f) =>
-        apiFetch(`/api/v1/races/${raceId}/finishes/${f.id}`, { method: 'DELETE' }),
-      ),
-    );
+    await apiFetch(`/api/v1/races/${raceId}/finishes`, { method: 'DELETE' });
   }
 
   async deleteByRaces(raceIds: string[]): Promise<void> {

@@ -68,6 +68,21 @@ export async function deleteRace(
 }
 
 /**
+ * Collection delete: DELETE /api/v1/series/:id/races — drop every race
+ * in the series in one round-trip. FK cascade on race_id clears the
+ * race-starts, finishes, and nhc-tcf-records underneath. The repo method
+ * is workspace-scoped, so `assertSeriesInWorkspace` is the tenancy check.
+ */
+export async function bulkDeleteRaces(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<void> {
+  await assertSeriesInWorkspace(workspace, seriesId);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.races.deleteBySeries(seriesId);
+}
+
+/**
  * Flat lookup: GET /api/v1/races/:raceId. Workspace tenancy is enforced
  * by the repository layer (races.workspace_id is denormalised onto the
  * row), so an id from another workspace returns 404. Useful for callers

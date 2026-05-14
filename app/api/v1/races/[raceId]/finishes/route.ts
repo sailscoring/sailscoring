@@ -1,4 +1,8 @@
-import { bulkPutFinishes, listFinishes } from '@/lib/api-handlers/finishes';
+import {
+  bulkDeleteFinishes,
+  bulkPutFinishes,
+  listFinishes,
+} from '@/lib/api-handlers/finishes';
 import { workspaceRoute } from '../../../_lib/handler';
 
 export const dynamic = 'force-dynamic';
@@ -13,4 +17,9 @@ export const GET = workspaceRoute<Params, unknown>(async (_req, { workspace, par
 export const POST = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
   const body = await req.json();
   return bulkPutFinishes(workspace, params.raceId, body);
+});
+
+/** Collection delete: drop every finish in the race. */
+export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
+  return bulkDeleteFinishes(workspace, params.raceId);
 });

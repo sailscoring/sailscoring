@@ -99,6 +99,20 @@ export async function bulkPutCompetitors(
 }
 
 /**
+ * Collection delete: DELETE /api/v1/series/:id/competitors — drop every
+ * competitor in the series in one round-trip. The repo method is
+ * workspace-scoped, so `assertSeriesInWorkspace` is the tenancy check.
+ */
+export async function bulkDeleteCompetitors(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<void> {
+  await assertSeriesInWorkspace(workspace, seriesId);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.competitors.deleteBySeries(seriesId);
+}
+
+/**
  * Flat lookup: GET /api/v1/competitors/:id. Tenancy is enforced by the
  * repository layer (competitors.workspace_id is denormalised onto the
  * row); cross-workspace ids return 404. Symmetrical with `getRaceFlat`.

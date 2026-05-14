@@ -1,4 +1,4 @@
-import { bulkPutFleets, listFleets } from '@/lib/api-handlers/fleets';
+import { bulkDeleteFleets, bulkPutFleets, listFleets } from '@/lib/api-handlers/fleets';
 import { workspaceRoute } from '../../../_lib/handler';
 
 export const dynamic = 'force-dynamic';
@@ -13,4 +13,9 @@ export const GET = workspaceRoute<Params, unknown>(async (_req, { workspace, par
 export const POST = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
   const body = await req.json();
   return bulkPutFleets(workspace, params.id, body);
+});
+
+/** Collection delete: drop every fleet in the series. */
+export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
+  return bulkDeleteFleets(workspace, params.id);
 });

@@ -1,4 +1,8 @@
-import { bulkPutCompetitors, listCompetitors } from '@/lib/api-handlers/competitors';
+import {
+  bulkDeleteCompetitors,
+  bulkPutCompetitors,
+  listCompetitors,
+} from '@/lib/api-handlers/competitors';
 import { workspaceRoute } from '../../../_lib/handler';
 
 export const dynamic = 'force-dynamic';
@@ -13,4 +17,9 @@ export const GET = workspaceRoute<Params, unknown>(async (_req, { workspace, par
 export const POST = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
   const body = await req.json();
   return bulkPutCompetitors(workspace, params.id, body);
+});
+
+/** Collection delete: drop every competitor in the series. */
+export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
+  return bulkDeleteCompetitors(workspace, params.id);
 });

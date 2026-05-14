@@ -359,4 +359,172 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
 
     await series.deleteSeries(ctxA, seriesId);
   });
+
+  // ─── Collection deletes ────────────────────────────────────────────────────
+
+  test('bulkDeleteFleets drops every fleet; cross-workspace 404s', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    await fleets.bulkPutFleets(ctxA, seriesId, {
+      fleets: [
+        { id: uuid(), seriesId, name: 'IRC', displayOrder: 0, scoringSystem: 'irc' as const },
+        { id: uuid(), seriesId, name: 'PY', displayOrder: 1, scoringSystem: 'py' as const },
+      ],
+    });
+    expect(await fleets.listFleets(ctxA, seriesId)).toHaveLength(2);
+
+    await expect(
+      fleets.bulkDeleteFleets(ctxB, seriesId),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await fleets.bulkDeleteFleets(ctxA, seriesId);
+    expect(await fleets.listFleets(ctxA, seriesId)).toHaveLength(0);
+
+    await series.deleteSeries(ctxA, seriesId);
+  });
+
+  test('bulkDeleteCompetitors drops every competitor; cross-workspace 404s', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'F', displayOrder: 0, scoringSystem: 'irc' as const,
+    });
+    await competitors.bulkPutCompetitors(ctxA, seriesId, {
+      competitors: Array.from({ length: 5 }, (_, i) => ({
+        id: uuid(), seriesId, fleetIds: [fleetId],
+        sailNumber: String(3000 + i), name: `Helm ${i}`,
+        club: '', gender: '' as const, age: null, createdAt: Date.now(),
+      })),
+    });
+    expect(await competitors.listCompetitors(ctxA, seriesId)).toHaveLength(5);
+
+    await expect(
+      competitors.bulkDeleteCompetitors(ctxB, seriesId),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await competitors.bulkDeleteCompetitors(ctxA, seriesId);
+    expect(await competitors.listCompetitors(ctxA, seriesId)).toHaveLength(0);
+
+    await series.deleteSeries(ctxA, seriesId);
+  });
+
+  test('bulkDeleteRaces drops every race and cascades to starts/finishes', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'F', displayOrder: 0, scoringSystem: 'scratch' as const,
+    });
+    const compId = uuid();
+    await competitors.putCompetitor(ctxA, seriesId, compId, {
+      id: compId, seriesId, fleetIds: [fleetId],
+      sailNumber: '500', name: 'Boat', club: '', gender: '' as const,
+      age: null, createdAt: Date.now(),
+    });
+    const raceId = uuid();
+    await races.putRace(ctxA, seriesId, raceId, {
+      id: raceId, seriesId, raceNumber: 1, date: '2026-04-01', createdAt: Date.now(),
+    });
+    const startId = uuid();
+    await raceStarts.putRaceStart(ctxA, raceId, startId, {
+      id: startId, raceId, fleetIds: [fleetId], startTime: '11:00:00',
+    });
+    await finishes.bulkPutFinishes(ctxA, raceId, {
+      finishes: [{
+        id: uuid(), raceId, competitorId: compId,
+        sortOrder: 1, resultCode: null, startPresent: null,
+        penaltyCode: null, penaltyOverride: null,
+        redressMethod: null, redressExcludeRaces: null,
+        redressIncludeRaces: null,
+        tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
+      }],
+    });
+
+    await expect(
+      races.bulkDeleteRaces(ctxB, seriesId),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await races.bulkDeleteRaces(ctxA, seriesId);
+    expect(await races.listRaces(ctxA, seriesId)).toHaveLength(0);
+    // Race gone → starts/finishes are FK-cascaded; querying them 404s on parent race.
+    await expect(
+      raceStarts.listRaceStarts(ctxA, raceId),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      finishes.listFinishes(ctxA, raceId),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await series.deleteSeries(ctxA, seriesId);
+  });
+
+  test('bulkDeleteRaceStarts drops every start; cross-workspace 404s', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'F', displayOrder: 0, scoringSystem: 'scratch' as const,
+    });
+    const raceId = uuid();
+    await races.putRace(ctxA, seriesId, raceId, {
+      id: raceId, seriesId, raceNumber: 1, date: '2026-04-01', createdAt: Date.now(),
+    });
+    await raceStarts.bulkPutRaceStarts(ctxA, raceId, {
+      starts: [
+        { id: uuid(), raceId, fleetIds: [fleetId], startTime: '11:00:00' },
+        { id: uuid(), raceId, fleetIds: [fleetId], startTime: '11:05:00' },
+      ],
+    });
+    expect(await raceStarts.listRaceStarts(ctxA, raceId)).toHaveLength(2);
+
+    await expect(
+      raceStarts.bulkDeleteRaceStarts(ctxB, raceId),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await raceStarts.bulkDeleteRaceStarts(ctxA, raceId);
+    expect(await raceStarts.listRaceStarts(ctxA, raceId)).toHaveLength(0);
+
+    await series.deleteSeries(ctxA, seriesId);
+  });
+
+  test('bulkDeleteFinishes drops every finish; cross-workspace 404s', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'F', displayOrder: 0, scoringSystem: 'scratch' as const,
+    });
+    const compIds = [uuid(), uuid()];
+    for (const [i, id] of compIds.entries()) {
+      await competitors.putCompetitor(ctxA, seriesId, id, {
+        id, seriesId, fleetIds: [fleetId],
+        sailNumber: String(600 + i), name: `Boat ${i}`,
+        club: '', gender: '' as const, age: null, createdAt: Date.now(),
+      });
+    }
+    const raceId = uuid();
+    await races.putRace(ctxA, seriesId, raceId, {
+      id: raceId, seriesId, raceNumber: 1, date: '2026-04-01', createdAt: Date.now(),
+    });
+    await finishes.bulkPutFinishes(ctxA, raceId, {
+      finishes: compIds.map((id, i) => ({
+        id: uuid(), raceId, competitorId: id,
+        sortOrder: i + 1, resultCode: null, startPresent: null,
+        penaltyCode: null, penaltyOverride: null,
+        redressMethod: null, redressExcludeRaces: null,
+        redressIncludeRaces: null,
+        tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
+      })),
+    });
+    expect(await finishes.listFinishes(ctxA, raceId)).toHaveLength(2);
+
+    await expect(
+      finishes.bulkDeleteFinishes(ctxB, raceId),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await finishes.bulkDeleteFinishes(ctxA, raceId);
+    expect(await finishes.listFinishes(ctxA, raceId)).toHaveLength(0);
+
+    await series.deleteSeries(ctxA, seriesId);
+  });
 });

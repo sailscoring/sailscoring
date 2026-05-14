@@ -67,6 +67,21 @@ export async function deleteFinishFlat(
 }
 
 /**
+ * Collection delete: DELETE /api/v1/races/:raceId/finishes — drop every
+ * finish in the race in one round-trip. The repo method gates on the
+ * parent race's workspace, so `assertRaceInWorkspace` is the tenancy
+ * check and cross-workspace race ids are a no-op.
+ */
+export async function bulkDeleteFinishes(
+  workspace: WorkspaceContext,
+  raceId: string,
+): Promise<void> {
+  await assertRaceInWorkspace(workspace, raceId);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.finishes.deleteByRace(raceId);
+}
+
+/**
  * Bulk upsert. The body is `{ finishes: Finish[] }`. All finishes must
  * share the path's raceId; mixed-race batches are rejected.
  */
