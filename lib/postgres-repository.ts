@@ -1191,6 +1191,41 @@ export class PostgresRaceStartRepository implements RaceStartRepository {
     return raceStartRowToType(row);
   }
 
+  async saveMany(starts: RaceStart[], opts?: SaveOpts): Promise<void> {
+    if (starts.length === 0) return;
+    const updatedBy = opts?.updatedBy ?? null;
+    // Verify every parent race is in this workspace before writing anything.
+    const raceIds = [...new Set(starts.map((s) => s.raceId))];
+    const owned = await filterRaceIdsByWorkspace(
+      this.db,
+      this.workspaceId,
+      raceIds,
+    );
+    if (owned.length !== raceIds.length) {
+      throw new Error('some races not in workspace');
+    }
+    const values = starts.map((s) => ({
+      id: s.id,
+      raceId: s.raceId,
+      fleetIds: s.fleetIds,
+      startTime: s.startTime,
+      updatedBy,
+    }));
+    await this.db
+      .insert(schema.raceStarts)
+      .values(values)
+      .onConflictDoUpdate({
+        target: schema.raceStarts.id,
+        set: {
+          fleetIds: sql`excluded.fleet_ids`,
+          startTime: sql`excluded.start_time`,
+          updatedBy: sql`excluded.updated_by`,
+          version: sql`${schema.raceStarts.version} + 1`,
+          updatedAt: sql`now()`,
+        },
+      });
+  }
+
   async delete(id: string): Promise<void> {
     // Verify the row's parent race is in this workspace.
     const [join] = await this.db

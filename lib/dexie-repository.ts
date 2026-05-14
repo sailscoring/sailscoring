@@ -159,6 +159,11 @@ class DexieRaceStartRepository implements RaceStartRepository {
     return raceStart;
   }
 
+  async saveMany(raceStarts: RaceStart[]): Promise<void> {
+    if (raceStarts.length === 0) return;
+    await db.raceStarts.bulkPut(raceStarts);
+  }
+
   delete(id: string): Promise<void> {
     return db.raceStarts.delete(id);
   }

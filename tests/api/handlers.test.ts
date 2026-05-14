@@ -289,6 +289,15 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     });
     expect(await raceStarts.listRaceStarts(ctxA, raceId)).toHaveLength(1);
 
+    const bulkStarts = await raceStarts.bulkPutRaceStarts(ctxA, raceId, {
+      starts: [
+        { id: uuid(), raceId, fleetIds: [fleetId], startTime: '11:05:00' },
+        { id: uuid(), raceId, fleetIds: [fleetId], startTime: '11:10:00' },
+      ],
+    });
+    expect(bulkStarts.count).toBe(2);
+    expect(await raceStarts.listRaceStarts(ctxA, raceId)).toHaveLength(3);
+
     const bulk = await finishes.bulkPutFinishes(ctxA, raceId, {
       finishes: compIds.map((id, i) => ({
         id: uuid(), raceId, competitorId: id,
@@ -328,6 +337,23 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
           redressIncludeRaces: null,
           tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
         }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await series.deleteSeries(ctxA, seriesId);
+  });
+
+  test('bulk race start race-id mismatch is rejected', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const raceId = uuid();
+    await races.putRace(ctxA, seriesId, raceId, {
+      id: raceId, seriesId, raceNumber: 1, date: '2026-04-01', createdAt: Date.now(),
+    });
+
+    await expect(
+      raceStarts.bulkPutRaceStarts(ctxA, raceId, {
+        starts: [{ id: uuid(), raceId: uuid(), fleetIds: [], startTime: '11:00:00' }],
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
 

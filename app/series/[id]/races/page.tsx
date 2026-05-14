@@ -12,7 +12,7 @@ import {
 import { useDeleteFinishesByRace } from '@/hooks/use-finishes';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useFinishesByRace } from '@/hooks/use-finishes';
-import { useSaveRaceStart } from '@/hooks/use-race-starts';
+import { useSaveRaceStarts } from '@/hooks/use-race-starts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -110,7 +110,7 @@ export default function RacesPage({
   const { data: series } = useSeries(seriesId);
   const { data: fleets } = useFleetsBySeries(seriesId);
   const saveRace = useSaveRace();
-  const saveRaceStart = useSaveRaceStart();
+  const saveRaceStarts = useSaveRaceStarts();
   const touchSeries = useTouchSeries();
   const raceListRef = useRef<HTMLDivElement>(null);
   const didAutoFocus = useRef(false);
@@ -197,14 +197,14 @@ export default function RacesPage({
 
     // Create RaceStart records from the start sequence
     const starts = generateStarts(startSequence!, normalized);
-    for (const start of starts) {
-      await saveRaceStart.mutateAsync({
+    await saveRaceStarts.mutateAsync(
+      starts.map((start) => ({
         id: crypto.randomUUID(),
         raceId: race.id,
         fleetIds: start.fleetIds,
         startTime: start.startTime,
-      });
-    }
+      })),
+    );
 
     await touchSeries.mutateAsync(seriesId);
     setShowNewRaceDialog(false);

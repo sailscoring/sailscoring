@@ -46,6 +46,24 @@ export function useSaveRaceStart() {
   });
 }
 
+export function useSaveRaceStarts() {
+  const { raceStartRepo } = useRepos();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (starts: RaceStart[]) => raceStartRepo.saveMany(starts),
+    onSuccess: (_void, starts) => {
+      const raceIds = new Set(starts.map((s) => s.raceId));
+      for (const raceId of raceIds) {
+        qc.invalidateQueries({ queryKey: queryKeys.raceStarts.byRace(raceId) });
+      }
+      qc.invalidateQueries({ queryKey: queryKeys.raceStarts.all });
+    },
+    // Share the scope with useSaveRaceStart so a bulk write and a rapid
+    // single save can't interleave on the same rows.
+    scope: { id: 'race-starts' },
+  });
+}
+
 export function useDeleteRaceStart() {
   const { raceStartRepo } = useRepos();
   const qc = useQueryClient();

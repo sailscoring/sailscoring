@@ -201,6 +201,25 @@ class ApiRaceStartRepository implements RaceStartRepository {
     });
   }
 
+  async saveMany(starts: RaceStart[]): Promise<void> {
+    if (starts.length === 0) return;
+    // All starts must share a single race id for the bulk endpoint.
+    const byRace = new Map<string, RaceStart[]>();
+    for (const s of starts) {
+      const list = byRace.get(s.raceId) ?? [];
+      list.push(s);
+      byRace.set(s.raceId, list);
+    }
+    await Promise.all(
+      [...byRace.entries()].map(([raceId, list]) =>
+        apiFetch(`/api/v1/races/${raceId}/starts`, {
+          method: 'POST',
+          body: { starts: list },
+        }),
+      ),
+    );
+  }
+
   async delete(id: string): Promise<void> {
     await apiFetch(`/api/v1/race-starts/${id}`, { method: 'DELETE' });
   }

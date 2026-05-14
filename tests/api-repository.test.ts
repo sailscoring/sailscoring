@@ -169,6 +169,29 @@ describe('api-repository routing', () => {
     );
   });
 
+  test('raceStartRepo.saveMany batches by raceId and uses the bulk endpoint', async () => {
+    const raceA = 'a1a1a1a1-1111-4222-8333-aaaaaaaaaaaa';
+    const raceB = 'b2b2b2b2-1111-4222-8333-bbbbbbbbbbbb';
+    const mk = (raceId: string, id: string): RaceStart => ({
+      id, raceId, fleetIds: [], startTime: '11:00:00',
+    });
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse(200, { count: 1 })));
+    await raceStartRepo.saveMany([
+      mk(raceA, 'c3c3c3c3-1111-4222-8333-cccccccccccc'),
+      mk(raceA, 'd4d4d4d4-1111-4222-8333-dddddddddddd'),
+      mk(raceB, 'e5e5e5e5-1111-4222-8333-eeeeeeeeeeee'),
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const urls = fetchMock.mock.calls.map((call) => call[0]).sort();
+    expect(urls).toEqual([
+      `/api/v1/races/${raceA}/starts`,
+      `/api/v1/races/${raceB}/starts`,
+    ]);
+    for (const call of fetchMock.mock.calls) {
+      expect(call[1].method).toBe('POST');
+    }
+  });
+
   test('finishRepo.save uses the flat /races/:id/finishes path', async () => {
     const f: Finish = {
       id: '55555555-1111-4222-8333-eeeeeeeeeeee',

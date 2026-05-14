@@ -409,6 +409,58 @@ describe.skipIf(skip)('postgres repositories', () => {
     await reposB.series.delete(sB.id);
   });
 
+  test('RaceStartRepository.saveMany upserts a batch in one round-trip', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+    const fleet = uuid();
+    await repos.fleets.save({ id: fleet, seriesId: s.id, name: 'F', displayOrder: 0, scoringSystem: 'irc' });
+    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    await repos.races.save(race);
+
+    const starts: RaceStart[] = Array.from({ length: 4 }, (_, i) => ({
+      id: uuid(), raceId: race.id, fleetIds: [fleet], startTime: `11:0${i}:00`,
+    }));
+    await repos.raceStarts.saveMany(starts);
+
+    const byRace = await repos.raceStarts.listByRace(race.id);
+    expect(byRace).toHaveLength(4);
+    expect(new Set(byRace.map((rs) => rs.id))).toEqual(new Set(starts.map((rs) => rs.id)));
+
+    // Re-running saveMany with mutated rows updates them in place.
+    const updated = starts.map((rs) => ({ ...rs, startTime: '12:00:00' }));
+    await repos.raceStarts.saveMany(updated);
+    const reread = await repos.raceStarts.listByRace(race.id);
+    expect(reread.every((rs) => rs.startTime === '12:00:00')).toBe(true);
+
+    await repos.series.delete(s.id);
+  });
+
+  test('RaceStartRepository.saveMany rejects a race in another workspace', async () => {
+    const reposA = createRepos({ db, workspaceId: workspaceA });
+    const reposB = createRepos({ db, workspaceId: workspaceB });
+
+    const s = makeSeries();
+    await reposA.series.save(s);
+    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    await reposA.races.save(race);
+
+    await expect(
+      reposB.raceStarts.saveMany([
+        { id: uuid(), raceId: race.id, fleetIds: [], startTime: '11:00:00' },
+      ]),
+    ).rejects.toThrow();
+
+    expect(await reposA.raceStarts.listByRace(race.id)).toEqual([]);
+
+    await reposA.series.delete(s.id);
+  });
+
+  test('RaceStartRepository.saveMany with empty array is a no-op', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    await expect(repos.raceStarts.saveMany([])).resolves.toBeUndefined();
+  });
+
   // ─── FleetRepository.saveMany ──────────────────────────────────────────────
 
   test('FleetRepository.saveMany inserts a batch and upserts on re-run', async () => {

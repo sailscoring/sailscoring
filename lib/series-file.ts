@@ -599,15 +599,13 @@ async function writeFleetsCompetitorsRaces(
       createdAt: now,
     });
 
-    await Promise.all(
-      r.starts.map((s) =>
-        repos.raceStartRepo.save({
-          id: crypto.randomUUID(),
-          raceId: newRaceId,
-          fleetIds: s.fleetIds.map((id) => fleetIdMap.get(id) ?? id),
-          startTime: s.startTime,
-        }),
-      ),
+    await repos.raceStartRepo.saveMany(
+      r.starts.map((s) => ({
+        id: crypto.randomUUID(),
+        raceId: newRaceId,
+        fleetIds: s.fleetIds.map((id) => fleetIdMap.get(id) ?? id),
+        startTime: s.startTime,
+      })),
     );
 
     if (r.finishes.length > 0) {

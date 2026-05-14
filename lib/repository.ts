@@ -40,7 +40,8 @@ export class ConflictError extends Error {
  * Omit `expectedVersion` for authoritative writes (file imports, the
  * server-side migration endpoint, fresh row creation). Bulk writes
  * (`FleetRepository.saveMany`, `CompetitorRepository.saveMany`,
- * `FinishRepository.saveMany`) are authoritative by construction. The
+ * `FinishRepository.saveMany`, `RaceStartRepository.saveMany`) are
+ * authoritative by construction. The
  * autosave-driven finish-entry path uses per-row `save` calls — each
  * threads its own `expectedVersion` and the shared mutation scope
  * serializes them, so a window of related rows lands consistently
@@ -114,6 +115,7 @@ export interface RaceStartRepository {
   listByRace(raceId: string): Promise<RaceStart[]>;
   listByRaces(raceIds: string[]): Promise<RaceStart[]>;
   save(raceStart: RaceStart, opts?: SaveOpts): Promise<RaceStart>;
+  saveMany(raceStarts: RaceStart[], opts?: SaveOpts): Promise<void>;
   delete(id: string): Promise<void>;
   deleteByRace(raceId: string): Promise<void>;
   deleteByRaces(raceIds: string[]): Promise<void>;

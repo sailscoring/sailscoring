@@ -3,7 +3,10 @@ import 'server-only';
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
-import { raceStartInputSchema } from '@/lib/validation/race-start';
+import {
+  raceStartInputSchema,
+  raceStartsBulkInputSchema,
+} from '@/lib/validation/race-start';
 import type { RaceStart } from '@/lib/types';
 
 async function assertRaceInWorkspace(
@@ -64,4 +67,29 @@ export async function deleteRaceStartFlat(
 ): Promise<void> {
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.raceStarts.delete(id);
+}
+
+/**
+ * Bulk upsert. The body is `{ starts: RaceStart[] }`. All starts must
+ * share the path's raceId; mixed-race batches are rejected.
+ */
+export async function bulkPutRaceStarts(
+  workspace: WorkspaceContext,
+  raceId: string,
+  body: unknown,
+): Promise<{ count: number }> {
+  await assertRaceInWorkspace(workspace, raceId);
+  const input = raceStartsBulkInputSchema.parse(body);
+  for (const s of input.starts) {
+    if (s.raceId !== raceId) {
+      throw new NotFoundError('bulk race start race mismatch');
+    }
+  }
+  const starts: RaceStart[] = input.starts.map((s) => ({
+    ...s,
+    id: s.id ?? crypto.randomUUID(),
+  }));
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.raceStarts.saveMany(starts, { updatedBy: workspace.userId });
+  return { count: starts.length };
 }
