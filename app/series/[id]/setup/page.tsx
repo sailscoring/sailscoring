@@ -2,7 +2,7 @@
 
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useRepos } from '@/lib/repos';
+import { fleetRepo, listSeriesNames } from '@/lib/api-repository';
 import { useSeries, useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
 import { useFleetsBySeries, useSaveFleet } from '@/hooks/use-fleets';
 import { useCompetitorsBySeries } from '@/hooks/use-competitors';
@@ -31,7 +31,6 @@ function Step1({
 }) {
   const updateSeries = useUpdateSeries();
   const touchSeries = useTouchSeries();
-  const { listSeriesNames } = useRepos();
   const [nextError, setNextError] = useState<string | null>(null);
 
   async function persist(patch: Partial<Series>) {
@@ -150,7 +149,6 @@ function Step3({
   const updateSeries = useUpdateSeries();
   const touchSeries = useTouchSeries();
   const saveFleet = useSaveFleet();
-  const { fleetRepo } = useRepos();
 
   async function handleScoringMode(mode: 'scratch' | 'handicap') {
     if (mode === series.scoringMode) return;

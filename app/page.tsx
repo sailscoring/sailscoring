@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, Trash2 } from 'lucide-react';
-import { useRepos } from '@/lib/repos';
+import * as repos from '@/lib/api-repository';
 import { useSeriesList, useDeleteSeriesCascade } from '@/hooks/use-series';
 import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
@@ -90,7 +90,6 @@ function SeriesCard({
 export default function HomePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const repos = useRepos();
   const { seriesRepo } = repos;
   const { data: seriesList } = useSeriesList();
   const deleteCascade = useDeleteSeriesCascade();

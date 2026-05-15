@@ -23,9 +23,8 @@ import type {
 } from './repository';
 
 /**
- * Repository surface needed to save / open / update a series file. Both
- * `lib/api-repository.ts` and `lib/dexie-repository.ts` export this exact
- * shape, so callers pass the runtime-selected backend via `useRepos()`.
+ * Repository surface needed to save / open / update a series file.
+ * `lib/api-repository.ts` exports this exact shape.
  */
 export interface SeriesFileRepos {
   seriesRepo: SeriesRepository;

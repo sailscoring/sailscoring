@@ -1,4 +1,4 @@
-import type { Repos } from './repos';
+import type { SeriesFileRepos } from './series-file';
 import {
   calculateFleetStandings,
   calculateRaceScores,
@@ -50,7 +50,7 @@ export function derivePrefillPaths(
 
 /** Build one HTML string per fleet. Returns [{fleetName, html}]. */
 export async function buildFleetHtmlFiles(
-  repos: Repos,
+  repos: SeriesFileRepos,
   seriesId: string,
 ): Promise<{ fleetName: string; isDefault: boolean; html: string }[] | null> {
   const [series, competitors, races, fleets] = await Promise.all([
@@ -314,7 +314,7 @@ export function triggerDownload(filename: string, html: string) {
 }
 
 /** Download a single fleet's HTML (or the only fleet for single-fleet series). */
-export async function exportFleetHtml(repos: Repos, seriesId: string, fleetName: string) {
+export async function exportFleetHtml(repos: SeriesFileRepos, seriesId: string, fleetName: string) {
   const series = await repos.seriesRepo.get(seriesId);
   const base = seriesSlug(series?.name ?? 'series');
   const files = await buildFleetHtmlFiles(repos, seriesId);

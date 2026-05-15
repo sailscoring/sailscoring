@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRepos } from '@/lib/repos';
+import { seriesRepo, listSeriesNames } from '@/lib/api-repository';
 import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +56,6 @@ function NewSeriesContent() {
   const searchParams = useSearchParams();
   const isQuick = searchParams.get('quick') === '1';
   const didCreate = useRef(false);
-  const { seriesRepo, listSeriesNames } = useRepos();
   const queryClient = useQueryClient();
 
   const [name, setName] = useState('');
@@ -81,7 +80,7 @@ function NewSeriesContent() {
       console.error(err);
       setError('Failed to create series.');
     });
-  }, [isQuick, router, seriesRepo, listSeriesNames, queryClient]);
+  }, [isQuick, router, queryClient]);
 
   if (!isQuick) {
     return (

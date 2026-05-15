@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState } from 'react';
-import { useRepos } from '@/lib/repos';
+import * as repos from '@/lib/api-repository';
 import { useSeries } from '@/hooks/use-series';
 import { useCompetitorsBySeries } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
@@ -36,7 +36,6 @@ export default function StandingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: seriesId } = use(params);
-  const repos = useRepos();
   const [showFtpDialog, setShowFtpDialog] = useState(false);
   const [showBilgeDialog, setShowBilgeDialog] = useState(false);
 

@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useRepos } from '@/lib/repos';
+import * as repos from '@/lib/api-repository';
 import { useUpdateSeries } from '@/hooks/use-series';
 import {
   uploadToBilge,
@@ -42,7 +42,6 @@ export function BilgePublishDialog({
   open,
   onClose,
 }: BilgePublishDialogProps) {
-  const repos = useRepos();
   const updateSeries = useUpdateSeries();
   const bundle = series.bilgeBundle;
 

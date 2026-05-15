@@ -2,11 +2,14 @@
 
 import { useState, useRef, useImperativeHandle, forwardRef, useMemo, useCallback, memo } from 'react';
 import Papa from 'papaparse';
-import { useRepos } from '@/lib/repos';
+import {
+  seriesRepo,
+  competitorRepo,
+  DEFAULT_FLEET_NAME,
+} from '@/lib/api-repository';
 import { useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
 import { useSaveFleets } from '@/hooks/use-fleets';
 import { useSaveCompetitors } from '@/hooks/use-competitors';
-import { DEFAULT_FLEET_NAME } from '@/lib/dexie-repository';
 import { parseFleetCell, autoDetectField, type CompetitorField } from '@/lib/csv-import';
 import {
   planFleetCreation,
@@ -596,7 +599,6 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
   onComplete?: (result: ImportResult | null) => void;
   trigger?: React.ReactNode;
 }>(function CompetitorImport({ seriesId, fleets, onComplete, trigger }, ref) {
-  const { seriesRepo, competitorRepo } = useRepos();
   const updateSeries = useUpdateSeries();
   const touchSeries = useTouchSeries();
   const saveFleets = useSaveFleets();

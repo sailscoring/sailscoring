@@ -2,13 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useRepos } from '@/lib/repos';
+import { finishRepo } from '@/lib/api-repository';
 import type { Finish } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
 
 export function useFinishesByRace(raceId: string) {
-  const { finishRepo } = useRepos();
   return useQuery<Finish[]>({
     queryKey: queryKeys.finishes.byRace(raceId),
     queryFn: () => finishRepo.listByRace(raceId),
@@ -16,7 +15,6 @@ export function useFinishesByRace(raceId: string) {
 }
 
 export function useFinishesBySeries(seriesId: string, competitorIds: string[]) {
-  const { finishRepo } = useRepos();
   const enabled = competitorIds.length > 0;
   return useQuery<Finish[]>({
     queryKey: [...queryKeys.finishes.bySeries(seriesId), [...competitorIds].sort()],
@@ -30,7 +28,6 @@ export function useFinishesBySeries(seriesId: string, competitorIds: string[]) {
 }
 
 export function useSaveFinish() {
-  const { finishRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (finish: Finish) => {
@@ -49,7 +46,6 @@ export function useSaveFinish() {
 }
 
 export function useSaveFinishes() {
-  const { finishRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (finishes: Finish[]) => finishRepo.saveMany(finishes),
@@ -67,7 +63,6 @@ export function useSaveFinishes() {
 }
 
 export function useDeleteFinish() {
-  const { finishRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id }: { id: string; raceId: string }) => finishRepo.delete(id),
@@ -79,7 +74,6 @@ export function useDeleteFinish() {
 }
 
 export function useDeleteFinishesByRace() {
-  const { finishRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (raceId: string) => finishRepo.deleteByRace(raceId),

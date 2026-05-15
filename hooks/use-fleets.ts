@@ -2,13 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useRepos } from '@/lib/repos';
+import { fleetRepo, ensureFleet, pruneFleet } from '@/lib/api-repository';
 import type { Fleet } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
 
 export function useFleetsBySeries(seriesId: string) {
-  const { fleetRepo } = useRepos();
   return useQuery<Fleet[]>({
     queryKey: queryKeys.fleets.bySeries(seriesId),
     queryFn: () => fleetRepo.listBySeries(seriesId),
@@ -16,7 +15,6 @@ export function useFleetsBySeries(seriesId: string) {
 }
 
 export function useSaveFleet() {
-  const { fleetRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (fleet: Fleet) => {
@@ -36,7 +34,6 @@ export function useSaveFleet() {
 }
 
 export function useSaveFleets() {
-  const { fleetRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (fleets: Fleet[]) => fleetRepo.saveMany(fleets),
@@ -51,7 +48,6 @@ export function useSaveFleets() {
 }
 
 export function useDeleteFleet() {
-  const { fleetRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id }: { id: string; seriesId: string }) => fleetRepo.delete(id),
@@ -64,7 +60,6 @@ export function useDeleteFleet() {
 }
 
 export function useEnsureFleet() {
-  const repos = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -74,8 +69,8 @@ export function useEnsureFleet() {
     }: {
       seriesId: string;
       name: string;
-      options?: Parameters<typeof repos.ensureFleet>[2];
-    }) => repos.ensureFleet(seriesId, name, options),
+      options?: Parameters<typeof ensureFleet>[2];
+    }) => ensureFleet(seriesId, name, options),
     onSuccess: (_id, { seriesId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(seriesId) });
     },
@@ -83,11 +78,10 @@ export function useEnsureFleet() {
 }
 
 export function usePruneFleet() {
-  const repos = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ seriesId, fleetId }: { seriesId: string; fleetId: string }) =>
-      repos.pruneFleet(seriesId, fleetId),
+      pruneFleet(seriesId, fleetId),
     onSuccess: (_void, { seriesId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(seriesId) });
     },

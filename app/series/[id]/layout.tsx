@@ -9,7 +9,7 @@ import { queryKeys } from '@/hooks/query-keys';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown, useChordShortcut } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
-import { useRepos } from '@/lib/repos';
+import * as repos from '@/lib/api-repository';
 import { saveSeriesFile } from '@/lib/series-file';
 
 const tabs = [
@@ -30,7 +30,6 @@ export default function SeriesLayout({
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const repos = useRepos();
   const { data: series, isLoading } = useSeries(id);
   const [showHelp, setShowHelp] = useState(false);
 

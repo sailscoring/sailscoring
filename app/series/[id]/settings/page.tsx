@@ -3,7 +3,7 @@
 import { use, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRepos } from '@/lib/repos';
+import * as repos from '@/lib/api-repository';
 import {
   useSeries,
   useTouchSeries,
@@ -50,7 +50,7 @@ import {
 import type { Series } from '@/lib/types';
 
 function ScoringModeCard({ seriesId, series }: { seriesId: string; series: Series }) {
-  const { raceRepo, finishRepo, fleetRepo } = useRepos();
+  const { raceRepo, finishRepo, fleetRepo } = repos;
   const updateSeries = useUpdateSeries();
   const touchSeries = useTouchSeries();
   const saveFleet = useSaveFleet();
@@ -437,7 +437,6 @@ export default function SettingsPage({
   const { id: seriesId } = use(params);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const repos = useRepos();
   const { listSeriesNames } = repos;
   const { data: series, isLoading } = useSeries(seriesId);
   const { data: fleetsData } = useFleetsBySeries(seriesId);

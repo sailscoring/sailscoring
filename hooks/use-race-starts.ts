@@ -2,13 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useRepos } from '@/lib/repos';
+import { raceStartRepo } from '@/lib/api-repository';
 import type { RaceStart } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
 
 export function useRaceStartsByRace(raceId: string) {
-  const { raceStartRepo } = useRepos();
   return useQuery<RaceStart[]>({
     queryKey: queryKeys.raceStarts.byRace(raceId),
     queryFn: () => raceStartRepo.listByRace(raceId),
@@ -16,7 +15,6 @@ export function useRaceStartsByRace(raceId: string) {
 }
 
 export function useRaceStartsByRaces(raceIds: string[]) {
-  const { raceStartRepo } = useRepos();
   const enabled = raceIds.length > 0;
   return useQuery<RaceStart[]>({
     queryKey: queryKeys.raceStarts.byRaces(raceIds),
@@ -28,7 +26,6 @@ export function useRaceStartsByRaces(raceIds: string[]) {
 }
 
 export function useSaveRaceStart() {
-  const { raceStartRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (start: RaceStart) => {
@@ -47,7 +44,6 @@ export function useSaveRaceStart() {
 }
 
 export function useSaveRaceStarts() {
-  const { raceStartRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (starts: RaceStart[]) => raceStartRepo.saveMany(starts),
@@ -65,7 +61,6 @@ export function useSaveRaceStarts() {
 }
 
 export function useDeleteRaceStart() {
-  const { raceStartRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id }: { id: string; raceId: string }) =>

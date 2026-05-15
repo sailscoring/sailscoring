@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { authClient } from '@/lib/auth-client';
-import { useRepos, useServerMode } from '@/lib/repos';
+import * as repos from '@/lib/api-repository';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
 import { importPublicExport, type PublicSeriesExport } from '@/lib/public-export';
 
@@ -32,10 +32,8 @@ type State =
 
 export default function ImportPage() {
   const router = useRouter();
-  const repos = useRepos();
-  const serverMode = useServerMode();
   const { memberships, activeOrganizationId } = useWorkspaceMemberships();
-  const showWorkspacePicker = serverMode && memberships.length > 1;
+  const showWorkspacePicker = memberships.length > 1;
   const [state, setState] = useState<State>({ step: 'loading' });
   const [targetWorkspaceId, setTargetWorkspaceId] = useState<string>('');
 

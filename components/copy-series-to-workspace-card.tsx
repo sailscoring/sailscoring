@@ -17,7 +17,6 @@ import { useMemo, useState } from 'react';
 
 import { authClient } from '@/lib/auth-client';
 import { copySeriesToWorkspace } from '@/lib/api-repository';
-import { useServerMode } from '@/lib/repos';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +44,6 @@ export function CopySeriesToWorkspaceCard({
   seriesId: string;
   seriesName: string;
 }) {
-  const serverMode = useServerMode();
   const { memberships, activeOrganizationId } = useWorkspaceMemberships();
   const targets = useMemo(
     () => memberships.filter((m) => m.organizationId !== activeOrganizationId),
@@ -58,7 +56,7 @@ export function CopySeriesToWorkspaceCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!serverMode || targets.length === 0) return null;
+  if (targets.length === 0) return null;
 
   function reset() {
     setTargetId('');

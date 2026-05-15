@@ -2,13 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useRepos } from '@/lib/repos';
+import { raceRepo } from '@/lib/api-repository';
 import type { Race } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
 
 export function useRacesBySeries(seriesId: string) {
-  const { raceRepo } = useRepos();
   return useQuery<Race[]>({
     queryKey: queryKeys.races.bySeries(seriesId),
     queryFn: () => raceRepo.listBySeries(seriesId),
@@ -16,7 +15,6 @@ export function useRacesBySeries(seriesId: string) {
 }
 
 export function useRace(raceId: string) {
-  const { raceRepo } = useRepos();
   return useQuery<Race | null>({
     queryKey: queryKeys.races.detail(raceId),
     queryFn: async () => (await raceRepo.get(raceId)) ?? null,
@@ -24,7 +22,6 @@ export function useRace(raceId: string) {
 }
 
 export function useSaveRace() {
-  const { raceRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (race: Race) => {
@@ -46,15 +43,14 @@ export function useSaveRace() {
 }
 
 export function useDeleteRace() {
-  const { raceRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id }: { id: string; seriesId: string }) => raceRepo.delete(id),
     onSuccess: (_void, { id, seriesId }) => {
       qc.removeQueries({ queryKey: queryKeys.races.detail(id) });
       qc.invalidateQueries({ queryKey: queryKeys.races.bySeries(seriesId) });
-      // Finishes/race-starts cascade in Postgres and are filtered by raceId
-      // in Dexie; both back-ends invalidate symmetrically here.
+      // Finishes/race-starts cascade in Postgres; invalidate the cached
+      // collections so the next render re-fetches.
       qc.invalidateQueries({ queryKey: queryKeys.finishes.byRace(id) });
       qc.invalidateQueries({ queryKey: queryKeys.raceStarts.byRace(id) });
     },

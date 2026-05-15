@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import * as dexie from '@/lib/dexie-repository';
-import { useRepos, useServerMode } from '@/lib/repos';
+import * as repos from '@/lib/api-repository';
 import { buildSeriesFile, openSeriesFromFile } from '@/lib/series-file';
 import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
@@ -41,13 +41,10 @@ type Status =
   | { step: 'empty' };
 
 export function MigrationBanner() {
-  const serverMode = useServerMode();
-  const repos = useRepos();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<Status>({ step: 'loading' });
 
   useEffect(() => {
-    if (!serverMode) return;
     let cancelled = false;
     void dexie.seriesRepo.list().then((all) => {
       if (cancelled) return;
@@ -58,9 +55,7 @@ export function MigrationBanner() {
     return () => {
       cancelled = true;
     };
-  }, [serverMode]);
-
-  if (!serverMode) return null;
+  }, []);
 
   async function handleMigrate() {
     if (status.step !== 'idle') return;

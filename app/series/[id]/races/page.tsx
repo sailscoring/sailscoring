@@ -2,7 +2,7 @@
 
 import { use, useRef, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useRepos } from '@/lib/repos';
+import { raceRepo } from '@/lib/api-repository';
 import { useSeries, useTouchSeries } from '@/hooks/use-series';
 import {
   useDeleteRace,
@@ -105,7 +105,6 @@ export default function RacesPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: seriesId } = use(params);
-  const { raceRepo } = useRepos();
   const { data: races } = useRacesBySeries(seriesId);
   const { data: series } = useSeries(seriesId);
   const { data: fleets } = useFleetsBySeries(seriesId);

@@ -18,7 +18,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import { ConflictNoticeProvider, useNotifyConflict } from '@/components/conflict-notice';
 import { ConflictApiError } from '@/lib/api-client';
-import { RepoProvider } from '@/lib/repos';
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -40,7 +39,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ConflictNoticeProvider>
         <ConflictMutationSubscriber />
-        <RepoProvider>{children}</RepoProvider>
+        {children}
       </ConflictNoticeProvider>
     </QueryClientProvider>
   );

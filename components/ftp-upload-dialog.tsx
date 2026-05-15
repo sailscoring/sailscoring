@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useRepos } from '@/lib/repos';
+import * as repos from '@/lib/api-repository';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { useFtpServers } from '@/hooks/use-ftp-servers';
 import { uploadViaScupper } from '@/lib/scupper';
@@ -49,7 +49,6 @@ export function FtpUploadDialog({
   open,
   onClose,
 }: FtpUploadDialogProps) {
-  const repos = useRepos();
   const updateSeries = useUpdateSeries();
   const { data: ftpServers } = useFtpServers();
   const [selectedServerId, setSelectedServerId] = useState('');

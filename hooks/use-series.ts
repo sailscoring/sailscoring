@@ -7,7 +7,11 @@ import {
   type UseQueryOptions,
 } from '@tanstack/react-query';
 
-import { useRepos } from '@/lib/repos';
+import {
+  seriesRepo,
+  deleteSeriesCascade,
+  listSeriesNames,
+} from '@/lib/api-repository';
 import type { Series } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
@@ -15,7 +19,6 @@ import { queryKeys } from './query-keys';
 export function useSeriesList(
   options?: Omit<UseQueryOptions<Series[]>, 'queryKey' | 'queryFn'>,
 ) {
-  const { seriesRepo } = useRepos();
   return useQuery<Series[]>({
     queryKey: queryKeys.series.list(),
     queryFn: () => seriesRepo.list(),
@@ -27,7 +30,6 @@ export function useSeries(
   id: string,
   options?: Omit<UseQueryOptions<Series | null>, 'queryKey' | 'queryFn'>,
 ) {
-  const { seriesRepo } = useRepos();
   return useQuery<Series | null>({
     queryKey: queryKeys.series.detail(id),
     queryFn: async () => (await seriesRepo.get(id)) ?? null,
@@ -36,13 +38,10 @@ export function useSeries(
 }
 
 export function useSaveSeries() {
-  const { seriesRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (series: Series) => {
-      // Pull `version` from the cached row to drive optimistic concurrency
-      // when running against the server backend. Local-mode (Dexie) ignores
-      // the option since there's a single writer.
+      // Pull `version` from the cached row to drive optimistic concurrency.
       const cached = qc.getQueryData<Series | null>(queryKeys.series.detail(series.id));
       return seriesRepo.save(series, { expectedVersion: cached?.version });
     },
@@ -63,7 +62,6 @@ export function useSaveSeries() {
  * Replaces direct `db.series.update(id, patch)` calls.
  */
 export function useUpdateSeries() {
-  const { seriesRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Series> }) => {
@@ -82,10 +80,9 @@ export function useUpdateSeries() {
 }
 
 export function useDeleteSeriesCascade() {
-  const repos = useRepos();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => repos.deleteSeriesCascade(id),
+    mutationFn: (id: string) => deleteSeriesCascade(id),
     onSuccess: (_void, id) => {
       qc.removeQueries({ queryKey: queryKeys.series.detail(id) });
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });
@@ -101,7 +98,6 @@ export function useDeleteSeriesCascade() {
 }
 
 export function useTouchSeries() {
-  const { seriesRepo } = useRepos();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => seriesRepo.touch(id),
@@ -113,6 +109,5 @@ export function useTouchSeries() {
 }
 
 export function useListSeriesNames() {
-  const repos = useRepos();
-  return (opts: { excludeId?: string } = {}) => repos.listSeriesNames(opts);
+  return (opts: { excludeId?: string } = {}) => listSeriesNames(opts);
 }

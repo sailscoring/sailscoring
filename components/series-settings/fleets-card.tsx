@@ -1,7 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useRepos } from '@/lib/repos';
+import {
+  competitorRepo,
+  raceRepo,
+  finishRepo,
+  raceStartRepo,
+} from '@/lib/api-repository';
 import { useFleetsBySeries, useDeleteFleet, useSaveFleet, useSaveFleets } from '@/hooks/use-fleets';
 import { useSaveCompetitors } from '@/hooks/use-competitors';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
@@ -36,7 +41,6 @@ export type FleetsCardProps = {
 
 export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardProps) {
   const isWizard = mode === 'wizard';
-  const { competitorRepo, raceRepo, finishRepo, raceStartRepo } = useRepos();
   const { data: fleetsData } = useFleetsBySeries(seriesId);
   const fleets = fleetsData ?? [];
   const saveFleet = useSaveFleet();
