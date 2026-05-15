@@ -30,6 +30,28 @@ Pending magic-link tokens addressed to the old email keep working
 until they expire (default ~5 minutes). If that's a concern, ask the
 user to wait it out before requesting a new link.
 
+## User stats
+
+For a read-only snapshot of who's using the app:
+
+```bash
+pnpm user-stats
+pnpm user-stats --sort last_login
+pnpm user-stats --json
+```
+
+Per user it reports email, name, created date, whether they've ever
+signed in (`emailVerified` flips on the first magic-link), session
+count and most recent session time, workspace count, and totals for
+series, races, competitors, and finishes across all their workspaces.
+
+Quote the URL when overriding `DATABASE_URL`; Neon URLs contain `&`
+which the shell otherwise treats as a job separator:
+
+```bash
+DATABASE_URL='postgresql://…?sslmode=require&channel_binding=require' pnpm user-stats
+```
+
 ## Production usage
 
 The CLI reads `DATABASE_URL`. Against production:
