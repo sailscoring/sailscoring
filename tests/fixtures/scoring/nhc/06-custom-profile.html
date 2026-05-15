@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>NHC1 — per-fleet profile override (aggressive blend rates) — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; font-size: 0.9em; }
+td, th { text-align: left; padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All NHC examples</a></p>
+<h1>NHC1 — per-fleet profile override (aggressive blend rates)</h1>
+
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> NHC1 &nbsp;&nbsp;
+  <strong>α (blend factor):</strong> —
+</div>
+<pre style="margin:0.6em 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Same 4 boats and finish times as fixture 04 race 1, but with a per-fleet
+`nhcProfile` override that doubles the over-performer blend rate (α_p
+0.30 → 0.50) and the under-performer rate (α_n 0.15 → 0.30), with the
+extreme rates halved in turn (α_px 0.15 → 0.25, α_nx 0.075 → 0.15).
+
+Demonstrates that `Fleet.nhcProfile` overrides the engine's stock
+`DEFAULT_NHC_PROFILE` constant per fleet. Compare to the race-1 output
+in `04-multi-race-propagation.yaml`:
+
+| Boat  | Q/H class    | Default newTcf | Aggressive newTcf |
+|-------|--------------|----------------|-------------------|
+| Alpha | non-ext over | 1.015          | 1.063             |
+| Beta  | non-ext over | 0.994          | 0.994             |
+| Gamma | non-ext under| 1.016          | 0.987             |
+| Delta | extreme slow | 1.075          | 1.056             |
+
+σ thresholds and `minFin` carry forward unchanged from the stock
+profile, so the extreme classification matches fixture 04 (Delta is
+the only extreme slow boat). This is part of #143 — HYC's
+aggressive-vs-standard blend experiment.</pre>
+
+<h2 style="margin-top:1.5em;">Race 1</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00 &nbsp;
+  <strong>Finishers:</strong> 4 &nbsp;
+  <strong>CT<sub>avg</sub>:</strong> 67m 15s &nbsp;
+  <strong>mean(TCF):</strong> 1.0250
+</div>
+<div style="margin:0 0 0.6em; color:#444; font-size:90%;"><strong>μ(S):</strong> 1.0127 &nbsp;
+  <strong>σ(S):</strong> 0.2347 &nbsp;
+  <strong>extreme if S &gt; 1.3647 or &lt; 0.7780</strong> (1) &nbsp;
+  <strong>P50:</strong> 0.646154 &nbsp; <strong>W51:</strong> 0.588785 &nbsp;
+  <strong>Z51:</strong> 0.999593</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>ET</th><th>TCF<sub>applied</sub></th><th>CT</th>
+  <th>Q</th><th>S</th><th>α</th><th>Z</th><th>adj</th><th>new TCF</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">14:50:00</td>
+  <td class="mono">50m 00s</td>
+  <td class="mono">0.9500</td>
+  <td class="mono">47m 30s</td>
+  <td class="mono">1.2923</td>
+  <td class="mono">1.3603</td>
+  <td class="mono">0.500</td>
+  <td class="mono">1.0638</td>
+  <td class="mono">+0.1130</td>
+  <td class="mono">1.0630</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Beta</td>
+  <td class="mono">2</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0769</td>
+  <td class="mono">1.0769</td>
+  <td class="mono">0.300</td>
+  <td class="mono">0.9944</td>
+  <td class="mono">-0.0060</td>
+  <td class="mono">0.9940</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Gamma</td>
+  <td class="mono">3</td>
+  <td class="mono">15:10:00</td>
+  <td class="mono">70m 00s</td>
+  <td class="mono">1.0500</td>
+  <td class="mono">73m 30s</td>
+  <td class="mono">0.9231</td>
+  <td class="mono">0.8791</td>
+  <td class="mono">0.300</td>
+  <td class="mono">0.9873</td>
+  <td class="mono">-0.0630</td>
+  <td class="mono">0.9870</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Delta</td>
+  <td class="mono">4</td>
+  <td class="mono">15:20:00</td>
+  <td class="mono">80m 00s</td>
+  <td class="mono">1.1000</td>
+  <td class="mono">88m 00s</td>
+  <td class="mono">0.8077</td>
+  <td class="mono">0.7343 †</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.0562</td>
+  <td class="mono">-0.0440</td>
+  <td class="mono">1.0560</td>
+  <td>4</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Beta</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Gamma</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+  <td class="mono">3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Delta</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

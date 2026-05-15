@@ -387,6 +387,7 @@ export async function ensureFleet(
   options?: {
     scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
     echoAlpha?: number;
+    nhcProfile?: import('./types').NhcProfile;
   },
 ): Promise<string> {
   const { fleetId } = await apiFetch<{ fleetId: string }>(

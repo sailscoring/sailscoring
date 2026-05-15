@@ -1,0 +1,162 @@
+description: "NHC1 — per-fleet profile override (aggressive blend rates)"
+notes: |
+  Same 4 boats and finish times as fixture 04 race 1, but with a per-fleet
+  `nhcProfile` override that doubles the over-performer blend rate (α_p
+  0.30 → 0.50) and the under-performer rate (α_n 0.15 → 0.30), with the
+  extreme rates halved in turn (α_px 0.15 → 0.25, α_nx 0.075 → 0.15).
+
+  Demonstrates that `Fleet.nhcProfile` overrides the engine's stock
+  `DEFAULT_NHC_PROFILE` constant per fleet. Compare to the race-1 output
+  in `04-multi-race-propagation.yaml`:
+
+  | Boat  | Q/H class    | Default newTcf | Aggressive newTcf |
+  |-------|--------------|----------------|-------------------|
+  | Alpha | non-ext over | 1.015          | 1.063             |
+  | Beta  | non-ext over | 0.994          | 0.994             |
+  | Gamma | non-ext under| 1.016          | 0.987             |
+  | Delta | extreme slow | 1.075          | 1.056             |
+
+  σ thresholds and `minFin` carry forward unchanged from the stock
+  profile, so the extreme classification matches fixture 04 (Delta is
+  the only extreme slow boat). This is part of #143 — HYC's
+  aggressive-vs-standard blend experiment.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: nhc
+  nhcProfile:
+    name: "NHC1 (aggressive)"
+    alphaP: 0.50
+    alphaN: 0.30
+    alphaPX: 0.25
+    alphaNX: 0.15
+    sdOver: 1.5
+    sdUnder: 1.0
+    minFin: 3
+
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    nhcStartingTcf: 0.950
+  - sailNumber: "2"
+    name: "Beta"
+    nhcStartingTcf: 1.000
+  - sailNumber: "3"
+    name: "Gamma"
+    nhcStartingTcf: 1.050
+  - sailNumber: "4"
+    name: "Delta"
+    nhcStartingTcf: 1.100
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "14:50:00"
+      - sailor: "2"
+        finishTime: "15:00:00"
+      - sailor: "3"
+        finishTime: "15:10:00"
+      - sailor: "4"
+        finishTime: "15:20:00"
+    aggregates:
+      finisherCount: 4
+      ctAvg: 4035.0
+      meanTcf: 1.025
+      p50: 0.6461538462
+      w51: 0.5887850467
+      sMean: 1.0126583942
+      sStdev: 0.2346998003
+      sHi: 1.3647080947
+      sLo: 0.7779585939
+      extremeCount: 1
+      realignmentFactor: 0.9995933691
+      updateSuppressed: false
+    expected:
+      - sailor: "1"
+        rank: 1
+        points: 1.0
+        elapsedTime: 3000
+        correctedTime: 2850.0
+        tcfApplied: 0.95
+        newTcf: 1.063
+        fairTcf: 1.2923076923
+        compScore: 1.3603238866
+        isExtreme: false
+        alphaApplied: 0.5
+        provisionalTcf: 1.0637850467
+        adjustment: 0.113
+      - sailor: "2"
+        rank: 2
+        points: 2.0
+        elapsedTime: 3600
+        correctedTime: 3600.0
+        tcfApplied: 1.0
+        newTcf: 0.994
+        fairTcf: 1.0769230769
+        compScore: 1.0769230769
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 0.9943925234
+        adjustment: -0.006
+      - sailor: "3"
+        rank: 3
+        points: 3.0
+        elapsedTime: 4200
+        correctedTime: 4410.0
+        tcfApplied: 1.05
+        newTcf: 0.987
+        fairTcf: 0.9230769231
+        compScore: 0.8791208791
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 0.9873364486
+        adjustment: -0.063
+      - sailor: "4"
+        rank: 4
+        points: 4.0
+        elapsedTime: 4800
+        correctedTime: 5280.0
+        tcfApplied: 1.1
+        newTcf: 1.056
+        fairTcf: 0.8076923077
+        compScore: 0.7342657343
+        isExtreme: true
+        extremeDirection: "slow"
+        alphaApplied: 0.15
+        provisionalTcf: 1.0561538462
+        adjustment: -0.044
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 4
+      sailor: "4"
+      racePoints: [4]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4

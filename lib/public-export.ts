@@ -69,6 +69,8 @@ export interface PublicSeriesExport {
     scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
     /** ECHO blend rate α (present iff scoringSystem === 'echo'). */
     echoAlpha?: number;
+    /** Inline NHC profile (present iff scoringSystem === 'nhc' and parameters differ from SWNHC2015 defaults). */
+    nhcProfile?: import('./types').NhcProfile;
   }[];
   competitors: {
     sailNumber: string;
@@ -464,6 +466,7 @@ export async function buildPublicExport(
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
+      ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
     })),
     competitors: competitors.map((c) => ({
       sailNumber: c.sailNumber,
@@ -583,6 +586,7 @@ export async function importPublicExport(
         displayOrder: f.displayOrder,
         scoringSystem: f.scoringSystem,
         ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
+        ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
       }),
     ),
   );

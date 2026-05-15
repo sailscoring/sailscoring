@@ -97,8 +97,10 @@ to the scorer.
 > for the algorithm derivation and
 > `tests/fixtures/scoring/nhc/05-puppeteer-hph-sailwave-verified.yaml`
 > for the gold-standard test fixture. The SWNHC2015 parameters live in
-> `lib/scoring.ts:DEFAULT_NHC_PROFILE`; user-visible profile selection is
-> a future milestone (see [`docs/design/horizon.md`](horizon.md)). ECHO
+> `lib/scoring.ts:DEFAULT_NHC_PROFILE` and serve as the fallback;
+> `Fleet.nhcProfile` overrides them per fleet. Named per-series and
+> per-workspace profile registries are a future milestone (see
+> [`docs/design/horizon.md`](horizon.md)). ECHO
 > reproduces the IS 2022 worked example exactly — see the ECHO section
 > below and `tests/fixtures/scoring/echo/01-is-2022-worked-example.yaml`.
 > Deferred: RYA NHC 2015, scoring-inquiry rating adjustments, the
@@ -150,10 +152,11 @@ Two distinct implementations exist in the wild:
 > Dexie table), series-file format, public JSON export, per-competitor
 > `nhcStartingTcf` editing, retroactive-edit propagation, and the
 > rating-calculation explainability layer are all in place. The SWNHC2015
-> parameters live in the internal `DEFAULT_NHC_PROFILE` constant; the
-> previously-configurable per-fleet `nhcAlpha` field was dropped (no
-> longer load-bearing under the new asymmetric blend). User-visible
-> per-series / per-workspace NHC profiles are a horizon item.
+> parameters live in the `DEFAULT_NHC_PROFILE` constant and are used as
+> the fallback; per-fleet `Fleet.nhcProfile` overrides the seven
+> parameters per fleet (#143 — HYC's aggressive-vs-standard blend
+> experiment). Named per-series / per-workspace NHC profile registries
+> and published-HTML attribution remain a horizon item.
 
 **Algorithm summary.** For each finisher *i* with current race rating `H_i`
 and elapsed time `T_E,i`:

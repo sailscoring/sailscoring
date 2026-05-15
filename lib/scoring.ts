@@ -10,9 +10,11 @@ export const ECHO_REGATTA_ALPHA = 0.50;  // Irish Sailing 2022 ECHO Guide: 50/50
 //   - docs/notes/sailwave-nhc1-reverse-engineering.md §10
 //   - reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py
 //
-// User-visible profile selection (and a workspace-level profile library) is
-// a future milestone (see docs/design/horizon.md). For now, every NHC fleet
-// uses this single hard-coded profile.
+// Used as the fallback when a fleet has no `nhcProfile` override. Scorers
+// who want to experiment with non-stock parameters (e.g. the HYC aggressive-
+// blend study, #143) set `Fleet.nhcProfile` per fleet; named per-series and
+// per-workspace profile registries are a future milestone (see
+// docs/design/horizon.md).
 export const DEFAULT_NHC_PROFILE: NhcProfile = {
   name: 'NHC1 (Sailwave)',
   alphaP: 0.300,
@@ -681,13 +683,14 @@ function symmetricBlendAdjustment(
  * Build the `ProgressiveHandicapConfig` for a fleet. Returns `null` for static
  * fleets (scratch, IRC, PY) — the orchestrator skips phase B in that case.
  *
- * NHC1 sources its parameters from `DEFAULT_NHC_PROFILE` (the stock SWNHC2015
- * constants). User-visible profile selection is a future milestone; today
- * every NHC fleet uses the same parameters.
+ * NHC1 reads parameters from `fleet.nhcProfile` when set (inline per-fleet
+ * override) and falls back to `DEFAULT_NHC_PROFILE` (the stock SWNHC2015
+ * constants) otherwise. Named per-series and per-workspace profile
+ * registries are a future milestone (see docs/design/horizon.md).
  */
 export function deriveProgressiveHandicapConfig(fleet: Fleet): ProgressiveHandicapConfig | null {
   if (fleet.scoringSystem === 'nhc') {
-    const p = DEFAULT_NHC_PROFILE;
+    const p = fleet.nhcProfile ?? DEFAULT_NHC_PROFILE;
     return {
       alphaUp: p.alphaP,
       alphaDown: p.alphaN,

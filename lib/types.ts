@@ -75,6 +75,14 @@ export interface Fleet {
   displayOrder: number;
   scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
   echoAlpha?: number; // present iff scoringSystem === 'echo'; default 0.25 (75/25 club racing)
+  // Inline (unshared) NHC profile override. Present iff scoringSystem === 'nhc'
+  // AND the scorer has customised the parameters away from the SWNHC2015
+  // defaults. Absent means "use DEFAULT_NHC_PROFILE", which is the stock
+  // SWNHC2015 / Sailwave behaviour every existing NHC fleet relies on. A future
+  // milestone will hoist these into a named `Series.nhcProfiles[]` registry
+  // (see docs/design/horizon.md); the inline shape is forward-compatible with
+  // that migration.
+  nhcProfile?: NhcProfile;
   version?: number;   // server-side concurrency token (see Series.version)
 }
 
@@ -294,10 +302,11 @@ export interface ProgressiveHandicapConfig {
   formulaForm: 'ct-mean' | 'is-pi';
 }
 
-// User-facing NHC parameter set. Currently internal-only — sourced from the
-// engine's DEFAULT_NHC_PROFILE constant; not persisted to the series file or
-// database. Future milestone: surface as named profiles per series and per
-// workspace (see docs/design/horizon.md).
+// User-facing NHC parameter set. Stored inline on `Fleet.nhcProfile` when the
+// scorer customises away from the SWNHC2015 defaults; absent means "use
+// DEFAULT_NHC_PROFILE". A future milestone will surface these as named
+// profiles per series and per workspace (see docs/design/horizon.md); the
+// inline shape is forward-compatible with that migration.
 export interface NhcProfile {
   name: string;
   alphaP: number;    // non-extreme over-performer blend rate

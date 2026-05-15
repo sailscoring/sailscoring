@@ -21,6 +21,7 @@ import type {
   Fleet,
   Finish,
   FtpServer,
+  NhcProfile,
   PenaltyCode,
   Race,
   RaceStart,
@@ -103,6 +104,7 @@ function fleetRowToType(row: FleetRow): Fleet {
     displayOrder: row.displayOrder,
     scoringSystem: row.scoringSystem as Fleet['scoringSystem'],
     ...(row.echoAlpha != null ? { echoAlpha: row.echoAlpha } : {}),
+    ...(row.nhcProfile != null ? { nhcProfile: row.nhcProfile } : {}),
     version: row.version,
   };
 }
@@ -506,6 +508,7 @@ export class PostgresFleetRepository implements FleetRepository {
       displayOrder: fleet.displayOrder,
       scoringSystem: fleet.scoringSystem,
       echoAlpha: fleet.echoAlpha ?? null,
+      nhcProfile: fleet.nhcProfile ?? null,
       updatedBy,
     };
     const updateSet = {
@@ -513,6 +516,7 @@ export class PostgresFleetRepository implements FleetRepository {
       displayOrder: values.displayOrder,
       scoringSystem: values.scoringSystem,
       echoAlpha: values.echoAlpha,
+      nhcProfile: values.nhcProfile,
       updatedBy,
     };
     if (opts?.expectedVersion !== undefined) {
@@ -578,6 +582,7 @@ export class PostgresFleetRepository implements FleetRepository {
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
       echoAlpha: f.echoAlpha ?? null,
+      nhcProfile: f.nhcProfile ?? null,
       updatedBy,
     }));
     await this.db
@@ -591,6 +596,7 @@ export class PostgresFleetRepository implements FleetRepository {
           displayOrder: sql`excluded.display_order`,
           scoringSystem: sql`excluded.scoring_system`,
           echoAlpha: sql`excluded.echo_alpha`,
+          nhcProfile: sql`excluded.nhc_profile`,
           updatedBy: sql`excluded.updated_by`,
           version: sql`${schema.fleets.version} + 1`,
           updatedAt: sql`now()`,
@@ -637,6 +643,7 @@ export class PostgresFleetRepository implements FleetRepository {
     options?: {
       scoringSystem?: Fleet['scoringSystem'];
       echoAlpha?: number;
+      nhcProfile?: NhcProfile;
       updatedBy?: string;
     },
   ): Promise<string> {
@@ -701,6 +708,10 @@ export class PostgresFleetRepository implements FleetRepository {
         echoAlpha:
           scoringSystem === 'echo'
             ? (options?.echoAlpha ?? ECHO_DEFAULT_ALPHA)
+            : null,
+        nhcProfile:
+          scoringSystem === 'nhc' && options?.nhcProfile
+            ? options.nhcProfile
             : null,
         updatedBy: options?.updatedBy ?? null,
       });

@@ -7,6 +7,7 @@ import type {
   CompetitorFieldKey,
   PrimaryPersonLabel,
   StartGroup,
+  NhcProfile,
   NhcTcfRecord,
 } from './types';
 import { defaultEnabledCompetitorFields, DEFAULT_PRIMARY_PERSON_LABEL } from './competitor-fields';
@@ -58,6 +59,10 @@ interface SeriesFileFleet {
   displayOrder: number;
   scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
   echoAlpha?: number; // present iff scoringSystem === 'echo'
+  // Inline NHC profile override (per-fleet). Present iff scoringSystem === 'nhc'
+  // AND parameters differ from the SWNHC2015 defaults; absent means "use
+  // DEFAULT_NHC_PROFILE". Additive optional field — older parsers ignore it.
+  nhcProfile?: NhcProfile;
 }
 
 interface SeriesFileBilgeBundle {
@@ -268,6 +273,7 @@ export async function buildSeriesFile(
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
+      ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
     })),
     series: {
       id: series.id,
@@ -558,6 +564,7 @@ async function writeFleetsCompetitorsRaces(
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
+      ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
     })),
   );
 

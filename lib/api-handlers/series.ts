@@ -221,6 +221,7 @@ export async function copySeries(
           displayOrder: f.displayOrder,
           scoringSystem: f.scoringSystem,
           echoAlpha: f.echoAlpha ?? null,
+          nhcProfile: f.nhcProfile ?? null,
         })),
       );
     }

@@ -85,6 +85,13 @@
       "when": 1778709662578,
       "tag": "0011_cool_boom_boom",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1778828624996,
+      "tag": "0012_magenta_nekra",
+      "breakpoints": true
     }
   ]
 }

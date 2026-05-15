@@ -282,6 +282,7 @@ export async function ensureFleet(
   options?: {
     scoringSystem?: Fleet['scoringSystem'];
     echoAlpha?: number;
+    nhcProfile?: Fleet['nhcProfile'];
   },
 ): Promise<string> {
   const fleetName = name.trim() || DEFAULT_FLEET_NAME;
@@ -304,6 +305,7 @@ export async function ensureFleet(
       displayOrder: maxOrder + 1,
       scoringSystem,
       ...(scoringSystem === 'echo' ? { echoAlpha: options?.echoAlpha ?? ECHO_DEFAULT_ALPHA } : {}),
+      ...(scoringSystem === 'nhc' && options?.nhcProfile ? { nhcProfile: options.nhcProfile } : {}),
     };
     await db.fleets.add(newFleet);
     return newFleet.id;

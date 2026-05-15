@@ -135,6 +135,7 @@ export async function ensureFleet(
   const fleetId = await repos.fleets.ensureFleet(seriesId, input.name, {
     scoringSystem: input.scoringSystem,
     echoAlpha: input.echoAlpha,
+    nhcProfile: input.nhcProfile,
     updatedBy: workspace.userId,
   });
   return { fleetId };

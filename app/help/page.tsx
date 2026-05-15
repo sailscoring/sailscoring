@@ -584,7 +584,12 @@ export default function HelpPage() {
             <strong className="text-foreground">NHC</strong> — the RYA National Handicap
             for Cruisers. A <em>progressive</em> handicap: each boat starts from a
             published TCF and the rating is adjusted after every race based on how the
-            boat performed against the fleet average.
+            boat performed against the fleet average. Sail Scoring runs the SWNHC2015
+            parameters (which match Sailwave NHC1) by default; the per-fleet{' '}
+            <strong className="text-foreground">Configure…</strong> button in
+            Settings &rarr; Fleets opens a dialog where the seven blend rates and
+            extreme thresholds can be overridden per fleet for parameter-tuning
+            experiments.
           </li>
           <li>
             <strong className="text-foreground">ECHO</strong> — the Irish Sailing

@@ -12,6 +12,22 @@ export const scoringSystemSchema = z.enum([
   'echo',
 ]);
 
+// Inline NHC profile (per-fleet override of the stock SWNHC2015 parameters).
+// All seven numeric parameters are validated to the ranges the algorithm
+// expects: blend rates strictly in (0, 1], SD thresholds strictly positive,
+// minFin a positive integer. `name` is carried for forward-compat with the
+// named-profile milestone but not surfaced in the UI yet.
+export const nhcProfileSchema = z.object({
+  name: z.string(),
+  alphaP: z.number().gt(0).lte(1),
+  alphaN: z.number().gt(0).lte(1),
+  alphaPX: z.number().gt(0).lte(1),
+  alphaNX: z.number().gt(0).lte(1),
+  sdOver: z.number().gt(0),
+  sdUnder: z.number().gt(0),
+  minFin: z.number().int().gte(1),
+});
+
 export const fleetSchema = z.object({
   id: uuidSchema,
   seriesId: uuidSchema,
@@ -19,6 +35,7 @@ export const fleetSchema = z.object({
   displayOrder: z.number().int(),
   scoringSystem: scoringSystemSchema,
   echoAlpha: z.number().optional(),
+  nhcProfile: nhcProfileSchema.optional(),
   version: versionSchema,
 });
 
@@ -35,6 +52,7 @@ export const ensureFleetInputSchema = z.object({
   name: z.string(),
   scoringSystem: scoringSystemSchema.optional(),
   echoAlpha: z.number().optional(),
+  nhcProfile: nhcProfileSchema.optional(),
 });
 
 const _fleetFromZod: Fleet = undefined as unknown as z.infer<typeof fleetSchema>;

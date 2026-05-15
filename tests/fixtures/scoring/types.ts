@@ -133,6 +133,9 @@ export interface FixtureCompetitor {
 export interface FixtureFleet {
   scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
   alpha?: number;            // ECHO only (mapped to echoAlpha); NHC ignores
+  // NHC only — full inline profile override (mapped to fleet.nhcProfile).
+  // Absent means the engine falls back to DEFAULT_NHC_PROFILE.
+  nhcProfile?: import('@/lib/types').NhcProfile;
 }
 
 export interface Fixture {
@@ -183,6 +186,9 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       scoringSystem: topFleet.scoringSystem,
       ...(topFleet.scoringSystem === 'echo' && topFleet.alpha != null
         ? { echoAlpha: topFleet.alpha }
+        : {}),
+      ...(topFleet.scoringSystem === 'nhc' && topFleet.nhcProfile != null
+        ? { nhcProfile: topFleet.nhcProfile }
         : {}),
     }];
     fleetIdByName = new Map([['Fleet', 'fl-0']]);

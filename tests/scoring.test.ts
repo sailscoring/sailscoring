@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateRaceScores, calculateStandings, calculateFleetStandings, getDiscardCount, calculateHandicapRaceScores, calculateHandicapAdjustment, deriveProgressiveHandicapConfig } from '@/lib/scoring';
+import { calculateRaceScores, calculateStandings, calculateFleetStandings, getDiscardCount, calculateHandicapRaceScores, calculateHandicapAdjustment, deriveProgressiveHandicapConfig, DEFAULT_NHC_PROFILE } from '@/lib/scoring';
 import type { Competitor, Fleet, Race, Finish, DiscardThreshold, PenaltyCode, RaceStart } from '@/lib/types';
 
 // Helpers to build test fixtures with minimal required fields
@@ -798,6 +798,50 @@ describe('calculateHandicapAdjustment — NHC1 edge cases', () => {
     const { scores } = runRace(fleet, cs, tcf, finishes);
     expect(scores.get('A')!.tcfApplied).toBe(1.20);
     expect(scores.get('B')!.tcfApplied).toBe(0.80);
+  });
+});
+
+
+// ─── deriveProgressiveHandicapConfig — per-fleet NhcProfile override ─────────
+
+describe('deriveProgressiveHandicapConfig — Fleet.nhcProfile override', () => {
+  const stockNhc: Fleet = {
+    id: 'fl-0', seriesId: 's1', name: 'NHC', displayOrder: 0, scoringSystem: 'nhc',
+  };
+
+  it('falls back to DEFAULT_NHC_PROFILE when nhcProfile is absent', () => {
+    const config = deriveProgressiveHandicapConfig(stockNhc)!;
+    expect(config.alphaUp).toBe(DEFAULT_NHC_PROFILE.alphaP);
+    expect(config.alphaDown).toBe(DEFAULT_NHC_PROFILE.alphaN);
+    expect(config.minFinishers).toBe(DEFAULT_NHC_PROFILE.minFin);
+    const outlier = config.outlier as Extract<typeof config.outlier, { strategy: 'reduce-alpha' }>;
+    expect(outlier.strategy).toBe('reduce-alpha');
+    expect(outlier.alphaUpReduced).toBe(DEFAULT_NHC_PROFILE.alphaPX);
+    expect(outlier.alphaDownReduced).toBe(DEFAULT_NHC_PROFILE.alphaNX);
+    expect(outlier.sdThresholdUp).toBe(DEFAULT_NHC_PROFILE.sdOver);
+    expect(outlier.sdThresholdDown).toBe(DEFAULT_NHC_PROFILE.sdUnder);
+  });
+
+  it('honours an inline per-fleet override', () => {
+    const fleet: Fleet = {
+      ...stockNhc,
+      nhcProfile: {
+        name: 'NHC1 (aggressive)',
+        alphaP: 0.50, alphaN: 0.30, alphaPX: 0.25, alphaNX: 0.15,
+        sdOver: 2.0, sdUnder: 1.25, minFin: 4,
+      },
+    };
+    const config = deriveProgressiveHandicapConfig(fleet)!;
+    expect(config.alphaUp).toBe(0.50);
+    expect(config.alphaDown).toBe(0.30);
+    expect(config.minFinishers).toBe(4);
+    const outlier = config.outlier as Extract<typeof config.outlier, { strategy: 'reduce-alpha' }>;
+    expect(outlier.alphaUpReduced).toBe(0.25);
+    expect(outlier.alphaDownReduced).toBe(0.15);
+    expect(outlier.sdThresholdUp).toBe(2.0);
+    expect(outlier.sdThresholdDown).toBe(1.25);
+    const realign = config.realignment as Extract<typeof config.realignment, { target: 'prior-mean' }>;
+    expect(realign.minFinishers).toBe(4);
   });
 });
 

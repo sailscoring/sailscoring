@@ -17,6 +17,7 @@ import { organization } from './auth';
 import type {
   CompetitorFieldKey,
   DiscardThreshold,
+  NhcProfile,
   PrimaryPersonLabel,
   StartGroup,
   BilgeBundle,
@@ -146,6 +147,7 @@ export const fleets = pgTable(
     displayOrder: integer('display_order').notNull(),
     scoringSystem: text('scoring_system').notNull(),
     echoAlpha: real('echo_alpha'),
+    nhcProfile: jsonb('nhc_profile').$type<NhcProfile>(),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

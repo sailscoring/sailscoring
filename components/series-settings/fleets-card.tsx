@@ -26,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { StartSequenceEditor } from './start-sequence-editor';
 import { ECHO_DEFAULT_ALPHA } from '@/lib/scoring';
+import { NhcProfileDialog } from './nhc-profile-dialog';
 
 export type FleetsCardProps = {
   seriesId: string;
@@ -56,6 +57,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
   const [scoringSystemError, setScoringSystemError] = useState<{ fleetId: string; message: string } | null>(null);
   const [confirmToScratch, setConfirmToScratch] = useState<{ fleet: Fleet } | null>(null);
   const [confirmDeleteFleet, setConfirmDeleteFleet] = useState<Fleet | null>(null);
+  const [editingNhcProfileFor, setEditingNhcProfileFor] = useState<Fleet | null>(null);
 
   const isOnlyDefault = fleets.length === 1 && fleets[0].name === 'Default';
 
@@ -104,11 +106,13 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     const willBeScratch = system === 'scratch';
 
     // Seed the default α when switching INTO ECHO; drop it when switching out.
-    // NHC has no per-fleet parameters (it uses DEFAULT_NHC_PROFILE).
+    // NHC fleets fall back to DEFAULT_NHC_PROFILE when `nhcProfile` is absent
+    // — only customisation materialises it. Drop any override when leaving NHC.
     const next: Fleet = {
       ...fleet,
       scoringSystem: system,
       ...(system === 'echo' ? { echoAlpha: fleet.echoAlpha ?? ECHO_DEFAULT_ALPHA } : { echoAlpha: undefined }),
+      ...(system === 'nhc' ? {} : { nhcProfile: undefined }),
     };
 
     if (wasScratch === willBeScratch) {
@@ -157,6 +161,25 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1) return;
     if (parsed === fleet.echoAlpha) return;
     await saveFleet.mutateAsync({ ...fleet, echoAlpha: parsed });
+  }
+
+  async function commitNhcProfile(fleet: Fleet, next: import('@/lib/types').NhcProfile | null) {
+    // `null` means "matches DEFAULT_NHC_PROFILE" — clear the override so the
+    // fleet falls back to the engine default on read. Skip the round-trip if
+    // nothing actually changed.
+    const current = fleet.nhcProfile;
+    const noOp = next === null ? current == null : current != null
+      && next.alphaP === current.alphaP
+      && next.alphaN === current.alphaN
+      && next.alphaPX === current.alphaPX
+      && next.alphaNX === current.alphaNX
+      && next.sdOver === current.sdOver
+      && next.sdUnder === current.sdUnder
+      && next.minFin === current.minFin;
+    if (!noOp) {
+      await saveFleet.mutateAsync({ ...fleet, nhcProfile: next ?? undefined });
+    }
+    setEditingNhcProfileFor(null);
   }
 
   async function confirmSwitchToScratch() {
@@ -293,6 +316,21 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                       />
                     </label>
                   )}
+                  {fleet.scoringSystem === 'nhc' && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setEditingNhcProfileFor(fleet)}
+                      title={fleet.nhcProfile
+                        ? 'Edit per-fleet NHC parameters (currently customised)'
+                        : 'Edit per-fleet NHC parameters (currently stock SWNHC2015)'}
+                      data-testid={`nhc-configure-${fleet.id}`}
+                    >
+                      {fleet.nhcProfile ? 'NHC · custom' : 'Configure…'}
+                    </Button>
+                  )}
                 </>
               )}
               <Button
@@ -406,6 +444,15 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <NhcProfileDialog
+        open={editingNhcProfileFor !== null}
+        fleetName={editingNhcProfileFor?.name ?? ''}
+        initial={editingNhcProfileFor?.nhcProfile}
+        onClose={() => setEditingNhcProfileFor(null)}
+        onSave={(next) => {
+          if (editingNhcProfileFor) void commitNhcProfile(editingNhcProfileFor, next);
+        }}
+      />
       <Dialog open={confirmDeleteFleet !== null} onOpenChange={(open) => { if (!open) setConfirmDeleteFleet(null); }}>
         <DialogContent>
           <DialogHeader>
@@ -453,7 +500,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
             ? 'No fleets configured.'
             : sorted.map((f) => {
                 if (f.scoringSystem === 'scratch') return f.name;
-                if (f.scoringSystem === 'nhc') return `${f.name} (NHC)`;
+                if (f.scoringSystem === 'nhc') return `${f.name} (NHC${f.nhcProfile ? ', custom' : ''})`;
                 if (f.scoringSystem === 'echo') return `${f.name} (ECHO, α=${f.echoAlpha ?? ECHO_DEFAULT_ALPHA})`;
                 return `${f.name} (${f.scoringSystem.toUpperCase()})`;
               }).join(' · ')}

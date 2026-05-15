@@ -247,21 +247,21 @@ to `H0`. Distinct from the implemented NHC1 (SWNHC2015) which uses
 asymmetric blend rates, classifies on `S = Q/L`, and realigns to the
 fleet's prior sum.
 
-### User-visible NHC profiles (per-series and per-workspace)
+### Named NHC profiles (per-series registry and per-workspace library)
 
-NHC1 (SWNHC2015) currently runs from an internal `DEFAULT_NHC_PROFILE`
-constant — the seven Eskdale spreadsheet parameters (α_p/n/px/nx, σ
-thresholds over/under, MinFin) are hard-coded. A future milestone
-exposes named profiles per series, with scorers picking by name in the
-fleet settings:
+Per-fleet `Fleet.nhcProfile` override of the seven SWNHC2015 parameters
+landed for #143 — every NHC fleet can already carry custom blend rates,
+σ thresholds, and `MinFin` inline. The deferred work is sharing those
+profiles by name across fleets, series, and workspaces:
 
-- **Per-series profiles.** `Series.nhcProfiles: NhcProfile[]` with a
-  fleet-side `Fleet.nhcProfileId` pointer. Auto-created `"NHC1 (Sailwave)"`
-  default profile so existing series keep stock parameters; scorers can
-  add a `"HPH (aggressive)"` variant in the same series for an A/B run
-  across two NHC fleets. Lock parameters after the first race scores to
-  prevent retroactive rescoring; offer "duplicate profile" to fork an
-  experiment.
+- **Per-series profile registry.** `Series.nhcProfiles: NhcProfile[]`
+  with a fleet-side `Fleet.nhcProfileId` pointer, replacing the inline
+  `Fleet.nhcProfile`. Auto-created `"NHC1 (Sailwave)"` default profile so
+  existing series keep stock parameters; scorers can add a `"HPH
+  (aggressive)"` variant in the same series for an A/B run across two
+  NHC fleets. Lock parameters on a shared profile after the first race
+  scores to prevent retroactive rescoring across fleets; offer
+  "duplicate profile" to fork an experiment.
 - **Per-workspace profile library.** Workspace owners maintain a list
   of named profiles that get copied into new series at creation time.
   HYC could define the "HPH" profile once, every new HYC series picks it
@@ -269,14 +269,14 @@ fleet settings:
   pick up a club's profile set (export/import JSON? join-org copy?);
   when the workspace edits a profile, do existing series get the
   update or stay frozen (lean: frozen — series are historical records).
-- **Profile attribution in published HTML.** Once workspace-sharing
-  lands, the per-race fleet header can carry the profile name and source
-  (`Rating system: NHC1 (HPH-aggressive) — sourced from Howth YC`),
+- **Profile attribution in published HTML.** The per-race fleet header
+  carries the profile name (`Rating system: NHC1 (HPH-aggressive)`),
+  and — once workspace-sharing lands — the source workspace too,
   surfacing "this series used a custom profile" without exposing the raw
   parameters inline.
 
-See the scoping discussion in #135 for full options analysis and the
-KISS path that landed first (single hard-coded internal profile).
+See the scoping discussion in #135 for the original options analysis;
+the inline per-fleet step landed under #143 as the bridge.
 
 ### Scoring-inquiry rating adjustments
 
