@@ -147,17 +147,6 @@ exists.
 
 ## Workspaces and sharing
 
-### Copy a series between personal and org workspaces
-
-A scorer should be able to copy a series from their personal workspace into an org
-workspace, and vice-versa. Common cases: drafting a series privately before handing it
-to the club to run; pulling an org-run series into a personal workspace to experiment
-with alternative scoring without disturbing the official record.
-
-Open questions: copy vs. move semantics; what identity carries over (snapshot history,
-scorer attribution, IDs) and what gets re-stamped; whether the source and copy stay
-linked or diverge cleanly; permission model for who can copy out of an org workspace.
-
 ### Reconsider snapshot lineage once file-sharing is no longer the collaboration mechanism
 
 `Series.lastSnapshotId`, `Series.snapshotHistory`, and `checkLineage()` exist to make
