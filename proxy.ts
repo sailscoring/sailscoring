@@ -6,15 +6,8 @@ import { getSessionCookie } from 'better-auth/cookies';
  * each page's call to `requireSession()` / `requireWorkspace()` —
  * proxy-only (formerly middleware-only) auth is the failure mode of
  * CVE-2025-29927, so this layer is defence-in-depth, not the fence.
- *
- * Skipped entirely in local-first mode (`USE_SERVER_DATA != 'true'`):
- * that build has no auth at all and the home page reads from IndexedDB.
  */
 export function proxy(request: NextRequest) {
-  if (process.env.USE_SERVER_DATA !== 'true') {
-    return NextResponse.next();
-  }
-
   if (getSessionCookie(request)) {
     return NextResponse.next();
   }

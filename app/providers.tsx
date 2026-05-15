@@ -1,13 +1,11 @@
 'use client';
 
 /**
- * ADR-008 Phase 3 client providers.
+ * Client providers.
  *
- * - QueryClientProvider — TanStack Query is the reactivity primitive that
- *   replaces Dexie's `useLiveQuery`. Mutations explicitly invalidate
- *   keys; per-mutation optimistic updates are added where the UX warrants.
- * - RepoProvider — runtime-selects between Dexie and the api-repository
- *   from the server-passed USE_SERVER_DATA flag. See lib/repos.ts.
+ * - QueryClientProvider — TanStack Query is the reactivity primitive
+ *   for server-backed data. Mutations explicitly invalidate keys;
+ *   per-mutation optimistic updates are added where the UX warrants.
  *
  * Read-only offline (persistQueryClient) is deferred. The default
  * persister throttles writes by 1s, which produced stale-cache races
@@ -33,13 +31,7 @@ function createQueryClient(): QueryClient {
   });
 }
 
-export function Providers({
-  useServerData,
-  children,
-}: {
-  useServerData: boolean;
-  children: ReactNode;
-}) {
+export function Providers({ children }: { children: ReactNode }) {
   // Lazy-init keeps the same QueryClient across re-renders without
   // sharing one across users in a Server Component context.
   const [queryClient] = useState(createQueryClient);
@@ -48,7 +40,7 @@ export function Providers({
     <QueryClientProvider client={queryClient}>
       <ConflictNoticeProvider>
         <ConflictMutationSubscriber />
-        <RepoProvider useServerData={useServerData}>{children}</RepoProvider>
+        <RepoProvider>{children}</RepoProvider>
       </ConflictNoticeProvider>
     </QueryClientProvider>
   );

@@ -4,7 +4,6 @@ import { eq } from 'drizzle-orm';
 
 import './globals.css';
 import { Providers } from './providers';
-import { USE_SERVER_DATA } from '@/lib/flags';
 import { getOptionalSession } from '@/lib/auth/require-session';
 import { personalWorkspaceSlug } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
@@ -29,7 +28,6 @@ interface HeaderState {
 }
 
 async function loadHeaderState(): Promise<HeaderState | null> {
-  if (!USE_SERVER_DATA) return null;
   const session = await getOptionalSession();
   if (!session) return null;
   const rows = await getDb()
@@ -80,7 +78,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <Providers useServerData={USE_SERVER_DATA}>
+        <Providers>
           <WorkspaceMembershipsProvider
             memberships={header?.memberships ?? []}
             activeOrganizationId={header?.activeOrganizationId ?? null}

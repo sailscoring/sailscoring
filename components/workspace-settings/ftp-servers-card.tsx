@@ -136,7 +136,7 @@ function FtpServerDialog({
   );
 }
 
-export function FtpServersCard({ workspaceShared }: { workspaceShared: boolean }) {
+export function FtpServersCard() {
   const { data: ftpServers } = useFtpServers();
   const deleteFtpServer = useDeleteFtpServer();
   const [dialog, setDialog] = useState<{ open: boolean; server: FtpServer | null }>({
@@ -211,9 +211,7 @@ export function FtpServersCard({ workspaceShared }: { workspaceShared: boolean }
       )}
 
       <p className="text-xs text-muted-foreground">
-        {workspaceShared
-          ? 'FTP server credentials are shared with everyone in this workspace and are never included in series file exports.'
-          : 'FTP server credentials are stored on this device only and are never included in series file exports.'}
+        FTP server credentials are shared with everyone in this workspace and are never included in series file exports.
       </p>
 
       <FtpServerDialog
