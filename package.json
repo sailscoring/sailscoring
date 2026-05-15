@@ -41,8 +41,6 @@
     "better-auth": "^1.6.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "dexie": "^4.4.2",
-    "dexie-react-hooks": "^4.4.0",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.12.0",
     "next": "16.2.6",
