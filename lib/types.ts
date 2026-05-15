@@ -321,7 +321,7 @@ export interface NhcProfile {
 // Persistent per-(race, competitor, fleet) TCF snapshot. Derived state — rebuilt
 // by the scoring engine on every recompute, persisted so file/JSON imports render
 // without re-scoring and so non-finishers (no Finish row) still carry a record.
-export interface NhcTcfRecord {
+export interface TcfRecord {
   id: string;
   raceId: string;
   competitorId: string;

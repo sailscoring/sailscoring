@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart, NhcTcfRecord } from './types';
+import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart, TcfRecord } from './types';
 
 export class SailScoringDb extends Dexie {
   series!: Table<Series>;
@@ -9,7 +9,7 @@ export class SailScoringDb extends Dexie {
   finishes!: Table<Finish>;
   raceStarts!: Table<RaceStart>;
   ftpServers!: Table<FtpServer>;
-  nhcTcfHistory!: Table<NhcTcfRecord>;
+  tcfHistory!: Table<TcfRecord>;
 
   constructor() {
     super('sailscoring-v1');
@@ -76,6 +76,21 @@ export class SailScoringDb extends Dexie {
         }
       });
     this.version(6).stores({ ftpServersStashV3: null });
+    // v7–v8: rename `nhcTcfHistory` to `tcfHistory` (the store holds records
+    // for both NHC and ECHO, despite the legacy name). Dexie has no in-place
+    // rename, so v7 creates the new store and copies rows over, v8 drops the
+    // old store.
+    this.version(7)
+      .stores({
+        tcfHistory: 'id, raceId, [raceId+fleetId], [raceId+competitorId+fleetId]',
+      })
+      .upgrade(async (tx) => {
+        const rows = await tx.table('nhcTcfHistory').toArray();
+        if (rows.length > 0) {
+          await tx.table('tcfHistory').bulkAdd(rows);
+        }
+      });
+    this.version(8).stores({ nhcTcfHistory: null });
   }
 }
 

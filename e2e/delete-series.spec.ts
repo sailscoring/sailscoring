@@ -20,7 +20,7 @@ async function seedChildren(page: Page, seriesId: string, tag: string): Promise<
       req.onerror = () => reject(req.error);
       req.onsuccess = () => {
         const db = req.result;
-        const stores = ['fleets', 'competitors', 'races', 'finishes', 'raceStarts', 'nhcTcfHistory'];
+        const stores = ['fleets', 'competitors', 'races', 'finishes', 'raceStarts', 'tcfHistory'];
         const tx = db.transaction(stores, 'readwrite');
         tx.objectStore('fleets').put({
           id: fleetId,
@@ -57,8 +57,8 @@ async function seedChildren(page: Page, seriesId: string, tag: string): Promise<
           fleetIds: [fleetId],
           startTime: '14:00:00',
         });
-        tx.objectStore('nhcTcfHistory').put({
-          id: `nhc-${tag}`,
+        tx.objectStore('tcfHistory').put({
+          id: `tcf-${tag}`,
           raceId,
           competitorId,
           fleetId,
@@ -78,7 +78,7 @@ type ChildCounts = {
   races: number;
   finishes: number;
   raceStarts: number;
-  nhcTcfHistory: number;
+  tcfHistory: number;
 };
 
 /**
@@ -95,7 +95,7 @@ async function countChildren(page: Page, seriesId: string, tag: string): Promise
       req.onerror = () => reject(req.error);
       req.onsuccess = () => {
         const db = req.result;
-        const stores = ['fleets', 'competitors', 'races', 'finishes', 'raceStarts', 'nhcTcfHistory'];
+        const stores = ['fleets', 'competitors', 'races', 'finishes', 'raceStarts', 'tcfHistory'];
         const tx = db.transaction(stores, 'readonly');
         const counts: ChildCounts = {
           fleets: 0,
@@ -103,7 +103,7 @@ async function countChildren(page: Page, seriesId: string, tag: string): Promise
           races: 0,
           finishes: 0,
           raceStarts: 0,
-          nhcTcfHistory: 0,
+          tcfHistory: 0,
         };
 
         const byField = (store: string, index: string, key: string, out: keyof ChildCounts) => {
@@ -123,7 +123,7 @@ async function countChildren(page: Page, seriesId: string, tag: string): Promise
         byField('races', 'seriesId', seriesId, 'races');
         byField('finishes', 'raceId', raceId, 'finishes');
         byField('raceStarts', 'raceId', raceId, 'raceStarts');
-        byField('nhcTcfHistory', 'raceId', raceId, 'nhcTcfHistory');
+        byField('tcfHistory', 'raceId', raceId, 'tcfHistory');
 
         tx.oncomplete = () => resolve(counts);
         tx.onerror = () => reject(tx.error);
@@ -147,7 +147,7 @@ test('delete series with warning dialog', async ({ page }) => {
 
   // ── 2. Seed a row in every child table for both series ────────────────────
   // Covers every table the cascade is responsible for (fleets, competitors,
-  // races, finishes, raceStarts, nhcTcfHistory). Seeding the "kept" series too
+  // races, finishes, raceStarts, tcfHistory). Seeding the "kept" series too
   // catches accidental over-deletion.
   await seedChildren(page, keepSeriesId, 'keep');
   await seedChildren(page, deleteSeriesId, 'delete');
@@ -188,7 +188,7 @@ test('delete series with warning dialog', async ({ page }) => {
     races: 0,
     finishes: 0,
     raceStarts: 0,
-    nhcTcfHistory: 0,
+    tcfHistory: 0,
   });
 
   // ── 10. Kept series still has all of its child rows ───────────────────────
@@ -199,6 +199,6 @@ test('delete series with warning dialog', async ({ page }) => {
     races: 1,
     finishes: 1,
     raceStarts: 1,
-    nhcTcfHistory: 1,
+    tcfHistory: 1,
   });
 });

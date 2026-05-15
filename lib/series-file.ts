@@ -8,7 +8,7 @@ import type {
   PrimaryPersonLabel,
   StartGroup,
   NhcProfile,
-  NhcTcfRecord,
+  TcfRecord,
 } from './types';
 import { defaultEnabledCompetitorFields, DEFAULT_PRIMARY_PERSON_LABEL } from './competitor-fields';
 import { calculateFleetStandings } from './scoring';
@@ -46,9 +46,13 @@ export interface SeriesFileRepos {
  *  v3 changes `Series.defaultStartSequence[*]` from `offsetMinutes` (cumulative
  *  minutes from the first start) to `intervalMinutes` (gap to the previous
  *  start). The parser converts v1/v2 sequences on read so callers always see
- *  the v3 shape — see #95 for why the data model changed. */
-export const FORMAT_VERSION = 3;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3];
+ *  the v3 shape — see #95 for why the data model changed.
+ *
+ *  v4 renames the progressive-handicap TCF history key from `nhcTcfHistory`
+ *  to `tcfHistory` (the records cover both NHC and ECHO; the legacy name
+ *  predated ECHO). The parser accepts either key. */
+export const FORMAT_VERSION = 4;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -149,7 +153,7 @@ interface SeriesFileRace {
   finishes: SeriesFileFinish[];
 }
 
-interface SeriesFileNhcTcfRecord {
+interface SeriesFileTcfRecord {
   raceId: string;
   competitorId: string;
   fleetId: string;
@@ -167,7 +171,10 @@ export interface SeriesFile {
   fleets: SeriesFileFleet[];
   competitors: SeriesFileCompetitor[];
   races: SeriesFileRace[];
-  nhcTcfHistory?: SeriesFileNhcTcfRecord[];
+  tcfHistory?: SeriesFileTcfRecord[];
+  /** Pre-v4 alias for `tcfHistory`. Loader accepts either key; writer emits
+   *  the new key only. Kept on the type so v1–v3 files parse without a cast. */
+  nhcTcfHistory?: SeriesFileTcfRecord[];
 }
 
 export type LineageStatus = 'clean' | 'identical' | 'diverged';
@@ -216,7 +223,7 @@ export async function buildSeriesFile(
   // Compute progressive-handicap (NHC/ECHO) TCF history from the engine
   // rather than reading it from a persisted table. The history is purely
   // derived state; computing on demand removes the only consumer of the
-  // nhcTcfHistory table.
+  // tcfHistory table.
   const { fleetStandings } = calculateFleetStandings(
     fleets,
     competitors,
@@ -226,8 +233,8 @@ export async function buildSeriesFile(
     series.dnfScoring ?? 'seriesEntries',
     allRaceStarts,
   );
-  const allNhcTcfHistory: NhcTcfRecord[] = fleetStandings.flatMap(
-    (fr) => fr.nhcTcfHistory ?? [],
+  const allTcfHistory: TcfRecord[] = fleetStandings.flatMap(
+    (fr) => fr.tcfHistory ?? [],
   );
 
   const finishesByRace = new Map<string, SeriesFileFinish[]>();
@@ -331,9 +338,9 @@ export async function buildSeriesFile(
       starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
     })),
-    ...(allNhcTcfHistory.length > 0
+    ...(allTcfHistory.length > 0
       ? {
-          nhcTcfHistory: allNhcTcfHistory.map((h) => ({
+          tcfHistory: allTcfHistory.map((h) => ({
             raceId: h.raceId,
             competitorId: h.competitorId,
             fleetId: h.fleetId,
@@ -405,6 +412,9 @@ export function parseSeriesFile(content: string): SeriesFile {
   if (!Array.isArray(obj.races)) throw new Error('Invalid file: missing races');
 
   if (obj.formatVersion < 3) migrateStartSequenceCumulativeToIntervals(obj.series);
+  if (obj.formatVersion < 4 && obj.nhcTcfHistory !== undefined && obj.tcfHistory === undefined) {
+    obj.tcfHistory = obj.nhcTcfHistory;
+  }
 
   return data as SeriesFile;
 }

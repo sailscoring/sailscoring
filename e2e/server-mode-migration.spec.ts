@@ -16,8 +16,8 @@ import { signInFreshUser } from './helpers';
 
 const DB_NAME = 'sailscoring-v1';
 // Dexie compiles its `this.version(N)` schemas to IndexedDB version `10 * N`.
-// `lib/db.ts` declares version 6 → IDB 60.
-const DB_VERSION = 60;
+// `lib/db.ts` declares version 8 → IDB 80.
+const DB_VERSION = 80;
 
 test.describe('@server migration banner', () => {
   test('moves a Dexie series into the signed-in workspace', async ({ page }) => {

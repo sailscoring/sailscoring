@@ -1000,7 +1000,7 @@ describe('calculateFleetStandings — NHC progressive handicap', () => {
     }
   });
 
-  it('emits one nhcTcfHistory record per (race, competitor) for NHC fleets', () => {
+  it('emits one tcfHistory record per (race, competitor) for NHC fleets', () => {
     const fleet = nhcFleet();
     const comps = [nhcComp('A', 1.0), nhcComp('B', 1.0)];
     const races: Race[] = [
@@ -1012,7 +1012,7 @@ describe('calculateFleetStandings — NHC progressive handicap', () => {
       fin('r2', 'A', '14:50:00'), fin('r2', 'B', '15:00:00'),
     ];
     const { fleetStandings } = calculateFleetStandings([fleet], comps, races, finishes, [], 'seriesEntries', [rs('r1'), rs('r2')]);
-    const history = fleetStandings[0].nhcTcfHistory!;
+    const history = fleetStandings[0].tcfHistory!;
     expect(history.length).toBe(4);
     const r1A = history.find((h) => h.raceId === 'r1' && h.competitorId === 'A');
     expect(r1A?.tcfApplied).toBe(1.0);

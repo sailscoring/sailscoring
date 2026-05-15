@@ -31,7 +31,7 @@ import type {
  * - `workspace_id` references the Better Auth `organization.id`. Denormalised
  *   onto `series`, `fleets`, `competitors`, `races` so tenancy filters are a
  *   single indexed lookup; child rows of races (`race_starts`, `finishes`,
- *   `nhc_tcf_records`) reach the workspace via their parent and don't carry
+ *   `tcf_records`) reach the workspace via their parent and don't carry
  *   the column. App-level invariant: child saves copy `workspace_id` from
  *   the parent series.
  * - `version` + `updated_at` on every mutable row. Saves bump `version`;
@@ -290,8 +290,8 @@ export const finishes = pgTable(
  * still carry a record. No `version` column: derived data is replaced
  * wholesale, never edited.
  */
-export const nhcTcfRecords = pgTable(
-  'nhc_tcf_records',
+export const tcfRecords = pgTable(
+  'tcf_records',
   {
     id: uuid('id').primaryKey(),
     raceId: uuid('race_id')
@@ -307,12 +307,12 @@ export const nhcTcfRecords = pgTable(
     newTcf: real('new_tcf').notNull(),
   },
   (table) => [
-    uniqueIndex('nhc_tcf_records_uidx').on(
+    uniqueIndex('tcf_records_uidx').on(
       table.raceId,
       table.competitorId,
       table.fleetId,
     ),
-    index('nhc_tcf_records_race_idx').on(table.raceId),
+    index('tcf_records_race_idx').on(table.raceId),
   ],
 );
 

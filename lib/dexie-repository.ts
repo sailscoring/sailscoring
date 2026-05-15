@@ -250,7 +250,7 @@ export async function deleteSeriesChildren(seriesId: string): Promise<void> {
   if (raceIds.length > 0) {
     await db.finishes.where('raceId').anyOf(raceIds).delete();
     await db.raceStarts.where('raceId').anyOf(raceIds).delete();
-    await db.nhcTcfHistory.where('raceId').anyOf(raceIds).delete();
+    await db.tcfHistory.where('raceId').anyOf(raceIds).delete();
   }
   await db.races.where('seriesId').equals(seriesId).delete();
   await db.competitors.where('seriesId').equals(seriesId).delete();
@@ -260,7 +260,7 @@ export async function deleteSeriesChildren(seriesId: string): Promise<void> {
 export async function deleteSeriesCascade(seriesId: string): Promise<void> {
   await db.transaction(
     'rw',
-    [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.nhcTcfHistory],
+    [db.series, db.fleets, db.competitors, db.races, db.finishes, db.raceStarts, db.tcfHistory],
     async () => {
       await deleteSeriesChildren(seriesId);
       await db.series.delete(seriesId);

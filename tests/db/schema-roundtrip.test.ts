@@ -23,7 +23,7 @@ import type {
   Race,
   RaceStart,
   Finish,
-  NhcTcfRecord,
+  TcfRecord,
   BilgeBundle,
 } from '@/lib/types';
 
@@ -273,7 +273,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       redressPoints: finish.redressPoints,
     });
 
-    const tcf: NhcTcfRecord = {
+    const tcf: TcfRecord = {
       id: uuid(),
       raceId: race.id,
       competitorId: competitor.id,
@@ -281,7 +281,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       tcfApplied: 0.95,
       newTcf: 0.96,
     };
-    await db.insert(schema.nhcTcfRecords).values(tcf);
+    await db.insert(schema.tcfRecords).values(tcf);
 
     // ---- Read back and assert ----
 
@@ -398,8 +398,8 @@ describe.skipIf(skip)('schema round-trip', () => {
 
     const [readTcf] = await db
       .select()
-      .from(schema.nhcTcfRecords)
-      .where(eq(schema.nhcTcfRecords.id, tcf.id));
+      .from(schema.tcfRecords)
+      .where(eq(schema.tcfRecords.id, tcf.id));
     expect(readTcf).toEqual(tcf);
   });
 

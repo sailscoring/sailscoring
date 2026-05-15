@@ -156,12 +156,12 @@ export async function copySeries(
           sourceCompetitors.map((c) => c.id),
         )
       : [];
-  const sourceNhcRecords =
+  const sourceTcfRecords =
     sourceRaceIds.length > 0
       ? await db
           .select()
-          .from(schema.nhcTcfRecords)
-          .where(inArray(schema.nhcTcfRecords.raceId, sourceRaceIds))
+          .from(schema.tcfRecords)
+          .where(inArray(schema.tcfRecords.raceId, sourceRaceIds))
       : [];
 
   // Build id remap tables. UUIDs are generated up front so child rows
@@ -305,11 +305,11 @@ export async function copySeries(
       );
     }
 
-    // NHC TCF snapshots — derived data, but copying them lets the new
+    // TCF snapshots — derived data, but copying them lets the new
     // series render results without a re-score round-trip.
-    if (sourceNhcRecords.length > 0) {
-      await tx.insert(schema.nhcTcfRecords).values(
-        sourceNhcRecords.map((r) => ({
+    if (sourceTcfRecords.length > 0) {
+      await tx.insert(schema.tcfRecords).values(
+        sourceTcfRecords.map((r) => ({
           id: crypto.randomUUID(),
           raceId: raceIdMap.get(r.raceId)!,
           competitorId: competitorIdMap.get(r.competitorId)!,

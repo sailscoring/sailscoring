@@ -148,8 +148,8 @@ Two distinct implementations exist in the wild:
 #### NHC1 (Sailwave built-in) ✓ Implemented
 
 > **Status:** Engine ✓ in `lib/scoring.ts` (`swnhc2015Adjustment`).
-> Persistence (`NhcTcfRecord`, `lib/nhc-persistence.ts`, `nhcTcfHistory`
-> Dexie table), series-file format, public JSON export, per-competitor
+> Persistence (`TcfRecord`, `lib/nhc-persistence.ts`, `tcfHistory`
+> Dexie table — shared with ECHO), series-file format, public JSON export, per-competitor
 > `nhcStartingTcf` editing, retroactive-edit propagation, and the
 > rating-calculation explainability layer are all in place. The SWNHC2015
 > parameters live in the `DEFAULT_NHC_PROFILE` constant and are used as
@@ -1234,12 +1234,12 @@ snapshotting but is no longer needed for the algorithm itself.
 
 - **Retroactive edits.** Decided: propagate automatically. Changing any input
   (a finish time, a starting TCF, α) recomputes the full TCF history for the
-  fleet; the persisted `NhcTcfRecord` rows are rewritten as part of the
+  fleet; the persisted `TcfRecord` rows are rewritten as part of the
   recompute. No explicit commit step and no per-race lock. This is the
   opposite of HalSail's manual re-score but matches the local-first model
   where a single scorer edits on their own machine.
 - **`tcfApplied` persistence.** Resolved: persisted per `(race, competitor,
-  fleet)` in the `nhcTcfHistory` Dexie table as `NhcTcfRecord`, with
+  fleet)` in the `tcfHistory` Dexie table as `TcfRecord`, with
   `tcfApplied` (the Sailwave `rrat` analogue) and `newTcf` stored alongside.
   Series file format and public JSON export both carry the history so that
   imports can render without re-scoring, and so non-finishers (with no

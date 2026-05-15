@@ -1,4 +1,4 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, NhcTcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates } from './types';
 import { getCodeDefinition } from './scoring-codes';
 
 export const ECHO_DEFAULT_ALPHA = 0.25;  // Irish Sailing 2022 ECHO Guide: 75/25 club racing
@@ -1058,7 +1058,7 @@ function calculateHandicapStandings(
   nhcAggregatesByRaceId?: Map<string, NhcRaceAggregates>;
   echoRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
   echoAggregatesByRaceId?: Map<string, EchoRaceAggregates>;
-  nhcTcfHistory?: NhcTcfRecord[];
+  tcfHistory?: TcfRecord[];
 } {
   const config = deriveProgressiveHandicapConfig(fleet);
   const isProgressive = config !== null;
@@ -1102,7 +1102,7 @@ function calculateHandicapStandings(
       rejections: allRejections,
       ...(isNhc ? { nhcRaceScoresByRaceId: new Map(), nhcAggregatesByRaceId: new Map() } : {}),
       ...(isEcho ? { echoRaceScoresByRaceId: new Map(), echoAggregatesByRaceId: new Map() } : {}),
-      ...(isProgressive ? { nhcTcfHistory: [] } : {}),
+      ...(isProgressive ? { tcfHistory: [] } : {}),
     };
   }
 
@@ -1130,7 +1130,7 @@ function calculateHandicapStandings(
   const nhcAggregatesByRaceId = new Map<string, NhcRaceAggregates>();
   const echoRaceScoresByRaceId = new Map<string, Map<string, HandicapRaceScore>>();
   const echoAggregatesByRaceId = new Map<string, EchoRaceAggregates>();
-  const nhcTcfHistory: NhcTcfRecord[] = [];
+  const tcfHistory: TcfRecord[] = [];
 
   const competitorRacePoints = new Map<string, number[]>();
   const competitorRaceCodes = new Map<string, (ResultCode | null)[]>();
@@ -1197,7 +1197,7 @@ function calculateHandicapStandings(
         // a TCF history entry).
         for (const [cid, newTcf] of phaseB.newTcfByCompetitorId) {
           const tcfApplied = appliedTcfMap.get(cid)!;
-          nhcTcfHistory.push({
+          tcfHistory.push({
             id: `${race.id}-${cid}-${fleet.id}`,
             raceId: race.id,
             competitorId: cid,
@@ -1304,7 +1304,7 @@ function calculateHandicapStandings(
     rejections: allRejections,
     ...(isNhc ? { nhcRaceScoresByRaceId, nhcAggregatesByRaceId } : {}),
     ...(isEcho ? { echoRaceScoresByRaceId, echoAggregatesByRaceId } : {}),
-    ...(isProgressive ? { nhcTcfHistory } : {}),
+    ...(isProgressive ? { tcfHistory } : {}),
   };
 }
 
@@ -1342,7 +1342,7 @@ export function calculateFleetStandings(
     nhcAggregatesByRaceId?: Map<string, NhcRaceAggregates>;
     echoRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
     echoAggregatesByRaceId?: Map<string, EchoRaceAggregates>;
-    nhcTcfHistory?: NhcTcfRecord[];
+    tcfHistory?: TcfRecord[];
   }[];
   circularRedressRaces: number[];
 } {
@@ -1370,7 +1370,7 @@ export function calculateFleetStandings(
   const fleetStandings = sorted.map((fleet) => {
     const fleetCompetitors = competitorsByFleet.get(fleet.id) ?? [];
     if (fleet.scoringSystem !== 'scratch') {
-      const { standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, nhcTcfHistory } = calculateHandicapStandings(
+      const { standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory } = calculateHandicapStandings(
         fleetCompetitors,
         races,
         allFinishes,
@@ -1379,7 +1379,7 @@ export function calculateFleetStandings(
         discardThresholds,
         dnfScoring,
       );
-      return { fleet, standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, nhcTcfHistory };
+      return { fleet, standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory };
     }
     const { standings, circularRedressRaces } = calculateStandings(
       fleetCompetitors,
