@@ -161,6 +161,7 @@ See `flows/publish-results.md` for the full configuration and UX details.
 - Edit competitor (inline or modal)
 - Delete competitor
 - Import from CSV → S-04
+- Update handicaps → S-09 (shown only for series with progressive-handicap fleets)
 - Exclude / reinstate competitor (CM-08)
 
 **Notes:**
@@ -187,6 +188,33 @@ See `flows/competitor-import.md` for the detailed flow.
 - Column mapping is auto-detected and saved per header set for future imports.
 - Fleet derived from a fleet column; falls back to class, then division, then
   default fleet if none found.
+
+---
+
+### S-09: Update Handicaps
+
+**Route:** `/series/[id]/competitors/update-handicaps` (dialog flow rooted on S-03)
+**Purpose:** Bulk-update per-competitor starting handicaps from a chosen source.
+
+See `flows/update-handicaps.md` for the detailed flow.
+
+**Steps:** Pick source → Map fleets & preview (live diff) → Apply.
+
+**Key behaviours:**
+- Source picker is a seam — first source is "another series in this workspace"
+  (NHC and ECHO starting TCFs carried over from the end of a prior series).
+  Future sources (Irish Sailing IRC/ECHO certificates, RYA PY numbers) slot
+  into the same dialog shell.
+- Preview is the heart of the flow: one row per `(competitor, scoring system)`
+  showing `Current → New` and a signed Δ in TCF units. Unchanged and not-found
+  rows are grouped and collapsed by default.
+- Per-row checkboxes default to ticked for changed rows; the scorer can
+  opt a single boat out before applying.
+- Idempotent — re-running the dialog with no source changes produces zero
+  changes.
+
+**Visibility:** entry point on S-03 is hidden when no fleet in the series
+uses a system with a per-competitor starting handicap.
 
 ---
 
@@ -305,6 +333,7 @@ mixed entry that the system splits by fleet for scoring.
 | S-01: Series Settings | `/series/[id]/settings` | P1 |
 | S-03: Competitors List | `/series/[id]/competitors` | P1 |
 | S-04: Competitor Import | `/series/[id]/competitors/import` | P1 |
+| S-09: Update Handicaps | `/series/[id]/competitors/update-handicaps` | P2 |
 | S-05: Races List | `/series/[id]/races` | P1 |
 | S-06: Finish Entry | `/series/[id]/races/[raceId]/entry` | P1 (highest) |
 | S-07: Race Results | `/series/[id]/races/[raceId]/results` | P1 |
