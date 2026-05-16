@@ -194,11 +194,14 @@ The recorded data for a Competitor in a Race -- what was observed on the
 water. Entered once by the scorer. This is the raw input to the scoring
 system.
 
-A Finish records either a finishing position (for position-based recording)
-or a finish time (for time-based recording), or a result code for boats
-that did not finish normally. A Finish record may also be created during
-start-line check-in (to record `start_present`) before any finish data is
-available.
+Per [ADR-007](decisions/007-finish-sheet-model.md), the unified
+**finish sheet** is one ordered list per race. A Finish's `sort_order`
+is its index in that list (crossing order) and replaces the explicit
+cross-fleet `finish_position` used in earlier iterations. A handicap row
+also has a `finish_time`; a scratch row does not. A Finish may instead
+carry a `result_code` for boats that did not finish normally. A Finish
+record may also be created during start-line check-in (to record
+`start_present`) before any finish data is available.
 
 A competitor with no Finish record for a race is implicitly scored as DNC.
 An explicit `result_code = DNC` can also be recorded but is not required
@@ -208,13 +211,23 @@ for absent competitors.
 |-----------|------|----------|-------------|
 | id | uuid | Yes | Unique identifier |
 | race_id | uuid | Yes | Which Race |
-| competitor_id | uuid | Yes | Which Competitor |
-| finish_position | integer | No | Position across the finish line (position-based recording) |
-| finish_time | time | No | Time of day the boat crossed the finish line (time-based recording) |
-| result_code | string | No | DNS, DNF, DSQ, OCS, UFD, BFD, RET, DNC, RDG, SCP. If set, overrides position/time for scoring |
+| competitor_id | uuid | Yes | Which Competitor (null for unresolved unknown finishes) |
+| sort_order | integer | No | Index in the race's unified finish sheet (crossing order). Null for coded finishes other than RDG. Within-fleet rank is derived from sort_order among the fleet's finishers (scratch) or from corrected time (handicap) |
+| finish_time | time | No | Time of day the boat crossed the finish line. Required for handicap rows; absent on scratch rows |
+| result_code | string | No | DNC, DNS, OCS, NSC, DNF, RET, DSQ, DNE, UFD, BFD, RDG. If set, replaces sort_order/finish_time for scoring (except RDG, which may coexist with sort_order) |
+| penalty_code | string | No | Additive penalty applied on top of a finish: ZFP, SCP, or DPI (RRS A6.2 — other boats' scores are unchanged) |
+| penalty_override | decimal | No | SCP: explicit percentage; DPI: explicit points value. Null = use code default |
+| tied_with_previous | boolean | No | Marks this finisher as sharing the previous row's place (RRS A8.1 averaged ranks). Stored separately from sort_order so the visible row order stays stable |
 | start_present | boolean | No | True if the competitor was observed in the start area. Used to distinguish DNS (present but didn't start) from DNC (not present). Set during start-line check-in |
 
-A Finish has either a finish_position, a finish_time, or a result_code.
+Redress (RDG) carries additional fields — `redress_method`,
+`redress_include_races`, `redress_exclude_races`, `redress_points` —
+described in `docs/design/scoring-codes.md`.
+
+A Finish is exactly one of: a finish row (sort_order set, optionally
+with finish_time and/or a penalty_code), or a coded finish
+(result_code set). RDG is the one exception: it may carry both a code
+and a sort_order.
 
 ### Result
 
@@ -310,7 +323,7 @@ trophy; NHC gives the HPH trophy from the same finish times.
 |--------|-------|-------------|
 | Result | elapsed_time | Finish.finish_time − Start.start_time |
 | Result | corrected_time | elapsed_time × rating_used |
-| Result | place | Rank by corrected_time within Fleet (handicap) or by Finish.finish_position within Fleet (scratch) |
+| Result | place | Rank by corrected_time within Fleet (handicap) or by Finish.sort_order among the fleet's finishers (scratch) |
 | Result | points | place value, or code points per Appendix A |
 
 ## Series Standings (Derived)
@@ -335,7 +348,7 @@ competitors within a Fleet) for prize-giving purposes.
 | At most one Finish per Competitor per Race | A Competitor can have at most one Finish record for a given Race |
 | One Start per Fleet per Race | Each Fleet has exactly one Start per Race it participates in |
 | Scoring system ratings required | A Competitor without a rating value required by one of their Fleet's scoring systems produces no Result for that scoring system. They still compete and score normally under any other scoring systems for which they have the required rating. Example: a boat in an IRC+NHC fleet with no IRC TCC scores NHC only and does not appear in IRC standings |
-| Result code exclusivity | A Finish has either a finish_position, a finish_time, or a result_code -- not a combination |
+| Result code exclusivity | A Finish is either a finish row (sort_order set, optionally with finish_time and/or an additive penalty_code) or a coded finish (result_code set). The single exception is RDG, which may coexist with sort_order |
 
 ## Use Case Examples
 
@@ -344,8 +357,9 @@ competitors within a Fleet) for prize-giving purposes.
 - **Series:** "IODAI Leinsters 2025"
 - **Fleets:** "Junior" (scratch), "Senior" (scratch)
 - **Competitors:** sail number, name, club, division (Gold/Silver/Bronze)
-- **Finish entry:** Sail numbers in crossing order → system assigns
-  finish_position per Fleet
+- **Finish entry:** Sail numbers in crossing order → row index
+  (sort_order) is the system-assigned position; within-fleet rank is
+  derived from sort_order among the fleet's finishers
 - **Results:** place = position within Fleet, points = place value
 
 ### HYC Autumn League Offshore (time-based, dual scoring)

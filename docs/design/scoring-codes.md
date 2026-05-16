@@ -14,24 +14,31 @@ implications, UX, and a phased implementation plan.
 
 ## Context and Current State
 
-The current implementation supports three result codes:
-
-| Code | Notes |
-|------|-------|
-| DNC  | Did Not Compete — implicit when no finish record; explicit also allowed |
-| DNF  | Did Not Finish |
-| OCS  | On Course Side |
-
-All three score as `N + 1` (with N from either series entries or starting area
-per the `dnfScoring` series setting). No distinction is made between codes that
-should and should not be discardable. The type definition is:
+The full RRS Appendix A code set is implemented. `ResultCode` covers the
+position-replacing codes plus RDG; `PenaltyCode` covers the additive
+penalties:
 
 ```ts
-export type ResultCode = 'DNC' | 'DNF' | 'OCS';
+export type ResultCode =
+  | 'DNC' | 'DNS' | 'OCS' | 'NSC' | 'DNF' | 'RET'
+  | 'DSQ' | 'DNE' | 'UFD' | 'BFD'
+  | 'RDG';
+
+export type PenaltyCode = 'ZFP' | 'SCP' | 'DPI';
 ```
 
-This document describes the full set of RRS codes and a plan for phased
-support.
+Discardability per the RRS (BFD and DNE are non-discardable; everything
+else is) is enforced by the scoring engine. A5.3 alternative scoring
+("starting area" base for DNS/OCS/NSC/DNF/RET/DSQ/UFD) is selectable per
+series via the `dnfScoring` setting; DNC always uses series entries.
+Additive penalties (ZFP/SCP/DPI) apply on top of a recorded finish and
+do not re-rank other boats (RRS A6.2).
+
+The bulk of this document remains useful as a reference: the RRS
+sections that govern each code, the structural categories, the
+discardability table, and the data-model implications all still hold.
+The Implementation Phases section describes how we got here; it is
+preserved as historical context for the decisions taken at each step.
 
 ---
 

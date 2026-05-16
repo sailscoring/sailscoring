@@ -1,5 +1,10 @@
 # Keyboard Navigation Design
 
+> **Currency note.** The canonical shortcut list lives in
+> `components/keyboard-help.tsx` (the `?` overlay shown in the app).
+> The tables below capture the design intent and are kept broadly in
+> sync, but the component is the source of truth for what actually ships.
+
 ## Philosophy
 
 **Keyboard-first, not keyboard-only.** Every action in the application must be reachable without a mouse. Mouse interaction must never break. Experienced scorers — who will run the same workflow race after race — should be able to operate the application entirely from the keyboard and feel the difference.
@@ -36,7 +41,7 @@ The keyboard model must support this flow without switching to the mouse at any 
 | `g` `c` | Go to Competitors tab |
 | `g` `r` | Go to Races tab |
 | `g` `s` | Go to Standings tab |
-| `g` `f` | Go to File tab |
+| `g` `t` | Go to Settings tab |
 | `Ctrl+S` / `Cmd+S` | Save series to file (from any series page) |
 
 The two-key chord (`g` then a letter within ~1 second) avoids accidental triggers in text inputs. The pattern is familiar from GitHub and Linear. Chords are inactive when focus is inside a text input or textarea.
@@ -84,7 +89,9 @@ Non-finisher result code dropdowns use Radix UI Select, which handles `ArrowDown
 
 | Key | Action |
 |-----|--------|
+| `p` | Publish results |
 | `x` | Export HTML |
+| `f` | Upload via FTP |
 
 ### Modals and dialogs
 

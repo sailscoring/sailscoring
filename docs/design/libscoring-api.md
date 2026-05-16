@@ -39,11 +39,11 @@ state. This makes the engine straightforward to test, cache, and reason about.
 absent finishes each have defined, explicit handling. libscoring does not
 guess or silently default to unexpected behaviour.
 
-**First iteration: scratch scoring only.** The initial implementation
-covers position-based scratch scoring (no handicap). Handicap systems
-(IRC, NHC/HPH) are designed for in the data structures but not yet
-implemented. This allows the API shape to be validated against the IODAI
-use case before adding rating complexity.
+**Designed in stages, fully implemented.** The API shape was first
+validated against scratch scoring (IODAI use case), then extended to
+static-TCF handicaps (IRC, PY) and progressive handicaps (NHC1 / HPH,
+ECHO). All four scoring systems are in production; the descriptions
+below cover all of them.
 
 ## Inputs
 
@@ -53,7 +53,7 @@ Scoring rules that apply uniformly across all races in the series.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| scoring_system | enum | Yes | `scratch`, `irc`, `nhc` |
+| scoring_system | enum | Yes | `scratch`, `irc`, `py`, `nhc`, `echo` |
 | low_point | boolean | Yes | True for Low Point (1st = 1 pt); false for Bonus Point |
 | discard_profile | DiscardProfile | Yes | How many discards apply at each race count |
 | result_code_points | map[string → PointsRule] | No | Override default points for specific result codes |
@@ -257,8 +257,17 @@ Expected output (2 races sailed, 0 discards):
 | c3 | 4 pts (DNS = 3+1) | 1 pt | 5 pts | 2nd |
 | c2 | 2 pts | 4 pts (DNC = 3+1) | 6 pts | 3rd |
 
-### HYC Class 1 — IRC scoring (not yet implemented)
+### HYC Class 1 — IRC scoring
 
-IRC scoring will be documented here once the first iteration is extended
-to support handicap systems. Inputs and outputs follow the same structure
-with `rating` populated on each Competitor and `start_time` on each Race.
+IRC scoring uses the same input/output shape as scratch with `rating`
+populated on each Competitor (the boat's TCC) and `start_time` populated
+on each Race. The engine computes `elapsed_time = finish_time − start_time`
+and `corrected_time = elapsed_time × rating`, then ranks within the
+fleet by corrected time. The per-race output includes `elapsed_time`,
+`corrected_time`, and `rating_used` for explainability. PY scoring is
+identical with `rating = 1000 / py_number`.
+
+For progressive systems (NHC, ECHO) the same input shape applies; the
+engine computes a per-race adjustment after scoring and surfaces the
+post-race rating via `rating_used` on the *next* race. See
+[`handicap-scoring.md`](handicap-scoring.md) for the algorithms.

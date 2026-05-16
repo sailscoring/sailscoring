@@ -6,7 +6,7 @@ Requirements expressed as user needs. Format: "As a [role], I want [capability] 
 
 | Role | Description |
 |------|-------------|
-| Scorer | Creates and manages a series: sets up fleets, manages competitor registrations, enters race results, and publishes standings. In a team (e.g. a panel of club volunteers), each scorer works independently on their own device and shares the series file via JSON export/import. The app makes no distinction between team members. |
+| Scorer | Creates and manages a series: sets up fleets, manages competitor registrations, enters race results, and publishes standings. Solo scorers (e.g. IODAI) work in a personal workspace. Club scoring panels share an organisation workspace; every panel member sees the same series, edits are autosaved per-row, conflicts surface clean 409s with actor attribution, and `.sailscoring` files become a backup / hand-off artefact rather than the collaboration channel. |
 | Result Viewer | Reads published results. Requires no account or login. Covers any stakeholder — competitor, race officer, jury member, or interested observer — who wants to view standings without modifying anything. |
 
 ## Series Setup
