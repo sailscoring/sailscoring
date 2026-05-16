@@ -70,7 +70,7 @@ How it works, and why.
   `sailscoring.ie` (the apex marketing site, separate repo).
 - [`sailwave-html-template.md`](design/sailwave-html-template.md) —
   reverse-engineered Sailwave HTML structure that the renderer mirrors.
-- [`oss_health_report.md`](design/oss_health_report.md) — April 2026
+- [`oss-health-report.md`](design/oss-health-report.md) — April 2026
   sustainability review of the Vercel / Next.js / Postgres stack; source
   of the commitments in ADR-008's *Sustainability posture* section.
 - [`horizon.md`](design/horizon.md) — long-range possibilities worth

@@ -689,7 +689,7 @@ constraint; the rest ladder cleanly.
 ## Sustainability posture
 
 Each non-trivially-replaceable dependency in this stack was reviewed in
-[`docs/design/oss_health_report.md`](../oss_health_report.md) (April
+[`docs/design/oss-health-report.md`](../oss-health-report.md) (April
 2026). Findings most relevant to ADR-008:
 
 - **Auth.js is in security-patch mode** and its maintainers explicitly
@@ -802,7 +802,7 @@ duplicated here.
 ## References
 
 - ADR-003's "Future Decisions Pre-resolved" section — the starting point.
-- [`docs/design/oss_health_report.md`](../oss_health_report.md) — April 2026
+- [`docs/design/oss-health-report.md`](../oss-health-report.md) — April 2026
   sustainability review of every non-trivially-replaceable dependency in
   this stack; source of the *Sustainability posture* commitments.
 - [Drizzle ORM](https://orm.drizzle.team/)

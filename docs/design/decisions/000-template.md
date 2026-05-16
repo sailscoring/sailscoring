@@ -2,9 +2,16 @@
 
 **Status:** [Proposed | Accepted | Deprecated | Superseded by ADR-XXX]
 
-**Date:** YYYY-MM-DD
+**Date:** YYYY-MM-DD (ISO 8601; the date the decision was first accepted, not the
+last time the doc was edited)
 
 **Deciders:** [List of people involved in decision]
+
+> When an ADR is superseded later, change the Status line to
+> `Superseded by [ADR-XXX](XXX-slug.md)` and add a short supersedure
+> note at the top of the Context section explaining what changed and
+> when. Do not delete the original body — superseded ADRs are kept as
+> historical record. See ADR-001 / ADR-003 for examples.
 
 ## Context
 

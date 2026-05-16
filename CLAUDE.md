@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Sail Scoring is a sail racing scoring application for managing regattas, series, and race days. It handles handicap corrections, result codes, discard rules, and series standings per World Sailing Racing Rules of Sailing (RRS) Appendix A.
+Sail Scoring is a sail racing scoring application for managing regattas, series, and race days. It handles handicap corrections, result codes, discard rules, and series standings per World Sailing Racing Rules of Sailing (RRS) Appendix A. Deployed at `app.sailscoring.ie` on Vercel. See `docs/goals.md` for the project's purpose and `docs/` for design docs, ADRs, and requirements.
 
-**Current status:** Milestone 1 (IODAI use case) complete. Handicap scoring is complete through Phase 2: static TCF (IRC, PY) and progressive handicaps (NHC1 — HYC's HPH — and ECHO), each with a rating-calculation explainability layer. A working local-first web app is deployed to `app.sailscoring.ie` (Vercel). It supports scratch (position-based) and time-corrected handicap scoring across multiple fleets and races, with the finish sheet model for mixed timed/untimed entry, multi-fleet competitors, per-fleet start groups, series standings, discards, a full set of RRS result codes (RRS A5/A6/A8/A11), A5.3 alternative scoring, start check-in, equal finish positions, configurable competitor fields, crew names, CSV competitor import (with multi-fleet support), series settings (venue, dates, burgee, scoring mode, default start sequence), HTML/JSON results export, and results publishing via bilge and FTP. The HYC Autumn League use case (progressive handicaps) is now served; current focus is the ADR-008 full-stack transition (see below). Remaining handicap-system work (RYA NHC 2015, ECHO certificate layer, etc.) is deferred in `docs/design/horizon.md`.
+**Current focus.** The ADR-008 full-stack transition is complete through Phase 8 — see `docs/design/decisions/008-full-stack-transition.md` for what landed and the Phase 9 (bilge replacement) / Phase 10 (collaboration UX) work that remains. Deferred handicap-system work (RYA NHC 2015, ECHO certificate layer, etc.) lives in `docs/design/horizon.md`.
 
 ## Tech Stack
 
@@ -22,7 +22,7 @@ Sail Scoring is a sail racing scoring application for managing regattas, series,
 
 Pure logic lives in `lib/`; pages and UI in `app/`. Key lib modules: `scoring.ts` (engine), `scoring-codes.ts` (RRS code registry), `series-file.ts` (serialization), `results-renderer.ts` (HTML export), `public-export.ts` (JSON export/import), `bilge.ts` / `scupper.ts` (results publishing). Series pages live under `app/series/[id]/` with tabs: Competitors, Races, Standings, Settings.
 
-See `docs/` for design docs, ADRs, requirements, and glossary. `reference/` holds PDFs of comparable tools and the RRS (Appendix A governs scoring).
+See `docs/` for design docs, ADRs, requirements, and glossary. `reference/` holds external source material that isn't part of the codebase: PDFs of the RRS, NORs / Sailing Instructions for target events, manuals for comparable tools (Sailwave, HalSail, ORC), plus `reference/data/` with anonymised real-world event data and per-handicap-system worked examples used during reverse-engineering. New design notes go in `docs/design/`, not `reference/`.
 
 The full-stack transition (ADR-008) is complete through Phase 8. Better Auth + Postgres + the full server-side data layer is the only runtime; the IndexedDB / Dexie path and its `USE_SERVER_DATA` gate are gone. HYC's panel is onboarded on a shared workspace; beta users were prompted to migrate. Next up: Phase 9 bilge replacement → Phase 10 residual collaboration UX (full activity log, self-service org admin, vanity URLs). The original Phase 8 (org-based collaboration) was split into Phases 7 and 10 and reordered so HYC's panel got server-of-record + collaboration in the same flag flip rather than living through a `.sailscoring` file-exchange gap after cutover.
 
