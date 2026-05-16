@@ -2,7 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { competitorRepo } from '@/lib/api-repository';
+import {
+  competitorRepo,
+  updateHandicaps,
+  type HandicapUpdateRow,
+} from '@/lib/api-repository';
 import type { Competitor } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
@@ -47,6 +51,25 @@ export function useSaveCompetitors() {
           queryKey: queryKeys.competitors.bySeries(seriesId),
         });
       }
+    },
+    scope: { id: 'competitors' },
+  });
+}
+
+/**
+ * Bulk-write the four handicap fields across many competitors in one
+ * round-trip. Used by the Update Handicaps dialog (#144); see
+ * `lib/source-handicaps.ts` for the planner that produces these rows.
+ *
+ * Transactional on the server, so a 409 on any row rolls back the whole
+ * batch. Caller refreshes and retries.
+ */
+export function useUpdateHandicaps(seriesId: string) {
+  const qc = useQueryClient();
+  return useMutation<{ updated: Competitor[] }, Error, HandicapUpdateRow[]>({
+    mutationFn: (updates) => updateHandicaps(seriesId, updates),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.competitors.bySeries(seriesId) });
     },
     scope: { id: 'competitors' },
   });

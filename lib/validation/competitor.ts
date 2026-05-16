@@ -37,6 +37,32 @@ export const competitorsBulkInputSchema = z.object({
   competitors: z.array(competitorInputSchema),
 });
 
+/**
+ * Targeted bulk update for the Update Handicaps dialog (#144). Each row
+ * carries an `expectedVersion` for optimistic concurrency; the four
+ * handicap fields are independently optional, and only the listed fields
+ * are written. Non-handicap fields are untouched.
+ *
+ * `null` is not accepted on the wire — the dialog only writes when the
+ * source has a value, so we never need to clear a handicap to null via
+ * this path.
+ */
+export const handicapUpdateSchema = z.object({
+  competitorId: uuidSchema,
+  // Required — bulk-update is CAS-only. A row whose `version` cannot be
+  // produced (theoretically a freshly-inserted competitor never read back
+  // by the client) has nothing to update on this path either.
+  expectedVersion: z.number().int().positive(),
+  ircTcc: z.number().optional(),
+  pyNumber: z.number().optional(),
+  nhcStartingTcf: z.number().optional(),
+  echoStartingTcf: z.number().optional(),
+});
+
+export const handicapBulkUpdateSchema = z.object({
+  updates: z.array(handicapUpdateSchema).min(1),
+});
+
 const _competitorFromZod: Competitor = undefined as unknown as z.infer<typeof competitorSchema>;
 const _competitorFromTs: z.infer<typeof competitorSchema> = undefined as unknown as Competitor;
 void _competitorFromZod;

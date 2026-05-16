@@ -354,6 +354,31 @@ export async function pruneFleet(seriesId: string, fleetId: string): Promise<voi
 }
 
 /**
+ * Bulk handicap update — payload + return shape for `updateHandicaps`.
+ * Each row's `expectedVersion` is the competitor row's `version` at read
+ * time; the server returns a 409 (mapped to `ConflictApiError`) if any
+ * row's version has moved on, rolling back the entire batch.
+ */
+export interface HandicapUpdateRow {
+  competitorId: string;
+  expectedVersion: number;
+  ircTcc?: number;
+  pyNumber?: number;
+  nhcStartingTcf?: number;
+  echoStartingTcf?: number;
+}
+
+export async function updateHandicaps(
+  seriesId: string,
+  updates: HandicapUpdateRow[],
+): Promise<{ updated: Competitor[] }> {
+  return apiFetch<{ updated: Competitor[] }>(
+    `/api/v1/series/${seriesId}/competitors/handicaps`,
+    { method: 'PATCH', body: { updates } },
+  );
+}
+
+/**
  * ADR-008 Phase 7 — copy a series into another workspace the caller is
  * a member of. Server-only feature; there's no Dexie equivalent because
  * local-first mode has only the implicit "this device" workspace.

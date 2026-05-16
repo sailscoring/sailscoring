@@ -260,6 +260,79 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await series.deleteSeries(ctxA, otherSeriesId);
   });
 
+  test('competitors.bulkUpdateHandicaps writes only the listed fields', async () => {
+    const { ConflictError } = await import('@/lib/repository');
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'F', displayOrder: 0, scoringSystem: 'nhc' as const,
+    });
+    const compId = uuid();
+    const created = await competitors.putCompetitor(ctxA, seriesId, compId, {
+      id: compId, seriesId, fleetIds: [fleetId],
+      sailNumber: 'IRL 1', boatName: 'Zesty', name: 'Skipper',
+      club: 'HYC', gender: 'M' as const, age: 40, createdAt: Date.now(),
+      nhcStartingTcf: 1.201, ircTcc: 0.972,
+    });
+
+    // Happy path: only nhcStartingTcf is updated; the rest of the row is preserved.
+    const { updated } = await competitors.bulkUpdateHandicaps(ctxA, seriesId, {
+      updates: [
+        { competitorId: compId, expectedVersion: created.version, nhcStartingTcf: 1.019 },
+      ],
+    });
+    expect(updated).toHaveLength(1);
+    expect(updated[0]).toMatchObject({
+      id: compId,
+      nhcStartingTcf: 1.019,
+      ircTcc: 0.972,   // untouched
+      boatName: 'Zesty', // untouched
+    });
+    expect(updated[0].version).toBe((created.version ?? 1) + 1);
+
+    // Cross-series competitor in the same batch is rejected (transaction rolls back).
+    const otherSeriesId = uuid();
+    await series.putSeries(ctxA, otherSeriesId, sampleSeries(otherSeriesId));
+    const otherFleetId = uuid();
+    await fleets.putFleet(ctxA, otherSeriesId, otherFleetId, {
+      id: otherFleetId, seriesId: otherSeriesId, name: 'F', displayOrder: 0, scoringSystem: 'irc' as const,
+    });
+    const otherCompId = uuid();
+    const otherCreated = await competitors.putCompetitor(ctxA, otherSeriesId, otherCompId, {
+      id: otherCompId, seriesId: otherSeriesId, fleetIds: [otherFleetId],
+      sailNumber: 'X', name: 'X', club: '', gender: '' as const, age: null, createdAt: Date.now(),
+      ircTcc: 1.0,
+    });
+    await expect(
+      competitors.bulkUpdateHandicaps(ctxA, seriesId, {
+        updates: [
+          { competitorId: otherCompId, expectedVersion: otherCreated.version ?? 1, ircTcc: 0.5 },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    // Other-series row untouched.
+    const otherFetched = await competitors.getCompetitor(ctxA, otherSeriesId, otherCompId);
+    expect(otherFetched.ircTcc).toBe(1.0);
+
+    // Stale expectedVersion → ConflictError, rolls back the whole batch.
+    const compNow = await competitors.getCompetitor(ctxA, seriesId, compId);
+    const staleVersion = (compNow.version ?? 1) - 1;
+    await expect(
+      competitors.bulkUpdateHandicaps(ctxA, seriesId, {
+        updates: [
+          { competitorId: compId, expectedVersion: staleVersion, nhcStartingTcf: 9.999 },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    // Row still at the latest committed value.
+    const compAfterConflict = await competitors.getCompetitor(ctxA, seriesId, compId);
+    expect(compAfterConflict.nhcStartingTcf).toBe(1.019);
+
+    await series.deleteSeries(ctxA, seriesId);
+    await series.deleteSeries(ctxA, otherSeriesId);
+  });
+
   // ─── Races + race starts + finishes (bulk + single) ───────────────────────
 
   test('full race round-trip incl. bulk finishes', async () => {

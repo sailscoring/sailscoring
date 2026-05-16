@@ -2,10 +2,12 @@ import 'server-only';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
+import { getDb } from '@/lib/db/client';
 import { createRepos } from '@/lib/postgres-repository';
 import {
   competitorInputSchema,
   competitorsBulkInputSchema,
+  handicapBulkUpdateSchema,
 } from '@/lib/validation/competitor';
 import type { Competitor } from '@/lib/types';
 
@@ -96,6 +98,53 @@ export async function bulkPutCompetitors(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.competitors.saveMany(competitors, { updatedBy: workspace.userId });
   return { count: competitors.length };
+}
+
+/**
+ * Bulk handicap update for the Update Handicaps dialog (#144). Writes
+ * only the listed handicap fields on each competitor; non-handicap
+ * fields are untouched. The whole batch runs in one Drizzle transaction,
+ * so a `ConflictError` on any row rolls the lot back — the dialog asks
+ * the scorer to refresh and try again rather than partially applying.
+ *
+ * Each row carries an `expectedVersion`; the repo's per-row CAS surfaces
+ * the standard 409 detail (`currentVersion`, `actor`) for whichever row
+ * lost the race.
+ */
+export async function bulkUpdateHandicaps(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<{ updated: Competitor[] }> {
+  await assertSeriesInWorkspace(workspace, seriesId);
+  const { updates } = handicapBulkUpdateSchema.parse(body);
+
+  const db = getDb();
+  const updated: Competitor[] = [];
+  await db.transaction(async (tx) => {
+    const repos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
+    for (const u of updates) {
+      const existing = await repos.competitors.get(u.competitorId);
+      if (!existing || existing.seriesId !== seriesId) {
+        throw new NotFoundError('competitor');
+      }
+      // Build the next row by merging only the supplied handicap fields.
+      // `undefined` means "not in this update" and leaves the field alone.
+      const next: Competitor = {
+        ...existing,
+        ...(u.ircTcc !== undefined ? { ircTcc: u.ircTcc } : {}),
+        ...(u.pyNumber !== undefined ? { pyNumber: u.pyNumber } : {}),
+        ...(u.nhcStartingTcf !== undefined ? { nhcStartingTcf: u.nhcStartingTcf } : {}),
+        ...(u.echoStartingTcf !== undefined ? { echoStartingTcf: u.echoStartingTcf } : {}),
+      };
+      const saved = await repos.competitors.save(next, {
+        expectedVersion: u.expectedVersion,
+        updatedBy: workspace.userId,
+      });
+      updated.push(saved);
+    }
+  });
+  return { updated };
 }
 
 /**
