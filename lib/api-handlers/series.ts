@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import {
@@ -156,14 +156,6 @@ export async function copySeries(
           sourceCompetitors.map((c) => c.id),
         )
       : [];
-  const sourceTcfRecords =
-    sourceRaceIds.length > 0
-      ? await db
-          .select()
-          .from(schema.tcfRecords)
-          .where(inArray(schema.tcfRecords.raceId, sourceRaceIds))
-      : [];
-
   // Build id remap tables. UUIDs are generated up front so child rows
   // can rewrite parent FKs consistently inside the transaction.
   const newSeriesId = crypto.randomUUID();
@@ -305,20 +297,6 @@ export async function copySeries(
       );
     }
 
-    // TCF snapshots — derived data, but copying them lets the new
-    // series render results without a re-score round-trip.
-    if (sourceTcfRecords.length > 0) {
-      await tx.insert(schema.tcfRecords).values(
-        sourceTcfRecords.map((r) => ({
-          id: crypto.randomUUID(),
-          raceId: raceIdMap.get(r.raceId)!,
-          competitorId: competitorIdMap.get(r.competitorId)!,
-          fleetId: fleetIdMap.get(r.fleetId)!,
-          tcfApplied: r.tcfApplied,
-          newTcf: r.newTcf,
-        })),
-      );
-    }
   });
 
   return { id: newSeriesId };

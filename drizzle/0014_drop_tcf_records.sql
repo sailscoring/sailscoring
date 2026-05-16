@@ -1,0 +1,1 @@
+DROP TABLE "tcf_records" CASCADE;

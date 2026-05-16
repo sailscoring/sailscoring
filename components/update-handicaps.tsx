@@ -35,8 +35,8 @@ import { ConflictApiError } from '@/lib/api-client';
 import {
   competitorRepo,
   fleetRepo,
+  listTcfHistoryBySeries,
   raceRepo,
-  tcfHistoryRepo,
   type HandicapUpdateRow,
 } from '@/lib/api-repository';
 import {
@@ -142,7 +142,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   });
   const sourceTcfHistory = useQuery({
     queryKey: queryKeys.tcfHistory.bySeries(sourceSeriesId ?? ''),
-    queryFn: () => tcfHistoryRepo.listBySeries(sourceSeriesId!),
+    queryFn: () => listTcfHistoryBySeries(sourceSeriesId!),
     enabled: sourceEnabled,
   });
 

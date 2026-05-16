@@ -99,6 +99,13 @@
       "when": 1778837703536,
       "tag": "0013_rename_nhc_tcf_records_to_tcf_records",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1778939026993,
+      "tag": "0014_drop_tcf_records",
+      "breakpoints": true
     }
   ]
 }

@@ -12,7 +12,6 @@ import type {
   RaceStartRepository,
   SaveOpts,
   SeriesRepository,
-  TcfRecordRepository,
 } from './repository';
 import type {
   Competitor,
@@ -266,12 +265,6 @@ class ApiFinishRepository implements FinishRepository {
   }
 }
 
-class ApiTcfRecordRepository implements TcfRecordRepository {
-  listBySeries(seriesId: string): Promise<TcfRecord[]> {
-    return apiFetch<TcfRecord[]>(`/api/v1/series/${seriesId}/tcf-history`);
-  }
-}
-
 class ApiFtpServerRepository implements FtpServerRepository {
   list(): Promise<FtpServer[]> {
     return apiFetch<FtpServer[]>('/api/v1/ftp-servers');
@@ -297,7 +290,14 @@ export const raceRepo: RaceRepository = new ApiRaceRepository();
 export const raceStartRepo: RaceStartRepository = new ApiRaceStartRepository();
 export const finishRepo: FinishRepository = new ApiFinishRepository();
 export const ftpServerRepo: FtpServerRepository = new ApiFtpServerRepository();
-export const tcfHistoryRepo: TcfRecordRepository = new ApiTcfRecordRepository();
+
+/**
+ * Progressive-handicap TCF history for a series. Server computes live
+ * from the scoring engine — see `lib/api-handlers/tcf-history.ts`.
+ */
+export function listTcfHistoryBySeries(seriesId: string): Promise<TcfRecord[]> {
+  return apiFetch<TcfRecord[]>(`/api/v1/series/${seriesId}/tcf-history`);
+}
 
 /**
  * Used by the "new series" / "rename series" duplicate-name check.

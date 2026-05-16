@@ -7,21 +7,15 @@ import { calculateFleetStandings } from '@/lib/scoring';
 import type { TcfRecord } from '@/lib/types';
 
 /**
- * Read the persisted progressive-handicap TCF history for a series, or
- * compute it on the fly if none has been persisted.
+ * Compute the progressive-handicap TCF history for a series on demand.
  *
- * Background: the `tcf_records` Postgres table was designed as a persistent
- * cache of the engine's per-(race, competitor, fleet) snapshots, written
- * on every recompute. The Dexie persistence wired that up; the
- * Postgres-side recompute hook was never added (and the Dexie one was
- * dropped in the ADR-008 cutover). Today the table is only written by the
- * series-copy path. So for the Update Handicaps dialog (#144) to read a
- * useful history, this handler runs the scoring engine on demand.
- *
- * Cheap at realistic scales (≤30 boats × ≤20 races × N fleets); a
- * once-per-dialog-open recompute is fine. Persisting on the write path
- * is a separate, larger piece of work — see the schema comment on
- * `lib/db/schema/series.ts`.
+ * The history is purely derived state — fully reproducible from finishes,
+ * race-starts, competitor starting TCFs, and fleet config. We compute it
+ * live rather than persisting because no production hot path reads it
+ * (the Update Handicaps dialog opens it once per use; the .sailscoring
+ * export consumes it once per save). Static-TCF and scratch fleets emit
+ * an empty `tcfHistory` from the engine, so a series with no progressive
+ * fleets returns `[]` cheaply.
  */
 export async function listTcfHistory(
   workspace: WorkspaceContext,
@@ -31,12 +25,6 @@ export async function listTcfHistory(
   const series = await repos.series.get(seriesId);
   if (!series) throw new NotFoundError('series');
 
-  const persisted = await repos.tcfHistory.listBySeries(seriesId);
-  if (persisted.length > 0) return persisted;
-
-  // Fall back to live computation. Only progressive-handicap fleets emit
-  // history; the engine's `tcfHistory` field is empty for static-TCF and
-  // scratch fleets, so this is safe to call on any series.
   const [fleets, competitors, races] = await Promise.all([
     repos.fleets.listBySeries(seriesId),
     repos.competitors.listBySeries(seriesId),

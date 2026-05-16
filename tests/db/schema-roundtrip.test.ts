@@ -23,7 +23,6 @@ import type {
   Race,
   RaceStart,
   Finish,
-  TcfRecord,
   BilgeBundle,
 } from '@/lib/types';
 
@@ -273,16 +272,6 @@ describe.skipIf(skip)('schema round-trip', () => {
       redressPoints: finish.redressPoints,
     });
 
-    const tcf: TcfRecord = {
-      id: uuid(),
-      raceId: race.id,
-      competitorId: competitor.id,
-      fleetId: fleets[3].id,
-      tcfApplied: 0.95,
-      newTcf: 0.96,
-    };
-    await db.insert(schema.tcfRecords).values(tcf);
-
     // ---- Read back and assert ----
 
     const [readSeries] = await db
@@ -396,11 +385,6 @@ describe.skipIf(skip)('schema round-trip', () => {
       redressPoints: finish.redressPoints,
     });
 
-    const [readTcf] = await db
-      .select()
-      .from(schema.tcfRecords)
-      .where(eq(schema.tcfRecords.id, tcf.id));
-    expect(readTcf).toEqual(tcf);
   });
 
   test('CHECK constraints reject invalid enum values', async () => {

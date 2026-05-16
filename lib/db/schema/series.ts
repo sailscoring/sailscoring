@@ -30,10 +30,10 @@ import type {
  * - UUID primary keys; client-supplied (matches Dexie + JSON file format).
  * - `workspace_id` references the Better Auth `organization.id`. Denormalised
  *   onto `series`, `fleets`, `competitors`, `races` so tenancy filters are a
- *   single indexed lookup; child rows of races (`race_starts`, `finishes`,
- *   `tcf_records`) reach the workspace via their parent and don't carry
- *   the column. App-level invariant: child saves copy `workspace_id` from
- *   the parent series.
+ *   single indexed lookup; child rows of races (`race_starts`, `finishes`)
+ *   reach the workspace via their parent and don't carry the column.
+ *   App-level invariant: child saves copy `workspace_id` from the parent
+ *   series.
  * - `version` + `updated_at` on every mutable row. Saves bump `version`;
  *   Phase 4 wires the 409 response.
  * - JSONB for arrays/objects we never query by content (start sequences,
@@ -280,39 +280,6 @@ export const finishes = pgTable(
   (table) => [
     index('finishes_race_idx').on(table.raceId),
     index('finishes_competitor_idx').on(table.competitorId),
-  ],
-);
-
-/**
- * Persistent per-(race, competitor, fleet) TCF snapshot. Derived state —
- * rebuilt by the scoring engine on every recompute. Persisted so file/JSON
- * imports render without re-scoring and so non-finishers (no Finish row)
- * still carry a record. No `version` column: derived data is replaced
- * wholesale, never edited.
- */
-export const tcfRecords = pgTable(
-  'tcf_records',
-  {
-    id: uuid('id').primaryKey(),
-    raceId: uuid('race_id')
-      .notNull()
-      .references(() => races.id, { onDelete: 'cascade' }),
-    competitorId: uuid('competitor_id')
-      .notNull()
-      .references(() => competitors.id, { onDelete: 'cascade' }),
-    fleetId: uuid('fleet_id')
-      .notNull()
-      .references(() => fleets.id, { onDelete: 'cascade' }),
-    tcfApplied: real('tcf_applied').notNull(),
-    newTcf: real('new_tcf').notNull(),
-  },
-  (table) => [
-    uniqueIndex('tcf_records_uidx').on(
-      table.raceId,
-      table.competitorId,
-      table.fleetId,
-    ),
-    index('tcf_records_race_idx').on(table.raceId),
   ],
 );
 
