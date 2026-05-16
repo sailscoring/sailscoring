@@ -52,6 +52,26 @@ The concrete bucket name and IAM role ARN for this deployment live in
 `.github/workflows/backup-database.yml`. The runbook below uses
 `<bucket>` as a placeholder.
 
+## Quick sanity check (no restore)
+
+For a fast "is this dump any good?" check on a freshly downloaded
+backup, before committing to the full restore drill below:
+
+```bash
+scripts/check-backup.sh ~/Downloads/sailscoring-YYYY-MM-DDThh-mm-ssZ.dump
+```
+
+The script reads the dump's table of contents and, for every
+`TABLE DATA` entry, decompresses the COPY block on the fly to count
+rows — no target database needed. It prints a per-table row count and
+flags any empty tables for you to eyeball.
+
+What this proves: the file is a valid `pg_dump -Fc` archive whose TOC
+and per-table COPY streams decompress cleanly, and the row counts are
+in the right ballpark vs. expectations. What it does **not** prove:
+that indexes and constraints rebuild. For that, run the full restore
+drill.
+
 ## Restoring from a backup
 
 This procedure restores a chosen dump into a scratch Postgres for
