@@ -6,7 +6,7 @@
  * Verifies that every method of `lib/postgres-repository.ts` round-trips
  * through Postgres with full fidelity, that workspace tenancy is enforced,
  * and that saves bump the version column. Skipped when DATABASE_URL is
- * unset; runs against the service container in db-tests.yml.
+ * unset; runs against the service container in integration-tests.yml.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';

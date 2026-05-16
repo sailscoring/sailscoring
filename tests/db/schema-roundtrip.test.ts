@@ -7,8 +7,8 @@
  * back, asserts deep equality.
  *
  * Skipped when DATABASE_URL is unset so the unit-tests workflow keeps
- * passing on contributors without a Postgres handy. The db-tests workflow
- * provides DATABASE_URL via a service container.
+ * passing on contributors without a Postgres handy. The integration-tests
+ * workflow provides DATABASE_URL via a service container.
  */
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';

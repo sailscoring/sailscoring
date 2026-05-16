@@ -18,7 +18,7 @@
  *   - race-scoped leaf via parent-race tenancy (Finish).
  *
  * Skipped when DATABASE_URL is unset; runs against the service container
- * in db-tests.yml.
+ * in integration-tests.yml.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';

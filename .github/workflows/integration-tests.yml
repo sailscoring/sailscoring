@@ -1,4 +1,4 @@
-name: DB Tests
+name: Integration Tests
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  db:
+  integration:
     runs-on: ubuntu-latest
 
     services:
