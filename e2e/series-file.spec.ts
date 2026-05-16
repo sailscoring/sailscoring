@@ -212,7 +212,7 @@ test('series file: clean lineage updates series in place', async ({ page }) => {
 
   // ── Build a descendant file: new snapshotId, original in history ──────────
   // Simulates a co-scorer who received the file, made changes, and saved again.
-  const newSnapshotId = 'snap-v2-' + Date.now();
+  const newSnapshotId = crypto.randomUUID();
   const descendant: SeriesFile = {
     ...original,
     snapshotId: newSnapshotId,
@@ -220,7 +220,7 @@ test('series file: clean lineage updates series in place', async ({ page }) => {
     series: { ...original.series, name: 'Updated by Co-scorer', venue: 'RIYC' },
     competitors: [
       ...original.competitors,
-      { id: 'new-competitor-1', fleetIds: original.competitors[0].fleetIds, sailNumber: '99', name: 'New Helm', club: 'RIYC', gender: '', age: null },
+      { id: crypto.randomUUID(), fleetIds: original.competitors[0].fleetIds, sailNumber: '99', name: 'New Helm', club: 'RIYC', gender: '', age: null },
     ],
   };
 
@@ -245,10 +245,11 @@ test('series file: Open Series shows working dialog while loading file (#139)', 
 
   // Rewrite seriesId so the open hits the "no-existing" branch (the path with
   // the most visible delay — fans out into many writes before routing).
+  const freshId = crypto.randomUUID();
   const fresh: SeriesFile = {
     ...original,
-    seriesId: 'fresh-series-' + Date.now(),
-    series: { ...original.series, id: 'fresh-series-' + Date.now(), name: 'Working Dialog Reopened' },
+    seriesId: freshId,
+    series: { ...original.series, id: freshId, name: 'Working Dialog Reopened' },
   };
 
   // ── Go home and trigger Open Series ──────────────────────────────────────
@@ -287,8 +288,8 @@ test('series file: diverged snapshot shows conflict dialog; open as new copy cre
   // saved independently — neither file's history includes the other's snapshot.
   const diverged: SeriesFile = {
     ...original,
-    snapshotId: 'diverged-snap-' + Date.now(),
-    snapshotHistory: ['unrelated-snap-1', 'unrelated-snap-2'],
+    snapshotId: crypto.randomUUID(),
+    snapshotHistory: [crypto.randomUUID(), crypto.randomUUID()],
     series: { ...original.series, name: 'Diverged Copy' },
   };
 

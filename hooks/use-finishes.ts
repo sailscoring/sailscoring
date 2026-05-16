@@ -36,8 +36,23 @@ export function useSaveFinish() {
       return finishRepo.save(finish, { expectedVersion: cached?.version });
     },
     onSuccess: (saved) => {
-      qc.invalidateQueries({ queryKey: queryKeys.finishes.byRace(saved.raceId) });
-      qc.invalidateQueries({ queryKey: queryKeys.finishes.all });
+      // Splice the saved row into the per-race cache so the next save
+      // in the serialized queue reads the bumped version (no 409) and
+      // the UI reflects server truth. New rows (no cache hit) are
+      // appended. Don't invalidate: a refetch races the queued saves
+      // and overwrites the optimistic order with a stale server
+      // snapshot. The standings page reads from `finishes.bySeries`
+      // which refreshes on tab-revisit via TanStack Query staleTime.
+      qc.setQueryData<Finish[] | undefined>(
+        queryKeys.finishes.byRace(saved.raceId),
+        (rows) => {
+          if (!rows) return rows;
+          if (rows.some((r) => r.id === saved.id)) {
+            return rows.map((r) => (r.id === saved.id ? saved : r));
+          }
+          return [...rows, saved];
+        },
+      );
     },
     // Serialize so a rapid second save sees the cache update from the first
     // and sends the fresh `expectedVersion`. See useSaveSeries for context.
@@ -73,13 +88,3 @@ export function useDeleteFinish() {
   });
 }
 
-export function useDeleteFinishesByRace() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (raceId: string) => finishRepo.deleteByRace(raceId),
-    onSuccess: (_void, raceId) => {
-      qc.invalidateQueries({ queryKey: queryKeys.finishes.byRace(raceId) });
-      qc.invalidateQueries({ queryKey: queryKeys.finishes.all });
-    },
-  });
-}

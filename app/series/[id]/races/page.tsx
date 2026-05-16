@@ -9,7 +9,6 @@ import {
   useRacesBySeries,
   useSaveRace,
 } from '@/hooks/use-races';
-import { useDeleteFinishesByRace } from '@/hooks/use-finishes';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useFinishesByRace } from '@/hooks/use-finishes';
 import { useSaveRaceStarts } from '@/hooks/use-race-starts';
@@ -33,14 +32,13 @@ import { generateStarts } from '@/lib/start-sequence';
 function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
   const router = useRouter();
   const { data: finishes } = useFinishesByRace(race.id);
-  const deleteFinishes = useDeleteFinishesByRace();
   const deleteRace = useDeleteRace();
   const touchSeries = useTouchSeries();
   const finisherCount = finishes?.filter((f) => f.sortOrder !== null).length;
 
   async function handleDelete() {
     if (!confirm(`Delete Race ${race.raceNumber}? This will also delete all results for this race.`)) return;
-    await deleteFinishes.mutateAsync(race.id);
+    // Finishes / race-starts cascade with the race row in Postgres.
     await deleteRace.mutateAsync({ id: race.id, seriesId });
     await touchSeries.mutateAsync(seriesId);
   }
@@ -118,6 +116,11 @@ export default function RacesPage({
   const [showNewRaceDialog, setShowNewRaceDialog] = useState(false);
   const [firstStartTime, setFirstStartTime] = useState('');
   const [newRaceError, setNewRaceError] = useState('');
+  // Local in-flight guard for Add race. Covers the `listBySeries` →
+  // `saveRace.mutateAsync` window where `saveRace.isPending` is still
+  // false but a second click would compute the same raceNumber and
+  // 500 on the (series_id, race_number) unique index.
+  const [addingRace, setAddingRace] = useState(false);
 
   const isHandicap = series?.scoringMode === 'handicap';
   const startSequence = series?.defaultStartSequence;
@@ -157,21 +160,28 @@ export default function RacesPage({
   });
 
   async function handleAddRaceScratch() {
-    const existingRaces = await raceRepo.listBySeries(seriesId);
-    const nextNumber = existingRaces.length + 1;
-    const race: Race = {
-      id: crypto.randomUUID(),
-      seriesId,
-      raceNumber: nextNumber,
-      date: new Date().toISOString().slice(0, 10),
-      createdAt: Date.now(),
-    };
-    log('races', 'adding', race);
-    await saveRace.mutateAsync(race);
-    await touchSeries.mutateAsync(seriesId);
+    if (addingRace) return;
+    setAddingRace(true);
+    try {
+      const existingRaces = await raceRepo.listBySeries(seriesId);
+      const nextNumber = existingRaces.length + 1;
+      const race: Race = {
+        id: crypto.randomUUID(),
+        seriesId,
+        raceNumber: nextNumber,
+        date: new Date().toISOString().slice(0, 10),
+        createdAt: Date.now(),
+      };
+      log('races', 'adding', race);
+      await saveRace.mutateAsync(race);
+      await touchSeries.mutateAsync(seriesId);
+    } finally {
+      setAddingRace(false);
+    }
   }
 
   async function handleAddRaceHandicap() {
+    if (addingRace) return;
     const normalized = normalizeTimeInput(firstStartTime);
     if (!normalized) {
       setNewRaceError('Enter a valid time, e.g. 14:05:00 or 140500.');
@@ -182,31 +192,36 @@ export default function RacesPage({
       return;
     }
 
-    const existingRaces = await raceRepo.listBySeries(seriesId);
-    const nextNumber = existingRaces.length + 1;
-    const race: Race = {
-      id: crypto.randomUUID(),
-      seriesId,
-      raceNumber: nextNumber,
-      date: new Date().toISOString().slice(0, 10),
-      createdAt: Date.now(),
-    };
-    log('races', 'adding with starts', race);
-    await saveRace.mutateAsync(race);
-
-    // Create RaceStart records from the start sequence
-    const starts = generateStarts(startSequence!, normalized);
-    await saveRaceStarts.mutateAsync(
-      starts.map((start) => ({
+    setAddingRace(true);
+    try {
+      const existingRaces = await raceRepo.listBySeries(seriesId);
+      const nextNumber = existingRaces.length + 1;
+      const race: Race = {
         id: crypto.randomUUID(),
-        raceId: race.id,
-        fleetIds: start.fleetIds,
-        startTime: start.startTime,
-      })),
-    );
+        seriesId,
+        raceNumber: nextNumber,
+        date: new Date().toISOString().slice(0, 10),
+        createdAt: Date.now(),
+      };
+      log('races', 'adding with starts', race);
+      await saveRace.mutateAsync(race);
 
-    await touchSeries.mutateAsync(seriesId);
-    setShowNewRaceDialog(false);
+      // Create RaceStart records from the start sequence
+      const starts = generateStarts(startSequence!, normalized);
+      await saveRaceStarts.mutateAsync(
+        starts.map((start) => ({
+          id: crypto.randomUUID(),
+          raceId: race.id,
+          fleetIds: start.fleetIds,
+          startTime: start.startTime,
+        })),
+      );
+
+      await touchSeries.mutateAsync(seriesId);
+      setShowNewRaceDialog(false);
+    } finally {
+      setAddingRace(false);
+    }
   }
 
   function handleAddRaceClick() {
@@ -227,7 +242,9 @@ export default function RacesPage({
             ? 'Loading…'
             : `${races.length} race${races.length === 1 ? '' : 's'}`}
         </p>
-        <Button onClick={handleAddRaceClick}>Add race</Button>
+        <Button onClick={handleAddRaceClick} disabled={addingRace}>
+          Add race
+        </Button>
       </div>
 
       {races !== undefined && races.length === 0 && (

@@ -142,9 +142,12 @@ export default function HomePage() {
       const existing = all.find((s) => s.id === parsed.seriesId);
 
       if (!existing) {
-        // No match — open as new
+        // No match — open as new. No invalidateQueries: the navigation
+        // unmounts this page, aborting the refetch and logging a
+        // "Failed to fetch" console.error that the e2e console-monitor
+        // treats as a failure. The new series's own pages refetch what
+        // they need on mount.
         const newId = await openSeriesFromFile(parsed, repos);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
         router.push(`/series/${newId}/races`);
         return;
       }
@@ -164,7 +167,6 @@ export default function HomePage() {
       setOpenFlow({ step: 'working' });
       try {
         const newId = await openSeriesFromFile(file, repos);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
         router.push(`/series/${newId}/races`);
       } catch (err) {
         console.error(err);

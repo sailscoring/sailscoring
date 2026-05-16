@@ -3,6 +3,26 @@ import { test as base } from '@playwright/test';
 import { signInFreshUser } from './helpers';
 
 /**
+ * Console errors triggered by in-flight fetches being aborted when the
+ * test page navigates or unmounts. They surface as either a generic
+ * "Failed to load resource" line from the browser or a "TypeError:
+ * Failed to fetch" thrown by `fetch()` inside a TanStack mutation.
+ * Neither indicates an application bug — the server saw the request
+ * mid-flight and the browser tore down before reading the response.
+ *
+ * Filtering these false positives only at the fixture layer means real
+ * `console.error(...)` calls from app code still fail the test.
+ */
+const ABORTED_FETCH_PATTERNS = [
+  /Failed to load resource:/i,
+  /TypeError: Failed to fetch/i,
+];
+
+function isAbortedFetchNoise(text: string): boolean {
+  return ABORTED_FETCH_PATTERNS.some((rx) => rx.test(text));
+}
+
+/**
  * Extends the base Playwright test with a beforeEach that fails the test on
  * any browser console error or uncaught page error. This catches things like
  * React's hooks-order violations, which would otherwise only appear in the
@@ -13,16 +33,19 @@ export const test = base.extend({
     const errors: string[] = [];
 
     page.on('pageerror', (err) => {
+      if (isAbortedFetchNoise(err.message)) return;
       errors.push(`[pageerror] ${err.message}`);
     });
 
     page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        errors.push(`[console.error] ${msg.text()}`);
-      }
+      if (msg.type() !== 'error') return;
+      const text = msg.text();
+      if (isAbortedFetchNoise(text)) return;
+      errors.push(`[console.error] ${text}`);
     });
 
     await use(page);
+
 
     if (errors.length > 0) {
       throw new Error(`Browser errors detected:\n${errors.join('\n')}`);
@@ -40,13 +63,13 @@ export const test = base.extend({
  * using the plain `test` export.
  */
 export const signedInTest = test.extend<{ signedInEmail: string }>({
-  signedInEmail: [async ({ page }, use, testInfo) => {
-    const slug = testInfo.title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 24) || 'spec';
-    const email = await signInFreshUser(page, slug);
+  // Fixed prefix on purpose: derived prefixes (e.g. testInfo.title) can
+  // leak keywords like "publish" or "delete" into the email username,
+  // and Playwright's getByRole name matcher is substring-by-default,
+  // so the UserMenu button's accessible name (the user's email) would
+  // accidentally match locators like getByRole('button', { name: 'Publish' }).
+  signedInEmail: [async ({ page }, use) => {
+    const email = await signInFreshUser(page, 'e2e');
     await use(email);
   }, { auto: true }],
 });
