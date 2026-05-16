@@ -36,7 +36,7 @@ It does not cover edge cases, result codes beyond the common ones (DNS, DNF, DSQ
 
 A single `/help` page covering the full M1 workflow in sections:
 
-1. **What is Sail Scoring?** — one paragraph: what the app does, who it is for, that it runs in the browser and stores data locally
+1. **What is Sail Scoring?** — one paragraph: what the app does, who it is for, that it runs in the browser with data stored server-side per workspace
 2. **Creating a series** — name, venue, date; what a "series" is in this context
 3. **Adding competitors** — sail number (required), name, club; why sail numbers must be unique
 4. **Adding races** — race number, date; how races relate to a series

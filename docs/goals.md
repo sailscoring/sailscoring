@@ -65,9 +65,9 @@ The intent of this phase is to introduce the application to a small number of ca
 
 ### Full-Stack Transition
 
-The MVP is a local-first web application with data stored in the browser via IndexedDB ([ADR-003](design/decisions/003-application-architecture.md)). The transition to a full-stack application — server-side database, user accounts, multi-device access, scorer collaboration — is an inevitability, not a question of if. ADR-003 was structured to make this a migration rather than a rewrite: the repository pattern, the pure scoring engine, shared TypeScript types, and JSON export/import as the migration format are all in place.
+**Status: largely complete.** The MVP began as a local-first web application with data stored in the browser via IndexedDB ([ADR-003](design/decisions/003-application-architecture.md)). [ADR-008](design/decisions/008-full-stack-transition.md) committed to and sequenced the transition; Phases 1–8 are landed — Better Auth + Neon Postgres + the server-side data layer is the only runtime, the Dexie/IndexedDB code is gone, and HYC's scoring panel is on a shared workspace with actor-attributed concurrency. The migration was a swap of layers rather than a rewrite, as ADR-003 designed for: the repository pattern, the pure scoring engine, shared TypeScript types, and the JSON export/import format all carried across unchanged.
 
-Whether this transition becomes essential during the stealth beta is unclear. The local-first model causes friction even for early adopters: data is trapped in one browser, results visible to one scorer aren't visible to others, and collaboration depends on shared `.sailscoring` files. Whether that friction is tolerable for the duration of the beta — or materially gets in the way of validating the product — will become clearer as scorers move from reviewing historical events to scoring live ones.
+Two phases remain: Phase 9 replaces bilge with an integrated publish-to-blob-storage path at `/p/{slug}`, with a redirect window for existing bilge URLs; Phase 10 delivers self-service org administration, the full activity log, and vanity URLs. Both are scheduled in ADR-008 and tracked in `docs/design/horizon.md`.
 
 ### Near-Term Non-Goals
 
