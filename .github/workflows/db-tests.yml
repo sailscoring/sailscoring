@@ -52,10 +52,5 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install chromium --with-deps
 
-      # The server-mode Playwright project boots a second Next.js instance
-      # on port 3100 with USE_SERVER_DATA=true. Runs every spec tagged
-      # @auth or @server. The local-mode project skips them via grepInvert.
-      - name: Run server-mode e2e tests (@auth + @server)
-        env:
-          E2E_SERVER_MODE: '1'
-        run: pnpm run test:e2e --project chromium-server
+      - name: Run e2e tests
+        run: pnpm run test:e2e

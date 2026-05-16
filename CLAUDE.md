@@ -52,7 +52,7 @@ The `idea` GitHub label is deprecated — use `docs/design/horizon.md` instead.
 ## MANDATORY: Run Tests Before Every Push
 
 **ALWAYS run `pnpm lint`, `pnpm test:unit`, and `pnpm test:e2e` before `git push`.** Do not push unless all three pass.
-The `pretest:e2e` hook will start the local Postgres container and apply migrations automatically (see `docs/local-dev-scripts.md`).
+`pnpm test:e2e` needs the local Postgres container up; run `pnpm db:up` first if it isn't already (see `docs/local-dev-scripts.md`). The `pretest:e2e` hook applies migrations but does not start the container.
 If a test or lint check fails due to a code change you made, fix it before pushing — do not defer fixes to a follow-up commit.
 If a check was already failing before your change, note it explicitly and confirm with the user before pushing.
 

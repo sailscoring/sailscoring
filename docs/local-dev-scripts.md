@@ -18,10 +18,10 @@ from?", start here.
 | `pnpm test:unit`         | Vitest, DB tests self-skip                           | No              |
 | `pnpm test:unit:db`      | Vitest with `DATABASE_URL` set; DB tests run         | Yes (auto-starts via `db:up`)  |
 | `pnpm test:watch`        | Vitest watch mode                                    | No              |
-| `pnpm test:e2e`          | Playwright, full-stack build                         | Yes (auto-starts via `db:up`)  |
+| `pnpm test:e2e`          | Playwright, full-stack build                         | Yes — run `pnpm db:up` first   |
 | `pnpm db:up`             | Bring up the local Postgres container, idempotent    | (it *is* the DB)|
 | `pnpm db:migrate`        | Apply Drizzle migrations (uses `.env.local`)         | Yes             |
-| `pnpm db:migrate:test`   | Apply Drizzle migrations to the local container      | Yes (auto-starts via `db:up`)  |
+| `pnpm db:migrate:test`   | Apply Drizzle migrations to the local container      | Yes — run `pnpm db:up` first   |
 | `pnpm db:generate`       | Generate Drizzle migrations from schema              | No              |
 | `pnpm db:studio`         | Drizzle Studio against `.env.local`'s `DATABASE_URL` | Yes             |
 | `pnpm db:auth:generate`  | Regenerate `lib/db/schema/auth.ts` from Better Auth  | No              |
@@ -29,11 +29,13 @@ from?", start here.
 | `pnpm deploy`            | `vercel deploy` (preview)                            | -               |
 | `pnpm deploy:prod`       | `vercel deploy --prod`                               | -               |
 
-The `predev:local`, `pretest:unit:db`, and `predb:migrate:test`
-lifecycle hooks call `scripts/db-up.sh` automatically; `pretest:e2e`
-runs `pnpm db:migrate:test`, which also brings the container up via its
-own `predb:migrate:test` hook. You never need to start the container by
-hand before running those commands.
+The `predev:local` and `pretest:unit:db` lifecycle hooks call
+`scripts/db-up.sh` automatically, so `pnpm dev:local` and `pnpm
+test:unit:db` start the container for you. `pnpm test:e2e` and `pnpm
+db:migrate:test` do *not* — run `pnpm db:up` first if the container
+isn't already running. (CI provides Postgres via a service container,
+so hooking `db-up.sh` into the e2e path would just invoke `podman-remote`
+on a runner that doesn't have it.)
 
 ## Files under `scripts/`
 
@@ -84,11 +86,11 @@ pnpm test:unit:db
 ### `pnpm test:e2e`
 
 ```
+(prereq: pnpm db:up           ← starts/verifies sailscoring-pg container)
+
 pnpm test:e2e
   ├─ pretest:e2e
   │   └─ pnpm db:migrate:test
-  │       ├─ predb:migrate:test
-  │       │   └─ scripts/db-up.sh   ← starts/verifies sailscoring-pg container
   │       └─ scripts/db-migrate.ts  ← applies Drizzle migrations (idempotent)
   └─ DATABASE_URL=… playwright test
       └─ webServer: pnpm start:test
