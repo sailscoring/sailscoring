@@ -28,9 +28,14 @@ import {
   type SeriesFile,
   type LineageStatus,
 } from '@/lib/series-file';
+import { parseSailwaveJson, SailwaveImportError } from '@/lib/sailwave-import';
+import { SAILWAVE_HANDOFF_KEY } from '@/app/series/import-sailwave/page';
+
+type ImportFormat = 'sailscoring' | 'sailwave';
 
 type OpenFlow =
   | { step: 'idle' }
+  | { step: 'choose-format' }
   | { step: 'disambiguate'; file: SeriesFile; existing: Series }
   | { step: 'confirm-update'; file: SeriesFile; existing: Series; status: LineageStatus }
   | { step: 'working' }
@@ -95,6 +100,7 @@ export default function HomePage() {
   const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [openFlow, setOpenFlow] = useState<OpenFlow>({ step: 'idle' });
+  const [importFormat, setImportFormat] = useState<ImportFormat>('sailscoring');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useGlobalKeyDown((e) => {
@@ -113,14 +119,43 @@ export default function HomePage() {
     await deleteCascade.mutateAsync(seriesId);
   }
 
-  function handleOpenSeriesClick() {
-    fileInputRef.current?.click();
+  function handleImportSeriesClick() {
+    setOpenFlow({ step: 'choose-format' });
+  }
+
+  function handleFormatChosen(format: ImportFormat) {
+    setImportFormat(format);
+    setOpenFlow({ step: 'idle' });
+    // Defer the picker open one tick so the dialog has finished closing —
+    // some browsers swallow the .click() if it fires during the dialog
+    // unmount animation.
+    setTimeout(() => fileInputRef.current?.click(), 0);
   }
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+
+    if (importFormat === 'sailwave') {
+      try {
+        const bytes = await file.arrayBuffer();
+        const raw = parseSailwaveJson(bytes);
+        sessionStorage.setItem(
+          SAILWAVE_HANDOFF_KEY,
+          JSON.stringify({ fileName: file.name, raw }),
+        );
+        router.push('/series/import-sailwave');
+      } catch (err) {
+        setOpenFlow({
+          step: 'error',
+          message: err instanceof SailwaveImportError
+            ? err.message
+            : `Could not read Sailwave file: ${(err as Error).message}`,
+        });
+      }
+      return;
+    }
 
     let parsed: SeriesFile;
     try {
@@ -220,8 +255,8 @@ export default function HomePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Series</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleOpenSeriesClick}>
-            Open Series
+          <Button variant="outline" onClick={handleImportSeriesClick}>
+            Import Series
           </Button>
           <Button asChild>
             <Link href="/series/new">New series</Link>
@@ -240,8 +275,8 @@ export default function HomePage() {
             Create your first series
           </Link>{' '}
           or{' '}
-          <button className="underline" onClick={handleOpenSeriesClick}>
-            open a series file
+          <button className="underline" onClick={handleImportSeriesClick}>
+            import a series file
           </button>
           {' '}to get started.
         </p>
@@ -258,10 +293,48 @@ export default function HomePage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".sailscoring,application/json"
+        accept={importFormat === 'sailwave' ? '.json,application/json' : '.sailscoring,application/json'}
         className="hidden"
         onChange={handleFileSelected}
       />
+
+      {/* Format-choice dialog (first step of Import) */}
+      <Dialog
+        open={openFlow.step === 'choose-format'}
+        onOpenChange={(open) => { if (!open) setOpenFlow({ step: 'idle' }); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Series</DialogTitle>
+            <DialogDescription>What kind of file would you like to import?</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <button
+              type="button"
+              data-testid="import-format-sailscoring"
+              className="w-full text-left border rounded-lg px-4 py-3 hover:bg-accent/50 transition-colors"
+              onClick={() => handleFormatChosen('sailscoring')}
+            >
+              <div className="font-medium">Sail Scoring file</div>
+              <div className="text-sm text-muted-foreground">A <span className="font-mono">.sailscoring</span> file saved from this app.</div>
+            </button>
+            <button
+              type="button"
+              data-testid="import-format-sailwave"
+              className="w-full text-left border rounded-lg px-4 py-3 hover:bg-accent/50 transition-colors"
+              onClick={() => handleFormatChosen('sailwave')}
+            >
+              <div className="font-medium">Sailwave export</div>
+              <div className="text-sm text-muted-foreground">A <span className="font-mono">.json</span> file exported from Sailwave 2.38.</div>
+            </button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenFlow({ step: 'idle' })}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
 

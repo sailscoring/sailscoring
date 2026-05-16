@@ -488,7 +488,7 @@ export default function SettingsPage({
         setUpdateFlow({
           step: 'error',
           message:
-            'This file is for a different series. Use "Open Series" on the home screen to open it as a new series.',
+            'This file is for a different series. Use "Import Series" on the home screen to open it as a new series.',
         });
         return;
       }

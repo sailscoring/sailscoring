@@ -236,7 +236,7 @@ test('series file: clean lineage updates series in place', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Updated by Co-scorer' })).toBeVisible();
 });
 
-test('series file: Open Series shows working dialog while loading file (#139)', async ({ page }) => {
+test('series file: Import Series shows working dialog while loading file (#139)', async ({ page }) => {
   // ── Create series and save to file ────────────────────────────────────────
   await createSeriesQuick(page, { name: 'Working Dialog Test' });
 
@@ -252,13 +252,14 @@ test('series file: Open Series shows working dialog while loading file (#139)', 
     series: { ...original.series, id: freshId, name: 'Working Dialog Reopened' },
   };
 
-  // ── Go home and trigger Open Series ──────────────────────────────────────
+  // ── Go home and trigger Import Series → Sail Scoring file ───────────────
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Series' })).toBeVisible();
+  await page.getByRole('button', { name: 'Import Series' }).click();
 
   const [fileChooser] = await Promise.all([
     page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: 'Open Series' }).click(),
+    page.getByTestId('import-format-sailscoring').click(),
   ]);
   await fileChooser.setFiles({
     name: 'fresh.sailscoring',

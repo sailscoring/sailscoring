@@ -82,7 +82,7 @@ event. A dashboard screen is deferred until there is a clear need for one.
 
 **Actions:**
 - New Series — create a blank series
-- Open Series — open a series from a `.sailscoring` file
+- Import Series — open a `.sailscoring` file or convert a Sailwave `.json` export
 - Open a series already on this device
 - Delete a series (with confirmation)
 
@@ -90,8 +90,9 @@ event. A dashboard screen is deferred until there is a clear need for one.
 - Each series in the list shows name and last-modified date. Series that have
   been saved to a file also show "last saved: [date]". Local-only series (never
   saved to a file) show no save state — the absence is the signal.
-- See `flows/series-open-save.md` for the Open Series flow, including the
-  disambiguation dialog when the file's series is already on this device.
+- See `flows/series-open-save.md` for the Import Series flow, including the
+  disambiguation dialog when the file's series is already on this device and
+  the Sailwave wizard at `/series/import-sailwave`.
 
 **Notes:**
 - This is the only screen a scorer sees before entering a specific series.

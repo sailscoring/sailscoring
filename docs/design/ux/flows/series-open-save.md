@@ -37,20 +37,21 @@ For these scorers, the file workflow is available but not prominent. See
 
 ## Actions
 
-There are three file-related actions. The language used in the UI avoids
-"import" and "export" in favour of terms familiar from desktop applications.
+There are three file-related actions. The language for the native
+`.sailscoring` round-trip stays close to desktop "open / save" terminology.
+"Import" is reserved for one-way conversion from other tools (Sailwave).
 
 | Action | Where | When to use |
 |--------|-------|-------------|
-| **Open Series** | Series list (G-01) | Start working on a series from a file |
+| **Import Series** | Series list (G-01) | Open a `.sailscoring` file or convert a Sailwave export |
 | **Save to File** | Series settings (S-01) | Save current state to a file for backup or sharing |
 | **Update from File** | Series settings (S-01) | Pull in changes from a file made by another scorer |
 
 ---
 
-## Open Series (G-01)
+## Import Series (G-01)
 
-The **Open Series** button appears on the Series List screen alongside
+The **Import Series** button appears on the Series List screen alongside
 **New Series**.
 
 ```
@@ -58,7 +59,7 @@ The **Open Series** button appears on the Series List screen alongside
 │  Sail Scoring                                              [⚙ Settings] │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│  [New Series]   [Open Series]                                           │
+│  [New Series]   [Import Series]                                         │
 │                                                                         │
 │  HYC Autumn League 2025         last saved to file: 3 days ago  [Open] │
 │  IODAI Nationals 2025           never saved to file             [Open] │
@@ -66,8 +67,25 @@ The **Open Series** button appears on the Series List screen alongside
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-Clicking **Open Series** opens a file picker. The accepted file type is
-`.sailscoring`.
+Clicking **Import Series** opens a format-choice dialog:
+
+```
+┌─ Import Series ────────────────────────────┐
+│  What kind of file would you like to       │
+│  import?                                   │
+│                                            │
+│  ○ Sail Scoring file (.sailscoring)        │
+│  ○ Sailwave export (.json)                 │
+│                                            │
+│                                  [Cancel]  │
+└────────────────────────────────────────────┘
+```
+
+- **Sail Scoring file** opens a `.sailscoring` file picker and runs the flow
+  documented below (lineage check, disambiguation).
+- **Sailwave export** opens a `.json` file picker and routes to the Sailwave
+  wizard at `/series/import-sailwave` — see
+  [Sailwave imports](#sailwave-imports-import-sailwave) below.
 
 ### If the series is not already on this device
 
@@ -103,6 +121,31 @@ whichever copy is no longer needed.
 No disambiguation is shown. The file is opened as a new series (a
 different series that happens to share a name). Both series remain on the
 device independently.
+
+---
+
+## Sailwave imports (`/series/import-sailwave`)
+
+Choosing **Sailwave export** from the format dialog routes to a dedicated
+wizard. Sailwave doesn't store a series start date or weekday cadence in its
+JSON, so a one-shot configuration step is unavoidable.
+
+The wizard shows a detected preview (name, venue, competitor/race/fleet
+counts, A5.2/A5.3 inference) and a form: basics (name, venue, workspace),
+schedule (start date — required, race days, end date), per-fleet scoring
+overrides for bare-name fleets, primary person label, drop-Scratch and
+ignore-results toggles.
+
+On submit the wizard builds a `SeriesFile` in memory and routes it through
+the same `openSeriesFromFile` write path the `.sailscoring` flow uses. Every
+Sailwave import always creates a new series — there is no lineage to check
+because the file didn't come from this app.
+
+The Python reference at
+`reference/data/2026-hyc-club-racing/sailwave-to-sailscoring.py` documents
+the conversion rules in depth (alias collapse, scoring-suffix detection,
+start-gun fan-out across companion fleets, DNF inference). `lib/sailwave-import.ts`
+is a direct port and stays in step with it.
 
 ---
 

@@ -736,10 +736,19 @@ export default function HelpPage() {
         </p>
         <p>
           To open a series from a file, click{' '}
-          <strong className="text-foreground">Open Series</strong> on the home screen and select
-          the <code className="text-foreground text-sm">.sailscoring</code> file. If the series
-          is already in your workspace, you will be asked whether to update the existing copy or
-          open it as a separate one.
+          <strong className="text-foreground">Import Series</strong> on the home screen and choose{' '}
+          <strong className="text-foreground">Sail Scoring file</strong>. Select the{' '}
+          <code className="text-foreground text-sm">.sailscoring</code> file. If the series is
+          already in your workspace, you will be asked whether to update the existing copy or open
+          it as a separate one.
+        </p>
+        <p>
+          To bring a season&apos;s seedings across from Sailwave, choose{' '}
+          <strong className="text-foreground">Sailwave export</strong> from the same dialog and
+          pick the <code className="text-foreground text-sm">.json</code> file exported from
+          Sailwave 2.38. The wizard asks for the series start date and a weekly race cadence, then
+          creates the series with fleets, competitors, ratings, and any results Sailwave already
+          had.
         </p>
         <p>
           To bring a series someone else is scoring into your workspace, open the{' '}
