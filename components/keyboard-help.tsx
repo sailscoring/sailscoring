@@ -88,6 +88,7 @@ export function KeyboardHelp({
             rows={[
               { keys: ['n'], action: 'Add competitor' },
               { keys: ['i'], action: 'Import CSV' },
+              { keys: ['u'], action: 'Update handicaps (handicap fleets only)' },
               { keys: ['e'], action: 'Edit focused row' },
               { keys: ['d'], action: 'Delete focused row' },
             ]}

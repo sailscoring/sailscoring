@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/tooltip';
 import { AlertTriangle, Pencil, Trash2 } from 'lucide-react';
 import { CompetitorImport, type CompetitorImportHandle } from '@/components/competitor-import';
+import { UpdateHandicaps, type UpdateHandicapsHandle } from '@/components/update-handicaps';
 import type { Competitor, Fleet, CompetitorFieldKey, PrimaryPersonLabel } from '@/lib/types';
 import {
   missingRatings,
@@ -516,6 +517,7 @@ export default function CompetitorsPage({
   const editingRowRef = useRef<HTMLTableRowElement | null>(null);
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const importRef = useRef<CompetitorImportHandle>(null);
+  const updateHandicapsRef = useRef<UpdateHandicapsHandle>(null);
   const didAutoFocus = useRef(false);
 
   // Auto-focus first row when list first loads
@@ -533,7 +535,9 @@ export default function CompetitorsPage({
     }
   }, [editingCompetitor]);
 
-  // 'n' to show add form, 'i' to import CSV
+  const hasHandicapFleet = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
+
+  // 'n' to show add form, 'i' to import CSV, 'u' to update handicaps
   useGlobalKeyDown((e) => {
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')) return;
     if (e.key === 'n') {
@@ -542,6 +546,9 @@ export default function CompetitorsPage({
     } else if (e.key === 'i') {
       e.preventDefault();
       importRef.current?.trigger();
+    } else if (e.key === 'u' && hasHandicapFleet) {
+      e.preventDefault();
+      updateHandicapsRef.current?.open();
     }
   });
 
@@ -657,6 +664,14 @@ export default function CompetitorsPage({
         </p>
         {!showAddForm && (
           <div className="flex gap-2">
+            {hasHandicapFleet && (
+              <Button
+                variant="outline"
+                onClick={() => updateHandicapsRef.current?.open()}
+              >
+                Update handicaps
+              </Button>
+            )}
             <CompetitorImport
               ref={importRef}
               seriesId={seriesId}
@@ -665,6 +680,7 @@ export default function CompetitorsPage({
             <Button onClick={() => setShowAddForm(true)}>Add competitor</Button>
           </div>
         )}
+        <UpdateHandicaps ref={updateHandicapsRef} seriesId={seriesId} />
       </div>
 
       {showAddForm && (

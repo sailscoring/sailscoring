@@ -34,6 +34,7 @@ export default function HelpPage() {
           ['#fleets', 'Fleets'],
           ['#start-sequences', 'Start sequences'],
           ['#importing-competitors', 'Importing competitors from CSV'],
+          ['#updating-handicaps', 'Updating handicaps from another series'],
           ['#adding-races', 'Adding races'],
           ['#entering-results', 'Entering results'],
           ['#importing-finish-sheet', 'Importing a finish sheet from CSV'],
@@ -283,6 +284,23 @@ export default function HelpPage() {
           unchanged by the import, they are counted as{' '}
           <strong className="text-foreground">unchanged</strong> rather than updated. Any rows
           missing a sail number are skipped and listed in the summary.
+        </p>
+      </Section>
+
+      <Section id="updating-handicaps" title="Updating handicaps from another series">
+        <p>
+          For NHC, ECHO, IRC, and PY fleets, the{' '}
+          <strong className="text-foreground">Update handicaps</strong> button on the Competitors
+          tab carries each boat&apos;s handicap forward from a prior series in this workspace. For
+          progressive systems (NHC, ECHO) the new starting handicap is the boat&apos;s TCF after
+          the source series&apos; last scored race; for static systems (IRC, PY) it is whatever
+          value the source series currently has on that competitor.
+        </p>
+        <p>
+          The dialog previews every change as{' '}
+          <code className="font-mono text-xs">current → new</code> before anything is written.
+          Untick individual rows to keep specific boats unchanged. A boat that doesn&apos;t appear
+          in the source series, or that has no value to copy, is left at its current handicap.
         </p>
       </Section>
 
