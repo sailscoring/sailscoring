@@ -176,6 +176,23 @@ but the RDG score is treated as the actual score for discard purposes.
 
 ---
 
+## Obsolete Codes
+
+Codes that appeared in earlier editions of the RRS but have since been removed.
+Not implemented, but documented here so that historic series files or imports
+from older scoring tools can be recognised and mapped to a current code.
+
+| Code | Full name | Status |
+|------|-----------|--------|
+| RAF  | Retired After Finishing | Listed in RRS 2009–2012 Appendix A11; removed in subsequent revisions. RET now covers all retirements regardless of whether the boat had already crossed the finish line. |
+
+RAF was used when a boat finished a race but then voluntarily retired —
+typically after realising it had broken a rule. Under the current RRS, RET is
+the single code for any voluntary withdrawal. See also UK Sailmakers,
+[Decoding Sailing Scoring](https://www.uksailmakers.com/2025/09/05/decoding-sailing-scoring).
+
+---
+
 ## A6.2 Analysis — When Other Boats' Scores Are Unchanged
 
 A key scoring principle in RRS A6.2 is that the scores of other boats shall
