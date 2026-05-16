@@ -1,10 +1,21 @@
 # ADR-003: Application Architecture — Local-First MVP, Full-Stack Later
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-008](008-full-stack-transition.md)
 
 **Date:** 2026-02-16
 
 **Deciders:** Mark McLoughlin
+
+> **Supersedure note.** The local-first MVP described here ran from launch
+> through the ADR-008 Phase 8 cutover. After cutover the Dexie/IndexedDB
+> layer, the `USE_SERVER_DATA` flag, and the static-export build mode were
+> removed; the application now runs as full-stack Next.js on Vercel Fluid
+> Compute backed by Neon Postgres + Better Auth. ADR-008's "Future
+> Decisions Pre-resolved" choices (Auth.js, Drizzle, Resend) were the
+> starting point; the only deviation is Better Auth in place of Auth.js,
+> documented in ADR-008. The architecture principles below — repository
+> pattern, shared domain types, pure scoring engine — all survived the
+> transition as designed.
 
 ## Context
 

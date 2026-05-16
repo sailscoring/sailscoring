@@ -439,9 +439,9 @@ delete and re-enter the affected finishes.
 
 - **Migration bugs on large existing series.** The
   `finishPosition` → `sortOrder` rename is mechanically simple but
-  touches many files. Mitigated by the phased implementation in
-  `finish-sheet-plan.md` — phases 1 and 2 keep outputs unchanged, so
-  regressions are visible in the existing fixtures and e2e tests.
+  touches many files. Mitigated by a phased rollout in which the early
+  phases keep outputs unchanged, so regressions are visible in the
+  existing fixtures and e2e tests.
 - **Auto-slide surprise.** A scorer editing a finish time and seeing
   the row jump may be startled. Mitigated by the destination flash
   and by the fact that the scorer initiated the change.
@@ -466,7 +466,6 @@ delete and re-enter the affected finishes.
 - [`docs/design/ux/flows/finish-entry.md`](../ux/flows/finish-entry.md) — detailed UX for the finish sheet model
 - [`docs/design/handicap-scoring.md`](../handicap-scoring.md) — Finish entry UX section
 - [`docs/requirements/hyc-frostbite-use-case.md`](../../requirements/hyc-frostbite-use-case.md) — the driving use case
-- [`docs/design/finish-sheet-plan.md`](../finish-sheet-plan.md) — implementation plan
 - Commit [`78ebca7`](https://github.com/sailscoring/sailscoring/commit/78ebca7) — prompt for time before adding to list (step toward this model)
 - Commit [`9eab6f0`](https://github.com/sailscoring/sailscoring/commit/9eab6f0) — sort finishers by finish time on entry (to be reverted)
 - Commit [`8f06cda`](https://github.com/sailscoring/sailscoring/commit/8f06cda) — introduces the Place/Rank split (to be simplified to Rank-only)

@@ -1,10 +1,17 @@
 # ADR-001: Database Choice
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-008](008-full-stack-transition.md)
 
 **Date:** 2026-02-16
 
 **Deciders:** Mark McLoughlin
+
+> **Supersedure note.** This ADR's MVP choice (IndexedDB via Dexie.js) was
+> removed when ADR-008's Phase 8 cutover landed; the Dexie repository and
+> IndexedDB schema are gone. The full-stack choice anticipated here
+> (PostgreSQL via Drizzle ORM) is now in production via Neon on the Vercel
+> Marketplace. The reasoning below is preserved for context; the current
+> data layer is documented in ADR-008.
 
 ## Context
 

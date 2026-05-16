@@ -85,10 +85,11 @@ The project aims to be credible and serious — scorers are exacting people — 
 ## ADR Process
 
 New architectural decisions should follow the template at `docs/design/decisions/000-template.md`. Existing ADRs:
-- ADR-001: Database choice (Accepted — IndexedDB via Dexie.js)
+- ADR-001: Database choice (Superseded by ADR-008 — IndexedDB for MVP, Postgres for full-stack; the Postgres half is now in production)
 - ADR-002: Scoring algorithm approach (Accepted — hybrid: hard-coded algorithms with configurable parameters)
-- ADR-003: Application architecture (Accepted — local-first web app for MVP, full-stack later)
-- ADR-004: Results publishing (Accepted — separate **bilge** service, `github.com/sailscoring/bilge`)
+- ADR-003: Application architecture (Superseded by ADR-008 — local-first MVP transitioned to full-stack Next.js on Vercel)
+- ADR-004: Results publishing (Accepted, retirement scheduled — separate **bilge** service replaced by in-app publishing in ADR-008 Phase 9)
 - ADR-005: Hosting and domain structure (Accepted — `sailscoring.ie` marketing, `app.sailscoring.ie` app, `bilge.sailscoring.ie` bilge API)
 - ADR-006: Testing and debug logging (Accepted — Vitest for unit/integration, Playwright for e2e; no DB mocking; debug logs gated behind `DEBUG` env var)
 - ADR-007: Finish sheet model for mixed timed/untimed finish entry (Accepted — unified ordered list, row order = crossing order, time column optional per row; implemented in `d8ad8d0`)
+- ADR-008: Full-stack transition (Accepted — Next.js + Vercel Fluid Compute + Neon Postgres + Better Auth + workspace collaboration; Phases 1–8 complete, 9–10 pending)

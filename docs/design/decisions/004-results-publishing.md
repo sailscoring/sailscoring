@@ -1,10 +1,19 @@
 # ADR-004: MVP Results Publishing — bilge
 
-**Status:** Accepted
+**Status:** Accepted; retirement scheduled — to be marked **Superseded by
+[ADR-008](008-full-stack-transition.md)** when Phase 9 lands.
 
 **Date:** 2026-02-21
 
 **Deciders:** Mark McLoughlin
+
+> **Retirement note.** bilge is in production and still the publishing
+> path used by the app. ADR-008 Phase 9 builds an in-app publish-to-Vercel-
+> Blob replacement at `/p/{slug}` and decommissions bilge after a ~6-month
+> URL-redirect window. The retirement trigger described below ("when Sail
+> Scoring ships its full-stack version") has fired — Phase 8 cutover is
+> complete — so the schedule is now driven by Phase 9 build-out, not by
+> waiting for the full-stack transition.
 
 ## Context
 
