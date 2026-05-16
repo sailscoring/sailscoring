@@ -323,42 +323,13 @@ Pushing to `main` on GitHub also triggers a production deployment automatically.
 
 ## Local development
 
-### With a local Postgres (podman-remote)
+[`docs/local-dev-scripts.md`](docs/local-dev-scripts.md) is the
+reference: every `pnpm` script, the `.env.local` / `.env.test` layout,
+how the test paths wire together, and which commands bring the local
+Postgres container up automatically (and which require `pnpm db:up`
+first). Read it once and keep the tab open.
 
-Bring up the local container:
-
-```sh
-pnpm db:up
-```
-
-This is idempotent — safe to run repeatedly — and exits non-zero if a
-container named `sailscoring-pg` already exists with a different port
-mapping (recreate it as the script's error suggests). It uses
-`podman-remote` because the canonical dev environment is a podman-
-managed dev container that talks to a rootless podman daemon on the
-host. See `scripts/db-up.sh` for the details.
-
-The container listens on `localhost:5432` from the host. From inside
-the dev container, reach it at `host.containers.internal:5432`:
-
-```
-DATABASE_URL=postgres://sailscoring:sailscoring@host.containers.internal:5432/sailscoring
-```
-
-Apply migrations with `pnpm db:migrate`. Stop with
-`podman-remote stop sailscoring-pg`; data persists until you
-`podman-remote rm` it.
-
-The Vitest suites under `tests/db/`, `tests/postgres-repository.test.ts`,
-`tests/auth/`, and `tests/api/` exercise the live database. They skip
-when `DATABASE_URL` is unset. `pnpm test:unit` skips them; `pnpm
-test:unit:db` brings the container up via the `pretest` hook, sets
-`DATABASE_URL` to the local URL, and runs the full suite. See
-`docs/local-dev-scripts.md` for the full picture.
-
-### With the full server backend
-
-After step 6 you should have these in `.env.local`:
+The minimum `.env.local` for the full server backend, after step 6:
 
 ```
 DATABASE_URL=postgres://...                 # from Neon (Development branch)
@@ -374,14 +345,11 @@ NEXT_PUBLIC_SCUPPER_API_KEY=...
 RESEND_FROM="Sail Scoring <noreply@sailscoring.ie>"
 ```
 
-Apply migrations once (`pnpm db:migrate`), then:
-
-```sh
-pnpm dev
-```
-
-Magic-link emails go to the terminal stdout and `tests/.magic-links.log`,
-not to a real inbox.
+Then `pnpm db:migrate` once and `pnpm dev` to run against your Neon dev
+branch. Magic-link emails go to terminal stdout and
+`tests/.magic-links.log`, not a real inbox. To run against the local
+Postgres container instead, `pnpm dev:local` brings the container up
+and overrides `DATABASE_URL`.
 
 ---
 

@@ -509,7 +509,8 @@ Phase 7 builds on both.
 - **Manual provisioning CLI** (`scripts/provision-org.ts`) for
   `create-org`, `add-member`, `set-role`, `list-members`,
   `remove-member`. Replaces the originally planned invitation/members
-  management UI; self-service flows land in Phase 10.
+  management UI; self-service flows land in Phase 10. Operator runbook:
+  [`docs/workspace-provisioning.md`](../../workspace-provisioning.md).
 - **"Copy to workspace…" action** on a series. Copy rather than move so
   a botched copy is recoverable — the personal-workspace original stays
   intact. Generates fresh UUIDs, copies all child rows, strips

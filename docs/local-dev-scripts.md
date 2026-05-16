@@ -46,6 +46,19 @@ on a runner that doesn't have it.)
 | `scripts/db-migrate.ts`           | Apply Drizzle migrations (called by `pnpm db:migrate`)                                   |
 | `scripts/render-scoring-fixtures.ts` | Render YAML scoring fixtures to HTML for human review                                  |
 
+`db-up.sh` uses `podman-remote` because the canonical dev environment
+is a podman-managed dev container talking to a rootless podman daemon
+on the host. The container is published on `localhost:5432` from the
+host's perspective; from inside a sibling dev container reach it as
+`host.containers.internal:5432`:
+
+```
+DATABASE_URL=postgres://sailscoring:sailscoring@host.containers.internal:5432/sailscoring
+```
+
+Stop with `podman-remote stop sailscoring-pg`; data persists until
+`podman-remote rm`.
+
 ## Env file layout
 
 Three env files matter, in this load order (later wins):
