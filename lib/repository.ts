@@ -1,4 +1,4 @@
-import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart } from './types';
+import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart, TcfRecord } from './types';
 
 /**
  * Thrown by the Postgres-backed `save*` methods when a compare-and-swap
@@ -131,4 +131,15 @@ export interface FtpServerRepository {
   list(): Promise<FtpServer[]>;
   save(server: FtpServer, opts?: SaveOpts): Promise<FtpServer>;
   delete(id: string): Promise<void>;
+}
+
+/**
+ * Read-only access to persisted progressive-handicap TCF snapshots
+ * (`TcfRecord`). Records are derived state — produced wholesale by the
+ * scoring engine and never edited individually — so there is no `save`
+ * surface here. Writes happen through the scoring recompute path that
+ * owns the series's races.
+ */
+export interface TcfRecordRepository {
+  listBySeries(seriesId: string): Promise<TcfRecord[]>;
 }

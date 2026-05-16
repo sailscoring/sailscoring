@@ -12,6 +12,7 @@ import type {
   RaceStartRepository,
   SaveOpts,
   SeriesRepository,
+  TcfRecordRepository,
 } from './repository';
 import type {
   Competitor,
@@ -21,6 +22,7 @@ import type {
   Race,
   RaceStart,
   Series,
+  TcfRecord,
 } from './types';
 
 export const DEFAULT_FLEET_NAME = 'Default';
@@ -264,6 +266,12 @@ class ApiFinishRepository implements FinishRepository {
   }
 }
 
+class ApiTcfRecordRepository implements TcfRecordRepository {
+  listBySeries(seriesId: string): Promise<TcfRecord[]> {
+    return apiFetch<TcfRecord[]>(`/api/v1/series/${seriesId}/tcf-history`);
+  }
+}
+
 class ApiFtpServerRepository implements FtpServerRepository {
   list(): Promise<FtpServer[]> {
     return apiFetch<FtpServer[]>('/api/v1/ftp-servers');
@@ -289,6 +297,7 @@ export const raceRepo: RaceRepository = new ApiRaceRepository();
 export const raceStartRepo: RaceStartRepository = new ApiRaceStartRepository();
 export const finishRepo: FinishRepository = new ApiFinishRepository();
 export const ftpServerRepo: FtpServerRepository = new ApiFtpServerRepository();
+export const tcfHistoryRepo: TcfRecordRepository = new ApiTcfRecordRepository();
 
 /**
  * Used by the "new series" / "rename series" duplicate-name check.

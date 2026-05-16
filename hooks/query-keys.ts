@@ -46,4 +46,9 @@ export const queryKeys = {
     all: ['ftpServers'] as const,
     list: () => ['ftpServers', 'list'] as const,
   },
+  tcfHistory: {
+    all: ['tcfHistory'] as const,
+    bySeries: (seriesId: string) =>
+      ['tcfHistory', 'bySeries', seriesId] as const,
+  },
 } as const;

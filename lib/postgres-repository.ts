@@ -15,6 +15,7 @@ import {
   type RaceStartRepository,
   type SaveOpts,
   type SeriesRepository,
+  type TcfRecordRepository,
 } from './repository';
 import type {
   Competitor,
@@ -27,6 +28,7 @@ import type {
   RaceStart,
   ResultCode,
   Series,
+  TcfRecord,
 } from './types';
 
 /**
@@ -1604,6 +1606,50 @@ export class PostgresFtpServerRepository implements FtpServerRepository {
   }
 }
 
+// ─── TCF records ─────────────────────────────────────────────────────────────
+
+/**
+ * Read-only access to `tcf_records`. Records are written wholesale by the
+ * scoring recompute path that owns the series's races (see
+ * `lib/api-handlers/finishes.ts`); this repository exists for read paths
+ * that need to look at the persisted history without re-running scoring —
+ * notably the Update Handicaps dialog (#144), which carries end-of-series
+ * TCFs from one series into another.
+ *
+ * Workspace scoping joins through `races` (TCF records carry `race_id`
+ * but no `workspace_id` — see the table comment in `lib/db/schema/series.ts`).
+ */
+export class PostgresTcfRecordRepository implements TcfRecordRepository {
+  private readonly db: SailScoringDb;
+  private readonly workspaceId: string;
+
+  constructor(ctx: RepoCtx) {
+    this.db = ctx.db ?? getDb();
+    this.workspaceId = ctx.workspaceId;
+  }
+
+  async listBySeries(seriesId: string): Promise<TcfRecord[]> {
+    const rows = await this.db
+      .select({
+        id: schema.tcfRecords.id,
+        raceId: schema.tcfRecords.raceId,
+        competitorId: schema.tcfRecords.competitorId,
+        fleetId: schema.tcfRecords.fleetId,
+        tcfApplied: schema.tcfRecords.tcfApplied,
+        newTcf: schema.tcfRecords.newTcf,
+      })
+      .from(schema.tcfRecords)
+      .innerJoin(schema.races, eq(schema.races.id, schema.tcfRecords.raceId))
+      .where(
+        and(
+          eq(schema.races.seriesId, seriesId),
+          eq(schema.races.workspaceId, this.workspaceId),
+        ),
+      );
+    return rows;
+  }
+}
+
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
 export function createRepos(ctx: RepoCtx) {
@@ -1615,5 +1661,6 @@ export function createRepos(ctx: RepoCtx) {
     raceStarts: new PostgresRaceStartRepository(ctx),
     finishes: new PostgresFinishRepository(ctx),
     ftpServers: new PostgresFtpServerRepository(ctx),
+    tcfHistory: new PostgresTcfRecordRepository(ctx),
   };
 }
