@@ -1,5 +1,5 @@
 /**
- * ADR-008 Phase 7 (#112) — cross-cutting org-collaboration scenarios.
+ * Cross-cutting org-collaboration scenarios.
  *
  * Covers the safety floor that lets HYC's panel share a workspace:
  *
@@ -9,9 +9,6 @@
  *     intact.
  *   - Two scorers in one workspace editing the same finish surface a
  *     row-scoped conflict dialog that names the other actor.
- *
- * Tagged `@server` — server mode only by definition; local-first has
- * one writer and no notion of "another workspace."
  */
 // Uses base Playwright (not ./fixtures) for the actor-attribution test:
 // triggering a 409 produces an unavoidable browser console.error which
@@ -75,7 +72,7 @@ function makeImportUrl(seriesName: string): string {
   return `/import#data=${b64url}`;
 }
 
-test.describe('@server workspace switcher', () => {
+test.describe('workspace switcher', () => {
   test('flips the visible series listing between workspaces', async ({ page }) => {
     const email = await signInFreshUser(page, 'switcher');
     const personalSeriesName = `Personal Switcher ${Date.now()}`;
@@ -100,7 +97,7 @@ test.describe('@server workspace switcher', () => {
   });
 });
 
-test.describe('@server copy series to workspace', () => {
+test.describe('copy series to workspace', () => {
   test('copy carries fleets, competitors, races and leaves the source intact', async ({
     page,
   }) => {
@@ -168,7 +165,7 @@ test.describe('@server copy series to workspace', () => {
   });
 });
 
-test.describe('@server actor attribution on a shared workspace', () => {
+test.describe('actor attribution on a shared workspace', () => {
   test('second scorer hits a row-scoped 409 with the first scorer\'s name', async ({
     browser,
   }) => {
@@ -263,7 +260,7 @@ test.describe('@server actor attribution on a shared workspace', () => {
   });
 });
 
-test.describe('@server Open in Sail Scoring workspace picker', () => {
+test.describe('Open in Sail Scoring workspace picker', () => {
   test('imports into the chosen workspace and flips the active workspace', async ({
     page,
   }) => {

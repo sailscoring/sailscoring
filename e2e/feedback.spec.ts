@@ -5,8 +5,7 @@ import { test, expect } from './fixtures';
 import { signInFreshUser } from './helpers';
 
 /**
- * Covers the in-app feedback form (#123). Tagged @auth so it runs only in
- * the server-mode Playwright project, where FEEDBACK_TO is set in
+ * Covers the in-app feedback form (#123). FEEDBACK_TO is set in
  * playwright.config.ts and the `.test` TLD makes the email helper write
  * to `tests/.feedback.log` instead of calling Resend.
  */
@@ -25,7 +24,7 @@ async function readLogLines(): Promise<unknown[]> {
   }
 }
 
-test.describe('@auth feedback form', () => {
+test.describe('feedback form', () => {
   test('signed-in user can open the menu, submit feedback, and hit the rate limit', async ({
     page,
     request,

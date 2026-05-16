@@ -2,17 +2,13 @@ import { test, expect } from './fixtures';
 import { readLatestMagicLink } from './helpers';
 
 /**
- * Magic-link sign-in via the dev sender. Tagged @auth so it only runs
- * in the `db-tests` workflow, which provisions Postgres and applies
- * migrations. The local-first e2e workflow filters this out via the
- * `chromium-local` project's `grepInvert`.
- *
- * The dev sender (lib/auth/email.ts when RESEND_API_KEY is unset)
- * appends every magic-link URL to tests/.magic-links.log; the helper
- * filters by email so parallel workers don't collide.
+ * Magic-link sign-in via the dev sender. The dev sender
+ * (lib/auth/email.ts when RESEND_API_KEY is unset) appends every
+ * magic-link URL to tests/.magic-links.log; the helper filters by
+ * email so parallel workers don't collide.
  */
 
-test.describe('@auth magic-link sign-in', () => {
+test.describe('magic-link sign-in', () => {
   test('signs in and lands in a personal workspace', async ({ page }) => {
     const email = `auth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@sailscoring.test`;
 

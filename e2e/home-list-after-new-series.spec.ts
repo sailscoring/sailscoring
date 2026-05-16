@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { signedInTest as test, expect } from './fixtures';
 
 /**
  * Regression test for the sibling of issue #116: clicking "New series" from

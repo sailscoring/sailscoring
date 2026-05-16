@@ -14,7 +14,7 @@
 import { test, expect } from './fixtures';
 import { addMemberByEmail, createOrgWorkspace, signInFreshUser } from './helpers';
 
-test.describe('@server stealth beta banner', () => {
+test.describe('stealth beta banner', () => {
   test('banner is visible for a fresh self-service user', async ({ page }) => {
     await signInFreshUser(page, 'banner-solo');
     await expect(page.getByTestId('stealth-beta-banner')).toBeVisible();

@@ -1,11 +1,5 @@
 /**
- * Server-mode counterpart to `series-file.spec.ts`. The local-mode happy
- * path is exhaustively covered there; this spec verifies the same UI
- * flows work end-to-end against Postgres via `/api/v1`.
- *
- * Tagged `@server` so the `chromium-server` Playwright project picks it
- * up and the `chromium-local` project skips it. CI runs this in
- * `db-tests.yml` (Postgres + Resend stub provided).
+ * End-to-end series file save / open / update covered through `/api/v1`.
  *
  * Covers the three repo-touching paths in `lib/series-file.ts`:
  *   - saveSeriesFile        (Save to File)
@@ -108,7 +102,7 @@ async function updateFromFile(page: Page, file: object): Promise<void> {
 
 // ─── tests ────────────────────────────────────────────────────────────────────
 
-test.describe('@server series file save / open / update, server mode', () => {
+test.describe('series file save / open / update, server mode', () => {
   test('Save to File then Update from File (clean lineage) round-trips through Postgres', async ({ page }) => {
     await signInFreshUser(page, 'server-file-roundtrip');
 

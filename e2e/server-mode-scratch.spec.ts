@@ -1,22 +1,14 @@
 /**
- * ADR-008 Phase 4 Track 4b — server-mode counterpart to
- * `scratch-event-one-fleet-2-races.spec.ts`. The local-mode happy path
- * is exhaustively covered there; this spec verifies the same UI flows
- * work end-to-end against Postgres via `/api/v1`.
- *
- * Tagged `@server` so the `chromium-server` Playwright project picks it
- * up and the `chromium-local` project skips it. CI runs this in
- * `db-tests.yml` (Postgres + Resend stub provided).
- *
- * Scope deliberately narrow — a few high-signal assertions covering the
- * full UI → API → repository → Postgres round trip, including a hard
- * reload to confirm the data survives the in-memory query cache. Full
- * pairing of every workflow is iterative under Phase 4 Track 4b.
+ * Server round-trip smoke for scratch scoring. A few high-signal
+ * assertions covering the full UI → API → repository → Postgres path,
+ * including a hard reload to confirm the data survives the in-memory
+ * query cache. Companion to `scratch-event-one-fleet-2-races.spec.ts`
+ * which exercises a fuller happy path.
  */
 import { test, expect } from './fixtures';
 import { createSeriesQuick, signInFreshUser } from './helpers';
 
-test.describe('@server scratch event, server mode', () => {
+test.describe('scratch event, server mode', () => {
   test('sign in, create series, add competitor, reload, persists', async ({ page }) => {
     await signInFreshUser(page, 'server-scratch');
 

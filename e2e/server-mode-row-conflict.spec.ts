@@ -1,14 +1,11 @@
 /**
- * ADR-008 Phase 6 (#111) — row-scoped conflict dialog.
+ * Row-scoped conflict dialog (#111).
  *
  * Reproduces a realistic concurrent edit by issuing a direct API write
  * that bumps the row's `version` server-side, then driving a UI edit
  * that uses the now-stale cached version. The page intercepts the 409
  * and opens the row-scoped conflict dialog. Both resolution paths are
  * exercised — "Use the current value" and "Keep my change".
- *
- * Tagged `@server`. Server-mode only by definition: Dexie has a single
- * writer and never produces 409s.
  */
 // Uses the base Playwright test (not ./fixtures) because triggering a 409
 // produces an unavoidable browser console.error from the failed fetch,
@@ -16,7 +13,7 @@
 import { test, expect } from '@playwright/test';
 import { createSeriesQuick, signInFreshUser } from './helpers';
 
-test.describe('@server row-scoped conflict dialog', () => {
+test.describe('row-scoped conflict dialog', () => {
   test('save 409 → dialog → "Use the current value" reverts the local edit', async ({ page }) => {
     await signInFreshUser(page, 'server-conflict-use');
 

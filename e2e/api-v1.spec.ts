@@ -4,16 +4,14 @@ import { signInFreshUser } from './helpers';
 /**
  * Smoke test for /api/v1: signs in via magic link, then exercises the
  * full series CRUD path end-to-end through the Better Auth wrapper.
- * Tagged @auth so it only runs in db-tests.yml (which provisions
- * Postgres). The richer per-resource coverage lives in vitest under
- * tests/api/.
+ * The richer per-resource coverage lives in vitest under tests/api/.
  */
 
 function uuid() {
   return crypto.randomUUID();
 }
 
-test.describe('@auth /api/v1', () => {
+test.describe('/api/v1', () => {
   test('signs in then PUTs, GETs, lists, and DELETEs a series', async ({ page, request }) => {
     await signInFreshUser(page, 'apiv1');
 

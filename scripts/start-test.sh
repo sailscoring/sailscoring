@@ -39,14 +39,6 @@ fi
 # because ${VAR:-default} only substitutes when VAR is unset or empty.
 export DATABASE_URL="${DATABASE_URL:-postgres://sailscoring:sailscoring@localhost:5432/sailscoring}"
 
-# Pin USE_SERVER_DATA to whatever the caller passed (or empty). Without
-# this, Next.js's .env.local loader fills the gap — and a developer
-# whose .env.local was written by `vercel env pull` will have
-# USE_SERVER_DATA=true there, silently flipping the local-first e2e
-# build into server mode. The `test:e2e:server` script still wins
-# because it exports the value before Playwright spawns this script.
-export USE_SERVER_DATA="${USE_SERVER_DATA:-}"
-
 # Build with the test env in scope (NEXT_PUBLIC_* values are baked in
 # at build time), then start. `exec` replaces this shell with `next
 # start` so signals reach Next.js directly — important for Playwright,

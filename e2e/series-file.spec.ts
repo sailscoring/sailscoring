@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { signedInTest as test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import { createSeriesQuick } from './helpers';
 
@@ -115,29 +115,25 @@ test('series file: save exports correct JSON with all series fields, competitors
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Howth Yacht Club').first()).toBeVisible();
 
-  // ── Inject ftpHost/ftpPath directly into IndexedDB ───────────────────────
+  // ── Inject ftpHost/ftpPath via the API ────────────────────────────────────
   // (These fields are normally set on a successful FTP upload; we can't do
-  //  a real upload in tests so we write them directly.)
-  await page.evaluate(async ([id, host, path]) => {
-    await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.open('sailscoring-v1');
-      req.onsuccess = () => {
-        const db = req.result;
-        const tx = db.transaction('series', 'readwrite');
-        const store = tx.objectStore('series');
-        const get = store.get(id);
-        get.onsuccess = () => {
-          const s = get.result;
-          s.ftpHost = host;
-          s.ftpPath = path;
-          store.put(s);
-        };
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      };
-      req.onerror = () => reject(req.error);
+  //  a real upload in tests so we PUT them directly through /api/v1.)
+  await page.evaluate(async ({ id, host, path }) => {
+    const get = await fetch(`/api/v1/series/${id}`);
+    if (!get.ok) throw new Error(`GET series ${id}: ${get.status}`);
+    const series = await get.json();
+    series.ftpHost = host;
+    series.ftpPath = path;
+    const put = await fetch(`/api/v1/series/${id}`, {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+        'If-Match': String(series.version),
+      },
+      body: JSON.stringify(series),
     });
-  }, [seriesId, 'ftp.hyc.ie', '/results/2025/autumn-league.html']);
+    if (!put.ok) throw new Error(`PUT series ${id}: ${put.status}`);
+  }, { id: seriesId, host: 'ftp.hyc.ie', path: '/results/2025/autumn-league.html' });
 
   // ── Add competitor ────────────────────────────────────────────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();

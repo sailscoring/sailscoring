@@ -1,16 +1,9 @@
 /**
- * ADR-008 — server-mode counterpart to `finish-sheet-csv-import.spec.ts`.
- * The local-mode happy path is exhaustively covered there; this spec
- * verifies the importer works end-to-end against Postgres via `/api/v1`,
- * exercising the bulk `POST /api/v1/races/{raceId}/finishes` path that
- * `applyCsvImport` takes in server mode (#117).
- *
- * Tagged `@server` so the `chromium-server` Playwright project picks it
- * up and the `chromium-local` project skips it.
- *
- * Scope deliberately narrow — one high-signal happy path covering the
- * full UI → API → repository → Postgres round trip, including a hard
- * reload to confirm the imported sheet survives the in-memory query cache.
+ * Server round-trip smoke for the finish-sheet CSV importer. One
+ * high-signal happy path covering UI → API → repository → Postgres,
+ * including a hard reload to confirm the imported sheet survives the
+ * in-memory query cache. Companion to `finish-sheet-csv-import.spec.ts`
+ * which exercises the fuller happy path.
  */
 import { test, expect } from './fixtures';
 import { createSeriesQuick, signInFreshUser } from './helpers';
@@ -19,7 +12,7 @@ function csvBuffer(content: string) {
   return { name: 'finishes.csv', mimeType: 'text/csv', buffer: Buffer.from(content) };
 }
 
-test.describe('@server finish sheet CSV import, server mode', () => {
+test.describe('finish sheet CSV import, server mode', () => {
   test('import per-race finish sheet from CSV, reload, persists', async ({ page }) => {
     await signInFreshUser(page, 'server-csv-import');
 

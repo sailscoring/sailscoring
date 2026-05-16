@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { signedInTest as test, expect } from './fixtures';
 import { createSeriesQuick } from './helpers';
 
 function csvBuffer(content: string) {

@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { signedInTest as test, expect } from './fixtures';
 import { type Page } from '@playwright/test';
 import { createSeriesQuick } from './helpers';
 
@@ -117,63 +117,43 @@ test('Publish dialog: pending flow — POST → 202 → check status → publish
   await expect(dialog.getByRole('link', { name: expectedUrl })).toBeVisible();
 });
 
-test('Publish dialog: re-publish — pre-seeded bundle shows manage view, Re-publish triggers POST', async ({ page }) => {
-  const existingUrl = `${BILGE_URL}/r/my-series/standings`;
+test('Publish dialog: re-publish — manage view after first publish, Re-publish triggers POST', async ({ page }) => {
+  const publishedUrl = `${BILGE_URL}/r/hyc-autumn-league-2026/standings`;
 
-  // Intercept upload for re-publish
+  await page.route(`${BILGE_URL}/l/**`, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ exists: false }) }),
+  );
   await page.route(`${BILGE_URL}/upload`, (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ url: existingUrl }),
+      body: JSON.stringify({ url: publishedUrl }),
     }),
   );
 
-  const seriesId = await createSeriesWithData(page);
+  await createSeriesWithData(page);
 
-  // Seed a bilgeBundle into IndexedDB
-  await page.evaluate(async ([id, url]) => {
-    await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.open('sailscoring-v1');
-      req.onsuccess = () => {
-        const db = req.result;
-        const tx = db.transaction('series', 'readwrite');
-        const store = tx.objectStore('series');
-        const get = store.get(id);
-        get.onsuccess = () => {
-          const s = get.result;
-          s.bilgeBundle = {
-            uuid: 'test-uuid-1234',
-            prefix: 'my-series',
-            slug: 'my-series/standings',
-            status: 'published',
-            publishedUrl: url,
-            lastPublishedAt: Date.now(),
-          };
-          const put = store.put(s);
-          put.onsuccess = () => resolve();
-          put.onerror = () => reject(put.error);
-        };
-        get.onerror = () => reject(get.error);
-      };
-      req.onerror = () => reject(req.error);
-    });
-  }, [seriesId, existingUrl]);
-
-  // Navigate away and back so the seeded data is picked up
-  await page.goto('/');
-  await page.getByText('HYC Autumn League 2026').click();
-  await page.getByRole('link', { name: 'Standings' }).click();
+  // First publish — drives the bundle onto the series row server-side.
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await expect(dialog.getByText('✓ Available')).toBeVisible();
+  await dialog.getByLabel('Your email').fill('scorer@example.com');
+  await dialog.getByRole('button', { name: 'Publish' }).click();
+  await expect(dialog.getByText('Published', { exact: true })).toBeVisible();
 
-  // Manage view: shows existing URL, no prefix/email form
-  await expect(dialog.getByText(existingUrl)).toBeVisible();
+  // Close, reload, re-open — confirms the published state survived the
+  // round trip through Postgres (previously asserted via IndexedDB seed).
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await page.getByRole('button', { name: 'Publish' }).click();
+
+  // Manage view: shows the URL from the prior publish, no setup form.
+  await expect(dialog.getByText(publishedUrl)).toBeVisible();
   await expect(dialog.getByText('Published', { exact: true })).toBeVisible();
   await expect(dialog.getByLabel('URL prefix')).not.toBeVisible();
   await expect(dialog.getByLabel('Your email')).not.toBeVisible();
 
-  // Re-publish button triggers a new upload — wait for the POST to complete
+  // Re-publish button triggers a fresh upload.
   const uploadResponse = page.waitForResponse(`${BILGE_URL}/upload`);
   await dialog.getByRole('button', { name: 'Re-publish' }).click();
   await uploadResponse;
