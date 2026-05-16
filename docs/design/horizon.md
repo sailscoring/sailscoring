@@ -184,8 +184,7 @@ enabledFeatures: string[] }`. A single `lib/features.ts` registry keeps keys typ
 
 Open questions: hardcoded constants vs DB-backed metadata (probably constants until
 there are more than a handful of features and clubs); whether role factors in
-(probably not initially). Gating only applies under `USE_SERVER_DATA` — pre-cutover
-users get every feature.
+(probably not initially).
 
 *(Was GitHub issue #120)*
 
@@ -333,18 +332,6 @@ ORC International scoring.
 Post-cutover work designed in [ADR-008](decisions/008-full-stack-transition.md)
 but not actively tracked as issues. Captured here so the residual scope isn't
 lost between Phase 8 stabilising and the next push on full-stack work.
-
-### Remove `USE_SERVER_DATA=false` and the local-first build paths
-
-The flag stays in place during the Phase 8 stabilisation window so individual
-deployments can revert. Once stable, drop the flag and everything it gates:
-the Dexie repository, the IndexedDB-backed pages, the "Move to my account"
-migration banner, the "Local archive" view, and the lint-rule carve-outs that
-allow direct `lib/db` imports inside `lib/dexie-repository.ts`. Mostly a
-delete-only pass — the architectural work was done in Phases 1–7.
-
-The series file format and import endpoint stay (backup / hand-off use case),
-but `lib/dexie-repository.ts` and the IndexedDB schema go.
 
 ### Bilge replacement and decommission (Phase 9)
 

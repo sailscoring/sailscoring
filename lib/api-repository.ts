@@ -1,10 +1,6 @@
 /**
- * ADR-008 Phase 2 client-side repository. Mirrors lib/dexie-repository.ts
- * symbol-for-symbol so Phase 3's UI swap is a near-mechanical import
- * change. Implementations forward through fetch() to /api/v1.
- *
- * Phase 3 will introduce TanStack Query around these calls; Phase 2
- * just builds the surface.
+ * Client-side repository. Implementations forward through fetch() to
+ * `/api/v1`. UI callers wrap these in TanStack Query (see hooks/use-*.ts).
  */
 import { apiFetch } from './api-client';
 import type {
@@ -63,11 +59,9 @@ class ApiFleetRepository implements FleetRepository {
 
   get(id: string): Promise<Fleet | undefined> {
     // The /api/v1 surface routes fleets under /series/:id/fleets/:fleetId,
-    // but the repository interface here only has the fleet id. Two options:
-    // (a) carry seriesId on the call sites in Phase 3; (b) add a
-    // fleet-by-id endpoint on the server. Phase 2 picks (a) — `get(id)` is
-    // currently unused outside the dexie repo's own internals; if Phase 3
-    // turns out to need it, we'll add a flat endpoint.
+    // but the FleetRepository.get(id) signature only carries the fleet
+    // id. No call site needs this; if one ever does, add a flat
+    // /api/v1/fleets/:id endpoint.
     return Promise.reject(
       new Error('ApiFleetRepository.get(id) requires seriesId; use listBySeries'),
     ).catch(() => undefined);
@@ -297,11 +291,10 @@ export const finishRepo: FinishRepository = new ApiFinishRepository();
 export const ftpServerRepo: FtpServerRepository = new ApiFtpServerRepository();
 
 /**
- * Mirror of `listSeriesNames` from `lib/dexie-repository.ts`. Used by the
- * "new series" / "rename series" duplicate-name check. Workspaces are
- * small, so projecting names from the full series list is acceptable.
- * If list sizes ever justify it, add a `?fields=names` projection on
- * `/api/v1/series` and switch this helper.
+ * Used by the "new series" / "rename series" duplicate-name check.
+ * Workspaces are small, so projecting names from the full series list
+ * is acceptable. If list sizes ever justify it, add a `?fields=names`
+ * projection on `/api/v1/series` and switch this helper.
  */
 export async function listSeriesNames(
   opts: { excludeId?: string } = {},

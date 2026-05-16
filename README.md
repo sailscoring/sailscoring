@@ -32,8 +32,7 @@ Handles scratch (position-based) scoring, result codes, discard rules, and serie
 ```bash
 pnpm install
 pnpm db:up        # local Postgres in a container; see docs/local-dev-scripts.md
-pnpm dev          # plain `next dev`, no DATABASE_URL — local-first build
-pnpm dev:local    # `next dev` with DATABASE_URL set; server-mode build
+pnpm dev:local    # `next dev` against the local Postgres
 ```
 
 Run tests:
@@ -41,8 +40,7 @@ Run tests:
 ```bash
 pnpm test:unit         # Vitest unit tests (no DB)
 pnpm test:unit:db      # adds the Postgres-backed tests
-pnpm test:e2e          # Playwright local-first specs
-pnpm test:e2e:server   # Playwright auth/server-mode specs
+pnpm test:e2e          # Playwright end-to-end suite
 ```
 
 Deploy:

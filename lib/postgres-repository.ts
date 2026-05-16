@@ -632,7 +632,7 @@ export class PostgresFleetRepository implements FleetRepository {
    * Wraps the lookup-then-insert in a transaction guarded by
    * `pg_advisory_xact_lock`, keyed on the series id, so concurrent
    * ensureFleet calls for the same series serialise rather than racing
-   * to insert duplicates. Mirrors `ensureFleet` in lib/dexie-repository.ts.
+   * to insert duplicates.
    *
    * `scoringSystem` and the alpha defaults apply only when *creating*
    * a new fleet — never mutates an existing fleet. Blank name → "Default".

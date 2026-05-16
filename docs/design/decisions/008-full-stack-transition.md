@@ -566,6 +566,14 @@ one of cutover.
 **Rollback.** The flag remains in place during a stabilisation window so
 individual users can revert if needed; local data is not deleted.
 
+**Post-cutover delete pass.** After the stabilisation window the
+`USE_SERVER_DATA` flag, the Dexie repository, the IndexedDB schema, the
+"Move to my account" migration banner, the dual Playwright projects,
+and the lint carve-outs were removed. The series file format and
+`/import` link flow stayed (backup / hand-off use case). The "Local
+archive" view referenced above never shipped — the migration banner
+covered the same ground and was deleted with the rest.
+
 ### Phase 9 — Bilge replacement and decommission
 
 **Goal.** The new publish-to-blob-storage path is live; bilge is

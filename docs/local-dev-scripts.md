@@ -18,8 +18,7 @@ from?", start here.
 | `pnpm test:unit`         | Vitest, DB tests self-skip                           | No              |
 | `pnpm test:unit:db`      | Vitest with `DATABASE_URL` set; DB tests run         | Yes (auto-starts via `db:up`)  |
 | `pnpm test:watch`        | Vitest watch mode                                    | No              |
-| `pnpm test:e2e`          | Playwright, local-first build (no auth/server specs) | No              |
-| `pnpm test:e2e:server`   | Playwright, full-stack build, only `@auth`/`@server` specs | Yes (auto-starts via `db:up`)  |
+| `pnpm test:e2e`          | Playwright, full-stack build                         | Yes (auto-starts via `db:up`)  |
 | `pnpm db:up`             | Bring up the local Postgres container, idempotent    | (it *is* the DB)|
 | `pnpm db:migrate`        | Apply Drizzle migrations (uses `.env.local`)         | Yes             |
 | `pnpm db:migrate:test`   | Apply Drizzle migrations to the local container      | Yes (auto-starts via `db:up`)  |
@@ -31,7 +30,7 @@ from?", start here.
 | `pnpm deploy:prod`       | `vercel deploy --prod`                               | -               |
 
 The `predev:local`, `pretest:unit:db`, and `predb:migrate:test`
-lifecycle hooks call `scripts/db-up.sh` automatically; `pretest:e2e:server`
+lifecycle hooks call `scripts/db-up.sh` automatically; `pretest:e2e`
 runs `pnpm db:migrate:test`, which also brings the container up via its
 own `predb:migrate:test` hook. You never need to start the container by
 hand before running those commands.
@@ -86,31 +85,17 @@ pnpm test:unit:db
 
 ```
 pnpm test:e2e
-  └─ playwright test          ← chromium-local project, grepInvert=@auth|@server
-      └─ webServer: pnpm start:test
-          └─ scripts/start-test.sh
-              ├─ source .env.test
-              ├─ DATABASE_URL defaulted (unused in this mode)
-              ├─ pnpm build
-              └─ pnpm start
-```
-
-### `pnpm test:e2e:server`
-
-```
-pnpm test:e2e:server
-  ├─ pretest:e2e:server
+  ├─ pretest:e2e
   │   └─ pnpm db:migrate:test
   │       ├─ predb:migrate:test
   │       │   └─ scripts/db-up.sh   ← starts/verifies sailscoring-pg container
   │       └─ scripts/db-migrate.ts  ← applies Drizzle migrations (idempotent)
-  └─ USE_SERVER_DATA=true E2E_SERVER_MODE=1 DATABASE_URL=… playwright test
-      └─ chromium-server project, grep=@auth|@server
+  └─ DATABASE_URL=… playwright test
       └─ webServer: pnpm start:test
           └─ scripts/start-test.sh
               ├─ source .env.test
               ├─ DATABASE_URL inherited from caller
-              ├─ pnpm build (USE_SERVER_DATA baked in)
+              ├─ pnpm build
               └─ pnpm start
 ```
 

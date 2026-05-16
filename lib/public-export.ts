@@ -218,11 +218,7 @@ export interface EchoRaceFleetExport {
 
 // ---- Builder ----
 
-/**
- * Repository surface needed to read a series for export.
- * Callers pass the runtime-selected backend (dexie or api), so the
- * export path works in either mode.
- */
+/** Repository surface needed to read a series for export. */
 export interface ExportRepos {
   seriesRepo: SeriesRepository;
   competitorRepo: CompetitorRepository;

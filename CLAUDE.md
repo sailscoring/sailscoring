@@ -12,10 +12,10 @@ Sail Scoring is a sail racing scoring application for managing regattas, series,
 
 - **Framework:** Next.js 16 (App Router), React 19, TypeScript
 - **Styling:** Tailwind CSS v4, shadcn/ui components (`components/ui/`)
-- **Storage:** IndexedDB via Dexie.js (`lib/db.ts`, `lib/dexie-repository.ts`)
+- **Storage:** Postgres (Neon in production), Drizzle ORM (`lib/db/schema/`, `lib/postgres-repository.ts`)
 - **Package manager:** pnpm; Node 24.x
 - **Unit/integration tests:** Vitest (`tests/` — `pnpm test:unit` runs no-DB tests; `pnpm test:unit:db` adds the Postgres-backed ones)
-- **E2E tests:** Playwright (`e2e/` — `pnpm test:e2e` runs the local-first specs; `pnpm test:e2e:server` runs the auth/server-mode specs). See `docs/local-dev-scripts.md` for the full picture.
+- **E2E tests:** Playwright (`e2e/` — `pnpm test:e2e` runs the full suite against the local Postgres). See `docs/local-dev-scripts.md` for the full picture.
 - **Deploy:** Vercel (`pnpm deploy` / `pnpm deploy:prod`); see `DEPLOY.md` for custom domain setup
 
 ## Source Layout
@@ -24,14 +24,13 @@ Pure logic lives in `lib/`; pages and UI in `app/`. Key lib modules: `scoring.ts
 
 See `docs/` for design docs, ADRs, requirements, and glossary. `reference/` holds PDFs of comparable tools and the RRS (Appendix A governs scoring).
 
-The full-stack transition (ADR-008) is under way. Phases 1–7 are complete: Better Auth + Postgres, the full server-side data layer, the UI swap onto `lib/api-repository.ts` (with a lint rule banning direct `lib/db` imports outside the Dexie repository), optimistic concurrency on every single-row write, the "Move to my account" migration banner that sweeps existing IndexedDB series into the signed-in workspace, per-row autosave on finish entry (#111, closing the silent-overwrite hole on `FinishRepository.saveMany`), and the org-sharing core for HYC panel collaboration (#112 — workspace switcher, manual provisioning CLI, copy-to-workspace, actor attribution on conflicts, `/workspace` settings hub). Phase 8 (cutover — `USE_SERVER_DATA=true` by default in production, HYC panel onboarded, beta users prompted to migrate) is in flight. Next up: Phase 9 bilge replacement → Phase 10 residual collaboration UX (full activity log, self-service org admin, vanity URLs). The original Phase 8 (org-based collaboration) was split into Phases 7 and 10 and reordered so HYC's panel gets server-of-record + collaboration in the same flag flip rather than living through a `.sailscoring` file-exchange gap after cutover.
+The full-stack transition (ADR-008) is complete through Phase 8. Better Auth + Postgres + the full server-side data layer is the only runtime; the IndexedDB / Dexie path and its `USE_SERVER_DATA` gate are gone. HYC's panel is onboarded on a shared workspace; beta users were prompted to migrate. Next up: Phase 9 bilge replacement → Phase 10 residual collaboration UX (full activity log, self-service org admin, vanity URLs). The original Phase 8 (org-based collaboration) was split into Phases 7 and 10 and reordered so HYC's panel got server-of-record + collaboration in the same flag flip rather than living through a `.sailscoring` file-exchange gap after cutover.
 
 - **Schema** — Drizzle in `lib/db/schema/` (mirrors `lib/types.ts`), lazy client in `lib/db/client.ts`, migrations in `drizzle/`
 - **Validation** — Zod schemas in `lib/validation/`, used at every `/api/v1` boundary
 - **Repositories** — server-side in `lib/postgres-repository.ts` (workspace-scoped, `server-only`); client-side mirror in `lib/api-repository.ts`
 - **Auth** — Better Auth in `lib/auth.ts`; `lib/auth/require-workspace.ts` is the single seam every server caller goes through
 - **REST surface** — `/api/v1/...` routes; route files are thin glue, logic lives in `lib/api-handlers/`. `Idempotency-Key` replays are handled by the `workspaceRoute` wrapper in `app/api/v1/_lib/handler.ts`
-- **Feature flag** — `USE_SERVER_DATA` in `lib/flags.ts` (server-only). On in production from Phase 8 cutover; the flag stays in place during the stabilisation window so individual deployments can revert. Local-first build still ships in the bundle and is reachable by setting the env var to `false`.
 - **DB tests** — Vitest tests under `tests/db/`, `tests/postgres-repository.test.ts`, `tests/auth/`, `tests/api/` skip when `DATABASE_URL` is unset; CI provides it. Locally use `pnpm test:unit:db` (or `pnpm db:up` first and then `pnpm test:unit`); see `docs/local-dev-scripts.md`.
 
 ## Repository and Licensing
@@ -52,9 +51,8 @@ The `idea` GitHub label is deprecated — use `docs/design/horizon.md` instead.
 
 ## MANDATORY: Run Tests Before Every Push
 
-**ALWAYS run `pnpm lint`, `pnpm test:unit`, `pnpm test:e2e`, and `pnpm test:e2e:server` before `git push`.** Do not push unless all four pass.
-The `:server` variant covers the auth/server-mode specs; the default `test:e2e` covers the local-first specs. They're mutually exclusive — both have to run.
-The `pretest:e2e:server` hook will start the local Postgres container automatically (see `docs/local-dev-scripts.md`).
+**ALWAYS run `pnpm lint`, `pnpm test:unit`, and `pnpm test:e2e` before `git push`.** Do not push unless all three pass.
+The `pretest:e2e` hook will start the local Postgres container and apply migrations automatically (see `docs/local-dev-scripts.md`).
 If a test or lint check fails due to a code change you made, fix it before pushing — do not defer fixes to a follow-up commit.
 If a check was already failing before your change, note it explicitly and confirm with the user before pushing.
 
@@ -62,7 +60,7 @@ This rule has no exceptions. Forgetting it has caused broken commits in the past
 
 ## Use named pnpm scripts, not env-var prefixes
 
-When running tests, builds, or dev servers, use the named `pnpm` scripts (`pnpm test:unit:db`, `pnpm test:e2e:server`, `pnpm start:test`, `pnpm db:up`, etc.). Do not prefix invocations with env vars like `E2E_SERVER_MODE=1 pnpm exec playwright test` or `DATABASE_URL=… pnpm test:unit` — the named scripts encode the right configuration (DATABASE_URL default, BETTER_AUTH_* values, mode flags) and keep local invocations, permission rules, and CI consistent. If a needed combination doesn't exist as a script, add it in `package.json` rather than running inline. See `docs/local-dev-scripts.md`.
+When running tests, builds, or dev servers, use the named `pnpm` scripts (`pnpm test:unit:db`, `pnpm test:e2e`, `pnpm start:test`, `pnpm db:up`, etc.). Do not prefix invocations with env vars like `DATABASE_URL=… pnpm test:unit` — the named scripts encode the right configuration (DATABASE_URL default, BETTER_AUTH_* values) and keep local invocations, permission rules, and CI consistent. If a needed combination doesn't exist as a script, add it in `package.json` rather than running inline. See `docs/local-dev-scripts.md`.
 
 ## Feature Checklist
 

@@ -2,17 +2,14 @@
 
 ## Overview
 
-Sail Scoring runs as a Next.js application on Vercel. The user-visible app
-today is fully client-side — scoring data lives in IndexedDB via Dexie.js,
-results are published via the [bilge](https://github.com/sailscoring/bilge)
-and [scupper](https://github.com/sailscoring/scupper) services.
+Sail Scoring runs as a Next.js application on Vercel. Scoring data lives
+in Postgres (via Better Auth + a custom workspace-scoped repository
+layer); results are published via the
+[bilge](https://github.com/sailscoring/bilge) and
+[scupper](https://github.com/sailscoring/scupper) services.
 
-The server backend (Postgres + Better Auth) is being introduced incrementally
-per [ADR-008](docs/design/decisions/008-full-stack-transition.md). Phase 1
-wires up the database, authentication, and a personal-workspace model behind
-the `USE_SERVER_DATA` feature flag (off by default). Until Phase 6 flips that
-flag, only the new `/sign-in`, `/account`, and `/api/health` routes exercise
-the backend; everything else continues to run from IndexedDB.
+The full-stack architecture is documented in
+[ADR-008](docs/design/decisions/008-full-stack-transition.md).
 
 This guide is a single end-to-end run for a fresh deployment. If you're just
 setting a new env var, skip to the [Environment variables](#environment-variables)
@@ -193,7 +190,6 @@ Development is *only* used to populate `.env.local` via `vercel env pull`.
 | `RESEND_FROM`                  | `Sail Scoring <noreply@sailscoring.ie>` | same | same         | no |
 | `FEEDBACK_TO`                  | `mark@hyc.ie` (or destination of choice) | unset (recommended) | unset (recommended) | no |
 | `CREDENTIAL_KEY`               | random (set, **permanent**) | random (set, **permanent**) | random (set) | yes for prod/preview |
-| `USE_SERVER_DATA`              | unset (Phase 1)      | unset (Phase 1)      | unset (Phase 1)      | no         |
 | `CRON_SECRET`                  | random (set)         | unset (recommended)  | unset                | yes        |
 | `NEXT_PUBLIC_APP_URL`          | `https://app.sailscoring.ie` | unset / preview URL  | `http://localhost:3000` | no  |
 | `NEXT_PUBLIC_BILGE_URL`        | `https://bilge.sailscoring.ie` | (same)     | (same)               | no         |
@@ -242,11 +238,6 @@ ever need to rotate, you must re-enter every FTP server password after the
 swap. Use the **same value** in Production and Preview because they share the
 same Neon database — a preview deploy reading a row written by production
 needs the same key. Development can use a different value (its own DB).
-
-**`USE_SERVER_DATA`** — server-only flag (do *not* prefix with
-`NEXT_PUBLIC_`). Off by default through Phase 5; explicitly setting it to
-`true` is what later phases will use to swap the UI from IndexedDB to the
-server backend. Leave unset for now.
 
 **`NEXT_PUBLIC_APP_URL`** — used elsewhere in the app for "Open in Sail
 Scoring" links in exported HTML. The auth client *does not* use this; it
@@ -331,16 +322,6 @@ Pushing to `main` on GitHub also triggers a production deployment automatically.
 ---
 
 ## Local development
-
-### Without a database (existing local-first flows only)
-
-```sh
-pnpm dev
-```
-
-`/`, `/series/...`, `/settings`, `/help`, `/import` work fully. Anything that
-hits `/api/health`, `/api/v1/...`, `/sign-in`, or `/account` will fail
-(Postgres not configured) — that's expected.
 
 ### With a local Postgres (podman-remote)
 
@@ -573,14 +554,8 @@ deployment, or via `vercel logs <deployment-url>`.
 
 ## Data persistence
 
-Pre-Phase 6, all scoring data (series, competitors, races, finishes) is stored
-in IndexedDB in the scorer's browser:
-
-- Data is **not synced** across devices or browsers
-- Clearing browser data will erase all scoring data
-- For important events, the scorer should work from a single browser on a
-  single device throughout the event
-
-The server backend stores only authentication data (users, sessions,
-organizations, members) until Phase 3, when the UI starts reading and writing
-series via the API.
+All scoring data (series, competitors, races, finishes) lives in
+Postgres, scoped per workspace. Authentication state (users, sessions,
+organisations, members) lives in the same database via Better Auth.
+Data is shared across every browser the scorer signs in from, and
+across every member of a shared workspace.
