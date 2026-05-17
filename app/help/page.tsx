@@ -159,6 +159,14 @@ export default function HelpPage() {
           are then shown as <em>Helm / Crew</em> in exported results.
         </p>
         <p>
+          Enable <em>Nationality</em> to record each entry&rsquo;s 3-letter
+          country code (RRS Appendix G / IOC, e.g. <em>IRL</em>, <em>GBR</em>,
+          <em> FRA</em>). The input suggests codes as you type; common
+          Sailwave spellings (<em>BVI</em>, <em>CKI</em>) resolve to their
+          canonical form on blur. Exported HTML results show the code
+          alongside a small country flag.
+        </p>
+        <p>
           Competitors are sorted by sail number. You can edit or delete a competitor at any time,
           though deleting one after races have been entered will also remove their finishes.
         </p>
