@@ -145,6 +145,37 @@ exists.
 
 ---
 
+## Series list and organisation
+
+### Scorer-defined categories and manual archive
+
+The home series list will outgrow a flat list once a club has many series across
+multiple years. Two complementary mechanisms: scorer-defined categories that
+group related series, and a manual archive that takes finished series out of the
+active list without deleting them.
+
+Direction:
+
+- **Categories are per-workspace and scorer-editable.** New workspaces seed with
+  `Club racing`, `Open events`, `Other`; the scorer can add, rename, reorder,
+  delete from a Manage Categories dialog (also surfaced in workspace settings).
+- **Single category per series** — keeps the list a clean partition by section
+  and matches the "tidy" mental model scorers tend to bring.
+- **Archive is a manual action**, never derived from dates. Archived series
+  collapse into a separate section at the foot of the list, separated by a
+  divider; unarchive via the per-card `⋯` menu.
+- **`Other` cannot be deleted** — safety net when a category with members is
+  removed, and the landing bucket for existing series on migration (one-off
+  banner prompts scorers to re-categorise).
+- **Drag-and-drop is post-MVP.** Menu-driven moves only at first; add DnD if
+  scorers ask for it.
+
+Relationship to "Lock or archive a finished series" above: archive here is
+visibility (organisation), not locking (audit). Whether they share a single
+action or stay separate gets decided when locking is designed.
+
+---
+
 ## Workspaces and sharing
 
 ### Reconsider snapshot lineage once file-sharing is no longer the collaboration mechanism
