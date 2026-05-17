@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/tooltip';
 import { AlertTriangle, Pencil, Trash2 } from 'lucide-react';
 import { CompetitorImport, type CompetitorImportHandle } from '@/components/competitor-import';
+import { NationalityInput } from '@/components/nationality-input';
 import { UpdateHandicaps, type UpdateHandicapsHandle } from '@/components/update-handicaps';
 import type { Competitor, Fleet, CompetitorFieldKey, PrimaryPersonLabel } from '@/lib/types';
 import {
@@ -71,6 +72,7 @@ interface CompetitorFormData {
   helm: string;
   crewName: string;
   club: string;
+  nationality: string;
   gender: '' | 'M' | 'F';
   age: string;
   fleetIds: string[];   // IDs of existing fleets to assign the competitor to
@@ -89,6 +91,7 @@ const emptyForm: CompetitorFormData = {
   helm: '',
   crewName: '',
   club: '',
+  nationality: '',
   gender: '',
   age: '',
   fleetIds: [],
@@ -360,6 +363,16 @@ function CompetitorForm({
             />
           </div>
         )}
+        {enabledFields.includes('nationality') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="nationality">Nationality</Label>
+            <NationalityInput
+              id="nationality"
+              value={data.nationality}
+              onChange={(v) => set('nationality', v)}
+            />
+          </div>
+        )}
         {enabledFields.includes('gender') && (
           <div className="space-y-1.5">
             <Label>Gender</Label>
@@ -583,6 +596,7 @@ export default function CompetitorsPage({
       ...(data.owner.trim() ? { owner: data.owner.trim() } : {}),
       ...(data.crewName.trim() ? { crewName: data.crewName.trim() } : {}),
       club: data.club,
+      ...(data.nationality.trim() ? { nationality: data.nationality.trim() } : {}),
       gender: data.gender,
       age: data.age ? parseInt(data.age, 10) : null,
       createdAt: Date.now(),
@@ -613,6 +627,7 @@ export default function CompetitorsPage({
       ...(data.helm.trim() ? { helm: data.helm.trim() } : {}),
       ...(data.crewName.trim() ? { crewName: data.crewName.trim() } : {}),
       club: data.club,
+      ...(data.nationality.trim() ? { nationality: data.nationality.trim() } : {}),
       gender: data.gender,
       age: data.age ? parseInt(data.age, 10) : null,
       ...ratingFieldsFromForm(data),
@@ -627,6 +642,7 @@ export default function CompetitorsPage({
     if (!data.owner.trim()) delete updated.owner;
     if (!data.helm.trim()) delete updated.helm;
     if (!data.crewName.trim()) delete updated.crewName;
+    if (!data.nationality.trim()) delete updated.nationality;
     log('competitors', 'updating', updated);
     await saveCompetitor.mutateAsync(updated);
     await touchSeries.mutateAsync(seriesId);
@@ -651,6 +667,7 @@ export default function CompetitorsPage({
   const showHelm = enabledFields.includes('helm') && !isFieldDisabledByPrimary('helm', primaryLabel);
   const showCrew = enabledFields.includes('crewName');
   const showClub = enabledFields.includes('club');
+  const showNationality = enabledFields.includes('nationality');
   const showGender = enabledFields.includes('gender');
   const showAge = enabledFields.includes('age');
 
@@ -710,6 +727,7 @@ export default function CompetitorsPage({
               {showOwner && <TableHead className="whitespace-normal break-words">Owner</TableHead>}
               {showCrew && <TableHead className="whitespace-normal break-words">Crew</TableHead>}
               {showClub && <TableHead>Club</TableHead>}
+              {showNationality && <TableHead>Nat</TableHead>}
               {multipleFleets && <TableHead className="whitespace-normal break-words">Fleet</TableHead>}
               {showRating && <TableHead>Rating</TableHead>}
               {showGender && <TableHead>Gender</TableHead>}
@@ -751,6 +769,7 @@ export default function CompetitorsPage({
                 {showOwner && <TableCell className="whitespace-normal break-words">{c.owner ?? ''}</TableCell>}
                 {showCrew && <TableCell className="whitespace-normal break-words">{c.crewName ?? ''}</TableCell>}
                 {showClub && <TruncatedCell value={c.club} />}
+                {showNationality && <TableCell className="font-mono">{c.nationality ?? ''}</TableCell>}
                 {multipleFleets && <TableCell className="whitespace-normal break-words">{c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ')}</TableCell>}
                 {showRating && (
                   <TableCell className="font-mono">
@@ -819,6 +838,7 @@ export default function CompetitorsPage({
                 helm: editingCompetitor.helm ?? '',
                 crewName: editingCompetitor.crewName ?? '',
                 club: editingCompetitor.club,
+                nationality: editingCompetitor.nationality ?? '',
                 gender: editingCompetitor.gender,
                 age: editingCompetitor.age?.toString() ?? '',
                 fleetIds: editingCompetitor.fleetIds,

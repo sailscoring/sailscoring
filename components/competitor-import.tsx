@@ -11,6 +11,7 @@ import { useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
 import { useSaveFleets } from '@/hooks/use-fleets';
 import { useSaveCompetitors } from '@/hooks/use-competitors';
 import { parseFleetCell, autoDetectField, type CompetitorField } from '@/lib/csv-import';
+import { lookupAlias, normalizeCodeInput } from '@/lib/nationality';
 import {
   planFleetCreation,
   type PlanRow,
@@ -110,6 +111,7 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   boatClass: 'Class',
   crewName: 'Crew name',
   club: 'Club',
+  nationality: 'Nationality',
   gender: 'Gender',
   age: 'Age',
   fleet: 'Fleet',
@@ -136,6 +138,7 @@ function buildFieldLabels(primary: PrimaryPersonLabel): Partial<Record<Competito
   Object.assign(labels, {
     crewName: STATIC_FIELD_LABELS.crewName,
     club: STATIC_FIELD_LABELS.club,
+    nationality: STATIC_FIELD_LABELS.nationality,
     gender: STATIC_FIELD_LABELS.gender,
     age: STATIC_FIELD_LABELS.age,
     fleet: STATIC_FIELD_LABELS.fleet,
@@ -671,6 +674,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
             field === 'owner' ? 'owner' :
             field === 'crewName' ? 'crewName' :
             field === 'club' ? 'club' :
+            field === 'nationality' ? 'nationality' :
             field === 'gender' ? 'gender' :
             field === 'age' ? 'age' :
             null;
@@ -806,6 +810,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let ownerRole = '';
       let crewName = '';
       let club = '';
+      let nationality = '';
       let gender = '';
       let age = '';
       let fleet = '';
@@ -824,6 +829,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'owner') ownerRole = val;
         else if (field === 'crewName') crewName = val;
         else if (field === 'club') club = val;
+        else if (field === 'nationality') nationality = val;
         else if (field === 'gender') gender = val;
         else if (field === 'age') age = val;
         else if (field === 'fleet') fleet = val;
@@ -858,6 +864,19 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const nhcStartingTcf = parsedNhc != null && !isNaN(parsedNhc) ? parsedNhc : existingCompetitor?.nhcStartingTcf;
       const echoStartingTcf = parsedEcho != null && !isNaN(parsedEcho) ? parsedEcho : existingCompetitor?.echoStartingTcf;
 
+      // Nationality: uppercase, resolve Sailwave-style aliases (BVI → IVB),
+      // then accept iff the result is the validation-layer's 3-letter shape.
+      // Unknown but well-formed codes are kept verbatim so the importer is
+      // forward-compatible with future national-letters dataset bumps; the
+      // renderer falls back to code-only when no flag is available.
+      const normNationality = nationality ? normalizeCodeInput(nationality) : '';
+      const resolvedNationality = normNationality
+        ? (lookupAlias(normNationality)?.canonical ?? normNationality)
+        : '';
+      const cleanNationality = /^[A-Z]{3}$/.test(resolvedNationality)
+        ? resolvedNationality
+        : (existingCompetitor?.nationality ?? '');
+
       const resolvedBoatName = boatName || existingCompetitor?.boatName || '';
       // boatClass fallback: when neither the CSV nor any existing competitor
       // provides a boatClass, fall back to the original CSV fleet name so
@@ -881,6 +900,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(resolvedOwner ? { owner: resolvedOwner } : {}),
         ...(resolvedCrewName ? { crewName: resolvedCrewName } : {}),
         club: club || existingCompetitor?.club || '',
+        ...(cleanNationality ? { nationality: cleanNationality } : {}),
         gender: (normGender === 'M' || normGender === 'F') ? normGender : (existingCompetitor?.gender ?? ''),
         age: parsedAge !== null && !isNaN(parsedAge) ? parsedAge : (existingCompetitor?.age ?? null),
         createdAt: existingCompetitor?.createdAt ?? Date.now(),
@@ -900,6 +920,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         (existingCompetitor.helm ?? '') === (competitor.helm ?? '') &&
         (existingCompetitor.crewName ?? '') === (competitor.crewName ?? '') &&
         existingCompetitor.club === competitor.club &&
+        (existingCompetitor.nationality ?? '') === (competitor.nationality ?? '') &&
         existingCompetitor.gender === competitor.gender &&
         existingCompetitor.age === competitor.age &&
         existingCompetitor.ircTcc === competitor.ircTcc &&

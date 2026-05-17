@@ -15,6 +15,7 @@ export type CompetitorField =
   | 'owner'
   | 'crewName'
   | 'club'
+  | 'nationality'
   | 'gender'
   | 'age'
   | 'fleet'
@@ -42,6 +43,11 @@ export function autoDetectField(header: string): CompetitorField {
   if (/crew/.test(h)) return 'crewName';
   if (/\bhelm\b|skipper/.test(h)) return 'helm';
   if (/\bowner\b|\bentrant\b/.test(h)) return 'owner';
+  // Nationality must be checked before `/name/`: bare "nat" and "nationality"
+  // both contain the substring "na…" that callers spell as a header, and the
+  // reference IODAI CSV uses literally `nat` (which `/name/` doesn't match
+  // anyway). Order also catches "country" up-front.
+  if (/\bnat\b|nationality|country/.test(h)) return 'nationality';
   if (/name/.test(h)) return 'primary';
   if (/club/.test(h)) return 'club';
   if (/gender|sex/.test(h)) return 'gender';

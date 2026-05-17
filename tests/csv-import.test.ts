@@ -83,4 +83,20 @@ describe('autoDetectField', () => {
     expect(autoDetectField('NHC')).toBe('nhcStartingTcf');
     expect(autoDetectField('NHC TCF')).toBe('nhcStartingTcf');
   });
+
+  it('detects nationality columns by nat / nationality / country', () => {
+    // The IODAI Nationals reference CSV uses literally "nat"; Sailwave-derived
+    // sheets sometimes spell it "nationality"; entry-form exports often say
+    // "country". All three should land on the same field.
+    expect(autoDetectField('nat')).toBe('nationality');
+    expect(autoDetectField('Nat')).toBe('nationality');
+    expect(autoDetectField('Nationality')).toBe('nationality');
+    expect(autoDetectField('Country')).toBe('nationality');
+  });
+
+  it('does not let a header that merely contains "nat" leak into nationality', () => {
+    // Sanity: "name" still maps to primary even though it shares letters
+    // with "nat"; the rule is anchored on \bnat\b.
+    expect(autoDetectField('Name')).toBe('primary');
+  });
 });

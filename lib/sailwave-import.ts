@@ -24,6 +24,7 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
   defaultEnabledCompetitorFields,
 } from './competitor-fields';
+import { lookupAlias } from './nationality';
 
 // ---- Raw Sailwave shape ----
 
@@ -33,6 +34,7 @@ export interface SailwaveCompetitorRaw {
   compaltsailno?: string;
   comphelmname?: string;
   compclub?: string;
+  compnat?: string;
   compfleet?: string;
   compclass?: string;
   comprating?: string;
@@ -452,6 +454,7 @@ interface CompetitorBuild {
   boatClass?: string;
   name: string;
   club: string;
+  nationality?: string;
   gender: '';
   age: null;
   ircTcc?: number;
@@ -537,7 +540,8 @@ export function buildSeriesFileFromSailwave(
     : opts.startDate);
 
   // Mirror buildSeriesFile's omit-when-empty / omit-when-default conventions.
-  const enabledFields = buildEnabledFields(opts.primaryLabel);
+  const anyHasNationality = competitors.some((c) => c.nationality);
+  const enabledFields = buildEnabledFields(opts.primaryLabel, { hasNationality: anyHasNationality });
 
   const file: SeriesFile = {
     formatVersion: FORMAT_VERSION,
@@ -577,6 +581,7 @@ export function buildSeriesFileFromSailwave(
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       name: c.name,
       club: c.club,
+      ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
       age: c.age,
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
@@ -736,6 +741,14 @@ function buildCompetitors(
     };
     if (v.compboat?.trim()) built.boatName = v.compboat.trim();
     if (v.compclass?.trim()) built.boatClass = v.compclass.trim();
+    // Nationality: uppercase, fold Sailwave aliases (BVI → IVB), keep only
+    // well-formed 3-letter values. Unknown but well-formed codes pass
+    // through so future dataset bumps surface naturally.
+    const rawNat = (v.compnat ?? '').trim().toUpperCase();
+    if (rawNat) {
+      const canonical = lookupAlias(rawNat)?.canonical ?? rawNat;
+      if (/^[A-Z]{3}$/.test(canonical)) built.nationality = canonical;
+    }
     if (ircTcc != null) built.ircTcc = ircTcc;
     if (nhcTcf != null) built.nhcStartingTcf = nhcTcf;
     if (pyNumber != null) built.pyNumber = pyNumber;
@@ -885,7 +898,10 @@ function groupResultsByRace(
   return out;
 }
 
-function buildEnabledFields(primary: PrimaryPersonLabel): SeriesFile['series']['enabledCompetitorFields'] {
+function buildEnabledFields(
+  primary: PrimaryPersonLabel,
+  flags: { hasNationality: boolean } = { hasNationality: false },
+): SeriesFile['series']['enabledCompetitorFields'] {
   // Sailwave files almost always carry boat name, class, and club. Include
   // helm as a role field only when the primary slot isn't already 'helm' or
   // 'owner' — otherwise it would duplicate the primary.
@@ -893,6 +909,7 @@ function buildEnabledFields(primary: PrimaryPersonLabel): SeriesFile['series']['
   if (primary !== 'helm' && primary !== 'owner') {
     fields.splice(2, 0, 'helm');
   }
+  if (flags.hasNationality) fields.push('nationality');
   // Use the project default if the caller has nothing to override.
   return fields.length > 0 ? fields : defaultEnabledCompetitorFields();
 }
