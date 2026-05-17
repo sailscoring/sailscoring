@@ -49,9 +49,12 @@ export interface SeriesFileRepos {
  *
  *  v4 renames the progressive-handicap TCF history key from `nhcTcfHistory`
  *  to `tcfHistory` (the records cover both NHC and ECHO; the legacy name
- *  predated ECHO). The parser accepts either key. */
-export const FORMAT_VERSION = 4;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4];
+ *  predated ECHO). The parser accepts either key.
+ *
+ *  v5 adds optional `Competitor.nationality` (3-letter national-letters code,
+ *  RRS Appendix G / IOC). Additive; older files load with the field absent. */
+export const FORMAT_VERSION = 5;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -111,6 +114,7 @@ interface SeriesFileCompetitor {
   helm?: string;   // v2+
   crewName?: string;
   club: string;
+  nationality?: string;  // v5+
   gender: 'M' | 'F' | '';
   age: number | null;
   ircTcc?: number;
@@ -323,6 +327,7 @@ export async function buildSeriesFile(
       ...(c.helm ? { helm: c.helm } : {}),
       ...(c.crewName ? { crewName: c.crewName } : {}),
       club: c.club,
+      ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
       age: c.age,
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
@@ -592,6 +597,7 @@ async function writeFleetsCompetitorsRaces(
         ...(c.helm ? { helm: c.helm } : {}),
         ...(c.crewName ? { crewName: c.crewName } : {}),
         club: c.club,
+        ...(c.nationality ? { nationality: c.nationality } : {}),
         gender: c.gender,
         age: c.age,
         createdAt: now,

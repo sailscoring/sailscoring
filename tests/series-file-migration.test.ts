@@ -111,3 +111,60 @@ describe('parseSeriesFile — v1/v2 → v3 start-sequence migration', () => {
     expect(file.series.defaultStartSequence).toBeUndefined();
   });
 });
+
+describe('parseSeriesFile — v5 nationality', () => {
+  function fileV5WithNationality(nationality: string | undefined): string {
+    return JSON.stringify({
+      formatVersion: 5,
+      seriesId: 's1',
+      snapshotId: 'snap-1',
+      snapshotHistory: ['snap-1'],
+      exportedAt: '2026-05-17T00:00:00.000Z',
+      series: {
+        id: 's1',
+        name: 'Nationals',
+        venue: 'HYC',
+        startDate: '2026-08-01',
+        endDate: '2026-08-03',
+        venueLogoUrl: '',
+        eventLogoUrl: '',
+        discardThresholds: [],
+        dnfScoring: 'seriesEntries',
+        ftpHost: '',
+        ftpPath: '',
+        bilgeBundle: null,
+        includeJsonExport: true,
+        enabledCompetitorFields: ['boatName', 'nationality'],
+        primaryPersonLabel: 'helm',
+        scoringMode: 'scratch',
+      },
+      fleets: [],
+      competitors: [
+        {
+          id: 'c1',
+          fleetIds: [],
+          sailNumber: 'IRL-7',
+          name: 'Skipper',
+          club: 'HYC',
+          gender: '',
+          age: null,
+          ...(nationality ? { nationality } : {}),
+        },
+      ],
+      races: [],
+    });
+  }
+
+  it('preserves a competitor nationality through parse', () => {
+    const file = parseSeriesFile(fileV5WithNationality('IRL'));
+    expect(file.competitors[0].nationality).toBe('IRL');
+  });
+
+  it('leaves nationality undefined when absent (and on legacy v4 files)', () => {
+    const file = parseSeriesFile(fileV5WithNationality(undefined));
+    expect(file.competitors[0].nationality).toBeUndefined();
+    // v4 spelling of the same file should also load without nationality.
+    const v4 = parseSeriesFile(fileV5WithNationality(undefined).replace('"formatVersion":5', '"formatVersion":4'));
+    expect(v4.competitors[0].nationality).toBeUndefined();
+  });
+});

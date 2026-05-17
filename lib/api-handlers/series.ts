@@ -234,6 +234,7 @@ export async function copySeries(
           helm: c.helm ?? null,
           crewName: c.crewName ?? null,
           club: c.club,
+          nationality: c.nationality ?? null,
           gender: c.gender,
           age: c.age,
           createdAt: new Date(c.createdAt),

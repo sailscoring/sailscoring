@@ -18,6 +18,7 @@ export const competitorFieldKeySchema = z.enum([
   'owner',
   'crewName',
   'club',
+  'nationality',
   'gender',
   'age',
 ]);

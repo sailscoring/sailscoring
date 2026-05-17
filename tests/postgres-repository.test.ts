@@ -214,7 +214,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       sailNumber: '1234',
       boatName: 'Big', boatClass: 'Half-Tonner',
       name: 'Helm', owner: 'Owner', helm: 'Helm',
-      crewName: 'Crew', club: 'HYC', gender: 'M', age: 42,
+      crewName: 'Crew', club: 'HYC', nationality: 'IRL', gender: 'M', age: 42,
       createdAt: Date.now(),
       ircTcc: 0.972, pyNumber: 1034,
       nhcStartingTcf: 0.95, echoStartingTcf: 0.97,
@@ -235,7 +235,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       sailNumber: '1234',
       boatName: 'Big', boatClass: 'Half-Tonner',
       name: 'Helm', owner: 'Owner', helm: 'Helm',
-      crewName: 'Crew', club: 'HYC', gender: 'M', age: 42,
+      crewName: 'Crew', club: 'HYC', nationality: 'IRL', gender: 'M', age: 42,
       ircTcc: 0.972, pyNumber: 1034,
       nhcStartingTcf: 0.95, echoStartingTcf: 0.97,
     });
@@ -243,6 +243,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     const c2Read = list.find((c) => c.id === c2.id)!;
     expect(c2Read.boatName).toBeUndefined();
     expect(c2Read.ircTcc).toBeUndefined();
+    expect(c2Read.nationality).toBeUndefined();
 
     await repos.series.delete(s.id);
   });

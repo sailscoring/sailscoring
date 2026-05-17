@@ -18,6 +18,7 @@ export const competitorSchema = z.object({
   helm: z.string().optional(),
   crewName: z.string().optional(),
   club: z.string(),
+  nationality: z.string().regex(/^[A-Z]{3}$/, 'must be a 3-letter uppercase code').optional(),
   gender: genderSchema,
   age: z.number().int().nullable(),
   createdAt: epochMsSchema,

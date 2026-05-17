@@ -33,6 +33,7 @@ describe('ALL_COMPETITOR_FIELDS', () => {
       'owner',
       'crewName',
       'club',
+      'nationality',
       'gender',
       'age',
     ]);

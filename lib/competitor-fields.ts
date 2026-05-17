@@ -23,6 +23,7 @@ export const ALL_COMPETITOR_FIELDS: readonly CompetitorFieldKey[] = [
   'owner',
   'crewName',
   'club',
+  'nationality',
   'gender',
   'age',
 ] as const;
@@ -35,6 +36,7 @@ export const COMPETITOR_FIELD_LABELS: Record<CompetitorFieldKey, string> = {
   owner: 'Owner name',
   crewName: 'Crew name',
   club: 'Club',
+  nationality: 'Nationality',
   gender: 'Gender',
   age: 'Age',
 };

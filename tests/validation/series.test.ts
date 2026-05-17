@@ -141,6 +141,7 @@ describe('competitorFieldKeySchema', () => {
       'owner',
       'crewName',
       'club',
+      'nationality',
       'gender',
       'age',
     ]) {

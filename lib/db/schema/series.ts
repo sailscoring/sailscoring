@@ -181,6 +181,7 @@ export const competitors = pgTable(
     helm: text('helm'),
     crewName: text('crew_name'),
     club: text('club').notNull().default(''),
+    nationality: text('nationality'),
     gender: text('gender').notNull().default(''),
     age: integer('age'),
     createdAt: timestamp('created_at', { withTimezone: true })

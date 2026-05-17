@@ -15,6 +15,7 @@ export type CompetitorFieldKey =
   | 'owner'
   | 'crewName'
   | 'club'
+  | 'nationality'
   | 'gender'
   | 'age';
 
@@ -106,6 +107,7 @@ export interface Competitor {
   helm?: string;      // helm, when recorded separately from the primary (e.g. owner-primary series)
   crewName?: string;  // crew name, for two-person dinghy classes
   club: string;
+  nationality?: string;  // 3-letter national-letters code (RRS Appendix G / IOC), e.g. "IRL"
   gender: 'M' | 'F' | '';
   age: number | null;
   createdAt: number;

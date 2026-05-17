@@ -83,6 +83,8 @@ export interface PublicSeriesExport {
     helm?: string;
     crewName?: string;
     club: string;
+    /** 3-letter national-letters code (RRS Appendix G / IOC), e.g. "IRL". */
+    nationality?: string;
     gender: 'M' | 'F' | '';
     age: number | null;
     fleetNames: string[];
@@ -473,6 +475,7 @@ export async function buildPublicExport(
       ...(c.helm ? { helm: c.helm } : {}),
       ...(c.crewName ? { crewName: c.crewName } : {}),
       club: c.club,
+      ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
       age: c.age,
       fleetNames: c.fleetIds.map((id) => fleetNameById.get(id) ?? id),
@@ -604,6 +607,7 @@ export async function importPublicExport(
         ...(c.helm ? { helm: c.helm } : {}),
         ...(c.crewName ? { crewName: c.crewName } : {}),
         club: c.club,
+        ...(c.nationality ? { nationality: c.nationality } : {}),
         gender: c.gender,
         age: c.age,
         createdAt: now,

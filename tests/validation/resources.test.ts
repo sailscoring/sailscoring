@@ -83,6 +83,21 @@ describe('competitorSchema', () => {
   test('age may be null', () => {
     expect(() => competitorSchema.parse({ ...COMPETITOR, age: null })).not.toThrow();
   });
+
+  test('nationality accepts any 3-letter uppercase code', () => {
+    expect(() => competitorSchema.parse({ ...COMPETITOR, nationality: 'IRL' })).not.toThrow();
+    expect(() => competitorSchema.parse({ ...COMPETITOR, nationality: 'ZZZ' })).not.toThrow();
+  });
+
+  test('nationality rejects malformed codes', () => {
+    // Lowercase, wrong length, and stray characters all rejected — the
+    // dropdown normalises to uppercase before this point. Forward-compat
+    // with dataset bumps is preserved (no enum check here).
+    expect(() => competitorSchema.parse({ ...COMPETITOR, nationality: 'irl' })).toThrow();
+    expect(() => competitorSchema.parse({ ...COMPETITOR, nationality: 'IR' })).toThrow();
+    expect(() => competitorSchema.parse({ ...COMPETITOR, nationality: 'IRLD' })).toThrow();
+    expect(() => competitorSchema.parse({ ...COMPETITOR, nationality: 'IR1' })).toThrow();
+  });
 });
 
 describe('raceSchema', () => {
