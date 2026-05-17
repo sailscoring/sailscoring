@@ -82,6 +82,16 @@ export async function buildFleetHtmlFiles(
     ? await buildPublicExport(seriesId, repos)
     : null;
 
+  // Pull the inline flag SVG payload only when this export actually references
+  // nationality codes. Dynamic import keeps the ~2.5 MB module out of the
+  // standings-page bundle — it loads on demand the first time a scorer
+  // triggers HTML export / publish / FTP upload.
+  const flagsEnabled = (series.enabledCompetitorFields ?? defaultEnabledCompetitorFields()).includes('nationality');
+  const anyNationality = competitors.some((c) => c.nationality);
+  const flagSvgByCode = flagsEnabled && anyNationality
+    ? (await import('./nationality/flags')).NATIONAL_FLAGS
+    : undefined;
+
   const seriesInfo = { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl };
 
   const results: { fleetName: string; isDefault: boolean; html: string }[] = [];
@@ -289,6 +299,7 @@ export async function buildFleetHtmlFiles(
         data.openInAppUrl = `${appUrl}/import#data=${b64}`;
       }
     }
+    if (flagSvgByCode) data.flagSvgByCode = flagSvgByCode;
 
     results.push({
       fleetName: fleet.name,

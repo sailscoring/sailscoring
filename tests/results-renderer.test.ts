@@ -861,3 +861,87 @@ describe('assembleSeriesResultsData — per-race ratings wiring', () => {
     expect(data.standings[0].seedRating).toBeUndefined();
   });
 });
+
+// ---- Nationality column ----
+
+describe('renderSeriesHtml — nationality', () => {
+  // Two boats, both IRL, so we can prove dedup; one race with both finishing.
+  const irlFlag = { viewBox: '0 0 1200 600', inner: '<path fill="#169b62"/>' };
+  const gbrFlag = { viewBox: '0 0 60 30', inner: '<path fill="#012169"/>' };
+  const withNationality: SeriesResultsData = {
+    series: { name: 'Test Series', venue: 'HYC' },
+    enabledCompetitorFields: ['nationality'],
+    races: [
+      {
+        ...makeRace(1, [['42', 'Alice', 1, null], ['99', 'Bob', 2, null], ['7', 'Charlie', 3, null]]),
+        results: [
+          { rank: 1, sailNumber: '42', helm: 'Alice', place: 1, points: 1, resultCode: null, penaltyCode: null, penaltyOverride: null, nationality: 'IRL' },
+          { rank: 2, sailNumber: '99', helm: 'Bob', place: 2, points: 2, resultCode: null, penaltyCode: null, penaltyOverride: null, nationality: 'IRL' },
+          { rank: 3, sailNumber: '7', helm: 'Charlie', place: 3, points: 3, resultCode: null, penaltyCode: null, penaltyOverride: null, nationality: 'GBR' },
+        ],
+      },
+    ],
+    standings: [
+      { ...makeStanding(1, '42', 'Alice', [{ points: 1, podiumRank: 1 }]), nationality: 'IRL' },
+      { ...makeStanding(2, '99', 'Bob', [{ points: 2, podiumRank: 2 }]), nationality: 'IRL' },
+      { ...makeStanding(3, '7', 'Charlie', [{ points: 3, podiumRank: 3 }]), nationality: 'GBR' },
+    ],
+    flagSvgByCode: { IRL: irlFlag, GBR: gbrFlag, FRA: { viewBox: '0 0 3 2', inner: '<rect/>' } },
+  };
+
+  it('renders a Nat column in the summary and per-race tables', () => {
+    const html = renderSeriesHtml(withNationality);
+    // Summary table column header
+    expect(html).toContain('<th>Nat</th>');
+    // Two same-code competitors and one different — the column must show codes
+    // alongside a <use> referencing the flag symbol. Two standings rows + two
+    // race rows for IRL = 4 cells.
+    const irlCellRe = /<td class="nat">.*?<use href="#flag-IRL"[^>]*\/>.*?IRL<\/td>/g;
+    expect(html.match(irlCellRe)?.length).toBe(4);
+    // And one GBR cell each in standings + race.
+    const gbrCellRe = /<td class="nat">.*?<use href="#flag-GBR"[^>]*\/>.*?GBR<\/td>/g;
+    expect(html.match(gbrCellRe)?.length).toBe(2);
+  });
+
+  it('emits one <symbol> per referenced code (deduped) — and none for codes not referenced', () => {
+    const html = renderSeriesHtml(withNationality);
+    // IRL referenced twice in standings + twice in race results — still one symbol.
+    expect(html.match(/<symbol id="flag-IRL"/g)?.length).toBe(1);
+    expect(html.match(/<symbol id="flag-GBR"/g)?.length).toBe(1);
+    // FRA is in the flag payload but no row references it — no symbol emitted.
+    expect(html).not.toContain('symbol id="flag-FRA"');
+  });
+
+  it('falls back to code-only when a code is referenced but not in flagSvgByCode', () => {
+    const html = renderSeriesHtml({
+      ...withNationality,
+      flagSvgByCode: { GBR: gbrFlag }, // IRL flag missing
+    });
+    expect(html).not.toContain('use href="#flag-IRL"');
+    // IRL code still appears in the cell.
+    expect(html).toContain('<td class="nat">IRL</td>');
+  });
+
+  it('omits the Nat column when nationality is enabled but no row carries a value', () => {
+    const html = renderSeriesHtml({
+      ...withNationality,
+      standings: withNationality.standings.map((s) => ({ ...s, nationality: undefined })),
+      races: withNationality.races.map((r) => ({
+        ...r,
+        results: r.results.map((x) => ({ ...x, nationality: undefined })),
+      })),
+    });
+    expect(html).not.toContain('<th>Nat</th>');
+  });
+
+  it('omits flag defs when flagSvgByCode is undefined', () => {
+    const { flagSvgByCode: _flag, ...rest } = withNationality;
+    void _flag;
+    const html = renderSeriesHtml(rest);
+    // No <symbol> block at all.
+    expect(html).not.toContain('<symbol');
+    // Codes still render as text in the cell.
+    expect(html).toContain('<td class="nat">IRL</td>');
+    expect(html).toContain('<td class="nat">GBR</td>');
+  });
+});

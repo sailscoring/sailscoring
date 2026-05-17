@@ -39,6 +39,9 @@ export function FleetStandingsTable({
   const showOwner = enabledFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel);
   const showCrew = enabledFields.includes('crewName');
   const showClub = enabledFields.includes('club');
+  // Code-only in the live UI — flags are reserved for HTML exports so the
+  // standings page doesn't pull the ~2.5 MB flag dataset into its bundle.
+  const showNationality = enabledFields.includes('nationality');
   return (
     <Table>
       <TableHeader>
@@ -52,6 +55,7 @@ export function FleetStandingsTable({
           {showOwner && <TableHead>Owner</TableHead>}
           {showCrew && <TableHead>Crew</TableHead>}
           {showClub && <TableHead>Club</TableHead>}
+          {showNationality && <TableHead>Nat</TableHead>}
           {races.map((race) => (
             <TableHead key={race.id} className="w-16 text-center">
               R{race.raceNumber}
@@ -76,6 +80,7 @@ export function FleetStandingsTable({
             showOwner={showOwner}
             showCrew={showCrew}
             showClub={showClub}
+            showNationality={showNationality}
           />
         ))}
       </TableBody>
@@ -93,6 +98,7 @@ interface StandingRowProps {
   showOwner: boolean;
   showCrew: boolean;
   showClub: boolean;
+  showNationality: boolean;
 }
 
 function StandingRow({
@@ -105,6 +111,7 @@ function StandingRow({
   showOwner,
   showCrew,
   showClub,
+  showNationality,
 }: StandingRowProps) {
   const { rank, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded } = standing;
 
@@ -130,6 +137,7 @@ function StandingRow({
       {showOwner && <TableCell>{competitor.owner ?? ''}</TableCell>}
       {showCrew && <TableCell>{competitor.crewName ?? ''}</TableCell>}
       {showClub && <TableCell className="text-muted-foreground">{competitor.club}</TableCell>}
+      {showNationality && <TableCell className="font-mono">{competitor.nationality ?? ''}</TableCell>}
       {racePoints.map((points, i) => {
         const isDiscard = raceDiscards[i] ?? false;
         const isNonDiscardable = raceNonDiscardable[i] ?? false;
