@@ -58,9 +58,25 @@ If a check was already failing before your change, note it explicitly and confir
 
 This rule has no exceptions. Forgetting it has caused broken commits in the past.
 
-## Use named pnpm scripts, not env-var prefixes
+## Use named pnpm scripts — never `DATABASE_URL=…`, `pnpm exec`, or `pnpm tsx scripts/`
 
-When running tests, builds, or dev servers, use the named `pnpm` scripts (`pnpm test:unit:db`, `pnpm test:e2e`, `pnpm start:test`, `pnpm db:up`, etc.). Do not prefix invocations with env vars like `DATABASE_URL=… pnpm test:unit` — the named scripts encode the right configuration (DATABASE_URL default, BETTER_AUTH_* values) and keep local invocations, permission rules, and CI consistent. If a needed combination doesn't exist as a script, add it in `package.json` rather than running inline. See `docs/local-dev-scripts.md`.
+This is enforced by a PreToolUse Bash hook (`scripts/guard-bash.sh`, wired in `.claude/settings.json`); the three patterns below are actively blocked, not just discouraged. Issue #113 tracks the regressions that prompted this.
+
+The named scripts encode `DATABASE_URL`, `BETTER_AUTH_*`, and any other env wiring once, in one place — they keep local invocations, permission rules, and CI consistent. If a needed combination doesn't exist as a script, **add one to `package.json` rather than running inline**. See `docs/local-dev-scripts.md` for the full table.
+
+| ❌ Don't                                                  | ✅ Do                                                |
+|-----------------------------------------------------------|-----------------------------------------------------|
+| `DATABASE_URL=… pnpm exec vitest tests/foo.test.ts`        | `pnpm test:unit:db tests/foo.test.ts`               |
+| `DATABASE_URL=… pnpm exec playwright test e2e/foo.spec.ts` | `pnpm test:e2e e2e/foo.spec.ts`                     |
+| `DATABASE_URL=… pnpm db:migrate`                           | `pnpm db:migrate:test` (local container)            |
+| `DATABASE_URL=… pnpm db:generate`                          | `pnpm db:generate` (doesn't need a DB at all)       |
+| `PGPASSWORD=… psql -h localhost -U sailscoring …`          | `pnpm db:psql:test` (add `-c "..."` for one-shots)  |
+| `DATABASE_URL=… pnpm tsx scripts/provision-org.ts …`       | `pnpm provision-org:test …`                         |
+| `DATABASE_URL=… pnpm tsx scripts/user-stats.ts …`          | `pnpm user-stats:test …`                            |
+| `DATABASE_URL=… pnpm tsx scripts/change-email.ts …`        | `pnpm change-email:test …`                          |
+| `pnpm tsc --noEmit; echo "exit=$?"`                        | `pnpm tsc --noEmit` (the bare exit code is enough)  |
+
+If a script lacks a feature you need (e.g. a missing subcommand on `provision-org`), **extend the script** rather than reaching for `psql -c`, `tsx -e`, or a throwaway `scripts/_*.ts`. Inline workarounds need an env prefix specifically because they don't go through a named script — the missing affordance is the actual bug.
 
 ## Feature Checklist
 
