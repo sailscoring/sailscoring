@@ -27,8 +27,11 @@ from?", start here.
 | `pnpm db:studio`         | Drizzle Studio against `.env.local`'s `DATABASE_URL` | Yes             |
 | `pnpm db:auth:generate`  | Regenerate `lib/db/schema/auth.ts` from Better Auth  | No              |
 | `pnpm provision-org`     | Admin CLI: create orgs, add members (uses `.env.local`) | Yes          |
+| `pnpm provision-org:test` | Same, but against the local container                | Yes — run `pnpm db:up` first   |
 | `pnpm change-email`      | Admin CLI: change a user's login email (uses `.env.local`) | Yes        |
+| `pnpm change-email:test` | Same, but against the local container                | Yes — run `pnpm db:up` first   |
 | `pnpm user-stats`        | Admin CLI: per-user activity/membership stats (uses `.env.local`) | Yes |
+| `pnpm user-stats:test`   | Same, but against the local container                | Yes — run `pnpm db:up` first   |
 | `pnpm generate:fixtures` | Regenerate scoring fixture HTML                      | No              |
 | `pnpm nationality:sync`  | Regenerate `lib/nationality/generated/` from upstream dataset | No     |
 | `pnpm deploy`            | `vercel deploy` (preview)                            | -               |
