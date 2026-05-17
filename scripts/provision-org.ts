@@ -21,6 +21,7 @@
  *   pnpm tsx scripts/provision-org.ts list-members hyc
  *   pnpm tsx scripts/provision-org.ts set-role hyc bob@example.com admin
  *   pnpm tsx scripts/provision-org.ts remove-member hyc bob@example.com
+ *   pnpm tsx scripts/provision-org.ts delete-org hyc --force
  *
  * `add-member` looks members up by email, so they must exist as users
  * first. Either get them to sign in once (the magic-link flow creates the
@@ -30,10 +31,11 @@
  * Better Auth recognises the email and signs them straight in.
  */
 
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 
 import { getDb, getDbClient, type SailScoringDb } from '@/lib/db/client';
 import { member, organization, user } from '@/lib/db/schema/auth';
+import { competitors, fleets, races, series } from '@/lib/db/schema/series';
 
 export type Role = 'owner' | 'admin' | 'member';
 
@@ -248,6 +250,52 @@ export async function removeMember(
   return { removed: !stillThere };
 }
 
+export interface DeleteOrgSummary {
+  org: { id: string; name: string; slug: string };
+  members: number;
+  series: number;
+  races: number;
+  competitors: number;
+  fleets: number;
+}
+
+export async function summariseOrg(
+  db: SailScoringDb,
+  args: { orgSlugOrId: string },
+): Promise<DeleteOrgSummary> {
+  const org = await findOrgBySlugOrId(db, args.orgSlugOrId);
+  if (!org) throw new Error(`org "${args.orgSlugOrId}" not found`);
+  const countExpr = sql<number>`count(*)::int`;
+  const [membersRow, seriesRow, racesRow, competitorsRow, fleetsRow] = await Promise.all([
+    db.select({ n: countExpr }).from(member).where(eq(member.organizationId, org.id)),
+    db.select({ n: countExpr }).from(series).where(eq(series.workspaceId, org.id)),
+    db.select({ n: countExpr }).from(races).where(eq(races.workspaceId, org.id)),
+    db.select({ n: countExpr }).from(competitors).where(eq(competitors.workspaceId, org.id)),
+    db.select({ n: countExpr }).from(fleets).where(eq(fleets.workspaceId, org.id)),
+  ]);
+  return {
+    org,
+    members: membersRow[0]?.n ?? 0,
+    series: seriesRow[0]?.n ?? 0,
+    races: racesRow[0]?.n ?? 0,
+    competitors: competitorsRow[0]?.n ?? 0,
+    fleets: fleetsRow[0]?.n ?? 0,
+  };
+}
+
+export async function deleteOrg(
+  db: SailScoringDb,
+  args: { orgSlugOrId: string },
+): Promise<{ id: string; slug: string; name: string }> {
+  const org = await findOrgBySlugOrId(db, args.orgSlugOrId);
+  if (!org) throw new Error(`org "${args.orgSlugOrId}" not found`);
+  // Members, invitations, series, races, competitors, fleets, ftp_servers,
+  // feedback, idempotency_keys all FK organization.id with onDelete cascade,
+  // so the single delete cascades through everything.
+  await db.delete(organization).where(eq(organization.id, org.id));
+  return org;
+}
+
 export interface MemberRow {
   email: string;
   name: string;
@@ -316,11 +364,15 @@ function usage(): string {
   return `provision-org — ADR-008 Phase 7 manual org administration
 
   create-org <name> [--slug <slug>]
+  delete-org <org-slug-or-id> [--force]
   pre-create-user <email> --name <full-name>
   add-member <org-slug-or-id> <email> [--role owner|admin|member]
   set-role <org-slug-or-id> <email> <role>
   remove-member <org-slug-or-id> <email>
   list-members <org-slug-or-id>
+
+delete-org without --force only prints what would be deleted. Cascades
+through members, invitations, and all series/race/competitor data.
 
 Members must already exist (signed in once, or seeded via pre-create-user).
 Reads DATABASE_URL.`;
@@ -343,6 +395,25 @@ export async function runCli(argv: string[]): Promise<number> {
         if (!name) throw new Error('create-org: <name> is required');
         const result = await createOrg(db, { name, slug: flags.slug });
         console.log(`created org "${result.name}" (slug: ${result.slug}, id: ${result.id})`);
+        return 0;
+      }
+      case 'delete-org': {
+        const [orgSlugOrId] = positional;
+        if (!orgSlugOrId) throw new Error('delete-org: <org-slug-or-id> is required');
+        const summary = await summariseOrg(db, { orgSlugOrId });
+        const { org, members, series: nSeries, races: nRaces, competitors: nCompetitors, fleets: nFleets } = summary;
+        console.log(`org "${org.name}" (slug: ${org.slug}, id: ${org.id})`);
+        console.log(`  members:     ${members}`);
+        console.log(`  series:      ${nSeries}`);
+        console.log(`  races:       ${nRaces}`);
+        console.log(`  competitors: ${nCompetitors}`);
+        console.log(`  fleets:      ${nFleets}`);
+        if (flags.force !== 'true') {
+          console.log('\nDry run — pass --force to actually delete (cascades through all of the above).');
+          return 0;
+        }
+        await deleteOrg(db, { orgSlugOrId: org.id });
+        console.log(`\ndeleted org "${org.slug}"`);
         return 0;
       }
       case 'pre-create-user': {

@@ -9,10 +9,12 @@ import * as schema from '@/lib/db/schema';
 import {
   addMember,
   createOrg,
+  deleteOrg,
   listMembers,
   preCreateUser,
   removeMember,
   setRole,
+  summariseOrg,
 } from '@/scripts/provision-org';
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -172,6 +174,50 @@ describe.skipIf(skip)('provision-org operations', () => {
     await expect(
       preCreateUser(db, { email, name: '   ' }),
     ).rejects.toThrow(/name is required/);
+  });
+
+  test('summariseOrg counts members and cascades; deleteOrg removes the org and all of it', async () => {
+    const stamp = Date.now();
+    const owner = `del-owner-${stamp}@sailscoring.test`;
+    await makeUser(owner);
+
+    const org = await createOrg(db, { name: `Delete Me ${stamp}` });
+    // Not pushing onto cleanupOrgIds — deleteOrg removes it for us.
+    await addMember(db, { orgSlugOrId: org.slug, email: owner, role: 'owner' });
+
+    const before = await summariseOrg(db, { orgSlugOrId: org.slug });
+    expect(before.org.id).toBe(org.id);
+    expect(before.members).toBe(1);
+    expect(before.series).toBe(0);
+
+    const removed = await deleteOrg(db, { orgSlugOrId: org.slug });
+    expect(removed.id).toBe(org.id);
+
+    // Org row is gone.
+    const stillThere = await db
+      .select({ id: schema.organization.id })
+      .from(schema.organization)
+      .where(eq(schema.organization.id, org.id));
+    expect(stillThere).toHaveLength(0);
+
+    // Membership cascaded.
+    const orphanedMembers = await db
+      .select({ id: schema.member.id })
+      .from(schema.member)
+      .where(eq(schema.member.organizationId, org.id));
+    expect(orphanedMembers).toHaveLength(0);
+  });
+
+  test('summariseOrg rejects unknown org', async () => {
+    await expect(
+      summariseOrg(db, { orgSlugOrId: 'definitely-not-an-org' }),
+    ).rejects.toThrow(/not found/);
+  });
+
+  test('deleteOrg rejects unknown org', async () => {
+    await expect(
+      deleteOrg(db, { orgSlugOrId: 'definitely-not-an-org' }),
+    ).rejects.toThrow(/not found/);
   });
 
   test('preCreateUser normalises email to lowercase', async () => {
