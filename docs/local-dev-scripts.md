@@ -22,6 +22,7 @@ from?", start here.
 | `pnpm db:up`             | Bring up the local Postgres container, idempotent    | (it *is* the DB)|
 | `pnpm db:migrate`        | Apply Drizzle migrations (uses `.env.local`)         | Yes             |
 | `pnpm db:migrate:test`   | Apply Drizzle migrations to the local container      | Yes — run `pnpm db:up` first   |
+| `pnpm db:psql:test`      | `psql` against the local container; pass `-c "..."` for one-shot SQL | Yes — run `pnpm db:up` first |
 | `pnpm db:generate`       | Generate Drizzle migrations from schema              | No              |
 | `pnpm db:studio`         | Drizzle Studio against `.env.local`'s `DATABASE_URL` | Yes             |
 | `pnpm db:auth:generate`  | Regenerate `lib/db/schema/auth.ts` from Better Auth  | No              |
