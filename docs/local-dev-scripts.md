@@ -25,7 +25,11 @@ from?", start here.
 | `pnpm db:generate`       | Generate Drizzle migrations from schema              | No              |
 | `pnpm db:studio`         | Drizzle Studio against `.env.local`'s `DATABASE_URL` | Yes             |
 | `pnpm db:auth:generate`  | Regenerate `lib/db/schema/auth.ts` from Better Auth  | No              |
+| `pnpm provision-org`     | Admin CLI: create orgs, add members (uses `.env.local`) | Yes          |
+| `pnpm change-email`      | Admin CLI: change a user's login email (uses `.env.local`) | Yes        |
+| `pnpm user-stats`        | Admin CLI: per-user activity/membership stats (uses `.env.local`) | Yes |
 | `pnpm generate:fixtures` | Regenerate scoring fixture HTML                      | No              |
+| `pnpm nationality:sync`  | Regenerate `lib/nationality/generated/` from upstream dataset | No     |
 | `pnpm deploy`            | `vercel deploy` (preview)                            | -               |
 | `pnpm deploy:prod`       | `vercel deploy --prod`                               | -               |
 
@@ -44,7 +48,11 @@ on a runner that doesn't have it.)
 | `scripts/db-up.sh`                | Idempotently bring up local Postgres in a podman container; verify port mapping is 5432  |
 | `scripts/start-test.sh`           | Build + start Next.js with `.env.test` sourced; used by Playwright's `webServer.command` |
 | `scripts/db-migrate.ts`           | Apply Drizzle migrations (called by `pnpm db:migrate`)                                   |
+| `scripts/provision-org.ts`        | Admin CLI behind `pnpm provision-org` — create orgs, seed users, manage members          |
+| `scripts/change-email.ts`         | Admin CLI behind `pnpm change-email` — reassign a user's login email                     |
+| `scripts/user-stats.ts`           | Admin CLI behind `pnpm user-stats` — per-user activity and workspace stats               |
 | `scripts/render-scoring-fixtures.ts` | Render YAML scoring fixtures to HTML for human review                                  |
+| `scripts/sync-national-letters.ts` | Refresh `lib/nationality/generated/` from the pinned upstream dataset                   |
 
 `db-up.sh` uses `podman-remote` because the canonical dev environment
 is a podman-managed dev container talking to a rootless podman daemon
