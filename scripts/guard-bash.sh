@@ -16,7 +16,16 @@ cmd=$(jq -r '.tool_input.command // empty' <<<"$input")
 
 reason=""
 
-if [[ "$cmd" =~ (^|[$'\n';\&\|\(])[[:space:]]*DATABASE_URL= ]]; then
+# Match only at the start of the command (after optional whitespace). Matching
+# after shell separators (;, &&, |, etc.) is tempting but unreliable: bash
+# commands often embed the same literal text inside quoted JSON, commit
+# messages, or grep arguments, where shell-syntactic interpretation doesn't
+# apply. Start-of-command catches every issue #113 example without false
+# positives. Chained cases like `pnpm db:up && DATABASE_URL=...` slip through;
+# they're rare, and the agent should be using a pretest:* hook anyway.
+start='^[[:space:]]*'
+
+if [[ "$cmd" =~ ${start}DATABASE_URL= ]]; then
   reason="Blocked: command uses a DATABASE_URL= env prefix (issue #113).
 
 Use a named pnpm script instead — they bake in the right URL and stay inside
@@ -32,7 +41,7 @@ Common mappings:
 
 If you genuinely need a combination that isn't covered by a named script,
 add one to package.json rather than running inline."
-elif [[ "$cmd" =~ pnpm[[:space:]]+exec[[:space:]]+(playwright|vitest|tsx)([[:space:]]|$) ]]; then
+elif [[ "$cmd" =~ ${start}pnpm[[:space:]]+exec[[:space:]]+(playwright|vitest|tsx)([[:space:]]|$) ]]; then
   reason="Blocked: 'pnpm exec ${BASH_REMATCH[1]}' wraps tooling that already has a
 named pnpm script (issue #113).
 
@@ -42,7 +51,7 @@ Use the wrapper instead:
   pnpm exec tsx scripts/...  -> the matching pnpm script in package.json
 
 See docs/local-dev-scripts.md."
-elif [[ "$cmd" =~ pnpm[[:space:]]+tsx[[:space:]]+scripts/ ]]; then
+elif [[ "$cmd" =~ ${start}pnpm[[:space:]]+tsx[[:space:]]+scripts/ ]]; then
   reason="Blocked: invoking a scripts/ file directly via 'pnpm tsx scripts/...'
 (issue #113).
 
