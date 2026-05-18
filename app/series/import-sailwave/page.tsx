@@ -55,16 +55,6 @@ const SCORING_SYSTEM_OPTIONS: { value: ScoringSystem; label: string }[] = [
   { value: 'echo', label: 'ECHO' },
 ];
 
-const WEEKDAYS: { id: number; short: string; long: string }[] = [
-  { id: 1, short: 'Mon', long: 'Monday' },
-  { id: 2, short: 'Tue', long: 'Tuesday' },
-  { id: 3, short: 'Wed', long: 'Wednesday' },
-  { id: 4, short: 'Thu', long: 'Thursday' },
-  { id: 5, short: 'Fri', long: 'Friday' },
-  { id: 6, short: 'Sat', long: 'Saturday' },
-  { id: 0, short: 'Sun', long: 'Sunday' },
-];
-
 export default function ImportSailwavePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -153,9 +143,7 @@ function Wizard({
   // Form state
   const [name, setName] = useState(preview?.name ?? '');
   const [venue, setVenue] = useState(preview?.venue ?? '');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [raceDays, setRaceDays] = useState<Set<number>>(new Set());
+  const [defaultRaceDate, setDefaultRaceDate] = useState('');
   const [primaryLabel, setPrimaryLabel] = useState<PrimaryPersonLabel>('helm');
   const [includeScratchCompanions, setIncludeScratchCompanions] = useState(true);
   const [includeResults, setIncludeResults] = useState(preview?.hasResults ?? true);
@@ -191,15 +179,6 @@ function Wizard({
     );
   }
 
-  function toggleRaceDay(day: number) {
-    setRaceDays((prev) => {
-      const next = new Set(prev);
-      if (next.has(day)) next.delete(day);
-      else next.add(day);
-      return next;
-    });
-  }
-
   function setFleetOverride(fleet: string, system: ScoringSystem) {
     setFleetOverrides((prev) => {
       const next = new Map(prev);
@@ -211,17 +190,11 @@ function Wizard({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
-    if (!startDate) {
-      setSubmitError('Start date is required.');
-      return;
-    }
 
     const opts: SailwaveImportOptions = {
       name,
       venue,
-      startDate,
-      endDate: endDate || undefined,
-      raceDays,
+      defaultRaceDate: defaultRaceDate || undefined,
       primaryLabel,
       fleetScoringOverrides: fleetOverrides,
       includeScratchCompanions,
@@ -244,9 +217,11 @@ function Wizard({
       const file = buildSeriesFileFromSailwave(raw, opts);
       const newId = await openSeriesFromFile(file, repos);
       await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
-      // Hard navigate (matching /import) to ensure server-rendered shells
-      // pick up the workspace switch.
-      window.location.assign(`/series/${newId}/races`);
+      // Hard navigate (matching /import) so server-rendered shells pick up
+      // the workspace switch. Land on Competitors — the scorer's first job
+      // after a Sailwave import is to fill in missing ratings and check the
+      // entry list, not look at races.
+      window.location.assign(`/series/${newId}/competitors`);
     } catch (err) {
       if (err instanceof SailwaveImportError) {
         setSubmitError(err.message);
@@ -337,61 +312,23 @@ function Wizard({
 
         <Card>
           <CardHeader>
-            <CardTitle>Schedule</CardTitle>
+            <CardTitle>Race dates</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="start-date">Start date *</Label>
+              <Label htmlFor="default-race-date">Default date for un-dated races</Label>
               <Input
-                id="start-date"
-                data-testid="sailwave-start-date"
+                id="default-race-date"
+                data-testid="sailwave-default-race-date"
                 type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                required
+                value={defaultRaceDate}
+                onChange={(e) => setDefaultRaceDate(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Date of the first race. Sailwave doesn&apos;t record this, so we need you to set it.
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Race days</Label>
-              <div className="flex flex-wrap gap-1">
-                {WEEKDAYS.map((d) => {
-                  const on = raceDays.has(d.id);
-                  return (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => toggleRaceDay(d.id)}
-                      data-testid={`sailwave-day-${d.short.toLowerCase()}`}
-                      aria-pressed={on}
-                      className={
-                        'px-3 py-1 text-sm rounded-md border ' +
-                        (on
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-background hover:bg-accent')
-                      }
-                    >
-                      {d.short}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Stamps each race on the next matching weekday. Leave empty to put every race on the start date — you can fix individual dates later.
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="end-date">End date</Label>
-              <Input
-                id="end-date"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Defaults to the last race date.
+                The wizard uses each race&apos;s date from Sailwave when it has one. For races where
+                Sailwave didn&apos;t store a date (or stored one without a year, like &ldquo;May 5th&rdquo;),
+                this value is used. Leave blank to default to today; you can fix any race&apos;s date in the
+                Races tab after import.
               </p>
             </div>
           </CardContent>
@@ -403,41 +340,54 @@ function Wizard({
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-2">
-              {preview.fleets.map((f) => (
-                <div key={f.name} className="flex items-center justify-between gap-3">
-                  <span className="text-sm">
-                    {f.name}
-                    {f.isBareName && (
-                      <span className="ml-2 text-xs text-muted-foreground">(no suffix; defaulting to NHC)</span>
-                    )}
-                  </span>
-                  <Select
-                    value={fleetOverrides.get(f.name) ?? f.detectedScoringSystem}
-                    onValueChange={(v) => setFleetOverride(f.name, v as ScoringSystem)}
-                  >
-                    <SelectTrigger
-                      className="w-48"
-                      data-testid={`sailwave-fleet-${slug(f.name)}`}
+              {preview.fleets.map((f) => {
+                const detected = f.detectedScoringSystem;
+                return (
+                  <div key={f.name} className="flex items-center justify-between gap-3">
+                    <span className="text-sm">
+                      {f.name}
+                      {f.isBareName && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          (auto-detected from ratings)
+                        </span>
+                      )}
+                    </span>
+                    <Select
+                      value={fleetOverrides.get(f.name) ?? detected}
+                      onValueChange={(v) => setFleetOverride(f.name, v as ScoringSystem)}
                     >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SCORING_SYSTEM_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
+                      <SelectTrigger
+                        className="w-48"
+                        data-testid={`sailwave-fleet-${slug(f.name)}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SCORING_SYSTEM_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })}
             </div>
-            <label className="flex items-center gap-2 text-sm pt-2">
+            <label className="flex items-start gap-2 text-sm pt-2">
               <input
                 type="checkbox"
                 checked={!includeScratchCompanions}
                 onChange={(e) => setIncludeScratchCompanions(!e.target.checked)}
                 data-testid="sailwave-drop-scratch"
+                className="mt-0.5"
               />
-              Drop Scratch companion fleets (Sailwave&apos;s &quot;Scr&quot;-suffix fleets)
+              <span>
+                Drop Sailwave&apos;s &ldquo;Scr&rdquo; companion fleets
+                <span className="block text-xs text-muted-foreground">
+                  Sailwave often pairs each handicap fleet (e.g. <span className="font-mono">Squib HPH</span>)
+                  with a scratch-scored copy (<span className="font-mono">Squib Scr</span>) for
+                  dual-scoring. Tick this to import only the handicap version.
+                </span>
+              </span>
             </label>
           </CardContent>
         </Card>
@@ -448,7 +398,7 @@ function Wizard({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="primary-label">Primary person label</Label>
+              <Label htmlFor="primary-label">Primary identifier</Label>
               <Select
                 value={primaryLabel}
                 onValueChange={(v) => setPrimaryLabel(v as PrimaryPersonLabel)}
@@ -462,6 +412,11 @@ function Wizard({
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Which field identifies each entry across the app — pick &ldquo;Helm&rdquo; or
+                &ldquo;Owner&rdquo; if every boat is identified by that role, or &ldquo;Competitor&rdquo;
+                for generic mixed entries.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="dnf-scoring">DNF / DNS scoring</Label>
@@ -481,14 +436,21 @@ function Wizard({
                 </SelectContent>
               </Select>
             </div>
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-start gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={!includeResults}
                 onChange={(e) => setIncludeResults(!e.target.checked)}
                 data-testid="sailwave-skip-results"
+                className="mt-0.5"
               />
-              Ignore Sailwave results, import only the schedule
+              <span>
+                Import the entry list only
+                <span className="block text-xs text-muted-foreground">
+                  Skip Sailwave&apos;s recorded finishes — useful when re-seeding a series
+                  mid-season and you intend to enter all results in Sailscoring from scratch.
+                </span>
+              </span>
             </label>
           </CardContent>
         </Card>

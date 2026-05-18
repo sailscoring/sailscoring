@@ -6,8 +6,9 @@ import {
   inspectSailwave,
   buildSeriesFileFromSailwave,
   parseStartString,
+  parseSailwaveRaceDate,
   sailwaveTimeToColon,
-  raceDates,
+  inferBareNameSystem,
   SailwaveImportError,
   type SailwaveImportOptions,
   type SailwaveRaw,
@@ -24,10 +25,10 @@ function loadFile(path: string): SailwaveRaw {
   );
 }
 
-const DEFAULT_OPTS: Omit<SailwaveImportOptions, 'startDate'> = {
+const DEFAULT_OPTS: SailwaveImportOptions = {
   name: '',
   venue: '',
-  raceDays: new Set(),
+  defaultRaceDate: '2026-05-05',
   primaryLabel: 'helm',
   fleetScoringOverrides: new Map(),
   includeScratchCompanions: true,
@@ -35,27 +36,27 @@ const DEFAULT_OPTS: Omit<SailwaveImportOptions, 'startDate'> = {
 };
 
 describe('parseSailwaveJson', () => {
-  it('parses a real Sailwave 2.38 export', () => {
+  it('parses a real Sailwave export', () => {
     const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
     expect(raw.header?.generator).toBe('sailwave');
     expect(raw.globals?.serevent).toBe('Club Racing 2026');
     expect(Object.keys(raw.competitors ?? {}).length).toBeGreaterThan(0);
   });
 
-  it('strips trailing commas and tolerates bare control chars in strings', () => {
-    const json = '{"a": "C:\\\\Users\\rfoo", "b": 1,}';
+  it('tolerates bare control chars in strings (Sailwave\'s Windows paths)', () => {
     // Embed a literal CR (0x0d) inside a string the way Sailwave does for
     // Windows paths. JSON.parse would normally reject it.
-    const withBareCr = '{"a": "C:\\\\Users\rfoo", "b": 1,}';
-    const bytes = new TextEncoder().encode(withBareCr).buffer;
-    // Force the header so parseSailwaveJson doesn't reject as non-sailwave.
-    const wrapped = `{"header":{"generator":"sailwave"},"x":${withBareCr.slice(0, -1)}}}`;
-    // Sanity: a clean call should still produce a valid object.
-    expect(() => JSON.parse(json)).toThrow();
+    const withBareCr = '{"header":{"generator":"sailwave"},"x":"C:\\\\Users\rfoo"}';
     expect(() => {
-      parseSailwaveJson(new TextEncoder().encode(wrapped).buffer);
+      parseSailwaveJson(new TextEncoder().encode(withBareCr).buffer);
     }).not.toThrow();
-    expect(bytes).toBeDefined();
+  });
+
+  it('strips trailing commas before } and ]', () => {
+    const withTrailing = '{"header":{"generator":"sailwave"},"x":[1,2,],}';
+    expect(() => {
+      parseSailwaveJson(new TextEncoder().encode(withTrailing).buffer);
+    }).not.toThrow();
   });
 
   it('rejects files that lack the sailwave header.generator', () => {
@@ -70,7 +71,7 @@ describe('inspectSailwave', () => {
     const preview = inspectSailwave(raw);
     expect(preview.name).toBe('Club Racing 2026');
     expect(preview.venue).toBe('Tuesdays - One Designs - Series 1');
-    expect(preview.raceCount).toBe(6); // includes scheduled-but-unsailed races
+    expect(preview.raceCount).toBe(6);
     expect(preview.competitorCount).toBe(29);
     expect(preview.fleets.map((f) => `${f.name}=${f.detectedScoringSystem}`).sort()).toEqual([
       'Puppeteer HPH=nhc',
@@ -82,20 +83,19 @@ describe('inspectSailwave', () => {
     expect(preview.detectedDnfScoring).toBe('startingArea');
   });
 
-  it('flags bare fleet names so the wizard can prompt for an override', () => {
+  it('auto-detects bare-name fleets: Optimist=scratch (no ratings), PY=py (integer ratings)', () => {
     const raw = loadFile(`${HYC}/2026 Dinghies Series 1.json`);
     const preview = inspectSailwave(raw);
-    // Dinghies has bare names "Optimist" and "PY" (no scoring suffix).
-    const bare = preview.fleets.filter((f) => f.isBareName).map((f) => f.name).sort();
-    expect(bare).toContain('Optimist');
-    expect(bare).toContain('PY');
+    const byName = new Map(preview.fleets.map((f) => [f.name, f]));
+    expect(byName.get('Optimist')?.detectedScoringSystem).toBe('scratch');
+    expect(byName.get('Optimist')?.isBareName).toBe(true);
+    expect(byName.get('PY')?.detectedScoringSystem).toBe('py');
+    expect(byName.get('PY')?.isBareName).toBe(true);
   });
 
   it('reads NHC example with all-suffixed fleets', () => {
     const raw = loadFile(`${REF}/nhc-example/2025 Puppeteer 22 Championships.json`);
     const preview = inspectSailwave(raw);
-    // 7 races scheduled in the source; one ends up empty after build (the
-    // build step skips empty races so the count drops to 6 there).
     expect(preview.raceCount).toBe(7);
     expect(preview.competitorCount).toBe(14);
     expect(preview.detectedDnfScoring).toBe('startingArea');
@@ -104,21 +104,20 @@ describe('inspectSailwave', () => {
 
 describe('buildSeriesFileFromSailwave: Tues Series 1', () => {
   const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
-  const file = buildSeriesFileFromSailwave(raw, {
-    ...DEFAULT_OPTS,
-    startDate: '2026-05-05',
-    raceDays: new Set([2]), // Tuesday in JS Date.getDay()
-  });
+  const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
 
-  it('produces fleets in Sailwave declaration order', () => {
-    // Python script gave 4 fleets total.
-    expect(file.fleets).toHaveLength(4);
-    expect(file.fleets.map((f) => f.scoringSystem)).toEqual(['nhc', 'scratch', 'nhc', 'scratch']);
+  it('produces fleets sorted alphabetically by name', () => {
+    expect(file.fleets.map((f) => f.name)).toEqual([
+      'Puppeteer HPH',
+      'Puppeteer Scr',
+      'Squib HPH',
+      'Squib Scr',
+    ]);
   });
 
   it('collapses primary+alias rows into one competitor per physical boat', () => {
-    // Tues file: every boat is dual-scored (HPH + Scr), so every competitor
-    // should end up with 2 fleet memberships.
+    // Every boat is dual-scored (HPH + Scr), so every competitor ends up
+    // with 2 fleet memberships.
     expect(file.competitors).toHaveLength(29);
     for (const c of file.competitors) {
       expect(c.fleetIds).toHaveLength(2);
@@ -128,27 +127,19 @@ describe('buildSeriesFileFromSailwave: Tues Series 1', () => {
   it('routes HPH ratings to nhcStartingTcf', () => {
     const rated = file.competitors.filter((c) => c.nhcStartingTcf !== undefined);
     expect(rated.length).toBe(29);
-    // Sail 15 is in the data with TCF 1.35 per the Python script's output.
     const sail15 = file.competitors.find((c) => c.sailNumber === '15');
     expect(sail15?.nhcStartingTcf).toBeCloseTo(1.35);
   });
 
-  it('skips races with no finishers (when including results)', () => {
-    // Python wrote 2 races (the other 4 had no finishers yet).
+  it('skips races where every entry is implicit DNC after the DNC drop', () => {
+    // Tues has 6 scheduled races; only 2 had any non-DNC results.
     expect(file.races).toHaveLength(2);
   });
 
   it('fans the start gun out across companion fleets sharing a base name', () => {
     const race = file.races[0];
-    // Each Sailwave start has 2 underlying fleets (HPH + Scr companion).
     for (const start of race.starts) {
       expect(start.fleetIds.length).toBeGreaterThanOrEqual(2);
-    }
-  });
-
-  it('produces 29 finishes per race', () => {
-    for (const r of file.races) {
-      expect(r.finishes).toHaveLength(29);
     }
   });
 
@@ -156,55 +147,102 @@ describe('buildSeriesFileFromSailwave: Tues Series 1', () => {
     expect(file.series.dnfScoring).toBe('startingArea');
   });
 
-  it('schedules races on the requested weekday', () => {
-    // Tuesdays starting 2026-05-05 → 2026-05-05, 2026-05-12
-    expect(file.races.map((r) => r.date)).toEqual(['2026-05-05', '2026-05-12']);
+  it('falls back to defaultRaceDate when racedate is year-less ("May 5th")', () => {
+    // Tues file's racedate is "May 5th" / "May 12th" — no year, unparseable.
+    for (const r of file.races) {
+      expect(r.date).toBe('2026-05-05');
+    }
+  });
+
+  it('enables only the competitor fields Sailwave actually populated', () => {
+    // Tues file: boat names yes; class no; club no; crew no.
+    expect(file.series.enabledCompetitorFields).toEqual(['boatName']);
   });
 });
 
 describe('buildSeriesFileFromSailwave: Wed Series 1', () => {
   const raw = loadFile(`${HYC}/2026 Wed Series 1.json`);
-  const file = buildSeriesFileFromSailwave(raw, {
-    ...DEFAULT_OPTS,
-    startDate: '2026-05-06',
-    raceDays: new Set([3]), // Wednesday
-  });
+  const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
 
-  it('produces 6 fleets across Divisions A/B/C × HPH/IRC', () => {
-    expect(file.fleets).toHaveLength(6);
-    const irc = file.fleets.filter((f) => f.scoringSystem === 'irc');
-    const nhc = file.fleets.filter((f) => f.scoringSystem === 'nhc');
-    expect(irc).toHaveLength(3);
-    expect(nhc).toHaveLength(3);
+  it('produces 6 fleets across Divisions A/B/C × HPH/IRC, alphabetised', () => {
+    expect(file.fleets.map((f) => f.name)).toEqual([
+      'Division A HPH',
+      'Division A IRC',
+      'Division B HPH',
+      'Division B IRC',
+      'Division C HPH',
+      'Division C IRC',
+    ]);
   });
 
   it('routes IRC ratings to ircTcc and HPH ratings to nhcStartingTcf', () => {
-    const withIrc = file.competitors.filter((c) => c.ircTcc !== undefined);
-    const withNhc = file.competitors.filter((c) => c.nhcStartingTcf !== undefined);
-    expect(withIrc.length).toBeGreaterThan(0);
-    expect(withNhc.length).toBeGreaterThan(0);
+    expect(file.competitors.some((c) => c.ircTcc !== undefined)).toBe(true);
+    expect(file.competitors.some((c) => c.nhcStartingTcf !== undefined)).toBe(true);
+  });
+
+  it('enables boat name, boat class, and nationality (Sailwave has all three here)', () => {
+    expect(file.series.enabledCompetitorFields).toEqual(['boatName', 'boatClass', 'nationality']);
   });
 });
 
-describe('buildSeriesFileFromSailwave: PY override', () => {
-  it('honours per-fleet scoring overrides', () => {
+describe('buildSeriesFileFromSailwave: Dinghies (auto bare-name detection)', () => {
+  const raw = loadFile(`${HYC}/2026 Dinghies Series 1.json`);
+  const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+
+  it('routes the auto-detected PY fleet ratings to pyNumber', () => {
+    const py = file.fleets.find((f) => f.name === 'PY');
+    expect(py?.scoringSystem).toBe('py');
+    const withPy = file.competitors.filter((c) => c.pyNumber !== undefined);
+    expect(withPy.length).toBeGreaterThan(0);
+  });
+
+  it('auto-detects the un-rated Optimist fleet as scratch', () => {
+    const optimist = file.fleets.find((f) => f.name === 'Optimist');
+    expect(optimist?.scoringSystem).toBe('scratch');
+  });
+
+  it('uses Sailwave\'s parseable racedate ("07-05-26" with serdatespec d-m-y → 2026-05-07)', () => {
+    // The first race in this file has racedate "07-05-26" — DD-MM-YY.
+    // It should resolve to 2026-05-07, not the default.
+    const race = file.races.find((r) => r.date === '2026-05-07');
+    expect(race).toBeDefined();
+  });
+
+  it('populates crewName from compcrewname when present', () => {
+    const withCrew = file.competitors.filter((c) => c.crewName);
+    expect(withCrew.length).toBeGreaterThan(0);
+  });
+
+  it('enables crewName in the series field list (Sailwave has crew data here)', () => {
+    expect(file.series.enabledCompetitorFields).toContain('crewName');
+  });
+});
+
+describe('buildSeriesFileFromSailwave: per-fleet override still wins over auto-detect', () => {
+  it('honours explicit overrides', () => {
     const raw = loadFile(`${HYC}/2026 Dinghies Series 1.json`);
     const file = buildSeriesFileFromSailwave(raw, {
       ...DEFAULT_OPTS,
-      startDate: '2026-05-07',
-      raceDays: new Set([4]), // Thursday
       fleetScoringOverrides: new Map([
-        ['Optimist', 'scratch'],
-        ['PY', 'py'],
+        ['PY', 'nhc'],
+        ['Optimist', 'nhc'],
       ]),
     });
-    expect(file.fleets.map((f) => `${f.name}=${f.scoringSystem}`).sort()).toEqual([
-      'Optimist=scratch',
-      'PY=py',
-    ]);
-    // PY ratings should land in pyNumber.
-    const withPy = file.competitors.filter((c) => c.pyNumber !== undefined);
-    expect(withPy.length).toBeGreaterThan(0);
+    expect(file.fleets.every((f) => f.scoringSystem === 'nhc')).toBe(true);
+  });
+});
+
+describe('buildSeriesFileFromSailwave: implicit DNC', () => {
+  it('drops explicit DNC rows from race finishes', () => {
+    // The NHC example has explicit DNC rows in its results table; after
+    // dropping them, only the other coded results (DNF, OCS) and clean
+    // finishes should remain.
+    const raw = loadFile(`${REF}/nhc-example/2025 Puppeteer 22 Championships.json`);
+    const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+    const allFinishes = file.races.flatMap((r) => r.finishes);
+    expect(allFinishes.some((f) => f.resultCode === 'DNC')).toBe(false);
+    // DNF and OCS rows from the source should survive.
+    expect(allFinishes.some((f) => f.resultCode === 'DNF')).toBe(true);
   });
 });
 
@@ -213,8 +251,6 @@ describe('buildSeriesFileFromSailwave: includeScratchCompanions=false', () => {
     const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
     const file = buildSeriesFileFromSailwave(raw, {
       ...DEFAULT_OPTS,
-      startDate: '2026-05-05',
-      raceDays: new Set([2]),
       includeScratchCompanions: false,
     });
     expect(file.fleets.every((f) => f.scoringSystem !== 'scratch')).toBe(true);
@@ -230,11 +266,9 @@ describe('buildSeriesFileFromSailwave: includeResults=false', () => {
     const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
     const file = buildSeriesFileFromSailwave(raw, {
       ...DEFAULT_OPTS,
-      startDate: '2026-05-05',
-      raceDays: new Set([2]),
       includeResults: false,
     });
-    expect(file.races.length).toBe(6); // all 6 scheduled races
+    expect(file.races.length).toBe(6);
     for (const r of file.races) {
       expect(r.finishes).toHaveLength(0);
     }
@@ -244,22 +278,22 @@ describe('buildSeriesFileFromSailwave: includeResults=false', () => {
 describe('buildSeriesFileFromSailwave: errors', () => {
   it('throws on unknown rcod values in the source file', () => {
     const raw = loadFile(`${REF}/py-example/2026 Dinghy F'Bite Spring.json`);
-    expect(() =>
-      buildSeriesFileFromSailwave(raw, {
-        ...DEFAULT_OPTS,
-        startDate: '2026-05-05',
-      }),
-    ).toThrow(/Unknown Sailwave result code/);
+    expect(() => buildSeriesFileFromSailwave(raw, DEFAULT_OPTS)).toThrow(/Unknown Sailwave result code/);
   });
+});
 
-  it('rejects malformed start date', () => {
+describe('buildSeriesFileFromSailwave: default date fallback', () => {
+  it('uses today\'s date when defaultRaceDate is omitted and Sailwave has no parseable date', () => {
     const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
-    expect(() =>
-      buildSeriesFileFromSailwave(raw, {
-        ...DEFAULT_OPTS,
-        startDate: 'not-a-date',
-      }),
-    ).toThrow(SailwaveImportError);
+    const file = buildSeriesFileFromSailwave(raw, {
+      ...DEFAULT_OPTS,
+      defaultRaceDate: undefined,
+    });
+    const today = new Date();
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    for (const r of file.races) {
+      expect(r.date).toBe(todayIso);
+    }
   });
 });
 
@@ -291,27 +325,45 @@ describe('parseStartString', () => {
   });
 });
 
-describe('raceDates', () => {
-  // Use local-time formatting (not toISOString, which is UTC and shifts the
-  // date in non-UTC timezones).
-  function fmt(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
-  it('returns startDate repeated when weekdays is empty', () => {
-    const out = raceDates(new Date(2026, 4, 5), 3, new Set());
-    expect(out.map(fmt)).toEqual(['2026-05-05', '2026-05-05', '2026-05-05']);
+describe('parseSailwaveRaceDate', () => {
+  it('parses DD-MM-YY with d-m-y datespec', () => {
+    expect(parseSailwaveRaceDate('07-05-26', 'd-m-y')).toBe('2026-05-07');
   });
-  it('walks forward to matching weekdays', () => {
-    // 2026-05-05 is a Tuesday (getDay() === 2).
-    const out = raceDates(new Date(2026, 4, 5), 3, new Set([2]));
-    expect(out.map(fmt)).toEqual(['2026-05-05', '2026-05-12', '2026-05-19']);
+  it('parses DD-MM-YYYY with d-m-y datespec', () => {
+    expect(parseSailwaveRaceDate('07-05-2026', 'd-m-y')).toBe('2026-05-07');
   });
-  it('alternates across multiple weekdays', () => {
-    // Tuesday + Saturday cadence starting on a Tuesday.
-    const out = raceDates(new Date(2026, 4, 5), 4, new Set([2, 6]));
-    expect(out.map(fmt)).toEqual(['2026-05-05', '2026-05-09', '2026-05-12', '2026-05-16']);
+  it('parses YYYY-MM-DD with y-m-d datespec', () => {
+    expect(parseSailwaveRaceDate('2026-05-07', 'y-m-d')).toBe('2026-05-07');
+  });
+  it('parses MM/DD/YY with m-d-y datespec', () => {
+    expect(parseSailwaveRaceDate('05/07/26', 'm-d-y')).toBe('2026-05-07');
+  });
+  it('falls back to a sensible guess when no datespec is given', () => {
+    expect(parseSailwaveRaceDate('2026-05-07', undefined)).toBe('2026-05-07');
+    expect(parseSailwaveRaceDate('07-05-26', undefined)).toBe('2026-05-07');
+  });
+  it('returns null for year-less variants like "May 5th" or "Aug 16"', () => {
+    expect(parseSailwaveRaceDate('May 5th', 'd-m-y')).toBeNull();
+    expect(parseSailwaveRaceDate('Aug 16', 'd-m-y')).toBeNull();
+  });
+  it('returns null for blank or empty input', () => {
+    expect(parseSailwaveRaceDate('', 'd-m-y')).toBeNull();
+    expect(parseSailwaveRaceDate(undefined, 'd-m-y')).toBeNull();
+  });
+});
+
+describe('inferBareNameSystem', () => {
+  it('returns scratch when no ratings are present', () => {
+    expect(inferBareNameSystem([])).toBe('scratch');
+    expect(inferBareNameSystem([null, null])).toBe('scratch');
+  });
+  it('returns py when all ratings are integers in the PY range', () => {
+    expect(inferBareNameSystem([1156, 1103, 1218])).toBe('py');
+  });
+  it('returns nhc for decimal rating multipliers near 1.0', () => {
+    expect(inferBareNameSystem([1.35, 1.33, 1.35])).toBe('nhc');
+  });
+  it('returns nhc when ratings are a mix of decimals and integers', () => {
+    expect(inferBareNameSystem([1156, 1.35])).toBe('nhc');
   });
 });

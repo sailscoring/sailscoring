@@ -7,9 +7,6 @@ import { signedInTest as test, expect } from './fixtures';
  * E2E for the Import Series → Sailwave export flow.
  *
  * Uses a real reference file from `reference/data/2026-hyc-club-racing/`.
- * That file ships with the repo and is the same one the Python reference
- * script in `reference/data/2026-hyc-club-racing/sailwave-to-sailscoring.py`
- * has been run against.
  */
 
 const SAILWAVE_FIXTURE = join(
@@ -17,7 +14,7 @@ const SAILWAVE_FIXTURE = join(
   'reference/data/2026-hyc-club-racing/2026 Tues Series 1.json',
 );
 
-test('import series: Sailwave .json → wizard → new series with detected fleets and competitors', async ({ page }) => {
+test('import series: Sailwave .json → wizard → new series, lands on Competitors', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Series' })).toBeVisible();
 
@@ -41,17 +38,15 @@ test('import series: Sailwave .json → wizard → new series with detected flee
   await expect(page.getByText('29 competitors')).toBeVisible();
   await expect(page.getByText('4 fleets')).toBeVisible();
 
-  // Set the required start date and Tuesday cadence.
-  await page.getByTestId('sailwave-start-date').fill('2026-05-05');
-  await page.getByTestId('sailwave-day-tue').click();
-
-  // Submit. Lands on the new series's races page.
+  // Submit straight away — start date is no longer required; the wizard
+  // uses Sailwave's per-race dates and falls back to today for un-dated ones.
   await page.getByTestId('sailwave-import-submit').click();
-  await expect(page).toHaveURL(/\/series\/[^/]+\/races$/, { timeout: 15_000 });
 
-  // Confirm at least one race row from the imported schedule renders.
-  // The Tuesday cadence puts the first race on 2026-05-05.
-  await expect(page.getByText('2026-05-05').first()).toBeVisible();
+  // Lands on the Competitors tab.
+  await expect(page).toHaveURL(/\/series\/[^/]+\/competitors$/, { timeout: 15_000 });
+
+  // Confirm at least one imported competitor row renders.
+  await expect(page.getByText('Alan Pearson').first()).toBeVisible();
 });
 
 test('import series: re-importing the same Sailwave file disambiguates the name', async ({ page }) => {
@@ -65,11 +60,10 @@ test('import series: re-importing the same Sailwave file disambiguates the name'
     mimeType: 'application/json',
     buffer: readFileSync(SAILWAVE_FIXTURE),
   });
-  await page.getByTestId('sailwave-start-date').fill('2026-05-05');
   await page.getByTestId('sailwave-import-submit').click();
-  await expect(page).toHaveURL(/\/series\/[^/]+\/races$/, { timeout: 15_000 });
+  await expect(page).toHaveURL(/\/series\/[^/]+\/competitors$/, { timeout: 15_000 });
 
-  // Second import — same file
+  // Second import — same file, with a distinct name we can assert against.
   await page.goto('/');
   await page.getByRole('button', { name: 'Import Series' }).click();
   chooser = page.waitForEvent('filechooser');
@@ -79,11 +73,9 @@ test('import series: re-importing the same Sailwave file disambiguates the name'
     mimeType: 'application/json',
     buffer: readFileSync(SAILWAVE_FIXTURE),
   });
-  await page.getByTestId('sailwave-start-date').fill('2026-05-05');
-  // Use a distinct name so we can assert the disambiguated form below.
   await page.getByTestId('sailwave-name').fill('Club Racing 2026');
   await page.getByTestId('sailwave-import-submit').click();
-  await expect(page).toHaveURL(/\/series\/[^/]+\/races$/, { timeout: 15_000 });
+  await expect(page).toHaveURL(/\/series\/[^/]+\/competitors$/, { timeout: 15_000 });
 
   // Back on the home list, two series should appear — one with " (2)" suffix.
   await page.goto('/');

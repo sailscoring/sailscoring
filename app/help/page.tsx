@@ -754,9 +754,9 @@ export default function HelpPage() {
           To bring a season&apos;s seedings across from Sailwave, choose{' '}
           <strong className="text-foreground">Sailwave export</strong> from the same dialog and
           pick the <code className="text-foreground text-sm">.json</code> file exported from
-          Sailwave 2.38. The wizard asks for the series start date and a weekly race cadence, then
-          creates the series with fleets, competitors, ratings, and any results Sailwave already
-          had.
+          Sailwave. The wizard previews the fleets, competitors, and races, then creates the series
+          with ratings and any results Sailwave already had — fill in the per-fleet scoring system
+          if it auto-detects wrongly, and adjust any race dates Sailwave didn&apos;t carry across.
         </p>
         <p>
           To bring a series someone else is scoring into your workspace, open the{' '}

@@ -33,6 +33,7 @@ export interface SailwaveCompetitorRaw {
   compsailno?: string;
   compaltsailno?: string;
   comphelmname?: string;
+  compcrewname?: string;
   compclub?: string;
   compnat?: string;
   compfleet?: string;
@@ -48,6 +49,11 @@ export interface SailwaveCompetitorRaw {
 
 export interface SailwaveRaceRaw {
   racerank?: string;
+  /** Sailwave date string. Formats seen in HYC files: `DD-MM-YY`, `DD-MM-YYYY`,
+   *  `YYYY-MM-DD`, or human-readable variants like "May 5th" / "Aug 16" (no
+   *  year). The parser handles the with-year forms; year-less variants fall
+   *  back to the wizard's optional default. */
+  racedate?: string;
   starts?: Record<string, string>;
 }
 
@@ -254,12 +260,17 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
     if (name && !fleetNames.includes(name)) fleetNames.push(name);
   }
 
+  const ratingsByFleet = collectRatingsByFleet(comps);
   const fleets: SailwavePreviewFleet[] = fleetNames.map((name) => {
-    const detected = detectScoringSystemForFleet(name);
+    const suffixDetected = detectScoringSystemForFleet(name);
+    if (suffixDetected !== null) {
+      return { name, detectedScoringSystem: suffixDetected, isBareName: false };
+    }
+    // Bare name (no scoring suffix): look at the fleet's rating distribution.
     return {
       name,
-      detectedScoringSystem: detected ?? 'nhc',
-      isBareName: detected === null,
+      detectedScoringSystem: inferBareNameSystem(ratingsByFleet.get(name) ?? []),
+      isBareName: true,
     };
   });
 
@@ -279,6 +290,39 @@ function detectScoringSystemForFleet(name: string): ScoringSystem | null {
     if (name.endsWith(suffix)) return system;
   }
   return null;
+}
+
+/** Collect the parsed `comprating` of every non-excluded competitor per fleet
+ *  (including alias rows — they each carry their own rating for their own
+ *  fleet, which is what we want for inference). */
+function collectRatingsByFleet(
+  comps: Record<string, SailwaveCompetitorRaw>,
+): Map<string, (number | null)[]> {
+  const out = new Map<string, (number | null)[]>();
+  for (const c of Object.values(comps)) {
+    if (c.compexclude === '1') continue;
+    const name = c.compfleet;
+    if (!name) continue;
+    const list = out.get(name) ?? [];
+    list.push(parseRating(c.comprating));
+    out.set(name, list);
+  }
+  return out;
+}
+
+/** Choose a scoring system for a fleet whose Sailwave name has no recognised
+ *  suffix, based on the shape of its ratings:
+ *    - no ratings at all → scratch (Sailwave's bare-Scratch fleets and
+ *      one-design dinghies without handicaps both look like this)
+ *    - every rating is an integer ≥ 100 → py (Portsmouth Yardstick numbers
+ *      are 600–1500ish; the wider 100+ band tolerates legacy values)
+ *    - otherwise → nhc (decimal multipliers around 1.0)
+ *  The scorer can always override per-fleet in the wizard. */
+export function inferBareNameSystem(ratings: ReadonlyArray<number | null>): ScoringSystem {
+  const nonNull = ratings.filter((r): r is number => r !== null);
+  if (nonNull.length === 0) return 'scratch';
+  if (nonNull.every((r) => Number.isInteger(r) && r >= 100)) return 'py';
+  return 'nhc';
 }
 
 function fleetBaseName(name: string): string {
@@ -362,22 +406,54 @@ function assertDnfScoringConsistent(
 
 // ---- Race dates ----
 
-/** Walk forward from `start` and stop at each matching weekday until `count`
- *  dates are produced. Empty `weekdays` ⇒ every race uses `start`.
- *  `weekdays` uses JS Date.getDay() ordering: 0 = Sunday, 1 = Monday, ..., 6 = Saturday. */
-export function raceDates(start: Date, count: number, weekdays: ReadonlySet<number>): Date[] {
-  if (weekdays.size === 0) {
-    return Array.from({ length: count }, () => new Date(start));
+/** Parse a Sailwave `racedate` string into ISO `YYYY-MM-DD`, given the
+ *  series-level `serdatespec` hint (e.g. `"d-m-y"`, `"m-d-y"`, `"y-m-d"`).
+ *  Returns null for blank or unparseable values — the wizard falls back to
+ *  its optional default date in that case.
+ *
+ *  Supported separators: `-` `/` `.` `<space>`. Two-digit years are pinned to
+ *  the 21st century (`26` → `2026`). Year-less variants like "May 5th" or
+ *  "Aug 16" can't be reliably resolved without a year hint, so they parse
+ *  as null. */
+export function parseSailwaveRaceDate(
+  racedate: string | undefined,
+  datespec: string | undefined,
+): string | null {
+  if (!racedate) return null;
+  const trimmed = racedate.trim();
+  if (!trimmed) return null;
+
+  const parts = trimmed.split(/[-/.\s]+/).filter(Boolean);
+  if (parts.length !== 3) return null;
+  if (!parts.every((p) => /^\d+$/.test(p))) return null;
+
+  const [a, b, c] = parts.map((p) => Number.parseInt(p, 10));
+  const order = parseDateOrder(datespec);
+
+  let d: number; let m: number; let y: number;
+  if (order === 'dmy') { d = a; m = b; y = c; }
+  else if (order === 'mdy') { m = a; d = b; y = c; }
+  else if (order === 'ymd') { y = a; m = b; d = c; }
+  else {
+    // No hint — fall back to the most likely ordering by inspecting magnitudes.
+    if (a > 31) { y = a; m = b; d = c; }       // YYYY-MM-DD or YY-MM-DD
+    else if (c >= 100) { d = a; m = b; y = c; } // DD-MM-YYYY
+    else { d = a; m = b; y = c; }              // DD-MM-YY (Sailwave/UK default)
   }
-  const out: Date[] = [];
-  const cursor = new Date(start);
-  while (out.length < count) {
-    if (weekdays.has(cursor.getDay())) {
-      out.push(new Date(cursor));
-    }
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return out;
+
+  if (y < 100) y += 2000;
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+function parseDateOrder(datespec: string | undefined): 'dmy' | 'mdy' | 'ymd' | null {
+  if (!datespec) return null;
+  const s = datespec.toLowerCase().replace(/[^dmy]/g, '');
+  // First letter wins: "d-m-y" → 'dmy', "dd-mm-yyyy" → 'dmy', "m/d/y" → 'mdy'.
+  if (s.startsWith('d')) return 'dmy';
+  if (s.startsWith('y')) return 'ymd';
+  if (s.startsWith('m')) return 'mdy';
+  return null;
 }
 
 function isoDate(d: Date): string {
@@ -385,6 +461,10 @@ function isoDate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+function todayIso(): string {
+  return isoDate(new Date());
 }
 
 // ---- Time normalisation ----
@@ -424,9 +504,15 @@ export function parseStartString(s: string): { fleetName: string; startTime: str
 export interface SailwaveImportOptions {
   name: string;
   venue: string;
-  startDate: string;          // YYYY-MM-DD
-  endDate?: string;           // YYYY-MM-DD; auto = last race date when omitted
-  raceDays: ReadonlySet<number>; // JS getDay() ordering (0=Sun..6=Sat)
+  /** Optional default race date used as the fallback for races where
+   *  Sailwave's `racedate` is missing or unparseable (no year). When omitted,
+   *  today's date is used. The scorer can always fix individual race dates
+   *  in the Races tab after import. */
+  defaultRaceDate?: string;   // YYYY-MM-DD
+  /** Optional series start date. Defaults to the earliest resolved race date. */
+  startDate?: string;
+  /** Optional series end date. Defaults to the latest resolved race date. */
+  endDate?: string;
   primaryLabel: PrimaryPersonLabel;
   fleetScoringOverrides: ReadonlyMap<string, ScoringSystem>;
   includeScratchCompanions: boolean;
@@ -453,6 +539,7 @@ interface CompetitorBuild {
   boatName?: string;
   boatClass?: string;
   name: string;
+  crewName?: string;
   club: string;
   nationality?: string;
   gender: '';
@@ -495,6 +582,8 @@ export function buildSeriesFileFromSailwave(
   const rawComps = raw.competitors ?? {};
   const rawRaces = raw.races ?? {};
   const rawResults = raw.results ?? {};
+  const datespec = globals.serdatespec;
+  const defaultDate = opts.defaultRaceDate?.trim() || todayIso();
 
   // Resolve DNF scoring early so we can fail fast on mixed configs.
   const dnfScoring = resolveDnfScoring(raw, opts);
@@ -508,13 +597,12 @@ export function buildSeriesFileFromSailwave(
   );
 
   const sortedRaces = sortedRaceHandles(rawRaces);
-  const dates = raceDates(parseIsoDate(opts.startDate), sortedRaces.length, opts.raceDays);
   const resultsByRace = groupResultsByRace(rawResults, opts.includeResults);
 
   const races: RaceBuild[] = [];
   for (let i = 0; i < sortedRaces.length; i++) {
     const [handle, race] = sortedRaces[i];
-    const raceDate = dates[i] ?? dates[dates.length - 1] ?? parseIsoDate(opts.startDate);
+    const resolvedDate = parseSailwaveRaceDate(race.racedate, datespec) ?? defaultDate;
     const starts = buildRaceStarts(race.starts ?? {}, fleetIdByName, baseToFleetIds);
     const finishes = opts.includeResults
       ? buildRaceFinishes(resultsByRace[handle] ?? [], compIdByHandle)
@@ -527,7 +615,7 @@ export function buildSeriesFileFromSailwave(
     races.push({
       id: cryptoUuid(),
       raceNumber: parseRaceNumber(race.racerank, i + 1),
-      date: isoDate(raceDate),
+      date: resolvedDate,
       starts,
       finishes,
     });
@@ -535,13 +623,14 @@ export function buildSeriesFileFromSailwave(
 
   const seriesId = cryptoUuid();
   const snapshotId = cryptoUuid();
-  const endDateIso = opts.endDate ?? (races.length > 0
-    ? races[races.length - 1].date
-    : opts.startDate);
+  const sortedRaceDates = races.map((r) => r.date).filter(Boolean).sort();
+  const startDateIso = (opts.startDate?.trim() || sortedRaceDates[0] || defaultDate);
+  const endDateIso = (opts.endDate?.trim() || sortedRaceDates[sortedRaceDates.length - 1] || startDateIso);
 
-  // Mirror buildSeriesFile's omit-when-empty / omit-when-default conventions.
-  const anyHasNationality = competitors.some((c) => c.nationality);
-  const enabledFields = buildEnabledFields(opts.primaryLabel, { hasNationality: anyHasNationality });
+  // Default the optional competitor fields to those Sailwave actually has data
+  // for in this file — leaving "Class", "Helm", and "Club" enabled on a file
+  // that never populates them just gives the scorer empty columns to clean up.
+  const enabledFields = buildEnabledFields(opts.primaryLabel, dataFlagsFor(competitors));
 
   const file: SeriesFile = {
     formatVersion: FORMAT_VERSION,
@@ -553,7 +642,7 @@ export function buildSeriesFileFromSailwave(
       id: seriesId,
       name: opts.name.trim() || (globals.serevent ?? '').trim() || 'Sailwave import',
       venue: opts.venue.trim(),
-      startDate: opts.startDate,
+      startDate: startDateIso,
       endDate: endDateIso,
       venueLogoUrl: '',
       eventLogoUrl: '',
@@ -580,6 +669,7 @@ export function buildSeriesFileFromSailwave(
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       name: c.name,
+      ...(c.crewName ? { crewName: c.crewName } : {}),
       club: c.club,
       ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
@@ -648,10 +738,17 @@ function buildFleets(
   const fleetSystemByName = new Map<string, ScoringSystem>();
   const baseToFleetIds = new Map<string, string[]>();
 
-  for (const name of seen) {
-    const system = overrides.get(name)
+  const ratingsByFleet = collectRatingsByFleet(comps);
+  // Sort alphabetically so the produced fleet list reads naturally in the UI;
+  // Sailwave's iteration order follows competitor entry, which surfaces
+  // arbitrary orderings like "Class C, Class B, Class A".
+  const ordered = [...seen].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+  for (const name of ordered) {
+    const override = overrides.get(name);
+    const system = override
       ?? detectScoringSystemForFleet(name)
-      ?? 'nhc';
+      ?? inferBareNameSystem(ratingsByFleet.get(name) ?? []);
     if (!VALID_SCORING_SYSTEMS.has(system)) {
       throw new SailwaveImportError(
         `Unknown scoring system "${system}" for fleet "${name}"; ` +
@@ -741,6 +838,7 @@ function buildCompetitors(
     };
     if (v.compboat?.trim()) built.boatName = v.compboat.trim();
     if (v.compclass?.trim()) built.boatClass = v.compclass.trim();
+    if (v.compcrewname?.trim()) built.crewName = v.compcrewname.trim();
     // Nationality: uppercase, fold Sailwave aliases (BVI → IVB), keep only
     // well-formed 3-letter values. Unknown but well-formed codes pass
     // through so future dataset bumps surface naturally.
@@ -853,11 +951,18 @@ function buildRaceFinishes(
   });
 
   for (const { compId, raw } of coded) {
+    const code = mapSailwaveCode(raw.rcod);
+    // Treat DNC as implicit — Sailwave eagerly stamps every non-entered race
+    // as an explicit DNC row, which on import would clutter Sailscoring's
+    // race standings table with placeholder entries. Sailscoring's scoring
+    // engine auto-DNCs competitors that don't appear in a race's finish
+    // sheet, so dropping the row preserves the score and tidies the UI.
+    if (code === 'DNC') continue;
     out.push({
       id: cryptoUuid(),
       competitorId: compId,
       sortOrder: null,
-      resultCode: mapSailwaveCode(raw.rcod),
+      resultCode: code,
       startPresent: null,
       penaltyCode: null,
       penaltyOverride: null,
@@ -898,30 +1003,51 @@ function groupResultsByRace(
   return out;
 }
 
-function buildEnabledFields(
-  primary: PrimaryPersonLabel,
-  flags: { hasNationality: boolean } = { hasNationality: false },
-): SeriesFile['series']['enabledCompetitorFields'] {
-  // Sailwave files almost always carry boat name, class, and club. Include
-  // helm as a role field only when the primary slot isn't already 'helm' or
-  // 'owner' — otherwise it would duplicate the primary.
-  const fields: SeriesFile['series']['enabledCompetitorFields'] = ['boatName', 'boatClass', 'club'];
-  if (primary !== 'helm' && primary !== 'owner') {
-    fields.splice(2, 0, 'helm');
-  }
-  if (flags.hasNationality) fields.push('nationality');
-  // Use the project default if the caller has nothing to override.
-  return fields.length > 0 ? fields : defaultEnabledCompetitorFields();
+/** Per-field "did Sailwave actually give us a value for this anywhere"
+ *  flags, derived from the built competitor list. The wizard uses these to
+ *  default the series's `enabledCompetitorFields` to only the fields scorers
+ *  will see populated — leaving Helm/Class/Club enabled on a file that never
+ *  fills them in just gives blank columns to clean up. */
+interface CompetitorDataFlags {
+  hasBoatName: boolean;
+  hasBoatClass: boolean;
+  hasHelm: boolean;
+  hasCrewName: boolean;
+  hasClub: boolean;
+  hasNationality: boolean;
 }
 
-function parseIsoDate(s: string): Date {
-  // Treat as a local-time midnight so getDay() matches the user's calendar
-  // weekday (matching the Python script's date.fromisoformat behaviour).
-  const [y, m, d] = s.split('-').map((x) => Number.parseInt(x, 10));
-  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
-    throw new SailwaveImportError(`Invalid start date "${s}"; expected YYYY-MM-DD.`);
-  }
-  return new Date(y, m - 1, d);
+function dataFlagsFor(competitors: ReadonlyArray<CompetitorBuild>): CompetitorDataFlags {
+  return {
+    hasBoatName: competitors.some((c) => !!c.boatName),
+    hasBoatClass: competitors.some((c) => !!c.boatClass),
+    // Helm is stored on `name` (the primary identifier slot); only flag it
+    // if at least one competitor actually has a name string.
+    hasHelm: competitors.some((c) => !!c.name),
+    hasCrewName: competitors.some((c) => !!c.crewName),
+    hasClub: competitors.some((c) => !!c.club),
+    hasNationality: competitors.some((c) => !!c.nationality),
+  };
+}
+
+function buildEnabledFields(
+  primary: PrimaryPersonLabel,
+  flags: CompetitorDataFlags,
+): SeriesFile['series']['enabledCompetitorFields'] {
+  // Only enable fields Sailwave populated for at least one competitor — empty
+  // columns are a poor first impression after import. Honour the primary
+  // label: 'helm'/'owner' as the primary slot means the matching role field
+  // would duplicate the primary, so it stays disabled.
+  const fields: SeriesFile['series']['enabledCompetitorFields'] = [];
+  if (flags.hasBoatName) fields.push('boatName');
+  if (flags.hasBoatClass) fields.push('boatClass');
+  if (flags.hasHelm && primary !== 'helm' && primary !== 'owner') fields.push('helm');
+  if (flags.hasCrewName) fields.push('crewName');
+  if (flags.hasClub) fields.push('club');
+  if (flags.hasNationality) fields.push('nationality');
+  // Fall back to project defaults only if Sailwave gave us nothing — keeps
+  // newly-imported series consistent with manually-created ones.
+  return fields.length > 0 ? fields : defaultEnabledCompetitorFields();
 }
 
 function cryptoUuid(): string {

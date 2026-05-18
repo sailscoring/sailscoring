@@ -325,7 +325,7 @@ export default function HomePage() {
               onClick={() => handleFormatChosen('sailwave')}
             >
               <div className="font-medium">Sailwave export</div>
-              <div className="text-sm text-muted-foreground">A <span className="font-mono">.json</span> file exported from Sailwave 2.38.</div>
+              <div className="text-sm text-muted-foreground">A <span className="font-mono">.json</span> file exported from Sailwave.</div>
             </button>
           </div>
           <DialogFooter>
