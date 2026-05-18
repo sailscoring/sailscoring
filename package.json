@@ -34,7 +34,8 @@
     "deploy": "vercel deploy",
     "deploy:prod": "vercel deploy --prod",
     "generate:fixtures": "tsx scripts/render-scoring-fixtures.ts",
-    "nationality:sync": "tsx scripts/sync-national-letters.ts"
+    "nationality:sync": "tsx scripts/sync-national-letters.ts",
+    "hyc-ftp-paths": "tsx --env-file-if-exists=.env.tmp scripts/hyc-ftp-paths.ts"
   },
   "dependencies": {
     "@tanstack/query-sync-storage-persister": "^5.100.9",
