@@ -12,6 +12,7 @@
  * path, ID remap, and name-disambiguation rule applies unchanged.
  */
 import type {
+  DiscardThreshold,
   Fleet,
   PrimaryPersonLabel,
   ResultCode,
@@ -72,6 +73,16 @@ export interface SailwaveResultRaw {
 
 export interface SailwaveScoringSystemRaw {
   'scoring-codes'?: Record<string, { method?: string; value?: string }>;
+  /** CSV of cumulative discard counts indexed by races-sailed − 1, e.g.
+   *  `"0,0,0,1,1,1,1,2,..."`. Lives on the root scoring system that
+   *  `globals.serscoringhandle` points at; per-fleet child systems set
+   *  `scrfollowdiscards: "1"` and inherit it. */
+  scrdiscardlist?: string;
+  /** Parent scoring-system handle, or `"0"` for the root system. */
+  scrparent?: string;
+  /** `"1"` when a child system inherits the parent's discard profile. */
+  scrfollowdiscards?: string;
+  scrname?: string;
 }
 
 export interface SailwaveRaw {
@@ -242,6 +253,10 @@ export interface SailwavePreview {
   raceCount: number;
   fleets: SailwavePreviewFleet[];
   detectedDnfScoring: 'seriesEntries' | 'startingArea' | null;
+  /** Discard profile detected from Sailwave's root scoring system. Empty when
+   *  Sailwave defines no discards (or its config is missing). Shown as a
+   *  detected default the scorer can override in Settings after import. */
+  detectedDiscardThresholds: DiscardThreshold[];
   hasResults: boolean;
 }
 
@@ -281,6 +296,7 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
     raceCount: Object.keys(races).length,
     fleets,
     detectedDnfScoring: detectDnfScoring(raw),
+    detectedDiscardThresholds: parseDiscardThresholds(raw),
     hasResults: Object.keys(results).length > 0,
   };
 }
@@ -402,6 +418,50 @@ function assertDnfScoringConsistent(
       );
     }
   }
+}
+
+// ---- Discard profile detection ----
+
+/** Detect the series-wide discard profile from Sailwave's root scoring system.
+ *
+ *  `globals.serscoringhandle` points at the root system (`scrparent: "0"`),
+ *  whose `scrdiscardlist` is a CSV indexed by races-sailed − 1: the value is
+ *  the number of discards once that many races have been sailed. Per-fleet
+ *  child systems carry `scrfollowdiscards: "1"` and inherit the root, so the
+ *  root list is complete — and our `discardThresholds` is series-wide anyway,
+ *  so per-fleet variation isn't representable.
+ *
+ *  Run-length compress the list into `DiscardThreshold[]` — emit a threshold at
+ *  each step-up, matching how `getDiscardCount` picks the highest
+ *  `minRaces ≤ raceCount`. Returns `[]` when the list is absent or all-zero. */
+export function parseDiscardThresholds(raw: SailwaveRaw): DiscardThreshold[] {
+  const globals = raw.globals ?? {};
+  const handle = globals.serscoringhandle;
+  const systems = raw['scoring-systems'] ?? {};
+  if (!handle || !(handle in systems)) return [];
+  const list = systems[handle]?.scrdiscardlist;
+  if (!list) return [];
+
+  const counts: number[] = [];
+  for (const token of list.split(',')) {
+    const trimmed = token.trim();
+    if (trimmed === '') continue;
+    const n = Number.parseInt(trimmed, 10);
+    // Malformed list — fall back to no discards; the scorer sets them in
+    // Settings. Position is significant, so we can't skip a bad token.
+    if (!Number.isFinite(n)) return [];
+    counts.push(n);
+  }
+
+  const thresholds: DiscardThreshold[] = [];
+  let prev = 0;
+  counts.forEach((v, i) => {
+    if (v !== prev) {
+      thresholds.push({ minRaces: i + 1, discardCount: v });
+      prev = v;
+    }
+  });
+  return thresholds;
 }
 
 // ---- Race dates ----
@@ -656,7 +716,7 @@ export function buildSeriesFileFromSailwave(
       endDate: endDateIso,
       venueLogoUrl: '',
       eventLogoUrl: '',
-      discardThresholds: [],
+      discardThresholds: parseDiscardThresholds(raw),
       dnfScoring,
       ftpHost: '',
       ftpPath: '',

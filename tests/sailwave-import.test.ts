@@ -7,6 +7,7 @@ import {
   buildSeriesFileFromSailwave,
   parseStartString,
   parseSailwaveRaceDate,
+  parseDiscardThresholds,
   sailwaveTimeToColon,
   inferBareNameSystem,
   SailwaveImportError,
@@ -81,6 +82,10 @@ describe('inspectSailwave', () => {
     ]);
     expect(preview.hasResults).toBe(true);
     expect(preview.detectedDnfScoring).toBe('startingArea');
+    expect(preview.detectedDiscardThresholds).toEqual([
+      { minRaces: 4, discardCount: 1 },
+      { minRaces: 9, discardCount: 2 },
+    ]);
   });
 
   it('auto-detects bare-name fleets: Optimist=scratch (no ratings), PY=py (integer ratings)', () => {
@@ -99,6 +104,75 @@ describe('inspectSailwave', () => {
     expect(preview.raceCount).toBe(7);
     expect(preview.competitorCount).toBe(14);
     expect(preview.detectedDnfScoring).toBe('startingArea');
+  });
+});
+
+describe('parseDiscardThresholds', () => {
+  // Build a minimal raw file with a single root scoring system carrying the
+  // given scrdiscardlist, addressed by globals.serscoringhandle.
+  function rawWithDiscardList(scrdiscardlist: string | undefined): SailwaveRaw {
+    return {
+      header: { generator: 'sailwave' },
+      globals: { serscoringhandle: '87' },
+      'scoring-systems': {
+        '87': { scrparent: '0', ...(scrdiscardlist !== undefined ? { scrdiscardlist } : {}) },
+      },
+    };
+  }
+
+  // The five HYC 2026 series from #157, plus their expected compressions.
+  const CASES: [string, string, { minRaces: number; discardCount: number }[]][] = [
+    ['Tues & Sat', '0,0,0,1,1,1,1,2,2,2,2', [{ minRaces: 4, discardCount: 1 }, { minRaces: 8, discardCount: 2 }]],
+    ['Tues', '0,0,0,1,1,1,1,1,2', [{ minRaces: 4, discardCount: 1 }, { minRaces: 9, discardCount: 2 }]],
+    ['Wed', '0,0,0,0,1,1,1', [{ minRaces: 5, discardCount: 1 }]],
+    ['Sat Cruisers', '0,0,0,0,1,1,1', [{ minRaces: 5, discardCount: 1 }]],
+    ['Dinghies', '0,0,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7', [
+      { minRaces: 3, discardCount: 1 },
+      { minRaces: 6, discardCount: 2 },
+      { minRaces: 9, discardCount: 3 },
+      { minRaces: 13, discardCount: 4 },
+      { minRaces: 16, discardCount: 5 },
+      { minRaces: 19, discardCount: 6 },
+      { minRaces: 22, discardCount: 7 },
+    ]],
+  ];
+
+  it.each(CASES)('run-length compresses the %s profile', (_name, list, expected) => {
+    expect(parseDiscardThresholds(rawWithDiscardList(list))).toEqual(expected);
+  });
+
+  it('returns [] for an all-zero list (no discards)', () => {
+    expect(parseDiscardThresholds(rawWithDiscardList('0,0,0,0'))).toEqual([]);
+  });
+
+  it('returns [] when scrdiscardlist is absent', () => {
+    expect(parseDiscardThresholds(rawWithDiscardList(undefined))).toEqual([]);
+  });
+
+  it('returns [] when serscoringhandle points at no known system', () => {
+    const raw: SailwaveRaw = {
+      header: { generator: 'sailwave' },
+      globals: { serscoringhandle: '999' },
+      'scoring-systems': { '87': { scrdiscardlist: '0,0,0,1' } },
+    };
+    expect(parseDiscardThresholds(raw)).toEqual([]);
+  });
+
+  it('ignores trailing empty CSV tokens without shifting indices', () => {
+    expect(parseDiscardThresholds(rawWithDiscardList('0,0,0,1,1,,'))).toEqual([
+      { minRaces: 4, discardCount: 1 },
+    ]);
+  });
+});
+
+describe('buildSeriesFileFromSailwave: Tues & Sat Series 1 (H17 discard profile)', () => {
+  it('detects [{4,1},{8,2}] — the rule H17 net points were missing in #147', () => {
+    const raw = loadFile(`${HYC}/2026 Tues & Sat Series 1.json`);
+    const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+    expect(file.series.discardThresholds).toEqual([
+      { minRaces: 4, discardCount: 1 },
+      { minRaces: 8, discardCount: 2 },
+    ]);
   });
 });
 
