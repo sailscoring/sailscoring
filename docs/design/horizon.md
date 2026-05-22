@@ -141,38 +141,8 @@ months later) and makes the series' status explicit in the UI.
 Open questions: lock granularity (whole series vs. per-race); how unlock works and
 whether it leaves an audit trail; whether locking is distinct from "archiving" (hiding
 from the active list) or the same action; interaction with revision history once that
-exists.
-
----
-
-## Series list and organisation
-
-### Scorer-defined categories and manual archive
-
-The home series list will outgrow a flat list once a club has many series across
-multiple years. Two complementary mechanisms: scorer-defined categories that
-group related series, and a manual archive that takes finished series out of the
-active list without deleting them.
-
-Direction:
-
-- **Categories are per-workspace and scorer-editable.** New workspaces seed with
-  `Club racing`, `Open events`, `Other`; the scorer can add, rename, reorder,
-  delete from a Manage Categories dialog (also surfaced in workspace settings).
-- **Single category per series** — keeps the list a clean partition by section
-  and matches the "tidy" mental model scorers tend to bring.
-- **Archive is a manual action**, never derived from dates. Archived series
-  collapse into a separate section at the foot of the list, separated by a
-  divider; unarchive via the per-card `⋯` menu.
-- **`Other` cannot be deleted** — safety net when a category with members is
-  removed, and the landing bucket for existing series on migration (one-off
-  banner prompts scorers to re-categorise).
-- **Drag-and-drop is post-MVP.** Menu-driven moves only at first; add DnD if
-  scorers ask for it.
-
-Relationship to "Lock or archive a finished series" above: archive here is
-visibility (organisation), not locking (audit). Whether they share a single
-action or stay separate gets decided when locking is designed.
+exists. The manual-archive side — archive as visibility, not locking — is tracked in
+#154; decide there whether the two share a single action or stay separate.
 
 ---
 
@@ -186,7 +156,7 @@ action or stay separate gets decided when locking is designed.
 woven through `lib/types.ts`, `lib/series-file.ts`, the Postgres schema, validation,
 API handlers, and the Open/Save dialogs in settings.
 
-After Phase 8 (server-of-record) and Phase 10 (collaboration UX) land, two scorers in
+After Phase 8 (server-of-record) and Phase 10 (collaboration UX, #153) land, two scorers in
 the same workspace edit the same row with `lastModifiedAt` doing conflict detection,
 and cross-workspace sharing is "copy to my workspace" (which already resets lineage).
 The only residual role for `.sailscoring` files is backup / occasional offline rescue,
@@ -198,26 +168,6 @@ diverged (matching cross-workspace copy semantics). Knock-on effects on the seri
 format (potential `formatVersion` bump), the Postgres schema, and the Open dialog UX.
 
 *(Was GitHub issue #127)*
-
-### Feature gating by org membership
-
-A way to gate features on workspace membership, in two shapes: (a) any onboarded club
-workspace (vs the auto-provisioned personal one) — bilge publishing is the candidate;
-(b) a specific org — FTP publishing is HYC-specific today and is the obvious first
-case. Useful for staged rollouts: turn a feature on for one club, gather feedback,
-then promote.
-
-Implementation sketch: extend `lib/auth/require-workspace.ts` to attach a `features`
-set / `hasFeature()` helper to every `/api/v1` request, mirrored client-side by a
-`useFeatures()` hook backed by `/api/v1/me`. Storage in the existing `organization.metadata`
-JSON column (no schema change) covers both shapes — `{ kind: 'personal' | 'club',
-enabledFeatures: string[] }`. A single `lib/features.ts` registry keeps keys typed.
-
-Open questions: hardcoded constants vs DB-backed metadata (probably constants until
-there are more than a handful of features and clubs); whether role factors in
-(probably not initially).
-
-*(Was GitHub issue #120)*
 
 ---
 
@@ -355,48 +305,6 @@ Custom Courses — scoring that models a boat's speed against the actual
 wind conditions and course geometry of each race rather than a single
 time allowance. Far horizon; only relevant if a target series runs full
 ORC International scoring.
-
----
-
-## ADR-008 cutover tail
-
-Post-cutover work designed in [ADR-008](decisions/008-full-stack-transition.md)
-but not actively tracked as issues. Captured here so the residual scope isn't
-lost between Phase 8 stabilising and the next push on full-stack work.
-
-### Bilge replacement and decommission (Phase 9)
-
-Build the integrated publishing path described in ADR-008 *Publishing model*:
-explicit "Publish" action runs `lib/results-renderer.ts`, uploads to Vercel
-Blob, public route at `/p/{slug}` serves the stored HTML with `Cache-Control`
-+ `ETag`. Remove the in-app "Publish to bilge" action when the new path lands.
-
-Bilge URL transition: on first re-publish through the new path, generate a
-meta-refresh + canonical-link redirect HTML for each prior bilge slug — no
-code change to bilge required. After ~6 months (or when redirect-hit logs
-show negligible traffic), bilge slugs return 410 Gone; the bilge Vercel
-project, Blob storage, KV, and Resend templates are deleted; the bilge repo
-is archived; ADR-004 is marked **Superseded by ADR-008**.
-
-### Phase 10 — self-service collaboration UX
-
-Everything from the original Phase 8 backlog deferred from Phase 7 or gated
-on Phase 9's `/p/{slug}` path:
-
-- **Self-service org creation** via an admin-approved request from `/account`,
-  replacing the manual `scripts/provision-org.ts` CLI from Phase 7.
-- **Invitation flow** (Better Auth invitations plugin), members management
-  UI, role changes — the full administration surface Phase 7 deferred.
-- **Activity log proper.** Workspace-scoped, action-vocabulary-driven log
-  written in the `workspaceRoute` wrapper for every mutation. Surfaced as a
-  per-series Activity tab, recency strips on the series list, and per-record
-  stamps in the competitor edit dialog. Phase 7's `updated_by` column is the
-  foundation; Phase 10 adds the explicit log table and the surfaces.
-- **User and org slug claim flows** in separate namespaces. User slugs drive
-  attribution (e.g. `/u/{slug}` profile route); org slugs claim vanity URLs
-  as aliases over the canonical `/p/{slug}` publishing path.
-- **Listed/unlisted visibility toggle** and a workspace public index —
-  replaces what bilge's `/l/` prefix listing does today.
 
 ---
 
