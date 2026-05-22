@@ -131,6 +131,32 @@ describe('buildSeriesFileFromSailwave: Tues Series 1', () => {
     expect(sail15?.nhcStartingTcf).toBeCloseTo(1.35);
   });
 
+  it('orders finishes by crossing (finish) time, not Sailwave rpos', () => {
+    // sortOrder is the crossing order (ADR-007). Sailwave's rpos is the
+    // per-scoring placing — handicap-corrected time on the HPH fleets here —
+    // so importing it as sortOrder made the scratch companion fleets rank by
+    // corrected time (issue #147 §2). Assert every timed race reads back in
+    // non-decreasing finishTime order when walked by sortOrder.
+    const toSecs = (t: string): number => {
+      const [h, m, s] = t.split(':').map(Number);
+      return h * 3600 + m * 60 + s;
+    };
+    let checkedRaces = 0;
+    for (const race of file.races) {
+      const timed = race.finishes
+        .filter((f) => f.finishTime)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      if (timed.length < 2) continue;
+      checkedRaces++;
+      for (let i = 1; i < timed.length; i++) {
+        expect(toSecs(timed[i].finishTime!)).toBeGreaterThanOrEqual(
+          toSecs(timed[i - 1].finishTime!),
+        );
+      }
+    }
+    expect(checkedRaces).toBeGreaterThan(0);
+  });
+
   it('skips races where every entry is implicit DNC after the DNC drop', () => {
     // Tues has 6 scheduled races; only 2 had any non-DNC results.
     expect(file.races).toHaveLength(2);

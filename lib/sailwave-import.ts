@@ -483,6 +483,16 @@ export function sailwaveTimeToColon(t: string | undefined): string | null {
   return null;
 }
 
+/** Seconds-since-midnight for a normalised HH:MM:SS string, or null if it
+ *  isn't a clean three-part time. Used to order finishes by crossing time. */
+function colonTimeToSeconds(t: string | null): number | null {
+  if (!t) return null;
+  const parts = t.split(':').map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+  const [h, m, s] = parts;
+  return h * 3600 + m * 60 + s;
+}
+
 // ---- Start string parsing ----
 
 /** Sailwave starts payload format:
@@ -910,7 +920,7 @@ function buildRaceFinishes(
     byCompetitor.set(compId, r);
   }
 
-  const finished: { pos: number; rft: string; compId: string; raw: SailwaveResultRaw }[] = [];
+  const finished: { pos: number; finishSecs: number | null; rft: string; compId: string; raw: SailwaveResultRaw }[] = [];
   const coded: { compId: string; raw: SailwaveResultRaw }[] = [];
   for (const [compId, r] of byCompetitor) {
     const rrestyp = r.rrestyp ?? '';
@@ -918,6 +928,7 @@ function buildRaceFinishes(
       const pos = Number.parseInt(r.rpos ?? '9999', 10);
       finished.push({
         pos: Number.isFinite(pos) ? pos : 9999,
+        finishSecs: colonTimeToSeconds(sailwaveTimeToColon(r.rft)),
         rft: r.rft ?? '',
         compId,
         raw: r,
@@ -932,7 +943,19 @@ function buildRaceFinishes(
     }
   }
 
-  finished.sort((a, b) => (a.pos - b.pos) || a.rft.localeCompare(b.rft));
+  // `sortOrder` is the crossing order (ADR-007): the order boats cross the
+  // line — finish-time order for a common start. Sailwave's `rpos` is a
+  // per-scoring-system placing (corrected time on handicap fleets), so for a
+  // dual-scored boat the kept primary row carries the *handicap* position,
+  // which a scratch companion fleet would then wrongly inherit. When every
+  // finisher has a finish time, rank by it; only fall back to `rpos` for
+  // position-only races (rrestyp=1) that carry no times at all.
+  const allTimed = finished.every((f) => f.finishSecs !== null);
+  finished.sort(
+    allTimed
+      ? (a, b) => a.finishSecs! - b.finishSecs! || a.pos - b.pos
+      : (a, b) => a.pos - b.pos || a.rft.localeCompare(b.rft),
+  );
 
   const out: FinishBuild[] = [];
   finished.forEach(({ compId, raw }, sortOrder) => {
