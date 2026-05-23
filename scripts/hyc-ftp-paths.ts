@@ -5,7 +5,7 @@
  *
  * Workflow:
  *   1. pnpm hyc-ftp-paths inspect      # readonly: list HYC series + fleets
- *   2. fill in SERIES_MAPPING below with the UUIDs from step 1
+ *   2. confirm SERIES_MAPPING below matches the series names from step 1
  *   3. pnpm hyc-ftp-paths plan         # readonly: show proposed diff
  *   4. pnpm hyc-ftp-paths apply        # writes (only fills empty slots)
  *
@@ -17,7 +17,7 @@
  * Companion of `reference/data/2026-hyc-club-racing/update-ftp-paths.py`
  * which does the same threading against the local .sailscoring files.
  */
-import { and, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,31 +36,30 @@ const CSV_PATH = path.resolve(
 
 /**
  * Per-series mapping of fleet name → CSV row ID. Mirrors `FTP_PATH_MAPPING`
- * in `reference/data/2026-hyc-club-racing/update-ftp-paths.py`. Series IDs
- * are filled in after a fresh `inspect` run.
+ * in `reference/data/2026-hyc-club-racing/update-ftp-paths.py`. Series are
+ * matched by name within the HYC workspace: Sailwave re-imports mint a fresh
+ * series UUID each time, so the name is the only stable handle. `seriesName`
+ * must match `series.name` exactly — confirm against an `inspect` run.
  *
  * CSV row 2212 (Saturday Cruisers IRC) currently points at the HPH path —
  * looks like a typo in the source CSV. Pass through unchanged; fix in the
  * CSV if/when HYC corrects it.
  */
 interface SeriesMapping {
-  label: string;          // human-readable, just for logs
-  seriesId: string;       // UUID from `series.id`
+  seriesName: string;     // matched against `series.name`
   fleetCsvIds: Record<string, number>; // fleet name → CSV row id
 }
 
 const SERIES_MAPPING: SeriesMapping[] = [
   {
-    label: 'Tuesdays & Saturdays - Howth 17s - Series 1',
-    seriesId: 'ab57f124-d248-445f-b1c0-a72faed2fe34',
+    seriesName: "Tuesdays & Saturdays - Howth 17's - Series 1",
     fleetCsvIds: {
       'Howth 17 HPH': 2202,
       'Howth 17 Scr': 2203,
     },
   },
   {
-    label: 'Tuesdays - One Designs - Series 1',
-    seriesId: '86d83dd5-860c-4852-a31d-874d61b51743',
+    seriesName: 'Tuesdays - One Designs - Series 1',
     fleetCsvIds: {
       'Puppeteer HPH': 2198,
       'Puppeteer Scr': 2199,
@@ -69,8 +68,7 @@ const SERIES_MAPPING: SeriesMapping[] = [
     },
   },
   {
-    label: 'Wednesdays - Cruisers - Series 1',
-    seriesId: '217418e0-8ba4-4329-8017-1c56c4ad4274',
+    seriesName: 'Wednesdays - Cruisers - Series 1',
     fleetCsvIds: {
       'Division A HPH': 2205,
       'Division A IRC': 2206,
@@ -81,16 +79,14 @@ const SERIES_MAPPING: SeriesMapping[] = [
     },
   },
   {
-    label: 'Thursdays - Dinghies - Series 1',
-    seriesId: '0514f42e-a6b8-4d1b-918f-dc19087a6fe4',
+    seriesName: 'Thursdays - Dinghies - Series 1',
     fleetCsvIds: {
       PY: 2213,
       Optimist: 2214,
     },
   },
   {
-    label: 'Saturday - Cruisers - Series 1',
-    seriesId: 'a62f84dc-8163-4670-a0b1-ec6910b04854',
+    seriesName: 'Saturday - Cruisers - Series 1',
     fleetCsvIds: {
       'Division B HPH': 2211,
       'Division B IRC': 2212,
@@ -99,8 +95,7 @@ const SERIES_MAPPING: SeriesMapping[] = [
     },
   },
   {
-    label: 'Saturdays - One Designs - Series 1',
-    seriesId: '0a090fb3-4947-4dcb-8c4c-dc1b85b08375',
+    seriesName: 'Saturdays - One Designs - Series 1',
     fleetCsvIds: {
       'Puppeteer HPH': 2215,
       'Puppeteer Scr': 2216,
@@ -184,7 +179,7 @@ async function inspect(): Promise<void> {
 
 interface PlannedUpdate {
   seriesId: string;
-  seriesLabel: string;
+  seriesName: string;
   before: Record<string, string>;
   after: Record<string, string>;
   changes: Array<{ fleetId: string; fleetName: string; from?: string; to: string }>;
@@ -202,29 +197,39 @@ async function buildPlan(overwrite: boolean): Promise<PlannedUpdate[]> {
   const workspace = await findHycWorkspace();
   const pathsByCsvId = loadPathsByCsvId(CSV_PATH);
 
+  // Resolve series by name within the workspace. Sailwave re-imports mint a
+  // fresh UUID each time, so name is the only stable handle. Flag duplicate
+  // names so we never silently thread paths onto the wrong (e.g. stale) row.
+  const seriesRows = await db
+    .select({ id: series.id, name: series.name, ftpPaths: series.ftpPaths })
+    .from(series)
+    .where(eq(series.workspaceId, workspace.id));
+  const seriesByName = new Map<string, (typeof seriesRows)[number]>();
+  const duplicateNames = new Set<string>();
+  for (const row of seriesRows) {
+    if (seriesByName.has(row.name)) duplicateNames.add(row.name);
+    seriesByName.set(row.name, row);
+  }
+
   const plans: PlannedUpdate[] = [];
   for (const m of SERIES_MAPPING) {
-    const [s] = await db
-      .select({
-        id: series.id,
-        name: series.name,
-        workspaceId: series.workspaceId,
-        ftpPaths: series.ftpPaths,
-      })
-      .from(series)
-      .where(
-        and(eq(series.id, m.seriesId), eq(series.workspaceId, workspace.id)),
-      )
-      .limit(1);
+    if (duplicateNames.has(m.seriesName)) {
+      throw new Error(
+        `multiple series named "${m.seriesName}" in HYC workspace — ` +
+          'cannot resolve by name; remove the stale duplicate(s) first',
+      );
+    }
+    const s = seriesByName.get(m.seriesName);
     if (!s) {
       throw new Error(
-        `series ${m.seriesId} (${m.label}) not found in HYC workspace`,
+        `series "${m.seriesName}" not found in HYC workspace ` +
+          `(known: ${[...seriesByName.keys()].join(', ')})`,
       );
     }
     const fleetRows = await db
       .select({ id: fleets.id, name: fleets.name })
       .from(fleets)
-      .where(eq(fleets.seriesId, m.seriesId));
+      .where(eq(fleets.seriesId, s.id));
     const fleetIdByName = new Map(fleetRows.map((f) => [f.name, f.id]));
 
     const before: Record<string, string> = { ...(s.ftpPaths ?? {}) };
@@ -237,7 +242,7 @@ async function buildPlan(overwrite: boolean): Promise<PlannedUpdate[]> {
       const fleetId = fleetIdByName.get(fleetName);
       if (!fleetId) {
         warnings.push(
-          `fleet "${fleetName}" not found in series ${m.label} ` +
+          `fleet "${fleetName}" not found in series ${m.seriesName} ` +
             `(known: ${[...fleetIdByName.keys()].join(', ')})`,
         );
         continue;
@@ -262,8 +267,8 @@ async function buildPlan(overwrite: boolean): Promise<PlannedUpdate[]> {
     }
 
     plans.push({
-      seriesId: m.seriesId,
-      seriesLabel: m.label,
+      seriesId: s.id,
+      seriesName: m.seriesName,
       before,
       after,
       changes,
@@ -277,7 +282,7 @@ async function buildPlan(overwrite: boolean): Promise<PlannedUpdate[]> {
 function printPlan(plans: PlannedUpdate[]): void {
   for (const p of plans) {
     console.log('');
-    console.log(`series ${p.seriesLabel} (${p.seriesId})`);
+    console.log(`series ${p.seriesName} (${p.seriesId})`);
     console.log(`  before: ${Object.keys(p.before).length} entries`);
     console.log(`  after:  ${Object.keys(p.after).length} entries`);
     if (p.changes.length === 0) {
@@ -331,7 +336,7 @@ async function apply(plans: PlannedUpdate[]): Promise<void> {
     }
     updated += 1;
     console.log(
-      `applied ${p.changes.length} path(s) to ${p.seriesLabel} ` +
+      `applied ${p.changes.length} path(s) to ${p.seriesName} ` +
         `(${p.seriesId}); version now ${row.version}`,
     );
   }
