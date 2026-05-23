@@ -1,0 +1,520 @@
+description: "NHC1 — H17 HPH multi-race: realignment anchors to base ratings (Sailwave-verified)"
+rrs_notes: "RRS Appendix A; SWNHC2015 progressive handicap"
+notes: |
+  Real Howth 17 (H17) HPH fleet, Club Racing 2026 Series 1, races 1–3.
+  Source: Sailwave-published results at
+  old.hyc.ie/reshyc/2026/club/series1_tuesat_h17.htm — every per-race applied
+  rating below is the value Sailwave prints (R1 base, R2/R3 carried, plus R4 as
+  the post-R3 newTcf check).
+
+  This fixture pins issue #147 §3(b): SWNHC2015 Step 6 realigns the blended
+  ratings to Σ(base TCF) over the finishers — each boat's series-initial
+  nhcStartingTcf — NOT the rating carried into the race. The two coincide in a
+  first race, so the divergence only appears from race 2 on, once the finisher
+  set has changed and the carried sum has drifted from the base sum.
+
+    R1 (8 finishers): base == carried, realign factor 0.998811 — matches under
+      either rule.
+    R2 (5 of those 8 finish): Σbase=6.440 vs Σcarried=6.421. Realign factor
+      1.004286 (base) reproduces Sailwave's 1.314/1.282/1.299/1.272/1.274;
+      the old Σcarried rule gave a uniform −0.004 drift.
+    R3 (7 finishers, incl. 2 boats returning from R2 DNC): base again matches
+      Sailwave exactly (boat 19 newTcf 1.296; Σcarried gives 1.295).
+
+  Series totals (no discards) — see standings block.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: nhc
+
+competitors:
+  - sailNumber: "7"
+    name: "Aura"
+    nhcStartingTcf: 1.268
+  - sailNumber: "11"
+    name: "Deilginis"
+    nhcStartingTcf: 1.316
+  - sailNumber: "22"
+    name: "Anna"
+    nhcStartingTcf: 1.3
+  - sailNumber: "14"
+    name: "Gladys"
+    nhcStartingTcf: 1.156
+  - sailNumber: "19"
+    name: "Isobel"
+    nhcStartingTcf: 1.312
+  - sailNumber: "21"
+    name: "Orla"
+    nhcStartingTcf: 1.228
+  - sailNumber: "12"
+    name: "Rosemary"
+    nhcStartingTcf: 1.242
+  - sailNumber: "2"
+    name: "Pauline"
+    nhcStartingTcf: 1.258
+  - sailNumber: "17"
+    name: "Oona"
+    nhcStartingTcf: 1.284
+  - sailNumber: "3"
+    name: "Leila"
+    nhcStartingTcf: 1.265
+
+races:
+  # ─── Race 1 ───
+  - number: 1
+    startTime: "19:05:00"
+    finishes:
+      - sailor: "21"
+        finishTime: "20:11:00"
+      - sailor: "7"
+        finishTime: "20:13:45"
+      - sailor: "12"
+        finishTime: "20:16:26"
+      - sailor: "11"
+        finishTime: "20:17:58"
+      - sailor: "17"
+        finishTime: "20:22:58"
+      - sailor: "19"
+        finishTime: "20:36:36"
+      - sailor: "22"
+        finishTime: "20:39:25"
+      - sailor: "2"
+        finishTime: "20:42:45"
+      - sailor: "14"
+        code: "DNC"
+      - sailor: "3"
+        code: "DNF"
+    aggregates:
+      finisherCount: 8
+      ctAvg: 6142.375
+      meanTcf: 1.276
+      p50: 1.00112314
+      w51: 0.927818897
+      sMean: 1.002177758
+      sStdev: 0.1549346623
+      sHi: 1.234579751
+      sLo: 0.8472430955
+      extremeCount: 4
+      realignmentFactor: 0.9988114915
+      updateSuppressed: false
+    expected:
+      - sailor: "21"
+        rank: 1
+        points: 1.0
+        elapsedTime: 3960
+        correctedTime: 4863.0
+        tcfApplied: 1.228
+        newTcf: 1.27
+        fairTcf: 1.516853242
+        compScore: 1.23522251
+        isExtreme: true
+        extremeDirection: "fast"
+        alphaApplied: 0.15
+        provisionalTcf: 1.271327986
+        adjustment: 0.042
+      - sailor: "7"
+        rank: 2
+        points: 2.0
+        elapsedTime: 4125
+        correctedTime: 5231.0
+        tcfApplied: 1.268
+        newTcf: 1.291
+        fairTcf: 1.456179112
+        compScore: 1.14840624
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.292466428
+        adjustment: 0.023
+      - sailor: "12"
+        rank: 3
+        points: 3.0
+        elapsedTime: 4286
+        correctedTime: 5323.0
+        tcfApplied: 1.242
+        newTcf: 1.258
+        fairTcf: 1.401478964
+        compScore: 1.128404963
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.25905796
+        adjustment: 0.016
+      - sailor: "11"
+        rank: 4
+        points: 4.0
+        elapsedTime: 4378
+        correctedTime: 5761.0
+        tcfApplied: 1.316
+        newTcf: 1.308
+        fairTcf: 1.372028058
+        compScore: 1.042574512
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 1.309334812
+        adjustment: -0.008
+      - sailor: "17"
+        rank: 5
+        points: 5.0
+        elapsedTime: 4678
+        correctedTime: 6007.0
+        tcfApplied: 1.284
+        newTcf: 1.268
+        fairTcf: 1.28403994
+        compScore: 1.000031106
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 1.269902994
+        adjustment: -0.016
+      - sailor: "19"
+        rank: 6
+        points: 6.0
+        elapsedTime: 5496
+        correctedTime: 7211.0
+        tcfApplied: 1.312
+        newTcf: 1.294
+        fairTcf: 1.092929192
+        compScore: 0.8330252987
+        isExtreme: true
+        extremeDirection: "slow"
+        alphaApplied: 0.075
+        provisionalTcf: 1.295569689
+        adjustment: -0.018
+      - sailor: "22"
+        rank: 7
+        points: 7.0
+        elapsedTime: 5665
+        correctedTime: 7365.0
+        tcfApplied: 1.3
+        newTcf: 1.281
+        fairTcf: 1.060324596
+        compScore: 0.815634305
+        isExtreme: true
+        extremeDirection: "slow"
+        alphaApplied: 0.075
+        provisionalTcf: 1.282024345
+        adjustment: -0.019
+      - sailor: "2"
+        rank: 8
+        points: 8.0
+        elapsedTime: 5865
+        correctedTime: 7378.0
+        tcfApplied: 1.258
+        newTcf: 1.239
+        fairTcf: 1.024166895
+        compScore: 0.814123128
+        isExtreme: true
+        extremeDirection: "slow"
+        alphaApplied: 0.075
+        provisionalTcf: 1.240462517
+        adjustment: -0.019
+  # ─── Race 2 ───
+  - number: 2
+    startTime: "19:05:00"
+    finishes:
+      - sailor: "17"
+        finishTime: "20:05:51"
+      - sailor: "11"
+        finishTime: "20:05:15"
+      - sailor: "19"
+        finishTime: "20:06:12"
+      - sailor: "21"
+        finishTime: "20:08:20"
+      - sailor: "22"
+        finishTime: "20:18:32"
+      - sailor: "7"
+        code: "DNC"
+      - sailor: "14"
+        code: "DNC"
+      - sailor: "12"
+        code: "DNC"
+      - sailor: "2"
+        code: "DNC"
+      - sailor: "3"
+        code: "DNC"
+    aggregates:
+      finisherCount: 5
+      ctAvg: 4917.4
+      meanTcf: 1.2842
+      p50: 0.8152617427
+      w51: 0.7888189417
+      sMean: 0.9999329919
+      sStdev: 0.06861593218
+      sHi: 1.10285689
+      sLo: 0.9313170597
+      extremeCount: 1
+      realignmentFactor: 1.004286346
+      updateSuppressed: false
+    expected:
+      - sailor: "17"
+        rank: 1
+        points: 1.0
+        elapsedTime: 3651
+        correctedTime: 4629.0
+        tcfApplied: 1.268
+        newTcf: 1.282
+        fairTcf: 1.339789224
+        compScore: 1.056616107
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.276500053
+        adjustment: 0.014
+      - sailor: "11"
+        rank: 2
+        points: 2.0
+        elapsedTime: 3615
+        correctedTime: 4728.0
+        tcfApplied: 1.308
+        newTcf: 1.314
+        fairTcf: 1.353131523
+        compScore: 1.034504223
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.308372917
+        adjustment: 0.006
+      - sailor: "19"
+        rank: 3
+        points: 3.0
+        elapsedTime: 3672
+        correctedTime: 4752.0
+        tcfApplied: 1.294
+        newTcf: 1.299
+        fairTcf: 1.33212703
+        compScore: 1.029464475
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 1.293237976
+        adjustment: 0.005
+      - sailor: "21"
+        rank: 4
+        points: 4.0
+        elapsedTime: 3800
+        correctedTime: 4826.0
+        tcfApplied: 1.27
+        newTcf: 1.272
+        fairTcf: 1.287255383
+        compScore: 1.013586916
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 1.266325539
+        adjustment: 0.002
+      - sailor: "22"
+        rank: 5
+        points: 5.0
+        elapsedTime: 4412
+        correctedTime: 5652.0
+        tcfApplied: 1.281
+        newTcf: 1.274
+        fairTcf: 1.10869684
+        compScore: 0.8654932393
+        isExtreme: true
+        extremeDirection: "slow"
+        alphaApplied: 0.075
+        provisionalTcf: 1.268077263
+        adjustment: -0.007
+  # ─── Race 3 ───
+  - number: 3
+    startTime: "14:25:00"
+    finishes:
+      - sailor: "11"
+        finishTime: "15:32:02"
+      - sailor: "2"
+        finishTime: "15:36:14"
+      - sailor: "21"
+        finishTime: "15:34:29"
+      - sailor: "12"
+        finishTime: "15:35:36"
+      - sailor: "17"
+        finishTime: "15:34:19"
+      - sailor: "22"
+        finishTime: "15:37:35"
+      - sailor: "19"
+        finishTime: "15:37:24"
+      - sailor: "7"
+        code: "DNC"
+      - sailor: "14"
+        code: "DNC"
+      - sailor: "3"
+        code: "DNC"
+    aggregates:
+      finisherCount: 7
+      ctAvg: 5390.714286
+      meanTcf: 1.276857143
+      p50: 0.8980339036
+      w51: 0.8847759773
+      sMean: 1.000121649
+      sStdev: 0.02405752297
+      sHi: 1.036207934
+      sLo: 0.9760641264
+      extremeCount: 2
+      realignmentFactor: 1.000850913
+      updateSuppressed: false
+    expected:
+      - sailor: "11"
+        rank: 1
+        points: 1.0
+        elapsedTime: 4022
+        correctedTime: 5285.0
+        tcfApplied: 1.314
+        newTcf: 1.317
+        fairTcf: 1.339682601
+        compScore: 1.019545359
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.315771347
+        adjustment: 0.003
+      - sailor: "2"
+        rank: 2
+        points: 2.0
+        elapsedTime: 4274
+        correctedTime: 5295.0
+        tcfApplied: 1.239
+        newTcf: 1.241
+        fairTcf: 1.26069336
+        compScore: 1.017508765
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.239924417
+        adjustment: 0.002
+      - sailor: "21"
+        rank: 3
+        points: 3.0
+        elapsedTime: 4169
+        correctedTime: 5303.0
+        tcfApplied: 1.272
+        newTcf: 1.273
+        fairTcf: 1.292445052
+        compScore: 1.016073154
+        isExtreme: false
+        alphaApplied: 0.3
+        provisionalTcf: 1.272409297
+        adjustment: 0.001
+      - sailor: "12"
+        rank: 4
+        points: 4.0
+        elapsedTime: 4236
+        correctedTime: 5329.0
+        tcfApplied: 1.258
+        newTcf: 1.258
+        fairTcf: 1.272002696
+        compScore: 1.011130919
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 1.257283565
+        adjustment: 0
+      - sailor: "17"
+        rank: 5
+        points: 5.0
+        elapsedTime: 4159
+        correctedTime: 5332.0
+        tcfApplied: 1.282
+        newTcf: 1.282
+        fairTcf: 1.295552638
+        compScore: 1.010571481
+        isExtreme: false
+        alphaApplied: 0.15
+        provisionalTcf: 1.281163905
+        adjustment: 0
+      - sailor: "22"
+        rank: 6
+        points: 6.0
+        elapsedTime: 4355
+        correctedTime: 5548.0
+        tcfApplied: 1.274
+        newTcf: 1.272
+        fairTcf: 1.237245332
+        compScore: 0.9711501823
+        isExtreme: true
+        extremeDirection: "slow"
+        alphaApplied: 0.075
+        provisionalTcf: 1.2712434
+        adjustment: -0.002
+      - sailor: "19"
+        rank: 7
+        points: 7.0
+        elapsedTime: 4344
+        correctedTime: 5643.0
+        tcfApplied: 1.299
+        newTcf: 1.296
+        fairTcf: 1.24037832
+        compScore: 0.9548716859
+        isExtreme: true
+        extremeDirection: "slow"
+        alphaApplied: 0.075
+        provisionalTcf: 1.294603374
+        adjustment: -0.003
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "11"
+      racePoints: [4, 2, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 7
+      netPoints: 7
+    - rank: 2
+      sailor: "21"
+      racePoints: [1, 4, 3]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 8
+      netPoints: 8
+    - rank: 3
+      sailor: "17"
+      racePoints: [5, 1, 5]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 11
+      netPoints: 11
+    - rank: 4
+      sailor: "19"
+      racePoints: [6, 3, 7]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 16
+      netPoints: 16
+    - rank: 5
+      sailor: "12"
+      racePoints: [3, 11, 4]
+      raceCodes: [null, "DNC", null]
+      raceDiscards: [false, false, false]
+      totalPoints: 18
+      netPoints: 18
+    - rank: 6
+      sailor: "22"
+      racePoints: [7, 5, 6]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 18
+      netPoints: 18
+    - rank: 7
+      sailor: "2"
+      racePoints: [8, 11, 2]
+      raceCodes: [null, "DNC", null]
+      raceDiscards: [false, false, false]
+      totalPoints: 21
+      netPoints: 21
+    - rank: 8
+      sailor: "7"
+      racePoints: [2, 11, 11]
+      raceCodes: [null, "DNC", "DNC"]
+      raceDiscards: [false, false, false]
+      totalPoints: 24
+      netPoints: 24
+    # 3 and 14 are fully tied (33 pts, every race a non-finisher); A8.1/A8.2
+    # cannot separate them, so per RRS A7 they share the rank.
+    - rank: 9
+      sailor: "3"
+      racePoints: [11, 11, 11]
+      raceCodes: ["DNF", "DNC", "DNC"]
+      raceDiscards: [false, false, false]
+      totalPoints: 33
+      netPoints: 33
+    - rank: 9
+      sailor: "14"
+      racePoints: [11, 11, 11]
+      raceCodes: ["DNC", "DNC", "DNC"]
+      raceDiscards: [false, false, false]
+      totalPoints: 33
+      netPoints: 33

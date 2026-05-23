@@ -502,7 +502,7 @@ formulas (column letters as Eskdale's workbook uses them):
 | `X_i` (non-ext) | `O_i × W51` | non-extreme fair TCF |
 | `Y_i` (non-ext) | `IF(X_i>L_i, 0.30·X_i + 0.70·L_i, 0.15·X_i + 0.85·L_i)` | non-extreme blend |
 | `Z_i` | `T_i if extreme else Y_i` | blended (pre-realign) |
-| `Z51` | `Σ(L) / Σ(Z)` | realignment factor |
+| `Z51` | `Σ(base TCF) / Σ(Z)` | realignment factor (base = series-initial rating; = `Σ(L)` only in a first race — see §10.6) |
 | `NewRating_i` | `Z_i × Z51`, rounded to 3 dp | published value |
 
 Anyone with the constants and these formulas can reproduce a Sailwave NHC1
@@ -536,6 +536,35 @@ is `0.30` (over-performing, X > L) — *twice* the 0.15 we'd assumed. That
 exactly accounts for the 0.014 NewRating residual that no symmetric formula
 could absorb.
 
+### 10.6 The Step 6 realignment anchors to the base ratings, not the carried ones
+
+§§10.1–10.4 were reverse-engineered entirely from *first* races, where every
+boat's input TCF equals its series-initial base handicap (`nhcStartingTcf`).
+That left one quantity undetermined: the numerator of the Step 6 realignment.
+The "preserve the fleet sum" framing has two readings that coincide in a first
+race but diverge afterwards —
+
+- `Z51 = Σ(carried TCF) / Σ(Z)` — anchor to the ratings carried *into* this race.
+- `Z51 = Σ(base TCF) / Σ(Z)` — anchor to each boat's series-initial rating.
+
+The Howth 17 HPH fleet (Club Racing 2026 S1) settles it. Across races 2–4,
+**only the base-rating numerator reproduces Sailwave**:
+
+| Update | Σ(base) | Σ(carried) | Matches Sailwave |
+|--------|--------:|-----------:|------------------|
+| post-R2 (5 finishers, was 8 in R1) | 6.440 | 6.421 | **base** (carried is a uniform −0.004 off) |
+| post-R3 (7 finishers) | 8.940 | 8.938 | **base** (boat 19 → 1.296; carried gives 1.295) |
+
+The sums diverge because each race realigns over a *different* finisher set, so
+the carried sum over the current finishers drifts away from their base sum.
+Sailwave re-anchors to the fixed base handicaps every race, which is what stops
+NHC ratings from compounding drift over a series. This is the case §12 flagged
+as untested; it is now pinned by
+`tests/fixtures/scoring/nhc/07-h17-hph-multi-race-base-realign.yaml` and was the
+root cause of issue #147 §3(b). The §10.2 reference uses `sum(L)` only because
+its five datasets are all first races (base == carried); for race ≥ 2 the
+numerator is `Σ(base TCF)` over the finishers.
+
 ---
 
 ## 11. Reconciling §§7–9 with the answer
@@ -559,8 +588,10 @@ features that turned out to matter:
 5. **Recomputed P50 for the non-extreme branch** (`W51`): non-extreme boats
    are scaled by a P50 derived from the non-extreme subset only, not the
    fleet-wide P50.
-6. **Final realignment** by `Z51 = ΣTCF / ΣZ` to preserve the fleet sum
-   exactly. Without it the asymmetric blend rates would drift the sum.
+6. **Final realignment** by `Z51 = Σ(base TCF) / ΣZ` to preserve the fleet
+   sum exactly. Without it the asymmetric blend rates would drift the sum. The
+   numerator is each finisher's *series-initial* rating, not the rating carried
+   into this race — the two coincide only in a first race (§10.6).
 
 Nefertari (Puppeteer rank 3) was the cleanest signal that something more was
 going on. She is non-extreme (`S = 1.087`, inside the [0.891, 1.155] band),
@@ -604,8 +635,11 @@ Diagnostic examples that would test edge cases of the algorithm itself:
   non-extreme subset is empty (`W51` is undefined; the spreadsheet falls back
   to `P50`).
 - **Two consecutive races for the same fleet**, where the input TCF for
-  race 2 is the published NewRating from race 1. Verifies our understanding
-  that updates carry through unchanged.
+  race 2 is the published NewRating from race 1. *Done* — the Howth 17 fleet
+  (R1–R4) is captured in
+  `tests/fixtures/scoring/nhc/07-h17-hph-multi-race-base-realign.yaml`. Besides
+  confirming the carry-through, it revealed that Step 6 realigns to the base
+  ratings, not the carried ones (§10.6, issue #147 §3(b)).
 - **A fleet where Sailwave outputs a different NHC version** (NHC2,
   NHC2015, etc.). The HTML output displays the rating-system name; if it
   says anything other than `NHC1`, the algorithm here doesn't apply.

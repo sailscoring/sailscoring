@@ -421,10 +421,15 @@ export function calculateHandicapRaceScores(
  *
  * @param scores  Phase A scores for the rated competitors of one fleet
  * @param config  Profile that drives the blend / outlier / realignment steps
+ * @param baseTcfByCompetitorId  Each competitor's *series-initial* TCF
+ *   (nhcStartingTcf), used as the SWNHC2015 realignment numerator (Step 6).
+ *   Optional: when omitted the realignment falls back to the carried ΣL, which
+ *   only matters from race 2 on (race 1 has base == carried). See issue #147 §3(b).
  */
 export function calculateHandicapAdjustment(
   scores: Map<string, HandicapRaceScore>,
   config: ProgressiveHandicapConfig,
+  baseTcfByCompetitorId?: Map<string, number>,
 ): {
   newTcfByCompetitorId: Map<string, number>;
   perFinisherCalc: Map<string, ProgressiveRaceCalc>;
@@ -439,7 +444,7 @@ export function calculateHandicapAdjustment(
   }
 
   if (config.outlier.strategy === 'reduce-alpha') {
-    return swnhc2015Adjustment(scores, finisherEntries, config, config.outlier);
+    return swnhc2015Adjustment(scores, finisherEntries, config, config.outlier, baseTcfByCompetitorId);
   }
   return symmetricBlendAdjustment(scores, finisherEntries, config);
 }
@@ -460,6 +465,7 @@ function swnhc2015Adjustment(
   finisherEntries: Array<[string, HandicapRaceScore]>,
   config: ProgressiveHandicapConfig,
   outlier: Extract<ProgressiveHandicapConfig['outlier'], { strategy: 'reduce-alpha' }>,
+  baseTcfByCompetitorId?: Map<string, number>,
 ): {
   newTcfByCompetitorId: Map<string, number>;
   perFinisherCalc: Map<string, ProgressiveRaceCalc>;
@@ -566,11 +572,21 @@ function swnhc2015Adjustment(
     Z[i] = alphaApplied[i] * target[i] + (1 - alphaApplied[i]) * L[i];
   }
 
-  // Step 6. Realign by Z51 = ΣL / ΣZ over finishers; final value rounded to
-  //         3 dp (matches Sailwave's published NewRating column).
-  const sumL = L.reduce((a, b) => a + b, 0);
+  // Step 6. Realign by Z51 = Σ(base TCF) / ΣZ over finishers; final value
+  //         rounded to 3 dp (matches Sailwave's published NewRating column).
+  //         The numerator is each finisher's *series-initial* rating
+  //         (nhcStartingTcf), NOT the rating carried into this race: Sailwave
+  //         re-anchors the fleet sum to the original base handicaps every race
+  //         so cumulative drift doesn't compound. In a first race base ==
+  //         carried, so this is a no-op there; it only bites from race 2 on
+  //         (issue #147 §3(b)). Falls back to carried ΣL when no base map is
+  //         supplied — see calculateHandicapAdjustment.
+  const sumBase = finisherEntries.reduce(
+    (sum, [cid, s]) => sum + (baseTcfByCompetitorId?.get(cid) ?? s.tcfApplied!),
+    0,
+  );
   const sumZ = Z.reduce((a, b) => a + b, 0);
-  const z51 = sumZ > 0 ? sumL / sumZ : 1;
+  const z51 = sumZ > 0 ? sumBase / sumZ : 1;
 
   for (let i = 0; i < finisherCount; i++) {
     const [cid, s] = finisherEntries[i];
@@ -1082,6 +1098,12 @@ function calculateHandicapStandings(
     }
   }
 
+  // Series-initial base ratings, snapshotted before the race loop starts
+  // mutating appliedTcfMap. SWNHC2015's Step 6 realignment anchors to these
+  // (not the carried ratings) so cumulative drift doesn't compound across a
+  // series — see issue #147 §3(b).
+  const baseTcfByCompetitorId = new Map(appliedTcfMap);
+
   if (competitors.length === 0 || races.length === 0) {
     const rated = competitors.filter((c) => !rejectedIds.has(c.id));
     return {
@@ -1163,7 +1185,7 @@ function calculateHandicapStandings(
 
       // Phase B — handicap adjustment (progressive fleets only)
       if (config) {
-        const phaseB = calculateHandicapAdjustment(raceScores, config);
+        const phaseB = calculateHandicapAdjustment(raceScores, config, baseTcfByCompetitorId);
 
         // Merge phase-B outputs back into the per-boat scores: newTcf for
         // every competitor; per-finisher intermediates copied into the

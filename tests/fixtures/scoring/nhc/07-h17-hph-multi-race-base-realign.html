@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>NHC1 — H17 HPH multi-race: realignment anchors to base ratings (Sailwave-verified) — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; font-size: 0.9em; }
+td, th { text-align: left; padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All NHC examples</a></p>
+<h1>NHC1 — H17 HPH multi-race: realignment anchors to base ratings (Sailwave-verified)</h1>
+<p style="font-style:italic; color:#444;">RRS Appendix A; SWNHC2015 progressive handicap</p>
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> NHC1 &nbsp;&nbsp;
+  <strong>α (blend factor):</strong> —
+</div>
+<pre style="margin:0.6em 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Real Howth 17 (H17) HPH fleet, Club Racing 2026 Series 1, races 1–3.
+Source: Sailwave-published results at
+old.hyc.ie/reshyc/2026/club/series1_tuesat_h17.htm — every per-race applied
+rating below is the value Sailwave prints (R1 base, R2/R3 carried, plus R4 as
+the post-R3 newTcf check).
+
+This fixture pins issue #147 §3(b): SWNHC2015 Step 6 realigns the blended
+ratings to Σ(base TCF) over the finishers — each boat's series-initial
+nhcStartingTcf — NOT the rating carried into the race. The two coincide in a
+first race, so the divergence only appears from race 2 on, once the finisher
+set has changed and the carried sum has drifted from the base sum.
+
+  R1 (8 finishers): base == carried, realign factor 0.998811 — matches under
+    either rule.
+  R2 (5 of those 8 finish): Σbase=6.440 vs Σcarried=6.421. Realign factor
+    1.004286 (base) reproduces Sailwave's 1.314/1.282/1.299/1.272/1.274;
+    the old Σcarried rule gave a uniform −0.004 drift.
+  R3 (7 finishers, incl. 2 boats returning from R2 DNC): base again matches
+    Sailwave exactly (boat 19 newTcf 1.296; Σcarried gives 1.295).
+
+Series totals (no discards) — see standings block.</pre>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">─── Race 1 ───
+  ─── Race 2 ───
+  ─── Race 3 ───
+    3 and 14 are fully tied (33 pts, every race a non-finisher); A8.1/A8.2
+    cannot separate them, so per RRS A7 they share the rank.</pre>
+<h2 style="margin-top:1.5em;">Race 1</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 19:05:00 &nbsp;
+  <strong>Finishers:</strong> 8 &nbsp;
+  <strong>CT<sub>avg</sub>:</strong> 102m 22s &nbsp;
+  <strong>mean(TCF):</strong> 1.2760
+</div>
+<div style="margin:0 0 0.6em; color:#444; font-size:90%;"><strong>μ(S):</strong> 1.0022 &nbsp;
+  <strong>σ(S):</strong> 0.1549 &nbsp;
+  <strong>extreme if S &gt; 1.2346 or &lt; 0.8472</strong> (4) &nbsp;
+  <strong>P50:</strong> 1.001123 &nbsp; <strong>W51:</strong> 0.927819 &nbsp;
+  <strong>Z51:</strong> 0.998811</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>ET</th><th>TCF<sub>applied</sub></th><th>CT</th>
+  <th>Q</th><th>S</th><th>α</th><th>Z</th><th>adj</th><th>new TCF</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Orla</td>
+  <td class="mono">21</td>
+  <td class="mono">20:11:00</td>
+  <td class="mono">66m 00s</td>
+  <td class="mono">1.2280</td>
+  <td class="mono">81m 03s</td>
+  <td class="mono">1.5169</td>
+  <td class="mono">1.2352 †</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.2713</td>
+  <td class="mono">+0.0420</td>
+  <td class="mono">1.2700</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Aura</td>
+  <td class="mono">7</td>
+  <td class="mono">20:13:45</td>
+  <td class="mono">68m 45s</td>
+  <td class="mono">1.2680</td>
+  <td class="mono">87m 11s</td>
+  <td class="mono">1.4562</td>
+  <td class="mono">1.1484</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.2925</td>
+  <td class="mono">+0.0230</td>
+  <td class="mono">1.2910</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Rosemary</td>
+  <td class="mono">12</td>
+  <td class="mono">20:16:26</td>
+  <td class="mono">71m 26s</td>
+  <td class="mono">1.2420</td>
+  <td class="mono">88m 43s</td>
+  <td class="mono">1.4015</td>
+  <td class="mono">1.1284</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.2591</td>
+  <td class="mono">+0.0160</td>
+  <td class="mono">1.2580</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Deilginis</td>
+  <td class="mono">11</td>
+  <td class="mono">20:17:58</td>
+  <td class="mono">72m 58s</td>
+  <td class="mono">1.3160</td>
+  <td class="mono">96m 01s</td>
+  <td class="mono">1.3720</td>
+  <td class="mono">1.0426</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.3093</td>
+  <td class="mono">-0.0080</td>
+  <td class="mono">1.3080</td>
+  <td>4</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td>Oona</td>
+  <td class="mono">17</td>
+  <td class="mono">20:22:58</td>
+  <td class="mono">77m 58s</td>
+  <td class="mono">1.2840</td>
+  <td class="mono">100m 07s</td>
+  <td class="mono">1.2840</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.2699</td>
+  <td class="mono">-0.0160</td>
+  <td class="mono">1.2680</td>
+  <td>5</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td>Isobel</td>
+  <td class="mono">19</td>
+  <td class="mono">20:36:36</td>
+  <td class="mono">91m 36s</td>
+  <td class="mono">1.3120</td>
+  <td class="mono">120m 11s</td>
+  <td class="mono">1.0929</td>
+  <td class="mono">0.8330 †</td>
+  <td class="mono">0.075</td>
+  <td class="mono">1.2956</td>
+  <td class="mono">-0.0180</td>
+  <td class="mono">1.2940</td>
+  <td>6</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td>Anna</td>
+  <td class="mono">22</td>
+  <td class="mono">20:39:25</td>
+  <td class="mono">94m 25s</td>
+  <td class="mono">1.3000</td>
+  <td class="mono">122m 45s</td>
+  <td class="mono">1.0603</td>
+  <td class="mono">0.8156 †</td>
+  <td class="mono">0.075</td>
+  <td class="mono">1.2820</td>
+  <td class="mono">-0.0190</td>
+  <td class="mono">1.2810</td>
+  <td>7</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td>Pauline</td>
+  <td class="mono">2</td>
+  <td class="mono">20:42:45</td>
+  <td class="mono">97m 45s</td>
+  <td class="mono">1.2580</td>
+  <td class="mono">122m 58s</td>
+  <td class="mono">1.0242</td>
+  <td class="mono">0.8141 †</td>
+  <td class="mono">0.075</td>
+  <td class="mono">1.2405</td>
+  <td class="mono">-0.0190</td>
+  <td class="mono">1.2390</td>
+  <td>8</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Gladys</td>
+  <td class="mono">14</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.1560</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.1560</td>
+  <td>11</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Leila</td>
+  <td class="mono">3</td>
+  <td class="mono">DNF</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2650</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2650</td>
+  <td>11</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Race 2</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 19:05:00 &nbsp;
+  <strong>Finishers:</strong> 5 &nbsp;
+  <strong>CT<sub>avg</sub>:</strong> 81m 57s &nbsp;
+  <strong>mean(TCF):</strong> 1.2842
+</div>
+<div style="margin:0 0 0.6em; color:#444; font-size:90%;"><strong>μ(S):</strong> 0.9999 &nbsp;
+  <strong>σ(S):</strong> 0.0686 &nbsp;
+  <strong>extreme if S &gt; 1.1029 or &lt; 0.9313</strong> (1) &nbsp;
+  <strong>P50:</strong> 0.815262 &nbsp; <strong>W51:</strong> 0.788819 &nbsp;
+  <strong>Z51:</strong> 1.004286</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>ET</th><th>TCF<sub>applied</sub></th><th>CT</th>
+  <th>Q</th><th>S</th><th>α</th><th>Z</th><th>adj</th><th>new TCF</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Oona</td>
+  <td class="mono">17</td>
+  <td class="mono">20:05:51</td>
+  <td class="mono">60m 51s</td>
+  <td class="mono">1.2680</td>
+  <td class="mono">77m 09s</td>
+  <td class="mono">1.3398</td>
+  <td class="mono">1.0566</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.2765</td>
+  <td class="mono">+0.0140</td>
+  <td class="mono">1.2820</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Deilginis</td>
+  <td class="mono">11</td>
+  <td class="mono">20:05:15</td>
+  <td class="mono">60m 15s</td>
+  <td class="mono">1.3080</td>
+  <td class="mono">78m 48s</td>
+  <td class="mono">1.3531</td>
+  <td class="mono">1.0345</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.3084</td>
+  <td class="mono">+0.0060</td>
+  <td class="mono">1.3140</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Isobel</td>
+  <td class="mono">19</td>
+  <td class="mono">20:06:12</td>
+  <td class="mono">61m 12s</td>
+  <td class="mono">1.2940</td>
+  <td class="mono">79m 12s</td>
+  <td class="mono">1.3321</td>
+  <td class="mono">1.0295</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.2932</td>
+  <td class="mono">+0.0050</td>
+  <td class="mono">1.2990</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Orla</td>
+  <td class="mono">21</td>
+  <td class="mono">20:08:20</td>
+  <td class="mono">63m 20s</td>
+  <td class="mono">1.2700</td>
+  <td class="mono">80m 26s</td>
+  <td class="mono">1.2873</td>
+  <td class="mono">1.0136</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.2663</td>
+  <td class="mono">+0.0020</td>
+  <td class="mono">1.2720</td>
+  <td>4</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td>Anna</td>
+  <td class="mono">22</td>
+  <td class="mono">20:18:32</td>
+  <td class="mono">73m 32s</td>
+  <td class="mono">1.2810</td>
+  <td class="mono">94m 12s</td>
+  <td class="mono">1.1087</td>
+  <td class="mono">0.8655 †</td>
+  <td class="mono">0.075</td>
+  <td class="mono">1.2681</td>
+  <td class="mono">-0.0070</td>
+  <td class="mono">1.2740</td>
+  <td>5</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Aura</td>
+  <td class="mono">7</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2910</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2910</td>
+  <td>11</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Gladys</td>
+  <td class="mono">14</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.1560</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.1560</td>
+  <td>11</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Rosemary</td>
+  <td class="mono">12</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2580</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2580</td>
+  <td>11</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Pauline</td>
+  <td class="mono">2</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2390</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2390</td>
+  <td>11</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Leila</td>
+  <td class="mono">3</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2650</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2650</td>
+  <td>11</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Race 3</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:25:00 &nbsp;
+  <strong>Finishers:</strong> 7 &nbsp;
+  <strong>CT<sub>avg</sub>:</strong> 89m 51s &nbsp;
+  <strong>mean(TCF):</strong> 1.2769
+</div>
+<div style="margin:0 0 0.6em; color:#444; font-size:90%;"><strong>μ(S):</strong> 1.0001 &nbsp;
+  <strong>σ(S):</strong> 0.0241 &nbsp;
+  <strong>extreme if S &gt; 1.0362 or &lt; 0.9761</strong> (2) &nbsp;
+  <strong>P50:</strong> 0.898034 &nbsp; <strong>W51:</strong> 0.884776 &nbsp;
+  <strong>Z51:</strong> 1.000851</div>
+<table>
+<thead>
+<tr>
+  <th>Rank</th><th>Name</th><th>Sail #</th>
+  <th>Finish time</th><th>ET</th><th>TCF<sub>applied</sub></th><th>CT</th>
+  <th>Q</th><th>S</th><th>α</th><th>Z</th><th>adj</th><th>new TCF</th>
+  <th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Deilginis</td>
+  <td class="mono">11</td>
+  <td class="mono">15:32:02</td>
+  <td class="mono">67m 02s</td>
+  <td class="mono">1.3140</td>
+  <td class="mono">88m 05s</td>
+  <td class="mono">1.3397</td>
+  <td class="mono">1.0195</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.3158</td>
+  <td class="mono">+0.0030</td>
+  <td class="mono">1.3170</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Pauline</td>
+  <td class="mono">2</td>
+  <td class="mono">15:36:14</td>
+  <td class="mono">71m 14s</td>
+  <td class="mono">1.2390</td>
+  <td class="mono">88m 15s</td>
+  <td class="mono">1.2607</td>
+  <td class="mono">1.0175</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.2399</td>
+  <td class="mono">+0.0020</td>
+  <td class="mono">1.2410</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Orla</td>
+  <td class="mono">21</td>
+  <td class="mono">15:34:29</td>
+  <td class="mono">69m 29s</td>
+  <td class="mono">1.2720</td>
+  <td class="mono">88m 23s</td>
+  <td class="mono">1.2924</td>
+  <td class="mono">1.0161</td>
+  <td class="mono">0.300</td>
+  <td class="mono">1.2724</td>
+  <td class="mono">+0.0010</td>
+  <td class="mono">1.2730</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Rosemary</td>
+  <td class="mono">12</td>
+  <td class="mono">15:35:36</td>
+  <td class="mono">70m 36s</td>
+  <td class="mono">1.2580</td>
+  <td class="mono">88m 49s</td>
+  <td class="mono">1.2720</td>
+  <td class="mono">1.0111</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.2573</td>
+  <td class="mono">+0.0000</td>
+  <td class="mono">1.2580</td>
+  <td>4</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td>Oona</td>
+  <td class="mono">17</td>
+  <td class="mono">15:34:19</td>
+  <td class="mono">69m 19s</td>
+  <td class="mono">1.2820</td>
+  <td class="mono">88m 52s</td>
+  <td class="mono">1.2956</td>
+  <td class="mono">1.0106</td>
+  <td class="mono">0.150</td>
+  <td class="mono">1.2812</td>
+  <td class="mono">+0.0000</td>
+  <td class="mono">1.2820</td>
+  <td>5</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td>Anna</td>
+  <td class="mono">22</td>
+  <td class="mono">15:37:35</td>
+  <td class="mono">72m 35s</td>
+  <td class="mono">1.2740</td>
+  <td class="mono">92m 28s</td>
+  <td class="mono">1.2372</td>
+  <td class="mono">0.9712 †</td>
+  <td class="mono">0.075</td>
+  <td class="mono">1.2712</td>
+  <td class="mono">-0.0020</td>
+  <td class="mono">1.2720</td>
+  <td>6</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td>Isobel</td>
+  <td class="mono">19</td>
+  <td class="mono">15:37:24</td>
+  <td class="mono">72m 24s</td>
+  <td class="mono">1.2990</td>
+  <td class="mono">94m 03s</td>
+  <td class="mono">1.2404</td>
+  <td class="mono">0.9549 †</td>
+  <td class="mono">0.075</td>
+  <td class="mono">1.2946</td>
+  <td class="mono">-0.0030</td>
+  <td class="mono">1.2960</td>
+  <td>7</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Aura</td>
+  <td class="mono">7</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2910</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2910</td>
+  <td>11</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Gladys</td>
+  <td class="mono">14</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.1560</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.1560</td>
+  <td>11</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Leila</td>
+  <td class="mono">3</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2650</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">—</td>
+  <td class="mono">1.2650</td>
+  <td>11</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>R2</th><th>R3</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Deilginis</td>
+  <td class="mono">11</td>
+  <td class="mono">4</td><td class="mono">2</td><td class="mono">1</td>
+  <td class="mono">7</td>
+  <td class="mono">7</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Orla</td>
+  <td class="mono">21</td>
+  <td class="mono">1</td><td class="mono">4</td><td class="mono">3</td>
+  <td class="mono">8</td>
+  <td class="mono">8</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Oona</td>
+  <td class="mono">17</td>
+  <td class="mono">5</td><td class="mono">1</td><td class="mono">5</td>
+  <td class="mono">11</td>
+  <td class="mono">11</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Isobel</td>
+  <td class="mono">19</td>
+  <td class="mono">6</td><td class="mono">3</td><td class="mono">7</td>
+  <td class="mono">16</td>
+  <td class="mono">16</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td>Rosemary</td>
+  <td class="mono">12</td>
+  <td class="mono">3</td><td class="mono">DNC</td><td class="mono">4</td>
+  <td class="mono">18</td>
+  <td class="mono">18</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td>Anna</td>
+  <td class="mono">22</td>
+  <td class="mono">7</td><td class="mono">5</td><td class="mono">6</td>
+  <td class="mono">18</td>
+  <td class="mono">18</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td>Pauline</td>
+  <td class="mono">2</td>
+  <td class="mono">8</td><td class="mono">DNC</td><td class="mono">2</td>
+  <td class="mono">21</td>
+  <td class="mono">21</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td>Aura</td>
+  <td class="mono">7</td>
+  <td class="mono">2</td><td class="mono">DNC</td><td class="mono">DNC</td>
+  <td class="mono">24</td>
+  <td class="mono">24</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td>Leila</td>
+  <td class="mono">3</td>
+  <td class="mono">DNF</td><td class="mono">DNC</td><td class="mono">DNC</td>
+  <td class="mono">33</td>
+  <td class="mono">33</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td>Gladys</td>
+  <td class="mono">14</td>
+  <td class="mono">DNC</td><td class="mono">DNC</td><td class="mono">DNC</td>
+  <td class="mono">33</td>
+  <td class="mono">33</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>
