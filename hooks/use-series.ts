@@ -101,10 +101,19 @@ export function useTouchSeries() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => seriesRepo.touch(id),
-    onSuccess: (_void, id) => {
-      qc.invalidateQueries({ queryKey: queryKeys.series.detail(id) });
+    // `touch` bumps the row's `version` server-side but returns nothing, so —
+    // unlike useUpdateSeries/useSaveSeries — we can't setQueryData the fresh
+    // row. Await the detail refetch instead: react-query awaits this async
+    // onSuccess before mutateAsync resolves, so a caller doing
+    // `await touchSeries.mutateAsync(id)` is guaranteed a fresh cached version
+    // before its next series write. Without this the cache lags the DB and the
+    // next useUpdateSeries sends a stale `expectedVersion` → 409.
+    onSuccess: async (_void, id) => {
+      await qc.invalidateQueries({ queryKey: queryKeys.series.detail(id) });
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });
     },
+    // See useSaveSeries — same scope so touch/update/save serialize together.
+    scope: { id: 'series' },
   });
 }
 
