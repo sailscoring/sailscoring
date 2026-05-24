@@ -14,14 +14,41 @@ import {
 } from '@/components/ui/select';
 import { FinishSheetImport, type FinishSheetImportHandle } from '@/components/finish-sheet-import';
 import { cn } from '@/lib/utils';
-import { displayHelmCrew } from '@/lib/competitor-fields';
+import { competitorFleetNames, displayCompetitorLabel } from '@/lib/competitor-fields';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import {
   deriveFinishState,
   entryKey,
   type FinishEntry,
 } from '@/lib/finish-entry';
-import type { Competitor, Finish, Fleet } from '@/lib/types';
+import type { Competitor, CompetitorFieldKey, Finish, Fleet } from '@/lib/types';
+
+/** One badge per fleet a competitor belongs to. Multi-fleet boats (e.g. a
+ *  handicap fleet and a scratch fleet sharing a start) get a pill each rather
+ *  than only the first. Falls back to a single "—" when none resolve. */
+function FleetBadges({
+  fleetIds,
+  fleetById,
+  variant,
+  testId,
+}: {
+  fleetIds: string[];
+  fleetById: Map<string, Fleet>;
+  variant: 'secondary' | 'outline';
+  testId?: string;
+}) {
+  const names = competitorFleetNames(fleetIds, fleetById);
+  const labels = names.length > 0 ? names : ['—'];
+  return (
+    <span data-testid={testId} className="flex items-center gap-1 shrink-0">
+      {labels.map((name, i) => (
+        <Badge key={`${name}-${i}`} variant={variant} className="text-xs shrink-0">
+          {name}
+        </Badge>
+      ))}
+    </span>
+  );
+}
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 import type { useFinishEntry, NonFinisherCode } from '@/hooks/use-finish-entry';
 
@@ -32,10 +59,10 @@ export interface FinishTabProps {
   finishEntry: FinishEntryHook;
   competitors: Competitor[];
   competitorMap: Map<string, Competitor>;
-  fleets: Fleet[];
   fleetById: Map<string, Fleet>;
   showFleetBadge: boolean;
   showCrew: boolean;
+  enabledCompetitorFields: CompetitorFieldKey[];
   derived: Derived;
   savedFinishes: Finish[] | undefined;
   finishSheetImportRef: Ref<FinishSheetImportHandle>;
@@ -56,8 +83,8 @@ export interface FinishTabProps {
 
 export function FinishTab(props: FinishTabProps) {
   const {
-    finishEntry, competitors, competitorMap, fleets, fleetById,
-    showFleetBadge, showCrew, derived, savedFinishes,
+    finishEntry, competitors, competitorMap, fleetById,
+    showFleetBadge, showCrew, enabledCompetitorFields, derived, savedFinishes,
     finishSheetImportRef, applyCsvImport,
     setEditingPenaltyEntryId, openRedressDialog, setResolvingEntry,
     setNonFinisherCode, codeLabels,
@@ -109,12 +136,14 @@ export function FinishTab(props: FinishTabProps) {
           {pendingTimeEntry ? (
             <div className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
               <span className="font-mono font-medium text-sm shrink-0">{pendingTimeEntry.competitor.sailNumber}</span>
-              {(() => {
-                const pf = fleetById.get(pendingTimeEntry.competitor.fleetIds[0]);
-                if (!pf || (fleets.length <= 1 && pf.name === 'Default')) return null;
-                return <Badge variant="secondary" className="text-xs shrink-0">{pf.name}</Badge>;
-              })()}
-              <span className="text-sm text-muted-foreground truncate">{displayHelmCrew(pendingTimeEntry.competitor, showCrew)}</span>
+              {showFleetBadge && (
+                <FleetBadges
+                  fleetIds={pendingTimeEntry.competitor.fleetIds}
+                  fleetById={fleetById}
+                  variant="secondary"
+                />
+              )}
+              <span className="text-sm text-muted-foreground truncate">{displayCompetitorLabel(pendingTimeEntry.competitor, { enabledCompetitorFields, showCrew })}</span>
               <input
                 ref={pendingTimeInputRef}
                 type="text"
@@ -211,11 +240,9 @@ export function FinishTab(props: FinishTabProps) {
                 >
                   <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
                   {showFleetBadge && (
-                    <Badge variant="secondary" className="text-xs shrink-0">
-                      {fleetById.get(competitor.fleetIds[0])?.name ?? '—'}
-                    </Badge>
+                    <FleetBadges fleetIds={competitor.fleetIds} fleetById={fleetById} variant="secondary" />
                   )}
-                  <span className="flex-1 truncate">{displayHelmCrew(competitor, showCrew)}</span>
+                  <span className="flex-1 truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
                 </li>
               ))}
             </ul>
@@ -325,7 +352,6 @@ export function FinishTab(props: FinishTabProps) {
             if (!competitor) return null;
             const penalty = finisherPenalties.get(entry.competitorId);
             const hasRedress = redressEntries.has(entry.competitorId);
-            const fleetLabel = fleetById.get(competitor.fleetIds[0])?.name ?? '—';
             return (
               <li
                 key={entry.competitorId}
@@ -368,11 +394,14 @@ export function FinishTab(props: FinishTabProps) {
                 )}
                 <span className="font-mono font-medium">{competitor.sailNumber}</span>
                 {showFleetBadge && (
-                  <Badge variant="secondary" className="text-xs shrink-0" data-testid={`fleet-badge-${competitor.sailNumber}`}>
-                    {fleetLabel}
-                  </Badge>
+                  <FleetBadges
+                    fleetIds={competitor.fleetIds}
+                    fleetById={fleetById}
+                    variant="secondary"
+                    testId={`fleet-badge-${competitor.sailNumber}`}
+                  />
                 )}
-                <span className="text-sm truncate flex-1">{displayHelmCrew(competitor, showCrew)}</span>
+                <span className="text-sm truncate flex-1">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
                 {isTimed ? (
                   <input
                     type="text"
@@ -491,11 +520,9 @@ export function FinishTab(props: FinishTabProps) {
                   {competitor.sailNumber}
                 </span>
                 {showFleetBadge && (
-                  <Badge variant="outline">
-                    {fleetById.get(competitor.fleetIds[0])?.name ?? '—'}
-                  </Badge>
+                  <FleetBadges fleetIds={competitor.fleetIds} fleetById={fleetById} variant="outline" />
                 )}
-                <span className="text-sm flex-1 truncate">{displayHelmCrew(competitor, showCrew)}</span>
+                <span className="text-sm flex-1 truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
                 {code === 'RDG' && (
                   <button
                     type="button"

@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { CheckSquare, Square } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { displayHelmCrew } from '@/lib/competitor-fields';
-import type { Competitor } from '@/lib/types';
+import { displayCompetitorLabel } from '@/lib/competitor-fields';
+import type { Competitor, CompetitorFieldKey } from '@/lib/types';
 
 export interface CheckInTabProps {
   competitors: Competitor[];
   showCrew: boolean;
+  enabledCompetitorFields: CompetitorFieldKey[];
   presentCount: number;
   effectivelyPresent: (id: string) => boolean;
   toggleStartPresent: (c: Competitor) => void | Promise<void>;
@@ -18,6 +19,7 @@ export interface CheckInTabProps {
 export function CheckInTab({
   competitors,
   showCrew,
+  enabledCompetitorFields,
   presentCount,
   effectivelyPresent,
   toggleStartPresent,
@@ -88,7 +90,7 @@ export function CheckInTab({
                   }}
                 >
                   <span className="font-mono font-medium w-16 shrink-0">{c.sailNumber}</span>
-                  <span className="flex-1 truncate">{displayHelmCrew(c, showCrew)}</span>
+                  <span className="flex-1 truncate">{displayCompetitorLabel(c, { enabledCompetitorFields, showCrew })}</span>
                   {present ? (
                     <CheckSquare className="h-4 w-4 text-green-600 shrink-0" />
                   ) : (
@@ -133,7 +135,7 @@ export function CheckInTab({
                   <Square className="h-4 w-4 text-muted-foreground shrink-0" />
                 )}
                 <span className="font-mono font-medium w-16 shrink-0">{c.sailNumber}</span>
-                <span className="text-sm flex-1 truncate">{displayHelmCrew(c, showCrew)}</span>
+                <span className="text-sm flex-1 truncate">{displayCompetitorLabel(c, { enabledCompetitorFields, showCrew })}</span>
               </button>
             );
           })

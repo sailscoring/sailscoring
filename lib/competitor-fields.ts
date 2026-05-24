@@ -1,4 +1,4 @@
-import type { Competitor, CompetitorFieldKey, PrimaryPersonLabel, Series } from './types';
+import type { Competitor, CompetitorFieldKey, Fleet, PrimaryPersonLabel, Series } from './types';
 
 /** Render "Helm / Crew" when the series has crew names enabled and a crew is
  *  set; otherwise just the helm. Used in autocomplete rows and finish lists. */
@@ -10,6 +10,37 @@ export function displayHelmCrew(
     return `${competitor.name} / ${competitor.crewName}`;
   }
   return competitor.name;
+}
+
+/** Label a competitor for finish entry, check-in, and other crew-facing lists.
+ *  Leads with the boat name when `boatName` is an enabled display field and the
+ *  competitor has one (keelboat one-designs identified by boat name), then
+ *  appends the primary person (`displayHelmCrew`): "Eclipse — Hogan / Dyson".
+ *  When `boatName` is not enabled or absent, returns just the person, identical
+ *  to `displayHelmCrew`. */
+export function displayCompetitorLabel(
+  competitor: Pick<Competitor, 'name' | 'crewName' | 'boatName'>,
+  opts: { enabledCompetitorFields: readonly CompetitorFieldKey[]; showCrew: boolean },
+): string {
+  const person = displayHelmCrew(competitor, opts.showCrew);
+  const boatName = competitor.boatName?.trim();
+  if (opts.enabledCompetitorFields.includes('boatName') && boatName) {
+    return `${boatName} — ${person}`;
+  }
+  return person;
+}
+
+/** Names of every fleet a competitor belongs to, in stored order. A boat can be
+ *  entered in more than one fleet (e.g. a handicap fleet and a scratch fleet
+ *  sharing a start); callers should reflect all of them, not just the first.
+ *  Unresolvable ids are dropped. */
+export function competitorFleetNames(
+  fleetIds: readonly string[],
+  fleetById: Map<string, Pick<Fleet, 'name'>>,
+): string[] {
+  return fleetIds
+    .map((id) => fleetById.get(id)?.name)
+    .filter((name): name is string => name != null);
 }
 
 /** Canonical ordering of all configurable competitor fields. The settings UI

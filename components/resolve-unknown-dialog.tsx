@@ -17,17 +17,18 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { displayHelmCrew } from '@/lib/competitor-fields';
-import type { Competitor, Fleet } from '@/lib/types';
+import { displayCompetitorLabel } from '@/lib/competitor-fields';
+import type { Competitor, CompetitorFieldKey, Fleet } from '@/lib/types';
 
 export interface ResolveUnknownDialogProps {
   /** When non-null, the dialog is open. The unknown entry being resolved. */
   unknownSailNumber: string | null;
   /** Candidate competitors to link to (typically non-finishers). */
-  candidates: Pick<Competitor, 'id' | 'sailNumber' | 'name' | 'crewName'>[];
+  candidates: Pick<Competitor, 'id' | 'sailNumber' | 'name' | 'crewName' | 'boatName'>[];
   fleets: Fleet[];
   primaryFieldLabel: string;
   showCrew: boolean;
+  enabledCompetitorFields: CompetitorFieldKey[];
   onResolveExisting: (competitorId: string) => void;
   /** Create a new competitor and resolve to it. Throw to surface an error. */
   onResolveNew: (input: { sailNumber: string; name: string; fleetId: string }) => Promise<void>;
@@ -51,6 +52,7 @@ function ResolveUnknownDialogInner({
   fleets,
   primaryFieldLabel,
   showCrew,
+  enabledCompetitorFields,
   onResolveExisting,
   onResolveNew,
   onCancel,
@@ -124,7 +126,7 @@ function ResolveUnknownDialogInner({
                     onClick={() => onResolveExisting(c.id)}
                   >
                     <span className="font-mono font-medium w-16 shrink-0">{c.sailNumber}</span>
-                    <span className="flex-1 truncate">{displayHelmCrew(c, showCrew)}</span>
+                    <span className="flex-1 truncate">{displayCompetitorLabel(c, { enabledCompetitorFields, showCrew })}</span>
                   </button>
                 ))
               )}

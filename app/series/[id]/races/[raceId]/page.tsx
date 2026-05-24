@@ -29,7 +29,6 @@ import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
   PRIMARY_PERSON_LABEL_TEXT,
-  displayHelmCrew,
 } from '@/lib/competitor-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,8 +89,9 @@ export default function ResultEntryPage({
 
   const { data: competitors } = useCompetitorsBySeries(seriesId);
   const { data: series } = useSeries(seriesId);
-  const showCrew =
-    (series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields()).includes('crewName');
+  const enabledCompetitorFields =
+    series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
+  const showCrew = enabledCompetitorFields.includes('crewName');
   const primaryFieldLabel =
     PRIMARY_PERSON_LABEL_TEXT[series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL];
   const { data: race } = useRace(raceId);
@@ -673,6 +673,7 @@ export default function ResultEntryPage({
         <CheckInTab
           competitors={competitors}
           showCrew={showCrew}
+          enabledCompetitorFields={enabledCompetitorFields}
           presentCount={presentCount}
           effectivelyPresent={effectivelyPresent}
           toggleStartPresent={toggleStartPresent}
@@ -749,10 +750,10 @@ export default function ResultEntryPage({
           finishEntry={finishEntry}
           competitors={competitors}
           competitorMap={competitorMap}
-          fleets={fleets ?? []}
           fleetById={fleetById}
           showFleetBadge={showFleetBadge}
           showCrew={showCrew}
+          enabledCompetitorFields={enabledCompetitorFields}
           derived={derived}
           savedFinishes={savedFinishes}
           finishSheetImportRef={finishSheetImportRef}
@@ -789,6 +790,7 @@ export default function ResultEntryPage({
         fleets={fleets ?? []}
         primaryFieldLabel={primaryFieldLabel}
         showCrew={showCrew}
+        enabledCompetitorFields={enabledCompetitorFields}
         onResolveExisting={linkUnknownToCompetitor}
         onResolveNew={handleResolveNew}
         onCancel={closeResolveDialog}

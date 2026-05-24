@@ -7,7 +7,9 @@ import {
   PRIMARY_PERSON_LABELS,
   PRIMARY_PERSON_LABEL_TEXT,
   SUBDIVISION_LABEL_PRESETS,
+  competitorFleetNames,
   defaultEnabledCompetitorFields,
+  displayCompetitorLabel,
   isFieldDisabledByPrimary,
   primaryPersonFieldKey,
   subdivisionFieldLabel,
@@ -81,6 +83,75 @@ describe('primary-person label helpers', () => {
     expect(isFieldDisabledByPrimary('helm', 'competitor')).toBe(false);
     expect(isFieldDisabledByPrimary('owner', 'competitor')).toBe(false);
     expect(isFieldDisabledByPrimary('boatName', 'entrant')).toBe(false);
+  });
+});
+
+describe('displayCompetitorLabel', () => {
+  const keelboat = { name: 'Hogan', crewName: 'Dyson', boatName: 'Eclipse' };
+  const dinghy = { name: 'Ian Dickson', crewName: 'J. Crew', boatName: undefined };
+
+  it('leads with the boat name when boatName is enabled (keelboat)', () => {
+    expect(
+      displayCompetitorLabel(keelboat, { enabledCompetitorFields: ['boatName'], showCrew: false }),
+    ).toBe('Eclipse — Hogan');
+  });
+
+  it('appends the crew after the person when crew is shown too', () => {
+    expect(
+      displayCompetitorLabel(keelboat, { enabledCompetitorFields: ['boatName', 'crewName'], showCrew: true }),
+    ).toBe('Eclipse — Hogan / Dyson');
+  });
+
+  it('falls back to the person when boatName is not an enabled field (dinghy)', () => {
+    expect(
+      displayCompetitorLabel(dinghy, { enabledCompetitorFields: ['crewName'], showCrew: true }),
+    ).toBe('Ian Dickson / J. Crew');
+  });
+
+  it('ignores an enabled-but-empty boat name', () => {
+    expect(
+      displayCompetitorLabel(
+        { name: 'Hogan', crewName: '', boatName: '   ' },
+        { enabledCompetitorFields: ['boatName'], showCrew: false },
+      ),
+    ).toBe('Hogan');
+  });
+
+  it('does not show the boat name when boatName is present but disabled', () => {
+    expect(
+      displayCompetitorLabel(keelboat, { enabledCompetitorFields: [], showCrew: false }),
+    ).toBe('Hogan');
+  });
+});
+
+describe('competitorFleetNames', () => {
+  const fleetById = new Map([
+    ['f-hph', { name: 'Puppeteer HPH' }],
+    ['f-scr', { name: 'Puppeteer Scr' }],
+  ]);
+
+  it('returns every fleet a competitor belongs to, in stored order', () => {
+    expect(competitorFleetNames(['f-hph', 'f-scr'], fleetById)).toEqual([
+      'Puppeteer HPH',
+      'Puppeteer Scr',
+    ]);
+  });
+
+  it('preserves order rather than always leading with the first-registered fleet', () => {
+    expect(competitorFleetNames(['f-scr', 'f-hph'], fleetById)).toEqual([
+      'Puppeteer Scr',
+      'Puppeteer HPH',
+    ]);
+  });
+
+  it('returns a single name for a single-fleet competitor', () => {
+    expect(competitorFleetNames(['f-hph'], fleetById)).toEqual(['Puppeteer HPH']);
+  });
+
+  it('drops unresolvable fleet ids and returns empty when none resolve', () => {
+    expect(competitorFleetNames(['f-hph', 'missing'], fleetById)).toEqual(['Puppeteer HPH']);
+    expect(competitorFleetNames(['missing'], fleetById)).toEqual([]);
+    expect(competitorFleetNames([], fleetById)).toEqual([]);
   });
 });
 
