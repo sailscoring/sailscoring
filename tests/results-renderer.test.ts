@@ -420,6 +420,54 @@ describe('renderSeriesHtml', () => {
       expect(html).not.toContain('<th>Division</th>');
     });
   });
+
+  describe('club column', () => {
+    // Club appears in both the summary and per-race tables, so set it on
+    // standings and race results alike.
+    const withClub: SeriesResultsData = {
+      ...MINIMAL,
+      enabledCompetitorFields: ['club'],
+      standings: [
+        { ...MINIMAL.standings[0], club: 'HYC' },
+        { ...MINIMAL.standings[1], club: 'RStGYC' },
+      ],
+      races: MINIMAL.races.map((r) => ({
+        ...r,
+        results: r.results.map((res) => ({
+          ...res,
+          club: res.sailNumber === '42' ? 'HYC' : 'RStGYC',
+        })),
+      })),
+    };
+
+    it('renders the Club column header and values in the summary table', () => {
+      const html = renderSeriesHtml(withClub);
+      expect(html).toContain('<th>Club</th>');
+      expect(html).toContain('>HYC<');
+      expect(html).toContain('>RStGYC<');
+    });
+
+    it('renders the Club column in the per-race tables too', () => {
+      const html = renderSeriesHtml(withClub);
+      // Summary table + two race tables each carry the header.
+      const headerCount = html.split('<th>Club</th>').length - 1;
+      expect(headerCount).toBe(3);
+    });
+
+    it('suppresses the column when enabled but no competitor has a value', () => {
+      const html = renderSeriesHtml({
+        ...withClub,
+        standings: MINIMAL.standings, // no club values
+        races: MINIMAL.races,
+      });
+      expect(html).not.toContain('<th>Club</th>');
+    });
+
+    it('omits the column entirely when the field is not enabled', () => {
+      const html = renderSeriesHtml({ ...withClub, enabledCompetitorFields: [] });
+      expect(html).not.toContain('<th>Club</th>');
+    });
+  });
 });
 
 // ---- Per-race table excludes implicit DNCs (#130) ----
@@ -594,6 +642,28 @@ describe('assembleSeriesResultsData', () => {
     const r1 = data.races[0].results;
     expect(r1[0].sailNumber).toBe('42'); // Alice 1pt
     expect(r1[1].sailNumber).toBe('99'); // Bob 2pt
+  });
+
+  it('threads club through to standings and race results', () => {
+    const data = assembleSeriesResultsData(
+      series,
+      races,
+      [
+        { ...standings[0], competitor: { ...standings[0].competitor, club: 'HYC' } },
+        { ...standings[1], competitor: { ...standings[1].competitor, club: 'RStGYC' } },
+      ],
+      raceScoresByRaceId,
+      new Map([
+        ['c1', { id: 'c1', sailNumber: '42', name: 'Alice', club: 'HYC' }],
+        ['c2', { id: 'c2', sailNumber: '99', name: 'Bob', club: 'RStGYC' }],
+      ]),
+      ['club'],
+      now,
+    );
+    expect(data.standings[0].club).toBe('HYC');
+    expect(data.standings[1].club).toBe('RStGYC');
+    expect(data.races[0].results.find((r) => r.sailNumber === '42')?.club).toBe('HYC');
+    expect(data.races[0].results.find((r) => r.sailNumber === '99')?.club).toBe('RStGYC');
   });
 });
 
