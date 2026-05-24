@@ -48,6 +48,8 @@ function sampleSeries(id: string) {
     endDate: '2026-04-30',
     venueLogoUrl: '',
     eventLogoUrl: '',
+    venueUrl: '',
+    eventUrl: '',
     createdAt: Date.now(),
     lastSnapshotId: null,
     lastSavedAt: null,

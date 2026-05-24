@@ -41,6 +41,8 @@ export interface Series {
   endDate: string;     // ISO date string; empty string if single-day or unknown
   venueLogoUrl: string;
   eventLogoUrl: string;
+  venueUrl: string;    // website the venue logo/name links to in exports (empty if unset)
+  eventUrl: string;    // website the event logo/name links to in exports (empty if unset)
   createdAt: number;   // Date.now()
   // File tracking
   lastSnapshotId: string | null;  // snapshotId of last Save to File or Open from File

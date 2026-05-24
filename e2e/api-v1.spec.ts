@@ -30,6 +30,8 @@ test.describe('/api/v1', () => {
       endDate: '',
       venueLogoUrl: '',
       eventLogoUrl: '',
+      venueUrl: '',
+      eventUrl: '',
       createdAt: now,
       lastSnapshotId: null,
       lastSavedAt: null,

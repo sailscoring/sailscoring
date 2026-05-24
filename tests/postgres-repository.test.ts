@@ -41,6 +41,8 @@ function makeSeries(id: string = uuid()): Series {
     endDate: '2026-04-30',
     venueLogoUrl: '',
     eventLogoUrl: '',
+    venueUrl: '',
+    eventUrl: '',
     createdAt: now,
     lastSnapshotId: null,
     lastSavedAt: null,

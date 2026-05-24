@@ -176,6 +176,28 @@ describe('buildSeriesFileFromSailwave: Tues & Sat Series 1 (H17 discard profile)
   });
 });
 
+describe('buildSeriesFileFromSailwave: venue/event website URLs', () => {
+  it('carries servenueurl / sereventurl into venueUrl / eventUrl', () => {
+    const raw: SailwaveRaw = {
+      globals: {
+        serevent: 'Synthetic Regatta',
+        servenue: 'Synthetic YC',
+        servenueburgee: 'https://venue.example.com/logo.png',
+        sereventburgee: 'https://event.example.com/logo.png',
+        servenueurl: 'https://venue.example.com',
+        sereventurl: 'https://event.example.com',
+      },
+      competitors: {},
+      races: {},
+    };
+    const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+    expect(file.series.venueLogoUrl).toBe('https://venue.example.com/logo.png');
+    expect(file.series.eventLogoUrl).toBe('https://event.example.com/logo.png');
+    expect(file.series.venueUrl).toBe('https://venue.example.com');
+    expect(file.series.eventUrl).toBe('https://event.example.com');
+  });
+});
+
 describe('buildSeriesFileFromSailwave: Tues Series 1', () => {
   const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
   const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
@@ -187,6 +209,19 @@ describe('buildSeriesFileFromSailwave: Tues Series 1', () => {
       'Squib HPH',
       'Squib Scr',
     ]);
+  });
+
+  it('carries the venue and event logo URLs from Sailwave burgee globals', () => {
+    // `servenueburgee` / `sereventburgee` both point at the HYC logo in this file.
+    expect(file.series.venueLogoUrl).toBe(
+      'https://www.hyc.ie/system/sponsor_logos/620/normal/Howth_Yacht_Club_-_Logo_RGB.jpg',
+    );
+    expect(file.series.eventLogoUrl).toBe(
+      'https://www.hyc.ie/system/sponsor_logos/620/normal/Howth_Yacht_Club_-_Logo_RGB.jpg',
+    );
+    // This file carries no website-URL globals, so those stay empty.
+    expect(file.series.venueUrl ?? '').toBe('');
+    expect(file.series.eventUrl ?? '').toBe('');
   });
 
   it('collapses primary+alias rows into one competitor per physical boat', () => {

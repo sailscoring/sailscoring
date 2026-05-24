@@ -19,6 +19,8 @@ const VALID_SERIES: Series = {
   endDate: '2026-04-30',
   venueLogoUrl: '',
   eventLogoUrl: '',
+  venueUrl: '',
+  eventUrl: '',
   createdAt: 1_700_000_000_000,
   lastSnapshotId: null,
   lastSavedAt: null,

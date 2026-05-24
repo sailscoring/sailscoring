@@ -596,6 +596,15 @@ export default function HelpPage() {
           page you can email or host on your club website. To push results directly to a web server,
           see <a href="#publishing-results" className="underline">Publishing results via FTP</a>.
         </p>
+        <p>
+          You can brand the exported page from the{' '}
+          <strong className="text-foreground">Settings</strong> tab. The{' '}
+          <strong className="text-foreground">venue</strong> and{' '}
+          <strong className="text-foreground">event logo URLs</strong> place logos in the page
+          header; the matching{' '}
+          <strong className="text-foreground">website URLs</strong> make those logos clickable and
+          add venue and event links to the page footer. All four are optional.
+        </p>
       </Section>
 
       <Section id="rating-systems" title="Rating systems">

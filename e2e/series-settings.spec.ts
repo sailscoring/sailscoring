@@ -4,8 +4,9 @@ import { createSeriesQuick } from './helpers';
 /**
  * E2E tests for the series settings page (issue #39).
  *
- * Covers: Basics card (venue, start/end date, logo URLs), tab rename to "Settings",
- * and logo URLs wired through to HTML export.
+ * Covers: Basics card (venue, start/end date, logo URLs, website URLs), tab
+ * rename to "Settings", and logo/website URLs wired through to HTML export
+ * (clickable header logos + footer website links).
  */
 
 test('settings basics card saves venue, dates, and logo URLs', async ({ page }) => {
@@ -23,6 +24,8 @@ test('settings basics card saves venue, dates, and logo URLs', async ({ page }) 
   await page.getByLabel('End date').fill('2025-07-13');
   await page.getByLabel('Venue logo URL').fill('https://example.com/venue-logo.png');
   await page.getByLabel('Event logo URL').fill('https://example.com/event-logo.png');
+  await page.getByLabel('Venue website URL').fill('https://venue.example.com');
+  await page.getByLabel('Event website URL').fill('https://event.example.com');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   // ── 4. Verify the series header subtitle reflects the new venue and date ──
@@ -38,17 +41,22 @@ test('settings basics card saves venue, dates, and logo URLs', async ({ page }) 
   await expect(page.getByLabel('End date')).toHaveValue('2025-07-13');
   await expect(page.getByLabel('Venue logo URL')).toHaveValue('https://example.com/venue-logo.png');
   await expect(page.getByLabel('Event logo URL')).toHaveValue('https://example.com/event-logo.png');
+  await expect(page.getByLabel('Venue website URL')).toHaveValue('https://venue.example.com');
+  await expect(page.getByLabel('Event website URL')).toHaveValue('https://event.example.com');
 });
 
-test('logo URLs appear as img tags in exported HTML', async ({ page }) => {
+test('logo and website URLs produce clickable logos and footer links in exported HTML', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'Logo Test Series' });
 
-  // ── 2. Set logo URLs in Settings ─────────────────────────────────────────
+  // ── 2. Set venue, logo URLs, and website URLs in Settings ────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByLabel('Venue', { exact: true }).fill('Test Venue');
   await page.getByLabel('Venue logo URL').fill('https://example.com/venue.png');
   await page.getByLabel('Event logo URL').fill('https://example.com/event.png');
+  await page.getByLabel('Venue website URL').fill('https://venue.example.com');
+  await page.getByLabel('Event website URL').fill('https://event.example.com');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   // ── 3. Add a competitor and race so export is possible ───────────────────
@@ -82,4 +90,12 @@ test('logo URLs appear as img tags in exported HTML', async ({ page }) => {
   expect(html).toContain('src="https://example.com/event.png"');
   expect(html).toContain('alt="venue logo"');
   expect(html).toContain('alt="event logo"');
+
+  // Header logos are wrapped in links to the website URLs.
+  expect(html).toContain('<a href="https://venue.example.com" target="_top" rel="noopener"><img');
+  expect(html).toContain('<a href="https://event.example.com" target="_top" rel="noopener"><img');
+
+  // Footer carries the venue (by name) and event (by series name) website links.
+  expect(html).toContain('<p class="hardleft"><a href="https://venue.example.com" target="_top" rel="noopener">Test Venue</a></p>');
+  expect(html).toContain('<p class="hardright"><a href="https://event.example.com" target="_top" rel="noopener">Logo Test Series</a></p>');
 });

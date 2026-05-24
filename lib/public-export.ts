@@ -49,6 +49,8 @@ export interface PublicSeriesExport {
     endDate: string;
     venueLogoUrl?: string;
     eventLogoUrl?: string;
+    venueUrl?: string;
+    eventUrl?: string;
     discardThresholds: DiscardThreshold[];
     dnfScoring: 'seriesEntries' | 'startingArea';
     /** Which optional competitor fields the scorer has chosen to show.
@@ -461,6 +463,8 @@ export async function buildPublicExport(
       endDate: series.endDate,
       ...(series.venueLogoUrl ? { venueLogoUrl: series.venueLogoUrl } : {}),
       ...(series.eventLogoUrl ? { eventLogoUrl: series.eventLogoUrl } : {}),
+      ...(series.venueUrl ? { venueUrl: series.venueUrl } : {}),
+      ...(series.eventUrl ? { eventUrl: series.eventUrl } : {}),
       discardThresholds: series.discardThresholds,
       dnfScoring: series.dnfScoring,
       displayFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
@@ -569,6 +573,8 @@ export async function importPublicExport(
     endDate: data.series.endDate,
     venueLogoUrl: data.series.venueLogoUrl ?? '',
     eventLogoUrl: data.series.eventLogoUrl ?? '',
+    venueUrl: data.series.venueUrl ?? '',
+    eventUrl: data.series.eventUrl ?? '',
     createdAt: now,
     lastSnapshotId: null,
     lastSavedAt: null,

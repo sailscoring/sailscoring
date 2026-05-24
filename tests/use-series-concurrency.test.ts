@@ -27,6 +27,8 @@ const baseSeries: Series = {
   endDate: '',
   venueLogoUrl: '',
   eventLogoUrl: '',
+  venueUrl: '',
+  eventUrl: '',
   createdAt: 0,
   lastSnapshotId: null,
   lastSavedAt: null,

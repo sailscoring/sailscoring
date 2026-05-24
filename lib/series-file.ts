@@ -97,6 +97,8 @@ interface SeriesFileSeries {
   endDate: string;
   venueLogoUrl: string;
   eventLogoUrl: string;
+  venueUrl?: string;   // additive; absent in files written before logo/event links landed
+  eventUrl?: string;
   discardThresholds: DiscardThreshold[];
   dnfScoring: 'seriesEntries' | 'startingArea';
   ftpHost: string;
@@ -304,6 +306,8 @@ export async function buildSeriesFile(
       endDate: series.endDate,
       venueLogoUrl: series.venueLogoUrl,
       eventLogoUrl: series.eventLogoUrl,
+      venueUrl: series.venueUrl,
+      eventUrl: series.eventUrl,
       discardThresholds: series.discardThresholds,
       dnfScoring: series.dnfScoring,
       ftpHost: series.ftpHost ?? '',
@@ -491,6 +495,8 @@ export async function openSeriesFromFile(
     endDate: file.series.endDate,
     venueLogoUrl: file.series.venueLogoUrl,
     eventLogoUrl: file.series.eventLogoUrl,
+    venueUrl: file.series.venueUrl ?? '',
+    eventUrl: file.series.eventUrl ?? '',
     createdAt: now,
     lastSnapshotId: file.snapshotId,
     lastSavedAt: null,
@@ -547,6 +553,8 @@ export async function updateSeriesFromFile(
     endDate: file.series.endDate,
     venueLogoUrl: file.series.venueLogoUrl,
     eventLogoUrl: file.series.eventLogoUrl,
+    venueUrl: file.series.venueUrl ?? '',
+    eventUrl: file.series.eventUrl ?? '',
     lastSnapshotId: file.snapshotId,
     lastModifiedAt: now,
     snapshotHistory: [...file.snapshotHistory],

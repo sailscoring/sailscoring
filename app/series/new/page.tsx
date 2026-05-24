@@ -34,6 +34,8 @@ async function doCreateSeries(
     endDate: '',
     venueLogoUrl: '',
     eventLogoUrl: '',
+    venueUrl: '',
+    eventUrl: '',
     createdAt: now,
     lastSnapshotId: null,
     lastSavedAt: null,

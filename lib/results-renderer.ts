@@ -18,6 +18,10 @@ export interface SeriesResultsData {
   fleetName?: string;
   leftLogoUrl?: string;
   rightLogoUrl?: string;
+  /** Website the left (venue) header logo / footer link points to. */
+  leftUrl?: string;
+  /** Website the right (event) header logo / footer link points to. */
+  rightUrl?: string;
   /** If set, renders "Results are provisional as of HH:MM on Month D, YYYY" */
   generatedAt?: Date;
   /** Which optional competitor fields the scorer has enabled for this series.
@@ -242,7 +246,7 @@ export interface RaceScoreData {
 // ---- Renderer ----
 
 export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercent?: number }): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, generatedAt, enabledCompetitorFields, primaryPersonLabel, subdivisionLabel, races, standings, openInAppUrl, progressiveScoringSystem, showPerRaceRatings } = data;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, enabledCompetitorFields, primaryPersonLabel, subdivisionLabel, races, standings, openInAppUrl, progressiveScoringSystem, showPerRaceRatings } = data;
   const fontPercent = options?.fontPercent ?? 80;
   const summaryRatingSystem = showPerRaceRatings && progressiveScoringSystem ? progressiveScoringSystem : null;
 
@@ -318,12 +322,12 @@ ${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-tog
 <table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
 <tbody>
 <tr>
-<td width="30%">${leftLogoUrl ? `<img style="display:block; height:100px;" src="${esc(leftLogoUrl)}" alt="venue logo" />` : ''}</td>
+<td width="30%">${leftLogoUrl ? maybeLink(leftUrl, `<img style="display:block; height:100px;" src="${esc(leftLogoUrl)}" alt="venue logo" />`) : ''}</td>
 <td width="40%" align="center">
 <h1>${esc(series.name)}</h1>
 ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 </td>
-<td width="30%">${rightLogoUrl ? `<img style="display:block; height:100px;" src="${esc(rightLogoUrl)}" alt="event logo" align="right" />` : ''}</td>
+<td width="30%">${rightLogoUrl ? maybeLink(rightUrl, `<img style="display:block; height:100px;" src="${esc(rightLogoUrl)}" alt="event logo" align="right" />`) : ''}</td>
 </tr>
 </tbody>
 </table>
@@ -339,8 +343,9 @@ ${races
   .filter((race) => race.results.length > 0)
   .map((race) => renderRaceTable(race, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showNationality, primaryHeader, data.flagSvgByCode))
   .join('\n')}
-<p class="hardleft"></p>
-<p class="hardright"></p>
+<p class="hardleft">${leftUrl ? `<a href="${esc(leftUrl)}" target="_top" rel="noopener">${esc(series.venue || leftUrl)}</a>` : ''}</p>
+<p class="hardright">${rightUrl ? `<a href="${esc(rightUrl)}" target="_top" rel="noopener">${esc(series.name)}</a>` : ''}</p>
+<div style="clear:both;"></div>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
@@ -911,6 +916,13 @@ function esc(str: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/** Wrap `inner` HTML in an anchor to `url` when `url` is non-empty; otherwise
+ *  return `inner` unchanged. Used to make the header logos clickable. */
+function maybeLink(url: string | undefined, inner: string): string {
+  if (!url) return inner;
+  return `<a href="${esc(url)}" target="_top" rel="noopener">${inner}</a>`;
+}
+
 // ---- Assembly helper ----
 
 /**
@@ -918,7 +930,7 @@ function esc(str: string): string {
  * Call this from the standings page before passing to renderSeriesHtml().
  */
 export function assembleSeriesResultsData(
-  series: { name: string; venue: string; venueLogoUrl?: string; eventLogoUrl?: string },
+  series: { name: string; venue: string; venueLogoUrl?: string; eventLogoUrl?: string; venueUrl?: string; eventUrl?: string },
   races: Array<{ id: string; raceNumber: number; date: string }>,
   standings: Array<{
     rank: number;
@@ -1167,6 +1179,8 @@ export function assembleSeriesResultsData(
     fleetName,
     leftLogoUrl: series.venueLogoUrl || undefined,
     rightLogoUrl: series.eventLogoUrl || undefined,
+    leftUrl: series.venueUrl || undefined,
+    rightUrl: series.eventUrl || undefined,
     generatedAt,
     enabledCompetitorFields,
     ...(primaryPersonLabel ? { primaryPersonLabel } : {}),

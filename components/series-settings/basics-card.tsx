@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-export type BasicsValues = Pick<Series, 'name' | 'venue' | 'startDate' | 'endDate' | 'venueLogoUrl' | 'eventLogoUrl'>;
+export type BasicsValues = Pick<Series, 'name' | 'venue' | 'startDate' | 'endDate' | 'venueLogoUrl' | 'eventLogoUrl' | 'venueUrl' | 'eventUrl'>;
 
 export type BasicsCardProps = {
   value: BasicsValues;
@@ -42,7 +42,7 @@ export function BasicsCard({
   // series, or an external update). Tracked via a derived key rather than
   // `value` identity, so unrelated series writes (e.g. FleetsCard saving) do
   // not reset an in-progress draft. See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
-  const persistedKey = `${value.name}|${value.venue}|${value.startDate}|${value.endDate}|${value.venueLogoUrl}|${value.eventLogoUrl}`;
+  const persistedKey = `${value.name}|${value.venue}|${value.startDate}|${value.endDate}|${value.venueLogoUrl}|${value.eventLogoUrl}|${value.venueUrl}|${value.eventUrl}`;
   const [prevPersistedKey, setPrevPersistedKey] = useState(persistedKey);
   if (prevPersistedKey !== persistedKey) {
     setPrevPersistedKey(persistedKey);
@@ -93,6 +93,8 @@ export function BasicsCard({
     if (showLogos) {
       patch.venueLogoUrl = draft.venueLogoUrl.trim();
       patch.eventLogoUrl = draft.eventLogoUrl.trim();
+      patch.venueUrl = draft.venueUrl.trim();
+      patch.eventUrl = draft.eventUrl.trim();
     }
     await onChange(patch);
     setNameError(null);
@@ -158,6 +160,17 @@ export function BasicsCard({
             />
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor="venueUrl">Venue website URL</Label>
+            <Input
+              id="venueUrl"
+              type="url"
+              value={draft.venueUrl}
+              onChange={(e) => update({ venueUrl: e.target.value })}
+              placeholder="https://…"
+            />
+            <p className="text-xs text-muted-foreground">The venue logo and name link here in exported results.</p>
+          </div>
+          <div className="space-y-1.5">
             <Label htmlFor="eventLogoUrl">Event logo URL</Label>
             <Input
               id="eventLogoUrl"
@@ -166,6 +179,17 @@ export function BasicsCard({
               onChange={(e) => update({ eventLogoUrl: e.target.value })}
               placeholder="https://…"
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="eventUrl">Event website URL</Label>
+            <Input
+              id="eventUrl"
+              type="url"
+              value={draft.eventUrl}
+              onChange={(e) => update({ eventUrl: e.target.value })}
+              placeholder="https://…"
+            />
+            <p className="text-xs text-muted-foreground">The event logo and name link here in exported results.</p>
           </div>
         </>
       )}

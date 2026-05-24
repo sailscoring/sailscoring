@@ -64,6 +64,8 @@ export const seriesSchema = z.object({
   endDate: isoDateSchema,
   venueLogoUrl: z.string(),
   eventLogoUrl: z.string(),
+  venueUrl: z.string(),
+  eventUrl: z.string(),
   createdAt: epochMsSchema,
   lastSnapshotId: uuidSchema.nullable(),
   lastSavedAt: epochMsSchema.nullable(),

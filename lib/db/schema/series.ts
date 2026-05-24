@@ -66,6 +66,8 @@ export const series = pgTable(
     endDate: text('end_date').notNull().default(''),
     venueLogoUrl: text('venue_logo_url').notNull().default(''),
     eventLogoUrl: text('event_logo_url').notNull().default(''),
+    venueUrl: text('venue_url').notNull().default(''),
+    eventUrl: text('event_url').notNull().default(''),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

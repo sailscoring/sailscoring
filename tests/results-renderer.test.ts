@@ -190,6 +190,65 @@ describe('renderSeriesHtml', () => {
     expect(html).toContain('src="https://example.com/logo.png"');
   });
 
+  it('leaves header logos unwrapped when no link URL is set', () => {
+    const html = renderSeriesHtml({
+      ...MINIMAL,
+      leftLogoUrl: 'https://example.com/venue.png',
+      rightLogoUrl: 'https://example.com/event.png',
+    });
+    // The img tags are present but not inside an anchor.
+    expect(html).not.toContain('<a href="https://venue.example.com"');
+    expect(html).toContain('src="https://example.com/venue.png"');
+  });
+
+  it('wraps the venue logo in a link when leftUrl is set', () => {
+    const html = renderSeriesHtml({
+      ...MINIMAL,
+      leftLogoUrl: 'https://example.com/venue.png',
+      leftUrl: 'https://venue.example.com',
+    });
+    expect(html).toContain(
+      '<a href="https://venue.example.com" target="_top" rel="noopener"><img',
+    );
+  });
+
+  it('wraps the event logo in a link when rightUrl is set', () => {
+    const html = renderSeriesHtml({
+      ...MINIMAL,
+      rightLogoUrl: 'https://example.com/event.png',
+      rightUrl: 'https://event.example.com',
+    });
+    expect(html).toContain(
+      '<a href="https://event.example.com" target="_top" rel="noopener"><img',
+    );
+  });
+
+  it('renders footer venue/event website links from leftUrl/rightUrl', () => {
+    const html = renderSeriesHtml({
+      ...MINIMAL,
+      leftUrl: 'https://venue.example.com',
+      rightUrl: 'https://event.example.com',
+    });
+    // Venue link uses the venue name as anchor text; event link uses the series name.
+    expect(html).toContain('<p class="hardleft"><a href="https://venue.example.com" target="_top" rel="noopener">Test Venue</a></p>');
+    expect(html).toContain('<p class="hardright"><a href="https://event.example.com" target="_top" rel="noopener">Test Series</a></p>');
+  });
+
+  it('falls back to the URL as footer venue link text when venue name is empty', () => {
+    const html = renderSeriesHtml({
+      ...MINIMAL,
+      series: { name: 'Test Series', venue: '' },
+      leftUrl: 'https://venue.example.com',
+    });
+    expect(html).toContain('>https://venue.example.com</a>');
+  });
+
+  it('leaves footer link slots empty when no website URLs are set', () => {
+    const html = renderSeriesHtml(MINIMAL);
+    expect(html).toContain('<p class="hardleft"></p>');
+    expect(html).toContain('<p class="hardright"></p>');
+  });
+
   it('escapes HTML special characters in names', () => {
     const data: SeriesResultsData = {
       ...MINIMAL,
