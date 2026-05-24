@@ -98,6 +98,11 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
   expect(html).toContain('Bob Kelly');
   expect(html).toContain('Carol Ryan');
 
+  // Club column renders (enabled by default) with each competitor's club
+  expect(html).toContain('<th>Club</th>');
+  expect(html).toContain('>HYC<');
+  expect(html).toContain('>RCYC<');
+
   // Correct ordinal ranks in standings
   expect(html).toContain('1st');
   expect(html).toContain('2nd');
