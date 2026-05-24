@@ -113,12 +113,12 @@ test('nationality: HTML export contains the Nat column and deduped flag <symbol>
   const html = fs.readFileSync(path, 'utf-8');
 
   // Nat column header is present.
-  expect(html).toContain('<th>Nat</th>');
+  expect(html).toContain('<th>Nationality</th>');
   // The Irish flag definition exists EXACTLY once across the whole document
   // even though two boats reference it (dedup via <use href="#flag-IRL">).
   expect(html.match(/<symbol id="flag-IRL"/g)?.length).toBe(1);
   // Both rows reference the symbol — two summary cells + two race cells.
   expect((html.match(/<use href="#flag-IRL"/g) ?? []).length).toBeGreaterThanOrEqual(2);
-  // The code itself appears alongside the flag.
-  expect(html).toContain('>IRL</td>');
+  // The code itself appears below the flag, in its own nattext span.
+  expect(html).toContain('>IRL</span></td>');
 });
