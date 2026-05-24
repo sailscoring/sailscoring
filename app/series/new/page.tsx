@@ -10,7 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Series } from '@/lib/types';
 import type { SeriesRepository } from '@/lib/repository';
-import { defaultEnabledCompetitorFields, DEFAULT_PRIMARY_PERSON_LABEL } from '@/lib/competitor-fields';
+import {
+  defaultEnabledCompetitorFields,
+  DEFAULT_PRIMARY_PERSON_LABEL,
+  DEFAULT_SUBDIVISION_LABEL,
+} from '@/lib/competitor-fields';
 import { generateUniquePlaceholderName } from '@/lib/placeholder-names';
 import { isDuplicateSeriesName } from '@/lib/series-name';
 import { log } from '@/lib/debug';
@@ -45,6 +49,7 @@ async function doCreateSeries(
     includeJsonExport: true,
     enabledCompetitorFields: defaultEnabledCompetitorFields(),
     primaryPersonLabel: DEFAULT_PRIMARY_PERSON_LABEL,
+    subdivisionLabel: DEFAULT_SUBDIVISION_LABEL,
   };
   log('series', 'creating', series);
   await repo.save(series);

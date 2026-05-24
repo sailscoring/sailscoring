@@ -67,6 +67,7 @@ export async function putSeries(
     publishRatingCalculations: input.publishRatingCalculations,
     enabledCompetitorFields: input.enabledCompetitorFields,
     primaryPersonLabel: input.primaryPersonLabel,
+    subdivisionLabel: input.subdivisionLabel,
   };
   return repos.series.save(merged, {
     expectedVersion: opts?.expectedVersion,
@@ -200,6 +201,7 @@ export async function copySeries(
       publishRatingCalculations: source.publishRatingCalculations ?? true,
       enabledCompetitorFields: source.enabledCompetitorFields,
       primaryPersonLabel: source.primaryPersonLabel,
+      subdivisionLabel: source.subdivisionLabel,
     });
 
     // Fleets.
@@ -237,6 +239,7 @@ export async function copySeries(
           nationality: c.nationality ?? null,
           gender: c.gender,
           age: c.age,
+          subdivision: c.subdivision ?? null,
           createdAt: new Date(c.createdAt),
           ircTcc: c.ircTcc ?? null,
           pyNumber: c.pyNumber ?? null,

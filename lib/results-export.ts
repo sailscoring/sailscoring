@@ -9,6 +9,7 @@ import { buildPublicExport } from './public-export';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
+  DEFAULT_SUBDIVISION_LABEL,
 } from './competitor-fields';
 import type { ResultCode, PenaltyCode } from './types';
 
@@ -278,6 +279,7 @@ export async function buildFleetHtmlFiles(
         fleetId: fleet.id,
         scoringSystem: fleet.scoringSystem,
         primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+        subdivisionLabel: series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
         ...(nhcAggregatesForRender ? { nhcAggregatesByRaceId: nhcAggregatesForRender } : {}),
         ...(echoAggregatesForRender ? { echoAggregatesByRaceId: echoAggregatesForRender } : {}),
         showPerRaceRatings,

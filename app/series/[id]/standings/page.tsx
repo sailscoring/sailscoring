@@ -12,6 +12,7 @@ import { getDiscardCount, calculateFleetStandings } from '@/lib/scoring';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
+  subdivisionFieldLabel,
 } from '@/lib/competitor-fields';
 import { exportFleetHtml } from '@/lib/results-export';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,9 @@ export default function StandingsPage({
   const { id: seriesId } = use(params);
   const [showFtpDialog, setShowFtpDialog] = useState(false);
   const [showBilgeDialog, setShowBilgeDialog] = useState(false);
+  // null = show all subdivisions; a string filters standings to one
+  // subdivision for prize-giving (ranks stay the full-fleet ranks).
+  const [subdivisionFilter, setSubdivisionFilter] = useState<string | null>(null);
 
   const { data: series } = useSeries(seriesId);
   const { data: competitors } = useCompetitorsBySeries(seriesId);
@@ -112,6 +116,26 @@ export default function StandingsPage({
   const isSingleFleet = fleets.length <= 1;
   const fleetCountLabel = fleets.length > 1 ? ` · ${fleets.length} fleets` : '';
 
+  // Subdivision prize-giving filter. Offered only when the field is enabled
+  // and at least one competitor carries a value.
+  const enabledFields = series.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
+  const subdivisionLabel = subdivisionFieldLabel(series);
+  const subdivisionValues = enabledFields.includes('subdivision')
+    ? Array.from(
+        new Set(
+          competitors
+            .map((c) => c.subdivision?.trim())
+            .filter((v): v is string => !!v),
+        ),
+      ).sort((a, b) => a.localeCompare(b))
+    : [];
+  const showSubdivisionFilter = subdivisionValues.length > 0;
+  // Guard against a stale filter pointing at a value no longer present.
+  const activeSubdivision =
+    subdivisionFilter && subdivisionValues.includes(subdivisionFilter)
+      ? subdivisionFilter
+      : null;
+
   return (
     <div className="space-y-4 overflow-x-auto">
       {circularRedressRaces.length > 0 && (
@@ -130,6 +154,25 @@ export default function StandingsPage({
           · {competitors.length} competitor{competitors.length === 1 ? '' : 's'}
         </p>
         <div className="flex gap-2">
+          {showSubdivisionFilter && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  {subdivisionLabel}: {activeSubdivision ?? 'All'} ▾
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setSubdivisionFilter(null)}>
+                  All
+                </DropdownMenuItem>
+                {subdivisionValues.map((value) => (
+                  <DropdownMenuItem key={value} onClick={() => setSubdivisionFilter(value)}>
+                    {value}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button size="sm" variant="outline" onClick={() => setShowBilgeDialog(true)} title="Publish (p)">
             Publish
           </Button>
@@ -159,6 +202,12 @@ export default function StandingsPage({
 
       {fleetResults.map(({ fleet, standings, rejections }) => {
         const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
+        // Filter rows for prize-giving but keep the full-fleet rank on each row.
+        const visibleStandings = activeSubdivision
+          ? standings.filter((s) => (s.competitor.subdivision?.trim() ?? '') === activeSubdivision)
+          : standings;
+        // Under an active filter, hide fleets that have nobody in this subdivision.
+        if (activeSubdivision && visibleStandings.length === 0) return null;
         return (
           <div key={fleet.id} className="space-y-2">
             {!isSingleFleet && (
@@ -178,11 +227,12 @@ export default function StandingsPage({
               <ScoringRejectionsWarning rejections={rejections} competitors={competitors} />
             )}
             <FleetStandingsTable
-              standings={standings}
+              standings={visibleStandings}
               races={races}
               hasDiscards={hasDiscards}
-              enabledFields={series.enabledCompetitorFields ?? defaultEnabledCompetitorFields()}
+              enabledFields={enabledFields}
               primaryLabel={series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL}
+              subdivisionLabel={subdivisionLabel}
             />
           </div>
         );

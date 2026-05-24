@@ -9,6 +9,8 @@ import type {
   PrimaryPersonLabel,
 } from '@/lib/types';
 
+import { SUBDIVISION_LABEL_MAX_LENGTH } from '@/lib/competitor-fields';
+
 import { epochMsSchema, isoDateSchema, uuidSchema, versionSchema } from './common';
 
 export const competitorFieldKeySchema = z.enum([
@@ -21,6 +23,7 @@ export const competitorFieldKeySchema = z.enum([
   'nationality',
   'gender',
   'age',
+  'subdivision',
 ]);
 
 export const primaryPersonLabelSchema = z.enum([
@@ -79,6 +82,10 @@ export const seriesSchema = z.object({
   showPerRaceRatingsInSummary: z.boolean().optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
   primaryPersonLabel: primaryPersonLabelSchema,
+  // Freeform label for the subdivision field (e.g. "Division", "Category").
+  // Empty is tolerated on the wire; the read-side resolver falls back to the
+  // default, so we don't reject it with a brittle 400.
+  subdivisionLabel: z.string().max(SUBDIVISION_LABEL_MAX_LENGTH),
   version: versionSchema,
 });
 

@@ -67,6 +67,7 @@ const stubSeries: Series = {
   publishRatingCalculations: true,
   enabledCompetitorFields: [],
   primaryPersonLabel: 'competitor',
+  subdivisionLabel: 'Division',
 };
 
 describe('api-repository routing', () => {

@@ -36,6 +36,7 @@ const VALID_SERIES: Series = {
   publishRatingCalculations: true,
   enabledCompetitorFields: ['boatName', 'club'],
   primaryPersonLabel: 'helm',
+  subdivisionLabel: 'Division',
 };
 
 describe('seriesSchema', () => {

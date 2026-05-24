@@ -43,6 +43,7 @@ const baseSeries: Series = {
   publishRatingCalculations: true,
   enabledCompetitorFields: [],
   primaryPersonLabel: 'competitor',
+  subdivisionLabel: 'Division',
   version: 0,
 };
 

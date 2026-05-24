@@ -59,6 +59,7 @@ import {
   COMPETITOR_FIELD_LABELS,
   ALL_COMPETITOR_FIELDS,
   isFieldDisabledByPrimary,
+  subdivisionFieldLabel,
 } from '@/lib/competitor-fields';
 import { log } from '@/lib/debug';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
@@ -75,6 +76,7 @@ interface CompetitorFormData {
   nationality: string;
   gender: '' | 'M' | 'F';
   age: string;
+  subdivision: string;
   fleetIds: string[];   // IDs of existing fleets to assign the competitor to
   ircTcc: string;       // decimal string, e.g. "0.972"; empty if not set
   pyNumber: string;     // integer string, e.g. "1034"; empty if not set
@@ -94,6 +96,7 @@ const emptyForm: CompetitorFormData = {
   nationality: '',
   gender: '',
   age: '',
+  subdivision: '',
   fleetIds: [],
   ircTcc: '',
   pyNumber: '',
@@ -144,6 +147,7 @@ function CompetitorForm({
   availableFleets,
   enabledFields,
   primaryLabel,
+  subdivisionLabel,
 }: {
   initial: CompetitorFormData;
   onSave: (data: CompetitorFormData) => Promise<void>;
@@ -152,6 +156,7 @@ function CompetitorForm({
   availableFleets: Fleet[];
   enabledFields: CompetitorFieldKey[];
   primaryLabel: PrimaryPersonLabel;
+  subdivisionLabel: string;
 }) {
   const [data, setData] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -401,6 +406,17 @@ function CompetitorForm({
             />
           </div>
         )}
+        {enabledFields.includes('subdivision') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="subdivision">{subdivisionLabel}</Label>
+            <Input
+              id="subdivision"
+              value={data.subdivision}
+              onChange={(e) => set('subdivision', e.target.value)}
+              placeholder="e.g. Gold"
+            />
+          </div>
+        )}
         {availableFleets.length > 1 && (
           <div className="space-y-1.5 col-span-2">
             <Label>Fleet</Label>
@@ -518,6 +534,9 @@ export default function CompetitorsPage({
   const primaryLabel: PrimaryPersonLabel =
     series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
   const primaryFieldLabel = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
+  const subdivisionLabel = subdivisionFieldLabel({
+    subdivisionLabel: series?.subdivisionLabel ?? '',
+  });
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const multipleFleets = (fleets ?? []).length > 1;
   const ratingSystems = configuredRatingSystems(fleets ?? []);
@@ -599,6 +618,7 @@ export default function CompetitorsPage({
       ...(data.nationality.trim() ? { nationality: data.nationality.trim() } : {}),
       gender: data.gender,
       age: data.age ? parseInt(data.age, 10) : null,
+      ...(data.subdivision.trim() ? { subdivision: data.subdivision.trim() } : {}),
       createdAt: Date.now(),
       ...ratingFieldsFromForm(data),
     };
@@ -630,6 +650,7 @@ export default function CompetitorsPage({
       ...(data.nationality.trim() ? { nationality: data.nationality.trim() } : {}),
       gender: data.gender,
       age: data.age ? parseInt(data.age, 10) : null,
+      ...(data.subdivision.trim() ? { subdivision: data.subdivision.trim() } : {}),
       ...ratingFieldsFromForm(data),
     };
     // Clear ratings no longer relevant
@@ -643,6 +664,7 @@ export default function CompetitorsPage({
     if (!data.helm.trim()) delete updated.helm;
     if (!data.crewName.trim()) delete updated.crewName;
     if (!data.nationality.trim()) delete updated.nationality;
+    if (!data.subdivision.trim()) delete updated.subdivision;
     log('competitors', 'updating', updated);
     await saveCompetitor.mutateAsync(updated);
     await touchSeries.mutateAsync(seriesId);
@@ -670,6 +692,7 @@ export default function CompetitorsPage({
   const showNationality = enabledFields.includes('nationality');
   const showGender = enabledFields.includes('gender');
   const showAge = enabledFields.includes('age');
+  const showSubdivision = enabledFields.includes('subdivision');
 
   return (
     <div className="space-y-6">
@@ -711,6 +734,7 @@ export default function CompetitorsPage({
             availableFleets={fleets ?? []}
             enabledFields={enabledFields}
             primaryLabel={primaryLabel}
+            subdivisionLabel={subdivisionLabel}
           />
         </div>
       )}
@@ -732,6 +756,7 @@ export default function CompetitorsPage({
               {showRating && <TableHead>Rating</TableHead>}
               {showGender && <TableHead>Gender</TableHead>}
               {showAge && <TableHead>Age</TableHead>}
+              {showSubdivision && <TableHead className="whitespace-normal break-words">{subdivisionLabel}</TableHead>}
               <TableHead className="w-0 p-0" />
             </TableRow>
           </TableHeader>
@@ -784,6 +809,7 @@ export default function CompetitorsPage({
                 )}
                 {showGender && <TableCell>{c.gender}</TableCell>}
                 {showAge && <TableCell>{c.age ?? ''}</TableCell>}
+                {showSubdivision && <TableCell className="whitespace-normal break-words">{c.subdivision ?? ''}</TableCell>}
                 <TableCell className="w-0 p-0 relative">
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 rounded-md bg-background/90 px-1 opacity-0 pointer-events-none transition-opacity group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto">
                     <Button
@@ -841,6 +867,7 @@ export default function CompetitorsPage({
                 nationality: editingCompetitor.nationality ?? '',
                 gender: editingCompetitor.gender,
                 age: editingCompetitor.age?.toString() ?? '',
+                subdivision: editingCompetitor.subdivision ?? '',
                 fleetIds: editingCompetitor.fleetIds,
                 ircTcc: editingCompetitor.ircTcc?.toString() ?? '',
                 pyNumber: editingCompetitor.pyNumber?.toString() ?? '',
@@ -853,6 +880,7 @@ export default function CompetitorsPage({
               availableFleets={fleets ?? []}
               enabledFields={enabledFields}
               primaryLabel={primaryLabel}
+              subdivisionLabel={subdivisionLabel}
             />
           )}
         </DialogContent>

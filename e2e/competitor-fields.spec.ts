@@ -122,6 +122,72 @@ test('class field shows Class column and exports in results', async ({ page }) =
   expect(html).toContain('>Laser<');
 });
 
+test('subdivision: rename label, filter standings, export column (#158)', async ({ page }) => {
+  // ── 1. Create series ──────────────────────────────────────────────────────
+  await createSeriesQuick(page, { name: 'ILCA Masters' });
+
+  // ── 2. Enable the subdivision field and rename its label to "Category" ────
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('checkbox', { name: 'Division' }).check();
+  // The label picker appears; pick the "Category" preset.
+  await page.getByRole('button', { name: 'Category', exact: true }).click();
+  // The optional-field checkbox label re-renders under the new name.
+  await expect(page.getByRole('checkbox', { name: 'Category' })).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 3. Add two competitors in different categories ───────────────────────
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('1');
+  await page.getByLabel('Competitor name').fill('Alice');
+  await page.getByLabel('Category', { exact: true }).fill('Grand Master');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('columnheader', { name: 'Category' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Grand Master' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('2');
+  await page.getByLabel('Competitor name').fill('Bob');
+  await page.getByLabel('Category', { exact: true }).fill('Apprentice Master');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'Apprentice Master' })).toBeVisible();
+
+  // ── 4. Add a race both boats finish ──────────────────────────────────────
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('1');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await page.getByLabel('Sail number').fill('2');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // ── 5. Standings: the Category column shows, and the filter narrows to one ─
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('columnheader', { name: 'Category' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Alice' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Bob' })).toBeVisible();
+
+  await page.getByRole('button', { name: /Category: All/ }).click();
+  await page.getByRole('menuitem', { name: 'Grand Master' }).click();
+  // Filtered to Grand Master: Alice stays, Bob is hidden (rank unchanged).
+  await expect(page.getByRole('cell', { name: 'Alice' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Bob' })).toHaveCount(0);
+
+  // ── 6. Export HTML carries the renamed column and the values ─────────────
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export HTML' }).click(),
+  ]);
+  const path = await download.path();
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(path, 'utf-8');
+  expect(html).toContain('<th>Category</th>');
+  expect(html).toContain('>Grand Master<');
+  expect(html).toContain('>Apprentice Master<');
+});
+
 test('disabling a field preserves its data on re-enable', async ({ page }) => {
   // ── 1. Create series and enable Boat name ────────────────────────────────
   await createSeriesQuick(page, { name: 'Persist Test' });

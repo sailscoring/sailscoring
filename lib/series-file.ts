@@ -10,7 +10,11 @@ import type {
   NhcProfile,
   TcfRecord,
 } from './types';
-import { defaultEnabledCompetitorFields, DEFAULT_PRIMARY_PERSON_LABEL } from './competitor-fields';
+import {
+  defaultEnabledCompetitorFields,
+  DEFAULT_PRIMARY_PERSON_LABEL,
+  DEFAULT_SUBDIVISION_LABEL,
+} from './competitor-fields';
 import { calculateFleetStandings } from './scoring';
 import { disambiguateSeriesName } from './series-name';
 import type {
@@ -52,9 +56,14 @@ export interface SeriesFileRepos {
  *  predated ECHO). The parser accepts either key.
  *
  *  v5 adds optional `Competitor.nationality` (3-letter national-letters code,
- *  RRS Appendix G / IOC). Additive; older files load with the field absent. */
-export const FORMAT_VERSION = 5;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5];
+ *  RRS Appendix G / IOC). Additive; older files load with the field absent.
+ *
+ *  v6 adds optional `Competitor.subdivision` (Gold/Silver/Bronze or age
+ *  categories) and `Series.subdivisionLabel` (its display label). Additive;
+ *  older files load with the field absent and the label defaulting to
+ *  "Division". */
+export const FORMAT_VERSION = 6;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -97,6 +106,7 @@ interface SeriesFileSeries {
   includeJsonExport: boolean;
   enabledCompetitorFields: CompetitorFieldKey[];
   primaryPersonLabel?: PrimaryPersonLabel;  // v2+; absent in v1 files, defaults to 'competitor'
+  subdivisionLabel?: string;  // v6+; absent in older files, defaults to 'Division'
   scoringMode: 'scratch' | 'handicap';
   defaultStartSequence?: StartGroup[];
   publishRatingCalculations?: boolean;
@@ -117,6 +127,7 @@ interface SeriesFileCompetitor {
   nationality?: string;  // v5+
   gender: 'M' | 'F' | '';
   age: number | null;
+  subdivision?: string;  // v6+
   ircTcc?: number;
   pyNumber?: number;
   nhcStartingTcf?: number;
@@ -311,6 +322,7 @@ export async function buildSeriesFile(
       includeJsonExport: series.includeJsonExport ?? true,
       enabledCompetitorFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+      subdivisionLabel: series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.defaultStartSequence?.length ? { defaultStartSequence: series.defaultStartSequence } : {}),
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
@@ -330,6 +342,7 @@ export async function buildSeriesFile(
       ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
       age: c.age,
+      ...(c.subdivision ? { subdivision: c.subdivision } : {}),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
@@ -496,6 +509,7 @@ export async function openSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+    subdivisionLabel: file.series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
   });
 
   await writeFleetsCompetitorsRaces(repos, file, newSeriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
@@ -549,6 +563,7 @@ export async function updateSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+    subdivisionLabel: file.series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
   });
 
   await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
@@ -600,6 +615,7 @@ async function writeFleetsCompetitorsRaces(
         ...(c.nationality ? { nationality: c.nationality } : {}),
         gender: c.gender,
         age: c.age,
+        ...(c.subdivision ? { subdivision: c.subdivision } : {}),
         createdAt: now,
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),

@@ -17,7 +17,8 @@ export type CompetitorFieldKey =
   | 'club'
   | 'nationality'
   | 'gender'
-  | 'age';
+  | 'age'
+  | 'subdivision';
 
 /** How the primary person slot (`Competitor.name`) is labelled throughout the
  *  UI and exports. "competitor" and "entrant" are generic; "helm" and "owner"
@@ -63,6 +64,7 @@ export interface Series {
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)
+  subdivisionLabel: string;  // label for the Competitor.subdivision field, e.g. "Division", "Category" (display only); defaults to "Division"
   // Server-side concurrency token (ADR-008 Phase 4). Populated by the
   // Postgres-backed read path; absent in local-mode (Dexie) and stripped
   // from the .sailscoring file format and public JSON export.
@@ -110,6 +112,7 @@ export interface Competitor {
   nationality?: string;  // 3-letter national-letters code (RRS Appendix G / IOC), e.g. "IRL"
   gender: 'M' | 'F' | '';
   age: number | null;
+  subdivision?: string;  // subdivision within a Fleet for prize-giving/filtering, not scoring (e.g. "Gold"/"Silver"/"Bronze", or age categories like "Grand Master"). Labelled per Series.subdivisionLabel
   createdAt: number;
   ircTcc?: number;    // IRC Time Correction Coefficient, e.g. 0.972
   pyNumber?: number;  // RYA Portsmouth Yardstick number, e.g. 1034

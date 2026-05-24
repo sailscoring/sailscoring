@@ -112,6 +112,9 @@ export const series = pgTable(
       .$type<PrimaryPersonLabel>()
       .notNull()
       .default('competitor'),
+    // Freeform label for the subdivision competitor field. No CHECK constraint
+    // — the value is arbitrary text (length is bounded at the Zod layer).
+    subdivisionLabel: text('subdivision_label').notNull().default('Division'),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,
@@ -184,6 +187,7 @@ export const competitors = pgTable(
     nationality: text('nationality'),
     gender: text('gender').notNull().default(''),
     age: integer('age'),
+    subdivision: text('subdivision'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

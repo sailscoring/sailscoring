@@ -63,6 +63,13 @@ filtering (e.g. Gold/Silver/Bronze within IODAI Junior), not for scoring.
 Competitors in the same Fleet compete for the same rankings; Division only
 determines which sub-trophy they are eligible for.
 
+Implemented as the free-text `Competitor.subdivision` field with a
+per-series display label `Series.subdivisionLabel` (default "Division"). The
+label is configurable because the same mechanism serves age-category regattas
+— e.g. ILCA Masters labels it "Category" with values "Apprentice Master",
+"Master", "Grand Master". The value is always scorer-assigned (not derived
+from `age`), and never affects scoring.
+
 **Future flexibility -- class-based standalone results:** One known limitation
 of this model is the HYC Dinghy PY Fleet pattern: a single Fleet uses the PY
 rating system for all competitors, but where a critical mass of one boat class
@@ -155,7 +162,7 @@ A boat or person entered in the Series. Belongs to exactly one Fleet.
 | boat_name | string | No | Vessel name (keelboats) |
 | club | string | No | Sailing club |
 | class | string | No | Boat class, e.g. "Optimist", "J/109" |
-| division | string | No | Subdivision within Fleet, e.g. "Gold", "Silver", "Bronze" |
+| subdivision | string | No | Subdivision within Fleet for prize-giving, e.g. "Gold"/"Silver"/"Bronze" or age categories like "Grand Master". Display label is `Series.subdivisionLabel` (default "Division"). Not used for scoring |
 | nationality | string | No | ISO 3166-1 alpha-3 country code, e.g. "IRL", "GBR". Used for results display (flags) and nationality-based prize categories |
 | gender | string | No | "M" or "F". Used for gender-based prize categories |
 | age | integer | No | Age at the time of registration. Used for age-based prize categories. Snapshot from registration data; not recalculated automatically |

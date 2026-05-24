@@ -3,11 +3,14 @@ import {
   ALL_COMPETITOR_FIELDS,
   COMPETITOR_FIELD_LABELS,
   DEFAULT_PRIMARY_PERSON_LABEL,
+  DEFAULT_SUBDIVISION_LABEL,
   PRIMARY_PERSON_LABELS,
   PRIMARY_PERSON_LABEL_TEXT,
+  SUBDIVISION_LABEL_PRESETS,
   defaultEnabledCompetitorFields,
   isFieldDisabledByPrimary,
   primaryPersonFieldKey,
+  subdivisionFieldLabel,
 } from '@/lib/competitor-fields';
 
 describe('defaultEnabledCompetitorFields', () => {
@@ -36,6 +39,7 @@ describe('ALL_COMPETITOR_FIELDS', () => {
       'nationality',
       'gender',
       'age',
+      'subdivision',
     ]);
   });
 
@@ -77,5 +81,26 @@ describe('primary-person label helpers', () => {
     expect(isFieldDisabledByPrimary('helm', 'competitor')).toBe(false);
     expect(isFieldDisabledByPrimary('owner', 'competitor')).toBe(false);
     expect(isFieldDisabledByPrimary('boatName', 'entrant')).toBe(false);
+  });
+});
+
+describe('subdivisionFieldLabel', () => {
+  it('defaults to "Division"', () => {
+    expect(DEFAULT_SUBDIVISION_LABEL).toBe('Division');
+    expect(subdivisionFieldLabel({ subdivisionLabel: '' })).toBe('Division');
+  });
+
+  it('uses the configured label when set', () => {
+    expect(subdivisionFieldLabel({ subdivisionLabel: 'Category' })).toBe('Category');
+  });
+
+  it('trims and falls back to the default for whitespace-only labels', () => {
+    expect(subdivisionFieldLabel({ subdivisionLabel: '  Flight  ' })).toBe('Flight');
+    expect(subdivisionFieldLabel({ subdivisionLabel: '   ' })).toBe('Division');
+  });
+
+  it('offers "Division" and "Category" among the presets', () => {
+    expect(SUBDIVISION_LABEL_PRESETS).toContain('Division');
+    expect(SUBDIVISION_LABEL_PRESETS).toContain('Category');
   });
 });

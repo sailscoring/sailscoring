@@ -18,6 +18,7 @@ export type CompetitorField =
   | 'nationality'
   | 'gender'
   | 'age'
+  | 'subdivision'
   | 'fleet'
   | 'tcc'
   | 'py'
@@ -52,7 +53,12 @@ export function autoDetectField(header: string): CompetitorField {
   if (/club/.test(h)) return 'club';
   if (/gender|sex/.test(h)) return 'gender';
   if (/age/.test(h)) return 'age';
-  if (/fleet|division/.test(h)) return 'fleet';
+  // Subdivision (Gold/Silver/Bronze, age categories) is a distinct field from
+  // fleet. "division" used to fall through to `fleet`; it is now its own role.
+  // "class" is intentionally left to `boatClass` above — a CSV "Class" column
+  // is far more often the boat class than a subdivision label.
+  if (/\bsubdivision\b|division|category/.test(h)) return 'subdivision';
+  if (/\bfleet\b/.test(h)) return 'fleet';
   if (/tcc|irc.*rating|rating.*irc/.test(h)) return 'tcc';
   if (/\bpy\b|portsmouth/.test(h)) return 'py';
   if (/\bnhc\b|nhc.*tcf|nhc.*rating/.test(h)) return 'nhcStartingTcf';

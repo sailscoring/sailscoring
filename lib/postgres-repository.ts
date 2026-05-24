@@ -1,6 +1,7 @@
 import 'server-only';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
+import { DEFAULT_SUBDIVISION_LABEL } from './competitor-fields';
 import { decryptCredential, encryptCredential } from './crypto';
 import { getDb, type SailScoringDb } from './db/client';
 import * as schema from './db/schema';
@@ -92,6 +93,7 @@ function seriesRowToType(row: SeriesRow): Series {
     showPerRaceRatingsInSummary: row.showPerRaceRatingsInSummary,
     enabledCompetitorFields: row.enabledCompetitorFields,
     primaryPersonLabel: row.primaryPersonLabel,
+    subdivisionLabel: row.subdivisionLabel,
     version: row.version,
   };
 }
@@ -125,6 +127,7 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     ...(row.nationality ? { nationality: row.nationality } : {}),
     gender: row.gender as Competitor['gender'],
     age: row.age,
+    ...(row.subdivision ? { subdivision: row.subdivision } : {}),
     createdAt: row.createdAt.getTime(),
     ...(row.ircTcc != null ? { ircTcc: row.ircTcc } : {}),
     ...(row.pyNumber != null ? { pyNumber: row.pyNumber } : {}),
@@ -355,6 +358,7 @@ export class PostgresSeriesRepository implements SeriesRepository {
       showPerRaceRatingsInSummary: s.showPerRaceRatingsInSummary ?? true,
       enabledCompetitorFields: s.enabledCompetitorFields,
       primaryPersonLabel: s.primaryPersonLabel,
+      subdivisionLabel: s.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
       updatedBy,
     };
     const updateSet = {
@@ -381,6 +385,7 @@ export class PostgresSeriesRepository implements SeriesRepository {
       showPerRaceRatingsInSummary: insertValues.showPerRaceRatingsInSummary,
       enabledCompetitorFields: insertValues.enabledCompetitorFields,
       primaryPersonLabel: insertValues.primaryPersonLabel,
+      subdivisionLabel: insertValues.subdivisionLabel,
       updatedBy,
     };
     if (opts?.expectedVersion !== undefined) {
@@ -778,6 +783,7 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
       nationality: c.nationality ?? null,
       gender: c.gender,
       age: c.age,
+      subdivision: c.subdivision ?? null,
       createdAt: new Date(c.createdAt),
       ircTcc: c.ircTcc ?? null,
       pyNumber: c.pyNumber ?? null,
@@ -798,6 +804,7 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
       nationality: values.nationality,
       gender: values.gender,
       age: values.age,
+      subdivision: values.subdivision,
       ircTcc: values.ircTcc,
       pyNumber: values.pyNumber,
       nhcStartingTcf: values.nhcStartingTcf,
@@ -875,6 +882,7 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
       nationality: c.nationality ?? null,
       gender: c.gender,
       age: c.age,
+      subdivision: c.subdivision ?? null,
       createdAt: new Date(c.createdAt),
       ircTcc: c.ircTcc ?? null,
       pyNumber: c.pyNumber ?? null,
@@ -901,6 +909,7 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
           nationality: sql`excluded.nationality`,
           gender: sql`excluded.gender`,
           age: sql`excluded.age`,
+          subdivision: sql`excluded.subdivision`,
           ircTcc: sql`excluded.irc_tcc`,
           pyNumber: sql`excluded.py_number`,
           nhcStartingTcf: sql`excluded.nhc_starting_tcf`,

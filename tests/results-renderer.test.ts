@@ -308,6 +308,42 @@ describe('renderSeriesHtml', () => {
       expect(html).not.toContain('<th>Helm</th>');
     });
   });
+
+  describe('subdivision column', () => {
+    const withSubdivision: SeriesResultsData = {
+      ...MINIMAL,
+      enabledCompetitorFields: ['subdivision'],
+      standings: [
+        { ...MINIMAL.standings[0], subdivision: 'Gold' },
+        { ...MINIMAL.standings[1], subdivision: 'Silver' },
+      ],
+    };
+
+    it('renders the column under the configured label with each value', () => {
+      const html = renderSeriesHtml({ ...withSubdivision, subdivisionLabel: 'Category' });
+      expect(html).toContain('<th>Category</th>');
+      expect(html).toContain('>Gold<');
+      expect(html).toContain('>Silver<');
+    });
+
+    it('defaults the header to "Division" when no label is set', () => {
+      const html = renderSeriesHtml(withSubdivision);
+      expect(html).toContain('<th>Division</th>');
+    });
+
+    it('suppresses the column when enabled but no competitor has a value', () => {
+      const html = renderSeriesHtml({
+        ...withSubdivision,
+        standings: MINIMAL.standings, // no subdivision values
+      });
+      expect(html).not.toContain('<th>Division</th>');
+    });
+
+    it('omits the column entirely when the field is not enabled', () => {
+      const html = renderSeriesHtml({ ...withSubdivision, enabledCompetitorFields: [] });
+      expect(html).not.toContain('<th>Division</th>');
+    });
+  });
 });
 
 // ---- Per-race table excludes implicit DNCs (#130) ----

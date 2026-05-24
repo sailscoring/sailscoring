@@ -15,7 +15,11 @@ import type {
   SeriesRepository,
 } from './repository';
 import { calculateFleetStandings, calculateRaceScores } from './scoring';
-import { defaultEnabledCompetitorFields, DEFAULT_PRIMARY_PERSON_LABEL } from './competitor-fields';
+import {
+  defaultEnabledCompetitorFields,
+  DEFAULT_PRIMARY_PERSON_LABEL,
+  DEFAULT_SUBDIVISION_LABEL,
+} from './competitor-fields';
 import { disambiguateSeriesName } from './series-name';
 
 // ---- Public export type ----
@@ -55,6 +59,10 @@ export interface PublicSeriesExport {
      *  "competitor" / "entrant" / "helm" / "owner". Absent in exports produced
      *  by older builds; importers default to "competitor". */
     primaryPersonLabel?: PrimaryPersonLabel;
+    /** Label for the subdivision field (e.g. "Division", "Category"). Display
+     *  hint; absent in exports from older builds, importers default to
+     *  "Division". */
+    subdivisionLabel?: string;
     scoringMode: 'scratch' | 'handicap';
     /** NHC publish-rating-calculations toggle (display hint). */
     publishRatingCalculations?: boolean;
@@ -87,6 +95,9 @@ export interface PublicSeriesExport {
     nationality?: string;
     gender: 'M' | 'F' | '';
     age: number | null;
+    /** Subdivision within a fleet (e.g. "Gold", "Grand Master"). Labelled per
+     *  `series.subdivisionLabel`. */
+    subdivision?: string;
     fleetNames: string[];
     ircTcc?: number;
     pyNumber?: number;
@@ -454,6 +465,7 @@ export async function buildPublicExport(
       dnfScoring: series.dnfScoring,
       displayFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+      subdivisionLabel: series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
       ...(series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: series.showPerRaceRatingsInSummary } : {}),
@@ -478,6 +490,7 @@ export async function buildPublicExport(
       ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
       age: c.age,
+      ...(c.subdivision ? { subdivision: c.subdivision } : {}),
       fleetNames: c.fleetIds.map((id) => fleetNameById.get(id) ?? id),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
@@ -574,6 +587,7 @@ export async function importPublicExport(
     ...(data.series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: data.series.showPerRaceRatingsInSummary } : {}),
     enabledCompetitorFields: data.series.displayFields ?? defaultEnabledCompetitorFields(),
     primaryPersonLabel: data.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+    subdivisionLabel: data.series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
   });
 
   await Promise.all(
@@ -610,6 +624,7 @@ export async function importPublicExport(
         ...(c.nationality ? { nationality: c.nationality } : {}),
         gender: c.gender,
         age: c.age,
+        ...(c.subdivision ? { subdivision: c.subdivision } : {}),
         createdAt: now,
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),

@@ -24,6 +24,8 @@ export interface FleetStandingsTableProps {
   hasDiscards: boolean;
   enabledFields: CompetitorFieldKey[];
   primaryLabel: PrimaryPersonLabel;
+  /** Configured heading for the subdivision column (e.g. "Division"). */
+  subdivisionLabel: string;
 }
 
 export function FleetStandingsTable({
@@ -32,6 +34,7 @@ export function FleetStandingsTable({
   hasDiscards,
   enabledFields,
   primaryLabel,
+  subdivisionLabel,
 }: FleetStandingsTableProps) {
   const showBoat = enabledFields.includes('boatName');
   const showClass = enabledFields.includes('boatClass');
@@ -42,6 +45,7 @@ export function FleetStandingsTable({
   // Code-only in the live UI — flags are reserved for HTML exports so the
   // standings page doesn't pull the ~2.5 MB flag dataset into its bundle.
   const showNationality = enabledFields.includes('nationality');
+  const showSubdivision = enabledFields.includes('subdivision');
   return (
     <Table>
       <TableHeader>
@@ -56,6 +60,7 @@ export function FleetStandingsTable({
           {showCrew && <TableHead>Crew</TableHead>}
           {showClub && <TableHead>Club</TableHead>}
           {showNationality && <TableHead>Nat</TableHead>}
+          {showSubdivision && <TableHead>{subdivisionLabel}</TableHead>}
           {races.map((race) => (
             <TableHead key={race.id} className="w-16 text-center">
               R{race.raceNumber}
@@ -81,6 +86,7 @@ export function FleetStandingsTable({
             showCrew={showCrew}
             showClub={showClub}
             showNationality={showNationality}
+            showSubdivision={showSubdivision}
           />
         ))}
       </TableBody>
@@ -99,6 +105,7 @@ interface StandingRowProps {
   showCrew: boolean;
   showClub: boolean;
   showNationality: boolean;
+  showSubdivision: boolean;
 }
 
 function StandingRow({
@@ -112,6 +119,7 @@ function StandingRow({
   showCrew,
   showClub,
   showNationality,
+  showSubdivision,
 }: StandingRowProps) {
   const { rank, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded } = standing;
 
@@ -138,6 +146,7 @@ function StandingRow({
       {showCrew && <TableCell>{competitor.crewName ?? ''}</TableCell>}
       {showClub && <TableCell className="text-muted-foreground">{competitor.club}</TableCell>}
       {showNationality && <TableCell className="font-mono">{competitor.nationality ?? ''}</TableCell>}
+      {showSubdivision && <TableCell>{competitor.subdivision ?? ''}</TableCell>}
       {racePoints.map((points, i) => {
         const isDiscard = raceDiscards[i] ?? false;
         const isNonDiscardable = raceNonDiscardable[i] ?? false;

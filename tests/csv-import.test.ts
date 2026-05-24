@@ -48,9 +48,26 @@ describe('autoDetectField', () => {
     expect(autoDetectField('Owner')).toBe('owner');
     expect(autoDetectField('Club')).toBe('club');
     expect(autoDetectField('Fleet')).toBe('fleet');
-    expect(autoDetectField('Division')).toBe('fleet');
     expect(autoDetectField('IRC TCC')).toBe('tcc');
     expect(autoDetectField('PY')).toBe('py');
+  });
+
+  it('maps division/category/subdivision headers to subdivision, not fleet', () => {
+    // Regression (issue #158): "Division" used to fall through to `fleet`,
+    // conflating the prize-giving subdivision with the scoring group.
+    expect(autoDetectField('Division')).toBe('subdivision');
+    expect(autoDetectField('division')).toBe('subdivision');
+    expect(autoDetectField('Category')).toBe('subdivision');
+    expect(autoDetectField('Subdivision')).toBe('subdivision');
+    // Fleet still maps to fleet.
+    expect(autoDetectField('Fleet')).toBe('fleet');
+  });
+
+  it('keeps a bare "Class" column as boat class, not subdivision', () => {
+    // "Class" is a valid subdivision label, but a CSV "Class" column is far
+    // more often the boat class — auto-detect favours that; the scorer can
+    // remap by hand if needed.
+    expect(autoDetectField('Class')).toBe('boatClass');
   });
 
   it('detects camelCase headers (echo-example reference CSV)', () => {

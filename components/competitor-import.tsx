@@ -49,6 +49,7 @@ import {
   ALL_COMPETITOR_FIELDS,
   COMPETITOR_FIELD_LABELS,
   DEFAULT_PRIMARY_PERSON_LABEL,
+  DEFAULT_SUBDIVISION_LABEL,
   PRIMARY_PERSON_LABELS,
   PRIMARY_PERSON_LABEL_TEXT,
   defaultEnabledCompetitorFields,
@@ -80,6 +81,9 @@ type ImportFlow =
       currentFields: CompetitorFieldKey[];
       /** Proposed enabled optional fields (includes currentFields ∪ additions). */
       proposedFields: CompetitorFieldKey[];
+      /** Series label for the subdivision field ("Division", "Category", …),
+       *  shown as the dropdown option for a subdivision column. */
+      subdivisionLabel: string;
       /** Series scoring mode at upload time. The planner doesn't take this
        *  as input — column mappings drive system choice. We track it here
        *  only so the importer knows whether to flip the series to
@@ -114,6 +118,7 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   nationality: 'Nationality',
   gender: 'Gender',
   age: 'Age',
+  subdivision: 'Division',  // fallback; overridden per-series in buildFieldLabels
   fleet: 'Fleet',
   tcc: 'IRC TCC',
   py: 'PY number',
@@ -125,7 +130,10 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
 /** Build the dropdown list for the current primary label. The primary slot
  *  and role slots are emitted in a shared order; the role that matches the
  *  primary is hidden (it's already covered by `primary`). */
-function buildFieldLabels(primary: PrimaryPersonLabel): Partial<Record<CompetitorField, string>> {
+function buildFieldLabels(
+  primary: PrimaryPersonLabel,
+  subdivisionLabel: string,
+): Partial<Record<CompetitorField, string>> {
   const primaryText = PRIMARY_PERSON_LABEL_TEXT[primary];
   const labels: Partial<Record<CompetitorField, string>> = {
     sailNumber: STATIC_FIELD_LABELS.sailNumber,
@@ -141,6 +149,7 @@ function buildFieldLabels(primary: PrimaryPersonLabel): Partial<Record<Competito
     nationality: STATIC_FIELD_LABELS.nationality,
     gender: STATIC_FIELD_LABELS.gender,
     age: STATIC_FIELD_LABELS.age,
+    subdivision: subdivisionLabel,
     fleet: STATIC_FIELD_LABELS.fleet,
     tcc: STATIC_FIELD_LABELS.tcc,
     py: STATIC_FIELD_LABELS.py,
@@ -352,8 +361,8 @@ function MappingDialogBody({
   fleets: Fleet[];
 }) {
   const fieldLabels = useMemo(
-    () => buildFieldLabels(flow.proposedPrimary),
-    [flow.proposedPrimary],
+    () => buildFieldLabels(flow.proposedPrimary, flow.subdivisionLabel),
+    [flow.proposedPrimary, flow.subdivisionLabel],
   );
   const targets = Object.values(flow.columnMap);
   const primaryCount = targets.filter((t) => t === 'primary').length;
@@ -677,6 +686,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
             field === 'nationality' ? 'nationality' :
             field === 'gender' ? 'gender' :
             field === 'age' ? 'age' :
+            field === 'subdivision' ? 'subdivision' :
             null;
           if (dropdownField && targets.has(dropdownField)) optionalAdditions.push(field);
         }
@@ -693,6 +703,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
           proposedPrimary,
           currentFields,
           proposedFields,
+          subdivisionLabel: series?.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
           seriesScoringMode,
           existingHasBoatClass,
           alsoCreateScratch: {},
@@ -813,6 +824,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let nationality = '';
       let gender = '';
       let age = '';
+      let subdivision = '';
       let fleet = '';
       let tcc = '';
       let py = '';
@@ -832,6 +844,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'nationality') nationality = val;
         else if (field === 'gender') gender = val;
         else if (field === 'age') age = val;
+        else if (field === 'subdivision') subdivision = val;
         else if (field === 'fleet') fleet = val;
         else if (field === 'tcc') tcc = val;
         else if (field === 'py') py = val;
@@ -888,6 +901,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const resolvedCrewName = crewName || existingCompetitor?.crewName || '';
       const resolvedHelm = helmRole || existingCompetitor?.helm || '';
       const resolvedOwner = ownerRole || existingCompetitor?.owner || '';
+      const resolvedSubdivision = subdivision || existingCompetitor?.subdivision || '';
       const competitor: Competitor = {
         id: existingCompetitor?.id ?? crypto.randomUUID(),
         seriesId,
@@ -903,6 +917,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(cleanNationality ? { nationality: cleanNationality } : {}),
         gender: (normGender === 'M' || normGender === 'F') ? normGender : (existingCompetitor?.gender ?? ''),
         age: parsedAge !== null && !isNaN(parsedAge) ? parsedAge : (existingCompetitor?.age ?? null),
+        ...(resolvedSubdivision ? { subdivision: resolvedSubdivision } : {}),
         createdAt: existingCompetitor?.createdAt ?? Date.now(),
         ...(ircTcc != null ? { ircTcc } : {}),
         ...(pyNumber != null ? { pyNumber } : {}),
@@ -923,6 +938,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         (existingCompetitor.nationality ?? '') === (competitor.nationality ?? '') &&
         existingCompetitor.gender === competitor.gender &&
         existingCompetitor.age === competitor.age &&
+        (existingCompetitor.subdivision ?? '') === (competitor.subdivision ?? '') &&
         existingCompetitor.ircTcc === competitor.ircTcc &&
         existingCompetitor.pyNumber === competitor.pyNumber &&
         existingCompetitor.nhcStartingTcf === competitor.nhcStartingTcf &&

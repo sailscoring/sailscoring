@@ -21,9 +21,12 @@ import {
   ALL_COMPETITOR_FIELDS,
   COMPETITOR_FIELD_LABELS,
   DEFAULT_PRIMARY_PERSON_LABEL,
+  DEFAULT_SUBDIVISION_LABEL,
   PRIMARY_PERSON_LABELS,
   PRIMARY_PERSON_LABEL_TEXT,
   PRIMARY_PERSON_LABEL_HINTS,
+  SUBDIVISION_LABEL_PRESETS,
+  SUBDIVISION_LABEL_MAX_LENGTH,
   defaultEnabledCompetitorFields,
   isFieldDisabledByPrimary,
 } from '@/lib/competitor-fields';
@@ -175,6 +178,17 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
   }
   const enabledSet = new Set<CompetitorFieldKey>(localEnabled);
 
+  // Subdivision label, mirrored locally so the text input stays responsive
+  // while the controlled value catches up to the async save (same pattern as
+  // the enabled-fields array above).
+  const persistedSubdivisionLabel = series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL;
+  const [localSubdivisionLabel, setLocalSubdivisionLabel] = useState(persistedSubdivisionLabel);
+  const [prevSubdivisionLabel, setPrevSubdivisionLabel] = useState(persistedSubdivisionLabel);
+  if (prevSubdivisionLabel !== persistedSubdivisionLabel) {
+    setPrevSubdivisionLabel(persistedSubdivisionLabel);
+    setLocalSubdivisionLabel(persistedSubdivisionLabel);
+  }
+
   async function toggle(field: CompetitorFieldKey, checked: boolean) {
     const next = new Set(enabledSet);
     if (checked) next.add(field); else next.delete(field);
@@ -201,10 +215,29 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
     });
   }
 
+  // Commit a subdivision label. Empty/whitespace falls back to the default so
+  // the field always has a usable heading. No-op when nothing changed.
+  async function commitSubdivisionLabel(raw: string) {
+    const trimmed = raw.trim().slice(0, SUBDIVISION_LABEL_MAX_LENGTH) || DEFAULT_SUBDIVISION_LABEL;
+    setLocalSubdivisionLabel(trimmed);
+    if (trimmed === persistedSubdivisionLabel) return;
+    await updateSeries.mutateAsync({
+      id: seriesId,
+      patch: {
+        subdivisionLabel: trimmed,
+        lastModifiedAt: Date.now(),
+      },
+    });
+  }
+
   const primaryFieldLabel = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
+  // The subdivision field's heading is the scorer-chosen label; every other
+  // field uses its static label.
+  const fieldDisplayLabel = (f: CompetitorFieldKey) =>
+    f === 'subdivision' ? localSubdivisionLabel : COMPETITOR_FIELD_LABELS[f];
   const shownLabels = ALL_COMPETITOR_FIELDS
     .filter((f) => enabledSet.has(f) && !isFieldDisabledByPrimary(f, primaryLabel))
-    .map((f) => COMPETITOR_FIELD_LABELS[f]);
+    .map((f) => fieldDisplayLabel(f));
   const summary = shownLabels.length === 0
     ? `Only sail number and ${primaryFieldLabel.toLowerCase()}`
     : `Sail, ${primaryFieldLabel}, ${shownLabels.join(', ')}`;
@@ -214,6 +247,7 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
     crewName: 'Enable for two-person classes (420, Fireball, GP14).',
     helm: 'Record the helm separately when the primary identifier is not the helm.',
     owner: 'Record the owner separately when the primary identifier is not the owner.',
+    subdivision: 'A prize-giving subdivision within a fleet (e.g. Gold/Silver/Bronze, or age categories). Not used for scoring.',
   };
 
   return (
@@ -280,7 +314,7 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
                   />
                   <div>
                     <label htmlFor={`field-${field}`} className="text-sm font-medium cursor-pointer">
-                      {COMPETITOR_FIELD_LABELS[field]}
+                      {fieldDisplayLabel(field)}
                     </label>
                     {disabledByPrimary ? (
                       <p className="text-xs text-muted-foreground mt-0.5">
@@ -293,6 +327,38 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
                 </div>
               );
             })}
+            {enabledSet.has('subdivision') && (
+              <div className="ml-6 mt-1 space-y-1.5 border-l pl-3">
+                <Label htmlFor="subdivision-label" className="text-sm font-medium">
+                  Subdivision label
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  What to call this field in the competitor list, standings, and results.
+                </p>
+                <Input
+                  id="subdivision-label"
+                  value={localSubdivisionLabel}
+                  maxLength={SUBDIVISION_LABEL_MAX_LENGTH}
+                  onChange={(e) => setLocalSubdivisionLabel(e.target.value)}
+                  onBlur={(e) => commitSubdivisionLabel(e.target.value)}
+                  className="max-w-xs"
+                />
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {SUBDIVISION_LABEL_PRESETS.map((preset) => (
+                    <Button
+                      key={preset}
+                      type="button"
+                      variant={localSubdivisionLabel === preset ? 'secondary' : 'outline'}
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => commitSubdivisionLabel(preset)}
+                    >
+                      {preset}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>
             Done

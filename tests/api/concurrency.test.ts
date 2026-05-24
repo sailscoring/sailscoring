@@ -63,6 +63,7 @@ function makeSeries(id: string = uuid()): Series {
     publishRatingCalculations: true,
     enabledCompetitorFields: [],
     primaryPersonLabel: 'competitor',
+    subdivisionLabel: 'Division',
   };
 }
 

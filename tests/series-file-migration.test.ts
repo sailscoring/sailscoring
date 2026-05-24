@@ -168,3 +168,65 @@ describe('parseSeriesFile — v5 nationality', () => {
     expect(v4.competitors[0].nationality).toBeUndefined();
   });
 });
+
+describe('parseSeriesFile — v6 subdivision', () => {
+  function fileV6(opts: { subdivision?: string; subdivisionLabel?: string }): string {
+    return JSON.stringify({
+      formatVersion: 6,
+      seriesId: 's1',
+      snapshotId: 'snap-1',
+      snapshotHistory: ['snap-1'],
+      exportedAt: '2026-05-24T00:00:00.000Z',
+      series: {
+        id: 's1',
+        name: 'ILCA Masters',
+        venue: 'HYC',
+        startDate: '2026-08-01',
+        endDate: '2026-08-03',
+        venueLogoUrl: '',
+        eventLogoUrl: '',
+        discardThresholds: [],
+        dnfScoring: 'seriesEntries',
+        ftpHost: '',
+        ftpPath: '',
+        bilgeBundle: null,
+        includeJsonExport: true,
+        enabledCompetitorFields: ['subdivision'],
+        primaryPersonLabel: 'helm',
+        ...(opts.subdivisionLabel ? { subdivisionLabel: opts.subdivisionLabel } : {}),
+        scoringMode: 'scratch',
+      },
+      fleets: [],
+      competitors: [
+        {
+          id: 'c1',
+          fleetIds: [],
+          sailNumber: 'IRL-7',
+          name: 'Skipper',
+          club: 'HYC',
+          gender: '',
+          age: null,
+          ...(opts.subdivision ? { subdivision: opts.subdivision } : {}),
+        },
+      ],
+      races: [],
+    });
+  }
+
+  it('preserves competitor subdivision and the series subdivision label', () => {
+    const file = parseSeriesFile(fileV6({ subdivision: 'Grand Master', subdivisionLabel: 'Category' }));
+    expect(file.competitors[0].subdivision).toBe('Grand Master');
+    expect(file.series.subdivisionLabel).toBe('Category');
+  });
+
+  it('leaves both fields absent when not present (and on legacy v5 files)', () => {
+    // The repo-write path defaults subdivisionLabel to "Division"; the parse
+    // layer just preserves what the file carried.
+    const v6 = parseSeriesFile(fileV6({}));
+    expect(v6.competitors[0].subdivision).toBeUndefined();
+    expect(v6.series.subdivisionLabel).toBeUndefined();
+    // A legacy v5 spelling of the same file loads cleanly too.
+    const v5 = parseSeriesFile(fileV6({}).replace('"formatVersion":6', '"formatVersion":5'));
+    expect(v5.competitors[0].subdivision).toBeUndefined();
+  });
+});

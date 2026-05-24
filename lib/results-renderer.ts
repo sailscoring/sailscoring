@@ -2,6 +2,7 @@ import type { ResultCode, PenaltyCode, CompetitorFieldKey, PrimaryPersonLabel } 
 import {
   PRIMARY_PERSON_LABEL_TEXT,
   DEFAULT_PRIMARY_PERSON_LABEL,
+  DEFAULT_SUBDIVISION_LABEL,
   isFieldDisabledByPrimary,
 } from './competitor-fields';
 import { roundCorrectedSecs } from './scoring';
@@ -28,6 +29,9 @@ export interface SeriesResultsData {
    *  summary and race table column heading that corresponds to the primary
    *  name. Defaults to "Competitor" if not set (matching v1 files). */
   primaryPersonLabel?: PrimaryPersonLabel;
+  /** Heading for the subdivision column in the summary table (e.g. "Division",
+   *  "Category"). Defaults to "Division" if not set. */
+  subdivisionLabel?: string;
   /** Races in series order */
   races: RaceData[];
   /** Standings sorted by rank ascending */
@@ -207,6 +211,9 @@ export interface StandingRowData {
   crewName?: string;
   /** 3-letter national-letters code (RRS Appendix G / IOC). */
   nationality?: string;
+  /** Subdivision within the fleet (e.g. "Gold", "Grand Master"), for the
+   *  prize-giving column. Labelled per `SeriesResultsData.subdivisionLabel`. */
+  subdivision?: string;
   /** Initial rating for NHC/ECHO competitors (TCF or H). Rendered in the
    *  seed-rating column when the summary surfaces per-race ratings. */
   seedRating?: number;
@@ -235,7 +242,7 @@ export interface RaceScoreData {
 // ---- Renderer ----
 
 export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercent?: number }): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, generatedAt, enabledCompetitorFields, primaryPersonLabel, races, standings, openInAppUrl, progressiveScoringSystem, showPerRaceRatings } = data;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, generatedAt, enabledCompetitorFields, primaryPersonLabel, subdivisionLabel, races, standings, openInAppUrl, progressiveScoringSystem, showPerRaceRatings } = data;
   const fontPercent = options?.fontPercent ?? 80;
   const summaryRatingSystem = showPerRaceRatings && progressiveScoringSystem ? progressiveScoringSystem : null;
 
@@ -252,6 +259,12 @@ export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercen
   const showNationality =
     enabledCompetitorFields.includes('nationality') &&
     (standings.some((s) => !!s.nationality) || races.some((r) => r.results.some((x) => !!x.nationality)));
+  // Subdivision is a summary-only column; suppress it if no competitor has a
+  // value, mirroring the Nat-column behaviour.
+  const showSubdivision =
+    enabledCompetitorFields.includes('subdivision') &&
+    standings.some((s) => !!s.subdivision);
+  const subdivisionHeader = subdivisionLabel?.trim() || DEFAULT_SUBDIVISION_LABEL;
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
   const hasNhcDetail = races.some((r) => r.nhcHeader != null);
   const hasEchoDetail = races.some((r) => r.echoHeader != null);
@@ -321,7 +334,7 @@ ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${flagDefs}
 ${hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : ''}
 ${hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : ''}
-${renderSummaryTable(standings, races, hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showNationality, primaryHeader, summaryRatingSystem, data.flagSvgByCode)}
+${renderSummaryTable(standings, races, hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showNationality, showSubdivision, subdivisionHeader, primaryHeader, summaryRatingSystem, data.flagSvgByCode)}
 ${races
   .filter((race) => race.results.length > 0)
   .map((race) => renderRaceTable(race, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showNationality, primaryHeader, data.flagSvgByCode))
@@ -438,14 +451,16 @@ function renderSummaryTable(
   showOwner: boolean,
   showCrewName: boolean,
   showNationality: boolean,
+  showSubdivision: boolean,
+  subdivisionHeader: string,
   primaryHeader: string,
   ratingSystem: 'nhc' | 'echo' | null,
   flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
 ): string {
   const hasSeedCol = ratingSystem !== null;
   const seedHeader = ratingSystem === 'nhc' ? 'NHC1' : (ratingSystem === 'echo' ? 'ECHO' : '');
-  const extraCols = (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showNationality ? 1 : 0);
-  // rank + sail [+ boat] [+ class] + primary [+ helm] [+ owner] [+ nat] [+ seed] + races + total [+ nett]
+  const extraCols = (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showNationality ? 1 : 0) + (showSubdivision ? 1 : 0);
+  // rank + sail [+ boat] [+ class] + primary [+ helm] [+ owner] [+ nat] [+ subdivision] [+ seed] + races + total [+ nett]
   const colCount = 3 + extraCols + (hasSeedCol ? 1 : 0) + races.length + (hasDiscards ? 2 : 1);
 
   const cols = [
@@ -457,6 +472,7 @@ function renderSummaryTable(
     ...(showHelm ? ['<col class="helm" />'] : []),
     ...(showOwner ? ['<col class="owner" />'] : []),
     ...(showNationality ? ['<col class="nat" />'] : []),
+    ...(showSubdivision ? ['<col class="subdivision" />'] : []),
     ...(hasSeedCol ? ['<col class="seedrating" />'] : []),
     ...races.map(() => '<col class="race" />'),
     '<col class="total" />',
@@ -472,6 +488,7 @@ function renderSummaryTable(
     ...(showHelm ? ['<th>Helm</th>'] : []),
     ...(showOwner ? ['<th>Owner</th>'] : []),
     ...(showNationality ? ['<th>Nat</th>'] : []),
+    ...(showSubdivision ? [`<th>${esc(subdivisionHeader)}</th>`] : []),
     ...(hasSeedCol ? [`<th>${esc(seedHeader)}</th>`] : []),
     ...races.map((r) =>
       r.results.length > 0
@@ -518,6 +535,7 @@ function renderSummaryTable(
         ...(showHelm ? [`<td>${esc(s.helmRole ?? '')}</td>`] : []),
         ...(showOwner ? [`<td>${esc(s.owner ?? '')}</td>`] : []),
         ...(showNationality ? [renderNationalityCell(s.nationality, flagSvgByCode)] : []),
+        ...(showSubdivision ? [`<td>${esc(s.subdivision ?? '')}</td>`] : []),
         ...(hasSeedCol ? [seedCell] : []),
         scoreCells,
         `<td>${s.totalPoints}</td>`,
@@ -904,7 +922,7 @@ export function assembleSeriesResultsData(
   races: Array<{ id: string; raceNumber: number; date: string }>,
   standings: Array<{
     rank: number;
-    competitor: { id: string; sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; nationality?: string };
+    competitor: { id: string; sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; nationality?: string; subdivision?: string };
     racePoints: number[];
     raceCodes: (ResultCode | null)[];
     racePenaltyCodes?: (PenaltyCode | null)[];
@@ -924,6 +942,8 @@ export function assembleSeriesResultsData(
     /** Display label for the primary person slot. Defaults to "Competitor"
      *  in the renderer if omitted here (matching v1 file behaviour). */
     primaryPersonLabel?: PrimaryPersonLabel;
+    /** Display label for the subdivision column. Defaults to "Division". */
+    subdivisionLabel?: string;
     /** RaceStart records for all races — used to find the gun time for this fleet */
     raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime: string }>;
     /** ID of the fleet being rendered */
@@ -947,7 +967,7 @@ export function assembleSeriesResultsData(
     seedRatingByCompetitorId?: Map<string, number>;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, showPerRaceRatings, seedRatingByCompetitorId } = options ?? {};
+  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, subdivisionLabel, showPerRaceRatings, seedRatingByCompetitorId } = options ?? {};
   const isHandicap = scoringSystem === 'irc' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
@@ -1106,6 +1126,7 @@ export function assembleSeriesResultsData(
       ...(s.competitor.helm ? { helmRole: s.competitor.helm } : {}),
       ...(s.competitor.crewName ? { crewName: s.competitor.crewName } : {}),
       ...(s.competitor.nationality ? { nationality: s.competitor.nationality } : {}),
+      ...(s.competitor.subdivision ? { subdivision: s.competitor.subdivision } : {}),
       ...(seedRating != null ? { seedRating } : {}),
       raceScores: s.racePoints.map((points, i) => {
         const resultCode = s.raceCodes[i] ?? null;
@@ -1149,6 +1170,7 @@ export function assembleSeriesResultsData(
     generatedAt,
     enabledCompetitorFields,
     ...(primaryPersonLabel ? { primaryPersonLabel } : {}),
+    ...(subdivisionLabel ? { subdivisionLabel } : {}),
     races: raceDataList,
     standings: standingRows,
     ...(isProgressive ? { progressiveScoringSystem: scoringSystem as 'nhc' | 'echo' } : {}),

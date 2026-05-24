@@ -167,6 +167,18 @@ export default function HelpPage() {
           alongside a small country flag.
         </p>
         <p>
+          Enable <em>Division</em> to record a prize-giving subdivision within a
+          fleet — skill tiers like <em>Gold</em>/<em>Silver</em>/<em>Bronze</em>,
+          or age categories such as <em>Apprentice Master</em>/<em>Grand Master</em>.
+          It does not affect scoring: everyone in a fleet is still ranked
+          together, and the subdivision only decides which sub-trophy an entry is
+          eligible for. You can rename the field&rsquo;s label (to{' '}
+          <em>Category</em>, say) in the <strong className="text-foreground">Competitor fields</strong>{' '}
+          card. On the <strong className="text-foreground">Standings</strong> tab a
+          filter then lets you narrow the table to one subdivision for
+          prize-giving, keeping each boat&rsquo;s overall fleet rank.
+        </p>
+        <p>
           Competitors are sorted by sail number. You can edit or delete a competitor at any time,
           though deleting one after races have been entered will also remove their finishes.
         </p>
@@ -255,11 +267,12 @@ export default function HelpPage() {
         <p>
           The importer shows each column in the file alongside a sample of its values. Use the
           dropdown next to each column to map it to a competitor field — sail number, helm name,
-          boat name, class, crew name, club, gender, age, or fleet. Columns you do not need can be
+          boat name, class, crew name, club, gender, age, division, or fleet. Columns you do not need can be
           left as <strong className="text-foreground">(ignore)</strong>. Sail number is the only
-          required mapping; all other fields are optional. Fleet columns named{' '}
-          <em>Fleet</em> or <em>Division</em> are detected automatically, as are columns named{' '}
-          <em>Class</em> (mapped to boat class) and <em>Crew</em>.
+          required mapping; all other fields are optional. A column named{' '}
+          <em>Fleet</em> is detected as the fleet; <em>Division</em> or{' '}
+          <em>Category</em> map to the subdivision field; <em>Class</em> maps to
+          boat class, and <em>Crew</em> to the crew name.
         </p>
         <p>
           A competitor can be assigned to more than one fleet by separating fleet names with a

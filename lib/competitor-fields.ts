@@ -1,4 +1,4 @@
-import type { Competitor, CompetitorFieldKey, PrimaryPersonLabel } from './types';
+import type { Competitor, CompetitorFieldKey, PrimaryPersonLabel, Series } from './types';
 
 /** Render "Helm / Crew" when the series has crew names enabled and a crew is
  *  set; otherwise just the helm. Used in autocomplete rows and finish lists. */
@@ -26,9 +26,13 @@ export const ALL_COMPETITOR_FIELDS: readonly CompetitorFieldKey[] = [
   'nationality',
   'gender',
   'age',
+  'subdivision',
 ] as const;
 
-/** Human-readable labels for each configurable field. */
+/** Human-readable labels for each configurable field. For `subdivision` this is
+ *  only a fallback: the effective label is per-series and comes from
+ *  `subdivisionFieldLabel()`. Use that resolver, not this map, for any
+ *  subdivision header. */
 export const COMPETITOR_FIELD_LABELS: Record<CompetitorFieldKey, string> = {
   boatName: 'Boat name',
   boatClass: 'Class',
@@ -39,6 +43,7 @@ export const COMPETITOR_FIELD_LABELS: Record<CompetitorFieldKey, string> = {
   nationality: 'Nationality',
   gender: 'Gender',
   age: 'Age',
+  subdivision: 'Division',
 };
 
 /** Display order for the primary-label picker. */
@@ -95,4 +100,34 @@ export function isFieldDisabledByPrimary(
   primary: PrimaryPersonLabel,
 ): boolean {
   return primaryPersonFieldKey(primary) === field;
+}
+
+/** Default label for the `subdivision` competitor field. Gold/Silver/Bronze
+ *  skill tiers are the canonical case, so "Division" is the out-of-the-box
+ *  label; age-category regattas (e.g. ILCA Masters) rename it to "Category". */
+export const DEFAULT_SUBDIVISION_LABEL = 'Division';
+
+/** Suggested quick-pick labels for the subdivision field. The setting is a
+ *  freeform string — these are conveniences, not an exhaustive set, so a
+ *  regatta can type "Flight", "Band", or anything else that fits. */
+export const SUBDIVISION_LABEL_PRESETS: readonly string[] = [
+  'Division',
+  'Category',
+  'Class',
+  'Group',
+  'Section',
+] as const;
+
+/** Maximum length of a subdivision label. Long enough for any sensible header
+ *  word; short enough to keep table columns and form labels tidy. */
+export const SUBDIVISION_LABEL_MAX_LENGTH = 24;
+
+/** Authoritative label for the subdivision field. Series config wins over the
+ *  static fallback in `COMPETITOR_FIELD_LABELS`; an empty/whitespace label
+ *  falls back to the default. Same dynamic-label pattern as helm/owner under
+ *  `primaryPersonLabel`. */
+export function subdivisionFieldLabel(
+  series: Pick<Series, 'subdivisionLabel'>,
+): string {
+  return series.subdivisionLabel?.trim() || DEFAULT_SUBDIVISION_LABEL;
 }
