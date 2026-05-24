@@ -318,9 +318,10 @@ td.excluded { color: #888; text-align: center; }
 table.summarytable td .rating { display: block; font-size: 0.85em; color: #666; margin-top: 1px; font-family: monospace; }
 table.summarytable td.discard .rating { color: #888; }
 table.summarytable td.seedrating { font-family: monospace; }
-td.nat { white-space: nowrap; font-family: monospace; }
-td.nat .flag { display: inline-block; width: 18px; height: 12px; margin-right: 4px; border: 1px solid #ccc; vertical-align: -2px; }
+td.nat { font-family: monospace; }
+td.nat .flag { display: block; width: 30px; height: 20px; margin-bottom: 2px; border: 1px solid #ccc; }
 td.nat .flag svg { display: block; width: 100%; height: 100%; }
+td.nat .nattext { font-size: 0.8em; }
 ${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.nhc-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.nhc-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.nhc-explainer p:last-child { margin-bottom: 0; }\ndiv.nhc-explainer .formula { font-family: monospace; }\ndiv.nhc-explainer dl { margin: 4px 0 0 0; }\ndiv.nhc-explainer dt { font-weight: bold; display: inline; }\ndiv.nhc-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.nhc-explainer dd:after { content: ""; display: block; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.echo-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.echo-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.echo-explainer p:last-child { margin-bottom: 0; }\ndiv.echo-explainer .formula { font-family: monospace; }\ndiv.echo-explainer dl { margin: 4px 0 0 0; }\ndiv.echo-explainer dt { font-weight: bold; display: inline; }\ndiv.echo-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.echo-explainer dd:after { content: ""; display: block; }\n' : ''}</style>
 </head>
 <body${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).length > 0 ? ` class="${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).join(' ')}"` : ''}>
@@ -491,13 +492,13 @@ function renderSummaryTable(
 
   const headerCells = [
     '<th>Rank</th>',
-    '<th>Sail</th>',
+    '<th>Sail Number</th>',
     ...(showBoatName ? ['<th>Boat</th>'] : []),
     ...(showBoatClass ? ['<th>Class</th>'] : []),
     `<th>${esc(showCrewName ? `${primaryHeader} / Crew` : primaryHeader)}</th>`,
     ...(showHelm ? ['<th>Helm</th>'] : []),
     ...(showOwner ? ['<th>Owner</th>'] : []),
-    ...(showNationality ? ['<th>Nat</th>'] : []),
+    ...(showNationality ? ['<th>Nationality</th>'] : []),
     ...(showSubdivision ? [`<th>${esc(subdivisionHeader)}</th>`] : []),
     ...(hasSeedCol ? [`<th>${esc(seedHeader)}</th>`] : []),
     ...races.map((r) =>
@@ -548,8 +549,8 @@ function renderSummaryTable(
         ...(showSubdivision ? [`<td>${esc(s.subdivision ?? '')}</td>`] : []),
         ...(hasSeedCol ? [seedCell] : []),
         scoreCells,
-        `<td>${s.totalPoints}</td>`,
-        ...(hasDiscards ? [`<td>${s.netPoints}</td>`] : []),
+        `<td>${formatPoints(s.totalPoints)}</td>`,
+        ...(hasDiscards ? [`<td>${formatPoints(s.netPoints)}</td>`] : []),
         `</tr>`,
       ].join('\n');
     })
@@ -609,10 +610,10 @@ function renderRaceTable(
       const podiumClass = r.rank !== null && r.rank >= 1 && r.rank <= 3 ? ` class="rank${r.rank}"` : '';
       const codeSuffix = r.resultCode && r.resultCode !== 'RDG' ? ` ${r.resultCode}` : '';
       const pointsText = r.penaltyCode
-        ? `${r.points} ${formatPenaltyLabel(r.penaltyCode, r.penaltyOverride)}`
+        ? `${formatPoints(r.points)} ${formatPenaltyLabel(r.penaltyCode, r.penaltyOverride)}`
         : r.resultCode === 'RDG'
-          ? `${r.points} RDG`
-          : `${r.points}${codeSuffix}`;
+          ? `${formatPoints(r.points)} RDG`
+          : `${formatPoints(r.points)}${codeSuffix}`;
       const handicapCells = hasHandicapCols
         ? [
             `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
@@ -704,8 +705,8 @@ ${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
-<th>Sail</th>
-${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? '\n<th>Helm</th>' : ''}${showOwner ? '\n<th>Owner</th>' : ''}${showNationality ? '\n<th>Nat</th>' : ''}${handicapHeaders}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
+<th>Sail Number</th>
+${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? '\n<th>Helm</th>' : ''}${showOwner ? '\n<th>Owner</th>' : ''}${showNationality ? '\n<th>Nationality</th>' : ''}${handicapHeaders}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
 <th>Points</th>
 </tr>
 </thead>
@@ -735,9 +736,9 @@ function renderFlagDefs(
   return `<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs>${symbols.join('')}</defs></svg>`;
 }
 
-/** Render a single Nat cell: small flag chip + canonical code. Unknown
- *  codes (not in `flagSvgByCode`) render code-only. Empty values render
- *  an empty cell so the column stays aligned. */
+/** Render a single Nat cell: flag stacked above the canonical code (matching
+ *  the Sailwave layout). Unknown codes (not in `flagSvgByCode`) render
+ *  code-only. Empty values render an empty cell so the column stays aligned. */
 function renderNationalityCell(
   code: string | undefined,
   flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
@@ -747,7 +748,7 @@ function renderNationalityCell(
   const flagSpan = hasFlag
     ? `<span class="flag"><svg xmlns="http://www.w3.org/2000/svg"><use href="#flag-${esc(code)}" /></svg></span>`
     : '';
-  return `<td class="nat">${flagSpan}${esc(code)}</td>`;
+  return `<td class="nat">${flagSpan}<span class="nattext">${esc(code)}</span></td>`;
 }
 
 /** Render the always-visible "New TCF" cell for one row. The next-race rating
@@ -852,6 +853,12 @@ function formatPenaltyLabel(code: PenaltyCode, override: number | null): string 
   return `${code}(${override}%)`;
 }
 
+/** Format a score, total, or nett to one decimal place — the low-point
+ *  convention used on published results ("1.0", "15.0 DNF", "22.5"). */
+function formatPoints(n: number): string {
+  return n.toFixed(1);
+}
+
 function renderScoreText(
   points: number,
   resultCode: ResultCode | null,
@@ -862,13 +869,13 @@ function renderScoreText(
 ): string {
   let text: string;
   if (isRedress) {
-    text = `RDG(${points})`;
+    text = `RDG(${formatPoints(points)})`;
   } else if (resultCode) {
-    text = `${points} ${resultCode}`;
+    text = `${formatPoints(points)} ${resultCode}`;
   } else if (penaltyCode) {
-    text = `${points} ${formatPenaltyLabel(penaltyCode, penaltyOverride)}`;
+    text = `${formatPoints(points)} ${formatPenaltyLabel(penaltyCode, penaltyOverride)}`;
   } else {
-    text = String(points);
+    text = formatPoints(points);
   }
   return isDiscard ? `(${text})` : text;
 }
