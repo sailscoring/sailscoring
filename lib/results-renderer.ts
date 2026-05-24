@@ -348,8 +348,8 @@ ${races
   .filter((race) => race.results.length > 0)
   .map((race) => renderRaceTable(race, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showNationality, primaryHeader, data.flagSvgByCode))
   .join('\n')}
-<p class="hardleft">${leftUrl ? `<a href="${esc(leftUrl)}" target="_top" rel="noopener">${esc(series.venue || leftUrl)}</a>` : ''}</p>
-<p class="hardright">${rightUrl ? `<a href="${esc(rightUrl)}" target="_top" rel="noopener">${esc(series.name)}</a>` : ''}</p>
+<p class="hardleft">${leftUrl ? `<a href="${esc(externalHref(leftUrl))}" target="_top" rel="noopener">${esc(series.venue || leftUrl)}</a>` : ''}</p>
+<p class="hardright">${rightUrl ? `<a href="${esc(externalHref(rightUrl))}" target="_top" rel="noopener">${esc(series.name)}</a>` : ''}</p>
 <div style="clear:both;"></div>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
@@ -924,11 +924,20 @@ function esc(str: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/** Ensure a link URL is absolute so it points outward rather than resolving
+ *  relative to the results page. Sailwave (and scorers) often store a bare host
+ *  like "www.hyc.ie" or "ilcaireland.com/event/"; prefix https:// when there's
+ *  no scheme. Leaves already-absolute and protocol-relative URLs untouched. */
+function externalHref(url: string): string {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith('//')) return url;
+  return `https://${url}`;
+}
+
 /** Wrap `inner` HTML in an anchor to `url` when `url` is non-empty; otherwise
  *  return `inner` unchanged. Used to make the header logos clickable. */
 function maybeLink(url: string | undefined, inner: string): string {
   if (!url) return inner;
-  return `<a href="${esc(url)}" target="_top" rel="noopener">${inner}</a>`;
+  return `<a href="${esc(externalHref(url))}" target="_top" rel="noopener">${inner}</a>`;
 }
 
 // ---- Assembly helper ----

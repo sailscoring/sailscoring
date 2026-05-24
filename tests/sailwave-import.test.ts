@@ -177,15 +177,18 @@ describe('buildSeriesFileFromSailwave: Tues & Sat Series 1 (H17 discard profile)
 });
 
 describe('buildSeriesFileFromSailwave: venue/event website URLs', () => {
-  it('carries servenueurl / sereventurl into venueUrl / eventUrl', () => {
+  it('carries servenuewebsite / sereventwebsite into venueUrl / eventUrl', () => {
+    // Mirrors a real Sailwave export (HYC ILCA Masters): logos in *burgee,
+    // websites in *website, and the websites stored without a scheme. The
+    // importer keeps the raw value; the renderer prefixes https:// for links.
     const raw: SailwaveRaw = {
       globals: {
         serevent: 'Synthetic Regatta',
         servenue: 'Synthetic YC',
         servenueburgee: 'https://venue.example.com/logo.png',
         sereventburgee: 'https://event.example.com/logo.png',
-        servenueurl: 'https://venue.example.com',
-        sereventurl: 'https://event.example.com',
+        servenuewebsite: 'www.hyc.ie',
+        sereventwebsite: 'ilcaireland.com/event/masters-championships/',
       },
       competitors: {},
       races: {},
@@ -193,8 +196,8 @@ describe('buildSeriesFileFromSailwave: venue/event website URLs', () => {
     const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
     expect(file.series.venueLogoUrl).toBe('https://venue.example.com/logo.png');
     expect(file.series.eventLogoUrl).toBe('https://event.example.com/logo.png');
-    expect(file.series.venueUrl).toBe('https://venue.example.com');
-    expect(file.series.eventUrl).toBe('https://event.example.com');
+    expect(file.series.venueUrl).toBe('www.hyc.ie');
+    expect(file.series.eventUrl).toBe('ilcaireland.com/event/masters-championships/');
   });
 });
 

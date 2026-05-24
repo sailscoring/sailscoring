@@ -807,15 +807,14 @@ export function buildSeriesFileFromSailwave(
       venue: opts.venue.trim(),
       startDate: startDateIso,
       endDate: endDateIso,
-      // Carry the venue/event logos and website links Sailwave stores in its
-      // Series properties. `servenueburgee` / `sereventburgee` (the logo image
-      // URLs) are confirmed from real exports; `servenueurl` / `sereventurl`
-      // follow Sailwave's series-property naming and default to empty when the
-      // file doesn't carry them.
+      // Carry the venue/event logos and website links from Sailwave's Series
+      // properties. Global names confirmed against real exports. Sailwave often
+      // stores the website without a scheme (e.g. "www.hyc.ie"); the renderer
+      // prefixes https:// when building links, so we keep the raw value here.
       venueLogoUrl: (globals.servenueburgee ?? '').trim(),
       eventLogoUrl: (globals.sereventburgee ?? '').trim(),
-      venueUrl: (globals.servenueurl ?? '').trim(),
-      eventUrl: (globals.sereventurl ?? '').trim(),
+      venueUrl: (globals.servenuewebsite ?? '').trim(),
+      eventUrl: (globals.sereventwebsite ?? '').trim(),
       discardThresholds: parseDiscardThresholds(raw),
       dnfScoring,
       ftpHost: '',

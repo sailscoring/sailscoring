@@ -249,6 +249,23 @@ describe('renderSeriesHtml', () => {
     expect(html).toContain('<p class="hardright"></p>');
   });
 
+  it('prefixes https:// on scheme-less link URLs (as imported from Sailwave)', () => {
+    const html = renderSeriesHtml({
+      ...MINIMAL,
+      series: { name: 'Test Series', venue: '' },
+      leftLogoUrl: 'https://example.com/venue.png',
+      leftUrl: 'www.hyc.ie',
+      rightUrl: 'ilcaireland.com/event/masters-championships/',
+    });
+    // Header logo link and footer venue link both get the scheme.
+    expect(html).toContain('<a href="https://www.hyc.ie" target="_top" rel="noopener"><img');
+    expect(html).toContain('href="https://www.hyc.ie"');
+    expect(html).toContain('href="https://ilcaireland.com/event/masters-championships/"');
+    // With no venue name, the footer venue link text falls back to the bare
+    // host (not the https-prefixed href).
+    expect(html).toContain('>www.hyc.ie</a>');
+  });
+
   it('escapes HTML special characters in names', () => {
     const data: SeriesResultsData = {
       ...MINIMAL,
