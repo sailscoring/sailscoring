@@ -147,9 +147,29 @@ test('series file: save exports correct JSON with all series fields, competitors
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  const raceId = page.url().match(/\/races\/([^/]+)$/)![1];
+  // Commit via the autocomplete suggestion. Clicking "Add" before the race page
+  // has loaded the competitor list no-ops: the sail won't resolve in sailMap,
+  // so addFinisher() bails to the "unknown sail" prompt and saves nothing.
+  // Waiting for the suggestion confirms the competitor is loaded first.
   await page.getByLabel('Sail number').fill('1234');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByRole('option', { name: /1234/ }).click();
+  await expect(page.getByRole('listitem').filter({ hasText: '1234' })).toBeVisible();
+  // buildSeriesFile reads finishes fresh from the server, so the finish must be
+  // durably persisted before we navigate away and export. The autosave-status
+  // pill is racy here: its idle and saved states share the text "All changes
+  // saved", so asserting it can match the pre-save state and let the export run
+  // before the save round-trips. Poll server truth — exactly what the export
+  // reads — instead.
+  await expect
+    .poll(() =>
+      page.evaluate(async (rid) => {
+        const res = await fetch(`/api/v1/races/${rid}/finishes`);
+        return res.ok ? ((await res.json()) as unknown[]).length : -1;
+      }, raceId),
+    )
+    .toBe(1);
 
   // ── Save to file and verify JSON ──────────────────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
