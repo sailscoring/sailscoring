@@ -781,6 +781,15 @@ export default function HelpPage() {
           if it auto-detects wrongly, and adjust any race dates Sailwave didn&apos;t carry across.
         </p>
         <p>
+          If the file has a prize-giving subdivision — Sailwave&apos;s Division field, or a column
+          (often the helm age group) you retitled to something like <em>Category</em> — the wizard
+          detects it and shows the heading it found. The values are imported exactly as Sailwave
+          stored them (e.g. age-band codes like <em>GGM</em>); you can rename the column heading
+          before importing, and edit the field or its values afterwards from{' '}
+          <strong className="text-foreground">Settings</strong> and the{' '}
+          <strong className="text-foreground">Competitors</strong> tab.
+        </p>
+        <p>
           To bring a series someone else is scoring into your workspace, open the{' '}
           <strong className="text-foreground">Settings</strong> tab on the existing series and
           click <strong className="text-foreground">Update from File</strong>. The app checks

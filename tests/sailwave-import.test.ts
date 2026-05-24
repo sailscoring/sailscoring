@@ -5,6 +5,8 @@ import {
   parseSailwaveJson,
   inspectSailwave,
   buildSeriesFileFromSailwave,
+  parseSailwaveColumns,
+  resolveSubdivision,
   parseStartString,
   parseSailwaveRaceDate,
   parseDiscardThresholds,
@@ -444,6 +446,118 @@ describe('buildSeriesFileFromSailwave: default date fallback', () => {
     for (const r of file.races) {
       expect(r.date).toBe(todayIso);
     }
+  });
+});
+
+describe('parseSailwaveColumns', () => {
+  it('extracts the custom title and visibility flags from a column def', () => {
+    const cols = parseSailwaveColumns({
+      header: { generator: 'sailwave' },
+      columns: {
+        '23': '1|HelmAgeGroup|23|Yes|Yes|40|Category|',
+        '18': '1|Division|12|No|No|40||',
+      },
+    });
+    expect(cols.get('HelmAgeGroup')).toMatchObject({
+      title: 'Category',
+      visible: true,
+      publish: true,
+    });
+    // Division has no custom title and is hidden/unpublished.
+    expect(cols.get('Division')).toMatchObject({ title: '', visible: false, publish: false });
+  });
+
+  it('skips entries with an empty field name and tolerates a missing section', () => {
+    const cols = parseSailwaveColumns({
+      header: { generator: 'sailwave' },
+      columns: { '1': '1||5|No|No|40||' },
+    });
+    expect(cols.size).toBe(0);
+    expect(parseSailwaveColumns({ header: { generator: 'sailwave' } }).size).toBe(0);
+  });
+});
+
+describe('resolveSubdivision', () => {
+  const columns = (defs: Record<string, string>) =>
+    parseSailwaveColumns({ header: { generator: 'sailwave' }, columns: defs });
+
+  it('prefers the native Division field, labelled from its column title or the default', () => {
+    const comps = { '1': { compdivision: 'Silver', comphelmagegroup: 'GM', compexclude: '0' } };
+    // No custom title on Division → default "Division".
+    expect(resolveSubdivision(comps, columns({}))).toEqual({
+      sourceKey: 'compdivision',
+      label: 'Division',
+    });
+    // Custom Division title wins.
+    expect(
+      resolveSubdivision(comps, columns({ '18': '1|Division|12|Yes|Yes|40|Class|' })),
+    ).toEqual({ sourceKey: 'compdivision', label: 'Class' });
+  });
+
+  it('falls back to the helm age group, labelled "Category" by default', () => {
+    const comps = { '1': { comphelmagegroup: 'GGM', compexclude: '0' } };
+    expect(resolveSubdivision(comps, columns({}))).toEqual({
+      sourceKey: 'comphelmagegroup',
+      label: 'Category',
+    });
+    // Custom HelmAgeGroup title wins (the real-world repurposed-column case).
+    expect(
+      resolveSubdivision(comps, columns({ '23': '1|HelmAgeGroup|23|Yes|Yes|40|Age band|' })),
+    ).toEqual({ sourceKey: 'comphelmagegroup', label: 'Age band' });
+  });
+
+  it('returns no source when the file carries no subdivision data', () => {
+    expect(resolveSubdivision({ '1': { compsailno: '1', compexclude: '0' } }, columns({}))).toEqual({
+      sourceKey: null,
+      label: 'Division',
+    });
+  });
+
+  it('ignores excluded competitors when deciding whether a field is populated', () => {
+    const comps = { '1': { comphelmagegroup: 'GM', compexclude: '1' } };
+    expect(resolveSubdivision(comps, columns({})).sourceKey).toBeNull();
+  });
+});
+
+describe('subdivision import (ILCA Masters Category fixture)', () => {
+  const raw = loadFile(`${FIXTURES}/ilca-masters-category.json`);
+
+  it('detects the Category column in the preview', () => {
+    expect(inspectSailwave(raw).detectedSubdivisionLabel).toBe('Category');
+  });
+
+  it('imports the column verbatim, enables the field, and labels it "Category"', () => {
+    const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+    expect(file.series.subdivisionLabel).toBe('Category');
+    expect(file.series.enabledCompetitorFields).toContain('subdivision');
+    // Values land as-is (the Sailwave codes), not expanded.
+    const subs = file.competitors.map((c) => c.subdivision).sort();
+    expect(subs).toEqual(['AM', 'GGM', 'GM', 'M', 'M']);
+  });
+
+  it('honours an explicit label override from the wizard', () => {
+    const file = buildSeriesFileFromSailwave(raw, { ...DEFAULT_OPTS, subdivisionLabel: 'Age group' });
+    expect(file.series.subdivisionLabel).toBe('Age group');
+    expect(file.series.enabledCompetitorFields).toContain('subdivision');
+  });
+});
+
+describe('subdivision import: file with no subdivision data', () => {
+  const raw: SailwaveRaw = {
+    header: { generator: 'sailwave' },
+    globals: { serevent: 'No Category', servenue: 'HYC' },
+    competitors: {
+      '1': { compsailno: '1', comphelmname: 'A', compfleet: 'ILCA 6', compexclude: '0', compalias: '0' },
+    },
+    races: {},
+  };
+
+  it('leaves the field disabled and the label at the default', () => {
+    expect(inspectSailwave(raw).detectedSubdivisionLabel).toBeNull();
+    const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+    expect(file.series.subdivisionLabel).toBe('Division');
+    expect(file.series.enabledCompetitorFields).not.toContain('subdivision');
+    expect(file.competitors.every((c) => c.subdivision === undefined)).toBe(true);
   });
 });
 

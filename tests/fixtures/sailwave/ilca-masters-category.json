@@ -1,0 +1,67 @@
+{
+  "header": { "generator": "sailwave" },
+  "globals": {
+    "serevent": "Masters Championships Sample",
+    "servenue": "Howth YC"
+  },
+  "columns": {
+    "6": "1|Club|11|Yes|Yes|87|Club|",
+    "18": "1|Division|12|No|No|40||",
+    "21": "1|Fleet|10|Yes|No|40|Fleet|",
+    "23": "1|HelmAgeGroup|23|Yes|Yes|40|Category|",
+    "27": "1|HelmName|9|Yes|Yes|101|Helm Name|"
+  },
+  "competitors": {
+    "101": {
+      "compsailno": "100001",
+      "compclub": "Sample SC",
+      "compfleet": "ILCA 6",
+      "compnat": "IRL",
+      "compexclude": "0",
+      "compalias": "0",
+      "comphelmname": "Alex Sample",
+      "comphelmagegroup": "GGM"
+    },
+    "102": {
+      "compsailno": "100002",
+      "compclub": "Sample SC",
+      "compfleet": "ILCA 6",
+      "compnat": "IRL",
+      "compexclude": "0",
+      "compalias": "0",
+      "comphelmname": "Blair Sample",
+      "comphelmagegroup": "GM"
+    },
+    "103": {
+      "compsailno": "100003",
+      "compclub": "Coastal YC",
+      "compfleet": "ILCA 6",
+      "compnat": "GBR",
+      "compexclude": "0",
+      "compalias": "0",
+      "comphelmname": "Casey Sample",
+      "comphelmagegroup": "M"
+    },
+    "104": {
+      "compsailno": "100004",
+      "compclub": "Coastal YC",
+      "compfleet": "ILCA 6",
+      "compnat": "IRL",
+      "compexclude": "0",
+      "compalias": "0",
+      "comphelmname": "Devon Sample",
+      "comphelmagegroup": "AM"
+    },
+    "105": {
+      "compsailno": "100005",
+      "compclub": "Sample SC",
+      "compfleet": "ILCA 6",
+      "compnat": "IRL",
+      "compexclude": "0",
+      "compalias": "0",
+      "comphelmname": "Erin Sample",
+      "comphelmagegroup": "M"
+    }
+  },
+  "races": {}
+}

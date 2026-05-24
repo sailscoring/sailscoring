@@ -397,6 +397,8 @@ describe('renderSeriesHtml', () => {
   });
 
   describe('subdivision column', () => {
+    // Subdivision shows in both the summary and per-race tables, so set it on
+    // standings and race results alike.
     const withSubdivision: SeriesResultsData = {
       ...MINIMAL,
       enabledCompetitorFields: ['subdivision'],
@@ -404,6 +406,13 @@ describe('renderSeriesHtml', () => {
         { ...MINIMAL.standings[0], subdivision: 'Gold' },
         { ...MINIMAL.standings[1], subdivision: 'Silver' },
       ],
+      races: MINIMAL.races.map((r) => ({
+        ...r,
+        results: r.results.map((res) => ({
+          ...res,
+          subdivision: res.sailNumber === '42' ? 'Gold' : 'Silver',
+        })),
+      })),
     };
 
     it('renders the column under the configured label with each value', () => {
@@ -418,10 +427,18 @@ describe('renderSeriesHtml', () => {
       expect(html).toContain('<th>Division</th>');
     });
 
+    it('renders the column in the per-race tables too', () => {
+      const html = renderSeriesHtml({ ...withSubdivision, subdivisionLabel: 'Category' });
+      // Summary table + two race tables each carry the header.
+      const headerCount = html.split('<th>Category</th>').length - 1;
+      expect(headerCount).toBe(3);
+    });
+
     it('suppresses the column when enabled but no competitor has a value', () => {
       const html = renderSeriesHtml({
         ...withSubdivision,
         standings: MINIMAL.standings, // no subdivision values
+        races: MINIMAL.races,
       });
       expect(html).not.toContain('<th>Division</th>');
     });
