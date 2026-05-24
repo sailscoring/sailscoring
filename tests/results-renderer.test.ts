@@ -134,7 +134,7 @@ describe('renderSeriesHtml', () => {
     };
     const html = renderSeriesHtml(data);
     // DNC cell should not get a rank class
-    expect(html).not.toMatch(/class="rank\d"[^>]*>2 DNC/);
+    expect(html).not.toMatch(/class="rank\d"[^>]*>2\.0 DNC/);
   });
 
   it('wraps discarded scores in parentheses and applies discard class', () => {
@@ -160,7 +160,7 @@ describe('renderSeriesHtml', () => {
       ],
     };
     const html = renderSeriesHtml(data);
-    expect(html).toContain('(4 DNC)');
+    expect(html).toContain('(4.0 DNC)');
     expect(html).toContain('class="discard"');
     // Nett column appears when hasDiscards
     expect(html).toContain('<th>Nett</th>');
@@ -499,7 +499,7 @@ describe('renderSeriesHtml per-race table (#130)', () => {
     const body = raceTableBody(html, 'r1');
     expect(body).toContain('>1<');
     expect(body).toContain('>2<');
-    expect(body).toContain('5 DNC');
+    expect(body).toContain('5.0 DNC');
   });
 
   it('omits implicit DNCs (absent from RaceData.results) from the per-race table while the summary table still shows them', () => {
@@ -518,7 +518,7 @@ describe('renderSeriesHtml per-race table (#130)', () => {
     const html = renderSeriesHtml(data);
     // Implicit DNC competitor visible in the summary
     expect(html).toContain('Ghost');
-    expect(html).toContain('3 DNC');
+    expect(html).toContain('3.0 DNC');
     // …but not in the per-race table
     const body = raceTableBody(html, 'r1');
     expect(body).not.toContain('Ghost');
@@ -1074,14 +1074,14 @@ describe('renderSeriesHtml — nationality', () => {
   it('renders a Nat column in the summary and per-race tables', () => {
     const html = renderSeriesHtml(withNationality);
     // Summary table column header
-    expect(html).toContain('<th>Nat</th>');
+    expect(html).toContain('<th>Nationality</th>');
     // Two same-code competitors and one different — the column must show codes
     // alongside a <use> referencing the flag symbol. Two standings rows + two
     // race rows for IRL = 4 cells.
-    const irlCellRe = /<td class="nat">.*?<use href="#flag-IRL"[^>]*\/>.*?IRL<\/td>/g;
+    const irlCellRe = /<td class="nat">.*?<use href="#flag-IRL"[^>]*\/>.*?IRL<\/span><\/td>/g;
     expect(html.match(irlCellRe)?.length).toBe(4);
     // And one GBR cell each in standings + race.
-    const gbrCellRe = /<td class="nat">.*?<use href="#flag-GBR"[^>]*\/>.*?GBR<\/td>/g;
+    const gbrCellRe = /<td class="nat">.*?<use href="#flag-GBR"[^>]*\/>.*?GBR<\/span><\/td>/g;
     expect(html.match(gbrCellRe)?.length).toBe(2);
   });
 
@@ -1101,7 +1101,7 @@ describe('renderSeriesHtml — nationality', () => {
     });
     expect(html).not.toContain('use href="#flag-IRL"');
     // IRL code still appears in the cell.
-    expect(html).toContain('<td class="nat">IRL</td>');
+    expect(html).toContain('<td class="nat"><span class="nattext">IRL</span></td>');
   });
 
   it('omits the Nat column when nationality is enabled but no row carries a value', () => {
@@ -1113,7 +1113,7 @@ describe('renderSeriesHtml — nationality', () => {
         results: r.results.map((x) => ({ ...x, nationality: undefined })),
       })),
     });
-    expect(html).not.toContain('<th>Nat</th>');
+    expect(html).not.toContain('<th>Nationality</th>');
   });
 
   it('omits flag defs when flagSvgByCode is undefined', () => {
@@ -1123,7 +1123,7 @@ describe('renderSeriesHtml — nationality', () => {
     // No <symbol> block at all.
     expect(html).not.toContain('<symbol');
     // Codes still render as text in the cell.
-    expect(html).toContain('<td class="nat">IRL</td>');
-    expect(html).toContain('<td class="nat">GBR</td>');
+    expect(html).toContain('<td class="nat"><span class="nattext">IRL</span></td>');
+    expect(html).toContain('<td class="nat"><span class="nattext">GBR</span></td>');
   });
 });

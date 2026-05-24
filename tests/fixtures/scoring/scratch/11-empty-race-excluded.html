@@ -11,11 +11,16 @@
 body {font: 100% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
 .hardright {text-align: right; float: right; margin: 15px 25px 15px 0;}
-table {text-align: left; margin: 0px auto 30px auto; font-size: 1em; border-collapse: collapse; border: 1px #999 solid;}
-td, th {padding: 4px; border: 1px #999 solid; vertical-align: top;}
+table {text-align: left; margin: 0px auto 30px auto; font-size: 1em; border-collapse: collapse; border: 1px #fff solid;}
+td, th {padding: 4px; border: 2px #fff solid; vertical-align: top;}
+th {background-color: #aaf;}
 .caption {padding: 5px; text-align: center; border: 0; font-weight: bold;}
+h1 {font-size: 1.6em;}
+h2 {font-size: 1.4em;}
+h3 {font-size: 1.2em;}
 p {text-align: center;}
-.odd {background-color: #eef;}
+.odd {background-color: #ddf;}
+.even {background-color: #bbf;}
 table.headertable {border: 0px;}
 table.headertable td{border: 0px;}
 td.rank1 { background: #ffd700; }
@@ -27,6 +32,10 @@ td.excluded { color: #888; text-align: center; }
 table.summarytable td .rating { display: block; font-size: 0.85em; color: #666; margin-top: 1px; font-family: monospace; }
 table.summarytable td.discard .rating { color: #888; }
 table.summarytable td.seedrating { font-family: monospace; }
+td.nat { font-family: monospace; }
+td.nat .flag { display: block; width: 20px; height: 13px; margin-bottom: 2px; border: 1px solid #ccc; }
+td.nat .flag svg { display: block; width: 100%; height: 100%; }
+td.nat .nattext { font-size: 0.8em; }
 </style>
 </head>
 <body>
@@ -55,6 +64,7 @@ is below the 5-race threshold, so no discards apply.</pre>
 
 
 
+
 <table class="summarytable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="9">
 <col class="rank" />
@@ -70,7 +80,7 @@ is below the 5-race threshold, so no discards apply.</pre>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
-<th>Sail</th>
+<th>Sail Number</th>
 <th>Boat</th>
 <th>Competitor</th>
 <th><a class="racelink" href="#r1">R1</a></th>
@@ -86,55 +96,55 @@ is below the 5-race threshold, so no discards apply.</pre>
 <td>101</td>
 <td></td>
 <td>Alice</td>
-<td class="rank1">1</td>
-<td class="rank1">1</td>
+<td class="rank1">1.0</td>
+<td class="rank1">1.0</td>
 <td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
-<td class="rank1">1</td>
-<td>3</td>
+<td class="rank1">1.0</td>
+<td>3.0</td>
 </tr>
 <tr class="even summaryrow">
 <td>2nd</td>
 <td>202</td>
 <td></td>
 <td>Bob</td>
-<td class="rank2">2</td>
-<td class="rank2">2</td>
+<td class="rank2">2.0</td>
+<td class="rank2">2.0</td>
 <td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
-<td class="rank2">2</td>
-<td>6</td>
+<td class="rank2">2.0</td>
+<td>6.0</td>
 </tr>
 <tr class="odd summaryrow">
 <td>3rd</td>
 <td>303</td>
 <td></td>
 <td>Carol</td>
-<td class="rank3">3</td>
-<td class="rank3">3</td>
+<td class="rank3">3.0</td>
+<td class="rank3">3.0</td>
 <td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
-<td class="rank3">3</td>
-<td>9</td>
+<td class="rank3">3.0</td>
+<td>9.0</td>
 </tr>
 <tr class="even summaryrow">
 <td>4th</td>
 <td>404</td>
 <td></td>
 <td>David</td>
-<td>4</td>
-<td>4</td>
+<td>4.0</td>
+<td>4.0</td>
 <td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
-<td>4</td>
-<td>12</td>
+<td>4.0</td>
+<td>12.0</td>
 </tr>
 <tr class="odd summaryrow">
 <td>5th</td>
 <td>505</td>
 <td></td>
 <td>Eve</td>
-<td>5</td>
-<td>5</td>
+<td>5.0</td>
+<td>5.0</td>
 <td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>
-<td>5</td>
-<td>15</td>
+<td>5.0</td>
+<td>15.0</td>
 </tr>
 </tbody>
 </table>
@@ -151,7 +161,7 @@ is below the 5-race threshold, so no discards apply.</pre>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
-<th>Sail</th>
+<th>Sail Number</th>
 <th>Boat</th>
 <th>Competitor</th>
 <th>Points</th>
@@ -159,39 +169,39 @@ is below the 5-race threshold, so no discards apply.</pre>
 </thead>
 <tbody>
 <tr class="odd racerow">
-<td>1</td>
+<td class="rank1">1</td>
 <td>101</td>
 <td></td>
 <td>Alice</td>
-<td>1</td>
+<td>1.0</td>
 </tr>
 <tr class="even racerow">
-<td>2</td>
+<td class="rank2">2</td>
 <td>202</td>
 <td></td>
 <td>Bob</td>
-<td>2</td>
+<td>2.0</td>
 </tr>
 <tr class="odd racerow">
-<td>3</td>
+<td class="rank3">3</td>
 <td>303</td>
 <td></td>
 <td>Carol</td>
-<td>3</td>
+<td>3.0</td>
 </tr>
 <tr class="even racerow">
 <td>4</td>
 <td>404</td>
 <td></td>
 <td>David</td>
-<td>4</td>
+<td>4.0</td>
 </tr>
 <tr class="odd racerow">
 <td>5</td>
 <td>505</td>
 <td></td>
 <td>Eve</td>
-<td>5</td>
+<td>5.0</td>
 </tr>
 </tbody>
 </table>
@@ -208,7 +218,7 @@ is below the 5-race threshold, so no discards apply.</pre>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
-<th>Sail</th>
+<th>Sail Number</th>
 <th>Boat</th>
 <th>Competitor</th>
 <th>Points</th>
@@ -216,39 +226,39 @@ is below the 5-race threshold, so no discards apply.</pre>
 </thead>
 <tbody>
 <tr class="odd racerow">
-<td>1</td>
+<td class="rank1">1</td>
 <td>101</td>
 <td></td>
 <td>Alice</td>
-<td>1</td>
+<td>1.0</td>
 </tr>
 <tr class="even racerow">
-<td>2</td>
+<td class="rank2">2</td>
 <td>202</td>
 <td></td>
 <td>Bob</td>
-<td>2</td>
+<td>2.0</td>
 </tr>
 <tr class="odd racerow">
-<td>3</td>
+<td class="rank3">3</td>
 <td>303</td>
 <td></td>
 <td>Carol</td>
-<td>3</td>
+<td>3.0</td>
 </tr>
 <tr class="even racerow">
 <td>4</td>
 <td>404</td>
 <td></td>
 <td>David</td>
-<td>4</td>
+<td>4.0</td>
 </tr>
 <tr class="odd racerow">
 <td>5</td>
 <td>505</td>
 <td></td>
 <td>Eve</td>
-<td>5</td>
+<td>5.0</td>
 </tr>
 </tbody>
 </table>
@@ -265,7 +275,7 @@ is below the 5-race threshold, so no discards apply.</pre>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
-<th>Sail</th>
+<th>Sail Number</th>
 <th>Boat</th>
 <th>Competitor</th>
 <th>Points</th>
@@ -277,35 +287,35 @@ is below the 5-race threshold, so no discards apply.</pre>
 <td>101</td>
 <td></td>
 <td>Alice</td>
-<td>6 DNC</td>
+<td>6.0 DNC</td>
 </tr>
 <tr class="even racerow">
 <td></td>
 <td>202</td>
 <td></td>
 <td>Bob</td>
-<td>6 DNC</td>
+<td>6.0 DNC</td>
 </tr>
 <tr class="odd racerow">
 <td></td>
 <td>303</td>
 <td></td>
 <td>Carol</td>
-<td>6 DNC</td>
+<td>6.0 DNC</td>
 </tr>
 <tr class="even racerow">
 <td></td>
 <td>404</td>
 <td></td>
 <td>David</td>
-<td>6 DNC</td>
+<td>6.0 DNC</td>
 </tr>
 <tr class="odd racerow">
 <td></td>
 <td>505</td>
 <td></td>
 <td>Eve</td>
-<td>6 DNC</td>
+<td>6.0 DNC</td>
 </tr>
 </tbody>
 </table>
@@ -322,7 +332,7 @@ is below the 5-race threshold, so no discards apply.</pre>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
-<th>Sail</th>
+<th>Sail Number</th>
 <th>Boat</th>
 <th>Competitor</th>
 <th>Points</th>
@@ -330,44 +340,45 @@ is below the 5-race threshold, so no discards apply.</pre>
 </thead>
 <tbody>
 <tr class="odd racerow">
-<td>1</td>
+<td class="rank1">1</td>
 <td>101</td>
 <td></td>
 <td>Alice</td>
-<td>1</td>
+<td>1.0</td>
 </tr>
 <tr class="even racerow">
-<td>2</td>
+<td class="rank2">2</td>
 <td>202</td>
 <td></td>
 <td>Bob</td>
-<td>2</td>
+<td>2.0</td>
 </tr>
 <tr class="odd racerow">
-<td>3</td>
+<td class="rank3">3</td>
 <td>303</td>
 <td></td>
 <td>Carol</td>
-<td>3</td>
+<td>3.0</td>
 </tr>
 <tr class="even racerow">
 <td>4</td>
 <td>404</td>
 <td></td>
 <td>David</td>
-<td>4</td>
+<td>4.0</td>
 </tr>
 <tr class="odd racerow">
 <td>5</td>
 <td>505</td>
 <td></td>
 <td>Eve</td>
-<td>5</td>
+<td>5.0</td>
 </tr>
 </tbody>
 </table>
 <p class="hardleft"></p>
 <p class="hardright"></p>
+<div style="clear:both;"></div>
 <p>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a></p>
 
 
