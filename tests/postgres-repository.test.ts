@@ -693,7 +693,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       .catch((e) => e);
     expect(err).toBeInstanceOf(ConflictError);
     const detail = (err as InstanceType<typeof ConflictError>).detail;
-    expect(detail?.currentVersion).toBe(seeded.version + 1);
+    expect(detail?.currentVersion).toBe(seeded.version! + 1);
     expect(detail?.actor).toEqual({
       id: userId,
       email: `sarah-${userId}@sailscoring.test`,
