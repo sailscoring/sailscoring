@@ -639,16 +639,20 @@ function colonTimeToSeconds(t: string | null): number | null {
 
 /** Sailwave starts payload format:
  *    'Fleet^Puppeteer HPH^...^=^=...|19.15.00|Finish time|Start 1|||0|...'
- *  Pipe-segment 0 holds 'Fleet^<NAME>^...'; segment 1 is the gun time. */
-export function parseStartString(s: string): { fleetName: string; startTime: string } | null {
+ *  Pipe-segment 0 holds 'Fleet^<NAME>^...' for a per-fleet start; segment 1 is
+ *  the gun time. A combined start (one gun for every fleet in the race, as
+ *  cruiser divisions usually share) has an empty segment 0 — no 'Fleet^...'
+ *  prefix — e.g. '|10.35.00|Finish time|Start 1|...'. We return
+ *  `fleetName: null` for that case so the caller fans it out to all fleets.
+ *  Returns null only when there's no parseable gun time. */
+export function parseStartString(s: string): { fleetName: string | null; startTime: string } | null {
   const parts = s.split('|');
   if (parts.length < 2) return null;
-  const head = parts[0].split('^');
-  if (head.length < 2) return null;
-  const fleetName = head[1].trim();
   const startTime = sailwaveTimeToColon(parts[1]);
-  if (!fleetName || !startTime) return null;
-  return { fleetName, startTime };
+  if (!startTime) return null;
+  const head = parts[0].split('^');
+  const rawFleet = head.length >= 2 ? head[1].trim() : '';
+  return { fleetName: rawFleet || null, startTime };
 }
 
 // ---- Build options ----
@@ -1041,9 +1045,15 @@ function buildRaceStarts(
 ): StartBuild[] {
   const out: StartBuild[] = [];
   const seenFleetIds = new Set<string>();
-  for (const raw of Object.values(startsRaw)) {
-    const parsed = parseStartString(raw);
-    if (!parsed) continue;
+  const parsedStarts = Object.values(startsRaw)
+    .map((raw) => parseStartString(raw))
+    .filter((p): p is { fleetName: string | null; startTime: string } => p !== null);
+
+  // Pass 1: per-fleet starts claim their named fleet plus any companion sharing
+  // the same base name (HPH + Scr typically share one gun). Process these first
+  // so they take precedence over a combined start in the same race.
+  for (const parsed of parsedStarts) {
+    if (parsed.fleetName === null) continue;
     const namedId = fleetIdByName.get(parsed.fleetName);
     if (!namedId) continue;
     const base = fleetBaseName(parsed.fleetName);
@@ -1051,11 +1061,19 @@ function buildRaceStarts(
     const fleetIds = [namedId, ...candidates.filter((fid) => fid !== namedId)];
     if (fleetIds.length === 0) continue;
     for (const fid of fleetIds) seenFleetIds.add(fid);
-    out.push({
-      id: cryptoUuid(),
-      fleetIds,
-      startTime: parsed.startTime,
-    });
+    out.push({ id: cryptoUuid(), fleetIds, startTime: parsed.startTime });
+  }
+
+  // Pass 2: a combined start (no fleet prefix — one gun for everyone, as
+  // cruiser divisions share) applies to every series fleet not already claimed
+  // by a named start above. Fleets that don't actually race this race simply
+  // carry an unused start time (they auto-DNC and the race is excluded for them).
+  for (const parsed of parsedStarts) {
+    if (parsed.fleetName !== null) continue;
+    const fleetIds = [...fleetIdByName.values()].filter((fid) => !seenFleetIds.has(fid));
+    if (fleetIds.length === 0) continue;
+    for (const fid of fleetIds) seenFleetIds.add(fid);
+    out.push({ id: cryptoUuid(), fleetIds, startTime: parsed.startTime });
   }
   return out;
 }

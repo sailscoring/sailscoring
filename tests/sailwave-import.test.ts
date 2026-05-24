@@ -179,6 +179,24 @@ describe('buildSeriesFileFromSailwave: Tues & Sat Series 1 (H17 discard profile)
   });
 });
 
+describe('buildSeriesFileFromSailwave: Sat Cruisers Series 1 (combined start)', () => {
+  // The cruiser divisions share a single start gun, which Sailwave writes
+  // with no 'Fleet^...' prefix. The importer must fan that combined start out
+  // to every fleet so the handicap divisions score on corrected time rather
+  // than falling back to scratch/crossing-order (issue #147 §5).
+  const raw = loadFile(`${HYC}/2026 Sat Cruisers Series 1.json`);
+  const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+
+  it('imports the fleet-less gun as one start covering every fleet', () => {
+    const race = file.races.find((r) => r.starts.some((s) => s.startTime === '10:35:00'));
+    expect(race).toBeDefined();
+    expect(race!.starts).toHaveLength(1);
+    expect(race!.starts[0].startTime).toBe('10:35:00');
+    // Every fleet in the series shares the one gun.
+    expect([...race!.starts[0].fleetIds].sort()).toEqual(file.fleets.map((f) => f.id).sort());
+  });
+});
+
 describe('buildSeriesFileFromSailwave: venue/event website URLs', () => {
   it('carries servenuewebsite / sereventwebsite into venueUrl / eventUrl', () => {
     // Mirrors a real Sailwave export (HYC ILCA Masters): logos in *burgee,
@@ -583,9 +601,17 @@ describe('parseStartString', () => {
     const parsed = parseStartString('Fleet^Puppeteer HPH^=^=^=|19.15.00|Finish time|Start 1|||0|');
     expect(parsed).toEqual({ fleetName: 'Puppeteer HPH', startTime: '19:15:00' });
   });
-  it('returns null for malformed input', () => {
+  it('treats a fleet-less gun as a combined (all-fleet) start', () => {
+    // Cruiser divisions share one start signal — Sailwave writes it with an
+    // empty segment 0 (no 'Fleet^...' prefix). fleetName === null tells the
+    // caller to fan it out across every fleet racing (issue #147 §5).
+    expect(parseStartString('|10.35.00|Finish time|Start 1|||0||0|0||||1'))
+      .toEqual({ fleetName: null, startTime: '10:35:00' });
+    expect(parseStartString('|19.15.00')).toEqual({ fleetName: null, startTime: '19:15:00' });
+  });
+  it('returns null when there is no parseable gun time', () => {
     expect(parseStartString('no pipes here')).toBeNull();
-    expect(parseStartString('|19.15.00')).toBeNull();
+    expect(parseStartString('||Place|Start 1|||0')).toBeNull(); // combined but no time
   });
 });
 
