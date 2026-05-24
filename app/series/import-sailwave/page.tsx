@@ -145,6 +145,7 @@ function Wizard({
   const [venue, setVenue] = useState(preview?.venue ?? '');
   const [defaultRaceDate, setDefaultRaceDate] = useState('');
   const [primaryLabel, setPrimaryLabel] = useState<PrimaryPersonLabel>('helm');
+  const [subdivisionLabel, setSubdivisionLabel] = useState(preview?.detectedSubdivisionLabel ?? '');
   const [includeScratchCompanions, setIncludeScratchCompanions] = useState(true);
   const [includeResults, setIncludeResults] = useState(preview?.hasResults ?? true);
   const [dnfScoring, setDnfScoring] = useState<'auto' | 'seriesEntries' | 'startingArea'>('auto');
@@ -196,6 +197,7 @@ function Wizard({
       venue,
       defaultRaceDate: defaultRaceDate || undefined,
       primaryLabel,
+      subdivisionLabel: subdivisionLabel.trim() || undefined,
       fleetScoringOverrides: fleetOverrides,
       includeScratchCompanions,
       includeResults,
@@ -266,6 +268,11 @@ function Wizard({
                 Discards: {preview.detectedDiscardThresholds
                   .map((t) => `${t.discardCount} after ${t.minRaces}`)
                   .join(', ')}
+              </Badge>
+            )}
+            {preview.detectedSubdivisionLabel !== null && (
+              <Badge variant="outline">
+                Subdivision: {preview.detectedSubdivisionLabel}
               </Badge>
             )}
           </div>
@@ -425,6 +432,22 @@ function Wizard({
                 for generic mixed entries.
               </p>
             </div>
+            {preview.detectedSubdivisionLabel !== null && (
+              <div className="space-y-1.5">
+                <Label htmlFor="subdivision-label">Subdivision column label</Label>
+                <Input
+                  id="subdivision-label"
+                  value={subdivisionLabel}
+                  onChange={(e) => setSubdivisionLabel(e.target.value)}
+                  className="w-48"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This file has a prize-giving subdivision column (Gold/Silver/Bronze, age
+                  categories, …). Values are imported as-is; this only sets the column heading.
+                  You can rename or disable it later in Settings.
+                </p>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="dnf-scoring">DNF / DNS scoring</Label>
               <Select

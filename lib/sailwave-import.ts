@@ -23,6 +23,7 @@ import {
 } from './series-file';
 import {
   DEFAULT_PRIMARY_PERSON_LABEL,
+  DEFAULT_SUBDIVISION_LABEL,
   defaultEnabledCompetitorFields,
 } from './competitor-fields';
 import { lookupAlias } from './nationality';
@@ -39,6 +40,12 @@ export interface SailwaveCompetitorRaw {
   compnat?: string;
   compfleet?: string;
   compclass?: string;
+  /** Sailwave's native division field. Often unused; when populated it maps to
+   *  our subdivision attribute. */
+  compdivision?: string;
+  /** Helm age band (e.g. "GGM"/"GM"/"M"). Scorers frequently repurpose this as
+   *  a prize category and retitle the column (e.g. "Category"). */
+  comphelmagegroup?: string;
   comprating?: string;
   compnewrating?: string;
   compalias?: string;
@@ -92,6 +99,11 @@ export interface SailwaveRaw {
   races?: Record<string, SailwaveRaceRaw>;
   results?: Record<string, SailwaveResultRaw>;
   'scoring-systems'?: Record<string, SailwaveScoringSystemRaw>;
+  /** Column definitions. Each value is pipe-delimited:
+   *  `enabled|FieldName|fieldId|showInGrid|publish|width|customTitle|`.
+   *  We read it only to recover a scorer's custom column titles (e.g. a
+   *  `HelmAgeGroup` column retitled "Category"). */
+  columns?: Record<string, string>;
 }
 
 // ---- Constants (mirror Python) ----
@@ -238,6 +250,69 @@ function controlEscape(ch: string): string {
   }
 }
 
+// ---- Column definitions & subdivision detection ----
+
+/** A parsed Sailwave column definition. We only need the custom title; the
+ *  visibility flags are kept for completeness / future use. */
+export interface SailwaveColumn {
+  fieldName: string;
+  /** Scorer-set custom title; empty string when the column uses its default. */
+  title: string;
+  visible: boolean;
+  publish: boolean;
+}
+
+/** Parse the `columns` section into a map keyed by Sailwave field name. Each
+ *  raw value is `enabled|FieldName|fieldId|showInGrid|publish|width|title|`. */
+export function parseSailwaveColumns(raw: SailwaveRaw): Map<string, SailwaveColumn> {
+  const out = new Map<string, SailwaveColumn>();
+  for (const def of Object.values(raw.columns ?? {})) {
+    const parts = def.split('|');
+    const fieldName = (parts[1] ?? '').trim();
+    if (!fieldName) continue;
+    out.set(fieldName, {
+      fieldName,
+      title: (parts[6] ?? '').trim(),
+      visible: (parts[3] ?? '').trim().toLowerCase() === 'yes',
+      publish: (parts[4] ?? '').trim().toLowerCase() === 'yes',
+    });
+  }
+  return out;
+}
+
+/** Which raw competitor key feeds our subdivision field, and what to label it.
+ *  `sourceKey: null` means the file carries no subdivision data. */
+export interface SubdivisionResolution {
+  sourceKey: 'compdivision' | 'comphelmagegroup' | null;
+  label: string;
+}
+
+/** Decide the subdivision source and label for a Sailwave file.
+ *
+ *  Priority: Sailwave's native Division field, then the helm age-group field
+ *  (commonly repurposed as a prize category and retitled, e.g. "Category").
+ *  The label comes from the column's custom title when the scorer set one,
+ *  else a sensible per-source default. */
+export function resolveSubdivision(
+  comps: Record<string, SailwaveCompetitorRaw>,
+  columns: Map<string, SailwaveColumn>,
+): SubdivisionResolution {
+  const anyPopulated = (key: keyof SailwaveCompetitorRaw): boolean =>
+    Object.values(comps).some(
+      (c) => c.compexclude !== '1' && !!(c[key] ?? '').trim(),
+    );
+  const titleFor = (field: string, fallback: string): string =>
+    columns.get(field)?.title || fallback;
+
+  if (anyPopulated('compdivision')) {
+    return { sourceKey: 'compdivision', label: titleFor('Division', DEFAULT_SUBDIVISION_LABEL) };
+  }
+  if (anyPopulated('comphelmagegroup')) {
+    return { sourceKey: 'comphelmagegroup', label: titleFor('HelmAgeGroup', 'Category') };
+  }
+  return { sourceKey: null, label: DEFAULT_SUBDIVISION_LABEL };
+}
+
 // ---- Preview (drives the wizard form) ----
 
 export interface SailwavePreviewFleet {
@@ -258,6 +333,10 @@ export interface SailwavePreview {
    *  detected default the scorer can override in Settings after import. */
   detectedDiscardThresholds: DiscardThreshold[];
   hasResults: boolean;
+  /** Label for a detected subdivision column (custom title, else a per-source
+   *  default), or null when the file carries no subdivision data. Prefills the
+   *  wizard's editable label field. */
+  detectedSubdivisionLabel: string | null;
 }
 
 export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
@@ -289,6 +368,8 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
     };
   });
 
+  const subdivision = resolveSubdivision(comps, parseSailwaveColumns(raw));
+
   return {
     name: (globals.serevent ?? '').trim(),
     venue: (globals.servenue ?? '').trim(),
@@ -298,6 +379,7 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
     detectedDnfScoring: detectDnfScoring(raw),
     detectedDiscardThresholds: parseDiscardThresholds(raw),
     hasResults: Object.keys(results).length > 0,
+    detectedSubdivisionLabel: subdivision.sourceKey != null ? subdivision.label : null,
   };
 }
 
@@ -584,6 +666,10 @@ export interface SailwaveImportOptions {
   /** Optional series end date. Defaults to the latest resolved race date. */
   endDate?: string;
   primaryLabel: PrimaryPersonLabel;
+  /** Override the label for the imported subdivision column. When omitted, the
+   *  detected label (custom column title, else a per-source default) is used.
+   *  Ignored when the file carries no subdivision data. */
+  subdivisionLabel?: string;
   fleetScoringOverrides: ReadonlyMap<string, ScoringSystem>;
   includeScratchCompanions: boolean;
   includeResults: boolean;
@@ -612,6 +698,7 @@ interface CompetitorBuild {
   crewName?: string;
   club: string;
   nationality?: string;
+  subdivision?: string;
   gender: '';
   age: null;
   ircTcc?: number;
@@ -662,8 +749,14 @@ export function buildSeriesFileFromSailwave(
     rawComps, opts.fleetScoringOverrides, opts.includeScratchCompanions,
   );
 
+  const subdivision = resolveSubdivision(rawComps, parseSailwaveColumns(raw));
+  const subdivisionLabel =
+    subdivision.sourceKey != null
+      ? (opts.subdivisionLabel?.trim() || subdivision.label)
+      : DEFAULT_SUBDIVISION_LABEL;
+
   const { competitors, compIdByHandle } = buildCompetitors(
-    rawComps, fleetIdByName, fleetSystemByName,
+    rawComps, fleetIdByName, fleetSystemByName, subdivision.sourceKey,
   );
 
   const sortedRaces = sortedRaceHandles(rawRaces);
@@ -731,6 +824,7 @@ export function buildSeriesFileFromSailwave(
       includeJsonExport: true,
       enabledCompetitorFields: enabledFields,
       primaryPersonLabel: opts.primaryLabel,
+      subdivisionLabel,
       scoringMode: 'handicap',
     },
     fleets: fleets.map((f) => ({
@@ -751,6 +845,7 @@ export function buildSeriesFileFromSailwave(
       ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
       age: c.age,
+      ...(c.subdivision ? { subdivision: c.subdivision } : {}),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
@@ -858,6 +953,7 @@ function buildCompetitors(
   comps: Record<string, SailwaveCompetitorRaw>,
   fleetIdByName: Map<string, string>,
   fleetSystemByName: Map<string, ScoringSystem>,
+  subdivisionSourceKey: SubdivisionResolution['sourceKey'],
 ): { competitors: CompetitorBuild[]; compIdByHandle: Map<string, string> } {
   const aliasesOf = new Map<string, string[]>();
   for (const [k, v] of Object.entries(comps)) {
@@ -923,6 +1019,12 @@ function buildCompetitors(
     if (rawNat) {
       const canonical = lookupAlias(rawNat)?.canonical ?? rawNat;
       if (/^[A-Z]{3}$/.test(canonical)) built.nationality = canonical;
+    }
+    // Subdivision: imported verbatim from the resolved source field (the codes
+    // Sailwave stores, e.g. "GGM"). The scorer can rename the values in-app.
+    if (subdivisionSourceKey) {
+      const sub = (v[subdivisionSourceKey] ?? '').trim();
+      if (sub) built.subdivision = sub;
     }
     if (ircTcc != null) built.ircTcc = ircTcc;
     if (nhcTcf != null) built.nhcStartingTcf = nhcTcf;
@@ -1105,6 +1207,7 @@ interface CompetitorDataFlags {
   hasCrewName: boolean;
   hasClub: boolean;
   hasNationality: boolean;
+  hasSubdivision: boolean;
 }
 
 function dataFlagsFor(competitors: ReadonlyArray<CompetitorBuild>): CompetitorDataFlags {
@@ -1117,6 +1220,7 @@ function dataFlagsFor(competitors: ReadonlyArray<CompetitorBuild>): CompetitorDa
     hasCrewName: competitors.some((c) => !!c.crewName),
     hasClub: competitors.some((c) => !!c.club),
     hasNationality: competitors.some((c) => !!c.nationality),
+    hasSubdivision: competitors.some((c) => !!c.subdivision),
   };
 }
 
@@ -1135,6 +1239,7 @@ function buildEnabledFields(
   if (flags.hasCrewName) fields.push('crewName');
   if (flags.hasClub) fields.push('club');
   if (flags.hasNationality) fields.push('nationality');
+  if (flags.hasSubdivision) fields.push('subdivision');
   // Fall back to project defaults only if Sailwave gave us nothing — keeps
   // newly-imported series consistent with manually-created ones.
   return fields.length > 0 ? fields : defaultEnabledCompetitorFields();
