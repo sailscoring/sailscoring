@@ -247,7 +247,7 @@ export interface RaceScoreData {
 
 export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercent?: number }): string {
   const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, enabledCompetitorFields, primaryPersonLabel, subdivisionLabel, races, standings, openInAppUrl, progressiveScoringSystem, showPerRaceRatings } = data;
-  const fontPercent = options?.fontPercent ?? 80;
+  const fontPercent = options?.fontPercent ?? 72;
   const summaryRatingSystem = showPerRaceRatings && progressiveScoringSystem ? progressiveScoringSystem : null;
 
   const primaryLabel = primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
@@ -297,11 +297,16 @@ export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercen
 body {font: ${fontPercent}% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
 .hardright {text-align: right; float: right; margin: 15px 25px 15px 0;}
-table {text-align: left; margin: 0px auto 30px auto; font-size: 1em; border-collapse: collapse; border: 1px #999 solid;}
-td, th {padding: 4px; border: 1px #999 solid; vertical-align: top;}
+table {text-align: left; margin: 0px auto 30px auto; font-size: 1em; border-collapse: collapse; border: 1px #fff solid;}
+td, th {padding: 4px; border: 2px #fff solid; vertical-align: top;}
+th {background-color: #aaf;}
 .caption {padding: 5px; text-align: center; border: 0; font-weight: bold;}
+h1 {font-size: 1.6em;}
+h2 {font-size: 1.4em;}
+h3 {font-size: 1.2em;}
 p {text-align: center;}
-.odd {background-color: #eef;}
+.odd {background-color: #ddf;}
+.even {background-color: #bbf;}
 table.headertable {border: 0px;}
 table.headertable td{border: 0px;}
 td.rank1 { background: #ffd700; }
@@ -599,6 +604,9 @@ function renderRaceTable(
       const rowClass = i % 2 === 0 ? 'odd' : 'even';
       const isRankTied = r.rank !== null && (rankCounts.get(r.rank) ?? 0) > 1;
       const rankText = r.rank !== null ? `${r.rank}${isRankTied ? '=' : ''}` : '';
+      // Highlight the top-3 finishers' rank cell, reusing the summary table's
+      // podium classes so per-race and summary podiums share one colour scheme.
+      const podiumClass = r.rank !== null && r.rank >= 1 && r.rank <= 3 ? ` class="rank${r.rank}"` : '';
       const codeSuffix = r.resultCode && r.resultCode !== 'RDG' ? ` ${r.resultCode}` : '';
       const pointsText = r.penaltyCode
         ? `${r.points} ${formatPenaltyLabel(r.penaltyCode, r.penaltyOverride)}`
@@ -619,7 +627,7 @@ function renderRaceTable(
       const echoCells = hasEchoExplain ? renderEchoCells(r) : [];
       return [
         `<tr class="${rowClass} racerow">`,
-        `<td>${rankText}</td>`,
+        `<td${podiumClass}>${rankText}</td>`,
         `<td>${esc(r.sailNumber)}</td>`,
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
