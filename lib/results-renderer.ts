@@ -143,6 +143,9 @@ export interface RaceResultData {
   club?: string;
   /** 3-letter national-letters code (RRS Appendix G / IOC). */
   nationality?: string;
+  /** Subdivision within the fleet (e.g. "Gold", "GGM"). Labelled per
+   *  `SeriesResultsData.subdivisionLabel`. */
+  subdivision?: string;
   place: number | null;   // internal sort key for display order; null for coded finishes
   rank: number | null;    // within-fleet finish rank; null for coded finishes
   points: number;
@@ -357,7 +360,7 @@ ${hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : ''}
 ${renderSummaryTable(standings, races, hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showSubdivision, subdivisionHeader, primaryHeader, summaryRatingSystem, data.flagSvgByCode)}
 ${races
   .filter((race) => race.results.length > 0)
-  .map((race) => renderRaceTable(race, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, primaryHeader, data.flagSvgByCode))
+  .map((race) => renderRaceTable(race, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showSubdivision, subdivisionHeader, primaryHeader, data.flagSvgByCode))
   .join('\n')}
 <p class="hardleft">${leftUrl ? `<a href="${esc(externalHref(leftUrl))}" target="_top" rel="noopener">${esc(series.venue || leftUrl)}</a>` : ''}</p>
 <p class="hardright">${rightUrl ? `<a href="${esc(externalHref(rightUrl))}" target="_top" rel="noopener">${esc(series.name)}</a>` : ''}</p>
@@ -596,6 +599,8 @@ function renderRaceTable(
   showCrewName: boolean,
   showClub: boolean,
   showNationality: boolean,
+  showSubdivision: boolean,
+  subdivisionHeader: string,
   primaryHeader: string,
   flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
 ): string {
@@ -652,6 +657,7 @@ function renderRaceTable(
         ...(showOwner ? [`<td>${esc(r.owner ?? '')}</td>`] : []),
         ...(showClub ? [`<td>${esc(r.club ?? '')}</td>`] : []),
         ...(showNationality ? [renderNationalityCell(r.nationality, flagSvgByCode)] : []),
+        ...(showSubdivision ? [`<td>${esc(r.subdivision ?? '')}</td>`] : []),
         ...handicapCells,
         ...nhcNewTcfCell,
         ...echoNewHCell,
@@ -663,7 +669,7 @@ function renderRaceTable(
     })
     .join('\n');
 
-  const baseColCount = 4 + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0);
+  const baseColCount = 4 + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + (showSubdivision ? 1 : 0);
   const colCount = baseColCount
     + (hasHandicapCols ? 4 : 0)
     + (isNhc ? 1 : 0) + (hasExplain ? 5 : 0)
@@ -715,14 +721,14 @@ ${nhcSubheading}${echoSubheading}<table class="racetable" cellspacing="0" cellpa
 <col class="rank" />
 <col class="sailno" />
 ${showBoatName ? '<col class="boatname" />\n' : ''}${showBoatClass ? '<col class="boatclass" />\n' : ''}<col class="helmname" />
-${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\n' : ''}${showClub ? '<col class="club" />\n' : ''}${showNationality ? '<col class="nat" />\n' : ''}${handicapCols}${nhcNewTcfCol}${echoNewHCol}${nhcCols}${echoCols}
+${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\n' : ''}${showClub ? '<col class="club" />\n' : ''}${showNationality ? '<col class="nat" />\n' : ''}${showSubdivision ? '<col class="subdivision" />\n' : ''}${handicapCols}${nhcNewTcfCol}${echoNewHCol}${nhcCols}${echoCols}
 <col class="points" />
 </colgroup>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
 <th>Sail Number</th>
-${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? '\n<th>Helm</th>' : ''}${showOwner ? '\n<th>Owner</th>' : ''}${showClub ? '\n<th>Club</th>' : ''}${showNationality ? '\n<th>Nationality</th>' : ''}${handicapHeaders}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
+${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? '\n<th>Helm</th>' : ''}${showOwner ? '\n<th>Owner</th>' : ''}${showClub ? '\n<th>Club</th>' : ''}${showNationality ? '\n<th>Nationality</th>' : ''}${showSubdivision ? `\n<th>${esc(subdivisionHeader)}</th>` : ''}${handicapHeaders}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
 <th>Points</th>
 </tr>
 </thead>
@@ -986,7 +992,7 @@ export function assembleSeriesResultsData(
     raceExcluded?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; club?: string; nationality?: string; ircTcc?: number; pyNumber?: number }>,
+  competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; club?: string; nationality?: string; subdivision?: string; ircTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -1111,6 +1117,7 @@ export function assembleSeriesResultsData(
         ...(competitor.crewName ? { crewName: competitor.crewName } : {}),
         ...(competitor.club ? { club: competitor.club } : {}),
         ...(competitor.nationality ? { nationality: competitor.nationality } : {}),
+        ...(competitor.subdivision ? { subdivision: competitor.subdivision } : {}),
         place: score.place,
         rank: score.rank,
         points: score.points,
