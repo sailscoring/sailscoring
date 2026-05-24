@@ -112,6 +112,55 @@ describe('parseSeriesFile — v1/v2 → v3 start-sequence migration', () => {
   });
 });
 
+describe('parseSeriesFile — venue/event website URLs', () => {
+  function fileWithUrls(urls: { venueUrl?: string; eventUrl?: string }): string {
+    return JSON.stringify({
+      formatVersion: 6,
+      seriesId: 's1',
+      snapshotId: 'snap-1',
+      snapshotHistory: ['snap-1'],
+      exportedAt: '2026-04-26T00:00:00.000Z',
+      series: {
+        id: 's1',
+        name: 'Branding Series',
+        venue: 'HYC',
+        startDate: '2026-09-01',
+        endDate: '',
+        venueLogoUrl: 'https://example.com/venue.png',
+        eventLogoUrl: 'https://example.com/event.png',
+        ...(urls.venueUrl !== undefined ? { venueUrl: urls.venueUrl } : {}),
+        ...(urls.eventUrl !== undefined ? { eventUrl: urls.eventUrl } : {}),
+        discardThresholds: [],
+        dnfScoring: 'seriesEntries',
+        ftpHost: '',
+        ftpPath: '',
+        bilgeBundle: null,
+        includeJsonExport: true,
+        enabledCompetitorFields: [],
+        primaryPersonLabel: 'helm',
+        scoringMode: 'handicap',
+      },
+      fleets: [],
+      competitors: [],
+      races: [],
+    });
+  }
+
+  it('preserves venueUrl / eventUrl through a parse', () => {
+    const file = parseSeriesFile(
+      fileWithUrls({ venueUrl: 'www.hyc.ie', eventUrl: 'ilcaireland.com/event/' }),
+    );
+    expect(file.series.venueUrl).toBe('www.hyc.ie');
+    expect(file.series.eventUrl).toBe('ilcaireland.com/event/');
+  });
+
+  it('tolerates older files that omit the website URLs', () => {
+    const file = parseSeriesFile(fileWithUrls({}));
+    expect(file.series.venueUrl).toBeUndefined();
+    expect(file.series.eventUrl).toBeUndefined();
+  });
+});
+
 describe('parseSeriesFile — v5 nationality', () => {
   function fileV5WithNationality(nationality: string | undefined): string {
     return JSON.stringify({

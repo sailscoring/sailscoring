@@ -471,6 +471,65 @@ test('export HTML → import URL round-trip creates a new series', async ({ page
   await expect(page.getByText('Bob RT')).toBeVisible();
 });
 
+test('venue/event website URLs survive the export → import URL round-trip', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'URL Round Trip', venue: 'RT YC' });
+
+  // Set both website URLs in Settings.
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByLabel('Venue website URL').fill('https://venue.example.com');
+  await page.getByLabel('Event website URL').fill('https://event.example.com');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  // Minimal data so an export is possible.
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('1');
+  await page.getByLabel('Competitor name').fill('Alice');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: '1' })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('1');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // Export and decode the import-URL JSON — covers the buildPublicExport side.
+  await page.getByRole('link', { name: 'Standings' }).click();
+  const download = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export HTML' }).click(),
+  ]).then(([dl]) => dl);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  const html = Buffer.concat(chunks).toString('utf-8');
+
+  const match = html.match(/href="([^"]*\/import#data=([^"]+))"/);
+  expect(match).not.toBeNull();
+  const dataParam = match![2];
+  const b64 = dataParam.replace(/-/g, '+').replace(/_/g, '/');
+  const exportData = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
+  expect(exportData.series.venueUrl).toBe('https://venue.example.com');
+  expect(exportData.series.eventUrl).toBe('https://event.example.com');
+
+  // Import as a new series, then read it back via the API — covers the
+  // importPublicExport side.
+  await page.goto(`/import#data=${dataParam}`);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Open series' }).click();
+  await expect(page).toHaveURL(/\/standings$/);
+  const newId = page.url().match(/series\/([0-9a-f-]{36})\//)![1];
+  const imported = await page.evaluate(async (id) => {
+    const res = await fetch(`/api/v1/series/${id}`);
+    return res.ok ? await res.json() : null;
+  }, newId);
+  expect(imported.venueUrl).toBe('https://venue.example.com');
+  expect(imported.eventUrl).toBe('https://event.example.com');
+});
+
 test('home URL is clean after cancelling an import and navigating back home', async ({ page }) => {
   await page.goto(makeImportUrl());
   await expect(page.getByRole('dialog')).toBeVisible();

@@ -55,6 +55,8 @@ interface SeriesFile {
     endDate: string;
     venueLogoUrl: string;
     eventLogoUrl: string;
+    venueUrl?: string;
+    eventUrl?: string;
     discardThresholds: unknown[];
     dnfScoring: string;
     ftpHost: string;
@@ -112,6 +114,8 @@ test('series file: save exports correct JSON with all series fields, competitors
   await page.getByLabel('Venue', { exact: true }).fill('Howth Yacht Club');
   await page.getByLabel('Start date').fill('2025-09-06');
   await page.getByLabel('End date').fill('2025-11-01');
+  await page.getByLabel('Venue website URL').fill('https://www.hyc.ie');
+  await page.getByLabel('Event website URL').fill('https://example.com/autumn-league');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Howth Yacht Club').first()).toBeVisible();
 
@@ -189,6 +193,9 @@ test('series file: save exports correct JSON with all series fields, competitors
   expect(file.series.endDate).toBe('2025-11-01');
   expect(file.series.ftpHost).toBe('ftp.hyc.ie');
   expect(file.series.ftpPath).toBe('/results/2025/autumn-league.html');
+  // Website URLs round-trip into the file verbatim.
+  expect(file.series.venueUrl).toBe('https://www.hyc.ie');
+  expect(file.series.eventUrl).toBe('https://example.com/autumn-league');
   expect(file.series.bilgeBundle).toBeNull();
   // New in v8: scorer's choice of which optional competitor fields to show.
   expect(file.series.enabledCompetitorFields).toEqual(['boatName', 'club']);

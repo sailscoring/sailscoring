@@ -266,6 +266,17 @@ describe('renderSeriesHtml', () => {
     expect(html).toContain('>www.hyc.ie</a>');
   });
 
+  it('leaves already-absolute and protocol-relative link URLs unchanged', () => {
+    const httpsHtml = renderSeriesHtml({ ...MINIMAL, series: { name: 'S', venue: '' }, leftUrl: 'https://already.example' });
+    expect(httpsHtml).toContain('href="https://already.example"');
+    // http:// is a scheme too — don't force https.
+    const httpHtml = renderSeriesHtml({ ...MINIMAL, series: { name: 'S', venue: '' }, leftUrl: 'http://plain.example' });
+    expect(httpHtml).toContain('href="http://plain.example"');
+    // Protocol-relative URLs are already absolute.
+    const protoRel = renderSeriesHtml({ ...MINIMAL, series: { name: 'S', venue: '' }, leftUrl: '//cdn.example/x' });
+    expect(protoRel).toContain('href="//cdn.example/x"');
+  });
+
   it('escapes HTML special characters in names', () => {
     const data: SeriesResultsData = {
       ...MINIMAL,

@@ -17,6 +17,7 @@ import {
 
 const REF = 'reference/data';
 const HYC = `${REF}/2026-hyc-club-racing`;
+const FIXTURES = 'tests/fixtures/sailwave';
 
 function loadFile(path: string): SailwaveRaw {
   const bytes = readFileSync(join(process.cwd(), path));
@@ -196,6 +197,17 @@ describe('buildSeriesFileFromSailwave: venue/event website URLs', () => {
     const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
     expect(file.series.venueLogoUrl).toBe('https://venue.example.com/logo.png');
     expect(file.series.eventLogoUrl).toBe('https://event.example.com/logo.png');
+    expect(file.series.venueUrl).toBe('www.hyc.ie');
+    expect(file.series.eventUrl).toBe('ilcaireland.com/event/masters-championships/');
+  });
+
+  it('maps the four branding globals through the full parse→build pipeline (real key names)', () => {
+    // Fixture mirrors a real HYC export's branding globals — exercises the
+    // windows-1252 decode + sanitize in parseSailwaveJson, not just the builder.
+    const raw = loadFile(`${FIXTURES}/branding-sample.json`);
+    const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+    expect(file.series.venueLogoUrl).toBe('https://www.hyc.ie/system/sponsor_logos/620/normal/Howth_Yacht_Club_-_Logo_RGB.jpg');
+    expect(file.series.eventLogoUrl).toBe('https://hyc.ie/system/sponsor_logos/509/normal/ILCA-Ireland.png');
     expect(file.series.venueUrl).toBe('www.hyc.ie');
     expect(file.series.eventUrl).toBe('ilcaireland.com/event/masters-championships/');
   });

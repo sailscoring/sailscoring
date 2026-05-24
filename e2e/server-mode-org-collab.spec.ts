@@ -130,6 +130,13 @@ test.describe('copy series to workspace', () => {
 
     // Drive the Settings tab "Copy to workspace…" action.
     await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+
+    // Set website URLs on the source so we can assert the copy carries them.
+    await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+    await page.getByLabel('Venue website URL').fill('https://venue.example.com');
+    await page.getByLabel('Event website URL').fill('https://event.example.com');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+
     await expect(
       page.getByRole('heading', { name: 'Copy to another workspace' }),
     ).toBeVisible();
@@ -147,6 +154,14 @@ test.describe('copy series to workspace', () => {
     await expect(page.getByRole('cell', { name: 'S2' })).toBeVisible();
     // The series is named "Copy of <Original>" by default.
     await expect(page.getByRole('heading', { name: `Copy of ${sourceName}` })).toBeVisible();
+    // Website URLs carried into the copy (read back via the API in the target workspace).
+    const copyId = page.url().match(/series\/([0-9a-f-]{36})\//)![1];
+    const copied = await page.evaluate(async (id) => {
+      const res = await fetch(`/api/v1/series/${id}`);
+      return res.ok ? await res.json() : null;
+    }, copyId);
+    expect(copied.venueUrl).toBe('https://venue.example.com');
+    expect(copied.eventUrl).toBe('https://event.example.com');
     // Race carried.
     await page.getByRole('link', { name: 'Races' }).click();
     await expect(page.getByText('Race 1')).toBeVisible();
