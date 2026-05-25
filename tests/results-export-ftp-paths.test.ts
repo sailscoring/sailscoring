@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { derivePrefillPaths } from '@/lib/results-export';
+import { derivePrefillPaths, fleetHtmlFilename } from '@/lib/results-export';
 
 // Regression coverage for #131. The dialog used to round-trip a single
 // "base" path and reconstruct each fleet's path by appending the fleet
@@ -53,5 +53,22 @@ describe('derivePrefillPaths', () => {
     expect(derivePrefillPaths([], {}, '/results/series.html', true)).toEqual([
       '/results/series.html',
     ]);
+  });
+});
+
+describe('fleetHtmlFilename', () => {
+  it('uses the bare series slug for the single/default fleet', () => {
+    expect(fleetHtmlFilename('Autumn League 2026', { fleetName: 'Default', isDefault: true }))
+      .toBe('autumn-league-2026.html');
+  });
+
+  it('appends the fleet slug for a named fleet in a multi-fleet series', () => {
+    expect(fleetHtmlFilename('Autumn League 2026', { fleetName: 'Junior', isDefault: false }))
+      .toBe('autumn-league-2026-junior.html');
+  });
+
+  it('slugifies multi-word fleet names', () => {
+    expect(fleetHtmlFilename('Spring Series', { fleetName: 'Puppeteer HPH', isDefault: false }))
+      .toBe('spring-series-puppeteer-hph.html');
   });
 });

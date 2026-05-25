@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick } from './helpers';
+import { createFleets, createSeriesQuick, downloadFleetHtml } from './helpers';
 
 /**
  * E2E tests for fleet support (issue #40).
@@ -103,18 +103,11 @@ test('two-fleet series shows fleet column, per-fleet standings, and exports two 
   const seniorSection = page.getByRole('heading', { name: 'Senior' }).locator('..');
   await expect(seniorSection.getByRole('row').nth(1)).toContainText('S2');
 
-  // ── 9. Export HTML dropdown offers per-fleet downloads ───────────────────
-  const downloads: string[] = [];
-  page.on('download', (download) => downloads.push(download.suggestedFilename()));
-
-  await page.getByRole('button', { name: /Export HTML/ }).click();
-  await page.getByRole('menuitem', { name: 'Junior' }).click();
-  await page.getByRole('button', { name: /Export HTML/ }).click();
-  await page.getByRole('menuitem', { name: 'Senior' }).click();
-  await page.waitForTimeout(500);
-
-  expect(downloads.some((n) => n.includes('junior'))).toBe(true);
-  expect(downloads.some((n) => n.includes('senior'))).toBe(true);
+  // ── 9. Preview's in-modal selector offers per-fleet downloads ────────────
+  const junior = await downloadFleetHtml(page, 'Junior');
+  expect(junior.suggestedFilename()).toContain('junior');
+  const senior = await downloadFleetHtml(page, 'Senior');
+  expect(senior.suggestedFilename()).toContain('senior');
 });
 
 test('multi-fleet non-finishers show fleet badge', async ({ page }) => {

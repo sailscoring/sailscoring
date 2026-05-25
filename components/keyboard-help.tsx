@@ -107,7 +107,7 @@ export function KeyboardHelp({
             title="Standings"
             rows={[
               { keys: ['p'], action: 'Publish results' },
-              { keys: ['x'], action: 'Export HTML' },
+              { keys: ['x'], action: 'Preview results' },
               { keys: ['f'], action: 'Upload via FTP' },
             ]}
           />

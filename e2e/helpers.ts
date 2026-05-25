@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type { Page } from '@playwright/test';
+import type { Download, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { and, eq } from 'drizzle-orm';
@@ -245,4 +245,28 @@ export async function addCompetitor(
   if (data.echoStartingTcf) await page.getByLabel('ECHO starting handicap', { exact: true }).fill(data.echoStartingTcf);
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: data.sailNumber })).toBeVisible();
+}
+
+/**
+ * Open the Standings → Preview modal (#163), optionally switch to a named
+ * fleet via the in-modal selector, and download that fleet's HTML. Returns the
+ * triggered download. Replaces the old "Export HTML" button/dropdown flow.
+ */
+export async function downloadFleetHtml(page: Page, fleetName?: string): Promise<Download> {
+  const dialog = page.getByRole('dialog');
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  // The iframe only mounts once buildFleetHtmlFiles resolves.
+  await expect(dialog.locator('iframe')).toBeVisible();
+  if (fleetName) {
+    await dialog.getByRole('combobox').click();
+    await page.getByRole('option', { name: fleetName }).click();
+  }
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    dialog.getByRole('button', { name: 'Download' }).click(),
+  ]);
+  // Close so the helper can be called again (e.g. another fleet) from a clean state.
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  return download;
 }

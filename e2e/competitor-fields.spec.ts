@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, downloadFleetHtml } from './helpers';
 
 /**
  * E2E tests for configurable competitor fields (#64) and crew name (#69).
@@ -62,12 +62,9 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
   await page.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
-  // ── 9. Export HTML and verify combined "Helm / Crew" rendering ──────────
+  // ── 9. Preview → Download and verify combined "Helm / Crew" rendering ────
   await page.getByRole('link', { name: 'Standings' }).click();
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export HTML' }).click(),
-  ]);
+  const download = await downloadFleetHtml(page);
   const path = await download.path();
   const fs = await import('node:fs');
   const html = fs.readFileSync(path, 'utf-8');
@@ -110,10 +107,7 @@ test('class field shows Class column and exports in results', async ({ page }) =
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   await page.getByRole('link', { name: 'Standings' }).click();
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export HTML' }).click(),
-  ]);
+  const download = await downloadFleetHtml(page);
   const path = await download.path();
   const fs = await import('node:fs');
   const html = fs.readFileSync(path, 'utf-8');
@@ -169,11 +163,8 @@ test('subdivision: rename label, standings column, export column (#158)', async 
   await expect(page.getByRole('cell', { name: 'Alice' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Bob' })).toBeVisible();
 
-  // ── 6. Export HTML carries the renamed column and the values ─────────────
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export HTML' }).click(),
-  ]);
+  // ── 6. Preview → Download carries the renamed column and the values ──────
+  const download = await downloadFleetHtml(page);
   const path = await download.path();
   const fs = await import('node:fs');
   const html = fs.readFileSync(path, 'utf-8');

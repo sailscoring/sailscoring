@@ -1,4 +1,3 @@
-import type { SeriesFileRepos } from './series-file';
 import {
   calculateFleetStandings,
   calculateRaceScores,
@@ -330,13 +329,12 @@ export function triggerDownload(filename: string, html: string) {
   URL.revokeObjectURL(url);
 }
 
-/** Download a single fleet's HTML (or the only fleet for single-fleet series). */
-export async function exportFleetHtml(repos: SeriesFileRepos, seriesId: string, fleetName: string) {
-  const series = await repos.seriesRepo.get(seriesId);
-  const base = seriesSlug(series?.name ?? 'series');
-  const files = await buildFleetHtmlFiles(repos, seriesId);
-  if (!files) return;
-  const file = files.find((f) => f.fleetName === fleetName) ?? files[0];
+/** Download filename for one fleet's HTML, e.g. `my-series.html` (single/default
+ *  fleet) or `my-series-junior.html` (named fleet in a multi-fleet series). */
+export function fleetHtmlFilename(
+  seriesName: string,
+  file: { fleetName: string; isDefault: boolean },
+): string {
   const suffix = file.isDefault ? '' : '-' + seriesSlug(file.fleetName);
-  triggerDownload(base + suffix + '.html', file.html);
+  return seriesSlug(seriesName) + suffix + '.html';
 }

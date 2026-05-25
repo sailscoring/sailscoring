@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, downloadFleetHtml, setScoringMode } from './helpers';
 
 /**
  * E2E tests for the Export HTML feature (issue #13).
@@ -63,15 +63,12 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
   await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
-  // ── 6. Navigate to Standings and trigger export ───────────────────────────
+  // ── 6. Navigate to Standings and download via Preview ─────────────────────
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page).toHaveURL(/\/standings$/);
   await expect(page.getByText('2 races')).toBeVisible();
 
-  const download = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export HTML' }).click(),
-  ]).then(([dl]) => dl);
+  const download = await downloadFleetHtml(page);
 
   // ── 7. Verify filename ────────────────────────────────────────────────────
   expect(download.suggestedFilename()).toMatch(/howth-cup-2025\.html$/);
@@ -260,14 +257,8 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   await expect(page.getByRole('heading', { name: 'IRC' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Cruiser' })).toBeVisible();
 
-  // Export IRC fleet HTML via dropdown
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    (async () => {
-      await page.getByRole('button', { name: /Export HTML/ }).click();
-      await page.getByRole('menuitem', { name: 'IRC' }).click();
-    })(),
-  ]);
+  // Download IRC fleet HTML via the Preview modal's fleet selector
+  const download = await downloadFleetHtml(page, 'IRC');
 
   // ── 8. Read and parse the HTML ────────────────────────────────────────────
   const stream = await download.createReadStream();
@@ -450,10 +441,7 @@ test('export HTML → import URL round-trip creates a new series', async ({ page
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   await page.getByRole('link', { name: 'Standings' }).click();
-  const download = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export HTML' }).click(),
-  ]).then(([dl]) => dl);
+  const download = await downloadFleetHtml(page);
 
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
@@ -501,12 +489,9 @@ test('venue/event website URLs survive the export → import URL round-trip', as
   await page.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
-  // Export and decode the import-URL JSON — covers the buildPublicExport side.
+  // Download and decode the import-URL JSON — covers the buildPublicExport side.
   await page.getByRole('link', { name: 'Standings' }).click();
-  const download = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export HTML' }).click(),
-  ]).then(([dl]) => dl);
+  const download = await downloadFleetHtml(page);
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));

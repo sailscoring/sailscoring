@@ -202,15 +202,16 @@ export default function HelpPage() {
         </p>
         <p>
           When only one fleet exists, the fleet concept is invisible: no fleet column appears
-          in the competitors table, no fleet headings appear in the standings, and the HTML
-          export produces a single file exactly as before.
+          in the competitors table, no fleet headings appear in the standings, and the results
+          page is a single file exactly as before.
         </p>
         <p>
           For multi-fleet events,{' '}
-          <strong className="text-foreground">Export HTML</strong> produces one file per
-          fleet (e.g. <code className="text-foreground text-sm">my-series-junior.html</code>,{' '}
-          <code className="text-foreground text-sm">my-series-senior.html</code>). Each file
-          contains that fleet&apos;s standings and individual race results.
+          <strong className="text-foreground">Preview</strong> shows one fleet at a time, with a
+          selector to switch between them. Each fleet downloads as its own file (e.g.{' '}
+          <code className="text-foreground text-sm">my-series-junior.html</code>,{' '}
+          <code className="text-foreground text-sm">my-series-senior.html</code>), containing that
+          fleet&apos;s standings and individual race results.
         </p>
         <p>
           To rename fleets or change their display order, open the{' '}
@@ -590,10 +591,13 @@ export default function HelpPage() {
         </p>
         <p>
           To share results, click{' '}
-          <strong className="text-foreground">Export HTML</strong> (or press{' '}
-          <strong className="text-foreground">x</strong>) to download a self-contained results
-          page you can email or host on your club website. To push results directly to a web server,
-          see <a href="#publishing-results" className="underline">Publishing results via FTP</a>.
+          <strong className="text-foreground">Preview</strong> (or press{' '}
+          <strong className="text-foreground">x</strong>) to see the rendered results page in-app —
+          exactly what publishing produces. From there you can{' '}
+          <strong className="text-foreground">Download</strong> a self-contained file to email or
+          host on your club website, or <strong className="text-foreground">Publish</strong> it. To
+          push results directly to a web server, see{' '}
+          <a href="#publishing-results" className="underline">Publishing results via FTP</a>.
         </p>
         <p>
           You can brand the exported page from the{' '}
@@ -860,8 +864,8 @@ export default function HelpPage() {
 
       <Section id="json-export" title="JSON data export and Open in Sail Scoring">
         <p>
-          Every exported HTML results page — whether downloaded with{' '}
-          <strong className="text-foreground">Export HTML</strong> or pushed via FTP or
+          Every HTML results page — whether downloaded from{' '}
+          <strong className="text-foreground">Preview</strong> or pushed via FTP or
           Publish — includes an{' '}
           <strong className="text-foreground">Open in Sail Scoring</strong> link in the footer.
           Anyone viewing the results page can click it to open the series directly in the app

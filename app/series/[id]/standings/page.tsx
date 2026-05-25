@@ -1,7 +1,6 @@
 'use client';
 
 import { use, useState } from 'react';
-import * as repos from '@/lib/api-repository';
 import { useSeries } from '@/hooks/use-series';
 import { useCompetitorsBySeries } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
@@ -14,15 +13,9 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
   subdivisionFieldLabel,
 } from '@/lib/competitor-fields';
-import { exportFleetHtml } from '@/lib/results-export';
 import { Button } from '@/components/ui/button';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
 import { FtpUploadDialog } from '@/components/ftp-upload-dialog';
 import { FleetStandingsTable } from '@/components/fleet-standings-table';
@@ -39,6 +32,7 @@ export default function StandingsPage({
   const { id: seriesId } = use(params);
   const [showFtpDialog, setShowFtpDialog] = useState(false);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
 
   const { data: series } = useSeries(seriesId);
   const { data: competitors } = useCompetitorsBySeries(seriesId);
@@ -56,9 +50,7 @@ export default function StandingsPage({
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')) return;
     if (e.key === 'x') {
       e.preventDefault();
-      // For single fleet, download immediately. For multi-fleet, 'x' is a no-op
-      // (user must pick a fleet from the dropdown — browser blocks multi-download).
-      if (isSingleFleet) exportFleetHtml(repos, seriesId, fleets?.[0]?.name ?? '');
+      setShowPreviewDialog(true);
     } else if (e.key === 'f') {
       e.preventDefault();
       setShowFtpDialog(true);
@@ -140,24 +132,9 @@ export default function StandingsPage({
           <Button size="sm" variant="outline" onClick={() => setShowFtpDialog(true)} title="Upload via FTP (f)">
             Upload via FTP
           </Button>
-          {isSingleFleet ? (
-            <Button size="sm" onClick={() => exportFleetHtml(repos, seriesId, fleets[0]?.name ?? '')} title="Export HTML (x)">
-              Export HTML
-            </Button>
-          ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm">Export HTML ▾</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {fleets.map((fleet) => (
-                  <DropdownMenuItem key={fleet.id} onClick={() => exportFleetHtml(repos, seriesId, fleet.name)}>
-                    {fleet.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <Button size="sm" onClick={() => setShowPreviewDialog(true)} title="Preview results (x)">
+            Preview
+          </Button>
         </div>
       </div>
 
@@ -193,6 +170,16 @@ export default function StandingsPage({
         );
       })}
 
+      <PreviewDialog
+        series={series}
+        fleets={fleets}
+        open={showPreviewDialog}
+        onClose={() => setShowPreviewDialog(false)}
+        onPublish={() => {
+          setShowPreviewDialog(false);
+          setShowPublishDialog(true);
+        }}
+      />
       <PublishDialog
         series={series}
         fleets={fleets}

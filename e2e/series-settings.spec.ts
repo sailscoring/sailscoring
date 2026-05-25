@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, downloadFleetHtml } from './helpers';
 
 /**
  * E2E tests for the series settings page (issue #39).
@@ -74,12 +74,9 @@ test('logo and website URLs produce clickable logos and footer links in exported
   await page.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
-  // ── 4. Export HTML and verify logo img tags ───────────────────────────────
+  // ── 4. Preview → Download and verify logo img tags ────────────────────────
   await page.getByRole('link', { name: 'Standings' }).click();
-  const download = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export HTML' }).click(),
-  ]).then(([dl]) => dl);
+  const download = await downloadFleetHtml(page);
 
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];

@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, downloadFleetHtml } from './helpers';
 
 /**
  * E2E coverage for competitor nationality (#142). Exercises the
@@ -102,12 +102,9 @@ test('nationality: HTML export contains the Nat column and deduped flag <symbol>
   await page.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
-  // Export HTML.
+  // Preview → Download.
   await page.getByRole('link', { name: 'Standings' }).click();
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export HTML' }).click(),
-  ]);
+  const download = await downloadFleetHtml(page);
   const path = await download.path();
   const fs = await import('node:fs');
   const html = fs.readFileSync(path, 'utf-8');

@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { addCompetitor, createFleets, createSeriesQuick, setScoringMode } from './helpers';
+import { addCompetitor, createFleets, createSeriesQuick, downloadFleetHtml, setScoringMode } from './helpers';
 
 /**
  * E2E tests for NHC1 (SWNHC2015) progressive handicap scoring.
@@ -19,10 +19,7 @@ import { addCompetitor, createFleets, createSeriesQuick, setScoringMode } from '
  */
 
 async function downloadStandingsHtml(page: import('@playwright/test').Page): Promise<string> {
-  const download = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export HTML' }).click(),
-  ]).then(([dl]) => dl);
+  const download = await downloadFleetHtml(page);
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
