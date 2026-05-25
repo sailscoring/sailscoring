@@ -9,7 +9,7 @@
 ## Context
 
 Some races mix fleets that need finish times (handicap scoring — IRC, PY,
-later HPH) with fleets that need only finishing positions (scratch,
+later NHC) with fleets that need only finishing positions (scratch,
 one-design). The clearest example is the HYC Open Dinghy Frostbite Series
 (`docs/requirements/hyc-frostbite-use-case.md`), where a single race day
 includes three ILCA scratch fleets, a Melges 15 scratch fleet, and a mixed

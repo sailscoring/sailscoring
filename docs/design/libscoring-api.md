@@ -41,7 +41,7 @@ guess or silently default to unexpected behaviour.
 
 **Designed in stages, fully implemented.** The API shape was first
 validated against scratch scoring (IODAI use case), then extended to
-static-TCF handicaps (IRC, PY) and progressive handicaps (NHC1 / HPH,
+static-TCF handicaps (IRC, PY) and progressive handicaps (NHC1,
 ECHO). All four scoring systems are in production; the descriptions
 below cover all of them.
 

@@ -83,7 +83,7 @@ system inspects that competitor's fleet(s):
 
 | Competitor's fleet scoring | Time field |
 |----------------------------|------------|
-| Any handicap system (IRC or PY, later HPH) | **Required**: a finish time field appears in a pending row; the scorer enters the time before the row is added |
+| Any handicap system (IRC or PY, later NHC) | **Required**: a finish time field appears in a pending row; the scorer enters the time before the row is added |
 | Scratch only | **Not shown**: the row is added immediately with no time prompt |
 
 A single race therefore mixes rows with and without times. This is not a
@@ -514,7 +514,7 @@ as an unregistered boat with a warning.
 
 ### Score correction after NHC adjustment
 
-For NHC/HPH series: if the scorer corrects a finish after ratings have been
+For NHC series: if the scorer corrects a finish after ratings have been
 adjusted for subsequent races, the system must re-run the NHC adjustment
 cascade (user story RC-07). This is a background operation; the scorer sees
 a brief "Recalculating..." indicator.

@@ -8,7 +8,7 @@ Handles scratch (position-based) scoring, result codes, discard rules, and serie
 
 ## Features
 
-- **Scoring** — scratch and handicap (IRC, PY, NHC/HPH, ECHO) scoring across multiple fleets and races; equal finish positions; A5.3 alternative scoring
+- **Scoring** — scratch and handicap (IRC, PY, NHC, ECHO) scoring across multiple fleets and races; equal finish positions; A5.3 alternative scoring
 - **Result codes** — full RRS A5/A6/A8/A11 code set including additive penalties (ZFP, SCP, DPI)
 - **Discards** — configurable discard rules per series
 - **Start check-in** — mark competitors as checked in before a race

@@ -167,7 +167,7 @@ A boat or person entered in the Series. Belongs to exactly one Fleet.
 | gender | string | No | "M" or "F". Used for gender-based prize categories |
 | age | integer | No | Age at the time of registration. Used for age-based prize categories. Snapshot from registration data; not recalculated automatically |
 | irc_tcc | decimal | No | IRC Time Correction Coefficient, e.g. 0.972. Required if Fleet scores IRC |
-| nhc_number | decimal | No | NHC/HPH rating, e.g. 0.865. Required if Fleet scores NHC. Progressive: adjusted after each race |
+| nhc_number | decimal | No | NHC rating, e.g. 0.865. Required if Fleet scores NHC. Progressive: adjusted after each race |
 
 ### Race
 
@@ -316,13 +316,13 @@ Meaningful combinations in practice:
 | Configuration | Produces | Example |
 |---------------|----------|---------|
 | [scratch] | One-design standings | IODAI Junior, Senior |
-| [NHC] | NHC/HPH standings | HYC offshore boat without IRC cert |
+| [NHC] | NHC standings | HYC offshore boat without IRC cert |
 | [IRC, NHC] | IRC standings + NHC standings | HYC offshore Class 1-3 |
 | [scratch, NHC] | One-design standings + NHC standings | HYC inshore Puppeteer 22, Squib, H17 |
 
 **Scratch + NHC** is the standard configuration for a one-design fleet that
 also participates in a club handicap system. Scratch gives the class
-trophy; NHC gives the HPH trophy from the same finish times.
+trophy; NHC gives the handicap trophy from the same finish times.
 
 ## Calculated Fields
 

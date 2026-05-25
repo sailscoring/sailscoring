@@ -63,9 +63,9 @@ _These stories describe a repetitive workflow, repeated for each competitor in t
 | RC-02 | As a scorer, I want series standings calculated automatically with discards applied per the configured profile so that the current series ranking is always available |
 | RC-03 | As a scorer, I want ties in series standings broken per RRS Appendix A8 so that rankings are correct when competitors have equal net points |
 | RC-04 | As a scorer, I want a single finish to produce standings under each of the fleet's rating systems independently so that dual-scored series produce separate results from one set of finish data |
-| RC-05 | As a scorer, I want HPH/NHC ratings adjusted automatically after each race is scored so that each competitor's rating reflects their performance to date |
+| RC-05 | As a scorer, I want NHC ratings adjusted automatically after each race is scored so that each competitor's rating reflects their performance to date |
 | RC-06 | As a scorer, I want the rating used for each race stored so that rescoring a past race uses the correct historical rating rather than the current one |
-| RC-07 | As a scorer, I want corrections to a past race to cascade through subsequent races so that HPH adjustments and standings remain consistent |
+| RC-07 | As a scorer, I want corrections to a past race to cascade through subsequent races so that NHC adjustments and standings remain consistent |
 
 ## Results Publication
 

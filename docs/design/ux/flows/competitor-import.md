@@ -245,7 +245,7 @@ and punctuation) against known field names and common aliases.
 | Fleet | fleet |
 | Division | division, div, group |
 | IRC TCC | tcc, irc tcc, irc tcc, irc, irc rating, time correction, tcf |
-| NHC number | nhc, hph, nhc number, hph rating, nhc rating, handicap |
+| NHC number | nhc, nhc number, nhc rating, handicap |
 | Class | class, boat class, boat type, dinghy class |
 | Nationality | nat, nationality, country |
 | Gender | gender, sex |

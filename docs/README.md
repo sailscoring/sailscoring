@@ -48,7 +48,7 @@ How it works, and why.
 - [`data-model.md`](design/data-model.md) — entities, relationships,
   attributes.
 - [`handicap-scoring.md`](design/handicap-scoring.md) — IRC, PY, NHC1
-  (= SWNHC2015 / HPH), ECHO — mathematics, implementation, status.
+  (= SWNHC2015), ECHO — mathematics, implementation, status.
 - [`scoring-codes.md`](design/scoring-codes.md) — RRS Appendix A codes
   (DNC, DNS, OCS, DNF, RET, DSQ, DNE, UFD, BFD, RDG, ZFP, SCP, DPI):
   semantics, data model, UX.

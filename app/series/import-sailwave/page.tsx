@@ -51,7 +51,7 @@ const SCORING_SYSTEM_OPTIONS: { value: ScoringSystem; label: string }[] = [
   { value: 'scratch', label: 'Scratch' },
   { value: 'irc', label: 'IRC' },
   { value: 'py', label: 'Portsmouth Yardstick' },
-  { value: 'nhc', label: 'NHC / HPH' },
+  { value: 'nhc', label: 'NHC' },
   { value: 'echo', label: 'ECHO' },
 ];
 

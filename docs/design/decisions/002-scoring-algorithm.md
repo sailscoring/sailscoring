@@ -36,7 +36,7 @@ Reference: [Glossary](../../requirements/glossary.md), [Data Model](../data-mode
 
 - Scratch (one-design): no correction, position-based
 - IRC: corrected_time = elapsed_time x TCC (fixed per series)
-- NHC/HPH: corrected_time = elapsed_time x NHC number (progressive, adjusted after each race)
+- NHC: corrected_time = elapsed_time x NHC number (progressive, adjusted after each race)
 
 ### Special Cases
 
