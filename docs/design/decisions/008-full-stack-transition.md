@@ -247,19 +247,25 @@ bilge was always a stopgap (ADR-004). Its retirement is a single phase
 that builds the replacement publishing path *and* drains old URLs:
 
 1. Build the new publish-to-blob-storage path described above and ship
-   it to personal workspaces.
+   it to workspaces.
 2. The in-app "Publish to bilge" action is removed; subsequent publishes
    go through the new path only.
-3. Existing bilge URLs stay reachable for a transition window. The series
-   data already records `publishing.uuid` and `publishing.pages` (slug +
-   URL) per ADR-004; on first re-publish through the new path, the app
-   generates redirect mappings for those slugs. Implementation can be as
-   light as overwriting each affected bilge slug's HTML with a
-   meta-refresh + canonical link to the new app URL — no code change to
-   bilge required.
-4. After a defined transition window (e.g. 6 months), bilge is taken
-   offline. Any remaining slugs return 410 Gone. The Vercel project,
-   Blob storage, and KV are decommissioned.
+3. **Redirects, refined (issue #152).** The original plan auto-generated
+   redirect mappings for *every* prior bilge slug from
+   `publishing.pages`. In practice only one published URL has traffic
+   worth preserving
+   (`bilge.sailscoring.ie/r/2026-m15-westerns/standings`), so that
+   machinery is dropped. Instead the event is re-imported into the app
+   (the published HTML embeds the series JSON) and re-published to get
+   its `/p/{slug}`, and a single **301 rule in the bilge service** points
+   the old URL at it.
+4. **Immediate decommission, not a 6-month window (issue #152).** With
+   only one URL to preserve, the drain window buys nothing. Once the new
+   path and the single 301 are live: take a static backup of all bilge
+   Blob HTML + KV, delete Blob/KV/Resend and the upload/serve logic, and
+   reduce bilge to a **redirect-only stub** — `bilge.sailscoring.ie`
+   keeps serving the one 301 plus a catch-all 410 Gone. Archive the repo;
+   the stub serves from its last deploy.
 
 ## Public API forward-compatibility
 
@@ -583,24 +589,26 @@ retired.
 **Work.** Build the new publish-to-blob-storage path described in the
 *Publishing model* section. The explicit "Publish" action runs
 `lib/results-renderer.ts`, uploads to Vercel Blob (public access), and
-writes a `published_series` row with the slug, blob URL, and content
+writes a `published_series` row with the slug, blob locator, and content
 hash. New public route `/p/{slug}` serves the stored HTML with
 `Cache-Control` + `ETag`. Standings UI swaps to the new dialog. The
 in-app "Publish to bilge" action is removed.
 
-For each series previously published to bilge, the first re-publish
-through the new path generates redirect HTML for the affected bilge
-slugs (meta-refresh + canonical link to the new app URL — no code
-change to bilge required). After ~6 months of redirect-only operation
-(or once redirect-hit logs show negligible traffic), bilge slugs switch
-to returning 410 Gone. The bilge Vercel project, Blob storage, KV, and
-Resend templates are deleted. ADR-004 is marked **Superseded by
-ADR-008**.
+Storage is fronted by `lib/blob-storage.ts`: Vercel Blob in production,
+and a `published_blobs` Postgres table as a fallback when
+`BLOB_READ_WRITE_TOKEN` is unset — so local dev, CI, and e2e exercise the
+full publish flow with only Postgres, matching the "local dev needs no
+external services beyond Resend + Neon" goal.
 
-**Exit criteria.** Personal-workspace publishing produces a public URL
-served from Vercel Blob. Existing bilge URLs redirect to the new app
-URL. After the transition window: `bilge.sailscoring.ie` returns 410;
-the bilge repository is archived.
+The bilge redirect and decommission are scoped down per issue #152 (see
+*bilge retirement* above): a single 301 for the one live URL, then
+immediate decommission to a redirect-only stub rather than a 6-month
+drain. ADR-004 is marked **Superseded by ADR-008** at decommission.
+
+**Exit criteria.** Workspace publishing produces a public `/p/{slug}` URL
+served from Vercel Blob. `…/r/2026-m15-westerns/standings` 301s to the
+new URL; all other bilge slugs return 410. The bilge Blob/KV/Resend
+resources are deleted and the repo is archived to a redirect-only stub.
 
 **Size.** ~1–2 weeks of build, plus the ~6-month calendar window before
 final decommission. **Rollback.** Final 410 cutover is irreversible;

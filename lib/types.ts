@@ -349,6 +349,45 @@ export interface BilgeBundle {
   fleets?: { name: string; url: string | null }[];
 }
 
+/**
+ * ADR-008 Phase 9 — the in-app publishing path that replaces bilge.
+ *
+ * One row per series (keyed by `seriesId`); re-publishing overwrites it.
+ * `slug` is set once at first publish and is stable forever; `pages` mirrors
+ * today's bilge layout (one HTML blob per fleet, the first fleet served at the
+ * bare slug). This is server/workspace state and never travels in the portable
+ * `.sailscoring` file or the public JSON export.
+ */
+export interface PublishedSeriesPage {
+  fleetName: string;   // fleet name as scored ("Default" for a single-fleet series)
+  // Sub-path under the slug. '' is the primary page served at `/p/{slug}`;
+  // other fleets use `standings-{fleet-slug}`, mirroring bilge's layout.
+  subPath: string;
+  blobUrl: string;     // public Vercel Blob URL of the stored HTML
+}
+
+export interface PublishedSeries {
+  seriesId: string;
+  slug: string;                  // public slug, e.g. "hyc-autumn-league-2026-a1b2c3"
+  pages: PublishedSeriesPage[];  // primary fleet first (subPath '')
+  contentHash: string;           // hash over all page HTML; unchanged ⇒ skip re-upload
+  publishedAt: number;           // Unix ms of the last publish
+  publishedVersion: number;      // series.version captured at publish (drives "X edits since")
+}
+
+/**
+ * Result of a publish (or the current publication, via GET). Returned by the
+ * `/api/v1/series/{id}/publish` endpoint and consumed by the publish dialog.
+ * Lives here (not in the `server-only` handler) so the client can import it.
+ */
+export interface PublishResult {
+  slug: string;
+  url: string;                 // canonical public URL — `/p/{slug}` (primary fleet)
+  publishedAt: number;
+  publishedVersion: number;
+  pages: { fleetName: string; url: string }[]; // per-fleet public URLs, primary first
+}
+
 export interface FtpServer {
   id: string;
   host: string;

@@ -20,7 +20,7 @@ Sail Scoring is a sail racing scoring application for managing regattas, series,
 
 ## Source Layout
 
-Pure logic lives in `lib/`; pages and UI in `app/`. Key lib modules: `scoring.ts` (engine), `scoring-codes.ts` (RRS code registry), `series-file.ts` (serialization), `results-renderer.ts` (HTML export), `public-export.ts` (JSON export/import), `bilge.ts` / `scupper.ts` (results publishing). Series pages live under `app/series/[id]/` with tabs: Competitors, Races, Standings, Settings.
+Pure logic lives in `lib/`; pages and UI in `app/`. Key lib modules: `scoring.ts` (engine), `scoring-codes.ts` (RRS code registry), `series-file.ts` (serialization), `results-renderer.ts` (HTML export), `public-export.ts` (JSON export/import), `publishing.ts` + `blob-storage.ts` + `published-repository.ts` (in-app publishing to `/p/{slug}`, ADR-008 Phase 9), `scupper.ts` (FTP upload relay). Series pages live under `app/series/[id]/` with tabs: Competitors, Races, Standings, Settings.
 
 See `docs/` for design docs, ADRs, requirements, and glossary. `reference/` holds external source material that isn't part of the codebase: PDFs of the RRS, NORs / Sailing Instructions for target events, manuals for comparable tools (Sailwave, HalSail, ORC), plus `reference/data/` with anonymised real-world event data and per-handicap-system worked examples used during reverse-engineering. New design notes go in `docs/design/`, not `reference/`.
 

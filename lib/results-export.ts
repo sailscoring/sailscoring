@@ -5,7 +5,7 @@ import {
   calculateHandicapRaceScores,
 } from './scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from './results-renderer';
-import { buildPublicExport } from './public-export';
+import { buildPublicExport, type ExportRepos } from './public-export';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -51,7 +51,11 @@ export function derivePrefillPaths(
 
 /** Build one HTML string per fleet. Returns [{fleetName, html}]. */
 export async function buildFleetHtmlFiles(
-  repos: SeriesFileRepos,
+  // Only the six read repos are needed (same surface as `buildPublicExport`),
+  // so this accepts the narrower `ExportRepos` — that lets the server publish
+  // handler build it directly from `createRepos()` without the file-only
+  // `listSeriesNames` / `deleteSeriesChildren` members.
+  repos: ExportRepos,
   seriesId: string,
 ): Promise<{ fleetName: string; isDefault: boolean; html: string }[] | null> {
   const [series, competitors, races, fleets] = await Promise.all([

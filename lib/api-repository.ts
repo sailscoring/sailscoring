@@ -22,6 +22,7 @@ import type {
   RaceStart,
   Series,
   TcfRecord,
+  PublishResult,
 } from './types';
 
 export const DEFAULT_FLEET_NAME = 'Default';
@@ -297,6 +298,28 @@ export const ftpServerRepo: FtpServerRepository = new ApiFtpServerRepository();
  */
 export function listTcfHistoryBySeries(seriesId: string): Promise<TcfRecord[]> {
   return apiFetch<TcfRecord[]>(`/api/v1/series/${seriesId}/tcf-history`);
+}
+
+/**
+ * Publish a series' current results (ADR-008 Phase 9). The server renders the
+ * HTML, uploads it to Vercel Blob, and returns the public `/p/{slug}` URL(s).
+ */
+export function publishSeries(seriesId: string): Promise<PublishResult> {
+  return apiFetch<PublishResult>(`/api/v1/series/${seriesId}/publish`, {
+    method: 'POST',
+  });
+}
+
+/** The current publication for a series, or null if never published. */
+export async function getPublication(
+  seriesId: string,
+): Promise<PublishResult | null> {
+  return (
+    (await apiFetch<PublishResult | null>(
+      `/api/v1/series/${seriesId}/publish`,
+      { allow404: true },
+    )) ?? null
+  );
 }
 
 /**

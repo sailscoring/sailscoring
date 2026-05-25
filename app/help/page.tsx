@@ -105,7 +105,7 @@ export default function HelpPage() {
           <strong className="text-foreground">Settings</strong> tab and use the{' '}
           <strong className="text-foreground">Copy to another workspace</strong> card at the top.
           The original stays in your personal workspace; the copy lands in the target workspace
-          with a fresh history. FTP credentials and bilge publishing state are not carried over.
+          with a fresh history. FTP credentials and publishing state are not carried over.
         </p>
         <p>
           Concurrent edits between scorers in a shared workspace are detected per row. If two
@@ -811,16 +811,17 @@ export default function HelpPage() {
           <strong className="text-foreground">Standings</strong> tab.
         </p>
         <p>
-          <strong className="text-foreground">Publish (bilge):</strong> click{' '}
+          <strong className="text-foreground">Publish:</strong> click{' '}
           <strong className="text-foreground">Publish</strong> (or press{' '}
-          <strong className="text-foreground">p</strong>). On first use, choose a URL prefix
-          (e.g. <code className="text-foreground text-sm">hyc-autumn-2026</code>) and enter your
-          email address. A verification link is sent to confirm ownership of that namespace; once
-          verified, all subsequent publishes go live immediately. The resulting URL is stable —
-          re-publishing updates the page in place. The publish configuration (URL prefix and
-          ownership token) is saved in the series file, so any scorer who opens the file can
-          publish to the same URL. The email address is stored locally only and is never written
-          to the series file.
+          <strong className="text-foreground">p</strong>). Sail Scoring renders the current
+          standings and hosts them at a public URL like{' '}
+          <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc-autumn-league-2026-a1b2c3</code>.
+          The URL is assigned on first publish and is stable forever — re-publishing updates the
+          page in place. Publishing is an explicit, point-in-time action: editing the series
+          afterwards does not change the published page, and the dialog tells you how many edits
+          have landed since the last publish so you know when to re-publish. A series scored as
+          multiple fleets produces one page per fleet. Published pages are read-only and need no
+          sign-in to view.
         </p>
         <p>
           <strong className="text-foreground">Upload via FTP:</strong>{' '}

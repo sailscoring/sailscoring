@@ -21,6 +21,7 @@ import type {
   PrimaryPersonLabel,
   StartGroup,
   BilgeBundle,
+  PublishedSeriesPage,
 } from '@/lib/types';
 
 /**
@@ -289,6 +290,56 @@ export const finishes = pgTable(
     index('finishes_competitor_idx').on(table.competitorId),
   ],
 );
+
+/**
+ * ADR-008 Phase 9 — published results state, the in-app path that replaces
+ * bilge. One row per series (PK = `series_id`); re-publishing overwrites it,
+ * so there is no `version`/optimistic-concurrency column — publish is the
+ * only writer and last publish wins. `slug` is globally unique and stable
+ * once set. `workspace_id` is denormalised for tenancy on the authoring side;
+ * the public `/p/{slug}` route looks up by `slug` alone (published content is
+ * unauthenticated). `pages` stores one entry per fleet's stored HTML blob.
+ */
+export const publishedSeries = pgTable(
+  'published_series',
+  {
+    seriesId: uuid('series_id')
+      .primaryKey()
+      .references(() => series.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    slug: text('slug').notNull(),
+    pages: jsonb('pages').$type<PublishedSeriesPage[]>().notNull(),
+    contentHash: text('content_hash').notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    publishedVersion: integer('published_version').notNull(),
+  },
+  (table) => [
+    uniqueIndex('published_series_slug_uidx').on(table.slug),
+    index('published_series_workspace_idx').on(table.workspaceId),
+  ],
+);
+
+/**
+ * Local fallback store for published HTML (ADR-008 Phase 9). In production,
+ * rendered results are uploaded to Vercel Blob and `published_series.pages[]`
+ * holds the absolute blob URL. When `BLOB_READ_WRITE_TOKEN` is unset
+ * (local dev, CI, e2e), `lib/blob-storage.ts` writes the HTML here instead and
+ * stores a `db:{key}` locator — so the whole flow works without an external
+ * blob service, matching the ADR's "local dev needs only Postgres + Resend"
+ * goal. Unused in production. Keyed by the blob pathname (which embeds the
+ * unguessable slug); content is public, so no workspace scoping.
+ */
+export const publishedBlobs = pgTable('published_blobs', {
+  key: text('key').primaryKey(),
+  html: text('html').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
 
 /**
  * FTP server credentials, workspace-scoped. The password column holds the

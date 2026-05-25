@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { BilgePublishDialog } from '@/components/bilge-publish-dialog';
+import { PublishDialog } from '@/components/publish-dialog';
 import { FtpUploadDialog } from '@/components/ftp-upload-dialog';
 import { FleetStandingsTable } from '@/components/fleet-standings-table';
 import { ScoringRejectionsWarning } from '@/components/scoring-rejections-warning';
@@ -38,7 +38,7 @@ export default function StandingsPage({
 }) {
   const { id: seriesId } = use(params);
   const [showFtpDialog, setShowFtpDialog] = useState(false);
-  const [showBilgeDialog, setShowBilgeDialog] = useState(false);
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
   // null = show all subdivisions; a string filters standings to one
   // subdivision for prize-giving (ranks stay the full-fleet ranks).
   const [subdivisionFilter, setSubdivisionFilter] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export default function StandingsPage({
       setShowFtpDialog(true);
     } else if (e.key === 'p') {
       e.preventDefault();
-      setShowBilgeDialog(true);
+      setShowPublishDialog(true);
     }
   });
 
@@ -173,7 +173,7 @@ export default function StandingsPage({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button size="sm" variant="outline" onClick={() => setShowBilgeDialog(true)} title="Publish (p)">
+          <Button size="sm" variant="outline" onClick={() => setShowPublishDialog(true)} title="Publish (p)">
             Publish
           </Button>
           <Button size="sm" variant="outline" onClick={() => setShowFtpDialog(true)} title="Upload via FTP (f)">
@@ -238,11 +238,10 @@ export default function StandingsPage({
         );
       })}
 
-      <BilgePublishDialog
+      <PublishDialog
         series={series}
-        fleets={fleets}
-        open={showBilgeDialog}
-        onClose={() => setShowBilgeDialog(false)}
+        open={showPublishDialog}
+        onClose={() => setShowPublishDialog(false)}
       />
       <FtpUploadDialog
         series={series}
