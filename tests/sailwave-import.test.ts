@@ -431,6 +431,54 @@ describe('buildSeriesFileFromSailwave: includeScratchCompanions=false', () => {
   });
 });
 
+describe('buildSeriesFileFromSailwave: 2024/2025 HYC form (spelled-out Scratch + multi-fleet starts)', () => {
+  // The 2024/2025 Tuesday-series files differ from the 2026 files in two ways:
+  // the scratch fleet is spelled out " Scratch" rather than abbreviated " Scr",
+  // and a shared gun names both fleets explicitly ('Fleet^X Scratch^^^Fleet^X
+  // HPH') instead of naming one and leaving the companion implicit. This
+  // synthetic file reproduces both so detection and start fan-out are covered.
+  const raw: SailwaveRaw = {
+    header: { generator: 'sailwave' },
+    globals: { serevent: 'Club Racing 2024', servenue: 'Tuesdays - Series 1', serdatespec: 'd/m/y' },
+    competitors: {
+      // One physical boat, dual-scored: scratch primary + HPH alias.
+      '1': { compsailno: '15', comphelmname: 'A Helm', compboat: 'Boat A', compfleet: 'Puppeteer Scratch', comprating: '1.000', compalias: '0' },
+      '2': { compsailno: '15', comphelmname: 'A Helm', compboat: 'Boat A', compfleet: 'Puppeteer HPH', comprating: '1.350', compalias: '1' },
+    },
+    races: {
+      '875': {
+        racerank: '1',
+        racedate: '23/04/24',
+        starts: {
+          '1': 'Fleet^Puppeteer Scratch^^^Fleet^Puppeteer HPH^^^^^^^=^=^=^=^=^=|19:30:00|Finish time|Start 1|||0||0|0||||1',
+        },
+      },
+    },
+  };
+
+  it('detects the spelled-out " Scratch" fleet as scratch (not rating-inferred nhc)', () => {
+    const preview = inspectSailwave(raw);
+    expect(preview.fleets.map((f) => `${f.name}=${f.detectedScoringSystem}`).sort()).toEqual([
+      'Puppeteer HPH=nhc',
+      'Puppeteer Scratch=scratch',
+    ]);
+    // The 1.000 ratings would otherwise infer nhc — assert the suffix won, so
+    // these aren't treated as bare names.
+    expect(preview.fleets.every((f) => !f.isBareName)).toBe(true);
+  });
+
+  it('assigns a shared-gun start to every fleet it names', () => {
+    const file = buildSeriesFileFromSailwave(raw, { ...DEFAULT_OPTS, includeResults: false });
+    const idToName = new Map(file.fleets.map((f) => [f.id, f.name]));
+    const race = file.races[0];
+    expect(race.starts).toHaveLength(1);
+    expect(race.starts[0].fleetIds.map((id) => idToName.get(id)).sort()).toEqual([
+      'Puppeteer HPH',
+      'Puppeteer Scratch',
+    ]);
+  });
+});
+
 describe('buildSeriesFileFromSailwave: includeResults=false', () => {
   it('keeps the full race schedule with empty finishes', () => {
     const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
@@ -599,15 +647,27 @@ describe('sailwaveTimeToColon', () => {
 describe('parseStartString', () => {
   it('extracts fleet name and gun time from the pipe-delimited blob', () => {
     const parsed = parseStartString('Fleet^Puppeteer HPH^=^=^=|19.15.00|Finish time|Start 1|||0|');
-    expect(parsed).toEqual({ fleetName: 'Puppeteer HPH', startTime: '19:15:00' });
+    expect(parsed).toEqual({ fleetNames: ['Puppeteer HPH'], startTime: '19:15:00' });
+  });
+  it('extracts every fleet named in a shared-gun start (2024/2025 HYC form)', () => {
+    // One Puppeteer gun covers both scoring fleets — Sailwave chains the pairs
+    // 'Fleet^Puppeteer Scratch^^^Fleet^Puppeteer HPH'. Both must be returned so
+    // the start covers both fleets, not just the first.
+    const parsed = parseStartString(
+      'Fleet^Puppeteer Scratch^^^Fleet^Puppeteer HPH^^^^^^^=^=^=^=^=^=|19:30:00|Finish time|Start 1|||0||0|0||||1',
+    );
+    expect(parsed).toEqual({
+      fleetNames: ['Puppeteer Scratch', 'Puppeteer HPH'],
+      startTime: '19:30:00',
+    });
   });
   it('treats a fleet-less gun as a combined (all-fleet) start', () => {
     // Cruiser divisions share one start signal — Sailwave writes it with an
-    // empty segment 0 (no 'Fleet^...' prefix). fleetName === null tells the
-    // caller to fan it out across every fleet racing (issue #147 §5).
+    // empty segment 0 (no 'Fleet^...' prefix). An empty fleetNames list tells
+    // the caller to fan it out across every fleet racing (issue #147 §5).
     expect(parseStartString('|10.35.00|Finish time|Start 1|||0||0|0||||1'))
-      .toEqual({ fleetName: null, startTime: '10:35:00' });
-    expect(parseStartString('|19.15.00')).toEqual({ fleetName: null, startTime: '19:15:00' });
+      .toEqual({ fleetNames: [], startTime: '10:35:00' });
+    expect(parseStartString('|19.15.00')).toEqual({ fleetNames: [], startTime: '19:15:00' });
   });
   it('returns null when there is no parseable gun time', () => {
     expect(parseStartString('no pipes here')).toBeNull();

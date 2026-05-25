@@ -111,10 +111,17 @@ export interface SailwaveRaw {
 export type ScoringSystem = Fleet['scoringSystem'];
 
 /** Sailwave appends one of these suffixes to compfleet to encode the scoring
- *  system for that fleet. Bare names (no suffix) default to NHC. */
+ *  system for that fleet. Bare names (no suffix) default to NHC.
+ *
+ *  HYC abbreviates the scratch fleet as " Scr" in their 2026 files but spells
+ *  it out as " Scratch" in the 2024/2025 files — both must resolve to scratch.
+ *  Longer suffixes are listed first so endsWith() matches " Scratch" before its
+ *  " Scr" prefix would (it never would here — endsWith is anchored at the end —
+ *  but the ordering keeps fleetBaseName's strip unambiguous). */
 const SCORING_SUFFIX_TO_SYSTEM: ReadonlyArray<readonly [string, ScoringSystem]> = [
   [' HPH', 'nhc'],
   [' IRC', 'irc'],
+  [' Scratch', 'scratch'],
   [' Scr', 'scratch'],
 ];
 
@@ -639,20 +646,29 @@ function colonTimeToSeconds(t: string | null): number | null {
 
 /** Sailwave starts payload format:
  *    'Fleet^Puppeteer HPH^...^=^=...|19.15.00|Finish time|Start 1|||0|...'
- *  Pipe-segment 0 holds 'Fleet^<NAME>^...' for a per-fleet start; segment 1 is
- *  the gun time. A combined start (one gun for every fleet in the race, as
- *  cruiser divisions usually share) has an empty segment 0 — no 'Fleet^...'
- *  prefix — e.g. '|10.35.00|Finish time|Start 1|...'. We return
- *  `fleetName: null` for that case so the caller fans it out to all fleets.
- *  Returns null only when there's no parseable gun time. */
-export function parseStartString(s: string): { fleetName: string | null; startTime: string } | null {
+ *  Pipe-segment 0 lists the fleet(s) the gun covers as repeated 'Fleet^<NAME>'
+ *  pairs; segment 1 is the gun time. One gun can cover several fleets, which
+ *  Sailwave writes by chaining the pairs — the 2024/2025 HYC files share a
+ *  single Puppeteer gun across both scoring fleets as
+ *  'Fleet^Puppeteer Scratch^^^Fleet^Puppeteer HPH^...'. A combined start (one
+ *  gun for every fleet in the race, as cruiser divisions usually share) has an
+ *  empty segment 0 — no 'Fleet^...' prefix at all — e.g.
+ *  '|10.35.00|Finish time|Start 1|...'. We return every named fleet in
+ *  `fleetNames` (empty for the combined case, so the caller fans it out to all
+ *  fleets). Returns null only when there's no parseable gun time. */
+export function parseStartString(s: string): { fleetNames: string[]; startTime: string } | null {
   const parts = s.split('|');
   if (parts.length < 2) return null;
   const startTime = sailwaveTimeToColon(parts[1]);
   if (!startTime) return null;
   const head = parts[0].split('^');
-  const rawFleet = head.length >= 2 ? head[1].trim() : '';
-  return { fleetName: rawFleet || null, startTime };
+  const fleetNames: string[] = [];
+  for (let i = 0; i + 1 < head.length; i++) {
+    if (head[i] !== 'Fleet') continue;
+    const name = head[i + 1].trim();
+    if (name && !fleetNames.includes(name)) fleetNames.push(name);
+  }
+  return { fleetNames, startTime };
 }
 
 // ---- Build options ----
@@ -1047,18 +1063,25 @@ function buildRaceStarts(
   const seenFleetIds = new Set<string>();
   const parsedStarts = Object.values(startsRaw)
     .map((raw) => parseStartString(raw))
-    .filter((p): p is { fleetName: string | null; startTime: string } => p !== null);
+    .filter((p): p is { fleetNames: string[]; startTime: string } => p !== null);
 
-  // Pass 1: per-fleet starts claim their named fleet plus any companion sharing
-  // the same base name (HPH + Scr typically share one gun). Process these first
-  // so they take precedence over a combined start in the same race.
+  // Pass 1: named starts claim every fleet they name plus any companion sharing
+  // a base name with one of them. Sailwave encodes a shared gun two ways across
+  // HYC files — by naming each fleet explicitly ('Fleet^Puppeteer Scratch^^^
+  // Fleet^Puppeteer HPH', the 2024/2025 form) or by naming only one and leaving
+  // the companion implicit (the 2026 form). The base-name fan-out covers the
+  // implicit case; the loop over fleetNames covers the explicit one. Process
+  // named starts first so they take precedence over a combined start.
   for (const parsed of parsedStarts) {
-    if (parsed.fleetName === null) continue;
-    const namedId = fleetIdByName.get(parsed.fleetName);
-    if (!namedId) continue;
-    const base = fleetBaseName(parsed.fleetName);
-    const candidates = (baseToFleetIds.get(base) ?? []).filter((fid) => !seenFleetIds.has(fid));
-    const fleetIds = [namedId, ...candidates.filter((fid) => fid !== namedId)];
+    if (parsed.fleetNames.length === 0) continue;
+    const fleetIds: string[] = [];
+    const claim = (fid: string | undefined): void => {
+      if (fid && !seenFleetIds.has(fid) && !fleetIds.includes(fid)) fleetIds.push(fid);
+    };
+    for (const name of parsed.fleetNames) {
+      claim(fleetIdByName.get(name));
+      for (const fid of baseToFleetIds.get(fleetBaseName(name)) ?? []) claim(fid);
+    }
     if (fleetIds.length === 0) continue;
     for (const fid of fleetIds) seenFleetIds.add(fid);
     out.push({ id: cryptoUuid(), fleetIds, startTime: parsed.startTime });
@@ -1069,7 +1092,7 @@ function buildRaceStarts(
   // by a named start above. Fleets that don't actually race this race simply
   // carry an unused start time (they auto-DNC and the race is excluded for them).
   for (const parsed of parsedStarts) {
-    if (parsed.fleetName !== null) continue;
+    if (parsed.fleetNames.length !== 0) continue;
     const fleetIds = [...fleetIdByName.values()].filter((fid) => !seenFleetIds.has(fid));
     if (fleetIds.length === 0) continue;
     for (const fid of fleetIds) seenFleetIds.add(fid);
