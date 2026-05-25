@@ -168,12 +168,29 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
                     {previewPages.length > 1 && (
                       <p className="text-xs font-medium mb-0.5">{p.fleetName}</p>
                     )}
+                    {/* direction: rtl makes the ellipsis clip the (shared) start of
+                        the URL and keep the distinguishing end (slug/fleet) visible;
+                        text-align: left keeps it left-aligned when it fits. The URL is
+                        a single LTR run so its character order is unaffected. */}
                     {isPublished ? (
-                      <a href={p.url} target="_blank" rel="noreferrer" className="text-xs font-mono truncate block hover:underline">
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={p.url}
+                        className="text-xs font-mono truncate block hover:underline"
+                        style={{ direction: 'rtl', textAlign: 'left' }}
+                      >
                         {p.url}
                       </a>
                     ) : (
-                      <span className="text-xs font-mono truncate block text-muted-foreground">{p.url}</span>
+                      <span
+                        title={p.url}
+                        className="text-xs font-mono truncate block text-muted-foreground"
+                        style={{ direction: 'rtl', textAlign: 'left' }}
+                      >
+                        {p.url}
+                      </span>
                     )}
                   </div>
                   {isPublished && (
