@@ -1,11 +1,11 @@
 /**
  * Sailwave JSON → SeriesFile importer.
  *
- * Port of `reference/data/2026-hyc-club-racing/sailwave-to-sailscoring.py`.
- * Keep behaviour in step with that script — it's been used in anger on real
- * HYC Sailwave 2.38 files and the choices here (alias collapse, scoring-suffix
- * detection, start fan-out, DNF inference, etc.) are documented inline there
- * and in the sibling README.
+ * Source of truth for the Sailwave conversion. (It was originally ported from a
+ * standalone Python converter, since removed.) It's been used in anger on real
+ * HYC Sailwave 2.38 files, and the choices here (alias collapse, scoring-suffix
+ * detection, start fan-out, DNF inference, etc.) are documented in the sibling
+ * README at `reference/data/2026-hyc-club-racing/README.md`.
  *
  * Pure module — no DOM, no repository access. The wizard page hands the result
  * to `openSeriesFromFile` from `lib/series-file.ts` so every existing write

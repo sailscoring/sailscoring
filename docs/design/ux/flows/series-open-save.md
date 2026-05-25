@@ -141,11 +141,10 @@ the same `openSeriesFromFile` write path the `.sailscoring` flow uses. Every
 Sailwave import always creates a new series — there is no lineage to check
 because the file didn't come from this app.
 
-The Python reference at
-`reference/data/2026-hyc-club-racing/sailwave-to-sailscoring.py` documents
-the conversion rules in depth (alias collapse, scoring-suffix detection,
-start-gun fan-out across companion fleets, DNF inference). `lib/sailwave-import.ts`
-is a direct port and stays in step with it.
+`lib/sailwave-import.ts` is the source of truth for the conversion rules
+(alias collapse, scoring-suffix detection, start-gun fan-out across companion
+fleets, DNF inference); the sibling README at
+`reference/data/2026-hyc-club-racing/README.md` documents them in depth.
 
 ---
 
