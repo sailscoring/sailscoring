@@ -17,9 +17,8 @@ import {
   type SailwaveRaw,
 } from '@/lib/sailwave-import';
 
-const REF = 'reference/data';
-const HYC = `${REF}/2026-hyc-club-racing`;
 const FIXTURES = 'tests/fixtures/sailwave';
+const HYC = `${FIXTURES}/hyc-2026`;
 
 function loadFile(path: string): SailwaveRaw {
   const bytes = readFileSync(join(process.cwd(), path));
@@ -102,7 +101,7 @@ describe('inspectSailwave', () => {
   });
 
   it('reads NHC example with all-suffixed fleets', () => {
-    const raw = loadFile(`${REF}/nhc-example/2025 Puppeteer 22 Championships.json`);
+    const raw = loadFile(`${FIXTURES}/nhc-example/2025 Puppeteer 22 Championships.json`);
     const preview = inspectSailwave(raw);
     expect(preview.raceCount).toBe(7);
     expect(preview.competitorCount).toBe(14);
@@ -407,7 +406,7 @@ describe('buildSeriesFileFromSailwave: implicit DNC', () => {
     // The NHC example has explicit DNC rows in its results table; after
     // dropping them, only the other coded results (DNF, OCS) and clean
     // finishes should remain.
-    const raw = loadFile(`${REF}/nhc-example/2025 Puppeteer 22 Championships.json`);
+    const raw = loadFile(`${FIXTURES}/nhc-example/2025 Puppeteer 22 Championships.json`);
     const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
     const allFinishes = file.races.flatMap((r) => r.finishes);
     expect(allFinishes.some((f) => f.resultCode === 'DNC')).toBe(false);
@@ -495,7 +494,7 @@ describe('buildSeriesFileFromSailwave: includeResults=false', () => {
 
 describe('buildSeriesFileFromSailwave: errors', () => {
   it('throws on unknown rcod values in the source file', () => {
-    const raw = loadFile(`${REF}/py-example/2026 Dinghy F'Bite Spring.json`);
+    const raw = loadFile(`${FIXTURES}/py-example/2026 Dinghy F'Bite Spring.json`);
     expect(() => buildSeriesFileFromSailwave(raw, DEFAULT_OPTS)).toThrow(/Unknown Sailwave result code/);
   });
 });

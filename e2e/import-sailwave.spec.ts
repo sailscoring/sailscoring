@@ -6,12 +6,13 @@ import { signedInTest as test, expect } from './fixtures';
 /**
  * E2E for the Import Series → Sailwave export flow.
  *
- * Uses a real reference file from `reference/data/2026-hyc-club-racing/`.
+ * Uses a real HYC Sailwave export (helm/crew names anonymised) from
+ * `tests/fixtures/sailwave/hyc-2026/`.
  */
 
 const SAILWAVE_FIXTURE = join(
   process.cwd(),
-  'reference/data/2026-hyc-club-racing/2026 Tues Series 1.json',
+  'tests/fixtures/sailwave/hyc-2026/2026 Tues Series 1.json',
 );
 
 test('import series: Sailwave .json → wizard → new series, lands on Competitors', async ({ page }) => {
@@ -45,8 +46,8 @@ test('import series: Sailwave .json → wizard → new series, lands on Competit
   // Lands on the Competitors tab.
   await expect(page).toHaveURL(/\/series\/[^/]+\/competitors$/, { timeout: 15_000 });
 
-  // Confirm at least one imported competitor row renders.
-  await expect(page.getByText('Alan Pearson').first()).toBeVisible();
+  // Confirm at least one imported competitor row renders (anonymised helm name).
+  await expect(page.getByText('Garret Barry').first()).toBeVisible();
 });
 
 test('import series: re-importing the same Sailwave file disambiguates the name', async ({ page }) => {

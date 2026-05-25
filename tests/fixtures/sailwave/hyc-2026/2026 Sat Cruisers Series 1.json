@@ -1,0 +1,3470 @@
+{
+"header" : {
+"version" : "2.38.01",
+"generator" : "sailwave",
+"date" : "11/05/26",
+"time" : "19:53:27"
+},
+"globals" : {
+"serallowfixedflights" : "0",
+"sersocial" : "0",
+"serversion" : "2.38.01",
+"serisaflink" : "www.sailing.org/sailor?ref=*",
+"serisafpub" : "1",
+"serflagslink" : "http://www.sailwave.com/flags/small/*.jpg",
+"serflagspub" : "0",
+"serflagstext" : "0",
+"serhidediscards" : "0",
+"sernodiscardformat" : "0",
+"serhidefields" : "0",
+"serftpfile" : "/reshyc/2026/club/series1_satcruisers.htm",
+"sersep" : "0",
+"serseprow" : "0",
+"serpubpbreak" : "0",
+"serpubfirstn" : "0",
+"serdatespec" : "d-m-y",
+"serpubincludecodes" : "0",
+"serpubincludecontents" : "0",
+"serincludelaps" : "0",
+"serincludestarttimes" : "0",
+"serincludefinishtimes" : "1",
+"serincludecorrected" : "1",
+"serincludedncs" : "0",
+"serincludespeed" : "0",
+"serincludeewin" : "0",
+"serincluderwin" : "0",
+"serpubwhere" : "ftp",
+"serpubgroupvalues" : "Division C HPH|Division C IRC",
+"serpubincluderaces" : "2",
+"serpubincluderaces2" : "2",
+"serpubincludenotes" : "0",
+"serpubincludeseries" : "1",
+"serpubincludeprizes" : "0",
+"serpubincludedates" : "0",
+"serpubincludetimes" : "0",
+"serpubstartcols" : "0",
+"serhidepropbar" : "0",
+"serpropbarwidth" : "120",
+"serpropbartree" : "0",
+"serstylename" : "UK windsurfing association",
+"serscriptnames" : "HighlightWins3v3",
+"serdoscripts" : "1",
+"serhideexcluded" : "1",
+"serhideunsailed" : "0",
+"sereventburgee" : "https://www.hyc.ie/system/sponsor_logos/620/normal/Howth_Yacht_Club_-_Logo_RGB.jpg",
+"servenueburgee" : "https://www.hyc.ie/system/sponsor_logos/620/normal/Howth_Yacht_Club_-_Logo_RGB.jpg",
+"sereventeid" : "sw0823074165042810",
+"serpoponofftitle" : "Sign On/Off Declaration Mar 11th,Sign On/Off Declaration Feb 12,Sign On/Off Declaration JAN 29,Sign On/Off Declaration JAN 22,Sign On/Off Declaration",
+"serpoponoffcolumns" : "Sign On, Sign Off",
+"serentrytitle" : "Competitor List,Melges 15 Irish Championships,HYC Round the Island Race,Dinghy Frostbite 2022 pre Xmas,17 Footer Scratch,17 Footer Hcap,Puppeteer Hcap,Puppeteer Scratch,Squib Hcap,17 Footer Hcao,17 Footer",
+"serentrypacked" : "Fleet^Division C HPH^^^^^^^^^^^=^=^=^=^=^=",
+"serentrycolumns" : "Extra Col 1,Extra Col 2",
+"serentrypath" : "C:\\Users\\Public\\Documents\\Sailwave\\Results\\entries_2026 Wed Series 1.htm",
+"serdecalttitle" : "Declaration of Alternative Penalties",
+"serdecaltcolumns" : "Date, Race, Class/SailNo, Description of Incident, Alternative Penalty (e.g. 720),Initials",
+"serdecaltrows" : "25",
+"sernoticetitle" : "Competitor Notice",
+"seronofftitle" : "Sign On/Off Declaration",
+"seronoffcolumns" : "Date, Class/SailNo, Sign On, Sign Off",
+"seronoffrows" : "80",
+"serdecrettitle" : "Declaration of Retirements",
+"serdecretcolumns" : "Date, Race, Class/SailNo, Ret Code, Initials",
+"serdecretrows" : "25",
+"serpubincluderacetables" : "1",
+"serevent" : "Club Racing 2026",
+"servenue" : "Saturday - Cruisers - Series 1",
+"sertitle" : "Results are provisional as of @ on #",
+"serpubflightrace" : "1",
+"serscoringhandle" : "36",
+"sersortcol" : "4",
+"sersortcol2" : "2",
+"sersortdir" : "1",
+"sersortdir2" : "1",
+"serlistface" : "Arial",
+"serlistsize" : "10",
+"serlistcolour" : "0",
+"sersavehtmlpath" : "Z:\\home\\markmc\\projects\\sailwave\\reshyc\\2026\\club\\series1_classc.htm",
+"serelapsedview" : "3"
+},
+"scoring-systems" : {
+"36" : {
+"scrfollowchamp" : "0",
+"scrfollowmedal" : "0",
+"scrfollowcodes" : "0",
+"scrfollowratingsystem" : "0",
+"scrfollowratingmode" : "0",
+"scrfollowpointssystem" : "0",
+"scrfollowcoefficients" : "0",
+"scrfollowcustomexprs" : "0",
+"scrfollowseriesties" : "0",
+"scrfollowoverallpoints" : "0",
+"scrfollowdiscards" : "0",
+"scrfollowraceties" : "0",
+"scrfollowflights" : "0",
+"scrfollowpointsplaces" : "0",
+"scrfollowqualification" : "0",
+"scrhotkey" : "0",
+"scrname" : "Appendix A",
+"scrparent" : "0",
+"scrfield" : "Fleet",
+"scrsfield" : "Fleet",
+"scrsfield2" : "Fleet",
+"scrtie3" : "No",
+"scrtie0" : "No",
+"scrtie1" : "Yes",
+"scrincludediscards" : "No",
+"scrtie2" : "Yes",
+"scrtie2back" : "No",
+"scrtie2starts" : "No",
+"scrtiefinals" : "No",
+"scrraceties" : "Averaged",
+"scrpointsplaces" : "1",
+"scrrrs2025" : "Yes",
+"scrpointsaccumulation" : "Sum",
+"scrpointssystem" : "Low point",
+"scrratingsystem" : "NHC1",
+"scrratingvalue" : "No",
+"scrwindstrengths" : "0-1,2-3,4,5-9",
+"scrupdateratings" : "No",
+"scrbackcalcpercent" : "0",
+"scrdiscardlist" : "0,0,0,0,1,1,1",
+"scrflights" : "No",
+"scrfinals" : "No",
+"scrfinalsstickyq" : "No",
+"scrfinalsfirst" : "0",
+"scrlowweight" : "Yes",
+"scrmedal" : "No",
+"scrmedalrace" : "5",
+"scrmedalyesnotdiscardable" : "Yes",
+"scrmedalyesmultiply" : "Yes",
+"scrmedalyestie" : "Yes",
+"scrmedalnonotdiscardable" : "Yes",
+"scrmedalnomultiply" : "Yes",
+"scrmedalnotie" : "Yes",
+"scrmedalmax" : "10",
+"scoring-codes" : {
+"BFD" : {
+"code" : "BFD",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"DGM" : {
+"code" : "DGM",
+"method" : "Score like",
+"value" : "DSQ",
+"discardable" : "No",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"DNC" : {
+"code" : "DNC",
+"method" : "Boats in series +",
+"value" : "1",
+"discardable" : "Yes",
+"cametostartarea" : "No",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"DNE" : {
+"code" : "DNE",
+"method" : "Score like",
+"value" : "DSQ",
+"discardable" : "No",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"DNF" : {
+"code" : "DNF",
+"method" : "Boats in race +",
+"value" : "1",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "No",
+"penalty" : "No"
+},
+"DNS" : {
+"code" : "DNS",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"DPI1" : {
+"code" : "DPI1",
+"method" : "Fixed penalty",
+"value" : "1",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"DSQ" : {
+"code" : "DSQ",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"NSC" : {
+"code" : "NSC",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "No",
+"penalty" : "No"
+},
+"OCS" : {
+"code" : "OCS",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"OOD" : {
+"code" : "OOD",
+"method" : "Average (all)",
+"discardable" : "Yes",
+"cametostartarea" : "No",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"RAF" : {
+"code" : "RAF",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "No",
+"penalty" : "No"
+},
+"RDG" : {
+"code" : "RDG",
+"method" : "Set points by hand",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"RDGa" : {
+"code" : "RDGa",
+"method" : "Average (all)",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"RDGb" : {
+"code" : "RDGb",
+"method" : "Average (before)",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"SCP" : {
+"code" : "SCP",
+"method" : "Percentage penalty DNF",
+"value" : "20",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"UFD" : {
+"code" : "UFD",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"ZFP" : {
+"code" : "ZFP",
+"method" : "Percentage penalty DNF",
+"value" : "20",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+}
+},
+"93" : {
+"scrfollowchamp" : "1",
+"scrfollowmedal" : "1",
+"scrfollowcodes" : "1",
+"scrfollowratingsystem" : "0",
+"scrfollowratingmode" : "1",
+"scrfollowpointssystem" : "1",
+"scrfollowcoefficients" : "1",
+"scrfollowcustomexprs" : "1",
+"scrfollowseriesties" : "1",
+"scrfollowoverallpoints" : "1",
+"scrfollowdiscards" : "1",
+"scrfollowraceties" : "1",
+"scrfollowflights" : "1",
+"scrfollowpointsplaces" : "1",
+"scrfollowqualification" : "1",
+"scrhotkey" : "0",
+"scrname" : "Appendix A",
+"scrparent" : "36",
+"scrfield" : "Fleet",
+"scrsfield" : "Fleet",
+"scrvalue" : "Division A IRC",
+"scrtie3" : "No",
+"scrtie0" : "No",
+"scrtie1" : "Yes",
+"scrincludediscards" : "No",
+"scrtie2" : "Yes",
+"scrtie2back" : "No",
+"scrtie2starts" : "No",
+"scrtiefinals" : "No",
+"scrraceties" : "Averaged",
+"scrpointsplaces" : "1",
+"scrrrs2025" : "Yes",
+"scrpointsaccumulation" : "Sum",
+"scrpointssystem" : "Low point",
+"scrratingsystem" : "TCF",
+"scrratingvalue" : "No",
+"scrwindstrengths" : "0-1,2-3,4,5-9",
+"scrupdateratings" : "No",
+"scrbackcalcpercent" : "0",
+"scrdiscardlist" : "0,0,0,0,1,1,1",
+"scrflights" : "No",
+"scrfinals" : "No",
+"scrfinalsstickyq" : "No",
+"scrfinalsfirst" : "0",
+"scrlowweight" : "Yes",
+"scrmedal" : "No",
+"scrmedalrace" : "5",
+"scrmedalyesnotdiscardable" : "Yes",
+"scrmedalyesmultiply" : "Yes",
+"scrmedalyestie" : "Yes",
+"scrmedalnonotdiscardable" : "Yes",
+"scrmedalnomultiply" : "Yes",
+"scrmedalnotie" : "Yes",
+"scrmedalmax" : "10",
+"scoring-codes" : {
+"BFD" : {
+"code" : "BFD",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"DGM" : {
+"code" : "DGM",
+"method" : "Score like",
+"value" : "DSQ",
+"discardable" : "No",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"DNC" : {
+"code" : "DNC",
+"method" : "Boats in series +",
+"value" : "1",
+"discardable" : "Yes",
+"cametostartarea" : "No",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"DNE" : {
+"code" : "DNE",
+"method" : "Score like",
+"value" : "DSQ",
+"discardable" : "No",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"DNF" : {
+"code" : "DNF",
+"method" : "Boats in race +",
+"value" : "1",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "No",
+"penalty" : "No"
+},
+"DNS" : {
+"code" : "DNS",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"DPI1" : {
+"code" : "DPI1",
+"method" : "Fixed penalty",
+"value" : "1",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"DSQ" : {
+"code" : "DSQ",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"NSC" : {
+"code" : "NSC",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "No",
+"penalty" : "No"
+},
+"OCS" : {
+"code" : "OCS",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"OOD" : {
+"code" : "OOD",
+"method" : "Average (all)",
+"discardable" : "Yes",
+"cametostartarea" : "No",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"RAF" : {
+"code" : "RAF",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "No",
+"penalty" : "No"
+},
+"RDG" : {
+"code" : "RDG",
+"method" : "Set points by hand",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"RDGa" : {
+"code" : "RDGa",
+"method" : "Average (all)",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"RDGb" : {
+"code" : "RDGb",
+"method" : "Average (before)",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"SCP" : {
+"code" : "SCP",
+"method" : "Percentage penalty DNF",
+"value" : "20",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"UFD" : {
+"code" : "UFD",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"ZFP" : {
+"code" : "ZFP",
+"method" : "Percentage penalty DNF",
+"value" : "20",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+}
+},
+"113" : {
+"scrfollowchamp" : "1",
+"scrfollowmedal" : "1",
+"scrfollowcodes" : "1",
+"scrfollowratingsystem" : "0",
+"scrfollowratingmode" : "1",
+"scrfollowpointssystem" : "1",
+"scrfollowcoefficients" : "1",
+"scrfollowcustomexprs" : "1",
+"scrfollowseriesties" : "1",
+"scrfollowoverallpoints" : "1",
+"scrfollowdiscards" : "1",
+"scrfollowraceties" : "1",
+"scrfollowflights" : "1",
+"scrfollowpointsplaces" : "1",
+"scrfollowqualification" : "1",
+"scrhotkey" : "0",
+"scrname" : "Appendix A",
+"scrparent" : "36",
+"scrfield" : "Fleet",
+"scrsfield" : "Fleet",
+"scrvalue" : "Division B IRC",
+"scrtie3" : "No",
+"scrtie0" : "No",
+"scrtie1" : "Yes",
+"scrincludediscards" : "No",
+"scrtie2" : "Yes",
+"scrtie2back" : "No",
+"scrtie2starts" : "No",
+"scrtiefinals" : "No",
+"scrraceties" : "Averaged",
+"scrpointsplaces" : "1",
+"scrrrs2025" : "Yes",
+"scrpointsaccumulation" : "Sum",
+"scrpointssystem" : "Low point",
+"scrratingsystem" : "TCF",
+"scrratingvalue" : "No",
+"scrwindstrengths" : "0-1,2-3,4,5-9",
+"scrupdateratings" : "No",
+"scrbackcalcpercent" : "0",
+"scrdiscardlist" : "0,0,0,0,1,1,1",
+"scrflights" : "No",
+"scrfinals" : "No",
+"scrfinalsstickyq" : "No",
+"scrfinalsfirst" : "0",
+"scrlowweight" : "Yes",
+"scrmedal" : "No",
+"scrmedalrace" : "5",
+"scrmedalyesnotdiscardable" : "Yes",
+"scrmedalyesmultiply" : "Yes",
+"scrmedalyestie" : "Yes",
+"scrmedalnonotdiscardable" : "Yes",
+"scrmedalnomultiply" : "Yes",
+"scrmedalnotie" : "Yes",
+"scrmedalmax" : "10",
+"scoring-codes" : {
+"BFD" : {
+"code" : "BFD",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"DGM" : {
+"code" : "DGM",
+"method" : "Score like",
+"value" : "DSQ",
+"discardable" : "No",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"DNC" : {
+"code" : "DNC",
+"method" : "Boats in series +",
+"value" : "1",
+"discardable" : "Yes",
+"cametostartarea" : "No",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"DNE" : {
+"code" : "DNE",
+"method" : "Score like",
+"value" : "DSQ",
+"discardable" : "No",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"DNF" : {
+"code" : "DNF",
+"method" : "Boats in race +",
+"value" : "1",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "No",
+"penalty" : "No"
+},
+"DNS" : {
+"code" : "DNS",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"DPI1" : {
+"code" : "DPI1",
+"method" : "Fixed penalty",
+"value" : "1",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"DSQ" : {
+"code" : "DSQ",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"NSC" : {
+"code" : "NSC",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "No",
+"penalty" : "No"
+},
+"OCS" : {
+"code" : "OCS",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"OOD" : {
+"code" : "OOD",
+"method" : "Average (all)",
+"discardable" : "Yes",
+"cametostartarea" : "No",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"RAF" : {
+"code" : "RAF",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "No",
+"penalty" : "No"
+},
+"RDG" : {
+"code" : "RDG",
+"method" : "Set points by hand",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"RDGa" : {
+"code" : "RDGa",
+"method" : "Average (all)",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"RDGb" : {
+"code" : "RDGb",
+"method" : "Average (before)",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"SCP" : {
+"code" : "SCP",
+"method" : "Percentage penalty DNF",
+"value" : "20",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"UFD" : {
+"code" : "UFD",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"ZFP" : {
+"code" : "ZFP",
+"method" : "Percentage penalty DNF",
+"value" : "20",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+}
+},
+"118" : {
+"scrfollowchamp" : "1",
+"scrfollowmedal" : "1",
+"scrfollowcodes" : "1",
+"scrfollowratingsystem" : "0",
+"scrfollowratingmode" : "1",
+"scrfollowpointssystem" : "1",
+"scrfollowcoefficients" : "1",
+"scrfollowcustomexprs" : "1",
+"scrfollowseriesties" : "1",
+"scrfollowoverallpoints" : "1",
+"scrfollowdiscards" : "1",
+"scrfollowraceties" : "1",
+"scrfollowflights" : "1",
+"scrfollowpointsplaces" : "1",
+"scrfollowqualification" : "1",
+"scrhotkey" : "0",
+"scrname" : "Appendix A",
+"scrparent" : "36",
+"scrfield" : "Fleet",
+"scrsfield" : "Fleet",
+"scrvalue" : "Division C IRC",
+"scrtie3" : "No",
+"scrtie0" : "No",
+"scrtie1" : "Yes",
+"scrincludediscards" : "No",
+"scrtie2" : "Yes",
+"scrtie2back" : "No",
+"scrtie2starts" : "No",
+"scrtiefinals" : "No",
+"scrraceties" : "Averaged",
+"scrpointsplaces" : "1",
+"scrrrs2025" : "Yes",
+"scrpointsaccumulation" : "Sum",
+"scrpointssystem" : "Low point",
+"scrratingsystem" : "TCF",
+"scrratingvalue" : "No",
+"scrwindstrengths" : "0-1,2-3,4,5-9",
+"scrupdateratings" : "No",
+"scrbackcalcpercent" : "0",
+"scrdiscardlist" : "0,0,0,0,1,1,1",
+"scrflights" : "No",
+"scrfinals" : "No",
+"scrfinalsstickyq" : "No",
+"scrfinalsfirst" : "0",
+"scrlowweight" : "Yes",
+"scrmedal" : "No",
+"scrmedalrace" : "5",
+"scrmedalyesnotdiscardable" : "Yes",
+"scrmedalyesmultiply" : "Yes",
+"scrmedalyestie" : "Yes",
+"scrmedalnonotdiscardable" : "Yes",
+"scrmedalnomultiply" : "Yes",
+"scrmedalnotie" : "Yes",
+"scrmedalmax" : "10",
+"scoring-codes" : {
+"BFD" : {
+"code" : "BFD",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"DGM" : {
+"code" : "DGM",
+"method" : "Score like",
+"value" : "DSQ",
+"discardable" : "No",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"DNC" : {
+"code" : "DNC",
+"method" : "Boats in series +",
+"value" : "1",
+"discardable" : "Yes",
+"cametostartarea" : "No",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"DNE" : {
+"code" : "DNE",
+"method" : "Score like",
+"value" : "DSQ",
+"discardable" : "No",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"DNF" : {
+"code" : "DNF",
+"method" : "Boats in race +",
+"value" : "1",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "No",
+"penalty" : "No"
+},
+"DNS" : {
+"code" : "DNS",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"DPI1" : {
+"code" : "DPI1",
+"method" : "Fixed penalty",
+"value" : "1",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"DSQ" : {
+"code" : "DSQ",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"NSC" : {
+"code" : "NSC",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "No",
+"penalty" : "No"
+},
+"OCS" : {
+"code" : "OCS",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"OOD" : {
+"code" : "OOD",
+"method" : "Average (all)",
+"discardable" : "Yes",
+"cametostartarea" : "No",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "No"
+},
+"RAF" : {
+"code" : "RAF",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "No",
+"penalty" : "No"
+},
+"RDG" : {
+"code" : "RDG",
+"method" : "Set points by hand",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"RDGa" : {
+"code" : "RDGa",
+"method" : "Average (all)",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"RDGb" : {
+"code" : "RDGb",
+"method" : "Average (before)",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"SCP" : {
+"code" : "SCP",
+"method" : "Percentage penalty DNF",
+"value" : "20",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+},
+"UFD" : {
+"code" : "UFD",
+"method" : "Score like",
+"value" : "DNF",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "No",
+"finished" : "No",
+"penalty" : "No"
+},
+"ZFP" : {
+"code" : "ZFP",
+"method" : "Percentage penalty DNF",
+"value" : "20",
+"discardable" : "Yes",
+"cametostartarea" : "Yes",
+"started" : "Yes",
+"finished" : "Yes",
+"penalty" : "Yes"
+}
+}
+}
+},
+"ui-recs" : {
+"1" : "0|0|0|1|0|0|0|0|0|0|0|0|0|0|0"
+},
+"prizes" : {
+},
+"competitors" : {
+"65" : {
+"comptotal" : "2",
+"compnett" : "2",
+"compboat" : "Toughnut",
+"comprank" : "2",
+"compsailno" : "1411t",
+"compclass" : "MG335",
+"compfleet" : "Division C HPH",
+"compnat" : "GBR",
+"comptally" : "4",
+"compexclude" : "0",
+"compalias" : "0",
+"comprating" : "1.015",
+"compnewrating" : "0.995",
+"compmedicalflag" : "0",
+"comphelmname" : "Laura Coyle",
+"comphelmemail" : "",
+"comphelmphone" : "",
+"comphigh" : "0"
+},
+"66" : {
+"comptotal" : "1",
+"compnett" : "1",
+"compboat" : "Out & About",
+"comprank" : "1",
+"compsailno" : "2070",
+"compclass" : "Beneteau 38",
+"compfleet" : "Division C HPH",
+"compnat" : "IRL",
+"comptally" : "8",
+"compexclude" : "0",
+"compalias" : "0",
+"comprating" : "0.890",
+"compnewrating" : "0.884",
+"compmedicalflag" : "0",
+"comphelmname" : "Conor Fagan",
+"comphelmemail" : "",
+"comphelmphone" : "",
+"comphigh" : "0"
+},
+"116" : {
+"comptotal" : "1",
+"compnett" : "1",
+"compboat" : "Toughnut",
+"comprank" : "1",
+"compsailno" : "1411t",
+"compclass" : "MG335",
+"compfleet" : "Division C IRC",
+"compnat" : "GBR",
+"comptally" : "4",
+"compexclude" : "0",
+"compalias" : "65",
+"comprating" : "0.913",
+"compmedicalflag" : "0",
+"comphelmname" : "Laura Coyle",
+"comphelmemail" : "",
+"comphelmphone" : "",
+"comphigh" : "0"
+},
+"117" : {
+"comptotal" : "2",
+"compnett" : "2",
+"compboat" : "Out & About",
+"comprank" : "2",
+"compsailno" : "2070",
+"compclass" : "Beneteau 38",
+"compfleet" : "Division C IRC",
+"compnat" : "IRL",
+"comptally" : "8",
+"compexclude" : "0",
+"compalias" : "66",
+"comprating" : "0.908",
+"compmedicalflag" : "0",
+"comphelmname" : "Conor Fagan",
+"comphelmemail" : "",
+"comphelmphone" : "",
+"comphigh" : "0"
+},
+},
+"races" : {
+"2" : {
+"racerank" : "1",
+"racesailed" : "1",
+"racedate" : "May 9th",
+"starts" : {
+"1" : "|10.35.00|Finish time|Start 1|||0||0|0||||1"
+}
+},
+"3" : {
+"racerank" : "2",
+"racesailed" : "0",
+"starts" : {
+"1" : "||Place|Start 1|||0||0|0||||1"
+}
+},
+"4" : {
+"racerank" : "3",
+"racesailed" : "0",
+"starts" : {
+"1" : "||Place|Start 1|||0||0|0||||1"
+}
+},
+"5" : {
+"racerank" : "4",
+"racesailed" : "0",
+"starts" : {
+"1" : "||Place|Start 1|||0||0|0||||1"
+}
+},
+"120" : {
+"racerank" : "5",
+"racesailed" : "0",
+"starts" : {
+"1" : "||Place|Start 1|||0||0|0||||1"
+}
+}
+},
+"results" : {
+"1" : {
+"comHandle" : "65",
+"racHandle" : "2",
+"rft" : "12.05.33",
+"rst" : "10.35.00",
+"rpts" : "2",
+"rpos" : "2",
+"rdisc" : "0",
+"rcor" : "1.30.06",
+"rrestyp" : "4",
+"rele" : "1.30.33",
+"rrat" : "0.995",
+"srat" : "0",
+"rewin" : "0.08.49",
+"rrwin" : "0.898",
+"rrset" : "0"
+},
+"2" : {
+"comHandle" : "65",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.995",
+"srat" : "0",
+"rrset" : "0"
+},
+"3" : {
+"comHandle" : "65",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"4" : {
+"comHandle" : "65",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"5" : {
+"comHandle" : "65",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"6" : {
+"comHandle" : "66",
+"racHandle" : "2",
+"rft" : "12.07.00",
+"rst" : "10.35.00",
+"rpts" : "1",
+"rpos" : "1",
+"rdisc" : "0",
+"rcor" : "1.21.20",
+"rrestyp" : "4",
+"rele" : "1.32.00",
+"rrat" : "0.884",
+"srat" : "0",
+"rewin" : "0.00.00",
+"rrwin" : "0.884",
+"rrset" : "0"
+},
+"7" : {
+"comHandle" : "66",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.884",
+"srat" : "0",
+"rrset" : "0"
+},
+"8" : {
+"comHandle" : "66",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"9" : {
+"comHandle" : "66",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"10" : {
+"comHandle" : "66",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"11" : {
+"comHandle" : "67",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.921",
+"srat" : "0",
+"rrset" : "0"
+},
+"12" : {
+"comHandle" : "67",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"13" : {
+"comHandle" : "67",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"14" : {
+"comHandle" : "67",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"15" : {
+"comHandle" : "67",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"16" : {
+"comHandle" : "68",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.912",
+"srat" : "0",
+"rrset" : "0"
+},
+"17" : {
+"comHandle" : "68",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"18" : {
+"comHandle" : "68",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"19" : {
+"comHandle" : "68",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"20" : {
+"comHandle" : "68",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"21" : {
+"comHandle" : "69",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.953",
+"srat" : "0",
+"rrset" : "0"
+},
+"22" : {
+"comHandle" : "69",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"23" : {
+"comHandle" : "69",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"24" : {
+"comHandle" : "69",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"25" : {
+"comHandle" : "69",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"26" : {
+"comHandle" : "70",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.841",
+"srat" : "0",
+"rrset" : "0"
+},
+"27" : {
+"comHandle" : "70",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"28" : {
+"comHandle" : "70",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"29" : {
+"comHandle" : "70",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"30" : {
+"comHandle" : "70",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"31" : {
+"comHandle" : "71",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "1.069",
+"srat" : "0",
+"rrset" : "0"
+},
+"32" : {
+"comHandle" : "71",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"33" : {
+"comHandle" : "71",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"34" : {
+"comHandle" : "71",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"35" : {
+"comHandle" : "71",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"36" : {
+"comHandle" : "72",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.901",
+"srat" : "0",
+"rrset" : "0"
+},
+"37" : {
+"comHandle" : "72",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"38" : {
+"comHandle" : "72",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"39" : {
+"comHandle" : "72",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"40" : {
+"comHandle" : "72",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"41" : {
+"comHandle" : "73",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.905",
+"srat" : "0",
+"rrset" : "0"
+},
+"42" : {
+"comHandle" : "73",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"43" : {
+"comHandle" : "73",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"44" : {
+"comHandle" : "73",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"45" : {
+"comHandle" : "73",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"46" : {
+"comHandle" : "74",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.886",
+"srat" : "0",
+"rrset" : "0"
+},
+"47" : {
+"comHandle" : "74",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"48" : {
+"comHandle" : "74",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"49" : {
+"comHandle" : "74",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"50" : {
+"comHandle" : "74",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"51" : {
+"comHandle" : "75",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "1.089",
+"srat" : "0",
+"rrset" : "0"
+},
+"52" : {
+"comHandle" : "75",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"53" : {
+"comHandle" : "75",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"54" : {
+"comHandle" : "75",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"55" : {
+"comHandle" : "75",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"56" : {
+"comHandle" : "76",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"57" : {
+"comHandle" : "76",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"58" : {
+"comHandle" : "76",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"59" : {
+"comHandle" : "76",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"60" : {
+"comHandle" : "76",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"61" : {
+"comHandle" : "77",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"62" : {
+"comHandle" : "77",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"63" : {
+"comHandle" : "77",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"64" : {
+"comHandle" : "77",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"65" : {
+"comHandle" : "77",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"66" : {
+"comHandle" : "78",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"67" : {
+"comHandle" : "78",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"68" : {
+"comHandle" : "78",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"69" : {
+"comHandle" : "78",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"70" : {
+"comHandle" : "78",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"71" : {
+"comHandle" : "80",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.971",
+"srat" : "0",
+"rrset" : "0"
+},
+"72" : {
+"comHandle" : "80",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"73" : {
+"comHandle" : "80",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"74" : {
+"comHandle" : "80",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"75" : {
+"comHandle" : "80",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"76" : {
+"comHandle" : "81",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.920",
+"srat" : "0",
+"rrset" : "0"
+},
+"77" : {
+"comHandle" : "81",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"78" : {
+"comHandle" : "81",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"79" : {
+"comHandle" : "81",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"80" : {
+"comHandle" : "81",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"81" : {
+"comHandle" : "82",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "1.075",
+"srat" : "0",
+"rrset" : "0"
+},
+"82" : {
+"comHandle" : "82",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"83" : {
+"comHandle" : "82",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"84" : {
+"comHandle" : "82",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"85" : {
+"comHandle" : "82",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"86" : {
+"comHandle" : "83",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"87" : {
+"comHandle" : "83",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"88" : {
+"comHandle" : "83",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"89" : {
+"comHandle" : "83",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"90" : {
+"comHandle" : "83",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"91" : {
+"comHandle" : "85",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"92" : {
+"comHandle" : "85",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"93" : {
+"comHandle" : "85",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"94" : {
+"comHandle" : "85",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"95" : {
+"comHandle" : "85",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"96" : {
+"comHandle" : "86",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"97" : {
+"comHandle" : "86",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"98" : {
+"comHandle" : "86",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"99" : {
+"comHandle" : "86",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"100" : {
+"comHandle" : "86",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"101" : {
+"comHandle" : "87",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"102" : {
+"comHandle" : "87",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"103" : {
+"comHandle" : "87",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"104" : {
+"comHandle" : "87",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"105" : {
+"comHandle" : "87",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"106" : {
+"comHandle" : "88",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.924",
+"srat" : "0",
+"rrset" : "0"
+},
+"107" : {
+"comHandle" : "88",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"108" : {
+"comHandle" : "88",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"109" : {
+"comHandle" : "88",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"110" : {
+"comHandle" : "88",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"111" : {
+"comHandle" : "89",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "1.200",
+"srat" : "0",
+"rrset" : "0"
+},
+"112" : {
+"comHandle" : "89",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"113" : {
+"comHandle" : "89",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"114" : {
+"comHandle" : "89",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"115" : {
+"comHandle" : "89",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"116" : {
+"comHandle" : "90",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"117" : {
+"comHandle" : "90",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"118" : {
+"comHandle" : "90",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"119" : {
+"comHandle" : "90",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"120" : {
+"comHandle" : "90",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"121" : {
+"comHandle" : "91",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"122" : {
+"comHandle" : "91",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"123" : {
+"comHandle" : "91",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"124" : {
+"comHandle" : "91",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"125" : {
+"comHandle" : "91",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"126" : {
+"comHandle" : "92",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.976",
+"srat" : "0",
+"rrset" : "0"
+},
+"127" : {
+"comHandle" : "92",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"128" : {
+"comHandle" : "92",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"129" : {
+"comHandle" : "92",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"130" : {
+"comHandle" : "92",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"131" : {
+"comHandle" : "94",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"132" : {
+"comHandle" : "94",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"133" : {
+"comHandle" : "94",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"134" : {
+"comHandle" : "94",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"135" : {
+"comHandle" : "94",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"136" : {
+"comHandle" : "95",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"137" : {
+"comHandle" : "95",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"138" : {
+"comHandle" : "95",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"139" : {
+"comHandle" : "95",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"140" : {
+"comHandle" : "95",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"141" : {
+"comHandle" : "96",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"142" : {
+"comHandle" : "96",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"143" : {
+"comHandle" : "96",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"144" : {
+"comHandle" : "96",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"145" : {
+"comHandle" : "96",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"146" : {
+"comHandle" : "97",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"147" : {
+"comHandle" : "97",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"148" : {
+"comHandle" : "97",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"149" : {
+"comHandle" : "97",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"150" : {
+"comHandle" : "97",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"151" : {
+"comHandle" : "98",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"152" : {
+"comHandle" : "98",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"153" : {
+"comHandle" : "98",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"154" : {
+"comHandle" : "98",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"155" : {
+"comHandle" : "98",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"156" : {
+"comHandle" : "99",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "1.009",
+"srat" : "0",
+"rrset" : "0"
+},
+"157" : {
+"comHandle" : "99",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"158" : {
+"comHandle" : "99",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"159" : {
+"comHandle" : "99",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"160" : {
+"comHandle" : "99",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"161" : {
+"comHandle" : "100",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"162" : {
+"comHandle" : "100",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"163" : {
+"comHandle" : "100",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"164" : {
+"comHandle" : "100",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"165" : {
+"comHandle" : "100",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"166" : {
+"comHandle" : "101",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"167" : {
+"comHandle" : "101",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"168" : {
+"comHandle" : "101",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"169" : {
+"comHandle" : "101",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"170" : {
+"comHandle" : "101",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"171" : {
+"comHandle" : "102",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"172" : {
+"comHandle" : "102",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"173" : {
+"comHandle" : "102",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"174" : {
+"comHandle" : "102",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"175" : {
+"comHandle" : "102",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"176" : {
+"comHandle" : "103",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.850",
+"srat" : "0",
+"rrset" : "0"
+},
+"177" : {
+"comHandle" : "103",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"178" : {
+"comHandle" : "103",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"179" : {
+"comHandle" : "103",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"180" : {
+"comHandle" : "103",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"181" : {
+"comHandle" : "104",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.951",
+"srat" : "0",
+"rrset" : "0"
+},
+"182" : {
+"comHandle" : "104",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"183" : {
+"comHandle" : "104",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"184" : {
+"comHandle" : "104",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"185" : {
+"comHandle" : "104",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"186" : {
+"comHandle" : "105",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.960",
+"srat" : "0",
+"rrset" : "0"
+},
+"187" : {
+"comHandle" : "105",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"188" : {
+"comHandle" : "105",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"189" : {
+"comHandle" : "105",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"190" : {
+"comHandle" : "105",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"191" : {
+"comHandle" : "106",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.880",
+"srat" : "0",
+"rrset" : "0"
+},
+"192" : {
+"comHandle" : "106",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"193" : {
+"comHandle" : "106",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"194" : {
+"comHandle" : "106",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"195" : {
+"comHandle" : "106",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"196" : {
+"comHandle" : "107",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.920",
+"srat" : "0",
+"rrset" : "0"
+},
+"197" : {
+"comHandle" : "107",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"198" : {
+"comHandle" : "107",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"199" : {
+"comHandle" : "107",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"200" : {
+"comHandle" : "107",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"201" : {
+"comHandle" : "108",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.825",
+"srat" : "0",
+"rrset" : "0"
+},
+"202" : {
+"comHandle" : "108",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"203" : {
+"comHandle" : "108",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"204" : {
+"comHandle" : "108",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"205" : {
+"comHandle" : "108",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"206" : {
+"comHandle" : "109",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.940",
+"srat" : "0",
+"rrset" : "0"
+},
+"207" : {
+"comHandle" : "109",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"208" : {
+"comHandle" : "109",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"209" : {
+"comHandle" : "109",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"210" : {
+"comHandle" : "109",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"211" : {
+"comHandle" : "110",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.905",
+"srat" : "0",
+"rrset" : "0"
+},
+"212" : {
+"comHandle" : "110",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"213" : {
+"comHandle" : "110",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"214" : {
+"comHandle" : "110",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"215" : {
+"comHandle" : "110",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"216" : {
+"comHandle" : "111",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.940",
+"srat" : "0",
+"rrset" : "0"
+},
+"217" : {
+"comHandle" : "111",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"218" : {
+"comHandle" : "111",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"219" : {
+"comHandle" : "111",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"220" : {
+"comHandle" : "111",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"221" : {
+"comHandle" : "112",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.934",
+"srat" : "0",
+"rrset" : "0"
+},
+"222" : {
+"comHandle" : "112",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"223" : {
+"comHandle" : "112",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"224" : {
+"comHandle" : "112",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"225" : {
+"comHandle" : "112",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"226" : {
+"comHandle" : "114",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"227" : {
+"comHandle" : "114",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"228" : {
+"comHandle" : "114",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"229" : {
+"comHandle" : "114",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"230" : {
+"comHandle" : "114",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"231" : {
+"comHandle" : "115",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"232" : {
+"comHandle" : "115",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"233" : {
+"comHandle" : "115",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"234" : {
+"comHandle" : "115",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"235" : {
+"comHandle" : "115",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"236" : {
+"comHandle" : "116",
+"racHandle" : "2",
+"rft" : "12.05.33",
+"rst" : "10.35.00",
+"rpts" : "1",
+"rpos" : "1",
+"rdisc" : "0",
+"rcor" : "1.22.40",
+"rrestyp" : "4",
+"rele" : "1.30.33",
+"srat" : "0",
+"rewin" : "0.00.00",
+"rrwin" : "0.913",
+"rrset" : "0"
+},
+"237" : {
+"comHandle" : "116",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"238" : {
+"comHandle" : "116",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"239" : {
+"comHandle" : "116",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"240" : {
+"comHandle" : "116",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"241" : {
+"comHandle" : "117",
+"racHandle" : "2",
+"rft" : "12.07.00",
+"rst" : "10.35.00",
+"rpts" : "2",
+"rpos" : "2",
+"rdisc" : "0",
+"rcor" : "1.23.32",
+"rrestyp" : "4",
+"rele" : "1.32.00",
+"srat" : "0",
+"rewin" : "0.00.57",
+"rrwin" : "0.899",
+"rrset" : "0"
+},
+"242" : {
+"comHandle" : "117",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"243" : {
+"comHandle" : "117",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"244" : {
+"comHandle" : "117",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"245" : {
+"comHandle" : "117",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"246" : {
+"comHandle" : "121",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"247" : {
+"comHandle" : "121",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"248" : {
+"comHandle" : "121",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"249" : {
+"comHandle" : "121",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"250" : {
+"comHandle" : "121",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"251" : {
+"comHandle" : "122",
+"racHandle" : "2",
+"rdisc" : "0",
+"rrestyp" : "0",
+"rrat" : "0.867",
+"srat" : "0",
+"rrset" : "0"
+},
+"252" : {
+"comHandle" : "122",
+"racHandle" : "3",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"253" : {
+"comHandle" : "122",
+"racHandle" : "4",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"254" : {
+"comHandle" : "122",
+"racHandle" : "5",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+},
+"255" : {
+"comHandle" : "122",
+"racHandle" : "120",
+"rdisc" : "0",
+"rrestyp" : "0",
+"srat" : "0",
+"rrset" : "0"
+}
+},
+"columns" : {
+"1" : "1|Alias|4|Yes|No|10|BLANK|",
+"2" : "1|AltSailNo|14|No|No|40||",
+"3" : "1|Boat|10|Yes|Yes|75|Boat Name|",
+"4" : "1|BowNumber|7|No|No|40||",
+"5" : "1|CarriedFwd|48|No|No|20||",
+"6" : "1|Class|13|Yes|No|114|Model|",
+"7" : "1|Club|15|No|No|40||",
+"8" : "1|CrewAddress|42|No|No|40||",
+"9" : "1|CrewAgeGroup|33|No|No|40||",
+"10" : "1|CrewEmail|34|No|No|40||",
+"11" : "1|CrewId|32|No|No|40||",
+"12" : "1|CrewMemberNo|38|No|No|40||",
+"13" : "1|CrewName|17|No|No|40||",
+"14" : "1|CrewNotes|43|No|No|40||",
+"15" : "1|CrewPhone|39|No|No|40||",
+"16" : "1|CrewPhoto|41|No|No|40||",
+"17" : "1|CrewSex|36|No|No|40||",
+"18" : "1|CrewWebsite|35|No|No|40||",
+"19" : "1|Division|11|No|No|40||",
+"20" : "1|Exclude|2|Yes|No|10|Exclude|",
+"21" : "1|Fee|45|No|No|40||",
+"22" : "1|Fleet|8|Yes|No|77|Fleet|",
+"23" : "1|HelmAddress|30|No|No|40||",
+"24" : "1|HelmAgeGroup|23|No|No|40||",
+"25" : "1|HelmEmail|24|No|No|111|Owner Contact Email|",
+"26" : "1|HelmId|22|No|No|40||",
+"27" : "1|HelmMemberNo|27|No|No|40||",
+"28" : "1|HelmName|16|Yes|Yes|166|Owner Name|",
+"29" : "1|HelmNotes|31|No|No|40||",
+"30" : "1|HelmPhone|28|No|No|143|Owner Mobile Number|",
+"31" : "1|HelmPhoto|29|No|No|40||",
+"32" : "1|HelmSex|26|No|No|40||",
+"33" : "1|HelmWebsite|25|No|No|40||",
+"34" : "1|Medical|5|No|No|40||",
+"35" : "1|MedicalFlag|1|No|No|10|BLANK|",
+"36" : "1|Nat|20|No|No|40|National Lettering|",
+"37" : "1|Nett|53|Yes|Yes|40||",
+"38" : "1|NewRating|19|Yes|No|40||",
+"39" : "1|Notes|54|No|No|40||",
+"40" : "1|Paid|46|No|No|40||",
+"41" : "1|Penalties|49|No|No|20||",
+"42" : "1|PrivateNotes|55|No|No|40||",
+"43" : "1|Rank|3|Yes|Yes|40||",
+"44" : "1|Rating|18|Yes|Yes|40||",
+"45" : "1|SailNo|9|Yes|Yes|79|Sail Number|",
+"46" : "1|Status|44|No|No|40||",
+"47" : "1|Tally|6|No|No|40|Number|",
+"48" : "1|Total|52|Yes|Yes|40||",
+"49" : "2||47|Yes|Yes|33||",
+"50" : "3||1000|Yes|No|40|BLANK|",
+"51" : "1|Flight|12|No|No|40||",
+"52" : "1|Seeding|21|No|No|40||",
+"53" : "1|WindRats|37|No|No|40||",
+"54" : "1|Formula|40|No|No|40||",
+"55" : "1|Platform|50|No|No|40||",
+"56" : "1|Rig|51|No|No|40||",
+"57" : "1|Sailmaker|56|No|No|40||",
+"58" : "1|Foils|57|No|No|40||",
+"59" : "1|SkipperName|58|No|No|40||",
+"60" : "1|SkipperId|59|No|No|40||",
+"61" : "1|SkipperAgeGroup|60|No|No|40||",
+"62" : "1|SkipperEmail|61|No|No|40||",
+"63" : "1|SkipperWebsite|62|No|No|40||",
+"64" : "1|SkipperSex|63|No|No|40||",
+"65" : "1|SkipperMemberNo|64|No|No|40||",
+"66" : "1|SkipperPhone|65|No|No|40||",
+"67" : "1|SkipperPhoto|66|No|No|40||",
+"68" : "1|SkipperAddress|67|No|No|40||",
+"69" : "1|SkipperNotes|68|No|No|40||",
+"70" : "1|TacticianName|69|No|No|40||",
+"71" : "1|TacticianId|70|No|No|40||",
+"72" : "1|TacticianAgeGroup|71|No|No|40||",
+"73" : "1|TacticianEmail|72|No|No|40||",
+"74" : "1|TacticianWebsite|73|No|No|40||",
+"75" : "1|TacticianSex|74|No|No|40||",
+"76" : "1|TacticianMemberNo|75|No|No|40||",
+"77" : "1|TacticianPhone|76|No|No|40||",
+"78" : "1|TacticianPhoto|77|No|No|40||",
+"79" : "1|TacticianAddress|78|No|No|40||",
+"80" : "1|TacticianNotes|79|No|No|40||",
+"81" : "1|NavigatorName|80|No|No|40||",
+"82" : "1|NavigatorId|81|No|No|40||",
+"83" : "1|NavigatorAgeGroup|82|No|No|40||",
+"84" : "1|NavigatorEmail|83|No|No|40||",
+"85" : "1|NavigatorWebsite|84|No|No|40||",
+"86" : "1|NavigatorSex|85|No|No|40||",
+"87" : "1|NavigatorMemberNo|86|No|No|40||",
+"88" : "1|NavigatorPhone|87|No|No|40||",
+"89" : "1|NavigatorPhoto|88|No|No|40||",
+"90" : "1|NavigatorAddress|89|No|No|40||",
+"91" : "1|NavigatorNotes|90|No|No|40||",
+"92" : "1|BowmanName|91|No|No|40||",
+"93" : "1|BowmanId|92|No|No|40||",
+"94" : "1|BowmanAgeGroup|93|No|No|40||",
+"95" : "1|BowmanEmail|94|No|No|40||",
+"96" : "1|BowmanWebsite|95|No|No|40||",
+"97" : "1|BowmanSex|96|No|No|40||",
+"98" : "1|BowmanMemberNo|97|No|No|40||",
+"99" : "1|BowmanPhone|98|No|No|40||",
+"100" : "1|BowmanPhoto|99|No|No|40||",
+"101" : "1|BowmanAddress|100|No|No|40||",
+"102" : "1|BowmanNotes|101|No|No|40||",
+"103" : "1|MastName|102|No|No|40||",
+"104" : "1|MastId|103|No|No|40||",
+"105" : "1|MastAgeGroup|104|No|No|40||",
+"106" : "1|MastEmail|105|No|No|40||",
+"107" : "1|MastWebsite|106|No|No|40||",
+"108" : "1|MastSex|107|No|No|40||",
+"109" : "1|MastMemberNo|108|No|No|40||",
+"110" : "1|MastPhone|109|No|No|40||",
+"111" : "1|MastPhoto|110|No|No|40||",
+"112" : "1|MastAddress|111|No|No|40||",
+"113" : "1|MastNotes|112|No|No|40||",
+"114" : "1|PitName|113|No|No|40||",
+"115" : "1|PitId|114|No|No|40||",
+"116" : "1|PitAgeGroup|115|No|No|40||",
+"117" : "1|PitEmail|116|No|No|40||",
+"118" : "1|PitWebsite|117|No|No|40||",
+"119" : "1|PitSex|118|No|No|40||",
+"120" : "1|PitMemberNo|119|No|No|40||",
+"121" : "1|PitPhone|120|No|No|40||",
+"122" : "1|PitPhoto|121|No|No|40||",
+"123" : "1|PitAddress|122|No|No|40||",
+"124" : "1|PitNotes|123|No|No|40||",
+"125" : "1|MaintrimName|124|No|No|40||",
+"126" : "1|MaintrimId|125|No|No|40||",
+"127" : "1|MaintrimAgeGroup|126|No|No|40||",
+"128" : "1|MaintrimEmail|127|No|No|40||",
+"129" : "1|MaintrimWebsite|128|No|No|40||",
+"130" : "1|MaintrimSex|129|No|No|40||",
+"131" : "1|MaintrimMemberNo|130|No|No|40||",
+"132" : "1|MaintrimPhone|131|No|No|40||",
+"133" : "1|MaintrimPhoto|132|No|No|40||",
+"134" : "1|MaintrimAddress|133|No|No|40||",
+"135" : "1|MaintrimNotes|134|No|No|40||",
+"136" : "1|PorttrimName|135|No|No|40||",
+"137" : "1|PorttrimId|136|No|No|40||",
+"138" : "1|PorttrimAgeGroup|137|No|No|40||",
+"139" : "1|PorttrimEmail|138|No|No|40||",
+"140" : "1|PorttrimWebsite|139|No|No|40||",
+"141" : "1|PorttrimSex|140|No|No|40||",
+"142" : "1|PorttrimMemberNo|141|No|No|40||",
+"143" : "1|PorttrimPhone|142|No|No|40||",
+"144" : "1|PorttrimPhoto|143|No|No|40||",
+"145" : "1|PorttrimAddress|144|No|No|40||",
+"146" : "1|PorttrimNotes|145|No|No|40||",
+"147" : "1|StartrimName|146|No|No|40||",
+"148" : "1|StartrimId|147|No|No|40||",
+"149" : "1|StartrimAgeGroup|148|No|No|40||",
+"150" : "1|StartrimEmail|149|No|No|40||",
+"151" : "1|StartrimWebsite|150|No|No|40||",
+"152" : "1|StartrimSex|151|No|No|40||",
+"153" : "1|StartrimMemberNo|152|No|No|40||",
+"154" : "1|StartrimPhone|153|No|No|40||",
+"155" : "1|StartrimPhoto|154|No|No|40||",
+"156" : "1|StartrimAddress|155|No|No|40||",
+"157" : "1|StartrimNotes|156|No|No|40||",
+"158" : "1|PortgrindName|157|No|No|40||",
+"159" : "1|PortgrindId|158|No|No|40||",
+"160" : "1|PortgrindAgeGroup|159|No|No|40||",
+"161" : "1|PortgrindEmail|160|No|No|40||",
+"162" : "1|PortgrindWebsite|161|No|No|40||",
+"163" : "1|PortgrindSex|162|No|No|40||",
+"164" : "1|PortgrindMemberNo|163|No|No|40||",
+"165" : "1|PortgrindPhone|164|No|No|40||",
+"166" : "1|PortgrindPhoto|165|No|No|40||",
+"167" : "1|PortgrindAddress|166|No|No|40||",
+"168" : "1|PortgrindNotes|167|No|No|40||",
+"169" : "1|StargrindName|168|No|No|40||",
+"170" : "1|StargrindId|169|No|No|40||",
+"171" : "1|StargrindAgeGroup|170|No|No|40||",
+"172" : "1|StargrindEmail|171|No|No|40||",
+"173" : "1|StargrindWebsite|172|No|No|40||",
+"174" : "1|StargrindSex|173|No|No|40||",
+"175" : "1|StargrindMemberNo|174|No|No|40||",
+"176" : "1|StargrindPhone|175|No|No|40||",
+"177" : "1|StargrindPhoto|176|No|No|40||",
+"178" : "1|StargrindAddress|177|No|No|40||",
+"179" : "1|StargrindNotes|178|No|No|40||",
+"180" : "1|OwnerName|179|No|No|40||",
+"181" : "1|OwnerId|180|No|No|40||",
+"182" : "1|OwnerAgeGroup|181|No|No|40||",
+"183" : "1|OwnerEmail|182|No|No|40||",
+"184" : "1|OwnerWebsite|183|No|No|40||",
+"185" : "1|OwnerSex|184|No|No|40||",
+"186" : "1|OwnerMemberNo|185|No|No|40||",
+"187" : "1|OwnerPhone|186|No|No|40||",
+"188" : "1|OwnerPhoto|187|No|No|40||",
+"189" : "1|OwnerAddress|188|No|No|40||",
+"190" : "1|OwnerNotes|189|No|No|40||",
+"191" : "1|GuestName|190|No|No|40||",
+"192" : "1|GuestId|191|No|No|40||",
+"193" : "1|GuestAgeGroup|192|No|No|40||",
+"194" : "1|GuestEmail|193|No|No|40||",
+"195" : "1|GuestWebsite|194|No|No|40||",
+"196" : "1|GuestSex|195|No|No|40||",
+"197" : "1|GuestMemberNo|196|No|No|40||",
+"198" : "1|GuestPhone|197|No|No|40||",
+"199" : "1|GuestPhoto|198|No|No|40||",
+"200" : "1|GuestAddress|199|No|No|40||",
+"201" : "1|GuestNotes|200|No|No|40||",
+"202" : "1|District|201|No|No|40||",
+"203" : "1|Squad|202|No|No|40||",
+"204" : "1|Area|203|No|No|40||",
+"205" : "1|Region|204|No|No|40||",
+"206" : "1|Group|205|No|No|40||",
+"207" : "1|Medalist|206|No|No|40||",
+"208" : "1|Sponsor|207|No|No|40||",
+"209" : "1|SponsorWebsite|208|No|No|40||",
+"210" : "1|SponsorEmail|209|No|No|40||",
+"211" : "1|Team|210|No|No|40||",
+"212" : "1|TeamWebsite|211|No|No|40||",
+"213" : "1|TeamEmail|212|No|No|40||"
+}
+}
