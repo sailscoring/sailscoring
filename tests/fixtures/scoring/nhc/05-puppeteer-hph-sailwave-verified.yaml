@@ -1,8 +1,9 @@
 description: "NHC1 — Puppeteer HPH R1, Sailwave SWNHC2015 verification (n=14)"
 notes: |
   Howth YC One Designs Series 1, Tuesday 5 May 2026, Puppeteer HPH fleet.
-  Start 19:15:00. 14 finishers. Source: Sailwave NHC1 output
-  (reference/data/2026-hyc-club-racing/tues-series-1-pup-hph-sailwave.htm).
+  Start 19:15:00. 14 finishers. Source: Sailwave's published NHC1 output for
+  this fleet (helm names anonymised; the original export is no longer kept in
+  the repo).
 
   Every NewRating below is the value Sailwave published — independent
   verification that the SWNHC2015 implementation reproduces Sailwave to 3 dp.
@@ -26,46 +27,46 @@ fleet:
 
 competitors:
   - sailNumber: "2021"
-    name: "David Clarke"
+    name: "Brendan Considine"
     nhcStartingTcf: 1.350
   - sailNumber: "385"
-    name: "S. Knowles"
+    name: "Maeve Naughton"
     nhcStartingTcf: 1.350
   - sailNumber: "310"
-    name: "Dylan Murray"
+    name: "Deirdre Eustace"
     nhcStartingTcf: 1.350
   - sailNumber: "15"
-    name: "Alan Pearson / Alan Blay"
+    name: "Aoife Barlow"
     nhcStartingTcf: 1.350
   - sailNumber: "187"
-    name: "McKeon / Dunne"
+    name: "Iarla Jervis"
     nhcStartingTcf: 1.250
   - sailNumber: "5526"
-    name: "Gerard Kennedy"
+    name: "Fiona Galvin"
     nhcStartingTcf: 1.275
   - sailNumber: "22"
-    name: "Ian Dickson"
+    name: "Hannah Ireton"
     nhcStartingTcf: 1.350
   - sailNumber: "20"
-    name: "Terry Harvey"
+    name: "Niall Ogilvie"
     nhcStartingTcf: 1.320
   - sailNumber: "254"
-    name: "Declan Browne"
+    name: "Cillian Dempsey"
     nhcStartingTcf: 1.345
   - sailNumber: "101"
-    name: "Hogan / Dyson"
+    name: "Garret Hopkins"
     nhcStartingTcf: 1.200
   - sailNumber: "245"
-    name: "Olibhe Ni Bhraonain & Peter Wilson"
+    name: "Laura Mescal"
     nhcStartingTcf: 1.150
   - sailNumber: "219"
-    name: "O'Reilly / McDyer"
+    name: "Kevin Larkin"
     nhcStartingTcf: 1.250
   - sailNumber: "79"
-    name: "Francisco Martinez"
+    name: "Eoin Forde"
     nhcStartingTcf: 1.175
   - sailNumber: "6413"
-    name: "Neil Murphy / Conor Costello"
+    name: "Jenny Kettle"
     nhcStartingTcf: 1.350
 
 races:
