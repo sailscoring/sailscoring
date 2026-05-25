@@ -291,28 +291,6 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                   </div>
                 </div>
               </label>
-              <label className="flex items-start gap-3 rounded-md border p-3 opacity-50">
-                <input type="radio" name="source" disabled className="mt-1" />
-                <div>
-                  <div className="font-medium">
-                    Irish Sailing certificates <span className="text-xs">— coming soon</span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    IRC TCC and Standard ECHO TCF, looked up by sail number.
-                  </div>
-                </div>
-              </label>
-              <label className="flex items-start gap-3 rounded-md border p-3 opacity-50">
-                <input type="radio" name="source" disabled className="mt-1" />
-                <div>
-                  <div className="font-medium">
-                    RYA Portsmouth Yardstick <span className="text-xs">— coming soon</span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    PY numbers, looked up by boat class.
-                  </div>
-                </div>
-              </label>
             </div>
 
             <DialogFooter>
