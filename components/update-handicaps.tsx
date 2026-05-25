@@ -270,7 +270,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh] max-w-3xl">
         {step === 'source-picker' && (
           <>
             <DialogHeader>
@@ -280,7 +280,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-3 py-2">
+            <div className="space-y-3 py-2 min-h-0 overflow-y-auto">
               <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
                 <input type="radio" name="source" defaultChecked className="mt-1" />
                 <div>
@@ -332,7 +332,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-2">
+            <div className="space-y-4 py-2 min-h-0 min-w-0 overflow-y-auto">
               <div className="space-y-1">
                 <label className="text-sm font-medium">Source series</label>
                 <Select
@@ -417,7 +417,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
             <DialogHeader>
               <DialogTitle>Handicaps updated</DialogTitle>
             </DialogHeader>
-            <div className="space-y-2 py-2 text-sm">
+            <div className="space-y-2 py-2 text-sm min-h-0 overflow-y-auto">
               <p>
                 Updated <strong>{result.updatedCount}</strong> starting handicap
                 {result.updatedCount === 1 ? '' : 's'}.

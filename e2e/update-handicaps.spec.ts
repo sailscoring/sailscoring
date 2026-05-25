@@ -99,3 +99,54 @@ test('Update Handicaps dialog: carry IRC TCCs from source series to target', asy
     await expect(page.getByRole('cell', { name: expected, exact: true })).toBeVisible();
   }
 });
+
+test('Update Handicaps dialog stays within the viewport when the preview is tall (#161)', async ({ page }) => {
+  // Repro for #161: with enough competitors the preview made the dialog
+  // taller than the page; because it's vertically centred with no height
+  // cap, the title and the Apply footer spilled off-screen with no way to
+  // scroll to them. A short viewport reproduces the same overflow mechanics
+  // with three boats — far faster than seeding dozens.
+  await createSeriesQuick(page, { name: 'IRC Source Tall' });
+  await configureIrcFleet(page, 'IRC');
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await addBoatWithTcc(page, 'IRL 2001', 'Alpha', '0.940');
+  await addBoatWithTcc(page, 'IRL 2002', 'Beta',  '0.985');
+  await addBoatWithTcc(page, 'IRL 2003', 'Gamma', '1.075');
+
+  await page.goto('/');
+  await createSeriesQuick(page, { name: 'IRC Target Tall' });
+  await configureIrcFleet(page, 'IRC');
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await addBoatWithTcc(page, 'IRL 2001', 'Alpha', '1.000');
+  await addBoatWithTcc(page, 'IRL 2002', 'Beta',  '1.000');
+  await addBoatWithTcc(page, 'IRL 2003', 'Gamma', '1.000');
+
+  // Shrink the viewport only now — data setup above is more robust at a
+  // normal height. 380px guarantees the preview content exceeds the page.
+  await page.setViewportSize({ width: 1024, height: 380 });
+
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('combobox').filter({ hasText: 'Pick a series' }).click();
+  await page.getByRole('option', { name: 'IRC Source Tall' }).click();
+  await expect(page.getByText(/Preview: 3 changes/)).toBeVisible();
+
+  // The dialog must sit entirely within the viewport — not bleed off the
+  // top or bottom the way the un-capped, centred dialog did.
+  const viewport = page.viewportSize()!;
+  const box = await page.getByRole('dialog').boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.y).toBeGreaterThanOrEqual(-1);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height + 1);
+
+  // Header and the Apply footer stay on-screen; the middle scrolls instead.
+  await expect(
+    page.getByRole('heading', { name: 'Update handicaps from another series' }),
+  ).toBeInViewport();
+  const applyBtn = page.getByRole('button', { name: /Apply 3/ });
+  await expect(applyBtn).toBeInViewport();
+
+  // …and Apply is actually usable from here.
+  await applyBtn.click();
+  await expect(page.getByRole('heading', { name: 'Handicaps updated' })).toBeVisible();
+});
