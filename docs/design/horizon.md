@@ -126,8 +126,8 @@ between versions, and allow viewers to browse earlier result snapshots.
 
 ### Scorer attribution in snapshot history
 
-When we have the user's email address (e.g. collected for bilge publishing), include it
-as attribution in the snapshot history entries in the series file format.
+Every signed-in scorer has an email address (Better Auth); include it as attribution in
+the snapshot history entries in the series file format.
 
 *(Was GitHub issue #37)*
 

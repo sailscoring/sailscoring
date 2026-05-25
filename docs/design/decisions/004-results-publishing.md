@@ -1,19 +1,20 @@
 # ADR-004: MVP Results Publishing — bilge
 
-**Status:** Accepted; retirement scheduled — to be marked **Superseded by
-[ADR-008](008-full-stack-transition.md)** when Phase 9 lands.
+**Status:** **Superseded by [ADR-008](008-full-stack-transition.md)** —
+bilge was decommissioned in ADR-008 Phase 9 (2026-05-25).
 
 **Date:** 2026-02-21
 
 **Deciders:** Mark McLoughlin
 
-> **Retirement note.** bilge is in production and still the publishing
-> path used by the app. ADR-008 Phase 9 builds an in-app publish-to-Vercel-
-> Blob replacement at `/p/{slug}` and decommissions bilge after a ~6-month
-> URL-redirect window. The retirement trigger described below ("when Sail
-> Scoring ships its full-stack version") has fired — Phase 8 cutover is
-> complete — so the schedule is now driven by Phase 9 build-out, not by
-> waiting for the full-stack transition.
+> **Retirement note.** Superseded by ADR-008. The in-app publish-to-Vercel-
+> Blob replacement (`/p/{workspaceSlug}/{seriesSlug}/...`) shipped in Phase 9
+> (#153), and bilge was decommissioned (#152): its Blob, KV, QStash, and
+> Resend resources were deleted, the repository was archived, and
+> `bilge.sailscoring.ie` is now a redirect-only stub — the one still-referenced
+> URL (`/r/2026-m15-westerns/standings`) 301s to the app and every other path
+> returns 410 Gone. The design below is retained as a historical record of the
+> MVP service.
 
 ## Context
 

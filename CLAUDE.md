@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Sail Scoring is a sail racing scoring application for managing regattas, series, and race days. It handles handicap corrections, result codes, discard rules, and series standings per World Sailing Racing Rules of Sailing (RRS) Appendix A. Deployed at `app.sailscoring.ie` on Vercel. See `docs/goals.md` for the project's purpose and `docs/` for design docs, ADRs, and requirements.
 
-**Current focus.** The ADR-008 full-stack transition is complete through Phase 8, and the Phase 9 in-app publishing path is live in production — workspace-namespaced `/p/{workspace}/{series}` URLs (ADR-008 Phase 9/10, #153) that replace bilge. Remaining: the bilge decommission cutover (#152) and the publishing follow-ups (#162 static read path + public listings, #163 Preview, #164 workspace publish management / Unpublish), then the rest of Phase 10 collaboration UX. Deferred handicap-system work (RYA NHC 2015, ECHO certificate layer, etc.) lives in `docs/design/horizon.md`.
+**Current focus.** The ADR-008 full-stack transition is complete through Phase 9: in-app publishing (workspace-namespaced `/p/{workspace}/{series}` URLs, ADR-008 Phase 9/10, #153) replaced bilge, which has been decommissioned to a redirect-only stub (#152, repo archived). Remaining: the publishing follow-ups (#162 static read path + public listings, #163 Preview, #164 workspace publish management / Unpublish) and the rest of Phase 10 collaboration UX. Deferred handicap-system work (RYA NHC 2015, ECHO certificate layer, etc.) lives in `docs/design/horizon.md`.
 
 ## Tech Stack
 
@@ -24,7 +24,7 @@ Pure logic lives in `lib/`; pages and UI in `app/`. Key lib modules: `scoring.ts
 
 See `docs/` for design docs, ADRs, requirements, and glossary. `reference/` holds external source material that isn't part of the codebase: PDFs of the RRS, NORs / Sailing Instructions for target events, manuals for comparable tools (Sailwave, HalSail, ORC), plus `reference/data/` with anonymised real-world event data and per-handicap-system worked examples used during reverse-engineering. New design notes go in `docs/design/`, not `reference/`.
 
-The full-stack transition (ADR-008) is complete through Phase 8. Better Auth + Postgres + the full server-side data layer is the only runtime; the IndexedDB / Dexie path and its `USE_SERVER_DATA` gate are gone. HYC's panel is onboarded on a shared workspace; beta users were prompted to migrate. The Phase 9 in-app publishing path (workspace-namespaced `/p/...`, #153) is live; what remains there is the bilge decommission cutover (#152) and the publishing follow-ups (#162–#164). Then Phase 10 residual collaboration UX (full activity log, self-service org admin, vanity URLs). The original Phase 8 (org-based collaboration) was split into Phases 7 and 10 and reordered so HYC's panel got server-of-record + collaboration in the same flag flip rather than living through a `.sailscoring` file-exchange gap after cutover.
+The full-stack transition (ADR-008) is complete through Phase 8. Better Auth + Postgres + the full server-side data layer is the only runtime; the IndexedDB / Dexie path and its `USE_SERVER_DATA` gate are gone. HYC's panel is onboarded on a shared workspace; beta users were prompted to migrate. Phase 9 is complete: in-app publishing (workspace-namespaced `/p/...`, #153) replaced bilge, now decommissioned to a redirect-only stub (#152, bilge repo archived). The publishing follow-ups (#162–#164) and the rest of Phase 10 residual collaboration UX (full activity log, self-service org admin, vanity URLs) remain. The original Phase 8 (org-based collaboration) was split into Phases 7 and 10 and reordered so HYC's panel got server-of-record + collaboration in the same flag flip rather than living through a `.sailscoring` file-exchange gap after cutover.
 
 - **Schema** — Drizzle in `lib/db/schema/` (mirrors `lib/types.ts`), lazy client in `lib/db/client.ts`, migrations in `drizzle/`
 - **Validation** — Zod schemas in `lib/validation/`, used at every `/api/v1` boundary
@@ -104,8 +104,8 @@ New architectural decisions should follow the template at `docs/design/decisions
 - ADR-001: Database choice (Superseded by ADR-008 — IndexedDB for MVP, Postgres for full-stack; the Postgres half is now in production)
 - ADR-002: Scoring algorithm approach (Accepted — hybrid: hard-coded algorithms with configurable parameters)
 - ADR-003: Application architecture (Superseded by ADR-008 — local-first MVP transitioned to full-stack Next.js on Vercel)
-- ADR-004: Results publishing (Accepted, retirement scheduled — separate **bilge** service replaced by in-app publishing in ADR-008 Phase 9)
-- ADR-005: Hosting and domain structure (Accepted — `sailscoring.ie` marketing, `app.sailscoring.ie` app, `bilge.sailscoring.ie` bilge API)
+- ADR-004: Results publishing (Superseded by ADR-008 — the **bilge** MVP service was replaced by in-app publishing and decommissioned in Phase 9)
+- ADR-005: Hosting and domain structure (Accepted — `sailscoring.ie` marketing, `app.sailscoring.ie` app; `bilge.sailscoring.ie` retired to a redirect-only stub in Phase 9)
 - ADR-006: Testing and debug logging (Accepted — Vitest for unit/integration, Playwright for e2e; no DB mocking; debug logs gated behind `DEBUG` env var)
 - ADR-007: Finish sheet model for mixed timed/untimed finish entry (Accepted — unified ordered list, row order = crossing order, time column optional per row; implemented in `d8ad8d0`)
-- ADR-008: Full-stack transition (Accepted — Next.js + Vercel Fluid Compute + Neon Postgres + Better Auth + workspace collaboration; Phases 1–8 complete, Phase 9 publishing path live, bilge decommission + Phase 10 pending)
+- ADR-008: Full-stack transition (Accepted — Next.js + Vercel Fluid Compute + Neon Postgres + Better Auth + workspace collaboration; Phases 1–9 complete, Phase 10 pending)
