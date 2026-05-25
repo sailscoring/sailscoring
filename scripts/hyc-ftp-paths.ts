@@ -14,8 +14,9 @@
  * with both `plan` and `apply`) to replace existing entries that differ
  * from the CSV; entries that already match the CSV are still no-ops.
  *
- * Companion of `reference/data/2026-hyc-club-racing/update-ftp-paths.py`
- * which does the same threading against the local .sailscoring files.
+ * Replaces the old `update-ftp-paths.py` (removed), which did the same
+ * threading against the local .sailscoring files before the app became
+ * server-of-record.
  */
 import { eq, sql } from 'drizzle-orm';
 import fs from 'node:fs';
@@ -35,9 +36,8 @@ const CSV_PATH = path.resolve(
 );
 
 /**
- * Per-series mapping of fleet name → CSV row ID. Mirrors `FTP_PATH_MAPPING`
- * in `reference/data/2026-hyc-club-racing/update-ftp-paths.py`. Series are
- * matched by name within the HYC workspace: Sailwave re-imports mint a fresh
+ * Per-series mapping of fleet name → CSV row ID. Series are matched by name
+ * within the HYC workspace: Sailwave re-imports mint a fresh
  * series UUID each time, so the name is the only stable handle. `seriesName`
  * must match `series.name` exactly — confirm against an `inspect` run.
  *
