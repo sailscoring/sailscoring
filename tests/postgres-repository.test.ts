@@ -54,7 +54,6 @@ function makeSeries(id: string = uuid()): Series {
     ftpHost: '',
     ftpPath: '',
     ftpPaths: {},
-    bilgeBundle: null,
     includeJsonExport: true,
     publishRatingCalculations: true,
     enabledCompetitorFields: ['boatName', 'club'],

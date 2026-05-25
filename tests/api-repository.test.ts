@@ -64,7 +64,6 @@ const stubSeries: Series = {
   ftpHost: '',
   ftpPath: '',
   ftpPaths: {},
-  bilgeBundle: null,
   includeJsonExport: true,
   publishRatingCalculations: true,
   enabledCompetitorFields: [],

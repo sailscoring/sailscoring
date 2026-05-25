@@ -47,7 +47,6 @@ async function doCreateSeries(
     ftpHost: '',
     ftpPath: '',
     ftpPaths: {},
-    bilgeBundle: null,
     includeJsonExport: true,
     enabledCompetitorFields: defaultEnabledCompetitorFields(),
     primaryPersonLabel: DEFAULT_PRIMARY_PERSON_LABEL,

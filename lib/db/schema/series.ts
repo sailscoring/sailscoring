@@ -20,7 +20,6 @@ import type {
   NhcProfile,
   PrimaryPersonLabel,
   StartGroup,
-  BilgeBundle,
   PublishedSeriesPage,
 } from '@/lib/types';
 
@@ -38,7 +37,7 @@ import type {
  * - `version` + `updated_at` on every mutable row. Saves bump `version`;
  *   Phase 4 wires the 409 response.
  * - JSONB for arrays/objects we never query by content (start sequences,
- *   discard thresholds, bilge bundle, redress arrays). `competitors.fleet_ids`
+ *   discard thresholds, redress arrays). `competitors.fleet_ids`
  *   uses a real `uuid[]` with a GIN index because we *do* filter by fleet.
  */
 
@@ -98,7 +97,6 @@ export const series = pgTable(
       .$type<Record<string, string>>()
       .notNull()
       .default(sql`'{}'::jsonb`),
-    bilgeBundle: jsonb('bilge_bundle').$type<BilgeBundle | null>(),
     includeJsonExport: boolean('include_json_export').notNull().default(true),
     publishRatingCalculations: boolean('publish_rating_calculations')
       .notNull()

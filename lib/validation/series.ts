@@ -4,7 +4,6 @@ import type {
   Series,
   DiscardThreshold,
   StartGroup,
-  BilgeBundle,
   CompetitorFieldKey,
   PrimaryPersonLabel,
 } from '@/lib/types';
@@ -43,19 +42,6 @@ export const startGroupSchema = z.object({
   intervalMinutes: z.number().nonnegative(),
 });
 
-export const bilgeBundleSchema = z.object({
-  uuid: z.string().min(1),
-  prefix: z.string(),
-  slug: z.string(),
-  email: z.string().optional(),
-  status: z.enum(['unpublished', 'pending', 'published']),
-  publishedUrl: z.string().nullable(),
-  lastPublishedAt: epochMsSchema.nullable(),
-  fleets: z
-    .array(z.object({ name: z.string(), url: z.string().nullable() }))
-    .optional(),
-});
-
 export const seriesSchema = z.object({
   id: uuidSchema,
   name: z.string(),
@@ -78,7 +64,6 @@ export const seriesSchema = z.object({
   ftpHost: z.string(),
   ftpPath: z.string(),
   ftpPaths: z.record(z.string(), z.string()),
-  bilgeBundle: bilgeBundleSchema.nullable(),
   includeJsonExport: z.boolean(),
   publishRatingCalculations: z.boolean().optional(),
   showPerRaceRatingsInSummary: z.boolean().optional(),
@@ -117,11 +102,6 @@ const _startGroupFromZod: StartGroup = undefined as unknown as z.infer<typeof st
 const _startGroupFromTs: z.infer<typeof startGroupSchema> = undefined as unknown as StartGroup;
 void _startGroupFromZod;
 void _startGroupFromTs;
-
-const _bilgeFromZod: BilgeBundle = undefined as unknown as z.infer<typeof bilgeBundleSchema>;
-const _bilgeFromTs: z.infer<typeof bilgeBundleSchema> = undefined as unknown as BilgeBundle;
-void _bilgeFromZod;
-void _bilgeFromTs;
 
 const _fieldKeyFromZod: CompetitorFieldKey = undefined as unknown as z.infer<typeof competitorFieldKeySchema>;
 const _fieldKeyFromTs: z.infer<typeof competitorFieldKeySchema> = undefined as unknown as CompetitorFieldKey;

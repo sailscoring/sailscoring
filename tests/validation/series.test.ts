@@ -1,7 +1,6 @@
 import { describe, test, expect } from 'vitest';
 
 import {
-  bilgeBundleSchema,
   competitorFieldKeySchema,
   discardThresholdSchema,
   primaryPersonLabelSchema,
@@ -33,7 +32,6 @@ const VALID_SERIES: Series = {
   ftpHost: '',
   ftpPath: '',
   ftpPaths: {},
-  bilgeBundle: null,
   includeJsonExport: true,
   publishRatingCalculations: true,
   enabledCompetitorFields: ['boatName', 'club'],
@@ -83,35 +81,6 @@ describe('seriesInputSchema', () => {
     const { id: _id, ...withoutId } = VALID_SERIES;
     void _id;
     expect(() => seriesInputSchema.parse(withoutId)).not.toThrow();
-  });
-});
-
-describe('bilgeBundleSchema', () => {
-  test('accepts a populated multi-fleet bundle', () => {
-    expect(() =>
-      bilgeBundleSchema.parse({
-        uuid: 'bb-uuid',
-        prefix: 'hyc',
-        slug: 'hyc/standings',
-        status: 'published',
-        publishedUrl: 'https://example.com',
-        lastPublishedAt: 1,
-        fleets: [{ name: 'IRC 1', url: null }],
-      }),
-    ).not.toThrow();
-  });
-
-  test('rejects unknown status', () => {
-    expect(() =>
-      bilgeBundleSchema.parse({
-        uuid: 'x',
-        prefix: 'x',
-        slug: 'x',
-        status: 'live',
-        publishedUrl: null,
-        lastPublishedAt: null,
-      }),
-    ).toThrow();
   });
 });
 

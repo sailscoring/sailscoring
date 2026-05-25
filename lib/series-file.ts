@@ -80,15 +80,6 @@ interface SeriesFileFleet {
   nhcProfile?: NhcProfile;
 }
 
-interface SeriesFileBilgeBundle {
-  uuid: string;
-  prefix: string;
-  slug: string;
-  status: 'unpublished' | 'pending' | 'published';
-  publishedUrl: string | null;
-  lastPublishedAt: number | null;
-}
-
 interface SeriesFileSeries {
   id: string;
   name: string;
@@ -104,7 +95,8 @@ interface SeriesFileSeries {
   ftpHost: string;
   ftpPath: string;
   ftpPaths?: Record<string, string>;  // v4+; absent in older files
-  bilgeBundle: SeriesFileBilgeBundle | null;
+  // Bilge publishing state was removed in ADR-008 Phase 9. The field is no
+  // longer written; older files that still carry it are simply ignored on read.
   includeJsonExport: boolean;
   enabledCompetitorFields: CompetitorFieldKey[];
   primaryPersonLabel?: PrimaryPersonLabel;  // v2+; absent in v1 files, defaults to 'competitor'
@@ -315,14 +307,6 @@ export async function buildSeriesFile(
       ...(series.ftpPaths && Object.keys(series.ftpPaths).length > 0
         ? { ftpPaths: series.ftpPaths }
         : {}),
-      bilgeBundle: series.bilgeBundle ? {
-        uuid: series.bilgeBundle.uuid,
-        prefix: series.bilgeBundle.prefix,
-        slug: series.bilgeBundle.slug,
-        status: series.bilgeBundle.status,
-        publishedUrl: series.bilgeBundle.publishedUrl,
-        lastPublishedAt: series.bilgeBundle.lastPublishedAt,
-      } : null,
       includeJsonExport: series.includeJsonExport ?? true,
       enabledCompetitorFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -509,7 +493,6 @@ export async function openSeriesFromFile(
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
-    bilgeBundle: file.series.bilgeBundle,
     includeJsonExport: file.series.includeJsonExport,
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
@@ -565,7 +548,6 @@ export async function updateSeriesFromFile(
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
-    bilgeBundle: file.series.bilgeBundle,
     includeJsonExport: file.series.includeJsonExport,
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,

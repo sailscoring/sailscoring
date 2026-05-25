@@ -61,7 +61,6 @@ function sampleSeries(id: string) {
     ftpHost: '',
     ftpPath: '',
     ftpPaths: {},
-    bilgeBundle: null,
     includeJsonExport: true,
     publishRatingCalculations: true,
     enabledCompetitorFields: ['boatName', 'club'],

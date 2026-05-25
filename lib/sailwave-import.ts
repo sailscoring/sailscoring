@@ -839,7 +839,6 @@ export function buildSeriesFileFromSailwave(
       dnfScoring,
       ftpHost: '',
       ftpPath: '',
-      bilgeBundle: null,
       includeJsonExport: true,
       enabledCompetitorFields: enabledFields,
       primaryPersonLabel: opts.primaryLabel,

@@ -59,7 +59,6 @@ export interface Series {
   ftpHost: string;   // saved FTP server host for this series (empty if not yet published)
   ftpPath: string;   // legacy single path; falls back here when ftpPaths has no entry for a fleet (series uploaded before per-fleet paths landed)
   ftpPaths: Record<string, string>;  // last-uploaded remote path per fleet, keyed by fleetId
-  bilgeBundle: BilgeBundle | null;
   includeJsonExport: boolean;  // embed public JSON export in exported HTML (default true)
   publishRatingCalculations?: boolean;  // NHC/ECHO progressive rating-calculation explainability columns/header (default true)
   showPerRaceRatingsInSummary?: boolean;  // NHC/ECHO: render applied rating beneath each score in the summary table and add a seed-rating column (default true)
@@ -335,18 +334,6 @@ export interface TcfRecord {
   fleetId: string;
   tcfApplied: number;    // TCF used to compute CT in this race
   newTcf: number;        // TCF for race N+1 (== tcfApplied if non-finisher)
-}
-
-export interface BilgeBundle {
-  uuid: string;                 // bilge namespace owner token (travels in series file)
-  prefix: string;               // e.g. "hyc-autumn-league-2026"
-  slug: string;                 // primary slug, e.g. "hyc-autumn-league-2026/standings"
-  email?: string;               // scorer email — local only, NOT written to series file
-  status: 'unpublished' | 'pending' | 'published';
-  publishedUrl: string | null;  // primary (first fleet) published URL
-  lastPublishedAt: number | null;
-  // Multi-fleet: per-fleet published URLs. Absent for single-fleet bundles.
-  fleets?: { name: string; url: string | null }[];
 }
 
 /**

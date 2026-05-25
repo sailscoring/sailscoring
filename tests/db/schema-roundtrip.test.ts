@@ -23,7 +23,6 @@ import type {
   Race,
   RaceStart,
   Finish,
-  BilgeBundle,
 } from '@/lib/types';
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -67,19 +66,6 @@ describe.skipIf(skip)('schema round-trip', () => {
     const seriesId = uuid();
     const now = new Date();
 
-    const bilge: BilgeBundle = {
-      uuid: uuid(),
-      prefix: 'hyc-roundtrip',
-      slug: 'hyc-roundtrip/standings',
-      status: 'published',
-      publishedUrl: 'https://bilge.sailscoring.ie/p/hyc-roundtrip/standings',
-      lastPublishedAt: now.getTime(),
-      fleets: [
-        { name: 'IRC 1', url: 'https://bilge.sailscoring.ie/p/hyc-roundtrip/irc-1' },
-        { name: 'IRC 2', url: null },
-      ],
-    };
-
     const seriesRow: Series = {
       id: seriesId,
       name: 'Round-trip series',
@@ -108,7 +94,6 @@ describe.skipIf(skip)('schema round-trip', () => {
       ftpHost: 'ftp.example.com',
       ftpPath: '/results',
       ftpPaths: { 'fleet-a': '/results/scratch.html', 'fleet-b': '/results/echo.html' },
-      bilgeBundle: bilge,
       includeJsonExport: false,
       publishRatingCalculations: false,
       showPerRaceRatingsInSummary: false,
@@ -140,7 +125,6 @@ describe.skipIf(skip)('schema round-trip', () => {
       ftpHost: seriesRow.ftpHost,
       ftpPath: seriesRow.ftpPath,
       ftpPaths: seriesRow.ftpPaths,
-      bilgeBundle: seriesRow.bilgeBundle,
       includeJsonExport: seriesRow.includeJsonExport,
       publishRatingCalculations: seriesRow.publishRatingCalculations,
       showPerRaceRatingsInSummary: seriesRow.showPerRaceRatingsInSummary,
@@ -306,7 +290,6 @@ describe.skipIf(skip)('schema round-trip', () => {
       ftpHost: seriesRow.ftpHost,
       ftpPath: seriesRow.ftpPath,
       ftpPaths: seriesRow.ftpPaths,
-      bilgeBundle: seriesRow.bilgeBundle,
       includeJsonExport: seriesRow.includeJsonExport,
       publishRatingCalculations: seriesRow.publishRatingCalculations,
       showPerRaceRatingsInSummary: seriesRow.showPerRaceRatingsInSummary,

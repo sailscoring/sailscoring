@@ -61,7 +61,6 @@ interface SeriesFile {
     dnfScoring: string;
     ftpHost: string;
     ftpPath: string;
-    bilgeBundle: unknown;
     enabledCompetitorFields?: string[];
   };
   competitors: FileCompetitor[];
@@ -196,7 +195,8 @@ test('series file: save exports correct JSON with all series fields, competitors
   // Website URLs round-trip into the file verbatim.
   expect(file.series.venueUrl).toBe('https://www.hyc.ie');
   expect(file.series.eventUrl).toBe('https://example.com/autumn-league');
-  expect(file.series.bilgeBundle).toBeNull();
+  // Bilge publishing state was removed in ADR-008 Phase 9 — no longer written.
+  expect(file.series).not.toHaveProperty('bilgeBundle');
   // New in v8: scorer's choice of which optional competitor fields to show.
   expect(file.series.enabledCompetitorFields).toEqual(['boatName', 'club']);
 

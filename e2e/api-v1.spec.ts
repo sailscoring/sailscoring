@@ -43,7 +43,6 @@ test.describe('/api/v1', () => {
       ftpHost: '',
       ftpPath: '',
       ftpPaths: {},
-      bilgeBundle: null,
       includeJsonExport: true,
       publishRatingCalculations: true,
       showPerRaceRatingsInSummary: true,

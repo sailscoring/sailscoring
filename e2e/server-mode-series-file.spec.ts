@@ -62,7 +62,6 @@ interface SeriesFile {
     dnfScoring: string;
     ftpHost: string;
     ftpPath: string;
-    bilgeBundle: unknown;
     enabledCompetitorFields?: string[];
   };
   competitors: FileCompetitor[];

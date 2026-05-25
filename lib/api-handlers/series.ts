@@ -64,7 +64,6 @@ export async function putSeries(
     ftpHost: input.ftpHost,
     ftpPath: input.ftpPath,
     ftpPaths: input.ftpPaths,
-    bilgeBundle: input.bilgeBundle ?? null,
     includeJsonExport: input.includeJsonExport,
     publishRatingCalculations: input.publishRatingCalculations,
     enabledCompetitorFields: input.enabledCompetitorFields,
@@ -94,7 +93,6 @@ export async function touchSeries(workspace: WorkspaceContext, id: string): Prom
  *
  * Strips workspace-scoped references that don't carry across:
  *   - FTP credentials (`ftpHost`, `ftpPath`, `ftpPaths`) — distinct per workspace
- *   - Bilge publishing state (`bilgeBundle`) — the new copy is unpublished
  *   - File-tracking metadata (`lastSnapshotId`, `lastSavedAt`,
  *     `snapshotHistory`) — the copy has no file lineage of its own
  *
@@ -200,7 +198,6 @@ export async function copySeries(
       ftpHost: '',
       ftpPath: '',
       ftpPaths: {},
-      bilgeBundle: null,
       includeJsonExport: source.includeJsonExport,
       publishRatingCalculations: source.publishRatingCalculations ?? true,
       enabledCompetitorFields: source.enabledCompetitorFields,
