@@ -241,6 +241,22 @@ canonical `/p/{slug}` — the original URL never changes identity.
 Visibility (listed/unlisted) lands with orgs since "listed" needs a
 public index destination.
 
+> **Revised in #153 (Phase 10 pulled forward).** The flat `/p/{slug}` model
+> above was superseded before it shipped to users. Published URLs are now
+> **workspace-namespaced**: `/p/{workspaceSlug}/{seriesSlug}/{subPath}`.
+> Every workspace (including personal ones, as the opaque `u-{id}`) is the
+> namespace; the series slug is `kebab(name)`, editable at first publish and
+> frozen after (no random suffix — the workspace namespaces it). There is no
+> privileged "primary" fleet: each fleet is a sub-page (`standings` for a lone
+> default fleet, `kebab(fleet)` otherwise) and the bare `/p/{ws}/{series}` is
+> reserved for the per-series listing. Deleting a series **orphans** its
+> publication (`published_series.series_id → null`) rather than removing it.
+> Three slices are deferred: the fully static read path (edge rewrite to Blob)
+> + public workspace/series **index pages** (#162), "Export HTML" → in-app
+> **Preview** (#163), and the workspace **"Published" management page** with
+> **Unpublish** that manages orphans (#164). Iteration 1 lands the URL/slug
+> model and data model, served by the existing function route.
+
 ### bilge retirement
 
 bilge was always a stopgap (ADR-004). Its retirement is a single phase

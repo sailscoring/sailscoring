@@ -141,6 +141,13 @@
       "when": 1779699597020,
       "tag": "0019_fast_maverick",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1779709258633,
+      "tag": "0020_lively_eternals",
+      "breakpoints": true
     }
   ]
 }

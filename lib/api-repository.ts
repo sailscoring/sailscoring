@@ -23,6 +23,7 @@ import type {
   Series,
   TcfRecord,
   PublishResult,
+  PublicationStatus,
 } from './types';
 
 export const DEFAULT_FLEET_NAME = 'Default';
@@ -301,25 +302,24 @@ export function listTcfHistoryBySeries(seriesId: string): Promise<TcfRecord[]> {
 }
 
 /**
- * Publish a series' current results (ADR-008 Phase 9). The server renders the
- * HTML, uploads it to Vercel Blob, and returns the public `/p/{slug}` URL(s).
+ * Publish a series' current results (ADR-008 Phase 9/10). `slug` is honoured
+ * only on first publish; `overwrite` confirms taking over a slug held by an
+ * orphaned publication. Returns the per-fleet public URLs.
  */
-export function publishSeries(seriesId: string): Promise<PublishResult> {
+export function publishSeries(
+  seriesId: string,
+  input: { slug?: string; overwrite?: boolean } = {},
+): Promise<PublishResult> {
   return apiFetch<PublishResult>(`/api/v1/series/${seriesId}/publish`, {
     method: 'POST',
+    body: input,
   });
 }
 
-/** The current publication for a series, or null if never published. */
-export async function getPublication(
-  seriesId: string,
-): Promise<PublishResult | null> {
-  return (
-    (await apiFetch<PublishResult | null>(
-      `/api/v1/series/${seriesId}/publish`,
-      { allow404: true },
-    )) ?? null
-  );
+/** The publication state for a series (workspace slug, suggested slug, and the
+ *  current publication if any) — drives the publish dialog. */
+export function getPublication(seriesId: string): Promise<PublicationStatus> {
+  return apiFetch<PublicationStatus>(`/api/v1/series/${seriesId}/publish`);
 }
 
 /**

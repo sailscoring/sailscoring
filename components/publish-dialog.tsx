@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,43 +9,58 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ValidationApiError } from '@/lib/api-client';
 import { getPublication, publishSeries } from '@/lib/api-repository';
-import type { PublishResult, Series } from '@/lib/types';
+import { fleetSubPath } from '@/lib/publishing';
+import type { Fleet, PublicationStatus, Series } from '@/lib/types';
 
-type PublishState = 'loading' | 'idle' | 'publishing' | { error: string };
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
 
 export interface PublishDialogProps {
   series: Series;
+  fleets: Fleet[];
   open: boolean;
   onClose: () => void;
 }
 
-/**
- * In-app results publishing (ADR-008 Phase 9, the bilge replacement). Publish
- * is an explicit, point-in-time action: the server renders the current
- * standings, stores them, and returns the public `/p/{slug}` URL(s). Editing
- * the series afterwards does not auto-publish — the dialog surfaces how many
- * edits have landed since the last publish so the scorer knows to re-publish.
- */
-export function PublishDialog({ series, open, onClose }: PublishDialogProps) {
-  const [state, setState] = useState<PublishState>('loading');
-  const [published, setPublished] = useState<PublishResult | null>(null);
+/** Sanitise free-typed slug input to the allowed character set. */
+function sanitizeSlug(raw: string): string {
+  return raw.toLowerCase().replace(/[^a-z0-9-]/g, '');
+}
 
-  // Load the current publication each time the dialog opens. Syncing with the
-  // external open signal, so the state writes in this effect are expected.
+/**
+ * In-app results publishing (ADR-008 Phase 9/10, the bilge replacement — #153).
+ * Publish is explicit and point-in-time. The slug is editable at first publish
+ * and frozen after; the dialog shows the resulting public URL(s) as you edit
+ * it, so you see where it'll land before publishing.
+ */
+export function PublishDialog({ series, fleets, open, onClose }: PublishDialogProps) {
+  const [status, setStatus] = useState<PublicationStatus | null>(null);
+  const [slug, setSlug] = useState('');
+  const [phase, setPhase] = useState<'loading' | 'idle' | 'publishing'>('loading');
+  const [error, setError] = useState<string | null>(null);
+  const [needsOverwrite, setNeedsOverwrite] = useState(false);
+
+  // Load publication state each time the dialog opens. Syncing with the
+  // external open signal, so the state writes here are expected.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setState('loading');
+    setPhase('loading');
+    setError(null);
+    setNeedsOverwrite(false);
     getPublication(series.id)
-      .then((p) => {
+      .then((s) => {
         if (cancelled) return;
-        setPublished(p);
-        setState('idle');
+        setStatus(s);
+        setSlug(s.published?.slug ?? s.suggestedSlug);
+        setPhase('idle');
       })
       .catch(() => {
-        if (!cancelled) setState('idle');
+        if (!cancelled) setPhase('idle');
       });
     return () => {
       cancelled = true;
@@ -53,23 +68,61 @@ export function PublishDialog({ series, open, onClose }: PublishDialogProps) {
   }, [open, series.id]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  async function handlePublish() {
-    setState('publishing');
-    try {
-      const result = await publishSeries(series.id);
-      setPublished(result);
-      setState('idle');
-    } catch (e) {
-      setState({ error: e instanceof Error ? e.message : 'Publish failed.' });
-    }
-  }
+  const published = status?.published ?? null;
+  const isPublished = published !== null;
+  const workspaceSlug = status?.workspaceSlug ?? '';
 
-  const isLoading = state === 'loading';
-  const isPublishing = state === 'publishing';
-  const hasError = typeof state === 'object';
+  // Per-fleet URLs. Once published, the server's actual URLs; before that, a
+  // live preview derived from the fleets and the slug being typed.
+  const previewPages = useMemo(() => {
+    if (published) return published.pages;
+    const base = `${APP_URL}/p/${workspaceSlug}/${slug || '…'}`;
+    const isSingleDefault = fleets.length <= 1;
+    const entries = isSingleDefault
+      ? [{ fleetName: fleets[0]?.name ?? 'Standings', subPath: 'standings' }]
+      : fleets.map((f) => ({ fleetName: f.name, subPath: fleetSubPath(f.name, false) }));
+    return entries.map((e) => ({ fleetName: e.fleetName, url: `${base}/${e.subPath}` }));
+  }, [published, fleets, workspaceSlug, slug]);
+
   const pendingEdits = published
     ? Math.max(0, (series.version ?? 1) - published.publishedVersion)
     : 0;
+
+  async function handlePublish(overwrite = false) {
+    setPhase('publishing');
+    setError(null);
+    try {
+      const result = await publishSeries(
+        series.id,
+        isPublished ? {} : { slug, overwrite },
+      );
+      setStatus((s) => (s ? { ...s, published: result } : s));
+      setNeedsOverwrite(false);
+      setPhase('idle');
+    } catch (e) {
+      setPhase('idle');
+      if (e instanceof ValidationApiError) {
+        const code = (e.issues as { code?: string } | undefined)?.code;
+        if (code === 'slug-orphaned') {
+          setNeedsOverwrite(true);
+          setError('A results page already exists at this URL (from a deleted series).');
+          return;
+        }
+        if (code === 'slug-in-use') {
+          setError('That slug is already used by another published series. Choose another.');
+          return;
+        }
+        if (code === 'invalid-slug') {
+          setError('Use lowercase letters and numbers, separated by hyphens.');
+          return;
+        }
+      }
+      setError(e instanceof Error ? e.message : 'Publish failed.');
+    }
+  }
+
+  const isLoading = phase === 'loading';
+  const isPublishing = phase === 'publishing';
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -80,57 +133,59 @@ export function PublishDialog({ series, open, onClose }: PublishDialogProps) {
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : published ? (
+        ) : (
           <div className="space-y-3 min-w-0">
-            <p className="text-xs text-muted-foreground">
-              Last published {new Date(published.publishedAt).toLocaleString()}
-              {pendingEdits > 0 && (
-                <span className="text-amber-600 dark:text-amber-400">
-                  {' · '}
-                  {pendingEdits} edit{pendingEdits === 1 ? '' : 's'} since — re-publish to update
-                </span>
-              )}
-            </p>
+            {isPublished ? (
+              <p className="text-xs text-muted-foreground">
+                Last published {new Date(published.publishedAt).toLocaleString()}
+                {pendingEdits > 0 && (
+                  <span className="text-amber-600 dark:text-amber-400">
+                    {' · '}
+                    {pendingEdits} edit{pendingEdits === 1 ? '' : 's'} since — re-publish to update
+                  </span>
+                )}
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="publish-slug">URL slug</Label>
+                <Input
+                  id="publish-slug"
+                  value={slug}
+                  onChange={(e) => { setSlug(sanitizeSlug(e.target.value)); setNeedsOverwrite(false); setError(null); }}
+                  placeholder="autumn-league-2026"
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">
+                  Published under <span className="font-mono">/p/{workspaceSlug}/{slug || '…'}</span>. Fixed once published.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-1.5">
-              {published.pages.map((p) => (
+              {previewPages.map((p) => (
                 <div key={p.url} className="flex items-center gap-2">
                   <div className="flex-1 min-w-0 overflow-hidden">
-                    {published.pages.length > 1 && (
+                    {previewPages.length > 1 && (
                       <p className="text-xs font-medium mb-0.5">{p.fleetName}</p>
                     )}
-                    <a
-                      href={p.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs font-mono truncate block hover:underline"
-                    >
-                      {p.url}
-                    </a>
+                    {isPublished ? (
+                      <a href={p.url} target="_blank" rel="noreferrer" className="text-xs font-mono truncate block hover:underline">
+                        {p.url}
+                      </a>
+                    ) : (
+                      <span className="text-xs font-mono truncate block text-muted-foreground">{p.url}</span>
+                    )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0"
-                    onClick={() => navigator.clipboard.writeText(p.url)}
-                  >
-                    Copy
-                  </Button>
+                  {isPublished && (
+                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigator.clipboard.writeText(p.url)}>
+                      Copy
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
-            {hasError && (
-              <p className="text-sm text-destructive">{(state as { error: string }).error}</p>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Publish this series&rsquo; current standings to a public web page.
-              You can re-publish any time to update it.
-            </p>
-            {hasError && (
-              <p className="text-sm text-destructive">{(state as { error: string }).error}</p>
-            )}
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
         )}
 
@@ -138,9 +193,15 @@ export function PublishDialog({ series, open, onClose }: PublishDialogProps) {
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
-          <Button onClick={handlePublish} disabled={isLoading || isPublishing}>
-            {isPublishing ? 'Publishing…' : published ? 'Re-publish' : 'Publish'}
-          </Button>
+          {needsOverwrite ? (
+            <Button variant="destructive" onClick={() => handlePublish(true)} disabled={isPublishing}>
+              {isPublishing ? 'Publishing…' : 'Overwrite & publish'}
+            </Button>
+          ) : (
+            <Button onClick={() => handlePublish(false)} disabled={isLoading || isPublishing || (!isPublished && !slug)}>
+              {isPublishing ? 'Publishing…' : isPublished ? 'Re-publish' : 'Publish'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -35,6 +35,7 @@ function ctxFor(workspaceId: string): WorkspaceContext {
     userId: 'test-user',
     email: 'test@sailscoring.test',
     workspaceId,
+    workspaceSlug: 'test-ws',
     role: 'owner',
   };
 }

@@ -290,23 +290,30 @@ export const finishes = pgTable(
 );
 
 /**
- * ADR-008 Phase 9 — published results state, the in-app path that replaces
- * bilge. One row per series (PK = `series_id`); re-publishing overwrites it,
- * so there is no `version`/optimistic-concurrency column — publish is the
- * only writer and last publish wins. `slug` is globally unique and stable
- * once set. `workspace_id` is denormalised for tenancy on the authoring side;
- * the public `/p/{slug}` route looks up by `slug` alone (published content is
- * unauthenticated). `pages` stores one entry per fleet's stored HTML blob.
+ * ADR-008 Phase 9/10 — published results state, the in-app path that replaces
+ * bilge (issue #153). A published page is identified by `(workspace_id, slug)`
+ * and lives at `/p/{workspaceSlug}/{slug}/...`. There is no
+ * `version`/optimistic-concurrency column — publish is the only writer and
+ * last publish wins.
+ *
+ * The row is **decoupled from the series lifecycle**: `series_id` is nullable
+ * with `ON DELETE SET NULL`, so deleting a series *orphans* its published page
+ * (the page stays live and listed) rather than removing it. The partial
+ * `unique(series_id)` keeps one live publication per series. This is what lets
+ * the workspace "Published" management page (#164) manage orphans with no
+ * schema change. `pages` stores one entry per fleet's stored HTML blob, keyed
+ * to mirror the public URL path so the static read path (#162) is config-only.
  */
 export const publishedSeries = pgTable(
   'published_series',
   {
-    seriesId: uuid('series_id')
-      .primaryKey()
-      .references(() => series.id, { onDelete: 'cascade' }),
+    id: uuid('id').primaryKey(),
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
+    seriesId: uuid('series_id').references(() => series.id, {
+      onDelete: 'set null',
+    }),
     slug: text('slug').notNull(),
     pages: jsonb('pages').$type<PublishedSeriesPage[]>().notNull(),
     contentHash: text('content_hash').notNull(),
@@ -316,8 +323,13 @@ export const publishedSeries = pgTable(
     publishedVersion: integer('published_version').notNull(),
   },
   (table) => [
-    uniqueIndex('published_series_slug_uidx').on(table.slug),
-    index('published_series_workspace_idx').on(table.workspaceId),
+    uniqueIndex('published_series_workspace_slug_uidx').on(
+      table.workspaceId,
+      table.slug,
+    ),
+    uniqueIndex('published_series_series_uidx')
+      .on(table.seriesId)
+      .where(sql`${table.seriesId} is not null`),
   ],
 );
 

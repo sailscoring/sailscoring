@@ -1,58 +1,59 @@
 import 'server-only';
 
-import { NotFoundError } from '@/app/api/v1/_lib/handler';
-import { putPublishedHtml } from '@/lib/blob-storage';
+import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
+import { putPublishedHtml } from '@/lib/blob-storage';
 import { createRepos } from '@/lib/postgres-repository';
-import { buildFleetHtmlFiles } from '@/lib/results-export';
-import type { ExportRepos } from '@/lib/public-export';
-import { contentHash, fleetSubPath, makePublishSlug } from '@/lib/publishing';
+import {
+  contentHash,
+  deriveSeriesSlug,
+  fleetSubPath,
+  publishedBlobKey,
+} from '@/lib/publishing';
 import {
   getPublishedBySeries,
-  upsertPublished,
+  getPublishedByWorkspaceSlug,
+  savePublished,
 } from '@/lib/published-repository';
+import { buildFleetHtmlFiles } from '@/lib/results-export';
+import type { ExportRepos } from '@/lib/public-export';
 import type {
+  PublicationStatus,
   PublishResult,
   PublishedSeries,
   PublishedSeriesPage,
 } from '@/lib/types';
+import type { PublishInput } from '@/lib/validation/publish';
 
-function toResult(published: PublishedSeries): PublishResult {
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
-  const base = `${appUrl}/p/${published.slug}`;
+const MAX_SLUG_LENGTH = 60;
+
+function isValidSeriesSlug(slug: string): boolean {
+  return slug.length <= MAX_SLUG_LENGTH && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+}
+
+function appBase(): string {
+  return (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
+}
+
+function toResult(
+  workspaceSlug: string,
+  published: PublishedSeries,
+): PublishResult {
+  const base = `${appBase()}/p/${workspaceSlug}/${published.slug}`;
   return {
     slug: published.slug,
-    url: base,
     publishedAt: published.publishedAt,
     publishedVersion: published.publishedVersion,
     pages: published.pages.map((p) => ({
       fleetName: p.fleetName,
-      url: p.subPath ? `${base}/${p.subPath}` : base,
+      url: `${base}/${p.subPath}`,
     })),
   };
 }
 
-/**
- * Publish a series' current results to Vercel Blob and record it in
- * `published_series` (ADR-008 Phase 9). Explicit, point-in-time: it renders
- * the state as it stands now and overwrites the previous publication.
- *
- * - The slug is minted once on first publish and reused forever after.
- * - One public blob per fleet; the first fleet is served at the bare slug.
- * - When the rendered content is byte-identical to what's already published
- *   (same `contentHash`), the blobs are left untouched and the existing
- *   publication is returned — re-publishing an unchanged series is a no-op.
- */
-export async function publishSeries(
-  workspace: WorkspaceContext,
-  seriesId: string,
-): Promise<PublishResult> {
-  const repos = createRepos({ workspaceId: workspace.workspaceId });
-  const series = await repos.series.get(seriesId);
-  if (!series) throw new NotFoundError('series');
-
-  // `buildFleetHtmlFiles` needs the six read repos under the file-repo names.
-  const exportRepos: ExportRepos = {
+function exportReposFor(workspaceId: string): ExportRepos {
+  const repos = createRepos({ workspaceId });
+  return {
     seriesRepo: repos.series,
     competitorRepo: repos.competitors,
     raceRepo: repos.races,
@@ -60,32 +61,78 @@ export async function publishSeries(
     finishRepo: repos.finishes,
     raceStartRepo: repos.raceStarts,
   };
+}
 
-  const files = await buildFleetHtmlFiles(exportRepos, seriesId);
-  if (!files) {
-    // No competitors or no races — nothing to publish.
-    throw new NotFoundError('series has no publishable results');
-  }
+/**
+ * Publish a series' current results (ADR-008 Phase 9/10). Renders each fleet to
+ * static HTML, stores it under `/p/{workspaceSlug}/{slug}/{subPath}`, and
+ * records it in `published_series`. Explicit, point-in-time: re-publishing
+ * overwrites; editing the series afterwards does not.
+ *
+ * - **First publish:** the slug is `deriveSeriesSlug(name)` unless the caller
+ *   supplied one. A slug already held by a *live* series is rejected; one held
+ *   by an *orphaned* publication (its series was deleted) requires
+ *   `overwrite: true`, then takes over that row.
+ * - **Re-publish:** the slug is frozen — any supplied slug is ignored. Unchanged
+ *   content (same hash) is a no-op.
+ */
+export async function publishSeries(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  input: PublishInput,
+): Promise<PublishResult> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const series = await repos.series.get(seriesId);
+  if (!series) throw new NotFoundError('series');
+
+  const files = await buildFleetHtmlFiles(
+    exportReposFor(workspace.workspaceId),
+    seriesId,
+  );
+  if (!files) throw new NotFoundError('series has no publishable results');
 
   const hash = await contentHash(files.map((f) => f.html));
   const existing = await getPublishedBySeries(seriesId);
-  const slug = existing?.slug ?? makePublishSlug(series.name);
 
-  // Unchanged content: skip the blob writes, return the current publication.
-  if (existing && existing.contentHash === hash) {
-    return toResult(existing);
+  let id: string;
+  let slug: string;
+
+  if (existing) {
+    // Re-publish: slug is frozen.
+    id = existing.id;
+    slug = existing.slug;
+    if (existing.contentHash === hash) return toResult(workspace.workspaceSlug, existing);
+  } else {
+    // First publish: derive or accept a slug, resolving collisions.
+    const requested = input.slug?.trim();
+    slug = requested ? requested : deriveSeriesSlug(series.name);
+    if (!isValidSeriesSlug(slug)) {
+      throw new BadRequestError('invalid slug', { code: 'invalid-slug' });
+    }
+    const holder = await getPublishedByWorkspaceSlug(workspace.workspaceId, slug);
+    if (holder && holder.seriesId !== null) {
+      throw new BadRequestError('slug already in use', { code: 'slug-in-use' });
+    }
+    if (holder && !input.overwrite) {
+      // Orphaned publication holds this slug — require explicit overwrite.
+      throw new BadRequestError('slug held by an orphaned publication', {
+        code: 'slug-orphaned',
+      });
+    }
+    id = holder ? holder.id : crypto.randomUUID();
   }
 
   const pages: PublishedSeriesPage[] = [];
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const subPath = fleetSubPath(file.fleetName, i === 0);
-    const pathname = `published/${slug}/${subPath || 'standings'}.html`;
-    const blobUrl = await putPublishedHtml(pathname, file.html);
+  for (const file of files) {
+    const subPath = fleetSubPath(file.fleetName, file.isDefault);
+    const key = publishedBlobKey(workspace.workspaceSlug, slug, subPath);
+    const blobUrl = await putPublishedHtml(key, file.html);
     pages.push({ fleetName: file.fleetName, subPath, blobUrl });
   }
 
   const published: PublishedSeries = {
+    id,
+    workspaceId: workspace.workspaceId,
     seriesId,
     slug,
     pages,
@@ -93,22 +140,26 @@ export async function publishSeries(
     publishedAt: Date.now(),
     publishedVersion: series.version ?? 1,
   };
-  await upsertPublished(workspace.workspaceId, published);
-  return toResult(published);
+  await savePublished(published);
+  return toResult(workspace.workspaceSlug, published);
 }
 
 /**
- * The current publication for a series, or null if it has never been
- * published. Workspace-scoped: a series the caller can't see is a 404. Drives
- * the publish dialog's "last published / edits since" view on open.
+ * The publish dialog's view of a series on open: the workspace slug (for the
+ * URL preview), the default slug for first publish, and the current publication
+ * if any. Workspace-scoped — a series the caller can't see is a 404.
  */
 export async function getPublication(
   workspace: WorkspaceContext,
   seriesId: string,
-): Promise<PublishResult | null> {
+): Promise<PublicationStatus> {
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const series = await repos.series.get(seriesId);
   if (!series) throw new NotFoundError('series');
   const existing = await getPublishedBySeries(seriesId);
-  return existing ? toResult(existing) : null;
+  return {
+    workspaceSlug: workspace.workspaceSlug,
+    suggestedSlug: deriveSeriesSlug(series.name),
+    published: existing ? toResult(workspace.workspaceSlug, existing) : null,
+  };
 }

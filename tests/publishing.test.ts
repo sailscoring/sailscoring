@@ -2,57 +2,54 @@ import { describe, it, expect } from 'vitest';
 
 import {
   contentHash,
+  deriveSeriesSlug,
   fleetSubPath,
-  makePublishSlug,
-  randomSlugSuffix,
+  kebab,
+  publishedBlobKey,
 } from '@/lib/publishing';
 
-// Pure helpers for the in-app publishing path (ADR-008 Phase 9). The publish
-// handler and the /p/{slug} route are covered end-to-end by e2e/publishing.spec.ts.
+// Pure helpers for the in-app publishing path (ADR-008 Phase 9/10, #153). The
+// publish handler and the /p/{ws}/{series}/{fleet} route are covered end-to-end
+// by e2e/publishing.spec.ts.
 
-describe('randomSlugSuffix', () => {
-  it('is lowercase alphanumeric of the requested length', () => {
-    expect(randomSlugSuffix()).toMatch(/^[a-z0-9]{6}$/);
-    expect(randomSlugSuffix(10)).toMatch(/^[a-z0-9]{10}$/);
-  });
-
-  it('is (practically) unique across calls', () => {
-    const seen = new Set(Array.from({ length: 200 }, () => randomSlugSuffix()));
-    expect(seen.size).toBe(200);
-  });
-});
-
-describe('makePublishSlug', () => {
-  it('kebab-cases the series name and appends a random suffix', () => {
-    expect(makePublishSlug('HYC Autumn League 2026')).toMatch(
-      /^hyc-autumn-league-2026-[a-z0-9]{6}$/,
-    );
+describe('kebab / deriveSeriesSlug', () => {
+  it('lowercases and hyphenates', () => {
+    expect(deriveSeriesSlug('HYC Autumn League 2026')).toBe('hyc-autumn-league-2026');
   });
 
   it('collapses punctuation and trims stray hyphens', () => {
-    expect(makePublishSlug('M15 Westerns — Lough Derg!')).toMatch(
-      /^m15-westerns-lough-derg-[a-z0-9]{6}$/,
-    );
+    expect(deriveSeriesSlug('M15 Westerns — Lough Derg!')).toBe('m15-westerns-lough-derg');
   });
 
-  it('falls back to "series" when the name has no usable characters', () => {
-    expect(makePublishSlug('!!!')).toMatch(/^series-[a-z0-9]{6}$/);
+  it('falls back to "series" when nothing usable remains', () => {
+    expect(deriveSeriesSlug('!!!')).toBe('series');
   });
 
-  it('keeps two same-named series distinct via the suffix', () => {
-    expect(makePublishSlug('Spring Series')).not.toBe(makePublishSlug('Spring Series'));
+  it('is deterministic — no random suffix (workspace namespaces it)', () => {
+    expect(deriveSeriesSlug('Spring Series')).toBe(deriveSeriesSlug('Spring Series'));
   });
 });
 
 describe('fleetSubPath', () => {
-  it('serves the primary fleet at the bare slug', () => {
-    expect(fleetSubPath('Default', true)).toBe('');
-    expect(fleetSubPath('IRC', true)).toBe('');
+  it('serves a single (default) fleet at "standings"', () => {
+    expect(fleetSubPath('Default', true)).toBe('standings');
+    expect(fleetSubPath('IRC', true)).toBe('standings');
   });
 
-  it('mirrors bilge layout for non-primary fleets', () => {
-    expect(fleetSubPath('IRC One', false)).toBe('standings-irc-one');
-    expect(fleetSubPath('Echo', false)).toBe('standings-echo');
+  it('uses the kebab fleet name for named fleets', () => {
+    expect(fleetSubPath('IRC One', false)).toBe('irc-one');
+    expect(fleetSubPath('Echo', false)).toBe('echo');
+  });
+});
+
+describe('publishedBlobKey', () => {
+  it('mirrors the public URL path', () => {
+    expect(publishedBlobKey('hyc', 'autumn-league-2026', 'standings')).toBe(
+      'p/hyc/autumn-league-2026/standings',
+    );
+    expect(publishedBlobKey('u-abc123', 'westerns', 'irc-1')).toBe(
+      'p/u-abc123/westerns/irc-1',
+    );
   });
 });
 
@@ -68,7 +65,14 @@ describe('contentHash', () => {
     expect(await contentHash(['<html>A</html>'])).not.toBe(base);
   });
 
-  it('distinguishes page boundaries (not just concatenation)', async () => {
+  it('distinguishes page boundaries', async () => {
     expect(await contentHash(['ab', 'c'])).not.toBe(await contentHash(['a', 'bc']));
+  });
+});
+
+describe('kebab (direct)', () => {
+  it('is exported for reuse and handles empties', () => {
+    expect(kebab('A B')).toBe('a-b');
+    expect(kebab('')).toBe('series');
   });
 });

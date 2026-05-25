@@ -52,6 +52,9 @@ export interface WorkspaceContext {
   userId: string;
   email: string;
   workspaceId: string;
+  /** The workspace's organization slug — the public namespace segment in
+   *  `/p/{workspaceSlug}/...` published URLs. Personal workspaces are `u-{id}`. */
+  workspaceSlug: string;
   role: WorkspaceRole;
 }
 
@@ -126,6 +129,7 @@ export async function resolveWorkspace(input: {
         userId: input.userId,
         email: input.email,
         workspaceId: active.organizationId,
+        workspaceSlug: active.slug,
         role: active.role as WorkspaceRole,
       };
     }
@@ -152,6 +156,7 @@ export async function resolveWorkspace(input: {
       userId: input.userId,
       email: input.email,
       workspaceId: bootstrap.organizationId,
+      workspaceSlug: bootstrap.slug,
       role: bootstrap.role as WorkspaceRole,
     };
   }

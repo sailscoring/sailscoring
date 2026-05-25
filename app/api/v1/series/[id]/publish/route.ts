@@ -1,20 +1,24 @@
 import { getPublication, publishSeries } from '@/lib/api-handlers/publish';
-import type { PublishResult } from '@/lib/types';
-import { workspaceRoute } from '../../../_lib/handler';
+import type { PublicationStatus, PublishResult } from '@/lib/types';
+import { publishInputSchema } from '@/lib/validation/publish';
+import { readJson, workspaceRoute } from '../../../_lib/handler';
 
 export const dynamic = 'force-dynamic';
 
 type Params = { id: string };
 
-// The current publication (or null/204 if never published) — drives the
-// dialog's "last published / edits since" view.
-export const GET = workspaceRoute<Params, PublishResult | null>(
+// The current publication state (workspace slug, suggested slug, publication if
+// any) — drives the dialog's URL preview and "last published / edits since".
+export const GET = workspaceRoute<Params, PublicationStatus>(
   async (_req, { workspace, params }) => getPublication(workspace, params.id),
 );
 
-// Publish takes no body — it renders the series' current state. Idempotency-Key
-// replay is handled by the wrapper; an unchanged re-publish is also a no-op at
-// the handler level (same content hash ⇒ blobs untouched).
+// Publish the series' current state. Body: `{ slug?, overwrite? }` (slug only
+// honoured on first publish). Idempotency-Key replay handled by the wrapper;
+// an unchanged re-publish is also a no-op at the handler level.
 export const POST = workspaceRoute<Params, PublishResult>(
-  async (_req, { workspace, params }) => publishSeries(workspace, params.id),
+  async (req, { workspace, params }) => {
+    const input = await readJson(req, publishInputSchema);
+    return publishSeries(workspace, params.id, input);
+  },
 );

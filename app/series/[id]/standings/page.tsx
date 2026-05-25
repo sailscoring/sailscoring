@@ -195,6 +195,7 @@ export default function StandingsPage({
 
       <PublishDialog
         series={series}
+        fleets={fleets}
         open={showPublishDialog}
         onClose={() => setShowPublishDialog(false)}
       />
