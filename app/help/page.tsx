@@ -813,14 +813,16 @@ export default function HelpPage() {
           <strong className="text-foreground">Publish:</strong> click{' '}
           <strong className="text-foreground">Publish</strong> (or press{' '}
           <strong className="text-foreground">p</strong>). Sail Scoring renders the current
-          standings and hosts them at a public URL like{' '}
-          <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc-autumn-league-2026-a1b2c3</code>.
-          The URL is assigned on first publish and is stable forever — re-publishing updates the
-          page in place. Publishing is an explicit, point-in-time action: editing the series
-          afterwards does not change the published page, and the dialog tells you how many edits
-          have landed since the last publish so you know when to re-publish. A series scored as
-          multiple fleets produces one page per fleet. Published pages are read-only and need no
-          sign-in to view.
+          standings and hosts them under your workspace at a public URL like{' '}
+          <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc/autumn-league-2026/standings</code>.
+          The dialog suggests a slug from the series name which you can edit before the first
+          publish; once published it&apos;s fixed, so the URL is stable forever and re-publishing
+          updates the page in place. Publishing is an explicit, point-in-time action: editing the
+          series afterwards does not change the published page, and the dialog tells you how many
+          edits have landed since the last publish so you know when to re-publish. A series scored
+          as multiple fleets produces one page per fleet (e.g.{' '}
+          <code className="text-foreground text-sm">…/autumn-league-2026/irc-1</code>). Published
+          pages are read-only and need no sign-in to view.
         </p>
         <p>
           <strong className="text-foreground">Upload via FTP:</strong>{' '}
