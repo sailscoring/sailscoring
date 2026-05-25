@@ -122,7 +122,7 @@ test('class field shows Class column and exports in results', async ({ page }) =
   expect(html).toContain('>Laser<');
 });
 
-test('subdivision: rename label, filter standings, export column (#158)', async ({ page }) => {
+test('subdivision: rename label, standings column, export column (#158)', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'ILCA Masters' });
 
@@ -163,17 +163,11 @@ test('subdivision: rename label, filter standings, export column (#158)', async 
   await page.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
-  // ── 5. Standings: the Category column shows, and the filter narrows to one ─
+  // ── 5. Standings: the Category column shows both competitors ─────────────
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page.getByRole('columnheader', { name: 'Category' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Alice' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Bob' })).toBeVisible();
-
-  await page.getByRole('button', { name: /Category: All/ }).click();
-  await page.getByRole('menuitem', { name: 'Grand Master' }).click();
-  // Filtered to Grand Master: Alice stays, Bob is hidden (rank unchanged).
-  await expect(page.getByRole('cell', { name: 'Alice' })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'Bob' })).toHaveCount(0);
 
   // ── 6. Export HTML carries the renamed column and the values ─────────────
   const [download] = await Promise.all([

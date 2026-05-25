@@ -344,8 +344,9 @@ entity. For each Fleet and scoring system combination:
 | net_points | total_points minus worst N scores per discard profile |
 | rank | Order by net_points (lowest first), tie-break per Appendix A8 |
 
-Standings can be further filtered by division (e.g. show only Gold
-competitors within a Fleet) for prize-giving purposes.
+Division is shown as a column in the standings (for identifying which
+sub-trophy a boat is eligible for) but does not affect scoring or ranking —
+everyone in a Fleet is ranked together.
 
 ## Data Integrity Rules
 

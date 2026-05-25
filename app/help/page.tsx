@@ -174,9 +174,8 @@ export default function HelpPage() {
           together, and the subdivision only decides which sub-trophy an entry is
           eligible for. You can rename the field&rsquo;s label (to{' '}
           <em>Category</em>, say) in the <strong className="text-foreground">Competitor fields</strong>{' '}
-          card. On the <strong className="text-foreground">Standings</strong> tab a
-          filter then lets you narrow the table to one subdivision for
-          prize-giving, keeping each boat&rsquo;s overall fleet rank.
+          card. It then shows as a column in the competitors table, the
+          standings, and exported results.
         </p>
         <p>
           Competitors are sorted by sail number. You can edit or delete a competitor at any time,
