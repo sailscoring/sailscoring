@@ -4,9 +4,11 @@
 
 Sail Scoring runs as a Next.js application on Vercel. Scoring data lives
 in Postgres (via Better Auth + a custom workspace-scoped repository
-layer); results are published via the
-[bilge](https://github.com/sailscoring/bilge) and
-[scupper](https://github.com/sailscoring/scupper) services.
+layer). Results are published in-app — rendered to static HTML, stored in
+Vercel Blob, and served at `/p/{workspace}/{series}/...`; optional FTP upload
+to a club's own web host is relayed through the
+[scupper](https://github.com/sailscoring/scupper) service. (The original
+standalone **bilge** publishing service was retired in ADR-008 Phase 9.)
 
 The full-stack architecture is documented in
 [ADR-008](docs/design/decisions/008-full-stack-transition.md).
@@ -119,7 +121,38 @@ The Marketplace integration also injects `POSTGRES_*`, `PG*`, and
 `DATABASE_URL_UNPOOLED` are. Delete the rest with `vercel env rm <NAME>
 --yes` to keep `vercel env pull` output clean.
 
-## 4. Provision Resend
+## 4. Provision Vercel Blob
+
+Published results pages (ADR-008 Phase 9) are rendered to static HTML, stored
+in Vercel Blob, and served at `/p/{workspace}/{series}/{fleet}`.
+
+In the Vercel dashboard, open the **app** project (`sailscoring`):
+
+1. **Storage → Create Database → Blob**, accept the defaults, **Create**.
+   - There's no "public" toggle to set: the app uploads each page with
+     `access: 'public'` itself (`lib/blob-storage.ts`), so the store can stay
+     on its defaults.
+   - If prompted for a region, pick one near the app's primary region / your
+     users (an EU region for Irish sailing). Blob is CDN-fronted, so this
+     isn't critical.
+2. **Connect to Project →** select `sailscoring` and the environments that
+   should publish to Blob — **Production** (and **Preview** if you want
+   preview deploys to publish to Blob too). Vercel then sets
+   `BLOB_READ_WRITE_TOKEN` automatically for those environments; you don't
+   copy it anywhere.
+
+**Development and CI need no Blob.** When `BLOB_READ_WRITE_TOKEN` is unset,
+`lib/blob-storage.ts` stores the rendered HTML in the `published_blobs`
+Postgres table instead, so local dev, CI, and the e2e suite run the full
+publish flow without a Blob store. Leave the token unset on Development.
+
+> **This is the app's own Blob store — not the same as any other project's,
+> and not safe to delete casually.** If it is ever lost, the published HTML is
+> regenerable: the series data lives in Postgres, so re-publishing each series
+> (Standings → Re-publish) re-renders and re-uploads its pages at the same
+> (frozen) slug.
+
+## 5. Provision Resend
 
 Resend sends magic-link emails. For dev you can skip this entirely (see
 [Local development](#local-development) below) — the dev sender writes
@@ -147,7 +180,7 @@ For Preview/Production:
 
 4. Click **Verify DNS Records**. Propagation usually takes minutes.
 5. **API Keys → Create API Key** with send-only access. Save the value for
-   step 5.
+   step 6.
 6. **Register the domain in [Google Postmaster Tools](https://postmaster.google.com/)**.
    It exposes Gmail's view of our sending reputation, authentication pass
    rates, and spam-rate complaints — the only way to diagnose Gmail
@@ -171,7 +204,7 @@ For Preview/Production:
    on `send.sailscoring.ie`, From is on the apex, so strict would fail SPF
    alignment and Gmail would quarantine everything.
 
-## 5. Set Vercel environment variables
+## 6. Set Vercel environment variables
 
 Vercel has three environments: **Production**, **Preview**, and
 **Development**. Production deploys when you `vercel deploy --prod` (or push
@@ -192,8 +225,7 @@ Development is *only* used to populate `.env.local` via `vercel env pull`.
 | `CREDENTIAL_KEY`               | random (set, **permanent**) | random (set, **permanent**) | random (set) | yes for prod/preview |
 | `CRON_SECRET`                  | random (set)         | unset (recommended)  | unset                | yes        |
 | `NEXT_PUBLIC_APP_URL`          | `https://app.sailscoring.ie` | unset / preview URL  | `http://localhost:3000` | no  |
-| `NEXT_PUBLIC_BILGE_URL`        | `https://bilge.sailscoring.ie` | (same)     | (same)               | no         |
-| `NEXT_PUBLIC_BILGE_API_KEY`    | from bilge project   | from bilge project   | from bilge project   | no         |
+| `BLOB_READ_WRITE_TOKEN`        | from Vercel Blob (managed) | from Vercel Blob (managed, if connected) | unset → `published_blobs` fallback | yes (managed) |
 | `NEXT_PUBLIC_SCUPPER_URL`      | `https://scupper.sailscoring.ie` | (same)   | (same)               | no         |
 | `NEXT_PUBLIC_SCUPPER_API_KEY`  | from scupper project | from scupper project | from scupper project | no         |
 
@@ -239,10 +271,15 @@ swap. Use the **same value** in Production and Preview because they share the
 same Neon database — a preview deploy reading a row written by production
 needs the same key. Development can use a different value (its own DB).
 
-**`NEXT_PUBLIC_APP_URL`** — used elsewhere in the app for "Open in Sail
-Scoring" links in exported HTML. The auth client *does not* use this; it
-relies on the current page origin so the same code works in dev, on previews,
-and in production.
+**`NEXT_PUBLIC_APP_URL`** — base for the public `/p/{workspace}/{series}/...`
+published-results URLs and the "Open in Sail Scoring" links in exported HTML.
+The auth client *does not* use this; it relies on the current page origin so
+the same code works in dev, on previews, and in production.
+
+**`BLOB_READ_WRITE_TOKEN`** — managed by the Vercel Blob integration (step 4),
+not added by hand. Leave it **unset on Development** so publishing uses the
+`published_blobs` Postgres fallback; it's set on Production (and Preview, if
+you connected the store there).
 
 **`CRON_SECRET`** — shared secret for the daily Vercel cron defined in
 `vercel.json` (`/api/cron/sweep-idempotency`, issue #126). Vercel injects
@@ -281,7 +318,7 @@ vercel env add CREDENTIAL_KEY
 # every stored FTP password becomes undecryptable.
 ```
 
-## 6. Pull env vars locally
+## 7. Pull env vars locally
 
 ```sh
 vercel env pull
@@ -291,7 +328,7 @@ This writes `.env.local` from the **Development** environment values. Inspect
 it to confirm `DATABASE_URL`, `BETTER_AUTH_SECRET`, and `BETTER_AUTH_URL` are
 present.
 
-## 7. Migrate the database
+## 8. Migrate the database
 
 ```sh
 pnpm db:migrate
@@ -310,7 +347,7 @@ Two related scripts:
 - `pnpm db:auth:generate` — regenerate `lib/db/schema/auth.ts` from changes
   to `lib/auth.ts` (Better Auth plugin config)
 
-## 8. Deploy
+## 9. Deploy
 
 ```sh
 pnpm run deploy        # preview deployment
@@ -329,7 +366,7 @@ how the test paths wire together, and which commands bring the local
 Postgres container up automatically (and which require `pnpm db:up`
 first). Read it once and keep the tab open.
 
-The minimum `.env.local` for the full server backend, after step 6:
+The minimum `.env.local` for the full server backend, after step 7:
 
 ```
 DATABASE_URL=postgres://...                 # from Neon (Development branch)
@@ -337,8 +374,7 @@ BETTER_AUTH_SECRET=...                      # 32+ chars random
 BETTER_AUTH_URL=http://localhost:3000
 CREDENTIAL_KEY=...                          # 64 hex chars (`openssl rand -hex 32`)
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_BILGE_URL=https://bilge.sailscoring.ie
-NEXT_PUBLIC_BILGE_API_KEY=...
+# BLOB_READ_WRITE_TOKEN intentionally unset — publishing uses the published_blobs Postgres fallback locally
 NEXT_PUBLIC_SCUPPER_URL=https://scupper.sailscoring.ie
 NEXT_PUBLIC_SCUPPER_API_KEY=...
 # RESEND_API_KEY intentionally unset — dev sender writes to log
@@ -506,7 +542,6 @@ Open browser DevTools console:
 
 ```js
 localStorage.setItem('sailscoring:debug', '1')   // Sail Scoring core
-localStorage.setItem('bilge:debug', '1')         // bilge calls
 localStorage.setItem('scupper:debug', '1')       // scupper calls
 ```
 
