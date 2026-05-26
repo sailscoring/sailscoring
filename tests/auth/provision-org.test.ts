@@ -9,8 +9,11 @@ import * as schema from '@/lib/db/schema';
 import {
   addMember,
   createOrg,
+  declineRequest,
   deleteOrg,
+  fulfilRequest,
   listMembers,
+  listRequests,
   preCreateUser,
   removeMember,
   setRole,
@@ -91,6 +94,67 @@ describe.skipIf(skip)('provision-org operations', () => {
     await expect(
       createOrg(db, { name: 'Beta', slug }),
     ).rejects.toThrow(/already exists/);
+  });
+
+  async function makeRequest(
+    userId: string,
+    email: string,
+    requestedName: string,
+  ): Promise<string> {
+    const id = crypto.randomUUID();
+    await db.insert(schema.orgRequest).values({
+      id,
+      userId,
+      userEmail: email,
+      requestedName,
+      createdAt: new Date(),
+    });
+    return id;
+  }
+
+  test('fulfilRequest creates the workspace, adds the requester as owner, and marks it fulfilled', async () => {
+    const stamp = Date.now();
+    const email = `requester-${stamp}@sailscoring.test`;
+    const userId = await makeUser(email);
+    const requestId = await makeRequest(userId, email, `Requested Panel ${stamp}`);
+
+    const pending = await listRequests(db);
+    expect(pending.some((r) => r.id === requestId)).toBe(true);
+
+    const { org } = await fulfilRequest(db, { requestId, slug: `req-${stamp}` });
+    cleanupOrgIds.push(org.id);
+    expect(org.name).toBe(`Requested Panel ${stamp}`);
+
+    // Requester is the owner of the new workspace.
+    const members = await listMembers(db, { orgSlugOrId: org.id });
+    expect(members.members).toHaveLength(1);
+    expect(members.members[0]).toMatchObject({ email, role: 'owner' });
+
+    // Request is no longer pending, and points at the new org.
+    const [row] = await db
+      .select()
+      .from(schema.orgRequest)
+      .where(eq(schema.orgRequest.id, requestId));
+    expect(row.status).toBe('fulfilled');
+    expect(row.resolvedOrgId).toBe(org.id);
+    expect(row.resolvedAt).not.toBeNull();
+
+    // Already-resolved requests can't be fulfilled again.
+    await expect(fulfilRequest(db, { requestId })).rejects.toThrow(/already fulfilled/);
+  });
+
+  test('declineRequest marks a pending request declined', async () => {
+    const stamp = Date.now();
+    const email = `declined-${stamp}@sailscoring.test`;
+    const userId = await makeUser(email);
+    const requestId = await makeRequest(userId, email, `Doomed Panel ${stamp}`);
+
+    await declineRequest(db, { requestId });
+    const [row] = await db
+      .select()
+      .from(schema.orgRequest)
+      .where(eq(schema.orgRequest.id, requestId));
+    expect(row.status).toBe('declined');
   });
 
   test('addMember rejects unknown user with a helpful message', async () => {

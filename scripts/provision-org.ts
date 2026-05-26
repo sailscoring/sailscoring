@@ -37,7 +37,7 @@
 import { and, eq, or, sql } from 'drizzle-orm';
 
 import { getDb, getDbClient, type SailScoringDb } from '@/lib/db/client';
-import { member, organization, user } from '@/lib/db/schema/auth';
+import { member, organization, orgRequest, user } from '@/lib/db/schema/auth';
 import { competitors, fleets, races, series } from '@/lib/db/schema/series';
 
 export type Role = 'owner' | 'admin' | 'member';
@@ -335,6 +335,90 @@ export async function listMembers(
   };
 }
 
+// ─── Org-creation requests (#153, iteration 3) ───────────────────────────────
+
+export interface OrgRequestSummary {
+  id: string;
+  userEmail: string;
+  requestedName: string;
+  note: string | null;
+  status: string;
+  createdAt: Date;
+}
+
+export async function listRequests(
+  db: SailScoringDb,
+  args: { all?: boolean } = {},
+): Promise<OrgRequestSummary[]> {
+  const select = {
+    id: orgRequest.id,
+    userEmail: orgRequest.userEmail,
+    requestedName: orgRequest.requestedName,
+    note: orgRequest.note,
+    status: orgRequest.status,
+    createdAt: orgRequest.createdAt,
+  };
+  return args.all
+    ? db.select(select).from(orgRequest).orderBy(orgRequest.createdAt)
+    : db
+        .select(select)
+        .from(orgRequest)
+        .where(eq(orgRequest.status, 'pending'))
+        .orderBy(orgRequest.createdAt);
+}
+
+/**
+ * Fulfil a pending request: create the workspace, add the requester as its
+ * owner, and mark the request fulfilled — all in one transaction so a partial
+ * fulfilment can't leave an orphaned org or an unflagged request. The
+ * requester already exists as a user (they were signed in to submit), so
+ * `addMember` finds them by email.
+ */
+export async function fulfilRequest(
+  db: SailScoringDb,
+  args: { requestId: string; slug?: string },
+): Promise<{ org: { id: string; name: string; slug: string }; email: string }> {
+  const [req] = await db
+    .select()
+    .from(orgRequest)
+    .where(eq(orgRequest.id, args.requestId))
+    .limit(1);
+  if (!req) throw new Error(`request "${args.requestId}" not found`);
+  if (req.status !== 'pending') {
+    throw new Error(`request "${args.requestId}" is already ${req.status}`);
+  }
+
+  return db.transaction(async (tx) => {
+    const org = await createOrg(tx, { name: req.requestedName, slug: args.slug });
+    await addMember(tx, { orgSlugOrId: org.id, email: req.userEmail, role: 'owner' });
+    await tx
+      .update(orgRequest)
+      .set({ status: 'fulfilled', resolvedAt: new Date(), resolvedOrgId: org.id })
+      .where(eq(orgRequest.id, req.id));
+    return { org, email: req.userEmail };
+  });
+}
+
+export async function declineRequest(
+  db: SailScoringDb,
+  args: { requestId: string },
+): Promise<{ requestedName: string; userEmail: string }> {
+  const [req] = await db
+    .select()
+    .from(orgRequest)
+    .where(eq(orgRequest.id, args.requestId))
+    .limit(1);
+  if (!req) throw new Error(`request "${args.requestId}" not found`);
+  if (req.status !== 'pending') {
+    throw new Error(`request "${args.requestId}" is already ${req.status}`);
+  }
+  await db
+    .update(orgRequest)
+    .set({ status: 'declined', resolvedAt: new Date() })
+    .where(eq(orgRequest.id, req.id));
+  return { requestedName: req.requestedName, userEmail: req.userEmail };
+}
+
 // ─── CLI dispatcher ──────────────────────────────────────────────────────────
 
 interface ParsedFlags {
@@ -373,9 +457,16 @@ function usage(): string {
   set-role <org-slug-or-id> <email> <role>
   remove-member <org-slug-or-id> <email>
   list-members <org-slug-or-id>
+  list-requests [--all]
+  fulfil-request <request-id> [--slug <slug>]
+  decline-request <request-id>
 
 delete-org without --force only prints what would be deleted. Cascades
 through members, invitations, and all series/race/competitor data.
+
+list-requests shows pending self-service workspace requests (#153); --all
+includes resolved ones. fulfil-request creates the workspace, adds the
+requester as owner, and marks the request fulfilled.
 
 Members must already exist (signed in once, or seeded via pre-create-user).
 Reads DATABASE_URL.`;
@@ -480,6 +571,35 @@ export async function runCli(argv: string[]): Promise<number> {
             console.log(`  ${m.role.padEnd(6)}  ${m.email.padEnd(40)}  ${m.name || '(no name)'}  joined ${joined}`);
           }
         }
+        return 0;
+      }
+      case 'list-requests': {
+        const requests = await listRequests(db, { all: flags.all === 'true' });
+        if (requests.length === 0) {
+          console.log(flags.all === 'true' ? '(no requests)' : '(no pending requests)');
+          return 0;
+        }
+        for (const r of requests) {
+          const when = r.createdAt.toISOString().slice(0, 10);
+          console.log(`${r.status.padEnd(9)}  ${r.id}  ${r.userEmail.padEnd(36)}  "${r.requestedName}"  (${when})`);
+          if (r.note) console.log(`             note: ${r.note}`);
+        }
+        return 0;
+      }
+      case 'fulfil-request': {
+        const [requestId] = positional;
+        if (!requestId) throw new Error('fulfil-request: <request-id> is required');
+        const { org, email } = await fulfilRequest(db, { requestId, slug: flags.slug });
+        console.log(
+          `fulfilled: created "${org.name}" (slug: ${org.slug}, id: ${org.id}) and added ${email} as owner`,
+        );
+        return 0;
+      }
+      case 'decline-request': {
+        const [requestId] = positional;
+        if (!requestId) throw new Error('decline-request: <request-id> is required');
+        const { requestedName, userEmail } = await declineRequest(db, { requestId });
+        console.log(`declined request "${requestedName}" from ${userEmail}`);
         return 0;
       }
       default:

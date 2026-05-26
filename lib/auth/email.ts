@@ -208,9 +208,9 @@ export async function sendOrgRequestEmail(args: {
     args.note ? `\n\nNote from the requester:\n${args.note}` : ''
   }
 
-Fulfil it from the production DB with:
-  pnpm provision-org:prod list-requests
-  pnpm provision-org:prod fulfil-request <id>
+Fulfil it from the production database with the provision-org CLI:
+  list-requests        (find the request id)
+  fulfil-request <id>  (creates the workspace + adds them as owner)
 
 — Sail Scoring`;
 
