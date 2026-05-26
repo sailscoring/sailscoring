@@ -4,13 +4,30 @@ import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2, Trash2 } from 'lucide-react';
+import {
+  Archive,
+  ArchiveRestore,
+  ChevronDown,
+  ChevronRight,
+  FolderInput,
+  Loader2,
+  MoreVertical,
+  Tags,
+  Trash2,
+} from 'lucide-react';
 import * as repos from '@/lib/api-repository';
-import { useSeriesList, useDeleteSeriesCascade } from '@/hooks/use-series';
+import {
+  useSeriesList,
+  useDeleteSeriesCascade,
+  useArchiveSeries,
+  useSetSeriesCategory,
+} from '@/hooks/use-series';
+import { useCategories } from '@/hooks/use-categories';
 import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
+import { ManageCategoriesDialog } from '@/components/manage-categories-dialog';
 import {
   Dialog,
   DialogContent,
@@ -19,7 +36,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { Series } from '@/lib/types';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  groupActiveByCategory,
+  groupArchivedByYear,
+} from '@/lib/series-list';
+import type { Category, Series } from '@/lib/types';
 import {
   parseSeriesFile,
   checkLineage,
@@ -55,11 +88,20 @@ function formatSaveDate(ts: number): string {
 
 function SeriesCard({
   series,
+  categories,
+  onArchive,
+  onUnarchive,
+  onMove,
   onDeleteClick,
 }: {
   series: Series;
+  categories: Category[];
+  onArchive: (series: Series) => void;
+  onUnarchive: (series: Series) => void;
+  onMove: (series: Series, categoryId: string | null) => void;
   onDeleteClick: (series: Series) => void;
 }) {
+  const archived = series.archived ?? false;
   return (
     <div className="flex items-center justify-between border rounded-lg px-5 py-4 hover:bg-accent/50 transition-colors">
       <Link
@@ -76,17 +118,64 @@ function SeriesCard({
           )}
         </div>
       </Link>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={`Delete ${series.name}`}
-        onClick={(e) => {
-          e.preventDefault();
-          onDeleteClick(series);
-        }}
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Actions for ${series.name}`}
+            onClick={(e) => e.preventDefault()}
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {archived ? (
+            <>
+              <DropdownMenuItem onClick={() => onUnarchive(series)}>
+                <ArchiveRestore className="h-4 w-4" />
+                Unarchive
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => onDeleteClick(series)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete…
+              </DropdownMenuItem>
+            </>
+          ) : (
+            <>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <FolderInput className="h-4 w-4" />
+                  Move to category
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuRadioGroup
+                    value={series.categoryId ?? 'none'}
+                    onValueChange={(v) => onMove(series, v === 'none' ? null : v)}
+                  >
+                    {categories.map((c) => (
+                      <DropdownMenuRadioItem key={c.id} value={c.id}>
+                        {c.name}
+                      </DropdownMenuRadioItem>
+                    ))}
+                    <DropdownMenuRadioItem value="none">
+                      Uncategorized
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuItem onClick={() => onArchive(series)}>
+                <Archive className="h-4 w-4" />
+                Archive
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -96,9 +185,14 @@ export default function HomePage() {
   const queryClient = useQueryClient();
   const { seriesRepo } = repos;
   const { data: seriesList } = useSeriesList();
+  const { data: categories } = useCategories();
   const deleteCascade = useDeleteSeriesCascade();
+  const archiveSeries = useArchiveSeries();
+  const setSeriesCategory = useSetSeriesCategory();
   const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [showManageCategories, setShowManageCategories] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [openFlow, setOpenFlow] = useState<OpenFlow>({ step: 'idle' });
   const [importFormat, setImportFormat] = useState<ImportFormat>('sailscoring');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -117,6 +211,18 @@ export default function HomePage() {
     const seriesId = pendingDelete.id;
     setPendingDelete(null);
     await deleteCascade.mutateAsync(seriesId);
+  }
+
+  function handleArchive(series: Series) {
+    archiveSeries.mutate({ id: series.id, archived: true });
+  }
+
+  function handleUnarchive(series: Series) {
+    archiveSeries.mutate({ id: series.id, archived: false });
+  }
+
+  function handleMove(series: Series, categoryId: string | null) {
+    setSeriesCategory.mutate({ id: series.id, categoryId });
   }
 
   function handleImportSeriesClick() {
@@ -250,11 +356,39 @@ export default function HomePage() {
     ? openFlow.existing
     : null;
 
+  const cats = categories ?? [];
+  const allSeries = seriesList ?? [];
+  const activeGroups = groupActiveByCategory(
+    allSeries.filter((s) => !s.archived),
+    cats,
+  );
+  const archivedGroups = groupArchivedByYear(allSeries.filter((s) => s.archived));
+  const archivedCount = archivedGroups.reduce((n, g) => n + g.series.length, 0);
+  // Flat (no section headers) when nothing is categorised — preserves the
+  // original look for workspaces that don't use categories.
+  const flatActive = activeGroups.length <= 1 && activeGroups[0]?.category == null;
+
+  const renderCard = (s: Series) => (
+    <SeriesCard
+      key={s.id}
+      series={s}
+      categories={cats}
+      onArchive={handleArchive}
+      onUnarchive={handleUnarchive}
+      onMove={handleMove}
+      onDeleteClick={setPendingDelete}
+    />
+  );
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Series</h1>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowManageCategories(true)}>
+            <Tags className="h-4 w-4" />
+            Categories
+          </Button>
           <Button variant="outline" onClick={handleImportSeriesClick}>
             Import Series
           </Button>
@@ -283,10 +417,51 @@ export default function HomePage() {
       )}
 
       {seriesList !== undefined && seriesList.length > 0 && (
-        <div className="space-y-2">
-          {seriesList.map((s) => (
-            <SeriesCard key={s.id} series={s} onDeleteClick={setPendingDelete} />
-          ))}
+        <div className="space-y-6">
+          {/* Active series, partitioned by category */}
+          {flatActive ? (
+            <div className="space-y-2">{activeGroups[0]?.series.map(renderCard)}</div>
+          ) : (
+            activeGroups.map((g) => (
+              <section key={g.category?.id ?? 'uncategorized'} className="space-y-2">
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {g.category?.name ?? 'Uncategorized'}
+                </h2>
+                <div className="space-y-2">{g.series.map(renderCard)}</div>
+              </section>
+            ))
+          )}
+
+          {/* Archived series — collapsed by default, grouped by event year */}
+          {archivedCount > 0 && (
+            <div className="border-t pt-4">
+              <button
+                type="button"
+                className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground"
+                aria-expanded={showArchived}
+                onClick={() => setShowArchived((v) => !v)}
+              >
+                {showArchived ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+                Archived ({archivedCount})
+              </button>
+              {showArchived && (
+                <div className="mt-3 space-y-6">
+                  {archivedGroups.map((g) => (
+                    <section key={g.year ?? 'undated'} className="space-y-2">
+                      <h3 className="text-xs font-medium text-muted-foreground">
+                        {g.year ?? 'Undated'}
+                      </h3>
+                      <div className="space-y-2">{g.series.map(renderCard)}</div>
+                    </section>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -335,6 +510,11 @@ export default function HomePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ManageCategoriesDialog
+        open={showManageCategories}
+        onClose={() => setShowManageCategories(false)}
+      />
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
 

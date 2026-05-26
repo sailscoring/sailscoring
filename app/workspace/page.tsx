@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { getOptionalSession } from '@/lib/auth/require-session';
 import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
+import { CategoriesCard } from '@/components/workspace-settings/categories-card';
 import { FtpServersCard } from '@/components/workspace-settings/ftp-servers-card';
 import { PublishedCard } from '@/components/workspace-settings/published-card';
 
@@ -47,6 +48,7 @@ export default async function WorkspacePage() {
   return (
     <div className="space-y-6 max-w-lg mx-auto">
       <h1 className="text-2xl font-semibold">{title}</h1>
+      <CategoriesCard />
       <PublishedCard />
       <FtpServersCard />
     </div>
