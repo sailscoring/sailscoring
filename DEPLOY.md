@@ -146,6 +146,17 @@ In the Vercel dashboard, open the **app** project (`sailscoring`):
 Postgres table instead, so local dev, CI, and the e2e suite run the full
 publish flow without a Blob store. Leave the token unset on Development.
 
+**The read path is a function, not a static rewrite (#162).** `/p/...` is
+served by `app/p/[...slug]/route.ts`, not a CDN rewrite to Blob. It reads the
+fleet HTML from Blob with the publication's content hash as a query
+cache-buster (`?v=…`) so a re-publish is visible immediately — Blob takes up to
+~60s to propagate an overwrite at a stable URL, which the buster sidesteps. The
+two listing pages (`/p/{ws}` and `/p/{ws}/{series}`) are rendered on the fly,
+so there is nothing to regenerate on publish. Responses are `Cache-Control:
+no-cache` + an ETag, so refreshes revalidate (cheap 304s) rather than serve a
+stale copy. This deliberately keeps a Fluid-Compute hit on the read path in
+exchange for freshness.
+
 > **This is the app's own Blob store — not the same as any other project's,
 > and not safe to delete casually.** If it is ever lost, the published HTML is
 > regenerable: the series data lives in Postgres, so re-publishing each series

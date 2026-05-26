@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 
 import { getDb } from './db/client';
 import * as schema from './db/schema';
@@ -62,16 +62,59 @@ export async function getPublishedByWorkspaceSlug(
   return row ? rowToPublished(row) : null;
 }
 
-/** Resolve an organization (workspace) id from its public slug. */
-export async function getWorkspaceIdBySlug(
+/** Resolve a workspace (id + display name) from its public slug. Drives the
+ *  public route's workspace lookup and listing heading (#162). */
+export async function getWorkspaceBySlug(
   workspaceSlug: string,
-): Promise<string | null> {
+): Promise<{ id: string; name: string } | null> {
   const [row] = await getDb()
-    .select({ id: schema.organization.id })
+    .select({ id: schema.organization.id, name: schema.organization.name })
     .from(schema.organization)
     .where(eq(schema.organization.slug, workspaceSlug))
     .limit(1);
-  return row?.id ?? null;
+  return row ?? null;
+}
+
+/** The display name of a series, or null if it no longer exists (orphaned
+ *  publication). Unscoped — published pages are public, and the name already
+ *  appears in the rendered results. Drives the series-listing title (#162). */
+export async function getSeriesName(seriesId: string): Promise<string | null> {
+  const [row] = await getDb()
+    .select({ name: schema.series.name })
+    .from(schema.series)
+    .where(eq(schema.series.id, seriesId))
+    .limit(1);
+  return row?.name ?? null;
+}
+
+/** Every publication in a workspace, newest first, for the public listing
+ *  (#162). The title is the live series name, falling back to the slug for an
+ *  orphaned publication (its series was deleted). */
+export async function listPublishedByWorkspace(
+  workspaceId: string,
+): Promise<
+  { slug: string; title: string; publishedAt: number; fleetCount: number }[]
+> {
+  const rows = await getDb()
+    .select({
+      slug: schema.publishedSeries.slug,
+      pages: schema.publishedSeries.pages,
+      publishedAt: schema.publishedSeries.publishedAt,
+      seriesName: schema.series.name,
+    })
+    .from(schema.publishedSeries)
+    .leftJoin(
+      schema.series,
+      eq(schema.publishedSeries.seriesId, schema.series.id),
+    )
+    .where(eq(schema.publishedSeries.workspaceId, workspaceId))
+    .orderBy(desc(schema.publishedSeries.publishedAt));
+  return rows.map((r) => ({
+    slug: r.slug,
+    title: r.seriesName ?? r.slug,
+    publishedAt: r.publishedAt.getTime(),
+    fleetCount: r.pages.length,
+  }));
 }
 
 /** Insert or overwrite a publication, keyed by `id`. */

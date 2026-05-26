@@ -829,6 +829,13 @@ export default function HelpPage() {
           pages are read-only and need no sign-in to view.
         </p>
         <p>
+          Each series also gets a listing page at its base URL (e.g.{' '}
+          <code className="text-foreground text-sm">…/autumn-league-2026</code>) linking to every
+          fleet, and your workspace has a public index at{' '}
+          <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc</code> listing all the
+          series you&apos;ve published. Both update automatically as you publish.
+        </p>
+        <p>
           <strong className="text-foreground">Upload via FTP:</strong>{' '}
           if your club has a web hosting account, you can push results directly to it without
           downloading and uploading files manually. Sail Scoring relays FTP uploads through the
