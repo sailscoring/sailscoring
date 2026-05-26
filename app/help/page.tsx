@@ -47,6 +47,7 @@ export default function HelpPage() {
           ['#discard-rules', 'Discard rules'],
           ['#a53-scoring', 'A5.3 starting-area scoring'],
           ['#saving-and-sharing', 'Saving and sharing a series'],
+          ['#activity', 'Activity and working with co-scorers'],
           ['#publishing-results', 'Publishing results'],
           ['#json-export', 'JSON data export and Open in Sail Scoring'],
           ['#sending-feedback', 'Sending feedback'],
@@ -838,6 +839,33 @@ export default function HelpPage() {
           <strong className="text-foreground">Move to my account</strong>. The migration runs
           one series at a time and is safe to re-run — the banner only counts series that
           haven&apos;t already been moved.
+        </p>
+      </Section>
+
+      <Section id="activity" title="Activity and working with co-scorers">
+        <p>
+          When a club scoring panel shares a workspace, several scorers work on
+          the same series at once — typically split by fleet. Sail Scoring
+          doesn&apos;t lock anything; instead it keeps a clear record of what
+          changed, when, and by whom.
+        </p>
+        <p>
+          Every series has an <strong className="text-foreground">Activity</strong>{' '}
+          tab (or press <strong className="text-foreground">g</strong> then{' '}
+          <strong className="text-foreground">a</strong>) showing a
+          newest-first log: results entered, races added, competitors imported,
+          settings changed, and so on — each line naming the scorer and how long
+          ago it happened. It&apos;s there for confidence about the current
+          state, for the correction trail behind a scoring inquiry, and for
+          protest-committee accountability.
+        </p>
+        <p>
+          The series list mirrors the most recent change under each series, so
+          you can see at a glance which events your co-scorers have touched. And
+          the competitor edit dialog shows who last edited that competitor. If
+          two scorers happen to change the same result at the same moment, the
+          second one sees a conflict prompt naming the other scorer rather than
+          silently overwriting their work.
         </p>
       </Section>
 

@@ -15,13 +15,16 @@ These requirements are implemented across the collaboration phases of
   *Optimistic concurrency, not locking*, *No series-level locking*, and
   the actor-attribution requirement of *Conflict Handling*. HYC's
   scoring panel runs on a shared workspace today.
-- **Phase 10 (pending)** — the activity log proper (per-series Activity
-  tab, recency strips, per-record stamps), self-service org
-  administration, and listed/unlisted visibility. This is what fully
-  delivers *The log over real-time presence* — the per-row `updated_by`
-  down-payment in Phase 7 is enough for "edited by Sarah at 14:23" in
-  the conflict dialog, but the chronological log surfaces and the
-  protest-committee accountability use case land here.
+- **Phase 10 (#153, in progress)** — the activity log proper
+  (per-series Activity tab, series-list recency strips, per-record
+  stamps) has landed, fully delivering *The log over real-time
+  presence*: the per-row `updated_by` down-payment in Phase 7 was enough
+  for "edited by Sarah at 14:23" in the conflict dialog, and the
+  chronological log surfaces and the protest-committee accountability use
+  case now build on it. Coarse granularity for this first cut — action +
+  summary + actor + time; field-level before/after diffs are a deferred
+  refinement. Self-service org administration and the invitation /
+  member-management UI are the remaining Phase 10 work.
 
 ## How Scorers Work in Practice
 
