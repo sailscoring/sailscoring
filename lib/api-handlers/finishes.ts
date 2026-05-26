@@ -3,6 +3,10 @@ import 'server-only';
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
+import {
+  assertFinishWritable,
+  assertRaceWritable,
+} from '@/lib/api-handlers/series-access';
 import { finishInputSchema, finishesBulkInputSchema } from '@/lib/validation/finish';
 import type { Finish } from '@/lib/types';
 
@@ -31,7 +35,7 @@ export async function putFinish(
   body: unknown,
   opts?: { expectedVersion?: number },
 ): Promise<Finish> {
-  await assertRaceInWorkspace(workspace, raceId);
+  await assertRaceWritable(workspace, raceId);
   const input = finishInputSchema.parse(body);
   const id = input.id ?? pathFinishId;
   if (id !== pathFinishId) throw new NotFoundError('finish id mismatch');
@@ -48,7 +52,7 @@ export async function deleteFinish(
   raceId: string,
   finishId: string,
 ): Promise<void> {
-  await assertRaceInWorkspace(workspace, raceId);
+  await assertRaceWritable(workspace, raceId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.finishes.delete(finishId);
 }
@@ -62,6 +66,7 @@ export async function deleteFinishFlat(
   workspace: WorkspaceContext,
   id: string,
 ): Promise<void> {
+  await assertFinishWritable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.finishes.delete(id);
 }
@@ -76,7 +81,7 @@ export async function bulkDeleteFinishes(
   workspace: WorkspaceContext,
   raceId: string,
 ): Promise<void> {
-  await assertRaceInWorkspace(workspace, raceId);
+  await assertRaceWritable(workspace, raceId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.finishes.deleteByRace(raceId);
 }
@@ -90,7 +95,7 @@ export async function bulkPutFinishes(
   raceId: string,
   body: unknown,
 ): Promise<{ count: number }> {
-  await assertRaceInWorkspace(workspace, raceId);
+  await assertRaceWritable(workspace, raceId);
   const input = finishesBulkInputSchema.parse(body);
   for (const f of input.finishes) {
     if (f.raceId !== raceId) {

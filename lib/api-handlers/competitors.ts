@@ -5,6 +5,10 @@ import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import { createRepos } from '@/lib/postgres-repository';
 import {
+  assertCompetitorWritable,
+  assertSeriesWritable,
+} from '@/lib/api-handlers/series-access';
+import {
   competitorInputSchema,
   competitorsBulkInputSchema,
   handicapBulkUpdateSchema,
@@ -50,7 +54,7 @@ export async function putCompetitor(
   body: unknown,
   opts?: { expectedVersion?: number },
 ): Promise<Competitor> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const input = competitorInputSchema.parse(body);
   const id = input.id ?? pathCompetitorId;
   if (id !== pathCompetitorId) throw new NotFoundError('competitor id mismatch');
@@ -67,7 +71,7 @@ export async function deleteCompetitor(
   seriesId: string,
   competitorId: string,
 ): Promise<void> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const existing = await repos.competitors.get(competitorId);
   if (!existing || existing.seriesId !== seriesId) return;
@@ -84,7 +88,7 @@ export async function bulkPutCompetitors(
   seriesId: string,
   body: unknown,
 ): Promise<{ count: number }> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const input = competitorsBulkInputSchema.parse(body);
   for (const c of input.competitors) {
     if (c.seriesId !== seriesId) {
@@ -116,7 +120,7 @@ export async function bulkUpdateHandicaps(
   seriesId: string,
   body: unknown,
 ): Promise<{ updated: Competitor[] }> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const { updates } = handicapBulkUpdateSchema.parse(body);
 
   const db = getDb();
@@ -156,7 +160,7 @@ export async function bulkDeleteCompetitors(
   workspace: WorkspaceContext,
   seriesId: string,
 ): Promise<void> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.competitors.deleteBySeries(seriesId);
 }
@@ -179,6 +183,7 @@ export async function deleteCompetitorFlat(
   workspace: WorkspaceContext,
   id: string,
 ): Promise<void> {
+  await assertCompetitorWritable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.competitors.delete(id);
 }

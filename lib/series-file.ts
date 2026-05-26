@@ -378,6 +378,12 @@ export async function saveSeriesFile(
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
+  // The download above is a pure read. An archived series is read-only
+  // (#154), so we stop here: recording the save would write file-tracking
+  // fields back through the API and hit the read-only guard (423). Archived
+  // series intentionally don't accrue file-lineage updates.
+  if (series.archived) return;
+
   // Record the save. CAS via `expectedVersion` so a concurrent edit in
   // another tab surfaces as 409 → refresh-and-retry rather than silently
   // overwriting the other tab's snapshot lineage.

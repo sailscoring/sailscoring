@@ -3,6 +3,10 @@ import 'server-only';
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
+import {
+  assertRaceDeletable,
+  assertSeriesWritable,
+} from '@/lib/api-handlers/series-access';
 import { raceInputSchema } from '@/lib/validation/race';
 import type { Race } from '@/lib/types';
 
@@ -43,7 +47,7 @@ export async function putRace(
   body: unknown,
   opts?: { expectedVersion?: number },
 ): Promise<Race> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const input = raceInputSchema.parse(body);
   const id = input.id ?? pathRaceId;
   if (id !== pathRaceId) throw new NotFoundError('race id mismatch');
@@ -60,7 +64,7 @@ export async function deleteRace(
   seriesId: string,
   raceId: string,
 ): Promise<void> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const existing = await repos.races.get(raceId);
   if (!existing || existing.seriesId !== seriesId) return;
@@ -77,7 +81,7 @@ export async function bulkDeleteRaces(
   workspace: WorkspaceContext,
   seriesId: string,
 ): Promise<void> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.races.deleteBySeries(seriesId);
 }
@@ -102,6 +106,7 @@ export async function deleteRaceFlat(
   workspace: WorkspaceContext,
   raceId: string,
 ): Promise<void> {
+  await assertRaceDeletable(workspace, raceId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.races.delete(raceId);
 }

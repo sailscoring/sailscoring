@@ -4,6 +4,10 @@ import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
 import {
+  assertFleetWritable,
+  assertSeriesWritable,
+} from '@/lib/api-handlers/series-access';
+import {
   ensureFleetInputSchema,
   fleetInputSchema,
   fleetsBulkInputSchema,
@@ -49,7 +53,7 @@ export async function putFleet(
   body: unknown,
   opts?: { expectedVersion?: number },
 ): Promise<Fleet> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const input = fleetInputSchema.parse(body);
   const id = input.id ?? pathFleetId;
   if (id !== pathFleetId) throw new NotFoundError('fleet id mismatch with path');
@@ -66,7 +70,7 @@ export async function deleteFleet(
   seriesId: string,
   fleetId: string,
 ): Promise<void> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const existing = await repos.fleets.get(fleetId);
   if (!existing || existing.seriesId !== seriesId) return;
@@ -81,6 +85,7 @@ export async function deleteFleetFlat(
   workspace: WorkspaceContext,
   id: string,
 ): Promise<void> {
+  await assertFleetWritable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.fleets.delete(id);
 }
@@ -94,7 +99,7 @@ export async function bulkPutFleets(
   seriesId: string,
   body: unknown,
 ): Promise<{ count: number }> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const input = fleetsBulkInputSchema.parse(body);
   for (const f of input.fleets) {
     if (f.seriesId !== seriesId) {
@@ -119,7 +124,7 @@ export async function bulkDeleteFleets(
   workspace: WorkspaceContext,
   seriesId: string,
 ): Promise<void> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.fleets.deleteBySeries(seriesId);
 }
@@ -129,7 +134,7 @@ export async function ensureFleet(
   seriesId: string,
   body: unknown,
 ): Promise<{ fleetId: string }> {
-  await assertSeriesInWorkspace(workspace, seriesId);
+  await assertSeriesWritable(workspace, seriesId);
   const input = ensureFleetInputSchema.parse(body);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const fleetId = await repos.fleets.ensureFleet(seriesId, input.name, {

@@ -80,6 +80,11 @@ export const seriesSchema = z.object({
   version: versionSchema,
 });
 
+/** Body for POST /api/v1/series/:id/archive — the archive/unarchive toggle (#154). */
+export const seriesArchiveInputSchema = z.object({
+  archived: z.boolean(),
+});
+
 /** Write-side schema. The id is optional — clients commonly generate UUIDs
  *  but the server may also generate one for new series. The optional
  *  `version` flows through from a prior GET; the API handler converts it

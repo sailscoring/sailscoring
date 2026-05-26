@@ -1,7 +1,11 @@
 import 'server-only';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
-import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
+import {
+  ArchivedError,
+  BadRequestError,
+  NotFoundError,
+} from '@/app/api/v1/_lib/handler';
 import {
   ForbiddenError,
   type WorkspaceContext,
@@ -9,8 +13,12 @@ import {
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
+import {
+  assertSeriesDeletable,
+  assertSeriesWritable,
+} from '@/lib/api-handlers/series-access';
 import { seriesCopyInputSchema } from '@/lib/validation/series-copy';
-import { seriesInputSchema } from '@/lib/validation/series';
+import { seriesArchiveInputSchema, seriesInputSchema } from '@/lib/validation/series';
 import type { Series } from '@/lib/types';
 
 export async function listSeries(workspace: WorkspaceContext): Promise<{ items: Series[] }> {
@@ -38,6 +46,11 @@ export async function putSeries(
     throw new NotFoundError('series id mismatch with path');
   }
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  // Read-only guard (#154): an archived series rejects edits. Creating a new
+  // series (no existing row) is allowed; the archive *toggle* has its own
+  // endpoint (`setSeriesArchived`) and bypasses this path.
+  const existing = await repos.series.get(id);
+  if (existing?.archived) throw new ArchivedError();
   const now = Date.now();
   // Defaults for the file-tracking fields when missing on input. Clients
   // are expected to round-trip these, but new-series creation can be
@@ -82,13 +95,45 @@ export async function putSeries(
 }
 
 export async function deleteSeries(workspace: WorkspaceContext, id: string): Promise<void> {
+  // Delete requires the series to be archived first (#154) — a deliberate
+  // archive-then-delete step that blocks destructive snap decisions.
+  await assertSeriesDeletable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.series.delete(id);
 }
 
 export async function touchSeries(workspace: WorkspaceContext, id: string): Promise<void> {
+  // touch bumps lastModifiedAt — a modification heartbeat, so it's a write
+  // and blocked on an archived series (#154).
+  await assertSeriesWritable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.series.touch(id);
+}
+
+/**
+ * Archive / unarchive toggle (#154). Its own endpoint rather than a field on
+ * the general PUT, so the PUT stays uniformly guarded by the read-only check
+ * while this — the one write that must work *on* an archived series — bypasses
+ * it. Archiving makes the series read-only; unarchiving restores edits.
+ *
+ * Load + save (no CAS): a deliberate, rare, single-actor action on a finished
+ * series, so last-write-wins is acceptable; the worst case is reverting a
+ * concurrent settings edit made in the sub-second window, which the archive
+ * toggle's own version bump makes detectable downstream.
+ */
+export async function setSeriesArchived(
+  workspace: WorkspaceContext,
+  id: string,
+  body: unknown,
+): Promise<Series> {
+  const { archived } = seriesArchiveInputSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const current = await repos.series.get(id);
+  if (!current) throw new NotFoundError('series');
+  return repos.series.save(
+    { ...current, archived },
+    { updatedBy: workspace.userId },
+  );
 }
 
 /**

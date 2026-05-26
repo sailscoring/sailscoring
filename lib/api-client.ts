@@ -59,6 +59,18 @@ export class ValidationApiError extends ApiError {
   }
 }
 
+/**
+ * The target series is archived / read-only (#154). 423 Locked — distinct
+ * from 409 so callers can tell "this series is read-only" apart from an
+ * optimistic-concurrency conflict.
+ */
+export class ArchivedApiError extends ApiError {
+  constructor() {
+    super('series-archived', 423);
+    this.name = 'ArchivedApiError';
+  }
+}
+
 export interface ApiFetchOptions {
   method?: string;
   body?: unknown;
@@ -117,6 +129,7 @@ export async function apiFetch<T = unknown>(
     if (res.status === 403) throw new ForbiddenApiError(typeof errBody === 'object' ? errBody?.reason : undefined);
     if (res.status === 404) throw new NotFoundApiError(typeof errBody === 'object' ? errBody?.resource : undefined);
     if (res.status === 409) throw new ConflictApiError(typeof errBody === 'object' ? errBody?.detail as ConflictDetail | undefined : undefined);
+    if (res.status === 423) throw new ArchivedApiError();
     if (res.status === 400) throw new ValidationApiError(typeof errBody === 'object' ? errBody?.issues : undefined);
     throw new ApiError(`HTTP ${res.status}`, res.status);
   }

@@ -4,6 +4,10 @@ import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
 import {
+  assertRaceStartWritable,
+  assertRaceWritable,
+} from '@/lib/api-handlers/series-access';
+import {
   raceStartInputSchema,
   raceStartsBulkInputSchema,
 } from '@/lib/validation/race-start';
@@ -34,7 +38,7 @@ export async function putRaceStart(
   body: unknown,
   opts?: { expectedVersion?: number },
 ): Promise<RaceStart> {
-  await assertRaceInWorkspace(workspace, raceId);
+  await assertRaceWritable(workspace, raceId);
   const input = raceStartInputSchema.parse(body);
   const id = input.id ?? pathStartId;
   if (id !== pathStartId) throw new NotFoundError('race start id mismatch');
@@ -51,7 +55,7 @@ export async function deleteRaceStart(
   raceId: string,
   startId: string,
 ): Promise<void> {
-  await assertRaceInWorkspace(workspace, raceId);
+  await assertRaceWritable(workspace, raceId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.raceStarts.delete(startId);
 }
@@ -65,6 +69,7 @@ export async function deleteRaceStartFlat(
   workspace: WorkspaceContext,
   id: string,
 ): Promise<void> {
+  await assertRaceStartWritable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.raceStarts.delete(id);
 }
@@ -79,7 +84,7 @@ export async function bulkDeleteRaceStarts(
   workspace: WorkspaceContext,
   raceId: string,
 ): Promise<void> {
-  await assertRaceInWorkspace(workspace, raceId);
+  await assertRaceWritable(workspace, raceId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.raceStarts.deleteByRace(raceId);
 }
@@ -93,7 +98,7 @@ export async function bulkPutRaceStarts(
   raceId: string,
   body: unknown,
 ): Promise<{ count: number }> {
-  await assertRaceInWorkspace(workspace, raceId);
+  await assertRaceWritable(workspace, raceId);
   const input = raceStartsBulkInputSchema.parse(body);
   for (const s of input.starts) {
     if (s.raceId !== raceId) {

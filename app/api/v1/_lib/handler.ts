@@ -46,6 +46,20 @@ export class BadRequestError extends Error {
   }
 }
 
+/**
+ * Thrown when a write targets an archived (read-only) series (#154). Mapped to
+ * 423 Locked — deliberately *not* 409, so it doesn't collide with the
+ * optimistic-concurrency conflict path the client routes into its
+ * row-conflict dialog. Editing requires unarchiving first (or copying to
+ * another workspace).
+ */
+export class ArchivedError extends Error {
+  constructor() {
+    super('series-archived');
+    this.name = 'ArchivedError';
+  }
+}
+
 export interface HandlerCtx<P> {
   workspace: WorkspaceContext;
   params: P;
@@ -113,6 +127,9 @@ export function errorToResponse(err: unknown): Response {
   }
   if (err instanceof ConflictError) {
     return Response.json({ error: 'conflict', detail: err.detail }, { status: 409 });
+  }
+  if (err instanceof ArchivedError) {
+    return Response.json({ error: 'archived', reason: 'series-archived' }, { status: 423 });
   }
   if (err instanceof BadRequestError) {
     return Response.json({ error: 'invalid', issues: err.issues, message: err.message }, { status: 400 });
