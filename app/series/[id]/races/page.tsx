@@ -4,6 +4,7 @@ import { use, useRef, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { raceRepo } from '@/lib/api-repository';
 import { useSeries, useTouchSeries } from '@/hooks/use-series';
+import { useSeriesReadOnly } from '@/components/series-read-only';
 import {
   useDeleteRace,
   useRacesBySeries,
@@ -31,6 +32,7 @@ import { generateStarts } from '@/lib/start-sequence';
 
 function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
   const router = useRouter();
+  const readOnly = useSeriesReadOnly();
   const { data: finishes } = useFinishesByRace(race.id);
   const deleteRace = useDeleteRace();
   const touchSeries = useTouchSeries();
@@ -51,7 +53,7 @@ function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
           router.push(`/series/${seriesId}/races/${race.id}`);
-        } else if (e.key === 'd' || e.key === 'Delete') {
+        } else if ((e.key === 'd' || e.key === 'Delete') && !readOnly) {
           e.preventDefault();
           handleDelete();
         } else if (e.key === 'ArrowDown') {
@@ -74,14 +76,16 @@ function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
           </span>
         )}
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={`Delete Race ${race.raceNumber}`}
-        onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      {!readOnly && (
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={`Delete Race ${race.raceNumber}`}
+          onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 }
@@ -103,6 +107,7 @@ export default function RacesPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: seriesId } = use(params);
+  const readOnly = useSeriesReadOnly();
   const { data: races } = useRacesBySeries(seriesId);
   const { data: series } = useSeries(seriesId);
   const { data: fleets } = useFleetsBySeries(seriesId);
@@ -145,7 +150,7 @@ export default function RacesPage({
   }, [races]);
 
   useGlobalKeyDown((e) => {
-    if (e.key === 'n' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
+    if (e.key === 'n' && !readOnly && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
       (document.activeElement?.tagName ?? '')
     )) {
       e.preventDefault();
@@ -242,9 +247,11 @@ export default function RacesPage({
             ? 'Loading…'
             : `${races.length} race${races.length === 1 ? '' : 's'}`}
         </p>
-        <Button onClick={handleAddRaceClick} disabled={addingRace}>
-          Add race
-        </Button>
+        {!readOnly && (
+          <Button onClick={handleAddRaceClick} disabled={addingRace}>
+            Add race
+          </Button>
+        )}
       </div>
 
       {races !== undefined && races.length === 0 && (

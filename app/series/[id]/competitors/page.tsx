@@ -2,6 +2,7 @@
 
 import { use, useState, useRef, useEffect } from 'react';
 import { useSeries, useTouchSeries } from '@/hooks/use-series';
+import { useSeriesReadOnly } from '@/components/series-read-only';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import {
   useCompetitorsBySeries,
@@ -523,6 +524,7 @@ export default function CompetitorsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: seriesId } = use(params);
+  const readOnly = useSeriesReadOnly();
   const { data: competitors } = useCompetitorsBySeries(seriesId);
   const { data: fleets } = useFleetsBySeries(seriesId);
   const { data: series } = useSeries(seriesId);
@@ -702,7 +704,7 @@ export default function CompetitorsPage({
             ? 'Loading…'
             : `${competitors.length} competitor${competitors.length === 1 ? '' : 's'}`}
         </p>
-        {!showAddForm && (
+        {!showAddForm && !readOnly && (
           <div className="flex gap-2">
             {hasHandicapFleet && (
               <Button
@@ -811,29 +813,31 @@ export default function CompetitorsPage({
                 {showAge && <TableCell>{c.age ?? ''}</TableCell>}
                 {showSubdivision && <TableCell className="whitespace-normal break-words">{c.subdivision ?? ''}</TableCell>}
                 <TableCell className="w-0 p-0 relative">
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 rounded-md bg-background/90 px-1 opacity-0 pointer-events-none transition-opacity group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      tabIndex={-1}
-                      aria-label={`Edit ${c.name}`}
-                      onClick={(e) => {
-                        editingRowRef.current = e.currentTarget.closest('tr');
-                        setEditingCompetitor(c);
-                      }}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      tabIndex={-1}
-                      aria-label={`Delete ${c.name}`}
-                      onClick={() => handleDelete(c)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  {!readOnly && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 rounded-md bg-background/90 px-1 opacity-0 pointer-events-none transition-opacity group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        tabIndex={-1}
+                        aria-label={`Edit ${c.name}`}
+                        onClick={(e) => {
+                          editingRowRef.current = e.currentTarget.closest('tr');
+                          setEditingCompetitor(c);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        tabIndex={-1}
+                        aria-label={`Delete ${c.name}`}
+                        onClick={() => handleDelete(c)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

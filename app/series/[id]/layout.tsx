@@ -4,11 +4,14 @@ import { use, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSeries } from '@/hooks/use-series';
+import { Archive, ArchiveRestore } from 'lucide-react';
+import { useSeries, useArchiveSeries } from '@/hooks/use-series';
 import { queryKeys } from '@/hooks/query-keys';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown, useChordShortcut } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
+import { SeriesReadOnlyProvider } from '@/components/series-read-only';
+import { Button } from '@/components/ui/button';
 import * as repos from '@/lib/api-repository';
 import { saveSeriesFile } from '@/lib/series-file';
 
@@ -31,6 +34,7 @@ export default function SeriesLayout({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: series, isLoading } = useSeries(id);
+  const archiveSeries = useArchiveSeries();
   const [showHelp, setShowHelp] = useState(false);
 
   useChordShortcut({
@@ -65,16 +69,44 @@ export default function SeriesLayout({
     return <p className="text-muted-foreground">Series not found.</p>;
   }
 
+  const readOnly = series.archived ?? false;
+
   return (
     <div className="space-y-6 max-w-screen-2xl mx-auto">
       <div>
-        <h1 className="text-2xl font-semibold">{series.name}</h1>
+        <h1 className="text-2xl font-semibold flex items-center gap-2">
+          {series.name}
+          {readOnly && (
+            <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground align-middle">
+              <Archive className="h-3 w-3" />
+              Archived
+            </span>
+          )}
+        </h1>
         {(series.venue || series.startDate) && (
           <p className="text-sm text-muted-foreground mt-0.5">
             {[series.venue, series.startDate].filter(Boolean).join(' · ')}
           </p>
         )}
       </div>
+
+      {readOnly && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/40">
+          <p className="text-amber-900 dark:text-amber-200">
+            <strong>This series is archived and read-only.</strong> Unarchive it
+            to make changes, or copy it to another workspace from Settings.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={archiveSeries.isPending}
+            onClick={() => archiveSeries.mutate({ id, archived: false })}
+          >
+            <ArchiveRestore className="h-4 w-4" />
+            Unarchive
+          </Button>
+        </div>
+      )}
 
       <nav className="flex gap-1 border-b">
         {tabs.map((tab) => {
@@ -97,7 +129,9 @@ export default function SeriesLayout({
         })}
       </nav>
 
-      {children}
+      <SeriesReadOnlyProvider readOnly={readOnly}>
+        {children}
+      </SeriesReadOnlyProvider>
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
     </div>

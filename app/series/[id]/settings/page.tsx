@@ -3,9 +3,12 @@
 import { use, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { Archive, ArchiveRestore, Trash2 } from 'lucide-react';
 import * as repos from '@/lib/api-repository';
 import {
   useSeries,
+  useArchiveSeries,
+  useDeleteSeriesCascade,
   useTouchSeries,
   useUpdateSeries,
 } from '@/hooks/use-series';
@@ -495,6 +498,91 @@ function formatTimestamp(ts: number): string {
   return d.toLocaleDateString();
 }
 
+/**
+ * Series lifecycle (#154). Archiving makes the series read-only and collapses
+ * it into the home Archived section; delete is gated behind archiving first
+ * (the server enforces this too), so the destructive action takes two
+ * deliberate steps.
+ */
+function ArchiveCard({ seriesId, series }: { seriesId: string; series: Series }) {
+  const router = useRouter();
+  const archiveSeries = useArchiveSeries();
+  const deleteCascade = useDeleteSeriesCascade();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const archived = series.archived ?? false;
+
+  async function handleDelete() {
+    setConfirmDelete(false);
+    await deleteCascade.mutateAsync(seriesId);
+    router.push('/');
+  }
+
+  return (
+    <div className="border rounded-lg p-5 space-y-4">
+      <div>
+        <h2 className="text-sm font-medium">Archive</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          {archived
+            ? 'This series is archived and read-only. Unarchive it to edit, or delete it permanently.'
+            : 'Archiving moves this series into the Archived section and makes it read-only. You can unarchive at any time.'}
+        </p>
+      </div>
+      <div className="flex gap-2">
+        {archived ? (
+          <>
+            <Button
+              variant="outline"
+              disabled={archiveSeries.isPending}
+              onClick={() => archiveSeries.mutate({ id: seriesId, archived: false })}
+            >
+              <ArchiveRestore className="h-4 w-4" />
+              Unarchive
+            </Button>
+            <Button variant="destructive" onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="h-4 w-4" />
+              Delete series
+            </Button>
+          </>
+        ) : (
+          <Button
+            variant="outline"
+            disabled={archiveSeries.isPending}
+            onClick={() => archiveSeries.mutate({ id: seriesId, archived: true })}
+          >
+            <Archive className="h-4 w-4" />
+            Archive series
+          </Button>
+        )}
+      </div>
+      {!archived && (
+        <p className="text-xs text-muted-foreground">
+          A series must be archived before it can be deleted.
+        </p>
+      )}
+
+      <Dialog open={confirmDelete} onOpenChange={(o) => { if (!o) setConfirmDelete(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete &ldquo;{series.name}&rdquo;?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes the series and all its competitors,
+              races, and results. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Delete series
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function SettingsPage({
   params,
 }: {
@@ -605,6 +693,7 @@ export default function SettingsPage({
 
   return (
     <div className="space-y-6 max-w-lg">
+      <ArchiveCard seriesId={seriesId} series={series} />
       <CopySeriesToWorkspaceCard seriesId={seriesId} seriesName={series.name} />
       {/* File card */}
       <div className={`border rounded-lg p-5 space-y-4 ${!hasFileHistory ? 'opacity-70' : ''}`}>
@@ -622,7 +711,7 @@ export default function SettingsPage({
           <Button onClick={handleSaveToFile} disabled={saving} variant="outline">
             {saving ? 'Saving…' : 'Save to File'}
           </Button>
-          {hasFileHistory && (
+          {hasFileHistory && !series.archived && (
             <Button onClick={handleUpdateFromFile} variant="outline">
               Update from File
             </Button>
@@ -635,37 +724,45 @@ export default function SettingsPage({
         )}
       </div>
 
-      <BasicsCard
-        value={series}
-        includeName
-        validateName={async (name) => {
-          const trimmed = name.trim();
-          if (!trimmed) return 'Series name is required.';
-          const existing = await listSeriesNames({ excludeId: seriesId });
-          return isDuplicateSeriesName(trimmed, existing)
-            ? 'A series with this name already exists.'
-            : null;
-        }}
-        onChange={async (patch) => {
-          await updateSeries.mutateAsync({
-            id: seriesId,
-            patch: { ...patch, lastModifiedAt: Date.now() },
-          });
-        }}
-      />
-      <ScoringModeCard seriesId={seriesId} series={series} />
-      <FleetsCard seriesId={seriesId} series={series} />
-      <ScoringCard
-        value={series}
-        onChange={async (patch) => {
-          await updateSeries.mutateAsync({
-            id: seriesId,
-            patch: { ...patch, lastModifiedAt: Date.now() },
-          });
-        }}
-      />
-      <CompetitorFieldsCard seriesId={seriesId} series={series} />
-      <PublishingCard seriesId={seriesId} series={series} anyProgressiveFleet={anyProgressiveFleet} />
+      {/* Editing cards are hidden while archived — the series is read-only,
+          and these auto-save (which the server would reject). Unarchive from
+          the card above to edit. Copy-to-workspace and Save-to-file stay
+          available because they don't mutate the series. (#154) */}
+      {!series.archived && (
+        <>
+          <BasicsCard
+            value={series}
+            includeName
+            validateName={async (name) => {
+              const trimmed = name.trim();
+              if (!trimmed) return 'Series name is required.';
+              const existing = await listSeriesNames({ excludeId: seriesId });
+              return isDuplicateSeriesName(trimmed, existing)
+                ? 'A series with this name already exists.'
+                : null;
+            }}
+            onChange={async (patch) => {
+              await updateSeries.mutateAsync({
+                id: seriesId,
+                patch: { ...patch, lastModifiedAt: Date.now() },
+              });
+            }}
+          />
+          <ScoringModeCard seriesId={seriesId} series={series} />
+          <FleetsCard seriesId={seriesId} series={series} />
+          <ScoringCard
+            value={series}
+            onChange={async (patch) => {
+              await updateSeries.mutateAsync({
+                id: seriesId,
+                patch: { ...patch, lastModifiedAt: Date.now() },
+              });
+            }}
+          />
+          <CompetitorFieldsCard seriesId={seriesId} series={series} />
+          <PublishingCard seriesId={seriesId} series={series} anyProgressiveFleet={anyProgressiveFleet} />
+        </>
+      )}
 
       <input
         ref={fileInputRef}
