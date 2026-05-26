@@ -70,6 +70,13 @@ test.describe('/api/v1', () => {
     const listBody = await list.json();
     expect(listBody.items.some((s: { id: string }) => s.id === seriesId)).toBe(true);
 
+    // Delete requires the series to be archived first (#154).
+    const archive = await request.post(`/api/v1/series/${seriesId}/archive`, {
+      headers: { cookie: cookieHeader, 'content-type': 'application/json' },
+      data: { archived: true },
+    });
+    expect(archive.status()).toBe(200);
+
     const del = await request.delete(`/api/v1/series/${seriesId}`, {
       headers: { cookie: cookieHeader },
     });

@@ -131,18 +131,18 @@ the snapshot history entries in the series file format.
 
 *(Was GitHub issue #37)*
 
-### Lock or archive a finished series
+### Lock or archive a finished series — resolved by #154
 
-Once a series is over, the scorer should be able to mark it as finished — locking it
-read-only so further edits aren't possible without an explicit unlock. Protects the
-authoritative record from accidental changes (a stray keystroke on the standings tab
-months later) and makes the series' status explicit in the UI.
+**Decided: archive *is* the lock — one action, not two.** Archiving a series (#154)
+makes it read-only and collapses it out of the active list; unarchiving (or copying to
+another workspace) restores editing. Read-only is enforced server-side, not just in the
+UI. Delete is gated behind archiving first (archive-then-delete). This subsumes the
+"lock a finished series" idea this section originally proposed — there is no separate
+lock action.
 
-Open questions: lock granularity (whole series vs. per-race); how unlock works and
-whether it leaves an audit trail; whether locking is distinct from "archiving" (hiding
-from the active list) or the same action; interaction with revision history once that
-exists. The manual-archive side — archive as visibility, not locking — is tracked in
-#154; decide there whether the two share a single action or stay separate.
+Still genuinely future: per-race lock granularity (vs. whole-series), and an unlock
+audit trail once revision history exists. Those can layer on top of archive if a need
+emerges; they don't change the archive model.
 
 ---
 

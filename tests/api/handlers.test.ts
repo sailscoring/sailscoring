@@ -30,6 +30,13 @@ function uuid() {
   return crypto.randomUUID();
 }
 
+// Delete now requires the series to be archived first (#154). These tests
+// predate that rule and use deleteSeries for teardown, so archive-then-delete.
+async function removeSeries(ctx: WorkspaceContext, id: string) {
+  await series.setSeriesArchived(ctx, id, { archived: true });
+  await series.deleteSeries(ctx, id);
+}
+
 function ctxFor(workspaceId: string): WorkspaceContext {
   return {
     userId: 'test-user',
@@ -115,7 +122,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const listB = await series.listSeries(ctxB);
     expect(listB.items.some((s) => s.id === id)).toBe(false);
 
-    await series.deleteSeries(ctxA, id);
+    await removeSeries(ctxA, id);
     await expect(series.getSeries(ctxA, id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
@@ -157,8 +164,8 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await fleets.deleteFleet(ctxA, seriesId, fleetId);
     await expect(fleets.getFleet(ctxA, seriesId, fleetId)).rejects.toBeInstanceOf(NotFoundError);
 
-    await series.deleteSeries(ctxA, seriesId);
-    await series.deleteSeries(ctxA, otherSeriesId);
+    await removeSeries(ctxA, seriesId);
+    await removeSeries(ctxA, otherSeriesId);
   });
 
   // ─── Bulk fleets ───────────────────────────────────────────────────────────
@@ -190,8 +197,8 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       fleets.bulkPutFleets(ctxB, seriesId, { fleets: [] }),
     ).rejects.toBeInstanceOf(NotFoundError);
 
-    await series.deleteSeries(ctxA, seriesId);
-    await series.deleteSeries(ctxA, otherSeriesId);
+    await removeSeries(ctxA, seriesId);
+    await removeSeries(ctxA, otherSeriesId);
   });
 
   // ─── Competitors ───────────────────────────────────────────────────────────
@@ -219,7 +226,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
 
     await competitors.deleteCompetitor(ctxA, seriesId, compId);
     await expect(competitors.getCompetitor(ctxA, seriesId, compId)).rejects.toBeInstanceOf(NotFoundError);
-    await series.deleteSeries(ctxA, seriesId);
+    await removeSeries(ctxA, seriesId);
   });
 
   // ─── Bulk competitors ──────────────────────────────────────────────────────
@@ -259,8 +266,8 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
 
-    await series.deleteSeries(ctxA, seriesId);
-    await series.deleteSeries(ctxA, otherSeriesId);
+    await removeSeries(ctxA, seriesId);
+    await removeSeries(ctxA, otherSeriesId);
   });
 
   test('competitors.bulkUpdateHandicaps writes only the listed fields', async () => {
@@ -332,8 +339,8 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compAfterConflict = await competitors.getCompetitor(ctxA, seriesId, compId);
     expect(compAfterConflict.nhcStartingTcf).toBe(1.019);
 
-    await series.deleteSeries(ctxA, seriesId);
-    await series.deleteSeries(ctxA, otherSeriesId);
+    await removeSeries(ctxA, seriesId);
+    await removeSeries(ctxA, otherSeriesId);
   });
 
   // ─── Races + race starts + finishes (bulk + single) ───────────────────────
@@ -392,7 +399,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     // Cross-workspace operations on this race fail.
     await expect(finishes.listFinishes(ctxB, raceId)).rejects.toBeInstanceOf(NotFoundError);
 
-    await series.deleteSeries(ctxA, seriesId);
+    await removeSeries(ctxA, seriesId);
   });
 
   test('bulk finish race-id mismatch is rejected', async () => {
@@ -416,7 +423,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
 
-    await series.deleteSeries(ctxA, seriesId);
+    await removeSeries(ctxA, seriesId);
   });
 
   test('bulk race start race-id mismatch is rejected', async () => {
@@ -433,7 +440,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
 
-    await series.deleteSeries(ctxA, seriesId);
+    await removeSeries(ctxA, seriesId);
   });
 
   // ─── Collection deletes ────────────────────────────────────────────────────
@@ -456,7 +463,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await fleets.bulkDeleteFleets(ctxA, seriesId);
     expect(await fleets.listFleets(ctxA, seriesId)).toHaveLength(0);
 
-    await series.deleteSeries(ctxA, seriesId);
+    await removeSeries(ctxA, seriesId);
   });
 
   test('bulkDeleteCompetitors drops every competitor; cross-workspace 404s', async () => {
@@ -482,7 +489,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await competitors.bulkDeleteCompetitors(ctxA, seriesId);
     expect(await competitors.listCompetitors(ctxA, seriesId)).toHaveLength(0);
 
-    await series.deleteSeries(ctxA, seriesId);
+    await removeSeries(ctxA, seriesId);
   });
 
   test('bulkDeleteRaces drops every race and cascades to starts/finishes', async () => {
@@ -531,7 +538,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       finishes.listFinishes(ctxA, raceId),
     ).rejects.toBeInstanceOf(NotFoundError);
 
-    await series.deleteSeries(ctxA, seriesId);
+    await removeSeries(ctxA, seriesId);
   });
 
   test('bulkDeleteRaceStarts drops every start; cross-workspace 404s', async () => {
@@ -560,7 +567,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await raceStarts.bulkDeleteRaceStarts(ctxA, raceId);
     expect(await raceStarts.listRaceStarts(ctxA, raceId)).toHaveLength(0);
 
-    await series.deleteSeries(ctxA, seriesId);
+    await removeSeries(ctxA, seriesId);
   });
 
   test('bulkDeleteFinishes drops every finish; cross-workspace 404s', async () => {
@@ -601,6 +608,6 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await finishes.bulkDeleteFinishes(ctxA, raceId);
     expect(await finishes.listFinishes(ctxA, raceId)).toHaveLength(0);
 
-    await series.deleteSeries(ctxA, seriesId);
+    await removeSeries(ctxA, seriesId);
   });
 });

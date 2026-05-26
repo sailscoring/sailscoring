@@ -30,6 +30,7 @@ export default function HelpPage() {
           ['#what-is-sail-scoring', 'What is Sail Scoring?'],
           ['#signing-in', 'Signing in and workspaces'],
           ['#creating-a-series', 'Creating a series'],
+          ['#organising-series', 'Organising the series list: categories and archive'],
           ['#adding-competitors', 'Adding competitors'],
           ['#fleets', 'Fleets'],
           ['#start-sequences', 'Start sequences'],
@@ -137,6 +138,38 @@ export default function HelpPage() {
         </p>
         <p>
           After saving, you land on the Competitors tab, ready for the next step.
+        </p>
+      </Section>
+
+      <Section id="organising-series" title="Organising the series list: categories and archive">
+        <p>
+          As a club builds up seasons of results, the home list grows. Two tools keep it
+          tidy: <strong className="text-foreground">categories</strong> for grouping, and{' '}
+          <strong className="text-foreground">archive</strong> for putting finished events away.
+        </p>
+        <p>
+          <strong className="text-foreground">Categories</strong> are your own labels — e.g.{' '}
+          <em>Club racing</em>, <em>Open events</em>. Create and reorder them from{' '}
+          <strong className="text-foreground">Categories</strong> in the home header (or in
+          Workspace settings), then assign a series with{' '}
+          <strong className="text-foreground">Move to category</strong> on its{' '}
+          <strong className="text-foreground">⋯</strong> menu. A series with no category sits
+          under <strong className="text-foreground">Uncategorized</strong>. Deleting a category
+          simply moves its series back to Uncategorized — nothing is lost.
+        </p>
+        <p>
+          <strong className="text-foreground">Archiving</strong> a series (from its{' '}
+          <strong className="text-foreground">⋯</strong> menu or the Settings tab) moves it into a
+          collapsed <strong className="text-foreground">Archived</strong> section at the foot of
+          the list, grouped by year, and makes it{' '}
+          <strong className="text-foreground">read-only</strong>: a safeguard against a stray edit
+          to a finished record months later. To change an archived series, either{' '}
+          <strong className="text-foreground">Unarchive</strong> it or copy it to another
+          workspace. You can still publish or re-publish an archived series&apos; results.
+        </p>
+        <p>
+          Deleting a series requires archiving it first — a deliberate two-step so a finished
+          season can&apos;t be thrown away by accident.
         </p>
       </Section>
 

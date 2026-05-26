@@ -2,11 +2,12 @@ import { signedInTest as test, expect } from './fixtures';
 import { createSeriesQuick } from './helpers';
 
 /**
- * UI flow for the delete-series action. Server-side cascade integrity
- * is covered by Postgres FKs and the postgres-repository tests; this
- * spec asserts only what the user sees.
+ * Delete is gated behind archiving first (#154): a series can only be deleted
+ * once it's archived (archive-then-delete, to block destructive snap
+ * decisions). This spec drives that two-step from the home list. Server-side
+ * cascade integrity is covered by the postgres-repository tests.
  */
-test('delete series with warning dialog', async ({ page }) => {
+test('archive then delete a series from the home list', async ({ page }) => {
   await createSeriesQuick(page, { name: 'Series to Keep' });
   await createSeriesQuick(page, { name: 'Series to Delete' });
 
@@ -14,22 +15,22 @@ test('delete series with warning dialog', async ({ page }) => {
   await expect(page.getByText('Series to Keep')).toBeVisible();
   await expect(page.getByText('Series to Delete')).toBeVisible();
 
-  // Warning dialog shows the series name and the irreversibility copy.
-  await page.getByRole('button', { name: 'Delete Series to Delete' }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByRole('heading', { name: /Series to Delete/ })).toBeVisible();
-  await expect(page.getByText(/permanently delete/i)).toBeVisible();
-  await expect(page.getByText(/cannot be undone/i)).toBeVisible();
+  // An active series has no delete — archive it first via the card menu.
+  await page.getByRole('button', { name: 'Actions for Series to Delete' }).click();
+  await page.getByRole('menuitem', { name: 'Archive' }).click();
 
-  // Cancel leaves both series intact.
-  await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.getByRole('dialog')).not.toBeVisible();
+  // It drops into the collapsed Archived section.
+  await expect(page.getByText('Series to Delete')).toBeHidden();
+  await page.getByRole('button', { name: /Archived \(1\)/ }).click();
   await expect(page.getByText('Series to Delete')).toBeVisible();
 
-  // Confirm deletes the targeted series only.
-  await page.getByRole('button', { name: 'Delete Series to Delete' }).click();
+  // Now Delete is available from the archived card's menu, behind a confirm.
+  await page.getByRole('button', { name: 'Actions for Series to Delete' }).click();
+  await page.getByRole('menuitem', { name: /Delete/ }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByText(/permanently delete/i)).toBeVisible();
   await page.getByRole('button', { name: 'Delete series' }).click();
-  await expect(page.getByText('Series to Delete')).not.toBeVisible();
+
+  await expect(page.getByText('Series to Delete')).toBeHidden();
   await expect(page.getByText('Series to Keep')).toBeVisible();
 });

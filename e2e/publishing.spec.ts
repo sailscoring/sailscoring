@@ -214,9 +214,15 @@ test('an orphaned snapshot (series deleted) stays listed and can be unpublished'
   await expect(dialog.getByRole('link', { name: /orphan-me/ })).toBeVisible();
 
   // Delete the series — its publication orphans (seriesId → null) rather than
-  // being removed, so the public page stays up.
+  // being removed, so the public page stays up. Delete is gated behind
+  // archiving first (#154): archive from the card menu, then delete from the
+  // Archived section.
   await page.goto('/');
-  await page.getByRole('button', { name: 'Delete HYC Autumn League 2026' }).click();
+  await page.getByRole('button', { name: 'Actions for HYC Autumn League 2026' }).click();
+  await page.getByRole('menuitem', { name: 'Archive' }).click();
+  await page.getByRole('button', { name: /Archived \(1\)/ }).click();
+  await page.getByRole('button', { name: 'Actions for HYC Autumn League 2026' }).click();
+  await page.getByRole('menuitem', { name: /Delete/ }).click();
   await page.getByRole('button', { name: 'Delete series' }).click();
   await expect(page.getByText('HYC Autumn League 2026')).not.toBeVisible();
 
