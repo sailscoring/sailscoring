@@ -23,7 +23,8 @@ test('new series appears on home after navigating away and back', async ({ page 
   await expect(page).toHaveURL(/\/standings$/);
 
   await page.goto('/');
-  // Placeholder names are "<Adjective> <Noun> Series" — see lib/placeholder-names.ts.
-  await expect(page.locator('a[href^="/series/"]').filter({ hasText: /Series$/ })).toBeVisible();
+  // A series card (link to /series/...) is now present. (Card text also carries
+  // an activity recency strip — #153 — so we match the link, not its text.)
+  await expect(page.locator('a[href^="/series/"]').first()).toBeVisible();
   await expect(page.getByText(/No series yet/)).not.toBeVisible();
 });

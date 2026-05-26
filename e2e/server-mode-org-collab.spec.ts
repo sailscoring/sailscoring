@@ -176,7 +176,10 @@ test.describe('copy series to workspace', () => {
       .filter({ hasText: 'My Workspace' })
       .click();
     await page.waitForURL(/\/$/);
-    await expect(page.getByText(sourceName)).toBeVisible();
+    // Exact match: the copy is "Copy of <sourceName>", and #153's recency strip
+    // echoes that in the copy card's text — so a substring match is ambiguous.
+    // Exact also rides out the post-switch reload (0 matches until it lands).
+    await expect(page.getByText(sourceName, { exact: true })).toBeVisible();
   });
 });
 
