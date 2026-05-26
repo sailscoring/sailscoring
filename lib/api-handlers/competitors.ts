@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { recordActivity } from '@/lib/activity-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import { createRepos } from '@/lib/postgres-repository';
@@ -101,6 +102,12 @@ export async function bulkPutCompetitors(
   }));
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.competitors.saveMany(competitors, { updatedBy: workspace.userId });
+  const n = competitors.length;
+  await recordActivity(workspace, {
+    action: 'competitors.imported',
+    seriesId,
+    summary: `Imported ${n} competitor${n === 1 ? '' : 's'}`,
+  });
   return { count: competitors.length };
 }
 
@@ -148,6 +155,12 @@ export async function bulkUpdateHandicaps(
       updated.push(saved);
     }
   });
+  const n = updated.length;
+  await recordActivity(workspace, {
+    action: 'competitors.handicaps_updated',
+    seriesId,
+    summary: `Updated handicaps for ${n} competitor${n === 1 ? '' : 's'}`,
+  });
   return { updated };
 }
 
@@ -163,6 +176,11 @@ export async function bulkDeleteCompetitors(
   await assertSeriesWritable(workspace, seriesId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.competitors.deleteBySeries(seriesId);
+  await recordActivity(workspace, {
+    action: 'competitors.cleared',
+    seriesId,
+    summary: 'Cleared all competitors',
+  });
 }
 
 /**

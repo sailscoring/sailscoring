@@ -10,6 +10,7 @@ import {
   ForbiddenError,
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
+import { recordActivity } from '@/lib/activity-log';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
@@ -92,10 +93,24 @@ export async function putSeries(
     categoryId: input.categoryId ?? null,
     archived: input.archived ?? false,
   };
-  return repos.series.save(merged, {
+  const saved = await repos.series.save(merged, {
     expectedVersion: opts?.expectedVersion,
     updatedBy: workspace.userId,
   });
+  // Activity (#153): distinguish first write (create) from later edits. Edits
+  // coalesce per series+actor so a run of saves reads as one "updated" entry.
+  await recordActivity(
+    workspace,
+    existing
+      ? {
+          action: 'series.updated',
+          seriesId: id,
+          summary: 'Updated series settings',
+          dedupeKey: `series:${id}`,
+        }
+      : { action: 'series.created', seriesId: id, summary: 'Created the series' },
+  );
+  return saved;
 }
 
 export async function deleteSeries(workspace: WorkspaceContext, id: string): Promise<void> {
@@ -103,7 +118,15 @@ export async function deleteSeries(workspace: WorkspaceContext, id: string): Pro
   // archive-then-delete step that blocks destructive snap decisions.
   await assertSeriesDeletable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const existing = await repos.series.get(id);
   await repos.series.delete(id);
+  // Workspace-level entry: the series page is gone, so it carries the name and
+  // no seriesId.
+  await recordActivity(workspace, {
+    action: 'series.deleted',
+    seriesId: null,
+    summary: existing ? `Deleted series “${existing.name}”` : 'Deleted a series',
+  });
 }
 
 export async function touchSeries(workspace: WorkspaceContext, id: string): Promise<void> {
@@ -134,10 +157,16 @@ export async function setSeriesArchived(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const current = await repos.series.get(id);
   if (!current) throw new NotFoundError('series');
-  return repos.series.save(
+  const saved = await repos.series.save(
     { ...current, archived },
     { updatedBy: workspace.userId },
   );
+  await recordActivity(workspace, {
+    action: archived ? 'series.archived' : 'series.unarchived',
+    seriesId: id,
+    summary: archived ? 'Archived the series' : 'Unarchived the series',
+  });
+  return saved;
 }
 
 /**
@@ -156,16 +185,27 @@ export async function setSeriesCategory(
   const current = await repos.series.get(id);
   if (!current) throw new NotFoundError('series');
   if (current.archived) throw new ArchivedError();
+  let categoryName: string | undefined;
   if (categoryId !== null) {
     const categories = await repos.categories.list();
-    if (!categories.some((c) => c.id === categoryId)) {
+    const category = categories.find((c) => c.id === categoryId);
+    if (!category) {
       throw new BadRequestError('unknown category');
     }
+    categoryName = category.name;
   }
-  return repos.series.save(
+  const saved = await repos.series.save(
     { ...current, categoryId },
     { updatedBy: workspace.userId },
   );
+  await recordActivity(workspace, {
+    action: 'series.recategorized',
+    seriesId: id,
+    summary: categoryName
+      ? `Moved to “${categoryName}”`
+      : 'Removed from its category',
+  });
+  return saved;
 }
 
 /**
@@ -393,5 +433,14 @@ export async function copySeries(
 
   });
 
+  // Logged in the *target* workspace — that's where the new series lives.
+  await recordActivity(
+    { workspaceId: targetWorkspaceId, userId: workspace.userId },
+    {
+      action: 'series.copied',
+      seriesId: newSeriesId,
+      summary: `Copied in series “${newName}”`,
+    },
+  );
   return { id: newSeriesId };
 }

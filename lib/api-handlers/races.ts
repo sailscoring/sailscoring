@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { recordActivity } from '@/lib/activity-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
 import {
@@ -53,10 +54,21 @@ export async function putRace(
   if (id !== pathRaceId) throw new NotFoundError('race id mismatch');
   if (input.seriesId !== seriesId) throw new NotFoundError('race series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  return repos.races.save(
+  // Adding vs editing: only the first write of a race id is logged ("Added
+  // Race N"); later metadata edits (date/number) are low-signal and skipped.
+  const existing = await repos.races.get(id);
+  const saved = await repos.races.save(
     { ...input, id },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
+  if (!existing) {
+    await recordActivity(workspace, {
+      action: 'race.added',
+      seriesId,
+      summary: `Added Race ${saved.raceNumber}`,
+    });
+  }
+  return saved;
 }
 
 export async function deleteRace(
@@ -69,6 +81,11 @@ export async function deleteRace(
   const existing = await repos.races.get(raceId);
   if (!existing || existing.seriesId !== seriesId) return;
   await repos.races.delete(raceId);
+  await recordActivity(workspace, {
+    action: 'race.deleted',
+    seriesId,
+    summary: `Deleted Race ${existing.raceNumber}`,
+  });
 }
 
 /**

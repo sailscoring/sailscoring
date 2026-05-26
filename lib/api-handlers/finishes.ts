@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { recordActivity } from '@/lib/activity-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
 import {
@@ -41,10 +42,22 @@ export async function putFinish(
   if (id !== pathFinishId) throw new NotFoundError('finish id mismatch');
   if (input.raceId !== raceId) throw new NotFoundError('finish race mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  return repos.finishes.save(
+  const saved = await repos.finishes.save(
     { ...input, id },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
+  // Per-row autosave: coalesce all of a race's finish writes by this actor into
+  // one "recorded finishes for Race N" entry rather than one row per boat.
+  const race = await repos.races.get(raceId);
+  if (race) {
+    await recordActivity(workspace, {
+      action: 'finishes.recorded',
+      seriesId: race.seriesId,
+      summary: `Recorded finishes for Race ${race.raceNumber}`,
+      dedupeKey: `finishes:${raceId}`,
+    });
+  }
+  return saved;
 }
 
 export async function deleteFinish(
@@ -83,7 +96,15 @@ export async function bulkDeleteFinishes(
 ): Promise<void> {
   await assertRaceWritable(workspace, raceId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const race = await repos.races.get(raceId);
   await repos.finishes.deleteByRace(raceId);
+  await recordActivity(workspace, {
+    action: 'finishes.cleared',
+    seriesId: race?.seriesId ?? null,
+    summary: race
+      ? `Cleared all finishes for Race ${race.raceNumber}`
+      : 'Cleared all finishes',
+  });
 }
 
 /**
@@ -108,5 +129,14 @@ export async function bulkPutFinishes(
   }));
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.finishes.saveMany(finishes, { updatedBy: workspace.userId });
+  const race = await repos.races.get(raceId);
+  const n = finishes.length;
+  await recordActivity(workspace, {
+    action: 'finishes.entered',
+    seriesId: race?.seriesId ?? null,
+    summary: race
+      ? `Entered ${n} finishes for Race ${race.raceNumber}`
+      : `Entered ${n} finishes`,
+  });
   return { count: finishes.length };
 }
