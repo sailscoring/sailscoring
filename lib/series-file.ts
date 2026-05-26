@@ -471,6 +471,9 @@ export async function openSeriesFromFile(
 
   // Series first (FK target for everything below). No expectedVersion —
   // fresh row, authoritative write per `SaveOpts` doc-comment.
+  // `categoryId`/`archived` (#154) are intentionally absent: they're
+  // workspace-local and not carried in the file format, so the repo defaults
+  // them (null/false) — a freshly opened file lands active and uncategorised.
   await repos.seriesRepo.save({
     id: newSeriesId,
     name,
@@ -528,6 +531,9 @@ export async function updateSeriesFromFile(
 
   // Authoritative file-replay write — no `expectedVersion`. The user has
   // already confirmed the lineage dialog ("Update" or "Replace local copy").
+  // Spreading `...current` preserves `categoryId`/`archived` (#154): the file
+  // doesn't carry them, and an update must not silently re-file or un-archive
+  // the existing series.
   await repos.seriesRepo.save({
     ...current,
     name: file.series.name,

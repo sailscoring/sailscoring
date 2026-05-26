@@ -95,6 +95,8 @@ function seriesRowToType(row: SeriesRow): Series {
     enabledCompetitorFields: row.enabledCompetitorFields,
     primaryPersonLabel: row.primaryPersonLabel,
     subdivisionLabel: row.subdivisionLabel,
+    categoryId: row.categoryId,
+    archived: row.archived,
     version: row.version,
   };
 }
@@ -361,6 +363,8 @@ export class PostgresSeriesRepository implements SeriesRepository {
       enabledCompetitorFields: s.enabledCompetitorFields,
       primaryPersonLabel: s.primaryPersonLabel,
       subdivisionLabel: s.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+      categoryId: s.categoryId ?? null,
+      archived: s.archived ?? false,
       updatedBy,
     };
     const updateSet = {
@@ -389,6 +393,8 @@ export class PostgresSeriesRepository implements SeriesRepository {
       enabledCompetitorFields: insertValues.enabledCompetitorFields,
       primaryPersonLabel: insertValues.primaryPersonLabel,
       subdivisionLabel: insertValues.subdivisionLabel,
+      categoryId: insertValues.categoryId,
+      archived: insertValues.archived,
       updatedBy,
     };
     if (opts?.expectedVersion !== undefined) {

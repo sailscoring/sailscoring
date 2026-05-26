@@ -69,6 +69,11 @@ export async function putSeries(
     enabledCompetitorFields: input.enabledCompetitorFields,
     primaryPersonLabel: input.primaryPersonLabel,
     subdivisionLabel: input.subdivisionLabel,
+    // Round-trip the series-list organisation fields (#154) so a full save
+    // doesn't wipe them. The archive *toggle* has its own endpoint; category
+    // moves have their own too — but both must survive an ordinary PUT.
+    categoryId: input.categoryId ?? null,
+    archived: input.archived ?? false,
   };
   return repos.series.save(merged, {
     expectedVersion: opts?.expectedVersion,
@@ -95,6 +100,8 @@ export async function touchSeries(workspace: WorkspaceContext, id: string): Prom
  *   - FTP credentials (`ftpHost`, `ftpPath`, `ftpPaths`) — distinct per workspace
  *   - File-tracking metadata (`lastSnapshotId`, `lastSavedAt`,
  *     `snapshotHistory`) — the copy has no file lineage of its own
+ *   - Series-list organisation (`categoryId`, `archived`) — workspace-local;
+ *     the copy lands active and uncategorised (#154)
  *
  * Resets `version` to 1 and clears `updated_by` on every new row (the
  * `version` reset is automatic — fresh inserts default to 1; we just
@@ -203,6 +210,11 @@ export async function copySeries(
       enabledCompetitorFields: source.enabledCompetitorFields,
       primaryPersonLabel: source.primaryPersonLabel,
       subdivisionLabel: source.subdivisionLabel,
+      // Series-list organisation (#154) is workspace-local: a copy lands
+      // active and uncategorised in the target workspace. The source category
+      // id wouldn't exist there anyway.
+      categoryId: null,
+      archived: false,
     });
 
     // Fleets.

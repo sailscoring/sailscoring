@@ -73,6 +73,10 @@ export const seriesSchema = z.object({
   // Empty is tolerated on the wire; the read-side resolver falls back to the
   // default, so we don't reject it with a brittle 400.
   subdivisionLabel: z.string().max(SUBDIVISION_LABEL_MAX_LENGTH),
+  // Series-list organisation (#154). Workspace-local; optional on the wire so
+  // sparse new-series creation and older clients round-trip cleanly.
+  categoryId: uuidSchema.nullable().optional(),
+  archived: z.boolean().optional(),
   version: versionSchema,
 });
 

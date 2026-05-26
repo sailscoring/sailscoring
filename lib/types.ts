@@ -33,6 +33,18 @@ export interface StartGroup {
   intervalMinutes: number;  // minutes after the previous start (0 for the first group)
 }
 
+/**
+ * Scorer-defined series category (#154). Per-workspace, scorer-editable.
+ * Workspace scope is implicit in the API surface, so it isn't carried here.
+ * The synthetic "Uncategorized" bucket is *not* a Category — it's
+ * `Series.categoryId == null`.
+ */
+export interface Category {
+  id: string;
+  name: string;
+  displayOrder: number;
+}
+
 export interface Series {
   id: string;
   name: string;
@@ -66,6 +78,10 @@ export interface Series {
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)
   subdivisionLabel: string;  // label for the Competitor.subdivision field, e.g. "Division", "Category" (display only); defaults to "Division"
+  // Series-list organisation (#154). Workspace-local: excluded from the
+  // .sailscoring file format and public JSON export, and reset by copySeries.
+  categoryId?: string | null;  // category assignment; null/absent = synthetic "Uncategorized" bucket
+  archived?: boolean;          // read-only + collapsed out of the active list; subsumes the horizon "lock" concept
   // Server-side concurrency token (ADR-008 Phase 4). Populated by the
   // Postgres-backed read path; absent in local-mode (Dexie) and stripped
   // from the .sailscoring file format and public JSON export.
