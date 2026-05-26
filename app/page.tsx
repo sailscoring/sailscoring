@@ -23,6 +23,8 @@ import {
   useSetSeriesCategory,
 } from '@/hooks/use-series';
 import { useCategories } from '@/hooks/use-categories';
+import { useRecentActivity } from '@/hooks/use-activity';
+import { formatRelativeTime } from '@/lib/relative-time';
 import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
@@ -52,7 +54,7 @@ import {
   groupActiveByCategory,
   groupArchivedByYear,
 } from '@/lib/series-list';
-import type { Category, Series } from '@/lib/types';
+import type { ActivityEntry, Category, Series } from '@/lib/types';
 import {
   parseSeriesFile,
   checkLineage,
@@ -89,6 +91,7 @@ function formatSaveDate(ts: number): string {
 function SeriesCard({
   series,
   categories,
+  recent,
   onArchive,
   onUnarchive,
   onMove,
@@ -96,6 +99,7 @@ function SeriesCard({
 }: {
   series: Series;
   categories: Category[];
+  recent?: ActivityEntry;
   onArchive: (series: Series) => void;
   onUnarchive: (series: Series) => void;
   onMove: (series: Series, categoryId: string | null) => void;
@@ -117,6 +121,14 @@ function SeriesCard({
             <span>{formatSaveDate(series.lastSavedAt)}</span>
           )}
         </div>
+        {recent && (
+          <div className="text-xs text-muted-foreground mt-1 truncate">
+            {recent.summary}
+            {recent.count > 1 ? ` ×${recent.count}` : ''} ·{' '}
+            {recent.actor?.displayName ?? recent.actor?.email ?? 'Someone'} ·{' '}
+            {formatRelativeTime(recent.createdAt)}
+          </div>
+        )}
       </Link>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -186,6 +198,7 @@ export default function HomePage() {
   const { seriesRepo } = repos;
   const { data: seriesList } = useSeriesList();
   const { data: categories } = useCategories();
+  const { data: recentById } = useRecentActivity();
   const deleteCascade = useDeleteSeriesCascade();
   const archiveSeries = useArchiveSeries();
   const setSeriesCategory = useSetSeriesCategory();
@@ -373,6 +386,7 @@ export default function HomePage() {
       key={s.id}
       series={s}
       categories={cats}
+      recent={recentById?.get(s.id)}
       onArchive={handleArchive}
       onUnarchive={handleUnarchive}
       onMove={handleMove}

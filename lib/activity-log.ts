@@ -8,67 +8,22 @@ import {
   encodeCursor,
   type PageRequest,
 } from '@/app/api/v1/_lib/pagination';
+import type { ActivityAction } from '@/lib/activity-actions';
 import type { ActivityEntry } from '@/lib/types';
 
 export type { ActivityEntry };
 
 /**
- * Activity log (#153, ADR-008 Phase 10). The write seam (`recordActivity`),
+ * Activity log (#153, ADR-008 Phase 10). The write seam (`recordActivity`) and
  * the read queries that back the Activity tab and the series-list recency
- * strips, and the pure `activityKind` mapping the surfaces use to pick an
- * icon. Server-only — the table is workspace-scoped and never touched from
- * the client.
+ * strips. Server-only — the table is workspace-scoped and never touched from
+ * the client. The action vocabulary and the pure `activityKind` mapping live
+ * in the client-safe `lib/activity-actions.ts`.
  *
  * Logging is best-effort: `recordActivity` swallows its own errors so a
  * logging failure can never fail the mutation it describes. Attribution is a
  * convenience, not a transactional guarantee.
  */
-
-/**
- * The action vocabulary. Coarse and stable — surfaces key icons/grouping off
- * `activityKind(action)`, and an unknown string degrades gracefully rather
- * than throwing, so a newer server writing an action an older client doesn't
- * know about never crashes the feed.
- */
-export const ACTIVITY_ACTIONS = [
-  'series.created',
-  'series.updated',
-  'series.archived',
-  'series.unarchived',
-  'series.recategorized',
-  'series.deleted',
-  'series.copied',
-  'competitors.imported',
-  'competitors.handicaps_updated',
-  'competitors.cleared',
-  'race.added',
-  'race.deleted',
-  'finishes.recorded',
-  'finishes.entered',
-  'finishes.cleared',
-] as const;
-
-export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
-
-export type ActivityKind =
-  | 'series'
-  | 'competitor'
-  | 'race'
-  | 'finish'
-  | 'other';
-
-/**
- * Maps an action to its display kind (drives the icon/colour on the Activity
- * surfaces). Pure and total: any unrecognised action — including a future one
- * this build predates — falls back to `'other'`.
- */
-export function activityKind(action: string): ActivityKind {
-  if (action.startsWith('series.')) return 'series';
-  if (action.startsWith('competitors.')) return 'competitor';
-  if (action.startsWith('finishes.')) return 'finish';
-  if (action.startsWith('race.')) return 'race';
-  return 'other';
-}
 
 /** A race-day session: per-row finish writes inside this window fold together. */
 const COALESCE_WINDOW_MS = 6 * 60 * 60 * 1000;

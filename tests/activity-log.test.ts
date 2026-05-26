@@ -4,7 +4,7 @@ import {
   ACTIVITY_ACTIONS,
   activityKind,
   type ActivityKind,
-} from '@/lib/activity-log';
+} from '@/lib/activity-actions';
 
 describe('activityKind', () => {
   const cases: Array<[string, ActivityKind]> = [

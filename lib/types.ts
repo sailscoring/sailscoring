@@ -471,3 +471,15 @@ export interface ActivityEntry {
   createdAt: string;
   actor: { id: string; email?: string; displayName?: string } | null;
 }
+
+/**
+ * Read-only "who last touched this record" stamp (#153), derived from the
+ * row's server-managed `updated_at` / `updated_by`. Surfaced in the competitor
+ * edit dialog. Isolated from the resource DTOs on purpose: it's server
+ * metadata, not user-authored content, so it never enters file/CSV/JSON
+ * round-trips.
+ */
+export interface AuditStamp {
+  updatedAt: string | null;
+  actor: { id: string; email?: string; displayName?: string } | null;
+}

@@ -15,6 +15,7 @@ import type {
 } from './repository';
 import type {
   ActivityEntry,
+  AuditStamp,
   Category,
   Competitor,
   Finish,
@@ -544,4 +545,9 @@ export async function listRecentActivity(): Promise<ActivityEntry[]> {
     '/api/v1/activity/recent',
   );
   return items;
+}
+
+/** "Who last edited this competitor" stamp for the edit dialog (#153). */
+export function getCompetitorAudit(id: string): Promise<AuditStamp> {
+  return apiFetch<AuditStamp>(`/api/v1/competitors/${id}/audit`);
 }

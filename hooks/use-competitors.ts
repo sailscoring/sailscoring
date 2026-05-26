@@ -4,10 +4,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   competitorRepo,
+  getCompetitorAudit,
   updateHandicaps,
   type HandicapUpdateRow,
 } from '@/lib/api-repository';
-import type { Competitor } from '@/lib/types';
+import type { AuditStamp, Competitor } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
 
@@ -15,6 +16,18 @@ export function useCompetitorsBySeries(seriesId: string) {
   return useQuery<Competitor[]>({
     queryKey: queryKeys.competitors.bySeries(seriesId),
     queryFn: () => competitorRepo.listBySeries(seriesId),
+  });
+}
+
+/**
+ * "Who last edited this competitor" stamp for the edit dialog (#153). Pass the
+ * id only while the dialog is open; `null` disables the query.
+ */
+export function useCompetitorAudit(id: string | null) {
+  return useQuery<AuditStamp>({
+    queryKey: queryKeys.competitors.audit(id ?? 'none'),
+    queryFn: () => getCompetitorAudit(id!),
+    enabled: id !== null,
   });
 }
 

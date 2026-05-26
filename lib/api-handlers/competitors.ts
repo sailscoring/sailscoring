@@ -1,9 +1,12 @@
 import 'server-only';
 
+import { and, eq } from 'drizzle-orm';
+
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
+import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
 import {
   assertCompetitorWritable,
@@ -14,7 +17,7 @@ import {
   competitorsBulkInputSchema,
   handicapBulkUpdateSchema,
 } from '@/lib/validation/competitor';
-import type { Competitor } from '@/lib/types';
+import type { AuditStamp, Competitor } from '@/lib/types';
 
 async function assertSeriesInWorkspace(
   workspace: WorkspaceContext,
@@ -204,4 +207,50 @@ export async function deleteCompetitorFlat(
   await assertCompetitorWritable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.competitors.delete(id);
+}
+
+/**
+ * "Who last edited this" stamp for the competitor edit dialog (#153). Reads the
+ * row's server-managed `updated_at` / `updated_by` and resolves the actor's
+ * display name — the passive companion to the conflict dialog's actor line,
+ * which only appears on a 409. Its own endpoint so it doesn't bloat the
+ * Competitor DTO (and its file/CSV/JSON round-trips).
+ */
+export async function getCompetitorAudit(
+  workspace: WorkspaceContext,
+  id: string,
+): Promise<AuditStamp> {
+  const db = getDb();
+  const [row] = await db
+    .select({
+      updatedAt: schema.competitors.updatedAt,
+      updatedBy: schema.competitors.updatedBy,
+    })
+    .from(schema.competitors)
+    .where(
+      and(
+        eq(schema.competitors.id, id),
+        eq(schema.competitors.workspaceId, workspace.workspaceId),
+      ),
+    )
+    .limit(1);
+  if (!row) throw new NotFoundError('competitor');
+
+  let actor: AuditStamp['actor'] = null;
+  if (row.updatedBy) {
+    const [u] = await db
+      .select({ id: schema.user.id, email: schema.user.email, name: schema.user.name })
+      .from(schema.user)
+      .where(eq(schema.user.id, row.updatedBy))
+      .limit(1);
+    actor = u
+      ? {
+          id: u.id,
+          email: u.email,
+          displayName: u.name && u.name.trim().length > 0 ? u.name : undefined,
+        }
+      : { id: row.updatedBy };
+  }
+
+  return { updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null, actor };
 }

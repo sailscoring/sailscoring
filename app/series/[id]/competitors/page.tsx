@@ -5,10 +5,12 @@ import { useSeries, useTouchSeries } from '@/hooks/use-series';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import {
+  useCompetitorAudit,
   useCompetitorsBySeries,
   useDeleteCompetitor,
   useSaveCompetitor,
 } from '@/hooks/use-competitors';
+import { formatRelativeTime } from '@/lib/relative-time';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -138,6 +140,18 @@ function sameFleetIdSet(a: string[], b: string[]): boolean {
   const set = new Set(a);
   for (const id of b) if (!set.has(id)) return false;
   return true;
+}
+
+/** Passive "who last edited this" stamp in the edit dialog (#153). */
+function CompetitorAuditLine({ competitorId }: { competitorId: string }) {
+  const { data } = useCompetitorAudit(competitorId);
+  if (!data?.updatedAt) return null;
+  const who = data.actor?.displayName ?? data.actor?.email ?? 'someone';
+  return (
+    <p className="text-xs text-muted-foreground">
+      Last edited by {who} · {formatRelativeTime(data.updatedAt)}
+    </p>
+  );
 }
 
 function CompetitorForm({
@@ -856,6 +870,9 @@ export default function CompetitorsPage({
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Edit competitor</DialogTitle>
+            {editingCompetitor && (
+              <CompetitorAuditLine competitorId={editingCompetitor.id} />
+            )}
           </DialogHeader>
           {editingCompetitor && (
             <CompetitorForm

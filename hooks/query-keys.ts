@@ -28,6 +28,7 @@ export const queryKeys = {
     bySeries: (seriesId: string) =>
       ['competitors', 'bySeries', seriesId] as const,
     detail: (id: string) => ['competitors', 'detail', id] as const,
+    audit: (id: string) => ['competitors', 'audit', id] as const,
   },
   races: {
     all: ['races'] as const,
