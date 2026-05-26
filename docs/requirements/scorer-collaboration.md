@@ -23,8 +23,9 @@ These requirements are implemented across the collaboration phases of
   chronological log surfaces and the protest-committee accountability use
   case now build on it. Coarse granularity for this first cut — action +
   summary + actor + time; field-level before/after diffs are a deferred
-  refinement. Self-service org administration and the invitation /
-  member-management UI are the remaining Phase 10 work.
+  refinement. The invitation / member-management UI (Members card +
+  `/accept-invitation`) and self-service org-creation requests (request
+  from `/account`, owner fulfils via `provision-org`) have also landed.
 
 ## How Scorers Work in Practice
 

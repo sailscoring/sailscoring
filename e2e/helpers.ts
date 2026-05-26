@@ -8,6 +8,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import postgres from 'postgres';
 
 import * as schema from '@/lib/db/schema';
+import { fulfilRequest } from '@/scripts/provision-org';
 
 /**
  * The dev/CI Resend stub appends each magic-link issuance to this file as
@@ -225,6 +226,35 @@ export async function latestInvitationId(email: string): Promise<string> {
       await new Promise((r) => setTimeout(r, 250));
     }
     throw new Error(`No pending invitation found for ${email}`);
+  } finally {
+    await close();
+  }
+}
+
+/**
+ * Fulfil a user's latest pending org-creation request the way the project
+ * owner would — via the provision-org `fulfilRequest` path (#153). Returns the
+ * new workspace so the test can switch into it.
+ */
+export async function fulfilOrgRequest(
+  email: string,
+): Promise<{ id: string; slug: string; name: string }> {
+  const { db, close } = adminDb();
+  try {
+    const [req] = await db
+      .select({ id: schema.orgRequest.id })
+      .from(schema.orgRequest)
+      .where(
+        and(
+          eq(schema.orgRequest.userEmail, email.toLowerCase()),
+          eq(schema.orgRequest.status, 'pending'),
+        ),
+      )
+      .orderBy(desc(schema.orgRequest.createdAt))
+      .limit(1);
+    if (!req) throw new Error(`no pending org request for ${email}`);
+    const { org } = await fulfilRequest(db, { requestId: req.id });
+    return org;
   } finally {
     await close();
   }

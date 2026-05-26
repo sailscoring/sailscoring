@@ -876,6 +876,12 @@ export default function HelpPage() {
           the members list and share the workspace. Owners and admins can change
           a member&apos;s role or remove them there too.
         </p>
+        <p>
+          Don&apos;t have a shared workspace yet? Request one from your{' '}
+          <strong className="text-foreground">Account</strong> page — give it a
+          name and we&apos;ll set it up and make you the owner, ready to invite
+          the rest of your panel.
+        </p>
       </Section>
 
       <Section id="publishing-results" title="Publishing results">
