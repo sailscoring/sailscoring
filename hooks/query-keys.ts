@@ -68,4 +68,7 @@ export const queryKeys = {
   workspaceMembers: {
     all: ['workspaceMembers'] as const,
   },
+  orgRequest: {
+    mine: () => ['orgRequest', 'mine'] as const,
+  },
 } as const;

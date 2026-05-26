@@ -18,6 +18,7 @@ import type {
   AuditStamp,
   Category,
   Competitor,
+  OrgRequest,
   Finish,
   Fleet,
   FtpServer,
@@ -550,4 +551,25 @@ export async function listRecentActivity(): Promise<ActivityEntry[]> {
 /** "Who last edited this competitor" stamp for the edit dialog (#153). */
 export function getCompetitorAudit(id: string): Promise<AuditStamp> {
   return apiFetch<AuditStamp>(`/api/v1/competitors/${id}/audit`);
+}
+
+// ─── Org-creation requests (#153) ───────────────────────────────────────────
+
+/** The signed-in user's latest org-creation request, or null. */
+export async function getMyOrgRequest(): Promise<OrgRequest | null> {
+  const { request } = await apiFetch<{ request: OrgRequest | null }>(
+    '/api/v1/org-requests',
+  );
+  return request;
+}
+
+/** Submit a request for a shared workspace; the project owner provisions it. */
+export function submitOrgRequest(input: {
+  requestedName: string;
+  note?: string;
+}): Promise<OrgRequest> {
+  return apiFetch<OrgRequest>('/api/v1/org-requests', {
+    method: 'POST',
+    body: input,
+  });
 }

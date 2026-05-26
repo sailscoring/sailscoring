@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { requireSession } from '@/lib/auth/require-session';
 import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
+import { OrgRequestCard } from '@/components/account/org-request-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +66,8 @@ export default async function AccountPage() {
           </>
         )}
       </dl>
+
+      <OrgRequestCard />
     </section>
   );
 }
