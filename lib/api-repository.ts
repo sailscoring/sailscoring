@@ -14,6 +14,7 @@ import type {
   SeriesRepository,
 } from './repository';
 import type {
+  Category,
   Competitor,
   Finish,
   Fleet,
@@ -293,6 +294,54 @@ export const raceRepo: RaceRepository = new ApiRaceRepository();
 export const raceStartRepo: RaceStartRepository = new ApiRaceStartRepository();
 export const finishRepo: FinishRepository = new ApiFinishRepository();
 export const ftpServerRepo: FtpServerRepository = new ApiFtpServerRepository();
+
+// ─── Series-list organisation (#154) ─────────────────────────────────────────
+
+/** Scorer-defined categories for the active workspace, in display order. */
+export async function listCategories(): Promise<Category[]> {
+  const { items } = await apiFetch<{ items: Category[] }>('/api/v1/categories');
+  return items;
+}
+
+export function createCategory(name: string): Promise<Category> {
+  return apiFetch<Category>('/api/v1/categories', { method: 'POST', body: { name } });
+}
+
+export function renameCategory(id: string, name: string): Promise<Category> {
+  return apiFetch<Category>(`/api/v1/categories/${id}`, { method: 'PATCH', body: { name } });
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  await apiFetch(`/api/v1/categories/${id}`, { method: 'DELETE' });
+}
+
+/** Persist a new category order; returns the reordered list. */
+export async function reorderCategories(orderedIds: string[]): Promise<Category[]> {
+  const { items } = await apiFetch<{ items: Category[] }>('/api/v1/categories/reorder', {
+    method: 'POST',
+    body: { orderedIds },
+  });
+  return items;
+}
+
+/** Move a series to a category (`null` = Uncategorized). Blocked when archived. */
+export function setSeriesCategory(
+  seriesId: string,
+  categoryId: string | null,
+): Promise<Series> {
+  return apiFetch<Series>(`/api/v1/series/${seriesId}/category`, {
+    method: 'POST',
+    body: { categoryId },
+  });
+}
+
+/** Archive or unarchive a series — the read-only toggle (#154). */
+export function archiveSeries(seriesId: string, archived: boolean): Promise<Series> {
+  return apiFetch<Series>(`/api/v1/series/${seriesId}/archive`, {
+    method: 'POST',
+    body: { archived },
+  });
+}
 
 /**
  * Progressive-handicap TCF history for a series. Server computes live

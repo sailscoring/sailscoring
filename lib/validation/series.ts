@@ -85,6 +85,12 @@ export const seriesArchiveInputSchema = z.object({
   archived: z.boolean(),
 });
 
+/** Body for POST /api/v1/series/:id/category — move a series between categories
+ *  (#154). `null` clears the assignment back to the synthetic "Uncategorized". */
+export const seriesCategoryInputSchema = z.object({
+  categoryId: uuidSchema.nullable(),
+});
+
 /** Write-side schema. The id is optional — clients commonly generate UUIDs
  *  but the server may also generate one for new series. The optional
  *  `version` flows through from a prior GET; the API handler converts it

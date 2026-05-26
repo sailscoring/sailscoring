@@ -18,6 +18,7 @@ import {
   type SeriesRepository,
 } from './repository';
 import type {
+  Category,
   Competitor,
   Fleet,
   Finish,
@@ -1627,11 +1628,108 @@ export class PostgresFtpServerRepository implements FtpServerRepository {
   }
 }
 
+// ─── Categories ──────────────────────────────────────────────────────────────
+
+function categoryRowToType(row: typeof schema.categories.$inferSelect): Category {
+  return { id: row.id, name: row.name, displayOrder: row.displayOrder };
+}
+
+/**
+ * Scorer-defined series categories (#154). Workspace-scoped, no optimistic
+ * concurrency — categories are low-churn metadata edited by one scorer at a
+ * time, so last-write-wins is fine. Case-insensitive name uniqueness is
+ * enforced at the handler layer; the DB has the exact-match backstop.
+ */
+export class PostgresCategoryRepository {
+  private readonly db: SailScoringDb;
+  private readonly workspaceId: string;
+
+  constructor(ctx: RepoCtx) {
+    this.db = ctx.db ?? getDb();
+    this.workspaceId = ctx.workspaceId;
+  }
+
+  async list(): Promise<Category[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.categories)
+      .where(eq(schema.categories.workspaceId, this.workspaceId))
+      .orderBy(schema.categories.displayOrder);
+    return rows.map(categoryRowToType);
+  }
+
+  async create(name: string): Promise<Category> {
+    // New categories land at the end. `coalesce(max+1, 0)` seeds the first.
+    const [{ next }] = await this.db
+      .select({
+        next: sql<number>`coalesce(max(${schema.categories.displayOrder}) + 1, 0)`,
+      })
+      .from(schema.categories)
+      .where(eq(schema.categories.workspaceId, this.workspaceId));
+    const [row] = await this.db
+      .insert(schema.categories)
+      .values({
+        id: crypto.randomUUID(),
+        workspaceId: this.workspaceId,
+        name,
+        displayOrder: next,
+      })
+      .returning();
+    return categoryRowToType(row);
+  }
+
+  async rename(id: string, name: string): Promise<Category | undefined> {
+    const [row] = await this.db
+      .update(schema.categories)
+      .set({ name })
+      .where(
+        and(
+          eq(schema.categories.id, id),
+          eq(schema.categories.workspaceId, this.workspaceId),
+        ),
+      )
+      .returning();
+    return row ? categoryRowToType(row) : undefined;
+  }
+
+  /** Deleting a category drops its series back to Uncategorized via the
+   *  `series.category_id` ON DELETE SET NULL. */
+  async delete(id: string): Promise<void> {
+    await this.db
+      .delete(schema.categories)
+      .where(
+        and(
+          eq(schema.categories.id, id),
+          eq(schema.categories.workspaceId, this.workspaceId),
+        ),
+      );
+  }
+
+  /** Rewrites `display_order` to match the given id sequence. Ids not in this
+   *  workspace are ignored (the per-row WHERE is workspace-scoped). */
+  async reorder(orderedIds: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        await tx
+          .update(schema.categories)
+          .set({ displayOrder: i })
+          .where(
+            and(
+              eq(schema.categories.id, orderedIds[i]),
+              eq(schema.categories.workspaceId, this.workspaceId),
+            ),
+          );
+      }
+    });
+  }
+}
+
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
 export function createRepos(ctx: RepoCtx) {
   return {
     series: new PostgresSeriesRepository(ctx),
+    categories: new PostgresCategoryRepository(ctx),
     fleets: new PostgresFleetRepository(ctx),
     competitors: new PostgresCompetitorRepository(ctx),
     races: new PostgresRaceRepository(ctx),

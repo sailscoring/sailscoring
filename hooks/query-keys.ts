@@ -15,6 +15,10 @@ export const queryKeys = {
     list: () => ['series', 'list'] as const,
     detail: (id: string) => ['series', 'detail', id] as const,
   },
+  categories: {
+    all: ['categories'] as const,
+    list: () => ['categories', 'list'] as const,
+  },
   fleets: {
     all: ['fleets'] as const,
     bySeries: (seriesId: string) => ['fleets', 'bySeries', seriesId] as const,

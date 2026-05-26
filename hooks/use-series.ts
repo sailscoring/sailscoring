@@ -9,8 +9,10 @@ import {
 
 import {
   seriesRepo,
+  archiveSeries,
   deleteSeriesCascade,
   listSeriesNames,
+  setSeriesCategory,
 } from '@/lib/api-repository';
 import type { Series } from '@/lib/types';
 
@@ -113,6 +115,34 @@ export function useTouchSeries() {
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });
     },
     // See useSaveSeries — same scope so touch/update/save serialize together.
+    scope: { id: 'series' },
+  });
+}
+
+/** Archive / unarchive a series — the read-only toggle (#154). */
+export function useArchiveSeries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
+      archiveSeries(id, archived),
+    onSuccess: (saved) => {
+      qc.setQueryData(queryKeys.series.detail(saved.id), saved);
+      qc.invalidateQueries({ queryKey: queryKeys.series.list() });
+    },
+    scope: { id: 'series' },
+  });
+}
+
+/** Move a series between categories (`null` = Uncategorized, #154). */
+export function useSetSeriesCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, categoryId }: { id: string; categoryId: string | null }) =>
+      setSeriesCategory(id, categoryId),
+    onSuccess: (saved) => {
+      qc.setQueryData(queryKeys.series.detail(saved.id), saved);
+      qc.invalidateQueries({ queryKey: queryKeys.series.list() });
+    },
     scope: { id: 'series' },
   });
 }

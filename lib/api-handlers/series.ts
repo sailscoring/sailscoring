@@ -18,7 +18,11 @@ import {
   assertSeriesWritable,
 } from '@/lib/api-handlers/series-access';
 import { seriesCopyInputSchema } from '@/lib/validation/series-copy';
-import { seriesArchiveInputSchema, seriesInputSchema } from '@/lib/validation/series';
+import {
+  seriesArchiveInputSchema,
+  seriesCategoryInputSchema,
+  seriesInputSchema,
+} from '@/lib/validation/series';
 import type { Series } from '@/lib/types';
 
 export async function listSeries(workspace: WorkspaceContext): Promise<{ items: Series[] }> {
@@ -132,6 +136,34 @@ export async function setSeriesArchived(
   if (!current) throw new NotFoundError('series');
   return repos.series.save(
     { ...current, archived },
+    { updatedBy: workspace.userId },
+  );
+}
+
+/**
+ * Move a series between categories (#154) — its own lightweight endpoint so
+ * the home-list `⋯` menu doesn't round-trip the whole series. Moving is an
+ * edit, so it's blocked on an archived series; `null` clears the assignment
+ * back to the synthetic "Uncategorized".
+ */
+export async function setSeriesCategory(
+  workspace: WorkspaceContext,
+  id: string,
+  body: unknown,
+): Promise<Series> {
+  const { categoryId } = seriesCategoryInputSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const current = await repos.series.get(id);
+  if (!current) throw new NotFoundError('series');
+  if (current.archived) throw new ArchivedError();
+  if (categoryId !== null) {
+    const categories = await repos.categories.list();
+    if (!categories.some((c) => c.id === categoryId)) {
+      throw new BadRequestError('unknown category');
+    }
+  }
+  return repos.series.save(
+    { ...current, categoryId },
     { updatedBy: workspace.userId },
   );
 }
