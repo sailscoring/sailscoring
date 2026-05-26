@@ -155,6 +155,20 @@
       "when": 1779821959018,
       "tag": "0021_crazy_namorita",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1779834272119,
+      "tag": "0022_cuddly_nicolaos",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1779836852309,
+      "tag": "0023_greedy_kree",
+      "breakpoints": true
     }
   ]
 }
