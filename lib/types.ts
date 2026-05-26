@@ -483,3 +483,15 @@ export interface AuditStamp {
   updatedAt: string | null;
   actor: { id: string; email?: string; displayName?: string } | null;
 }
+
+/**
+ * Self-service org-creation request (#153). The shape returned by the
+ * `/api/v1/org-requests` endpoints and shown on the account page.
+ */
+export interface OrgRequest {
+  id: string;
+  requestedName: string;
+  note: string | null;
+  status: 'pending' | 'fulfilled' | 'declined';
+  createdAt: string;
+}

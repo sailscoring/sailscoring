@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -134,6 +134,41 @@ export const invitation = pgTable(
   (table) => [
     index("invitation_organizationId_idx").on(table.organizationId),
     index("invitation_email_idx").on(table.email),
+  ],
+);
+
+/**
+ * Self-service org-creation requests (#153, ADR-008 Phase 10, iteration 3).
+ *
+ * Org creation is admin-approved out-of-band: a user submits a request from
+ * `/account`, the project owner is notified, and fulfils it with the
+ * `provision-org` CLI (`list-requests` / `fulfil-request`), which creates the
+ * organization, adds the requester as owner, and marks the row `fulfilled`.
+ * The plugin's self-serve create endpoint stays closed (see `lib/auth.ts`).
+ *
+ * A partial unique index keeps a user to one open request at a time; resolved
+ * rows are kept as a light audit trail. `user_id` cascades on user deletion.
+ */
+export const orgRequest = pgTable(
+  "org_request",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    userEmail: text("user_email").notNull(),
+    requestedName: text("requested_name").notNull(),
+    note: text("note"),
+    status: text("status").default("pending").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    resolvedAt: timestamp("resolved_at"),
+    resolvedOrgId: text("resolved_org_id"),
+  },
+  (table) => [
+    index("org_request_user_idx").on(table.userId),
+    uniqueIndex("org_request_one_pending_per_user")
+      .on(table.userId)
+      .where(sql`status = 'pending'`),
   ],
 );
 

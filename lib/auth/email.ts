@@ -191,6 +191,45 @@ export async function sendInvitationEmail(args: {
 }
 
 /**
+ * Notify the project owner of a self-service org-creation request (#153).
+ * Plain text — it's an internal admin ping, not a user-facing email. Reply-to
+ * is the requester so the owner can answer directly. In dev/CI (no
+ * RESEND_API_KEY) log to the console; the request is recorded in the DB
+ * regardless, and `provision-org list-requests` surfaces it.
+ */
+export async function sendOrgRequestEmail(args: {
+  to: string;
+  requesterEmail: string;
+  requestedName: string;
+  note?: string | null;
+}): Promise<void> {
+  const from = process.env.RESEND_FROM || FROM_DEFAULT;
+  const text = `${args.requesterEmail} has requested a shared Sail Scoring workspace named "${args.requestedName}".${
+    args.note ? `\n\nNote from the requester:\n${args.note}` : ''
+  }
+
+Fulfil it from the production DB with:
+  pnpm provision-org:prod list-requests
+  pnpm provision-org:prod fulfil-request <id>
+
+— Sail Scoring`;
+
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[org-request] from=${args.requesterEmail} name="${args.requestedName}"`);
+    return;
+  }
+  const { Resend } = await import('resend');
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from,
+    to: args.to,
+    replyTo: args.requesterEmail,
+    subject: `Workspace request: ${args.requestedName}`,
+    text,
+  });
+}
+
+/**
  * Send a magic-link email via Resend in production. In dev/CI when
  * RESEND_API_KEY is unset, log to the console *and* append to
  * `tests/.magic-links.log` so e2e tests can read the most recent link
