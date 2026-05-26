@@ -4,7 +4,7 @@ import { magicLink } from 'better-auth/plugins/magic-link';
 import { organization } from 'better-auth/plugins/organization';
 import { eq } from 'drizzle-orm';
 
-import { sendMagicLinkEmail } from '@/lib/auth/email';
+import { sendInvitationEmail, sendMagicLinkEmail } from '@/lib/auth/email';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
 import * as authSchema from '@/lib/db/schema/auth';
 
@@ -71,7 +71,29 @@ export const auth = betterAuth({
       },
       rateLimit: { window: 600, max: 5 },
     }),
-    organization(),
+    organization({
+      // Org creation is admin-approved out-of-band (Phase 10 #153, iteration 3):
+      // users request a workspace and the project owner provisions it. The
+      // plugin's self-serve create endpoint stays closed; personal workspaces
+      // are still created directly in the sign-up hook below, not via the
+      // plugin endpoint, so this flag doesn't affect them.
+      allowUserToCreateOrganization: false,
+      // Re-inviting an address with a pending invite supersedes the old one
+      // rather than stacking duplicates.
+      cancelPendingInvitationsOnReInvite: true,
+      sendInvitationEmail: async (data) => {
+        const base =
+          process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || '';
+        const inviterUser = data.inviter.user;
+        await sendInvitationEmail({
+          to: data.email,
+          organizationName: data.organization.name,
+          inviterLabel: inviterUser.name?.trim() || inviterUser.email,
+          role: data.role,
+          acceptUrl: `${base}/accept-invitation/${data.id}`,
+        });
+      },
+    }),
   ],
   databaseHooks: {
     user: {

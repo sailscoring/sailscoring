@@ -86,6 +86,110 @@ export function renderMagicLinkHtml(args: { to: string; url: string; isNewUser: 
 </html>`;
 }
 
+export function renderInvitationText(args: {
+  organizationName: string;
+  inviterLabel: string;
+  role: string;
+  acceptUrl: string;
+}): string {
+  return `Hi,
+
+${args.inviterLabel} has invited you to join the "${args.organizationName}" workspace on Sail Scoring as ${args.role}.
+
+Open this link to accept (sign in with this email address if you're prompted):
+
+${args.acceptUrl}
+
+A workspace is shared scoring space: everyone in it sees the same series, can enter results together, and shows up in the activity log. If you weren't expecting this, you can ignore the invitation — nothing happens until you accept.
+
+— Sail Scoring
+mark@hyc.ie
+`;
+}
+
+export function renderInvitationHtml(args: {
+  organizationName: string;
+  inviterLabel: string;
+  role: string;
+  acceptUrl: string;
+}): string {
+  const orgSafe = escapeHtml(args.organizationName);
+  const inviterSafe = escapeHtml(args.inviterLabel);
+  const roleSafe = escapeHtml(args.role);
+  const urlSafe = escapeHtml(args.acceptUrl);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>You've been invited to a Sail Scoring workspace</title>
+</head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border-radius:8px;padding:32px;">
+          <tr>
+            <td>
+              <p style="margin:0 0 24px;font-size:14px;font-weight:600;color:#0f172a;letter-spacing:0.02em;">Sail Scoring</p>
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hi,</p>
+              <p style="margin:0 0 24px;font-size:16px;line-height:1.6;"><strong>${inviterSafe}</strong> has invited you to join the <strong>${orgSafe}</strong> workspace on Sail Scoring as <strong>${roleSafe}</strong>.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="border-radius:6px;background:#0f172a;">
+                    <a href="${urlSafe}" style="display:inline-block;padding:12px 24px;font-size:16px;color:#ffffff;text-decoration:none;font-weight:500;border-radius:6px;">Accept invitation</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#475569;">Or copy and paste this link into your browser:</p>
+              <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#475569;word-break:break-all;"><a href="${urlSafe}" style="color:#475569;">${urlSafe}</a></p>
+              <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#475569;">A workspace is a shared scoring space: everyone in it sees the same series, enters results together, and shows up in the activity log. Sign in with this email address if you're prompted. If you weren't expecting this, you can safely ignore it — nothing happens until you accept.</p>
+              <hr style="margin:24px 0 16px;border:none;border-top:1px solid #e2e8f0;">
+              <p style="margin:0;font-size:13px;line-height:1.5;color:#94a3b8;">Sail Scoring · <a href="mailto:mark@hyc.ie" style="color:#475569;">mark@hyc.ie</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+/**
+ * Send a workspace invitation email via Resend in production; in dev/CI
+ * (no RESEND_API_KEY, or a `.test` address) log to the console. e2e tests
+ * read the invitation straight from the DB (see `latestInvitationId` in
+ * `e2e/helpers.ts`) rather than scraping email.
+ */
+export async function sendInvitationEmail(args: {
+  to: string;
+  organizationName: string;
+  inviterLabel: string;
+  role: string;
+  acceptUrl: string;
+}): Promise<void> {
+  const { to } = args;
+  const from = process.env.RESEND_FROM || FROM_DEFAULT;
+  const isTestAddress = /\.test$/i.test(to);
+
+  if (isTestAddress || !process.env.RESEND_API_KEY) {
+    console.log(`[invitation] to=${to} org="${args.organizationName}" url=${args.acceptUrl}`);
+    return;
+  }
+
+  const { Resend } = await import('resend');
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from,
+    to,
+    replyTo: REPLY_TO,
+    subject: `You're invited to ${args.organizationName} on Sail Scoring`,
+    text: renderInvitationText(args),
+    html: renderInvitationHtml(args),
+  });
+}
+
 /**
  * Send a magic-link email via Resend in production. In dev/CI when
  * RESEND_API_KEY is unset, log to the console *and* append to
