@@ -867,6 +867,15 @@ export default function HelpPage() {
           second one sees a conflict prompt naming the other scorer rather than
           silently overwriting their work.
         </p>
+        <p>
+          To add a co-scorer, open{' '}
+          <strong className="text-foreground">Workspace settings</strong> (from
+          the workspace menu in the header) and use the{' '}
+          <strong className="text-foreground">Members</strong> card to invite
+          them by email. They get a link to accept; once they do, they appear in
+          the members list and share the workspace. Owners and admins can change
+          a member&apos;s role or remove them there too.
+        </p>
       </Section>
 
       <Section id="publishing-results" title="Publishing results">

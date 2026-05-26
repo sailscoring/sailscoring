@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { Download, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { drizzle } from 'drizzle-orm/postgres-js';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import postgres from 'postgres';
 
 import * as schema from '@/lib/db/schema';
@@ -194,6 +194,37 @@ export async function addMemberByEmail(
       role,
       createdAt: new Date(),
     });
+  } finally {
+    await close();
+  }
+}
+
+/**
+ * Read the most recent pending invitation id for an email (#153). Invitations
+ * are emailed in production; in e2e we pull the id straight from the DB to
+ * build the `/accept-invitation/{id}` URL, the same way the magic-link log
+ * stub stands in for email. Polls briefly since the invite is created by a UI
+ * action.
+ */
+export async function latestInvitationId(email: string): Promise<string> {
+  const { db, close } = adminDb();
+  try {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const [row] = await db
+        .select({ id: schema.invitation.id })
+        .from(schema.invitation)
+        .where(
+          and(
+            eq(schema.invitation.email, email.toLowerCase()),
+            eq(schema.invitation.status, 'pending'),
+          ),
+        )
+        .orderBy(desc(schema.invitation.createdAt))
+        .limit(1);
+      if (row) return row.id;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    throw new Error(`No pending invitation found for ${email}`);
   } finally {
     await close();
   }

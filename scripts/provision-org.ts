@@ -1,9 +1,12 @@
 /**
  * ADR-008 Phase 7 — manual workspace (organization) administration.
  *
- * Self-service org creation, invitations, and members management land in
- * Phase 10. Until then this CLI is the only way to provision an
- * organization workspace and add HYC's panel members to it.
+ * Phase 10 (#153) added an in-app Members card (invite by email, role
+ * changes, removal) on Workspace settings, so day-to-day membership no
+ * longer needs this CLI. It remains the privileged/admin path for
+ * provisioning the organization itself (create-org) — self-service org
+ * creation is request-and-approve (see iteration 3) — and as the
+ * out-of-process fallback for bulk or break-glass member operations.
  *
  * Operations write directly to the Better Auth Drizzle tables. The
  * organization plugin's HTTP endpoints all require a session (see
