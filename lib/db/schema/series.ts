@@ -483,3 +483,60 @@ export const idempotencyKeys = pgTable('idempotency_keys', {
   uniqueIndex('idempotency_keys_pk').on(table.workspaceId, table.key),
   index('idempotency_keys_created_idx').on(table.createdAt),
 ]);
+
+/**
+ * Activity log (#153, ADR-008 Phase 10). Workspace-scoped, append-only record
+ * of "what changed, when, by whom" — surfaced as a per-series Activity tab and
+ * recency strips on the series list. Builds on the Phase 7 `updated_by`
+ * down-payment (which still backs the per-record stamp in the competitor
+ * dialog); this table adds the chronological surfaces.
+ *
+ * Coarse granularity for this first cut: action + a human `summary` + actor +
+ * time. Field-level before/after diffs ("DNF → 14:23:07") are a deferred
+ * refinement; `metadata` reserves room for them without a migration.
+ *
+ * `series_id` is a plain uuid, not a foreign key: like `updated_by` and
+ * `feedback`, the log is a historical record that should outlive what it
+ * describes. A deleted series' rows just stop being reachable from a series
+ * page; workspace deletion still cascades them away via `workspace_id`.
+ * `actor_user_id` is a semantic reference to `user.id` for the same reason.
+ *
+ * Per-row autosave actions (race finishes) coalesce: `recordActivity` folds
+ * repeated writes sharing `(workspace_id, action, dedupe_key, actor_user_id)`
+ * inside a session window into one row with a running `metadata.count`, so a
+ * 20-boat race reads as a single "recorded finishes for Race 3" entry rather
+ * than twenty lines.
+ */
+export const activityLog = pgTable(
+  'activity_log',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    seriesId: uuid('series_id'),
+    actorUserId: text('actor_user_id'),
+    action: text('action').notNull(),
+    summary: text('summary').notNull(),
+    dedupeKey: text('dedupe_key'),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('activity_log_workspace_created_idx').on(
+      table.workspaceId,
+      table.createdAt.desc(),
+    ),
+    index('activity_log_series_created_idx').on(
+      table.seriesId,
+      table.createdAt.desc(),
+    ),
+    index('activity_log_coalesce_idx').on(
+      table.workspaceId,
+      table.dedupeKey,
+      table.actorUserId,
+    ),
+  ],
+);
