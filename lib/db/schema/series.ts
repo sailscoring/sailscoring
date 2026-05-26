@@ -52,6 +52,44 @@ const updatedAtCol = timestamp('updated_at', { withTimezone: true })
 // or block (orphan rows just lose their attribution display).
 const updatedByCol = text('updated_by');
 
+/**
+ * Scorer-defined series categories (#154). Per-workspace, scorer-editable
+ * (add / rename / reorder / delete). Deliberately **not** seeded — different
+ * orgs partition their season differently, so new workspaces start empty and
+ * every series sits in the synthetic "Uncategorized" bucket (`series.category_id`
+ * NULL) until the scorer creates categories.
+ *
+ * Deleting a category drops its members back to Uncategorized via the
+ * `ON DELETE SET NULL` on `series.category_id` — no row rewrite, and
+ * "Uncategorized" can't be deleted because it isn't a row.
+ */
+export const categories = pgTable(
+  'categories',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    displayOrder: integer('display_order').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('categories_workspace_order_idx').on(
+      table.workspaceId,
+      table.displayOrder,
+    ),
+    // Case-insensitive duplicate prevention is enforced at the validation
+    // layer; this constraint is the exact-match backstop.
+    uniqueIndex('categories_workspace_name_uidx').on(
+      table.workspaceId,
+      table.name,
+    ),
+  ],
+);
+
 export const series = pgTable(
   'series',
   {
@@ -116,6 +154,17 @@ export const series = pgTable(
     // Freeform label for the subdivision competitor field. No CHECK constraint
     // — the value is arbitrary text (length is bounded at the Zod layer).
     subdivisionLabel: text('subdivision_label').notNull().default('Division'),
+    // Series-list organisation (#154). Both are workspace-local: deliberately
+    // excluded from the .sailscoring file format and public JSON export, and
+    // reset by copySeries (a copy lands active and uncategorised in its target
+    // workspace). `category_id` NULL is the synthetic "Uncategorized" bucket.
+    categoryId: uuid('category_id').references(() => categories.id, {
+      onDelete: 'set null',
+    }),
+    // Archive = read-only + collapsed out of the active list (#154). Subsumes
+    // the horizon "lock" concept: archived series reject edits, and are the
+    // only ones that may be deleted (deliberate archive-then-delete friction).
+    archived: boolean('archived').notNull().default(false),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

@@ -148,6 +148,13 @@
       "when": 1779709258633,
       "tag": "0020_lively_eternals",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1779821959018,
+      "tag": "0021_crazy_namorita",
+      "breakpoints": true
     }
   ]
 }
