@@ -12,7 +12,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ValidationApiError } from '@/lib/api-client';
-import { getPublication, publishSeries } from '@/lib/api-repository';
+import {
+  getPublication,
+  publishSeries,
+  unpublishSeries,
+} from '@/lib/api-repository';
 import { fleetSubPath } from '@/lib/publishing';
 import type { Fleet, PublicationStatus, Series } from '@/lib/types';
 
@@ -39,7 +43,9 @@ function sanitizeSlug(raw: string): string {
 export function PublishDialog({ series, fleets, open, onClose }: PublishDialogProps) {
   const [status, setStatus] = useState<PublicationStatus | null>(null);
   const [slug, setSlug] = useState('');
-  const [phase, setPhase] = useState<'loading' | 'idle' | 'publishing'>('loading');
+  const [phase, setPhase] = useState<
+    'loading' | 'idle' | 'publishing' | 'unpublishing'
+  >('loading');
   const [error, setError] = useState<string | null>(null);
   const [needsOverwrite, setNeedsOverwrite] = useState(false);
 
@@ -121,8 +127,32 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
     }
   }
 
+  async function handleUnpublish() {
+    if (
+      !confirm(
+        `Unpublish "${series.name}"? The public page will stop working and its URL frees up.`,
+      )
+    ) {
+      return;
+    }
+    setPhase('unpublishing');
+    setError(null);
+    try {
+      await unpublishSeries(series.id);
+      // Back to the first-publish state: the slug input returns, pre-filled
+      // with the suggestion, so re-publishing is a click away.
+      setStatus((s) => (s ? { ...s, published: null } : s));
+      setSlug(status?.suggestedSlug ?? '');
+      setPhase('idle');
+    } catch (e) {
+      setPhase('idle');
+      setError(e instanceof Error ? e.message : 'Unpublish failed.');
+    }
+  }
+
   const isLoading = phase === 'loading';
   const isPublishing = phase === 'publishing';
+  const isUnpublishing = phase === 'unpublishing';
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -210,12 +240,21 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
+          {isPublished && !needsOverwrite && (
+            <Button
+              variant="destructive"
+              onClick={handleUnpublish}
+              disabled={isPublishing || isUnpublishing}
+            >
+              {isUnpublishing ? 'Unpublishing…' : 'Unpublish'}
+            </Button>
+          )}
           {needsOverwrite ? (
             <Button variant="destructive" onClick={() => handlePublish(true)} disabled={isPublishing}>
               {isPublishing ? 'Publishing…' : 'Overwrite & publish'}
             </Button>
           ) : (
-            <Button onClick={() => handlePublish(false)} disabled={isLoading || isPublishing || (!isPublished && !slug)}>
+            <Button onClick={() => handlePublish(false)} disabled={isLoading || isPublishing || isUnpublishing || (!isPublished && !slug)}>
               {isPublishing ? 'Publishing…' : isPublished ? 'Re-publish' : 'Publish'}
             </Button>
           )}

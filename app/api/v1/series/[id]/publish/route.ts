@@ -1,4 +1,8 @@
-import { getPublication, publishSeries } from '@/lib/api-handlers/publish';
+import {
+  getPublication,
+  publishSeries,
+  unpublishBySeries,
+} from '@/lib/api-handlers/publish';
 import type { PublicationStatus, PublishResult } from '@/lib/types';
 import { publishInputSchema } from '@/lib/validation/publish';
 import { readJson, workspaceRoute } from '../../../_lib/handler';
@@ -20,5 +24,15 @@ export const POST = workspaceRoute<Params, PublishResult>(
   async (req, { workspace, params }) => {
     const input = await readJson(req, publishInputSchema);
     return publishSeries(workspace, params.id, input);
+  },
+);
+
+// Unpublish this series' live publication — the publish dialog's convenience
+// path (#164). Takes the public page down and frees the slug; the workspace
+// "Published" page is canonical and the only route to orphans. No-op if the
+// series was never published.
+export const DELETE = workspaceRoute<Params, void>(
+  async (_req, { workspace, params }) => {
+    await unpublishBySeries(workspace, params.id);
   },
 );

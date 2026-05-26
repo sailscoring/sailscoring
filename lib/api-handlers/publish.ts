@@ -2,7 +2,7 @@ import 'server-only';
 
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
-import { putPublishedHtml } from '@/lib/blob-storage';
+import { deletePublishedHtml, putPublishedHtml } from '@/lib/blob-storage';
 import { createRepos } from '@/lib/postgres-repository';
 import {
   contentHash,
@@ -11,8 +11,11 @@ import {
   publishedBlobKey,
 } from '@/lib/publishing';
 import {
+  deletePublished,
+  getPublishedById,
   getPublishedBySeries,
   getPublishedByWorkspaceSlug,
+  listPublishedForWorkspace,
   savePublished,
 } from '@/lib/published-repository';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
@@ -20,6 +23,7 @@ import type { ExportRepos } from '@/lib/public-export';
 import type {
   PublicationStatus,
   PublishResult,
+  PublishedListItem,
   PublishedSeries,
   PublishedSeriesPage,
 } from '@/lib/types';
@@ -162,4 +166,59 @@ export async function getPublication(
     suggestedSlug: deriveSeriesSlug(series.name),
     published: existing ? toResult(workspace.workspaceSlug, existing) : null,
   };
+}
+
+/**
+ * Every publication in the workspace for the management page (#164), newest
+ * first, each with its public series-index URL. Includes orphans — snapshots
+ * whose series was deleted — which this page is the only place to manage.
+ */
+export async function listPublished(
+  workspace: WorkspaceContext,
+): Promise<PublishedListItem[]> {
+  const rows = await listPublishedForWorkspace(workspace.workspaceId);
+  return rows.map((r) => ({
+    ...r,
+    url: `${appBase()}/p/${workspace.workspaceSlug}/${r.slug}`,
+  }));
+}
+
+/**
+ * Take a publication down: delete its stored HTML blobs, then drop the row. The
+ * public page 404s and the `(workspace, slug)` frees for reuse. The two listing
+ * pages (#162) are rendered live from `published_series`, so there is no index
+ * blob to regenerate here.
+ */
+async function unpublish(published: PublishedSeries): Promise<void> {
+  for (const page of published.pages) {
+    await deletePublishedHtml(page.blobUrl);
+  }
+  await deletePublished(published.id);
+}
+
+/** Unpublish by publication id — the management page's canonical path, the only
+ *  one that can reach an orphan. Scoped to the caller's workspace. */
+export async function unpublishById(
+  workspace: WorkspaceContext,
+  id: string,
+): Promise<void> {
+  const published = await getPublishedById(id);
+  if (!published || published.workspaceId !== workspace.workspaceId) {
+    throw new NotFoundError('publication');
+  }
+  await unpublish(published);
+}
+
+/** Unpublish a live series' publication — the publish dialog's convenience
+ *  path. A series with no publication is a no-op (already unpublished). */
+export async function unpublishBySeries(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<void> {
+  const published = await getPublishedBySeries(seriesId);
+  if (!published) return;
+  if (published.workspaceId !== workspace.workspaceId) {
+    throw new NotFoundError('publication');
+  }
+  await unpublish(published);
 }

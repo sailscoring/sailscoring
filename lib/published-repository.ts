@@ -43,6 +43,20 @@ export async function getPublishedBySeries(
   return row ? rowToPublished(row) : null;
 }
 
+/** The publication identified by its stable `id`, or null. Drives the
+ *  workspace management page's unpublish-by-id path (#164), which addresses a
+ *  publication directly — including an orphan whose series is gone. */
+export async function getPublishedById(
+  id: string,
+): Promise<PublishedSeries | null> {
+  const [row] = await getDb()
+    .select()
+    .from(schema.publishedSeries)
+    .where(eq(schema.publishedSeries.id, id))
+    .limit(1);
+  return row ? rowToPublished(row) : null;
+}
+
 /** The publication at `(workspaceId, slug)`, or null. Drives the public route
  *  and the first-publish slug-collision check. */
 export async function getPublishedByWorkspaceSlug(
@@ -115,6 +129,63 @@ export async function listPublishedByWorkspace(
     publishedAt: r.publishedAt.getTime(),
     fleetCount: r.pages.length,
   }));
+}
+
+/**
+ * Every publication in a workspace, newest first, for the authenticated
+ * management page (#164). Richer than {@link listPublishedByWorkspace} (the
+ * public listing): carries the publication `id` (the unpublish handle), the
+ * orphan flag, and `editsSincePublish` — how many series edits have landed
+ * since the snapshot, from the live `series.version` vs the captured
+ * `publishedVersion` (0 for an orphan, whose series is gone).
+ */
+export async function listPublishedForWorkspace(workspaceId: string): Promise<
+  {
+    id: string;
+    slug: string;
+    title: string;
+    orphaned: boolean;
+    publishedAt: number;
+    editsSincePublish: number;
+  }[]
+> {
+  const rows = await getDb()
+    .select({
+      id: schema.publishedSeries.id,
+      slug: schema.publishedSeries.slug,
+      seriesId: schema.publishedSeries.seriesId,
+      publishedVersion: schema.publishedSeries.publishedVersion,
+      publishedAt: schema.publishedSeries.publishedAt,
+      seriesName: schema.series.name,
+      seriesVersion: schema.series.version,
+    })
+    .from(schema.publishedSeries)
+    .leftJoin(
+      schema.series,
+      eq(schema.publishedSeries.seriesId, schema.series.id),
+    )
+    .where(eq(schema.publishedSeries.workspaceId, workspaceId))
+    .orderBy(desc(schema.publishedSeries.publishedAt));
+  return rows.map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    title: r.seriesName ?? r.slug,
+    orphaned: r.seriesId === null,
+    publishedAt: r.publishedAt.getTime(),
+    editsSincePublish:
+      r.seriesVersion === null
+        ? 0
+        : Math.max(0, r.seriesVersion - r.publishedVersion),
+  }));
+}
+
+/** Remove a publication row by `id`. The caller deletes the stored HTML
+ *  blobs first (see the unpublish handler) — this only drops the record, which
+ *  is what frees the `(workspace, slug)` and makes the public page 404. */
+export async function deletePublished(id: string): Promise<void> {
+  await getDb()
+    .delete(schema.publishedSeries)
+    .where(eq(schema.publishedSeries.id, id));
 }
 
 /** Insert or overwrite a publication, keyed by `id`. */

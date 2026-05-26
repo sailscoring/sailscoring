@@ -160,6 +160,78 @@ test('re-publishing is reflected on the public page immediately', async ({ page 
   expect(await fresh.text()).toContain('>99<');
 });
 
+test('workspace Published page lists a publication and unpublishing frees the slug', async ({ page }) => {
+  const seriesId = await createSeriesWithData(page);
+
+  // Publish under a chosen slug.
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('URL slug').fill('autumn-26');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const link = dialog.getByRole('link', { name: /\/p\// });
+  await expect(link).toBeVisible();
+  const path = new URL((await link.getAttribute('href')) ?? '').pathname;
+
+  // The public page is live.
+  expect((await page.request.get(path)).status()).toBe(200);
+
+  // The workspace Published management page lists it with its public URL.
+  await page.goto('/workspace');
+  await expect(
+    page.getByRole('heading', { name: 'Published results' }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: /\/autumn-26$/ })).toBeVisible();
+
+  // Unpublish (a confirm dialog guards it) → the row goes and the page 404s.
+  const unpublishBtn = page.getByRole('button', {
+    name: 'Unpublish HYC Autumn League 2026',
+  });
+  page.once('dialog', (d) => d.accept());
+  await unpublishBtn.click();
+  await expect(unpublishBtn).not.toBeVisible();
+  await expect(page.getByText('Nothing published yet.')).toBeVisible();
+  expect((await page.request.get(path)).status()).toBe(404);
+
+  // The slug freed: the series re-opens to a first-publish dialog (the slug
+  // input is back) and re-publishing under the same slug succeeds — were the
+  // slug still held this would fail with a slug-in-use error.
+  await page.goto(`/series/${seriesId}/standings`);
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const slugInput = dialog.getByLabel('URL slug');
+  await expect(slugInput).toBeVisible();
+  await slugInput.fill('autumn-26');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(dialog.getByRole('link', { name: /\/autumn-26\/standings$/ })).toBeVisible();
+});
+
+test('an orphaned snapshot (series deleted) stays listed and can be unpublished', async ({ page }) => {
+  await createSeriesWithData(page);
+
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('URL slug').fill('orphan-me');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(dialog.getByRole('link', { name: /orphan-me/ })).toBeVisible();
+
+  // Delete the series — its publication orphans (seriesId → null) rather than
+  // being removed, so the public page stays up.
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Delete HYC Autumn League 2026' }).click();
+  await page.getByRole('button', { name: 'Delete series' }).click();
+  await expect(page.getByText('HYC Autumn League 2026')).not.toBeVisible();
+
+  // The workspace Published page is the only surface that manages it: marked as
+  // orphaned, titled by its slug, and still unpublishable.
+  await page.goto('/workspace');
+  await expect(page.getByText('series deleted')).toBeVisible();
+  const unpublishBtn = page.getByRole('button', { name: 'Unpublish orphan-me' });
+  await expect(unpublishBtn).toBeVisible();
+  page.once('dialog', (d) => d.accept());
+  await unpublishBtn.click();
+  await expect(unpublishBtn).not.toBeVisible();
+  await expect(page.getByText('Nothing published yet.')).toBeVisible();
+});
+
 test('keyboard shortcut p opens the publish dialog', async ({ page }) => {
   await createSeriesWithData(page);
   await page.keyboard.press('p');

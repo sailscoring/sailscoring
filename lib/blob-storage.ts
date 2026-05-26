@@ -1,5 +1,5 @@
 import 'server-only';
-import { put } from '@vercel/blob';
+import { del, put } from '@vercel/blob';
 import { eq } from 'drizzle-orm';
 
 import { getDb } from './db/client';
@@ -80,4 +80,22 @@ export async function readPublishedHtml(
     : locator;
   const res = await fetch(url, { cache: 'no-store' });
   return res.ok ? res.text() : null;
+}
+
+/**
+ * Delete the stored HTML for a locator returned by `putPublishedHtml`. The
+ * unpublish path (#164) calls this for each of a publication's pages before
+ * dropping the row. Dispatches on the locator like `readPublishedHtml`: a
+ * `db:` locator deletes the fallback row; a Blob URL is removed from the store.
+ * Idempotent — `del` no-ops on a missing object.
+ */
+export async function deletePublishedHtml(locator: string): Promise<void> {
+  if (locator.startsWith(DB_PREFIX)) {
+    const key = locator.slice(DB_PREFIX.length);
+    await getDb()
+      .delete(schema.publishedBlobs)
+      .where(eq(schema.publishedBlobs.key, key));
+    return;
+  }
+  await del(locator);
 }

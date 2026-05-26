@@ -4,6 +4,7 @@ import { getOptionalSession } from '@/lib/auth/require-session';
 import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
 import { FtpServersCard } from '@/components/workspace-settings/ftp-servers-card';
+import { PublishedCard } from '@/components/workspace-settings/published-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +47,7 @@ export default async function WorkspacePage() {
   return (
     <div className="space-y-6 max-w-lg mx-auto">
       <h1 className="text-2xl font-semibold">{title}</h1>
+      <PublishedCard />
       <FtpServersCard />
     </div>
   );

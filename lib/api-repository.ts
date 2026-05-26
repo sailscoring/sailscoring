@@ -23,6 +23,7 @@ import type {
   Series,
   TcfRecord,
   PublishResult,
+  PublishedListItem,
   PublicationStatus,
 } from './types';
 
@@ -320,6 +321,24 @@ export function publishSeries(
  *  current publication if any) — drives the publish dialog. */
 export function getPublication(seriesId: string): Promise<PublicationStatus> {
   return apiFetch<PublicationStatus>(`/api/v1/series/${seriesId}/publish`);
+}
+
+/** Unpublish this series' live publication (the publish dialog's convenience
+ *  path). Takes the public page down and frees the slug. */
+export async function unpublishSeries(seriesId: string): Promise<void> {
+  await apiFetch(`/api/v1/series/${seriesId}/publish`, { method: 'DELETE' });
+}
+
+/** Every publication in the active workspace — the "Published" management page
+ *  (#164), including orphaned snapshots. */
+export function listPublished(): Promise<PublishedListItem[]> {
+  return apiFetch<PublishedListItem[]>('/api/v1/published');
+}
+
+/** Unpublish by publication id — the management page's canonical delete, the
+ *  only path that reaches an orphan. */
+export async function unpublishById(id: string): Promise<void> {
+  await apiFetch(`/api/v1/published/${id}`, { method: 'DELETE' });
 }
 
 /**

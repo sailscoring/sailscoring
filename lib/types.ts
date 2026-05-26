@@ -391,6 +391,21 @@ export interface PublicationStatus {
   published: PublishResult | null;
 }
 
+/**
+ * One row of the workspace "Published" management page (#164) — the authoring
+ * mirror of the public `/p/{ws}` index, and the only surface that lists
+ * orphaned snapshots (their series deleted). `id` is the unpublish handle.
+ */
+export interface PublishedListItem {
+  id: string;                     // publication id — the unpublish path param
+  slug: string;
+  title: string;                  // live series name, or the slug for an orphan
+  url: string;                    // public series-index URL: {APP_URL}/p/{ws}/{slug}
+  orphaned: boolean;              // the series was deleted (the snapshot lives on)
+  publishedAt: number;            // Unix ms of the last publish
+  editsSincePublish: number;      // series edits since the snapshot (0 if orphaned)
+}
+
 export interface FtpServer {
   id: string;
   host: string;

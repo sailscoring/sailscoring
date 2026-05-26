@@ -836,6 +836,19 @@ export default function HelpPage() {
           series you&apos;ve published. Both update automatically as you publish.
         </p>
         <p>
+          <strong className="text-foreground">Managing published pages:</strong>{' '}
+          open the workspace switcher in the page header, choose{' '}
+          <strong className="text-foreground">Workspace settings</strong>, and look under{' '}
+          <strong className="text-foreground">Published results</strong> for every page
+          your workspace has published, with its public URL, when it was last published, and
+          how many edits have landed since. <strong className="text-foreground">Unpublish</strong>{' '}
+          takes a page down: the public URL stops working and the slug frees up for reuse.
+          You can also unpublish from the <strong className="text-foreground">Publish</strong>{' '}
+          dialog on the Standings tab. If you delete a series whose results were published,
+          the page stays live as an orphaned snapshot — the Published results page is where
+          you remove it.
+        </p>
+        <p>
           <strong className="text-foreground">Upload via FTP:</strong>{' '}
           if your club has a web hosting account, you can push results directly to it without
           downloading and uploading files manually. Sail Scoring relays FTP uploads through the
