@@ -453,3 +453,21 @@ export interface ScoringRejection {
   competitorId: string;
   reason: ScoringRejectionReason;
 }
+
+/**
+ * Activity log entry (#153). The shape returned by the `/api/v1/activity`
+ * endpoints and rendered by the Activity tab + series-list recency strips.
+ * Defined here so the server query (`lib/activity-log.ts`) and the client
+ * mirror (`lib/api-repository.ts`) share one definition.
+ */
+export interface ActivityEntry {
+  id: string;
+  seriesId: string | null;
+  action: string;
+  summary: string;
+  /** Coalesced occurrence count; 1 for ordinary entries. */
+  count: number;
+  /** ISO-8601 timestamp of the (most recent) occurrence. */
+  createdAt: string;
+  actor: { id: string; email?: string; displayName?: string } | null;
+}

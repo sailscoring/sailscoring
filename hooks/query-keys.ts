@@ -59,4 +59,9 @@ export const queryKeys = {
     bySeries: (seriesId: string) =>
       ['tcfHistory', 'bySeries', seriesId] as const,
   },
+  activity: {
+    all: ['activity'] as const,
+    bySeries: (seriesId: string) => ['activity', 'bySeries', seriesId] as const,
+    recent: () => ['activity', 'recent'] as const,
+  },
 } as const;

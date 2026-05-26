@@ -8,6 +8,9 @@ import {
   encodeCursor,
   type PageRequest,
 } from '@/app/api/v1/_lib/pagination';
+import type { ActivityEntry } from '@/lib/types';
+
+export type { ActivityEntry };
 
 /**
  * Activity log (#153, ADR-008 Phase 10). The write seam (`recordActivity`),
@@ -153,18 +156,6 @@ export async function recordActivity(
   } catch (err) {
     console.error('recordActivity failed (non-fatal):', err);
   }
-}
-
-export interface ActivityEntry {
-  id: string;
-  seriesId: string | null;
-  action: string;
-  summary: string;
-  /** Coalesced occurrence count; 1 for ordinary entries. */
-  count: number;
-  /** ISO-8601 timestamp of the (most recent) occurrence. */
-  createdAt: string;
-  actor: { id: string; email?: string; displayName?: string } | null;
 }
 
 function toEntry(row: {

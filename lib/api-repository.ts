@@ -14,6 +14,7 @@ import type {
   SeriesRepository,
 } from './repository';
 import type {
+  ActivityEntry,
   Category,
   Competitor,
   Finish,
@@ -513,4 +514,34 @@ export async function ensureFleet(
     { method: 'POST', body: { name, ...options } },
   );
   return fleetId;
+}
+
+// ─── Activity log (#153) ────────────────────────────────────────────────────
+
+/**
+ * Reverse-chronological activity feed for the active workspace. Pass a
+ * `seriesId` to narrow it to one series (the Activity tab); omit it for the
+ * whole workspace. `cursor` pages through older entries.
+ */
+export function listActivity(opts?: {
+  seriesId?: string;
+  cursor?: string;
+  limit?: number;
+}): Promise<{ items: ActivityEntry[]; nextCursor: string | null }> {
+  const params = new URLSearchParams();
+  if (opts?.seriesId) params.set('seriesId', opts.seriesId);
+  if (opts?.cursor) params.set('cursor', opts.cursor);
+  if (opts?.limit) params.set('limit', String(opts.limit));
+  const qs = params.toString();
+  return apiFetch<{ items: ActivityEntry[]; nextCursor: string | null }>(
+    `/api/v1/activity${qs ? `?${qs}` : ''}`,
+  );
+}
+
+/** Latest activity entry per series — feeds the series-list recency strips. */
+export async function listRecentActivity(): Promise<ActivityEntry[]> {
+  const { items } = await apiFetch<{ items: ActivityEntry[] }>(
+    '/api/v1/activity/recent',
+  );
+  return items;
 }
