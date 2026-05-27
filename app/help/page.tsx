@@ -95,12 +95,14 @@ export default function HelpPage() {
         <p>
           Club scoring panels share an{' '}
           <strong className="text-foreground">org workspace</strong>: every panel member can see
-          and edit the same series, FTP credentials, and workspace settings. Org workspaces are
-          set up by the project owner — email{' '}
-          <a href="mailto:hello@sailscoring.ie" className="underline">hello@sailscoring.ie</a>{' '}
-          with the panel members&apos; emails and a workspace name. Once you&apos;re added, the
-          workspace switcher in the header shows both your personal workspace and the shared one;
-          pick the shared one and the rest of the app reorients onto the panel&apos;s data.
+          and edit the same series, FTP credentials, and workspace settings. To get one, request a
+          shared workspace from your <strong className="text-foreground">Account</strong> page —
+          give it a name and we&apos;ll set it up and make you its owner, ready to invite the rest
+          of your panel (see{' '}
+          <a href="#activity" className="underline">Activity and working with co-scorers</a>).
+          Once you belong to a shared workspace, the switcher in the header shows both your personal
+          workspace and the shared one; pick the shared one and the rest of the app reorients onto
+          the panel&apos;s data.
         </p>
         <p>
           To move a series from your personal workspace into a shared one, open its{' '}
