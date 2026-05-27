@@ -44,6 +44,7 @@ function ctxFor(workspaceId: string): WorkspaceContext {
     workspaceId,
     workspaceSlug: 'test-ws',
     role: 'owner',
+    features: [],
   };
 }
 

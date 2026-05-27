@@ -9,6 +9,11 @@ import {
   organization,
   session as sessionTable,
 } from '@/lib/db/schema/auth';
+import {
+  computeEffectiveFeatures,
+  type FeatureKey,
+  type FeatureMembership,
+} from '@/lib/features';
 
 /**
  * Personal workspaces are created with slug `u-${userId.slice(0, 16)}`
@@ -56,6 +61,22 @@ export interface WorkspaceContext {
    *  `/p/{workspaceSlug}/...` published URLs. Personal workspaces are `u-{id}`. */
   workspaceSlug: string;
   role: WorkspaceRole;
+  /** Experimental features enabled for this request (#155, Model B): the
+   *  active workspace's own features, plus — for a personal workspace — the
+   *  features of every club the user belongs to. */
+  features: FeatureKey[];
+}
+
+/**
+ * Throws `ForbiddenError('feature-disabled:<key>')` (→ 403) when the active
+ * workspace does not have the experimental feature enabled. The single seam
+ * for server-side feature enforcement (#155); used by the `ftp-upload` API
+ * routes, whose endpoints could otherwise be hit directly.
+ */
+export function requireFeature(ctx: WorkspaceContext, key: FeatureKey): void {
+  if (!ctx.features.includes(key)) {
+    throw new ForbiddenError(`feature-disabled:${key}`);
+  }
 }
 
 /**
@@ -110,6 +131,7 @@ export async function resolveWorkspace(input: {
       organizationId: member.organizationId,
       role: member.role,
       slug: organization.slug,
+      metadata: organization.metadata,
     })
     .from(member)
     .innerJoin(organization, eq(member.organizationId, organization.id))
@@ -119,6 +141,13 @@ export async function resolveWorkspace(input: {
   if (memberships.length === 0) {
     throw new ForbiddenError('no-workspace');
   }
+
+  // All memberships carry their org metadata, so the effective feature set
+  // (Model B, #155) is computed from this one query — no extra round-trip.
+  const featureMemberships: FeatureMembership[] = memberships.map((m) => ({
+    slug: m.slug,
+    metadata: m.metadata,
+  }));
 
   if (input.activeOrganizationId) {
     const active = memberships.find(
@@ -131,6 +160,7 @@ export async function resolveWorkspace(input: {
         workspaceId: active.organizationId,
         workspaceSlug: active.slug,
         role: active.role as WorkspaceRole,
+        features: computeEffectiveFeatures(active.slug, featureMemberships),
       };
     }
     // Stale active id — the user was removed from that org since the
@@ -158,6 +188,7 @@ export async function resolveWorkspace(input: {
       workspaceId: bootstrap.organizationId,
       workspaceSlug: bootstrap.slug,
       role: bootstrap.role as WorkspaceRole,
+      features: computeEffectiveFeatures(bootstrap.slug, featureMemberships),
     };
   }
 

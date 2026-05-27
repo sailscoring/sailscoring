@@ -27,7 +27,7 @@ function uuid() {
 }
 
 function ctxFor(workspaceId: string, userId: string, email: string): WorkspaceContext {
-  return { userId, email, workspaceId, workspaceSlug: 'test-ws', role: 'owner' };
+  return { userId, email, workspaceId, workspaceSlug: 'test-ws', role: 'owner', features: [] };
 }
 
 const FEEDBACK_LOG = path.join(process.cwd(), 'tests', '.feedback.log');
