@@ -151,8 +151,8 @@ export default function HelpPage() {
         <p>
           <strong className="text-foreground">Categories</strong> are your own labels — e.g.{' '}
           <em>Club racing</em>, <em>Open events</em>. Create and reorder them from{' '}
-          <strong className="text-foreground">Categories</strong> in the home header (or in
-          Workspace settings), then assign a series with{' '}
+          <strong className="text-foreground">Series categories</strong> in Workspace settings,
+          then assign a series with{' '}
           <strong className="text-foreground">Move to category</strong> on its{' '}
           <strong className="text-foreground">⋯</strong> menu. A series with no category sits
           under <strong className="text-foreground">Uncategorized</strong>. Deleting a category

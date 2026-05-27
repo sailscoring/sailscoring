@@ -12,7 +12,6 @@ import {
   FolderInput,
   Loader2,
   MoreVertical,
-  Tags,
   Trash2,
 } from 'lucide-react';
 import * as repos from '@/lib/api-repository';
@@ -29,7 +28,6 @@ import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
-import { ManageCategoriesDialog } from '@/components/manage-categories-dialog';
 import {
   Dialog,
   DialogContent,
@@ -204,7 +202,6 @@ export default function HomePage() {
   const setSeriesCategory = useSetSeriesCategory();
   const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-  const [showManageCategories, setShowManageCategories] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [openFlow, setOpenFlow] = useState<OpenFlow>({ step: 'idle' });
   const [importFormat, setImportFormat] = useState<ImportFormat>('sailscoring');
@@ -399,10 +396,6 @@ export default function HomePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Series</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowManageCategories(true)}>
-            <Tags className="h-4 w-4" />
-            Categories
-          </Button>
           <Button variant="outline" onClick={handleImportSeriesClick}>
             Import Series
           </Button>
@@ -524,11 +517,6 @@ export default function HomePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <ManageCategoriesDialog
-        open={showManageCategories}
-        onClose={() => setShowManageCategories(false)}
-      />
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
 

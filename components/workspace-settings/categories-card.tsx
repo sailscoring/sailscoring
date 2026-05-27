@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { ManageCategoriesDialog } from '@/components/manage-categories-dialog';
 
 /**
- * Series categories management, surfaced in workspace settings as well as the
- * home list header (#154). The dialog does the actual editing; this card is
- * the entry point plus a read-only preview of the current set.
+ * Series categories management, surfaced in workspace settings (#154). The
+ * dialog does the actual editing; this card is the entry point plus a
+ * read-only preview of the current set.
  */
 export function CategoriesCard() {
   const { data: categories } = useCategories();
