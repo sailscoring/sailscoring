@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import { getOptionalSession } from '@/lib/auth/require-session';
+import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
 import { CategoriesCard } from '@/components/workspace-settings/categories-card';
@@ -46,13 +47,18 @@ export default async function WorkspacePage() {
     ? `Workspace settings: ${workspaceName}`
     : 'Workspace settings';
 
+  // FTP upload is an experimental, gated feature (#155). Don't mount the card
+  // when it's off — it would otherwise fetch /api/v1/ftp-servers and hit the
+  // server-side feature gate (403).
+  const features = await getEffectiveFeatures();
+
   return (
     <div className="space-y-6 max-w-lg mx-auto">
       <h1 className="text-2xl font-semibold">{title}</h1>
       <MembersCard currentUserEmail={session?.user.email ?? null} />
       <CategoriesCard />
       <PublishedCard />
-      <FtpServersCard />
+      {features.includes('ftp-upload') && <FtpServersCard />}
     </div>
   );
 }

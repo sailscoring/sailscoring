@@ -28,6 +28,7 @@ import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
+import { useFeatures } from '@/components/features-provider';
 import {
   Dialog,
   DialogContent,
@@ -193,6 +194,7 @@ function SeriesCard({
 export default function HomePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { has } = useFeatures();
   const { seriesRepo } = repos;
   const { data: seriesList } = useSeriesList();
   const { data: categories } = useCategories();
@@ -500,15 +502,17 @@ export default function HomePage() {
               <div className="font-medium">Sail Scoring file</div>
               <div className="text-sm text-muted-foreground">A <span className="font-mono">.sailscoring</span> file saved from this app.</div>
             </button>
-            <button
-              type="button"
-              data-testid="import-format-sailwave"
-              className="w-full text-left border rounded-lg px-4 py-3 hover:bg-accent/50 transition-colors"
-              onClick={() => handleFormatChosen('sailwave')}
-            >
-              <div className="font-medium">Sailwave export</div>
-              <div className="text-sm text-muted-foreground">A <span className="font-mono">.json</span> file exported from Sailwave.</div>
-            </button>
+            {has('sailwave-import') && (
+              <button
+                type="button"
+                data-testid="import-format-sailwave"
+                className="w-full text-left border rounded-lg px-4 py-3 hover:bg-accent/50 transition-colors"
+                onClick={() => handleFormatChosen('sailwave')}
+              >
+                <div className="font-medium">Sailwave export</div>
+                <div className="text-sm text-muted-foreground">A <span className="font-mono">.json</span> file exported from Sailwave.</div>
+              </button>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenFlow({ step: 'idle' })}>

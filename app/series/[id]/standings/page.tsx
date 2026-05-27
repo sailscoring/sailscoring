@@ -15,6 +15,7 @@ import {
 } from '@/lib/competitor-fields';
 import { Button } from '@/components/ui/button';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
+import { useFeatures } from '@/components/features-provider';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
 import { FtpUploadDialog } from '@/components/ftp-upload-dialog';
@@ -30,6 +31,7 @@ export default function StandingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: seriesId } = use(params);
+  const { has } = useFeatures();
   const [showFtpDialog, setShowFtpDialog] = useState(false);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
@@ -51,7 +53,7 @@ export default function StandingsPage({
     if (e.key === 'x') {
       e.preventDefault();
       setShowPreviewDialog(true);
-    } else if (e.key === 'f') {
+    } else if (e.key === 'f' && has('ftp-upload')) {
       e.preventDefault();
       setShowFtpDialog(true);
     } else if (e.key === 'p') {
@@ -129,9 +131,11 @@ export default function StandingsPage({
           <Button size="sm" variant="outline" onClick={() => setShowPublishDialog(true)} title="Publish (p)">
             Publish
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setShowFtpDialog(true)} title="Upload via FTP (f)">
-            Upload via FTP
-          </Button>
+          {has('ftp-upload') && (
+            <Button size="sm" variant="outline" onClick={() => setShowFtpDialog(true)} title="Upload via FTP (f)">
+              Upload via FTP
+            </Button>
+          )}
           <Button size="sm" onClick={() => setShowPreviewDialog(true)} title="Preview results (x)">
             Preview
           </Button>

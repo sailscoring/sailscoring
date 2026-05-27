@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { FinishSheetImport, type FinishSheetImportHandle } from '@/components/finish-sheet-import';
+import { useFeatures } from '@/components/features-provider';
 import { cn } from '@/lib/utils';
 import { competitorFleetNames, displayCompetitorLabel } from '@/lib/competitor-fields';
 import { normalizeTimeInput } from '@/lib/time-parse';
@@ -82,6 +83,7 @@ export interface FinishTabProps {
 }
 
 export function FinishTab(props: FinishTabProps) {
+  const { has } = useFeatures();
   const {
     finishEntry, competitors, competitorMap, fleetById,
     showFleetBadge, showCrew, enabledCompetitorFields, derived, savedFinishes,
@@ -119,17 +121,19 @@ export function FinishTab(props: FinishTabProps) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-medium">Finishing order</h3>
-          <FinishSheetImport
-            ref={finishSheetImportRef}
-            candidates={competitors}
-            existingFinishCount={savedFinishes?.filter((f) => f.sortOrder !== null || f.resultCode !== null).length ?? 0}
-            onConfirm={applyCsvImport}
-            trigger={
-              <Button variant="outline" size="sm" title="Import finish sheet from CSV (i)">
-                Import CSV
-              </Button>
-            }
-          />
+          {has('csv-finish-import') && (
+            <FinishSheetImport
+              ref={finishSheetImportRef}
+              candidates={competitors}
+              existingFinishCount={savedFinishes?.filter((f) => f.sortOrder !== null || f.resultCode !== null).length ?? 0}
+              onConfirm={applyCsvImport}
+              trigger={
+                <Button variant="outline" size="sm" title="Import finish sheet from CSV (i)">
+                  Import CSV
+                </Button>
+              }
+            />
+          )}
         </div>
 
         <div className="relative">

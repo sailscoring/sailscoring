@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useFeatures } from '@/components/features-provider';
 import {
   competitorRepo,
   raceRepo,
@@ -40,6 +41,7 @@ export type FleetsCardProps = {
 };
 
 export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardProps) {
+  const { has } = useFeatures();
   const isWizard = mode === 'wizard';
   const { data: fleetsData } = useFleetsBySeries(seriesId);
   const fleets = fleetsData ?? [];
@@ -296,7 +298,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                       <SelectItem value="irc">IRC</SelectItem>
                       <SelectItem value="py">PY</SelectItem>
                       <SelectItem value="nhc">NHC</SelectItem>
-                      <SelectItem value="echo">ECHO</SelectItem>
+                      {/* ECHO is experimental/gated (#155); still offer it for a
+                          fleet that already uses it so the control isn't broken. */}
+                      {(has('echo') || fleet.scoringSystem === 'echo') && (
+                        <SelectItem value="echo">ECHO</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   {fleet.scoringSystem === 'echo' && (
@@ -320,7 +326,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                       />
                     </label>
                   )}
-                  {fleet.scoringSystem === 'nhc' && (
+                  {/* Custom NHC parameters are experimental/gated (#155); NHC
+                      scoring with stock SWNHC2015 stays GA. Keep the button for
+                      a fleet that already carries a custom profile. */}
+                  {fleet.scoringSystem === 'nhc' &&
+                    (has('nhc-parameters') || Boolean(fleet.nhcProfile)) && (
                     <Button
                       type="button"
                       variant="ghost"

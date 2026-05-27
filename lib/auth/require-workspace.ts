@@ -112,6 +112,22 @@ export async function requireWorkspace(): Promise<WorkspaceContext> {
 }
 
 /**
+ * Effective experimental-feature set for the current request, or `[]` when
+ * there is no session / workspace (#155). For server components that gate UI
+ * but must still render for signed-out / no-workspace viewers — e.g. `/help`
+ * and the workspace settings page — where `requireWorkspace`'s throw-on-absence
+ * contract is the wrong shape.
+ */
+export async function getEffectiveFeatures(): Promise<FeatureKey[]> {
+  try {
+    const ctx = await requireWorkspace();
+    return ctx.features;
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Internal helper, exported for tests. Given just the session-level facts,
  * resolves a workspace context against the database.
  *

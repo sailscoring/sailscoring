@@ -61,6 +61,7 @@ import { CheckSquare, Square } from 'lucide-react';
 import { log } from '@/lib/debug';
 import { cn } from '@/lib/utils';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
+import { useFeatures } from '@/components/features-provider';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import { FinishSheetImport, type FinishSheetImportHandle } from '@/components/finish-sheet-import';
 import {
@@ -126,6 +127,7 @@ export default function ResultEntryPage({
     finishByCompetitorId,
   } = derived;
 
+  const { has } = useFeatures();
   const [activeTab, setActiveTab] = useState<'finish' | 'checkin'>('finish');
   const [resolvingEntry, setResolvingEntry] = useState<(FinishEntry & { kind: 'unknown' }) | null>(null);
   // Race starts section
@@ -246,6 +248,7 @@ export default function ResultEntryPage({
       openAddStart();
     } else if (
       e.key === 'i' &&
+      has('csv-finish-import') &&
       !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '') &&
       activeTab === 'finish'
     ) {

@@ -13,6 +13,8 @@ import {
   type WorkspaceMembership,
 } from '@/components/workspace-switcher';
 import { WorkspaceMembershipsProvider } from '@/components/workspace-memberships-provider';
+import { FeaturesProvider } from '@/components/features-provider';
+import { computeEffectiveFeatures, type FeatureKey } from '@/lib/features';
 import { UserMenu } from '@/components/user-menu';
 import { StealthBetaBanner } from '@/components/stealth-beta-banner';
 
@@ -25,6 +27,7 @@ interface HeaderState {
   memberships: WorkspaceMembership[];
   activeOrganizationId: string | null;
   email: string;
+  features: FeatureKey[];
 }
 
 async function loadHeaderState(): Promise<HeaderState | null> {
@@ -36,6 +39,7 @@ async function loadHeaderState(): Promise<HeaderState | null> {
       name: organization.name,
       slug: organization.slug,
       role: member.role,
+      metadata: organization.metadata,
     })
     .from(member)
     .innerJoin(organization, eq(member.organizationId, organization.id))
@@ -62,10 +66,20 @@ async function loadHeaderState(): Promise<HeaderState | null> {
       ? memberships[0].organizationId
       : (memberships.find((m) => m.slug === personalSlug)?.organizationId ??
         null));
+  // Effective feature set for the active workspace (Model B, #155), computed
+  // from the same memberships query the switcher already needs.
+  const activeSlug = rows.find((r) => r.organizationId === resolvedActive)?.slug;
+  const features = activeSlug
+    ? computeEffectiveFeatures(
+        activeSlug,
+        rows.map((r) => ({ slug: r.slug, metadata: r.metadata })),
+      )
+    : [];
   return {
     memberships,
     activeOrganizationId: resolvedActive,
     email: session.user.email,
+    features,
   };
 }
 
@@ -83,6 +97,7 @@ export default async function RootLayout({
             memberships={header?.memberships ?? []}
             activeOrganizationId={header?.activeOrganizationId ?? null}
           >
+            <FeaturesProvider features={header?.features ?? []}>
             <header className="border-b px-6 py-3 flex items-baseline gap-3">
               <Link href="/" className="font-semibold hover:underline">
                 Sail Scoring
@@ -112,6 +127,7 @@ export default async function RootLayout({
               <StealthBetaBanner />
             )}
             <main className="px-6 py-8">{children}</main>
+            </FeaturesProvider>
           </WorkspaceMembershipsProvider>
         </Providers>
       </body>
