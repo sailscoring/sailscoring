@@ -1,9 +1,17 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
+import type { FeatureKey } from '@/lib/features';
+
 export const metadata: Metadata = {
   title: 'Help — Sail Scoring',
 };
+
+// Per-user dynamic (#155): the help docs only expose an experimental feature
+// to viewers whose workspace has it enabled. Signed-out / no-feature viewers
+// (getEffectiveFeatures returns []) see only the ungated content.
+export const dynamic = 'force-dynamic';
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
@@ -14,7 +22,9 @@ function Section({ id, title, children }: { id: string; title: string; children:
   );
 }
 
-export default function HelpPage() {
+export default async function HelpPage() {
+  const features = await getEffectiveFeatures();
+  const has = (key: FeatureKey) => features.includes(key);
   return (
     <div className="max-w-2xl mx-auto space-y-10">
       <div>
@@ -26,39 +36,44 @@ export default function HelpPage() {
 
       <nav className="text-sm space-y-1">
         <p className="font-medium text-foreground">On this page</p>
-        {[
-          ['#what-is-sail-scoring', 'What is Sail Scoring?'],
-          ['#signing-in', 'Signing in and workspaces'],
-          ['#creating-a-series', 'Creating a series'],
-          ['#organising-series', 'Organising the series list: categories and archive'],
-          ['#adding-competitors', 'Adding competitors'],
-          ['#fleets', 'Fleets'],
-          ['#start-sequences', 'Start sequences'],
-          ['#importing-competitors', 'Importing competitors from CSV'],
-          ['#updating-handicaps', 'Updating handicaps from another series'],
-          ['#adding-races', 'Adding races'],
-          ['#entering-results', 'Entering results'],
-          ['#importing-finish-sheet', 'Importing a finish sheet from CSV'],
-          ['#penalty-codes', 'Additive penalty codes'],
-          ['#redress', 'Redress (RDG)'],
-          ['#start-check-in', 'Start check-in'],
-          ['#reading-the-standings', 'Reading the standings'],
-          ['#rating-systems', 'Rating systems'],
-          ['#discard-rules', 'Discard rules'],
-          ['#a53-scoring', 'A5.3 starting-area scoring'],
-          ['#saving-and-sharing', 'Saving and sharing a series'],
-          ['#activity', 'Activity and working with co-scorers'],
-          ['#publishing-results', 'Publishing results'],
-          ['#json-export', 'JSON data export and Open in Sail Scoring'],
-          ['#sending-feedback', 'Sending feedback'],
-          ['#keyboard-shortcuts', 'Keyboard shortcuts'],
-        ].map(([href, label]) => (
-          <div key={href}>
-            <Link href={href} className="text-muted-foreground hover:text-foreground hover:underline">
-              {label}
-            </Link>
-          </div>
-        ))}
+        {(
+          [
+            ['#what-is-sail-scoring', 'What is Sail Scoring?'],
+            ['#signing-in', 'Signing in and workspaces'],
+            ['#creating-a-series', 'Creating a series'],
+            ['#organising-series', 'Organising the series list: categories and archive'],
+            ['#adding-competitors', 'Adding competitors'],
+            ['#fleets', 'Fleets'],
+            ['#start-sequences', 'Start sequences'],
+            ['#importing-competitors', 'Importing competitors from CSV'],
+            ['#updating-handicaps', 'Updating handicaps from another series'],
+            ['#adding-races', 'Adding races'],
+            ['#entering-results', 'Entering results'],
+            // Gated: only listed when csv-finish-import is enabled (#155).
+            ['#importing-finish-sheet', 'Importing a finish sheet from CSV', 'csv-finish-import'],
+            ['#penalty-codes', 'Additive penalty codes'],
+            ['#redress', 'Redress (RDG)'],
+            ['#start-check-in', 'Start check-in'],
+            ['#reading-the-standings', 'Reading the standings'],
+            ['#rating-systems', 'Rating systems'],
+            ['#discard-rules', 'Discard rules'],
+            ['#a53-scoring', 'A5.3 starting-area scoring'],
+            ['#saving-and-sharing', 'Saving and sharing a series'],
+            ['#activity', 'Activity and working with co-scorers'],
+            ['#publishing-results', 'Publishing results'],
+            ['#json-export', 'JSON data export and Open in Sail Scoring'],
+            ['#sending-feedback', 'Sending feedback'],
+            ['#keyboard-shortcuts', 'Keyboard shortcuts'],
+          ] as Array<[string, string] | [string, string, FeatureKey]>
+        )
+          .filter((entry) => entry.length < 3 || has(entry[2] as FeatureKey))
+          .map(([href, label]) => (
+            <div key={href}>
+              <Link href={href} className="text-muted-foreground hover:text-foreground hover:underline">
+                {label}
+              </Link>
+            </div>
+          ))}
       </nav>
 
       <Section id="what-is-sail-scoring" title="What is Sail Scoring?">
@@ -465,6 +480,7 @@ export default function HelpPage() {
         </p>
       </Section>
 
+      {has('csv-finish-import') && (
       <Section id="importing-finish-sheet" title="Importing a finish sheet from CSV">
         <p>
           On a race&apos;s result entry screen, click{' '}
@@ -506,6 +522,7 @@ export default function HelpPage() {
           persist the change.
         </p>
       </Section>
+      )}
 
       <Section id="redress" title="Redress (RDG)">
         <p>
@@ -631,9 +648,13 @@ export default function HelpPage() {
           <strong className="text-foreground">x</strong>) to see the rendered results page in-app —
           exactly what publishing produces. From there you can{' '}
           <strong className="text-foreground">Download</strong> a self-contained file to email or
-          host on your club website, or <strong className="text-foreground">Publish</strong> it. To
-          push results directly to a web server, see{' '}
-          <a href="#publishing-results" className="underline">Publishing results via FTP</a>.
+          host on your club website, or <strong className="text-foreground">Publish</strong> it.
+          {has('ftp-upload') && (
+            <>
+              {' '}To push results directly to a web server, see{' '}
+              <a href="#publishing-results" className="underline">Publishing results via FTP</a>.
+            </>
+          )}
         </p>
         <p>
           You can brand the exported page from the{' '}
@@ -672,18 +693,25 @@ export default function HelpPage() {
             for Cruisers. A <em>progressive</em> handicap: each boat starts from a
             published TCF and the rating is adjusted after every race based on how the
             boat performed against the fleet average. Sail Scoring runs the SWNHC2015
-            parameters (which match Sailwave NHC1) by default; the per-fleet{' '}
-            <strong className="text-foreground">Configure…</strong> button in
-            Settings &rarr; Fleets opens a dialog where the seven blend rates and
-            extreme thresholds can be overridden per fleet for parameter-tuning
-            experiments.
+            parameters (which match Sailwave NHC1) by default.{' '}
+            {has('nhc-parameters') && (
+              <>
+                The per-fleet{' '}
+                <strong className="text-foreground">Configure…</strong> button in
+                Settings &rarr; Fleets opens a dialog where the seven blend rates and
+                extreme thresholds can be overridden per fleet for parameter-tuning
+                experiments.
+              </>
+            )}
           </li>
-          <li>
-            <strong className="text-foreground">ECHO</strong> — the Irish Sailing
-            progressive handicap. Each boat starts from a published handicap H and
-            the rating is adjusted after every race based on a Performance Index
-            measuring the boat&rsquo;s performance relative to the fleet.
-          </li>
+          {has('echo') && (
+            <li>
+              <strong className="text-foreground">ECHO</strong> — the Irish Sailing
+              progressive handicap. Each boat starts from a published handicap H and
+              the rating is adjusted after every race based on a Performance Index
+              measuring the boat&rsquo;s performance relative to the fleet.
+            </li>
+          )}
         </ul>
         <p>
           For NHC and ECHO, every per-race table includes a{' '}
@@ -811,23 +839,27 @@ export default function HelpPage() {
           already in your workspace, you will be asked whether to update the existing copy or open
           it as a separate one.
         </p>
-        <p>
-          To bring a season&apos;s seedings across from Sailwave, choose{' '}
-          <strong className="text-foreground">Sailwave export</strong> from the same dialog and
-          pick the <code className="text-foreground text-sm">.json</code> file exported from
-          Sailwave. The wizard previews the fleets, competitors, and races, then creates the series
-          with ratings and any results Sailwave already had — fill in the per-fleet scoring system
-          if it auto-detects wrongly, and adjust any race dates Sailwave didn&apos;t carry across.
-        </p>
-        <p>
-          If the file has a prize-giving subdivision — Sailwave&apos;s Division field, or a column
-          (often the helm age group) you retitled to something like <em>Category</em> — the wizard
-          detects it and shows the heading it found. The values are imported exactly as Sailwave
-          stored them (e.g. age-band codes like <em>GGM</em>); you can rename the column heading
-          before importing, and edit the field or its values afterwards from{' '}
-          <strong className="text-foreground">Settings</strong> and the{' '}
-          <strong className="text-foreground">Competitors</strong> tab.
-        </p>
+        {has('sailwave-import') && (
+          <>
+            <p>
+              To bring a season&apos;s seedings across from Sailwave, choose{' '}
+              <strong className="text-foreground">Sailwave export</strong> from the same dialog and
+              pick the <code className="text-foreground text-sm">.json</code> file exported from
+              Sailwave. The wizard previews the fleets, competitors, and races, then creates the series
+              with ratings and any results Sailwave already had — fill in the per-fleet scoring system
+              if it auto-detects wrongly, and adjust any race dates Sailwave didn&apos;t carry across.
+            </p>
+            <p>
+              If the file has a prize-giving subdivision — Sailwave&apos;s Division field, or a column
+              (often the helm age group) you retitled to something like <em>Category</em> — the wizard
+              detects it and shows the heading it found. The values are imported exactly as Sailwave
+              stored them (e.g. age-band codes like <em>GGM</em>); you can rename the column heading
+              before importing, and edit the field or its values afterwards from{' '}
+              <strong className="text-foreground">Settings</strong> and the{' '}
+              <strong className="text-foreground">Competitors</strong> tab.
+            </p>
+          </>
+        )}
         <p>
           To bring a series someone else is scoring into your workspace, open the{' '}
           <strong className="text-foreground">Settings</strong> tab on the existing series and
@@ -888,7 +920,9 @@ export default function HelpPage() {
 
       <Section id="publishing-results" title="Publishing results">
         <p>
-          Sail Scoring offers two ways to push results to a public URL from the{' '}
+          {has('ftp-upload')
+            ? 'Sail Scoring offers two ways to push results to a public URL from the '
+            : 'Publish results to a public URL from the '}
           <strong className="text-foreground">Standings</strong> tab.
         </p>
         <p>
@@ -926,38 +960,42 @@ export default function HelpPage() {
           the page stays live as an orphaned snapshot — the Published results page is where
           you remove it.
         </p>
-        <p>
-          <strong className="text-foreground">Upload via FTP:</strong>{' '}
-          if your club has a web hosting account, you can push results directly to it without
-          downloading and uploading files manually. Sail Scoring relays FTP uploads through the
-          scupper service — the browser cannot connect to an FTP server directly.
-        </p>
-        <p>
-          <strong className="text-foreground">FTP one-time setup:</strong> open the workspace
-          switcher in the page header and choose{' '}
-          <strong className="text-foreground">Workspace settings</strong>, then click{' '}
-          <strong className="text-foreground">Add server</strong>. Enter a label (e.g.{' '}
-          <em>Club website</em>), the FTP hostname, port (default 21), username, and password.
-          Tick <strong className="text-foreground">FTPS (TLS)</strong> if your host requires an
-          encrypted connection. You can configure multiple servers and switch between them at upload
-          time. Credentials are stored on this device only and are never included in series file
-          exports.
-        </p>
-        <p>
-          <strong className="text-foreground">Uploading:</strong> on the{' '}
-          <strong className="text-foreground">Standings</strong> tab, click{' '}
-          <strong className="text-foreground">Upload via FTP</strong> (or press{' '}
-          <strong className="text-foreground">f</strong>). Select the server, enter the remote
-          path for the results file (e.g.{' '}
-          <code className="text-foreground text-sm">/public_html/results/fleet-a.html</code>),
-          and click <strong className="text-foreground">Upload</strong>. The path is entered
-          each time, so you can vary it per race day or fleet without changing the server
-          configuration.
-        </p>
-        <p>
-          If the upload fails, the raw FTP error from the server is shown — this is usually
-          enough to diagnose a wrong path, bad credentials, or a permission problem.
-        </p>
+        {has('ftp-upload') && (
+          <>
+            <p>
+              <strong className="text-foreground">Upload via FTP:</strong>{' '}
+              if your club has a web hosting account, you can push results directly to it without
+              downloading and uploading files manually. Sail Scoring relays FTP uploads through the
+              scupper service — the browser cannot connect to an FTP server directly.
+            </p>
+            <p>
+              <strong className="text-foreground">FTP one-time setup:</strong> open the workspace
+              switcher in the page header and choose{' '}
+              <strong className="text-foreground">Workspace settings</strong>, then click{' '}
+              <strong className="text-foreground">Add server</strong>. Enter a label (e.g.{' '}
+              <em>Club website</em>), the FTP hostname, port (default 21), username, and password.
+              Tick <strong className="text-foreground">FTPS (TLS)</strong> if your host requires an
+              encrypted connection. You can configure multiple servers and switch between them at upload
+              time. Credentials are stored on this device only and are never included in series file
+              exports.
+            </p>
+            <p>
+              <strong className="text-foreground">Uploading:</strong> on the{' '}
+              <strong className="text-foreground">Standings</strong> tab, click{' '}
+              <strong className="text-foreground">Upload via FTP</strong> (or press{' '}
+              <strong className="text-foreground">f</strong>). Select the server, enter the remote
+              path for the results file (e.g.{' '}
+              <code className="text-foreground text-sm">/public_html/results/fleet-a.html</code>),
+              and click <strong className="text-foreground">Upload</strong>. The path is entered
+              each time, so you can vary it per race day or fleet without changing the server
+              configuration.
+            </p>
+            <p>
+              If the upload fails, the raw FTP error from the server is shown — this is usually
+              enough to diagnose a wrong path, bad credentials, or a permission problem.
+            </p>
+          </>
+        )}
       </Section>
 
       <Section id="json-export" title="JSON data export and Open in Sail Scoring">

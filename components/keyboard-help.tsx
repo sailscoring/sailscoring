@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useFeatures } from '@/components/features-provider';
 
 function Shortcut({ keys }: { keys: string[] }) {
   return (
@@ -62,6 +63,7 @@ export function KeyboardHelp({
   open: boolean;
   onClose: () => void;
 }) {
+  const { has } = useFeatures();
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-sm">
@@ -109,7 +111,10 @@ export function KeyboardHelp({
             rows={[
               { keys: ['p'], action: 'Publish results' },
               { keys: ['x'], action: 'Preview results' },
-              { keys: ['f'], action: 'Upload via FTP' },
+              // Gated: FTP upload is experimental (#155).
+              ...(has('ftp-upload')
+                ? [{ keys: ['f'], action: 'Upload via FTP' }]
+                : []),
             ]}
           />
 
@@ -122,7 +127,10 @@ export function KeyboardHelp({
               { keys: ['Esc'], action: 'Clear input or go back' },
               { keys: ['Tab'], action: 'Move between fields' },
               { keys: ['c'], action: 'Toggle start check-in tab' },
-              { keys: ['i'], action: 'Import finish sheet from CSV' },
+              // Gated: finish-sheet CSV import is experimental (#155).
+              ...(has('csv-finish-import')
+                ? [{ keys: ['i'], action: 'Import finish sheet from CSV' }]
+                : []),
               { keys: ['s'], action: 'Add start (handicap series only)' },
             ]}
           />
