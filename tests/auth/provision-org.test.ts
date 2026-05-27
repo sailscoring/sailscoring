@@ -13,12 +13,15 @@ import {
   deleteOrg,
   fulfilRequest,
   listMembers,
+  listOrgsWithFeature,
   listRequests,
   preCreateUser,
   removeMember,
+  setOrgFeature,
   setRole,
   summariseOrg,
 } from '@/scripts/provision-org';
+import { parseOrgMetadata } from '@/lib/features';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const skip = !DATABASE_URL;
@@ -141,6 +144,44 @@ describe.skipIf(skip)('provision-org operations', () => {
 
     // Already-resolved requests can't be fulfilled again.
     await expect(fulfilRequest(db, { requestId })).rejects.toThrow(/already fulfilled/);
+  });
+
+  test('createOrg --enable-feature, setOrgFeature toggle, and listOrgsWithFeature (#155)', async () => {
+    const stamp = Date.now();
+    // create-org with features set at birth
+    const org = await createOrg(db, {
+      name: `Featured ${stamp}`,
+      slug: `feat-${stamp}`,
+      enabledFeatures: ['echo', 'ftp-upload'],
+    });
+    cleanupOrgIds.push(org.id);
+
+    async function featuresOf(orgId: string) {
+      const [row] = await db
+        .select({ metadata: schema.organization.metadata })
+        .from(schema.organization)
+        .where(eq(schema.organization.id, orgId));
+      return parseOrgMetadata(row.metadata, org.slug).enabledFeatures.sort();
+    }
+
+    expect(await featuresOf(org.id)).toEqual(['echo', 'ftp-upload']);
+
+    // enable-feature adds, idempotently
+    await setOrgFeature(db, { orgSlugOrId: org.slug, feature: 'sailwave-import', enabled: true });
+    await setOrgFeature(db, { orgSlugOrId: org.slug, feature: 'echo', enabled: true });
+    expect(await featuresOf(org.id)).toEqual(['echo', 'ftp-upload', 'sailwave-import']);
+
+    // disable-feature removes, idempotently
+    const after = await setOrgFeature(db, { orgSlugOrId: org.slug, feature: 'echo', enabled: false });
+    expect(after.enabledFeatures.sort()).toEqual(['ftp-upload', 'sailwave-import']);
+    await setOrgFeature(db, { orgSlugOrId: org.slug, feature: 'echo', enabled: false });
+    expect(await featuresOf(org.id)).toEqual(['ftp-upload', 'sailwave-import']);
+
+    // list-feature audience query finds this org for ftp-upload, not echo
+    const ftpOrgs = await listOrgsWithFeature(db, 'ftp-upload');
+    expect(ftpOrgs.map((o) => o.id)).toContain(org.id);
+    const echoOrgs = await listOrgsWithFeature(db, 'echo');
+    expect(echoOrgs.map((o) => o.id)).not.toContain(org.id);
   });
 
   test('declineRequest marks a pending request declined', async () => {

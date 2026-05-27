@@ -39,8 +39,35 @@ import { and, eq, or, sql } from 'drizzle-orm';
 import { getDb, getDbClient, type SailScoringDb } from '@/lib/db/client';
 import { member, organization, orgRequest, user } from '@/lib/db/schema/auth';
 import { competitors, fleets, races, series } from '@/lib/db/schema/series';
+import {
+  ALL_FEATURE_KEYS,
+  isFeatureKey,
+  parseOrgMetadata,
+  serializeOrgMetadata,
+  type FeatureKey,
+} from '@/lib/features';
 
 export type Role = 'owner' | 'admin' | 'member';
+
+/**
+ * Parse a comma-separated `--enable-feature` value into validated feature
+ * keys. The single-value arg parser means repeated `--enable-feature` flags
+ * collapse, so multiple features are given as `--enable-feature a,b`.
+ */
+function parseFeatureList(raw: string | undefined): FeatureKey[] {
+  if (!raw || raw === 'true') return [];
+  const keys = raw
+    .split(',')
+    .map((k) => k.trim())
+    .filter(Boolean);
+  const unknown = keys.filter((k) => !isFeatureKey(k));
+  if (unknown.length > 0) {
+    throw new Error(
+      `unknown feature(s): ${unknown.join(', ')} — valid keys: ${ALL_FEATURE_KEYS.join(', ')}`,
+    );
+  }
+  return keys as FeatureKey[];
+}
 
 const ROLES: Role[] = ['owner', 'admin', 'member'];
 
@@ -144,7 +171,7 @@ export async function preCreateUser(
 
 export async function createOrg(
   db: SailScoringDb,
-  args: { name: string; slug?: string },
+  args: { name: string; slug?: string; enabledFeatures?: FeatureKey[] },
 ): Promise<{ id: string; name: string; slug: string }> {
   const name = args.name.trim();
   if (!name) throw new Error('org name is required');
@@ -155,13 +182,69 @@ export async function createOrg(
   if (existing) throw new Error(`org with slug "${slug}" already exists`);
 
   const id = randomId('org');
+  // provision-org always creates an onboarded club workspace (#155).
+  const metadata =
+    args.enabledFeatures && args.enabledFeatures.length > 0
+      ? serializeOrgMetadata({ kind: 'club', enabledFeatures: args.enabledFeatures })
+      : null;
   await db.insert(organization).values({
     id,
     name,
     slug,
+    metadata,
     createdAt: new Date(),
   });
   return { id, name, slug };
+}
+
+/**
+ * Turn an experimental feature (#155) on or off for an existing club
+ * workspace. Reads the current metadata, mutates the enabledFeatures set, and
+ * writes it back. Returns the resulting feature list.
+ */
+export async function setOrgFeature(
+  db: SailScoringDb,
+  args: { orgSlugOrId: string; feature: FeatureKey; enabled: boolean },
+): Promise<{ org: { id: string; name: string; slug: string }; enabledFeatures: FeatureKey[] }> {
+  const org = await findOrgBySlugOrId(db, args.orgSlugOrId);
+  if (!org) throw new Error(`org "${args.orgSlugOrId}" not found`);
+  const [row] = await db
+    .select({ metadata: organization.metadata })
+    .from(organization)
+    .where(eq(organization.id, org.id))
+    .limit(1);
+  const meta = parseOrgMetadata(row?.metadata ?? null, org.slug);
+  const current = new Set(meta.enabledFeatures);
+  if (args.enabled) current.add(args.feature);
+  else current.delete(args.feature);
+  const enabledFeatures = [...current];
+  await db
+    .update(organization)
+    .set({ metadata: serializeOrgMetadata({ kind: meta.kind, enabledFeatures }) })
+    .where(eq(organization.id, org.id));
+  return { org, enabledFeatures };
+}
+
+/**
+ * List the orgs that have a given feature enabled — the containment-audience
+ * query (#155). Metadata is a text JSON column, so we scan and parse in JS;
+ * there are few orgs and this runs from the CLI.
+ */
+export async function listOrgsWithFeature(
+  db: SailScoringDb,
+  feature: FeatureKey,
+): Promise<Array<{ id: string; name: string; slug: string }>> {
+  const rows = await db
+    .select({
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+      metadata: organization.metadata,
+    })
+    .from(organization);
+  return rows
+    .filter((r) => parseOrgMetadata(r.metadata, r.slug).enabledFeatures.includes(feature))
+    .map(({ id, name, slug }) => ({ id, name, slug }));
 }
 
 export async function addMember(
@@ -376,7 +459,7 @@ export async function listRequests(
  */
 export async function fulfilRequest(
   db: SailScoringDb,
-  args: { requestId: string; slug?: string },
+  args: { requestId: string; slug?: string; enabledFeatures?: FeatureKey[] },
 ): Promise<{ org: { id: string; name: string; slug: string }; email: string }> {
   const [req] = await db
     .select()
@@ -389,7 +472,11 @@ export async function fulfilRequest(
   }
 
   return db.transaction(async (tx) => {
-    const org = await createOrg(tx, { name: req.requestedName, slug: args.slug });
+    const org = await createOrg(tx, {
+      name: req.requestedName,
+      slug: args.slug,
+      enabledFeatures: args.enabledFeatures,
+    });
     await addMember(tx, { orgSlugOrId: org.id, email: req.userEmail, role: 'owner' });
     await tx
       .update(orgRequest)
@@ -450,7 +537,7 @@ function parseArgs(argv: string[]): ParsedFlags {
 function usage(): string {
   return `provision-org — ADR-008 Phase 7 manual org administration
 
-  create-org <name> [--slug <slug>]
+  create-org <name> [--slug <slug>] [--enable-feature <key[,key...]>]
   delete-org <org-slug-or-id> [--force]
   pre-create-user <email> --name <full-name>
   add-member <org-slug-or-id> <email> [--role owner|admin|member]
@@ -458,8 +545,11 @@ function usage(): string {
   remove-member <org-slug-or-id> <email>
   list-members <org-slug-or-id>
   list-requests [--all]
-  fulfil-request <request-id> [--slug <slug>]
+  fulfil-request <request-id> [--slug <slug>] [--enable-feature <key[,key...]>]
   decline-request <request-id>
+  enable-feature <org-slug-or-id> <feature>
+  disable-feature <org-slug-or-id> <feature>
+  list-feature <feature>
 
 delete-org without --force only prints what would be deleted. Cascades
 through members, invitations, and all series/race/competitor data.
@@ -467,6 +557,10 @@ through members, invitations, and all series/race/competitor data.
 list-requests shows pending self-service workspace requests (#153); --all
 includes resolved ones. fulfil-request creates the workspace, adds the
 requester as owner, and marks the request fulfilled.
+
+enable-feature / disable-feature toggle an experimental feature (#155) for a
+club workspace; list-feature prints which orgs have a feature enabled (the
+containment-audience query). Feature keys: ${ALL_FEATURE_KEYS.join(', ')}.
 
 Members must already exist (signed in once, or seeded via pre-create-user).
 Reads DATABASE_URL.`;
@@ -487,8 +581,12 @@ export async function runCli(argv: string[]): Promise<number> {
       case 'create-org': {
         const [name] = positional;
         if (!name) throw new Error('create-org: <name> is required');
-        const result = await createOrg(db, { name, slug: flags.slug });
+        const enabledFeatures = parseFeatureList(flags['enable-feature']);
+        const result = await createOrg(db, { name, slug: flags.slug, enabledFeatures });
         console.log(`created org "${result.name}" (slug: ${result.slug}, id: ${result.id})`);
+        if (enabledFeatures.length > 0) {
+          console.log(`  features: ${enabledFeatures.join(', ')}`);
+        }
         return 0;
       }
       case 'delete-org': {
@@ -589,10 +687,18 @@ export async function runCli(argv: string[]): Promise<number> {
       case 'fulfil-request': {
         const [requestId] = positional;
         if (!requestId) throw new Error('fulfil-request: <request-id> is required');
-        const { org, email } = await fulfilRequest(db, { requestId, slug: flags.slug });
+        const enabledFeatures = parseFeatureList(flags['enable-feature']);
+        const { org, email } = await fulfilRequest(db, {
+          requestId,
+          slug: flags.slug,
+          enabledFeatures,
+        });
         console.log(
           `fulfilled: created "${org.name}" (slug: ${org.slug}, id: ${org.id}) and added ${email} as owner`,
         );
+        if (enabledFeatures.length > 0) {
+          console.log(`  features: ${enabledFeatures.join(', ')}`);
+        }
         return 0;
       }
       case 'decline-request': {
@@ -600,6 +706,45 @@ export async function runCli(argv: string[]): Promise<number> {
         if (!requestId) throw new Error('decline-request: <request-id> is required');
         const { requestedName, userEmail } = await declineRequest(db, { requestId });
         console.log(`declined request "${requestedName}" from ${userEmail}`);
+        return 0;
+      }
+      case 'enable-feature':
+      case 'disable-feature': {
+        const [orgSlugOrId, feature] = positional;
+        if (!orgSlugOrId || !feature) {
+          throw new Error(`${subcommand}: <org-slug-or-id> <feature> are required`);
+        }
+        if (!isFeatureKey(feature)) {
+          throw new Error(
+            `unknown feature "${feature}" — valid keys: ${ALL_FEATURE_KEYS.join(', ')}`,
+          );
+        }
+        const enabled = subcommand === 'enable-feature';
+        const result = await setOrgFeature(db, { orgSlugOrId, feature, enabled });
+        console.log(
+          `${enabled ? 'enabled' : 'disabled'} "${feature}" for ${result.org.slug} — now: ${
+            result.enabledFeatures.length > 0 ? result.enabledFeatures.join(', ') : '(none)'
+          }`,
+        );
+        return 0;
+      }
+      case 'list-feature': {
+        const [feature] = positional;
+        if (!feature) throw new Error('list-feature: <feature> is required');
+        if (!isFeatureKey(feature)) {
+          throw new Error(
+            `unknown feature "${feature}" — valid keys: ${ALL_FEATURE_KEYS.join(', ')}`,
+          );
+        }
+        const orgs = await listOrgsWithFeature(db, feature);
+        if (orgs.length === 0) {
+          console.log(`(no orgs have "${feature}" enabled)`);
+          return 0;
+        }
+        console.log(`orgs with "${feature}" enabled:`);
+        for (const o of orgs) {
+          console.log(`  ${o.slug.padEnd(24)}  ${o.name}  (id: ${o.id})`);
+        }
         return 0;
       }
       default:
