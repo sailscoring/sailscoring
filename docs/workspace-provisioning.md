@@ -82,6 +82,62 @@ pnpm provision-org remove-member hyc carol@example.com
 useful for support — it appears on the `/workspace` page and in the
 workspace-switcher data attributes.
 
+## Feature gating (experimental features)
+
+Some features are kept behind a gate (#155) because they're experimental
+and may be **removed** later. Gating them to a chosen set of workspaces
+keeps the audience small and enumerable, so a feature can be withdrawn
+with a clear explanation to a known group rather than silently pulled
+out from under everyone.
+
+The current gated keys are:
+
+| key | what it unlocks |
+|-----|-----------------|
+| `sailwave-import` | the "Sailwave export" option in the home Import dialog |
+| `csv-finish-import` | the per-race "Import CSV" finish-sheet control |
+| `ftp-upload` | the Standings "Upload via FTP" button + the Workspace-settings FTP-servers card |
+| `nhc-parameters` | the per-fleet **Configure…** custom-NHC dialog (NHC scoring with stock parameters stays available to everyone) |
+| `echo` | ECHO as a per-fleet scoring system |
+
+`lib/features.ts` is the source of truth for the key list; `pnpm
+provision-org --help` prints the current keys too.
+
+**Turn a feature on / off for a workspace:**
+
+```bash
+pnpm provision-org enable-feature hyc echo
+pnpm provision-org disable-feature hyc echo
+```
+
+These act on an existing club workspace and take one feature at a time.
+To set features at the moment a workspace is created, pass a
+comma-separated list to `create-org` (or `fulfil-request`):
+
+```bash
+pnpm provision-org create-org "HYC Scoring Panel" --slug hyc \
+  --enable-feature echo,ftp-upload
+pnpm provision-org fulfil-request <request-id> --enable-feature echo
+```
+
+**Who has a feature (the audience query)** — run this before retiring a
+feature to see exactly which workspaces would be affected:
+
+```bash
+pnpm provision-org list-feature echo
+```
+
+**Propagation (Model B).** A feature enabled on a *club* workspace is
+visible both in that workspace and in the **personal workspace of every
+member** — their own sandbox for the same feature. It does *not* leak
+into other club workspaces a member happens to belong to. So enabling
+`echo` on `hyc` turns it on for the HYC workspace and for each HYC
+scorer's personal workspace, and nowhere else.
+
+Feature commands follow the same production rules as the rest of the CLI
+(see below) — they read `DATABASE_URL`, so be sure you're pointed at the
+right database before enabling on a real workspace like `hyc`.
+
 ## Production usage
 
 The CLI reads `DATABASE_URL` directly. Against production:
