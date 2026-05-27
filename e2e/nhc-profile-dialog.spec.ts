@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, enableFeatures, setScoringMode } from './helpers';
 
 /**
  * E2E for the per-fleet NHC profile override dialog (#143). Covers the UI
@@ -10,7 +10,14 @@ import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
  * Algorithmic propagation is covered by the YAML fixture
  * `tests/fixtures/scoring/nhc/06-custom-profile.yaml` and unit tests; this
  * spec stays focused on the settings flow.
+ *
+ * Custom NHC parameters are a gated experimental feature (#155); enable it so
+ * the per-fleet Configure… button appears.
  */
+
+test.beforeEach(async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['nhc-parameters']);
+});
 test('NHC profile dialog: edit, save, persist, reopen', async ({ page }) => {
   await createSeriesQuick(page, { name: 'NHC Profile Test 2026' });
   await createFleets(page, ['NHC']);

@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, enableFeatures } from './helpers';
 
 /**
  * E2E tests for FTP publishing (issue #54).
@@ -11,7 +11,14 @@ import { createSeriesQuick } from './helpers';
  *
  * Does not test the actual upload (requires a live scupper service and FTP
  * server); that is covered by scupper's own integration tests.
+ *
+ * FTP upload is a gated experimental feature (#155), so each test enables it
+ * for the signed-in user's personal workspace first.
  */
+
+test.beforeEach(async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['ftp-upload']);
+});
 
 test('FTP server settings: add, edit, delete', async ({ page }) => {
   await page.goto('/workspace');

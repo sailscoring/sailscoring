@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, enableFeatures } from './helpers';
 
 /**
  * E2E for the per-race finish sheet CSV importer.
@@ -7,7 +7,14 @@ import { createSeriesQuick } from './helpers';
  * Covers: the happy path (map → preview → confirm), auto-detection of headers,
  * result codes for non-finishers, unregistered sail numbers importing as
  * unresolved crossings, and replace-all semantics.
+ *
+ * Finish-sheet CSV import is a gated experimental feature (#155); enable it so
+ * the Import CSV control appears.
  */
+
+test.beforeEach(async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['csv-finish-import']);
+});
 
 function csvBuffer(content: string) {
   return { name: 'finishes.csv', mimeType: 'text/csv', buffer: Buffer.from(content) };

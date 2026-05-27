@@ -9,6 +9,7 @@ import postgres from 'postgres';
 
 import * as schema from '@/lib/db/schema';
 import { fulfilRequest } from '@/scripts/provision-org';
+import { serializeOrgMetadata, type FeatureKey } from '@/lib/features';
 
 /**
  * The dev/CI Resend stub appends each magic-link issuance to this file as
@@ -277,6 +278,40 @@ export async function setActiveWorkspace(
     });
     if (!res.ok) throw new Error(`set-active failed: ${res.status}`);
   }, organizationId);
+  await page.reload();
+}
+
+/**
+ * Enable experimental features (#155) for the signed-in user's *personal*
+ * workspace, then reload so the layout recomputes the effective set. Most
+ * specs run a fresh user in their personal workspace, which has no features by
+ * default; gated affordances (Sailwave/finish-CSV import, FTP, ECHO, custom
+ * NHC) only appear once enabled. Model B reads the active workspace's own
+ * features, so writing them onto the personal org is enough — no club needed.
+ */
+export async function enableFeatures(
+  page: Page,
+  email: string,
+  features: FeatureKey[],
+): Promise<void> {
+  const { db, close } = adminDb();
+  try {
+    const [u] = await db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, email.toLowerCase()))
+      .limit(1);
+    if (!u) throw new Error(`enableFeatures: user "${email}" not found`);
+    // Personal workspace slug convention: `u-${userId.slice(0, 16)}`
+    // (personalWorkspaceSlug in lib/auth/require-workspace.ts).
+    const slug = `u-${u.id.slice(0, 16)}`;
+    await db
+      .update(schema.organization)
+      .set({ metadata: serializeOrgMetadata({ kind: 'personal', enabledFeatures: features }) })
+      .where(eq(schema.organization.slug, slug));
+  } finally {
+    await close();
+  }
   await page.reload();
 }
 

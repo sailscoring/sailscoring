@@ -6,7 +6,7 @@
  * which exercises the fuller happy path.
  */
 import { test, expect } from './fixtures';
-import { createSeriesQuick, signInFreshUser } from './helpers';
+import { createSeriesQuick, enableFeatures, signInFreshUser } from './helpers';
 
 function csvBuffer(content: string) {
   return { name: 'finishes.csv', mimeType: 'text/csv', buffer: Buffer.from(content) };
@@ -14,7 +14,9 @@ function csvBuffer(content: string) {
 
 test.describe('finish sheet CSV import, server mode', () => {
   test('import per-race finish sheet from CSV, reload, persists', async ({ page }) => {
-    await signInFreshUser(page, 'server-csv-import');
+    const email = await signInFreshUser(page, 'server-csv-import');
+    // Finish-sheet CSV import is a gated experimental feature (#155).
+    await enableFeatures(page, email, ['csv-finish-import']);
 
     const seriesName = `Server Mode CSV Import ${Date.now()}`;
     await createSeriesQuick(page, { name: seriesName });

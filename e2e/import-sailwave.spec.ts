@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { signedInTest as test, expect } from './fixtures';
+import { enableFeatures } from './helpers';
 
 /**
  * E2E for the Import Series → Sailwave export flow.
@@ -9,6 +10,10 @@ import { signedInTest as test, expect } from './fixtures';
  * Uses a real HYC Sailwave export (helm/crew names anonymised) from
  * `tests/fixtures/sailwave/hyc-2026/`.
  */
+
+test.beforeEach(async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['sailwave-import']);
+});
 
 const SAILWAVE_FIXTURE = join(
   process.cwd(),

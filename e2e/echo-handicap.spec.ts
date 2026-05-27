@@ -1,5 +1,9 @@
 import { signedInTest as test, expect } from './fixtures';
-import { addCompetitor, createFleets, createSeriesQuick, downloadFleetHtml, setScoringMode } from './helpers';
+import { addCompetitor, createFleets, createSeriesQuick, downloadFleetHtml, enableFeatures, setScoringMode } from './helpers';
+
+test.beforeEach(async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['echo']);
+});
 
 /**
  * E2E tests for ECHO progressive handicap scoring (Phase 2 ECHO pass).
