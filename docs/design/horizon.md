@@ -344,6 +344,24 @@ is correct.
 
 ## Marketing and presence
 
+### Legal pages (GDPR / cookie compliance)
+
+GDPR-compliant privacy, terms, cookie, and acceptable-use pages, generated via Termly
+so they're maintained rather than placeholder boilerplate. Operationally needed now
+that there are real users in trial workspaces (HYC) and self-service stealth-beta
+sign-ups; cross-link from the app footer as well as the marketing site, since that's
+where the data-controller relationship forms.
+
+*Tracked in [sailscoring/sailscoring.ie#5](https://github.com/sailscoring/sailscoring.ie/issues/5).*
+
+### Logo for sailscoring.ie
+
+A real logo for the marketing site and the app, replacing the current placeholder.
+Needs to work at multiple sizes (favicon, nav bar, app icon), on light and dark
+backgrounds; SVG preferred; sailing/racing theme.
+
+*Tracked in [sailscoring/sailscoring.ie#4](https://github.com/sailscoring/sailscoring.ie/issues/4).*
+
 ### Short video demo on the website
 
 A 60–90 second screencast showing the core scoring workflow, embedded on the marketing
