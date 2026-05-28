@@ -251,11 +251,26 @@ public index destination.
 > default fleet, `kebab(fleet)` otherwise) and the bare `/p/{ws}/{series}` is
 > reserved for the per-series listing. Deleting a series **orphans** its
 > publication (`published_series.series_id → null`) rather than removing it.
-> Three slices are deferred: the fully static read path (edge rewrite to Blob)
-> + public workspace/series **index pages** (#162), "Export HTML" → in-app
-> **Preview** (#163), and the workspace **"Published" management page** with
-> **Unpublish** that manages orphans (#164). Iteration 1 lands the URL/slug
-> model and data model, served by the existing function route.
+> Three slices were deferred at #153: the fully static read path (edge rewrite
+> to Blob) + public workspace/series **index pages** (#162), "Export HTML" →
+> in-app **Preview** (#163), and the workspace **"Published" management page**
+> with **Unpublish** that manages orphans (#164). Iteration 1 landed the
+> URL/slug model and data model, served by the existing function route. All
+> three deferred slices have since shipped; the #162 read path landed with a
+> deviation from the plan above:
+>
+> **#162 read path — function over static rewrite.** The "fully static read
+> path (edge rewrite to Blob)" sketched above was rejected. Vercel Blob
+> overwrites have a ~60-second propagation floor (`cacheControlMaxAge`
+> minimum 60s), which would show stale results for up to a minute after every
+> re-publish. The shipped `/p/[...slug]` route is a **thin always-fresh
+> function** — fleet pages fetch the Blob with `?v={contentHash}` appended
+> (changed query = fresh Blob-CDN key, instant visibility), serving
+> `Cache-Control: no-cache` + a strong ETag = contentHash for cheap 304s.
+> Index pages `/p/{ws}` and `/p/{ws}/{series}` are rendered dynamically from
+> Postgres on each request — no pre-generated index blobs. Trade-off: each
+> view costs a function invocation and an indexed Postgres read instead of a
+> pure CDN hit; the freshness win was preferred.
 
 ### bilge retirement
 
