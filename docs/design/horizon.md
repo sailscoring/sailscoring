@@ -342,6 +342,42 @@ is correct.
 
 ---
 
+## Operator visibility
+
+### User engagement metrics
+
+Two roles to track (per `docs/requirements/user-stories.md`): scorers, who log in
+and edit, and result viewers, who anonymously hit published pages. The operator
+needs to see growth in both, and the right question evolves with the user base.
+
+**Scorers.**
+
+- *Right now:* have invited scorers ever logged in? A binary per-user signal — the
+  schema doesn't carry it (no `user.lastLoginAt`; `session` rows expire).
+- *Next:* are they coming back? Per-workspace last activity, including reads. The
+  single `requireWorkspace()` seam would naturally be the place to stamp a throttled
+  `member.lastSeenAt` — which also powers a "Last active" column in the Members card.
+- *As the user base grows:* weekly/monthly active scorers, retention cohorts,
+  per-workspace activity counts. At that point engagement belongs on a dedicated
+  operator surface, not the per-workspace Members card — the questions are about the
+  product as a whole, not a specific club's roster.
+
+**Result viewers.**
+
+- *Right now:* are published pages being hit at all, and is the count growing?
+  Anonymous traffic; the `/p/[...slug]` function (see ADR-008 Phase 10) is a natural
+  pinch point for app-side counting, and Vercel's analytics covers the CDN side.
+- *Next:* hits per series and per workspace over time — distinguishing pages that
+  draw repeat traffic from one-shot regatta wrap-ups.
+- *As publishing grows:* aggregate trends across all workspaces, surfaced on the
+  same operator-side dashboard as the scorer metrics.
+
+Natural first concrete steps, when each check actually needs answering: a
+`member.lastSeenAt` stamp in `requireWorkspace()` on the scorer side, and turning
+on request counting at the `/p` function (or Vercel analytics) on the viewer side.
+
+---
+
 ## Marketing and presence
 
 ### Legal pages (GDPR / cookie compliance)
