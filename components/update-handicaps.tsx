@@ -85,6 +85,15 @@ function formatTcf(v: number | null, system: HandicapSystem): string {
   return system === 'py' ? String(Math.round(v)) : v.toFixed(3);
 }
 
+/** System label for a preview row — IRC rows from Irish Sailing also show
+ *  which TCC variant was used, so a mixed spin/non-spin run is auditable. */
+function systemLabel(r: PreviewRow): string {
+  if (r.system === 'irc' && r.ircVariant) {
+    return `IRC (${r.ircVariant === 'non-spin' ? 'non-spin' : 'spin'})`;
+  }
+  return SYSTEM_LABEL[r.system];
+}
+
 /** Human description of a non-exact Irish Sailing match, for the scorer to
  *  verify the right boat was picked. */
 function describeMatch(m: RatingMatch): string {
@@ -112,7 +121,8 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   const [step, setStep] = useState<'source-picker' | 'source-series' | 'source-irish-sailing' | 'done'>('source-picker');
   const [source, setSource] = useState<HandicapSource>('series');
   const [sourceSeriesId, setSourceSeriesId] = useState<string | null>(null);
-  const [ircVariant, setIrcVariant] = useState<IrcTccVariant>('spin');
+  // Spin/non-spin per IRC fleet; a fleet absent from the map defaults to spin.
+  const [ircVariantByFleet, setIrcVariantByFleet] = useState<Record<string, IrcTccVariant>>({});
   const [matchByName, setMatchByName] = useState(false);
   const [fleetMapping, setFleetMapping] = useState<Record<string, string | null>>({});
   const [excludedRowIds, setExcludedRowIds] = useState<Set<string>>(new Set());
@@ -129,7 +139,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
       setStep('source-picker');
       setSource('series');
       setSourceSeriesId(null);
-      setIrcVariant('spin');
+      setIrcVariantByFleet({});
       setMatchByName(false);
       setFleetMapping({});
       setExcludedRowIds(new Set());
@@ -228,10 +238,16 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
       targetCompetitors: targetCompetitors.data,
       targetFleets: targetFleets.data,
       ratings: irishRatings.data.records,
-      ircVariant,
+      ircVariantByFleet,
       matchByName,
     });
-  }, [targetCompetitors.data, targetFleets.data, irishRatings.data, ircVariant, matchByName]);
+  }, [targetCompetitors.data, targetFleets.data, irishRatings.data, ircVariantByFleet, matchByName]);
+
+  // IRC fleets in the target series — each gets its own spin/non-spin selector.
+  const ircFleets = useMemo(
+    () => (targetFleets.data ?? []).filter((f) => f.scoringSystem === 'irc'),
+    [targetFleets.data],
+  );
 
   const previewRows = step === 'source-irish-sailing' ? irishPreviewRows : seriesPreviewRows;
 
@@ -316,7 +332,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh] max-w-3xl">
+      <DialogContent className="grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh] w-[95vw] max-w-5xl sm:max-w-5xl">
         {step === 'source-picker' && (
           <>
             <DialogHeader>
@@ -478,22 +494,39 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
             </DialogHeader>
 
             <div className="space-y-4 py-2 min-h-0 min-w-0 overflow-y-auto">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">IRC rating to use</label>
-                <Select value={ircVariant} onValueChange={(v) => setIrcVariant(v as IrcTccVariant)}>
-                  <SelectTrigger className="w-64">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="spin">Spinnaker TCC</SelectItem>
-                    <SelectItem value="non-spin">Non-spinnaker TCC</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  ECHO handicaps have no spinnaker/non-spinnaker split — this choice only affects
-                  IRC fleets.
-                </p>
-              </div>
+              {ircFleets.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-sm font-medium">IRC rating per fleet</div>
+                  <div className="rounded-md border">
+                    {ircFleets.map((f, i) => (
+                      <div
+                        key={f.id}
+                        className={`flex items-center gap-3 p-2 ${i > 0 ? 'border-t' : ''}`}
+                      >
+                        <div className="flex-1 text-sm font-medium">{f.name}</div>
+                        <Select
+                          value={ircVariantByFleet[f.id] ?? 'spin'}
+                          onValueChange={(v) =>
+                            setIrcVariantByFleet((prev) => ({ ...prev, [f.id]: v as IrcTccVariant }))
+                          }
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="spin">Spinnaker TCC</SelectItem>
+                            <SelectItem value="non-spin">Non-spinnaker TCC</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Set non-spinnaker classes to use their non-spin TCC. ECHO fleets have no
+                    spinnaker/non-spinnaker split.
+                  </p>
+                </div>
+              )}
 
               <label className="flex items-start gap-2 text-sm cursor-pointer">
                 <input
@@ -735,7 +768,7 @@ function PreviewSection({
                     )}
                   </TableCell>
                   <TableCell>{fleet?.name}</TableCell>
-                  <TableCell>{SYSTEM_LABEL[r.system]}</TableCell>
+                  <TableCell>{systemLabel(r)}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     {formatTcf(r.currentTcf, r.system)} → {formatTcf(r.newTcf, r.system)}
                   </TableCell>

@@ -388,10 +388,11 @@ export default async function HelpPage() {
           published values and avoids transcription errors.
         </p>
         <p>
-          For IRC fleets, pick the <strong className="text-foreground">spinnaker</strong> or{' '}
-          <strong className="text-foreground">non-spinnaker</strong> TCC to suit how the fleet
-          races. ECHO handicaps have no spinnaker split, so the published ECHO value is used as-is.
-          As with the prior-series source, every change is previewed as{' '}
+          Each IRC fleet has its own <strong className="text-foreground">spinnaker</strong> /{' '}
+          <strong className="text-foreground">non-spinnaker</strong> choice, so a series with a mix
+          of spinnaker and non-spinnaker classes is handled in one pass — set the non-spinnaker
+          classes to their non-spin TCC. ECHO handicaps have no spinnaker split, so the published
+          ECHO value is used as-is. As with the prior-series source, every change is previewed as{' '}
           <code className="font-mono text-xs">current → new</code> before anything is written, and
           you can untick individual boats.
         </p>

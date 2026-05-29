@@ -199,6 +199,9 @@ export interface PreviewRow {
   /** How the source row was matched. Set only for non-exact Irish Sailing
    *  matches so the dialog can show the basis for the scorer to verify. */
   match?: RatingMatch;
+  /** Which IRC TCC was used for this row. Set only on Irish Sailing `irc`
+   *  rows, so the dialog can label "IRC (spin)" / "IRC (non-spin)". */
+  ircVariant?: IrcTccVariant;
 }
 
 export interface PlanInput {
@@ -372,9 +375,12 @@ export interface IrishSailingPlanInput {
   targetFleets: readonly Fleet[];
   /** The national ratings list (already fetched + parsed). */
   ratings: readonly IrishSailingRating[];
-  /** Which IRC TCC column to seed — the scorer's spin/non-spin choice.
+  /** Spin/non-spin choice per IRC fleet, keyed by fleet id. A fleet whose
+   *  boats race non-spinnaker uses the non-spin TCC; IRC fleets absent from
+   *  the map default to spinnaker. Per-fleet (not global) so a series with a
+   *  mix of spinnaker and non-spinnaker classes is handled in one pass.
    *  Ignored for ECHO fleets (ECHO has no spin/non-spin split). */
-  ircVariant: IrcTccVariant;
+  ircVariantByFleet: Readonly<Record<string, IrcTccVariant>>;
   /** Opt-in liberal fallback: when a competitor has no sail-number match,
    *  match on boat name instead. Off by default — names collide more readily
    *  than sail numbers, so the dialog gates this behind a toggle. */
@@ -495,8 +501,16 @@ export function planHandicapUpdatesFromIrishSailing(
       const system = systemForFleet(targetFleet);
       if (!system) continue;
 
-      const currentTcf = currentTcfFor(targetComp, system);
-      const base = { competitorId: targetComp.id, targetFleetId, system, currentTcf };
+      // Per-fleet IRC variant; undefined on non-IRC rows.
+      const ircVariant =
+        system === 'irc' ? input.ircVariantByFleet[targetFleetId] ?? 'spin' : undefined;
+      const base = {
+        competitorId: targetComp.id,
+        targetFleetId,
+        system,
+        currentTcf: currentTcfFor(targetComp, system),
+        ircVariant,
+      };
 
       // Irish Sailing publishes only IRC and ECHO — independent of any match.
       if (system === 'nhc' || system === 'py') {
@@ -516,7 +530,7 @@ export function planHandicapUpdatesFromIrishSailing(
       const rating = matchResult.rating;
       const newTcf =
         system === 'irc'
-          ? (input.ircVariant === 'non-spin' ? rating.ircNonSpinTcc : rating.ircTcc) ?? null
+          ? (ircVariant === 'non-spin' ? rating.ircNonSpinTcc : rating.ircTcc) ?? null
           : rating.echo ?? null;
 
       // Annotate non-exact matches so the scorer can verify the boat.
@@ -530,7 +544,7 @@ export function planHandicapUpdatesFromIrishSailing(
         continue;
       }
 
-      rows.push({ ...base, newTcf, status: currentTcf === newTcf ? 'unchanged' : 'change', match });
+      rows.push({ ...base, newTcf, status: base.currentTcf === newTcf ? 'unchanged' : 'change', match });
     }
   }
 

@@ -47,7 +47,7 @@ describe('planHandicapUpdatesFromIrishSailing', () => {
       targetCompetitors: [comp('c1', 'IRL1431', ['f-irc', 'f-echo'])],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { ircTcc: 0.932, ircNonSpinTcc: 0.918, echo: 0.975 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
     });
     const m = byKey(rows);
     expect(m.get('c1::irc')).toMatchObject({ newTcf: 0.932, status: 'change' });
@@ -59,9 +59,22 @@ describe('planHandicapUpdatesFromIrishSailing', () => {
       targetCompetitors: [comp('c1', 'IRL1431', ['f-irc'])],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { ircTcc: 0.932, ircNonSpinTcc: 0.918 })],
-      ircVariant: 'non-spin',
+      ircVariantByFleet: { 'f-irc': 'non-spin' },
     });
     expect(byKey(rows).get('c1::irc')).toMatchObject({ newTcf: 0.918 });
+  });
+
+  it('resolves spin and non-spin IRC fleets independently in one pass', () => {
+    const twoIrc = [fleet('f-spin', 'irc'), fleet('f-nonspin', 'irc')];
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-spin', 'f-nonspin'])],
+      targetFleets: twoIrc,
+      ratings: [rating('IRL1431', { ircTcc: 0.932, ircNonSpinTcc: 0.918 })],
+      ircVariantByFleet: { 'f-nonspin': 'non-spin' }, // f-spin omitted → defaults to spin
+    });
+    const byFleet = new Map(rows.map((r) => [r.targetFleetId, r]));
+    expect(byFleet.get('f-spin')).toMatchObject({ newTcf: 0.932, ircVariant: 'spin' });
+    expect(byFleet.get('f-nonspin')).toMatchObject({ newTcf: 0.918, ircVariant: 'non-spin' });
   });
 
   it('matches sail numbers regardless of spacing/case', () => {
@@ -69,7 +82,7 @@ describe('planHandicapUpdatesFromIrishSailing', () => {
       targetCompetitors: [comp('c1', 'irl 1431', ['f-irc'])],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { ircTcc: 0.932 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
     });
     expect(byKey(rows).get('c1::irc')).toMatchObject({ newTcf: 0.932, status: 'change' });
   });
@@ -79,7 +92,7 @@ describe('planHandicapUpdatesFromIrishSailing', () => {
       targetCompetitors: [comp('c1', 'IRL1431', ['f-irc'], { ircTcc: 0.932 })],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { ircTcc: 0.932 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
     });
     expect(byKey(rows).get('c1::irc')!.status).toBe('unchanged');
   });
@@ -89,7 +102,7 @@ describe('planHandicapUpdatesFromIrishSailing', () => {
       targetCompetitors: [comp('c1', 'IRL1431', ['f-nhc', 'f-py'])],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { ircTcc: 0.932, echo: 0.975 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
     });
     const m = byKey(rows);
     expect(m.get('c1::nhc')).toMatchObject({ status: 'not-found', notFoundReason: 'system-not-published' });
@@ -101,7 +114,7 @@ describe('planHandicapUpdatesFromIrishSailing', () => {
       targetCompetitors: [comp('c1', 'IRL9999', ['f-irc'])],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { ircTcc: 0.932 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
     });
     expect(byKey(rows).get('c1::irc')).toMatchObject({
       status: 'not-found',
@@ -115,7 +128,7 @@ describe('planHandicapUpdatesFromIrishSailing', () => {
       targetCompetitors: [comp('c1', 'IRL1773', ['f-irc'])],
       targetFleets: fleets,
       ratings: [rating('IRL1773', { echo: 1.01 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
     });
     expect(byKey(rows).get('c1::irc')).toMatchObject({
       status: 'not-found',
@@ -128,7 +141,7 @@ describe('planHandicapUpdatesFromIrishSailing', () => {
       targetCompetitors: [comp('c1', 'IRL1431', ['f-scratch'])],
       targetFleets: [fleet('f-scratch', 'scratch')],
       ratings: [rating('IRL1431', { ircTcc: 0.932 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
     });
     expect(rows).toEqual([]);
   });
@@ -140,7 +153,7 @@ describe('planHandicapUpdatesFromIrishSailing — matching', () => {
       targetCompetitors: [comp('c1', '1431', ['f-irc'])],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { ircTcc: 0.932 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
     });
     const row = byKey(rows).get('c1::irc')!;
     expect(row).toMatchObject({ newTcf: 0.932, status: 'change' });
@@ -152,7 +165,7 @@ describe('planHandicapUpdatesFromIrishSailing — matching', () => {
       targetCompetitors: [comp('c1', 'IRL1431', ['f-irc'])],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { ircTcc: 0.932 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
     });
     expect(byKey(rows).get('c1::irc')!.match).toBeUndefined();
   });
@@ -162,7 +175,7 @@ describe('planHandicapUpdatesFromIrishSailing — matching', () => {
       targetCompetitors: [comp('c1', 'GBR1431', ['f-irc'])],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { ircTcc: 0.932 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
     });
     expect(byKey(rows).get('c1::irc')).toMatchObject({
       status: 'not-found',
@@ -175,7 +188,7 @@ describe('planHandicapUpdatesFromIrishSailing — matching', () => {
       targetCompetitors: [comp('c1', '1431', ['f-irc'])],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { ircTcc: 0.932 }), rating('GBR1431', { ircTcc: 0.94 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
     });
     expect(byKey(rows).get('c1::irc')).toMatchObject({
       status: 'not-found',
@@ -188,7 +201,7 @@ describe('planHandicapUpdatesFromIrishSailing — matching', () => {
       targetCompetitors: [comp('c1', '9999', ['f-irc'], { boatName: '3 Cheers' })],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { boatName: '3 Cheers', ircTcc: 0.932 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
       matchByName: true,
     });
     const row = byKey(rows).get('c1::irc')!;
@@ -201,7 +214,7 @@ describe('planHandicapUpdatesFromIrishSailing — matching', () => {
       targetCompetitors: [comp('c1', '9999', ['f-irc'], { boatName: '3 Cheers' })],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { boatName: '3 Cheers', ircTcc: 0.932 })],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
     });
     expect(byKey(rows).get('c1::irc')).toMatchObject({
       status: 'not-found',
@@ -217,7 +230,7 @@ describe('planHandicapUpdatesFromIrishSailing — matching', () => {
         rating('IRL1431', { boatName: 'Alpha', ircTcc: 0.932 }),
         rating('GBR1431', { boatName: 'Bravo', ircTcc: 0.94 }),
       ],
-      ircVariant: 'spin',
+      ircVariantByFleet: { 'f-irc': 'spin' },
       matchByName: true,
     });
     expect(byKey(rows).get('c1::irc')).toMatchObject({ newTcf: 0.94, status: 'change' });
