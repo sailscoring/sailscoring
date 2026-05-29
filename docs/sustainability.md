@@ -196,6 +196,161 @@ These two are independent, and that independence is the point. The code
 surviving (open source) and the service surviving (a trusted operator) are
 different guarantees, and a sustainable Sail Scoring needs both.
 
+## The name, the trademark, and the domains
+
+> This section is framing, not legal advice. Anything we actually do here needs
+> a solicitor — trademark is jurisdictional and the wording matters. The point
+> is to decide *what we want the arrangement to achieve* before drafting it.
+
+Open source answers "can the *code* survive me?" It deliberately says nothing
+about the **name**. Copyright and the code licence govern the software;
+*trademark* governs the words "Sail Scoring" and the logo — and the two are
+legally independent. That independence is exactly the lever this project wants:
+
+- The **code** is open (MIT/Apache, assuming we go open source) — anyone may
+  fork it, change it, and run it. We can't stop that, and don't want to.
+- The **name** is the project's to grant — running a service *called* "Sail
+  Scoring," or using the logo, is something an operator does *with permission*.
+  A rescinded operator can keep running their fork; they just can't keep calling
+  it Sail Scoring.
+
+This is the standard open-source pattern, not an exotic one. The mark is the
+quality bar the open licence can't provide on its own.
+
+### What the grant is mainly for
+
+It's tempting to read the mark as a *weapon* — something I wield against a
+bad-faith operator. That's backwards. Its main job is the opposite: to give a
+*good-faith* NGB the **certainty that it has the project's blessing**. An NGB
+about to acquire `sailscoring.fr`, train its scorers on the tool, and stake its
+events on it wants to know it is formally sanctioned — that it isn't quietly
+stepping on someone's rights and can invest with confidence. A written grant
+supplies exactly that reassurance, and that reassurance is the product.
+
+Read that way, the two worries that usually dominate a trademark discussion —
+*is the mark even defensible?* and *could I enforce it abroad?* — matter far
+less than they first appear:
+
+- A good-faith NGB will not lean on "it's probably not a valid trademark" or
+  "you couldn't enforce it in France." Those are an adversary's arguments, and
+  an adversary is not who we're contracting with. The partner *wants* the
+  legitimacy — that's the whole reason it asks.
+- The realistic worst case with a bad-faith operator isn't a lawsuit I might
+  lose; it's that they fork and rename, which the open licence permits anyway
+  and which the project survives fine. The downside is bounded, and we've
+  already accepted it.
+
+So the grant is a carrot, not a stick. It works because the recipient values
+being blessed, not because I can credibly threaten them. That doesn't make
+formalising the mark pointless — the formality is what makes the blessing *mean*
+something — but it changes what "good enough" looks like: enough to confer real
+legitimacy on a willing partner, not an airtight instrument for coercing an
+unwilling one.
+
+### Precedents
+
+- **Linux** — Linus Torvalds personally owns the "Linux" trademark (administered
+  via the Linux Mark Institute) while the code is GPL. The closest precedent for
+  an individual holding the mark of an open project, which is where Sail Scoring
+  would start.
+- **Mozilla / Firefox → Debian Iceweasel** — Mozilla's trademark policy let
+  anyone use the *code* (MPL) but required builds to meet its standards to carry
+  the *Firefox* name and logo. Debian wanted to patch freely and the logo wasn't
+  free, so for years it shipped the same browser as "Iceweasel." The cautionary
+  tale for *how strict* the quality bar should be: too strict and your most
+  committed downstream renames rather than complies.
+- **Red Hat / RHEL → CentOS, Rocky, Alma** — the source is GPL, so rebuild
+  distros are legal, but they must *strip Red Hat trademarks*. Trademark, not
+  copyright, is the actual control point. Same model as Chromium vs. Chrome.
+- **WordPress Foundation / Automattic vs. WP Engine (2024)** — a live, messy
+  dispute over who may use the "WordPress" / "WP" marks commercially on top of
+  GPL code. Worth reading as a warning about *vague* marks and *discretionary*
+  enforcement: the fight is ugly precisely because the boundaries were never
+  written down clearly.
+- **Apache Software Foundation / Mozilla Foundation / Python Software
+  Foundation** — the mature destination: the mark is held by a neutral
+  non-profit with a published trademark policy, not an individual. More overhead,
+  far better bus factor and credibility with an NGB.
+
+### Who holds the mark
+
+The lean is a progression, mirroring the bus-factor reasoning above — hold it
+personally now, move it to a foundation later:
+
+1. **Now: I hold it personally** (the Torvalds model). Cheapest, fastest,
+   keeps control with the creator. Weakness: it's another single point of
+   failure — if I'm gone, who owns and licenses the name? Ties straight into the
+   [bus factor](#the-bus-factor), which is part of why this is a stop on the way,
+   not the destination.
+2. **Later: a neutral non-profit holds it** (the ASF/Mozilla model). The right
+   home once there is more than one instance and more than one maintainer; a
+   foundation licensing the mark to NGBs is far more credible than an individual
+   doing so, and it survives me.
+
+### What a trademark licence to an NGB would say
+
+The concrete case: an NGB wants to acquire `sailscoring.fr` and operate a
+French instance ([horizon: country-scoped
+instances](design/horizon.md#country-scoped-instances)). We grant a written
+trademark licence. First-draft intent of the terms:
+
+- **Grant.** Permission to use the "Sail Scoring" name and logo to operate one
+  country-scoped instance, and to register/use the country domain
+  (`sailscoring.fr`). Probably one operator per country (territorial), so the
+  NGB gets a clear, exclusive claim within its own jurisdiction.
+- **Fork-and-extend is allowed.** They may fork the open code, add their own
+  features, and *still call it Sail Scoring* — we are deliberately more
+  permissive than Mozilla's "unmodified builds only" rule, because local
+  adaptation (handicap systems, language) is the whole reason a national
+  instance exists.
+- **…within reasonable limits (quality clause).** The lean is *light touch*:
+  rescind only for clear harm to the name — illegal use, misrepresenting the
+  fork as the canonical project, or abandoning the core scoring purpose — not
+  for divergence we merely dislike. Local adaptation is encouraged, so the bar
+  is "don't damage the brand," not "stay close to upstream." One caveat keeps
+  this honest: trademark law *requires* the owner to exercise *some* quality
+  control — a licence with no oversight ("naked licensing") can forfeit the mark
+  entirely. So even the light-touch version must name a few concrete things the
+  instance has to keep doing (e.g. correct RRS scoring, data export preserved),
+  enough to be real oversight without becoming Mozilla's strict-build regime.
+- **Reliability clause.** We can rescind if they fail to operate the service
+  reliably — this is the trademark doing the work of the "trusted operator"
+  promise in the section above. Needs a definition of "reliably" (uptime?
+  domain renewal? backups maintained?) rather than a feeling.
+- **Data return on termination.** If the licence is rescinded, the operator must
+  hand over a full database backup (and the published-results store) so the
+  service can be re-instantiated elsewhere. This is the clause that protects
+  *question (b)* — it closes the "a fork gives you the code but not the data"
+  gap from the section above, by making the data return a *condition of having
+  used the name*.
+- **Domain hand-back.** On termination the country domain should transfer to us
+  (or the foundation) too — otherwise a rescinded operator keeps
+  `sailscoring.fr`, renames the service, and the country URL is lost to the
+  project anyway.
+- **Wind-down / user notice.** A transition period and notice to users so the
+  local sailing community and its published URLs aren't stranded the day a
+  licence ends.
+
+### Caveats worth stating plainly
+
+- **Defensibility matters less than it first looks.** "Sail Scoring" is close
+  to descriptive — "scoring for sailing" — and descriptive marks are weak; the
+  *logo* or a stylised wordmark would be more defensible than the bare words. We
+  should register what we reasonably can. But per "what the grant is mainly
+  for," airtight defensibility isn't the load-bearing requirement: we're
+  conferring legitimacy on a willing partner, not arming for litigation. Even a
+  modest registered mark makes the blessing concrete — that's the job.
+- **This doesn't weaken the open-source guarantee.** A rescinded NGB can keep
+  running their fork under a different name — that's fine and consistent with
+  "fork it in the worst case." Trademark controls the *brand*, never the
+  *freedom to run the software*. The two guarantees coexist.
+- **Cross-border enforceability, likewise.** A data-return or domain-hand-back
+  clause against a French body is only as strong as its enforceability there —
+  but again, a good-faith operator honours the agreement it signed, and the
+  bad-faith worst case is bounded (fork-and-rename). The foundation route helps
+  as this grows mostly by making the agreement more *credible to sign*, not more
+  coercible.
+
 ## Answering (b): will the data still be there?
 
 Question (b) deserves a concrete answer beyond "a trusted org will keep the
