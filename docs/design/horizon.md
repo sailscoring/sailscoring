@@ -46,12 +46,33 @@ let scorers select a class and get the current PY number automatically, rather t
 looking it up manually. Requires understanding the RYA's data availability — whether
 there's a public API or whether scraping/download is needed.
 
-### Fetch IRC and ECHO certs from Irish Sailing
+### Fetch IRC and ECHO certs from rating authorities
 
-IRC certificates and ECHO handicaps are managed by Irish Sailing. Importing them
-directly — by sail number or boat name — would save scorers from manually entering
-handicap values and reduce transcription errors. Depends on what data Irish Sailing
-exposes and under what terms.
+Importing IRC TCCs and ECHO handicaps directly — by sail number or boat name —
+would save scorers from manually entering handicap values and reduce
+transcription errors. Two candidate sources, with different coverage and terms:
+
+- **Irish Sailing** (`sailing.ie/Racing/Racing-Services/Echo-IRC-Ratings`) — the
+  primary source for Irish events. Publishes the full national list (IRC *and*
+  ECHO, ~358 boats) as a single server-rendered HTML table; no API, JSON, or
+  download endpoint, but one GET returns everything. A stdlib-only scraper and a
+  CSV snapshot live in `reference/data/irc-echo-ratings/`. This is the only
+  source for **ECHO** (an Irish-specific system), and it covers IRC for Irish
+  boats too, so for an event of only Irish boats it's sufficient on its own.
+
+- **International IRC TCC database** (RORC/YCF) — the online TCC listings at
+  `ircrating.org/irc-racing/online-tcc-listings/`, with the full club listing
+  downloadable as `topyacht.com.au/rorc/data/ClubListing.csv`. Needed only when
+  an event includes non-Irish IRC boats; overkill for Irish-only events.
+  RORC/YCF provide the data "solely for the purpose of verification of IRC TCCs
+  … for boats competing in IRC events" and forbid using it to create or
+  contribute to any handicap/rating. Applying a published TCC to score an IRC
+  event is the data's intended use and is in scope (TopYacht, who host the CSV,
+  are themselves a scoring vendor). Two boundaries to respect: (1) never let IRC
+  TCCs feed ECHO computation — ECHO is itself a rating, so that would cross the
+  "creation of a handicap" line; (2) fetch per-event for boats in events being
+  scored rather than maintaining a permanent public mirror of the whole DB. The
+  Irish Sailing terms are the open question for that source.
 
 ### Submit results to Irish Sailing and RYA
 
