@@ -194,6 +194,85 @@ short clock; this is about *them* deleting *their own* account on demand.
 
 ---
 
+## Country-scoped instances
+
+### Standing up Sail Scoring instances beyond sailscoring.ie
+
+`sailscoring.ie` is scoped to Irish clubs and classes deliberately — a narrow,
+legible userbase is far easier for a central organisation to fund or operate
+than the open-ended cost of running the service for the entire world (see
+[sustainability.md](../sustainability.md), "A central organisation funds or
+operates the service"). The natural consequence is that other governing bodies
+or large clubs may want their own country-scoped instance —
+`sailscoring.co.uk` run by/for the RYA, `sailscoring.fr` for the FFVoile, and
+so on — each funded and operated by an entity with an interest in its own
+sailing community.
+
+The mechanics already exist as a runbook, not a feature: the backup runbook
+documents bootstrapping a separate instance under its own Neon project and AWS
+account, "preferred if the new instance is run by a different operator or legal
+entity" ([database-backup.md](../database-backup.md#bootstrapping-a-new-instance)).
+What's deferred is everything around making that repeatable and supported:
+
+- **Onboarding playbook for a new operator.** Turn the runbook into a path a
+  governing body's IT staff can follow — domain, Vercel project, Neon, Blob,
+  Resend, the env wiring — without hand-holding from the original maintainer.
+  This is the same independence the sustainability note wants between code
+  governance and service governance.
+- **Per-instance branding and locale.** Domain, contact email, governing-body
+  name in copy, and likely language. Touches the marketing site, the app shell,
+  and any hard-coded `sailscoring.ie` / `mark@hyc.ie` references.
+- **Per-instance handicap systems.** A UK instance leads with RYA NHC 2015 and
+  PY; an Irish one with ECHO and IRC; a French one with its own systems. Which
+  handicap engines and defaults a given instance exposes becomes a
+  per-deployment concern — relates to the deferred RYA NHC 2015 work below.
+- **Cross-instance identity and discovery.** Open questions, not commitments:
+  does a scorer with accounts on two instances have any shared identity; is
+  there a federated directory of "where is club X scored"; how do published
+  `/p/...` URLs read across instances. Likely unnecessary for a long time —
+  each instance can be fully independent — but worth flagging that the
+  workspace-namespaced URL scheme assumes a single host today.
+
+Strongly tied to the open-source-vs-commercial decision: an open project that
+an adopter "who doesn't fit the funded audience can always host their own
+instance" of is exactly the federation story above
+([sustainability.md](../sustainability.md), "The bus factor").
+
+### Localization (i18n)
+
+A French instance can't ship an English UI — `sailscoring.fr` would need to be
+*in French*. The app is currently English-only with strings inline in JSX, so
+localization is a prerequisite for any non-English-speaking instance, not a
+polish item. It's a sizeable cross-cutting change, captured here so the scope
+is visible before a target instance forces it:
+
+- **String extraction and a message catalogue.** Every user-facing string
+  pulled out of components into a translatable catalogue (e.g. an `next-intl` /
+  ICU-message setup), with a French translation as the first non-English locale.
+  This is the bulk of the work and touches almost every component.
+- **Scoring/RRS terminology is the hard part.** Result codes (DNF, OCS, DSQ…),
+  RRS Appendix A vocabulary, and handicap-system names are terms of art. Some
+  are internationally fixed (the RRS abbreviations are defined by World Sailing
+  and may stay English even in a French UI); others have established French
+  equivalents. Getting this right needs a French-speaking scorer, the same way
+  the scoring fixtures need a human scorer to vet them — a wrong translation of
+  a result code is worse than no translation.
+- **Formats, not just words.** Dates, times, and number formatting follow the
+  locale; finish-time entry and the published results pages both surface these.
+- **Published-page locale.** A published `/p/...` page renders in the locale of
+  the instance (or the series), since the audience is the local sailing
+  community — independent of whatever locale the scorer's browser prefers.
+- **Per-instance default vs. per-user choice.** Likely each instance has a
+  default locale (French on `.fr`) with a per-user override; open question
+  whether a single instance ever needs to serve multiple locales, or whether
+  one-locale-per-instance is enough for a long time.
+
+Pairs with the per-instance branding/locale bullet in the instances entry
+above: branding and language are the two things that make an instance feel like
+it belongs to its own community rather than a re-skinned `sailscoring.ie`.
+
+---
+
 ## Esoteric scoring engine requirements
 
 Scoring variations that go beyond standard RRS Appendix A — supported by
