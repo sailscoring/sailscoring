@@ -55,15 +55,58 @@ export type IrcTccVariant = 'spin' | 'non-spin';
 // ─── Sail-number matching ─────────────────────────────────────────────────────
 
 /**
- * Canonicalise a sail number for matching: uppercase, and strip everything
- * that isn't a letter or digit. So `"IRL 1431"`, `"irl-1431"`, and
- * `"IRL1431"` all collapse to `"IRL1431"`. Competitor sail numbers entered
- * without the national prefix (`"1431"`) will *not* match `"IRL1431"` — that
- * is intentional; a bare-number competitor is ambiguous across nationalities,
- * and the dialog surfaces it as "not found" rather than guessing.
+ * Canonicalise a sail number: uppercase, and strip everything that isn't a
+ * letter or digit. So `"IRL 1431"`, `"irl-1431"`, and `"IRL1431"` all collapse
+ * to `"IRL1431"`.
  */
 export function normalizeSailNumber(sailNumber: string): string {
   return sailNumber.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+export interface SailNumberParts {
+  /** Fully normalised, e.g. `"IRL1431"`. */
+  full: string;
+  /** Leading national-letters prefix, e.g. `"IRL"`; empty when absent. */
+  prefix: string;
+  /** The remainder after the prefix, e.g. `"1431"`. */
+  core: string;
+}
+
+/**
+ * Split a sail number into its national prefix and numeric core. Sail Scoring
+ * competitors commonly omit the country code (`"1431"`), whereas the Irish
+ * Sailing list always carries it (`"IRL1431"`) — splitting lets the matcher
+ * compare on the core when one side has no prefix, while still refusing to
+ * match two *different* prefixes (an Irish `IRL1431` is not a British
+ * `GBR1431`). See {@link sailNumbersMatch}.
+ */
+export function sailNumberParts(sailNumber: string): SailNumberParts {
+  const full = normalizeSailNumber(sailNumber);
+  const m = /^([A-Z]*)(.*)$/.exec(full)!;
+  return { full, prefix: m[1], core: m[2] };
+}
+
+/**
+ * Whether two sail numbers refer to the same boat for matching purposes.
+ * Cores must be equal and non-empty; prefixes must be compatible — equal, or
+ * at least one side absent (the country-code-less case). Two present but
+ * differing prefixes never match.
+ */
+export function sailNumbersMatch(a: SailNumberParts, b: SailNumberParts): boolean {
+  if (!a.core || a.core !== b.core) return false;
+  if (a.prefix && b.prefix) return a.prefix === b.prefix;
+  return true;
+}
+
+/**
+ * Canonicalise a boat name for liberal matching: lowercase, drop accents and
+ * everything that isn't a letter or digit. So `"AfterHours Adó"` and
+ * `"Afterhours-Ado"` compare equal. Returns `""` for an empty/undefined name
+ * (which never matches).
+ */
+export function normalizeBoatName(name: string | undefined): string {
+  if (!name) return '';
+  return name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g, '');
 }
 
 // ─── HTML parsing ─────────────────────────────────────────────────────────────

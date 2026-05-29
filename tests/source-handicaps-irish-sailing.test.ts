@@ -133,3 +133,93 @@ describe('planHandicapUpdatesFromIrishSailing', () => {
     expect(rows).toEqual([]);
   });
 });
+
+describe('planHandicapUpdatesFromIrishSailing — matching', () => {
+  it('matches a country-code-less competitor to the prefixed record', () => {
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', '1431', ['f-irc'])],
+      targetFleets: fleets,
+      ratings: [rating('IRL1431', { ircTcc: 0.932 })],
+      ircVariant: 'spin',
+    });
+    const row = byKey(rows).get('c1::irc')!;
+    expect(row).toMatchObject({ newTcf: 0.932, status: 'change' });
+    expect(row.match).toMatchObject({ method: 'sail-no-country', sail: 'IRL1431' });
+  });
+
+  it('does not annotate an exact sail match', () => {
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-irc'])],
+      targetFleets: fleets,
+      ratings: [rating('IRL1431', { ircTcc: 0.932 })],
+      ircVariant: 'spin',
+    });
+    expect(byKey(rows).get('c1::irc')!.match).toBeUndefined();
+  });
+
+  it('refuses to match across differing country prefixes', () => {
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', 'GBR1431', ['f-irc'])],
+      targetFleets: fleets,
+      ratings: [rating('IRL1431', { ircTcc: 0.932 })],
+      ircVariant: 'spin',
+    });
+    expect(byKey(rows).get('c1::irc')).toMatchObject({
+      status: 'not-found',
+      notFoundReason: 'no-source-competitor',
+    });
+  });
+
+  it('flags two records with the same sail core as ambiguous', () => {
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', '1431', ['f-irc'])],
+      targetFleets: fleets,
+      ratings: [rating('IRL1431', { ircTcc: 0.932 }), rating('GBR1431', { ircTcc: 0.94 })],
+      ircVariant: 'spin',
+    });
+    expect(byKey(rows).get('c1::irc')).toMatchObject({
+      status: 'not-found',
+      notFoundReason: 'ambiguous-match',
+    });
+  });
+
+  it('matchByName resolves a boat with no sail match', () => {
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', '9999', ['f-irc'], { boatName: '3 Cheers' })],
+      targetFleets: fleets,
+      ratings: [rating('IRL1431', { boatName: '3 Cheers', ircTcc: 0.932 })],
+      ircVariant: 'spin',
+      matchByName: true,
+    });
+    const row = byKey(rows).get('c1::irc')!;
+    expect(row).toMatchObject({ newTcf: 0.932, status: 'change' });
+    expect(row.match).toMatchObject({ method: 'name', sail: 'IRL1431', name: '3 Cheers' });
+  });
+
+  it('does not match by name unless the toggle is on', () => {
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', '9999', ['f-irc'], { boatName: '3 Cheers' })],
+      targetFleets: fleets,
+      ratings: [rating('IRL1431', { boatName: '3 Cheers', ircTcc: 0.932 })],
+      ircVariant: 'spin',
+    });
+    expect(byKey(rows).get('c1::irc')).toMatchObject({
+      status: 'not-found',
+      notFoundReason: 'no-source-competitor',
+    });
+  });
+
+  it('uses the name to break a sail-core tie when matchByName is on', () => {
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', '1431', ['f-irc'], { boatName: 'Bravo' })],
+      targetFleets: fleets,
+      ratings: [
+        rating('IRL1431', { boatName: 'Alpha', ircTcc: 0.932 }),
+        rating('GBR1431', { boatName: 'Bravo', ircTcc: 0.94 }),
+      ],
+      ircVariant: 'spin',
+      matchByName: true,
+    });
+    expect(byKey(rows).get('c1::irc')).toMatchObject({ newTcf: 0.94, status: 'change' });
+  });
+});

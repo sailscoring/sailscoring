@@ -49,6 +49,7 @@ import {
   proposeFleetMapping,
   type HandicapSystem,
   type PreviewRow,
+  type RatingMatch,
 } from '@/lib/source-handicaps';
 import type { Competitor, Fleet } from '@/lib/types';
 
@@ -84,6 +85,15 @@ function formatTcf(v: number | null, system: HandicapSystem): string {
   return system === 'py' ? String(Math.round(v)) : v.toFixed(3);
 }
 
+/** Human description of a non-exact Irish Sailing match, for the scorer to
+ *  verify the right boat was picked. */
+function describeMatch(m: RatingMatch): string {
+  const who = `${m.sail}${m.name ? ` · ${m.name}` : ''}`;
+  return m.method === 'name'
+    ? `matched by name → ${who}`
+    : `matched without country code → ${who}`;
+}
+
 function formatDelta(currentTcf: number | null, newTcf: number, system: HandicapSystem): string {
   if (currentTcf === null) return `+${formatTcf(newTcf, system)}`;
   const d = newTcf - currentTcf;
@@ -103,6 +113,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   const [source, setSource] = useState<HandicapSource>('series');
   const [sourceSeriesId, setSourceSeriesId] = useState<string | null>(null);
   const [ircVariant, setIrcVariant] = useState<IrcTccVariant>('spin');
+  const [matchByName, setMatchByName] = useState(false);
   const [fleetMapping, setFleetMapping] = useState<Record<string, string | null>>({});
   const [excludedRowIds, setExcludedRowIds] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<{
@@ -119,6 +130,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
       setSource('series');
       setSourceSeriesId(null);
       setIrcVariant('spin');
+      setMatchByName(false);
       setFleetMapping({});
       setExcludedRowIds(new Set());
       setResult(null);
@@ -217,8 +229,9 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
       targetFleets: targetFleets.data,
       ratings: irishRatings.data.records,
       ircVariant,
+      matchByName,
     });
-  }, [targetCompetitors.data, targetFleets.data, irishRatings.data, ircVariant]);
+  }, [targetCompetitors.data, targetFleets.data, irishRatings.data, ircVariant, matchByName]);
 
   const previewRows = step === 'source-irish-sailing' ? irishPreviewRows : seriesPreviewRows;
 
@@ -482,6 +495,22 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                 </p>
               </div>
 
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-3.5 w-3.5"
+                  checked={matchByName}
+                  onChange={(e) => setMatchByName(e.target.checked)}
+                />
+                <span>
+                  Also match by boat name
+                  <span className="block text-xs text-muted-foreground">
+                    Helps when a sail number is entered without its country code or doesn&apos;t
+                    match. Names collide more easily — check the proposed boat before applying.
+                  </span>
+                </span>
+              </label>
+
               {irishRatings.isLoading && (
                 <p className="text-sm text-muted-foreground">Loading Irish Sailing ratings…</p>
               )}
@@ -697,7 +726,14 @@ function PreviewSection({
                     />
                   </TableCell>
                   <TableCell>{comp?.sailNumber}</TableCell>
-                  <TableCell>{comp?.boatName ?? comp?.name}</TableCell>
+                  <TableCell>
+                    {comp?.boatName ?? comp?.name}
+                    {r.match && (
+                      <span className="block text-xs text-amber-600 dark:text-amber-500">
+                        {describeMatch(r.match)}
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell>{fleet?.name}</TableCell>
                   <TableCell>{SYSTEM_LABEL[r.system]}</TableCell>
                   <TableCell className="text-right tabular-nums">

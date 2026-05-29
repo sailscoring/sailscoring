@@ -17,6 +17,13 @@ const RATINGS_FIXTURE = {
       ircNonSpinTcc: 0.918,
       echo: 0.975,
     },
+    {
+      sailNumber: 'IRL1601',
+      boatName: 'Antix',
+      ircTcc: 1.041,
+      ircNonSpinTcc: 1.02,
+      echo: 1.05,
+    },
   ],
 };
 
@@ -39,10 +46,12 @@ test('Update handicaps from Irish Sailing seeds IRC TCC by sail number', async (
   await page.getByRole('option', { name: 'IRC' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
 
-  // Two boats: one on the Irish Sailing list, one not.
+  // Three boats: exact match, country-code-less match (1601 ↔ IRL1601), and
+  // one not on the list.
   await page.getByRole('link', { name: 'Competitors' }).click();
   for (const { sailNumber, name } of [
     { sailNumber: 'IRL1431', name: '3 Cheers' },
+    { sailNumber: '1601', name: 'Antix' },
     { sailNumber: 'IRL9999', name: 'Unlisted' },
   ]) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
@@ -57,27 +66,30 @@ test('Update handicaps from Irish Sailing seeds IRC TCC by sail number', async (
   await page.getByText('Irish Sailing certificates').click();
   await page.getByRole('button', { name: 'Next' }).click();
 
-  // Preview: IRL1431 gets the spin TCC; provenance stamp is shown.
+  // Preview: exact match (IRL1431 → 0.932) and country-code-less match
+  // (1601 ↔ IRL1601 → 1.041), the latter flagged for verification.
   await expect(page.getByText('Irish Sailing ratings as of 28/05/2026 @ 14:51')).toBeVisible();
   await expect(page.getByRole('cell', { name: '— → 0.932' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: '— → 1.041' })).toBeVisible();
+  await expect(page.getByText('matched without country code → IRL1601')).toBeVisible();
 
   // Switching to non-spinnaker re-proposes the other column.
   await page.getByRole('combobox').filter({ hasText: 'Spinnaker TCC' }).click();
   await page.getByRole('option', { name: 'Non-spinnaker TCC', exact: true }).click();
   await expect(page.getByRole('cell', { name: '— → 0.918' })).toBeVisible();
 
-  // Back to spin and apply.
+  // Back to spin and apply both.
   await page.getByRole('combobox').filter({ hasText: 'Non-spinnaker TCC' }).click();
   await page.getByRole('option', { name: 'Spinnaker TCC', exact: true }).click();
   await page.getByRole('button', { name: /^Apply/ }).click();
 
   await expect(page.getByText('Handicaps updated')).toBeVisible();
-  await expect(page.getByText('1 IRC')).toBeVisible();
+  await expect(page.getByText('2 IRC')).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
 
-  // Persisted: IRL1431 now carries 0.932.
-  const row = page.getByRole('row').filter({ hasText: 'IRL1431' });
+  // Persisted: the country-code-less boat now carries its TCC.
+  const row = page.getByRole('row').filter({ hasText: '1601' });
   await row.hover();
   await row.getByRole('button', { name: /Edit/ }).click();
-  await expect(page.getByLabel('IRC TCC', { exact: true })).toHaveValue('0.932');
+  await expect(page.getByLabel('IRC TCC', { exact: true })).toHaveValue('1.041');
 });

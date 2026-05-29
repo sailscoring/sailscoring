@@ -99,6 +99,7 @@ The current gated keys are:
 | `ftp-upload` | the Standings "Upload via FTP" button + the Workspace-settings FTP-servers card |
 | `nhc-parameters` | the per-fleet **Configure…** custom-NHC dialog (NHC scoring with stock parameters stays available to everyone) |
 | `echo` | ECHO as a per-fleet scoring system |
+| `irish-sailing-ratings` | the "Irish Sailing certificates" source in the Competitors **Update handicaps** dialog — pulls IRC TCCs and ECHO handicaps from the national Irish Sailing ratings list (#168) |
 
 `lib/features.ts` is the source of truth for the key list; `pnpm
 provision-org --help` prints the current keys too.

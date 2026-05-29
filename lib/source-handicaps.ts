@@ -21,9 +21,12 @@
  */
 
 import {
-  normalizeSailNumber,
+  normalizeBoatName,
+  sailNumberParts,
+  sailNumbersMatch,
   type IrcTccVariant,
   type IrishSailingRating,
+  type SailNumberParts,
 } from './irish-sailing-ratings';
 import type { Competitor, Fleet, Race, TcfRecord } from './types';
 
@@ -157,7 +160,30 @@ export type NotFoundReason =
   | 'no-source-value'
   /** The source publishes nothing for this system. Irish Sailing covers
    *  only IRC and ECHO, so `nhc`/`py` target fleets surface this. */
-  | 'system-not-published';
+  | 'system-not-published'
+  /** More than one Irish Sailing boat matched this competitor (same sail
+   *  core, or same name) and we can't safely pick one. The scorer should
+   *  disambiguate by entering the full sail number. */
+  | 'ambiguous-match';
+
+/** How the Irish Sailing source matched a competitor to a rating record. Only
+ *  set on the Irish Sailing source; `undefined` on the prior-series source. */
+export type RatingMatchMethod =
+  /** Full sail number equal, e.g. `IRL1431` ↔ `IRL1431`. */
+  | 'exact-sail'
+  /** Sail cores equal with the competitor (or record) missing the country
+   *  prefix, e.g. `1431` ↔ `IRL1431`. */
+  | 'sail-no-country'
+  /** Matched on boat name (the opt-in liberal fallback). */
+  | 'name';
+
+export interface RatingMatch {
+  method: RatingMatchMethod;
+  /** The matched record's sail number, for the scorer to verify against. */
+  sail: string;
+  /** The matched record's boat name, where present. */
+  name?: string;
+}
 
 export interface PreviewRow {
   competitorId: string;
@@ -170,6 +196,9 @@ export interface PreviewRow {
   status: 'change' | 'unchanged' | 'not-found';
   /** Present iff `status === 'not-found'`. */
   notFoundReason?: NotFoundReason;
+  /** How the source row was matched. Set only for non-exact Irish Sailing
+   *  matches so the dialog can show the basis for the scorer to verify. */
+  match?: RatingMatch;
 }
 
 export interface PlanInput {
@@ -346,12 +375,96 @@ export interface IrishSailingPlanInput {
   /** Which IRC TCC column to seed — the scorer's spin/non-spin choice.
    *  Ignored for ECHO fleets (ECHO has no spin/non-spin split). */
   ircVariant: IrcTccVariant;
+  /** Opt-in liberal fallback: when a competitor has no sail-number match,
+   *  match on boat name instead. Off by default — names collide more readily
+   *  than sail numbers, so the dialog gates this behind a toggle. */
+  matchByName?: boolean;
+}
+
+interface RatingEntry {
+  rating: IrishSailingRating;
+  parts: SailNumberParts;
+}
+
+type MatchResult =
+  | { kind: 'matched'; rating: IrishSailingRating; method: RatingMatchMethod }
+  | { kind: 'ambiguous' }
+  | { kind: 'none' };
+
+/**
+ * Match indexes over the ratings list, built once per plan. Sail numbers are
+ * indexed by their numeric core so a country-code-less competitor (`"1431"`)
+ * finds `"IRL1431"`; names are indexed for the opt-in fallback.
+ */
+class RatingMatcher {
+  private readonly byCore = new Map<string, RatingEntry[]>();
+  private readonly byName = new Map<string, RatingEntry[]>();
+
+  constructor(ratings: readonly IrishSailingRating[]) {
+    for (const rating of ratings) {
+      const parts = sailNumberParts(rating.sailNumber);
+      const entry: RatingEntry = { rating, parts };
+      if (parts.core) push(this.byCore, parts.core, entry);
+      const name = normalizeBoatName(rating.boatName);
+      if (name) push(this.byName, name, entry);
+    }
+  }
+
+  match(competitor: Competitor, matchByName: boolean): MatchResult {
+    const parts = sailNumberParts(competitor.sailNumber);
+    const sailCandidates = (this.byCore.get(parts.core) ?? []).filter((e) =>
+      sailNumbersMatch(parts, e.parts),
+    );
+
+    if (sailCandidates.length === 1) {
+      const e = sailCandidates[0];
+      return {
+        kind: 'matched',
+        rating: e.rating,
+        method: e.parts.full === parts.full ? 'exact-sail' : 'sail-no-country',
+      };
+    }
+
+    if (sailCandidates.length > 1) {
+      // Same sail core, can't pick on number alone. Try to break the tie on
+      // name if that's enabled; otherwise it's ambiguous.
+      if (matchByName) {
+        const name = normalizeBoatName(competitor.boatName);
+        const byName = name
+          ? sailCandidates.filter((e) => normalizeBoatName(e.rating.boatName) === name)
+          : [];
+        if (byName.length === 1) {
+          return { kind: 'matched', rating: byName[0].rating, method: 'sail-no-country' };
+        }
+      }
+      return { kind: 'ambiguous' };
+    }
+
+    // No sail match — optional liberal name fallback.
+    if (matchByName) {
+      const name = normalizeBoatName(competitor.boatName);
+      const nameCandidates = name ? this.byName.get(name) ?? [] : [];
+      if (nameCandidates.length === 1) {
+        return { kind: 'matched', rating: nameCandidates[0].rating, method: 'name' };
+      }
+      if (nameCandidates.length > 1) return { kind: 'ambiguous' };
+    }
+
+    return { kind: 'none' };
+  }
+}
+
+function push<T>(map: Map<string, T[]>, key: string, value: T): void {
+  const list = map.get(key);
+  if (list) list.push(value);
+  else map.set(key, [value]);
 }
 
 /**
  * Produce preview rows for the "Irish Sailing certificates" source. Unlike the
  * prior-series source there is no fleet mapping — the ratings list is a flat
- * national table matched by sail number ({@link normalizeSailNumber}).
+ * national table matched by sail number, tolerant of a missing country code
+ * (`"1431"` ↔ `"IRL1431"`), with an opt-in name fallback.
  *
  * Per target `(competitor, fleet)` where the fleet uses a handicap system:
  * - `irc`  → the boat's spin or non-spin TCC, per `ircVariant`.
@@ -359,22 +472,22 @@ export interface IrishSailingPlanInput {
  * - `nhc` / `py` → `not-found` with reason `system-not-published` (Irish
  *   Sailing publishes neither).
  *
- * Boats absent from the list surface as `no-source-competitor`; a matched boat
- * lacking the relevant value surfaces as `no-source-value`.
+ * Boats absent from the list surface as `no-source-competitor`; multiple
+ * matches as `ambiguous-match`; a matched boat lacking the relevant value as
+ * `no-source-value`. Non-exact matches carry a `match` annotation so the
+ * dialog can show the basis for the scorer to verify.
  */
 export function planHandicapUpdatesFromIrishSailing(
   input: IrishSailingPlanInput,
 ): PreviewRow[] {
   const targetFleetById = new Map(input.targetFleets.map((f) => [f.id, f]));
-  const ratingBySail = new Map<string, IrishSailingRating>();
-  for (const r of input.ratings) {
-    ratingBySail.set(normalizeSailNumber(r.sailNumber), r);
-  }
+  const matcher = new RatingMatcher(input.ratings);
+  const matchByName = input.matchByName ?? false;
 
   const rows: PreviewRow[] = [];
 
   for (const targetComp of input.targetCompetitors) {
-    const rating = ratingBySail.get(normalizeSailNumber(targetComp.sailNumber));
+    const matchResult = matcher.match(targetComp, matchByName);
 
     for (const targetFleetId of targetComp.fleetIds) {
       const targetFleet = targetFleetById.get(targetFleetId);
@@ -385,28 +498,39 @@ export function planHandicapUpdatesFromIrishSailing(
       const currentTcf = currentTcfFor(targetComp, system);
       const base = { competitorId: targetComp.id, targetFleetId, system, currentTcf };
 
-      // Irish Sailing publishes only IRC and ECHO.
+      // Irish Sailing publishes only IRC and ECHO — independent of any match.
       if (system === 'nhc' || system === 'py') {
         rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'system-not-published' });
         continue;
       }
 
-      if (!rating) {
+      if (matchResult.kind === 'none') {
         rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'no-source-competitor' });
         continue;
       }
+      if (matchResult.kind === 'ambiguous') {
+        rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'ambiguous-match' });
+        continue;
+      }
 
+      const rating = matchResult.rating;
       const newTcf =
         system === 'irc'
           ? (input.ircVariant === 'non-spin' ? rating.ircNonSpinTcc : rating.ircTcc) ?? null
           : rating.echo ?? null;
 
+      // Annotate non-exact matches so the scorer can verify the boat.
+      const match: RatingMatch | undefined =
+        matchResult.method === 'exact-sail'
+          ? undefined
+          : { method: matchResult.method, sail: rating.sailNumber, name: rating.boatName };
+
       if (newTcf === null) {
-        rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'no-source-value' });
+        rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'no-source-value', match });
         continue;
       }
 
-      rows.push({ ...base, newTcf, status: currentTcf === newTcf ? 'unchanged' : 'change' });
+      rows.push({ ...base, newTcf, status: currentTcf === newTcf ? 'unchanged' : 'change', match });
     }
   }
 

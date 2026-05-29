@@ -4,8 +4,11 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  normalizeBoatName,
   normalizeSailNumber,
   parseIrishSailingRatings,
+  sailNumberParts,
+  sailNumbersMatch,
 } from '@/lib/irish-sailing-ratings';
 
 const FIXTURE = readFileSync(
@@ -71,5 +74,28 @@ describe('normalizeSailNumber', () => {
   it('does not invent a national prefix for bare numbers', () => {
     expect(normalizeSailNumber('1431')).toBe('1431');
     expect(normalizeSailNumber('1431')).not.toBe(normalizeSailNumber('IRL1431'));
+  });
+});
+
+describe('sailNumberParts / sailNumbersMatch', () => {
+  it('splits prefix and core', () => {
+    expect(sailNumberParts('IRL 1431')).toEqual({ full: 'IRL1431', prefix: 'IRL', core: '1431' });
+    expect(sailNumberParts('1431')).toEqual({ full: '1431', prefix: '', core: '1431' });
+  });
+
+  it('matches equal cores when a prefix is absent, but not across prefixes', () => {
+    const irl = sailNumberParts('IRL1431');
+    expect(sailNumbersMatch(sailNumberParts('1431'), irl)).toBe(true);
+    expect(sailNumbersMatch(sailNumberParts('IRL1431'), irl)).toBe(true);
+    expect(sailNumbersMatch(sailNumberParts('GBR1431'), irl)).toBe(false);
+    expect(sailNumbersMatch(sailNumberParts('1432'), irl)).toBe(false);
+  });
+});
+
+describe('normalizeBoatName', () => {
+  it('lowercases and strips accents and punctuation', () => {
+    expect(normalizeBoatName('AfterHours Adó')).toBe('afterhoursado');
+    expect(normalizeBoatName('3 Cheers!')).toBe('3cheers');
+    expect(normalizeBoatName(undefined)).toBe('');
   });
 });
