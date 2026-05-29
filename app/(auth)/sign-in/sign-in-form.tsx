@@ -44,27 +44,50 @@ export function SignInForm() {
           minutes.
         </p>
       ) : (
-        <form onSubmit={onSubmit} className="flex flex-col gap-3">
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              required
-              autoFocus
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={status === 'sending'}
-            />
-          </div>
-          <Button type="submit" disabled={status === 'sending' || !email}>
-            {status === 'sending' ? 'Sending…' : 'Send sign-in link'}
-          </Button>
-          {status === 'error' && errorMessage && (
-            <p className="text-sm text-red-600">{errorMessage}</p>
-          )}
-        </form>
+        <>
+          <form onSubmit={onSubmit} className="flex flex-col gap-3">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                required
+                autoFocus
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={status === 'sending'}
+              />
+            </div>
+            <Button type="submit" disabled={status === 'sending' || !email}>
+              {status === 'sending' ? 'Sending…' : 'Send sign-in link'}
+            </Button>
+            {status === 'error' && errorMessage && (
+              <p className="text-sm text-red-600">{errorMessage}</p>
+            )}
+          </form>
+          <p className="text-xs text-muted-foreground mt-4">
+            By signing in or creating an account, you agree to the{' '}
+            <a
+              href="https://sailscoring.ie/legal/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground"
+            >
+              Terms
+            </a>{' '}
+            and{' '}
+            <a
+              href="https://sailscoring.ie/legal/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground"
+            >
+              Privacy Policy
+            </a>
+            .
+          </p>
+        </>
       )}
     </section>
   );

@@ -17,6 +17,7 @@ import { FeaturesProvider } from '@/components/features-provider';
 import { computeEffectiveFeatures, type FeatureKey } from '@/lib/features';
 import { UserMenu } from '@/components/user-menu';
 import { StealthBetaBanner } from '@/components/stealth-beta-banner';
+import { Footer } from '@/components/footer';
 
 export const metadata: Metadata = {
   title: 'Sail Scoring',
@@ -127,6 +128,7 @@ export default async function RootLayout({
               <StealthBetaBanner />
             )}
             <main className="px-6 py-8">{children}</main>
+            <Footer />
             </FeaturesProvider>
           </WorkspaceMembershipsProvider>
         </Providers>
