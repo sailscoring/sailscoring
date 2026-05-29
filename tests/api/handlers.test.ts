@@ -127,6 +127,32 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await expect(series.getSeries(ctxA, id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
+  test('series: PUT round-trips every optional / default-true field', async () => {
+    // The booleans below default to `true` on save, so a field dropped in the
+    // putSeries merge is silently coerced back to `true` (the showPerRace bug).
+    // Set them `false` and the other optionals to non-defaults so any dropped
+    // field surfaces as a failed round-trip rather than hiding behind a default.
+    const id = uuid();
+    const input = {
+      ...sampleSeries(id),
+      includeJsonExport: false,
+      publishRatingCalculations: false,
+      showPerRaceRatingsInSummary: false,
+      defaultStartSequence: [{ fleetIds: [], intervalMinutes: 5 }],
+      subdivisionLabel: 'Class',
+    };
+    await series.putSeries(ctxA, id, input);
+
+    const got = await series.getSeries(ctxA, id);
+    expect(got.includeJsonExport).toBe(false);
+    expect(got.publishRatingCalculations).toBe(false);
+    expect(got.showPerRaceRatingsInSummary).toBe(false);
+    expect(got.defaultStartSequence).toEqual(input.defaultStartSequence);
+    expect(got.subdivisionLabel).toBe('Class');
+
+    await removeSeries(ctxA, id);
+  });
+
   test('series: PUT body id mismatch with path is rejected', async () => {
     const pathId = uuid();
     const bodyId = uuid();
