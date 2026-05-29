@@ -124,6 +124,8 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   // Spin/non-spin per IRC fleet; a fleet absent from the map defaults to spin.
   const [ircVariantByFleet, setIrcVariantByFleet] = useState<Record<string, IrcTccVariant>>({});
   const [matchByName, setMatchByName] = useState(false);
+  // Per-boat certificate override (boats holding a primary + secondary "(SC)").
+  const [certChoiceByCompetitor, setCertChoiceByCompetitor] = useState<Record<string, string>>({});
   const [fleetMapping, setFleetMapping] = useState<Record<string, string | null>>({});
   const [excludedRowIds, setExcludedRowIds] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<{
@@ -141,6 +143,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
       setSourceSeriesId(null);
       setIrcVariantByFleet({});
       setMatchByName(false);
+      setCertChoiceByCompetitor({});
       setFleetMapping({});
       setExcludedRowIds(new Set());
       setResult(null);
@@ -240,8 +243,9 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
       ratings: irishRatings.data.records,
       ircVariantByFleet,
       matchByName,
+      certChoiceByCompetitor,
     });
-  }, [targetCompetitors.data, targetFleets.data, irishRatings.data, ircVariantByFleet, matchByName]);
+  }, [targetCompetitors.data, targetFleets.data, irishRatings.data, ircVariantByFleet, matchByName, certChoiceByCompetitor]);
 
   // IRC fleets in the target series — each gets its own spin/non-spin selector.
   const ircFleets = useMemo(
@@ -572,6 +576,9 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                     targetCompetitorById={targetCompetitorById}
                     targetFleetById={targetFleetById}
                     sourceFleetById={sourceFleetById}
+                    onChooseCert={(competitorId, certId) =>
+                      setCertChoiceByCompetitor((prev) => ({ ...prev, [competitorId]: certId }))
+                    }
                   />
 
                   {irishRatings.data.updatedAt && (
@@ -710,6 +717,7 @@ function PreviewSection({
   targetCompetitorById,
   targetFleetById,
   sourceFleetById,
+  onChooseCert,
 }: {
   changedRows: PreviewRow[];
   unchangedRows: PreviewRow[];
@@ -719,6 +727,8 @@ function PreviewSection({
   targetCompetitorById: Map<string, Competitor>;
   targetFleetById: Map<string, Fleet>;
   sourceFleetById: Map<string, Fleet>;
+  /** Switch which certificate a boat uses (Irish Sailing primary/secondary). */
+  onChooseCert?: (competitorId: string, certId: string) => void;
 }) {
   // Suppress the unused-prop warning — kept for future "source fleet" column.
   void sourceFleetById;
@@ -765,6 +775,21 @@ function PreviewSection({
                       <span className="block text-xs text-amber-600 dark:text-amber-500">
                         {describeMatch(r.match)}
                       </span>
+                    )}
+                    {r.certChoice && onChooseCert && (
+                      <select
+                        aria-label="Certificate"
+                        value={r.certChoice.chosen}
+                        onChange={(e) => onChooseCert(r.competitorId, e.target.value)}
+                        className="mt-1 block rounded border bg-background px-1 py-0.5 text-xs"
+                      >
+                        {r.certChoice.options.map((o) => (
+                          <option key={o.certId} value={o.certId}>
+                            {o.label}
+                            {o.tcc !== null ? ` — ${o.tcc.toFixed(3)}` : ''}
+                          </option>
+                        ))}
+                      </select>
                     )}
                   </TableCell>
                   <TableCell>{fleet?.name}</TableCell>

@@ -97,16 +97,15 @@ describe('planHandicapUpdatesFromIrishSailing', () => {
     expect(byKey(rows).get('c1::irc')!.status).toBe('unchanged');
   });
 
-  it('reports NHC/PY fleets as system-not-published', () => {
+  it('omits NHC/PY fleets entirely (Irish Sailing publishes neither)', () => {
     const rows = planHandicapUpdatesFromIrishSailing({
-      targetCompetitors: [comp('c1', 'IRL1431', ['f-nhc', 'f-py'])],
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-nhc', 'f-py', 'f-irc'])],
       targetFleets: fleets,
       ratings: [rating('IRL1431', { ircTcc: 0.932, echo: 0.975 })],
       ircVariantByFleet: { 'f-irc': 'spin' },
     });
-    const m = byKey(rows);
-    expect(m.get('c1::nhc')).toMatchObject({ status: 'not-found', notFoundReason: 'system-not-published' });
-    expect(m.get('c1::py')).toMatchObject({ status: 'not-found', notFoundReason: 'system-not-published' });
+    // Only the IRC row is produced; no noise rows for NHC/PY.
+    expect(rows.map((r) => r.system)).toEqual(['irc']);
   });
 
   it('reports a boat absent from the list as no-source-competitor', () => {
@@ -234,5 +233,78 @@ describe('planHandicapUpdatesFromIrishSailing — matching', () => {
       matchByName: true,
     });
     expect(byKey(rows).get('c1::irc')).toMatchObject({ newTcf: 0.94, status: 'change' });
+  });
+});
+
+describe('planHandicapUpdatesFromIrishSailing — primary/secondary certificates', () => {
+  // IRL7404 Pretty Polly: a primary cert and a secondary "(SC)" with a
+  // different sail configuration (lower TCC here).
+  const prettyPolly = [
+    rating('IRL7404', { boatName: 'Pretty Polly', ircCertNumber: '11479', ircTcc: 1.114, ircNonSpinTcc: 1.092 }),
+    rating('IRL7404', { boatName: 'Pretty Polly (SC)', ircCertNumber: '50718', ircTcc: 1.092, ircNonSpinTcc: 1.071 }),
+  ];
+
+  it('treats two certs for one sail number as a choice, not an ambiguity', () => {
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL7404', ['f-irc'])],
+      targetFleets: fleets,
+      ratings: prettyPolly,
+      ircVariantByFleet: { 'f-irc': 'spin' },
+    });
+    const row = byKey(rows).get('c1::irc')!;
+    expect(row.status).toBe('change');
+    expect(row.certChoice?.options).toHaveLength(2);
+  });
+
+  it('defaults to the higher TCC certificate', () => {
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL7404', ['f-irc'])],
+      targetFleets: fleets,
+      ratings: prettyPolly,
+      ircVariantByFleet: { 'f-irc': 'spin' },
+    });
+    const row = byKey(rows).get('c1::irc')!;
+    expect(row.newTcf).toBe(1.114); // primary > secondary here
+    expect(row.certChoice?.chosen).toBe('cert:11479');
+  });
+
+  it('honours an explicit switch to the other certificate', () => {
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL7404', ['f-irc'])],
+      targetFleets: fleets,
+      ratings: prettyPolly,
+      ircVariantByFleet: { 'f-irc': 'spin' },
+      certChoiceByCompetitor: { c1: 'cert:50718' },
+    });
+    const row = byKey(rows).get('c1::irc')!;
+    expect(row.newTcf).toBe(1.092);
+    expect(row.certChoice?.chosen).toBe('cert:50718');
+  });
+
+  it('default tracks the variant — picks whichever cert is higher for non-spin', () => {
+    // Secondary is the higher non-spin cert in this contrived pair.
+    const ratings = [
+      rating('IRL10', { boatName: 'A', ircCertNumber: '100', ircTcc: 1.0, ircNonSpinTcc: 0.9 }),
+      rating('IRL10', { boatName: 'A (SC)', ircCertNumber: '200', ircTcc: 0.99, ircNonSpinTcc: 0.95 }),
+    ];
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL10', ['f-irc'])],
+      targetFleets: fleets,
+      ratings,
+      ircVariantByFleet: { 'f-irc': 'non-spin' },
+    });
+    expect(byKey(rows).get('c1::irc')).toMatchObject({ newTcf: 0.95, status: 'change' });
+  });
+
+  it('does not offer a cert choice on ECHO rows (value is the same)', () => {
+    const rows = planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL7404', ['f-echo'])],
+      targetFleets: fleets,
+      ratings: prettyPolly.map((r) => ({ ...r, echo: 1.12 })),
+      ircVariantByFleet: {},
+    });
+    const row = byKey(rows).get('c1::echo')!;
+    expect(row.newTcf).toBe(1.12);
+    expect(row.certChoice).toBeUndefined();
   });
 });

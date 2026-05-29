@@ -158,12 +158,11 @@ export type NotFoundReason =
    *  races yet). For IRC/PY it means the source competitor record has
    *  no `ircTcc` / `pyNumber`. */
   | 'no-source-value'
-  /** The source publishes nothing for this system. Irish Sailing covers
-   *  only IRC and ECHO, so `nhc`/`py` target fleets surface this. */
-  | 'system-not-published'
-  /** More than one Irish Sailing boat matched this competitor (same sail
-   *  core, or same name) and we can't safely pick one. The scorer should
-   *  disambiguate by entering the full sail number. */
+  /** More than one *different* Irish Sailing boat matched this competitor
+   *  (same sail core but differing country prefixes, or same name) and we
+   *  can't safely pick one. The scorer should disambiguate by entering the
+   *  full sail number. (Multiple certificates for the *same* boat — a primary
+   *  plus a secondary "(SC)" — are not ambiguous; see {@link CertChoice}.) */
   | 'ambiguous-match';
 
 /** How the Irish Sailing source matched a competitor to a rating record. Only
@@ -202,6 +201,31 @@ export interface PreviewRow {
   /** Which IRC TCC was used for this row. Set only on Irish Sailing `irc`
    *  rows, so the dialog can label "IRC (spin)" / "IRC (non-spin)". */
   ircVariant?: IrcTccVariant;
+  /** Present on an Irish Sailing `irc` row when the boat holds more than one
+   *  certificate (a primary plus a secondary "(SC)" — different sail
+   *  configurations). Lets the dialog offer a per-boat switch; we default to
+   *  the higher TCC. */
+  certChoice?: CertChoice;
+}
+
+/** One selectable certificate for a boat that holds more than one. */
+export interface CertChoiceOption {
+  /** IRC certificate number — the stable id used to switch. Falls back to a
+   *  synthetic `idx:N` when a record has no number. */
+  certId: string;
+  /** Display label, e.g. `"#50718 · secondary (SC)"`. */
+  label: string;
+  /** This certificate's TCC for the row's spin/non-spin variant; `null` if
+   *  the certificate has no value for that variant. */
+  tcc: number | null;
+  /** From the "(SC)" marker on the Irish Sailing boat name. */
+  isSecondary: boolean;
+}
+
+export interface CertChoice {
+  options: CertChoiceOption[];
+  /** `certId` of the currently-selected option. */
+  chosen: string;
 }
 
 export interface PlanInput {
@@ -385,6 +409,10 @@ export interface IrishSailingPlanInput {
    *  match on boat name instead. Off by default — names collide more readily
    *  than sail numbers, so the dialog gates this behind a toggle. */
   matchByName?: boolean;
+  /** Per-competitor certificate override, keyed by competitor id → the chosen
+   *  `certId` (see {@link CertChoiceOption}). For boats holding more than one
+   *  certificate; when absent we default to the higher-TCC certificate. */
+  certChoiceByCompetitor?: Readonly<Record<string, string>>;
 }
 
 interface RatingEntry {
@@ -393,9 +421,19 @@ interface RatingEntry {
 }
 
 type MatchResult =
-  | { kind: 'matched'; rating: IrishSailingRating; method: RatingMatchMethod }
+  // One boat (a single sail number), holding one or more certificates. More
+  // than one means a primary + secondary "(SC)" — a cert *choice*, not an
+  // ambiguity.
+  | { kind: 'matched'; ratings: IrishSailingRating[]; method: RatingMatchMethod }
+  // Multiple *different* boats matched (differing prefixes, or name collision).
   | { kind: 'ambiguous' }
   | { kind: 'none' };
+
+/** Unique full sail numbers among a set of candidates — used to tell "one boat,
+ *  several certs" apart from "several boats". */
+function distinctFullSails(entries: readonly RatingEntry[]): Set<string> {
+  return new Set(entries.map((e) => e.parts.full));
+}
 
 /**
  * Match indexes over the ratings list, built once per plan. Sail numbers are
@@ -422,26 +460,19 @@ class RatingMatcher {
       sailNumbersMatch(parts, e.parts),
     );
 
-    if (sailCandidates.length === 1) {
-      const e = sailCandidates[0];
-      return {
-        kind: 'matched',
-        rating: e.rating,
-        method: e.parts.full === parts.full ? 'exact-sail' : 'sail-no-country',
-      };
-    }
-
-    if (sailCandidates.length > 1) {
-      // Same sail core, can't pick on number alone. Try to break the tie on
-      // name if that's enabled; otherwise it's ambiguous.
+    if (sailCandidates.length > 0) {
+      const fulls = distinctFullSails(sailCandidates);
+      if (fulls.size === 1) {
+        // One boat — possibly several certificates (primary + "(SC)").
+        const method: RatingMatchMethod =
+          sailCandidates[0].parts.full === parts.full ? 'exact-sail' : 'sail-no-country';
+        return { kind: 'matched', ratings: sailCandidates.map((e) => e.rating), method };
+      }
+      // Several *different* boats share this sail core. Try to narrow to one
+      // boat by name (opt-in); otherwise it's a genuine ambiguity.
       if (matchByName) {
-        const name = normalizeBoatName(competitor.boatName);
-        const byName = name
-          ? sailCandidates.filter((e) => normalizeBoatName(e.rating.boatName) === name)
-          : [];
-        if (byName.length === 1) {
-          return { kind: 'matched', rating: byName[0].rating, method: 'sail-no-country' };
-        }
+        const narrowed = this.narrowByName(sailCandidates, competitor.boatName);
+        if (narrowed) return { kind: 'matched', ratings: narrowed, method: 'sail-no-country' };
       }
       return { kind: 'ambiguous' };
     }
@@ -450,13 +481,28 @@ class RatingMatcher {
     if (matchByName) {
       const name = normalizeBoatName(competitor.boatName);
       const nameCandidates = name ? this.byName.get(name) ?? [] : [];
-      if (nameCandidates.length === 1) {
-        return { kind: 'matched', rating: nameCandidates[0].rating, method: 'name' };
-      }
-      if (nameCandidates.length > 1) return { kind: 'ambiguous' };
+      if (nameCandidates.length === 0) return { kind: 'none' };
+      const narrowed = this.narrowByName(nameCandidates, competitor.boatName);
+      if (narrowed) return { kind: 'matched', ratings: narrowed, method: 'name' };
+      return { kind: 'ambiguous' };
     }
 
     return { kind: 'none' };
+  }
+
+  /** Among candidates spanning several boats, keep only those whose name
+   *  matches the competitor's, and return them iff they're all one boat. */
+  private narrowByName(
+    candidates: readonly RatingEntry[],
+    boatName: string | undefined,
+  ): IrishSailingRating[] | null {
+    const name = normalizeBoatName(boatName);
+    if (!name) return null;
+    const hits = candidates.filter((e) => normalizeBoatName(e.rating.boatName) === name);
+    if (hits.length > 0 && distinctFullSails(hits).size === 1) {
+      return hits.map((e) => e.rating);
+    }
+    return null;
   }
 }
 
@@ -466,22 +512,42 @@ function push<T>(map: Map<string, T[]>, key: string, value: T): void {
   else map.set(key, [value]);
 }
 
+/** A boat's TCC for a given spin/non-spin variant. */
+function tccForVariant(rating: IrishSailingRating, variant: IrcTccVariant): number | null {
+  return (variant === 'non-spin' ? rating.ircNonSpinTcc : rating.ircTcc) ?? null;
+}
+
+/** The Irish Sailing list marks a boat's secondary certificate by appending
+ *  "(SC)" to its name — RORC's `Secondary = SEC` flag, an alternative sail
+ *  configuration. */
+function isSecondaryCert(rating: IrishSailingRating): boolean {
+  return /\(sc\)\s*$/i.test(rating.boatName ?? '');
+}
+
+/** Stable id for a certificate within a boat's set — its IRC cert number, or a
+ *  positional fallback when absent. */
+function certId(rating: IrishSailingRating, index: number): string {
+  return rating.ircCertNumber ? `cert:${rating.ircCertNumber}` : `idx:${index}`;
+}
+
 /**
  * Produce preview rows for the "Irish Sailing certificates" source. Unlike the
  * prior-series source there is no fleet mapping — the ratings list is a flat
  * national table matched by sail number, tolerant of a missing country code
  * (`"1431"` ↔ `"IRL1431"`), with an opt-in name fallback.
  *
- * Per target `(competitor, fleet)` where the fleet uses a handicap system:
- * - `irc`  → the boat's spin or non-spin TCC, per `ircVariant`.
+ * Per target `(competitor, fleet)`:
+ * - `irc`  → the chosen certificate's spin/non-spin TCC, per `ircVariant`. A
+ *   boat holding a primary plus a secondary "(SC)" certificate defaults to the
+ *   higher TCC and carries a {@link CertChoice} so the scorer can switch.
  * - `echo` → the boat's published ECHO standard.
- * - `nhc` / `py` → `not-found` with reason `system-not-published` (Irish
- *   Sailing publishes neither).
+ * - `nhc` / `py` → no row at all (Irish Sailing publishes neither, so listing
+ *   them would be pure noise).
  *
- * Boats absent from the list surface as `no-source-competitor`; multiple
- * matches as `ambiguous-match`; a matched boat lacking the relevant value as
- * `no-source-value`. Non-exact matches carry a `match` annotation so the
- * dialog can show the basis for the scorer to verify.
+ * Boats absent from the list surface as `no-source-competitor`; matches to
+ * several *different* boats as `ambiguous-match`; a matched boat lacking the
+ * relevant value as `no-source-value`. Non-exact matches carry a `match`
+ * annotation so the dialog can show the basis for the scorer to verify.
  */
 export function planHandicapUpdatesFromIrishSailing(
   input: IrishSailingPlanInput,
@@ -489,6 +555,7 @@ export function planHandicapUpdatesFromIrishSailing(
   const targetFleetById = new Map(input.targetFleets.map((f) => [f.id, f]));
   const matcher = new RatingMatcher(input.ratings);
   const matchByName = input.matchByName ?? false;
+  const certChoiceByCompetitor = input.certChoiceByCompetitor ?? {};
 
   const rows: PreviewRow[] = [];
 
@@ -501,9 +568,12 @@ export function planHandicapUpdatesFromIrishSailing(
       const system = systemForFleet(targetFleet);
       if (!system) continue;
 
-      // Per-fleet IRC variant; undefined on non-IRC rows.
-      const ircVariant =
-        system === 'irc' ? input.ircVariantByFleet[targetFleetId] ?? 'spin' : undefined;
+      // Irish Sailing publishes only IRC and ECHO. Don't emit rows for NHC/PY
+      // fleets at all — saying "not published" for every such boat is noise.
+      if (system === 'nhc' || system === 'py') continue;
+
+      // Per-fleet IRC variant; undefined on ECHO rows.
+      const ircVariant = system === 'irc' ? input.ircVariantByFleet[targetFleetId] ?? 'spin' : undefined;
       const base = {
         competitorId: targetComp.id,
         targetFleetId,
@@ -511,12 +581,6 @@ export function planHandicapUpdatesFromIrishSailing(
         currentTcf: currentTcfFor(targetComp, system),
         ircVariant,
       };
-
-      // Irish Sailing publishes only IRC and ECHO — independent of any match.
-      if (system === 'nhc' || system === 'py') {
-        rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'system-not-published' });
-        continue;
-      }
 
       if (matchResult.kind === 'none') {
         rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'no-source-competitor' });
@@ -527,11 +591,31 @@ export function planHandicapUpdatesFromIrishSailing(
         continue;
       }
 
-      const rating = matchResult.rating;
-      const newTcf =
-        system === 'irc'
-          ? (ircVariant === 'non-spin' ? rating.ircNonSpinTcc : rating.ircTcc) ?? null
-          : rating.echo ?? null;
+      const ratings = matchResult.ratings;
+
+      // Pick the certificate: an explicit per-boat override if it names one of
+      // this boat's certs, otherwise the higher-TCC default (for IRC, by the
+      // row's variant; for ECHO the value is the same across certs).
+      const rankVariant: IrcTccVariant = ircVariant ?? 'spin';
+      const override = certChoiceByCompetitor[targetComp.id];
+      const chosenIndex = pickCertIndex(ratings, rankVariant, override);
+      const rating = ratings[chosenIndex];
+
+      // Offer a switch only for IRC rows where the boat has more than one cert.
+      const certChoice: CertChoice | undefined =
+        system === 'irc' && ratings.length > 1
+          ? {
+              chosen: certId(rating, chosenIndex),
+              options: ratings.map((r, i) => ({
+                certId: certId(r, i),
+                label: `${r.ircCertNumber ? `#${r.ircCertNumber}` : '—'} · ${isSecondaryCert(r) ? 'secondary (SC)' : 'primary'}`,
+                tcc: tccForVariant(r, rankVariant),
+                isSecondary: isSecondaryCert(r),
+              })),
+            }
+          : undefined;
+
+      const newTcf = system === 'irc' ? tccForVariant(rating, ircVariant!) : rating.echo ?? null;
 
       // Annotate non-exact matches so the scorer can verify the boat.
       const match: RatingMatch | undefined =
@@ -540,13 +624,46 @@ export function planHandicapUpdatesFromIrishSailing(
           : { method: matchResult.method, sail: rating.sailNumber, name: rating.boatName };
 
       if (newTcf === null) {
-        rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'no-source-value', match });
+        rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'no-source-value', match, certChoice });
         continue;
       }
 
-      rows.push({ ...base, newTcf, status: base.currentTcf === newTcf ? 'unchanged' : 'change', match });
+      rows.push({
+        ...base,
+        newTcf,
+        status: base.currentTcf === newTcf ? 'unchanged' : 'change',
+        match,
+        certChoice,
+      });
     }
   }
 
   return rows;
+}
+
+/**
+ * Choose which certificate to use for a boat holding several. An `override`
+ * `certId` wins when it names one of them; otherwise the default is the
+ * certificate with the higher TCC for `variant` (nulls rank last). Returns the
+ * index into `ratings`.
+ */
+function pickCertIndex(
+  ratings: readonly IrishSailingRating[],
+  variant: IrcTccVariant,
+  override: string | undefined,
+): number {
+  if (override) {
+    const i = ratings.findIndex((r, idx) => certId(r, idx) === override);
+    if (i >= 0) return i;
+  }
+  let best = 0;
+  let bestTcc = tccForVariant(ratings[0], variant);
+  for (let i = 1; i < ratings.length; i++) {
+    const tcc = tccForVariant(ratings[i], variant);
+    if (tcc !== null && (bestTcc === null || tcc > bestTcc)) {
+      best = i;
+      bestTcc = tcc;
+    }
+  }
+  return best;
 }

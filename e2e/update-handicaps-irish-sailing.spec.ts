@@ -24,6 +24,23 @@ const RATINGS_FIXTURE = {
       ircNonSpinTcc: 1.02,
       echo: 1.05,
     },
+    // A boat holding a primary plus a secondary "(SC)" certificate.
+    {
+      sailNumber: 'IRL7404',
+      boatName: 'Pretty Polly',
+      ircCertNumber: '11479',
+      ircTcc: 1.114,
+      ircNonSpinTcc: 1.092,
+      echo: 1.12,
+    },
+    {
+      sailNumber: 'IRL7404',
+      boatName: 'Pretty Polly (SC)',
+      ircCertNumber: '50718',
+      ircTcc: 1.092,
+      ircNonSpinTcc: 1.071,
+      echo: 1.12,
+    },
   ],
 };
 
@@ -92,4 +109,42 @@ test('Update handicaps from Irish Sailing seeds IRC TCC by sail number', async (
   await row.hover();
   await row.getByRole('button', { name: /Edit/ }).click();
   await expect(page.getByLabel('IRC TCC', { exact: true })).toHaveValue('1.041');
+});
+
+test('primary/secondary certificate: defaults to higher TCC, switchable', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'IRC SC Test 2026' });
+
+  await createFleets(page, ['IRC']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'IRC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('IRL7404');
+  await page.getByLabel('Competitor name').fill('Pretty Polly');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'IRL7404' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('Irish Sailing certificates').click();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  // Defaults to the higher TCC (primary 1.114, not secondary 1.092).
+  await expect(page.getByRole('cell', { name: '— → 1.114' })).toBeVisible();
+
+  // Switch to the secondary "(SC)" certificate.
+  await page.getByLabel('Certificate').selectOption('cert:50718');
+  await expect(page.getByRole('cell', { name: '— → 1.092' })).toBeVisible();
+
+  await page.getByRole('button', { name: /^Apply/ }).click();
+  await expect(page.getByText('Handicaps updated')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  const row = page.getByRole('row').filter({ hasText: 'IRL7404' });
+  await row.hover();
+  await row.getByRole('button', { name: /Edit/ }).click();
+  await expect(page.getByLabel('IRC TCC', { exact: true })).toHaveValue('1.092');
 });

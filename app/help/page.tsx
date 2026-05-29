@@ -397,11 +397,18 @@ export default async function HelpPage() {
           you can untick individual boats.
         </p>
         <p>
-          Sail numbers are matched ignoring case and spacing (so{' '}
-          <code className="font-mono text-xs">IRL 1431</code> matches{' '}
-          <code className="font-mono text-xs">IRL1431</code>), but a boat entered without its
-          national prefix won&apos;t match. Boats not on the list, and NHC or PY fleets (which
-          Irish Sailing doesn&apos;t publish), are left unchanged.
+          Sail numbers are matched ignoring case and spacing, and tolerating a missing country
+          code (so <code className="font-mono text-xs">1431</code> matches{' '}
+          <code className="font-mono text-xs">IRL1431</code>) — though two different boats sharing
+          a number are flagged rather than guessed. Turn on{' '}
+          <strong className="text-foreground">Also match by boat name</strong> to catch boats whose
+          sail number doesn&apos;t line up. Boats not on the list are left unchanged; NHC and PY
+          fleets aren&apos;t shown, since Irish Sailing publishes neither.
+        </p>
+        <p>
+          A boat that holds two IRC certificates — a primary and a secondary{' '}
+          <code className="font-mono text-xs">(SC)</code> for a different sail configuration —
+          defaults to the higher TCC, with a dropdown on its row to switch to the other.
         </p>
       </Section>
       )}
