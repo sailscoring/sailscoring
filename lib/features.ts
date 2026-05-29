@@ -51,6 +51,10 @@ export const FEATURES = {
     label: 'ECHO scoring',
     helpSectionIds: [],
   },
+  'irish-sailing-ratings': {
+    label: 'Irish Sailing ratings import',
+    helpSectionIds: ['update-handicaps-irish-sailing'],
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;

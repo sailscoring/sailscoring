@@ -71,4 +71,7 @@ export const queryKeys = {
   orgRequest: {
     mine: () => ['orgRequest', 'mine'] as const,
   },
+  irishSailingRatings: {
+    all: ['irishSailingRatings'] as const,
+  },
 } as const;

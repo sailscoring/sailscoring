@@ -47,6 +47,8 @@ export default async function HelpPage() {
             ['#start-sequences', 'Start sequences'],
             ['#importing-competitors', 'Importing competitors from CSV'],
             ['#updating-handicaps', 'Updating handicaps from another series'],
+            // Gated: only listed when irish-sailing-ratings is enabled (#168).
+            ['#update-handicaps-irish-sailing', 'Updating handicaps from Irish Sailing', 'irish-sailing-ratings'],
             ['#adding-races', 'Adding races'],
             ['#entering-results', 'Entering results'],
             // Gated: only listed when csv-finish-import is enabled (#155).
@@ -375,6 +377,33 @@ export default async function HelpPage() {
           in the source series, or that has no value to copy, is left at its current handicap.
         </p>
       </Section>
+
+      {has('irish-sailing-ratings') && (
+      <Section id="update-handicaps-irish-sailing" title="Updating handicaps from Irish Sailing">
+        <p>
+          The same <strong className="text-foreground">Update handicaps</strong> dialog can pull
+          IRC TCCs and ECHO handicaps directly from the national{' '}
+          <strong className="text-foreground">Irish Sailing</strong> ratings list, matched by sail
+          number. Choose <em>Irish Sailing certificates</em> as the source. This saves typing in
+          published values and avoids transcription errors.
+        </p>
+        <p>
+          For IRC fleets, pick the <strong className="text-foreground">spinnaker</strong> or{' '}
+          <strong className="text-foreground">non-spinnaker</strong> TCC to suit how the fleet
+          races. ECHO handicaps have no spinnaker split, so the published ECHO value is used as-is.
+          As with the prior-series source, every change is previewed as{' '}
+          <code className="font-mono text-xs">current → new</code> before anything is written, and
+          you can untick individual boats.
+        </p>
+        <p>
+          Sail numbers are matched ignoring case and spacing (so{' '}
+          <code className="font-mono text-xs">IRL 1431</code> matches{' '}
+          <code className="font-mono text-xs">IRL1431</code>), but a boat entered without its
+          national prefix won&apos;t match. Boats not on the list, and NHC or PY fleets (which
+          Irish Sailing doesn&apos;t publish), are left unchanged.
+        </p>
+      </Section>
+      )}
 
       <Section id="adding-races" title="Adding races">
         <p>

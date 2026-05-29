@@ -31,22 +31,28 @@ import { useCompetitorsBySeries, useUpdateHandicaps } from '@/hooks/use-competit
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { queryKeys } from '@/hooks/query-keys';
 import { useSeriesList } from '@/hooks/use-series';
+import { useFeatures } from '@/components/features-provider';
 import { ConflictApiError } from '@/lib/api-client';
 import {
   competitorRepo,
   fleetRepo,
   listTcfHistoryBySeries,
+  loadIrishSailingRatings,
   raceRepo,
   type HandicapUpdateRow,
 } from '@/lib/api-repository';
+import type { IrcTccVariant } from '@/lib/irish-sailing-ratings';
 import {
   endOfSeriesTcfs,
   planHandicapUpdates,
+  planHandicapUpdatesFromIrishSailing,
   proposeFleetMapping,
   type HandicapSystem,
   type PreviewRow,
 } from '@/lib/source-handicaps';
 import type { Competitor, Fleet } from '@/lib/types';
+
+type HandicapSource = 'series' | 'irish-sailing';
 
 export interface UpdateHandicapsHandle {
   open: () => void;
@@ -89,9 +95,14 @@ function formatDelta(currentTcf: number | null, newTcf: number, system: Handicap
 export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   seriesId: string;
 }>(function UpdateHandicaps({ seriesId }, ref) {
+  const { has } = useFeatures();
+  const irishSailingEnabled = has('irish-sailing-ratings');
+
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<'source-picker' | 'source-series' | 'done'>('source-picker');
+  const [step, setStep] = useState<'source-picker' | 'source-series' | 'source-irish-sailing' | 'done'>('source-picker');
+  const [source, setSource] = useState<HandicapSource>('series');
   const [sourceSeriesId, setSourceSeriesId] = useState<string | null>(null);
+  const [ircVariant, setIrcVariant] = useState<IrcTccVariant>('spin');
   const [fleetMapping, setFleetMapping] = useState<Record<string, string | null>>({});
   const [excludedRowIds, setExcludedRowIds] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<{
@@ -105,7 +116,9 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   useImperativeHandle(ref, () => ({
     open: () => {
       setStep('source-picker');
+      setSource('series');
       setSourceSeriesId(null);
+      setIrcVariant('spin');
       setFleetMapping({});
       setExcludedRowIds(new Set());
       setResult(null);
@@ -178,7 +191,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
     );
   }, [sourceCompetitors.data, sourceFleets.data, sourceRaces.data, sourceTcfHistory.data]);
 
-  const previewRows = useMemo<PreviewRow[]>(() => {
+  const seriesPreviewRows = useMemo<PreviewRow[]>(() => {
     if (!targetCompetitors.data || !targetFleets.data || !sourceCompetitors.data) return [];
     return planHandicapUpdates({
       targetCompetitors: targetCompetitors.data,
@@ -188,6 +201,26 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
       fleetMapping,
     });
   }, [targetCompetitors.data, targetFleets.data, sourceCompetitors.data, endTcfs, fleetMapping]);
+
+  // ── Irish Sailing source, loaded only when that step is active ─────────────
+  const irishRatings = useQuery({
+    queryKey: queryKeys.irishSailingRatings.all,
+    queryFn: () => loadIrishSailingRatings(),
+    enabled: step === 'source-irish-sailing',
+    staleTime: 60 * 60 * 1000, // national list; fine to reuse within a session
+  });
+
+  const irishPreviewRows = useMemo<PreviewRow[]>(() => {
+    if (!targetCompetitors.data || !targetFleets.data || !irishRatings.data) return [];
+    return planHandicapUpdatesFromIrishSailing({
+      targetCompetitors: targetCompetitors.data,
+      targetFleets: targetFleets.data,
+      ratings: irishRatings.data.records,
+      ircVariant,
+    });
+  }, [targetCompetitors.data, targetFleets.data, irishRatings.data, ircVariant]);
+
+  const previewRows = step === 'source-irish-sailing' ? irishPreviewRows : seriesPreviewRows;
 
   // ── Apply ──────────────────────────────────────────────────────────────────
   async function handleApply() {
@@ -282,7 +315,13 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
 
             <div className="space-y-3 py-2 min-h-0 overflow-y-auto">
               <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
-                <input type="radio" name="source" defaultChecked className="mt-1" />
+                <input
+                  type="radio"
+                  name="source"
+                  className="mt-1"
+                  checked={source === 'series'}
+                  onChange={() => setSource('series')}
+                />
                 <div>
                   <div className="font-medium">Another series in this workspace</div>
                   <div className="text-sm text-muted-foreground">
@@ -291,11 +330,36 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                   </div>
                 </div>
               </label>
+
+              {irishSailingEnabled && (
+                <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="source"
+                    className="mt-1"
+                    checked={source === 'irish-sailing'}
+                    onChange={() => setSource('irish-sailing')}
+                  />
+                  <div>
+                    <div className="font-medium">Irish Sailing certificates</div>
+                    <div className="text-sm text-muted-foreground">
+                      Pull each boat&apos;s current IRC TCC and ECHO handicap from the national
+                      Irish Sailing ratings list, matched by sail number.
+                    </div>
+                  </div>
+                </label>
+              )}
             </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={() => setStep('source-series')}>Next</Button>
+              <Button
+                onClick={() =>
+                  setStep(source === 'irish-sailing' ? 'source-irish-sailing' : 'source-series')
+                }
+              >
+                Next
+              </Button>
             </DialogFooter>
           </>
         )}
@@ -380,6 +444,91 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                 disabled={
                   !sourceSeriesId ||
                   sourceDataLoading ||
+                  checkedChangedCount === 0 ||
+                  updateMut.isPending
+                }
+              >
+                {updateMut.isPending ? 'Applying…' : `Apply ${checkedChangedCount}`}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {step === 'source-irish-sailing' && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Update handicaps from Irish Sailing</DialogTitle>
+              <DialogDescription>
+                We match each boat by sail number against the national Irish Sailing ratings
+                list and propose its IRC TCC and ECHO handicap.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2 min-h-0 min-w-0 overflow-y-auto">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">IRC rating to use</label>
+                <Select value={ircVariant} onValueChange={(v) => setIrcVariant(v as IrcTccVariant)}>
+                  <SelectTrigger className="w-64">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="spin">Spinnaker TCC</SelectItem>
+                    <SelectItem value="non-spin">Non-spinnaker TCC</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  ECHO handicaps have no spinnaker/non-spinnaker split — this choice only affects
+                  IRC fleets.
+                </p>
+              </div>
+
+              {irishRatings.isLoading && (
+                <p className="text-sm text-muted-foreground">Loading Irish Sailing ratings…</p>
+              )}
+
+              {irishRatings.isError && (
+                <p className="text-sm text-destructive">
+                  Couldn&apos;t load the Irish Sailing ratings list. Please try again later.
+                </p>
+              )}
+
+              {irishRatings.data && (
+                <>
+                  <PreviewSection
+                    changedRows={changedRows}
+                    unchangedRows={unchangedRows}
+                    notFoundRows={notFoundRows}
+                    excludedRowIds={excludedRowIds}
+                    onToggleRow={(key, included) => {
+                      setExcludedRowIds((prev) => {
+                        const next = new Set(prev);
+                        if (included) next.delete(key);
+                        else next.add(key);
+                        return next;
+                      });
+                    }}
+                    targetCompetitorById={targetCompetitorById}
+                    targetFleetById={targetFleetById}
+                    sourceFleetById={sourceFleetById}
+                  />
+
+                  {irishRatings.data.updatedAt && (
+                    <p className="text-xs text-muted-foreground">
+                      Irish Sailing ratings as of {irishRatings.data.updatedAt}.
+                    </p>
+                  )}
+
+                  {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
+                </>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button
+                onClick={handleApply}
+                disabled={
+                  !irishRatings.data ||
                   checkedChangedCount === 0 ||
                   updateMut.isPending
                 }

@@ -3,6 +3,7 @@
  * `/api/v1`. UI callers wrap these in TanStack Query (see hooks/use-*.ts).
  */
 import { apiFetch } from './api-client';
+import type { IrishSailingRatings } from './irish-sailing-ratings';
 import type {
   CompetitorRepository,
   FinishRepository,
@@ -352,6 +353,15 @@ export function archiveSeries(seriesId: string, archived: boolean): Promise<Seri
  */
 export function listTcfHistoryBySeries(seriesId: string): Promise<TcfRecord[]> {
   return apiFetch<TcfRecord[]>(`/api/v1/series/${seriesId}/tcf-history`);
+}
+
+/**
+ * The national Irish Sailing IRC & ECHO ratings list — a handicap source for
+ * the Update Handicaps dialog (#168). Server-fetched from sailing.ie and
+ * cached; gated behind the `irish-sailing-ratings` feature.
+ */
+export function loadIrishSailingRatings(): Promise<IrishSailingRatings> {
+  return apiFetch<IrishSailingRatings>('/api/v1/handicap-sources/irish-sailing');
 }
 
 /**

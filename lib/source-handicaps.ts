@@ -20,6 +20,11 @@
  *   target's system.
  */
 
+import {
+  normalizeSailNumber,
+  type IrcTccVariant,
+  type IrishSailingRating,
+} from './irish-sailing-ratings';
 import type { Competitor, Fleet, Race, TcfRecord } from './types';
 
 /**
@@ -149,7 +154,10 @@ export type NotFoundReason =
    *  race in the mapped source fleet, or the source fleet has no scored
    *  races yet). For IRC/PY it means the source competitor record has
    *  no `ircTcc` / `pyNumber`. */
-  | 'no-source-value';
+  | 'no-source-value'
+  /** The source publishes nothing for this system. Irish Sailing covers
+   *  only IRC and ECHO, so `nhc`/`py` target fleets surface this. */
+  | 'system-not-published';
 
 export interface PreviewRow {
   competitorId: string;
@@ -326,4 +334,81 @@ export function proposeFleetMapping(
     mapping[tf.id] = candidates.length === 1 ? candidates[0].id : null;
   }
   return mapping;
+}
+
+// ─── Irish Sailing certificate source (#168) ─────────────────────────────────
+
+export interface IrishSailingPlanInput {
+  targetCompetitors: readonly Competitor[];
+  targetFleets: readonly Fleet[];
+  /** The national ratings list (already fetched + parsed). */
+  ratings: readonly IrishSailingRating[];
+  /** Which IRC TCC column to seed — the scorer's spin/non-spin choice.
+   *  Ignored for ECHO fleets (ECHO has no spin/non-spin split). */
+  ircVariant: IrcTccVariant;
+}
+
+/**
+ * Produce preview rows for the "Irish Sailing certificates" source. Unlike the
+ * prior-series source there is no fleet mapping — the ratings list is a flat
+ * national table matched by sail number ({@link normalizeSailNumber}).
+ *
+ * Per target `(competitor, fleet)` where the fleet uses a handicap system:
+ * - `irc`  → the boat's spin or non-spin TCC, per `ircVariant`.
+ * - `echo` → the boat's published ECHO standard.
+ * - `nhc` / `py` → `not-found` with reason `system-not-published` (Irish
+ *   Sailing publishes neither).
+ *
+ * Boats absent from the list surface as `no-source-competitor`; a matched boat
+ * lacking the relevant value surfaces as `no-source-value`.
+ */
+export function planHandicapUpdatesFromIrishSailing(
+  input: IrishSailingPlanInput,
+): PreviewRow[] {
+  const targetFleetById = new Map(input.targetFleets.map((f) => [f.id, f]));
+  const ratingBySail = new Map<string, IrishSailingRating>();
+  for (const r of input.ratings) {
+    ratingBySail.set(normalizeSailNumber(r.sailNumber), r);
+  }
+
+  const rows: PreviewRow[] = [];
+
+  for (const targetComp of input.targetCompetitors) {
+    const rating = ratingBySail.get(normalizeSailNumber(targetComp.sailNumber));
+
+    for (const targetFleetId of targetComp.fleetIds) {
+      const targetFleet = targetFleetById.get(targetFleetId);
+      if (!targetFleet) continue;
+      const system = systemForFleet(targetFleet);
+      if (!system) continue;
+
+      const currentTcf = currentTcfFor(targetComp, system);
+      const base = { competitorId: targetComp.id, targetFleetId, system, currentTcf };
+
+      // Irish Sailing publishes only IRC and ECHO.
+      if (system === 'nhc' || system === 'py') {
+        rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'system-not-published' });
+        continue;
+      }
+
+      if (!rating) {
+        rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'no-source-competitor' });
+        continue;
+      }
+
+      const newTcf =
+        system === 'irc'
+          ? (input.ircVariant === 'non-spin' ? rating.ircNonSpinTcc : rating.ircTcc) ?? null
+          : rating.echo ?? null;
+
+      if (newTcf === null) {
+        rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'no-source-value' });
+        continue;
+      }
+
+      rows.push({ ...base, newTcf, status: currentTcf === newTcf ? 'unchanged' : 'change' });
+    }
+  }
+
+  return rows;
 }
