@@ -171,6 +171,29 @@ format (potential `formatVersion` bump), the Postgres schema, and the Open dialo
 
 ---
 
+## Account lifecycle
+
+### Self-service account deletion
+
+The Privacy Policy directs users wanting their account deleted to email `mark@hyc.ie`,
+and we act within the GDPR one-month window. That's a defensible interim position at
+the current scale, but the modern expectation is a self-service button in `/account`
+that removes the account without anyone in the loop.
+
+Open questions: confirmation flow (typing the account email, an email-loop confirm,
+or both); a short retention window for accidental deletes versus immediate hard
+delete; what happens to workspaces the user owns alone (transfer to another member?
+force-delete with notice?) versus workspaces where they are one of several members
+(just remove the membership); whether to offer a one-click export of owned workspaces
+before deletion; how `lastModifiedBy` and activity-log references survive an erased
+user (tombstone identifier vs. anonymise).
+
+Distinct from the operator-triggered stealth-beta cleanup that landed under #121
+(export-and-email by the operator) — that was about *us* deleting *their* data on a
+short clock; this is about *them* deleting *their own* account on demand.
+
+---
+
 ## Esoteric scoring engine requirements
 
 Scoring variations that go beyond standard RRS Appendix A — supported by
@@ -379,16 +402,6 @@ on request counting at the `/p` function (or Vercel analytics) on the viewer sid
 ---
 
 ## Marketing and presence
-
-### Legal pages (GDPR / cookie compliance)
-
-GDPR-compliant privacy, terms, cookie, and acceptable-use pages, generated via Termly
-so they're maintained rather than placeholder boilerplate. Operationally needed now
-that there are real users in trial workspaces (HYC) and self-service stealth-beta
-sign-ups; cross-link from the app footer as well as the marketing site, since that's
-where the data-controller relationship forms.
-
-*Tracked in [sailscoring/sailscoring.ie#5](https://github.com/sailscoring/sailscoring.ie/issues/5).*
 
 ### Logo for sailscoring.ie
 
