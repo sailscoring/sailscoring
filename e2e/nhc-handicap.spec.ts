@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { addCompetitor, createFleets, createSeriesQuick, downloadFleetHtml, setScoringMode } from './helpers';
+import { addCompetitor, createFleets, createSeriesQuick, downloadFleetHtml, setScoringMode, settleFinish } from './helpers';
 
 /**
  * E2E tests for NHC1 (SWNHC2015) progressive handicap scoring.
@@ -86,7 +86,7 @@ test('NHC fleet: standings + propagation across two races', async ({ page }) => 
     await page.getByLabel('Sail number').fill(sailNumber);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
-    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await settleFinish(page, () => page.getByRole('button', { name: 'Add', exact: true }).click());
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
   await page.getByTestId('back-to-races').click();
@@ -109,7 +109,7 @@ test('NHC fleet: standings + propagation across two races', async ({ page }) => 
     await page.getByLabel('Sail number').fill(sailNumber);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
-    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await settleFinish(page, () => page.getByRole('button', { name: 'Add', exact: true }).click());
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
   await page.getByTestId('back-to-races').click();
@@ -192,7 +192,7 @@ test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page 
     await page.getByLabel('Sail number').fill(sailNumber);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
-    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await settleFinish(page, () => page.getByRole('button', { name: 'Add', exact: true }).click());
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
   await page.getByTestId('back-to-races').click();
@@ -213,7 +213,7 @@ test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page 
     await page.getByLabel('Sail number').fill(sailNumber);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
-    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await settleFinish(page, () => page.getByRole('button', { name: 'Add', exact: true }).click());
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
@@ -229,9 +229,13 @@ test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page 
   // — verifies the retroactive update runs without crashing.
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByText('Race 1').click();
+  // Blur each edited time explicitly so its save fires now — a bare .fill()
+  // leaves the input focused, so the write would otherwise only flush on the
+  // next navigation, racing it (#169). settleFinish drains the re-slot writes.
   await page.getByTestId('finish-time-AA').fill('15:00:00');
+  await settleFinish(page, () => page.getByTestId('finish-time-AA').blur());
   await page.getByTestId('finish-time-BB').fill('14:50:00');
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await settleFinish(page, () => page.getByTestId('finish-time-BB').blur());
 
   // ── After edit, the same set of values still appears in race 2 ───────────
   await page.getByRole('link', { name: 'Standings' }).click();

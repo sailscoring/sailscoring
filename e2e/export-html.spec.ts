@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick, downloadFleetHtml, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, downloadFleetHtml, setScoringMode, settleFinish } from './helpers';
 
 /**
  * E2E tests for the Export HTML feature (issue #13).
@@ -45,11 +45,10 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
   await page.getByText('Race 1').click();
   for (const sail of ['42', '99']) {
     await page.getByLabel('Sail number').fill(sail);
-    await page.getByRole('button', { name: 'Add' }).click();
+    await settleFinish(page, () => page.getByRole('button', { name: 'Add' }).click());
   }
   await page.getByTestId('non-finisher-7').getByRole('combobox').click();
-  await page.getByRole('option', { name: 'DNF' }).click();
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await settleFinish(page, () => page.getByRole('option', { name: 'DNF' }).click());
   await page.getByTestId('back-to-races').click();
   await expect(page).toHaveURL(/\/races$/);
 
@@ -57,7 +56,7 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
   await page.getByText('Race 2').click();
   for (const sail of ['7', '42']) {
     await page.getByLabel('Sail number').fill(sail);
-    await page.getByRole('button', { name: 'Add' }).click();
+    await settleFinish(page, () => page.getByRole('button', { name: 'Add' }).click());
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
   await page.getByTestId('back-to-races').click();
@@ -239,10 +238,15 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
     await page.getByLabel('Sail number').fill(sail);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(time);
-    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await settleFinish(page, () => page.getByRole('button', { name: 'Add', exact: true }).click());
   }
 
-  // Add Cruiser finishers (scratch, no times)
+  // Cruiser is a scratch fleet with no start in this handicap series, so a
+  // Cruiser boat can't be finished (commitCompetitor blocks it — no start
+  // configured) and these clicks intentionally persist nothing. C1/C2 still
+  // appear in the Cruiser standings as DNC competitors, which is all the
+  // per-fleet-standings assertions below rely on. No settleFinish here: there
+  // is no finish write to wait for.
   for (const sail of ['C1', 'C2']) {
     await page.getByLabel('Sail number').fill(sail);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -436,7 +440,7 @@ test('export HTML → import URL round-trip creates a new series', async ({ page
   await page.getByText('Race 1').click();
   for (const sail of ['11', '22']) {
     await page.getByLabel('Sail number').fill(sail);
-    await page.getByRole('button', { name: 'Add' }).click();
+    await settleFinish(page, () => page.getByRole('button', { name: 'Add' }).click());
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
@@ -486,8 +490,7 @@ test('venue/event website URLs survive the export → import URL round-trip', as
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByText('Race 1').click();
   await page.getByLabel('Sail number').fill('1');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await settleFinish(page, () => page.getByRole('button', { name: 'Add' }).click());
 
   // Download and decode the import-URL JSON — covers the buildPublicExport side.
   await page.getByRole('link', { name: 'Standings' }).click();

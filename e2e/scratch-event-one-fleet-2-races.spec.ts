@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, settleFinish } from './helpers';
 
 /**
  * Full happy-path test for a simple one-day event.
@@ -415,7 +415,7 @@ test('move controls reorder scratch rows in the finishing list', async ({ page }
   // Add finishers in order: 101 (row 1), 102 (row 2), 103 (row 3)
   for (const sail of ['101', '102', '103']) {
     await page.getByLabel('Sail number').fill(sail);
-    await page.getByRole('button', { name: 'Add' }).click();
+    await settleFinish(page, () => page.getByRole('button', { name: 'Add' }).click());
   }
 
   const row = (n: number) => page.getByRole('listitem').nth(n);
@@ -426,18 +426,18 @@ test('move controls reorder scratch rows in the finishing list', async ({ page }
   await expect(row(2)).toContainText('103');
 
   // ── 1. Move 103 up two steps → [101, 103, 102] then [103, 101, 102] ───────
-  await page.getByTestId('move-up-103').click();
+  await settleFinish(page, () => page.getByTestId('move-up-103').click());
   await expect(row(0)).toContainText('101');
   await expect(row(1)).toContainText('103');
   await expect(row(2)).toContainText('102');
 
-  await page.getByTestId('move-up-103').click();
+  await settleFinish(page, () => page.getByTestId('move-up-103').click());
   await expect(row(0)).toContainText('103');
   await expect(row(1)).toContainText('101');
   await expect(row(2)).toContainText('102');
 
   // ── 2. Move 103 down → [101, 103, 102] ────────────────────────────────────
-  await page.getByTestId('move-down-103').click();
+  await settleFinish(page, () => page.getByTestId('move-down-103').click());
   await expect(row(0)).toContainText('101');
   await expect(row(1)).toContainText('103');
   await expect(row(2)).toContainText('102');

@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type { Download, Page } from '@playwright/test';
+import type { Download, Page, Response } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { and, desc, eq } from 'drizzle-orm';
@@ -365,4 +365,24 @@ export async function downloadFleetHtml(page: Page, fleetName?: string): Promise
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   return download;
+}
+
+/**
+ * Run a finish-mutating action and wait for it to fully persist (#169). The
+ * race result page autosaves each finisher add / reorder / time edit / code set
+ * as one or more PUT/POST writes to `…/finishes`. Waiting only on the
+ * `autosave-status` pill is racy: it can read "All changes saved" from a *prior*
+ * save in the window before this action's writes start. So gate on a matching
+ * response (the front edge — a write definitely fired) and then drain the pill
+ * (the back edge — every queued write settled). A single reorder or timed add
+ * fires several PUTs; `waitForResponse` resolves on the first, the pill drain
+ * covers the rest. Reads that rebuild from the server (Preview/export) then see
+ * a fully-flushed race rather than dropping a row, time, or rating value.
+ */
+export async function settleFinish(page: Page, action: () => Promise<void>): Promise<void> {
+  const isFinishWrite = (r: Response) =>
+    /\/api\/v1\/races\/[^/]+\/finishes(\/[^/]+)?$/.test(new URL(r.url()).pathname) &&
+    ['POST', 'PUT'].includes(r.request().method());
+  await Promise.all([page.waitForResponse(isFinishWrite), action()]);
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 }
