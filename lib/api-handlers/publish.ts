@@ -110,27 +110,19 @@ export async function publishSeries(
   const series = await repos.series.get(seriesId);
   if (!series) throw new NotFoundError('series');
 
-  const files = await buildFleetHtmlFiles(
-    exportReposFor(workspace.workspaceId),
-    seriesId,
-  );
-  if (!files) throw new NotFoundError('series has no publishable results');
-
-  const hash = await contentHash(files.map((f) => f.html));
   const existing = await getPublishedBySeries(seriesId);
 
+  // Resolve the slug up front — it depends only on the series name, the existing
+  // publication, and the requested slug, not on the rendered HTML. Doing it
+  // before the build lets each fleet page carry a `← {series}` breadcrumb up to
+  // its series index `/p/{ws}/{slug}` (the slug is frozen, so the link is stable
+  // across re-publishes and doesn't perturb the content hash).
   let id: string;
   let slug: string;
-  // Blobs the previous publication held; deleted after the row points at the new
-  // (content-addressed) objects. Empty on a clean first publish.
-  let supersededPages: PublishedSeriesPage[] = [];
-
   if (existing) {
     // Re-publish: slug is frozen.
     id = existing.id;
     slug = existing.slug;
-    if (existing.contentHash === hash) return toResult(workspace.workspaceSlug, existing);
-    supersededPages = existing.pages;
   } else {
     // First publish: derive or accept a slug.
     const requested = input.slug?.trim();
@@ -139,6 +131,23 @@ export async function publishSeries(
       throw new BadRequestError('invalid slug', { code: 'invalid-slug' });
     }
     id = crypto.randomUUID();
+  }
+
+  const files = await buildFleetHtmlFiles(
+    exportReposFor(workspace.workspaceId),
+    seriesId,
+    `${appBase()}/p/${workspace.workspaceSlug}/${slug}`,
+  );
+  if (!files) throw new NotFoundError('series has no publishable results');
+
+  const hash = await contentHash(files.map((f) => f.html));
+
+  // Blobs the previous publication held; deleted after the row points at the new
+  // (content-addressed) objects. Empty on a clean first publish.
+  let supersededPages: PublishedSeriesPage[] = [];
+  if (existing) {
+    if (existing.contentHash === hash) return toResult(workspace.workspaceSlug, existing);
+    supersededPages = existing.pages;
   }
 
   // Other publications sharing this slug (the slug is a shared namespace), with

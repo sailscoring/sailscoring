@@ -43,6 +43,12 @@ export interface SeriesResultsData {
   /** Full import URL, e.g. https://app.sailscoring.ie/?import=<base64url>. When set,
    *  adds an "Open in Sail Scoring" link to the footer. */
   openInAppUrl?: string;
+  /** Series-index URL (`/p/{ws}/{slug}`) of the publication this page belongs to.
+   *  Set only on the in-app publish path, where the page lives under a known
+   *  slug; when set, a `← {series name}` breadcrumb links up to that listing.
+   *  Left unset for standalone HTML downloads, FTP uploads, and previews, whose
+   *  output has no `/p/` parent to point at. */
+  seriesIndexUrl?: string;
   /** Progressive scoring system for the rendered fleet, if any. Drives the
    *  seed-rating column header label ("NHC1" / "ECHO") and is paired with
    *  `showPerRaceRatings` to decide whether the summary surfaces per-race
@@ -253,7 +259,7 @@ export interface RaceScoreData {
 // ---- Renderer ----
 
 export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercent?: number }): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, enabledCompetitorFields, primaryPersonLabel, subdivisionLabel, races, standings, openInAppUrl, progressiveScoringSystem, showPerRaceRatings } = data;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, enabledCompetitorFields, primaryPersonLabel, subdivisionLabel, races, standings, openInAppUrl, seriesIndexUrl, progressiveScoringSystem, showPerRaceRatings } = data;
   const fontPercent = options?.fontPercent ?? 72;
   const summaryRatingSystem = showPerRaceRatings && progressiveScoringSystem ? progressiveScoringSystem : null;
 
@@ -310,6 +316,7 @@ export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercen
 body {font: ${fontPercent}% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
 .hardright {text-align: right; float: right; margin: 15px 25px 15px 0;}
+.breadcrumb {text-align: left; margin: 0 0 12px 25px; font-size: 0.9em;}
 table {text-align: left; margin: 0px auto 30px auto; font-size: 1em; border-collapse: collapse; border: 1px #fff solid;}
 td, th {padding: 4px; border: 2px #fff solid; vertical-align: top;}
 th {background-color: #aaf;}
@@ -338,7 +345,7 @@ td.nat .nattext { font-size: 0.8em; }
 ${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.nhc-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.nhc-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.nhc-explainer p:last-child { margin-bottom: 0; }\ndiv.nhc-explainer .formula { font-family: monospace; }\ndiv.nhc-explainer dl { margin: 4px 0 0 0; }\ndiv.nhc-explainer dt { font-weight: bold; display: inline; }\ndiv.nhc-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.nhc-explainer dd:after { content: ""; display: block; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.echo-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.echo-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.echo-explainer p:last-child { margin-bottom: 0; }\ndiv.echo-explainer .formula { font-family: monospace; }\ndiv.echo-explainer dl { margin: 4px 0 0 0; }\ndiv.echo-explainer dt { font-weight: bold; display: inline; }\ndiv.echo-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.echo-explainer dd:after { content: ""; display: block; }\n' : ''}</style>
 </head>
 <body${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).length > 0 ? ` class="${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).join(' ')}"` : ''}>
-<table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
+${seriesIndexUrl ? `<p class="breadcrumb"><a href="${esc(seriesIndexUrl)}" target="_top" rel="noopener">&larr; ${esc(series.name)}</a></p>\n` : ''}<table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
 <tbody>
 <tr>
 <td width="30%">${leftLogoUrl ? maybeLink(leftUrl, `<img style="display:block; height:100px;" src="${esc(leftLogoUrl)}" alt="venue logo" />`) : ''}</td>

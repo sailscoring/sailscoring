@@ -56,6 +56,7 @@ ul.listing li a { font-size: 1.1em; text-decoration: none; }
 ul.listing li a:hover { text-decoration: underline; }
 ul.listing .meta { display: block; color: #666; font-size: 0.85em; margin-top: 2px; }
 p.empty { color: #666; }
+p.back { max-width: 640px; margin: 0 auto; text-align: left; font-size: 0.9em; }
 p { text-align: center; }`;
 
 function shell(title: string, body: string): string {
@@ -120,9 +121,14 @@ ${items
  * series. With one group the listing is flat (as before); with several, each
  * series is sub-headed so the fleets read as that event's, e.g. Lambay Races →
  * Cruisers fleets + One Designs fleets under one page.
+ *
+ * A `← {workspace} — published results` link sits above the heading, up to the
+ * workspace index `/p/{ws}`. Reaching this page means the workspace has at least
+ * one publication, so that index always resolves.
  */
 export function renderSeriesIndexHtml(
   workspaceSlug: string,
+  workspaceName: string,
   slug: string,
   title: string,
   groups: SeriesIndexGroup[],
@@ -148,5 +154,6 @@ ${pages
           )
           .join('\n');
 
-  return shell(title, `<h1>${esc(title)}</h1>\n${sections}`);
+  const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)} &mdash; published results</a></p>`;
+  return shell(title, `${back}\n<h1>${esc(title)}</h1>\n${sections}`);
 }

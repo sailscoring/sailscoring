@@ -130,7 +130,13 @@ async function seriesIndex(
   );
   const title =
     groups.length === 1 ? groups[0].seriesName : humanizeSlug(seriesSlug);
-  const html = renderSeriesIndexHtml(workspaceSlug, seriesSlug, title, groups);
+  const html = renderSeriesIndexHtml(
+    workspaceSlug,
+    workspace.name,
+    seriesSlug,
+    title,
+    groups,
+  );
   return htmlResponse(html, etag);
 }
 

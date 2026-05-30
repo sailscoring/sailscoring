@@ -56,6 +56,11 @@ export async function buildFleetHtmlFiles(
   // `listSeriesNames` / `deleteSeriesChildren` members.
   repos: ExportRepos,
   seriesId: string,
+  // Series-index URL (`/p/{ws}/{slug}`) for the in-app publish path. When given,
+  // each fleet page gets a `← {series name}` breadcrumb up to its listing. Left
+  // undefined for downloads, FTP uploads, and previews, which have no `/p/`
+  // parent — see `SeriesResultsData.seriesIndexUrl`.
+  seriesIndexUrl?: string,
 ): Promise<{ fleetName: string; isDefault: boolean; html: string }[] | null> {
   const [series, competitors, races, fleets] = await Promise.all([
     repos.seriesRepo.get(seriesId),
@@ -305,6 +310,7 @@ export async function buildFleetHtmlFiles(
       }
     }
     if (flagSvgByCode) data.flagSvgByCode = flagSvgByCode;
+    if (seriesIndexUrl) data.seriesIndexUrl = seriesIndexUrl;
 
     results.push({
       fleetName: fleet.name,

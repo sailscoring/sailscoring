@@ -57,7 +57,7 @@ describe('renderWorkspaceIndexHtml', () => {
 
 describe('renderSeriesIndexHtml', () => {
   it('renders a single-fleet publication as a one-item "Standings" listing', () => {
-    const html = renderSeriesIndexHtml('hyc', 'spring-26', 'Spring Series', [
+    const html = renderSeriesIndexHtml('hyc', 'Howth Yacht Club', 'spring-26', 'Spring Series', [
       { seriesName: 'Spring Series', pages: [{ fleetName: 'Cruisers', subPath: 'standings' }] },
     ]);
     expect(html).toContain('href="/p/hyc/spring-26/standings"');
@@ -67,8 +67,18 @@ describe('renderSeriesIndexHtml', () => {
     expect(html).toContain('Spring Series');
   });
 
+  it('links back up to the workspace index above the heading', () => {
+    const html = renderSeriesIndexHtml('hyc', 'Howth Yacht Club', 'spring-26', 'Spring Series', [
+      { seriesName: 'Spring Series', pages: [{ fleetName: 'Cruisers', subPath: 'standings' }] },
+    ]);
+    expect(html).toContain('href="/p/hyc"');
+    expect(html).toContain('Howth Yacht Club &mdash; published results');
+    // The back-link sits before the page heading.
+    expect(html.indexOf('href="/p/hyc"')).toBeLessThan(html.indexOf('<h1>'));
+  });
+
   it('lists each named fleet for a multi-fleet publication', () => {
-    const html = renderSeriesIndexHtml('hyc', 'autumn-26', 'HYC Autumn League 2026', [
+    const html = renderSeriesIndexHtml('hyc', 'HYC', 'autumn-26', 'HYC Autumn League 2026', [
       {
         seriesName: 'HYC Autumn League 2026',
         pages: [
@@ -86,7 +96,7 @@ describe('renderSeriesIndexHtml', () => {
   });
 
   it('sub-heads each contributing series when a slug is shared', () => {
-    const html = renderSeriesIndexHtml('hyc', '2026-lambay-races', '2026 Lambay Races', [
+    const html = renderSeriesIndexHtml('hyc', 'HYC', '2026-lambay-races', '2026 Lambay Races', [
       {
         seriesName: 'Lambay Races Cruisers',
         pages: [
@@ -114,7 +124,7 @@ describe('renderSeriesIndexHtml', () => {
   });
 
   it('escapes the title, fleet labels and slug', () => {
-    const html = renderSeriesIndexHtml('hyc', 'x', 'Title <&>', [
+    const html = renderSeriesIndexHtml('hyc', 'Club & Co <X>', 'x', 'Title <&>', [
       {
         seriesName: 'S',
         pages: [
@@ -125,5 +135,8 @@ describe('renderSeriesIndexHtml', () => {
     ]);
     expect(html).toContain('Title &lt;&amp;&gt;');
     expect(html).toContain('A &amp; B');
+    // The back-link's workspace name is escaped too.
+    expect(html).toContain('Club &amp; Co &lt;X&gt;');
+    expect(html).not.toMatch(/<X>/);
   });
 });

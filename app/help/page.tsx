@@ -1027,7 +1027,9 @@ export default async function HelpPage() {
           <code className="text-foreground text-sm">…/autumn-league-2026</code>) linking to every
           fleet, and your workspace has a public index at{' '}
           <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc</code> listing all the
-          series you&apos;ve published. Both update automatically as you publish.
+          series you&apos;ve published. Both update automatically as you publish. Each fleet page
+          links back up to its series listing, and that listing links up to the workspace index,
+          so a visitor can climb from one fleet&apos;s results to everything you&apos;ve published.
         </p>
         <p>
           <strong className="text-foreground">Co-publishing several series to one URL:</strong>{' '}

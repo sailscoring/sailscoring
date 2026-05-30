@@ -109,6 +109,29 @@ test('workspace index lists published series and links through to a fleet page',
   await expect(page.getByRole('cell', { name: '42' }).first()).toBeVisible();
 });
 
+test('back-links chain a fleet page up to its series index and on to the workspace index', async ({ page }) => {
+  await createSeriesWithData(page);
+
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('URL slug').fill('autumn-26');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const link = dialog.getByRole('link', { name: /\/p\// });
+  await expect(link).toBeVisible();
+  const fleetPath = new URL((await link.getAttribute('href')) ?? '').pathname;
+  const workspaceSlug = fleetPath.split('/')[2];
+
+  // Fleet page → breadcrumb up to the series index `/p/{ws}/autumn-26`.
+  await page.goto(fleetPath);
+  await page.getByRole('link', { name: 'HYC Autumn League 2026' }).click();
+  await expect(page).toHaveURL(new RegExp(`/p/${workspaceSlug}/autumn-26$`));
+
+  // Series index → back-link up to the workspace index `/p/{ws}`.
+  await page.locator(`a[href="/p/${workspaceSlug}"]`).click();
+  await expect(page).toHaveURL(new RegExp(`/p/${workspaceSlug}$`));
+  await expect(page.getByRole('link', { name: 'HYC Autumn League 2026' })).toBeVisible();
+});
+
 test('re-publishing is reflected on the public page immediately', async ({ page }) => {
   const seriesId = await createSeriesWithData(page);
 

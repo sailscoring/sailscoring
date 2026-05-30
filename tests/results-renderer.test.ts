@@ -98,6 +98,26 @@ describe('renderSeriesHtml', () => {
     expect(html).not.toContain('<h2>');
   });
 
+  it('omits the series-index breadcrumb when no seriesIndexUrl is set', () => {
+    // Downloads / FTP / preview have no `/p/` parent, so no breadcrumb.
+    const html = renderSeriesHtml(MINIMAL);
+    expect(html).not.toContain('class="breadcrumb"');
+  });
+
+  it('renders a back breadcrumb to the series index when seriesIndexUrl is set', () => {
+    const html = renderSeriesHtml({
+      ...MINIMAL,
+      seriesIndexUrl: '/p/hyc/test-series',
+    });
+    expect(html).toContain('class="breadcrumb"');
+    expect(html).toContain('href="/p/hyc/test-series"');
+    expect(html).toContain('&larr; Test Series');
+    // The breadcrumb sits above the header table / heading.
+    expect(html.indexOf('class="breadcrumb"')).toBeLessThan(
+      html.indexOf('<h1>Test Series</h1>'),
+    );
+  });
+
   it('renders summary table with correct ordinal ranks', () => {
     const html = renderSeriesHtml(MINIMAL);
     expect(html).toContain('1st');
