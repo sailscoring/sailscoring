@@ -37,14 +37,23 @@ export function fleetSubPath(fleetName: string, isDefault: boolean): string {
   return isDefault ? 'standings' : kebab(fleetName);
 }
 
-/** Storage key for a published page, mirroring its public URL path so the
- *  static read path (#162) is a config-only follow-up. */
+/**
+ * Storage key for a published page. The publication's `contentHash` is folded
+ * into the key so every re-publish writes a *new* blob object rather than
+ * overwriting one at a stable pathname. Overwrites have a read-after-write
+ * propagation window on Vercel Blob (a stale copy can be served for up to a
+ * minute or more after a re-publish); a brand-new object has none. The public
+ * URL never carries the hash — the `/p/...` route resolves it via the DB row's
+ * stored `blobUrl` — so this stays purely an internal storage detail. Superseded
+ * objects are deleted by the publish handler once the row points at the new ones.
+ */
 export function publishedBlobKey(
   workspaceSlug: string,
   seriesSlug: string,
   subPath: string,
+  contentHash: string,
 ): string {
-  return `p/${workspaceSlug}/${seriesSlug}/${subPath}`;
+  return `p/${workspaceSlug}/${seriesSlug}/${subPath}-${contentHash}`;
 }
 
 /**

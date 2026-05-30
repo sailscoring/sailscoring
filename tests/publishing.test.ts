@@ -43,13 +43,20 @@ describe('fleetSubPath', () => {
 });
 
 describe('publishedBlobKey', () => {
-  it('mirrors the public URL path', () => {
-    expect(publishedBlobKey('hyc', 'autumn-league-2026', 'standings')).toBe(
-      'p/hyc/autumn-league-2026/standings',
+  it('mirrors the public URL path with the content hash appended', () => {
+    expect(publishedBlobKey('hyc', 'autumn-league-2026', 'standings', 'abc123')).toBe(
+      'p/hyc/autumn-league-2026/standings-abc123',
     );
-    expect(publishedBlobKey('u-abc123', 'westerns', 'irc-1')).toBe(
-      'p/u-abc123/westerns/irc-1',
+    expect(publishedBlobKey('u-abc123', 'westerns', 'irc-1', 'deadbeef')).toBe(
+      'p/u-abc123/westerns/irc-1-deadbeef',
     );
+  });
+
+  it('gives a fresh key when the content hash changes, stable otherwise', () => {
+    const a = publishedBlobKey('hyc', 'autumn-league-2026', 'standings', 'hash-a');
+    const b = publishedBlobKey('hyc', 'autumn-league-2026', 'standings', 'hash-b');
+    expect(a).not.toBe(b);
+    expect(publishedBlobKey('hyc', 'autumn-league-2026', 'standings', 'hash-a')).toBe(a);
   });
 });
 

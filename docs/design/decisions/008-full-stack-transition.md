@@ -261,16 +261,22 @@ public index destination.
 >
 > **#162 read path — function over static rewrite.** The "fully static read
 > path (edge rewrite to Blob)" sketched above was rejected. Vercel Blob
-> overwrites have a ~60-second propagation floor (`cacheControlMaxAge`
-> minimum 60s), which would show stale results for up to a minute after every
-> re-publish. The shipped `/p/[...slug]` route is a **thin always-fresh
-> function** — fleet pages fetch the Blob with `?v={contentHash}` appended
-> (changed query = fresh Blob-CDN key, instant visibility), serving
-> `Cache-Control: no-cache` + a strong ETag = contentHash for cheap 304s.
-> Index pages `/p/{ws}` and `/p/{ws}/{series}` are rendered dynamically from
-> Postgres on each request — no pre-generated index blobs. Trade-off: each
-> view costs a function invocation and an indexed Postgres read instead of a
-> pure CDN hit; the freshness win was preferred.
+> overwrites have a read-after-write propagation window, which would show stale
+> results after every re-publish. The shipped `/p/[...slug]` route is a **thin
+> always-fresh function** serving `Cache-Control: no-cache` + a strong ETag =
+> contentHash for cheap 304s. Index pages `/p/{ws}` and `/p/{ws}/{series}` are
+> rendered dynamically from Postgres on each request — no pre-generated index
+> blobs. Trade-off: each view costs a function invocation and an indexed
+> Postgres read instead of a pure CDN hit; the freshness win was preferred.
+>
+> The original cut leaned on overwriting a stable Blob pathname and appending
+> `?v={contentHash}` as a read-time cache-buster. That defeats Blob's *CDN*
+> cache but not the *overwrite-propagation* window at the storage layer (a new
+> query string still names the same object), so re-publishes could surface
+> stale results for a minute or more. The fix folds the content hash into the
+> **blob key** itself (`publishedBlobKey`), so every re-publish writes a brand-
+> new immutable object the DB row points straight at — no overwrite, no lag.
+> Superseded blobs are deleted by the publish handler after the row is updated.
 
 ### bilge retirement
 

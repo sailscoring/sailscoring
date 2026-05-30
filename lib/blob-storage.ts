@@ -54,16 +54,14 @@ export async function putPublishedHtml(
 /**
  * Read the HTML for a locator returned by `putPublishedHtml`, or null.
  *
- * `version` (the publication's content hash) cache-busts the Blob read: a
- * re-publish overwrites the object at a stable pathname, and Vercel Blob can
- * take up to ~60s to propagate an overwrite through its CDN. Appending the
- * version as a query string makes each publish a fresh CDN key, so the read
- * path serves the new results the instant a re-publish completes (#162). The
- * Postgres fallback is always fresh, so it ignores `version`.
+ * No cache-busting is needed: each publish writes a content-addressed blob key
+ * (see `publishedBlobKey`), so a locator always names an immutable object that
+ * is never overwritten. `cache: 'no-store'` keeps Next.js from caching the
+ * fetch; the `/p/...` route applies its own `Cache-Control`/ETag to the served
+ * response. The Postgres fallback reads its row directly.
  */
 export async function readPublishedHtml(
   locator: string,
-  version?: string,
 ): Promise<string | null> {
   if (locator.startsWith(DB_PREFIX)) {
     const key = locator.slice(DB_PREFIX.length);
@@ -75,10 +73,7 @@ export async function readPublishedHtml(
     return row?.html ?? null;
   }
 
-  const url = version
-    ? `${locator}?v=${encodeURIComponent(version)}`
-    : locator;
-  const res = await fetch(url, { cache: 'no-store' });
+  const res = await fetch(locator, { cache: 'no-store' });
   return res.ok ? res.text() : null;
 }
 

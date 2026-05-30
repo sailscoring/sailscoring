@@ -100,12 +100,16 @@ export async function publishSeries(
 
   let id: string;
   let slug: string;
+  // Blobs the previous publication held; deleted after the row points at the new
+  // (content-addressed) objects. Empty on a clean first publish.
+  let supersededPages: PublishedSeriesPage[] = [];
 
   if (existing) {
     // Re-publish: slug is frozen.
     id = existing.id;
     slug = existing.slug;
     if (existing.contentHash === hash) return toResult(workspace.workspaceSlug, existing);
+    supersededPages = existing.pages;
   } else {
     // First publish: derive or accept a slug, resolving collisions.
     const requested = input.slug?.trim();
@@ -123,13 +127,19 @@ export async function publishSeries(
         code: 'slug-orphaned',
       });
     }
-    id = holder ? holder.id : crypto.randomUUID();
+    if (holder) {
+      // Taking over an orphan's row — its blobs are superseded too.
+      id = holder.id;
+      supersededPages = holder.pages;
+    } else {
+      id = crypto.randomUUID();
+    }
   }
 
   const pages: PublishedSeriesPage[] = [];
   for (const file of files) {
     const subPath = fleetSubPath(file.fleetName, file.isDefault);
-    const key = publishedBlobKey(workspace.workspaceSlug, slug, subPath);
+    const key = publishedBlobKey(workspace.workspaceSlug, slug, subPath, hash);
     const blobUrl = await putPublishedHtml(key, file.html);
     pages.push({ fleetName: file.fleetName, subPath, blobUrl });
   }
@@ -145,6 +155,14 @@ export async function publishSeries(
     publishedVersion: series.version ?? 1,
   };
   await savePublished(published);
+
+  // Now that the row resolves to the fresh blobs, drop the superseded ones.
+  // Content-addressed keys differ by hash, so none of these are still in use.
+  // Best-effort: a failed delete leaks a blob but never serves stale results.
+  for (const page of supersededPages) {
+    await deletePublishedHtml(page.blobUrl);
+  }
+
   return toResult(workspace.workspaceSlug, published);
 }
 

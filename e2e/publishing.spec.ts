@@ -152,8 +152,9 @@ test('re-publishing is reflected on the public page immediately', async ({ page 
   expect(publishResp.ok()).toBeTruthy();
 
   // The read path serves the re-published results immediately — no propagation
-  // wait (the ?v=contentHash cache-buster sidesteps Blob's overwrite lag, and
-  // an unchanged-hash 304 can't mask a real change). `no-cache` on the response
+  // wait. Each re-publish writes a fresh content-addressed blob (the DB row
+  // points straight at it), so there's no Blob overwrite lag to sidestep, and an
+  // unchanged-hash 304 can't mask a real change. `no-cache` on the response
   // means a real browser refresh revalidates rather than showing a stale copy.
   const fresh = await page.request.get(path);
   expect(fresh.headers()['cache-control']).toContain('no-cache');

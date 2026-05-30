@@ -56,8 +56,10 @@ function htmlResponse(html: string, etag: string): Response {
  *
  * The read path is a thin always-fresh function rather than a static blob
  * rewrite: re-publish freshness matters more than shaving the function/DB hit
- * (see #162 / the project decision note). Fleet HTML is read from storage with
- * the publication's content hash as a cache-buster; the two listings are
+ * (see #162 / the project decision note). Fleet HTML is read from storage by
+ * the locator in the publication's DB row; each re-publish writes a fresh
+ * content-addressed blob (see `publishedBlobKey`), so the row always points at
+ * the current object — no overwrite-propagation lag. The two listings are
  * rendered on the fly, so there is no index blob to regenerate on publish.
  * `proxy.ts` excludes `/p/` from the login gate.
  */
@@ -142,7 +144,7 @@ async function fleetPage(
   const cached = notModified(req, etag);
   if (cached) return cached;
 
-  const html = await readPublishedHtml(page.blobUrl, published.contentHash);
+  const html = await readPublishedHtml(page.blobUrl);
   if (html === null) return NOT_FOUND;
   return htmlResponse(html, etag);
 }
