@@ -74,6 +74,13 @@ transcription errors. Two candidate sources, with different coverage and terms:
   scored rather than maintaining a permanent public mirror of the whole DB. The
   Irish Sailing terms are the open question for that source.
 
+Two further sources join these once **VPRS** and **YTC** scoring lands (see
+"VPRS and YTC (DBSC 2026)" under Deferred handicap-system work): VPRS ratings at
+`vprs.org/ratings.html`, and RYA YTC certificates listed by the RORC Rating
+Office at `rorcrating.com/ryaytc/ryaytclistings`. Same per-event,
+verification-only posture as the IRC listing — fetch the boats in an event being
+scored, don't mirror the whole database.
+
 ### Submit results to Irish Sailing and RYA
 
 After scoring a series, results could be submitted back to Irish Sailing (for ECHO
@@ -414,6 +421,50 @@ series on a TCF that differs from their carried-over master rating, so
 the real-world convention isn't pinned down — straight carry-over, a
 class-baseline reset between seasons, or deliberate manual entry. Ask the
 fleet scorer before building anything.
+
+### VPRS and YTC (DBSC 2026)
+
+The **DBSC 2026 Summer Series** NoR
+(`reference/NoR_Keelboats_Wag_Summer_2026_Amended1.pdf`) adds two rating
+systems Sail Scoring doesn't yet model, both driven by this one real-world
+series. DBSC's general SI
+(`reference/SI-A_Sailing_Instructions_General_2026_v2.pdf`, A15.1) lists the
+full 2026 handicap set — ECHO (Progressive), IRC, VPRS, ORC Club, YTC and PY —
+so with IRC, ECHO and PY in production and ORC Club captured as Phase 3 below,
+VPRS and YTC are the two missing pieces for full DBSC coverage.
+
+- **VPRS** (Velocity Prediction Rating System) — a UK measurement handicap
+  that, like IRC, issues each boat a single time-correction coefficient applied
+  time-on-time (`CT = ET × TCC`). Mechanically it is a **static-TCF** system,
+  identical to the IRC path already in production; the engine needs no new
+  scoring maths. What it needs is a distinct `scoringSystem` value (so results
+  label it correctly, and a boat can be scored under VPRS *and* ECHO in
+  parallel, as DBSC requires), a per-boat `vprsTcc` rating field alongside
+  `ircTcc`, and a rating source (below). DBSC scores its (Mixed) Sportsboats and
+  Cruisers 4A/4B/5A/5B classes under VPRS by default (NoR 2.3, 2.7), and allows
+  it to substitute for IRC in Cruisers 0–3 on class request (NoR 2.6).
+
+- **YTC** (RYA Yacht Time Correction) — the RYA's national keelboat
+  yardstick scheme. Like PY it is a published yardstick number turned into a
+  TCF, so it reuses the existing PY mechanics — but unlike PY it is a
+  **per-boat** rating carried on a certificate (NoR 3.5), not a per-boat-*type*
+  class number. That distinction drives the data model: PY today is a boat-type
+  lookup, whereas YTC is a certificate field on the individual competitor. DBSC
+  allows YTC to substitute for IRC in Cruisers 0–3 and for VPRS in Cruisers 4/5
+  on class request (NoR 2.6, 2.7).
+
+Both are gated the same way the existing systems are: a boat may only be scored
+under a system for which it holds a current certificate (NoR 3.5), and a class
+winning under IRC/VPRS forfeits the parallel ECHO prize (NoR 9.2) — the
+parallel-scoring and prize-eligibility shape is the same as the ECHO/one-design
+pairing already supported.
+
+**Rating sources.** Both want a fetch path mirroring the IRC rating import
+(`lib/irc-rating.ts`, #170): VPRS publishes its ratings at
+`vprs.org/ratings.html`, and RYA YTC certificates are listed by the RORC Rating
+Office at `rorcrating.com/ryaytc/ryaytclistings`. See the "Fetch IRC and ECHO
+certs from rating authorities" entry above for the per-event, verification-only
+terms posture these sources share.
 
 ### Phase 3: ORC Club
 
