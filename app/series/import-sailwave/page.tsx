@@ -143,11 +143,8 @@ function Wizard({
   // Form state
   const [name, setName] = useState(preview?.name ?? '');
   const [venue, setVenue] = useState(preview?.venue ?? '');
-  const [defaultRaceDate, setDefaultRaceDate] = useState('');
   const [primaryLabel, setPrimaryLabel] = useState<PrimaryPersonLabel>('helm');
   const [subdivisionLabel, setSubdivisionLabel] = useState(preview?.detectedSubdivisionLabel ?? '');
-  const [includeScratchCompanions, setIncludeScratchCompanions] = useState(true);
-  const [includeResults, setIncludeResults] = useState(preview?.hasResults ?? true);
   const [dnfScoring, setDnfScoring] = useState<'auto' | 'seriesEntries' | 'startingArea'>('auto');
   const [fleetOverrides, setFleetOverrides] = useState<Map<string, ScoringSystem>>(() => {
     const m = new Map<string, ScoringSystem>();
@@ -195,12 +192,11 @@ function Wizard({
     const opts: SailwaveImportOptions = {
       name,
       venue,
-      defaultRaceDate: defaultRaceDate || undefined,
       primaryLabel,
       subdivisionLabel: subdivisionLabel.trim() || undefined,
       fleetScoringOverrides: fleetOverrides,
-      includeScratchCompanions,
-      includeResults,
+      includeScratchCompanions: true,
+      includeResults: true,
       dnfScoring: dnfScoring === 'auto' ? undefined : dnfScoring,
     };
 
@@ -326,30 +322,6 @@ function Wizard({
 
         <Card>
           <CardHeader>
-            <CardTitle>Race dates</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="default-race-date">Default date for un-dated races</Label>
-              <Input
-                id="default-race-date"
-                data-testid="sailwave-default-race-date"
-                type="date"
-                value={defaultRaceDate}
-                onChange={(e) => setDefaultRaceDate(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                The wizard uses each race&apos;s date from Sailwave when it has one. For races where
-                Sailwave didn&apos;t store a date (or stored one without a year, like &ldquo;May 5th&rdquo;),
-                this value is used. Leave blank to default to today; you can fix any race&apos;s date in the
-                Races tab after import.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle>Fleets</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -386,23 +358,6 @@ function Wizard({
                 );
               })}
             </div>
-            <label className="flex items-start gap-2 text-sm pt-2">
-              <input
-                type="checkbox"
-                checked={!includeScratchCompanions}
-                onChange={(e) => setIncludeScratchCompanions(!e.target.checked)}
-                data-testid="sailwave-drop-scratch"
-                className="mt-0.5"
-              />
-              <span>
-                Drop Sailwave&apos;s &ldquo;Scr&rdquo; companion fleets
-                <span className="block text-xs text-muted-foreground">
-                  Sailwave often pairs each handicap fleet (e.g. <span className="font-mono">Squib HPH</span>)
-                  with a scratch-scored copy (<span className="font-mono">Squib Scr</span>) for
-                  dual-scoring. Tick this to import only the handicap version.
-                </span>
-              </span>
-            </label>
           </CardContent>
         </Card>
 
@@ -466,22 +421,6 @@ function Wizard({
                 </SelectContent>
               </Select>
             </div>
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={!includeResults}
-                onChange={(e) => setIncludeResults(!e.target.checked)}
-                data-testid="sailwave-skip-results"
-                className="mt-0.5"
-              />
-              <span>
-                Import the entry list only
-                <span className="block text-xs text-muted-foreground">
-                  Skip Sailwave&apos;s recorded finishes — useful when re-seeding a series
-                  mid-season and you intend to enter all results in Sailscoring from scratch.
-                </span>
-              </span>
-            </label>
           </CardContent>
         </Card>
 
