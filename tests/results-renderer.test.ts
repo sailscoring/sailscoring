@@ -185,6 +185,47 @@ describe('renderSeriesHtml', () => {
     expect(html).not.toContain('provisional');
   });
 
+  it('renders the provisional timestamp in the deployment timezone with a zone label', () => {
+    // 22:22 UTC is 23:22 IST (Irish summer time) — the default Europe/Dublin zone.
+    const html = renderSeriesHtml({
+      ...MINIMAL,
+      generatedAt: new Date('2026-05-30T22:22:00Z'),
+    });
+    expect(html).toContain('23:22 IST');
+    expect(html).not.toContain('22:22');
+  });
+
+  it('honours NEXT_PUBLIC_DEFAULT_TIMEZONE override', () => {
+    const prev = process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE;
+    process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE = 'America/New_York';
+    try {
+      // 22:22 UTC is 18:22 EDT on this date.
+      const html = renderSeriesHtml({
+        ...MINIMAL,
+        generatedAt: new Date('2026-05-30T22:22:00Z'),
+      });
+      expect(html).toContain('18:22');
+    } finally {
+      if (prev === undefined) delete process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE;
+      else process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE = prev;
+    }
+  });
+
+  it('falls back to the default timezone when the override is invalid', () => {
+    const prev = process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE;
+    process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE = 'Not/AZone';
+    try {
+      const html = renderSeriesHtml({
+        ...MINIMAL,
+        generatedAt: new Date('2026-05-30T22:22:00Z'),
+      });
+      expect(html).toContain('23:22 IST');
+    } finally {
+      if (prev === undefined) delete process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE;
+      else process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE = prev;
+    }
+  });
+
   it('includes left logo img when leftLogoUrl is set', () => {
     const html = renderSeriesHtml({ ...MINIMAL, leftLogoUrl: 'https://example.com/logo.png' });
     expect(html).toContain('src="https://example.com/logo.png"');

@@ -237,6 +237,7 @@ Development is *only* used to populate `.env.local` via `vercel env pull`.
 | `CRON_SECRET`                  | random (set)         | unset (recommended)  | unset                | yes        |
 | `NEXT_PUBLIC_APP_URL`          | `https://app.sailscoring.ie` | unset / preview URL  | `http://localhost:3000` | no  |
 | `NEXT_PUBLIC_DEFAULT_SAIL_COUNTRY` | `IRL` (or unset → IRL) | (same)             | (same)               | no  |
+| `NEXT_PUBLIC_DEFAULT_TIMEZONE`  | `Europe/Dublin` (or unset → Europe/Dublin) | (same) | (same)         | no  |
 | `BLOB_READ_WRITE_TOKEN`        | from Vercel Blob (managed) | from Vercel Blob (managed, if connected) | unset → `published_blobs` fallback | yes (managed) |
 | `NEXT_PUBLIC_SCUPPER_URL`      | `https://scupper.sailscoring.ie` | (same)   | (same)               | no         |
 | `NEXT_PUBLIC_SCUPPER_API_KEY`  | from scupper project | from scupper project | from scupper project | no         |

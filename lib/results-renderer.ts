@@ -908,12 +908,44 @@ function ordinal(n: number): string {
   return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
 }
 
+/**
+ * IANA timezone used to render result timestamps (the "provisional as of" line).
+ * Defaults to `Europe/Dublin` (Sail Scoring's home instance is Irish), overridable
+ * per deployment via `NEXT_PUBLIC_DEFAULT_TIMEZONE` — mirrors `defaultSailCountry()`
+ * in `rating-match.ts`. This matters because publishing renders server-side on
+ * Vercel (UTC); without a fixed zone the stamp shows UTC rather than the
+ * publisher's local time. An unset, empty, or invalid value falls back to the
+ * default.
+ */
+function resultsTimeZone(): string {
+  const tz = process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE?.trim();
+  if (!tz) return 'Europe/Dublin';
+  try {
+    // Throws RangeError on an unrecognised IANA zone.
+    new Intl.DateTimeFormat('en-IE', { timeZone: tz });
+    return tz;
+  } catch {
+    return 'Europe/Dublin';
+  }
+}
+
 function formatTime(d: Date): string {
-  return d.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return d.toLocaleTimeString('en-IE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: resultsTimeZone(),
+    timeZoneName: 'short',
+  });
 }
 
 function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-IE', { month: 'long', day: 'numeric', year: 'numeric' });
+  return d.toLocaleDateString('en-IE', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: resultsTimeZone(),
+  });
 }
 
 function formatIsoDate(iso: string): string {
