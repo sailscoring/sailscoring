@@ -1,13 +1,14 @@
 import type { NextRequest } from 'next/server';
 
 import { readPublishedHtml } from '@/lib/blob-storage';
-import { contentHash } from '@/lib/publishing';
+import { contentHash, humanizeSlug } from '@/lib/publishing';
 import {
   renderSeriesIndexHtml,
   renderWorkspaceIndexHtml,
+  type SeriesIndexGroup,
 } from '@/lib/published-index';
 import {
-  getPublishedByWorkspaceSlug,
+  getPublishedGroupByWorkspaceSlug,
   getSeriesName,
   getWorkspaceBySlug,
   listPublishedByWorkspace,
@@ -97,7 +98,9 @@ async function workspaceIndex(
   return htmlResponse(html, etag);
 }
 
-/** `/p/{ws}/{series}` — the per-publication fleet listing. */
+/** `/p/{ws}/{series}` — the fleet listing for a slug. A slug is a shared
+ *  namespace, so this unions the fleet pages of every series publishing into it
+ *  (sub-headed per series when there's more than one). */
 async function seriesIndex(
   req: NextRequest,
   workspaceSlug: string,
@@ -106,27 +109,34 @@ async function seriesIndex(
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
 
-  const published = await getPublishedByWorkspaceSlug(workspace.id, seriesSlug);
-  if (!published) return NOT_FOUND;
+  const group = await getPublishedGroupByWorkspaceSlug(workspace.id, seriesSlug);
+  if (group.length === 0) return NOT_FOUND;
 
-  // The listing changes only when the publication does, so its content hash is
-  // a sound ETag.
-  const etag = `"${published.contentHash}"`;
+  // The listing changes only when a contributor re-publishes, so the members'
+  // content hashes compose a sound ETag.
+  const etag = `"${await contentHash(group.map((p) => p.contentHash))}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
-  const title =
-    (published.seriesId ? await getSeriesName(published.seriesId) : null) ??
-    published.slug;
-  const html = renderSeriesIndexHtml(
-    workspaceSlug,
-    published.slug,
-    title,
-    published.pages.map((p) => ({ fleetName: p.fleetName, subPath: p.subPath })),
+
+  const groups: SeriesIndexGroup[] = await Promise.all(
+    group.map(async (p) => ({
+      seriesName:
+        (p.seriesId ? await getSeriesName(p.seriesId) : null) ?? seriesSlug,
+      pages: p.pages.map((pg) => ({
+        fleetName: pg.fleetName,
+        subPath: pg.subPath,
+      })),
+    })),
   );
+  const title =
+    groups.length === 1 ? groups[0].seriesName : humanizeSlug(seriesSlug);
+  const html = renderSeriesIndexHtml(workspaceSlug, seriesSlug, title, groups);
   return htmlResponse(html, etag);
 }
 
-/** `/p/{ws}/{series}/{subPath}` — a single fleet's results HTML. */
+/** `/p/{ws}/{series}/{subPath}` — a single fleet's results HTML. The fleet may
+ *  belong to any series publishing into the slug; we read the owning
+ *  publication's blob. */
 async function fleetPage(
   req: NextRequest,
   workspaceSlug: string,
@@ -136,11 +146,12 @@ async function fleetPage(
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
 
-  const published = await getPublishedByWorkspaceSlug(workspace.id, seriesSlug);
-  const page = published?.pages.find((p) => p.subPath === subPath);
-  if (!published || !page) return NOT_FOUND;
+  const group = await getPublishedGroupByWorkspaceSlug(workspace.id, seriesSlug);
+  const owner = group.find((p) => p.pages.some((pg) => pg.subPath === subPath));
+  const page = owner?.pages.find((pg) => pg.subPath === subPath);
+  if (!owner || !page) return NOT_FOUND;
 
-  const etag = `"${published.contentHash}"`;
+  const etag = `"${owner.contentHash}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
 

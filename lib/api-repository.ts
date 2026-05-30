@@ -376,12 +376,13 @@ export function loadIrcRatings(): Promise<IrcRatings> {
 
 /**
  * Publish a series' current results (ADR-008 Phase 9/10). `slug` is honoured
- * only on first publish; `overwrite` confirms taking over a slug held by an
- * orphaned publication. Returns the per-fleet public URLs.
+ * only on first publish; `join` confirms publishing into a slug that already
+ * has results from other series (a slug is a shared namespace). Returns the
+ * per-fleet public URLs.
  */
 export function publishSeries(
   seriesId: string,
-  input: { slug?: string; overwrite?: boolean } = {},
+  input: { slug?: string; join?: boolean } = {},
 ): Promise<PublishResult> {
   return apiFetch<PublishResult>(`/api/v1/series/${seriesId}/publish`, {
     method: 'POST',

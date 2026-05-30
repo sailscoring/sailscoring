@@ -4,7 +4,9 @@ import {
   contentHash,
   deriveSeriesSlug,
   fleetSubPath,
+  humanizeSlug,
   kebab,
+  publicationSubPath,
   publishedBlobKey,
 } from '@/lib/publishing';
 
@@ -30,6 +32,16 @@ describe('kebab / deriveSeriesSlug', () => {
   });
 });
 
+describe('humanizeSlug', () => {
+  it('title-cases a shared-slug listing title', () => {
+    expect(humanizeSlug('2026-lambay-races')).toBe('2026 Lambay Races');
+  });
+
+  it('drops empty segments from stray hyphens', () => {
+    expect(humanizeSlug('spring--series-')).toBe('Spring Series');
+  });
+});
+
 describe('fleetSubPath', () => {
   it('serves a single (default) fleet at "standings"', () => {
     expect(fleetSubPath('Default', true)).toBe('standings');
@@ -39,6 +51,29 @@ describe('fleetSubPath', () => {
   it('uses the kebab fleet name for named fleets', () => {
     expect(fleetSubPath('IRC One', false)).toBe('irc-one');
     expect(fleetSubPath('Echo', false)).toBe('echo');
+  });
+});
+
+describe('publicationSubPath', () => {
+  it('keeps the clean "standings" path for a sole contributor', () => {
+    expect(publicationSubPath('Default', true, 'lambay-races-cruisers', false)).toBe(
+      'standings',
+    );
+  });
+
+  it('serves a default fleet at the series slug when co-publishing', () => {
+    // Two single-fleet series sharing a slug must not both claim "standings".
+    expect(publicationSubPath('Default', true, 'lambay-races-cruisers', true)).toBe(
+      'lambay-races-cruisers',
+    );
+    expect(
+      publicationSubPath('Default', true, 'lambay-races-one-designs', true),
+    ).toBe('lambay-races-one-designs');
+  });
+
+  it('uses the kebab fleet name for named fleets, shared or not', () => {
+    expect(publicationSubPath('IRC One', false, 'x', false)).toBe('irc-one');
+    expect(publicationSubPath('IRC One', false, 'x', true)).toBe('irc-one');
   });
 });
 

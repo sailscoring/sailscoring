@@ -37,11 +37,19 @@ export interface SeriesIndexPage {
   subPath: string; // `standings` for a single fleet, else `kebab(fleetName)`
 }
 
+/** One contributing series' fleet pages within a shared-slug listing. With a
+ *  single group the listing is flat; with several it is sub-headed per series. */
+export interface SeriesIndexGroup {
+  seriesName: string; // contributing series name (or the slug, for an orphan)
+  pages: SeriesIndexPage[];
+}
+
 const FOOTER =
   '<p>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a></p>';
 
 const STYLE = `body { font: 90% arial, helvetica, sans-serif; text-align: center; margin: 24px; }
 h1 { font-size: 1.6em; }
+h2.series { font-size: 1.1em; max-width: 640px; margin: 20px auto 6px; text-align: left; color: #334; }
 ul.listing { list-style: none; padding: 0; max-width: 640px; margin: 24px auto; text-align: left; }
 ul.listing li { padding: 10px 14px; border: 1px #ccd solid; border-radius: 6px; margin-bottom: 8px; }
 ul.listing li a { font-size: 1.1em; text-decoration: none; }
@@ -107,16 +115,21 @@ ${items
  * Series listing at `/p/{ws}/{series}`. Lists the publication's fleet pages; a
  * single-fleet publication renders as a one-item listing so the bare slug stays
  * a stable listing rather than the standings page itself.
+ *
+ * A slug is a shared namespace, so `groups` may carry several contributing
+ * series. With one group the listing is flat (as before); with several, each
+ * series is sub-headed so the fleets read as that event's, e.g. Lambay Races →
+ * Cruisers fleets + One Designs fleets under one page.
  */
 export function renderSeriesIndexHtml(
   workspaceSlug: string,
   slug: string,
   title: string,
-  pages: SeriesIndexPage[],
+  groups: SeriesIndexGroup[],
 ): string {
-  const single = pages.length === 1;
-  const body = `<h1>${esc(title)}</h1>
-<ul class="listing">
+  const renderList = (pages: SeriesIndexPage[]): string => {
+    const single = pages.length === 1;
+    return `<ul class="listing">
 ${pages
   .map((p) => {
     const label = single ? 'Standings' : p.fleetName;
@@ -124,5 +137,16 @@ ${pages
   })
   .join('\n')}
 </ul>`;
-  return shell(title, body);
+  };
+
+  const sections =
+    groups.length <= 1
+      ? renderList(groups[0]?.pages ?? [])
+      : groups
+          .map(
+            (g) => `<h2 class="series">${esc(g.seriesName)}</h2>\n${renderList(g.pages)}`,
+          )
+          .join('\n');
+
+  return shell(title, `<h1>${esc(title)}</h1>\n${sections}`);
 }

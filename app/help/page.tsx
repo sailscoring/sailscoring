@@ -1030,13 +1030,27 @@ export default async function HelpPage() {
           series you&apos;ve published. Both update automatically as you publish.
         </p>
         <p>
+          <strong className="text-foreground">Co-publishing several series to one URL:</strong>{' '}
+          a slug is a shared namespace, so more than one series can publish under the same one —
+          handy when an event is scored as separate series, e.g. publishing both{' '}
+          <em>Lambay Races Cruisers</em> and <em>Lambay Races One Designs</em> to{' '}
+          <code className="text-foreground text-sm">…/2026-lambay-races</code>. Type the existing
+          slug when you publish the second series; Sail Scoring asks you to confirm joining the
+          existing event, then the listing page lists every series under it, each with its own
+          fleets. Each series keeps publishing and unpublishing independently — unpublishing one
+          removes only its fleets and leaves the others live. Fleet names must stay distinct across
+          the series sharing a slug so every fleet has its own URL; if two clash, rename one.
+        </p>
+        <p>
           <strong className="text-foreground">Managing published pages:</strong>{' '}
           open the workspace switcher in the page header, choose{' '}
           <strong className="text-foreground">Workspace settings</strong>, and look under{' '}
           <strong className="text-foreground">Published results</strong> for every page
           your workspace has published, with its public URL, when it was last published, and
-          how many edits have landed since. <strong className="text-foreground">Unpublish</strong>{' '}
-          takes a page down: the public URL stops working and the slug frees up for reuse.
+          how many edits have landed since, and whether it shares its URL with another series.{' '}
+          <strong className="text-foreground">Unpublish</strong> takes a page down: the public URL
+          stops working and the slug frees up for reuse (or, if the URL is shared, only that
+          series&apos; fleets are removed and the page stays live for the rest).
           You can also unpublish from the <strong className="text-foreground">Publish</strong>{' '}
           dialog on the Standings tab. If you delete a series whose results were published,
           the page stays live as an orphaned snapshot — the Published results page is where

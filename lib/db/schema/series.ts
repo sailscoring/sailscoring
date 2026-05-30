@@ -352,6 +352,13 @@ export const finishes = pgTable(
  * the workspace "Published" management page (#164) manage orphans with no
  * schema change. `pages` stores one entry per fleet's stored HTML blob, keyed
  * to mirror the public URL path so the static read path (#162) is config-only.
+ *
+ * A slug is a *shared namespace*, not exclusive to one series: several series
+ * may publish into the same `(workspace_id, slug)` and the read path unions
+ * their `pages`, so e.g. "Lambay Races Cruisers" and "Lambay Races One Designs"
+ * both land under `/p/{ws}/2026-lambay-races`. Hence `(workspace_id, slug)` is a
+ * plain (non-unique) lookup index, not a unique constraint; the publish handler
+ * keeps each contributor's fleet sub-paths from colliding within a slug.
  */
 export const publishedSeries = pgTable(
   'published_series',
@@ -372,7 +379,9 @@ export const publishedSeries = pgTable(
     publishedVersion: integer('published_version').notNull(),
   },
   (table) => [
-    uniqueIndex('published_series_workspace_slug_uidx').on(
+    // Non-unique: a slug is a shared namespace (several series can publish into
+    // the same `(workspace, slug)`); this index serves the read-path lookup.
+    index('published_series_workspace_slug_idx').on(
       table.workspaceId,
       table.slug,
     ),

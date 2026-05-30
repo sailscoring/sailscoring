@@ -6,6 +6,13 @@ import { usePublishedList, useUnpublish } from '@/hooks/use-published';
 import { Button } from '@/components/ui/button';
 import type { PublishedListItem } from '@/lib/types';
 
+/** Join names as `A`, `A and B`, or `A, B and C` for prose. */
+function formatNameList(names: string[]): string {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 /**
  * The workspace "Published" management page (#164): every published results
  * page for the active workspace — live and orphaned (its series deleted) — with
@@ -18,9 +25,12 @@ export function PublishedCard() {
   const unpublish = useUnpublish();
 
   async function handleUnpublish(item: PublishedListItem) {
+    const shared = item.sharedWith.length > 0;
     const message = item.orphaned
       ? `Permanently remove the saved results page "${item.title}"? Its series was already deleted, so this is the final copy.`
-      : `Unpublish "${item.title}"? The public page at ${item.url} will stop working and the URL frees up.`;
+      : shared
+        ? `Unpublish "${item.title}"? Its fleets are removed from ${item.url}; the page stays live for ${formatNameList(item.sharedWith)}.`
+        : `Unpublish "${item.title}"? The public page at ${item.url} will stop working and the URL frees up.`;
     if (!confirm(message)) return;
     await unpublish.mutateAsync(item.id);
   }
@@ -50,6 +60,11 @@ export function PublishedCard() {
                   {item.orphaned && (
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
                       · series deleted
+                    </span>
+                  )}
+                  {item.sharedWith.length > 0 && (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      · shares URL with {formatNameList(item.sharedWith)}
                     </span>
                   )}
                 </p>

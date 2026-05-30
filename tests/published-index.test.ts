@@ -58,7 +58,7 @@ describe('renderWorkspaceIndexHtml', () => {
 describe('renderSeriesIndexHtml', () => {
   it('renders a single-fleet publication as a one-item "Standings" listing', () => {
     const html = renderSeriesIndexHtml('hyc', 'spring-26', 'Spring Series', [
-      { fleetName: 'Cruisers', subPath: 'standings' },
+      { seriesName: 'Spring Series', pages: [{ fleetName: 'Cruisers', subPath: 'standings' }] },
     ]);
     expect(html).toContain('href="/p/hyc/spring-26/standings"');
     expect(html).toContain('>Standings<');
@@ -69,19 +69,59 @@ describe('renderSeriesIndexHtml', () => {
 
   it('lists each named fleet for a multi-fleet publication', () => {
     const html = renderSeriesIndexHtml('hyc', 'autumn-26', 'HYC Autumn League 2026', [
-      { fleetName: 'IRC One', subPath: 'irc-one' },
-      { fleetName: 'Echo', subPath: 'echo' },
+      {
+        seriesName: 'HYC Autumn League 2026',
+        pages: [
+          { fleetName: 'IRC One', subPath: 'irc-one' },
+          { fleetName: 'Echo', subPath: 'echo' },
+        ],
+      },
     ]);
     expect(html).toContain('href="/p/hyc/autumn-26/irc-one"');
     expect(html).toContain('>IRC One<');
     expect(html).toContain('href="/p/hyc/autumn-26/echo"');
     expect(html).toContain('>Echo<');
+    // A single contributor is flat — no per-series sub-heading.
+    expect(html).not.toContain('<h2');
+  });
+
+  it('sub-heads each contributing series when a slug is shared', () => {
+    const html = renderSeriesIndexHtml('hyc', '2026-lambay-races', '2026 Lambay Races', [
+      {
+        seriesName: 'Lambay Races Cruisers',
+        pages: [
+          { fleetName: 'Cruisers 1', subPath: 'cruisers-1' },
+          { fleetName: 'Cruisers 2', subPath: 'cruisers-2' },
+        ],
+      },
+      {
+        seriesName: 'Lambay Races One Designs',
+        pages: [{ fleetName: 'Squibs', subPath: 'squibs' }],
+      },
+    ]);
+    expect(html).toContain('<h1>2026 Lambay Races</h1>');
+    expect(html).toContain('>Lambay Races Cruisers<');
+    expect(html).toContain('>Lambay Races One Designs<');
+    expect(html).toContain('href="/p/hyc/2026-lambay-races/cruisers-1"');
+    expect(html).toContain('href="/p/hyc/2026-lambay-races/squibs"');
+    // The Cruisers heading sorts before its own fleets and before One Designs.
+    expect(html.indexOf('Lambay Races Cruisers')).toBeLessThan(
+      html.indexOf('cruisers-1'),
+    );
+    expect(html.indexOf('cruisers-2')).toBeLessThan(
+      html.indexOf('Lambay Races One Designs'),
+    );
   });
 
   it('escapes the title, fleet labels and slug', () => {
     const html = renderSeriesIndexHtml('hyc', 'x', 'Title <&>', [
-      { fleetName: 'A & B', subPath: 'a-b' },
-      { fleetName: 'C', subPath: 'c' },
+      {
+        seriesName: 'S',
+        pages: [
+          { fleetName: 'A & B', subPath: 'a-b' },
+          { fleetName: 'C', subPath: 'c' },
+        ],
+      },
     ]);
     expect(html).toContain('Title &lt;&amp;&gt;');
     expect(html).toContain('A &amp; B');

@@ -3,6 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 
 import { getDb } from './db/client';
 import * as schema from './db/schema';
+import { humanizeSlug } from './publishing';
 import type { PublishedSeries } from './types';
 
 /**
@@ -57,13 +58,15 @@ export async function getPublishedById(
   return row ? rowToPublished(row) : null;
 }
 
-/** The publication at `(workspaceId, slug)`, or null. Drives the public route
- *  and the first-publish slug-collision check. */
-export async function getPublishedByWorkspaceSlug(
+/** Every publication sharing `(workspaceId, slug)`, newest first. A slug is a
+ *  shared namespace, so this can be more than one series' publication; the
+ *  public read path unions their pages and the publish handler checks the group
+ *  for sub-path collisions. Empty when nothing is published at the slug. */
+export async function getPublishedGroupByWorkspaceSlug(
   workspaceId: string,
   slug: string,
-): Promise<PublishedSeries | null> {
-  const [row] = await getDb()
+): Promise<PublishedSeries[]> {
+  const rows = await getDb()
     .select()
     .from(schema.publishedSeries)
     .where(
@@ -72,8 +75,8 @@ export async function getPublishedByWorkspaceSlug(
         eq(schema.publishedSeries.slug, slug),
       ),
     )
-    .limit(1);
-  return row ? rowToPublished(row) : null;
+    .orderBy(desc(schema.publishedSeries.publishedAt));
+  return rows.map(rowToPublished);
 }
 
 /** Resolve a workspace (id + display name) from its public slug. Drives the
@@ -101,9 +104,12 @@ export async function getSeriesName(seriesId: string): Promise<string | null> {
   return row?.name ?? null;
 }
 
-/** Every publication in a workspace, newest first, for the public listing
- *  (#162). The title is the live series name, falling back to the slug for an
- *  orphaned publication (its series was deleted). */
+/** Every published slug in a workspace, newest first, for the public listing
+ *  (#162). One entry per slug — contributions from several series sharing a
+ *  slug collapse into a single row: `fleetCount` sums their pages, `publishedAt`
+ *  is the most recent, and the title is the lone contributor's series name or,
+ *  when several share the slug, a humanised slug (no single name fits). An
+ *  orphaned sole contributor falls back to the slug itself. */
 export async function listPublishedByWorkspace(
   workspaceId: string,
 ): Promise<
@@ -123,12 +129,32 @@ export async function listPublishedByWorkspace(
     )
     .where(eq(schema.publishedSeries.workspaceId, workspaceId))
     .orderBy(desc(schema.publishedSeries.publishedAt));
-  return rows.map((r) => ({
-    slug: r.slug,
-    title: r.seriesName ?? r.slug,
-    publishedAt: r.publishedAt.getTime(),
-    fleetCount: r.pages.length,
-  }));
+
+  const groups = new Map<
+    string,
+    { publishedAt: number; fleetCount: number; names: (string | null)[] }
+  >();
+  for (const r of rows) {
+    const g = groups.get(r.slug) ?? {
+      publishedAt: 0,
+      fleetCount: 0,
+      names: [],
+    };
+    g.publishedAt = Math.max(g.publishedAt, r.publishedAt.getTime());
+    g.fleetCount += r.pages.length;
+    g.names.push(r.seriesName);
+    groups.set(r.slug, g);
+  }
+
+  return [...groups.entries()]
+    .map(([slug, g]) => ({
+      slug,
+      title:
+        g.names.length === 1 ? (g.names[0] ?? slug) : humanizeSlug(slug),
+      publishedAt: g.publishedAt,
+      fleetCount: g.fleetCount,
+    }))
+    .sort((a, b) => b.publishedAt - a.publishedAt);
 }
 
 /**
@@ -147,6 +173,7 @@ export async function listPublishedForWorkspace(workspaceId: string): Promise<
     orphaned: boolean;
     publishedAt: number;
     editsSincePublish: number;
+    sharedWith: string[];
   }[]
 > {
   const rows = await getDb()
@@ -166,16 +193,30 @@ export async function listPublishedForWorkspace(workspaceId: string): Promise<
     )
     .where(eq(schema.publishedSeries.workspaceId, workspaceId))
     .orderBy(desc(schema.publishedSeries.publishedAt));
+
+  // Titles keyed by row id, so each row can name the *other* publications
+  // sharing its slug (a slug is a shared namespace — see the schema note).
+  const titleOf = (r: (typeof rows)[number]) => r.seriesName ?? r.slug;
+  const bySlug = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const list = bySlug.get(r.slug) ?? [];
+    list.push(r);
+    bySlug.set(r.slug, list);
+  }
+
   return rows.map((r) => ({
     id: r.id,
     slug: r.slug,
-    title: r.seriesName ?? r.slug,
+    title: titleOf(r),
     orphaned: r.seriesId === null,
     publishedAt: r.publishedAt.getTime(),
     editsSincePublish:
       r.seriesVersion === null
         ? 0
         : Math.max(0, r.seriesVersion - r.publishedVersion),
+    sharedWith: (bySlug.get(r.slug) ?? [])
+      .filter((o) => o.id !== r.id)
+      .map(titleOf),
   }));
 }
 

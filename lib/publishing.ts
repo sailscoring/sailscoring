@@ -29,12 +29,44 @@ export function deriveSeriesSlug(seriesName: string): string {
   return kebab(seriesName);
 }
 
+/** Human-readable title derived from a slug, for a shared-namespace listing
+ *  with several contributing series (no single series name fits). Splits on
+ *  hyphens and title-cases: `2026-lambay-races` → `2026 Lambay Races`. */
+export function humanizeSlug(slug: string): string {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 /**
  * Sub-path under the series slug for a fleet's page. A single (default) fleet
- * is served at `standings`; named fleets at `kebab(fleetName)`.
+ * is served at `standings`; named fleets at `kebab(fleetName)`. This is the
+ * sole-contributor scheme — see {@link publicationSubPath} for the shared case.
  */
 export function fleetSubPath(fleetName: string, isDefault: boolean): string {
   return isDefault ? 'standings' : kebab(fleetName);
+}
+
+/**
+ * Sub-path for a fleet's page within a (possibly shared) slug. A slug is a
+ * shared namespace: when a series is the *sole* contributor its single default
+ * fleet keeps the clean `standings` path, but when it co-publishes with others
+ * the default fleet is served at the series' own slug instead — otherwise two
+ * single-fleet series would both claim `standings`. Named fleets are always
+ * `kebab(fleetName)` (distinct fleet names keep them apart; the publish handler
+ * rejects a residual clash). Assigned once and then frozen per page, so a
+ * publication's URLs never shift when another series later joins or leaves.
+ */
+export function publicationSubPath(
+  fleetName: string,
+  isDefault: boolean,
+  seriesSlug: string,
+  shared: boolean,
+): string {
+  if (!isDefault) return kebab(fleetName);
+  return shared ? seriesSlug : 'standings';
 }
 
 /**

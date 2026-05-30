@@ -420,6 +420,7 @@ export interface PublishedListItem {
   orphaned: boolean;              // the series was deleted (the snapshot lives on)
   publishedAt: number;            // Unix ms of the last publish
   editsSincePublish: number;      // series edits since the snapshot (0 if orphaned)
+  sharedWith: string[];           // titles of other publications sharing this slug
 }
 
 export interface FtpServer {

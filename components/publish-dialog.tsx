@@ -34,6 +34,13 @@ function sanitizeSlug(raw: string): string {
   return raw.toLowerCase().replace(/[^a-z0-9-]/g, '');
 }
 
+/** Join names as `A`, `A and B`, or `A, B and C` for prose. */
+function formatNameList(names: string[]): string {
+  if (names.length === 0) return 'another series';
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 /**
  * In-app results publishing (ADR-008 Phase 9/10, the bilge replacement — #153).
  * Publish is explicit and point-in-time. The slug is editable at first publish
@@ -47,7 +54,7 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
     'loading' | 'idle' | 'publishing' | 'unpublishing'
   >('loading');
   const [error, setError] = useState<string | null>(null);
-  const [needsOverwrite, setNeedsOverwrite] = useState(false);
+  const [needsJoin, setNeedsJoin] = useState(false);
 
   // Load publication state each time the dialog opens. Syncing with the
   // external open signal, so the state writes here are expected.
@@ -57,7 +64,7 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
     let cancelled = false;
     setPhase('loading');
     setError(null);
-    setNeedsOverwrite(false);
+    setNeedsJoin(false);
     getPublication(series.id)
       .then((s) => {
         if (cancelled) return;
@@ -94,31 +101,41 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
     ? Math.max(0, (series.version ?? 1) - published.publishedVersion)
     : 0;
 
-  async function handlePublish(overwrite = false) {
+  async function handlePublish(join = false) {
     setPhase('publishing');
     setError(null);
     try {
       const result = await publishSeries(
         series.id,
-        isPublished ? {} : { slug, overwrite },
+        isPublished ? {} : { slug, join },
       );
       setStatus((s) => (s ? { ...s, published: result } : s));
-      setNeedsOverwrite(false);
+      setNeedsJoin(false);
       setPhase('idle');
     } catch (e) {
       setPhase('idle');
       if (e instanceof ValidationApiError) {
-        const code = (e.issues as { code?: string } | undefined)?.code;
-        if (code === 'slug-orphaned') {
-          setNeedsOverwrite(true);
-          setError('A results page already exists at this URL (from a deleted series).');
+        const issues = e.issues as
+          | { code?: string; sharedWith?: string[]; fleetName?: string }
+          | undefined;
+        if (issues?.code === 'slug-shared') {
+          setNeedsJoin(true);
+          const names = issues.sharedWith ?? [];
+          setError(
+            `This URL already has results from ${formatNameList(names)}. Publish “${series.name}” alongside them?`,
+          );
           return;
         }
-        if (code === 'slug-in-use') {
-          setError('That slug is already used by another published series. Choose another.');
+        if (issues?.code === 'subpath-collision') {
+          setNeedsJoin(false);
+          setError(
+            issues.fleetName
+              ? `The fleet “${issues.fleetName}” clashes with one already published at this URL. Rename it, then try again.`
+              : 'A fleet clashes with one already published at this URL. Rename it, then try again.',
+          );
           return;
         }
-        if (code === 'invalid-slug') {
+        if (issues?.code === 'invalid-slug') {
           setError('Use lowercase letters and numbers, separated by hyphens.');
           return;
         }
@@ -181,7 +198,7 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
                 <Input
                   id="publish-slug"
                   value={slug}
-                  onChange={(e) => { setSlug(sanitizeSlug(e.target.value)); setNeedsOverwrite(false); setError(null); }}
+                  onChange={(e) => { setSlug(sanitizeSlug(e.target.value)); setNeedsJoin(false); setError(null); }}
                   placeholder="autumn-league-2026"
                   autoFocus
                 />
@@ -240,7 +257,7 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
-          {isPublished && !needsOverwrite && (
+          {isPublished && !needsJoin && (
             <Button
               variant="destructive"
               onClick={handleUnpublish}
@@ -249,9 +266,9 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
               {isUnpublishing ? 'Unpublishing…' : 'Unpublish'}
             </Button>
           )}
-          {needsOverwrite ? (
-            <Button variant="destructive" onClick={() => handlePublish(true)} disabled={isPublishing}>
-              {isPublishing ? 'Publishing…' : 'Overwrite & publish'}
+          {needsJoin ? (
+            <Button onClick={() => handlePublish(true)} disabled={isPublishing}>
+              {isPublishing ? 'Publishing…' : 'Publish into existing event'}
             </Button>
           ) : (
             <Button onClick={() => handlePublish(false)} disabled={isLoading || isPublishing || isUnpublishing || (!isPublished && !slug)}>

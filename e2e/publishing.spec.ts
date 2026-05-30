@@ -14,20 +14,25 @@ import { addCompetitor, createSeriesQuick } from './helpers';
  */
 
 /** New series with one competitor finishing one race; returns the series id. */
-async function createSeriesWithData(page: Page): Promise<string> {
-  await createSeriesQuick(page, { name: 'HYC Autumn League 2026' });
+async function createSeriesWithData(
+  page: Page,
+  opts: { name?: string; sail?: string } = {},
+): Promise<string> {
+  const name = opts.name ?? 'HYC Autumn League 2026';
+  const sail = opts.sail ?? '42';
+  await createSeriesQuick(page, { name });
   const seriesId = page.url().match(/\/series\/([0-9a-f-]{36})/)?.[1];
   if (!seriesId) throw new Error(`Not on a series page: ${page.url()}`);
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
-  await page.getByLabel('Sail number').fill('42');
+  await page.getByLabel('Sail number').fill(sail);
   await page.getByLabel('Competitor name').fill('Alice');
   await page.getByRole('button', { name: 'Save' }).click();
 
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByText('Race 1').click();
-  await page.getByLabel('Sail number').fill('42');
+  await page.getByLabel('Sail number').fill(sail);
   await page.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
@@ -237,6 +242,48 @@ test('an orphaned snapshot (series deleted) stays listed and can be unpublished'
   await unpublishBtn.click();
   await expect(unpublishBtn).not.toBeVisible();
   await expect(page.getByText('Nothing published yet.')).toBeVisible();
+});
+
+test('two series publish into one shared slug → the listing unions both, sub-headed per series', async ({ page }) => {
+  // First series publishes at a deliberately event-shaped slug.
+  await createSeriesWithData(page, { name: 'Lambay Races Cruisers', sail: '11' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('URL slug').fill('2026-lambay-races');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const firstLink = dialog.getByRole('link', { name: /\/p\// });
+  await expect(firstLink).toBeVisible();
+  const indexPath = new URL((await firstLink.getAttribute('href')) ?? '').pathname.replace(
+    /\/standings$/,
+    '',
+  );
+  // As the sole contributor its single fleet keeps the clean "standings" path.
+  await expect(firstLink).toHaveText(/\/2026-lambay-races\/standings$/);
+
+  // Second series targets the same slug: publishing is blocked until the scorer
+  // confirms joining the existing event, so two events never merge by accident.
+  await createSeriesWithData(page, { name: 'Lambay Races One Designs', sail: '22' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await dialog.getByLabel('URL slug').fill('2026-lambay-races');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(dialog.getByText(/already has results from Lambay Races Cruisers/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Publish into existing event' }).click();
+  // A co-published default fleet lands at the series slug, not "standings".
+  await expect(
+    dialog.getByRole('link', { name: /\/2026-lambay-races\/lambay-races-one-designs$/ }),
+  ).toBeVisible();
+
+  // The shared listing unions both series, each under its own sub-heading.
+  await page.goto(indexPath);
+  await expect(page.getByRole('heading', { name: '2026 Lambay Races' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lambay Races Cruisers' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lambay Races One Designs' })).toBeVisible();
+
+  // Both fleet pages resolve under the one slug.
+  await page.goto(`${indexPath}/standings`);
+  await expect(page.getByRole('cell', { name: '11' }).first()).toBeVisible();
+  await page.goto(`${indexPath}/lambay-races-one-designs`);
+  await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
 });
 
 test('keyboard shortcut p opens the publish dialog', async ({ page }) => {

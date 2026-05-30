@@ -7,14 +7,15 @@ import { createRepos } from '@/lib/postgres-repository';
 import {
   contentHash,
   deriveSeriesSlug,
-  fleetSubPath,
+  publicationSubPath,
   publishedBlobKey,
 } from '@/lib/publishing';
 import {
   deletePublished,
   getPublishedById,
   getPublishedBySeries,
-  getPublishedByWorkspaceSlug,
+  getPublishedGroupByWorkspaceSlug,
+  getSeriesName,
   listPublishedForWorkspace,
   savePublished,
 } from '@/lib/published-repository';
@@ -55,6 +56,18 @@ function toResult(
   };
 }
 
+/** Display names of the other publications sharing a slug, for the
+ *  `slug-shared` confirmation. An orphan (its series deleted) has no live name,
+ *  so it reads as a leftover snapshot. */
+async function contributorNames(others: PublishedSeries[]): Promise<string[]> {
+  const names: string[] = [];
+  for (const p of others) {
+    const name = p.seriesId ? await getSeriesName(p.seriesId) : null;
+    names.push(name ?? '(deleted series)');
+  }
+  return names;
+}
+
 function exportReposFor(workspaceId: string): ExportRepos {
   const repos = createRepos({ workspaceId });
   return {
@@ -73,12 +86,20 @@ function exportReposFor(workspaceId: string): ExportRepos {
  * records it in `published_series`. Explicit, point-in-time: re-publishing
  * overwrites; editing the series afterwards does not.
  *
+ * A slug is a *shared namespace*: several series can publish into the same
+ * `(workspace, slug)` and the public read path unions their fleet pages (e.g.
+ * "Lambay Races Cruisers" + "Lambay Races One Designs" → `/p/{ws}/2026-lambay-races`).
+ *
  * - **First publish:** the slug is `deriveSeriesSlug(name)` unless the caller
- *   supplied one. A slug already held by a *live* series is rejected; one held
- *   by an *orphaned* publication (its series was deleted) requires
- *   `overwrite: true`, then takes over that row.
+ *   supplied one. If other series (or an orphaned snapshot) already publish at
+ *   that slug, the caller must confirm with `join: true`; otherwise it's
+ *   rejected with `slug-shared` (carrying the existing contributor names).
  * - **Re-publish:** the slug is frozen — any supplied slug is ignored. Unchanged
  *   content (same hash) is a no-op.
+ *
+ * Either way, each contributor's fleet sub-paths must stay unique within the
+ * slug (so every fleet URL resolves to one publication); a clash is rejected
+ * with `subpath-collision` naming the offending fleet.
  */
 export async function publishSeries(
   workspace: WorkspaceContext,
@@ -111,34 +132,58 @@ export async function publishSeries(
     if (existing.contentHash === hash) return toResult(workspace.workspaceSlug, existing);
     supersededPages = existing.pages;
   } else {
-    // First publish: derive or accept a slug, resolving collisions.
+    // First publish: derive or accept a slug.
     const requested = input.slug?.trim();
     slug = requested ? requested : deriveSeriesSlug(series.name);
     if (!isValidSeriesSlug(slug)) {
       throw new BadRequestError('invalid slug', { code: 'invalid-slug' });
     }
-    const holder = await getPublishedByWorkspaceSlug(workspace.workspaceId, slug);
-    if (holder && holder.seriesId !== null) {
-      throw new BadRequestError('slug already in use', { code: 'slug-in-use' });
-    }
-    if (holder && !input.overwrite) {
-      // Orphaned publication holds this slug — require explicit overwrite.
-      throw new BadRequestError('slug held by an orphaned publication', {
-        code: 'slug-orphaned',
+    id = crypto.randomUUID();
+  }
+
+  // Other publications sharing this slug (the slug is a shared namespace), with
+  // this series' own row excluded. Drives the join confirmation and the
+  // sub-path collision guard — both apply to first publish and re-publish.
+  const others = (
+    await getPublishedGroupByWorkspaceSlug(workspace.workspaceId, slug)
+  ).filter((p) => p.seriesId !== seriesId);
+
+  // First publish into an occupied slug needs explicit confirmation, so two
+  // unrelated events never merge by accident.
+  if (!existing && others.length > 0 && !input.join) {
+    throw new BadRequestError('slug already in use by other series', {
+      code: 'slug-shared',
+      sharedWith: await contributorNames(others),
+    });
+  }
+
+  // Sub-paths are frozen per page: a fleet that was already published keeps its
+  // existing path, so a publication's URLs never shift when another series later
+  // joins (or leaves) the slug. Only genuinely new fleets get a fresh path.
+  const frozen = new Map(
+    (existing?.pages ?? []).map((p) => [p.fleetName, p.subPath]),
+  );
+  const shared = others.length > 0;
+  const seriesSlug = deriveSeriesSlug(series.name);
+  const subPathFor = (file: { fleetName: string; isDefault: boolean }): string =>
+    frozen.get(file.fleetName) ??
+    publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared);
+
+  // Every fleet URL must resolve to exactly one publication, so this series'
+  // sub-paths can't collide with another contributor's at the same slug.
+  const taken = new Set(others.flatMap((p) => p.pages.map((pg) => pg.subPath)));
+  for (const file of files) {
+    if (taken.has(subPathFor(file))) {
+      throw new BadRequestError('fleet URL collides with another series', {
+        code: 'subpath-collision',
+        fleetName: file.fleetName,
       });
-    }
-    if (holder) {
-      // Taking over an orphan's row — its blobs are superseded too.
-      id = holder.id;
-      supersededPages = holder.pages;
-    } else {
-      id = crypto.randomUUID();
     }
   }
 
   const pages: PublishedSeriesPage[] = [];
   for (const file of files) {
-    const subPath = fleetSubPath(file.fleetName, file.isDefault);
+    const subPath = subPathFor(file);
     const key = publishedBlobKey(workspace.workspaceSlug, slug, subPath, hash);
     const blobUrl = await putPublishedHtml(key, file.html);
     pages.push({ fleetName: file.fleetName, subPath, blobUrl });
