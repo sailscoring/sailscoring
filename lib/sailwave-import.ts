@@ -360,6 +360,9 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
     const name = c.compfleet;
     if (name && !fleetNames.includes(name)) fleetNames.push(name);
   }
+  // Sort so the wizard's proposed fleet list reads naturally and matches the
+  // alphabetical order buildFleets() produces for the imported series.
+  fleetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
   const ratingsByFleet = collectRatingsByFleet(comps);
   const fleets: SailwavePreviewFleet[] = fleetNames.map((name) => {

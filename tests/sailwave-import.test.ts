@@ -107,6 +107,19 @@ describe('inspectSailwave', () => {
     expect(preview.competitorCount).toBe(14);
     expect(preview.detectedDnfScoring).toBe('startingArea');
   });
+
+  it('proposes fleets alphabetically sorted, matching the built series', () => {
+    const raw = loadFile(`${HYC}/2026 Wed Series 1.json`);
+    const preview = inspectSailwave(raw);
+    expect(preview.fleets.map((f) => f.name)).toEqual([
+      'Division A HPH',
+      'Division A IRC',
+      'Division B HPH',
+      'Division B IRC',
+      'Division C HPH',
+      'Division C IRC',
+    ]);
+  });
 });
 
 describe('parseDiscardThresholds', () => {
