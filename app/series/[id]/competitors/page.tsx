@@ -522,13 +522,20 @@ function CompetitorForm({
         </button>
       )}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="flex gap-3">
-        <Button type="submit" disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
-        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
-          Cancel
-        </Button>
+      <div className="flex justify-between gap-3">
+        <div className="flex gap-3">
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
+            Cancel
+          </Button>
+        </div>
+        {onDelete && (
+          <Button type="button" variant="destructive" onClick={onDelete} disabled={saving}>
+            Delete
+          </Button>
+        )}
       </div>
     </form>
   );
@@ -833,33 +840,6 @@ export default function CompetitorsPage({
                 {showGender && <TableCell>{c.gender}</TableCell>}
                 {showAge && <TableCell>{c.age ?? ''}</TableCell>}
                 {showSubdivision && <TableCell className="whitespace-normal break-words">{c.subdivision ?? ''}</TableCell>}
-                <TableCell className="w-0 p-0 relative">
-                  {!readOnly && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 rounded-md bg-background/90 px-1 opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        tabIndex={-1}
-                        aria-label={`Edit ${c.name}`}
-                        onClick={(e) => {
-                          editingRowRef.current = e.currentTarget.closest('tr');
-                          setEditingCompetitor(c);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        tabIndex={-1}
-                        aria-label={`Delete ${c.name}`}
-                        onClick={() => handleDelete(c)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>
