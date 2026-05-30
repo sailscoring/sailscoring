@@ -47,8 +47,10 @@ export default async function HelpPage() {
             ['#start-sequences', 'Start sequences'],
             ['#importing-competitors', 'Importing competitors from CSV'],
             ['#updating-handicaps', 'Updating handicaps from another series'],
+            // Gated: only listed when irc-rating is enabled (#168 follow-up).
+            ['#update-handicaps-irc-rating', 'Updating IRC TCCs from the rating list', 'irc-rating'],
             // Gated: only listed when irish-sailing-ratings is enabled (#168).
-            ['#update-handicaps-irish-sailing', 'Updating handicaps from Irish Sailing', 'irish-sailing-ratings'],
+            ['#update-handicaps-irish-sailing', 'Updating ECHO from Irish Sailing', 'irish-sailing-ratings'],
             ['#adding-races', 'Adding races'],
             ['#entering-results', 'Entering results'],
             // Gated: only listed when csv-finish-import is enabled (#155).
@@ -378,21 +380,60 @@ export default async function HelpPage() {
         </p>
       </Section>
 
-      {has('irish-sailing-ratings') && (
-      <Section id="update-handicaps-irish-sailing" title="Updating handicaps from Irish Sailing">
+      {has('irc-rating') && (
+      <Section id="update-handicaps-irc-rating" title="Updating IRC TCCs from the rating list">
         <p>
-          The same <strong className="text-foreground">Update handicaps</strong> dialog can pull
-          IRC TCCs and ECHO handicaps directly from the national{' '}
-          <strong className="text-foreground">Irish Sailing</strong> ratings list, matched by sail
-          number. Choose <em>Irish Sailing certificates</em> as the source. This saves typing in
-          published values and avoids transcription errors.
+          The <strong className="text-foreground">Update handicaps</strong> dialog can pull IRC
+          TCCs directly from the worldwide IRC rating list, matched by sail number. Choose{' '}
+          <em>IRC TCC (international)</em> as the source. This saves typing in published values and
+          avoids transcription errors, and — being the worldwide list — it covers boats from any
+          country, not just Irish entries.
         </p>
         <p>
           Each IRC fleet has its own <strong className="text-foreground">spinnaker</strong> /{' '}
           <strong className="text-foreground">non-spinnaker</strong> choice, so a series with a mix
           of spinnaker and non-spinnaker classes is handled in one pass — set the non-spinnaker
-          classes to their non-spin TCC. ECHO handicaps have no spinnaker split, so the published
-          ECHO value is used as-is. As with the prior-series source, every change is previewed as{' '}
+          classes to their non-spin TCC. As with the prior-series source, every change is previewed
+          as <code className="font-mono text-xs">current → new</code> before anything is written,
+          and you can untick individual boats.
+        </p>
+        <p>
+          Sail numbers are matched ignoring case and spacing, and tolerating a missing country
+          code (so on an Irish setup <code className="font-mono text-xs">1431</code> matches{' '}
+          <code className="font-mono text-xs">IRL1431</code>) — though two different boats sharing
+          a number are flagged rather than guessed. Turn on{' '}
+          <strong className="text-foreground">Also match by boat name</strong> to catch boats whose
+          sail number doesn&apos;t line up. Boats not on the list are left unchanged.
+        </p>
+        <p>
+          A boat that holds two IRC certificates — a primary and a secondary for a different sail
+          configuration — defaults to the higher TCC, with a dropdown on its row to switch to the
+          other.
+        </p>
+        <p>
+          If a boat is in the series but not yet in an IRC fleet — say it gained an IRC certificate
+          after entry — it appears under{' '}
+          <strong className="text-foreground">Add to handicap fleet</strong>. Tick it, choose the
+          target fleet, and it joins that fleet with the rating seeded in one step. Adding a boat
+          to a fleet mid-series means it is scored <strong className="text-foreground">DNC</strong>{' '}
+          for races already sailed in that fleet, so this is opt-in per boat.
+        </p>
+      </Section>
+      )}
+
+      {has('irish-sailing-ratings') && (
+      <Section id="update-handicaps-irish-sailing" title="Updating ECHO from Irish Sailing">
+        <p>
+          The <strong className="text-foreground">Update handicaps</strong> dialog can pull ECHO
+          handicaps directly from the national{' '}
+          <strong className="text-foreground">Irish Sailing</strong> ratings list, matched by sail
+          number. Choose <em>Irish Sailing ECHO</em> as the source. Irish Sailing is the authority
+          for ECHO — an Irish handicap system — so this is the source for it (IRC TCCs come from the
+          international IRC rating list instead).
+        </p>
+        <p>
+          ECHO has no spinnaker / non-spinnaker split, so the published ECHO value is used as-is.
+          As with the prior-series source, every change is previewed as{' '}
           <code className="font-mono text-xs">current → new</code> before anything is written, and
           you can untick individual boats.
         </p>
@@ -402,21 +443,15 @@ export default async function HelpPage() {
           <code className="font-mono text-xs">IRL1431</code>) — though two different boats sharing
           a number are flagged rather than guessed. Turn on{' '}
           <strong className="text-foreground">Also match by boat name</strong> to catch boats whose
-          sail number doesn&apos;t line up. Boats not on the list are left unchanged; NHC and PY
-          fleets aren&apos;t shown, since Irish Sailing publishes neither.
+          sail number doesn&apos;t line up. Boats not on the list are left unchanged.
         </p>
         <p>
-          A boat that holds two IRC certificates — a primary and a secondary{' '}
-          <code className="font-mono text-xs">(SC)</code> for a different sail configuration —
-          defaults to the higher TCC, with a dropdown on its row to switch to the other.
-        </p>
-        <p>
-          If a boat is in the series but not yet in the matching fleet — say it gained an IRC
-          certificate after entry — it appears under{' '}
+          If a boat is in the series but not yet in an ECHO fleet, it appears under{' '}
           <strong className="text-foreground">Add to handicap fleet</strong>. Tick it, choose the
-          target fleet, and it joins that fleet with the rating seeded in one step. Adding a boat
-          to a fleet mid-series means it is scored <strong className="text-foreground">DNC</strong>{' '}
-          for races already sailed in that fleet, so this is opt-in per boat.
+          target fleet, and it joins that fleet with the ECHO handicap seeded in one step. Adding a
+          boat to a fleet mid-series means it is scored{' '}
+          <strong className="text-foreground">DNC</strong> for races already sailed in that fleet,
+          so this is opt-in per boat.
         </p>
       </Section>
       )}

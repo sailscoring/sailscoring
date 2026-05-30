@@ -4,6 +4,7 @@
  */
 import { apiFetch } from './api-client';
 import type { IrishSailingRatings } from './irish-sailing-ratings';
+import type { IrcRatings } from './irc-rating';
 import type {
   CompetitorRepository,
   FinishRepository,
@@ -362,6 +363,15 @@ export function listTcfHistoryBySeries(seriesId: string): Promise<TcfRecord[]> {
  */
 export function loadIrishSailingRatings(): Promise<IrishSailingRatings> {
   return apiFetch<IrishSailingRatings>('/api/v1/handicap-sources/irish-sailing');
+}
+
+/**
+ * The worldwide IRC TCC listing — the IRC handicap source for the Update
+ * Handicaps dialog (#168 follow-up). Server-fetched from the RORC/IRC
+ * ClubListing and cached; gated behind the `irc-rating` feature.
+ */
+export function loadIrcRatings(): Promise<IrcRatings> {
+  return apiFetch<IrcRatings>('/api/v1/handicap-sources/irc-rating');
 }
 
 /**

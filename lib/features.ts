@@ -52,8 +52,12 @@ export const FEATURES = {
     helpSectionIds: [],
   },
   'irish-sailing-ratings': {
-    label: 'Irish Sailing ratings import',
+    label: 'Irish Sailing ECHO import',
     helpSectionIds: ['update-handicaps-irish-sailing'],
+  },
+  'irc-rating': {
+    label: 'IRC TCC import (international)',
+    helpSectionIds: ['update-handicaps-irc-rating'],
   },
 } as const satisfies Record<string, FeatureDef>;
 

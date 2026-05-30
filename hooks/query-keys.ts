@@ -74,4 +74,7 @@ export const queryKeys = {
   irishSailingRatings: {
     all: ['irishSailingRatings'] as const,
   },
+  ircRatings: {
+    all: ['ircRatings'] as const,
+  },
 } as const;

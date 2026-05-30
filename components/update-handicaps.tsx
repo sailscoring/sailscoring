@@ -37,17 +37,20 @@ import {
   competitorRepo,
   fleetRepo,
   listTcfHistoryBySeries,
+  loadIrcRatings,
   loadIrishSailingRatings,
   raceRepo,
   type HandicapUpdateRow,
 } from '@/lib/api-repository';
-import type { IrcTccVariant } from '@/lib/irish-sailing-ratings';
+import { defaultSailCountry, type IrcTccVariant } from '@/lib/rating-match';
 import {
   endOfSeriesTcfs,
   planHandicapUpdates,
   additionKey,
-  planFleetAdditionsFromIrishSailing,
-  planHandicapUpdatesFromIrishSailing,
+  planEchoFleetAdditions,
+  planEchoUpdates,
+  planIrcFleetAdditions,
+  planIrcUpdates,
   proposeFleetMapping,
   type FleetAdditionCandidate,
   type HandicapSystem,
@@ -56,7 +59,7 @@ import {
 } from '@/lib/source-handicaps';
 import type { Competitor, Fleet } from '@/lib/types';
 
-type HandicapSource = 'series' | 'irish-sailing';
+type HandicapSource = 'series' | 'irish-sailing' | 'irc-rating';
 
 export interface UpdateHandicapsHandle {
   open: () => void;
@@ -119,9 +122,12 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
 }>(function UpdateHandicaps({ seriesId }, ref) {
   const { has } = useFeatures();
   const irishSailingEnabled = has('irish-sailing-ratings');
+  const ircRatingEnabled = has('irc-rating');
 
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<'source-picker' | 'source-series' | 'source-irish-sailing' | 'done'>('source-picker');
+  const [step, setStep] = useState<
+    'source-picker' | 'source-series' | 'source-irish-sailing' | 'source-irc-rating' | 'done'
+  >('source-picker');
   const [source, setSource] = useState<HandicapSource>('series');
   const [sourceSeriesId, setSourceSeriesId] = useState<string | null>(null);
   // Spin/non-spin per IRC fleet; a fleet absent from the map defaults to spin.
@@ -236,27 +242,52 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
     });
   }, [targetCompetitors.data, targetFleets.data, sourceCompetitors.data, endTcfs, fleetMapping]);
 
-  // ── Irish Sailing source, loaded only when that step is active ─────────────
+  // ── Rating-list sources, loaded only when their step is active ─────────────
+  // Irish Sailing → ECHO; the worldwide IRC ClubListing → IRC. Two separate
+  // authorities, two separate fetches.
   const irishRatings = useQuery({
     queryKey: queryKeys.irishSailingRatings.all,
     queryFn: () => loadIrishSailingRatings(),
     enabled: step === 'source-irish-sailing',
     staleTime: 60 * 60 * 1000, // national list; fine to reuse within a session
   });
+  const ircRatings = useQuery({
+    queryKey: queryKeys.ircRatings.all,
+    queryFn: () => loadIrcRatings(),
+    enabled: step === 'source-irc-rating',
+    staleTime: 60 * 60 * 1000, // worldwide list; fine to reuse within a session
+  });
 
-  const irishPreviewRows = useMemo<PreviewRow[]>(() => {
+  // Country to assume for a competitor's prefix-less sail number (deployment
+  // parameter — IRL by default). Matters most against the worldwide IRC list.
+  const defaultCountry = defaultSailCountry();
+
+  const echoPreviewRows = useMemo<PreviewRow[]>(() => {
     if (!targetCompetitors.data || !targetFleets.data || !irishRatings.data) return [];
-    return planHandicapUpdatesFromIrishSailing({
+    return planEchoUpdates({
       targetCompetitors: targetCompetitors.data,
       targetFleets: targetFleets.data,
-      ratings: irishRatings.data.records,
+      records: irishRatings.data.records,
+      matchByName,
+      defaultCountry,
+    });
+  }, [targetCompetitors.data, targetFleets.data, irishRatings.data, matchByName, defaultCountry]);
+
+  const ircPreviewRows = useMemo<PreviewRow[]>(() => {
+    if (!targetCompetitors.data || !targetFleets.data || !ircRatings.data) return [];
+    return planIrcUpdates({
+      targetCompetitors: targetCompetitors.data,
+      targetFleets: targetFleets.data,
+      records: ircRatings.data.records,
       ircVariantByFleet,
       matchByName,
       certChoiceByCompetitor,
+      defaultCountry,
     });
-  }, [targetCompetitors.data, targetFleets.data, irishRatings.data, ircVariantByFleet, matchByName, certChoiceByCompetitor]);
+  }, [targetCompetitors.data, targetFleets.data, ircRatings.data, ircVariantByFleet, matchByName, certChoiceByCompetitor, defaultCountry]);
 
-  // IRC fleets in the target series — each gets its own spin/non-spin selector.
+  // IRC fleets in the target series — each gets its own spin/non-spin selector
+  // (IRC source only).
   const ircFleets = useMemo(
     () => (targetFleets.data ?? []).filter((f) => f.scoringSystem === 'irc'),
     [targetFleets.data],
@@ -266,30 +297,51 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   const targetRaces = useQuery({
     queryKey: queryKeys.races.bySeries(seriesId),
     queryFn: () => raceRepo.listBySeries(seriesId),
-    enabled: step === 'source-irish-sailing',
+    enabled: step === 'source-irish-sailing' || step === 'source-irc-rating',
   });
   const seriesHasRaces = (targetRaces.data?.length ?? 0) > 0;
 
   // Add-to-fleet candidates (#170): rated boats not yet in the matching fleet.
-  const additionCandidates = useMemo<FleetAdditionCandidate[]>(() => {
+  // ECHO additions come from Irish Sailing, IRC additions from the IRC list.
+  const echoAdditions = useMemo<FleetAdditionCandidate[]>(() => {
     if (!targetCompetitors.data || !targetFleets.data || !irishRatings.data) return [];
-    return planFleetAdditionsFromIrishSailing({
+    return planEchoFleetAdditions({
       targetCompetitors: targetCompetitors.data,
       targetFleets: targetFleets.data,
-      ratings: irishRatings.data.records,
+      records: irishRatings.data.records,
+      matchByName,
+      targetFleetByKey: addTargetFleetByKey,
+      defaultCountry,
+    });
+  }, [targetCompetitors.data, targetFleets.data, irishRatings.data, matchByName, addTargetFleetByKey, defaultCountry]);
+
+  const ircAdditions = useMemo<FleetAdditionCandidate[]>(() => {
+    if (!targetCompetitors.data || !targetFleets.data || !ircRatings.data) return [];
+    return planIrcFleetAdditions({
+      targetCompetitors: targetCompetitors.data,
+      targetFleets: targetFleets.data,
+      records: ircRatings.data.records,
       ircVariantByFleet,
       matchByName,
       certChoiceByCompetitor,
       targetFleetByKey: addTargetFleetByKey,
+      defaultCountry,
     });
-  }, [targetCompetitors.data, targetFleets.data, irishRatings.data, ircVariantByFleet, matchByName, certChoiceByCompetitor, addTargetFleetByKey]);
+  }, [targetCompetitors.data, targetFleets.data, ircRatings.data, ircVariantByFleet, matchByName, certChoiceByCompetitor, addTargetFleetByKey, defaultCountry]);
+
+  const additionCandidates = step === 'source-irc-rating' ? ircAdditions : echoAdditions;
 
   // A candidate can actually be applied once it has a target fleet and a value.
   const checkedAdditions = additionCandidates.filter(
     (c) => addSelected.has(additionKey(c.competitorId, c.system)) && c.targetFleetId && c.proposedTcf !== null,
   );
 
-  const previewRows = step === 'source-irish-sailing' ? irishPreviewRows : seriesPreviewRows;
+  const previewRows =
+    step === 'source-irc-rating'
+      ? ircPreviewRows
+      : step === 'source-irish-sailing'
+        ? echoPreviewRows
+        : seriesPreviewRows;
 
   // ── Apply ──────────────────────────────────────────────────────────────────
   async function handleApply() {
@@ -417,6 +469,25 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                 </div>
               </label>
 
+              {ircRatingEnabled && (
+                <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="source"
+                    className="mt-1"
+                    checked={source === 'irc-rating'}
+                    onChange={() => setSource('irc-rating')}
+                  />
+                  <div>
+                    <div className="font-medium">IRC TCC (international)</div>
+                    <div className="text-sm text-muted-foreground">
+                      Pull each boat&apos;s current IRC TCC from the worldwide IRC rating list,
+                      matched by sail number.
+                    </div>
+                  </div>
+                </label>
+              )}
+
               {irishSailingEnabled && (
                 <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
                   <input
@@ -427,10 +498,10 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                     onChange={() => setSource('irish-sailing')}
                   />
                   <div>
-                    <div className="font-medium">Irish Sailing certificates</div>
+                    <div className="font-medium">Irish Sailing ECHO</div>
                     <div className="text-sm text-muted-foreground">
-                      Pull each boat&apos;s current IRC TCC and ECHO handicap from the national
-                      Irish Sailing ratings list, matched by sail number.
+                      Pull each boat&apos;s current ECHO handicap from the national Irish Sailing
+                      ratings list, matched by sail number.
                     </div>
                   </div>
                 </label>
@@ -441,7 +512,13 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
               <Button
                 onClick={() =>
-                  setStep(source === 'irish-sailing' ? 'source-irish-sailing' : 'source-series')
+                  setStep(
+                    source === 'irc-rating'
+                      ? 'source-irc-rating'
+                      : source === 'irish-sailing'
+                        ? 'source-irish-sailing'
+                        : 'source-series',
+                  )
                 }
               >
                 Next
@@ -540,13 +617,13 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
           </>
         )}
 
-        {step === 'source-irish-sailing' && (
+        {step === 'source-irc-rating' && (
           <>
             <DialogHeader>
-              <DialogTitle>Update handicaps from Irish Sailing</DialogTitle>
+              <DialogTitle>Update handicaps from IRC ratings</DialogTitle>
               <DialogDescription>
-                We match each boat by sail number against the national Irish Sailing ratings
-                list and propose its IRC TCC and ECHO handicap.
+                We match each boat by sail number against the worldwide IRC rating list and
+                propose its IRC TCC.
               </DialogDescription>
             </DialogHeader>
 
@@ -579,12 +656,121 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Set non-spinnaker classes to use their non-spin TCC. ECHO fleets have no
-                    spinnaker/non-spinnaker split.
+                    Set non-spinnaker classes to use their non-spin TCC.
                   </p>
                 </div>
               )}
 
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-3.5 w-3.5"
+                  checked={matchByName}
+                  onChange={(e) => setMatchByName(e.target.checked)}
+                />
+                <span>
+                  Also match by boat name
+                  <span className="block text-xs text-muted-foreground">
+                    Helps when a sail number is entered without its country code or doesn&apos;t
+                    match. Names collide more easily — check the proposed boat before applying.
+                  </span>
+                </span>
+              </label>
+
+              {ircRatings.isLoading && (
+                <p className="text-sm text-muted-foreground">Loading IRC ratings…</p>
+              )}
+
+              {ircRatings.isError && (
+                <p className="text-sm text-destructive">
+                  Couldn&apos;t load the IRC rating list. Please try again later.
+                </p>
+              )}
+
+              {ircRatings.data && (
+                <>
+                  <PreviewSection
+                    changedRows={changedRows}
+                    unchangedRows={unchangedRows}
+                    notFoundRows={notFoundRows}
+                    excludedRowIds={excludedRowIds}
+                    onToggleRow={(key, included) => {
+                      setExcludedRowIds((prev) => {
+                        const next = new Set(prev);
+                        if (included) next.delete(key);
+                        else next.add(key);
+                        return next;
+                      });
+                    }}
+                    targetCompetitorById={targetCompetitorById}
+                    targetFleetById={targetFleetById}
+                    sourceFleetById={sourceFleetById}
+                    onChooseCert={(competitorId, certId) =>
+                      setCertChoiceByCompetitor((prev) => ({ ...prev, [competitorId]: certId }))
+                    }
+                  />
+
+                  <AddToFleetSection
+                    candidates={additionCandidates}
+                    selected={addSelected}
+                    onToggle={(key, on) =>
+                      setAddSelected((prev) => {
+                        const next = new Set(prev);
+                        if (on) next.add(key);
+                        else next.delete(key);
+                        return next;
+                      })
+                    }
+                    onChooseFleet={(key, fleetId) =>
+                      setAddTargetFleetByKey((prev) => ({ ...prev, [key]: fleetId }))
+                    }
+                    onChooseCert={(competitorId, certId) =>
+                      setCertChoiceByCompetitor((prev) => ({ ...prev, [competitorId]: certId }))
+                    }
+                    targetCompetitorById={targetCompetitorById}
+                    seriesHasRaces={seriesHasRaces}
+                  />
+
+                  {ircRatings.data.updatedAt && (
+                    <p className="text-xs text-muted-foreground">
+                      IRC ratings as of {ircRatings.data.updatedAt}.
+                    </p>
+                  )}
+
+                  {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
+                </>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button
+                onClick={handleApply}
+                disabled={
+                  !ircRatings.data ||
+                  checkedChangedCount + checkedAdditions.length === 0 ||
+                  updateMut.isPending
+                }
+              >
+                {updateMut.isPending
+                  ? 'Applying…'
+                  : `Apply ${checkedChangedCount + checkedAdditions.length}`}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {step === 'source-irish-sailing' && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Update handicaps from Irish Sailing ECHO</DialogTitle>
+              <DialogDescription>
+                We match each boat by sail number against the national Irish Sailing ratings
+                list and propose its ECHO handicap.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2 min-h-0 min-w-0 overflow-y-auto">
               <label className="flex items-start gap-2 text-sm cursor-pointer">
                 <input
                   type="checkbox"
@@ -629,9 +815,6 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                     targetCompetitorById={targetCompetitorById}
                     targetFleetById={targetFleetById}
                     sourceFleetById={sourceFleetById}
-                    onChooseCert={(competitorId, certId) =>
-                      setCertChoiceByCompetitor((prev) => ({ ...prev, [competitorId]: certId }))
-                    }
                   />
 
                   <AddToFleetSection
