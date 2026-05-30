@@ -6,10 +6,18 @@ import { fleetRepo, listSeriesNames } from '@/lib/api-repository';
 import { useSeries, useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
 import { useFleetsBySeries, useSaveFleet } from '@/hooks/use-fleets';
 import { useCompetitorsBySeries } from '@/hooks/use-competitors';
+import { useCategories } from '@/hooks/use-categories';
 import { isDuplicateSeriesName } from '@/lib/series-name';
 import type { Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Upload } from 'lucide-react';
 import { CompetitorImport } from '@/components/competitor-import';
 import { BasicsCard } from '@/components/series-settings/basics-card';
@@ -31,6 +39,7 @@ function Step1({
 }) {
   const updateSeries = useUpdateSeries();
   const touchSeries = useTouchSeries();
+  const { data: categories } = useCategories();
   const [nextError, setNextError] = useState<string | null>(null);
 
   async function persist(patch: Partial<Series>) {
@@ -66,6 +75,28 @@ function Step1({
         validateName={validateName}
         onChange={persist}
       />
+      {categories && categories.length > 0 && (
+        <div className="space-y-1.5">
+          <Label htmlFor="series-category">Category</Label>
+          <Select
+            value={series.categoryId ?? 'none'}
+            onValueChange={(v) => persist({ categoryId: v === 'none' ? null : v })}
+          >
+            <SelectTrigger id="series-category" className="w-full" data-testid="setup-category">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Uncategorized</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Which section of your series list to file this under. You can move it later.
+          </p>
+        </div>
+      )}
       {nextError && <p className="text-sm text-destructive">{nextError}</p>}
       <div className="flex justify-end pt-2">
         <Button onClick={handleNext}>Next: Competitors →</Button>

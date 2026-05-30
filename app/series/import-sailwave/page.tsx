@@ -21,6 +21,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { queryKeys } from '@/hooks/query-keys';
+import { useCategories } from '@/hooks/use-categories';
 import { openSeriesFromFile } from '@/lib/series-file';
 import {
   buildSeriesFileFromSailwave,
@@ -152,8 +153,17 @@ function Wizard({
     return m;
   });
   const [targetWorkspaceId, setTargetWorkspaceId] = useState<string>('');
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Categories belong to the active workspace, so only offer the picker when
+  // the import will land there (single-workspace, or the target still matches
+  // the active one). Switching the target away hides it and clears the choice.
+  const { data: categories } = useCategories();
+  const categoryPickerAvailable =
+    (categories?.length ?? 0) > 0 &&
+    (!showWorkspacePicker || targetWorkspaceId === activeOrganizationId);
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -213,7 +223,9 @@ function Wizard({
         await authClient.organization.setActive({ organizationId: targetWorkspaceId });
       }
       const file = buildSeriesFileFromSailwave(raw, opts);
-      const newId = await openSeriesFromFile(file, repos);
+      const newId = await openSeriesFromFile(file, repos, {
+        categoryId: categoryPickerAvailable ? categoryId : null,
+      });
       await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
       // Hard navigate (matching /import) so server-rendered shells pick up
       // the workspace switch. Land on Competitors — the scorer's first job
@@ -366,6 +378,28 @@ function Wizard({
             <CardTitle>Options</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {categoryPickerAvailable && (
+              <div className="space-y-1.5">
+                <Label htmlFor="series-category">Category</Label>
+                <Select
+                  value={categoryId ?? 'none'}
+                  onValueChange={(v) => setCategoryId(v === 'none' ? null : v)}
+                >
+                  <SelectTrigger id="series-category" className="w-48" data-testid="sailwave-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Uncategorized</SelectItem>
+                    {(categories ?? []).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Which section of your series list to file this under. You can move it later.
+                </p>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="primary-label">Primary identifier</Label>
               <Select

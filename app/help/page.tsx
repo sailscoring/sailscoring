@@ -175,9 +175,11 @@ export default async function HelpPage() {
           <strong className="text-foreground">Series categories</strong> in Workspace settings,
           then assign a series with{' '}
           <strong className="text-foreground">Move to category</strong> on its{' '}
-          <strong className="text-foreground">⋯</strong> menu. A series with no category sits
-          under <strong className="text-foreground">Uncategorized</strong>. Deleting a category
-          simply moves its series back to Uncategorized — nothing is lost.
+          <strong className="text-foreground">⋯</strong> menu. Once you have categories, you can
+          also pick one up front — in the new-series wizard, or when importing a{' '}
+          <span className="font-mono">.sailscoring</span> or Sailwave file. A series with no
+          category sits under <strong className="text-foreground">Uncategorized</strong>. Deleting
+          a category simply moves its series back to Uncategorized — nothing is lost.
         </p>
         <p>
           <strong className="text-foreground">Archiving</strong> a series (from its{' '}

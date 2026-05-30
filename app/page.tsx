@@ -37,6 +37,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,6 +79,7 @@ type ImportFormat = 'sailscoring' | 'sailwave';
 type OpenFlow =
   | { step: 'idle' }
   | { step: 'choose-format' }
+  | { step: 'confirm-new'; file: SeriesFile; categoryId: string | null }
   | { step: 'disambiguate'; file: SeriesFile; existing: Series }
   | { step: 'confirm-update'; file: SeriesFile; existing: Series; status: LineageStatus }
   | { step: 'working' }
@@ -295,17 +305,34 @@ export default function HomePage() {
       const existing = all.find((s) => s.id === parsed.seriesId);
 
       if (!existing) {
-        // No match — open as new. No invalidateQueries: the navigation
-        // unmounts this page, aborting the refetch and logging a
-        // "Failed to fetch" console.error that the e2e console-monitor
-        // treats as a failure. The new series's own pages refetch what
-        // they need on mount.
-        const newId = await openSeriesFromFile(parsed, repos);
-        router.push(`/series/${newId}/races`);
+        // No match — open as new. When the workspace has categories, pause on
+        // a confirm step so the scorer can file it (and eyeball the details);
+        // otherwise open straight through to keep the common case one-click.
+        if ((categories?.length ?? 0) > 0) {
+          setOpenFlow({ step: 'confirm-new', file: parsed, categoryId: null });
+          return;
+        }
+        await openNewFromFile(parsed, null);
         return;
       }
 
       setOpenFlow({ step: 'disambiguate', file: parsed, existing });
+    } catch (err) {
+      console.error(err);
+      setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
+    }
+  }
+
+  // Open a parsed file as a brand-new series, optionally filed under a category.
+  // No invalidateQueries: the navigation unmounts this page, aborting the
+  // refetch and logging a "Failed to fetch" console.error that the e2e
+  // console-monitor treats as a failure. The new series's own pages refetch
+  // what they need on mount.
+  async function openNewFromFile(file: SeriesFile, categoryId: string | null) {
+    setOpenFlow({ step: 'working' });
+    try {
+      const newId = await openSeriesFromFile(file, repos, { categoryId });
+      router.push(`/series/${newId}/races`);
     } catch (err) {
       console.error(err);
       setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
@@ -517,6 +544,78 @@ export default function HomePage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenFlow({ step: 'idle' })}>
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm new-series import (.sailscoring) — pick a category */}
+      <Dialog
+        open={openFlow.step === 'confirm-new'}
+        onOpenChange={(open) => { if (!open) setOpenFlow({ step: 'idle' }); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Import &ldquo;{openFlow.step === 'confirm-new' ? openFlow.file.series.name : ''}&rdquo;?
+            </DialogTitle>
+            <DialogDescription>
+              This will open the file as a new series in your scoring app.
+            </DialogDescription>
+          </DialogHeader>
+          {openFlow.step === 'confirm-new' && (
+            <div className="space-y-4">
+              <div className="space-y-2 text-sm">
+                {openFlow.file.series.venue && (
+                  <div>
+                    <span className="text-muted-foreground">Venue:</span> {openFlow.file.series.venue}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary">{openFlow.file.competitors.length} competitors</Badge>
+                  <Badge variant="secondary">{openFlow.file.races.length} races</Badge>
+                  <Badge variant="secondary">{openFlow.file.fleets.length} fleets</Badge>
+                  <Badge variant="outline">
+                    Saved {new Date(openFlow.file.exportedAt).toLocaleDateString()}
+                  </Badge>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="import-category">Category</Label>
+                <Select
+                  value={openFlow.categoryId ?? 'none'}
+                  onValueChange={(v) =>
+                    setOpenFlow((prev) =>
+                      prev.step === 'confirm-new'
+                        ? { ...prev, categoryId: v === 'none' ? null : v }
+                        : prev,
+                    )
+                  }
+                >
+                  <SelectTrigger id="import-category" className="w-full" data-testid="import-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Uncategorized</SelectItem>
+                    {(categories ?? []).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenFlow({ step: 'idle' })}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (openFlow.step !== 'confirm-new') return;
+                openNewFromFile(openFlow.file, openFlow.categoryId);
+              }}
+            >
+              Open series
             </Button>
           </DialogFooter>
         </DialogContent>

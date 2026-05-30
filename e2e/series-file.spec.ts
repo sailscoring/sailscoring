@@ -303,6 +303,55 @@ test('series file: Import Series shows working dialog while loading file (#139)'
   await expect(page.getByRole('heading', { name: 'Working Dialog Reopened' })).toBeVisible();
 });
 
+test('series file: importing a new .sailscoring file lets you file it under a category', async ({ page }) => {
+  // ── Create series, save to file, then add a category ──────────────────────
+  await createSeriesQuick(page, { name: 'Category Import Source' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const original = await saveToFile(page);
+
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Manage' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByPlaceholder('New category name').fill('Open Events');
+  await dialog.getByRole('button', { name: 'Add' }).click();
+  await expect(dialog.getByPlaceholder('New category name')).toHaveValue('');
+  await dialog.getByRole('button', { name: 'Done' }).click();
+
+  // Rewrite the seriesId so the open hits the "new series" branch.
+  const freshId = crypto.randomUUID();
+  const fresh: SeriesFile = {
+    ...original,
+    seriesId: freshId,
+    series: { ...original.series, id: freshId, name: 'Imported Into Category' },
+  };
+
+  // ── Import from home → confirm dialog with a category picker ───────────────
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Import Series' }).click();
+  const [fileChooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByTestId('import-format-sailscoring').click(),
+  ]);
+  await fileChooser.setFiles({
+    name: 'fresh.sailscoring',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(fresh)),
+  });
+
+  await expect(page.getByRole('dialog', { name: /Import .*Imported Into Category/ })).toBeVisible();
+  await page.getByTestId('import-category').click();
+  await page.getByRole('option', { name: 'Open Events' }).click();
+  await page.getByRole('button', { name: 'Open series' }).click();
+
+  // ── Lands on the new series, and the home list files it under the category ─
+  await expect(page).toHaveURL(/\/series\/[^/]+\/races$/);
+  await expect(page.getByRole('heading', { name: 'Imported Into Category' })).toBeVisible();
+
+  await page.goto('/');
+  const section = page.locator('section', { has: page.getByRole('heading', { name: 'Open Events' }) });
+  await expect(section.getByText('Imported Into Category')).toBeVisible();
+});
+
 test('series file: diverged snapshot shows conflict dialog; open as new copy creates second series', async ({ page }) => {
   // ── Create series and save to file ────────────────────────────────────────
   await createSeriesQuick(page, { name: 'Diverged Original' });

@@ -465,6 +465,7 @@ function remapFtpPaths(
 export async function openSeriesFromFile(
   file: SeriesFile,
   repos: SeriesFileRepos,
+  opts?: { categoryId?: string | null },
 ): Promise<string> {
   const newSeriesId = crypto.randomUUID();
   const now = Date.now();
@@ -477,9 +478,9 @@ export async function openSeriesFromFile(
 
   // Series first (FK target for everything below). No expectedVersion —
   // fresh row, authoritative write per `SaveOpts` doc-comment.
-  // `categoryId`/`archived` (#154) are intentionally absent: they're
-  // workspace-local and not carried in the file format, so the repo defaults
-  // them (null/false) — a freshly opened file lands active and uncategorised.
+  // `categoryId` isn't carried in the file format (it's workspace-local), so it
+  // defaults to null unless the caller picks one in the import dialog (#154).
+  // `archived` is likewise absent — a freshly opened file always lands active.
   await repos.seriesRepo.save({
     id: newSeriesId,
     name,
@@ -508,6 +509,7 @@ export async function openSeriesFromFile(
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionLabel: file.series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+    categoryId: opts?.categoryId ?? null,
   });
 
   await writeFleetsCompetitorsRaces(repos, file, newSeriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
