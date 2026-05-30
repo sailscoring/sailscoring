@@ -146,3 +146,53 @@ test('primary/secondary certificate: defaults to higher TCC, switchable', async 
   await row.click();
   await expect(page.getByLabel('IRC TCC', { exact: true })).toHaveValue('1.092');
 });
+
+test('add a newly-rated boat to the IRC fleet (#170)', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'IRC Add Test 2026' });
+
+  // One scratch fleet + handicap mode; add the boat there (no IRC fleet yet).
+  await createFleets(page, ['White Sail']);
+  await setScoringMode(page, 'handicap');
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('IRL1431');
+  await page.getByLabel('Competitor name').fill('3 Cheers');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'IRL1431' })).toBeVisible();
+
+  // Now add an IRC fleet — the boat is NOT a member of it.
+  await createFleets(page, ['IRC']);
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByTestId('fleet-row').filter({ hasText: 'IRC' }).getByRole('combobox').click();
+  await page.getByRole('option', { name: 'IRC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // A sailed race, so the DNC caution applies.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 1')).toBeVisible();
+
+  // Open the dialog → Irish Sailing → the add-to-fleet section.
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('Irish Sailing certificates').click();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await expect(page.getByText('Add to handicap fleet')).toBeVisible();
+  await expect(
+    page.getByText('Boats added here are scored DNC for races already sailed'),
+  ).toBeVisible();
+
+  // Tick the candidate (target IRC fleet auto-selected) and apply.
+  await page.getByRole('checkbox').last().check();
+  await page.getByRole('button', { name: /^Apply/ }).click();
+  await expect(page.getByText('Handicaps updated')).toBeVisible();
+  await expect(page.getByText('1 added to a handicap fleet')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Persisted: now a member of the IRC fleet (Fleet column) with the seeded TCC.
+  const compRow = page.getByRole('row').filter({ hasText: 'IRL1431' });
+  await expect(compRow).toContainText('IRC');
+  await compRow.click();
+  await expect(page.getByLabel('IRC TCC', { exact: true })).toHaveValue('0.932');
+});

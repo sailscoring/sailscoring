@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, eq } from 'drizzle-orm';
 
-import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
@@ -135,17 +135,39 @@ export async function bulkUpdateHandicaps(
 
   const db = getDb();
   const updated: Competitor[] = [];
+  let addedToFleet = 0;
   await db.transaction(async (tx) => {
     const repos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
+
+    // Validate any fleet-add targets up front: every id must be a fleet of
+    // this series (fleetIds is otherwise only shape-validated).
+    const wantsFleetAdd = updates.some((u) => u.addFleetIds && u.addFleetIds.length > 0);
+    const seriesFleetIds = wantsFleetAdd
+      ? new Set((await repos.fleets.listBySeries(seriesId)).map((f) => f.id))
+      : new Set<string>();
+
     for (const u of updates) {
       const existing = await repos.competitors.get(u.competitorId);
       if (!existing || existing.seriesId !== seriesId) {
         throw new NotFoundError('competitor');
       }
+      // Union in any fleet additions (#170), keeping membership a set.
+      let fleetIds = existing.fleetIds;
+      if (u.addFleetIds && u.addFleetIds.length > 0) {
+        for (const fid of u.addFleetIds) {
+          if (!seriesFleetIds.has(fid)) {
+            throw new BadRequestError(`fleet ${fid} is not in this series`);
+          }
+        }
+        const merged = new Set([...existing.fleetIds, ...u.addFleetIds]);
+        if (merged.size !== existing.fleetIds.length) addedToFleet++;
+        fleetIds = [...merged];
+      }
       // Build the next row by merging only the supplied handicap fields.
       // `undefined` means "not in this update" and leaves the field alone.
       const next: Competitor = {
         ...existing,
+        fleetIds,
         ...(u.ircTcc !== undefined ? { ircTcc: u.ircTcc } : {}),
         ...(u.pyNumber !== undefined ? { pyNumber: u.pyNumber } : {}),
         ...(u.nhcStartingTcf !== undefined ? { nhcStartingTcf: u.nhcStartingTcf } : {}),
@@ -159,10 +181,14 @@ export async function bulkUpdateHandicaps(
     }
   });
   const n = updated.length;
+  const summary =
+    addedToFleet > 0
+      ? `Updated handicaps for ${n} competitor${n === 1 ? '' : 's'}; added ${addedToFleet} to a fleet`
+      : `Updated handicaps for ${n} competitor${n === 1 ? '' : 's'}`;
   await recordActivity(workspace, {
     action: 'competitors.handicaps_updated',
     seriesId,
-    summary: `Updated handicaps for ${n} competitor${n === 1 ? '' : 's'}`,
+    summary,
   });
   return { updated };
 }

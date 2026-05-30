@@ -59,6 +59,10 @@ export const handicapUpdateSchema = z.object({
   pyNumber: z.number().optional(),
   nhcStartingTcf: z.number().optional(),
   echoStartingTcf: z.number().optional(),
+  // Fleets to add this competitor to (union with current membership) — the
+  // "add a newly-rated boat to the handicap fleet" path (#170). The handler
+  // verifies each id is a fleet of the series.
+  addFleetIds: z.array(uuidSchema).optional(),
 });
 
 export const handicapBulkUpdateSchema = z.object({

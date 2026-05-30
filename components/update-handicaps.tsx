@@ -45,8 +45,11 @@ import type { IrcTccVariant } from '@/lib/irish-sailing-ratings';
 import {
   endOfSeriesTcfs,
   planHandicapUpdates,
+  additionKey,
+  planFleetAdditionsFromIrishSailing,
   planHandicapUpdatesFromIrishSailing,
   proposeFleetMapping,
+  type FleetAdditionCandidate,
   type HandicapSystem,
   type PreviewRow,
   type RatingMatch,
@@ -126,6 +129,9 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   const [matchByName, setMatchByName] = useState(false);
   // Per-boat certificate override (boats holding a primary + secondary "(SC)").
   const [certChoiceByCompetitor, setCertChoiceByCompetitor] = useState<Record<string, string>>({});
+  // Add-to-fleet (#170): which candidates are ticked, and each one's target fleet.
+  const [addSelected, setAddSelected] = useState<Set<string>>(new Set());
+  const [addTargetFleetByKey, setAddTargetFleetByKey] = useState<Record<string, string>>({});
   const [fleetMapping, setFleetMapping] = useState<Record<string, string | null>>({});
   const [excludedRowIds, setExcludedRowIds] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<{
@@ -133,6 +139,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
     bySystem: Partial<Record<HandicapSystem, number>>;
     unchanged: number;
     notFound: number;
+    added: number;
   } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -144,6 +151,8 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
       setIrcVariantByFleet({});
       setMatchByName(false);
       setCertChoiceByCompetitor({});
+      setAddSelected(new Set());
+      setAddTargetFleetByKey({});
       setFleetMapping({});
       setExcludedRowIds(new Set());
       setResult(null);
@@ -253,24 +262,57 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
     [targetFleets.data],
   );
 
+  // Races in the target series — drives the DNC caution on fleet additions.
+  const targetRaces = useQuery({
+    queryKey: queryKeys.races.bySeries(seriesId),
+    queryFn: () => raceRepo.listBySeries(seriesId),
+    enabled: step === 'source-irish-sailing',
+  });
+  const seriesHasRaces = (targetRaces.data?.length ?? 0) > 0;
+
+  // Add-to-fleet candidates (#170): rated boats not yet in the matching fleet.
+  const additionCandidates = useMemo<FleetAdditionCandidate[]>(() => {
+    if (!targetCompetitors.data || !targetFleets.data || !irishRatings.data) return [];
+    return planFleetAdditionsFromIrishSailing({
+      targetCompetitors: targetCompetitors.data,
+      targetFleets: targetFleets.data,
+      ratings: irishRatings.data.records,
+      ircVariantByFleet,
+      matchByName,
+      certChoiceByCompetitor,
+      targetFleetByKey: addTargetFleetByKey,
+    });
+  }, [targetCompetitors.data, targetFleets.data, irishRatings.data, ircVariantByFleet, matchByName, certChoiceByCompetitor, addTargetFleetByKey]);
+
+  // A candidate can actually be applied once it has a target fleet and a value.
+  const checkedAdditions = additionCandidates.filter(
+    (c) => addSelected.has(additionKey(c.competitorId, c.system)) && c.targetFleetId && c.proposedTcf !== null,
+  );
+
   const previewRows = step === 'source-irish-sailing' ? irishPreviewRows : seriesPreviewRows;
 
   // ── Apply ──────────────────────────────────────────────────────────────────
   async function handleApply() {
     setErrorMsg(null);
     const changeRows = previewRows.filter((r) => r.status === 'change' && !excludedRowIds.has(rowKey(r)));
-    if (changeRows.length === 0) return;
+    if (changeRows.length === 0 && checkedAdditions.length === 0) return;
 
     const compById = new Map((targetCompetitors.data ?? []).map((c) => [c.id, c]));
     const updatesByComp = new Map<string, HandicapUpdateRow>();
-    for (const row of changeRows) {
-      const comp = compById.get(row.competitorId);
-      if (!comp || comp.version === undefined) continue;
+    function rowFor(competitorId: string): HandicapUpdateRow | null {
+      const comp = compById.get(competitorId);
+      if (!comp || comp.version === undefined) return null;
       let update = updatesByComp.get(comp.id);
       if (!update) {
         update = { competitorId: comp.id, expectedVersion: comp.version };
         updatesByComp.set(comp.id, update);
       }
+      return update;
+    }
+
+    for (const row of changeRows) {
+      const update = rowFor(row.competitorId);
+      if (!update) continue;
       const field = SYSTEM_FIELD[row.system];
       // Mutate via an unknown-cast index access — TS can't see that the
       // field name is statically one of the four optional number fields
@@ -278,6 +320,16 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
       // each HandicapSystem to the matching field) and the wire schema
       // validates on the server.
       (update as unknown as Record<string, number>)[field] = row.newTcf!;
+    }
+
+    // Fleet additions: union the target fleet and seed the rating in the same
+    // per-competitor row (one CAS write even if the boat also has an update).
+    for (const c of checkedAdditions) {
+      const update = rowFor(c.competitorId);
+      if (!update || !c.targetFleetId || c.proposedTcf === null) continue;
+      update.addFleetIds = [...new Set([...(update.addFleetIds ?? []), c.targetFleetId])];
+      const field = SYSTEM_FIELD[c.system];
+      (update as unknown as Record<string, number>)[field] = c.proposedTcf;
     }
 
     if (updatesByComp.size === 0) return;
@@ -293,6 +345,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
         bySystem,
         unchanged: previewRows.filter((r) => r.status === 'unchanged').length,
         notFound: previewRows.filter((r) => r.status === 'not-found').length,
+        added: checkedAdditions.length,
       });
       setStep('done');
     } catch (err) {
@@ -581,6 +634,27 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                     }
                   />
 
+                  <AddToFleetSection
+                    candidates={additionCandidates}
+                    selected={addSelected}
+                    onToggle={(key, on) =>
+                      setAddSelected((prev) => {
+                        const next = new Set(prev);
+                        if (on) next.add(key);
+                        else next.delete(key);
+                        return next;
+                      })
+                    }
+                    onChooseFleet={(key, fleetId) =>
+                      setAddTargetFleetByKey((prev) => ({ ...prev, [key]: fleetId }))
+                    }
+                    onChooseCert={(competitorId, certId) =>
+                      setCertChoiceByCompetitor((prev) => ({ ...prev, [competitorId]: certId }))
+                    }
+                    targetCompetitorById={targetCompetitorById}
+                    seriesHasRaces={seriesHasRaces}
+                  />
+
                   {irishRatings.data.updatedAt && (
                     <p className="text-xs text-muted-foreground">
                       Irish Sailing ratings as of {irishRatings.data.updatedAt}.
@@ -598,11 +672,13 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                 onClick={handleApply}
                 disabled={
                   !irishRatings.data ||
-                  checkedChangedCount === 0 ||
+                  checkedChangedCount + checkedAdditions.length === 0 ||
                   updateMut.isPending
                 }
               >
-                {updateMut.isPending ? 'Applying…' : `Apply ${checkedChangedCount}`}
+                {updateMut.isPending
+                  ? 'Applying…'
+                  : `Apply ${checkedChangedCount + checkedAdditions.length}`}
               </Button>
             </DialogFooter>
           </>
@@ -625,6 +701,9 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                       {count} {SYSTEM_LABEL[system]}
                     </li>
                   ),
+                )}
+                {result.added > 0 && (
+                  <li>{result.added} added to a handicap fleet</li>
                 )}
                 <li>{result.unchanged} unchanged</li>
                 {result.notFound > 0 && (
@@ -836,6 +915,116 @@ function PreviewSection({
           </div>
         </details>
       )}
+    </div>
+  );
+}
+
+function AddToFleetSection({
+  candidates,
+  selected,
+  onToggle,
+  onChooseFleet,
+  onChooseCert,
+  targetCompetitorById,
+  seriesHasRaces,
+}: {
+  candidates: FleetAdditionCandidate[];
+  selected: Set<string>;
+  onToggle: (key: string, on: boolean) => void;
+  onChooseFleet: (key: string, fleetId: string) => void;
+  onChooseCert: (competitorId: string, certId: string) => void;
+  targetCompetitorById: Map<string, Competitor>;
+  seriesHasRaces: boolean;
+}) {
+  if (candidates.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-medium">Add to handicap fleet</div>
+      <p className="text-xs text-muted-foreground">
+        These boats have an Irish Sailing certificate but aren&apos;t in a fleet that uses it — tick
+        to add them and seed the rating.
+      </p>
+      {seriesHasRaces && (
+        <p className="text-xs text-amber-600 dark:text-amber-500">
+          Boats added here are scored DNC for races already sailed in that fleet.
+        </p>
+      )}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-8"></TableHead>
+            <TableHead>Sail no.</TableHead>
+            <TableHead>Boat</TableHead>
+            <TableHead>Add to</TableHead>
+            <TableHead className="text-right">Rating</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {candidates.map((c) => {
+            const key = additionKey(c.competitorId, c.system);
+            const comp = targetCompetitorById.get(c.competitorId);
+            const checked = selected.has(key);
+            const canApply = c.targetFleetId !== null && c.proposedTcf !== null;
+            return (
+              <TableRow key={key}>
+                <TableCell>
+                  <input
+                    type="checkbox"
+                    checked={checked && canApply}
+                    disabled={!canApply}
+                    onChange={(e) => onToggle(key, e.target.checked)}
+                    className="h-3.5 w-3.5"
+                  />
+                </TableCell>
+                <TableCell>{comp?.sailNumber}</TableCell>
+                <TableCell>
+                  {comp?.boatName ?? comp?.name}{' '}
+                  <span className="text-muted-foreground">({SYSTEM_LABEL[c.system]})</span>
+                  {c.match && (
+                    <span className="block text-xs text-amber-600 dark:text-amber-500">
+                      {describeMatch(c.match)}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <select
+                    aria-label="Target fleet"
+                    value={c.targetFleetId ?? ''}
+                    onChange={(e) => onChooseFleet(key, e.target.value)}
+                    className="rounded border bg-background px-1 py-0.5 text-xs"
+                  >
+                    {c.targetFleetId === null && <option value="">Select fleet…</option>}
+                    {c.fleetOptions.map((f) => (
+                      <option key={f.fleetId} value={f.fleetId}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {c.certChoice && (
+                    <select
+                      aria-label="Certificate"
+                      value={c.certChoice.chosen}
+                      onChange={(e) => onChooseCert(c.competitorId, e.target.value)}
+                      className="mb-1 block rounded border bg-background px-1 py-0.5 text-xs"
+                    >
+                      {c.certChoice.options.map((o) => (
+                        <option key={o.certId} value={o.certId}>
+                          {o.label}
+                          {o.tcc !== null ? ` — ${o.tcc.toFixed(3)}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {c.proposedTcf !== null ? formatTcf(c.proposedTcf, c.system) : '—'}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     </div>
   );
 }

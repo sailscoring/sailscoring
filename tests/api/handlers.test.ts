@@ -14,7 +14,7 @@ import { eq } from 'drizzle-orm';
 import postgres, { type Sql } from 'postgres';
 
 import * as schema from '@/lib/db/schema';
-import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import * as series from '@/lib/api-handlers/series';
 import * as fleets from '@/lib/api-handlers/fleets';
@@ -368,6 +368,49 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
 
     await removeSeries(ctxA, seriesId);
     await removeSeries(ctxA, otherSeriesId);
+  });
+
+  test('competitors.bulkUpdateHandicaps adds to a fleet and sets the rating atomically (#170)', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const scratchId = uuid();
+    const ircId = uuid();
+    await fleets.putFleet(ctxA, seriesId, scratchId, {
+      id: scratchId, seriesId, name: 'White Sail', displayOrder: 0, scoringSystem: 'scratch' as const,
+    });
+    await fleets.putFleet(ctxA, seriesId, ircId, {
+      id: ircId, seriesId, name: 'IRC', displayOrder: 1, scoringSystem: 'irc' as const,
+    });
+    const compId = uuid();
+    const created = await competitors.putCompetitor(ctxA, seriesId, compId, {
+      id: compId, seriesId, fleetIds: [scratchId],
+      sailNumber: 'IRL 7404', name: 'Skipper', club: 'HYC', gender: 'M' as const, age: 50,
+      createdAt: Date.now(),
+    });
+
+    // One row both joins the IRC fleet and sets the TCC.
+    const { updated } = await competitors.bulkUpdateHandicaps(ctxA, seriesId, {
+      updates: [
+        { competitorId: compId, expectedVersion: created.version, ircTcc: 1.092, addFleetIds: [ircId] },
+      ],
+    });
+    expect(updated[0].fleetIds.sort()).toEqual([scratchId, ircId].sort());
+    expect(updated[0].ircTcc).toBe(1.092);
+    expect(updated[0].version).toBe((created.version ?? 1) + 1);
+
+    // A bogus fleet id is rejected (and leaves the row untouched).
+    const now = await competitors.getCompetitor(ctxA, seriesId, compId);
+    await expect(
+      competitors.bulkUpdateHandicaps(ctxA, seriesId, {
+        updates: [
+          { competitorId: compId, expectedVersion: now.version ?? 1, addFleetIds: [uuid()] },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+    const afterReject = await competitors.getCompetitor(ctxA, seriesId, compId);
+    expect(afterReject.fleetIds.sort()).toEqual([scratchId, ircId].sort());
+
+    await removeSeries(ctxA, seriesId);
   });
 
   // ─── Races + race starts + finishes (bulk + single) ───────────────────────

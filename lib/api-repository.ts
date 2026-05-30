@@ -470,6 +470,9 @@ export interface HandicapUpdateRow {
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
+  /** Fleets to add this competitor to (#170) — unioned with current
+   *  membership server-side. */
+  addFleetIds?: string[];
 }
 
 export async function updateHandicaps(

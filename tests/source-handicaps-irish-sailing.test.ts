@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import type { IrishSailingRating } from '@/lib/irish-sailing-ratings';
 import {
+  additionKey,
+  planFleetAdditionsFromIrishSailing,
   planHandicapUpdatesFromIrishSailing,
+  type FleetAdditionCandidate,
   type PreviewRow,
 } from '@/lib/source-handicaps';
 import type { Competitor, Fleet } from '@/lib/types';
@@ -306,5 +309,108 @@ describe('planHandicapUpdatesFromIrishSailing — primary/secondary certificates
     const row = byKey(rows).get('c1::echo')!;
     expect(row.newTcf).toBe(1.12);
     expect(row.certChoice).toBeUndefined();
+  });
+});
+
+describe('planFleetAdditionsFromIrishSailing', () => {
+  function addByKey(cands: FleetAdditionCandidate[]) {
+    return new Map(cands.map((c) => [additionKey(c.competitorId, c.system), c]));
+  }
+
+  it('proposes adding a rated boat that is not in the matching fleet', () => {
+    const cands = planFleetAdditionsFromIrishSailing({
+      // boat is in the scratch fleet, not IRC
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-scratch'])],
+      targetFleets: [fleet('f-scratch', 'scratch'), fleet('f-irc', 'irc')],
+      ratings: [rating('IRL1431', { ircTcc: 0.932 })],
+      ircVariantByFleet: {},
+    });
+    const c = addByKey(cands).get(additionKey('c1', 'irc'))!;
+    expect(c).toMatchObject({ system: 'irc', targetFleetId: 'f-irc', proposedTcf: 0.932 });
+  });
+
+  it('does not propose a boat already in a fleet of that system', () => {
+    const cands = planFleetAdditionsFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-irc'])],
+      targetFleets: [fleet('f-irc', 'irc')],
+      ratings: [rating('IRL1431', { ircTcc: 0.932 })],
+      ircVariantByFleet: {},
+    });
+    expect(cands).toEqual([]);
+  });
+
+  it('computes IRC and ECHO candidacy independently', () => {
+    // In the ECHO fleet already, but not IRC; has both values.
+    const cands = planFleetAdditionsFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-echo'])],
+      targetFleets: [fleet('f-irc', 'irc'), fleet('f-echo', 'echo')],
+      ratings: [rating('IRL1431', { ircTcc: 0.932, echo: 0.975 })],
+      ircVariantByFleet: {},
+    });
+    const m = addByKey(cands);
+    expect(m.has(additionKey('c1', 'irc'))).toBe(true);   // not in IRC → candidate
+    expect(m.has(additionKey('c1', 'echo'))).toBe(false); // already in ECHO → not
+  });
+
+  it('omits the system when the series has no fleet of it', () => {
+    const cands = planFleetAdditionsFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-scratch'])],
+      targetFleets: [fleet('f-scratch', 'scratch'), fleet('f-irc', 'irc')],
+      ratings: [rating('IRL1431', { ircTcc: 0.932, echo: 0.975 })],
+      ircVariantByFleet: {},
+    });
+    const m = addByKey(cands);
+    expect(m.has(additionKey('c1', 'irc'))).toBe(true);
+    expect(m.has(additionKey('c1', 'echo'))).toBe(false); // no ECHO fleet
+  });
+
+  it('leaves the target fleet unset when several of that system exist', () => {
+    const cands = planFleetAdditionsFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-scratch'])],
+      targetFleets: [fleet('f-scratch', 'scratch'), fleet('f-irc1', 'irc'), fleet('f-irc2', 'irc')],
+      ratings: [rating('IRL1431', { ircTcc: 0.932 })],
+      ircVariantByFleet: {},
+    });
+    const c = addByKey(cands).get(additionKey('c1', 'irc'))!;
+    expect(c.targetFleetId).toBeNull();
+    expect(c.fleetOptions.map((f) => f.fleetId)).toEqual(['f-irc1', 'f-irc2']);
+  });
+
+  it('honours the chosen target fleet and its variant', () => {
+    const cands = planFleetAdditionsFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-scratch'])],
+      targetFleets: [fleet('f-scratch', 'scratch'), fleet('f-irc1', 'irc'), fleet('f-irc2', 'irc')],
+      ratings: [rating('IRL1431', { ircTcc: 0.932, ircNonSpinTcc: 0.918 })],
+      ircVariantByFleet: { 'f-irc2': 'non-spin' },
+      targetFleetByKey: { [additionKey('c1', 'irc')]: 'f-irc2' },
+    });
+    const c = addByKey(cands).get(additionKey('c1', 'irc'))!;
+    expect(c).toMatchObject({ targetFleetId: 'f-irc2', proposedTcf: 0.918 });
+  });
+
+  it('proposes ECHO additions from the published value', () => {
+    const cands = planFleetAdditionsFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-scratch'])],
+      targetFleets: [fleet('f-scratch', 'scratch'), fleet('f-echo', 'echo')],
+      ratings: [rating('IRL1431', { echo: 0.975 })],
+      ircVariantByFleet: {},
+    });
+    const c = addByKey(cands).get(additionKey('c1', 'echo'))!;
+    expect(c).toMatchObject({ system: 'echo', targetFleetId: 'f-echo', proposedTcf: 0.975 });
+  });
+
+  it('carries the primary/secondary cert switch into IRC additions', () => {
+    const cands = planFleetAdditionsFromIrishSailing({
+      targetCompetitors: [comp('c1', 'IRL7404', ['f-scratch'])],
+      targetFleets: [fleet('f-scratch', 'scratch'), fleet('f-irc', 'irc')],
+      ratings: [
+        rating('IRL7404', { boatName: 'Pretty Polly', ircCertNumber: '11479', ircTcc: 1.114 }),
+        rating('IRL7404', { boatName: 'Pretty Polly (SC)', ircCertNumber: '50718', ircTcc: 1.092 }),
+      ],
+      ircVariantByFleet: {},
+    });
+    const c = addByKey(cands).get(additionKey('c1', 'irc'))!;
+    expect(c.proposedTcf).toBe(1.114); // higher-TCC default
+    expect(c.certChoice?.options).toHaveLength(2);
   });
 });

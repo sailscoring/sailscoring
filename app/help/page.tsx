@@ -410,6 +410,14 @@ export default async function HelpPage() {
           <code className="font-mono text-xs">(SC)</code> for a different sail configuration —
           defaults to the higher TCC, with a dropdown on its row to switch to the other.
         </p>
+        <p>
+          If a boat is in the series but not yet in the matching fleet — say it gained an IRC
+          certificate after entry — it appears under{' '}
+          <strong className="text-foreground">Add to handicap fleet</strong>. Tick it, choose the
+          target fleet, and it joins that fleet with the rating seeded in one step. Adding a boat
+          to a fleet mid-series means it is scored <strong className="text-foreground">DNC</strong>{' '}
+          for races already sailed in that fleet, so this is opt-in per boat.
+        </p>
       </Section>
       )}
 
