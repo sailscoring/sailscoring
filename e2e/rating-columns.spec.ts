@@ -47,8 +47,7 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
   const pyNumbers: Record<string, string> = { PY1: '1034', PY2: '1087' };
   for (const sail of ['PY1', 'PY2']) {
     const row = page.getByRole('row').filter({ hasText: sail });
-    await row.hover();
-    await row.getByRole('button', { name: /Edit/ }).click();
+    await row.click();
     await page.getByLabel('PY number', { exact: true }).fill(pyNumbers[sail]);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: sail })).toBeVisible();

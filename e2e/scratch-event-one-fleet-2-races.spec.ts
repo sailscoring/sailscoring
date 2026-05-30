@@ -186,10 +186,11 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   // With Eve gone, N drops to 4 so the penalty (N+1) falls to 5.
   // Dave's DNF should now score 5, not 6.
   await page.getByRole('link', { name: 'Competitors' }).click();
+  // Delete now lives inside the edit dialog: click the row to open it, then
+  // the destructive Delete button (a confirm() guards it).
+  await page.getByRole('row').filter({ hasText: '1005' }).click();
   page.once('dialog', (dialog) => dialog.accept());
-  const eveCompetitorRow = page.getByRole('row').filter({ hasText: '1005' });
-  await eveCompetitorRow.hover();
-  await eveCompetitorRow.getByRole('button', { name: 'Delete Eve Burke' }).click();
+  await page.getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByRole('cell', { name: '1005' })).not.toBeVisible();
   await expect(page.getByText('4 competitors')).toBeVisible();
 

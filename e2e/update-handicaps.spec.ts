@@ -38,8 +38,7 @@ async function addBoatWithTcc(page: Page, sailNumber: string, name: string, tcc:
   await expect(page.getByRole('cell', { name: sailNumber })).toBeVisible();
   // Edit to set IRC TCC — same pattern as the existing IRC handicap e2e.
   const row = page.getByRole('row').filter({ hasText: sailNumber });
-  await row.hover();
-  await row.getByRole('button', { name: /Edit/ }).click();
+  await row.click();
   await expect(page.getByLabel('IRC TCC', { exact: true })).toBeVisible();
   await page.getByLabel('IRC TCC', { exact: true }).fill(tcc);
   await page.getByRole('button', { name: 'Save' }).click();

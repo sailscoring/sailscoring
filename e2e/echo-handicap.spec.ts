@@ -56,8 +56,7 @@ test('ECHO fleet: standings + propagation across two races', async ({ page }) =>
   }
   for (const sailNumber of ['Z1', 'Z2', 'Z3']) {
     const row = page.getByRole('row').filter({ hasText: sailNumber });
-    await row.hover();
-    await row.getByRole('button', { name: /Edit/ }).click();
+    await row.click();
     await expect(page.getByLabel('ECHO starting handicap', { exact: true })).toBeVisible();
     await page.getByLabel('ECHO starting handicap', { exact: true }).fill('1.000');
     await page.getByRole('button', { name: 'Save' }).click();

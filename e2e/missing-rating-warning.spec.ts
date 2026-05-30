@@ -39,8 +39,7 @@ test('missing handicap rating: tooltip + dialog hint name the fleet and rating',
 
   // Re-open the edit dialog and confirm the hint is visible there too
   const irl1234Row = page.getByRole('row').filter({ hasText: 'IRL1234' });
-  await irl1234Row.hover();
-  await irl1234Row.getByRole('button', { name: /Edit/ }).click();
+  await irl1234Row.click();
   await expect(page.getByText('Required for Cruisers fleet.')).toBeVisible();
 
   // Fill the TCC: hint disappears once the field is populated

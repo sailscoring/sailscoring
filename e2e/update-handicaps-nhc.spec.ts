@@ -39,8 +39,7 @@ async function addBoatWithNhcStartingTcf(
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: sailNumber })).toBeVisible();
   const row = page.getByRole('row').filter({ hasText: sailNumber });
-  await row.hover();
-  await row.getByRole('button', { name: /Edit/ }).click();
+  await row.click();
   await expect(page.getByLabel('NHC starting TCF', { exact: true })).toBeVisible();
   await page.getByLabel('NHC starting TCF', { exact: true }).fill(startingTcf);
   await page.getByRole('button', { name: 'Save' }).click();
@@ -113,8 +112,7 @@ test('Update Handicaps dialog: carry NHC TCFs from a scored source series', asyn
   // differently across competitors): the edit form's "NHC starting TCF"
   // field is the source of truth and is easy to read back.
   const row = page.getByRole('row').filter({ hasText: 'NHC1' });
-  await row.hover();
-  await row.getByRole('button', { name: /Edit/ }).click();
+  await row.click();
   const tcfField = page.getByLabel('NHC starting TCF', { exact: true });
   await expect(tcfField).toBeVisible();
   const updatedValue = await tcfField.inputValue();

@@ -42,7 +42,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { AlertTriangle, Pencil, Trash2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { CompetitorImport, type CompetitorImportHandle } from '@/components/competitor-import';
 import { NationalityInput } from '@/components/nationality-input';
 import { UpdateHandicaps, type UpdateHandicapsHandle } from '@/components/update-handicaps';
@@ -158,6 +158,7 @@ function CompetitorForm({
   initial,
   onSave,
   onCancel,
+  onDelete,
   existingCompetitors,
   availableFleets,
   enabledFields,
@@ -167,6 +168,7 @@ function CompetitorForm({
   initial: CompetitorFormData;
   onSave: (data: CompetitorFormData) => Promise<void>;
   onCancel: () => void;
+  onDelete?: () => void;
   existingCompetitors: { sailNumber: string; fleetIds: string[] }[];
   availableFleets: Fleet[];
   enabledFields: CompetitorFieldKey[];
@@ -692,6 +694,10 @@ export default function CompetitorsPage({
     log('competitors', 'deleting', competitor.id);
     await deleteCompetitor.mutateAsync({ id: competitor.id, seriesId });
     await touchSeries.mutateAsync(seriesId);
+    // Close the edit dialog (delete is now dialog-only) and drop the stale
+    // row ref so the close effect doesn't try to refocus a removed row.
+    editingRowRef.current = null;
+    setEditingCompetitor(null);
   }
 
 
@@ -773,7 +779,6 @@ export default function CompetitorsPage({
               {showGender && <TableHead>Gender</TableHead>}
               {showAge && <TableHead>Age</TableHead>}
               {showSubdivision && <TableHead className="whitespace-normal break-words">{subdivisionLabel}</TableHead>}
-              <TableHead className="w-0 p-0" />
             </TableRow>
           </TableHeader>
           <TableBody ref={tbodyRef}>
@@ -781,15 +786,17 @@ export default function CompetitorsPage({
               <TableRow
                 key={c.id}
                 tabIndex={0}
-                className="group/row focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                className={`group/row focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset${readOnly ? '' : ' cursor-pointer'}`}
+                onClick={(e) => {
+                  if (readOnly) return;
+                  editingRowRef.current = e.currentTarget;
+                  setEditingCompetitor(c);
+                }}
                 onKeyDown={(e) => {
-                  if (e.key === 'e') {
+                  if (e.key === 'e' || e.key === 'Enter') {
                     e.preventDefault();
                     editingRowRef.current = e.currentTarget;
                     setEditingCompetitor(c);
-                  } else if (e.key === 'd' || e.key === 'Delete') {
-                    e.preventDefault();
-                    handleDelete(c);
                   } else if (e.key === 'ArrowDown') {
                     e.preventDefault();
                     (e.currentTarget.nextElementSibling as HTMLElement)?.focus();
@@ -828,7 +835,7 @@ export default function CompetitorsPage({
                 {showSubdivision && <TableCell className="whitespace-normal break-words">{c.subdivision ?? ''}</TableCell>}
                 <TableCell className="w-0 p-0 relative">
                   {!readOnly && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 rounded-md bg-background/90 px-1 opacity-0 pointer-events-none transition-opacity group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto">
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 rounded-md bg-background/90 px-1 opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -897,6 +904,7 @@ export default function CompetitorsPage({
               }}
               onSave={handleEdit}
               onCancel={() => setEditingCompetitor(null)}
+              onDelete={() => handleDelete(editingCompetitor)}
               existingCompetitors={editingExcluded}
               availableFleets={fleets ?? []}
               enabledFields={enabledFields}

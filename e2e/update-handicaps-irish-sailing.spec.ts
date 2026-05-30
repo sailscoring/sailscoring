@@ -106,8 +106,7 @@ test('Update handicaps from Irish Sailing seeds IRC TCC by sail number', async (
 
   // Persisted: the country-code-less boat now carries its TCC.
   const row = page.getByRole('row').filter({ hasText: '1601' });
-  await row.hover();
-  await row.getByRole('button', { name: /Edit/ }).click();
+  await row.click();
   await expect(page.getByLabel('IRC TCC', { exact: true })).toHaveValue('1.041');
 });
 
@@ -144,7 +143,6 @@ test('primary/secondary certificate: defaults to higher TCC, switchable', async 
   await page.getByRole('button', { name: 'Done' }).click();
 
   const row = page.getByRole('row').filter({ hasText: 'IRL7404' });
-  await row.hover();
-  await row.getByRole('button', { name: /Edit/ }).click();
+  await row.click();
   await expect(page.getByLabel('IRC TCC', { exact: true })).toHaveValue('1.092');
 });
