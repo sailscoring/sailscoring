@@ -1,5 +1,12 @@
 # Sailwave JSON Export Format
 
+> **Note:** the importer no longer consumes this JSON export. It now parses
+> Sailwave's native `.blw` series file directly — a flat four-column CSV of
+> `key,value,compHandle,raceHandle` records that `parseSailwaveBlw` pivots into
+> the same nested shape described below. These notes are retained because that
+> nested `SailwaveRaw` shape (and every field name) is unchanged; only the
+> serialization the importer reads has changed from JSON to `.blw`.
+
 Notes from parsing real exports from Sailwave 2.38.01 (HYC Autumn League 2025).
 
 ## Top-level structure

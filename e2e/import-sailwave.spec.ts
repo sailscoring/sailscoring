@@ -5,9 +5,9 @@ import { signedInTest as test, expect } from './fixtures';
 import { enableFeatures } from './helpers';
 
 /**
- * E2E for the Import Series → Sailwave export flow.
+ * E2E for the Import Series → Sailwave file flow.
  *
- * Uses a real HYC Sailwave export (helm/crew names anonymised) from
+ * Uses a real HYC Sailwave `.blw` file (helm/crew names anonymised) from
  * `tests/fixtures/sailwave/hyc-2026/`.
  */
 
@@ -17,10 +17,10 @@ test.beforeEach(async ({ page, signedInEmail }) => {
 
 const SAILWAVE_FIXTURE = join(
   process.cwd(),
-  'tests/fixtures/sailwave/hyc-2026/2026 Tues Series 1.json',
+  'tests/fixtures/sailwave/hyc-2026/2026 Tues Series 1.blw',
 );
 
-test('import series: Sailwave .json → wizard → new series, lands on Competitors', async ({ page }) => {
+test('import series: Sailwave .blw → wizard → new series, lands on Competitors', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Series' })).toBeVisible();
 
@@ -33,8 +33,8 @@ test('import series: Sailwave .json → wizard → new series, lands on Competit
     page.getByTestId('import-format-sailwave').click(),
   ]);
   await fileChooser.setFiles({
-    name: '2026 Tues Series 1.json',
-    mimeType: 'application/json',
+    name: '2026 Tues Series 1.blw',
+    mimeType: 'application/octet-stream',
     buffer: readFileSync(SAILWAVE_FIXTURE),
   });
 
@@ -62,8 +62,8 @@ test('import series: re-importing the same Sailwave file disambiguates the name'
   let chooser = page.waitForEvent('filechooser');
   await page.getByTestId('import-format-sailwave').click();
   await (await chooser).setFiles({
-    name: '2026 Tues Series 1.json',
-    mimeType: 'application/json',
+    name: '2026 Tues Series 1.blw',
+    mimeType: 'application/octet-stream',
     buffer: readFileSync(SAILWAVE_FIXTURE),
   });
   await page.getByTestId('sailwave-import-submit').click();
@@ -75,8 +75,8 @@ test('import series: re-importing the same Sailwave file disambiguates the name'
   chooser = page.waitForEvent('filechooser');
   await page.getByTestId('import-format-sailwave').click();
   await (await chooser).setFiles({
-    name: '2026 Tues Series 1.json',
-    mimeType: 'application/json',
+    name: '2026 Tues Series 1.blw',
+    mimeType: 'application/octet-stream',
     buffer: readFileSync(SAILWAVE_FIXTURE),
   });
   await page.getByTestId('sailwave-name').fill('Club Racing 2026');

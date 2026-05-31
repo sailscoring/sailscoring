@@ -73,7 +73,7 @@ import {
   type SeriesFile,
   type LineageStatus,
 } from '@/lib/series-file';
-import { parseSailwaveJson, SailwaveImportError } from '@/lib/sailwave-import';
+import { parseSailwaveBlw, SailwaveImportError } from '@/lib/sailwave-import';
 import { SAILWAVE_HANDOFF_KEY } from '@/app/series/import-sailwave/page';
 
 type ImportFormat = 'sailscoring' | 'sailwave';
@@ -282,7 +282,7 @@ export default function HomePage() {
     if (importFormat === 'sailwave') {
       try {
         const bytes = await file.arrayBuffer();
-        const raw = parseSailwaveJson(bytes);
+        const raw = parseSailwaveBlw(bytes);
         sessionStorage.setItem(
           SAILWAVE_HANDOFF_KEY,
           JSON.stringify({ fileName: file.name, raw }),
@@ -545,7 +545,7 @@ export default function HomePage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept={importFormat === 'sailwave' ? '.json,application/json' : '.sailscoring,application/json'}
+        accept={importFormat === 'sailwave' ? '.blw' : '.sailscoring,application/json'}
         className="hidden"
         onChange={handleFileSelected}
       />
@@ -577,8 +577,8 @@ export default function HomePage() {
                 className="w-full text-left border rounded-lg px-4 py-3 hover:bg-accent/50 transition-colors"
                 onClick={() => handleFormatChosen('sailwave')}
               >
-                <div className="font-medium">Sailwave export</div>
-                <div className="text-sm text-muted-foreground">A <span className="font-mono">.json</span> file exported from Sailwave.</div>
+                <div className="font-medium">Sailwave file</div>
+                <div className="text-sm text-muted-foreground">A <span className="font-mono">.blw</span> series file from Sailwave.</div>
               </button>
             )}
           </div>

@@ -178,7 +178,7 @@ function Wizard({
       <div className="max-w-2xl mx-auto space-y-4">
         <h1 className="text-2xl font-semibold">Import from Sailwave</h1>
         <p className="text-destructive">
-          Could not read this file. It doesn&apos;t look like a Sailwave JSON export.
+          Could not read this file. It doesn&apos;t look like a Sailwave .blw file.
         </p>
         <Button variant="outline" onClick={() => router.replace('/')}>
           Back to Series list

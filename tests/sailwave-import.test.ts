@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  parseSailwaveJson,
+  parseSailwaveBlw,
   inspectSailwave,
   buildSeriesFileFromSailwave,
   parseSailwaveColumns,
@@ -23,9 +23,19 @@ const HYC = `${FIXTURES}/hyc-2026`;
 function loadFile(path: string): SailwaveRaw {
   const bytes = readFileSync(join(process.cwd(), path));
   // readFileSync returns a Buffer; pass the underlying ArrayBuffer slice.
-  return parseSailwaveJson(
+  return parseSailwaveBlw(
     bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
   );
+}
+
+/** Build a `.blw` byte buffer from CSV rows (CRLF-terminated, every field
+ *  quoted — the way Sailwave writes them). */
+function blw(rows: string[][]): ArrayBuffer {
+  const csv = rows
+    .map((r) => r.map((f) => `"${f.replace(/"/g, '""')}"`).join(','))
+    .join('\r\n');
+  const bytes = new TextEncoder().encode(csv);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 const DEFAULT_OPTS: SailwaveImportOptions = {
@@ -38,39 +48,77 @@ const DEFAULT_OPTS: SailwaveImportOptions = {
   includeResults: true,
 };
 
-describe('parseSailwaveJson', () => {
-  it('parses a real Sailwave export', () => {
-    const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
+describe('parseSailwaveBlw', () => {
+  it('parses a real Sailwave .blw file', () => {
+    const raw = loadFile(`${HYC}/2026 Tues Series 1.blw`);
     expect(raw.header?.generator).toBe('sailwave');
     expect(raw.globals?.serevent).toBe('Club Racing 2026');
     expect(Object.keys(raw.competitors ?? {}).length).toBeGreaterThan(0);
   });
 
-  it('tolerates bare control chars in strings (Sailwave\'s Windows paths)', () => {
-    // Embed a literal CR (0x0d) inside a string the way Sailwave does for
-    // Windows paths. JSON.parse would normally reject it.
-    const withBareCr = '{"header":{"generator":"sailwave"},"x":"C:\\\\Users\rfoo"}';
-    expect(() => {
-      parseSailwaveJson(new TextEncoder().encode(withBareCr).buffer);
-    }).not.toThrow();
+  it('pivots flat rows into the nested SailwaveRaw shape by key prefix and handle', () => {
+    const raw = parseSailwaveBlw(blw([
+      ['serversion', '2.38.02', '', ''],
+      ['serevent', 'Test Regatta', '', ''],
+      ['column', '1|HelmName|9|Yes|Yes|101|Helm Name|', '', ''],
+      ['compsailno', '1234', '7', ''],
+      ['comphelmname', 'Ada Lovelace', '7', ''],
+      ['compfleet', 'Fast HPH', '7', ''],
+      ['racerank', '1', '', '3'],
+      ['racestart', '|10.00.00|Finish time|Start 1', '', '3'],
+      // Result cell: both handles set. `srat` is a result key that doesn't
+      // start with "r", proving classification falls through to the both-handles
+      // branch rather than relying on the leading letter.
+      ['rpos', '1', '7', '3'],
+      ['rrestyp', '4', '7', '3'],
+      ['srat', '0', '7', '3'],
+    ]));
+
+    expect(raw.globals?.serevent).toBe('Test Regatta');
+    expect(Object.values(raw.columns ?? {})).toContain('1|HelmName|9|Yes|Yes|101|Helm Name|');
+    expect(raw.competitors?.['7']).toMatchObject({
+      compsailno: '1234',
+      comphelmname: 'Ada Lovelace',
+      compfleet: 'Fast HPH',
+    });
+    expect(raw.races?.['3']?.racerank).toBe('1');
+    expect(Object.values(raw.races?.['3']?.starts ?? {})).toEqual(['|10.00.00|Finish time|Start 1']);
+    const result = raw.results?.['7:3'];
+    expect(result).toMatchObject({ comHandle: '7', racHandle: '3', rpos: '1', rrestyp: '4' });
+    expect((result as Record<string, string>).srat).toBe('0');
   });
 
-  it('strips trailing commas before } and ]', () => {
-    const withTrailing = '{"header":{"generator":"sailwave"},"x":[1,2,],}';
-    expect(() => {
-      parseSailwaveJson(new TextEncoder().encode(withTrailing).buffer);
-    }).not.toThrow();
+  it('recovers scoring-codes nested under their system handle from scrcode rows', () => {
+    const raw = parseSailwaveBlw(blw([
+      ['serversion', '2.38.02', '', ''],
+      ['serscoringhandle', '67', '', ''],
+      ['scrname', 'Root', '67', ''],
+      ['scrdiscardlist', '0,0,1', '67', ''],
+      // Pipe layout: code|method|value|...|systemHandle(14)|...
+      ['scrcode', 'DNF|Boats in series +|1|Yes|Yes|||spare|spare|spare|spare|Yes|No|No|67||desc', '', ''],
+    ]));
+    const system = raw['scoring-systems']?.['67'];
+    expect(system?.scrdiscardlist).toBe('0,0,1');
+    expect(system?.['scoring-codes']?.DNF).toEqual({ method: 'Boats in series +', value: '1' });
   });
 
-  it('rejects files that lack the sailwave header.generator', () => {
-    const bytes = new TextEncoder().encode('{"header":{"generator":"halsail"}}').buffer;
-    expect(() => parseSailwaveJson(bytes)).toThrow(SailwaveImportError);
+  it('decodes windows-1252 helm names (Sailwave saves on Windows)', () => {
+    // 0xE9 is "é" in windows-1252 but an invalid UTF-8 lead byte.
+    const csv = '"serversion","2.38.02","",""\r\n"comphelmname","Tom\xe9","9",""';
+    const bytes = Uint8Array.from(csv, (c) => c.charCodeAt(0));
+    const raw = parseSailwaveBlw(bytes.buffer);
+    expect(raw.competitors?.['9']?.comphelmname).toBe('Tomé');
+  });
+
+  it('rejects a CSV that lacks Sailwave series markers', () => {
+    const bytes = blw([['name', 'value', '', ''], ['foo', 'bar', '', '']]);
+    expect(() => parseSailwaveBlw(bytes)).toThrow(SailwaveImportError);
   });
 });
 
 describe('inspectSailwave', () => {
   it('summarises the Tues Series file (dual-scored HPH + Scr)', () => {
-    const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
+    const raw = loadFile(`${HYC}/2026 Tues Series 1.blw`);
     const preview = inspectSailwave(raw);
     expect(preview.name).toBe('Club Racing 2026');
     expect(preview.venue).toBe('Tuesdays - One Designs - Series 1');
@@ -91,7 +139,7 @@ describe('inspectSailwave', () => {
   });
 
   it('auto-detects bare-name fleets: Optimist=scratch (no ratings), PY=py (integer ratings)', () => {
-    const raw = loadFile(`${HYC}/2026 Dinghies Series 1.json`);
+    const raw = loadFile(`${HYC}/2026 Dinghies Series 1.blw`);
     const preview = inspectSailwave(raw);
     const byName = new Map(preview.fleets.map((f) => [f.name, f]));
     expect(byName.get('Optimist')?.detectedScoringSystem).toBe('scratch');
@@ -101,7 +149,7 @@ describe('inspectSailwave', () => {
   });
 
   it('reads NHC example with all-suffixed fleets', () => {
-    const raw = loadFile(`${FIXTURES}/nhc-example/2025 Puppeteer 22 Championships.json`);
+    const raw = loadFile(`${FIXTURES}/nhc-example/2025 Puppeteer 22 Championships.blw`);
     const preview = inspectSailwave(raw);
     expect(preview.raceCount).toBe(7);
     expect(preview.competitorCount).toBe(14);
@@ -109,7 +157,7 @@ describe('inspectSailwave', () => {
   });
 
   it('proposes fleets alphabetically sorted, matching the built series', () => {
-    const raw = loadFile(`${HYC}/2026 Wed Series 1.json`);
+    const raw = loadFile(`${HYC}/2026 Wed Series 1.blw`);
     const preview = inspectSailwave(raw);
     expect(preview.fleets.map((f) => f.name)).toEqual([
       'Division A HPH',
@@ -182,7 +230,7 @@ describe('parseDiscardThresholds', () => {
 
 describe('buildSeriesFileFromSailwave: Tues & Sat Series 1 (H17 discard profile)', () => {
   it('detects [{4,1},{8,2}] — the rule H17 net points were missing in #147', () => {
-    const raw = loadFile(`${HYC}/2026 Tues & Sat Series 1.json`);
+    const raw = loadFile(`${HYC}/2026 Tues & Sat Series 1.blw`);
     const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
     expect(file.series.discardThresholds).toEqual([
       { minRaces: 4, discardCount: 1 },
@@ -196,7 +244,7 @@ describe('buildSeriesFileFromSailwave: Sat Cruisers Series 1 (combined start)', 
   // with no 'Fleet^...' prefix. The importer must fan that combined start out
   // to every fleet so the handicap divisions score on corrected time rather
   // than falling back to scratch/crossing-order (issue #147 §5).
-  const raw = loadFile(`${HYC}/2026 Sat Cruisers Series 1.json`);
+  const raw = loadFile(`${HYC}/2026 Sat Cruisers Series 1.blw`);
   const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
 
   it('imports the fleet-less gun as one start covering every fleet', () => {
@@ -235,8 +283,8 @@ describe('buildSeriesFileFromSailwave: venue/event website URLs', () => {
 
   it('maps the four branding globals through the full parse→build pipeline (real key names)', () => {
     // Fixture mirrors a real HYC export's branding globals — exercises the
-    // windows-1252 decode + sanitize in parseSailwaveJson, not just the builder.
-    const raw = loadFile(`${FIXTURES}/branding-sample.json`);
+    // windows-1252 decode in parseSailwaveBlw, not just the builder.
+    const raw = loadFile(`${FIXTURES}/branding-sample.blw`);
     const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
     expect(file.series.venueLogoUrl).toBe('https://www.hyc.ie/system/sponsor_logos/620/normal/Howth_Yacht_Club_-_Logo_RGB.jpg');
     expect(file.series.eventLogoUrl).toBe('https://hyc.ie/system/sponsor_logos/509/normal/ILCA-Ireland.png');
@@ -246,7 +294,7 @@ describe('buildSeriesFileFromSailwave: venue/event website URLs', () => {
 });
 
 describe('buildSeriesFileFromSailwave: Tues Series 1', () => {
-  const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
+  const raw = loadFile(`${HYC}/2026 Tues Series 1.blw`);
   const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
 
   it('produces fleets sorted alphabetically by name', () => {
@@ -343,7 +391,7 @@ describe('buildSeriesFileFromSailwave: Tues Series 1', () => {
 });
 
 describe('buildSeriesFileFromSailwave: Wed Series 1', () => {
-  const raw = loadFile(`${HYC}/2026 Wed Series 1.json`);
+  const raw = loadFile(`${HYC}/2026 Wed Series 1.blw`);
   const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
 
   it('produces 6 fleets across Divisions A/B/C × HPH/IRC, alphabetised', () => {
@@ -368,7 +416,7 @@ describe('buildSeriesFileFromSailwave: Wed Series 1', () => {
 });
 
 describe('buildSeriesFileFromSailwave: Dinghies (auto bare-name detection)', () => {
-  const raw = loadFile(`${HYC}/2026 Dinghies Series 1.json`);
+  const raw = loadFile(`${HYC}/2026 Dinghies Series 1.blw`);
   const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
 
   it('routes the auto-detected PY fleet ratings to pyNumber', () => {
@@ -402,7 +450,7 @@ describe('buildSeriesFileFromSailwave: Dinghies (auto bare-name detection)', () 
 
 describe('buildSeriesFileFromSailwave: per-fleet override still wins over auto-detect', () => {
   it('honours explicit overrides', () => {
-    const raw = loadFile(`${HYC}/2026 Dinghies Series 1.json`);
+    const raw = loadFile(`${HYC}/2026 Dinghies Series 1.blw`);
     const file = buildSeriesFileFromSailwave(raw, {
       ...DEFAULT_OPTS,
       fleetScoringOverrides: new Map([
@@ -419,7 +467,7 @@ describe('buildSeriesFileFromSailwave: implicit DNC', () => {
     // The NHC example has explicit DNC rows in its results table; after
     // dropping them, only the other coded results (DNF, OCS) and clean
     // finishes should remain.
-    const raw = loadFile(`${FIXTURES}/nhc-example/2025 Puppeteer 22 Championships.json`);
+    const raw = loadFile(`${FIXTURES}/nhc-example/2025 Puppeteer 22 Championships.blw`);
     const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
     const allFinishes = file.races.flatMap((r) => r.finishes);
     expect(allFinishes.some((f) => f.resultCode === 'DNC')).toBe(false);
@@ -430,7 +478,7 @@ describe('buildSeriesFileFromSailwave: implicit DNC', () => {
 
 describe('buildSeriesFileFromSailwave: includeScratchCompanions=false', () => {
   it('drops Scr companion fleets and their memberships', () => {
-    const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
+    const raw = loadFile(`${HYC}/2026 Tues Series 1.blw`);
     const file = buildSeriesFileFromSailwave(raw, {
       ...DEFAULT_OPTS,
       includeScratchCompanions: false,
@@ -493,7 +541,7 @@ describe('buildSeriesFileFromSailwave: 2024/2025 HYC form (spelled-out Scratch +
 
 describe('buildSeriesFileFromSailwave: includeResults=false', () => {
   it('keeps the full race schedule with empty finishes', () => {
-    const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
+    const raw = loadFile(`${HYC}/2026 Tues Series 1.blw`);
     const file = buildSeriesFileFromSailwave(raw, {
       ...DEFAULT_OPTS,
       includeResults: false,
@@ -507,14 +555,14 @@ describe('buildSeriesFileFromSailwave: includeResults=false', () => {
 
 describe('buildSeriesFileFromSailwave: errors', () => {
   it('throws on unknown rcod values in the source file', () => {
-    const raw = loadFile(`${FIXTURES}/py-example/2026 Dinghy F'Bite Spring.json`);
+    const raw = loadFile(`${FIXTURES}/py-example/2026 Dinghy F'Bite Spring.blw`);
     expect(() => buildSeriesFileFromSailwave(raw, DEFAULT_OPTS)).toThrow(/Unknown Sailwave result code/);
   });
 });
 
 describe('buildSeriesFileFromSailwave: default date fallback', () => {
   it('uses today\'s date when defaultRaceDate is omitted and Sailwave has no parseable date', () => {
-    const raw = loadFile(`${HYC}/2026 Tues Series 1.json`);
+    const raw = loadFile(`${HYC}/2026 Tues Series 1.blw`);
     const file = buildSeriesFileFromSailwave(raw, {
       ...DEFAULT_OPTS,
       defaultRaceDate: undefined,
@@ -598,7 +646,7 @@ describe('resolveSubdivision', () => {
 });
 
 describe('subdivision import (ILCA Masters Category fixture)', () => {
-  const raw = loadFile(`${FIXTURES}/ilca-masters-category.json`);
+  const raw = loadFile(`${FIXTURES}/ilca-masters-category.blw`);
 
   it('detects the Category column in the preview', () => {
     expect(inspectSailwave(raw).detectedSubdivisionLabel).toBe('Category');

@@ -935,8 +935,8 @@ export default async function HelpPage() {
           <>
             <p>
               To bring a season&apos;s seedings across from Sailwave, choose{' '}
-              <strong className="text-foreground">Sailwave export</strong> from the same dialog and
-              pick the <code className="text-foreground text-sm">.json</code> file exported from
+              <strong className="text-foreground">Sailwave file</strong> from the same dialog and
+              pick the <code className="text-foreground text-sm">.blw</code> series file from
               Sailwave. The wizard previews the fleets, competitors, and races, then creates the series
               with ratings and any results Sailwave already had — fill in the per-fleet scoring system
               if it auto-detects wrongly, and adjust any race dates Sailwave didn&apos;t carry across.

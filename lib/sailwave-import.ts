@@ -1,5 +1,5 @@
 /**
- * Sailwave JSON → SeriesFile importer.
+ * Sailwave `.blw` → SeriesFile importer.
  *
  * Source of truth for the Sailwave conversion. (It was originally ported from a
  * standalone Python converter, since removed.) It's been used in anger on real
@@ -7,10 +7,18 @@
  * detection, start fan-out, DNF inference, etc.) are documented in the sibling
  * README at `reference/data/2026-hyc-club-racing/README.md`.
  *
+ * A Sailwave `.blw` file is the native series document — a flat, four-column
+ * CSV of `key,value,compHandle,raceHandle` records. `parseSailwaveBlw` pivots
+ * it into the `SailwaveRaw` shape (the same nested structure Sailwave's own
+ * JSON export produced) and every downstream step works off that unchanged.
+ * Reading `.blw` directly skips the brittle intermediate JSON export, whose
+ * trailing commas and bare control chars used to need repairing.
+ *
  * Pure module — no DOM, no repository access. The wizard page hands the result
  * to `openSeriesFromFile` from `lib/series-file.ts` so every existing write
  * path, ID remap, and name-disambiguation rule applies unchanged.
  */
+import Papa from 'papaparse';
 import type {
   DiscardThreshold,
   Fleet,
@@ -175,86 +183,133 @@ export class SailwaveImportError extends Error {
   }
 }
 
-// ---- Parse + sanitize ----
+// ---- Parse ----
 
-/** Decode bytes (windows-1252 — Sailwave saves on Windows and may contain
- *  non-UTF-8 helm names), strip trailing commas, escape bare control chars
- *  inside string literals so the standard JSON parser accepts the result. */
-export function parseSailwaveJson(bytes: ArrayBuffer): SailwaveRaw {
-  const decoded = new TextDecoder('windows-1252').decode(bytes);
-  const noTrailingCommas = decoded.replace(/,(\s*[}\]])/g, '$1');
-  const sanitized = escapeBareControlCharsInStrings(noTrailingCommas);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(sanitized);
-  } catch (e) {
-    throw new SailwaveImportError(
-      `Not a valid Sailwave JSON export: ${(e as Error).message}`,
-    );
-  }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new SailwaveImportError('Not a valid Sailwave JSON export: expected an object at the top level.');
-  }
-  const raw = parsed as SailwaveRaw;
-  if (raw.header?.generator !== 'sailwave') {
-    throw new SailwaveImportError(
-      "This doesn't look like a Sailwave export — the file's header.generator isn't \"sailwave\".",
-    );
-  }
-  return raw;
-}
+/** Row scopes in a `.blw` file, decided by the record key and which handle
+ *  columns are populated. `scr*` (scoring-system) rows carry their system
+ *  handle in the *same* column competitors use for theirs, so the key prefix —
+ *  not the column layout — is what disambiguates them. */
 
-/** State-machine pass over raw JSON text: inside a string literal, replace
- *  bare ASCII control characters with their JSON escape forms. Outside strings
- *  the chars are valid whitespace (CR/LF/TAB) and left alone. */
-function escapeBareControlCharsInStrings(text: string): string {
-  let out = '';
-  let inString = false;
-  let escape = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (inString) {
-      if (escape) {
-        out += ch;
-        escape = false;
-        continue;
-      }
-      if (ch === '\\') {
-        out += ch;
-        escape = true;
-        continue;
-      }
-      if (ch === '"') {
-        out += ch;
-        inString = false;
-        continue;
-      }
-      const code = ch.charCodeAt(0);
-      if (code < 0x20) {
-        out += controlEscape(ch);
-        continue;
-      }
-      out += ch;
-    } else {
-      if (ch === '"') {
-        inString = true;
-      }
-      out += ch;
+/** Parse a Sailwave `.blw` file into the `SailwaveRaw` shape.
+ *
+ *  The file is a four-column CSV — `key,value,compHandle,raceHandle` — with one
+ *  flat record per row. We decode windows-1252 (Sailwave saves on Windows and
+ *  helm names may carry non-UTF-8 bytes), parse the CSV, then pivot rows into
+ *  the nested structure by key prefix and handle columns:
+ *    - `comp*`    → `competitors[compHandle][key]`
+ *    - `race*`    → `races[raceHandle][key]` (`racestart` → that race's starts)
+ *    - `scrcode`  → a scoring code; its system handle is embedded in the
+ *                   pipe-delimited value (field 14), not the handle columns
+ *    - `scr*`     → `scoring-systems[compHandle][key]` (the system handle lives
+ *                   in the competitor-handle column)
+ *    - both handles set → a result cell (`comHandle`/`racHandle` recovered from
+ *                   the columns so the builder can join it to comp + race)
+ *    - `column`   → appended to `columns` in file order
+ *    - otherwise  → a series-level `globals[key]` */
+export function parseSailwaveBlw(bytes: ArrayBuffer): SailwaveRaw {
+  const text = new TextDecoder('windows-1252').decode(bytes);
+  const { data } = Papa.parse<string[]>(text, {
+    delimiter: ',',
+    skipEmptyLines: true,
+  });
+
+  const globals: Record<string, string> = {};
+  const columns: Record<string, string> = {};
+  const competitors: Record<string, Record<string, string>> = {};
+  const races: Record<string, Record<string, string>> = {};
+  const raceStarts: Record<string, string[]> = {};
+  const results: Record<string, SailwaveResultRaw> = {};
+  const systemFields: Record<string, Record<string, string>> = {};
+  const systemCodes: Record<string, Record<string, { method?: string; value?: string }>> = {};
+
+  let columnSeq = 0;
+
+  for (const row of data) {
+    if (!row || row.length === 0) continue;
+    const key = (row[0] ?? '').trim();
+    if (!key) continue;
+    const value = row[1] ?? '';
+    const compHandle = (row[2] ?? '').trim();
+    const raceHandle = (row[3] ?? '').trim();
+
+    if (key === 'column') {
+      columns[String(++columnSeq)] = value;
+      continue;
     }
+    if (key === 'scrcode') {
+      // Pipe-delimited: `code|method|value|...|systemHandle(idx 14)|...`. The
+      // builder only reads method + value (for A5.2/A5.3 DNF inference); the
+      // rest of the row is carried by Sailwave but unused here.
+      const parts = value.split('|');
+      const code = (parts[0] ?? '').trim();
+      const handle = (parts[14] ?? '').trim();
+      if (code && handle) {
+        (systemCodes[handle] ??= {})[code] = { method: parts[1] ?? '', value: parts[2] ?? '' };
+      }
+      continue;
+    }
+    if (key.startsWith('scr')) {
+      if (compHandle) (systemFields[compHandle] ??= {})[key] = value;
+      continue;
+    }
+    if (key.startsWith('comp')) {
+      if (compHandle) (competitors[compHandle] ??= {})[key] = value;
+      continue;
+    }
+    if (key === 'racestart') {
+      if (raceHandle) (raceStarts[raceHandle] ??= []).push(value);
+      continue;
+    }
+    if (key.startsWith('race')) {
+      if (raceHandle) (races[raceHandle] ??= {})[key] = value;
+      continue;
+    }
+    if (compHandle && raceHandle) {
+      const resultKey = `${compHandle}:${raceHandle}`;
+      const cell = (results[resultKey] ??= { comHandle: compHandle, racHandle: raceHandle });
+      (cell as Record<string, string>)[key] = value;
+      continue;
+    }
+    globals[key] = value;
   }
-  return out;
-}
 
-function controlEscape(ch: string): string {
-  switch (ch) {
-    case '\n': return '\\n';
-    case '\r': return '\\r';
-    case '\t': return '\\t';
-    case '\b': return '\\b';
-    case '\f': return '\\f';
-    default:
-      return '\\u' + ch.charCodeAt(0).toString(16).padStart(4, '0');
+  // A `.blw` carries no `header` section to identify it; instead require at
+  // least one series-level (`ser*`) record, which every Sailwave file writes.
+  // A non-Sailwave CSV won't carry those keys.
+  if (!Object.keys(globals).some((k) => k.startsWith('ser'))) {
+    throw new SailwaveImportError(
+      "This doesn't look like a Sailwave .blw file — no Sailwave series records were found.",
+    );
   }
+
+  const scoringSystems: Record<string, SailwaveScoringSystemRaw> = {};
+  for (const handle of new Set([...Object.keys(systemFields), ...Object.keys(systemCodes)])) {
+    const system = { ...(systemFields[handle] ?? {}) } as SailwaveScoringSystemRaw;
+    if (systemCodes[handle]) system['scoring-codes'] = systemCodes[handle];
+    scoringSystems[handle] = system;
+  }
+
+  const racesOut: Record<string, SailwaveRaceRaw> = {};
+  for (const handle of new Set([...Object.keys(races), ...Object.keys(raceStarts)])) {
+    const race = { ...(races[handle] ?? {}) } as SailwaveRaceRaw;
+    const starts = raceStarts[handle];
+    if (starts) {
+      const startsByIndex: Record<string, string> = {};
+      starts.forEach((s, i) => { startsByIndex[String(i + 1)] = s; });
+      race.starts = startsByIndex;
+    }
+    racesOut[handle] = race;
+  }
+
+  return {
+    header: { version: globals.serversion, generator: 'sailwave' },
+    globals,
+    competitors: competitors as Record<string, SailwaveCompetitorRaw>,
+    races: racesOut,
+    results,
+    'scoring-systems': scoringSystems,
+    columns,
+  };
 }
 
 // ---- Column definitions & subdivision detection ----
