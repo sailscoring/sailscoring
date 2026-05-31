@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 
 import { getDb } from './db/client';
 import * as schema from './db/schema';
@@ -58,24 +58,48 @@ export async function getPublishedById(
   return row ? rowToPublished(row) : null;
 }
 
-/** Every publication sharing `(workspaceId, slug)`, newest first. A slug is a
- *  shared namespace, so this can be more than one series' publication; the
- *  public read path unions their pages and the publish handler checks the group
- *  for sub-path collisions. Empty when nothing is published at the slug. */
+/** Every publication sharing `(workspaceId, slug)`. A slug is a shared
+ *  namespace, so this can be more than one series' publication; the public read
+ *  path unions their pages (sub-heading each series in this order) and the
+ *  publish handler checks the group for sub-path collisions. Empty when nothing
+ *  is published at the slug.
+ *
+ *  Ordered by the contributing series' manual `displayOrder` (#171) so the
+ *  series-index page mirrors the in-app series order rather than publish
+ *  recency; `publishedAt desc` is the tiebreak, and an orphaned publication
+ *  (series deleted, no `displayOrder`) sorts last via NULLS LAST. The two
+ *  order-insensitive callers (publish handler, single-fleet read) use `.find`
+ *  on the result, so this only changes the rendered series-index order. */
 export async function getPublishedGroupByWorkspaceSlug(
   workspaceId: string,
   slug: string,
 ): Promise<PublishedSeries[]> {
   const rows = await getDb()
-    .select()
+    .select({
+      id: schema.publishedSeries.id,
+      workspaceId: schema.publishedSeries.workspaceId,
+      seriesId: schema.publishedSeries.seriesId,
+      slug: schema.publishedSeries.slug,
+      pages: schema.publishedSeries.pages,
+      contentHash: schema.publishedSeries.contentHash,
+      publishedAt: schema.publishedSeries.publishedAt,
+      publishedVersion: schema.publishedSeries.publishedVersion,
+    })
     .from(schema.publishedSeries)
+    .leftJoin(
+      schema.series,
+      eq(schema.publishedSeries.seriesId, schema.series.id),
+    )
     .where(
       and(
         eq(schema.publishedSeries.workspaceId, workspaceId),
         eq(schema.publishedSeries.slug, slug),
       ),
     )
-    .orderBy(desc(schema.publishedSeries.publishedAt));
+    .orderBy(
+      asc(schema.series.displayOrder),
+      desc(schema.publishedSeries.publishedAt),
+    );
   return rows.map(rowToPublished);
 }
 
