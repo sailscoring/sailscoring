@@ -1,6 +1,6 @@
 import { signedInTest as test, expect } from './fixtures';
 import { type Page } from '@playwright/test';
-import { addCompetitor, createSeriesQuick } from './helpers';
+import { addCompetitor, createFleets, createSeriesQuick } from './helpers';
 
 /**
  * E2E for in-app results publishing (ADR-008 Phase 9/10, the bilge
@@ -39,6 +39,39 @@ async function createSeriesWithData(
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page.getByRole('table')).toBeVisible();
   return seriesId;
+}
+
+/** New two-fleet (scratch) series — fleets "IRC" and "Cruiser", one boat each
+ *  finishing one race. Leaves the page on the Standings tab. */
+async function createTwoFleetSeries(page: Page, name: string): Promise<void> {
+  await createSeriesQuick(page, { name });
+  await createFleets(page, ['IRC', 'Cruiser']);
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  for (const c of [
+    { sail: '11', name: 'Alice', fleet: 'IRC' },
+    { sail: '22', name: 'Bob', fleet: 'Cruiser' },
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sail);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('checkbox', { name: c.fleet }).check();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sail })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  for (const sail of ['11', '22']) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('heading', { name: 'IRC' })).toBeVisible();
 }
 
 test('publish with a chosen slug → public page renders → bare slug lists the fleet → re-publish freezes the URL', async ({ page }) => {
@@ -307,6 +340,106 @@ test('two series publish into one shared slug → the listing unions both, sub-h
   await expect(page.getByRole('cell', { name: '11' }).first()).toBeVisible();
   await page.goto(`${indexPath}/lambay-races-one-designs`);
   await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
+});
+
+test('selective publishing: choose fleets and override a fleet URL segment', async ({ page }) => {
+  await createTwoFleetSeries(page, 'HYC Club Series 1');
+
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('URL slug').fill('club-1');
+
+  // The IRC fleet's URL segment defaults to the kebab name; override it so a
+  // clean fleet name can live at a disambiguated URL.
+  const ircUrl = dialog.getByRole('textbox', { name: 'URL for IRC' });
+  await expect(ircUrl).toHaveValue('irc');
+  await ircUrl.fill('div-a-irc');
+
+  // Leave Cruiser out of this publication.
+  await dialog.getByRole('checkbox', { name: 'Publish Cruiser' }).uncheck();
+
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+
+  // IRC published at the overridden path; the public page renders.
+  const link = dialog.getByRole('link', { name: /\/club-1\/div-a-irc$/ });
+  await expect(link).toBeVisible();
+  const ircPath = new URL((await link.getAttribute('href')) ?? '').pathname;
+  const base = ircPath.replace(/\/div-a-irc$/, '');
+
+  await page.goto(ircPath);
+  await expect(page.getByRole('cell', { name: '11' }).first()).toBeVisible();
+
+  // The kebab default for IRC never existed (it moved to the override), and the
+  // deselected Cruiser fleet was never published — both 404.
+  expect((await page.request.get(`${base}/irc`)).status()).toBe(404);
+  expect((await page.request.get(`${base}/cruiser`)).status()).toBe(404);
+});
+
+test('unticking a published fleet on re-publish leaves its page live and unchanged', async ({ page }) => {
+  const seriesId = await (async () => {
+    await createTwoFleetSeries(page, 'HYC Club Series 2');
+    return page.url().match(/\/series\/([0-9a-f-]{36})/)?.[1] ?? '';
+  })();
+
+  // First publish: both fleets.
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('URL slug').fill('club-2');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+
+  const ircLink = dialog.getByRole('link', { name: /\/club-2\/irc$/ });
+  await expect(ircLink).toBeVisible();
+  const ircPath = new URL((await ircLink.getAttribute('href')) ?? '').pathname;
+  const base = ircPath.replace(/\/irc$/, '');
+  expect((await page.request.get(`${base}/irc`)).status()).toBe(200);
+  const cruiserBefore = await page.request.get(`${base}/cruiser`);
+  expect(cruiserBefore.status()).toBe(200);
+  expect(await cruiserBefore.text()).not.toContain('>C9<');
+
+  // Add a new Cruiser boat after publishing — work-in-progress for that fleet.
+  await page.goto(`/series/${seriesId}/competitors`);
+  await addCompetitor(page, { sailNumber: 'C9', name: 'Carol', fleet: 'Cruiser' });
+
+  // Re-publish with Cruiser unticked: it's skipped, not retracted.
+  await page.goto(`/series/${seriesId}/standings`);
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await dialog.getByRole('checkbox', { name: 'Publish Cruiser' }).uncheck();
+  const [resp] = await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes(`/series/${seriesId}/publish`) &&
+        r.request().method() === 'POST',
+    ),
+    dialog.getByRole('button', { name: 'Re-publish' }).click(),
+  ]);
+  expect(resp.ok()).toBeTruthy();
+
+  // Cruiser's page stays live at its frozen URL, still showing the pre-edit
+  // content (the new boat was not published because Cruiser was unticked).
+  const cruiserSkipped = await page.request.get(`${base}/cruiser`);
+  expect(cruiserSkipped.status()).toBe(200);
+  expect(await cruiserSkipped.text()).not.toContain('>C9<');
+  expect((await page.request.get(`${base}/irc`)).status()).toBe(200);
+
+  // Re-publish with Cruiser ticked (its default once published) now updates it.
+  // Retry the standings fetch until the new boat persisted, so the re-publish is
+  // a genuine content change rather than a same-hash no-op.
+  await expect(async () => {
+    await page.goto(`/series/${seriesId}/standings`);
+    await expect(page.getByRole('cell', { name: 'C9' }).first()).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const [resp2] = await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes(`/series/${seriesId}/publish`) &&
+        r.request().method() === 'POST',
+    ),
+    dialog.getByRole('button', { name: 'Re-publish' }).click(),
+  ]);
+  expect(resp2.ok()).toBeTruthy();
+  const cruiserUpdated = await page.request.get(`${base}/cruiser`);
+  expect(await cruiserUpdated.text()).toContain('>C9<');
 });
 
 test('keyboard shortcut p opens the publish dialog', async ({ page }) => {

@@ -1023,6 +1023,17 @@ export default async function HelpPage() {
           pages are read-only and need no sign-in to view.
         </p>
         <p>
+          <strong className="text-foreground">Choosing fleets and URLs:</strong> the dialog lists
+          every fleet with a checkbox — only the ticked fleets are published or updated when you
+          click Publish. Untick a fleet you&apos;re still working on to leave it out this round; if
+          it was already published, its current page stays live and simply isn&apos;t updated until
+          you tick it again (to take a page down entirely, use Unpublish). Each fleet also shows the last segment of its URL,
+          which you can edit before it&apos;s published — handy when you want a clean fleet name
+          like <em>Puppeteers HPH</em> to live at a disambiguated URL such as{' '}
+          <code className="text-foreground text-sm">tuesday-puppeteers-hph</code>. Once a fleet is
+          published its URL is fixed, like the slug; to change it, unpublish and publish again.
+        </p>
+        <p>
           Each series also gets a listing page at its base URL (e.g.{' '}
           <code className="text-foreground text-sm">…/autumn-league-2026</code>) linking to every
           fleet, and your workspace has a public index at{' '}
@@ -1040,8 +1051,9 @@ export default async function HelpPage() {
           slug when you publish the second series; Sail Scoring asks you to confirm joining the
           existing event, then the listing page lists every series under it, each with its own
           fleets. Each series keeps publishing and unpublishing independently — unpublishing one
-          removes only its fleets and leaves the others live. Fleet names must stay distinct across
-          the series sharing a slug so every fleet has its own URL; if two clash, rename one.
+          removes only its fleets and leaves the others live. Every fleet URL must be distinct
+          across the series sharing a slug; if two clash, edit one fleet&apos;s URL segment in the
+          publish dialog.
         </p>
         <p>
           <strong className="text-foreground">Managing published pages:</strong>{' '}

@@ -29,9 +29,14 @@ export interface PublishDialogProps {
   onClose: () => void;
 }
 
-/** Sanitise free-typed slug input to the allowed character set. */
+/** Sanitise free-typed slug / sub-path input to the allowed character set. */
 function sanitizeSlug(raw: string): string {
   return raw.toLowerCase().replace(/[^a-z0-9-]/g, '');
+}
+
+/** Last path segment of a public fleet URL — the part under the shared slug. */
+function lastSegment(url: string): string {
+  return url.split('/').filter(Boolean).pop() ?? '';
 }
 
 /** Join names as `A`, `A and B`, or `A, B and C` for prose. */
@@ -41,23 +46,54 @@ function formatNameList(names: string[]): string {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
+/** One fleet's row state in the dialog. A fleet already published is *frozen*:
+ *  its sub-path is fixed (like the slug) and shown read-only. A not-yet-published
+ *  fleet is editable, seeded with the derived default sub-path. */
+interface FleetRow {
+  name: string;
+  frozen: boolean;
+  /** Frozen fleets only: the live page URL, for the link + Copy. */
+  publishedUrl: string | null;
+}
+
 /**
  * In-app results publishing (ADR-008 Phase 9/10, the bilge replacement — #153).
  * Publish is explicit and point-in-time. The slug is editable at first publish
- * and frozen after; the dialog shows the resulting public URL(s) as you edit
- * it, so you see where it'll land before publishing.
+ * and frozen after; the dialog shows the resulting public URL(s) as you edit it.
+ *
+ * Per fleet, the scorer can: choose whether to publish/update it now (untick a
+ * work-in-progress fleet to skip it — an already-published one keeps its current
+ * live page; Unpublish is what retracts pages), and edit its URL sub-path while
+ * it's unpublished (a published fleet's sub-path is frozen). This lets a clean
+ * fleet name ("Puppeteers HPH") point at a disambiguated URL segment
+ * ("tuesday-puppeteers-hph") when several series share one slug.
  */
 export function PublishDialog({ series, fleets, open, onClose }: PublishDialogProps) {
   const [status, setStatus] = useState<PublicationStatus | null>(null);
   const [slug, setSlug] = useState('');
+  // Selected fleet names (the set to publish) and per-fleet editable sub-paths.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [subPaths, setSubPaths] = useState<Record<string, string>>({});
   const [phase, setPhase] = useState<
     'loading' | 'idle' | 'publishing' | 'unpublishing'
   >('loading');
   const [error, setError] = useState<string | null>(null);
   const [needsJoin, setNeedsJoin] = useState(false);
 
-  // Load publication state each time the dialog opens. Syncing with the
-  // external open signal, so the state writes here are expected.
+  const published = status?.published ?? null;
+  const isPublished = published !== null;
+  const workspaceSlug = status?.workspaceSlug ?? '';
+
+  // Derived default sub-path for an unpublished fleet: `standings` for a lone
+  // (default) fleet, otherwise the kebab-cased name — mirrors the server.
+  const defaultSubPath = useMemo(() => {
+    const single = fleets.length <= 1;
+    return (name: string) => (single ? 'standings' : fleetSubPath(name, false));
+  }, [fleets.length]);
+
+  // Load publication state each time the dialog opens, and seed the per-fleet
+  // selection + sub-paths from it. Syncing with the external open signal, so the
+  // state writes here are expected.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
@@ -68,8 +104,24 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
     getPublication(series.id)
       .then((s) => {
         if (cancelled) return;
+        const pub = s.published;
+        const publishedByName = new Map(
+          (pub?.pages ?? []).map((p) => [p.fleetName, p.url]),
+        );
+        const initSelected = new Set<string>();
+        const initSubPaths: Record<string, string> = {};
+        for (const f of fleets) {
+          const isPub = publishedByName.has(f.name);
+          // First publish: everything ticked. Re-publish: only what's already
+          // live, so re-publishing never silently adds a newly-created fleet.
+          if (!pub || isPub) initSelected.add(f.name);
+          // Editable sub-path only for not-yet-published fleets.
+          if (!isPub) initSubPaths[f.name] = defaultSubPath(f.name);
+        }
         setStatus(s);
-        setSlug(s.published?.slug ?? s.suggestedSlug);
+        setSlug(pub?.slug ?? s.suggestedSlug);
+        setSelected(initSelected);
+        setSubPaths(initSubPaths);
         setPhase('idle');
       })
       .catch(() => {
@@ -78,37 +130,108 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
     return () => {
       cancelled = true;
     };
+    // Seeds once per open per series; `fleets`/`defaultSubPath` are stable for a
+    // given series, and listing them would re-seed (wiping edits) on every
+    // parent re-render that hands us a fresh array identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, series.id]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const published = status?.published ?? null;
-  const isPublished = published !== null;
-  const workspaceSlug = status?.workspaceSlug ?? '';
+  const rows = useMemo<FleetRow[]>(() => {
+    const publishedByName = new Map(
+      (published?.pages ?? []).map((p) => [p.fleetName, p.url]),
+    );
+    return fleets.map((f) => ({
+      name: f.name,
+      frozen: publishedByName.has(f.name),
+      publishedUrl: publishedByName.get(f.name) ?? null,
+    }));
+  }, [fleets, published]);
 
-  // Per-fleet URLs. Once published, the server's actual URLs; before that, a
-  // live preview derived from the fleets and the slug being typed.
-  const previewPages = useMemo(() => {
-    if (published) return published.pages;
-    const base = `${APP_URL}/p/${workspaceSlug}/${slug || '…'}`;
-    const isSingleDefault = fleets.length <= 1;
-    const entries = isSingleDefault
-      ? [{ fleetName: fleets[0]?.name ?? 'Standings', subPath: 'standings' }]
-      : fleets.map((f) => ({ fleetName: f.name, subPath: fleetSubPath(f.name, false) }));
-    return entries.map((e) => ({ fleetName: e.fleetName, url: `${base}/${e.subPath}` }));
-  }, [published, fleets, workspaceSlug, slug]);
+  // The sub-path each row resolves to (frozen path, or the editable value).
+  const segmentFor = (row: FleetRow): string =>
+    row.frozen ? lastSegment(row.publishedUrl ?? '') : (subPaths[row.name] ?? '');
+
+  const urlPrefix = `${APP_URL}/p/${workspaceSlug}/${slug || '…'}`;
+
+  // A single-fleet series has no per-fleet choice: it's one default page whose
+  // path the server derives (`standings`, or the series slug when it co-publishes
+  // into a shared slug). Selection + sub-path overrides only apply to ≥2 fleets.
+  const multiFleet = fleets.length > 1;
+
+  // The single default page's preview row — the server's actual page once
+  // published, else a `standings` preview under the typed slug.
+  const singlePreview = useMemo(() => {
+    const page = published?.pages[0];
+    return {
+      fleetName: page?.fleetName ?? fleets[0]?.name ?? 'Standings',
+      url: page?.url ?? `${urlPrefix}/standings`,
+    };
+  }, [published, fleets, urlPrefix]);
+
+  // Client-side guard so the button reflects what the server would reject. Only
+  // the multi-fleet UI can produce an invalid request; the single default page is
+  // always publishable. The pages that will be live afterwards are the ticked
+  // ones plus any already-published fleet (which stays live even when unticked) —
+  // we need at least one, with distinct sub-paths.
+  const validation = useMemo(() => {
+    if (!multiFleet) return null;
+    const live = rows.filter((r) => r.frozen || selected.has(r.name));
+    if (live.length === 0) return 'Select at least one fleet to publish.';
+    const seen = new Set<string>();
+    for (const r of live) {
+      const seg = segmentFor(r);
+      if (!seg) return `Give “${r.name}” a URL.`;
+      if (seen.has(seg)) return `Two fleets share the URL “${seg}”. Make them unique.`;
+      seen.add(seg);
+    }
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [multiFleet, rows, selected, subPaths, published]);
 
   const pendingEdits = published
     ? Math.max(0, (series.version ?? 1) - published.publishedVersion)
     : 0;
 
+  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.name));
+
+  function toggle(name: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.name)));
+  }
+
   async function handlePublish(join = false) {
     setPhase('publishing');
     setError(null);
     try {
-      const result = await publishSeries(
-        series.id,
-        isPublished ? {} : { slug, join },
-      );
+      // Multi-fleet: send the selection, plus sub-path overrides for the editable
+      // (unfrozen) fleets in it. Only send a path the scorer actually changed —
+      // leaving the default lets the server derive it. Single-fleet: send neither,
+      // so the server keeps deriving the lone page's path (`standings`, or the
+      // series slug when it co-publishes). The slug is honoured only on first publish.
+      let selection: { fleets?: string[]; subPaths?: Record<string, string> } = {};
+      if (multiFleet) {
+        const fleetNames = rows.filter((r) => selected.has(r.name)).map((r) => r.name);
+        const overrides: Record<string, string> = {};
+        for (const r of rows) {
+          if (r.frozen || !selected.has(r.name)) continue;
+          const seg = segmentFor(r);
+          if (seg !== defaultSubPath(r.name)) overrides[r.name] = seg;
+        }
+        selection = { fleets: fleetNames, subPaths: overrides };
+      }
+      const result = await publishSeries(series.id, {
+        ...(isPublished ? {} : { slug, join }),
+        ...selection,
+      });
       setStatus((s) => (s ? { ...s, published: result } : s));
       setNeedsJoin(false);
       setPhase('idle');
@@ -130,9 +253,21 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
           setNeedsJoin(false);
           setError(
             issues.fleetName
-              ? `The fleet “${issues.fleetName}” clashes with one already published at this URL. Rename it, then try again.`
-              : 'A fleet clashes with one already published at this URL. Rename it, then try again.',
+              ? `The URL for “${issues.fleetName}” clashes with another fleet at this slug. Change it, then try again.`
+              : 'A fleet URL clashes with another at this slug. Change it, then try again.',
           );
+          return;
+        }
+        if (issues?.code === 'invalid-subpath') {
+          setError(
+            issues.fleetName
+              ? `The URL for “${issues.fleetName}” is invalid — use lowercase letters and numbers, separated by hyphens.`
+              : 'A fleet URL is invalid — use lowercase letters and numbers, separated by hyphens.',
+          );
+          return;
+        }
+        if (issues?.code === 'no-fleets-selected') {
+          setError('Select at least one fleet to publish.');
           return;
         }
         if (issues?.code === 'invalid-slug') {
@@ -157,9 +292,13 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
     try {
       await unpublishSeries(series.id);
       // Back to the first-publish state: the slug input returns, pre-filled
-      // with the suggestion, so re-publishing is a click away.
+      // with the suggestion, and every fleet ticked again.
       setStatus((s) => (s ? { ...s, published: null } : s));
       setSlug(status?.suggestedSlug ?? '');
+      setSelected(new Set(fleets.map((f) => f.name)));
+      setSubPaths(
+        Object.fromEntries(fleets.map((f) => [f.name, defaultSubPath(f.name)])),
+      );
       setPhase('idle');
     } catch (e) {
       setPhase('idle');
@@ -173,7 +312,7 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent aria-describedby={undefined}>
+      <DialogContent aria-describedby={undefined} className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Publish results</DialogTitle>
         </DialogHeader>
@@ -202,52 +341,129 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
                   placeholder="autumn-league-2026"
                   autoFocus
                 />
-                <p className="text-xs text-muted-foreground">
-                  Published under <span className="font-mono">/p/{workspaceSlug}/{slug || '…'}</span>. Fixed once published.
-                </p>
               </div>
             )}
 
-            <div className="space-y-1.5">
-              {previewPages.map((p) => (
-                <div key={p.url} className="flex items-center gap-2">
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    {previewPages.length > 1 && (
-                      <p className="text-xs font-medium mb-0.5">{p.fleetName}</p>
-                    )}
-                    {/* direction: rtl makes the ellipsis clip the (shared) start of
-                        the URL and keep the distinguishing end (slug/fleet) visible;
-                        text-align: left keeps it left-aligned when it fits. The URL is
-                        a single LTR run so its character order is unaffected. */}
-                    {isPublished ? (
-                      <a
-                        href={p.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        title={p.url}
-                        className="text-xs font-mono truncate block hover:underline"
-                        style={{ direction: 'rtl', textAlign: 'left' }}
-                      >
-                        {p.url}
-                      </a>
-                    ) : (
-                      <span
-                        title={p.url}
-                        className="text-xs font-mono truncate block text-muted-foreground"
-                        style={{ direction: 'rtl', textAlign: 'left' }}
-                      >
-                        {p.url}
-                      </span>
-                    )}
+            {multiFleet ? (
+              <>
+                <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/`}>
+                  Fleet pages live under <span className="font-mono">/p/{workspaceSlug}/{slug || '…'}/</span>
+                </p>
+                <div className="space-y-1">
+                  <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground pb-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      className="h-4 w-4 shrink-0"
+                    />
+                    <span className="flex-1">Fleet</span>
+                    <span>URL</span>
+                  </label>
+                  <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+                    {rows.map((row) => {
+                      const checked = selected.has(row.name);
+                      const segment = segmentFor(row);
+                      const url = `${urlPrefix}/${segment}`;
+                      // Dim only an unpublished fleet that's unticked (truly not
+                      // going public). A published fleet stays live even when
+                      // unticked — unticking just skips updating it — so it
+                      // shouldn't read as removed.
+                      const dim = !checked && !row.frozen;
+                      return (
+                        <div
+                          key={row.name}
+                          className={`flex items-center gap-2 ${dim ? 'opacity-50' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggle(row.name)}
+                            className="h-4 w-4 shrink-0"
+                            aria-label={`Publish ${row.name}`}
+                          />
+                          <span
+                            className="w-36 shrink-0 truncate text-sm"
+                            title={row.name}
+                          >
+                            {row.name}
+                          </span>
+                          {row.frozen ? (
+                            <a
+                              href={row.publishedUrl ?? url}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={row.publishedUrl ?? url}
+                              aria-label={row.publishedUrl ?? url}
+                              className="flex-1 min-w-0 truncate text-xs font-mono hover:underline"
+                            >
+                              {segment}
+                            </a>
+                          ) : (
+                            <Input
+                              value={segment}
+                              onChange={(e) => {
+                                const v = sanitizeSlug(e.target.value);
+                                setSubPaths((p) => ({ ...p, [row.name]: v }));
+                                setError(null);
+                              }}
+                              disabled={!checked}
+                              placeholder={defaultSubPath(row.name)}
+                              aria-label={`URL for ${row.name}`}
+                              className="flex-1 min-w-0 h-7 text-xs font-mono"
+                            />
+                          )}
+                          {row.frozen && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0"
+                              onClick={() => navigator.clipboard.writeText(row.publishedUrl ?? url)}
+                            >
+                              Copy
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  {isPublished && (
-                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigator.clipboard.writeText(p.url)}>
-                      Copy
-                    </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  {/* direction: rtl makes the ellipsis clip the (shared) start of
+                      the URL and keep the distinguishing end visible; text-align:
+                      left keeps it left-aligned when it fits. The URL is a single
+                      LTR run so its character order is unaffected. */}
+                  {isPublished ? (
+                    <a
+                      href={singlePreview.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={singlePreview.url}
+                      className="text-xs font-mono truncate block hover:underline"
+                      style={{ direction: 'rtl', textAlign: 'left' }}
+                    >
+                      {singlePreview.url}
+                    </a>
+                  ) : (
+                    <span
+                      title={singlePreview.url}
+                      className="text-xs font-mono truncate block text-muted-foreground"
+                      style={{ direction: 'rtl', textAlign: 'left' }}
+                    >
+                      {singlePreview.url}
+                    </span>
                   )}
                 </div>
-              ))}
-            </div>
+                {isPublished && (
+                  <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigator.clipboard.writeText(singlePreview.url)}>
+                    Copy
+                  </Button>
+                )}
+              </div>
+            )}
 
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
@@ -271,7 +487,16 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
               {isPublishing ? 'Publishing…' : 'Publish into existing event'}
             </Button>
           ) : (
-            <Button onClick={() => handlePublish(false)} disabled={isLoading || isPublishing || isUnpublishing || (!isPublished && !slug)}>
+            <Button
+              onClick={() => handlePublish(false)}
+              disabled={
+                isLoading ||
+                isPublishing ||
+                isUnpublishing ||
+                (!isPublished && !slug) ||
+                validation !== null
+              }
+            >
               {isPublishing ? 'Publishing…' : isPublished ? 'Re-publish' : 'Publish'}
             </Button>
           )}

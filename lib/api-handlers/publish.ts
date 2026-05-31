@@ -32,8 +32,11 @@ import type { PublishInput } from '@/lib/validation/publish';
 
 const MAX_SLUG_LENGTH = 60;
 
-function isValidSeriesSlug(slug: string): boolean {
-  return slug.length <= MAX_SLUG_LENGTH && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+/** A slug or sub-path: lowercase alphanumerics in hyphen-separated runs, no
+ *  leading/trailing/double hyphens, capped length. Shared by the series slug
+ *  and the per-fleet sub-path overrides — same character set, same limit. */
+function isValidSlugSegment(value: string): boolean {
+  return value.length <= MAX_SLUG_LENGTH && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 }
 
 function appBase(): string {
@@ -100,6 +103,13 @@ function exportReposFor(workspaceId: string): ExportRepos {
  * Either way, each contributor's fleet sub-paths must stay unique within the
  * slug (so every fleet URL resolves to one publication); a clash is rejected
  * with `subpath-collision` naming the offending fleet.
+ *
+ * `input.fleets` selects which fleets to publish/update now (omit for all); it
+ * is not "the publication is exactly this set" — a fleet left out is skipped, so
+ * an already-published one keeps its current live page (Unpublish removes pages).
+ * `input.subPaths` overrides a not-yet-published fleet's URL sub-path (a
+ * published fleet's path is frozen like the slug); a bad override is rejected
+ * with `invalid-subpath`.
  */
 export async function publishSeries(
   workspace: WorkspaceContext,
@@ -127,27 +137,58 @@ export async function publishSeries(
     // First publish: derive or accept a slug.
     const requested = input.slug?.trim();
     slug = requested ? requested : deriveSeriesSlug(series.name);
-    if (!isValidSeriesSlug(slug)) {
+    if (!isValidSlugSegment(slug)) {
       throw new BadRequestError('invalid slug', { code: 'invalid-slug' });
     }
     id = crypto.randomUUID();
   }
 
-  const files = await buildFleetHtmlFiles(
+  const allFiles = await buildFleetHtmlFiles(
     exportReposFor(workspace.workspaceId),
     seriesId,
     `${appBase()}/p/${workspace.workspaceSlug}/${slug}`,
   );
-  if (!files) throw new NotFoundError('series has no publishable results');
+  if (!allFiles) throw new NotFoundError('series has no publishable results');
 
-  const hash = await contentHash(files.map((f) => f.html));
+  // Selective publishing: `fleets` is the set to publish/update *now* (omit for
+  // all). It is not "the publication is exactly this set" — a fleet left out is
+  // simply skipped this round, so an already-published one keeps its current
+  // live page untouched (work-in-progress on one fleet shouldn't disturb the
+  // others, or quietly retract them). Removing a page is what Unpublish is for.
+  const ticked = input.fleets ? new Set(input.fleets) : null;
+  const toBuild = ticked
+    ? allFiles.filter((f) => ticked.has(f.fleetName))
+    : allFiles;
 
-  // Blobs the previous publication held; deleted after the row points at the new
-  // (content-addressed) objects. Empty on a clean first publish.
+  // Pages for fleets we're not rebuilding carry over verbatim — same sub-path,
+  // same (content-addressed) blob.
+  const carried = ticked
+    ? (existing?.pages ?? []).filter((p) => !ticked.has(p.fleetName))
+    : [];
+
+  if (toBuild.length === 0 && carried.length === 0) {
+    throw new BadRequestError('no fleets selected to publish', {
+      code: 'no-fleets-selected',
+    });
+  }
+
+  // Hash over exactly what this publish yields: freshly-rendered pages for the
+  // built fleets, plus each carried page's blob URL as a stable proxy for its
+  // unchanged content. Identical input ⇒ same hash ⇒ no-op.
+  const hash = await contentHash([
+    ...toBuild.map((f) => f.html),
+    ...carried.map((p) => p.blobUrl),
+  ]);
+
+  // Blobs the previous publication held that we're about to replace; deleted
+  // after the row points at the new (content-addressed) objects. Carried pages
+  // keep their blob, so only the rebuilt fleets' old blobs are superseded.
   let supersededPages: PublishedSeriesPage[] = [];
   if (existing) {
     if (existing.contentHash === hash) return toResult(workspace.workspaceSlug, existing);
-    supersededPages = existing.pages;
+    supersededPages = ticked
+      ? existing.pages.filter((p) => ticked.has(p.fleetName))
+      : existing.pages;
   }
 
   // Other publications sharing this slug (the slug is a shared namespace), with
@@ -168,34 +209,72 @@ export async function publishSeries(
 
   // Sub-paths are frozen per page: a fleet that was already published keeps its
   // existing path, so a publication's URLs never shift when another series later
-  // joins (or leaves) the slug. Only genuinely new fleets get a fresh path.
+  // joins (or leaves) the slug — or when the scorer overrides a sibling's path.
+  // Resolution order: frozen (immutable once published) → caller override (only
+  // for a not-yet-frozen fleet) → derived default. Only genuinely new fleets get
+  // a fresh path, and only those accept an override.
   const frozen = new Map(
     (existing?.pages ?? []).map((p) => [p.fleetName, p.subPath]),
   );
   const shared = others.length > 0;
   const seriesSlug = deriveSeriesSlug(series.name);
-  const subPathFor = (file: { fleetName: string; isDefault: boolean }): string =>
-    frozen.get(file.fleetName) ??
-    publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared);
+  const overrides = input.subPaths ?? {};
+  const subPathFor = (file: { fleetName: string; isDefault: boolean }): string => {
+    const existingPath = frozen.get(file.fleetName);
+    if (existingPath !== undefined) return existingPath;
+    const override = overrides[file.fleetName]?.trim();
+    if (override) {
+      if (!isValidSlugSegment(override)) {
+        throw new BadRequestError('invalid fleet sub-path', {
+          code: 'invalid-subpath',
+          fleetName: file.fleetName,
+        });
+      }
+      return override;
+    }
+    return publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared);
+  };
 
-  // Every fleet URL must resolve to exactly one publication, so this series'
-  // sub-paths can't collide with another contributor's at the same slug.
+  // Resolve each built fleet's path once, then guard uniqueness on two fronts:
+  // no two of this series' own live pages may share a path (overrides — and
+  // carried pages — make that possible), and none may collide with another
+  // contributor publishing into the same slug. Carried pages already occupy
+  // their paths, so seed `mine` with them.
   const taken = new Set(others.flatMap((p) => p.pages.map((pg) => pg.subPath)));
-  for (const file of files) {
-    if (taken.has(subPathFor(file))) {
-      throw new BadRequestError('fleet URL collides with another series', {
+  const subPaths = new Map<string, string>();
+  const mine = new Set<string>(carried.map((p) => p.subPath));
+  for (const file of toBuild) {
+    const subPath = subPathFor(file);
+    if (taken.has(subPath) || mine.has(subPath)) {
+      throw new BadRequestError('fleet URL collides with another fleet', {
         code: 'subpath-collision',
         fleetName: file.fleetName,
       });
     }
+    mine.add(subPath);
+    subPaths.set(file.fleetName, subPath);
   }
 
-  const pages: PublishedSeriesPage[] = [];
-  for (const file of files) {
-    const subPath = subPathFor(file);
+  const builtByName = new Map<string, PublishedSeriesPage>();
+  for (const file of toBuild) {
+    const subPath = subPaths.get(file.fleetName)!;
     const key = publishedBlobKey(workspace.workspaceSlug, slug, subPath, hash);
     const blobUrl = await putPublishedHtml(key, file.html);
-    pages.push({ fleetName: file.fleetName, subPath, blobUrl });
+    builtByName.set(file.fleetName, { fleetName: file.fleetName, subPath, blobUrl });
+  }
+
+  // Merge built and carried pages, ordered by the series' fleet order; any
+  // carried page whose fleet no longer exists (a deleted fleet's leftover page)
+  // is kept at the end rather than silently dropped.
+  const carriedByName = new Map(carried.map((p) => [p.fleetName, p]));
+  const pages: PublishedSeriesPage[] = [];
+  for (const file of allFiles) {
+    const page = builtByName.get(file.fleetName) ?? carriedByName.get(file.fleetName);
+    if (page) pages.push(page);
+  }
+  const known = new Set(allFiles.map((f) => f.fleetName));
+  for (const page of carried) {
+    if (!known.has(page.fleetName)) pages.push(page);
   }
 
   const published: PublishedSeries = {

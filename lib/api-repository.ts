@@ -377,12 +377,19 @@ export function loadIrcRatings(): Promise<IrcRatings> {
 /**
  * Publish a series' current results (ADR-008 Phase 9/10). `slug` is honoured
  * only on first publish; `join` confirms publishing into a slug that already
- * has results from other series (a slug is a shared namespace). Returns the
- * per-fleet public URLs.
+ * has results from other series (a slug is a shared namespace). `fleets` selects
+ * which fleets to publish/update now (omit for all; ones left out keep their
+ * current page); `subPaths` overrides a not-yet-published fleet's URL sub-path
+ * (keyed by fleet name). Returns the per-fleet public URLs.
  */
 export function publishSeries(
   seriesId: string,
-  input: { slug?: string; join?: boolean } = {},
+  input: {
+    slug?: string;
+    join?: boolean;
+    fleets?: string[];
+    subPaths?: Record<string, string>;
+  } = {},
 ): Promise<PublishResult> {
   return apiFetch<PublishResult>(`/api/v1/series/${seriesId}/publish`, {
     method: 'POST',
