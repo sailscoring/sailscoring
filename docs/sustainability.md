@@ -69,19 +69,38 @@ below.
 
 ### Current costs
 
-> **TODO: fill in actual figures from billing.** The structure is fixed; the
-> numbers are placeholders.
+*Basis: current monthly charges × 12, expressed in EUR. The two services that
+bill in USD and currently cost anything (S3 now; Neon and Resend once they leave
+their free tiers) are converted at $1 ≈ €0.92 (mid-2026). These are run-rate
+figures, not trailing 12-month spend.*
 
 | Component | What it's for | Annual cost |
 |-----------|---------------|-------------|
-| `sailscoring.ie` domain | All public URLs; renews annually ([ADR-005](design/decisions/005-hosting-and-domains.md)) | **TODO** |
-| Vercel (Pro) | Compute + bandwidth; Pro tier required for the private repo | **TODO** |
-| Neon Postgres | Server-of-record for all series data | **TODO** |
-| Vercel Blob | Published-results HTML storage | **TODO** |
-| Resend | Magic-link sign-in + transactional email | **TODO** |
-| scupper (FTP relay) | Optional upload to a club's own web host | **TODO** |
-| S3 backup storage | Out-of-Neon backups ([database-backup.md](database-backup.md)) | cents/month — rounding error |
-| **Total** | | **TODO** |
+| `sailscoring.ie` domain | All public URLs; renews annually ([ADR-005](design/decisions/005-hosting-and-domains.md)) | **€47** |
+| Vercel (Pro) | Compute + bandwidth; Pro tier required for the private repo | **€295** (€24.60/mo inc. VAT) |
+| Neon Postgres | Server-of-record for all series data | **€0** — within the free plan |
+| Vercel Blob | Published-results HTML storage | **€0** — within the Pro allowance |
+| Resend | Magic-link sign-in + transactional email | **€0** — within the free plan |
+| scupper (FTP relay) | Optional upload to a club's own web host | **€0** — runs on the existing Vercel compute |
+| S3 backup storage | Out-of-Neon backups ([database-backup.md](database-backup.md)) | ~€0.12 — rounding error |
+| **Total** | | **≈ €342/yr** |
+
+Two things this table makes plain. First, the **total is small and almost
+entirely fixed**: the domain (€47) and the Vercel Pro base (€295) are ~99% of it,
+and neither moves with how much scoring happens. Second, **every usage-based
+service is still well inside its free allowance**:
+
+- **Neon** is at 11 of 100 free CU-hrs/month and 0.07 of 0.5 GB storage — roughly
+  9× current usage before the free tier runs out (compute is the binding
+  constraint), at which point [Launch pricing](#projecting-to-scale-and-amortizing-across-users)
+  applies ($0.106/CU-hr, $0.35/GB-month).
+- **Resend** has sent under 100 emails in the past month against a 3,000/month
+  free ceiling (100/day) — ~30× headroom before the $20/mo Pro plan is needed.
+- **Vercel Blob** is at 4 MB of 5 GB storage and ~0.5 MB/day of transfer against
+  100 GB/month — it would not leave the allowance even at 100× usage.
+- **Vercel compute** is flat at the Pro base. One month saw a roughly-double bill
+  from build minutes; a build-compute config change fixed it, so it is excluded
+  from the run-rate above.
 
 ### Projecting to scale, and amortizing across users
 
@@ -91,9 +110,49 @@ year, the per-competitor-per-race figure is miniscule. If that hunch holds,
 then even the busiest, largest clubs adopting Sail Scoring would see a
 negligible cost if they were ever asked to pay their share.
 
-> **TODO:** once the totals above are real, compute the per-event and
-> per-competitor-per-race cost, and project the total at, say, 10×, 50×, and
-> 100× current usage.
+The figures above let us check that hunch. Treat one **finish** — one competitor
+in one race — as the unit of scoring work; current usage is roughly **1,000
+finishes/year** across **~18 series** and **~50 races** (under 400 distinct
+competitors). Against the ≈ €342/yr total:
+
+- **Per competitor-per-race: ≈ €0.34** (€342 ÷ 1,000 finishes).
+- **Per series: ≈ €19** (€342 ÷ ~18 series).
+
+But those per-unit numbers are high *precisely because volume is low*: €342 is
+almost all fixed overhead spread thin over a small amount of scoring. The
+*marginal* cost of one more competitor-race is effectively zero — every
+usage-based service is deep inside a free tier. So the right way to read the
+hunch is stronger than first stated: it isn't just that the per-unit cost is
+small, it's that the **total cost is small and barely grows with scale**, and the
+per-unit figure therefore *falls* as adoption rises.
+
+Projecting that out — holding the fixed lines flat and stepping the usage-based
+services up only as they cross their free tiers:
+
+| Usage | What changes | Total/yr | Per competitor-race |
+|-------|--------------|----------|---------------------|
+| **1× (today)** | everything on free tiers except domain + Vercel | **≈ €342** | €0.34 |
+| **10×** | Neon just crosses its free compute tier (~9×) | **€360–550** | €0.04 |
+| **50×** | + Resend Pro ($20/mo); Neon on Launch | **≈ €770** | €0.015 |
+| **100×** | same services; Blob & Vercel still within allowance | **≈ €770** | €0.008 |
+
+Two assumptions do the work and are worth stating:
+
+- **Neon** is the one genuinely variable line. On metered Launch rates
+  ($0.106/CU-hr, $0.35/GB-month) even 100× usage is only ~€140/yr of compute plus
+  storage — but if the Launch plan carries its ~$19/mo minimum, Neon is
+  effectively **capped near €210/yr at any realistic scale**, since metered usage
+  stays under that floor even at 100×. The table uses that capped figure for 50×
+  and 100×.
+- **Resend** crosses its 3,000-email/month free ceiling somewhere past ~30×, at
+  which point the $20/mo (~€221/yr) Pro plan applies. **Vercel Blob** never leaves
+  its allowance even at 100×, and **Vercel compute** is assumed flat at the Pro
+  base.
+
+The headline: even at **100× today's usage** — on the order of 100,000
+competitor-races and ~1,800 series a year, a genuinely national-scale load — the
+service runs for **under about €800/year**, and the cost per competitor-per-race
+falls to **well under a cent**.
 
 That projection matters because it reframes the funding question. We are not
 looking for a way to recover a large cost; we are looking for a way to cover a
