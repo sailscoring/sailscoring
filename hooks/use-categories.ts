@@ -57,7 +57,29 @@ export function useReorderCategories() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (orderedIds: string[]) => reorderCategories(orderedIds),
-    onSuccess: () =>
+    // Reorder the cached list up front so a drag-reorder shows its new order
+    // immediately on drop, rather than snapping back until the save and refetch
+    // land.
+    onMutate: async (orderedIds) => {
+      const key = queryKeys.categories.list();
+      await qc.cancelQueries({ queryKey: queryKeys.categories.all });
+      const prev = qc.getQueryData<Category[]>(key);
+      if (prev) {
+        const byId = new Map(prev.map((c) => [c.id, c]));
+        const reordered = orderedIds
+          .map((id, i) => {
+            const c = byId.get(id);
+            return c ? { ...c, displayOrder: i } : undefined;
+          })
+          .filter((c): c is Category => c !== undefined);
+        qc.setQueryData<Category[]>(key, reordered);
+      }
+      return { prev };
+    },
+    onError: (_err, _ids, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKeys.categories.list(), ctx.prev);
+    },
+    onSettled: () =>
       qc.invalidateQueries({ queryKey: queryKeys.categories.all }),
   });
 }
