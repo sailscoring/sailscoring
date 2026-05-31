@@ -194,8 +194,12 @@ export async function sendInvitationEmail(args: {
  * Notify the project owner of a self-service org-creation request (#153).
  * Plain text — it's an internal admin ping, not a user-facing email. Reply-to
  * is the requester so the owner can answer directly. In dev/CI (no
- * RESEND_API_KEY) log to the console; the request is recorded in the DB
- * regardless, and `provision-org list-requests` surfaces it.
+ * RESEND_API_KEY) or when `to` uses the RFC 6761 `.test` TLD, log to the
+ * console instead of sending — the request is recorded in the DB regardless,
+ * and `provision-org list-requests` surfaces it. The `.test` guard mirrors
+ * `sendMagicLinkEmail`/`sendFeedbackEmail` and stops e2e runs (which point
+ * FEEDBACK_TO at `feedback@sailscoring.test`) from firing real, undeliverable
+ * sends that bounce and erode the sending domain's reputation.
  */
 export async function sendOrgRequestEmail(args: {
   to: string;
@@ -204,6 +208,7 @@ export async function sendOrgRequestEmail(args: {
   note?: string | null;
 }): Promise<void> {
   const from = process.env.RESEND_FROM || FROM_DEFAULT;
+  const isTestAddress = /\.test$/i.test(args.to);
   const text = `${args.requesterEmail} has requested a shared Sail Scoring workspace named "${args.requestedName}".${
     args.note ? `\n\nNote from the requester:\n${args.note}` : ''
   }
@@ -214,7 +219,7 @@ Fulfil it from the production database with the provision-org CLI:
 
 — Sail Scoring`;
 
-  if (!process.env.RESEND_API_KEY) {
+  if (isTestAddress || !process.env.RESEND_API_KEY) {
     console.log(`[org-request] from=${args.requesterEmail} name="${args.requestedName}"`);
     return;
   }
