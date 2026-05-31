@@ -275,7 +275,8 @@ export default async function HelpPage() {
           <strong className="text-foreground">Settings</strong> tab and click{' '}
           <strong className="text-foreground">Edit ▸</strong> on the{' '}
           <strong className="text-foreground">Fleets</strong> card. You can reorder fleets
-          with the ↑/↓ buttons (which determines the order they appear in standings and
+          by dragging the <strong className="text-foreground">grip handle</strong> at the start
+          of each row (which determines the order they appear in standings and
           exports), and rename any fleet with the{' '}
           <strong className="text-foreground">Rename</strong> button.
         </p>
@@ -486,9 +487,10 @@ export default async function HelpPage() {
           unknown finishes are excluded from standings until resolved.
         </p>
         <p>
-          Rows for fleets without a start time (scratch scoring) show{' '}
-          <strong className="text-foreground">↑/↓</strong> controls that let you nudge a boat
-          up or down in the list. Rows for timed fleets have no move controls — their position
+          Rows for fleets without a start time (scratch scoring) show a{' '}
+          <strong className="text-foreground">grip handle</strong> you can drag to reorder a
+          boat in the list (or, with the keyboard, focus the handle, press Space, use the arrow
+          keys, and press Space to drop). Rows for timed fleets have no handle — their position
           is determined automatically by the finish time. If you edit a time and it no longer
           matches the crossing order, the row slides to its correct slot.
         </p>

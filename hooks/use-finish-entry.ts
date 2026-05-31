@@ -7,6 +7,7 @@ import {
   deriveFinishState,
   entryKey,
   makeFinish,
+  reorderWithTies,
   type FinishEntry,
 } from '@/lib/finish-entry';
 import type { Competitor, Finish, Fleet, RaceStart, ResultCode } from '@/lib/types';
@@ -387,36 +388,27 @@ export function useFinishEntry(args: UseFinishEntryArgs) {
   }
 
   /**
-   * Move a scratch row by one step in the given direction. No-op if it would
-   * fall off the list. Scratch rows can freely move past timed rows; the
-   * moved row briefly flashes at its new position as a visual confirmation.
-   * Timed rows never have move affordances — their position is determined by
-   * the time-order invariant.
+   * Move a scratch row from one index to another (drag-and-drop reorder).
+   * No-op if either index is out of range or unchanged. Scratch rows can move
+   * freely past timed rows; the moved row briefly flashes at its new position
+   * as a visual confirmation. Timed rows are not draggable — their position is
+   * determined by the time-order invariant.
+   *
+   * Ties ("tied with the row above") are recomputed: the row that followed the
+   * moved row loses its tie unless the moved row was itself part of that group
+   * (so the group continues above it), and the moved row's own tie is cleared
+   * since its new predecessor differs.
    */
-  function moveRow(index: number, direction: -1 | 1) {
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= finishingOrder.length) return;
-    const next = [...finishingOrder];
-    const movedEid = entryKey(next[index]);
-    const newTies = new Set(tiedWithPrevious);
-
-    // If the row immediately below the moved row was tied with it,
-    // that tie now refers to the row above the vacated slot — preserve it
-    // only if the moved row was itself tied (i.e. the group continues).
-    const belowIndex = index + 1;
-    if (belowIndex < next.length) {
-      const belowEid = entryKey(next[belowIndex]);
-      if (newTies.has(belowEid) && !newTies.has(movedEid)) {
-        newTies.delete(belowEid);
-      }
-    }
-    // Always clear the tie on the moved row itself.
-    newTies.delete(movedEid);
-
-    const [moved] = next.splice(index, 1);
-    next.splice(targetIndex, 0, moved);
-    setFlashedRowId(entryKey(moved));
-    commitOrderChange(next, newTies);
+  function moveRowTo(fromIndex: number, toIndex: number) {
+    const keys = finishingOrder.map(entryKey);
+    const result = reorderWithTies(keys, tiedWithPrevious, fromIndex, toIndex);
+    if (result.keys === keys) return; // no-op (equal or out-of-range indices)
+    const byKey = new Map(finishingOrder.map((e) => [entryKey(e), e]));
+    const nextOrder = result.keys
+      .map((k) => byKey.get(k))
+      .filter((e): e is FinishEntry => e !== undefined);
+    setFlashedRowId(keys[fromIndex]);
+    commitOrderChange(nextOrder, result.ties);
   }
 
   /**
@@ -491,7 +483,7 @@ export function useFinishEntry(args: UseFinishEntryArgs) {
     recordAsUnknown,
     removeFinisher,
     toggleTiedWithPrevious,
-    moveRow,
+    moveRowTo,
     reslotTimedRow,
   };
 }

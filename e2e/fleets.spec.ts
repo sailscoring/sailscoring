@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick, downloadFleetHtml } from './helpers';
+import { createFleets, createSeriesQuick, downloadFleetHtml, keyboardReorder } from './helpers';
 
 /**
  * E2E tests for fleet support (issue #40).
@@ -180,23 +180,23 @@ test('reorder works after CSV import creates multiple fleets in parallel (#90)',
   await expect(fleetsHeading).toBeVisible();
   await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
 
-  // Both fleets are present and both ↓/↑ buttons render
+  // Both fleets are present and both drag handles render
   const rows = page.getByTestId('fleet-row');
   await expect(rows).toHaveCount(2);
   const initial = await rows.allTextContents();
   expect(initial[0]).toMatch(/Alpha/);
   expect(initial[1]).toMatch(/Bravo/);
 
-  // Click ↓ on Alpha (first row) — order must flip
-  await rows.nth(0).getByTitle('Move down').click();
+  // Drag Alpha (first row) down via the keyboard — order must flip
+  await keyboardReorder(page, rows.nth(0).getByLabel('Drag to reorder'), 'ArrowDown');
   await expect(async () => {
     const after = await rows.allTextContents();
     expect(after[0]).toMatch(/Bravo/);
     expect(after[1]).toMatch(/Alpha/);
   }).toPass();
 
-  // And reversing it restores the original order
-  await rows.nth(1).getByTitle('Move up').click();
+  // And dragging Alpha (now the second row) back up restores the order
+  await keyboardReorder(page, rows.nth(1).getByLabel('Drag to reorder'), 'ArrowUp');
   await expect(async () => {
     const after = await rows.allTextContents();
     expect(after[0]).toMatch(/Alpha/);

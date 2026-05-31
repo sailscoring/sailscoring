@@ -211,3 +211,49 @@ export function reorderFinisher(
   next.splice(newPosition - 1, 0, competitorId);
   return next;
 }
+
+/**
+ * Move a row from one index to another within the finishing order and recompute
+ * simultaneous-finish ties (drag-and-drop reorder). `keys` are entry keys in
+ * current order; `ties` holds the keys of rows tied with the row immediately
+ * above them.
+ *
+ * Tie recomputation: the row that followed the moved row loses its tie unless
+ * the moved row was itself part of that group (so the group continues above
+ * it), and the moved row's own tie is cleared since its new predecessor differs.
+ *
+ * Returns the original `keys`/`ties` references unchanged when the move is a
+ * no-op (equal or out-of-range indices), so callers can skip a commit cheaply.
+ */
+export function reorderWithTies(
+  keys: string[],
+  ties: Set<string>,
+  fromIndex: number,
+  toIndex: number,
+): { keys: string[]; ties: Set<string> } {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    fromIndex >= keys.length ||
+    toIndex < 0 ||
+    toIndex >= keys.length
+  ) {
+    return { keys, ties };
+  }
+  const movedKey = keys[fromIndex];
+  const nextTies = new Set(ties);
+
+  const belowIndex = fromIndex + 1;
+  if (belowIndex < keys.length) {
+    const belowKey = keys[belowIndex];
+    if (nextTies.has(belowKey) && !nextTies.has(movedKey)) {
+      nextTies.delete(belowKey);
+    }
+  }
+  nextTies.delete(movedKey);
+
+  const next = [...keys];
+  next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, movedKey);
+  return { keys: next, ties: nextTies };
+}

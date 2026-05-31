@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type { Download, Page, Response } from '@playwright/test';
+import type { Download, Locator, Page, Response } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { and, desc, eq } from 'drizzle-orm';
@@ -385,4 +385,29 @@ export async function settleFinish(page: Page, action: () => Promise<void>): Pro
     ['POST', 'PUT'].includes(r.request().method());
   await Promise.all([page.waitForResponse(isFinishWrite), action()]);
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+}
+
+/**
+ * Reorder a sortable row by keyboard via its drag handle (dnd-kit's
+ * KeyboardSensor): focus the handle, Space to pick up, arrow `steps` times,
+ * Space to drop. Reliable in headless Playwright where pointer drags are flaky.
+ */
+export async function keyboardReorder(
+  page: Page,
+  handle: Locator,
+  key: 'ArrowUp' | 'ArrowDown',
+  steps = 1,
+): Promise<void> {
+  await handle.focus();
+  // dnd-kit's KeyboardSensor needs a tick between events to start the drag and
+  // measure the list before the arrow moves it — pressing back-to-back drops
+  // the move. Short pauses keep this reliable in headless runs.
+  await page.keyboard.press('Space'); // pick up
+  await page.waitForTimeout(100);
+  for (let i = 0; i < steps; i++) {
+    await page.keyboard.press(key);
+    await page.waitForTimeout(100);
+  }
+  await page.keyboard.press('Space'); // drop
+  await page.waitForTimeout(100);
 }

@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { FinishSheetImport, type FinishSheetImportHandle } from '@/components/finish-sheet-import';
+import { SortableList, DragHandle } from '@/components/ui/sortable-list';
 import { useFeatures } from '@/components/features-provider';
 import { cn } from '@/lib/utils';
 import { competitorFleetNames, displayCompetitorLabel } from '@/lib/competitor-fields';
@@ -112,7 +113,7 @@ export function FinishTab(props: FinishTabProps) {
     needsFinishTime,
     addFinisher, commitCompetitor,
     confirmPendingTime, cancelPendingTime, recordAsUnknown,
-    removeFinisher, toggleTiedWithPrevious, moveRow, reslotTimedRow,
+    removeFinisher, toggleTiedWithPrevious, moveRowTo, reslotTimedRow,
   } = finishEntry;
 
   return (
@@ -291,7 +292,12 @@ export function FinishTab(props: FinishTabProps) {
         )}
 
         <ol className="space-y-1.5">
-          {finishingOrder.map((entry, index) => {
+          <SortableList
+            items={finishingOrder.map((entry, index) => ({ id: entryKey(entry), entry, index }))}
+            isDisabled={(it) => it.entry.kind === 'known' && needsFinishTime(it.entry.competitorId)}
+            onReorder={(_, { fromIndex, toIndex }) => moveRowTo(fromIndex, toIndex)}
+          >
+          {({ entry, index }, { ref, style, handleProps }) => {
             const eid = entryKey(entry);
             const rowNumber = index + 1;
             const isFlashed = flashedRowId === eid;
@@ -300,7 +306,8 @@ export function FinishTab(props: FinishTabProps) {
             if (entry.kind === 'unknown') {
               return (
                 <li
-                  key={entry.finishId}
+                  ref={ref}
+                  style={style}
                   className={cn(
                     'flex items-center gap-3 border border-amber-400 rounded-lg px-4 py-2.5 bg-amber-50 dark:bg-amber-950 transition-colors',
                     isFlashed && 'ring-2 ring-primary',
@@ -309,26 +316,7 @@ export function FinishTab(props: FinishTabProps) {
                   <span className="w-6 text-right text-sm font-mono text-muted-foreground shrink-0">
                     {rowNumber}
                   </span>
-                  <div className="flex flex-col shrink-0">
-                    <button
-                      type="button"
-                      aria-label={`Move row ${rowNumber} up`}
-                      disabled={index === 0}
-                      onClick={() => moveRow(index, -1)}
-                      className="text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none leading-none text-sm"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Move row ${rowNumber} down`}
-                      disabled={index === finishingOrder.length - 1}
-                      onClick={() => moveRow(index, 1)}
-                      className="text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none leading-none text-sm"
-                    >
-                      ↓
-                    </button>
-                  </div>
+                  <DragHandle {...handleProps} data-testid={`drag-handle-${entry.sailNumber}`} />
                   <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                   <span className="font-mono font-medium">{entry.sailNumber}</span>
                   <span className="text-sm text-muted-foreground flex-1">Unknown — not registered</span>
@@ -358,7 +346,8 @@ export function FinishTab(props: FinishTabProps) {
             const hasRedress = redressEntries.has(entry.competitorId);
             return (
               <li
-                key={entry.competitorId}
+                ref={ref}
+                style={style}
                 className={cn(
                   'flex items-center gap-3 border rounded-lg px-4 py-2.5 transition-colors',
                   hasRedress && 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700',
@@ -370,31 +359,10 @@ export function FinishTab(props: FinishTabProps) {
                 </span>
                 {isTimed ? (
                   // Timed rows are position-locked by the time-order invariant.
-                  // No move affordances — scorer edits the time instead.
-                  <div className="w-[14px] shrink-0" aria-hidden />
+                  // Not draggable — scorer edits the time instead.
+                  <div className="w-4 shrink-0" aria-hidden />
                 ) : (
-                  <div className="flex flex-col shrink-0">
-                    <button
-                      type="button"
-                      data-testid={`move-up-${competitor.sailNumber}`}
-                      aria-label={`Move ${competitor.sailNumber} up`}
-                      disabled={index === 0}
-                      onClick={() => moveRow(index, -1)}
-                      className="text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none leading-none text-sm"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      data-testid={`move-down-${competitor.sailNumber}`}
-                      aria-label={`Move ${competitor.sailNumber} down`}
-                      disabled={index === finishingOrder.length - 1}
-                      onClick={() => moveRow(index, 1)}
-                      className="text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none leading-none text-sm"
-                    >
-                      ↓
-                    </button>
-                  </div>
+                  <DragHandle {...handleProps} data-testid={`drag-handle-${competitor.sailNumber}`} />
                 )}
                 <span className="font-mono font-medium">{competitor.sailNumber}</span>
                 {showFleetBadge && (
@@ -492,7 +460,8 @@ export function FinishTab(props: FinishTabProps) {
                 </button>
               </li>
             );
-          })}
+          }}
+          </SortableList>
         </ol>
       </div>
 

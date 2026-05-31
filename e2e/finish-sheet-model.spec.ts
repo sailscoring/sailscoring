@@ -121,10 +121,10 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
   await expect(page.getByTestId('finish-time-P1')).toHaveValue('14:20:00');
   await expect(page.getByTestId('finish-time-P2')).toHaveValue('14:25:00');
 
-  // Move controls are present on scratch rows (L1, L2) and absent on timed rows (P1, P2)
-  await expect(page.getByTestId('move-up-L2')).toBeVisible();
-  await expect(page.getByTestId('move-up-P1')).toHaveCount(0);
-  await expect(page.getByTestId('move-up-P2')).toHaveCount(0);
+  // Drag handles are present on scratch rows (L1, L2) and absent on timed rows (P1, P2)
+  await expect(page.getByTestId('drag-handle-L2')).toBeVisible();
+  await expect(page.getByTestId('drag-handle-P1')).toHaveCount(0);
+  await expect(page.getByTestId('drag-handle-P2')).toHaveCount(0);
 
   // ── 6. Save and verify per-fleet ranks in standings ───────────────────────
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');

@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, keyboardReorder, setScoringMode } from './helpers';
 
 /**
  * E2E tests for the "tied with previous row" checkbox (RRS A8.1).
@@ -128,8 +128,8 @@ test('tie checkbox: moving a tied row clears the tie', async ({ page }) => {
   await page.getByTestId('tie-T2').click();
   await expect(page.getByTestId('tie-T2')).toBeChecked();
 
-  // Move T2 down — tie should be cleared
-  await page.getByTestId('move-down-T2').click();
+  // Drag T2 down — tie should be cleared
+  await keyboardReorder(page, page.getByTestId('drag-handle-T2'), 'ArrowDown');
 
   // T2 is now at index 2 (after T1, T3). Its tie should be cleared.
   await expect(page.getByTestId('tie-T2')).not.toBeChecked();
@@ -168,8 +168,8 @@ test('tie checkbox: moving group leader clears follower tie', async ({ page }) =
   await page.getByTestId('tie-Y').click();
   await expect(page.getByTestId('tie-Y')).toBeChecked();
 
-  // Move X down — X was the group leader, so Y's tie should be cleared
-  await page.getByTestId('move-down-X').click();
+  // Drag X down — X was the group leader, so Y's tie should be cleared
+  await keyboardReorder(page, page.getByTestId('drag-handle-X'), 'ArrowDown');
 
   // Order is now Y, X, Z. Y is at index 0 (no tie checkbox shown for first row).
   // X is at index 1 — verify its tie is not set either.

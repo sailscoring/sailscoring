@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { SortableList, DragHandle } from '@/components/ui/sortable-list';
 import { StartSequenceEditor } from './start-sequence-editor';
 import { ECHO_DEFAULT_ALPHA } from '@/lib/scoring';
 import { NhcProfileDialog } from './nhc-profile-dialog';
@@ -67,13 +68,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
 
   const isOnlyDefault = fleets.length === 1 && fleets[0].name === 'Default';
 
-  async function moveFleet(index: number, direction: -1 | 1) {
-    const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
-    const swapIndex = index + direction;
-    if (swapIndex < 0 || swapIndex >= sorted.length) return;
-    const reordered = [...sorted];
-    const [moved] = reordered.splice(index, 1);
-    reordered.splice(swapIndex, 0, moved);
+  async function reorderFleets(orderedIds: string[]) {
+    const byId = new Map(fleets.map((f) => [f.id, f]));
+    const reordered = orderedIds
+      .map((id) => byId.get(id))
+      .filter((f): f is Fleet => f !== undefined);
     // Renumber rather than swap values: this self-heals fleets that share a
     // displayOrder (which a historical race in ensureFleet could produce).
     const changed = reordered
@@ -266,9 +265,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
         </p>
       )}
       <div className="space-y-1">
-        {sorted.map((fleet, i) => (
-          <div key={fleet.id} data-testid="fleet-row" className="flex-col items-start gap-1">
+        <SortableList items={sorted} onReorder={reorderFleets}>
+          {(fleet, { ref, style, handleProps }) => (
+          <div ref={ref} style={style} data-testid="fleet-row" className="flex-col items-start gap-1">
             <div className="flex items-center gap-2">
+              <DragHandle {...handleProps} data-testid={`fleet-drag-${fleet.id}`} />
               {renamingId === fleet.id ? (
                 <input
                   className={`flex-1 border rounded px-2 py-1 text-sm${renameError ? ' border-destructive' : ''}`}
@@ -347,28 +348,6 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                   )}
                 </>
               )}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-1.5 text-muted-foreground"
-                disabled={i === 0}
-                onClick={() => moveFleet(i, -1)}
-                title="Move up"
-              >
-                ↑
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-1.5 text-muted-foreground"
-                disabled={i === sorted.length - 1}
-                onClick={() => moveFleet(i, 1)}
-                title="Move down"
-              >
-                ↓
-              </Button>
               {renamingId !== fleet.id && (
                 <Button
                   type="button"
@@ -400,7 +379,8 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
               </p>
             )}
           </div>
-        ))}
+          )}
+        </SortableList>
       </div>
       {addingFleet ? (
         <div className="flex items-center gap-2">

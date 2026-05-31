@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, settleFinish } from './helpers';
+import { createSeriesQuick, settleFinish, keyboardReorder } from './helpers';
 
 /**
  * Full happy-path test for a simple one-day event.
@@ -396,7 +396,7 @@ test('unresolved unknown finish is excluded from standings', async ({ page }) =>
   await expect(page.getByText('9999')).not.toBeVisible();
 });
 
-test('move controls reorder scratch rows in the finishing list', async ({ page }) => {
+test('drag handles reorder scratch rows in the finishing list', async ({ page }) => {
   // ── Setup: series with 3 competitors and one race ─────────────────────────
   await createSeriesQuick(page, { name: 'Scratch Reorder Cup' });
 
@@ -426,28 +426,29 @@ test('move controls reorder scratch rows in the finishing list', async ({ page }
   await expect(row(1)).toContainText('102');
   await expect(row(2)).toContainText('103');
 
-  // ── 1. Move 103 up two steps → [101, 103, 102] then [103, 101, 102] ───────
-  await settleFinish(page, () => page.getByTestId('move-up-103').click());
+  const dragHandle = (sail: string) => page.getByTestId(`drag-handle-${sail}`);
+
+  // ── 1. Drag 103 up two steps → [101, 103, 102] then [103, 101, 102] ───────
+  await settleFinish(page, () => keyboardReorder(page, dragHandle('103'), 'ArrowUp'));
   await expect(row(0)).toContainText('101');
   await expect(row(1)).toContainText('103');
   await expect(row(2)).toContainText('102');
 
-  await settleFinish(page, () => page.getByTestId('move-up-103').click());
+  await settleFinish(page, () => keyboardReorder(page, dragHandle('103'), 'ArrowUp'));
   await expect(row(0)).toContainText('103');
   await expect(row(1)).toContainText('101');
   await expect(row(2)).toContainText('102');
 
-  // ── 2. Move 103 down → [101, 103, 102] ────────────────────────────────────
-  await settleFinish(page, () => page.getByTestId('move-down-103').click());
+  // ── 2. Drag 103 down → [101, 103, 102] ────────────────────────────────────
+  await settleFinish(page, () => keyboardReorder(page, dragHandle('103'), 'ArrowDown'));
   await expect(row(0)).toContainText('101');
   await expect(row(1)).toContainText('103');
   await expect(row(2)).toContainText('102');
 
-  // ── 3. Move controls at the boundaries are disabled ───────────────────────
-  // 101 is now in row 0, so its ↑ button is disabled
-  await expect(page.getByTestId('move-up-101')).toBeDisabled();
-  // 102 is now in row 2 (the last row), so its ↓ button is disabled
-  await expect(page.getByTestId('move-down-102')).toBeDisabled();
+  // ── 3. Every scratch row exposes a drag handle for reordering ─────────────
+  await expect(dragHandle('101')).toBeVisible();
+  await expect(dragHandle('102')).toBeVisible();
+  await expect(dragHandle('103')).toBeVisible();
 
   // ── 4. Save and confirm redirect ──────────────────────────────────────────
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');

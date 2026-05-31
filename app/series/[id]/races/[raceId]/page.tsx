@@ -191,7 +191,7 @@ export default function ResultEntryPage({
     needsFinishTime,
     addFinisher, commitCompetitor,
     confirmPendingTime, cancelPendingTime, recordAsUnknown,
-    removeFinisher, toggleTiedWithPrevious, moveRow, reslotTimedRow,
+    removeFinisher, toggleTiedWithPrevious, moveRowTo, reslotTimedRow,
   } = finishEntry;
 
   // No isDirty / leave-confirm — every interaction persists immediately.

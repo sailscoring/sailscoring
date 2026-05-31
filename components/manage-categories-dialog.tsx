@@ -2,15 +2,17 @@
 
 /**
  * Manage Categories dialog (#154). Scorer-defined, per-workspace series
- * categories: add, rename, reorder (menu-driven up/down — DnD is post-MVP),
- * and delete. "Uncategorized" is synthetic (not a row) so it never appears
+ * categories: add, rename, reorder (drag-and-drop), and delete.
+ * "Uncategorized" is synthetic (not a row) so it never appears
  * here and can't be removed. Deleting a category drops its series back to
  * Uncategorized server-side.
  *
  * Surfaced from the home list header and from workspace settings.
  */
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
+
+import { SortableList, DragHandle } from '@/components/ui/sortable-list';
 
 import {
   useCategories,
@@ -72,14 +74,6 @@ export function ManageCategoriesDialog({
     }
   }
 
-  async function handleMove(index: number, dir: -1 | 1) {
-    const target = index + dir;
-    if (target < 0 || target >= list.length) return;
-    const ids = list.map((c) => c.id);
-    [ids[index], ids[target]] = [ids[target], ids[index]];
-    await reorderCategories.mutateAsync(ids);
-  }
-
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) { setError(null); onClose(); } }}>
       <DialogContent>
@@ -98,50 +92,33 @@ export function ManageCategoriesDialog({
               No categories yet. Add one below.
             </p>
           )}
-          {list.map((c, i) => (
-            <div key={c.id} className="flex items-center gap-1">
-              <div className="flex flex-col">
-                <button
-                  type="button"
-                  aria-label={`Move ${c.name} up`}
-                  disabled={i === 0 || reorderCategories.isPending}
-                  className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  onClick={() => handleMove(i, -1)}
+          <SortableList items={list} onReorder={async (ids) => { await reorderCategories.mutateAsync(ids); }}>
+            {(c, { ref, style, handleProps }) => (
+              <div ref={ref} style={style} className="flex items-center gap-1">
+                <DragHandle {...handleProps} data-testid={`category-drag-${c.id}`} />
+                <Input
+                  key={c.name}
+                  defaultValue={c.name}
+                  maxLength={CATEGORY_NAME_MAX_LENGTH}
+                  aria-label={`Category name`}
+                  className="flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                  }}
+                  onBlur={(e) => handleRename(c.id, e.target.value, c.name)}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Delete ${c.name}`}
+                  disabled={deleteCategory.isPending}
+                  onClick={() => deleteCategory.mutate(c.id)}
                 >
-                  <ChevronUp className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Move ${c.name} down`}
-                  disabled={i === list.length - 1 || reorderCategories.isPending}
-                  className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  onClick={() => handleMove(i, 1)}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
-              <Input
-                key={c.name}
-                defaultValue={c.name}
-                maxLength={CATEGORY_NAME_MAX_LENGTH}
-                aria-label={`Category name`}
-                className="flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                }}
-                onBlur={(e) => handleRename(c.id, e.target.value, c.name)}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={`Delete ${c.name}`}
-                disabled={deleteCategory.isPending}
-                onClick={() => deleteCategory.mutate(c.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
+            )}
+          </SortableList>
         </div>
 
         <div className="flex items-center gap-2 pt-2 border-t">

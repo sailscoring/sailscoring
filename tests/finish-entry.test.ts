@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { reorderFinisher, computePositions } from '@/lib/finish-entry';
+import { reorderFinisher, reorderWithTies, computePositions } from '@/lib/finish-entry';
 
 describe('reorderFinisher', () => {
   const base = ['A', 'B', 'C', 'D'];
@@ -33,6 +33,58 @@ describe('reorderFinisher', () => {
     const order = ['A', 'B', 'C'];
     reorderFinisher(order, 'C', 1);
     expect(order).toEqual(['A', 'B', 'C']);
+  });
+});
+
+describe('reorderWithTies', () => {
+  const base = ['A', 'B', 'C', 'D'];
+
+  it('moves a row down by index, preserving untouched ties', () => {
+    const { keys, ties } = reorderWithTies(base, new Set(), 0, 2);
+    expect(keys).toEqual(['B', 'C', 'A', 'D']);
+    expect([...ties]).toEqual([]);
+  });
+
+  it('moves a row up by index', () => {
+    const { keys } = reorderWithTies(base, new Set(), 3, 0);
+    expect(keys).toEqual(['D', 'A', 'B', 'C']);
+  });
+
+  it('clears the tie on the moved row', () => {
+    // C is tied to B; moving C away drops its tie.
+    const { keys, ties } = reorderWithTies(base, new Set(['C']), 2, 0);
+    expect(keys).toEqual(['C', 'A', 'B', 'D']);
+    expect(ties.has('C')).toBe(false);
+  });
+
+  it('drops the follower tie when the moved row was not part of the group', () => {
+    // C is tied to B; moving B (untied) out detaches C's anchor.
+    const { ties } = reorderWithTies(base, new Set(['C']), 1, 3);
+    expect(ties.has('C')).toBe(false);
+  });
+
+  it('keeps the follower tie when the moved row continues the group above it', () => {
+    // B and C both tied (a 3-way group A·B·C); moving B keeps C tied since the
+    // group still continues above C.
+    const { ties } = reorderWithTies(base, new Set(['B', 'C']), 1, 3);
+    expect(ties.has('C')).toBe(true);
+    expect(ties.has('B')).toBe(false); // moved row's own tie cleared
+  });
+
+  it('returns the original references on a no-op move', () => {
+    const ties = new Set(['C']);
+    const same = reorderWithTies(base, ties, 1, 1);
+    expect(same.keys).toBe(base);
+    expect(same.ties).toBe(ties);
+    const oob = reorderWithTies(base, ties, 0, 9);
+    expect(oob.keys).toBe(base);
+  });
+
+  it('does not mutate the inputs', () => {
+    const ties = new Set(['C']);
+    reorderWithTies(base, ties, 2, 0);
+    expect(base).toEqual(['A', 'B', 'C', 'D']);
+    expect([...ties]).toEqual(['C']);
   });
 });
 
