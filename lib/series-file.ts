@@ -1,5 +1,6 @@
 import type {
   Series,
+  Fleet,
   ResultCode,
   PenaltyCode,
   DiscardThreshold,
@@ -465,7 +466,7 @@ function remapFtpPaths(
 export async function openSeriesFromFile(
   file: SeriesFile,
   repos: SeriesFileRepos,
-  opts?: { categoryId?: string | null },
+  opts?: { categoryId?: string | null; source?: Series['source'] },
 ): Promise<string> {
   const newSeriesId = crypto.randomUUID();
   const now = Date.now();
@@ -510,6 +511,9 @@ export async function openSeriesFromFile(
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionLabel: file.series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
     categoryId: opts?.categoryId ?? null,
+    // Provenance is caller-supplied, not carried in the file: the Sailwave
+    // wizard passes 'sailwave'; a .sailscoring open leaves it unset.
+    source: opts?.source,
   });
 
   await writeFleetsCompetitorsRaces(repos, file, newSeriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
@@ -568,6 +572,91 @@ export async function updateSeriesFromFile(
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionLabel: file.series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+  });
+
+  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
+}
+
+// ---- Update existing series from a re-imported Sailwave file ----
+
+/** Re-key the saved per-fleet publish destinations onto the freshly-imported
+ *  fleets. `ftpPaths` is keyed by the *current* (about-to-be-deleted) fleet
+ *  ids; every re-imported fleet gets a brand-new id, so the only stable bridge
+ *  is the fleet **name**: current id → name → new id. A fleet renamed in
+ *  Sailwave between exports therefore loses its saved destination (acceptable —
+ *  the scorer re-points it on next publish). */
+function remapFtpPathsByFleetName(
+  ftpPaths: Record<string, string> | undefined,
+  currentFleets: Fleet[],
+  file: SeriesFile,
+  fleetIdMap: Map<string, string>,
+): Record<string, string> {
+  if (!ftpPaths) return {};
+  const nameByCurrentId = new Map(currentFleets.map((f) => [f.id, f.name]));
+  const newIdByName = new Map<string, string>();
+  for (const f of file.fleets) {
+    const newId = fleetIdMap.get(f.id);
+    if (newId) newIdByName.set(f.name, newId);
+  }
+  const out: Record<string, string> = {};
+  for (const [oldId, path] of Object.entries(ftpPaths)) {
+    const name = nameByCurrentId.get(oldId);
+    if (name == null) continue;
+    const newId = newIdByName.get(name);
+    if (newId) out[newId] = path;
+  }
+  return out;
+}
+
+/**
+ * Replace a Sailwave-born series' competition data in place from a freshly
+ * re-imported Sailwave file, **preserving the scorer's series identity and
+ * publishing setup**. Only offered for series with `source === 'sailwave'`.
+ *
+ * Retained from the existing series (`...current`): name, venue, logos/links,
+ * FTP destination + per-fleet paths, publish toggles, competitor-field config,
+ * primary/subdivision labels, category, archived, and `source` itself.
+ *
+ * Replaced from the file: fleets, competitors, races, starts, finishes — and
+ * the scoring rules derived from them (`discardThresholds`, `dnfScoring`).
+ * `defaultStartSequence` is dropped because it keys fleet ids that no longer
+ * exist after the re-import.
+ *
+ * File lineage (`lastSnapshotId` / `snapshotHistory` / `lastSavedAt`) is left
+ * untouched — no `.sailscoring` file was involved — so the series correctly
+ * reads as "modified since last save" afterwards.
+ */
+export async function updateSeriesFromSailwave(
+  seriesId: string,
+  file: SeriesFile,
+  repos: SeriesFileRepos,
+): Promise<void> {
+  const now = Date.now();
+
+  const current = await repos.seriesRepo.get(seriesId);
+  if (!current) throw new Error(`Series ${seriesId} not found`);
+
+  // Snapshot the current fleets *before* deleting children — their names are
+  // the bridge used to re-attach the saved publish destinations below.
+  const currentFleets = await repos.fleetRepo.listBySeries(seriesId);
+
+  const fleetIdMap = new Map(file.fleets.map((f) => [f.id, crypto.randomUUID()]));
+  const competitorIdMap = new Map(file.competitors.map((c) => [c.id, crypto.randomUUID()]));
+  const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
+
+  const ftpPaths = remapFtpPathsByFleetName(current.ftpPaths, currentFleets, file, fleetIdMap);
+
+  await repos.deleteSeriesChildren(seriesId);
+
+  // Authoritative file-replay write — no `expectedVersion`. The user has
+  // already confirmed the destructive-replace dialog.
+  await repos.seriesRepo.save({
+    ...current,
+    discardThresholds: file.series.discardThresholds,
+    dnfScoring: file.series.dnfScoring,
+    defaultStartSequence: undefined,
+    ftpPaths,
+    lastModifiedAt: now,
   });
 
   await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap);

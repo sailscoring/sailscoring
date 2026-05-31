@@ -77,6 +77,9 @@ export const seriesSchema = z.object({
   // sparse new-series creation and older clients round-trip cleanly.
   categoryId: uuidSchema.nullable().optional(),
   archived: z.boolean().optional(),
+  // Import provenance (workspace-local). Optional on the wire so sparse
+  // creation and older clients round-trip cleanly.
+  source: z.enum(['sailwave']).optional(),
   // Manual sort position (#171). Server-managed: accepted on the wire so a
   // full-series round-trip validates, but the repository ignores the client
   // value (seeded on insert, preserved on update).

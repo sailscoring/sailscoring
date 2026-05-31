@@ -94,6 +94,8 @@ export async function putSeries(
     // moves have their own too — but both must survive an ordinary PUT.
     categoryId: input.categoryId ?? null,
     archived: input.archived ?? false,
+    // Round-trip import provenance so an ordinary settings PUT doesn't wipe it.
+    source: input.source ?? existing?.source,
   };
   const saved = await repos.series.save(merged, {
     expectedVersion: opts?.expectedVersion,
@@ -350,6 +352,10 @@ export async function copySeries(
       // id wouldn't exist there anyway.
       categoryId: null,
       archived: false,
+      // Import provenance is deliberately not carried: a copy is a fork with
+      // its own (reset) publishing destination, so it doesn't offer the
+      // in-place "Update from Sailwave file" re-import.
+      source: null,
       // Append to the end of the target workspace's active list (#171).
       displayOrder: sql<number>`(select coalesce(max(${schema.series.displayOrder}) + 1, 0) from ${schema.series} where ${schema.series.workspaceId} = ${targetWorkspaceId})`,
     });

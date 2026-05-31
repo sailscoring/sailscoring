@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { queryKeys } from '@/hooks/query-keys';
 import { useCategories } from '@/hooks/use-categories';
-import { openSeriesFromFile } from '@/lib/series-file';
+import { openSeriesFromFile, updateSeriesFromSailwave } from '@/lib/series-file';
 import {
   buildSeriesFileFromSailwave,
   inspectSailwave,
@@ -46,6 +46,11 @@ export const SAILWAVE_HANDOFF_KEY = 'sailwave-import-handoff';
 interface Handoff {
   fileName: string;
   raw: SailwaveRaw;
+  /** Present when re-importing over an existing Sailwave-born series ("Update
+   *  from Sailwave file" on the series Settings page). Drives update mode: the
+   *  series' identity and publishing config are retained and only the
+   *  competition data is replaced. Absent for a fresh import. */
+  updateSeriesId?: string;
 }
 
 const SCORING_SYSTEM_OPTIONS: { value: ScoringSystem; label: string }[] = [
@@ -131,7 +136,8 @@ function Wizard({
   activeOrganizationId,
   showWorkspacePicker,
 }: WizardProps) {
-  const { raw, fileName } = handoff;
+  const { raw, fileName, updateSeriesId } = handoff;
+  const isUpdate = updateSeriesId != null;
 
   const preview: SailwavePreview | null = useMemo(() => {
     try {
@@ -212,6 +218,27 @@ function Wizard({
 
     setSubmitting(true);
     try {
+      const file = buildSeriesFileFromSailwave(raw, opts);
+
+      if (isUpdate) {
+        // Re-import in place: the series stays in its current workspace and
+        // keeps its identity + publishing config; only the competition data is
+        // replaced. The series-level fields in `file` (name, venue, labels) are
+        // discarded by updateSeriesFromSailwave in favour of the existing row.
+        await updateSeriesFromSailwave(updateSeriesId, file, repos);
+        // Every child entity gets a fresh id, so the stale by-id child queries
+        // must be evicted (mirrors the .sailscoring "Update from File" flow).
+        await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(updateSeriesId) });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
+        queryClient.removeQueries({ queryKey: queryKeys.fleets.all });
+        queryClient.removeQueries({ queryKey: queryKeys.competitors.all });
+        queryClient.removeQueries({ queryKey: queryKeys.races.all });
+        queryClient.removeQueries({ queryKey: queryKeys.finishes.all });
+        queryClient.removeQueries({ queryKey: queryKeys.raceStarts.all });
+        window.location.assign(`/series/${updateSeriesId}/competitors`);
+        return;
+      }
+
       // Flip the active workspace before any write so every repository call
       // in openSeriesFromFile resolves to the chosen workspace — same pattern
       // as /app/import/page.tsx.
@@ -222,9 +249,9 @@ function Wizard({
       ) {
         await authClient.organization.setActive({ organizationId: targetWorkspaceId });
       }
-      const file = buildSeriesFileFromSailwave(raw, opts);
       const newId = await openSeriesFromFile(file, repos, {
         categoryId: categoryPickerAvailable ? categoryId : null,
+        source: 'sailwave',
       });
       await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
       // Hard navigate (matching /import) so server-rendered shells pick up
@@ -246,11 +273,25 @@ function Wizard({
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">Import from Sailwave</h1>
+        <h1 className="text-2xl font-semibold">
+          {isUpdate ? 'Update from Sailwave' : 'Import from Sailwave'}
+        </h1>
         <p className="text-sm text-muted-foreground">
           Reading <span className="font-mono">{fileName}</span>.
         </p>
       </div>
+
+      {isUpdate && (
+        <div
+          className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+          data-testid="sailwave-update-warning"
+        >
+          This replaces all competitors, fleets, races and finishes in this
+          series with what&apos;s in the file. The series name, venue,
+          competitor-field setup and publishing destination are kept. Published
+          results aren&apos;t changed until you publish again.
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -288,49 +329,53 @@ function Wizard({
       </Card>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Basics</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="series-name">Name</Label>
-              <Input
-                id="series-name"
-                data-testid="sailwave-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="series-venue">Venue</Label>
-              <Input
-                id="series-venue"
-                data-testid="sailwave-venue"
-                value={venue}
-                onChange={(e) => setVenue(e.target.value)}
-              />
-            </div>
-            {showWorkspacePicker && (
+        {/* In update mode the series name, venue, workspace and category are
+            retained from the existing series, so the Basics card is omitted. */}
+        {!isUpdate && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Basics</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="sailwave-workspace">Workspace</Label>
-                <Select value={targetWorkspaceId} onValueChange={setTargetWorkspaceId}>
-                  <SelectTrigger id="sailwave-workspace" data-testid="sailwave-workspace" className="w-full">
-                    <SelectValue placeholder="Select a workspace…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {memberships.map((m) => (
-                      <SelectItem key={m.organizationId} value={m.organizationId}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="series-name">Name</Label>
+                <Input
+                  id="series-name"
+                  data-testid="sailwave-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <div className="space-y-1.5">
+                <Label htmlFor="series-venue">Venue</Label>
+                <Input
+                  id="series-venue"
+                  data-testid="sailwave-venue"
+                  value={venue}
+                  onChange={(e) => setVenue(e.target.value)}
+                />
+              </div>
+              {showWorkspacePicker && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="sailwave-workspace">Workspace</Label>
+                  <Select value={targetWorkspaceId} onValueChange={setTargetWorkspaceId}>
+                    <SelectTrigger id="sailwave-workspace" data-testid="sailwave-workspace" className="w-full">
+                      <SelectValue placeholder="Select a workspace…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {memberships.map((m) => (
+                        <SelectItem key={m.organizationId} value={m.organizationId}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -378,7 +423,7 @@ function Wizard({
             <CardTitle>Options</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {categoryPickerAvailable && (
+            {!isUpdate && categoryPickerAvailable && (
               <div className="space-y-1.5">
                 <Label htmlFor="series-category">Category</Label>
                 <Select
@@ -400,28 +445,33 @@ function Wizard({
                 </p>
               </div>
             )}
-            <div className="space-y-1.5">
-              <Label htmlFor="primary-label">Primary identifier</Label>
-              <Select
-                value={primaryLabel}
-                onValueChange={(v) => setPrimaryLabel(v as PrimaryPersonLabel)}
-              >
-                <SelectTrigger id="primary-label" className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIMARY_PERSON_LABELS.map((p) => (
-                    <SelectItem key={p} value={p}>{PRIMARY_PERSON_LABEL_TEXT[p]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Which field identifies each entry across the app — pick &ldquo;Helm&rdquo; or
-                &ldquo;Owner&rdquo; if every boat is identified by that role, or &ldquo;Competitor&rdquo;
-                for generic mixed entries.
-              </p>
-            </div>
-            {preview.detectedSubdivisionLabel !== null && (
+            {/* Primary identifier and subdivision label set display-only series
+                fields that are retained from the existing series on update, so
+                they're omitted in update mode. */}
+            {!isUpdate && (
+              <div className="space-y-1.5">
+                <Label htmlFor="primary-label">Primary identifier</Label>
+                <Select
+                  value={primaryLabel}
+                  onValueChange={(v) => setPrimaryLabel(v as PrimaryPersonLabel)}
+                >
+                  <SelectTrigger id="primary-label" className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIMARY_PERSON_LABELS.map((p) => (
+                      <SelectItem key={p} value={p}>{PRIMARY_PERSON_LABEL_TEXT[p]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Which field identifies each entry across the app — pick &ldquo;Helm&rdquo; or
+                  &ldquo;Owner&rdquo; if every boat is identified by that role, or &ldquo;Competitor&rdquo;
+                  for generic mixed entries.
+                </p>
+              </div>
+            )}
+            {!isUpdate && preview.detectedSubdivisionLabel !== null && (
               <div className="space-y-1.5">
                 <Label htmlFor="subdivision-label">Subdivision column label</Label>
                 <Input
@@ -464,7 +514,9 @@ function Wizard({
 
         <div className="flex gap-3">
           <Button type="submit" disabled={submitting} data-testid="sailwave-import-submit">
-            {submitting ? 'Importing…' : 'Import'}
+            {isUpdate
+              ? (submitting ? 'Updating…' : 'Update series')
+              : (submitting ? 'Importing…' : 'Import')}
           </Button>
           <Button
             type="button"

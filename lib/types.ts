@@ -45,6 +45,10 @@ export interface Category {
   displayOrder: number;
 }
 
+/** Where a series originally came from. Currently only Sailwave imports are
+ *  tagged; `.sailscoring` opens and hand-built series leave `source` unset. */
+export type SeriesSource = 'sailwave';
+
 export interface Series {
   id: string;
   name: string;
@@ -82,6 +86,11 @@ export interface Series {
   // .sailscoring file format and public JSON export, and reset by copySeries.
   categoryId?: string | null;  // category assignment; null/absent = synthetic "Uncategorized" bucket
   archived?: boolean;          // read-only + collapsed out of the active list; subsumes the horizon "lock" concept
+  // Import provenance. Set when the series originated from a Sailwave import;
+  // gates the "Update from Sailwave file" affordance (only a Sailwave-born
+  // series can be re-imported in place). Workspace-local like categoryId: not
+  // carried in the .sailscoring file format or public JSON export.
+  source?: SeriesSource;
   // Manual sort position within the active list (#171). Server-seeded (new
   // series append to the end) and rewritten by drag-reorder; always present on
   // the server read path, optional in the type like `version` so file-built

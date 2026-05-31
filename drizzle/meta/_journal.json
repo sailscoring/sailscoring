@@ -183,6 +183,13 @@
       "when": 1780227402172,
       "tag": "0025_breezy_jack_power",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1780257212628,
+      "tag": "0026_nebulous_wasp",
+      "breakpoints": true
     }
   ]
 }

@@ -53,6 +53,9 @@ import {
   type SeriesFile,
   type LineageStatus,
 } from '@/lib/series-file';
+import { parseSailwaveBlw, SailwaveImportError } from '@/lib/sailwave-import';
+import { SAILWAVE_HANDOFF_KEY } from '@/app/series/import-sailwave/page';
+import { useFeatures } from '@/components/features-provider';
 import type { Series } from '@/lib/types';
 
 function ScoringModeCard({ seriesId, series }: { seriesId: string; series: Series }) {
@@ -596,7 +599,9 @@ export default function SettingsPage({
   const { data: fleetsData } = useFleetsBySeries(seriesId);
   const fleets = fleetsData ?? [];
   const updateSeries = useUpdateSeries();
+  const { has } = useFeatures();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sailwaveInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [updateFlow, setUpdateFlow] = useState<UpdateFlow>({ step: 'idle' });
 
@@ -627,6 +632,36 @@ export default function SettingsPage({
 
   function handleUpdateFromFile() {
     fileInputRef.current?.click();
+  }
+
+  function handleUpdateFromSailwave() {
+    sailwaveInputRef.current?.click();
+  }
+
+  // Re-import over this series from a fresh Sailwave export. Parse here, then
+  // hand the wizard the raw data plus this series id so it runs in update mode
+  // (retain identity + publishing config, replace the competition data).
+  async function handleSailwaveSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const bytes = await file.arrayBuffer();
+      const raw = parseSailwaveBlw(bytes);
+      sessionStorage.setItem(
+        SAILWAVE_HANDOFF_KEY,
+        JSON.stringify({ fileName: file.name, raw, updateSeriesId: seriesId }),
+      );
+      router.push('/series/import-sailwave');
+    } catch (err) {
+      setUpdateFlow({
+        step: 'error',
+        message:
+          err instanceof SailwaveImportError
+            ? err.message
+            : `Could not read Sailwave file: ${(err as Error).message}`,
+      });
+    }
   }
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -716,10 +751,30 @@ export default function SettingsPage({
               Update from File
             </Button>
           )}
+          {/* Re-import over a Sailwave-born series. Independent of the
+              .sailscoring file history above — a Sailwave import may never have
+              been saved to a file. (#155 feature-gated.) */}
+          {series.source === 'sailwave' && has('sailwave-import') && !series.archived && (
+            <Button
+              onClick={handleUpdateFromSailwave}
+              variant="outline"
+              data-testid="update-from-sailwave"
+            >
+              Update from Sailwave file
+            </Button>
+          )}
         </div>
         {!hasFileHistory && (
           <p className="text-xs text-muted-foreground">
             Save to a file to share this series with co-scorers or back it up.
+          </p>
+        )}
+        {series.source === 'sailwave' && has('sailwave-import') && !series.archived && (
+          <p className="text-xs text-muted-foreground">
+            This series was imported from Sailwave. &ldquo;Update from Sailwave
+            file&rdquo; replaces its competitors, fleets, races and results from
+            a fresh export, keeping the name, venue, competitor fields and
+            publishing destination.
           </p>
         )}
       </div>
@@ -770,6 +825,14 @@ export default function SettingsPage({
         accept=".sailscoring,application/json"
         className="hidden"
         onChange={handleFileSelected}
+      />
+      <input
+        ref={sailwaveInputRef}
+        type="file"
+        accept=".blw"
+        className="hidden"
+        data-testid="update-from-sailwave-input"
+        onChange={handleSailwaveSelected}
       />
 
       {/* Identical snapshot */}

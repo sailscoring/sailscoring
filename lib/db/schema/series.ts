@@ -19,6 +19,7 @@ import type {
   DiscardThreshold,
   NhcProfile,
   PrimaryPersonLabel,
+  SeriesSource,
   StartGroup,
   PublishedSeriesPage,
 } from '@/lib/types';
@@ -165,6 +166,12 @@ export const series = pgTable(
     // the horizon "lock" concept: archived series reject edits, and are the
     // only ones that may be deleted (deliberate archive-then-delete friction).
     archived: boolean('archived').notNull().default(false),
+    // Import provenance. Workspace-local (like category_id): nullable, set to
+    // 'sailwave' for series born of a Sailwave import so the settings page can
+    // offer "Update from Sailwave file". NULL for .sailscoring opens and
+    // hand-built series. No CHECK — the value space is the SeriesSource union,
+    // bounded at the Zod layer; a future source needn't touch the schema.
+    source: text('source').$type<SeriesSource>(),
     // Manual sort position within the active list (#171). Seeded on insert
     // (new series append to the end) and rewritten by drag-reorder.
     displayOrder: integer('display_order').notNull(),

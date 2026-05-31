@@ -98,6 +98,7 @@ function seriesRowToType(row: SeriesRow): Series {
     subdivisionLabel: row.subdivisionLabel,
     categoryId: row.categoryId,
     archived: row.archived,
+    source: row.source ?? undefined,
     displayOrder: row.displayOrder,
     version: row.version,
   };
@@ -369,6 +370,7 @@ export class PostgresSeriesRepository implements SeriesRepository {
       subdivisionLabel: s.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
       categoryId: s.categoryId ?? null,
       archived: s.archived ?? false,
+      source: s.source ?? null,
       // New series append to the end of the active list (#171). Computed
       // server-side so the client needn't know the current max; on conflict
       // (update) display_order is omitted from updateSet, so it's preserved.
@@ -403,6 +405,7 @@ export class PostgresSeriesRepository implements SeriesRepository {
       subdivisionLabel: insertValues.subdivisionLabel,
       categoryId: insertValues.categoryId,
       archived: insertValues.archived,
+      source: insertValues.source,
       updatedBy,
     };
     if (opts?.expectedVersion !== undefined) {

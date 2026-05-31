@@ -950,6 +950,16 @@ export default async function HelpPage() {
               <strong className="text-foreground">Settings</strong> and the{' '}
               <strong className="text-foreground">Competitors</strong> tab.
             </p>
+            <p>
+              If you keep scoring a series in Sailwave and treat Sail Scoring as the publishing
+              front end, open the series&apos; <strong className="text-foreground">Settings</strong>{' '}
+              tab and click <strong className="text-foreground">Update from Sailwave file</strong>{' '}
+              (shown only for series that were imported from Sailwave). Pick a fresh{' '}
+              <code className="text-foreground text-sm">.blw</code> export and the wizard replaces the
+              competitors, fleets, races and results from the file while keeping the series name,
+              venue, competitor-field setup and publishing destination. Your published results
+              don&apos;t change until you publish again.
+            </p>
           </>
         )}
         <p>
