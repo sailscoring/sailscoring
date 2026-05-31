@@ -114,21 +114,21 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
-  test('SeriesRepository.list filters by workspace and is ordered newest-first', async () => {
+  test('SeriesRepository.list orders by manual display_order; new series append last (#171)', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
-    const older = makeSeries();
-    older.createdAt = Date.now() - 10_000;
-    const newer = makeSeries();
-    newer.createdAt = Date.now();
-    await repos.series.save(older);
-    await repos.series.save(newer);
+    // Save order determines display_order: each new series seeds max+1, so it
+    // lands at the bottom of the list (no longer createdAt-desc).
+    const first = makeSeries();
+    const second = makeSeries();
+    await repos.series.save(first);
+    await repos.series.save(second);
 
     const list = await repos.series.list();
     const ids = list.map((s) => s.id);
-    expect(ids.indexOf(newer.id)).toBeLessThan(ids.indexOf(older.id));
+    expect(ids.indexOf(second.id)).toBeGreaterThan(ids.indexOf(first.id));
 
-    await repos.series.delete(older.id);
-    await repos.series.delete(newer.id);
+    await repos.series.delete(first.id);
+    await repos.series.delete(second.id);
   });
 
   test('SeriesRepository.touch advances lastModifiedAt and bumps version', async () => {
