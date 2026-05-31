@@ -329,11 +329,12 @@ export async function addCompetitor(
   await page.getByLabel('Competitor name').fill(data.name);
   if (data.club) await page.getByLabel('Club').fill(data.club);
   if (data.fleet) {
-    // Check the fleet checkbox — only visible when multiple fleets exist
-    const checkbox = page.getByRole('checkbox', { name: data.fleet });
-    if (await checkbox.isVisible()) {
-      await checkbox.check();
-    }
+    // Multi-fleet series: the fleet checkboxes render once the fleets query
+    // resolves. Auto-wait for the checkbox and check it — an earlier
+    // `if (isVisible())` guard raced that query (the form opens before fleets
+    // load), silently skipped the assignment, and the competitor fell back to
+    // the first fleet. Only multi-fleet callers pass `fleet`.
+    await page.getByRole('checkbox', { name: data.fleet }).check();
   }
   if (data.ircTcc) await page.getByLabel('IRC TCC', { exact: true }).fill(data.ircTcc);
   if (data.pyNumber) await page.getByLabel('PY number', { exact: true }).fill(data.pyNumber);
