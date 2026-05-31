@@ -29,6 +29,42 @@ export interface WorkspaceIndexItem {
   title: string;
   publishedAt: number; // Unix ms
   fleetCount: number;
+  // Placement on the listing, from the slug's representative series (#154
+  // categorisation / archive, #171 manual order). All optional so a bare item
+  // reads as an active, uncategorised entry — keeping the flat common-case
+  // render and old call sites compiling.
+  /** True when the representative series is archived → relegated to "Past
+   *  results" rather than shown among the active category sections. */
+  archived?: boolean;
+  /** Representative category name; null/absent = the Uncategorized bucket. */
+  categoryName?: string | null;
+  /** Representative category's `displayOrder` (section order); absent → last. */
+  categoryOrder?: number;
+  /** Representative series' manual `displayOrder` within the active list. */
+  seriesOrder?: number;
+  /** Representative series' start-date year, for the "Past results" grouping. */
+  year?: number | null;
+}
+
+/** A category section of active publications on the workspace listing. */
+export interface ListingCategoryGroup {
+  /** null = the synthetic "Uncategorized" bucket. */
+  categoryName: string | null;
+  items: WorkspaceIndexItem[];
+}
+
+/** A year section of archived publications ("Past results"). */
+export interface ListingYearGroup {
+  /** null = the "Undated" bucket. */
+  year: number | null;
+  items: WorkspaceIndexItem[];
+}
+
+/** The workspace listing partitioned into active category sections and the
+ *  relegated "Past results" year sections. */
+export interface WorkspaceListing {
+  active: ListingCategoryGroup[];
+  past: ListingYearGroup[];
 }
 
 /** A fleet page as shown in the series listing. */
@@ -55,6 +91,9 @@ ul.listing li { padding: 10px 14px; border: 1px #ccd solid; border-radius: 6px; 
 ul.listing li a { font-size: 1.1em; text-decoration: none; }
 ul.listing li a:hover { text-decoration: underline; }
 ul.listing .meta { display: block; color: #666; font-size: 0.85em; margin-top: 2px; }
+h2.section { font-size: 0.95em; text-transform: uppercase; letter-spacing: 0.04em; color: #556; max-width: 640px; margin: 24px auto 8px; text-align: left; }
+h3.year { font-size: 1em; color: #556; max-width: 640px; margin: 16px auto 6px; text-align: left; }
+h2.past { font-size: 1.2em; max-width: 640px; margin: 36px auto 0; text-align: left; border-top: 1px solid #ddd; padding-top: 16px; }
 p.empty { color: #666; }
 p.back { max-width: 640px; margin: 0 auto; text-align: left; font-size: 0.9em; }
 p { text-align: center; }`;
@@ -87,8 +126,70 @@ function formatDate(ms: number): string {
 }
 
 /**
- * Workspace listing at `/p/{ws}`. `items` should already be newest-first.
- * Each row links to the series index `/p/{ws}/{slug}`.
+ * Partition the flat listing into the sections the workspace index renders:
+ * active publications as category sections (mirroring the in-app series list,
+ * #154/#171), and archived publications relegated to "Past results" year
+ * sections. Pure, so the ordering rules are unit-tested directly.
+ *
+ * Placement comes from each slug's representative series (see
+ * `listPublishedByWorkspace`); a slug shared by several series under different
+ * categories is fudged onto one section via that representative.
+ */
+export function groupWorkspaceListing(
+  items: WorkspaceIndexItem[],
+): WorkspaceListing {
+  const INF = Number.POSITIVE_INFINITY;
+
+  // Active → category sections. Section order is the representative category's
+  // displayOrder; the Uncategorized bucket (null) always sorts last. Within a
+  // section the manual series order (#171) wins, newest first as a tiebreak.
+  const catBuckets = new Map<string | null, WorkspaceIndexItem[]>();
+  const catOrder = new Map<string | null, number>();
+  for (const it of items.filter((i) => !i.archived)) {
+    const key = it.categoryName ?? null;
+    (catBuckets.get(key) ?? catBuckets.set(key, []).get(key)!).push(it);
+    catOrder.set(key, Math.min(catOrder.get(key) ?? INF, it.categoryOrder ?? INF));
+  }
+  const active: ListingCategoryGroup[] = [...catBuckets.entries()]
+    .map(([categoryName, list]) => ({
+      categoryName,
+      items: list.sort(
+        (a, b) =>
+          (a.seriesOrder ?? INF) - (b.seriesOrder ?? INF) ||
+          b.publishedAt - a.publishedAt,
+      ),
+    }))
+    .sort((a, b) => {
+      if (a.categoryName === null) return 1;
+      if (b.categoryName === null) return -1;
+      return catOrder.get(a.categoryName)! - catOrder.get(b.categoryName)!;
+    });
+
+  // Archived → year sections, newest year first; the undated bucket last.
+  const yearBuckets = new Map<number | null, WorkspaceIndexItem[]>();
+  for (const it of items.filter((i) => i.archived)) {
+    const key = it.year ?? null;
+    (yearBuckets.get(key) ?? yearBuckets.set(key, []).get(key)!).push(it);
+  }
+  const past: ListingYearGroup[] = [...yearBuckets.entries()]
+    .map(([year, list]) => ({
+      year,
+      items: list.sort((a, b) => b.publishedAt - a.publishedAt),
+    }))
+    .sort((a, b) => {
+      if (a.year === null) return 1;
+      if (b.year === null) return -1;
+      return b.year - a.year;
+    });
+
+  return { active, past };
+}
+
+/**
+ * Workspace listing at `/p/{ws}`. Publications are grouped into category
+ * sections and a relegated "Past results" block (#154/#171 surfaced publicly).
+ * A workspace with no categories and nothing archived collapses to a single
+ * flat list with no section headings, matching the original look.
  */
 export function renderWorkspaceIndexHtml(
   workspaceSlug: string,
@@ -96,20 +197,54 @@ export function renderWorkspaceIndexHtml(
   items: WorkspaceIndexItem[],
 ): string {
   const heading = `${esc(workspaceName)} &mdash; published results`;
-  const body =
-    items.length === 0
-      ? `<h1>${heading}</h1>\n<p class="empty">No published results yet.</p>`
-      : `<h1>${heading}</h1>
-<ul class="listing">
-${items
-  .map((it) => {
-    const fleets =
-      it.fleetCount > 1 ? ` &middot; ${it.fleetCount} fleets` : '';
+  if (items.length === 0) {
+    return shell(
+      `${workspaceName} — published results`,
+      `<h1>${heading}</h1>\n<p class="empty">No published results yet.</p>`,
+    );
+  }
+
+  const row = (it: WorkspaceIndexItem) => {
+    const fleets = it.fleetCount > 1 ? ` &middot; ${it.fleetCount} fleets` : '';
     return `<li><a href="/p/${esc(workspaceSlug)}/${esc(it.slug)}">${esc(it.title)}</a><span class="meta">Published ${esc(formatDate(it.publishedAt))}${fleets}</span></li>`;
-  })
-  .join('\n')}
-</ul>`;
-  return shell(`${workspaceName} — published results`, body);
+  };
+  const list = (rows: WorkspaceIndexItem[]) =>
+    `<ul class="listing">\n${rows.map(row).join('\n')}\n</ul>`;
+
+  const { active, past } = groupWorkspaceListing(items);
+
+  // Flat (no headings) when there's a single uncategorised active section and
+  // nothing archived — the common single-club, no-categories case.
+  const flat =
+    past.length === 0 &&
+    active.length <= 1 &&
+    (active.length === 0 || active[0].categoryName === null);
+
+  let sections: string;
+  if (flat) {
+    sections = list(active[0]?.items ?? []);
+  } else {
+    const activeHtml = active
+      .map(
+        (g) =>
+          `<h2 class="section">${esc(g.categoryName ?? 'Uncategorized')}</h2>\n${list(g.items)}`,
+      )
+      .join('\n');
+    const pastHtml = past.length
+      ? `\n<h2 class="past">Past results</h2>\n${past
+          .map(
+            (g) =>
+              `<h3 class="year">${g.year ?? 'Undated'}</h3>\n${list(g.items)}`,
+          )
+          .join('\n')}`
+      : '';
+    sections = activeHtml + pastHtml;
+  }
+
+  return shell(
+    `${workspaceName} — published results`,
+    `<h1>${heading}</h1>\n${sections}`,
+  );
 }
 
 /**

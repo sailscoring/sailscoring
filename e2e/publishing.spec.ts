@@ -16,11 +16,11 @@ import { addCompetitor, createFleets, createSeriesQuick } from './helpers';
 /** New series with one competitor finishing one race; returns the series id. */
 async function createSeriesWithData(
   page: Page,
-  opts: { name?: string; sail?: string } = {},
+  opts: { name?: string; sail?: string; date?: string } = {},
 ): Promise<string> {
   const name = opts.name ?? 'HYC Autumn League 2026';
   const sail = opts.sail ?? '42';
-  await createSeriesQuick(page, { name });
+  await createSeriesQuick(page, { name, date: opts.date });
   const seriesId = page.url().match(/\/series\/([0-9a-f-]{36})/)?.[1];
   if (!seriesId) throw new Error(`Not on a series page: ${page.url()}`);
 
@@ -440,6 +440,65 @@ test('unticking a published fleet on re-publish leaves its page live and unchang
   expect(resp2.ok()).toBeTruthy();
   const cruiserUpdated = await page.request.get(`${base}/cruiser`);
   expect(await cruiserUpdated.text()).toContain('>C9<');
+});
+
+test('the public workspace listing mirrors category sections and relegates archived series to Past results', async ({ page }) => {
+  // Two series: one we'll categorise and keep active, one we'll archive.
+  await createSeriesWithData(page, { name: 'Spring League 2026', sail: '11' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('URL slug').fill('spring-26');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const firstLink = dialog.getByRole('link', { name: /\/p\// });
+  await expect(firstLink).toBeVisible();
+  const workspaceSlug = new URL((await firstLink.getAttribute('href')) ?? '').pathname.split(
+    '/',
+  )[2];
+
+  await createSeriesWithData(page, {
+    name: 'Lambay Race 2024',
+    sail: '22',
+    date: '2024-08-17',
+  });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await dialog.getByLabel('URL slug').fill('lambay-24');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(dialog.getByRole('link', { name: /\/lambay-24\/standings$/ })).toBeVisible();
+
+  // Categorise the active series; archive the old one (both from the home list).
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Manage' }).click();
+  const catDialog = page.getByRole('dialog');
+  await catDialog.getByPlaceholder('New category name').fill('Club Racing');
+  await catDialog.getByRole('button', { name: 'Add' }).click();
+  await expect(catDialog.getByPlaceholder('New category name')).toHaveValue('');
+  await catDialog.getByRole('button', { name: 'Done' }).click();
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Actions for Spring League 2026' }).click();
+  await page.getByRole('menuitem', { name: 'Move to category' }).click();
+  await page.getByRole('menuitemradio', { name: 'Club Racing' }).click();
+  await expect(page.getByRole('heading', { name: 'Club Racing' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Actions for Lambay Race 2024' }).click();
+  await page.getByRole('menuitem', { name: 'Archive' }).click();
+  // Wait for the archive to land (the series drops into the Archived section)
+  // before reading the public listing, so it isn't a race with the PATCH.
+  await expect(page.getByRole('button', { name: /Archived \(1\)/ })).toBeVisible();
+
+  // The public listing: the active series sits under its category heading, above
+  // a "Past results" block that holds the archived series under its event year.
+  await page.goto(`/p/${workspaceSlug}`);
+  await expect(page.getByRole('heading', { name: 'Club Racing' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Spring League 2026' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Past results' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '2024' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Lambay Race 2024' })).toBeVisible();
+
+  // The active, categorised series is listed before the relegated Past results.
+  const body = await page.locator('body').innerHTML();
+  expect(body.indexOf('Spring League 2026')).toBeLessThan(body.indexOf('Past results'));
+  expect(body.indexOf('Past results')).toBeLessThan(body.indexOf('Lambay Race 2024'));
 });
 
 test('keyboard shortcut p opens the publish dialog', async ({ page }) => {

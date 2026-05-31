@@ -89,8 +89,13 @@ async function workspaceIndex(
   if (items.length === 0) return NOT_FOUND;
 
   // ETag from listing metadata so repeat views revalidate without re-rendering.
+  // Includes the placement fields (category / archive / order / year) so
+  // re-categorising, archiving, or reordering a series busts the cached page.
   const etag = `"${await contentHash(
-    items.map((i) => `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}`),
+    items.map(
+      (i) =>
+        `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.year ?? ''}`,
+    ),
   )}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;

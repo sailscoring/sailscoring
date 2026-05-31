@@ -104,16 +104,40 @@ export async function getSeriesName(seriesId: string): Promise<string | null> {
   return row?.name ?? null;
 }
 
+/** Calendar year parsed from an ISO start-date string ("YYYY-MM-DD"); null if
+ *  unset or unparseable. Mirrors `seriesEventYear` (lib/series-list.ts) for the
+ *  public listing's "Past results" year grouping. */
+function yearOf(startDate: string | null): number | null {
+  const m = /^(\d{4})/.exec(startDate ?? '');
+  return m ? Number(m[1]) : null;
+}
+
 /** Every published slug in a workspace, newest first, for the public listing
  *  (#162). One entry per slug — contributions from several series sharing a
  *  slug collapse into a single row: `fleetCount` sums their pages, `publishedAt`
  *  is the most recent, and the title is the lone contributor's series name or,
  *  when several share the slug, a humanised slug (no single name fits). An
- *  orphaned sole contributor falls back to the slug itself. */
-export async function listPublishedByWorkspace(
-  workspaceId: string,
-): Promise<
-  { slug: string; title: string; publishedAt: number; fleetCount: number }[]
+ *  orphaned sole contributor falls back to the slug itself.
+ *
+ *  Each row also carries placement fields (category / archive / order / year)
+ *  so the listing can mirror the in-app series organisation (#154, #171). They
+ *  come from the slug's *representative* series — the most recently published
+ *  contributor (rows are newest-first). When several series share a slug under
+ *  different categories this is a deliberate fudge: the slug lands wherever its
+ *  newest contributor sits. An orphaned publication (series deleted) reads as
+ *  active and uncategorised. */
+export async function listPublishedByWorkspace(workspaceId: string): Promise<
+  {
+    slug: string;
+    title: string;
+    publishedAt: number;
+    fleetCount: number;
+    archived: boolean;
+    categoryName: string | null;
+    categoryOrder: number;
+    seriesOrder: number;
+    year: number | null;
+  }[]
 > {
   const rows = await getDb()
     .select({
@@ -121,38 +145,76 @@ export async function listPublishedByWorkspace(
       pages: schema.publishedSeries.pages,
       publishedAt: schema.publishedSeries.publishedAt,
       seriesName: schema.series.name,
+      archived: schema.series.archived,
+      seriesOrder: schema.series.displayOrder,
+      startDate: schema.series.startDate,
+      categoryName: schema.categories.name,
+      categoryOrder: schema.categories.displayOrder,
     })
     .from(schema.publishedSeries)
     .leftJoin(
       schema.series,
       eq(schema.publishedSeries.seriesId, schema.series.id),
     )
+    .leftJoin(
+      schema.categories,
+      eq(schema.series.categoryId, schema.categories.id),
+    )
     .where(eq(schema.publishedSeries.workspaceId, workspaceId))
     .orderBy(desc(schema.publishedSeries.publishedAt));
 
+  type Rep = {
+    archived: boolean;
+    categoryName: string | null;
+    categoryOrder: number;
+    seriesOrder: number;
+    year: number | null;
+  };
   const groups = new Map<
     string,
-    { publishedAt: number; fleetCount: number; names: (string | null)[] }
+    {
+      publishedAt: number;
+      fleetCount: number;
+      names: (string | null)[];
+      rep: Rep;
+    }
   >();
   for (const r of rows) {
-    const g = groups.get(r.slug) ?? {
-      publishedAt: 0,
-      fleetCount: 0,
-      names: [],
-    };
+    let g = groups.get(r.slug);
+    if (!g) {
+      // Rows are newest-first, so the first row seen for a slug is its
+      // representative; its series' category / order / archive state place the
+      // slug on the listing.
+      g = {
+        publishedAt: 0,
+        fleetCount: 0,
+        names: [],
+        rep: {
+          archived: r.archived ?? false,
+          categoryName: r.categoryName ?? null,
+          categoryOrder: r.categoryOrder ?? Number.POSITIVE_INFINITY,
+          seriesOrder: r.seriesOrder ?? Number.POSITIVE_INFINITY,
+          year: yearOf(r.startDate),
+        },
+      };
+      groups.set(r.slug, g);
+    }
     g.publishedAt = Math.max(g.publishedAt, r.publishedAt.getTime());
     g.fleetCount += r.pages.length;
     g.names.push(r.seriesName);
-    groups.set(r.slug, g);
   }
 
   return [...groups.entries()]
     .map(([slug, g]) => ({
       slug,
-      title:
-        g.names.length === 1 ? (g.names[0] ?? slug) : humanizeSlug(slug),
+      title: g.names.length === 1 ? (g.names[0] ?? slug) : humanizeSlug(slug),
       publishedAt: g.publishedAt,
       fleetCount: g.fleetCount,
+      archived: g.rep.archived,
+      categoryName: g.rep.categoryName,
+      categoryOrder: g.rep.categoryOrder,
+      seriesOrder: g.rep.seriesOrder,
+      year: g.rep.year,
     }))
     .sort((a, b) => b.publishedAt - a.publishedAt);
 }
