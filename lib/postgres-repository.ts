@@ -98,6 +98,7 @@ function seriesRowToType(row: SeriesRow): Series {
     subdivisionLabel: row.subdivisionLabel,
     categoryId: row.categoryId,
     archived: row.archived,
+    displayOrder: row.displayOrder,
     version: row.version,
   };
 }
@@ -315,7 +316,9 @@ export class PostgresSeriesRepository implements SeriesRepository {
       .select()
       .from(schema.series)
       .where(eq(schema.series.workspaceId, this.workspaceId))
-      .orderBy(sql`${schema.series.createdAt} desc`);
+      // Manual sort order (#171); created_at desc breaks ties so the order is
+      // stable if two rows briefly share a display_order under concurrent insert.
+      .orderBy(schema.series.displayOrder, sql`${schema.series.createdAt} desc`);
     return rows.map(seriesRowToType);
   }
 
@@ -366,6 +369,10 @@ export class PostgresSeriesRepository implements SeriesRepository {
       subdivisionLabel: s.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
       categoryId: s.categoryId ?? null,
       archived: s.archived ?? false,
+      // New series append to the end of the active list (#171). Computed
+      // server-side so the client needn't know the current max; on conflict
+      // (update) display_order is omitted from updateSet, so it's preserved.
+      displayOrder: sql<number>`(select coalesce(max(${schema.series.displayOrder}) + 1, 0) from ${schema.series} where ${schema.series.workspaceId} = ${this.workspaceId})`,
       updatedBy,
     };
     const updateSet = {
@@ -454,6 +461,26 @@ export class PostgresSeriesRepository implements SeriesRepository {
           eq(schema.series.workspaceId, this.workspaceId),
         ),
       );
+  }
+
+  /** Rewrites `display_order` to match the given id sequence (#171). Ids not in
+   *  this workspace are ignored (the per-row WHERE is workspace-scoped). Does
+   *  not bump `version` — reordering is a list-organisation gesture, not an edit
+   *  to the series payload. */
+  async reorder(orderedIds: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        await tx
+          .update(schema.series)
+          .set({ displayOrder: i })
+          .where(
+            and(
+              eq(schema.series.id, orderedIds[i]),
+              eq(schema.series.workspaceId, this.workspaceId),
+            ),
+          );
+      }
+    });
   }
 
   /**

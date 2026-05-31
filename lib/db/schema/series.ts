@@ -165,12 +165,16 @@ export const series = pgTable(
     // the horizon "lock" concept: archived series reject edits, and are the
     // only ones that may be deleted (deliberate archive-then-delete friction).
     archived: boolean('archived').notNull().default(false),
+    // Manual sort position within the active list (#171). Seeded on insert
+    // (new series append to the end) and rewritten by drag-reorder.
+    displayOrder: integer('display_order').notNull(),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,
   },
   (table) => [
     index('series_workspace_idx').on(table.workspaceId),
+    index('series_workspace_order_idx').on(table.workspaceId, table.displayOrder),
     check(
       'series_scoring_mode_chk',
       sql`${table.scoringMode} in ('scratch','handicap')`,

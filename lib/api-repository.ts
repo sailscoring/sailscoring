@@ -60,6 +60,13 @@ class ApiSeriesRepository implements SeriesRepository {
   async touch(id: string): Promise<void> {
     await apiFetch(`/api/v1/series/${id}/touch`, { method: 'POST' });
   }
+
+  async reorder(orderedIds: string[]): Promise<void> {
+    await apiFetch('/api/v1/series/reorder', {
+      method: 'POST',
+      body: { orderedIds },
+    });
+  }
 }
 
 class ApiFleetRepository implements FleetRepository {

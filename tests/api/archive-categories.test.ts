@@ -194,4 +194,44 @@ describe.skipIf(skip)('archive + categories (#154)', () => {
 
     await series.deleteSeries(ctx, id);
   });
+
+  test('series reorder rewrites manual order; new series append last (#171)', async () => {
+    const s1 = uuid();
+    const s2 = uuid();
+    const s3 = uuid();
+    await series.putSeries(ctx, s1, sampleSeries(s1));
+    await series.putSeries(ctx, s2, sampleSeries(s2));
+    await series.putSeries(ctx, s3, sampleSeries(s3));
+
+    const mine = new Set([s1, s2, s3]);
+    const mineOrder = (items: { id: string }[]) =>
+      items.map((s) => s.id).filter((id) => mine.has(id));
+
+    // New series append to the end, so among the three the order is the
+    // creation order.
+    let { items } = await series.listSeries(ctx);
+    expect(mineOrder(items)).toEqual([s1, s2, s3]);
+
+    // Reorder the full active list (mirrors the app), moving s3 ahead of s1/s2.
+    // Replace each of my-three's current slot with the desired sequence so the
+    // result is a clean permutation regardless of other series in the workspace.
+    const desired = [s3, s1, s2];
+    let k = 0;
+    const newOrder = items.map((s) => (mine.has(s.id) ? desired[k++] : s.id));
+    await series.reorderSeries(ctx, { orderedIds: newOrder });
+
+    ({ items } = await series.listSeries(ctx));
+    expect(mineOrder(items)).toEqual([s3, s1, s2]);
+
+    // A brand-new series gets the highest display_order → lands last overall.
+    const s4 = uuid();
+    await series.putSeries(ctx, s4, sampleSeries(s4));
+    ({ items } = await series.listSeries(ctx));
+    expect(items[items.length - 1].id).toBe(s4);
+
+    for (const id of [s1, s2, s3, s4]) {
+      await series.setSeriesArchived(ctx, id, { archived: true });
+      await series.deleteSeries(ctx, id);
+    }
+  });
 });

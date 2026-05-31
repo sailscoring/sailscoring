@@ -182,6 +182,14 @@ export default async function HelpPage() {
           a category simply moves its series back to Uncategorized — nothing is lost.
         </p>
         <p>
+          Within a category (or the flat list, if you don&apos;t use categories) you can put
+          series in whatever order you like: drag the{' '}
+          <strong className="text-foreground">grip handle</strong> on the left of each row, or
+          reorder by keyboard (focus the handle, press Space, use the arrow keys, press Space to
+          drop). New series are added to the bottom. Archived series are grouped by year and
+          aren&apos;t reordered manually.
+        </p>
+        <p>
           <strong className="text-foreground">Archiving</strong> a series (from its{' '}
           <strong className="text-foreground">⋯</strong> menu or the Settings tab) moves it into a
           collapsed <strong className="text-foreground">Archived</strong> section at the foot of

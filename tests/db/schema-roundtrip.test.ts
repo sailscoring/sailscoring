@@ -130,6 +130,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       showPerRaceRatingsInSummary: seriesRow.showPerRaceRatingsInSummary,
       enabledCompetitorFields: seriesRow.enabledCompetitorFields,
       primaryPersonLabel: seriesRow.primaryPersonLabel,
+      displayOrder: 0,
     });
 
     // Fleets — one per scoring system to exercise echoAlpha.
@@ -389,6 +390,7 @@ describe.skipIf(skip)('schema round-trip', () => {
         name: 'invalid',
         scoringMode: 'invalid-mode' as 'scratch',
         enabledCompetitorFields: [],
+        displayOrder: 0,
       }),
     ).rejects.toThrow();
   });
@@ -403,6 +405,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       dnfScoring: 'seriesEntries',
       enabledCompetitorFields: [],
       primaryPersonLabel: 'competitor',
+      displayOrder: 0,
     });
     const fleetId = uuid();
     await db.insert(schema.fleets).values({

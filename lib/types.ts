@@ -82,6 +82,11 @@ export interface Series {
   // .sailscoring file format and public JSON export, and reset by copySeries.
   categoryId?: string | null;  // category assignment; null/absent = synthetic "Uncategorized" bucket
   archived?: boolean;          // read-only + collapsed out of the active list; subsumes the horizon "lock" concept
+  // Manual sort position within the active list (#171). Server-seeded (new
+  // series append to the end) and rewritten by drag-reorder; always present on
+  // the server read path, optional in the type like `version` so file-built
+  // Series objects needn't carry it.
+  displayOrder?: number;
   // Server-side concurrency token (ADR-008 Phase 4). Populated by the
   // Postgres-backed read path; absent in local-mode (Dexie) and stripped
   // from the .sailscoring file format and public JSON export.

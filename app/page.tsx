@@ -20,6 +20,7 @@ import {
   useDeleteSeriesCascade,
   useArchiveSeries,
   useSetSeriesCategory,
+  useReorderSeries,
 } from '@/hooks/use-series';
 import { useCategories } from '@/hooks/use-categories';
 import { useRecentActivity } from '@/hooks/use-activity';
@@ -46,6 +47,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { SortableList, DragHandle, type SortableRenderProps } from '@/components/ui/sortable-list';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -105,6 +107,7 @@ function SeriesCard({
   onUnarchive,
   onMove,
   onDeleteClick,
+  sortable,
 }: {
   series: Series;
   categories: Category[];
@@ -113,10 +116,20 @@ function SeriesCard({
   onUnarchive: (series: Series) => void;
   onMove: (series: Series, categoryId: string | null) => void;
   onDeleteClick: (series: Series) => void;
+  /** Present for active rows that can be drag-reordered (#171). */
+  sortable?: SortableRenderProps;
 }) {
   const archived = series.archived ?? false;
   return (
-    <div className="flex items-center justify-between border rounded-lg px-5 py-4 hover:bg-accent/50 transition-colors">
+    <div
+      ref={sortable?.ref}
+      style={sortable?.style}
+      data-testid="series-row"
+      className="flex items-center gap-1 border rounded-lg px-5 py-4 hover:bg-accent/50 transition-colors"
+    >
+      {sortable && (
+        <DragHandle {...sortable.handleProps} data-testid={`series-drag-${series.id}`} />
+      )}
       <Link
         href={`/series/${series.id}/competitors`}
         className="flex-1 min-w-0"
@@ -212,6 +225,7 @@ export default function HomePage() {
   const deleteCascade = useDeleteSeriesCascade();
   const archiveSeries = useArchiveSeries();
   const setSeriesCategory = useSetSeriesCategory();
+  const reorderSeries = useReorderSeries();
   const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -407,7 +421,7 @@ export default function HomePage() {
   // original look for workspaces that don't use categories.
   const flatActive = activeGroups.length <= 1 && activeGroups[0]?.category == null;
 
-  const renderCard = (s: Series) => (
+  const renderCard = (s: Series, sortable?: SortableRenderProps) => (
     <SeriesCard
       key={s.id}
       series={s}
@@ -417,7 +431,32 @@ export default function HomePage() {
       onUnarchive={handleUnarchive}
       onMove={handleMove}
       onDeleteClick={setPendingDelete}
+      sortable={sortable}
     />
+  );
+
+  // Stable key for an active category group: the category id, or 'uncategorized'
+  // for the synthetic bucket (and the flat, no-categories case).
+  const groupKey = (g: (typeof activeGroups)[number]) =>
+    g.category?.id ?? 'uncategorized';
+
+  // Drag-reorder within one group (#171). The displayOrder is global, so we
+  // rebuild the full active order — the reordered group's new sequence spliced
+  // in, every other group left as-is — and persist that.
+  function handleReorderGroup(key: string, orderedIdsInGroup: string[]) {
+    const fullOrder = activeGroups.flatMap((g) =>
+      groupKey(g) === key ? orderedIdsInGroup : g.series.map((s) => s.id),
+    );
+    reorderSeries.mutate(fullOrder);
+  }
+
+  const renderActiveGroup = (g: (typeof activeGroups)[number]) => (
+    <SortableList
+      items={g.series}
+      onReorder={(ids) => handleReorderGroup(groupKey(g), ids)}
+    >
+      {(s, sortable) => renderCard(s, sortable)}
+    </SortableList>
   );
 
   return (
@@ -454,16 +493,18 @@ export default function HomePage() {
 
       {seriesList !== undefined && seriesList.length > 0 && (
         <div className="space-y-6">
-          {/* Active series, partitioned by category */}
+          {/* Active series, partitioned by category — drag-reorder within a group */}
           {flatActive ? (
-            <div className="space-y-2">{activeGroups[0]?.series.map(renderCard)}</div>
+            <div className="space-y-2">
+              {activeGroups[0] && renderActiveGroup(activeGroups[0])}
+            </div>
           ) : (
             activeGroups.map((g) => (
-              <section key={g.category?.id ?? 'uncategorized'} className="space-y-2">
+              <section key={groupKey(g)} className="space-y-2">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {g.category?.name ?? 'Uncategorized'}
                 </h2>
-                <div className="space-y-2">{g.series.map(renderCard)}</div>
+                <div className="space-y-2">{renderActiveGroup(g)}</div>
               </section>
             ))
           )}
@@ -491,7 +532,7 @@ export default function HomePage() {
                       <h3 className="text-xs font-medium text-muted-foreground">
                         {g.year ?? 'Undated'}
                       </h3>
-                      <div className="space-y-2">{g.series.map(renderCard)}</div>
+                      <div className="space-y-2">{g.series.map((s) => renderCard(s))}</div>
                     </section>
                   ))}
                 </div>

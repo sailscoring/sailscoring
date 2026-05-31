@@ -77,12 +77,21 @@ export const seriesSchema = z.object({
   // sparse new-series creation and older clients round-trip cleanly.
   categoryId: uuidSchema.nullable().optional(),
   archived: z.boolean().optional(),
+  // Manual sort position (#171). Server-managed: accepted on the wire so a
+  // full-series round-trip validates, but the repository ignores the client
+  // value (seeded on insert, preserved on update).
+  displayOrder: z.number().int().nonnegative().optional(),
   version: versionSchema,
 });
 
 /** Body for POST /api/v1/series/:id/archive — the archive/unarchive toggle (#154). */
 export const seriesArchiveInputSchema = z.object({
   archived: z.boolean(),
+});
+
+/** Body for POST /api/v1/series/reorder — rewrite the manual sort order (#171). */
+export const seriesReorderSchema = z.object({
+  orderedIds: z.array(uuidSchema),
 });
 
 /** Body for POST /api/v1/series/:id/category — move a series between categories

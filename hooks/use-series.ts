@@ -147,6 +147,41 @@ export function useSetSeriesCategory() {
   });
 }
 
+/**
+ * Drag-reorder the active series list (#171). `orderedIds` is the full active
+ * set in its new order. Optimistic: the cached list is reordered immediately so
+ * the row settles into place without a flash back to the old order, then the
+ * server response is refetched on settle.
+ */
+export function useReorderSeries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (orderedIds: string[]) => seriesRepo.reorder(orderedIds),
+    onMutate: async (orderedIds: string[]) => {
+      await qc.cancelQueries({ queryKey: queryKeys.series.list() });
+      const prev = qc.getQueryData<Series[]>(queryKeys.series.list());
+      if (prev) {
+        const rank = new Map(orderedIds.map((id, i) => [id, i]));
+        const reordered = orderedIds
+          .map((id) => prev.find((s) => s.id === id))
+          .filter((s): s is Series => s !== undefined)
+          .map((s, i) => ({ ...s, displayOrder: i }));
+        // Series not in the reordered set (archived) keep their relative order.
+        const rest = prev.filter((s) => !rank.has(s.id));
+        qc.setQueryData(queryKeys.series.list(), [...reordered, ...rest]);
+      }
+      return { prev };
+    },
+    onError: (_e, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKeys.series.list(), ctx.prev);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.series.list() });
+    },
+    scope: { id: 'series' },
+  });
+}
+
 export function useListSeriesNames() {
   return (opts: { excludeId?: string } = {}) => listSeriesNames(opts);
 }

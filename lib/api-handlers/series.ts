@@ -23,6 +23,7 @@ import {
   seriesArchiveInputSchema,
   seriesCategoryInputSchema,
   seriesInputSchema,
+  seriesReorderSchema,
 } from '@/lib/validation/series';
 import type { Series } from '@/lib/types';
 
@@ -210,6 +211,21 @@ export async function setSeriesCategory(
 }
 
 /**
+ * Rewrite the manual sort order of the active series list (#171). Mirrors the
+ * category reorder: a list-organisation gesture, so it doesn't bump versions or
+ * record per-series activity. Returns the freshly-ordered list.
+ */
+export async function reorderSeries(
+  workspace: WorkspaceContext,
+  body: unknown,
+): Promise<{ items: Series[] }> {
+  const { orderedIds } = seriesReorderSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.series.reorder(orderedIds);
+  return { items: await repos.series.list() };
+}
+
+/**
  * ADR-008 Phase 7 — copy a series into another workspace the caller is a
  * member of. Copy rather than move so a botched copy is recoverable: the
  * source series stays intact in the source workspace.
@@ -334,6 +350,8 @@ export async function copySeries(
       // id wouldn't exist there anyway.
       categoryId: null,
       archived: false,
+      // Append to the end of the target workspace's active list (#171).
+      displayOrder: sql<number>`(select coalesce(max(${schema.series.displayOrder}) + 1, 0) from ${schema.series} where ${schema.series.workspaceId} = ${targetWorkspaceId})`,
     });
 
     // Fleets.
