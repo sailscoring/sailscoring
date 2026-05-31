@@ -347,7 +347,21 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
             {multiFleet ? (
               <>
                 <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/`}>
-                  Fleet pages live under <span className="font-mono">/p/{workspaceSlug}/{slug || '…'}/</span>
+                  Fleet pages live under{' '}
+                  {isPublished ? (
+                    // The series-index page at the bare slug only exists once
+                    // something's published, so link it only then.
+                    <a
+                      href={urlPrefix}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-mono hover:underline"
+                    >
+                      /p/{workspaceSlug}/{slug}/
+                    </a>
+                  ) : (
+                    <span className="font-mono">/p/{workspaceSlug}/{slug || '…'}/</span>
+                  )}
                 </p>
                 <div className="space-y-1">
                   <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground pb-1 cursor-pointer">
