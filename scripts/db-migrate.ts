@@ -11,16 +11,20 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 
-const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
-if (!url) {
-  console.error('DATABASE_URL_UNPOOLED or DATABASE_URL is required');
-  process.exit(1);
+async function main() {
+  const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+  if (!url) {
+    console.error('DATABASE_URL_UNPOOLED or DATABASE_URL is required');
+    process.exit(1);
+  }
+
+  const sql = postgres(url, { max: 1 });
+  const db = drizzle(sql);
+
+  await migrate(db, { migrationsFolder: 'drizzle' });
+  await sql.end();
+
+  console.log('migrations applied');
 }
 
-const sql = postgres(url, { max: 1 });
-const db = drizzle(sql);
-
-await migrate(db, { migrationsFolder: 'drizzle' });
-await sql.end();
-
-console.log('migrations applied');
+void main();

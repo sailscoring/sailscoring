@@ -788,11 +788,13 @@ export async function runCli(argv: string[]): Promise<number> {
   }
 }
 
-// ESM "main module" check. `tsx scripts/provision-org.ts` runs this file
+// "main module" check. `tsx scripts/provision-org.ts` runs this file
 // directly; importing it from a test does not.
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+const isMain = require.main === module;
 if (isMain) {
-  const code = await runCli(process.argv.slice(2));
-  await getDbClient().end();
-  process.exit(code);
+  void (async () => {
+    const code = await runCli(process.argv.slice(2));
+    await getDbClient().end();
+    process.exit(code);
+  })();
 }

@@ -18,12 +18,11 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 import type { CompetitorFieldKey, PrimaryPersonLabel } from '../lib/types';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = join(__dirname, '..');
 const OUT_DIR = join(ROOT, 'lib', 'sample-series');
 
 // ─── Deterministic PRNG ──────────────────────────────────────────────────────

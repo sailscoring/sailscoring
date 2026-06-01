@@ -15,7 +15,6 @@
 
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import {
   calculateStandings,
@@ -27,8 +26,6 @@ import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-rend
 import { defaultEnabledCompetitorFields } from '../lib/competitor-fields';
 import type { DiscardThreshold, ResultCode, PenaltyCode } from '../lib/types';
 import { buildFixtureInputs, type Fixture } from '../tests/fixtures/scoring/types';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 

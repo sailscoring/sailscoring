@@ -103,9 +103,11 @@ export async function runCli(argv: string[]): Promise<number> {
   }
 }
 
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+const isMain = require.main === module;
 if (isMain) {
-  const code = await runCli(process.argv.slice(2));
-  await getDbClient().end();
-  process.exit(code);
+  void (async () => {
+    const code = await runCli(process.argv.slice(2));
+    await getDbClient().end();
+    process.exit(code);
+  })();
 }

@@ -17,13 +17,11 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { fileURLToPath } from 'node:url';
 import { extract } from 'tar';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const NATIONALITY_DIR = join(__dirname, '..', 'lib', 'nationality');
 const VERSION_FILE = join(NATIONALITY_DIR, 'dataset-version.txt');
 const GENERATED_DIR = join(NATIONALITY_DIR, 'generated');

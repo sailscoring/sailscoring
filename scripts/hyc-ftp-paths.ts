@@ -21,7 +21,6 @@
 import { eq, sql } from 'drizzle-orm';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { getDb, getDbClient } from '@/lib/db/client';
 import { organization } from '@/lib/db/schema/auth';
@@ -29,7 +28,6 @@ import { fleets, series } from '@/lib/db/schema/series';
 
 const HYC_SLUG = 'hyc';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CSV_PATH = path.resolve(
   __dirname,
   '../reference/data/2026-hyc-club-racing/2016_club.csv',
