@@ -317,7 +317,7 @@ export class PostgresSeriesRepository implements SeriesRepository {
       .select()
       .from(schema.series)
       .where(eq(schema.series.workspaceId, this.workspaceId))
-      // Manual sort order (#171); created_at desc breaks ties so the order is
+      // Manual sort order; created_at desc breaks ties so the order is
       // stable if two rows briefly share a display_order under concurrent insert.
       .orderBy(schema.series.displayOrder, sql`${schema.series.createdAt} desc`);
     return rows.map(seriesRowToType);
@@ -371,7 +371,7 @@ export class PostgresSeriesRepository implements SeriesRepository {
       categoryId: s.categoryId ?? null,
       archived: s.archived ?? false,
       source: s.source ?? null,
-      // New series append to the end of the active list (#171). Computed
+      // New series append to the end of the active list. Computed
       // server-side so the client needn't know the current max; on conflict
       // (update) display_order is omitted from updateSet, so it's preserved.
       displayOrder: sql<number>`(select coalesce(max(${schema.series.displayOrder}) + 1, 0) from ${schema.series} where ${schema.series.workspaceId} = ${this.workspaceId})`,
@@ -466,7 +466,7 @@ export class PostgresSeriesRepository implements SeriesRepository {
       );
   }
 
-  /** Rewrites `display_order` to match the given id sequence (#171). Ids not in
+  /** Rewrites `display_order` to match the given id sequence. Ids not in
    *  this workspace are ignored (the per-row WHERE is workspace-scoped). Does
    *  not bump `version` — reordering is a list-organisation gesture, not an edit
    *  to the series payload. */

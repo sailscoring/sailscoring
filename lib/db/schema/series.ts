@@ -172,7 +172,7 @@ export const series = pgTable(
     // hand-built series. No CHECK — the value space is the SeriesSource union,
     // bounded at the Zod layer; a future source needn't touch the schema.
     source: text('source').$type<SeriesSource>(),
-    // Manual sort position within the active list (#171). Seeded on insert
+    // Manual sort position within the active list. Seeded on insert
     // (new series append to the end) and rewritten by drag-reorder.
     displayOrder: integer('display_order').notNull(),
     version: versionCol,

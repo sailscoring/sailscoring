@@ -213,7 +213,7 @@ export async function setSeriesCategory(
 }
 
 /**
- * Rewrite the manual sort order of the active series list (#171). Mirrors the
+ * Rewrite the manual sort order of the active series list. Mirrors the
  * category reorder: a list-organisation gesture, so it doesn't bump versions or
  * record per-series activity. Returns the freshly-ordered list.
  */
@@ -356,7 +356,7 @@ export async function copySeries(
       // its own (reset) publishing destination, so it doesn't offer the
       // in-place "Update from Sailwave file" re-import.
       source: null,
-      // Append to the end of the target workspace's active list (#171).
+      // Append to the end of the target workspace's active list.
       displayOrder: sql<number>`(select coalesce(max(${schema.series.displayOrder}) + 1, 0) from ${schema.series} where ${schema.series.workspaceId} = ${targetWorkspaceId})`,
     });
 

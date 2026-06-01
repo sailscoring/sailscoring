@@ -114,7 +114,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
-  test('SeriesRepository.list orders by manual display_order; new series append last (#171)', async () => {
+  test('SeriesRepository.list orders by manual display_order; new series append last', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     // Save order determines display_order: each new series seeds max+1, so it
     // lands at the bottom of the list (no longer createdAt-desc).

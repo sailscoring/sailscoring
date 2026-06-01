@@ -64,7 +64,7 @@ export async function getPublishedById(
  *  publish handler checks the group for sub-path collisions. Empty when nothing
  *  is published at the slug.
  *
- *  Ordered by the contributing series' manual `displayOrder` (#171) so the
+ *  Ordered by the contributing series' manual `displayOrder` so the
  *  series-index page mirrors the in-app series order rather than publish
  *  recency; `publishedAt desc` is the tiebreak, and an orphaned publication
  *  (series deleted, no `displayOrder`) sorts last via NULLS LAST. The two
@@ -144,7 +144,7 @@ function yearOf(startDate: string | null): number | null {
  *  orphaned sole contributor falls back to the slug itself.
  *
  *  Each row also carries placement fields (category / archive / order / year)
- *  so the listing can mirror the in-app series organisation (#154, #171). They
+ *  so the listing can mirror the in-app series organisation. They
  *  come from the slug's *representative* series — the most recently published
  *  contributor (rows are newest-first). When several series share a slug under
  *  different categories this is a deliberate fudge: the slug lands wherever its

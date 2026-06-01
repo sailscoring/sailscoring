@@ -116,7 +116,7 @@ function SeriesCard({
   onUnarchive: (series: Series) => void;
   onMove: (series: Series, categoryId: string | null) => void;
   onDeleteClick: (series: Series) => void;
-  /** Present for active rows that can be drag-reordered (#171). */
+  /** Present for active rows that can be drag-reordered. */
   sortable?: SortableRenderProps;
 }) {
   const archived = series.archived ?? false;
@@ -440,7 +440,7 @@ export default function HomePage() {
   const groupKey = (g: (typeof activeGroups)[number]) =>
     g.category?.id ?? 'uncategorized';
 
-  // Drag-reorder within one group (#171). The displayOrder is global, so we
+  // Drag-reorder within one group. The displayOrder is global, so we
   // rebuild the full active order — the reordered group's new sequence spliced
   // in, every other group left as-is — and persist that.
   function handleReorderGroup(key: string, orderedIdsInGroup: string[]) {

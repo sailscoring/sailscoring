@@ -148,7 +148,7 @@ export function useSetSeriesCategory() {
 }
 
 /**
- * Drag-reorder the active series list (#171). `orderedIds` is the full active
+ * Drag-reorder the active series list. `orderedIds` is the full active
  * set in its new order. Optimistic: the cached list is reordered immediately so
  * the row settles into place without a flash back to the old order, then the
  * server response is refetched on settle.

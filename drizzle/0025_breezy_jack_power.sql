@@ -1,6 +1,6 @@
 ALTER TABLE "series" ADD COLUMN "display_order" integer;--> statement-breakpoint
 -- Backfill: preserve the existing newest-first order per workspace (the list
--- sorted by created_at desc) as the initial manual order (#171).
+-- sorted by created_at desc) as the initial manual order.
 UPDATE "series" SET "display_order" = sub.rn FROM (
   SELECT "id", (row_number() OVER (PARTITION BY "workspace_id" ORDER BY "created_at" DESC) - 1) AS rn
   FROM "series"

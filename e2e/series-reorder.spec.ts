@@ -2,7 +2,7 @@ import { signedInTest as test, expect } from './fixtures';
 import { createSeriesQuick, keyboardReorder } from './helpers';
 
 /**
- * Drag-reorder of the active series list (#171). New series append to the
+ * Drag-reorder of the active series list. New series append to the
  * bottom, so creation order is top-to-bottom; dragging rewrites that order and
  * it persists across a reload.
  */

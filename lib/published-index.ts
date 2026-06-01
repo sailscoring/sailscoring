@@ -29,8 +29,8 @@ export interface WorkspaceIndexItem {
   title: string;
   publishedAt: number; // Unix ms
   fleetCount: number;
-  // Placement on the listing, from the slug's representative series (#154
-  // categorisation / archive, #171 manual order). All optional so a bare item
+  // Placement on the listing, from the slug's representative series (its
+  // categorisation / archive state and manual order). All optional so a bare item
   // reads as an active, uncategorised entry — keeping the flat common-case
   // render and old call sites compiling.
   /** True when the representative series is archived → relegated to "Past
@@ -127,8 +127,8 @@ function formatDate(ms: number): string {
 
 /**
  * Partition the flat listing into the sections the workspace index renders:
- * active publications as category sections (mirroring the in-app series list,
- * #154/#171), and archived publications relegated to "Past results" year
+ * active publications as category sections (mirroring the in-app series list),
+ * and archived publications relegated to "Past results" year
  * sections. Pure, so the ordering rules are unit-tested directly.
  *
  * Placement comes from each slug's representative series (see
@@ -142,7 +142,7 @@ export function groupWorkspaceListing(
 
   // Active → category sections. Section order is the representative category's
   // displayOrder; the Uncategorized bucket (null) always sorts last. Within a
-  // section the manual series order (#171) wins, newest first as a tiebreak.
+  // section the manual series order wins, newest first as a tiebreak.
   const catBuckets = new Map<string | null, WorkspaceIndexItem[]>();
   const catOrder = new Map<string | null, number>();
   for (const it of items.filter((i) => !i.archived)) {
@@ -187,7 +187,8 @@ export function groupWorkspaceListing(
 
 /**
  * Workspace listing at `/p/{ws}`. Publications are grouped into category
- * sections and a relegated "Past results" block (#154/#171 surfaced publicly).
+ * sections and a relegated "Past results" block (the in-app series
+ * organisation surfaced publicly).
  * A workspace with no categories and nothing archived collapses to a single
  * flat list with no section headings, matching the original look.
  */

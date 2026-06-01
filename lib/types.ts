@@ -91,7 +91,7 @@ export interface Series {
   // series can be re-imported in place). Workspace-local like categoryId: not
   // carried in the .sailscoring file format or public JSON export.
   source?: SeriesSource;
-  // Manual sort position within the active list (#171). Server-seeded (new
+  // Manual sort position within the active list. Server-seeded (new
   // series append to the end) and rewritten by drag-reorder; always present on
   // the server read path, optional in the type like `version` so file-built
   // Series objects needn't carry it.

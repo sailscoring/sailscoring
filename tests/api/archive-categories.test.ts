@@ -195,7 +195,7 @@ describe.skipIf(skip)('archive + categories (#154)', () => {
     await series.deleteSeries(ctx, id);
   });
 
-  test('series reorder rewrites manual order; new series append last (#171)', async () => {
+  test('series reorder rewrites manual order; new series append last', async () => {
     const s1 = uuid();
     const s2 = uuid();
     const s3 = uuid();

@@ -7,7 +7,8 @@ import {
 } from '@/lib/published-index';
 
 /**
- * Public workspace-listing grouping (#154/#171 surfaced publicly). Active
+ * Public workspace-listing grouping (the in-app series organisation surfaced
+ * publicly). Active
  * publications mirror the in-app category sections and manual order; archived
  * ones are relegated to "Past results" year sections. Placement comes from each
  * slug's representative series (see `listPublishedByWorkspace`).

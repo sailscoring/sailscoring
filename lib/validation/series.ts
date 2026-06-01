@@ -80,7 +80,7 @@ export const seriesSchema = z.object({
   // Import provenance (workspace-local). Optional on the wire so sparse
   // creation and older clients round-trip cleanly.
   source: z.enum(['sailwave']).optional(),
-  // Manual sort position (#171). Server-managed: accepted on the wire so a
+  // Manual sort position. Server-managed: accepted on the wire so a
   // full-series round-trip validates, but the repository ignores the client
   // value (seeded on insert, preserved on update).
   displayOrder: z.number().int().nonnegative().optional(),
@@ -92,7 +92,7 @@ export const seriesArchiveInputSchema = z.object({
   archived: z.boolean(),
 });
 
-/** Body for POST /api/v1/series/reorder — rewrite the manual sort order (#171). */
+/** Body for POST /api/v1/series/reorder — rewrite the manual sort order. */
 export const seriesReorderSchema = z.object({
   orderedIds: z.array(uuidSchema),
 });
