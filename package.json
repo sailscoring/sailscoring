@@ -87,7 +87,6 @@
     "vitest": "^4.1.7",
     "yaml": "^2.9.0"
   },
-  "type": "module",
   "engines": {
     "node": "24.x"
   },
