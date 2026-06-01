@@ -106,6 +106,12 @@ export default async function HelpPage() {
           time.
         </p>
         <p>
+          The first time you sign in we ask for your name. It&apos;s optional — you can skip it —
+          but it&apos;s what co-scorers see on the activity log and member lists in a shared
+          workspace, so it&apos;s worth filling in. You can set or change it any time on your{' '}
+          <strong className="text-foreground">Account</strong> page.
+        </p>
+        <p>
           When you first sign in you land in your{' '}
           <strong className="text-foreground">personal workspace</strong> — labelled{' '}
           <em>My Workspace</em> in the workspace switcher to the right of the page logo. Anything

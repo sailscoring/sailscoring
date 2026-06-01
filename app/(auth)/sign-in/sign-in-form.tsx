@@ -22,6 +22,9 @@ export function SignInForm() {
     const { error } = await authClient.signIn.magicLink({
       email,
       callbackURL,
+      // First-time sign-ups land on the welcome step (name prompt) before
+      // their intended destination; returning users skip straight to it.
+      newUserCallbackURL: `/welcome?next=${encodeURIComponent(callbackURL)}`,
     });
     if (error) {
       setStatus('error');

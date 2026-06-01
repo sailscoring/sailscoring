@@ -54,6 +54,11 @@ export async function signInFreshUser(page: Page, prefix: string): Promise<strin
   await page.getByRole('button', { name: 'Send sign-in link' }).click();
   const link = await readLatestMagicLink(email);
   await page.goto(link);
+  // First-time sign-ups land on the welcome (name) step; skip through it
+  // so callers see the same "signed in on the home page" baseline as before.
+  if (new URL(page.url()).pathname === '/welcome') {
+    await page.getByTestId('welcome-skip').click();
+  }
   await expect(page).toHaveURL(/\/$/);
   return email;
 }

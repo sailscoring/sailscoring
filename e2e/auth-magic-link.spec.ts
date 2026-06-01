@@ -20,7 +20,9 @@ test.describe('magic-link sign-in', () => {
     const link = await readLatestMagicLink(email);
     await page.goto(link);
 
-    // Default callback lands the user on the home page.
+    // First-time sign-up lands on the welcome (name) step; skip it.
+    await expect(page).toHaveURL(/\/welcome/);
+    await page.getByTestId('welcome-skip').click();
     await expect(page).toHaveURL(/\/$/);
 
     // /account renders the email + active workspace. Scope to <main>
@@ -41,6 +43,8 @@ test.describe('magic-link sign-in', () => {
     await page.getByRole('button', { name: 'Send sign-in link' }).click();
     const link = await readLatestMagicLink(email);
     await page.goto(link);
+    await expect(page).toHaveURL(/\/welcome/);
+    await page.getByTestId('welcome-skip').click();
     await expect(page).toHaveURL(/\/$/);
 
     await page.getByTestId('user-menu').click();

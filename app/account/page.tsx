@@ -4,6 +4,7 @@ import { requireSession } from '@/lib/auth/require-session';
 import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
 import { OrgRequestCard } from '@/components/account/org-request-card';
+import { AccountNameField } from '@/components/account/account-name-field';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,12 +41,10 @@ export default async function AccountPage() {
       <dl className="grid grid-cols-[8rem_1fr] gap-y-2 text-sm mb-6">
         <dt className="text-muted-foreground">Signed in as</dt>
         <dd>{session.user.email}</dd>
-        {session.user.name && (
-          <>
-            <dt className="text-muted-foreground">Name</dt>
-            <dd>{session.user.name}</dd>
-          </>
-        )}
+        <dt className="text-muted-foreground">Name</dt>
+        <dd>
+          <AccountNameField initialName={session.user.name ?? null} />
+        </dd>
         <dt className="text-muted-foreground">Workspace</dt>
         <dd>{workspace ? workspace.name : '—'}</dd>
         {workspace && (
