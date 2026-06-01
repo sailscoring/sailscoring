@@ -29,25 +29,26 @@ test.describe('experimental feature gating (#155)', () => {
       page.getByRole('link', { name: 'Importing a finish sheet from CSV' }),
     ).toHaveCount(0);
 
-    // Fleets settings: ECHO scoring option absent; NHC stays selectable but its
+    // Fleets settings: ECHO is on by default (the seeded sample series uses it),
+    // so its scoring option is present; NHC stays selectable but its
     // custom-parameters Configure… button is gated.
     await createSeriesQuick(page, { name: 'Gating Defaults 2026' });
     await createFleets(page, ['Fleet']);
     await setScoringMode(page, 'handicap');
     await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
     await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
-    await expect(page.getByRole('option', { name: 'ECHO' })).toHaveCount(0);
+    await expect(page.getByRole('option', { name: 'ECHO' })).toBeVisible();
     await expect(page.getByRole('option', { name: 'NHC' })).toBeVisible();
     await page.getByRole('option', { name: 'NHC' }).click();
     await expect(page.getByRole('button', { name: 'Configure…' })).toHaveCount(0);
   });
 
   test('enabling features reveals their affordances', async ({ page, signedInEmail }) => {
+    // echo is on by default — no need to enable it here.
     await enableFeatures(page, signedInEmail, [
       'sailwave-import',
       'ftp-upload',
       'csv-finish-import',
-      'echo',
       'nhc-parameters',
     ]);
 

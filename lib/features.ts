@@ -55,9 +55,12 @@ export const FEATURES = {
   },
   echo: {
     // The single Irish/ECHO gate: the ECHO scoring system *and* the Irish
-    // Sailing ECHO source in the Update-handicaps dialog. Opt-in.
+    // Sailing ECHO source in the Update-handicaps dialog. On by default — the
+    // seeded club-racing sample series uses ECHO fleets, so every workspace
+    // needs it functional; a workspace can still opt out.
     label: 'ECHO scoring',
     helpSectionIds: ['update-handicaps-irish-sailing'],
+    defaultOn: true,
   },
   'irc-rating': {
     // Gates the IRC scoring system *and* the IRC TCC source in the

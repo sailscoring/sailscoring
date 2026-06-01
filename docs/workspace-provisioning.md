@@ -98,13 +98,13 @@ The current gated keys are:
 | `csv-finish-import` | off | the per-race "Import CSV" finish-sheet control |
 | `ftp-upload` | off | the Standings "Upload via FTP" button + the Workspace-settings FTP-servers card |
 | `nhc-parameters` | off | the per-fleet **Configure…** custom-NHC dialog (NHC scoring with stock parameters stays available to everyone) |
-| `echo` | off | ECHO as a per-fleet scoring system **and** the "Irish Sailing ECHO" source in the Competitors **Update handicaps** dialog (pulls ECHO handicaps from the national Irish Sailing ratings list, matched by sail number) |
+| `echo` | **on** | ECHO as a per-fleet scoring system **and** the "Irish Sailing ECHO" source in the Competitors **Update handicaps** dialog (pulls ECHO handicaps from the national Irish Sailing ratings list, matched by sail number). On by default because the seeded sample club-racing series uses ECHO fleets. |
 | `irc-rating` | **on** | IRC as a per-fleet scoring system **and** the "IRC TCC (international)" source in the Competitors **Update handicaps** dialog (pulls TCCs from the worldwide IRC ClubListing, #168) |
 
 **Default-on features.** Most gated features are opt-in (off until enabled),
 but a feature can be marked default-on in `lib/features.ts` — on for every
-workspace unless that workspace records an explicit opt-out. `irc-rating` is
-currently the only default-on feature. `disable-feature` records the opt-out;
+workspace unless that workspace records an explicit opt-out. `echo` and
+`irc-rating` are currently default-on. `disable-feature` records the opt-out;
 `enable-feature` clears it again. An opt-out on the active workspace always
 wins, even over a feature inherited from a club (Model B).
 

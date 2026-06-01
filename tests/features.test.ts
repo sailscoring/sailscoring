@@ -158,10 +158,15 @@ describe('computeEffectiveFeatures (Model B)', () => {
   });
 
   it("a club workspace does NOT leak another club's opt-in features", () => {
-    // Alice is in HYC (echo) and RSTGYC (ftp-upload). In RSTGYC's workspace
-    // she must not see echo — but irc-rating is on everywhere by default.
-    const memberships = [club('hyc', ['echo']), club('rstgyc', ['ftp-upload'])];
+    // Alice is in HYC (sailwave-import) and RSTGYC (ftp-upload). In RSTGYC's
+    // workspace she must not see sailwave-import — but echo and irc-rating are
+    // on everywhere by default.
+    const memberships = [
+      club('hyc', ['sailwave-import']),
+      club('rstgyc', ['ftp-upload']),
+    ];
     expect(computeEffectiveFeatures('rstgyc', memberships).sort()).toEqual([
+      'echo',
       'ftp-upload',
       'irc-rating',
     ]);
@@ -173,20 +178,22 @@ describe('computeEffectiveFeatures (Model B)', () => {
     // of kind, so this works without a club membership.
     const memberships = [personal('u-alice', ['nhc-parameters'])];
     expect(computeEffectiveFeatures('u-alice', memberships).sort()).toEqual([
+      'echo',
       'irc-rating',
       'nhc-parameters',
     ]);
   });
 
   it('default-on features are present with no enabled features anywhere', () => {
-    expect(computeEffectiveFeatures('u-alice', [personal('u-alice')])).toEqual([
-      'irc-rating',
-    ]);
+    expect(
+      computeEffectiveFeatures('u-alice', [personal('u-alice')]).sort(),
+    ).toEqual(['echo', 'irc-rating']);
   });
 
   it('an explicit opt-out switches a default-on feature off', () => {
+    // Opt out irc-rating; the other default-on feature (echo) stays on.
     const memberships = [personal('u-alice', [], ['irc-rating'])];
-    expect(computeEffectiveFeatures('u-alice', memberships)).toEqual([]);
+    expect(computeEffectiveFeatures('u-alice', memberships)).toEqual(['echo']);
   });
 
   it('the active workspace opt-out wins over a club-inherited feature', () => {
@@ -202,8 +209,9 @@ describe('computeEffectiveFeatures (Model B)', () => {
   });
 
   it('a club can opt out of a default-on feature for its workspace', () => {
+    // Opt out irc-rating; echo (also default-on) is untouched and stays on.
     const memberships = [club('hyc', [], ['irc-rating']), personal('u-alice')];
-    expect(computeEffectiveFeatures('hyc', memberships)).toEqual([]);
+    expect(computeEffectiveFeatures('hyc', memberships)).toEqual(['echo']);
   });
 });
 
