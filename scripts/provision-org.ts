@@ -34,7 +34,7 @@
  * Better Auth recognises the email and signs them straight in.
  */
 
-import { and, eq, or, sql } from 'drizzle-orm';
+import { and, eq, like, or, sql } from 'drizzle-orm';
 
 import { getDb, getDbClient, type SailScoringDb } from '@/lib/db/client';
 import { member, organization, orgRequest, user } from '@/lib/db/schema/auth';
@@ -176,6 +176,56 @@ export async function preCreateUser(
     console.error(`[sample-series] seeding failed for ${email}'s workspace:`, err);
   }
   return { userId, email, name, personalWorkspaceId: orgId };
+}
+
+/**
+ * Backfill the sample series into an existing user's personal workspace —
+ * for accounts created before the sign-up hook started seeding (lib/auth.ts).
+ * The personal-workspace org row exists as soon as the user row does (sign-up
+ * or `pre-create-user`), so this works whether or not the user has ever
+ * signed in.
+ *
+ * Guarded on "any series present": `seedSampleSeries` always inserts a fresh
+ * Samples category + two series, so re-running it would duplicate them. We
+ * skip any workspace that already holds series — that covers both newer
+ * accounts already seeded at sign-up and anyone who's started real scoring.
+ */
+export async function seedSamplesForUser(
+  db: SailScoringDb,
+  args: { email: string },
+): Promise<{ email: string; workspaceId: string; seeded: boolean; existingSeries: number }> {
+  const u = await findUserByEmail(db, args.email);
+  if (!u) throw new Error(`user "${args.email}" not found`);
+
+  // Personal workspace = the org the user owns whose slug is the
+  // auto-generated `u-<userId-prefix>` (see the sign-up hook in lib/auth.ts
+  // and preCreateUser above). Club workspaces get human slugs, so the
+  // `u-%` filter distinguishes the personal one even for multi-org users.
+  const [ws] = await db
+    .select({ id: organization.id })
+    .from(organization)
+    .innerJoin(member, eq(member.organizationId, organization.id))
+    .where(
+      and(
+        eq(member.userId, u.id),
+        eq(member.role, 'owner'),
+        like(organization.slug, 'u-%'),
+      ),
+    )
+    .limit(1);
+  if (!ws) throw new Error(`no personal workspace found for "${args.email}"`);
+
+  const [{ n: existingSeries }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(series)
+    .where(eq(series.workspaceId, ws.id));
+  if (existingSeries > 0) {
+    return { email: u.email, workspaceId: ws.id, seeded: false, existingSeries };
+  }
+
+  const { seedSampleSeries } = await import('@/lib/sample-series/seed');
+  await seedSampleSeries(ws.id, db);
+  return { email: u.email, workspaceId: ws.id, seeded: true, existingSeries: 0 };
 }
 
 export async function createOrg(
@@ -570,6 +620,7 @@ function usage(): string {
   create-org <name> [--slug <slug>] [--enable-feature <key[,key...]>]
   delete-org <org-slug-or-id> [--force]
   pre-create-user <email> --name <full-name>
+  seed-samples <email>
   add-member <org-slug-or-id> <email> [--role owner|admin|member]
   set-role <org-slug-or-id> <email> <role>
   remove-member <org-slug-or-id> <email>
@@ -583,6 +634,11 @@ function usage(): string {
 
 delete-org without --force only prints what would be deleted. Cascades
 through members, invitations, and all series/race/competitor data.
+
+seed-samples backfills the two sample series into a user's personal
+workspace (for accounts created before sign-up started seeding them). It
+skips any workspace that already holds series, so it's safe to re-run and
+won't touch anyone who's started real scoring.
 
 list-requests shows pending self-service workspace requests (#153); --all
 includes resolved ones. fulfil-request creates the workspace, adds the
@@ -649,6 +705,21 @@ export async function runCli(argv: string[]): Promise<number> {
         console.log(
           `pre-created user ${result.email} (id: ${result.userId}, personal workspace: ${result.personalWorkspaceId})`,
         );
+        return 0;
+      }
+      case 'seed-samples': {
+        const [email] = positional;
+        if (!email) throw new Error('seed-samples: <email> is required');
+        const result = await seedSamplesForUser(db, { email });
+        if (result.seeded) {
+          console.log(
+            `seeded sample series into ${result.email}'s personal workspace (${result.workspaceId})`,
+          );
+        } else {
+          console.log(
+            `skipped ${result.email}: personal workspace already has ${result.existingSeries} series`,
+          );
+        }
         return 0;
       }
       case 'add-member': {

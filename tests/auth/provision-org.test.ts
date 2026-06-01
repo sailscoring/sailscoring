@@ -17,6 +17,7 @@ import {
   listRequests,
   preCreateUser,
   removeMember,
+  seedSamplesForUser,
   setOrgFeature,
   setRole,
   summariseOrg,
@@ -60,6 +61,88 @@ describe.skipIf(skip)('provision-org operations', () => {
     });
     return id;
   }
+
+  /** Create a user + an empty personal workspace (org with a `u-` slug, the
+   *  user as owner) without seeding — mirrors the sign-up hook's rows as they
+   *  were before sample seeding existed. */
+  async function makePersonalWorkspace(email: string): Promise<{ userId: string; orgId: string }> {
+    const userId = await makeUser(email);
+    const orgId = `org_${crypto.randomUUID().replace(/-/g, '')}`;
+    cleanupOrgIds.push(orgId);
+    await db.insert(schema.organization).values({
+      id: orgId,
+      name: 'My Workspace',
+      slug: `u-${userId.slice(0, 16)}`,
+      createdAt: new Date(),
+    });
+    await db.insert(schema.member).values({
+      id: `mem_${crypto.randomUUID().replace(/-/g, '')}`,
+      organizationId: orgId,
+      userId,
+      role: 'owner',
+      createdAt: new Date(),
+    });
+    return { userId, orgId };
+  }
+
+  test('seedSamplesForUser seeds an empty personal workspace, then skips on re-run', async () => {
+    const stamp = Date.now();
+    const email = `seed-${stamp}@sailscoring.test`;
+    const { orgId } = await makePersonalWorkspace(email);
+
+    const first = await seedSamplesForUser(db, { email });
+    expect(first.seeded).toBe(true);
+    expect(first.workspaceId).toBe(orgId);
+
+    // Two sample series under a "Samples" category.
+    const seeded = await db
+      .select({ id: schema.series.id })
+      .from(schema.series)
+      .where(eq(schema.series.workspaceId, orgId));
+    expect(seeded).toHaveLength(2);
+    const cats = await db
+      .select({ name: schema.categories.name })
+      .from(schema.categories)
+      .where(eq(schema.categories.workspaceId, orgId));
+    expect(cats.map((c) => c.name)).toEqual(['Samples']);
+
+    // Re-running is a no-op: the workspace now has series, so it's skipped
+    // rather than seeded a second time.
+    const second = await seedSamplesForUser(db, { email });
+    expect(second.seeded).toBe(false);
+    expect(second.existingSeries).toBe(2);
+    const stillTwo = await db
+      .select({ id: schema.series.id })
+      .from(schema.series)
+      .where(eq(schema.series.workspaceId, orgId));
+    expect(stillTwo).toHaveLength(2);
+  });
+
+  test('seedSamplesForUser skips an already-populated workspace (preCreateUser seeds at creation)', async () => {
+    const stamp = Date.now();
+    const email = `seed-skip-${stamp}@sailscoring.test`;
+    const result = await preCreateUser(db, { email, name: 'Seeded Already' });
+    cleanupUserIds.push(result.userId);
+    cleanupOrgIds.push(result.personalWorkspaceId);
+
+    const outcome = await seedSamplesForUser(db, { email });
+    expect(outcome.seeded).toBe(false);
+    expect(outcome.existingSeries).toBeGreaterThan(0);
+  });
+
+  test('seedSamplesForUser rejects an unknown user', async () => {
+    await expect(
+      seedSamplesForUser(db, { email: 'nobody@nowhere.test' }),
+    ).rejects.toThrow(/not found/);
+  });
+
+  test('seedSamplesForUser rejects a user with no personal workspace', async () => {
+    const email = `no-ws-${Date.now()}@sailscoring.test`;
+    await makeUser(email);
+    await expect(
+      seedSamplesForUser(db, { email }),
+    ).rejects.toThrow(/no personal workspace/);
+  });
 
   test('createOrg + add/list/setRole/remove round-trip', async () => {
     const stamp = Date.now();
