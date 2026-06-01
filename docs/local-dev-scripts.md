@@ -30,6 +30,8 @@ from?", start here.
 | `pnpm provision-org:test` | Same, but against the local container                | Yes — run `pnpm db:up` first   |
 | `pnpm change-email`      | Admin CLI: change a user's login email (uses `.env.local`) | Yes        |
 | `pnpm change-email:test` | Same, but against the local container                | Yes — run `pnpm db:up` first   |
+| `pnpm delete-account`    | Admin CLI: delete a user account + sole-member workspaces (uses `.env.local`) | Yes |
+| `pnpm delete-account:test` | Same, but against the local container              | Yes — run `pnpm db:up` first   |
 | `pnpm user-stats`        | Admin CLI: per-user activity/membership stats (uses `.env.local`) | Yes |
 | `pnpm user-stats:test`   | Same, but against the local container                | Yes — run `pnpm db:up` first   |
 | `pnpm generate:fixtures` | Regenerate scoring fixture HTML                      | No              |
@@ -54,6 +56,7 @@ on a runner that doesn't have it.)
 | `scripts/db-migrate.ts`           | Apply Drizzle migrations (called by `pnpm db:migrate`)                                   |
 | `scripts/provision-org.ts`        | Admin CLI behind `pnpm provision-org` — create orgs, seed users, manage members          |
 | `scripts/change-email.ts`         | Admin CLI behind `pnpm change-email` — reassign a user's login email                     |
+| `scripts/delete-account.ts`       | Admin CLI behind `pnpm delete-account` — delete a user and their sole-member workspaces   |
 | `scripts/user-stats.ts`           | Admin CLI behind `pnpm user-stats` — per-user activity and workspace stats               |
 | `scripts/render-scoring-fixtures.ts` | Render YAML scoring fixtures to HTML for human review                                  |
 | `scripts/sync-national-letters.ts` | Refresh `lib/nationality/generated/` from the pinned upstream dataset                   |

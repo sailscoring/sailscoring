@@ -30,6 +30,54 @@ Pending magic-link tokens addressed to the old email keep working
 until they expire (default ~5 minutes). If that's a concern, ask the
 user to wait it out before requesting a new link.
 
+## Delete a user account
+
+For removing an account and its private data — today this is for cleaning
+up **test accounts**. There is deliberately no backup-before-delete step;
+don't reach for this to delete a real user's data without thinking about
+recovery first.
+
+```bash
+pnpm delete-account someone@example.com           # dry run — prints the plan
+pnpm delete-account someone@example.com --force   # actually delete
+```
+
+Without `--force` it only prints what it *would* delete and changes
+nothing. Read the plan, then re-run with `--force`.
+
+What it deletes:
+
+- The `user` row, which cascades through everything keyed on the user id:
+  sessions, OAuth/credential `account` rows, `member` rows, sent
+  `invitation`s, and `org_request`s.
+- Any workspace where the user is the **sole member** — which cascades
+  through that workspace's series, races, competitors, fleets, FTP
+  servers, published-results rows, activity log, and feedback. This is
+  the part a plain `DELETE FROM user` misses: an `organization` has no
+  foreign key back to its owner (only `member` rows link the two), so
+  deleting the user alone would orphan their personal workspace and all
+  its data. The script deletes those workspaces explicitly first.
+
+What it preserves:
+
+- **Shared workspaces** (any workspace with other members). The user is
+  simply removed via the `member` cascade; the workspace and its data
+  stay. If the user was the workspace's **only owner**, the plan flags it
+  as left ownerless — reassign ownership with
+  `pnpm provision-org set-role <slug> <other-email> owner` before
+  deleting, so the remaining members can still administer it.
+
+### Caveat: published HTML blobs in production
+
+Deleting a workspace cascades its `published_series` rows, but the
+rendered HTML for published results lives outside Postgres in production
+(Vercel Blob; see `lib/blob-storage.ts`). Those blobs are content-addressed
+by an unguessable slug and are *not* removed by the DB cascade. Test
+accounts generally haven't published to production, so this rarely
+matters; if a deleted account had live published pages, clean the blobs up
+separately. Locally and in CI there is no external blob store — published
+HTML sits in the `published_blobs` table — so there's nothing extra to do.
+
 ## User stats
 
 For a read-only snapshot of who's using the app:
