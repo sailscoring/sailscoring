@@ -461,6 +461,24 @@ function remapFtpPaths(
   return out;
 }
 
+/** Remap the fleet ids referenced by `defaultStartSequence` through a fleet-id
+ *  remap. Like every other entity, fleets get fresh ids on import; the start
+ *  sequence must follow them or it ends up pointing at fleets that don't exist
+ *  in the imported series. Refs to fleets absent from the remap are dropped,
+ *  and any group left with no fleets is removed. */
+function remapStartSequence(
+  startSequence: StartGroup[] | undefined,
+  fleetIdMap: Map<string, string>,
+): StartGroup[] | undefined {
+  if (!startSequence) return undefined;
+  return startSequence
+    .map((g) => ({
+      ...g,
+      fleetIds: g.fleetIds.map((id) => fleetIdMap.get(id)).filter((id): id is string => !!id),
+    }))
+    .filter((g) => g.fleetIds.length > 0);
+}
+
 // ---- Open as new series ----
 
 export async function openSeriesFromFile(
@@ -498,7 +516,7 @@ export async function openSeriesFromFile(
     lastModifiedAt: now,
     snapshotHistory: [...file.snapshotHistory],
     scoringMode: file.series.scoringMode,
-    defaultStartSequence: file.series.defaultStartSequence,
+    defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
     dnfScoring: file.series.dnfScoring,
     ftpHost: file.series.ftpHost,
@@ -560,7 +578,7 @@ export async function updateSeriesFromFile(
     lastModifiedAt: now,
     snapshotHistory: [...file.snapshotHistory],
     scoringMode: file.series.scoringMode,
-    defaultStartSequence: file.series.defaultStartSequence,
+    defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
     dnfScoring: file.series.dnfScoring,
     ftpHost: file.series.ftpHost,
