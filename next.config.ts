@@ -7,6 +7,13 @@ if (!process.env.NEXT_PUBLIC_APP_URL) {
   );
 }
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  // The sign-up hook (auth route) seeds new workspaces from the committed
+  // sample `.sailscoring` files, read at runtime via fs. Force them into the
+  // route's serverless bundle so the read works on Vercel.
+  outputFileTracingIncludes: {
+    '/api/auth/[...all]': ['./lib/sample-series/*.sailscoring'],
+  },
+};
 
 export default nextConfig;

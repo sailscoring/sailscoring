@@ -127,6 +127,21 @@ export const auth = betterAuth({
             role: 'owner',
             createdAt: now,
           });
+          // Seed the new personal workspace with the two synthetic sample
+          // series so the first sign-in lands on a populated list. Awaited so
+          // the data is present when the user reaches the series list, but
+          // best-effort: a seeding failure logs and leaves an empty workspace
+          // rather than failing sign-up. Dynamically imported to keep the
+          // Drizzle/fs seed graph out of the auth module's eager load. The e2e
+          // suite opts out so it can assert an empty baseline on fresh sign-in.
+          if (process.env.E2E_DISABLE_SAMPLE_SEED !== '1') {
+            try {
+              const { seedSampleSeries } = await import('@/lib/sample-series/seed');
+              await seedSampleSeries(orgId);
+            } catch (err) {
+              console.error('[sample-series] seeding failed for workspace', orgId, err);
+            }
+          }
         },
       },
     },

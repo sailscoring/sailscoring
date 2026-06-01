@@ -167,6 +167,14 @@ export async function preCreateUser(
     role: 'owner',
     createdAt: now,
   });
+  // Mirror the sign-up hook: seed the new personal workspace with the sample
+  // series. Best-effort — a seeding failure shouldn't abort user provisioning.
+  try {
+    const { seedSampleSeries } = await import('@/lib/sample-series/seed');
+    await seedSampleSeries(orgId, db);
+  } catch (err) {
+    console.error(`[sample-series] seeding failed for ${email}'s workspace:`, err);
+  }
   return { userId, email, name, personalWorkspaceId: orgId };
 }
 
