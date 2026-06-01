@@ -18,12 +18,19 @@ import { z } from 'zod';
  *     a disambiguated URL ("tuesday-puppeteers-hph"). Honoured only while a
  *     fleet is unpublished; once published its sub-path is frozen like the
  *     slug. Format/uniqueness are checked in the handler for a specific `code`.
+ *   - `defaultSubPath` — URL sub-path for a single-fleet series' lone default
+ *     page (the one the server would otherwise derive as `standings`, or the
+ *     series slug when co-publishing). Keyed by `isDefault` rather than by fleet
+ *     name, because that page's fleet name can be synthetic ("Unknown" for an
+ *     implicit default fleet) and isn't known to the client. Same lifecycle as a
+ *     `subPaths` override: honoured only while unpublished.
  */
 export const publishInputSchema = z.object({
   slug: z.string().optional(),
   join: z.boolean().optional(),
   fleets: z.array(z.string()).optional(),
   subPaths: z.record(z.string(), z.string()).optional(),
+  defaultSubPath: z.string().optional(),
 });
 
 export type PublishInput = z.infer<typeof publishInputSchema>;

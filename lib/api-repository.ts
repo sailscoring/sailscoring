@@ -387,7 +387,8 @@ export function loadIrcRatings(): Promise<IrcRatings> {
  * has results from other series (a slug is a shared namespace). `fleets` selects
  * which fleets to publish/update now (omit for all; ones left out keep their
  * current page); `subPaths` overrides a not-yet-published fleet's URL sub-path
- * (keyed by fleet name). Returns the per-fleet public URLs.
+ * (keyed by fleet name); `defaultSubPath` overrides a single-fleet series' lone
+ * default page's sub-path. Returns the per-fleet public URLs.
  */
 export function publishSeries(
   seriesId: string,
@@ -396,6 +397,7 @@ export function publishSeries(
     join?: boolean;
     fleets?: string[];
     subPaths?: Record<string, string>;
+    defaultSubPath?: string;
   } = {},
 ): Promise<PublishResult> {
   return apiFetch<PublishResult>(`/api/v1/series/${seriesId}/publish`, {

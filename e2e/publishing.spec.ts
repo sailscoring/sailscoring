@@ -342,6 +342,69 @@ test('two series publish into one shared slug → the listing unions both, sub-h
   await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
 });
 
+test('single-fleet: the default page URL is editable before first publish', async ({ page }) => {
+  await createSeriesWithData(page);
+
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('URL slug').fill('autumn-26');
+
+  // The lone default page's sub-path defaults to "standings" and is editable.
+  const pageUrl = dialog.getByRole('textbox', { name: 'Page URL' });
+  await expect(pageUrl).toHaveValue('standings');
+  await pageUrl.fill('overall');
+
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+
+  // Published at the chosen sub-path; the public page renders there.
+  const link = dialog.getByRole('link', { name: /\/autumn-26\/overall$/ });
+  await expect(link).toBeVisible();
+  const overallPath = new URL((await link.getAttribute('href')) ?? '').pathname;
+  await page.goto(overallPath);
+  await expect(page.getByRole('cell', { name: '42' }).first()).toBeVisible();
+
+  // The default "standings" path never existed — it moved to the override.
+  expect((await page.request.get(overallPath.replace(/\/overall$/, '/standings'))).status()).toBe(404);
+});
+
+test('single-fleet: the page URL can be edited before joining a shared slug', async ({ page }) => {
+  // A founding single-fleet series holds the clean "standings" path at the slug.
+  await createSeriesWithData(page, { name: 'Lambay Races Cruisers', sail: '11' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('URL slug').fill('2026-lambay-races');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const firstLink = dialog.getByRole('link', { name: /\/p\// });
+  await expect(firstLink).toBeVisible();
+  const indexPath = new URL((await firstLink.getAttribute('href')) ?? '').pathname.replace(
+    /\/standings$/,
+    '',
+  );
+
+  // A second single-fleet series targets the same slug. The first publish is
+  // blocked for confirmation; the page URL field is then seeded with the series
+  // slug (it can't keep "standings") — the scorer edits it before confirming.
+  await createSeriesWithData(page, { name: 'Lambay Races One Designs', sail: '22' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await dialog.getByLabel('URL slug').fill('2026-lambay-races');
+  const pageUrl = dialog.getByRole('textbox', { name: 'Page URL' });
+  await expect(pageUrl).toHaveValue('standings');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+
+  await expect(dialog.getByText(/already has results from Lambay Races Cruisers/)).toBeVisible();
+  // Seeded disambiguated default, then overridden to the scorer's own segment.
+  await expect(pageUrl).toHaveValue('lambay-races-one-designs');
+  await pageUrl.fill('one-designs');
+  await dialog.getByRole('button', { name: 'Publish into existing event' }).click();
+
+  // The page lands at the edited segment, not the auto-derived series slug.
+  await expect(dialog.getByRole('link', { name: /\/2026-lambay-races\/one-designs$/ })).toBeVisible();
+  await page.goto(`${indexPath}/one-designs`);
+  await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
+  // The auto-derived default was never published.
+  expect((await page.request.get(`${indexPath}/lambay-races-one-designs`)).status()).toBe(404);
+});
+
 test('selective publishing: choose fleets and override a fleet URL segment', async ({ page }) => {
   await createTwoFleetSeries(page, 'HYC Club Series 1');
 

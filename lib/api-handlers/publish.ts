@@ -219,10 +219,14 @@ export async function publishSeries(
   const shared = others.length > 0;
   const seriesSlug = deriveSeriesSlug(series.name);
   const overrides = input.subPaths ?? {};
+  // The lone default page is overridden via `defaultSubPath` (keyed by
+  // `isDefault`), since its fleet name can be synthetic and unknown to the
+  // client; named fleets use `subPaths[fleetName]`.
+  const defaultOverride = input.defaultSubPath?.trim();
   const subPathFor = (file: { fleetName: string; isDefault: boolean }): string => {
     const existingPath = frozen.get(file.fleetName);
     if (existingPath !== undefined) return existingPath;
-    const override = overrides[file.fleetName]?.trim();
+    const override = file.isDefault ? defaultOverride : overrides[file.fleetName]?.trim();
     if (override) {
       if (!isValidSlugSegment(override)) {
         throw new BadRequestError('invalid fleet sub-path', {

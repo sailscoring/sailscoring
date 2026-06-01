@@ -74,6 +74,10 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
   // Selected fleet names (the set to publish) and per-fleet editable sub-paths.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [subPaths, setSubPaths] = useState<Record<string, string>>({});
+  // The lone default page's editable sub-path (single-fleet series). Kept
+  // separate from `subPaths` because that page's fleet name can be synthetic
+  // ("Unknown") and isn't a reliable key; the server applies it by `isDefault`.
+  const [singlePath, setSinglePath] = useState('standings');
   const [phase, setPhase] = useState<
     'loading' | 'idle' | 'publishing' | 'unpublishing'
   >('loading');
@@ -122,6 +126,7 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
         setSlug(pub?.slug ?? s.suggestedSlug);
         setSelected(initSelected);
         setSubPaths(initSubPaths);
+        setSinglePath('standings');
         setPhase('idle');
       })
       .catch(() => {
@@ -154,28 +159,34 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
 
   const urlPrefix = `${APP_URL}/p/${workspaceSlug}/${slug || '…'}`;
 
-  // A single-fleet series has no per-fleet choice: it's one default page whose
-  // path the server derives (`standings`, or the series slug when it co-publishes
-  // into a shared slug). Selection + sub-path overrides only apply to ≥2 fleets.
+  // A single-fleet series has one default page. Its sub-path is editable before
+  // first publish (seeded `standings`) and frozen after — the same lifecycle as a
+  // multi-fleet row, just without the per-fleet selection. Sending it explicitly
+  // keeps the URL WYSIWYG: the server no longer silently renames it to the series
+  // slug when the page co-publishes into a shared slug.
   const multiFleet = fleets.length > 1;
 
-  // The single default page's preview row — the server's actual page once
-  // published, else a `standings` preview under the typed slug.
+  // The single default page once published — the server's actual live page, used
+  // for the frozen read-only link + Copy.
   const singlePreview = useMemo(() => {
     const page = published?.pages[0];
     return {
       fleetName: page?.fleetName ?? fleets[0]?.name ?? 'Standings',
-      url: page?.url ?? `${urlPrefix}/standings`,
+      url: page?.url ?? `${urlPrefix}/${singlePath || 'standings'}`,
     };
-  }, [published, fleets, urlPrefix]);
+  }, [published, fleets, urlPrefix, singlePath]);
 
-  // Client-side guard so the button reflects what the server would reject. Only
-  // the multi-fleet UI can produce an invalid request; the single default page is
-  // always publishable. The pages that will be live afterwards are the ticked
-  // ones plus any already-published fleet (which stays live even when unticked) —
-  // we need at least one, with distinct sub-paths.
+  // Client-side guard so the button reflects what the server would reject. The
+  // single default page needs a non-empty sub-path while it's still editable
+  // (unpublished); once published its path is frozen and always valid. For the
+  // multi-fleet UI, the pages that will be live afterwards are the ticked ones
+  // plus any already-published fleet (which stays live even when unticked) — we
+  // need at least one, with distinct sub-paths.
   const validation = useMemo(() => {
-    if (!multiFleet) return null;
+    if (!multiFleet) {
+      if (isPublished) return null;
+      return singlePath ? null : 'Give the page a URL.';
+    }
     const live = rows.filter((r) => r.frozen || selected.has(r.name));
     if (live.length === 0) return 'Select at least one fleet to publish.';
     const seen = new Set<string>();
@@ -187,7 +198,7 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [multiFleet, rows, selected, subPaths, published]);
+  }, [multiFleet, isPublished, singlePath, rows, selected, subPaths, published]);
 
   const pendingEdits = published
     ? Math.max(0, (series.version ?? 1) - published.publishedVersion)
@@ -214,10 +225,15 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
     try {
       // Multi-fleet: send the selection, plus sub-path overrides for the editable
       // (unfrozen) fleets in it. Only send a path the scorer actually changed —
-      // leaving the default lets the server derive it. Single-fleet: send neither,
-      // so the server keeps deriving the lone page's path (`standings`, or the
-      // series slug when it co-publishes). The slug is honoured only on first publish.
-      let selection: { fleets?: string[]; subPaths?: Record<string, string> } = {};
+      // leaving the default lets the server derive it. Single-fleet first publish:
+      // send the lone page's sub-path explicitly so its URL is exactly what the
+      // dialog shows, never the server's silent shared-slug rename. Re-publish
+      // sends neither (the path is frozen). The slug is honoured only on first publish.
+      let selection: {
+        fleets?: string[];
+        subPaths?: Record<string, string>;
+        defaultSubPath?: string;
+      } = {};
       if (multiFleet) {
         const fleetNames = rows.filter((r) => selected.has(r.name)).map((r) => r.name);
         const overrides: Record<string, string> = {};
@@ -227,6 +243,8 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
           if (seg !== defaultSubPath(r.name)) overrides[r.name] = seg;
         }
         selection = { fleets: fleetNames, subPaths: overrides };
+      } else if (!isPublished) {
+        selection = { defaultSubPath: singlePath };
       }
       const result = await publishSeries(series.id, {
         ...(isPublished ? {} : { slug, join }),
@@ -244,13 +262,25 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
         if (issues?.code === 'slug-shared') {
           setNeedsJoin(true);
           const names = issues.sharedWith ?? [];
+          // Single default page joining a shared slug can't keep the clean
+          // `standings` path (the founding series holds it). Seed the editable
+          // suffix with the series slug so the scorer sees a disambiguated URL
+          // they can confirm or tweak, instead of a silent rename.
+          if (!multiFleet && singlePath === 'standings' && status?.suggestedSlug) {
+            setSinglePath(status.suggestedSlug);
+          }
           setError(
-            `This URL already has results from ${formatNameList(names)}. Publish “${series.name}” alongside them?`,
+            `This URL already has results from ${formatNameList(names)}. Publish “${series.name}” alongside them — check the page URL below first.`,
           );
           return;
         }
         if (issues?.code === 'subpath-collision') {
           setNeedsJoin(false);
+          // Same disambiguation seed for the single default page if it still
+          // carries the bare `standings` default that just collided.
+          if (!multiFleet && singlePath === 'standings' && status?.suggestedSlug) {
+            setSinglePath(status.suggestedSlug);
+          }
           setError(
             issues.fleetName
               ? `The URL for “${issues.fleetName}” clashes with another fleet at this slug. Change it, then try again.`
@@ -299,6 +329,7 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
       setSubPaths(
         Object.fromEntries(fleets.map((f) => [f.name, defaultSubPath(f.name)])),
       );
+      setSinglePath('standings');
       setPhase('idle');
     } catch (e) {
       setPhase('idle');
@@ -443,39 +474,46 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
                   </div>
                 </div>
               </>
-            ) : (
+            ) : isPublished ? (
               <div className="flex items-center gap-2">
                 <div className="flex-1 min-w-0 overflow-hidden">
                   {/* direction: rtl makes the ellipsis clip the (shared) start of
                       the URL and keep the distinguishing end visible; text-align:
                       left keeps it left-aligned when it fits. The URL is a single
                       LTR run so its character order is unaffected. */}
-                  {isPublished ? (
-                    <a
-                      href={singlePreview.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      title={singlePreview.url}
-                      className="text-xs font-mono truncate block hover:underline"
-                      style={{ direction: 'rtl', textAlign: 'left' }}
-                    >
-                      {singlePreview.url}
-                    </a>
-                  ) : (
-                    <span
-                      title={singlePreview.url}
-                      className="text-xs font-mono truncate block text-muted-foreground"
-                      style={{ direction: 'rtl', textAlign: 'left' }}
-                    >
-                      {singlePreview.url}
-                    </span>
-                  )}
+                  <a
+                    href={singlePreview.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={singlePreview.url}
+                    className="text-xs font-mono truncate block hover:underline"
+                    style={{ direction: 'rtl', textAlign: 'left' }}
+                  >
+                    {singlePreview.url}
+                  </a>
                 </div>
-                {isPublished && (
-                  <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigator.clipboard.writeText(singlePreview.url)}>
-                    Copy
-                  </Button>
-                )}
+                <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigator.clipboard.writeText(singlePreview.url)}>
+                  Copy
+                </Button>
+              </div>
+            ) : (
+              // First publish of the lone default page: its sub-path is editable,
+              // seeded `standings`, so the scorer controls the URL even when the
+              // page co-publishes into a shared slug.
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/`}>
+                  Published at <span className="font-mono">/p/{workspaceSlug}/{slug || '…'}/</span>
+                </p>
+                <Input
+                  value={singlePath}
+                  onChange={(e) => {
+                    setSinglePath(sanitizeSlug(e.target.value));
+                    setError(null);
+                  }}
+                  placeholder="standings"
+                  aria-label="Page URL"
+                  className="h-8 text-xs font-mono"
+                />
               </div>
             )}
 
@@ -497,7 +535,7 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
             </Button>
           )}
           {needsJoin ? (
-            <Button onClick={() => handlePublish(true)} disabled={isPublishing}>
+            <Button onClick={() => handlePublish(true)} disabled={isPublishing || validation !== null}>
               {isPublishing ? 'Publishing…' : 'Publish into existing event'}
             </Button>
           ) : (
