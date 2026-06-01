@@ -47,10 +47,10 @@ export default async function HelpPage() {
             ['#start-sequences', 'Start sequences'],
             ['#importing-competitors', 'Importing competitors from CSV'],
             ['#updating-handicaps', 'Updating handicaps from another series'],
-            // Gated: only listed when irc-rating is enabled (#168 follow-up).
+            // Gated: only listed when irc-rating is enabled (on by default, #168 follow-up).
             ['#update-handicaps-irc-rating', 'Updating IRC TCCs from the rating list', 'irc-rating'],
-            // Gated: only listed when irish-sailing-ratings is enabled (#168).
-            ['#update-handicaps-irish-sailing', 'Updating ECHO from Irish Sailing', 'irish-sailing-ratings'],
+            // Gated: only listed when echo is enabled (#168).
+            ['#update-handicaps-irish-sailing', 'Updating ECHO from Irish Sailing', 'echo'],
             ['#adding-races', 'Adding races'],
             ['#entering-results', 'Entering results'],
             // Gated: only listed when csv-finish-import is enabled (#155).
@@ -432,7 +432,7 @@ export default async function HelpPage() {
       </Section>
       )}
 
-      {has('irish-sailing-ratings') && (
+      {has('echo') && (
       <Section id="update-handicaps-irish-sailing" title="Updating ECHO from Irish Sailing">
         <p>
           The <strong className="text-foreground">Update handicaps</strong> dialog can pull ECHO

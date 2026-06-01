@@ -121,7 +121,10 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   seriesId: string;
 }>(function UpdateHandicaps({ seriesId }, ref) {
   const { has } = useFeatures();
-  const irishSailingEnabled = has('irish-sailing-ratings');
+  // ECHO is the single Irish/ECHO gate — it covers both the scoring system
+  // and this Irish Sailing ECHO source. IRC TCC is gated separately (on by
+  // default).
+  const irishSailingEnabled = has('echo');
   const ircRatingEnabled = has('irc-rating');
 
   const [open, setOpen] = useState(false);

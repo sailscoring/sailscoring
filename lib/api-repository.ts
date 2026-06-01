@@ -366,7 +366,7 @@ export function listTcfHistoryBySeries(seriesId: string): Promise<TcfRecord[]> {
 /**
  * The national Irish Sailing IRC & ECHO ratings list — a handicap source for
  * the Update Handicaps dialog (#168). Server-fetched from sailing.ie and
- * cached; gated behind the `irish-sailing-ratings` feature.
+ * cached; gated behind the `echo` feature.
  */
 export function loadIrishSailingRatings(): Promise<IrishSailingRatings> {
   return apiFetch<IrishSailingRatings>('/api/v1/handicap-sources/irish-sailing');

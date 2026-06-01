@@ -22,6 +22,12 @@ export interface FeatureDef {
    *  the feature is off. Sub-block-only features list nothing here and are
    *  gated inline in `app/help/page.tsx`. */
   helpSectionIds: string[];
+  /** When true the feature is on for *every* workspace unless that workspace
+   *  records an explicit opt-out (`disabledFeatures`). Most features are
+   *  opt-in (default off, "containment not ramp-up"); a default-on feature is
+   *  one we're confident enough in to ship broadly while keeping the gate so
+   *  a workspace can switch it back off. */
+  defaultOn?: boolean;
 }
 
 /**
@@ -48,22 +54,28 @@ export const FEATURES = {
     helpSectionIds: [],
   },
   echo: {
+    // The single Irish/ECHO gate: the ECHO scoring system *and* the Irish
+    // Sailing ECHO source in the Update-handicaps dialog. Opt-in.
     label: 'ECHO scoring',
-    helpSectionIds: [],
-  },
-  'irish-sailing-ratings': {
-    label: 'Irish Sailing ECHO import',
     helpSectionIds: ['update-handicaps-irish-sailing'],
   },
   'irc-rating': {
+    // Gates the IRC scoring system *and* the IRC TCC source in the
+    // Update-handicaps dialog. On by default; a workspace can opt out.
     label: 'IRC TCC import (international)',
     helpSectionIds: ['update-handicaps-irc-rating'],
+    defaultOn: true,
   },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;
 
 export const ALL_FEATURE_KEYS = Object.keys(FEATURES) as FeatureKey[];
+
+/** Features that are on for every workspace unless explicitly opted out. */
+export const DEFAULT_ON_FEATURES = ALL_FEATURE_KEYS.filter(
+  (k) => (FEATURES[k] as FeatureDef).defaultOn,
+);
 
 export function isFeatureKey(s: string): s is FeatureKey {
   return Object.prototype.hasOwnProperty.call(FEATURES, s);
@@ -73,7 +85,11 @@ export type WorkspaceKind = 'personal' | 'club';
 
 export interface OrgMetadata {
   kind: WorkspaceKind;
+  /** Features explicitly switched on for this workspace (opt-in features). */
   enabledFeatures: FeatureKey[];
+  /** Features explicitly switched off for this workspace — only meaningful
+   *  for default-on features, where it records the opt-out. */
+  disabledFeatures: FeatureKey[];
 }
 
 /**
@@ -97,31 +113,46 @@ export function parseOrgMetadata(
 ): OrgMetadata {
   const fallbackKind: WorkspaceKind =
     slug !== undefined && isPersonalWorkspaceSlug(slug) ? 'personal' : 'club';
-  if (!raw) return { kind: fallbackKind, enabledFeatures: [] };
+  const empty = (kind: WorkspaceKind): OrgMetadata => ({
+    kind,
+    enabledFeatures: [],
+    disabledFeatures: [],
+  });
+  if (!raw) return empty(fallbackKind);
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { kind: fallbackKind, enabledFeatures: [] };
+    return empty(fallbackKind);
   }
   if (typeof parsed !== 'object' || parsed === null) {
-    return { kind: fallbackKind, enabledFeatures: [] };
+    return empty(fallbackKind);
   }
   const obj = parsed as Record<string, unknown>;
   const kind: WorkspaceKind =
     obj.kind === 'personal' || obj.kind === 'club' ? obj.kind : fallbackKind;
-  const enabledFeatures = Array.isArray(obj.enabledFeatures)
-    ? (obj.enabledFeatures.filter(
-        (k): k is FeatureKey => typeof k === 'string' && isFeatureKey(k),
-      ) as FeatureKey[])
-    : [];
-  return { kind, enabledFeatures: dedupe(enabledFeatures) };
+  return {
+    kind,
+    enabledFeatures: dedupe(parseFeatureArray(obj.enabledFeatures)),
+    disabledFeatures: dedupe(parseFeatureArray(obj.disabledFeatures)),
+  };
+}
+
+/** Filter an arbitrary JSON value down to the known feature keys it contains.
+ *  Unknown / future / non-string entries are dropped — stale keys from a
+ *  retired feature must not break resolution. */
+function parseFeatureArray(value: unknown): FeatureKey[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (k): k is FeatureKey => typeof k === 'string' && isFeatureKey(k),
+  );
 }
 
 export function serializeOrgMetadata(meta: OrgMetadata): string {
   return JSON.stringify({
     kind: meta.kind,
     enabledFeatures: dedupe(meta.enabledFeatures),
+    disabledFeatures: dedupe(meta.disabledFeatures),
   });
 }
 
@@ -141,6 +172,11 @@ export interface FeatureMembership {
  * in their own sandbox with a feature their club has, without leaking it into
  * an unrelated club's workspace they also belong to.
  *
+ * On top of that union, `DEFAULT_ON_FEATURES` are added for every workspace,
+ * and the **active workspace's** `disabledFeatures` are subtracted last —
+ * so an explicit opt-out always wins, even over a default-on feature or one
+ * inherited from a club.
+ *
  * `memberships` is every org the user is a member of (already loaded by
  * `resolveWorkspace`), each carrying its raw `metadata`. `activeSlug`
  * identifies which of them is the active workspace.
@@ -150,16 +186,24 @@ export function computeEffectiveFeatures(
   memberships: FeatureMembership[],
 ): FeatureKey[] {
   const active = memberships.find((m) => m.slug === activeSlug);
-  const own = active
-    ? parseOrgMetadata(active.metadata, active.slug).enabledFeatures
+  const activeMeta = active
+    ? parseOrgMetadata(active.metadata, active.slug)
+    : null;
+  const own = activeMeta ? activeMeta.enabledFeatures : [];
+  const inherited = isPersonalWorkspaceSlug(activeSlug)
+    ? memberships
+        .filter((m) => !isPersonalWorkspaceSlug(m.slug))
+        .flatMap((m) => parseOrgMetadata(m.metadata, m.slug).enabledFeatures)
     : [];
-  if (!isPersonalWorkspaceSlug(activeSlug)) {
-    return dedupe(own);
+  const enabled = new Set<FeatureKey>([
+    ...DEFAULT_ON_FEATURES,
+    ...own,
+    ...inherited,
+  ]);
+  for (const key of activeMeta?.disabledFeatures ?? []) {
+    enabled.delete(key);
   }
-  const inherited = memberships
-    .filter((m) => !isPersonalWorkspaceSlug(m.slug))
-    .flatMap((m) => parseOrgMetadata(m.metadata, m.slug).enabledFeatures);
-  return dedupe([...own, ...inherited]);
+  return [...enabled];
 }
 
 function dedupe(keys: FeatureKey[]): FeatureKey[] {

@@ -41,6 +41,7 @@ import { member, organization, orgRequest, user } from '@/lib/db/schema/auth';
 import { competitors, fleets, races, series } from '@/lib/db/schema/series';
 import {
   ALL_FEATURE_KEYS,
+  DEFAULT_ON_FEATURES,
   isFeatureKey,
   parseOrgMetadata,
   serializeOrgMetadata,
@@ -185,7 +186,11 @@ export async function createOrg(
   // provision-org always creates an onboarded club workspace (#155).
   const metadata =
     args.enabledFeatures && args.enabledFeatures.length > 0
-      ? serializeOrgMetadata({ kind: 'club', enabledFeatures: args.enabledFeatures })
+      ? serializeOrgMetadata({
+          kind: 'club',
+          enabledFeatures: args.enabledFeatures,
+          disabledFeatures: [],
+        })
       : null;
   await db.insert(organization).values({
     id,
@@ -199,8 +204,13 @@ export async function createOrg(
 
 /**
  * Turn an experimental feature (#155) on or off for an existing club
- * workspace. Reads the current metadata, mutates the enabledFeatures set, and
- * writes it back. Returns the resulting feature list.
+ * workspace. Reads the current metadata, mutates the enabled/disabled sets,
+ * and writes it back. Returns the resulting enabled-feature list.
+ *
+ * Enabling adds to `enabledFeatures` and clears any opt-out. Disabling removes
+ * from `enabledFeatures`; for a default-on feature it also records an explicit
+ * opt-out in `disabledFeatures` (for opt-in features, dropping the enable is
+ * enough). Both directions are idempotent.
  */
 export async function setOrgFeature(
   db: SailScoringDb,
@@ -214,13 +224,25 @@ export async function setOrgFeature(
     .where(eq(organization.id, org.id))
     .limit(1);
   const meta = parseOrgMetadata(row?.metadata ?? null, org.slug);
-  const current = new Set(meta.enabledFeatures);
-  if (args.enabled) current.add(args.feature);
-  else current.delete(args.feature);
-  const enabledFeatures = [...current];
+  const enabled = new Set(meta.enabledFeatures);
+  const disabled = new Set(meta.disabledFeatures);
+  if (args.enabled) {
+    enabled.add(args.feature);
+    disabled.delete(args.feature);
+  } else {
+    enabled.delete(args.feature);
+    if (DEFAULT_ON_FEATURES.includes(args.feature)) disabled.add(args.feature);
+  }
+  const enabledFeatures = [...enabled];
   await db
     .update(organization)
-    .set({ metadata: serializeOrgMetadata({ kind: meta.kind, enabledFeatures }) })
+    .set({
+      metadata: serializeOrgMetadata({
+        kind: meta.kind,
+        enabledFeatures,
+        disabledFeatures: [...disabled],
+      }),
+    })
     .where(eq(organization.id, org.id));
   return { org, enabledFeatures };
 }

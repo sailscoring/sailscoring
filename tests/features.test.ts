@@ -34,10 +34,12 @@ describe('parseOrgMetadata', () => {
     expect(parseOrgMetadata(null, 'hyc')).toEqual({
       kind: 'club',
       enabledFeatures: [],
+      disabledFeatures: [],
     });
     expect(parseOrgMetadata('', 'u-abc')).toEqual({
       kind: 'personal',
       enabledFeatures: [],
+      disabledFeatures: [],
     });
   });
 
@@ -54,21 +56,35 @@ describe('parseOrgMetadata', () => {
     expect(parseOrgMetadata(raw)).toEqual({
       kind: 'club',
       enabledFeatures: ['echo', 'ftp-upload'],
+      disabledFeatures: [],
     });
+  });
+
+  it('parses an explicit opt-out (disabledFeatures)', () => {
+    const raw = JSON.stringify({
+      kind: 'club',
+      enabledFeatures: [],
+      disabledFeatures: ['irc-rating'],
+    });
+    expect(parseOrgMetadata(raw).disabledFeatures).toEqual(['irc-rating']);
   });
 
   it('drops unknown / retired feature keys rather than throwing', () => {
     const raw = JSON.stringify({
       kind: 'club',
       enabledFeatures: ['echo', 'retired-feature', 42],
+      disabledFeatures: ['irc-rating', 'irish-sailing-ratings'],
     });
     expect(parseOrgMetadata(raw).enabledFeatures).toEqual(['echo']);
+    // 'irish-sailing-ratings' was retired — dropped from the opt-out list too.
+    expect(parseOrgMetadata(raw).disabledFeatures).toEqual(['irc-rating']);
   });
 
   it('survives malformed JSON', () => {
     expect(parseOrgMetadata('{not json', 'hyc')).toEqual({
       kind: 'club',
       enabledFeatures: [],
+      disabledFeatures: [],
     });
   });
 
@@ -79,23 +95,43 @@ describe('parseOrgMetadata', () => {
 });
 
 describe('serializeOrgMetadata round-trips', () => {
-  it('preserves kind and features', () => {
-    const meta = { kind: 'club' as const, enabledFeatures: ['echo' as const] };
+  it('preserves kind, enabled, and disabled features', () => {
+    const meta = {
+      kind: 'club' as const,
+      enabledFeatures: ['echo' as const],
+      disabledFeatures: ['irc-rating' as const],
+    };
     expect(parseOrgMetadata(serializeOrgMetadata(meta))).toEqual(meta);
   });
 });
 
 describe('computeEffectiveFeatures (Model B)', () => {
-  const club = (slug: string, features: string[]): FeatureMembership => ({
+  const club = (
+    slug: string,
+    features: string[],
+    disabled: string[] = [],
+  ): FeatureMembership => ({
     slug,
-    metadata: JSON.stringify({ kind: 'club', enabledFeatures: features }),
+    metadata: JSON.stringify({
+      kind: 'club',
+      enabledFeatures: features,
+      disabledFeatures: disabled,
+    }),
   });
-  const personal = (slug: string, features: string[] = []): FeatureMembership => ({
+  const personal = (
+    slug: string,
+    features: string[] = [],
+    disabled: string[] = [],
+  ): FeatureMembership => ({
     slug,
-    metadata: JSON.stringify({ kind: 'personal', enabledFeatures: features }),
+    metadata: JSON.stringify({
+      kind: 'personal',
+      enabledFeatures: features,
+      disabledFeatures: disabled,
+    }),
   });
 
-  it('a club workspace sees only its own features', () => {
+  it('a club workspace sees its own features plus the default-on ones', () => {
     const memberships = [
       club('hyc', ['echo', 'ftp-upload']),
       personal('u-alice'),
@@ -103,10 +139,11 @@ describe('computeEffectiveFeatures (Model B)', () => {
     expect(computeEffectiveFeatures('hyc', memberships).sort()).toEqual([
       'echo',
       'ftp-upload',
+      'irc-rating',
     ]);
   });
 
-  it('a personal workspace inherits the union of its clubs', () => {
+  it('a personal workspace inherits the union of its clubs (plus default-on)', () => {
     const memberships = [
       club('hyc', ['echo']),
       club('rstgyc', ['ftp-upload', 'sailwave-import']),
@@ -115,16 +152,18 @@ describe('computeEffectiveFeatures (Model B)', () => {
     expect(computeEffectiveFeatures('u-alice', memberships).sort()).toEqual([
       'echo',
       'ftp-upload',
+      'irc-rating',
       'sailwave-import',
     ]);
   });
 
-  it("a club workspace does NOT leak another club's features", () => {
+  it("a club workspace does NOT leak another club's opt-in features", () => {
     // Alice is in HYC (echo) and RSTGYC (ftp-upload). In RSTGYC's workspace
-    // she must not see echo.
+    // she must not see echo — but irc-rating is on everywhere by default.
     const memberships = [club('hyc', ['echo']), club('rstgyc', ['ftp-upload'])];
-    expect(computeEffectiveFeatures('rstgyc', memberships)).toEqual([
+    expect(computeEffectiveFeatures('rstgyc', memberships).sort()).toEqual([
       'ftp-upload',
+      'irc-rating',
     ]);
   });
 
@@ -133,15 +172,38 @@ describe('computeEffectiveFeatures (Model B)', () => {
     // workspace; Model B reads the active workspace's own features regardless
     // of kind, so this works without a club membership.
     const memberships = [personal('u-alice', ['nhc-parameters'])];
-    expect(computeEffectiveFeatures('u-alice', memberships)).toEqual([
+    expect(computeEffectiveFeatures('u-alice', memberships).sort()).toEqual([
+      'irc-rating',
       'nhc-parameters',
     ]);
   });
 
-  it('returns empty when the user has no enabled features anywhere', () => {
-    expect(
-      computeEffectiveFeatures('u-alice', [personal('u-alice')]),
-    ).toEqual([]);
+  it('default-on features are present with no enabled features anywhere', () => {
+    expect(computeEffectiveFeatures('u-alice', [personal('u-alice')])).toEqual([
+      'irc-rating',
+    ]);
+  });
+
+  it('an explicit opt-out switches a default-on feature off', () => {
+    const memberships = [personal('u-alice', [], ['irc-rating'])];
+    expect(computeEffectiveFeatures('u-alice', memberships)).toEqual([]);
+  });
+
+  it('the active workspace opt-out wins over a club-inherited feature', () => {
+    // HYC enables echo; Alice opts out of echo in her own workspace. Her
+    // active personal workspace must not see it, even though the club has it.
+    const memberships = [
+      club('hyc', ['echo']),
+      personal('u-alice', [], ['echo']),
+    ];
+    expect(computeEffectiveFeatures('u-alice', memberships)).toEqual([
+      'irc-rating',
+    ]);
+  });
+
+  it('a club can opt out of a default-on feature for its workspace', () => {
+    const memberships = [club('hyc', [], ['irc-rating']), personal('u-alice')];
+    expect(computeEffectiveFeatures('hyc', memberships)).toEqual([]);
   });
 });
 

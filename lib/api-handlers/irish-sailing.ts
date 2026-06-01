@@ -27,6 +27,6 @@ const getCachedRatings = unstable_cache(
 export async function getIrishSailingRatings(
   workspace: WorkspaceContext,
 ): Promise<IrishSailingRatings> {
-  requireFeature(workspace, 'irish-sailing-ratings');
+  requireFeature(workspace, 'echo');
   return getCachedRatings();
 }

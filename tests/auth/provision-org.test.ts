@@ -184,6 +184,32 @@ describe.skipIf(skip)('provision-org operations', () => {
     expect(echoOrgs.map((o) => o.id)).not.toContain(org.id);
   });
 
+  test('disabling a default-on feature records an opt-out; enabling clears it (#155)', async () => {
+    const stamp = Date.now();
+    const org = await createOrg(db, {
+      name: `Default-on ${stamp}`,
+      slug: `defon-${stamp}`,
+    });
+    cleanupOrgIds.push(org.id);
+
+    async function disabledOf(orgId: string) {
+      const [row] = await db
+        .select({ metadata: schema.organization.metadata })
+        .from(schema.organization)
+        .where(eq(schema.organization.id, orgId));
+      return parseOrgMetadata(row.metadata, org.slug).disabledFeatures.sort();
+    }
+
+    // Opting out of irc-rating (default-on) records it in disabledFeatures.
+    await setOrgFeature(db, { orgSlugOrId: org.slug, feature: 'irc-rating', enabled: false });
+    expect(await disabledOf(org.id)).toEqual(['irc-rating']);
+
+    // Re-enabling clears the opt-out.
+    const after = await setOrgFeature(db, { orgSlugOrId: org.slug, feature: 'irc-rating', enabled: true });
+    expect(after.enabledFeatures).toContain('irc-rating');
+    expect(await disabledOf(org.id)).toEqual([]);
+  });
+
   test('declineRequest marks a pending request declined', async () => {
     const stamp = Date.now();
     const email = `declined-${stamp}@sailscoring.test`;

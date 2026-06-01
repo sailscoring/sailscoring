@@ -17,7 +17,8 @@ const RATINGS_FIXTURE = {
 };
 
 test.beforeEach(async ({ page, signedInEmail }) => {
-  await enableFeatures(page, signedInEmail, ['irish-sailing-ratings', 'echo']);
+  // `echo` is now the single Irish/ECHO gate (scoring system + this dialog source).
+  await enableFeatures(page, signedInEmail, ['echo']);
   // Stub the server fetch of the national ratings list.
   await page.route('**/api/v1/handicap-sources/irish-sailing', (route) =>
     route.fulfill({ json: RATINGS_FIXTURE }),

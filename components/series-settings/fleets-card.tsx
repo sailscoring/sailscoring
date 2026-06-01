@@ -296,7 +296,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="scratch">Scratch</SelectItem>
-                      <SelectItem value="irc">IRC</SelectItem>
+                      {/* IRC is gated (#155) but on by default; still offer it
+                          for a fleet already using it if a workspace opts out. */}
+                      {(has('irc-rating') || fleet.scoringSystem === 'irc') && (
+                        <SelectItem value="irc">IRC</SelectItem>
+                      )}
                       <SelectItem value="py">PY</SelectItem>
                       <SelectItem value="nhc">NHC</SelectItem>
                       {/* ECHO is experimental/gated (#155); still offer it for a
