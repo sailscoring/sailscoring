@@ -69,6 +69,22 @@ describe.skipIf(skip)('seedSampleSeries', () => {
     expect(ordered).toEqual(['Sample Junior Regatta 2026', 'Sample Tuesday Evening League 2026']);
   });
 
+  test('groups both samples under a seeded "Samples" category', async () => {
+    const cats = await db
+      .select()
+      .from(schema.categories)
+      .where(eq(schema.categories.workspaceId, workspaceId));
+    expect(cats).toHaveLength(1);
+    expect(cats[0].name).toBe('Samples');
+
+    const seriesRows = await db
+      .select({ categoryId: schema.series.categoryId })
+      .from(schema.series)
+      .where(eq(schema.series.workspaceId, workspaceId));
+    expect(seriesRows).toHaveLength(2);
+    expect(seriesRows.every((s) => s.categoryId === cats[0].id)).toBe(true);
+  });
+
   test('regatta series has the expected fleets, competitors, and races', async () => {
     const s = await seriesByName('Sample Junior Regatta 2026');
     expect(s.scoringMode).toBe('scratch');

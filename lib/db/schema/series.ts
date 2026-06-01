@@ -55,10 +55,12 @@ const updatedByCol = text('updated_by');
 
 /**
  * Scorer-defined series categories (#154). Per-workspace, scorer-editable
- * (add / rename / reorder / delete). Deliberately **not** seeded — different
- * orgs partition their season differently, so new workspaces start empty and
- * every series sits in the synthetic "Uncategorized" bucket (`series.category_id`
- * NULL) until the scorer creates categories.
+ * (add / rename / reorder / delete). Not seeded for the scorer's own season
+ * structure — different orgs partition differently, so series sit in the
+ * synthetic "Uncategorized" bucket (`series.category_id` NULL) until the scorer
+ * creates categories. The one exception is onboarding: a brand-new workspace's
+ * sample series are grouped under a seeded "Samples" category
+ * (`lib/sample-series/seed.ts`).
  *
  * Deleting a category drops its members back to Uncategorized via the
  * `ON DELETE SET NULL` on `series.category_id` — no row rewrite, and

@@ -27,8 +27,23 @@ import { DEFAULT_SUBDIVISION_LABEL } from '@/lib/competitor-fields';
 import { openSeriesFromFile, parseSeriesFile, type SeriesFileRepos } from '@/lib/series-file';
 import type { Competitor, Fleet, Race, RaceStart, Finish, Series } from '@/lib/types';
 
-/** Filenames of the committed sample data, in the order they appear in the list. */
-const SAMPLE_FILES = ['regatta.sailscoring', 'club-racing.sailscoring'] as const;
+/**
+ * URLs of the committed sample data, in the order they appear in the list.
+ *
+ * These MUST be static `new URL('./literal', import.meta.url)` calls so the
+ * bundler traces each file into the serverless function. A dynamic
+ * `new URL(`./${name}`, import.meta.url)` is not statically analysable — in
+ * production it collapsed both reads onto a single emitted asset (two copies of
+ * the regatta, no club series).
+ */
+const SAMPLE_FILE_URLS = [
+  new URL('./regatta.sailscoring', import.meta.url),
+  new URL('./club-racing.sailscoring', import.meta.url),
+];
+
+/** New workspaces get the samples grouped under this category rather than
+ *  scattered through the "Uncategorized" bucket. */
+const SAMPLES_CATEGORY_NAME = 'Samples';
 
 /** A Drizzle-backed `SeriesFileRepos` scoped to one workspace. Only the methods
  *  `openSeriesFromFile` calls are implemented; the rest throw if reached. */
@@ -203,10 +218,21 @@ export async function seedSampleSeries(
   db: SailScoringDb = getDb(),
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    const repos = seedRepos(tx as unknown as SailScoringDb, workspaceId);
-    for (const name of SAMPLE_FILES) {
-      const file = parseSeriesFile(readFileSync(new URL(`./${name}`, import.meta.url), 'utf8'));
-      await openSeriesFromFile(file, repos);
+    const txDb = tx as unknown as SailScoringDb;
+    // Group both samples under a "Samples" category. `categoryId` is
+    // workspace-local (not carried in the .sailscoring file), so we create the
+    // category here and pass its id to openSeriesFromFile.
+    const categoryId = crypto.randomUUID();
+    await txDb.insert(schema.categories).values({
+      id: categoryId,
+      workspaceId,
+      name: SAMPLES_CATEGORY_NAME,
+      displayOrder: 0,
+    });
+    const repos = seedRepos(txDb, workspaceId);
+    for (const url of SAMPLE_FILE_URLS) {
+      const file = parseSeriesFile(readFileSync(url, 'utf8'));
+      await openSeriesFromFile(file, repos, { categoryId });
     }
   });
 }
