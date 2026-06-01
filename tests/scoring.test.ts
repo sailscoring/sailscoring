@@ -120,22 +120,23 @@ describe('calculateRaceScores', () => {
     expect(scores.get('A')?.resultCode).toBe('DNE');
   });
 
-  it('scores BFD as entries+1 (same as DNC, regardless of dnfScoring)', () => {
-    // Under startingArea scoring, 'starters'-base codes score starters+1.
-    // BFD uses 'entries' base so it always scores entries+1, same as DNC.
+  it('scores BFD on the starters base under startingArea scoring (same as DSQ/UFD)', () => {
+    // Rule 30.4 boats came to the starting area, so BFD uses the 'starters'
+    // base: under startingArea scoring it scores starters+1, not entries+1.
+    // Check-in data: A (BFD), B, C, D present; E absent (DNC) → starters = 4.
+    const present = (f: ReturnType<typeof makeFinish>) => ({ ...f, startPresent: true });
     const finishes = [
-      makeFinish('r1', 'A', null, 'BFD'),
-      // B–E present in start area
-      makeFinish('r1', 'B', 1),
-      makeFinish('r1', 'C', 2),
-      makeFinish('r1', 'D', 3),
-      makeFinish('r1', 'E', 4),
+      present(makeFinish('r1', 'A', null, 'BFD')),
+      present(makeFinish('r1', 'B', 1)),
+      present(makeFinish('r1', 'C', 2)),
+      present(makeFinish('r1', 'D', 3)),
+      { ...makeFinish('r1', 'E', null, 'DNC'), startPresent: false },
     ];
     const scores = calculateRaceScores(finishes, competitors, 'startingArea');
-    // starters = 4 (B, C, D, E); startingAreaPenalty = 5
-    // BFD uses 'entries': entries+1 = 6
-    expect(scores.get('A')?.points).toBe(n + 1); // 6
+    // starters = 4 (A, B, C, D present); startingAreaPenalty = 5
+    expect(scores.get('A')?.points).toBe(5);  // BFD on starters base, not entries+1 (6)
     expect(scores.get('B')?.points).toBe(1);
+    expect(scores.get('E')?.points).toBe(n + 1); // DNC stays on entries base (6)
   });
 
   it('A5.3 starters count is fleet-scoped when called with cross-fleet finishes', () => {
@@ -296,7 +297,7 @@ describe('calculateStandings', () => {
     expect(standings[0].raceNonDiscardable).toEqual([false]);
   });
 
-  it('marks DNE and BFD races as non-discardable', () => {
+  it('marks DNE races as non-discardable but not BFD (rule 30.4 BFD is discardable)', () => {
     const [a, b, c] = competitors;
     const threeRaces = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3)];
     const finishes: Finish[] = [
@@ -306,7 +307,8 @@ describe('calculateStandings', () => {
     ];
     const { standings } = calculateStandings(competitors, threeRaces, finishes);
     const aStanding = standings.find((s) => s.competitor.id === 'A')!;
-    expect(aStanding.raceNonDiscardable).toEqual([false, true, true]);
+    // R2 DNE non-discardable; R3 BFD is an ordinary discardable disqualification.
+    expect(aStanding.raceNonDiscardable).toEqual([false, true, false]);
     const bStanding = standings.find((s) => s.competitor.id === 'B')!;
     expect(bStanding.raceNonDiscardable).toEqual([false, false, false]);
   });

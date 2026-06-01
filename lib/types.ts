@@ -457,7 +457,7 @@ export interface Standing {
   totalPoints: number;
   netPoints: number;                     // totalPoints minus discarded points
   raceDiscards: boolean[];               // true = this race is discarded from series total
-  raceNonDiscardable: boolean[];         // true = this code cannot be excluded by discard rules (DNE, BFD)
+  raceNonDiscardable: boolean[];         // true = this code cannot be excluded by discard rules (DNE)
   raceRedressFlags: boolean[];           // true = this race score was calculated via RDG (A9 average)
   raceExcluded: boolean[];               // true = nobody finished this race; it scores 0 and does not count toward discards
 }

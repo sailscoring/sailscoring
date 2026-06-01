@@ -109,7 +109,7 @@ score instead of a place-based score.
 | DSQ | Disqualified. The boat's result was removed by the protest committee following a hearing. Scored at entries + 1 (or starters + 1); discardable. |
 | DNE | Disqualification Not Excludable. A disqualification whose score cannot be excluded from the series total regardless of the discard rules. Applied when the protest committee determines the breach was serious enough to preclude discard (e.g. breaking rule 2). |
 | UFD | U Flag Disqualification. Disqualification imposed without a hearing under rule 30.3 (U Flag Rule) for being in the triangle zone in the last minute before the start. Discardable. |
-| BFD | Black Flag Disqualification. Disqualification imposed without a hearing under rule 30.4 (Black Flag Rule). Unlike UFD, BFD cannot be excluded from series scoring. |
+| BFD | Black Flag Disqualification. Disqualification imposed without a hearing under rule 30.4 (Black Flag Rule). Like UFD, a plain BFD is an ordinary disqualification and can be excluded (discarded) from series scoring; only the niche case of a boat that sailed a restart after being black-flagged is non-excludable (scored DNE). |
 
 ### Scoring Codes — Additive Penalties
 

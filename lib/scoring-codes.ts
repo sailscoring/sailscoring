@@ -12,7 +12,7 @@
 
 export type PointsMethod =
   // Standard position-replacing: the boat receives N+1 penalty points.
-  // penaltyBase 'entries' → always series entries + 1 (e.g. DNC, BFD).
+  // penaltyBase 'entries' → always series entries + 1 (e.g. DNC).
   // penaltyBase 'starters' → subject to the series dnfScoring setting:
   //   'seriesEntries' (A5.2, default) → entries + 1
   //   'startingArea'  (A5.3)          → starting-area count + 1
@@ -118,11 +118,14 @@ export const BUILT_IN_CODES: readonly ScoringCodeDefinition[] = [
     code: 'BFD',
     name: 'Black Flag Disqualification',
     builtIn: true,
-    // Rule 30.4 boats are penalised at entries+1 (same as DNC) — the higher
-    // of the two possible penalty bases — since the infringement is
-    // pre-start and cannot be discarded in any case.
-    pointsMethod: { type: 'fixed_penalty', penaltyBase: 'entries' },
-    discardable: false,
+    // Rule 30.4: a black-flagged boat was in the triangle in the last minute
+    // before her start, so she came to the starting area and is scored on the
+    // 'starters' base (A5.2), same as DSQ/UFD. A plain BFD is an ordinary
+    // disqualification and IS discardable. The only non-discardable variant is
+    // the niche case of a boat that sailed a restart after being black-flagged
+    // (scored DNE); that is not modelled here.
+    pointsMethod: { type: 'fixed_penalty', penaltyBase: 'starters' },
+    discardable: true,
     otherScoresUnchanged: false,
   },
   // ── Additive penalty codes (Phase 2) ───────────────────────────────────────

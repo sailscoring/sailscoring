@@ -1,5 +1,5 @@
 description: "IRC under A5.3 — DNF uses starters+1, DNC keeps entries+1"
-rrs_notes: "RRS A5.3 is the alternative penalty rule: codes whose penalty base is 'starters' (DNF, DNS, OCS, RET, DSQ…) score the number of boats that came to the starting area + 1 instead of series entries + 1. Codes whose base is 'entries' (DNC, BFD) are unaffected. The setting applies equally to scratch and handicap fleets."
+rrs_notes: "RRS A5.3 is the alternative penalty rule: codes whose penalty base is 'starters' (DNF, DNS, OCS, RET, DSQ, BFD, UFD…) score the number of boats that came to the starting area + 1 instead of series entries + 1. Only DNC keeps the 'entries' base (entries + 1) — a boat that never came to the starting area. The setting applies equally to scratch and handicap fleets."
 
 # Fleet size = 5 (entries-base penalty = 6).
 # Check-in data is recorded (startPresent set on every row).

@@ -39,7 +39,7 @@ export function roundCorrectedSecs(elapsedSecs: number, tcf: number): number {
  * Rules (Low Point, RRS Appendix A):
  *  - finisher:  points = finishing position within fleet
  *  - Coded result: points determined by the code's ScoringCodeDefinition.
- *    penaltyBase 'entries' → series entries + 1 (always; e.g. DNC, BFD)
+ *    penaltyBase 'entries' → series entries + 1 (always; e.g. DNC)
  *    penaltyBase 'starters' → depends on dnfScoring:
  *      'seriesEntries' (A5.2, default): series entries + 1
  *      'startingArea'  (A5.3): starting-area entries + 1
@@ -66,7 +66,7 @@ export function calculateRaceScores(
   );
 
   // Under A5.3, compute a per-race penalty for 'starters'-base codes.
-  // 'entries'-base codes (DNC, BFD) always use seriesEntryPenalty regardless.
+  // 'entries'-base codes (DNC) always use seriesEntryPenalty regardless.
   let startingAreaPenalty = seriesEntryPenalty;
   if (dnfScoring === 'startingArea') {
     const hasCheckinData = fleetFinishes.some((f) => f.startPresent === true);
@@ -793,8 +793,9 @@ export function getDiscardCount(
  * race points including discards). If still tied, the competitor with the
  * better (lower) score in the most recent race ranks higher.
  *
- * Non-discardable codes (DNE, BFD) are protected from discard selection even
- * when they are the worst score.
+ * Non-discardable codes (DNE) are protected from discard selection even
+ * when they are the worst score. (A plain BFD is an ordinary, discardable
+ * disqualification — see scoring-codes.ts.)
  *
  * @param competitors  All competitors in the series
  * @param races  All races in the series, sorted by raceNumber ascending

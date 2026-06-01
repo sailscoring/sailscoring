@@ -1173,7 +1173,7 @@ logic is identical; only place determination changes.
 
 ### Discards and penalty codes
 
-Unchanged from scratch. Discard rules (A11), non-discardable codes (BFD, DNE),
+Unchanged from scratch. Discard rules (A11), non-discardable codes (DNE),
 and additive penalty codes (ZFP, SCP, DPI) apply identically.
 
 ### Competitors without a rating
@@ -1186,8 +1186,8 @@ They still appear in results; they simply have no corrected time and no place.
 
 The series-level `dnfScoring: 'seriesEntries' | 'startingArea'` (A5.2/A5.3)
 applies equally to handicap races. Codes whose penalty base is `'starters'`
-(DNF, DNS, OCS, RET, DSQ, …) score `starters + 1` under A5.3; codes with base
-`'entries'` (DNC, BFD) always score `entries + 1`. The starters and entries
+(DNF, DNS, OCS, RET, DSQ, BFD, UFD, …) score `starters + 1` under A5.3; codes
+with base `'entries'` (DNC) always score `entries + 1`. The starters and entries
 counts are taken over the rated fleet only.
 
 ---

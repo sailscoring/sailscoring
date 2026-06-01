@@ -286,7 +286,7 @@ penalty score):
 | DSQ | Disqualified | Starters/entries + 1 | Yes |
 | DNE | Disqualification Not Excludable | Starters/entries + 1 | **No** |
 | UFD | U Flag Disqualification | Starters/entries + 1 | Yes |
-| BFD | Black Flag Disqualification | Entries + 1 | **No** |
+| BFD | Black Flag Disqualification | Starters/entries + 1 | Yes |
 
 **Additive penalty codes** (amend a finish position; other boats unaffected):
 

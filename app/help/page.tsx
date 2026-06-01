@@ -525,7 +525,7 @@ export default async function HelpPage() {
           <li><strong className="text-foreground">DSQ</strong> — Disqualified</li>
           <li><strong className="text-foreground">DNE</strong> — Disqualification Not Excludable (cannot be discarded)</li>
           <li><strong className="text-foreground">UFD</strong> — U Flag Disqualification, rule 30.3 (discardable)</li>
-          <li><strong className="text-foreground">BFD</strong> — Black Flag Disqualification, rule 30.4 (cannot be discarded)</li>
+          <li><strong className="text-foreground">BFD</strong> — Black Flag Disqualification, rule 30.4 (discardable)</li>
         </ul>
         <p>
           By default (RRS A5.2), all penalty codes score{' '}
@@ -533,13 +533,14 @@ export default async function HelpPage() {
           <strong className="text-foreground">A5.3 starting-area scoring</strong> in
           Settings, most codes instead score{' '}
           <em>starting-area entries + 1</em> for that race — a smaller penalty when
-          turnout is low. DNC and BFD always score series entries + 1 regardless.
+          turnout is low. DNC always scores series entries + 1 regardless.
         </p>
         <p>
-          <strong className="text-foreground">DNE and BFD cannot be discarded.</strong>{' '}
-          In the standings table they are shown in red. Even if a DNE or BFD is a
+          <strong className="text-foreground">DNE cannot be discarded.</strong>{' '}
+          In the standings table it is shown in red. Even if a DNE is a
           competitor&apos;s worst score, the discard falls on their next-worst result
-          instead.
+          instead. A plain BFD, by contrast, is an ordinary disqualification and{' '}
+          <em>can</em> be discarded like any other score.
         </p>
         <p className="font-medium text-sm mt-2">Additive penalty codes (applied to finishers)</p>
         <p>

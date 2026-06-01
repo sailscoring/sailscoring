@@ -27,9 +27,9 @@ export type ResultCode =
 export type PenaltyCode = 'ZFP' | 'SCP' | 'DPI';
 ```
 
-Discardability per the RRS (BFD and DNE are non-discardable; everything
-else is) is enforced by the scoring engine. A5.3 alternative scoring
-("starting area" base for DNS/OCS/NSC/DNF/RET/DSQ/UFD) is selectable per
+Discardability per the RRS (DNE is non-discardable; everything else,
+including a plain BFD, is) is enforced by the scoring engine. A5.3 alternative
+scoring ("starting area" base for DNS/OCS/NSC/DNF/RET/DSQ/UFD/BFD) is selectable per
 series via the `dnfScoring` setting; DNC always uses series entries.
 Additive penalties (ZFP/SCP/DPI) apply on top of a recorded finish and
 do not re-rank other boats (RRS A6.2).
@@ -53,7 +53,7 @@ The key sections governing scoring codes in the 2025–2028 RRS are:
 | Appendix A9 | Guidance on redress: three recommended averaging methods |
 | Rule 30.2 | Z Flag Rule — ZFP penalty |
 | Rule 30.3 | U Flag Rule — UFD disqualification |
-| Rule 30.4 | Black Flag Rule — BFD disqualification; not excludable |
+| Rule 30.4 | Black Flag Rule — BFD disqualification; discardable (only the sail-the-restart case is non-excludable, scored DNE) |
 | Rule 44.3 | Scoring Penalty (SCP) — boat's own score worsened; others unchanged |
 
 ### Appendix A5 — "Series Entries" vs "Starting Area" scoring
@@ -104,7 +104,7 @@ has no finish position in the scoring sense.
 | DSQ  | Disqualified | Starters + 1 (A5.3) or entries + 1 (A5.2) | Yes | Protest committee decision |
 | DNE  | Disqualification Not Excludable | Starters + 1 or entries + 1 | **No** | DSQ where the rule breach precludes discard |
 | UFD  | U Flag Disqualification | Starters + 1 or entries + 1 | Yes | Per rule 30.3; discard allowed |
-| BFD  | Black Flag Disqualification | Entries + 1 (per 30.4) | **No** | Per rule 30.4; cannot be excluded |
+| BFD  | Black Flag Disqualification | Starters + 1 or entries + 1 | Yes | Per rule 30.4; came to starting area, so starters base; discardable |
 
 **DNC vs the rest:** DNC is the only code that always uses *series entries* for
 its penalty base. All other codes score against either starters or series
@@ -117,12 +117,13 @@ the result must not be excluded (e.g. breaking rule 2, intentional
 infringement). The scorer records the correct code as directed by the protest
 committee decision.
 
-**UFD vs BFD:**
-- UFD (rule 30.3): boat is disqualified without a hearing; the code *can* be
-  discarded. Treated like DSQ for scoring purposes.
-- BFD (rule 30.4): boat is disqualified without a hearing; the code *cannot*
-  be discarded — even if the race is restarted or resailed. BFD is therefore
-  equivalent to DNE in terms of non-discardability.
+**UFD vs BFD:** both are pre-start disqualifications without a hearing, and both
+are treated like DSQ for scoring purposes — starters base and *discardable*.
+- UFD (rule 30.3): U flag.
+- BFD (rule 30.4): black flag. A plain BFD *can* be discarded. The rule's only
+  non-excludable case is a boat that, having been identified under the black
+  flag, then sails in the restart/resail anyway — that disqualification "shall
+  not be excluded" and is scored DNE. That niche case is not modelled here.
 
 **OCS vs DNS:** Both mean the boat was in the starting area. OCS = was on the
 wrong side of the line at the starting signal. DNS = came to the area but did
@@ -232,7 +233,7 @@ these codes apply.
 | RET  | Yes          | RRS A |
 | DSQ  | Yes          | RRS A |
 | UFD  | Yes          | RRS A (rule 30.3 does not exclude discards) |
-| BFD  | **No**       | Rule 30.4: "her disqualification shall not be excluded in calculating her series score" |
+| BFD  | Yes          | Rule 30.4: a plain BFD is an ordinary disqualification; only the sail-the-restart case is non-excludable (scored DNE) |
 | DNE  | **No**       | RRS — DNE means "Disqualification Not Excludable" by definition |
 | ZFP  | Yes (the penalised score is discardable as normal) | |
 | SCP  | Yes (the penalised score is discardable as normal) | |
@@ -403,7 +404,7 @@ The built-in definitions are a fixed set that ships with the app:
 | DSQ  | fixed_penalty(starters)  | true  | false |
 | DNE  | fixed_penalty(starters)  | **false** | false |
 | UFD  | fixed_penalty(starters)  | true  | false |
-| BFD  | fixed_penalty(entries)   | **false** | false |
+| BFD  | fixed_penalty(starters)  | true  | false |
 | ZFP  | additive_percentage(20)  | true  | **true** |
 | SCP  | additive_percentage(20)  | true  | **true** |
 | DPI  | additive_stated          | true  | **true** |
@@ -581,7 +582,7 @@ The standings table should convey non-normal results clearly:
 |----------|---------|
 | Standard penalty code (DNS, DNF, etc.) | Show code (e.g. `DNS`) instead of points in the race column |
 | Discarded code | Strikethrough: `(DNS)` |
-| Non-discardable code | Bold or red: **BFD** — always shown without strikethrough |
+| Non-discardable code | Bold or red: **DNE** — always shown without strikethrough |
 | Additive penalty (ZFP) | Show penalised points with marker: `5.2ᶻ` |
 | Redress | Show redress points with marker: `4.3ʳ` |
 
@@ -704,7 +705,7 @@ RET   Retired                          Starters/entries+1   Yes    Voluntarily w
 DSQ   Disqualified                     Entries+1            Yes    Protest committee, after hearing
 DNE   Disqualification Not Excludable  Entries+1            NO     Serious breach; cannot be discarded
 UFD   U Flag Disqualification          Entries+1            Yes    Rule 30.3; no hearing; discardable
-BFD   Black Flag Disqualification      Entries+1            NO     Rule 30.4; no hearing; not discardable
+BFD   Black Flag Disqualification      Starters/entries+1   Yes    Rule 30.4; no hearing; discardable
 
 Starters/entries+1: depends on series A5 setting (default: entries+1)
 
@@ -748,7 +749,8 @@ DNC vs DNS:  DNC = absent from area (entries+1, always higher)
 
 DSQ vs DNE:  Both protest committee; DNE cannot be discarded
 
-UFD vs BFD:  UFD discardable; BFD NOT discardable
+UFD vs BFD:  both discardable (plain BFD is an ordinary DSQ; the
+             sail-the-restart case is non-excludable, scored DNE)
 
 ZFP vs SCP:  ZFP automatic (30.2), no hearing
              SCP protest committee decision

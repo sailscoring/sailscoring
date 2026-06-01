@@ -77,14 +77,16 @@ test('DNS, RET, and DSQ codes are assignable and appear in standings', async ({ 
   await expect(daveRow).toContainText('5');
 });
 
-// ── Test 2: BFD is non-discardable ───────────────────────────────────────────
+// ── Test 2: BFD is discardable (rule 30.4) ───────────────────────────────────
 
-test('BFD is not struck through and shown in red when a discard is active', async ({ page }) => {
+test('BFD is struck through like any other code when it is the discarded worst score', async ({ page }) => {
+  // A plain BFD is an ordinary disqualification and IS discardable (rule 30.4);
+  // only the niche sail-the-restart case is non-excludable (scored DNE).
   // 4 competitors, N=4, penalty=5
   // Race 1 & 2: Alice=1, Bob=2, Carol=3, Dave=4
-  // Race 3: Alice=BFD(5pts, non-disc), Bob=1, Carol=2, Dave=3
+  // Race 3: Alice=BFD(5pts), Bob=1, Carol=2, Dave=3
   // With 1 discard:
-  //   Alice: BFD(5) non-disc + best discardable-worst=1(R1) dropped → net=5+1=6
+  //   Alice: 1+1+BFD(5), drop the BFD (worst) → net=2
   //   Bob: 2+2+1=5, drop 2 → net=3
   const competitors = [
     { sailNumber: '1001', name: 'Alice' },
@@ -93,7 +95,7 @@ test('BFD is not struck through and shown in red when a discard is active', asyn
     { sailNumber: '1004', name: 'Dave' },
   ];
 
-  await createSeriesQuick(page, { name: 'BFD Non-Discardable Test' });
+  await createSeriesQuick(page, { name: 'BFD Discardable Test' });
 
   for (const c of competitors) {
     await page.getByRole('button', { name: 'Add competitor' }).click();
@@ -157,23 +159,21 @@ test('BFD is not struck through and shown in red when a discard is active', asyn
   // Alice's Race 3 cell (col index: rank=0, sail=1, boat=2, name=3, club=4, R1=5, R2=6, R3=7)
   const aliceR3Cell = aliceRow.getByRole('cell').nth(7);
 
-  // BFD cell must NOT be struck through (non-discardable)
-  await expect(aliceR3Cell).not.toHaveClass(/line-through/);
+  // BFD is the worst score and IS discardable, so the cell must be struck through
+  await expect(aliceR3Cell).toHaveClass(/line-through/);
 
-  // The span inside the BFD cell must have the destructive (red) style
+  // The BFD span must NOT carry the non-discardable (red) styling or tooltip
   const bfdSpan = aliceR3Cell.locator('span').first();
-  await expect(bfdSpan).toHaveClass(/text-destructive/);
+  await expect(bfdSpan).not.toHaveClass(/text-destructive/);
+  await expect(bfdSpan).not.toHaveAttribute('title', 'BFD — cannot be discarded');
 
-  // The span title attribute should mention "cannot be discarded"
-  await expect(bfdSpan).toHaveAttribute('title', 'BFD — cannot be discarded');
-
-  // Alice's Race 1 cell should be struck through (worst discardable score dropped)
+  // Alice's Race 1 cell should NOT be struck through (the BFD was dropped instead)
   const aliceR1Cell = aliceRow.getByRole('cell').nth(5);
-  await expect(aliceR1Cell).toHaveClass(/line-through/);
+  await expect(aliceR1Cell).not.toHaveClass(/line-through/);
 
-  // Bob leads with Nett=3; Alice is 2nd with Nett=6
+  // Alice leads with Nett=2 (BFD discarded); Bob is 2nd with Nett=3
   const aliceCells = aliceRow.getByRole('cell');
-  await expect(aliceCells.nth(9)).toContainText('6'); // Nett
+  await expect(aliceCells.nth(9)).toContainText('2'); // Nett
 });
 
 // ── Test 3: ZFP penalty is assignable and appears in standings ───────────────
