@@ -234,6 +234,12 @@ export function buildThursdayBlueSeries(
       for (const f of race.finishers) {
         const cid = sailToComp.get(f.sail);
         if (!cid) continue; // a sail in detail but not in the summary roster
+        // Record DNC implicitly: a boat that did not come to the start is
+        // simply omitted, and the engine scores any competitor with no finish
+        // record in a counted race as DNC. Boats that came but didn't finish
+        // (DNF/RET/OCS/…) are kept as explicit coded finishes so they count
+        // toward the "came to the starting area" tally.
+        if (!f.finish && (f.code === 'DNC' || !f.code)) continue;
         crossings.push({ compId: cid, finish: f.finish, code: f.code });
       }
     }
@@ -256,13 +262,12 @@ export function buildThursdayBlueSeries(
       });
     }
     for (const c of crossings.filter((x) => !x.finish)) {
-      const code = c.code ?? 'DNC';
       finishes.push({
         id: `fin-${rn}-${c.compId}`,
         competitorId: c.compId,
         sortOrder: null,
-        resultCode: code,
-        startPresent: code !== 'DNC',
+        resultCode: c.code!, // non-DNC (DNCs were omitted above)
+        startPresent: true, // came to the start but didn't finish
         penaltyCode: null,
         penaltyOverride: null,
       });
