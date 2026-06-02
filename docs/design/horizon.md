@@ -89,6 +89,30 @@ results to update handicap numbers. Currently this is a manual process involving
 spreadsheets or web forms. Automating it would be valuable to both scorers and the
 authorities, but requires agreement on data format and access.
 
+### Push competitor list to racingrulesofsailing.org
+
+racingrulesofsailing.org (RRS.org) is the de-facto online tool for race-committee /
+jury workflows — protest and request-for-redress filing, hearing scheduling, and
+notice-board posting. Events that score in Sail Scoring may run their protest process
+on RRS.org, and that tool needs the same competitor list. Today RRS.org imports it from
+Sailwave via a plugin: the scorer opens the **RRS Interface** widget under Sailwave's
+Plugins menu, pastes the event-specific **UUID** from the RRS Event Panel, and clicks
+upload (repeatable — re-uploading syncs changes). See
+`https://www.racingrulesofsailing.org/pages/help/sailwave_import`.
+
+Sail Scoring could offer the same: the scorer pastes an RRS event UUID into a series and
+pushes its competitors to RRS.org, re-pushing on change. The fields RRS.org accepts map
+cleanly onto our competitor model — Class, Division, Boat Name, SailNo, NAT, HelmName
+(→ First/Last Name), Email, Phone, MNA No., Club Name — so this is mostly a transport
+question, not a data-model one.
+
+Open questions: RRS.org publishes the Sailwave plugin's behaviour but not a documented
+public API or its terms for third-party clients — the integration contract (endpoint,
+auth, payload shape) would need to be confirmed with them rather than reverse-engineered
+from the plugin. Maps to the same "thin write client over the Sail Scoring API" framing
+as the mobile finish-recorder above, except here Sail Scoring is the *source* pushing to
+an external sink rather than the API being consumed.
+
 ---
 
 ## Finish entry UX
