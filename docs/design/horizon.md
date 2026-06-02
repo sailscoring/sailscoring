@@ -221,6 +221,39 @@ format (potential `formatVersion` bump), the Postgres schema, and the Open dialo
 
 *(Was GitHub issue #127)*
 
+### Shared logo library
+
+Events carry logos — venues, organising clubs, classes, sponsors, governing bodies —
+and a scorer needs them for published results pages, NoR/SI references, and any branded
+export. Today a club like HYC keeps these as a table in a SharePoint document pointing
+at ad-hoc URLs (`hyc.ie/system/sponsor_logos/568/normal/...`), which decay and aren't
+shared. Sail Scoring could host its own library, files stored in Vercel Blob.
+
+Shape of the idea, three tiers:
+
+- **Per-workspace library.** Each workspace maintains its own logos, namespaced under
+  the workspace. This is the working set a scorer reaches for when building a series.
+- **Cross-workspace copy.** A workspace can copy a logo from another workspace into its
+  own — so an Irish Sailing logo someone has already cleaned up can be reused rather than
+  re-sourced. Copy, not reference: the consuming workspace gets its own stable copy that
+  doesn't break if the source workspace edits or deletes theirs (same "copy to my
+  workspace" posture as cross-workspace series sharing above).
+- **Built-in canonical library.** A maintained set of approved/official logos
+  (governing bodies, major classes, common venues) that any workspace can reference with
+  confidence it's a clean, official copy that won't be deleted and gets updated when the
+  real logo is revised. This tier is the one case where a *reference* (not a copy) makes
+  sense — the whole value is that it tracks the canonical version.
+
+Open questions: the copy-vs-reference split (per-workspace and cross-workspace copies are
+snapshots; the canonical tier is a live reference — do consumers of a canonical logo get
+notified or auto-updated when it's revised?); who curates the canonical set and how a logo
+gets promoted into it; deduplication and storage cost of many near-identical copies;
+licensing and trademark permission to host third-party logos at all (sponsors and
+governing bodies have usage rules); image hygiene (formats, transparent backgrounds,
+light/dark variants) mirroring the `sailscoring.ie` logo entry below; and how a referenced
+logo renders into the published HTML, which today embeds the full series rather than
+linking out.
+
 ---
 
 ## Account lifecycle
