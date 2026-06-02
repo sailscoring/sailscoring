@@ -618,17 +618,26 @@ export function parseDiscardThresholds(raw: SailwaveRaw): DiscardThreshold[] {
  *  Returns null for blank or unparseable values — the wizard falls back to
  *  its optional default date in that case.
  *
- *  Supported separators: `-` `/` `.` `<space>`. Two-digit years are pinned to
- *  the 21st century (`26` → `2026`). Year-less variants like "May 5th" or
- *  "Aug 16" can't be reliably resolved without a year hint, so they parse
- *  as null. */
+ *  Supported separators: `-` `/` `.` `,` `<space>`. Word-month forms like
+ *  "May 19th", "19 May", or "May 19 2026" are recognised, including ordinal
+ *  suffixes. Two-digit years are pinned to the 21st century (`26` → `2026`).
+ *  Year-less variants like "May 5th" or "07-05" carry no year of their own;
+ *  pass `yearHint` (typically the import's default/series year) to resolve
+ *  them — without it they parse as null. */
 export function parseSailwaveRaceDate(
   racedate: string | undefined,
   datespec: string | undefined,
+  yearHint?: number,
 ): string | null {
   if (!racedate) return null;
   const trimmed = racedate.trim();
   if (!trimmed) return null;
+
+  // Word-month forms ("May 19th", "19 May 2026") never look like a numeric
+  // triple, so try them first; this returns null for all-numeric input and
+  // falls through to the numeric path below.
+  const wordParsed = parseWordMonthDate(trimmed, yearHint);
+  if (wordParsed) return wordParsed;
 
   const parts = trimmed.split(/[-/.\s]+/).filter(Boolean);
   if (parts.length !== 3) return null;
@@ -661,6 +670,58 @@ function parseDateOrder(datespec: string | undefined): 'dmy' | 'mdy' | 'ymd' | n
   if (s.startsWith('y')) return 'ymd';
   if (s.startsWith('m')) return 'mdy';
   return null;
+}
+
+const MONTH_BY_PREFIX: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
+/** Parse a word-month date such as "May 19th", "19 May", "May 19 2026", or
+ *  "19th May 2026". The day may carry an ordinal suffix (st/nd/rd/th). When
+ *  the text omits a year, `yearHint` supplies it; without a hint, a year-less
+ *  word-month date is unresolvable and returns null. Returns null for any
+ *  input that doesn't contain a month name (numeric triples fall through to
+ *  the numeric parser). */
+function parseWordMonthDate(input: string, yearHint?: number): string | null {
+  const tokens = input.split(/[-/.,\s]+/).filter(Boolean);
+  if (tokens.length < 2) return null;
+
+  let month: number | undefined;
+  let day: number | undefined;
+  let year: number | undefined;
+
+  for (const tok of tokens) {
+    const lower = tok.toLowerCase();
+    if (/^[a-z]+$/.test(lower)) {
+      const m = MONTH_BY_PREFIX[lower.slice(0, 3)];
+      if (m === undefined || month !== undefined) return null;
+      month = m;
+      continue;
+    }
+    const numMatch = lower.match(/^(\d+)(?:st|nd|rd|th)?$/);
+    if (!numMatch) return null;
+    const n = Number.parseInt(numMatch[1], 10);
+    if (numMatch[1].length >= 3 || n > 31) {
+      if (year !== undefined) return null;
+      year = n;
+    } else if (day === undefined) {
+      day = n;
+    } else if (year === undefined) {
+      year = n;
+    } else {
+      return null;
+    }
+  }
+
+  if (month === undefined || day === undefined) return null;
+  if (year === undefined) {
+    if (yearHint === undefined) return null;
+    year = yearHint;
+  }
+  if (year < 100) year += 2000;
+  if (day < 1 || day > 31) return null;
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 function isoDate(d: Date): string {
@@ -819,6 +880,9 @@ export function buildSeriesFileFromSailwave(
   const rawResults = raw.results ?? {};
   const datespec = globals.serdatespec;
   const defaultDate = opts.defaultRaceDate?.trim() || todayIso();
+  // Year hint for word-month, year-less racedates ("May 19th"): use the
+  // default date's year, which is the scorer-provided series year (or today).
+  const yearHint = Number.parseInt(defaultDate.slice(0, 4), 10) || undefined;
 
   // Resolve DNF scoring early so we can fail fast on mixed configs.
   const dnfScoring = resolveDnfScoring(raw, opts);
@@ -843,7 +907,7 @@ export function buildSeriesFileFromSailwave(
   const races: RaceBuild[] = [];
   for (let i = 0; i < sortedRaces.length; i++) {
     const [handle, race] = sortedRaces[i];
-    const resolvedDate = parseSailwaveRaceDate(race.racedate, datespec) ?? defaultDate;
+    const resolvedDate = parseSailwaveRaceDate(race.racedate, datespec, yearHint) ?? defaultDate;
     const starts = buildRaceStarts(race.starts ?? {}, fleetIdByName, baseToFleetIds);
     const finishes = opts.includeResults
       ? buildRaceFinishes(resultsByRace[handle] ?? [], compIdByHandle)

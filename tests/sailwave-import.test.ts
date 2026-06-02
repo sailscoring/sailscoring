@@ -377,11 +377,11 @@ describe('buildSeriesFileFromSailwave: Tues Series 1', () => {
     expect(file.series.dnfScoring).toBe('startingArea');
   });
 
-  it('falls back to defaultRaceDate when racedate is year-less ("May 5th")', () => {
-    // Tues file's racedate is "May 5th" / "May 12th" — no year, unparseable.
-    for (const r of file.races) {
-      expect(r.date).toBe('2026-05-05');
-    }
+  it('resolves year-less word-month racedates using the default-date year', () => {
+    // Tues file's racedate is word-month with no year ("May 5th", "May 12th");
+    // the default date's year (2026) resolves them. Only the two sailed races
+    // survive includeResults; the rest are scheduled-but-unsailed.
+    expect(file.races.map((r) => r.date)).toEqual(['2026-05-05', '2026-05-12']);
   });
 
   it('enables only the competitor fields Sailwave actually populated', () => {
@@ -561,17 +561,27 @@ describe('buildSeriesFileFromSailwave: errors', () => {
 });
 
 describe('buildSeriesFileFromSailwave: default date fallback', () => {
-  it('uses today\'s date when defaultRaceDate is omitted and Sailwave has no parseable date', () => {
+  it('uses the current year as the hint for word-month dates when defaultRaceDate is omitted', () => {
     const raw = loadFile(`${HYC}/2026 Tues Series 1.blw`);
     const file = buildSeriesFileFromSailwave(raw, {
       ...DEFAULT_OPTS,
       defaultRaceDate: undefined,
     });
-    const today = new Date();
-    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    for (const r of file.races) {
-      expect(r.date).toBe(todayIso);
-    }
+    const year = new Date().getFullYear();
+    expect(file.races.map((r) => r.date)).toEqual([`${year}-05-05`, `${year}-05-12`]);
+  });
+
+  it('falls back to the default date for races Sailwave leaves undated', () => {
+    const raw = loadFile(`${HYC}/2026 Tues Series 1.blw`);
+    const file = buildSeriesFileFromSailwave(raw, {
+      ...DEFAULT_OPTS,
+      includeResults: false, // keep the undated, scheduled-but-unsailed races
+      defaultRaceDate: '2026-04-01',
+    });
+    const dates = file.races.map((r) => r.date);
+    // The word-month races still resolve; the undated remainder gets the default.
+    expect(dates).toContain('2026-05-05');
+    expect(dates).toContain('2026-04-01');
   });
 });
 
@@ -752,9 +762,27 @@ describe('parseSailwaveRaceDate', () => {
     expect(parseSailwaveRaceDate('2026-05-07', undefined)).toBe('2026-05-07');
     expect(parseSailwaveRaceDate('07-05-26', undefined)).toBe('2026-05-07');
   });
-  it('returns null for year-less variants like "May 5th" or "Aug 16"', () => {
+  it('returns null for year-less variants without a year hint', () => {
     expect(parseSailwaveRaceDate('May 5th', 'd-m-y')).toBeNull();
     expect(parseSailwaveRaceDate('Aug 16', 'd-m-y')).toBeNull();
+  });
+  it('resolves word-month dates with ordinal suffixes using the year hint', () => {
+    expect(parseSailwaveRaceDate('May 5th', 'd-m-y', 2026)).toBe('2026-05-05');
+    expect(parseSailwaveRaceDate('May 12th', 'd-m-y', 2026)).toBe('2026-05-12');
+    expect(parseSailwaveRaceDate('May 19th', 'd-m-y', 2026)).toBe('2026-05-19');
+    expect(parseSailwaveRaceDate('Jun 2nd', 'd-m-y', 2026)).toBe('2026-06-02');
+  });
+  it('resolves word-month dates regardless of day/month order', () => {
+    expect(parseSailwaveRaceDate('19 May', undefined, 2026)).toBe('2026-05-19');
+    expect(parseSailwaveRaceDate('19th May', undefined, 2026)).toBe('2026-05-19');
+    expect(parseSailwaveRaceDate('August 16', undefined, 2025)).toBe('2025-08-16');
+  });
+  it('prefers an explicit year in the text over the hint', () => {
+    expect(parseSailwaveRaceDate('May 19th 2024', 'd-m-y', 2026)).toBe('2024-05-19');
+    expect(parseSailwaveRaceDate('19 May 2024', undefined, 2026)).toBe('2024-05-19');
+  });
+  it('returns null for word input that is not a month', () => {
+    expect(parseSailwaveRaceDate('Foo 19th', 'd-m-y', 2026)).toBeNull();
   });
   it('returns null for blank or empty input', () => {
     expect(parseSailwaveRaceDate('', 'd-m-y')).toBeNull();
