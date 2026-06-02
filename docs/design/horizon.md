@@ -198,6 +198,54 @@ emerges; they don't change the archive model.
 
 ---
 
+## Publishing
+
+### Scheduled publishing
+
+Today publishing is a manual, per-fleet action: when results are ready, the scorer
+opens each published target and hits publish. Logged-in scorers can already see the
+unpublished state via **Preview**, so the gap isn't *visibility before release* — it's
+the **release action itself** at event scale. An event is several series (one per fleet
+in our model), and "go live now" means walking every one of them and republishing in
+turn, ideally at the same moment.
+
+Scheduled publishing lets the scorer set a release time up front — the series (or a
+group of them) goes public automatically at that instant — instead of standing at a
+keyboard hitting publish across fleets. The motivating cases are a prize-giving where
+results must stay embargoed until the ceremony, and a provisional → final cadence where
+the scorer wants every fleet to flip together rather than trickle out as each is
+finished.
+
+Shape of the change: a per-target (or per-event) scheduled-release timestamp, a
+mechanism to fire the publish at that time (Vercel Cron over due series, since the app
+already runs on Vercel), and UI to set/clear it. Open questions: the scope unit — does a
+schedule attach to one series or to an event-level grouping of series that publish
+together (relates to the event/day-level scope raised under Prize allocation, which we
+don't model yet); what happens if the scorer edits results after scheduling but before
+release (re-snapshot at fire time, or freeze what was current when scheduled?); timezone
+handling for the release instant; and how a pending schedule is surfaced so it isn't
+forgotten.
+
+### Print-only QR code for a published page
+
+A QR code linking to a series' published `/p/...` page, **scoped to physically printed
+output only** — a results sheet pinned to the clubhouse noticeboard, a poster, an event
+programme. The value is bridging paper to the live page from a printout where there's no
+link to tap.
+
+Deliberately *not* a share button or an on-screen QR: codes shared electronically (pasted
+into a WhatsApp message, shown on a screen) are an anti-pattern — they force the recipient
+to find a second device to scan something that should just be a URL. If you can send it
+electronically, send the link. So this lives only in print/PDF rendering paths, never as
+an on-page "share via QR" affordance.
+
+Open questions: which printed artifacts get one (the results-sheet PDF export is the
+obvious first); whether it carries the canonical short `/p/...` URL or a per-print
+tracking variant (probably canonical — tracking reintroduces the abuse surface); and
+sizing/quiet-zone so it scans reliably off paper.
+
+---
+
 ## Workspaces and sharing
 
 ### Reconsider snapshot lineage once file-sharing is no longer the collaboration mechanism
@@ -253,6 +301,31 @@ governing bodies have usage rules); image hygiene (formats, transparent backgrou
 light/dark variants) mirroring the `sailscoring.ie` logo entry below; and how a referenced
 logo renders into the published HTML, which today embeds the full series rather than
 linking out.
+
+### Per-event branding
+
+Published results today carry a single, workspace-level look. Real events often want
+their *own* identity that overrides the club's: an event banner with the regatta's
+sponsors and organising-authority logos, and sometimes a distinct visual style, applied
+to every fleet's published page for that event without disturbing the club's default
+branding or other concurrent series. HalSail does exactly this — an event banner that
+overrides the club banner, plus a bespoke per-event stylesheet.
+
+This is the consumption side of the shared logo library above: the library is where
+branding *assets* live; per-event branding is how a chosen set of them (plus layout and
+style) gets bound to an event and rendered onto its published pages. It also relates to
+the event/day-level scope raised under Prize allocation and Scheduled publishing — an
+"event" that groups several fleet-series and carries shared branding is the same missing
+abstraction in each case.
+
+Shape of the change: an event-level (or series-level) branding override — banner
+logos, title, and optionally a constrained set of style tokens (colours, not arbitrary
+CSS, to keep the published HTML safe and consistent) — falling back to workspace
+branding when unset. Open questions: the scope unit again (per-series vs. a real event
+grouping); how much styling to expose (a curated theme vs. HalSail's full custom
+stylesheet — arbitrary CSS injected into a public page is a footgun); and how this lands
+in the published HTML, which today embeds the full series rather than linking to shared
+assets.
 
 ---
 
@@ -355,6 +428,39 @@ is visible before a target instance forces it:
 Pairs with the per-instance branding/locale bullet in the instances entry
 above: branding and language are the two things that make an instance feel like
 it belongs to its own community rather than a re-skinned `sailscoring.ie`.
+
+---
+
+## Race formats
+
+### Pursuit races
+
+A pursuit race inverts the usual format: instead of a common start and corrected finish
+times, each boat is given an individual **start time** derived from its handicap — the
+slowest boats start first, the fastest last — so that, if every boat sails exactly to
+its handicap, they all converge on the finish together and the race is won by the first
+boat across the line on the water. No corrected-time scoring at the finish; the handicap
+is spent entirely on the staggered start. It's a genuinely fun, spectator-friendly
+format (first-to-finish wins, no waiting for results) and a real one — HalSail computes
+and publishes pursuit start times.
+
+The non-trivial part is everything *before* the gun, not the scoring after it. The
+engine has to turn each boat's handicap into a start offset against a chosen scratch
+boat and race length, producing a **start-order schedule** (boat → start time) that then
+has to be **published to competitors in advance** — sailors need to know their own start
+time before they leave the dock, and the race officer needs the ordered list on the
+water. So this is as much a publishing/output feature as a scoring one: a per-boat start
+schedule is a new kind of artifact alongside results.
+
+Shape of the change: a pursuit race *type* on `Race`; a start-time computation from
+handicap + scratch boat + nominal race duration (the formula differs by handicap system,
+since the offset is a function of the same TCF/yardstick maths we already model);
+finish entry that records on-the-water finish order (or time) with no time correction
+applied; and a published start-schedule output (and likely a clubhouse/big-screen
+countdown, tying into the live-display horizon entry). Open questions: how race length is
+chosen and whether it's capped (pursuit races usually run to a time limit, not a fixed
+course); how mixed-handicap-system fleets are handled in one pursuit start sequence; and
+whether start times round to sensible whole seconds/minutes for a startable sequence.
 
 ---
 
@@ -523,6 +629,30 @@ Office at `rorcrating.com/ryaytc/ryaytclistings`. See the "Fetch IRC and ECHO
 certs from rating authorities" entry above for the per-event, verification-only
 terms posture these sources share.
 
+### PHRF (time-on-distance)
+
+PHRF (Performance Handicap Racing Fleet) is the dominant North American keelboat
+handicap. It matters here because, unlike every system we model today, it is classically
+scored **time-on-distance**: a boat's allowance is its rating (seconds per nautical mile)
+multiplied by the *course distance*, so the corrected time is `ET − (rating × distance)`
+rather than a time-on-time `ET × TCF`. That distinction drives a data-model change we
+don't have anywhere else — the **course length** becomes a required scoring input on each
+race, not just descriptive metadata. (PHRF also has a time-on-time variant; the
+time-on-distance form is the one that's genuinely new to the engine.)
+
+Far from our current target events, captured because it's the obvious system to reach for
+if Sail Scoring ever extends to North American clubs — and because the time-on-distance
+mechanic is a clean, self-contained addition worth having designed before it's needed.
+HalSail added PHRF in February 2025, so it's live demand in comparable tools.
+
+Shape of the change: a `scoringSystem` value for PHRF; a per-boat `phrfRating`
+(seconds/mile) field; a per-race course-distance input; and a time-on-distance correction
+path in `lib/scoring.ts` alongside the existing time-on-time one. Open questions: whether
+to support both PHRF variants (ToD and ToT) and how a fleet picks; how course distance is
+captured for series where it varies race to race; and the rating source (PHRF ratings are
+issued by many regional fleets, not one central authority — no single fetch endpoint like
+IRC's).
+
 ### Phase 3: ORC Club
 
 A more elaborate handicap system used internationally for offshore
@@ -633,6 +763,40 @@ years and where their history lives; whether prize winners belong in the series 
 / JSON export as part of the authoritative record; how prize lists render into the
 published `/p/...` pages; and where the boundary sits between fully-deterministic
 prizes and ones that always end in an OA decision.
+
+---
+
+## Results analytics
+
+Beyond the standings table itself, scorers and organisers want views that *interrogate*
+a series — how boats performed against their handicaps, how healthy the racing was, where
+a result was won or lost. HalSail ships a cluster of these (time-to-win, handicap
+analysis, turnout analysis), all exportable to spreadsheet. We have none yet; the
+standings page is the only analytical surface.
+
+Candidate analyses, roughly in order of usefulness:
+
+- **Time-to-win.** For a handicap race, how much faster each boat would have needed to
+  sail to win — the corrected-time gap to first, expressed as elapsed time. Makes a
+  handicap result legible to a sailor who only knows their own finish time ("you were 90
+  seconds off winning"). Pure post-processing of finishes already in the engine.
+- **Handicap analysis.** Each boat's performance *relative to its own rating* across the
+  series — are they consistently over- or under-performing their handicap? Distinct from
+  the progressive-rating evolution captured under "Series-level rating-history page"
+  (which tracks how the *number* moved): this asks how the boat sailed against whatever
+  number it held, including for static systems (IRC, PY) where the rating doesn't move.
+- **Turnout analysis.** Participation health — starters per race, per class, over the
+  series; who's sailing consistently vs. dipping in. An organiser/club metric more than a
+  competitor one, useful for series reports and justifying the event.
+
+Shape of the change: these are read-only derived views over data the engine already
+holds (finishes, ratings, results), so the work is computation + presentation, not
+schema. Open questions: which land in the app UI vs. only as exports (HalSail leans on
+spreadsheet export — we'd likely want at least time-to-win in-page); whether any belong
+in the published `/p/...` output for competitors, or stay scorer/organiser-facing; and
+how they interact with multi-fleet series and discards (is time-to-win computed before or
+after discards?). Pairs with the operator-facing engagement metrics under Operator
+visibility — those measure the *product*; these measure a *series*.
 
 ---
 
