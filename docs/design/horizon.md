@@ -196,6 +196,44 @@ Still genuinely future: per-race lock granularity (vs. whole-series), and an unl
 audit trail once revision history exists. Those can layer on top of archive if a need
 emerges; they don't change the archive model.
 
+### Attach committee-boat finish-sheet photos to a race
+
+The authoritative record of what crossed the line is the handwritten finish sheet the
+committee boat keeps — boats logged in crossing order, often with times, in pencil on a
+clipboard. At HYC the committee boat photographs the sheet and emails it ashore, and the
+photo is filed straight into a "paperwork" drive so there's a primary-source artifact to
+audit a result against later: when a competitor queries a finish, the scorer goes back to
+the original sheet, not to what was typed into the scoring tool. Today that audit trail
+lives entirely outside Sail Scoring, in an ad-hoc shared drive disconnected from the
+series the sheet belongs to.
+
+Sail Scoring could hold the photo *with* the race it documents — attach one or more
+images to a `Race`, stored in Vercel Blob, so the source sheet sits one click from the
+finish list that was transcribed from it. The value is the link: an auditor (or the
+scorer six months on) opens the race and sees both the entered finishes and the paper
+they came from, rather than cross-referencing a filename in a separate drive.
+
+Storage hygiene is part of the idea, not an afterthought. A finish sheet is
+black-pencil-on-white-paper — it carries no useful colour and doesn't need photographic
+fidelity. Converting on upload to **high-contrast greyscale** (or even bilevel/1-bit for
+clean sheets) before storing drops the footprint by an order of magnitude versus a phone
+camera's full-colour JPEG, while keeping the writing perfectly legible — the same logic a
+document scanner applies to a page of text. Do the conversion server-side on ingest so the
+stored artifact is the small one regardless of what the committee boat's phone produced.
+
+Shape of the change: an attachments relation on `Race` (Blob key, original filename,
+uploaded-by, uploaded-at), an upload affordance in race settings / the finish sheet view,
+a server-side image-normalisation step (greyscale + contrast, optional bilevel, sensible
+max dimension), and a thumbnail/lightbox to view them. Open questions: whether attachments
+belong in the `.sailscoring` export and JSON public-export (they're part of the
+authoritative record — but embedding binaries bloats the file; a reference-with-rehydrate
+scheme may be better); retention and who can delete an attachment once a result is
+contested; whether the photo should ever surface on the published `/p/...` page (probably
+not — it's an audit artifact for scorers, not competitor-facing); and whether to keep the
+original alongside the compressed copy or treat the normalised image as the record of
+truth (lean: normalised *is* the record — the whole point is to not hoard full-colour
+originals).
+
 ---
 
 ## Publishing
