@@ -612,6 +612,21 @@ standings placing, and a deliberate "assisted, not automatic" mode where the sys
 computes candidates and the OA confirms — distinct from the mechanical prizes it can
 award outright.
 
+A further rule shape is **prize exclusion**, where winning one prize disqualifies a
+boat from another:
+
+- Prize exclusion (NoR §9.2): a boat winning an IRC/VPRS prize is
+  ineligible for the ECHO prize in the same series; a one-design winner
+  (Beneteau 211/31.7) is ineligible for the ECHO prize. A class may opt out
+  before the season. This is the HYC IRC-vs-HPH exclusion pattern again — a
+  prize/presentation concern aware of results across systems, not a scoring
+  concern.
+
+Exclusion makes prize allocation order-dependent: prizes can't all be computed
+independently, since awarding one removes a candidate from another's pool. The model
+needs a notion of resolution order (or precedence) between prizes, not just a
+predicate per prize.
+
 Open questions: the scope model (does a "prize" attach to a series, an event, or a
 free-standing day-level grouping of series?); how perpetual trophies carry across
 years and where their history lives; whether prize winners belong in the series file
