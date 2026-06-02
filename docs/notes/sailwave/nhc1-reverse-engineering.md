@@ -22,7 +22,7 @@ empirically. The report is structured to be extended as more
 Sailwave-output examples become available.
 
 The companion analysis script is
-[`reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py`](../../reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py).
+[`reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py`](../../../reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py).
 
 ---
 

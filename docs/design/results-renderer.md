@@ -7,7 +7,7 @@ both local HTML export (issue #13) and future in-app bilge publishing.
 **Status:** Implemented
 
 **Related:** [issue #13](https://github.com/sailscoring/sailscoring/issues/13),
-[Sailwave HTML template analysis](sailwave-html-template.md),
+[Sailwave HTML template analysis](../notes/sailwave/html-template.md),
 [Publish Results flow](ux/flows/publish-results.md)
 
 ---
@@ -126,7 +126,7 @@ renderer already knows what to do with them.
 ## HTML output
 
 The renderer produces output that matches the Sailwave new template (v3) as documented
-in [sailwave-html-template.md](sailwave-html-template.md).
+in [sailwave/html-template.md](../notes/sailwave/html-template.md).
 
 ### Self-containment
 

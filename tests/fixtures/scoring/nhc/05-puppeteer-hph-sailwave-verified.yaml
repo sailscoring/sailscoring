@@ -7,7 +7,7 @@ notes: |
 
   Every NewRating below is the value Sailwave published — independent
   verification that the SWNHC2015 implementation reproduces Sailwave to 3 dp.
-  See docs/notes/sailwave-nhc1-reverse-engineering.md for the algorithm and
+  See docs/notes/sailwave/nhc1-reverse-engineering.md for the algorithm and
   reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py for the
   Python reference (nr_swnhc2015_full).
 

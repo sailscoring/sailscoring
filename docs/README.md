@@ -68,7 +68,7 @@ How it works, and why.
   path; kept for context).
 - [`marketing-site.md`](design/marketing-site.md) — design notes for
   `sailscoring.ie` (the apex marketing site, separate repo).
-- [`sailwave-html-template.md`](design/sailwave-html-template.md) —
+- [`sailwave/html-template.md`](notes/sailwave/html-template.md) —
   reverse-engineered Sailwave HTML structure that the renderer mirrors.
 - [`oss-health-report.md`](design/oss-health-report.md) — April 2026
   sustainability review of the Vercel / Next.js / Postgres stack; source
@@ -107,9 +107,9 @@ How it works, and why.
 
 Investigations and reference material that informed implementation.
 
-- [`notes/sailwave-nhc1-reverse-engineering.md`](notes/sailwave-nhc1-reverse-engineering.md)
+- [`notes/sailwave/nhc1-reverse-engineering.md`](notes/sailwave/nhc1-reverse-engineering.md)
   — how we identified that Sailwave NHC1 is the SWNHC2015 spreadsheet.
-- [`notes/sailwave-excel-handicap-protocol.md`](notes/sailwave-excel-handicap-protocol.md)
+- [`notes/sailwave/excel-handicap-protocol.md`](notes/sailwave/excel-handicap-protocol.md)
   — Sailwave's Excel-based handicap calculation workflow.
-- [`notes/sailwave-json-format.md`](notes/sailwave-json-format.md) —
+- [`notes/sailwave/json-format.md`](notes/sailwave/json-format.md) —
   format notes from inspecting Sailwave exports.

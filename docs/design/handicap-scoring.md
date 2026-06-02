@@ -6,7 +6,7 @@ complete for the two systems HYC and the Irish cruiser circuit use: NHC1
 (Sailwave's built-in progressive handicap) matches the SWNHC2015
 spreadsheet to 3 dp — the actual algorithm Sailwave uses internally; full
 analysis at
-[`docs/notes/sailwave-nhc1-reverse-engineering.md`](../notes/sailwave-nhc1-reverse-engineering.md)
+[`docs/notes/sailwave/nhc1-reverse-engineering.md`](../notes/sailwave/nhc1-reverse-engineering.md)
 — and ECHO matches the Irish Sailing 2022 *ECHO Guide for Clubs*. Both
 ship with the rating-calculation explainability layer. RYA NHC 2015 (a
 related but distinct algorithm), scoring-inquiry exclusions, and the ECHO
@@ -93,7 +93,7 @@ to the scorer.
 > **Status:** NHC1 (= SWNHC2015) and ECHO both ✓ Implemented. NHC1's
 > engine matches Sailwave's NewRating output to 3 dp across all 34
 > finishers of the five HYC reverse-engineering test fleets; see
-> [`docs/notes/sailwave-nhc1-reverse-engineering.md`](../notes/sailwave-nhc1-reverse-engineering.md)
+> [`docs/notes/sailwave/nhc1-reverse-engineering.md`](../notes/sailwave/nhc1-reverse-engineering.md)
 > for the algorithm derivation and
 > `tests/fixtures/scoring/nhc/05-puppeteer-hph-sailwave-verified.yaml`
 > for the gold-standard test fixture. The SWNHC2015 parameters live in
@@ -126,7 +126,7 @@ Two distinct implementations exist in the wild:
   non-extreme subset; fleet sum is realigned to its prior value (no
   external anchor). The full algorithm — formulas, constants, derivation,
   and verification across five HYC race-fleets at zero error — is in
-  [`docs/notes/sailwave-nhc1-reverse-engineering.md`](../notes/sailwave-nhc1-reverse-engineering.md).
+  [`docs/notes/sailwave/nhc1-reverse-engineering.md`](../notes/sailwave/nhc1-reverse-engineering.md).
   This is the variant we implement; we follow it because it is what
   Sailwave clubs are already using.
 - **RYA NHC 2015 (HalSail)** — the RYA's published spec, documented in
@@ -185,7 +185,7 @@ and elapsed time `T_E,i`:
 The full derivation, the spreadsheet artifact (Eskdale's `SWNHC2015.xls`),
 the cell-by-cell formulas, the verification across five HYC race-fleets at
 zero error, and a side-by-side comparison with RYA NHC 2015 are in
-[`docs/notes/sailwave-nhc1-reverse-engineering.md`](../notes/sailwave-nhc1-reverse-engineering.md).
+[`docs/notes/sailwave/nhc1-reverse-engineering.md`](../notes/sailwave/nhc1-reverse-engineering.md).
 That document is the authoritative reference for the algorithm; this
 section keeps only the level of detail needed for our engine and UI design
 decisions.
@@ -212,7 +212,7 @@ handicap formula `Ha = ΣH1 / (Te · Σ(1/Te))` with NHC1**; otherwise the
 two algorithms differ on every step (extreme classification, blend rate,
 extreme-handling mechanism, and realignment anchor). See the side-by-side
 comparison in
-[`docs/notes/sailwave-nhc1-reverse-engineering.md`](../notes/sailwave-nhc1-reverse-engineering.md)
+[`docs/notes/sailwave/nhc1-reverse-engineering.md`](../notes/sailwave/nhc1-reverse-engineering.md)
 for the full contrast.
 
 The three structural differences worth recording here:
@@ -241,7 +241,7 @@ plus a `cap-input` outlier strategy and `base-numbers` realignment in the
 shared engine. See "Implementation: shared progressive-handicap engine"
 below for how `H0` fits into the overall data model and what a safe
 fallback looks like when a scorer doesn't supply one.
-See `docs/notes/sailwave-excel-handicap-protocol.md` for the full spreadsheet
+See `docs/notes/sailwave/excel-handicap-protocol.md` for the full spreadsheet
 analysis.
 
 ### ECHO ✓ Implemented
@@ -923,7 +923,7 @@ the SWNHC2015 spreadsheet, preserves `Σ Q = Σ TCF` exactly, and avoids
 per-boat division by CT. The first-pass `CT_avg / CT_i` ct-mean form is
 *not* algebraically equivalent and was replaced by the NHC1 fix (commit
 `e232d31`). (See
-[`docs/notes/sailwave-nhc1-reverse-engineering.md`](../notes/sailwave-nhc1-reverse-engineering.md)
+[`docs/notes/sailwave/nhc1-reverse-engineering.md`](../notes/sailwave/nhc1-reverse-engineering.md)
 §7 for the side-by-side analysis of the two forms.)
 
 #### Scoring output shape
@@ -1223,7 +1223,7 @@ The NHC1 algorithm was reverse-engineered from a copy of the SWNHC2015
 spreadsheet that produced a real race
 (`reference/data/2026-hyc-club-racing/2026 Tues Series 1- Pup HPH R1.xls`)
 and is now implemented (commit `e232d31`).
-See [`docs/notes/sailwave-nhc1-reverse-engineering.md`](../notes/sailwave-nhc1-reverse-engineering.md)
+See [`docs/notes/sailwave/nhc1-reverse-engineering.md`](../notes/sailwave/nhc1-reverse-engineering.md)
 for the algorithm, the verification across five HYC race-fleets at zero
 error, and a side-by-side comparison with RYA NHC 2015. The earlier
 Puppeteer 22 Championships data
