@@ -539,6 +539,88 @@ ORC International scoring.
 
 ---
 
+## Prize allocation
+
+### Allocating prizes
+
+A scored series produces standings; an event produces *prizes*, and the mapping
+between the two is its own problem. A prize is a named award (a trophy, often
+perpetual) given to the competitor — or boat, or crew — that best satisfies some
+eligibility-and-ranking rule. Sailwave models this manually: the scorer defines a
+prize category, then sets competitor-selection criteria (reusing the same
+filter UI as race-start selection), and the eligible competitors are ranked by
+their series result. Anything the built-in filters can't express, the scorer fakes
+by stuffing combined information into a spare field and filtering on that.
+
+We should aim higher than a filter builder. The variety of prize rules is close to
+infinite — best lady helm, best junior, best boat from a given club, best
+newcomer, top non-spinnaker, the perpetual trophy with a hand-written constitution —
+and most real rules are written in prose in a Notice of Race, not as a filter
+expression. The aspiration: let the scorer express prize criteria in **natural
+language** (ideally by pointing at the NoR text directly), have the system draft a
+**deterministic rule** from it, and let the scorer review and confirm that rule
+before it runs. The natural-language statement stays attached as the
+human-readable record of intent, the same pattern as the Claude-assisted YAML
+scoring fixtures above — the LLM drafts, a human who knows the event vets, and the
+vetted artifact is deterministic and auditable.
+
+KISS start. Because the rule space is unbounded, the first pass should be small and
+honest about its limits:
+
+- A **prize** is a named award with an eligibility predicate over competitors and a
+  ranking rule (default: series standing) to break it down to a single winner.
+- Eligibility starts as the boring, common cases — a field equals a value (class,
+  division, club), a flag is set (junior, lady helm), membership in a named set.
+- Prizes are computed against a series' final standings, listed on a prize sheet,
+  and included in published output. Sailwave can already publish a prize list; we
+  should at least match that.
+
+Then layer the LLM-drafting step on top once the deterministic core exists: NoR text
+in, a draft predicate + ranking rule out, scorer confirms.
+
+**The hard example — multi-series, OA judgement, conditional metric.** The HYC
+Lambay Lady shows how far past a filter builder real rules go:
+
+> The Lambay Lady, which is perpetual, will be awarded to the boat that the OA
+> determines to be the best performing boat on the day, based on time difference to
+> the second placed boat for fleets with at least six starters, either on scratch
+> or IRC.
+
+Everything about this resists a simple predicate:
+
+- **It spans multiple series.** The metric is computed *across* every fleet racing
+  that day, each of which is (in our model) its own series with its own scoring.
+  A prize that ranges over multiple series has no home in a per-series prize list —
+  it needs an event/day-level scope that sits above the series, which we don't model
+  yet.
+- **The metric is a margin, not a placing.** "Time difference to the second placed
+  boat" is a derived quantity — first boat's corrected time vs. second's — not
+  something in the standings table. And it's computed per fleet, then compared
+  across fleets.
+- **It's conditional.** Only fleets with ≥6 starters qualify, and the comparison can
+  be done "on scratch or IRC" — two different scoring bases, with the choice itself
+  part of the rule.
+- **It ends in human judgement.** "the OA determines" — the system's job here is to
+  *surface the candidates and their margins* (the six-plus-starter fleets, each
+  winner's gap to second on both bases) and let the Organising Authority decide,
+  not to crown a winner automatically. A good prize feature knows when to compute a
+  shortlist and hand off, rather than pretending the rule is fully mechanical.
+
+This one example argues for the eventual shape: prizes scoped above the series (at
+an event or day level), ranking rules that can reference derived metrics beyond the
+standings placing, and a deliberate "assisted, not automatic" mode where the system
+computes candidates and the OA confirms — distinct from the mechanical prizes it can
+award outright.
+
+Open questions: the scope model (does a "prize" attach to a series, an event, or a
+free-standing day-level grouping of series?); how perpetual trophies carry across
+years and where their history lives; whether prize winners belong in the series file
+/ JSON export as part of the authoritative record; how prize lists render into the
+published `/p/...` pages; and where the boundary sits between fully-deterministic
+prizes and ones that always end in an OA decision.
+
+---
+
 ## AI and automation
 
 ### LLM-drafted changelog entries
