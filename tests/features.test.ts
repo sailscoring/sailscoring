@@ -140,6 +140,7 @@ describe('computeEffectiveFeatures (Model B)', () => {
       'echo',
       'ftp-upload',
       'irc-rating',
+      'rya-py',
     ]);
   });
 
@@ -153,6 +154,7 @@ describe('computeEffectiveFeatures (Model B)', () => {
       'echo',
       'ftp-upload',
       'irc-rating',
+      'rya-py',
       'sailwave-import',
     ]);
   });
@@ -169,6 +171,7 @@ describe('computeEffectiveFeatures (Model B)', () => {
       'echo',
       'ftp-upload',
       'irc-rating',
+      'rya-py',
     ]);
   });
 
@@ -181,19 +184,20 @@ describe('computeEffectiveFeatures (Model B)', () => {
       'echo',
       'irc-rating',
       'nhc-parameters',
+      'rya-py',
     ]);
   });
 
   it('default-on features are present with no enabled features anywhere', () => {
     expect(
       computeEffectiveFeatures('u-alice', [personal('u-alice')]).sort(),
-    ).toEqual(['echo', 'irc-rating']);
+    ).toEqual(['echo', 'irc-rating', 'rya-py']);
   });
 
   it('an explicit opt-out switches a default-on feature off', () => {
-    // Opt out irc-rating; the other default-on feature (echo) stays on.
+    // Opt out irc-rating; the other default-on features (echo, rya-py) stay on.
     const memberships = [personal('u-alice', [], ['irc-rating'])];
-    expect(computeEffectiveFeatures('u-alice', memberships)).toEqual(['echo']);
+    expect(computeEffectiveFeatures('u-alice', memberships)).toEqual(['echo', 'rya-py']);
   });
 
   it('the active workspace opt-out wins over a club-inherited feature', () => {
@@ -205,13 +209,14 @@ describe('computeEffectiveFeatures (Model B)', () => {
     ];
     expect(computeEffectiveFeatures('u-alice', memberships)).toEqual([
       'irc-rating',
+      'rya-py',
     ]);
   });
 
   it('a club can opt out of a default-on feature for its workspace', () => {
-    // Opt out irc-rating; echo (also default-on) is untouched and stays on.
+    // Opt out irc-rating; the other default-on features (echo, rya-py) stay on.
     const memberships = [club('hyc', [], ['irc-rating']), personal('u-alice')];
-    expect(computeEffectiveFeatures('hyc', memberships)).toEqual(['echo']);
+    expect(computeEffectiveFeatures('hyc', memberships)).toEqual(['echo', 'rya-py']);
   });
 });
 

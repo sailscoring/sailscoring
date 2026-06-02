@@ -69,6 +69,14 @@ export const FEATURES = {
     helpSectionIds: ['update-handicaps-irc-rating'],
     defaultOn: true,
   },
+  'rya-py': {
+    // Gates the PY (Portsmouth Yardstick) scoring system *and* the RYA PY-list
+    // source in the Update-handicaps dialog. On by default; a workspace can opt
+    // out.
+    label: 'RYA Portsmouth Yardstick',
+    helpSectionIds: ['update-handicaps-rya-py'],
+    defaultOn: true,
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;

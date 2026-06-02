@@ -28,6 +28,13 @@ import {
   type IrcTccVariant,
   type SailNumberParts,
 } from './rating-match';
+import {
+  classKey,
+  normalizeClassName,
+  ryaPyMatcher,
+  type ClassMatcher,
+} from './rya-py/class-match';
+import type { RyaPyClass } from './rya-py/types';
 import type { Competitor, Fleet, Race, TcfRecord } from './types';
 
 /**
@@ -887,4 +894,114 @@ export function planIrcFleetAdditions(input: FleetAdditionInput): FleetAdditionC
 /** Add-to-ECHO-fleet candidates from the Irish Sailing list (#170). */
 export function planEchoFleetAdditions(input: FleetAdditionInput): FleetAdditionCandidate[] {
   return planFleetAdditions(input, ['echo']);
+}
+
+// ─── RYA Portsmouth Yardstick source ──────────────────────────────────────────
+//
+// Unlike the rating-list sources above, the RYA PY list is matched by *class*,
+// not by sail number, and is bundled into the build rather than fetched (it
+// changes at most once a year). So a whole one-design fleet collapses to a
+// single proposal, and each proposal can update two competitor fields — the PY
+// number and (optionally) the class name, normalised to the register spelling.
+
+export interface RyaPyPlanInput {
+  targetCompetitors: readonly Competitor[];
+  targetFleets: readonly Fleet[];
+  /** The class matcher (defaults to the bundled RYA dataset; injectable in tests). */
+  matcher?: ClassMatcher;
+  /** Manual resolution for ambiguous / unmatched classes, keyed by a group's
+   *  `enteredKey`. The value is the chosen class's {@link classKey}, or
+   *  `'__skip__'` to leave the group's boats untouched. A unique auto-match can
+   *  also be overridden here. */
+  chosenByClass?: Readonly<Record<string, string>>;
+}
+
+/** One distinct boat class found across the series' PY fleets, with its
+ *  proposed RYA resolution and the boats it covers. The review unit of the PY
+ *  source — the dialog renders one row per proposal. */
+export interface PyClassProposal {
+  /** A representative spelling as entered on the boats (the first seen). */
+  enteredClass: string;
+  /** Normalised group key — stable id for the dialog's picker + toggle state. */
+  enteredKey: string;
+  /** How the entered class resolved against the register before any manual pick. */
+  matchStatus: 'matched' | 'ambiguous' | 'none';
+  /** For a unique match, whether it was on the canonical name or a looser alias. */
+  via?: 'name' | 'alias';
+  /** The resolved class — a unique match, or the scorer's manual pick; `null`
+   *  when ambiguous/unmatched and not yet resolved, or explicitly skipped. */
+  resolved: RyaPyClass | null;
+  /** Candidates when ambiguous (empty otherwise — the dialog offers the full list). */
+  candidates: RyaPyClass[];
+  /** The boats in PY fleets carrying this class, with their current PY number. */
+  affected: { competitorId: string; fleetId: string; currentNumber: number | null }[];
+}
+
+/**
+ * Group every PY-fleet boat by its (normalised) class, match each distinct
+ * class once against the RYA register, and return a proposal per class. Boats
+ * with no class set, and non-PY fleets, are ignored. Resolution honours
+ * `chosenByClass` overrides (including `'__skip__'`); a unique auto-match needs
+ * no override. The dialog turns each resolved proposal into per-boat writes of
+ * the PY number and/or the canonical class name.
+ */
+export function planRyaPyUpdates(input: RyaPyPlanInput): PyClassProposal[] {
+  const matcher = input.matcher ?? ryaPyMatcher;
+  const chosen = input.chosenByClass ?? {};
+  const byClassKey = new Map(matcher.all().map((c) => [classKey(c), c] as const));
+
+  const pyFleetIds = new Set(
+    input.targetFleets.filter((f) => f.scoringSystem === 'py').map((f) => f.id),
+  );
+  if (pyFleetIds.size === 0) return [];
+
+  // Group affected (competitor, fleet) pairs by normalised class.
+  interface Group {
+    enteredClass: string;
+    affected: PyClassProposal['affected'];
+  }
+  const groups = new Map<string, Group>();
+  for (const c of input.targetCompetitors) {
+    const entered = c.boatClass?.trim();
+    if (!entered) continue;
+    const key = normalizeClassName(entered);
+    if (!key) continue;
+    for (const fleetId of c.fleetIds) {
+      if (!pyFleetIds.has(fleetId)) continue;
+      let g = groups.get(key);
+      if (!g) {
+        g = { enteredClass: entered, affected: [] };
+        groups.set(key, g);
+      }
+      g.affected.push({ competitorId: c.id, fleetId, currentNumber: c.pyNumber ?? null });
+    }
+  }
+
+  const proposals: PyClassProposal[] = [];
+  for (const [enteredKey, g] of groups) {
+    const m = matcher.match(g.enteredClass);
+    const matchStatus = m.kind;
+    const via = m.kind === 'matched' ? m.via : undefined;
+    const candidates = m.kind === 'ambiguous' ? m.candidates : [];
+
+    // Resolve: manual override wins (including an explicit skip); otherwise the
+    // unique auto-match, or null when ambiguous/unmatched.
+    let resolved: RyaPyClass | null = m.kind === 'matched' ? m.cls : null;
+    const override = chosen[enteredKey];
+    if (override === '__skip__') resolved = null;
+    else if (override) resolved = byClassKey.get(override) ?? resolved;
+
+    proposals.push({
+      enteredClass: g.enteredClass,
+      enteredKey,
+      matchStatus,
+      via,
+      resolved,
+      candidates,
+      affected: g.affected,
+    });
+  }
+
+  proposals.sort((a, b) => a.enteredClass.localeCompare(b.enteredClass));
+  return proposals;
 }

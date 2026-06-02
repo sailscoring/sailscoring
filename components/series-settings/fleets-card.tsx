@@ -301,7 +301,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                       {(has('irc-rating') || fleet.scoringSystem === 'irc') && (
                         <SelectItem value="irc">IRC</SelectItem>
                       )}
-                      <SelectItem value="py">PY</SelectItem>
+                      {/* PY is gated but on by default; still offer it for a
+                          fleet already using it if a workspace opts out. */}
+                      {(has('rya-py') || fleet.scoringSystem === 'py') && (
+                        <SelectItem value="py">PY</SelectItem>
+                      )}
                       <SelectItem value="nhc">NHC</SelectItem>
                       {/* ECHO is experimental/gated (#155); still offer it for a
                           fleet that already uses it so the control isn't broken. */}

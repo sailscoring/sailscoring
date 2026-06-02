@@ -1,0 +1,281 @@
+                                                    Limited Data PY List 2026
+                                                                                                                                 Last update: 19/02/2026
+                                                                                                                                 Verion No:    1
+
+
+
+
+The RYA Portsmouth Yardstick Scheme is provided to enable clubs to allow boats of different classes to race against each other fairly. The RYA actively
+
+encourages clubs to adjust handicaps where classes are either under or over performing compared to the number being used.
+
+The Portsmouth Yardstick list combines the Portsmouth numbers with class configuration and the total number of races returned to the RYA in the annual
+
+return. This additional data has been provided to help clubs achieve the stated aims of the Portsmouth Yardstick system and make adjustments to
+
+Portsmouth Numbers where necessary. Clubs using the PN list should be aware that the list is based on the average performance of each boat across a
+
+variety of clubs and locations. The numbers in the PN list may not reflect the peak performance of each boat.
+
+
+
+
+The classes below have received insufficient race return data for a PY number to be listed on the main PY List. It should be remembered that the
+
+Portsmouth Yardstick number list has been through a number of changes and the numbers listed below have had conversion factors applied where
+
+needed. It should also be remembered that whilst all efforts are taken for PN's not to drift, relative performance of older boats may be quite different to
+
+modern classes. The numbers are given as a starting point to help clubs arrive at a fair number and if these numbers are used then they should be
+
+reviewed regularly.
+
+
+
+Users of the PY scheme are reminded that all Portsmouth Numbers published by the RYA should be regarded as a guide only. The RYA list is not definitive
+
+and clubs should adjust where necessary. For further information please visit the RYA website:
+
+http://www.rya.org.uk/racing/Pages/portsmouthyardstick.aspx
+
+
+RYA Class ID has been designed to help improve data accuracy. For any class configuations that do not have a unique ID please contact the RYA. The
+
+Class list can be found on the RYA Portsmouth Yardstick page.
+
+                                                                                                                       Last                                Total
+                                                              No. of                                                             Last Published
+RYA Class ID                    Class Name                                Rig       Spinnaker        Remark         Published                        Number of
+                                                              Crew                                                                     Year
+                                                                                                                     Number                                Years
+13             470                                              2          S            C                              978             2026                 31
+               12 SQM SHARPIE                                                                                          1026            2007                 30
+                                                                                                 This number is
+14             49ER                                             2          S            A                              697             2018                 22
+                                                                                                   for new rig
+               AJAX N23                                                                                                1040            1988                  9
+               ALD LAPWING                                                                                             1248            1985                  7
+               ALLEGRO                                                                                                 1012            1982                  2
+               ALPHA                                                                                                   1182            1983                  6
+193            ASYMMETRIC INTERNATIONAL CANOE                   1          S            A                              866              2017                15
+27             AVON SCOW                                        1          U            0                              1465            2026                  3
+               BHYC HAVEN                                                                                              1097            1983                  4
+               BHYC SWAN                                                                                               1210            1983                  4
+37             BLAZE HALO                                       1          U            0                              992              2017                 3
+               BONITO                                                                                                  1191            1982                  3
+40             BOSS                                             2          S            A                              847             2007                  11
+41             BOSUN                                            2          S            C                              1198            2010                 31
+43             BRIGHTLINGSEA ONE DESIGN                         3          S            C                              1087            1985                  7
+45             BROADS ONE DESIGN                                3          S            C                              1087            1987                 12
+               BULL 7000                                                                                               860             2006                  4
+               BULLETT                                                                                                 1087            1984                  4
+48             BYTE                                             1          U            0                              1205            2025                 22
+               CATALAC 9M                                                                                              1248            1989                  7
+               CHALLENGE                                                                                               974             1983                  4
+               CHEETAH                                                                                                 983             1986                  5
+58             CHERUB                                           2          S            A                              903             2018                 40
+
+
+
+                                                                                                                                          Last update: 22/02/2024
+                                                                          Page 1 of 4                                                                       Version: 1
+                                                                                          Last                         Total
+                                                 No. of                                             Last Published
+RYA Class ID                   Class Name                  Rig     Spinnaker   Remark   Published                    Number of
+                                                 Crew                                                   Year
+                                                                                        Number                         Years
+               CLUB 19                                                                    1052          2002             2
+               COLCHESTER OD                                                              1305          1983             3
+477            COMET DUO                           2        S           0                 1168          2025             11
+               CRISP OD                                                                   1087          1983             3
+87             DART 16 - 2 CREW WITH SPINNAKER     2        S           A                 893           2026             15
+105            DRASCOMBE LONGBOAT                  2        S           0                 1210          1983             4
+               E22                                                                        879           1989             7
+               EMBASSY                                                                    1419          1986             6
+110            ESSEX ONE DESIGN                    3        S           0                 1078          1983             9
+374            ESTUARY ONE DESIGN                  3        S           0                 1078          1983             3
+112            EXPRESS                             2        S           C                 1135          2002             22
+134            FIREBIRD                            2        S           0                 1201           1987            7
+               FIRST CLASS 8                                                               918          2002             2
+               FLEETWIND                                                                  1268          2003             27
+               FLIPPER SCOW                                                                1116          1981            1
+139            FLYING DUTCHMAN                     2        S           C                 879           2007             33
+143            FLYING JUNIOR                       2        S           C                 1163          1989             10
+121            FORMULA 18                          2        S           A                 655           2024             0
+               GARANA 601                                                                 1068          1989             9
+               H BOAT                                                                     1015          2002             3
+               HALF RATER                                                                 1229          1983             3
+163            HARRIER                             1       U            0                  1116         1988             8
+168            HAWK 20                             2        S           C                  1115          2013            6
+169            HERON                               2        S           0                 1340          2026             39
+               HILBRE                                                                     1248          1984             4
+               HIRONDELLE                                                                 993           1983             3
+11             HOBIE 405                           2        S           A                 1089           2010            15
+               HORNING REBEL OD                                                           1059          1990             14
+183            HUNTER 707                          3        S           C                 925           2006             5
+               HURRICANE 4.9                                                               781          1998             8
+185            HURRICANE 5.9                       2        S           0                 699            2013            7
+               HURRICANE 500                                                              785           2002             9
+               HYDRA                                                                      832           1993             11
+188            ICON                                2       S            0                 976           2025
+200            INTERNATIONAL 14                    2        S           A                 758            2018            0
+194            INTERNATIONAL CANOE ONE DESIGN      1        S           A                 905            2013            34
+196            INTERNATIONAL MOTH                  1       U            0                 570           2016             7
+197            INTERNATIONAL MOTH - NO FOILS       1       U            0                 990           2025             33
+               IROQUOIS                                                                   984            1997            2
+               IROQUOIS 30 MK2                                                             927          1984             5
+               IROQUOIS MK1                                                               960           2002             10
+               IROQUOIS MK2                                                               983           1995             6
+               ISLE OF WIGHT SCOW                                                         1419           1981            1
+               J24                                                                        935            2011            5
+               J80                                                                        876            2011            5
+203            JAVELIN                             2        S           C                 932           2026             38
+               JAVELIN 16                                                                  927          1986             4
+               JOLLYBOAT                                                                   917          1985             10
+               KINSMAN                                                                    1125          1989             8
+211            LAPWING                             2        S           0                 1320          2003             3
+222            LASER 3000                          2        S           A                 1103          2026             20
+224            LASER 5000                          2        S           A                 846            2012            18
+227            LASER EPS                           1       U            0                 1035          2026             20
+218            LASER II                            2        S           C                  1117         2026             38
+228            LASER PICO RACE                     1       U            0                 1330          2026             0
+               LASER M                                                                     1121         1999             19
+235            LASER VAGO XD                       2        S           A                 1100          2026             9
+237            LAZY E                              2        S           C                 1068          1983             5
+
+
+                                                                                                           Last update: 22/02/2024
+                                                          Page 2 of 4                                                    Version: 1
+                                                                                         Last                         Total
+                                                No. of                                             Last Published
+RYA Class ID                   Class Name                 Rig     Spinnaker   Remark   Published                    Number of
+                                                Crew                                                   Year
+                                                                                       Number                         Years
+238            LEADER                             2        S           C                  1115         2004             25
+               LIVERPOOL BAY FALCON                                                      1097          1984             10
+240            LOCH LONG ONE DESIGN               2        S           C                 1170          2002             25
+241            LYMINGTON SCOW                     1        U           0                 1448          2026             12
+               MAN O WAR                                                                  1116         1983             3
+242            MARAUDER                           2        S           C                 1042          2003             23
+               MAYFLY                                                                     1191          1987            13
+               MELGES 24                                                                 846           2006             1
+               MERCURY                                                                   1097          1985             10
+               MERMAID 11                                                                1381          1985             5
+251            MINISAIL                           1        U           0                 1248           1973            2
+               MIRROR 16                                                                 1097          1989             10
+258            MX-RAY                             1        U           A                 1020          2003             4
+               MYSTERE                                                                   823           1994             13
+               MYTH OD                                                                   1381          1983             3
+263            National 18 - Classic              3        S           C                 1018          2026             36
+264            National 18 - Penultimate          3        S           C                 970           2024             1
+265            National 18 - Ultimate             3        S           C                 930           2024             1
+548            National 18 - Ultra                3        S           C                 900           2024             1
+               NIMBLE 30                                                                 983           1983             4
+               NORFOLK                                                                   1248           1981            1
+278            NORFOLK ONE DESIGN                 2        S           0                 1266          2026             6
+279            NORFOLK PUNT                       2        S           A                 886           2003             26
+               NORWESTER                                                                 1381          1983             3
+284            OTTER                              2        S           C                 1275          2004             25
+286            PACER                              2        S           C                 1193          2004             25
+287            PEGASUS                            2        S           C                 1068          1984             10
+               PIPER                                                                     1060          1999             7
+               PISCES                                                                    1210          1993             13
+               PLUS                                                                      1267          1986             6
+               PROJECTION 762                                                            855           2004             1
+               PROUT QUEST                                                               1021           1987            2
+               PROUT QUEST 30                                                            1021          1988             2
+               QUEST                                                                     1031          1984             2
+               REBEL                                                                     1070          2002             10
+298            REDWING                            2        S           0                 1094          2004             27
+               REEDLING                                                                  1036          2002             13
+               REEDLING 19                                                               1031          1986             8
+               ROYAL HARWICH OD                                                          1154          1988             14
+316            RS ELITE                           3        S           C                 938            2013            2
+321            RS QUBA                            1        U           0                 1295          2024             1
+300            RS100 10.2                         1        U           A                  981          2024             35
+460            RS200 - NO SPINNAKER               2        S           0                 1065          2024             1
+               SALCOMBE YAWL                                                             1105          2002             22
+332            SANDHOPPER                         2        S           C                 1197          2004             21
+               SARO SCIMITAR                                                             1135          1988             10
+333            SB20                               3        S           A                  911           2013            3
+               SEABIRD HALF-RATER                                                        1229          1983             7
+               SEAFIRE                                                                    1116         1989             10
+               SEAFIRE - SINGLEHANDED WITH NO     1        U           0                 1135          1984             3
+337            SHADOW X                           1        U           A                 750            2018            2
+338            SHARPIE                            2        S           0                 1031           1992            3
+               SHRIMP                                                                    1437           1991            10
+340            SIGNET                             2        S           0                 1265          2004             26
+               SILVER STREAK                                                              1116         1983             6
+               SKIPPER 12                                                                1305           1982            3
+               SKIPPER CLUBMAN                                                           1182           1982            2
+               SKUA                                                                      1362          1984             1
+
+
+                                                                                                          Last update: 22/02/2024
+                                                         Page 3 of 4                                                    Version: 1
+                                                                                      Last                         Total
+                                             No. of                                             Last Published
+RYA Class ID                   Class Name              Rig     Spinnaker   Remark   Published                    Number of
+                                             Crew                                                   Year
+                                                                                    Number                         Years
+               SKUA OD                                                                1362          1985             3
+347            SLIPSTREAM                      3        S           0                 889           1986             4
+               SNOWGOOSE                                                              964            1981            2
+               SOLENT SCOW                                                            1456          1983             4
+               SOLENT SUNBEAM                                                         1012           1982            8
+349            SOLING                          3        S           C                  914          2004             23
+               SONAR                                                                  940           2004             2
+               SPARK                                                                   917          1989             8
+352            SPICE                           2        S           A                 930           2006             7
+               SPORT 14                                                               1055          2006             7
+360            SPRITE                          2        S           C                 1248          1988             8
+361            SPROG                           2        S           0                 1173           1987            10
+362            SQUIB                           2        S           C                 1142           2014            34
+               ST MAWES                                                               1201          1983             3
+               STAMPEDE                                                                747          1989             3
+               STAR                                                                    917          1986             11
+365            SUNFISH                         1        U           0                 1229          1984             4
+368            SWALLOW                         3        S           C                 1021          1983             9
+               SWIFT                                                                  997           1999             22
+369            SWORDFISH                       2        S           C                  1117         2002             23
+372            TEMPEST                         2        S           C                 942            2011            26
+375            TIDEWAY                         2        S           0                 1447          2002             23
+               TIKKI                                                                  1305          1983             3
+               TOPAZ DUO                                                              1190          2007             4
+384            TOPAZ OMEGA                     2        S           A                 1075          2009             3
+385            TOPAZ UNO                       2        S           0                 1251          2016             16
+390            TOPAZ XENON                     2        S           A                  1111         2026             2
+               TORCH                                                                  1305          1984             8
+397            TORNADO                         2        S           A                 625           2026             27
+               TORNADO SPORT                                                          644            2013            2
+399            TOY                             1        U           0                 1025          2002             20
+               TOY (BIG RIG)                                                          1021          1983             3
+               TRACER                                                                 1229          1989             6
+               TURTLE                                                                 1343          1983             4
+402            TWINKLE TWELVE                  2        S           0                 1286          1985             6
+               TYPHOON                                                                1012           1981            2
+               UNIT                                                                   1031           1982            2
+405            VAGABOND                        2        S           C                 1248          1984             9
+409            VORTEX                          1        U           A                 960           2026             27
+               VULCAN                                                                 1021          1983             3
+               WAGTAIL                                                                1475          1983             4
+414            WAVENEY & OULTON ONE DESIGN     2        S           0                 1087           1987            4
+417            WENSUM                          2        S           0                 1381          1983             6
+               WEST WIGHT SCOW                                                        1419          1983             8
+418            WETA 4.4                        1        S           A                 960            2017            3
+               WHARRAM TANE                                                            1116          1981            1
+               WILDFIRE                                                               1097          1984             5
+421            WINEGLASS                       2        S           0                 1080          2002             26
+               WIZARD                                                                 983           1983             3
+               XOD                                                                    1125          1983             9
+428            YACHTING WORLD DAYBOAT          2        S           0                 1205          2026             28
+               YARE & BURE                                                             1117         2004             28
+426            YEOMAN                          2        S           C                 1108          2006             26
+               ZENITH                                                                 1106          1989             13
+
+
+
+
+                                                                                                       Last update: 22/02/2024
+                                                      Page 4 of 4                                                    Version: 1
+

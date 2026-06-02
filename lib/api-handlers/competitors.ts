@@ -172,6 +172,7 @@ export async function bulkUpdateHandicaps(
         ...(u.pyNumber !== undefined ? { pyNumber: u.pyNumber } : {}),
         ...(u.nhcStartingTcf !== undefined ? { nhcStartingTcf: u.nhcStartingTcf } : {}),
         ...(u.echoStartingTcf !== undefined ? { echoStartingTcf: u.echoStartingTcf } : {}),
+        ...(u.boatClass !== undefined ? { boatClass: u.boatClass } : {}),
       };
       const saved = await repos.competitors.save(next, {
         expectedVersion: u.expectedVersion,

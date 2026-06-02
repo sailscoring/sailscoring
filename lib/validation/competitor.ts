@@ -59,6 +59,8 @@ export const handicapUpdateSchema = z.object({
   pyNumber: z.number().optional(),
   nhcStartingTcf: z.number().optional(),
   echoStartingTcf: z.number().optional(),
+  // Canonical class name written by the RYA PY source alongside the PY number.
+  boatClass: z.string().optional(),
   // Fleets to add this competitor to (union with current membership) — the
   // "add a newly-rated boat to the handicap fleet" path (#170). The handler
   // verifies each id is a fleet of the series.

@@ -37,6 +37,7 @@
     "deploy:prod": "vercel deploy --prod",
     "generate:fixtures": "tsx scripts/render-scoring-fixtures.ts",
     "generate:sample-series": "tsx scripts/generate-sample-series.ts",
+    "generate:rya-py": "tsx scripts/generate-rya-py.ts",
     "nationality:sync": "tsx scripts/sync-national-letters.ts",
     "hyc-ftp-paths": "tsx --env-file-if-exists=.env.tmp scripts/hyc-ftp-paths.ts"
   },

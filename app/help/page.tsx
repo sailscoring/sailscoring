@@ -51,6 +51,8 @@ export default async function HelpPage() {
             ['#update-handicaps-irc-rating', 'Updating IRC TCCs from the rating list', 'irc-rating'],
             // Gated: only listed when echo is enabled (#168).
             ['#update-handicaps-irish-sailing', 'Updating ECHO from Irish Sailing', 'echo'],
+            // Gated: only listed when rya-py is enabled (on by default).
+            ['#update-handicaps-rya-py', 'Updating PY numbers from the RYA list', 'rya-py'],
             ['#adding-races', 'Adding races'],
             ['#entering-results', 'Entering results'],
             // Gated: only listed when csv-finish-import is enabled (#155).
@@ -469,6 +471,35 @@ export default async function HelpPage() {
           boat to a fleet mid-series means it is scored{' '}
           <strong className="text-foreground">DNC</strong> for races already sailed in that fleet,
           so this is opt-in per boat.
+        </p>
+      </Section>
+      )}
+
+      {has('rya-py') && (
+      <Section id="update-handicaps-rya-py" title="Updating PY numbers from the RYA list">
+        <p>
+          For <strong className="text-foreground">Portsmouth Yardstick</strong> fleets, the{' '}
+          <strong className="text-foreground">Update handicaps</strong> dialog can set each boat&apos;s
+          PY number from the RYA&apos;s published list. Choose{' '}
+          <em>RYA Portsmouth Yardstick</em> as the source. Unlike the IRC and ECHO sources — which
+          match each boat by sail number — PY is a per-class list, so boats are matched by their{' '}
+          <strong className="text-foreground">class</strong>. A whole one-design fleet is therefore
+          a single row.
+        </p>
+        <p>
+          Each distinct class is matched against the RYA register (ignoring case, spacing and
+          punctuation, and resolving aliases such as <em>Laser</em> → <em>ILCA 7 / Laser</em>). For
+          each matched class you can apply two things independently:{' '}
+          <strong className="text-foreground">Name</strong> normalises the stored class to the
+          register spelling, and <strong className="text-foreground">Number</strong> writes the PY
+          number. A class that matches several configurations (for example the two Comet Trio rigs),
+          or that isn&apos;t found, shows a picker so you can choose the right one or skip it.
+        </p>
+        <p>
+          Numbers from the RYA&apos;s experimental and limited-data lists are flagged{' '}
+          <span className="text-amber-600 dark:text-amber-500">guide only</span> — the RYA publishes
+          them as starting points to review locally. The list is bundled with the app and refreshed
+          at most once a year, so its version is shown at the foot of the dialog.
         </p>
       </Section>
       )}

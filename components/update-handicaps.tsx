@@ -46,6 +46,7 @@ import { defaultSailCountry, type IrcTccVariant } from '@/lib/rating-match';
 import {
   endOfSeriesTcfs,
   planHandicapUpdates,
+  planRyaPyUpdates,
   additionKey,
   planEchoFleetAdditions,
   planEchoUpdates,
@@ -55,11 +56,15 @@ import {
   type FleetAdditionCandidate,
   type HandicapSystem,
   type PreviewRow,
+  type PyClassProposal,
   type RatingMatch,
 } from '@/lib/source-handicaps';
+import { classKey, ryaPyMatcher } from '@/lib/rya-py/class-match';
+import { RYA_PY_VERSION } from '@/lib/rya-py/generated/py-list';
+import type { RyaPyClass } from '@/lib/rya-py/types';
 import type { Competitor, Fleet } from '@/lib/types';
 
-type HandicapSource = 'series' | 'irish-sailing' | 'irc-rating';
+type HandicapSource = 'series' | 'irish-sailing' | 'irc-rating' | 'rya-py';
 
 export interface UpdateHandicapsHandle {
   open: () => void;
@@ -117,6 +122,58 @@ function formatDelta(currentTcf: number | null, newTcf: number, system: Handicap
   return `${sign}${formatTcf(Math.abs(d), system)}`;
 }
 
+const TIER_LABEL: Partial<Record<RyaPyClass['tier'], string>> = {
+  experimental: 'experimental',
+  'limited-data': 'limited data',
+};
+
+/** Whether a resolved proposal can rename any of its boats (their stored class
+ *  differs from the canonical name) and/or change any PY number. */
+function ryaPyChanges(
+  p: PyClassProposal,
+  competitorById: Map<string, Competitor>,
+): { canRename: boolean; canSetNumber: boolean } {
+  const r = p.resolved;
+  if (!r) return { canRename: false, canSetNumber: false };
+  return {
+    canRename: p.affected.some((a) => competitorById.get(a.competitorId)?.boatClass !== r.name),
+    canSetNumber: p.affected.some((a) => a.currentNumber !== r.number),
+  };
+}
+
+/** Fan resolved PY proposals out to per-competitor update rows, honouring the
+ *  per-class rename/number toggles (a key in the `off` sets is switched off).
+ *  Only boats with a real change are included. */
+function buildRyaPyUpdates(
+  proposals: PyClassProposal[],
+  competitorById: Map<string, Competitor>,
+  renameOff: Set<string>,
+  numberOff: Set<string>,
+): HandicapUpdateRow[] {
+  const rows: HandicapUpdateRow[] = [];
+  for (const p of proposals) {
+    const r = p.resolved;
+    if (!r) continue;
+    const { canRename, canSetNumber } = ryaPyChanges(p, competitorById);
+    const renameApplied = canRename && !renameOff.has(p.enteredKey);
+    const numberApplied = canSetNumber && !numberOff.has(p.enteredKey);
+    if (!renameApplied && !numberApplied) continue;
+
+    for (const a of p.affected) {
+      const comp = competitorById.get(a.competitorId);
+      if (!comp || comp.version === undefined) continue;
+      const needNumber = numberApplied && a.currentNumber !== r.number;
+      const needRename = renameApplied && comp.boatClass !== r.name;
+      if (!needNumber && !needRename) continue;
+      const row: HandicapUpdateRow = { competitorId: comp.id, expectedVersion: comp.version };
+      if (needNumber) row.pyNumber = r.number;
+      if (needRename) row.boatClass = r.name;
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
 export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   seriesId: string;
 }>(function UpdateHandicaps({ seriesId }, ref) {
@@ -126,10 +183,16 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   // default).
   const irishSailingEnabled = has('echo');
   const ircRatingEnabled = has('irc-rating');
+  const ryaPyEnabled = has('rya-py');
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<
-    'source-picker' | 'source-series' | 'source-irish-sailing' | 'source-irc-rating' | 'done'
+    | 'source-picker'
+    | 'source-series'
+    | 'source-irish-sailing'
+    | 'source-irc-rating'
+    | 'source-rya-py'
+    | 'done'
   >('source-picker');
   const [source, setSource] = useState<HandicapSource>('series');
   const [sourceSeriesId, setSourceSeriesId] = useState<string | null>(null);
@@ -143,12 +206,19 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   const [addTargetFleetByKey, setAddTargetFleetByKey] = useState<Record<string, string>>({});
   const [fleetMapping, setFleetMapping] = useState<Record<string, string | null>>({});
   const [excludedRowIds, setExcludedRowIds] = useState<Set<string>>(new Set());
+  // RYA PY source: manual class resolution (enteredKey → classKey | '__skip__'),
+  // and per-class opt-outs of the rename / set-number halves of a proposal.
+  const [chosenByClass, setChosenByClass] = useState<Record<string, string>>({});
+  const [renameOff, setRenameOff] = useState<Set<string>>(new Set());
+  const [numberOff, setNumberOff] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<{
     updatedCount: number;
     bySystem: Partial<Record<HandicapSystem, number>>;
     unchanged: number;
     notFound: number;
     added: number;
+    /** RYA PY source: how many boats had their class name normalised. */
+    renamed?: number;
   } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -164,6 +234,9 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
       setAddTargetFleetByKey({});
       setFleetMapping({});
       setExcludedRowIds(new Set());
+      setChosenByClass({});
+      setRenameOff(new Set());
+      setNumberOff(new Set());
       setResult(null);
       setErrorMsg(null);
       setOpen(true);
@@ -332,6 +405,22 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
     });
   }, [targetCompetitors.data, targetFleets.data, ircRatings.data, ircVariantByFleet, matchByName, certChoiceByCompetitor, addTargetFleetByKey, defaultCountry]);
 
+  // RYA PY proposals — pure over the bundled dataset (no fetch); one per
+  // distinct class across the series' PY fleets.
+  const ryaPyProposals = useMemo<PyClassProposal[]>(() => {
+    if (step !== 'source-rya-py' || !targetCompetitors.data || !targetFleets.data) return [];
+    return planRyaPyUpdates({
+      targetCompetitors: targetCompetitors.data,
+      targetFleets: targetFleets.data,
+      chosenByClass,
+    });
+  }, [step, targetCompetitors.data, targetFleets.data, chosenByClass]);
+
+  const ryaPyUpdateRows = useMemo(() => {
+    const byId = new Map((targetCompetitors.data ?? []).map((c) => [c.id, c]));
+    return buildRyaPyUpdates(ryaPyProposals, byId, renameOff, numberOff);
+  }, [ryaPyProposals, targetCompetitors.data, renameOff, numberOff]);
+
   const additionCandidates = step === 'source-irc-rating' ? ircAdditions : echoAdditions;
 
   // A candidate can actually be applied once it has a target fleet and a value.
@@ -347,7 +436,41 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
         : seriesPreviewRows;
 
   // ── Apply ──────────────────────────────────────────────────────────────────
+  async function handleApplyRyaPy() {
+    setErrorMsg(null);
+    if (ryaPyUpdateRows.length === 0) return;
+    try {
+      const response = await updateMut.mutateAsync(ryaPyUpdateRows);
+      const renamed = ryaPyUpdateRows.filter((r) => r.boatClass !== undefined).length;
+      const numberChanged = ryaPyUpdateRows.filter((r) => r.pyNumber !== undefined).length;
+      const resolvedKeys = new Set(
+        ryaPyProposals.filter((p) => p.resolved).map((p) => p.enteredKey),
+      );
+      const notFound = ryaPyProposals
+        .filter((p) => !resolvedKeys.has(p.enteredKey))
+        .reduce((n, p) => n + p.affected.length, 0);
+      setResult({
+        updatedCount: response.updated.length,
+        bySystem: { py: numberChanged },
+        unchanged: 0,
+        notFound,
+        added: 0,
+        renamed,
+      });
+      setStep('done');
+    } catch (err) {
+      if (err instanceof ConflictApiError) {
+        setErrorMsg(
+          'A boat was modified elsewhere since you opened this dialog. Close and reopen to refresh, then try again.',
+        );
+      } else {
+        setErrorMsg(err instanceof Error ? err.message : 'Update failed');
+      }
+    }
+  }
+
   async function handleApply() {
+    if (step === 'source-rya-py') return handleApplyRyaPy();
     setErrorMsg(null);
     const changeRows = previewRows.filter((r) => r.status === 'change' && !excludedRowIds.has(rowKey(r)));
     if (changeRows.length === 0 && checkedAdditions.length === 0) return;
@@ -509,6 +632,25 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                   </div>
                 </label>
               )}
+
+              {ryaPyEnabled && (
+                <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="source"
+                    className="mt-1"
+                    checked={source === 'rya-py'}
+                    onChange={() => setSource('rya-py')}
+                  />
+                  <div>
+                    <div className="font-medium">RYA Portsmouth Yardstick</div>
+                    <div className="text-sm text-muted-foreground">
+                      Set each class&apos;s PY number from the RYA&apos;s published list, and tidy
+                      class names to match. Matched by boat class, not sail number.
+                    </div>
+                  </div>
+                </label>
+              )}
             </div>
 
             <DialogFooter>
@@ -520,7 +662,9 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                       ? 'source-irc-rating'
                       : source === 'irish-sailing'
                         ? 'source-irish-sailing'
-                        : 'source-series',
+                        : source === 'rya-py'
+                          ? 'source-rya-py'
+                          : 'source-series',
                   )
                 }
               >
@@ -870,6 +1014,63 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
           </>
         )}
 
+        {step === 'source-rya-py' && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Update handicaps from the RYA PY list</DialogTitle>
+              <DialogDescription>
+                We match each boat&apos;s class against the RYA Portsmouth Yardstick list and
+                propose its PY number. Tick whether to also normalise the class name.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2 min-h-0 min-w-0 overflow-y-auto">
+              <RyaPyPreview
+                proposals={ryaPyProposals}
+                targetCompetitorById={targetCompetitorById}
+                renameOff={renameOff}
+                numberOff={numberOff}
+                onToggleRename={(key, on) =>
+                  setRenameOff((prev) => {
+                    const next = new Set(prev);
+                    if (on) next.delete(key);
+                    else next.add(key);
+                    return next;
+                  })
+                }
+                onToggleNumber={(key, on) =>
+                  setNumberOff((prev) => {
+                    const next = new Set(prev);
+                    if (on) next.delete(key);
+                    else next.add(key);
+                    return next;
+                  })
+                }
+                onChoose={(key, value) =>
+                  setChosenByClass((prev) => ({ ...prev, [key]: value }))
+                }
+              />
+
+              <p className="text-xs text-muted-foreground">
+                RYA Portsmouth Number List {RYA_PY_VERSION.year} (base v{RYA_PY_VERSION.base},
+                limited-data v{RYA_PY_VERSION.limitedData}).
+              </p>
+
+              {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button
+                onClick={handleApply}
+                disabled={ryaPyUpdateRows.length === 0 || updateMut.isPending}
+              >
+                {updateMut.isPending ? 'Applying…' : `Apply ${ryaPyUpdateRows.length}`}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
         {step === 'done' && result && (
           <>
             <DialogHeader>
@@ -890,6 +1091,9 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                 )}
                 {result.added > 0 && (
                   <li>{result.added} added to a handicap fleet</li>
+                )}
+                {result.renamed != null && result.renamed > 0 && (
+                  <li>{result.renamed} class name{result.renamed === 1 ? '' : 's'} normalised</li>
                 )}
                 <li>{result.unchanged} unchanged</li>
                 {result.notFound > 0 && (
@@ -1205,6 +1409,155 @@ function AddToFleetSection({
                     </select>
                   )}
                   {c.proposedTcf !== null ? formatTcf(c.proposedTcf, c.system) : '—'}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/** The current PY number shared across a proposal's boats, or a marker when
+ *  they disagree / are unset. */
+function currentNumberDisplay(p: PyClassProposal): string {
+  const distinct = new Set(p.affected.map((a) => a.currentNumber));
+  if (distinct.size === 1) {
+    const [only] = distinct;
+    return only === null ? '—' : String(only);
+  }
+  return 'varies';
+}
+
+function RyaPyPreview({
+  proposals,
+  targetCompetitorById,
+  renameOff,
+  numberOff,
+  onToggleRename,
+  onToggleNumber,
+  onChoose,
+}: {
+  proposals: PyClassProposal[];
+  targetCompetitorById: Map<string, Competitor>;
+  renameOff: Set<string>;
+  numberOff: Set<string>;
+  /** `on` = apply this half (remove the class from the off-set). */
+  onToggleRename: (key: string, on: boolean) => void;
+  onToggleNumber: (key: string, on: boolean) => void;
+  /** Resolve an ambiguous/unmatched class: value is a class key, or `'__skip__'`. */
+  onChoose: (key: string, value: string) => void;
+}) {
+  if (proposals.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No PY fleets with classed boats in this series.
+      </p>
+    );
+  }
+
+  const resolvedCount = proposals.filter((p) => p.resolved).length;
+  const unresolved = proposals.length - resolvedCount;
+  const summary = `${proposals.length} class${proposals.length === 1 ? '' : 'es'} in PY fleets${
+    unresolved > 0 ? `, ${unresolved} needing a match` : ''
+  }`;
+
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-medium">{summary}</div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Class (entered)</TableHead>
+            <TableHead>RYA class</TableHead>
+            <TableHead className="text-right">PY number</TableHead>
+            <TableHead>Apply</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {proposals.map((p) => {
+            const r = p.resolved;
+            const { canRename, canSetNumber } = ryaPyChanges(p, targetCompetitorById);
+            const renameApplied = canRename && !renameOff.has(p.enteredKey);
+            const numberApplied = canSetNumber && !numberOff.has(p.enteredKey);
+            const showPicker = p.matchStatus !== 'matched';
+            const options = p.matchStatus === 'ambiguous' ? p.candidates : ryaPyMatcher.all();
+
+            return (
+              <TableRow key={p.enteredKey}>
+                <TableCell>
+                  {p.enteredClass}
+                  <span className="block text-xs text-muted-foreground">
+                    {p.affected.length} boat{p.affected.length === 1 ? '' : 's'}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  {showPicker ? (
+                    <select
+                      aria-label={`RYA class for ${p.enteredClass}`}
+                      value={r ? classKey(r) : ''}
+                      onChange={(e) => onChoose(p.enteredKey, e.target.value)}
+                      className="block max-w-[16rem] rounded border bg-background px-1 py-0.5 text-xs"
+                    >
+                      <option value="">
+                        {p.matchStatus === 'ambiguous' ? 'Pick a class…' : 'No match — pick…'}
+                      </option>
+                      {options.map((c) => (
+                        <option key={classKey(c)} value={classKey(c)}>
+                          {c.name} ({c.number})
+                          {TIER_LABEL[c.tier] ? ` · ${TIER_LABEL[c.tier]}` : ''}
+                        </option>
+                      ))}
+                      <option value="__skip__">— skip —</option>
+                    </select>
+                  ) : (
+                    <span>{r?.name}</span>
+                  )}
+                  {r && (
+                    <span className="block text-xs text-muted-foreground">
+                      {p.via === 'alias' && 'matched by alias'}
+                      {TIER_LABEL[r.tier] && (
+                        <span className="text-amber-600 dark:text-amber-500">
+                          {p.via === 'alias' ? ' · ' : ''}
+                          {TIER_LABEL[r.tier]} — guide only
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {r ? `${currentNumberDisplay(p)} → ${r.number}` : '—'}
+                </TableCell>
+                <TableCell>
+                  {r && (canRename || canSetNumber) ? (
+                    <div className="flex flex-col gap-0.5 text-xs">
+                      <label className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5"
+                          checked={renameApplied}
+                          disabled={!canRename}
+                          onChange={(e) => onToggleRename(p.enteredKey, e.target.checked)}
+                        />
+                        Name
+                      </label>
+                      <label className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5"
+                          checked={numberApplied}
+                          disabled={!canSetNumber}
+                          onChange={(e) => onToggleNumber(p.enteredKey, e.target.checked)}
+                        />
+                        Number
+                      </label>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {r ? 'no change' : '—'}
+                    </span>
+                  )}
                 </TableCell>
               </TableRow>
             );

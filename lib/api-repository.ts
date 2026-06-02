@@ -497,6 +497,9 @@ export interface HandicapUpdateRow {
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
+  /** Canonical class name to write — the RYA PY source normalises a boat's
+   *  class to the register spelling alongside its PY number. */
+  boatClass?: string;
   /** Fleets to add this competitor to (#170) — unioned with current
    *  membership server-side. */
   addFleetIds?: string[];
