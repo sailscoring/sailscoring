@@ -1,0 +1,2 @@
+ALTER TABLE "series" DROP CONSTRAINT "series_dnf_scoring_chk";--> statement-breakpoint
+ALTER TABLE "series" ADD CONSTRAINT "series_dnf_scoring_chk" CHECK ("series"."dnf_scoring" in ('seriesEntries','startingArea','startingAreaInclDnc'));

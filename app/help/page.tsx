@@ -572,7 +572,10 @@ export default async function HelpPage() {
           <strong className="text-foreground">A5.3 starting-area scoring</strong> in
           Settings, most codes instead score{' '}
           <em>starting-area entries + 1</em> for that race — a smaller penalty when
-          turnout is low. DNC always scores series entries + 1 regardless.
+          turnout is low. DNC still scores series entries + 1 regardless. A third
+          option, <strong className="text-foreground">starting area including DNC</strong>{' '}
+          (RRS A5.3 as changed by DBSC Sailing Instruction A13.2), scores DNC from the
+          boats that came to the start + 1 as well.
         </p>
         <p>
           <strong className="text-foreground">DNE cannot be discarded.</strong>{' '}

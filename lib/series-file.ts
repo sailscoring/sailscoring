@@ -4,6 +4,7 @@ import type {
   ResultCode,
   PenaltyCode,
   DiscardThreshold,
+  DnfScoring,
   Finish,
   CompetitorFieldKey,
   PrimaryPersonLabel,
@@ -92,7 +93,7 @@ interface SeriesFileSeries {
   venueUrl?: string;   // additive; absent in files written before logo/event links landed
   eventUrl?: string;
   discardThresholds: DiscardThreshold[];
-  dnfScoring: 'seriesEntries' | 'startingArea';
+  dnfScoring: DnfScoring;
   ftpHost: string;
   ftpPath: string;
   ftpPaths?: Record<string, string>;  // v4+; absent in older files

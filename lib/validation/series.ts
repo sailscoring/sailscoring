@@ -60,7 +60,7 @@ export const seriesSchema = z.object({
   scoringMode: z.enum(['scratch', 'handicap']),
   defaultStartSequence: z.array(startGroupSchema).optional(),
   discardThresholds: z.array(discardThresholdSchema),
-  dnfScoring: z.enum(['seriesEntries', 'startingArea']),
+  dnfScoring: z.enum(['seriesEntries', 'startingArea', 'startingAreaInclDnc']),
   ftpHost: z.string(),
   ftpPath: z.string(),
   ftpPaths: z.record(z.string(), z.string()),

@@ -144,7 +144,7 @@ export interface Fixture {
   notes?: string;
   series: {
     discardThresholds: DiscardThreshold[];
-    dnfScoring?: 'seriesEntries' | 'startingArea';
+    dnfScoring?: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
   };
   fleet?: FixtureFleet;        // present for handicap/NHC; optional for scratch
   competitors: FixtureCompetitor[];
@@ -163,7 +163,7 @@ export interface FixtureInputs {
   finishes: Finish[];
   raceStarts: RaceStart[];
   discardThresholds: DiscardThreshold[];
-  dnfScoring: 'seriesEntries' | 'startingArea';
+  dnfScoring: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
   sailToId: Map<string, string>;
 }
 

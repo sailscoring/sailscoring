@@ -190,6 +190,13 @@
       "when": 1780257212628,
       "tag": "0026_nebulous_wasp",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1780440106885,
+      "tag": "0027_military_cammi",
+      "breakpoints": true
     }
   ]
 }

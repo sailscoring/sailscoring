@@ -49,6 +49,14 @@ export interface Category {
  *  tagged; `.sailscoring` opens and hand-built series leave `source` unset. */
 export type SeriesSource = 'sailwave';
 
+/** How boats that did not finish are scored (RRS Appendix A5).
+ *  - `seriesEntries` — A5.2: penalty = series entries + 1.
+ *  - `startingArea` — A5.3: came-but-didn't-finish codes (DNF/RET/OCS/…) =
+ *    boats that came to the start + 1; DNC stays at entries + 1.
+ *  - `startingAreaInclDnc` — A5.3 as changed by DBSC SI A13.2: DNC is *also*
+ *    scored from the boats that came to the start (came + 1). */
+export type DnfScoring = 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
+
 export interface Series {
   id: string;
   name: string;
@@ -70,7 +78,7 @@ export interface Series {
   defaultStartSequence?: StartGroup[];  // default start groups and offsets for race creation
   // Scoring rules
   discardThresholds: DiscardThreshold[];
-  dnfScoring: 'seriesEntries' | 'startingArea';  // A5.2 (default) or A5.3
+  dnfScoring: DnfScoring;  // A5.2, A5.3, or A5.3-with-DNC-from-starting-area
   // Publishing
   ftpHost: string;   // saved FTP server host for this series (empty if not yet published)
   ftpPath: string;   // legacy single path; falls back here when ftpPaths has no entry for a fleet (series uploaded before per-fleet paths landed)

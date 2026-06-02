@@ -47,7 +47,7 @@ describe('buildThursdayBlueSeries', () => {
 
   it('configures DBSC scoring (handicap, modified A5.3, sliding discards)', () => {
     expect(file.series.scoringMode).toBe('handicap');
-    expect(file.series.dnfScoring).toBe('startingArea');
+    expect(file.series.dnfScoring).toBe('startingAreaInclDnc');
     expect(file.series.discardThresholds[0]).toEqual({ minRaces: 4, discardCount: 1 });
   });
 

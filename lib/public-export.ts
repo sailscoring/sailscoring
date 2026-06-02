@@ -2,6 +2,7 @@ import type {
   ResultCode,
   PenaltyCode,
   DiscardThreshold,
+  DnfScoring,
   CompetitorFieldKey,
   PrimaryPersonLabel,
   Finish,
@@ -52,7 +53,7 @@ export interface PublicSeriesExport {
     venueUrl?: string;
     eventUrl?: string;
     discardThresholds: DiscardThreshold[];
-    dnfScoring: 'seriesEntries' | 'startingArea';
+    dnfScoring: DnfScoring;
     /** Which optional competitor fields the scorer has chosen to show.
      *  Display hint for re-renderers; competitor data is still exported in
      *  full regardless of this setting. */

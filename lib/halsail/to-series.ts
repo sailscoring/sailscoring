@@ -72,7 +72,7 @@ interface FileSeries {
   venueUrl: string;
   eventUrl: string;
   discardThresholds: { minRaces: number; discardCount: number }[];
-  dnfScoring: 'seriesEntries' | 'startingArea';
+  dnfScoring: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
   ftpHost: string;
   ftpPath: string;
   includeJsonExport: boolean;
@@ -302,7 +302,9 @@ export function buildThursdayBlueSeries(
       venueUrl: '',
       eventUrl: '',
       discardThresholds: DBSC_DISCARDS,
-      dnfScoring: 'startingArea',
+      // DBSC SI A13.2: a boat that did not come to the start is scored from the
+      // number that came + 1 (not series entries + 1).
+      dnfScoring: 'startingAreaInclDnc',
       ftpHost: '',
       ftpPath: '',
       includeJsonExport: true,

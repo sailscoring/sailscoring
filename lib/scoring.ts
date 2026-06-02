@@ -1,4 +1,4 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates } from './types';
 import { getCodeDefinition } from './scoring-codes';
 
 export const ECHO_DEFAULT_ALPHA = 0.25;  // Irish Sailing 2022 ECHO Guide: 75/25 club racing
@@ -39,21 +39,26 @@ export function roundCorrectedSecs(elapsedSecs: number, tcf: number): number {
  * Rules (Low Point, RRS Appendix A):
  *  - finisher:  points = finishing position within fleet
  *  - Coded result: points determined by the code's ScoringCodeDefinition.
- *    penaltyBase 'entries' → series entries + 1 (always; e.g. DNC)
+ *    penaltyBase 'entries' → series entries + 1 (e.g. DNC under A5.2/A5.3)
  *    penaltyBase 'starters' → depends on dnfScoring:
  *      'seriesEntries' (A5.2, default): series entries + 1
- *      'startingArea'  (A5.3): starting-area entries + 1
- *  - Missing finish record → implicit DNC (entries + 1)
+ *      'startingArea'  (A5.3): starting-area count + 1
+ *  - DNC base depends on dnfScoring: entries + 1 under 'seriesEntries' and
+ *    standard 'startingArea'; came-to-start + 1 under 'startingAreaInclDnc'
+ *    (DBSC SI A13.2 changes A5.3 so a boat that did not come to the start is
+ *    scored from the number that came).
+ *  - Missing finish record → implicit DNC.
  *
  * @param finishes  All Finish records for this race
  * @param competitors  All competitors in the series
- * @param dnfScoring  'seriesEntries' (A5.2, default) or 'startingArea' (A5.3)
+ * @param dnfScoring  'seriesEntries' (A5.2), 'startingArea' (A5.3), or
+ *   'startingAreaInclDnc' (A5.3 with DNC also scored from the starting area)
  * @returns  Map of competitorId → RaceScore
  */
 export function calculateRaceScores(
   finishes: Finish[],
   competitors: Competitor[],
-  dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
+  dnfScoring: DnfScoring = 'seriesEntries',
 ): Map<string, RaceScore> {
   const n = competitors.length;
   const seriesEntryPenalty = n + 1;
@@ -65,16 +70,18 @@ export function calculateRaceScores(
     (f) => f.competitorId !== null && competitorIds.has(f.competitorId),
   );
 
-  // Under A5.3, compute a per-race penalty for 'starters'-base codes.
-  // 'entries'-base codes (DNC) always use seriesEntryPenalty regardless.
+  // Under A5.3, compute a per-race penalty for 'starters'-base codes from the
+  // number of boats that came to the start. DNC normally stays at entries + 1;
+  // under 'startingAreaInclDnc' (DBSC A13.2) it uses the starting-area count too.
   let startingAreaPenalty = seriesEntryPenalty;
-  if (dnfScoring === 'startingArea') {
+  if (dnfScoring !== 'seriesEntries') {
     const hasCheckinData = fleetFinishes.some((f) => f.startPresent === true);
     const startingAreaCount = hasCheckinData
       ? fleetFinishes.filter((f) => f.startPresent === true).length
       : fleetFinishes.filter((f) => f.resultCode !== 'DNC').length;
     startingAreaPenalty = startingAreaCount + 1;
   }
+  const dncPenalty = dnfScoring === 'startingAreaInclDnc' ? startingAreaPenalty : seriesEntryPenalty;
 
   const finishMap = new Map(
     fleetFinishes.map((f) => [f.competitorId as string, f]),
@@ -86,17 +93,19 @@ export function calculateRaceScores(
     const finish = finishMap.get(competitor.id);
 
     if (!finish) {
-      // Missing finish record = implicit DNC — always series entries + 1
+      // Missing finish record = implicit DNC.
       result.set(competitor.id, {
         competitorId: competitor.id,
-        points: seriesEntryPenalty,
+        points: dncPenalty,
         place: null,
         rank: null,
         resultCode: 'DNC',
       });
     } else if (finish.resultCode !== null) {
       const def = getCodeDefinition(finish.resultCode);
-      const points = penaltyPoints(def?.pointsMethod ?? { type: 'fixed_penalty', penaltyBase: 'entries' }, seriesEntryPenalty, startingAreaPenalty);
+      const points = finish.resultCode === 'DNC'
+        ? dncPenalty
+        : penaltyPoints(def?.pointsMethod ?? { type: 'fixed_penalty', penaltyBase: 'entries' }, seriesEntryPenalty, startingAreaPenalty);
       result.set(competitor.id, {
         competitorId: competitor.id,
         points,
@@ -274,7 +283,7 @@ export function calculateHandicapRaceScores(
   competitors: Competitor[],
   raceStart: RaceStart,
   appliedTcfByCompetitorId: Map<string, number>,
-  dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
+  dnfScoring: DnfScoring = 'seriesEntries',
 ): { scores: Map<string, HandicapRaceScore> } {
   const startSeconds = parseTimeToSeconds(raceStart.startTime);
 
@@ -292,7 +301,7 @@ export function calculateHandicapRaceScores(
   // A5.3 starting-area penalty: count only rated boats — unrated boats aren't
   // scored in this fleet, so they don't enter the starters count either.
   let startingAreaPenalty = seriesEntryPenalty;
-  if (dnfScoring === 'startingArea') {
+  if (dnfScoring !== 'seriesEntries') {
     const ratedFinishes = Array.from(finishMap.values()).filter((f) => ratedIds.has(f.competitorId));
     const hasCheckinData = ratedFinishes.some((f) => f.startPresent === true);
     const startingAreaCount = hasCheckinData
@@ -300,6 +309,9 @@ export function calculateHandicapRaceScores(
       : ratedFinishes.filter((f) => f.resultCode !== 'DNC').length;
     startingAreaPenalty = startingAreaCount + 1;
   }
+  // DBSC A13.2 (startingAreaInclDnc): DNC is scored from the starting-area
+  // count too, not series entries.
+  const dncPenalty = dnfScoring === 'startingAreaInclDnc' ? startingAreaPenalty : seriesEntryPenalty;
 
   // First pass: compute ET, CT, TCF for each competitor
   interface Candidate {
@@ -378,11 +390,13 @@ export function calculateHandicapRaceScores(
   for (const c of candidates) {
     if (scores.has(c.competitorId)) continue;
     const def = c.resultCode ? getCodeDefinition(c.resultCode) : undefined;
-    const points = penaltyPoints(
-      def?.pointsMethod ?? { type: 'fixed_penalty', penaltyBase: 'entries' },
-      seriesEntryPenalty,
-      startingAreaPenalty,
-    );
+    const points = c.resultCode === 'DNC'
+      ? dncPenalty
+      : penaltyPoints(
+          def?.pointsMethod ?? { type: 'fixed_penalty', penaltyBase: 'entries' },
+          seriesEntryPenalty,
+          startingAreaPenalty,
+        );
     scores.set(c.competitorId, {
       competitorId: c.competitorId,
       points,
@@ -808,7 +822,7 @@ export function calculateStandings(
   races: Race[],
   allFinishes: Finish[],
   discardThresholds: DiscardThreshold[] = [],
-  dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
+  dnfScoring: DnfScoring = 'seriesEntries',
 ): { standings: Standing[]; circularRedressRaces: number[] } {
   const competitorIds = new Set(competitors.map((c) => c.id));
 
@@ -1064,7 +1078,7 @@ function calculateHandicapStandings(
   raceStarts: RaceStart[],
   fleet: Fleet,
   discardThresholds: DiscardThreshold[] = [],
-  dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
+  dnfScoring: DnfScoring = 'seriesEntries',
 ): {
   standings: Standing[];
   rejections: ScoringRejection[];
@@ -1354,7 +1368,7 @@ export function calculateFleetStandings(
   races: Race[],
   allFinishes: Finish[],
   discardThresholds: DiscardThreshold[] = [],
-  dnfScoring: 'seriesEntries' | 'startingArea' = 'seriesEntries',
+  dnfScoring: DnfScoring = 'seriesEntries',
   raceStarts: RaceStart[] = [],
 ): {
   fleetStandings: {

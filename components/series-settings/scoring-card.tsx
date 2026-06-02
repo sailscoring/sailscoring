@@ -165,6 +165,22 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
           </p>
         </div>
       </label>
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input
+          type="radio"
+          name="dnfScoring"
+          checked={dnfScoring === 'startingAreaInclDnc'}
+          onChange={() => updateDnf('startingAreaInclDnc')}
+          className="mt-0.5"
+        />
+        <div>
+          <span className="text-sm font-medium">Starting area, including DNC (RRS A5.3 as changed by DBSC)</span>
+          <p className="text-xs text-muted-foreground">
+            As above, but a boat that did not come to the start (DNC) is also scored from the boats that came + 1.
+            Matches DBSC Sailing Instruction A13.2.
+          </p>
+        </div>
+      </label>
     </div>
   );
 
@@ -178,9 +194,12 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
   }
 
   const ruleCount = (value.discardThresholds ?? []).length;
-  const dnfLabel = (value.dnfScoring ?? 'seriesEntries') === 'startingArea'
-    ? 'DNF: starting area'
-    : 'DNF: series entries';
+  const dnfMode = value.dnfScoring ?? 'seriesEntries';
+  const dnfLabel = dnfMode === 'startingAreaInclDnc'
+    ? 'DNF: starting area (incl. DNC)'
+    : dnfMode === 'startingArea'
+      ? 'DNF: starting area'
+      : 'DNF: series entries';
   const summary = ruleCount === 0
     ? `No discards · ${dnfLabel}`
     : `${ruleCount} discard rule${ruleCount !== 1 ? 's' : ''} · ${dnfLabel}`;
