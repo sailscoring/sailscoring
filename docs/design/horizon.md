@@ -531,6 +531,31 @@ the series totalling step. Interaction with discards needs thought: is the
 weighted or unweighted score used when selecting which race to discard?
 Sailwave's behaviour here is worth checking before designing.
 
+### Remaining RDG (redress) methods — place-based and per-fleet stated
+
+The engine supports redress as an average (RRS A9(a) `all_races`, the
+DNC-excluding `all_races_excl_dnc`, and `races_before`) plus a single `stated`
+points value. HalSail additionally offers two methods we can't reproduce
+faithfully yet (see `docs/notes/halsail/querying-public-results.md`):
+
+- **RDG type 4 — points for a given place.** The boat is scored as if it
+  finished in a stated place (and ties with any boat actually in that place).
+  No engine equivalent: we'd need a "points for place N" redress that resolves
+  against the race's actual scores. Shape: a `redressPlace` field + resolver
+  that reads the Nth place's points.
+- **RDG type 5 — a specific points value**, and type 4, share a deeper
+  problem in the dual-scoring model: the value is **per-fleet** (a boat racing
+  IRC + ECHO gets different redress points in each), but a `Finish` is shared
+  across all the competitor's fleets, so a single `stated`/`place` value can't
+  be right for both. A faithful fix needs per-fleet redress (redress keyed by
+  `(competitor, race, fleet)`), which is a model change. Until then, the
+  HalSail converter maps types 1/2/3 (the averages, which the engine recomputes
+  per fleet) and warns on 4/5.
+
+Related single-shared-finish limitation: a boat whose **IRC TCC changes
+mid-series** (HalSail flags it `*`) can't be represented either — we store one
+`ircTcc`. Same root cause (per-fleet/per-race rating on a shared finish).
+
 ---
 
 ## Deferred handicap-system work

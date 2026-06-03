@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>IRC — RDG average excluding DNC up to the discard limit (handicap path) — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All IRC handicap examples</a></p>
+<h1>IRC — RDG average excluding DNC up to the discard limit (handicap path)</h1>
+<p style="font-style:italic; color:#444;">Redress in a handicap (IRC) fleet, HalSail RDG type 2. Until now redress was only resolved for scratch fleets; this exercises the handicap standings path. All boats race TCC 1.0 so corrected time = elapsed and places follow finish order. 4 boats (N=4 → DNC = 5), 4 races → 1 discard allowed. Alice is granted redress in race 4. Other races: R1 DNC (5), R2 DNC (5), R3 = 2. One DNC excluded (allowance 1), the other kept → mean(5, 2) = 3.5.
+</p>
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> IRC
+</div>
+
+<h2 style="margin-top:1.5em;">Race 1</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Bob</td>
+  <td class="mono">2</td>
+  <td class="mono">1.000</td>
+  <td class="mono">14:50:00</td>
+  <td class="mono">50m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">50m 00s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Carol</td>
+  <td class="mono">3</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">60m 00s</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Dave</td>
+  <td class="mono">4</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:10:00</td>
+  <td class="mono">70m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">70m 00s</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Alice</td>
+  <td class="mono">1</td>
+  <td class="mono">1.000</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">—</td>
+  <td>5</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Race 2</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Bob</td>
+  <td class="mono">2</td>
+  <td class="mono">1.000</td>
+  <td class="mono">14:50:00</td>
+  <td class="mono">50m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">50m 00s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Carol</td>
+  <td class="mono">3</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">60m 00s</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Dave</td>
+  <td class="mono">4</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:10:00</td>
+  <td class="mono">70m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">70m 00s</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Alice</td>
+  <td class="mono">1</td>
+  <td class="mono">1.000</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">—</td>
+  <td>5</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Race 3</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Bob</td>
+  <td class="mono">2</td>
+  <td class="mono">1.000</td>
+  <td class="mono">14:50:00</td>
+  <td class="mono">50m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">50m 00s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Alice</td>
+  <td class="mono">1</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">60m 00s</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Carol</td>
+  <td class="mono">3</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:10:00</td>
+  <td class="mono">70m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">70m 00s</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Dave</td>
+  <td class="mono">4</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:20:00</td>
+  <td class="mono">80m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">80m 00s</td>
+  <td>4</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Race 4</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Bob</td>
+  <td class="mono">2</td>
+  <td class="mono">1.000</td>
+  <td class="mono">14:50:00</td>
+  <td class="mono">50m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">50m 00s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Carol</td>
+  <td class="mono">3</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">60m 00s</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Dave</td>
+  <td class="mono">4</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:10:00</td>
+  <td class="mono">70m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">70m 00s</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Alice</td>
+  <td class="mono">1</td>
+  <td class="mono">1.000</td>
+  <td class="mono">RDG</td>
+  <td class="mono">—</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">—</td>
+  <td>5</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Bob</td>
+  <td class="mono">2</td>
+  <td class="mono" style="text-decoration:line-through;color:#888;">1</td><td class="mono">1</td><td class="mono">1</td><td class="mono">1</td>
+  <td class="mono">4</td>
+  <td class="mono">3</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Carol</td>
+  <td class="mono">3</td>
+  <td class="mono">2</td><td class="mono">2</td><td class="mono" style="text-decoration:line-through;color:#888;">3</td><td class="mono">2</td>
+  <td class="mono">9</td>
+  <td class="mono">6</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Dave</td>
+  <td class="mono">4</td>
+  <td class="mono">3</td><td class="mono">3</td><td class="mono" style="text-decoration:line-through;color:#888;">4</td><td class="mono">3</td>
+  <td class="mono">13</td>
+  <td class="mono">9</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Alice</td>
+  <td class="mono">1</td>
+  <td class="mono" style="text-decoration:line-through;color:#888;">DNC</td><td class="mono">DNC</td><td class="mono">2</td><td class="mono">RDG</td>
+  <td class="mono">15.5</td>
+  <td class="mono">10.5</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

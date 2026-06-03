@@ -134,7 +134,7 @@ export interface PublicSeriesExport {
       penaltyOverride?: number | null;
       /** Redress (RDG) configuration — all fields together reproduce
        *  the A9 average. Present iff resultCode === 'RDG'. */
-      redressMethod?: 'all_races' | 'races_before' | 'stated' | null;
+      redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before' | 'stated' | null;
       redressExcludeRaces?: number[] | null;
       redressIncludeRaces?: number[] | null;
       redressIncludeAllLater?: boolean;

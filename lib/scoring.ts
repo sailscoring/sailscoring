@@ -762,6 +762,81 @@ function roundToTenth(x: number): number {
 }
 
 /**
+ * Resolve an RDG redress score from a competitor's already-computed per-race
+ * points and codes. Shared by the scratch and handicap standings passes.
+ *
+ * - `stated` → the entered points.
+ * - `races_before` → mean of races before this one.
+ * - `all_races` (default) → mean of every other race, including the boat's own
+ *   non-finishing scores (RRS A9(a); HalSail RDG type 1).
+ * - `all_races_excl_dnc` → as `all_races`, but DNC results are dropped from the
+ *   pool up to the series discard allowance (HalSail RDG type 2). Excess DNCs
+ *   beyond what may be discarded stay in the mean.
+ * - `redressIncludeRaces` / `redressExcludeRaces` further scope the pool.
+ *
+ * Races with no finishers (`raceExcluded`) are never in the pool. An empty pool
+ * falls back to the DNF score.
+ */
+function resolveRedressScore(
+  finish: Finish,
+  raceIdx: number,
+  allPoints: number[],
+  allCodes: (ResultCode | null)[],
+  races: Race[],
+  raceExcluded: boolean[],
+  fallbackPoints: number,
+  discardAllowance: number,
+): number {
+  if (finish.redressMethod === 'stated') {
+    return finish.redressPoints ?? fallbackPoints;
+  }
+
+  let poolIndices: number[];
+  if (finish.redressIncludeRaces && finish.redressIncludeRaces.length > 0) {
+    const includeSet = new Set(finish.redressIncludeRaces);
+    poolIndices = races
+      .map((r, i) => ({ r, i }))
+      .filter(({ r, i }) => includeSet.has(r.raceNumber) && i !== raceIdx)
+      .map(({ i }) => i);
+    if (finish.redressIncludeAllLater) {
+      const maxIncluded = Math.max(...finish.redressIncludeRaces);
+      const laterIndices = races
+        .map((r, i) => ({ r, i }))
+        .filter(({ r, i }) => r.raceNumber > maxIncluded && i !== raceIdx)
+        .map(({ i }) => i);
+      poolIndices = [...new Set([...poolIndices, ...laterIndices])].sort((a, b) => a - b);
+    }
+  } else if (finish.redressExcludeRaces && finish.redressExcludeRaces.length > 0) {
+    const excludeSet = new Set(finish.redressExcludeRaces);
+    poolIndices = races
+      .map((_, i) => i)
+      .filter((i) =>
+        (finish.redressMethod === 'races_before' ? i < raceIdx : i !== raceIdx) &&
+        !excludeSet.has(races[i].raceNumber),
+      );
+  } else if (finish.redressMethod === 'races_before') {
+    poolIndices = races.map((_, i) => i).filter((i) => i < raceIdx);
+  } else {
+    poolIndices = races.map((_, i) => i).filter((i) => i !== raceIdx);
+  }
+
+  poolIndices = poolIndices.filter((i) => !raceExcluded[i]);
+
+  if (finish.redressMethod === 'all_races_excl_dnc') {
+    // Drop the worst (highest-points) DNC results, up to the discard allowance.
+    const dncWorstFirst = poolIndices
+      .filter((i) => allCodes[i] === 'DNC')
+      .sort((a, b) => allPoints[b] - allPoints[a]);
+    const drop = new Set(dncWorstFirst.slice(0, Math.max(0, discardAllowance)));
+    poolIndices = poolIndices.filter((i) => !drop.has(i));
+  }
+
+  if (poolIndices.length === 0) return fallbackPoints;
+  const avg = poolIndices.reduce((s, i) => s + allPoints[i], 0) / poolIndices.length;
+  return roundToTenth(avg);
+}
+
+/**
  * Resolve penalty points for fixed-penalty result codes (DNC, DNS, OCS, etc.).
  * Additive penalty codes (ZFP, SCP, DPI) are handled separately in calculateRaceScores.
  * Redress (RDG) scores are handled separately in calculateStandings second pass.
@@ -923,66 +998,26 @@ export function calculateStandings(
     }
   }
 
+  // Discard allowance feeds RDG type 2 (drop DNC up to this many).
+  const redressDiscardAllowance = getDiscardCount(
+    raceExcluded.filter((x) => !x).length,
+    discardThresholds,
+  );
+
   for (const { competitorId, raceIdx, finish } of rdgAssignments) {
     const race = races[raceIdx];
     if (circularRaceIds.has(race.id)) continue; // leave placeholder in place
 
-    let redressScore: number;
-
-    if (finish.redressMethod === 'stated') {
-      redressScore = finish.redressPoints ?? (competitors.length + 1);
-    } else {
-      const allPoints = competitorRacePoints.get(competitorId)!;
-      let poolIndices: number[];
-
-      if (finish.redressIncludeRaces !== null && finish.redressIncludeRaces.length > 0) {
-        // Include mode: explicit list (optionally extended by all-later races)
-        const includeSet = new Set(finish.redressIncludeRaces);
-        poolIndices = races
-          .map((r, i) => ({ r, i }))
-          .filter(({ r, i }) => includeSet.has(r.raceNumber) && i !== raceIdx)
-          .map(({ i }) => i);
-        if (finish.redressIncludeAllLater) {
-          const maxIncluded = Math.max(...finish.redressIncludeRaces);
-          const laterIndices = races
-            .map((r, i) => ({ r, i }))
-            .filter(({ r, i }) => r.raceNumber > maxIncluded && i !== raceIdx)
-            .map(({ i }) => i);
-          const merged = new Set([...poolIndices, ...laterIndices]);
-          poolIndices = [...merged].sort((a, b) => a - b);
-        }
-      } else if (finish.redressExcludeRaces !== null && finish.redressExcludeRaces.length > 0) {
-        // Exclude mode: method default minus excluded races
-        const excludeSet = new Set(finish.redressExcludeRaces);
-        if (finish.redressMethod === 'races_before') {
-          poolIndices = races.map((_, i) => i).filter((i) => i < raceIdx && !excludeSet.has(races[i].raceNumber));
-        } else {
-          poolIndices = races.map((_, i) => i).filter((i) => i !== raceIdx && !excludeSet.has(races[i].raceNumber));
-        }
-      } else {
-        // No restriction: use method default
-        if (finish.redressMethod === 'races_before') {
-          poolIndices = races.map((_, i) => i).filter((i) => i < raceIdx);
-        } else {
-          // 'all_races' (default)
-          poolIndices = races.map((_, i) => i).filter((i) => i !== raceIdx);
-        }
-      }
-
-      // Excluded races (no finishers) are not in the RDG pool — they aren't
-      // a "race sailed" for averaging purposes.
-      poolIndices = poolIndices.filter((i) => !raceExcluded[i]);
-
-      const poolPoints = poolIndices.map((i) => allPoints[i]);
-      if (poolPoints.length === 0) {
-        redressScore = competitors.length + 1; // empty pool → DNF score
-      } else {
-        const avg = poolPoints.reduce((s, p) => s + p, 0) / poolPoints.length;
-        redressScore = roundToTenth(avg);
-      }
-    }
-
-    competitorRacePoints.get(competitorId)![raceIdx] = redressScore;
+    competitorRacePoints.get(competitorId)![raceIdx] = resolveRedressScore(
+      finish,
+      raceIdx,
+      competitorRacePoints.get(competitorId)!,
+      competitorRaceCodes.get(competitorId)!,
+      races,
+      raceExcluded,
+      competitors.length + 1,
+      redressDiscardAllowance,
+    );
     competitorRaceRedressFlags.get(competitorId)![raceIdx] = true;
     // resultCode 'RDG' is already in competitorRaceCodes from the first pass
   }
@@ -1090,6 +1125,7 @@ function calculateHandicapStandings(
   echoRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
   echoAggregatesByRaceId?: Map<string, EchoRaceAggregates>;
   tcfHistory?: TcfRecord[];
+  circularRedressRaces: number[];
 } {
   const config = deriveProgressiveHandicapConfig(fleet);
   const isProgressive = config !== null;
@@ -1140,6 +1176,7 @@ function calculateHandicapStandings(
       ...(isNhc ? { nhcRaceScoresByRaceId: new Map(), nhcAggregatesByRaceId: new Map() } : {}),
       ...(isEcho ? { echoRaceScoresByRaceId: new Map(), echoAggregatesByRaceId: new Map() } : {}),
       ...(isProgressive ? { tcfHistory: [] } : {}),
+      circularRedressRaces: [],
     };
   }
 
@@ -1275,6 +1312,45 @@ function calculateHandicapStandings(
     sailedRaceCount,
   );
 
+  // ── Redress (RDG) ─────────────────────────────────────────────────────────
+  // Resolve RDG scores against the per-race points computed above, then they
+  // participate in discards/totals normally. Mirrors calculateStandings.
+  const fleetCompIds = new Set(competitors.map((c) => c.id));
+  const rdgAssignments: Array<{ competitorId: string; raceIdx: number; finish: Finish }> = [];
+  const rdgByRaceId = new Map<string, number>();
+  for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
+    for (const f of finishesByRace.get(races[raceIdx].id) ?? []) {
+      if (f.resultCode === 'RDG' && f.competitorId !== null && fleetCompIds.has(f.competitorId) && !rejectedIds.has(f.competitorId)) {
+        rdgAssignments.push({ competitorId: f.competitorId, raceIdx, finish: f });
+        rdgByRaceId.set(races[raceIdx].id, (rdgByRaceId.get(races[raceIdx].id) ?? 0) + 1);
+      }
+    }
+  }
+  // 2+ RDG in the same race is a circular dependency — leave placeholders.
+  const circularRaceIds = new Set<string>();
+  const circularRedressRaces: number[] = [];
+  for (const [raceId, count] of rdgByRaceId) {
+    if (count >= 2) {
+      circularRaceIds.add(raceId);
+      const r = races.find((rr) => rr.id === raceId);
+      if (r) circularRedressRaces.push(r.raceNumber);
+    }
+  }
+  for (const { competitorId, raceIdx, finish } of rdgAssignments) {
+    if (circularRaceIds.has(races[raceIdx].id)) continue;
+    competitorRacePoints.get(competitorId)![raceIdx] = resolveRedressScore(
+      finish,
+      raceIdx,
+      competitorRacePoints.get(competitorId)!,
+      competitorRaceCodes.get(competitorId)!,
+      races,
+      raceExcluded,
+      competitors.length + 1,
+      getDiscardCount(sailedRaceCount, discardThresholds),
+    );
+    competitorRaceRedressFlags.get(competitorId)![raceIdx] = true;
+  }
+
   const standings: Standing[] = ratedCompetitors.map((competitor) => {
     const racePoints = competitorRacePoints.get(competitor.id)!;
     const raceCodes = competitorRaceCodes.get(competitor.id)!;
@@ -1342,6 +1418,7 @@ function calculateHandicapStandings(
     ...(isNhc ? { nhcRaceScoresByRaceId, nhcAggregatesByRaceId } : {}),
     ...(isEcho ? { echoRaceScoresByRaceId, echoAggregatesByRaceId } : {}),
     ...(isProgressive ? { tcfHistory } : {}),
+    circularRedressRaces,
   };
 }
 
@@ -1407,7 +1484,7 @@ export function calculateFleetStandings(
   const fleetStandings = sorted.map((fleet) => {
     const fleetCompetitors = competitorsByFleet.get(fleet.id) ?? [];
     if (fleet.scoringSystem !== 'scratch') {
-      const { standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory } = calculateHandicapStandings(
+      const { standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory, circularRedressRaces } = calculateHandicapStandings(
         fleetCompetitors,
         races,
         allFinishes,
@@ -1416,6 +1493,7 @@ export function calculateFleetStandings(
         discardThresholds,
         dnfScoring,
       );
+      allCircular.push(...circularRedressRaces);
       return { fleet, standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory };
     }
     const { standings, circularRedressRaces } = calculateStandings(

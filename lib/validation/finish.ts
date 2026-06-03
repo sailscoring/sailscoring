@@ -20,7 +20,7 @@ export const resultCodeSchema = z.enum([
 
 export const penaltyCodeSchema = z.enum(['ZFP', 'SCP', 'DPI']);
 
-export const redressMethodSchema = z.enum(['all_races', 'races_before', 'stated']);
+export const redressMethodSchema = z.enum(['all_races', 'all_races_excl_dnc', 'races_before', 'stated']);
 
 export const finishSchema = z.object({
   id: uuidSchema,

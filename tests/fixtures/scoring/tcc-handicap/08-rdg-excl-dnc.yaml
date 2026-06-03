@@ -1,0 +1,82 @@
+description: "IRC — RDG average excluding DNC up to the discard limit (handicap path)"
+rrs_notes: >
+  Redress in a handicap (IRC) fleet, HalSail RDG type 2. Until now redress was
+  only resolved for scratch fleets; this exercises the handicap standings path.
+  All boats race TCC 1.0 so corrected time = elapsed and places follow finish
+  order. 4 boats (N=4 → DNC = 5), 4 races → 1 discard allowed.
+  Alice is granted redress in race 4. Other races: R1 DNC (5), R2 DNC (5),
+  R3 = 2. One DNC excluded (allowance 1), the other kept → mean(5, 2) = 3.5.
+
+series:
+  discardThresholds:
+    - { minRaces: 4, discardCount: 1 }
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "1", name: "Alice", ircTcc: 1.0 }
+  - { sailNumber: "2", name: "Bob", ircTcc: 1.0 }
+  - { sailNumber: "3", name: "Carol", ircTcc: 1.0 }
+  - { sailNumber: "4", name: "Dave", ircTcc: 1.0 }
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - { sailor: "1", code: DNC }
+      - { sailor: "2", finishTime: "14:50:00" }
+      - { sailor: "3", finishTime: "15:00:00" }
+      - { sailor: "4", finishTime: "15:10:00" }
+  - number: 2
+    startTime: "14:00:00"
+    finishes:
+      - { sailor: "1", code: DNC }
+      - { sailor: "2", finishTime: "14:50:00" }
+      - { sailor: "3", finishTime: "15:00:00" }
+      - { sailor: "4", finishTime: "15:10:00" }
+  - number: 3
+    startTime: "14:00:00"
+    finishes:
+      - { sailor: "2", finishTime: "14:50:00" }
+      - { sailor: "1", finishTime: "15:00:00" }
+      - { sailor: "3", finishTime: "15:10:00" }
+      - { sailor: "4", finishTime: "15:20:00" }
+  - number: 4
+    startTime: "14:00:00"
+    finishes:
+      - { sailor: "1", code: RDG, redressMethod: all_races_excl_dnc }
+      - { sailor: "2", finishTime: "14:50:00" }
+      - { sailor: "3", finishTime: "15:00:00" }
+      - { sailor: "4", finishTime: "15:10:00" }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [1, 1, 1, 1]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 4
+      netPoints: 3
+    - rank: 2
+      sailor: "3"
+      racePoints: [2, 2, 3, 2]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [false, false, true, false]
+      totalPoints: 9
+      netPoints: 6
+    - rank: 3
+      sailor: "4"
+      racePoints: [3, 3, 4, 3]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [false, false, true, false]
+      totalPoints: 13
+      netPoints: 9
+    - rank: 4
+      sailor: "1"
+      racePoints: [5, 5, 2, 3.5]
+      raceCodes: ["DNC", "DNC", null, "RDG"]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 15.5
+      netPoints: 10.5

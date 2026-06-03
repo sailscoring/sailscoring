@@ -1,0 +1,83 @@
+description: "RDG (Redress Given) — average excluding DNC up to the discard limit (HalSail RDG type 2)"
+rrs_notes: >
+  HalSail RDG type 2: the redress score is the mean of the boat's points in all
+  other races, but DNC results are excluded up to the number of races the boat
+  may discard. If it has more DNC results than it can discard, the excess stay
+  in the mean.
+  4 boats (N=4, so DNC = 5). 4 races scored → 1 discard allowed.
+  Alice is granted redress in race 4. Her other races: R1 = DNC (5), R2 = DNC
+  (5), R3 = 2 (2nd). One DNC may be excluded (discard allowance = 1); the other
+  remains. Pool = {5, 2} → mean = 3.5.
+  (Plain RDG type 1 / all_races would average all three: (5+5+2)/3 = 4.0.)
+
+series:
+  discardThresholds:
+    - { minRaces: 4, discardCount: 1 }
+
+competitors:
+  - { sailNumber: "1", name: "Alice" }
+  - { sailNumber: "2", name: "Bob" }
+  - { sailNumber: "3", name: "Carol" }
+  - { sailNumber: "4", name: "Dave" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "1", code: DNC }
+      - { sailor: "2", position: 1 }
+      - { sailor: "3", position: 2 }
+      - { sailor: "4", position: 3 }
+  - number: 2
+    finishes:
+      - { sailor: "1", code: DNC }
+      - { sailor: "2", position: 1 }
+      - { sailor: "3", position: 2 }
+      - { sailor: "4", position: 3 }
+  - number: 3
+    finishes:
+      - { sailor: "2", position: 1 }
+      - { sailor: "1", position: 2 }
+      - { sailor: "3", position: 3 }
+      - { sailor: "4", position: 4 }
+  - number: 4
+    finishes:
+      - { sailor: "1", code: RDG, redressMethod: all_races_excl_dnc }
+      - { sailor: "2", position: 1 }
+      - { sailor: "3", position: 2 }
+      - { sailor: "4", position: 3 }
+
+# Points (DNC = 5; discard the single worst score):
+#   Bob:   [1, 1, 1, 1] total 4   discard 1 → net 3   (rank 1)
+#   Carol: [2, 2, 3, 2] total 9   discard 3 → net 6   (rank 2)
+#   Dave:  [3, 3, 4, 3] total 13  discard 4 → net 9   (rank 3)
+#   Alice: [5/DNC, 5/DNC, 2, 3.5/RDG] total 15.5 discard 5 → net 10.5 (rank 4)
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [1, 1, 1, 1]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 4
+      netPoints: 3
+    - rank: 2
+      sailor: "3"
+      racePoints: [2, 2, 3, 2]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [false, false, true, false]
+      totalPoints: 9
+      netPoints: 6
+    - rank: 3
+      sailor: "4"
+      racePoints: [3, 3, 4, 3]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [false, false, true, false]
+      totalPoints: 13
+      netPoints: 9
+    - rank: 4
+      sailor: "1"
+      racePoints: [5, 5, 2, 3.5]
+      raceCodes: ["DNC", "DNC", null, "RDG"]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 15.5
+      netPoints: 10.5

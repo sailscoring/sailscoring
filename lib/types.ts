@@ -207,8 +207,13 @@ export interface Finish {
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded
   penaltyCode: PenaltyCode | null;    // additive penalty (ZFP/SCP/DPI); only for finishers
   penaltyOverride: number | null;     // SCP: explicit %; DPI: explicit points; null = use default
-  // Redress (RDG) — all null unless resultCode === 'RDG'
-  redressMethod: 'all_races' | 'races_before' | 'stated' | null;
+  // Redress (RDG) — all null unless resultCode === 'RDG'.
+  //   all_races          — RRS A9(a): mean of all other races (incl. DNC etc.)
+  //   all_races_excl_dnc — mean of all other races, excluding DNC results up to
+  //                        the series discard allowance (HalSail RDG type 2)
+  //   races_before       — mean of races before this one
+  //   stated             — scorer-entered points
+  redressMethod: 'all_races' | 'all_races_excl_dnc' | 'races_before' | 'stated' | null;
   redressExcludeRaces: number[] | null; // exclude-mode: remove these races from method-default pool
   redressIncludeRaces: number[] | null; // include-mode: use only these races (overrides method default)
   redressIncludeAllLater: boolean;      // include-mode: also include all races after max(redressIncludeRaces)

@@ -37,7 +37,7 @@ export interface FixtureFinish {
   startPresent?: boolean;
   penaltyCode?: PenaltyCode;
   penaltyOverride?: number;
-  redressMethod?: 'all_races' | 'races_before' | 'stated';
+  redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before' | 'stated';
   redressExcludeRaces?: number[];
   redressIncludeRaces?: number[];
   redressIncludeAllLater?: boolean;
