@@ -48,7 +48,17 @@ interface FileFinish {
   startPresent: boolean | null;
   penaltyCode: null;
   penaltyOverride: null;
+  redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before';
 }
+
+// HalSail redress types (rendered as e.g. "RDG 2") → Sail Scoring methods.
+// Types 4 (points-for-place) and 5 (stated points) have no engine equivalent
+// yet; see docs/design/horizon.md.
+const RDG_TYPE_TO_METHOD: Record<number, 'all_races' | 'all_races_excl_dnc' | 'races_before'> = {
+  1: 'all_races',
+  2: 'all_races_excl_dnc',
+  3: 'races_before',
+};
 interface FileRaceStart {
   id: string;
   fleetIds: string[];
@@ -216,7 +226,7 @@ export function buildThursdayBlueSeries(
   for (const rn of raceNumbers) {
     const starts: FileRaceStart[] = [];
     let date = '';
-    interface Crossing { compId: string; finish: string | null; code: string | null; }
+    interface Crossing { compId: string; sail: string; finish: string | null; code: string | null; redressType: number | null; }
     const crossings: Crossing[] = [];
 
     for (const cl of classes) {
@@ -240,7 +250,7 @@ export function buildThursdayBlueSeries(
         // (DNF/RET/OCS/…) are kept as explicit coded finishes so they count
         // toward the "came to the starting area" tally.
         if (!f.finish && (f.code === 'DNC' || !f.code)) continue;
-        crossings.push({ compId: cid, finish: f.finish, code: f.code });
+        crossings.push({ compId: cid, sail: f.sail, finish: f.finish, code: f.code, redressType: f.redressType });
       }
     }
 
@@ -262,6 +272,19 @@ export function buildThursdayBlueSeries(
       });
     }
     for (const c of crossings.filter((x) => !x.finish)) {
+      // Map HalSail's RDG type to the engine's redress method. The engine then
+      // computes the per-fleet value (a single stated figure can't be right for
+      // IRC and ECHO at once). Types 4/5 have no engine equivalent yet.
+      let redress: { redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before' } = {};
+      if (c.code === 'RDG') {
+        const method = c.redressType != null ? RDG_TYPE_TO_METHOD[c.redressType] : undefined;
+        if (method) {
+          redress = { redressMethod: method };
+        } else {
+          console.warn(`  ! Unsupported RDG type ${c.redressType ?? '?'} for sail ${c.sail} race ${rn}; falling back to all-races average. See horizon.`);
+          redress = { redressMethod: 'all_races' };
+        }
+      }
       finishes.push({
         id: `fin-${rn}-${c.compId}`,
         competitorId: c.compId,
@@ -270,6 +293,7 @@ export function buildThursdayBlueSeries(
         startPresent: true, // came to the start but didn't finish
         penaltyCode: null,
         penaltyOverride: null,
+        ...redress,
       });
     }
 

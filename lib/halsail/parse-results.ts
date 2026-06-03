@@ -32,7 +32,8 @@ export interface HalsailFinisher {
   elapsed: string | null; // "H:MM:SS"
   corrected: string | null;
   points: number | null;
-  code: string | null; // DNC/DNF/RET/... derived from the Points cell
+  code: string | null; // DNC/DNF/RET/... derived from the Place cell
+  redressType: number | null; // RDG type (1-5) from a cell like "RDG 2"; null unless code === 'RDG'
   nextHcap: number | null; // progressive rating AFTER this race
 }
 
@@ -184,18 +185,24 @@ function parseRaceTable(table: string, cap: string): HalsailRace | null {
     if (!sail) continue;
     const finish = row.byKey('finish')?.trim() || null;
     // The Place cell holds either a finishing position (number) or a result
-    // code (RET/DNC/DNF/OCS/…) for non-finishers.
+    // code for non-finishers. Codes may carry a trailing footnote marker
+    // (e.g. "RDG_2"), so match the leading uppercase code letters rather than
+    // the whole cell.
     const placeText = (row.byKey('place') ?? '').trim();
-    const isCode = /^[A-Z]{2,5}$/.test(placeText);
+    const codeMatch = placeText.match(/^([A-Z]{2,5})/);
+    const code = codeMatch ? codeMatch[1] : null;
+    // RDG cells encode the redress type as a trailing number, e.g. "RDG 2".
+    const typeMatch = code === 'RDG' ? placeText.match(/(\d+)\s*$/) : null;
     finishers.push({
       sail,
-      place: isCode ? null : num(placeText),
+      place: codeMatch ? null : num(placeText),
       hcap: num(row.byKey('hcap')),
       finish: finish && TIME_RE.test(finish) ? finish : null,
       elapsed: row.byKey('elapsed')?.trim() || null,
       corrected: row.byKey('corrected')?.trim() || null,
       points: pointsValue(row.byKey('points')),
-      code: isCode ? placeText : null,
+      code,
+      redressType: typeMatch ? Number(typeMatch[1]) : null,
       nextHcap: num(row.byKey('nexthcap')),
     });
   }

@@ -125,6 +125,32 @@ There is a `__RequestVerificationToken` hidden input and an auth-timeout
 poller (`/Account/_CheckTimeout`) in the shell, but **none of the public
 results endpoints require auth or the token** for `GET`.
 
+### Result codes and the RDG type marker
+
+The `Place` cell carries the result code for non-finishers (`DNC`, `DNF`,
+`RET`, `OCS`, …) instead of a position. Redress is special: it renders as
+`RDG` followed by the **redress type number**, e.g. `RDG 2` (the separator
+byte in captured HTML is sometimes an underscore — `RDG_2`). The number is
+*which of HalSail's five redress methods* was applied — it is not a footnote.
+
+HalSail's five RDG types and how they map to Sail Scoring's `redressMethod`:
+
+| HalSail RDG type | Meaning | Sail Scoring `redressMethod` |
+|---|---|---|
+| 1 — Av all races | mean of all other races, **including** DNC/OCS/etc. | `all_races` |
+| 2 — Av excluding DNC | mean of all other races, excluding DNC up to the discard allowance (excess DNCs stay in) | `all_races_excl_dnc` |
+| 3 — Av previous races | mean of races before this one | `races_before` |
+| 4 — Place | points for a given finishing place | *unsupported — see horizon* |
+| 5 — Points | a specific points value | *unsupported (≈ `stated`, but per-fleet) — see horizon* |
+
+RDG 2 is the usual choice for compensating race-officer / hut duty. Types 4
+and 5 have no faithful Sail Scoring equivalent yet (a `Place`/`stated` value
+differs per fleet, but our model stores one shared finish) — see
+`docs/design/horizon.md`. The redress **points value** HalSail displays is
+per-fleet (the average within that fleet's own series), so the converter maps
+the *method* and lets the engine recompute the value per fleet rather than
+copying the published number.
+
 ## Recommended querying strategy (minimise requests)
 
 To enumerate everything a club publishes and then read specific results:
