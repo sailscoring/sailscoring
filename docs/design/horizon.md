@@ -552,9 +552,49 @@ faithfully yet (see `docs/notes/halsail/querying-public-results.md`):
   HalSail converter maps types 1/2/3 (the averages, which the engine recomputes
   per fleet) and warns on 4/5.
 
-Related single-shared-finish limitation: a boat whose **IRC TCC changes
-mid-series** (HalSail flags it `*`) can't be represented either — we store one
-`ircTcc`. Same root cause (per-fleet/per-race rating on a shared finish).
+See also "Mid-series rating changes" below — a related per-race-rating gap.
+
+### Mid-series rating changes (effective-dated fixed ratings)
+
+A boat can change its **fixed** rating part-way through a series: a new IRC
+certificate after a re-measurement, sail/configuration change or endorsement
+(and the same for VPRS, ORC Club, YTC, PY). Races sailed before the change are
+scored on the old rating; races from the change onward on the new one. HalSail
+records the rating per race (and marks a changed boat with `*` in the summary);
+Sailwave likewise lets you set a boat's rating per race.
+
+Sail Scoring currently stores **one rating per competitor** (`ircTcc`,
+`pyNumber`, …), applied to every race in the fleet. So a mid-series change
+can't be represented. Observed in DBSC: boat 2160 (Chimaera) went IRC 1.008
+→ 1.001 between races 3 and 5. The converter uses the first value and warns;
+in that case the wrong rating changed only a corrected *time*, not a place, so
+the standings still matched — but it's luck, not correctness.
+
+This differs from the progressive systems (ECHO/NHC), which recompute a new
+rating every race by design and already carry per-race ratings. The need here
+is a **stepwise, scorer-set** rating: "from race N, this boat's TCC is X",
+because a certificate's issue date doesn't always map cleanly to the race it
+first takes scoring effect (it depends on when the change was notified under
+the SI).
+
+Shape of the change:
+- **Data:** an effective-from list per competitor per system, e.g.
+  `ircTccChanges?: { fromRaceNumber: number; value: number }[]` (sparse;
+  absent = today's single-value behaviour). Carried in the file format,
+  validation, repositories.
+- **Engine:** when building the applied rating for a race in a fixed fleet,
+  resolve the latest change with `fromRaceNumber <= race` (else the base
+  rating). Today's static `appliedTcfMap` becomes per-race, like the
+  progressive path already is.
+- **UI:** a "rating change from race N" affordance on the competitor's
+  handicap fields.
+- **Converter:** HalSail already exposes the per-race `Hcap`; the
+  `halsail-to-series` converter can emit the effective-from entries instead of
+  taking the first value and warning.
+
+Root cause is shared with the per-fleet redress gap above: a rating that
+varies by race (and, for redress, by fleet) on what is currently one shared
+value per competitor.
 
 ---
 
