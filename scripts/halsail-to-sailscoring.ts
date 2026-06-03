@@ -12,11 +12,11 @@
  * IO — no DB, no network (re-fetch fragments with the documented endpoints).
  */
 
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { parseHalsailFleet } from '../lib/halsail/parse-results';
+import { RFC_UUID, contentHashUuid } from '../lib/halsail/snapshot-id';
 import {
   buildThursdayBlueSeries,
   type ClassInput,
@@ -58,17 +58,20 @@ const outPath = join(DATA_DIR, 'dbsc-thursday-blue-2026.sailscoring');
 // to the previous file's history, so every snapshot the user ever imported
 // stays in the chain. See docs/notes/halsail/querying-public-results.md.
 function contentSnapshotId(f: typeof file): string {
-  const h = createHash('sha256')
-    .update(JSON.stringify({ series: f.series, fleets: f.fleets, competitors: f.competitors, races: f.races }))
-    .digest('hex');
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+  return contentHashUuid(
+    JSON.stringify({ series: f.series, fleets: f.fleets, competitors: f.competitors, races: f.races }),
+  );
 }
 
 const snapshotId = contentSnapshotId(file);
 let snapshotHistory: string[] = [snapshotId];
 if (existsSync(outPath)) {
   const prior = JSON.parse(readFileSync(outPath, 'utf8')) as { snapshotHistory?: string[] };
-  const priorHistory = prior.snapshotHistory ?? [];
+  // Drop any prior entries that aren't valid RFC 4122 UUIDs: earlier versions
+  // of this script sliced raw hash digests, producing ids the app's z.uuid()
+  // boundary rejects. Such a snapshot could never have been imported, so it
+  // carries no lineage worth preserving.
+  const priorHistory = (prior.snapshotHistory ?? []).filter((id) => RFC_UUID.test(id));
   // Append only when the content actually changed; otherwise keep the chain
   // as-is so an unchanged regeneration is byte-identical.
   snapshotHistory = priorHistory.includes(snapshotId) ? priorHistory : [...priorHistory, snapshotId];
