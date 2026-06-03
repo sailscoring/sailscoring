@@ -78,6 +78,7 @@ import { RedressDialog } from '@/components/redress-dialog';
 import { ResolveUnknownDialog } from '@/components/resolve-unknown-dialog';
 import { CheckInTab } from '@/components/check-in-tab';
 import { FinishTab } from '@/components/finish-tab';
+import { RatingsTab } from '@/components/ratings-tab';
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 
 /** Inline editor for a race's date. Renders the date as a subtle button that
@@ -196,7 +197,7 @@ export default function ResultEntryPage({
   } = derived;
 
   const { has } = useFeatures();
-  const [activeTab, setActiveTab] = useState<'finish' | 'checkin'>('finish');
+  const [activeTab, setActiveTab] = useState<'finish' | 'checkin' | 'ratings'>('finish');
   const [resolvingEntry, setResolvingEntry] = useState<(FinishEntry & { kind: 'unknown' }) | null>(null);
   // Race starts section
   const [startsExpanded, setStartsExpanded] = useState(false);
@@ -745,6 +746,20 @@ export default function ResultEntryPage({
             <span className="ml-1.5 text-xs text-muted-foreground">({presentCount})</span>
           )}
         </button>
+        {isHandicapSeries && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('ratings')}
+            className={cn(
+              'px-3 py-1.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+              activeTab === 'ratings'
+                ? 'border-foreground text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Ratings
+          </button>
+        )}
       </div>
 
       {activeTab === 'checkin' && (
@@ -755,6 +770,15 @@ export default function ResultEntryPage({
           presentCount={presentCount}
           effectivelyPresent={effectivelyPresent}
           toggleStartPresent={toggleStartPresent}
+        />
+      )}
+
+      {activeTab === 'ratings' && (
+        <RatingsTab
+          seriesId={seriesId}
+          raceId={raceId}
+          competitors={competitors}
+          fleets={fleets ?? []}
         />
       )}
 
