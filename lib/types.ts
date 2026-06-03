@@ -136,6 +136,26 @@ export interface RaceStart {
   version?: number;     // server-side concurrency token (see Series.version)
 }
 
+/** A static-rating field that can be overridden per race. */
+export type RatingField = 'ircTcc' | 'pyNumber';
+
+/**
+ * Per-race override of a competitor's static rating (mid-series rating change,
+ * e.g. a new IRC certificate). The competitor keeps its *current* rating; an
+ * override pins a *past* race to the value in effect then. Sparse — present
+ * only for re-rated boats. Applies to static fleets only (irc/py); progressive
+ * systems (nhc/echo) recompute ratings per race and ignore overrides. See
+ * docs/design/horizon.md.
+ */
+export interface RaceRatingOverride {
+  id: string;
+  raceId: string;
+  competitorId: string;
+  field: RatingField;
+  value: number;     // in the field's own units (IRC TCC, or PY number)
+  version?: number;  // server-side concurrency token (see Series.version)
+}
+
 export interface Competitor {
   id: string;
   seriesId: string;

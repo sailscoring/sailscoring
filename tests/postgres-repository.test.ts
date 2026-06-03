@@ -21,6 +21,7 @@ import type {
   Fleet,
   Race,
   RaceStart,
+  RaceRatingOverride,
   Series,
 } from '@/lib/types';
 
@@ -305,6 +306,35 @@ describe.skipIf(skip)('postgres repositories', () => {
     expect(byRace[0]).toMatchObject({ id: finish.id, sortOrder: 1, startPresent: true });
     const bySeries = await repos.finishes.listBySeries(s.id, [competitor.id]);
     expect(bySeries).toHaveLength(1);
+
+    await repos.series.delete(s.id);
+  });
+
+  test('RaceRatingOverride round-trips and is tenancy-scoped by parent race', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const reposB = createRepos({ db, workspaceId: workspaceB });
+    const s = makeSeries();
+    await repos.series.save(s);
+    const fleet = uuid();
+    await repos.fleets.save({ id: fleet, seriesId: s.id, name: 'F', displayOrder: 0, scoringSystem: 'irc' });
+    const competitor: Competitor = {
+      id: uuid(), seriesId: s.id, fleetIds: [fleet],
+      sailNumber: '1', name: 'Boat', club: '', gender: '', age: null, createdAt: Date.now(),
+    };
+    await repos.competitors.save(competitor);
+    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    await repos.races.save(race);
+
+    const override: RaceRatingOverride = {
+      id: uuid(), raceId: race.id, competitorId: competitor.id, field: 'ircTcc', value: 1.008,
+    };
+    await repos.raceRatingOverrides.saveMany([override]);
+    expect(await repos.raceRatingOverrides.listByRaces([race.id])).toEqual([{ ...override, version: 1 }]);
+    // Another workspace can't see or write them.
+    expect(await reposB.raceRatingOverrides.listByRaces([race.id])).toEqual([]);
+
+    await repos.raceRatingOverrides.deleteByRaces([race.id]);
+    expect(await repos.raceRatingOverrides.listByRaces([race.id])).toEqual([]);
 
     await repos.series.delete(s.id);
   });

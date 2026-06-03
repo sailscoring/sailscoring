@@ -80,6 +80,7 @@ function exportReposFor(workspaceId: string): ExportRepos {
     fleetRepo: repos.fleets,
     finishRepo: repos.finishes,
     raceStartRepo: repos.raceStarts,
+    raceRatingOverrideRepo: repos.raceRatingOverrides,
   };
 }
 

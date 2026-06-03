@@ -1,4 +1,4 @@
-import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart } from './types';
+import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart, RaceRatingOverride } from './types';
 
 /**
  * Thrown by the Postgres-backed `save*` methods when a compare-and-swap
@@ -120,6 +120,13 @@ export interface RaceStartRepository {
   saveMany(raceStarts: RaceStart[], opts?: SaveOpts): Promise<void>;
   delete(id: string): Promise<void>;
   deleteByRace(raceId: string): Promise<void>;
+  deleteByRaces(raceIds: string[]): Promise<void>;
+}
+
+export interface RaceRatingOverrideRepository {
+  listByRaces(raceIds: string[]): Promise<RaceRatingOverride[]>;
+  saveMany(overrides: RaceRatingOverride[], opts?: SaveOpts): Promise<void>;
+  delete(id: string): Promise<void>;
   deleteByRaces(raceIds: string[]): Promise<void>;
 }
 

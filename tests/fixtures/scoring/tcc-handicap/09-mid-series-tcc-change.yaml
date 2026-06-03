@@ -1,0 +1,64 @@
+description: "IRC — mid-series TCC change via per-race rating override"
+rrs_notes: >
+  A boat may be re-rated part-way through a series (a new IRC certificate). The
+  competitor keeps its *current* TCC; earlier races are pinned to the old value
+  with a per-race rating override. Here Bravo races on TCC 1.000 in race 1
+  (override) and on its current TCC 0.900 in race 2 — so the same elapsed time
+  yields different corrected times, and the override is what reproduces race 1.
+
+  Race 1, start 14:00:00 — both sail 1:00:00 elapsed (3600 s):
+    Alpha  TCC 1.000  CT 3600.0  → 1st (1)
+    Bravo  TCC 1.000 (override)  CT 3600.0  → tie 1st with Alpha
+  With identical corrected times they share rank 1 (RRS A8 averaged: 1.5 each).
+
+  Race 2, start 14:00:00:
+    Alpha  finish 15:00:00  ET 3600  TCC 1.000  CT 3600.0  → 1st (1)
+    Bravo  finish 15:05:00  ET 3900  TCC 0.900 (current)  CT 3510.0  → wins on
+           corrected time → 1st (1); Alpha 2nd (2)
+  (Without the race-1 override Bravo would be scored on 0.900 there too:
+  CT 3600 × 0.9 = 3240 — a different corrected time. The override keeps race 1
+  on the old certificate.)
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "1", name: "Alpha", ircTcc: 1.0 }
+  - { sailNumber: "2", name: "Bravo", ircTcc: 0.9 }  # current (race 2) rating
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    ratingOverrides:
+      - { sailor: "2", field: ircTcc, value: 1.0 }   # old certificate
+    finishes:
+      - { sailor: "1", finishTime: "15:00:00" }
+      - { sailor: "2", finishTime: "15:00:00" }
+  - number: 2
+    startTime: "14:00:00"
+    finishes:
+      - { sailor: "2", finishTime: "15:05:00" }
+      - { sailor: "1", finishTime: "15:00:00" }
+
+# Points:
+#   Alpha: race1 1.5 (tie), race2 2   → total 3.5
+#   Bravo: race1 1.5 (tie), race2 1   → total 2.5  (rank 1)
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [1.5, 1]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 2.5
+      netPoints: 2.5
+    - rank: 2
+      sailor: "1"
+      racePoints: [1.5, 2]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 3.5
+      netPoints: 3.5

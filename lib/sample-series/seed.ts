@@ -25,7 +25,7 @@ import { getDb, type SailScoringDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { DEFAULT_SUBDIVISION_LABEL } from '@/lib/competitor-fields';
 import { openSeriesFromFile, parseSeriesFile, type SeriesFileRepos } from '@/lib/series-file';
-import type { Competitor, Fleet, Race, RaceStart, Finish, Series } from '@/lib/types';
+import type { Competitor, Fleet, Race, RaceStart, RaceRatingOverride, Finish, Series } from '@/lib/types';
 
 /**
  * URLs of the committed sample data, in the order they appear in the list.
@@ -168,6 +168,21 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
         );
       },
     } as unknown as SeriesFileRepos['raceStartRepo'],
+
+    raceRatingOverrideRepo: {
+      async saveMany(overrides: RaceRatingOverride[]) {
+        if (overrides.length === 0) return;
+        await db.insert(schema.raceRatingOverrides).values(
+          overrides.map((o) => ({
+            id: o.id,
+            raceId: o.raceId,
+            competitorId: o.competitorId,
+            field: o.field,
+            value: o.value,
+          })),
+        );
+      },
+    } as unknown as SeriesFileRepos['raceRatingOverrideRepo'],
 
     finishRepo: {
       async saveMany(finishes: Finish[]) {

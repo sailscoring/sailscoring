@@ -49,6 +49,7 @@ function makeRepos(initialSeries?: Series): SeriesFileRepos & {
     raceStartRepo: {
       async saveMany(_: RaceStart[]) {},
     } as unknown as SeriesFileRepos['raceStartRepo'],
+    raceRatingOverrideRepo: { listByRaces: async () => [], saveMany: async () => {}, delete: async () => {}, deleteByRaces: async () => {} } as unknown as SeriesFileRepos['raceRatingOverrideRepo'],
     finishRepo: {
       async saveMany(_: Finish[]) {},
     } as unknown as SeriesFileRepos['finishRepo'],

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>IRC — mid-series TCC change via per-race rating override — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All IRC handicap examples</a></p>
+<h1>IRC — mid-series TCC change via per-race rating override</h1>
+<p style="font-style:italic; color:#444;">A boat may be re-rated part-way through a series (a new IRC certificate). The competitor keeps its *current* TCC; earlier races are pinned to the old value with a per-race rating override. Here Bravo races on TCC 1.000 in race 1 (override) and on its current TCC 0.900 in race 2 — so the same elapsed time yields different corrected times, and the override is what reproduces race 1.
+Race 1, start 14:00:00 — both sail 1:00:00 elapsed (3600 s):
+  Alpha  TCC 1.000  CT 3600.0  → 1st (1)
+  Bravo  TCC 1.000 (override)  CT 3600.0  → tie 1st with Alpha
+With identical corrected times they share rank 1 (RRS A8 averaged: 1.5 each).
+Race 2, start 14:00:00:
+  Alpha  finish 15:00:00  ET 3600  TCC 1.000  CT 3600.0  → 1st (1)
+  Bravo  finish 15:05:00  ET 3900  TCC 0.900 (current)  CT 3510.0  → wins on
+         corrected time → 1st (1); Alpha 2nd (2)
+(Without the race-1 override Bravo would be scored on 0.900 there too: CT 3600 × 0.9 = 3240 — a different corrected time. The override keeps race 1 on the old certificate.)
+</p>
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> IRC
+</div>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Points:
+  Alpha: race1 1.5 (tie), race2 2   → total 3.5
+  Bravo: race1 1.5 (tie), race2 1   → total 2.5  (rank 1)</pre>
+<h2 style="margin-top:1.5em;">Race 1</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Bravo</td>
+  <td class="mono">2</td>
+  <td class="mono">0.900</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">0.9000</td>
+  <td class="mono">54m 00s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">60m 00s</td>
+  <td>2</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Race 2</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 14:00:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Bravo</td>
+  <td class="mono">2</td>
+  <td class="mono">0.900</td>
+  <td class="mono">15:05:00</td>
+  <td class="mono">65m 00s</td>
+  <td class="mono">0.9000</td>
+  <td class="mono">58m 30s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">1.000</td>
+  <td class="mono">15:00:00</td>
+  <td class="mono">60m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">60m 00s</td>
+  <td>2</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>R2</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Bravo</td>
+  <td class="mono">2</td>
+  <td class="mono">1.5</td><td class="mono">1</td>
+  <td class="mono">2.5</td>
+  <td class="mono">2.5</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Alpha</td>
+  <td class="mono">1</td>
+  <td class="mono">1.5</td><td class="mono">2</td>
+  <td class="mono">3.5</td>
+  <td class="mono">3.5</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

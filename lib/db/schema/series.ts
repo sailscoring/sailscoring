@@ -314,6 +314,36 @@ export const raceStarts = pgTable(
   (table) => [index('race_starts_race_idx').on(table.raceId)],
 );
 
+export const raceRatingOverrides = pgTable(
+  'race_rating_overrides',
+  {
+    id: uuid('id').primaryKey(),
+    raceId: uuid('race_id')
+      .notNull()
+      .references(() => races.id, { onDelete: 'cascade' }),
+    competitorId: uuid('competitor_id')
+      .notNull()
+      .references(() => competitors.id, { onDelete: 'cascade' }),
+    field: text('field').notNull(),
+    value: real('value').notNull(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
+  },
+  (table) => [
+    index('race_rating_overrides_race_idx').on(table.raceId),
+    uniqueIndex('race_rating_overrides_race_comp_field_idx').on(
+      table.raceId,
+      table.competitorId,
+      table.field,
+    ),
+    check(
+      'race_rating_overrides_field_chk',
+      sql`${table.field} in ('ircTcc','pyNumber')`,
+    ),
+  ],
+);
+
 export const finishes = pgTable(
   'finishes',
   {

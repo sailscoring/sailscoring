@@ -13,6 +13,7 @@ import type {
   FleetRepository,
   RaceRepository,
   RaceStartRepository,
+  RaceRatingOverrideRepository,
   SeriesRepository,
 } from './repository';
 import { calculateFleetStandings, calculateRaceScores } from './scoring';
@@ -242,6 +243,7 @@ export interface ExportRepos {
   fleetRepo: FleetRepository;
   finishRepo: FinishRepository;
   raceStartRepo: RaceStartRepository;
+  raceRatingOverrideRepo: RaceRatingOverrideRepository;
 }
 
 /**
@@ -264,9 +266,10 @@ export async function buildPublicExport(
   ]);
   if (!series || competitors.length === 0 || races.length === 0) return null;
 
-  const [allFinishes, allRaceStarts] = await Promise.all([
+  const [allFinishes, allRaceStarts, allRatingOverrides] = await Promise.all([
     repos.finishRepo.listBySeries(seriesId, competitors.map((c) => c.id)),
     repos.raceStartRepo.listByRaces(races.map((r) => r.id)),
+    repos.raceRatingOverrideRepo.listByRaces(races.map((r) => r.id)),
   ]);
 
   const { fleetStandings } = calculateFleetStandings(
@@ -277,6 +280,7 @@ export async function buildPublicExport(
     series.discardThresholds,
     series.dnfScoring,
     allRaceStarts,
+    allRatingOverrides,
   );
 
   // Build fleet name lookup

@@ -25,6 +25,7 @@ import type {
   FleetRepository,
   RaceRepository,
   RaceStartRepository,
+  RaceRatingOverrideRepository,
   SeriesRepository,
 } from './repository';
 
@@ -38,6 +39,7 @@ export interface SeriesFileRepos {
   fleetRepo: FleetRepository;
   raceRepo: RaceRepository;
   raceStartRepo: RaceStartRepository;
+  raceRatingOverrideRepo: RaceRatingOverrideRepository;
   finishRepo: FinishRepository;
   listSeriesNames(opts?: { excludeId?: string }): Promise<string[]>;
   deleteSeriesChildren(seriesId: string): Promise<void>;
@@ -155,12 +157,20 @@ interface SeriesFileRaceStart {
   startTime: string;
 }
 
+interface SeriesFileRatingOverride {
+  id: string;
+  competitorId: string;
+  field: 'ircTcc' | 'pyNumber';
+  value: number;
+}
+
 interface SeriesFileRace {
   id: string;
   raceNumber: number;
   date: string;
   starts: SeriesFileRaceStart[];
   finishes: SeriesFileFinish[];
+  ratingOverrides?: SeriesFileRatingOverride[]; // additive; absent in older files
 }
 
 interface SeriesFileTcfRecord {
@@ -225,9 +235,10 @@ export async function buildSeriesFile(
   const raceIds = races.map((r) => r.id);
   const competitorIds = competitors.map((c) => c.id);
 
-  const [allFinishes, allRaceStarts] = await Promise.all([
+  const [allFinishes, allRaceStarts, allRatingOverrides] = await Promise.all([
     repos.finishRepo.listBySeries(seriesId, competitorIds),
     repos.raceStartRepo.listByRaces(raceIds),
+    repos.raceRatingOverrideRepo.listByRaces(raceIds),
   ]);
 
   // Compute progressive-handicap (NHC/ECHO) TCF history from the engine
@@ -242,6 +253,7 @@ export async function buildSeriesFile(
     series.discardThresholds ?? [],
     series.dnfScoring ?? 'seriesEntries',
     allRaceStarts,
+    allRatingOverrides,
   );
   const allTcfHistory: TcfRecord[] = fleetStandings.flatMap(
     (fr) => fr.tcfHistory ?? [],
@@ -273,6 +285,12 @@ export async function buildSeriesFile(
   for (const s of allRaceStarts) {
     if (!startsByRace.has(s.raceId)) startsByRace.set(s.raceId, []);
     startsByRace.get(s.raceId)!.push({ id: s.id, fleetIds: s.fleetIds, startTime: s.startTime });
+  }
+
+  const overridesByRace = new Map<string, SeriesFileRatingOverride[]>();
+  for (const o of allRatingOverrides) {
+    if (!overridesByRace.has(o.raceId)) overridesByRace.set(o.raceId, []);
+    overridesByRace.get(o.raceId)!.push({ id: o.id, competitorId: o.competitorId, field: o.field, value: o.value });
   }
 
   const snapshotId = crypto.randomUUID();
@@ -344,6 +362,7 @@ export async function buildSeriesFile(
       date: r.date,
       starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
+      ...(overridesByRace.get(r.id)?.length ? { ratingOverrides: overridesByRace.get(r.id) } : {}),
     })),
     ...(allTcfHistory.length > 0
       ? {
@@ -757,6 +776,20 @@ async function writeFleetsCompetitorsRaces(
         startTime: s.startTime,
       })),
     );
+
+    if (r.ratingOverrides?.length) {
+      await repos.raceRatingOverrideRepo.saveMany(
+        r.ratingOverrides
+          .map((o) => ({
+            id: crypto.randomUUID(),
+            raceId: newRaceId,
+            competitorId: competitorIdMap.get(o.competitorId) ?? '',
+            field: o.field,
+            value: o.value,
+          }))
+          .filter((o) => o.competitorId), // drop overrides for unknown competitors
+      );
+    }
 
     if (r.finishes.length > 0) {
       const finishes: Finish[] = r.finishes.map((f) => {

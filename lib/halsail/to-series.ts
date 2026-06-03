@@ -64,12 +64,19 @@ interface FileRaceStart {
   fleetIds: string[];
   startTime: string;
 }
+interface FileRatingOverride {
+  id: string;
+  competitorId: string;
+  field: 'ircTcc' | 'pyNumber';
+  value: number;
+}
 interface FileRace {
   id: string;
   raceNumber: number;
   date: string;
   starts: FileRaceStart[];
   finishes: FileFinish[];
+  ratingOverrides?: FileRatingOverride[];
 }
 interface FileSeries {
   id: string;
@@ -149,6 +156,16 @@ function firstAppliedHcap(echo: HalsailFleet, sail: string): number | null {
   return null;
 }
 
+/** Per-race applied handicap for a sail (raceNumber → hcap), in race order. */
+function perRaceHcaps(fleet: HalsailFleet, sail: string): { raceNumber: number; hcap: number }[] {
+  const out: { raceNumber: number; hcap: number }[] = [];
+  for (const race of fleet.races) {
+    const f = race.finishers.find((x) => x.sail === sail);
+    if (f && f.hcap != null) out.push({ raceNumber: race.raceNumber, hcap: f.hcap });
+  }
+  return out;
+}
+
 export function buildThursdayBlueSeries(
   classes: ClassInput[],
   oneDesigns: OneDesignInput[],
@@ -176,6 +193,10 @@ export function buildThursdayBlueSeries(
   // Competitors — roster from each class's ECHO fragment.
   const competitors: FileCompetitor[] = [];
   const sailToComp = new Map<string, string>();
+  // Per-race IRC TCC overrides (mid-series rating change), keyed by race number.
+  // The competitor carries its *current* (latest) TCC; earlier races where the
+  // applied TCC differed get an override pinning the old value.
+  const ircOverridesByRace = new Map<number, FileRatingOverride[]>();
   for (const cl of classes) {
     const ircBySail = new Map(cl.irc?.competitors.map((c) => [c.sail, c]) ?? []);
     for (const c of cl.echo.competitors) {
@@ -183,12 +204,28 @@ export function buildThursdayBlueSeries(
       const id = compId(c.sail);
       const fleetIds = [echoFleetId(cl.classNum)];
       const ircComp = ircBySail.get(c.sail);
-      // Prefer the per-race applied TCC over the summary value: HalSail flags a
-      // mid-series rating change with "*" in the summary Hcap (unparseable), but
-      // the detail tables still carry the numeric rating. A boat joins the IRC
-      // fleet only when we have a usable TCC for it.
-      const ircTcc = cl.irc && ircComp ? (firstAppliedHcap(cl.irc, c.sail) ?? ircComp.hcap ?? null) : null;
-      if (ircTcc != null) fleetIds.push(ircFleetId(cl.classNum));
+      // The current TCC is the value applied in the boat's most recent IRC race;
+      // HalSail flags a mid-series change with "*" in the summary, but the detail
+      // tables carry the numeric per-race rating. A boat joins the IRC fleet only
+      // when we have a usable TCC. Earlier races on a different TCC become
+      // per-race overrides (a new certificate part-way through the series).
+      const ircHcaps = cl.irc ? perRaceHcaps(cl.irc, c.sail) : [];
+      const ircTcc = cl.irc && ircComp
+        ? (ircHcaps.length ? ircHcaps[ircHcaps.length - 1].hcap : (ircComp.hcap ?? null))
+        : null;
+      if (ircTcc != null) {
+        fleetIds.push(ircFleetId(cl.classNum));
+        for (const { raceNumber, hcap } of ircHcaps) {
+          if (hcap === ircTcc) continue;
+          if (!ircOverridesByRace.has(raceNumber)) ircOverridesByRace.set(raceNumber, []);
+          ircOverridesByRace.get(raceNumber)!.push({
+            id: `ro-${raceNumber}-${id}-ircTcc`,
+            competitorId: id,
+            field: 'ircTcc',
+            value: hcap,
+          });
+        }
+      }
       for (const odId of odBySail.get(c.sail) ?? []) fleetIds.push(odId);
       const seed = firstAppliedHcap(cl.echo, c.sail);
       competitors.push({
@@ -297,7 +334,15 @@ export function buildThursdayBlueSeries(
       });
     }
 
-    races.push({ id: `race-${rn}`, raceNumber: rn, date: date || '2026-01-01', starts, finishes });
+    const ratingOverrides = ircOverridesByRace.get(rn);
+    races.push({
+      id: `race-${rn}`,
+      raceNumber: rn,
+      date: date || '2026-01-01',
+      starts,
+      finishes,
+      ...(ratingOverrides?.length ? { ratingOverrides } : {}),
+    });
   }
 
   const startDate = races.length ? races.map((r) => r.date).sort()[0] : '2026-01-01';

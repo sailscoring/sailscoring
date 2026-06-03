@@ -14,6 +14,7 @@ import {
   type FtpServerRepository,
   type RaceRepository,
   type RaceStartRepository,
+  type RaceRatingOverrideRepository,
   type SaveOpts,
   type SeriesRepository,
 } from './repository';
@@ -27,6 +28,7 @@ import type {
   PenaltyCode,
   Race,
   RaceStart,
+  RaceRatingOverride,
   ResultCode,
   Series,
 } from './types';
@@ -160,6 +162,19 @@ function raceStartRowToType(row: RaceStartRow): RaceStart {
     raceId: row.raceId,
     fleetIds: row.fleetIds,
     startTime: row.startTime,
+    version: row.version,
+  };
+}
+
+type RaceRatingOverrideRow = typeof schema.raceRatingOverrides.$inferSelect;
+
+function raceRatingOverrideRowToType(row: RaceRatingOverrideRow): RaceRatingOverride {
+  return {
+    id: row.id,
+    raceId: row.raceId,
+    competitorId: row.competitorId,
+    field: row.field as RaceRatingOverride['field'],
+    value: row.value,
     version: row.version,
   };
 }
@@ -1328,6 +1343,81 @@ export class PostgresRaceStartRepository implements RaceStartRepository {
   }
 }
 
+export class PostgresRaceRatingOverrideRepository implements RaceRatingOverrideRepository {
+  private readonly db: SailScoringDb;
+  private readonly workspaceId: string;
+
+  constructor(ctx: RepoCtx) {
+    this.db = ctx.db ?? getDb();
+    this.workspaceId = ctx.workspaceId;
+  }
+
+  async listByRaces(raceIds: string[]): Promise<RaceRatingOverride[]> {
+    const owned = await filterRaceIdsByWorkspace(this.db, this.workspaceId, raceIds);
+    if (owned.length === 0) return [];
+    const rows = await this.db
+      .select()
+      .from(schema.raceRatingOverrides)
+      .where(inArray(schema.raceRatingOverrides.raceId, owned));
+    return rows.map(raceRatingOverrideRowToType);
+  }
+
+  async saveMany(overrides: RaceRatingOverride[], opts?: SaveOpts): Promise<void> {
+    if (overrides.length === 0) return;
+    const updatedBy = opts?.updatedBy ?? null;
+    const raceIds = [...new Set(overrides.map((o) => o.raceId))];
+    const owned = await filterRaceIdsByWorkspace(this.db, this.workspaceId, raceIds);
+    if (owned.length !== raceIds.length) {
+      throw new Error('some races not in workspace');
+    }
+    const values = overrides.map((o) => ({
+      id: o.id,
+      raceId: o.raceId,
+      competitorId: o.competitorId,
+      field: o.field,
+      value: o.value,
+      updatedBy,
+    }));
+    await this.db
+      .insert(schema.raceRatingOverrides)
+      .values(values)
+      .onConflictDoUpdate({
+        target: schema.raceRatingOverrides.id,
+        set: {
+          field: sql`excluded.field`,
+          value: sql`excluded.value`,
+          updatedBy: sql`excluded.updated_by`,
+          version: sql`${schema.raceRatingOverrides.version} + 1`,
+          updatedAt: sql`now()`,
+        },
+      });
+  }
+
+  async delete(id: string): Promise<void> {
+    const [join] = await this.db
+      .select({ id: schema.raceRatingOverrides.id })
+      .from(schema.raceRatingOverrides)
+      .innerJoin(schema.races, eq(schema.raceRatingOverrides.raceId, schema.races.id))
+      .where(
+        and(
+          eq(schema.raceRatingOverrides.id, id),
+          eq(schema.races.workspaceId, this.workspaceId),
+        ),
+      )
+      .limit(1);
+    if (!join) return;
+    await this.db.delete(schema.raceRatingOverrides).where(eq(schema.raceRatingOverrides.id, id));
+  }
+
+  async deleteByRaces(raceIds: string[]): Promise<void> {
+    const owned = await filterRaceIdsByWorkspace(this.db, this.workspaceId, raceIds);
+    if (owned.length === 0) return;
+    await this.db
+      .delete(schema.raceRatingOverrides)
+      .where(inArray(schema.raceRatingOverrides.raceId, owned));
+  }
+}
+
 // ─── Finishes ────────────────────────────────────────────────────────────────
 
 export class PostgresFinishRepository implements FinishRepository {
@@ -1764,6 +1854,7 @@ export function createRepos(ctx: RepoCtx) {
     competitors: new PostgresCompetitorRepository(ctx),
     races: new PostgresRaceRepository(ctx),
     raceStarts: new PostgresRaceStartRepository(ctx),
+    raceRatingOverrides: new PostgresRaceRatingOverrideRepository(ctx),
     finishes: new PostgresFinishRepository(ctx),
     ftpServers: new PostgresFtpServerRepository(ctx),
   };

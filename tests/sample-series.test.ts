@@ -114,6 +114,7 @@ function makeValidatingRepos(): SeriesFileRepos {
         for (const s of ss) raceStartSchema.parse(s);
       },
     } as unknown as SeriesFileRepos['raceStartRepo'],
+    raceRatingOverrideRepo: { listByRaces: async () => [], saveMany: async () => {}, delete: async () => {}, deleteByRaces: async () => {} } as unknown as SeriesFileRepos['raceRatingOverrideRepo'],
     finishRepo: {
       saveMany: async (fs: Finish[]) => {
         for (const f of fs) finishSchema.parse(f);

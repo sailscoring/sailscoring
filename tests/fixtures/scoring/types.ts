@@ -21,7 +21,7 @@ import type {
   Fleet,
   PenaltyCode,
   Race,
-  RaceStart,
+  RaceStart, RaceRatingOverride,
   ResultCode,
 } from '@/lib/types';
 
@@ -103,6 +103,8 @@ export interface FixtureRace {
   expected?: FixtureRaceExpected[];
   aggregates?: FixtureAggregates;
   rejected?: FixtureRejection[];
+  /** Per-race static-rating overrides (mid-series rating change). */
+  ratingOverrides?: { sailor: string; field: 'ircTcc' | 'pyNumber'; value: number }[];
 }
 
 export interface FixtureStanding {
@@ -162,6 +164,7 @@ export interface FixtureInputs {
   races: Race[];
   finishes: Finish[];
   raceStarts: RaceStart[];
+  ratingOverrides: RaceRatingOverride[];
   discardThresholds: DiscardThreshold[];
   dnfScoring: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
   sailToId: Map<string, string>;
@@ -245,9 +248,17 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
 
   const raceStarts: RaceStart[] = [];
   const finishes: Finish[] = [];
+  const ratingOverrides: RaceRatingOverride[] = [];
   for (let ri = 0; ri < fixture.races.length; ri++) {
     const fr = fixture.races[ri];
     const raceId = races[ri].id;
+    for (const o of fr.ratingOverrides ?? []) {
+      const competitorId = sailToId.get(o.sailor);
+      if (!competitorId) {
+        throw new Error(`Fixture "${fixture.description}": unknown sailor "${o.sailor}" in ratingOverrides`);
+      }
+      ratingOverrides.push({ id: `ro-${ri}-${o.sailor}-${o.field}`, raceId, competitorId, field: o.field, value: o.value });
+    }
     if (fr.startTime) {
       raceStarts.push({
         id: `rs-${ri}`,
@@ -287,6 +298,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     races,
     finishes,
     raceStarts,
+    ratingOverrides,
     discardThresholds: fixture.series.discardThresholds,
     dnfScoring: fixture.series.dnfScoring ?? 'seriesEntries',
     sailToId,

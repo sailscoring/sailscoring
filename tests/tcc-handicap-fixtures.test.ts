@@ -28,7 +28,7 @@ describe('TCC handicap scoring fixtures', () => {
 
   for (const { yamlPath, fixture } of loaded) {
     it(fixture.description, () => {
-      const { competitors, fleets, races, finishes, raceStarts, discardThresholds, dnfScoring, sailToId } =
+      const { competitors, fleets, races, finishes, raceStarts, ratingOverrides, discardThresholds, dnfScoring, sailToId } =
         buildFixtureInputs(fixture);
       const fleet = fleets[0];
 
@@ -86,6 +86,7 @@ describe('TCC handicap scoring fixtures', () => {
         discardThresholds,
         dnfScoring,
         raceStarts,
+        ratingOverrides,
       );
       const fleetResult = fleetStandings[0];
       const standings = fleetResult.standings;

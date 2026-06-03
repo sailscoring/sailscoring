@@ -1,4 +1,4 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, Standing, ResultCode, PenaltyCode, DiscardThreshold, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates } from './types';
 import { getCodeDefinition } from './scoring-codes';
 
 export const ECHO_DEFAULT_ALPHA = 0.25;  // Irish Sailing 2022 ECHO Guide: 75/25 club racing
@@ -1114,6 +1114,7 @@ function calculateHandicapStandings(
   fleet: Fleet,
   discardThresholds: DiscardThreshold[] = [],
   dnfScoring: DnfScoring = 'seriesEntries',
+  ratingOverrides: RaceRatingOverride[] = [],
 ): {
   standings: Standing[];
   rejections: ScoringRejection[];
@@ -1154,6 +1155,24 @@ function calculateHandicapStandings(
   // (not the carried ratings) so cumulative drift doesn't compound across a
   // series — see issue #147 §3(b).
   const baseTcfByCompetitorId = new Map(appliedTcfMap);
+
+  // Per-race rating overrides (mid-series rating change). Static fleets only —
+  // progressive systems recompute the rating every race and ignore them. The
+  // override's field must match the fleet's system; its value is in the field's
+  // own units (IRC TCC = TCF; PY number → 1000/number). Indexed raceId →
+  // competitorId → TCF.
+  const overrideField: RaceRatingOverride['field'] | null =
+    fleet.scoringSystem === 'irc' ? 'ircTcc' : fleet.scoringSystem === 'py' ? 'pyNumber' : null;
+  const overrideTcfByRace = new Map<string, Map<string, number>>();
+  if (overrideField && !isProgressive) {
+    for (const o of ratingOverrides) {
+      if (o.field !== overrideField) continue;
+      const tcf = fleet.scoringSystem === 'py' ? (o.value > 0 ? 1000 / o.value : null) : o.value;
+      if (tcf == null) continue;
+      if (!overrideTcfByRace.has(o.raceId)) overrideTcfByRace.set(o.raceId, new Map());
+      overrideTcfByRace.get(o.raceId)!.set(o.competitorId, tcf);
+    }
+  }
 
   if (competitors.length === 0 || races.length === 0) {
     const rated = competitors.filter((c) => !rejectedIds.has(c.id));
@@ -1231,8 +1250,18 @@ function calculateHandicapStandings(
 
     let scores: Map<string, { points: number; place: number | null; resultCode: ResultCode | null }>;
     if (raceStart) {
-      // Phase A — race scoring (applies to both static and progressive fleets)
-      const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, appliedTcfMap, dnfScoring);
+      // Phase A — race scoring (applies to both static and progressive fleets).
+      // For static fleets, apply this race's rating overrides over the base map.
+      const raceOverrides = overrideTcfByRace.get(race.id);
+      const effectiveTcfMap = raceOverrides && raceOverrides.size > 0
+        ? new Map(appliedTcfMap)
+        : appliedTcfMap;
+      if (raceOverrides && effectiveTcfMap !== appliedTcfMap) {
+        for (const [cid, tcf] of raceOverrides) {
+          if (appliedTcfMap.has(cid)) effectiveTcfMap.set(cid, tcf);
+        }
+      }
+      const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, effectiveTcfMap, dnfScoring);
       let raceScores = phaseA.scores;
 
       // Phase B — handicap adjustment (progressive fleets only)
@@ -1447,6 +1476,7 @@ export function calculateFleetStandings(
   discardThresholds: DiscardThreshold[] = [],
   dnfScoring: DnfScoring = 'seriesEntries',
   raceStarts: RaceStart[] = [],
+  ratingOverrides: RaceRatingOverride[] = [],
 ): {
   fleetStandings: {
     fleet: Fleet;
@@ -1492,6 +1522,7 @@ export function calculateFleetStandings(
         fleet,
         discardThresholds,
         dnfScoring,
+        ratingOverrides,
       );
       allCircular.push(...circularRedressRaces);
       return { fleet, standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory };

@@ -70,9 +70,10 @@ export async function buildFleetHtmlFiles(
   ]);
   if (!series || competitors.length === 0 || races.length === 0) return null;
 
-  const [allFinishes, allRaceStarts] = await Promise.all([
+  const [allFinishes, allRaceStarts, allRatingOverrides] = await Promise.all([
     repos.finishRepo.listBySeries(seriesId, competitors.map((c) => c.id)),
     repos.raceStartRepo.listByRaces(races.map((r) => r.id)),
+    repos.raceRatingOverrideRepo.listByRaces(races.map((r) => r.id)),
   ]);
   const { fleetStandings: fleetResults } = calculateFleetStandings(
     fleets,
@@ -82,6 +83,7 @@ export async function buildFleetHtmlFiles(
     series.discardThresholds ?? [],
     series.dnfScoring ?? 'seriesEntries',
     allRaceStarts,
+    allRatingOverrides,
   );
 
   const isSingleDefault = fleets.length <= 1;

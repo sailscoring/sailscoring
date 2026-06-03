@@ -356,7 +356,7 @@ function generateNhcFixtureHtml(fixture: Fixture, yamlSource: string): string {
   if (!fixture.fleet || fixture.fleet.scoringSystem !== 'nhc') {
     throw new Error(`Expected NHC fleet, got ${fixture.fleet?.scoringSystem}`);
   }
-  const { competitors, fleets, races, finishes, raceStarts, discardThresholds, dnfScoring } = buildFixtureInputs(fixture);
+  const { competitors, fleets, races, finishes, raceStarts, ratingOverrides, discardThresholds, dnfScoring } = buildFixtureInputs(fixture);
 
   const { fleetStandings } = calculateFleetStandings(
     fleets,
@@ -366,6 +366,7 @@ function generateNhcFixtureHtml(fixture: Fixture, yamlSource: string): string {
     discardThresholds,
     dnfScoring,
     raceStarts,
+    ratingOverrides,
   );
   const fleetResult = fleetStandings[0];
   const nhcRaceScoresByRaceId = fleetResult.nhcRaceScoresByRaceId!;
@@ -505,7 +506,7 @@ function generateEchoFixtureHtml(fixture: Fixture, yamlSource: string): string {
   if (!fixture.fleet || fixture.fleet.scoringSystem !== 'echo') {
     throw new Error(`Expected ECHO fleet, got ${fixture.fleet?.scoringSystem}`);
   }
-  const { competitors, fleets, races, finishes, raceStarts, discardThresholds, dnfScoring } = buildFixtureInputs(fixture);
+  const { competitors, fleets, races, finishes, raceStarts, ratingOverrides, discardThresholds, dnfScoring } = buildFixtureInputs(fixture);
 
   const { fleetStandings } = calculateFleetStandings(
     fleets,
@@ -515,6 +516,7 @@ function generateEchoFixtureHtml(fixture: Fixture, yamlSource: string): string {
     discardThresholds,
     dnfScoring,
     raceStarts,
+    ratingOverrides,
   );
   const fleetResult = fleetStandings[0];
   const echoRaceScoresByRaceId = fleetResult.echoRaceScoresByRaceId!;

@@ -33,9 +33,10 @@ export async function listTcfHistory(
   if (races.length === 0 || competitors.length === 0) return [];
 
   const raceIds = races.map((r) => r.id);
-  const [allFinishes, allRaceStarts] = await Promise.all([
+  const [allFinishes, allRaceStarts, allRatingOverrides] = await Promise.all([
     repos.finishes.listBySeries(seriesId, competitors.map((c) => c.id)),
     repos.raceStarts.listByRaces(raceIds),
+    repos.raceRatingOverrides.listByRaces(raceIds),
   ]);
 
   const { fleetStandings } = calculateFleetStandings(
@@ -46,6 +47,7 @@ export async function listTcfHistory(
     series.discardThresholds ?? [],
     series.dnfScoring ?? 'seriesEntries',
     allRaceStarts,
+    allRatingOverrides,
   );
   return fleetStandings.flatMap((fr) => fr.tcfHistory ?? []);
 }

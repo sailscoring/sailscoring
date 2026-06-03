@@ -12,6 +12,7 @@ import type {
   FtpServerRepository,
   RaceRepository,
   RaceStartRepository,
+  RaceRatingOverrideRepository,
   SaveOpts,
   SeriesRepository,
 } from './repository';
@@ -26,6 +27,7 @@ import type {
   FtpServer,
   Race,
   RaceStart,
+  RaceRatingOverride,
   Series,
   TcfRecord,
   PublishResult,
@@ -228,6 +230,43 @@ class ApiRaceStartRepository implements RaceStartRepository {
   }
 }
 
+class ApiRaceRatingOverrideRepository implements RaceRatingOverrideRepository {
+  async listByRaces(raceIds: string[]): Promise<RaceRatingOverride[]> {
+    const lists = await Promise.all(
+      raceIds.map((id) => apiFetch<RaceRatingOverride[]>(`/api/v1/races/${id}/rating-overrides`)),
+    );
+    return lists.flat();
+  }
+
+  async saveMany(overrides: RaceRatingOverride[]): Promise<void> {
+    if (overrides.length === 0) return;
+    const byRace = new Map<string, RaceRatingOverride[]>();
+    for (const o of overrides) {
+      const list = byRace.get(o.raceId) ?? [];
+      list.push(o);
+      byRace.set(o.raceId, list);
+    }
+    await Promise.all(
+      [...byRace.entries()].map(([raceId, list]) =>
+        apiFetch(`/api/v1/races/${raceId}/rating-overrides`, {
+          method: 'POST',
+          body: { overrides: list },
+        }),
+      ),
+    );
+  }
+
+  async delete(id: string): Promise<void> {
+    await apiFetch(`/api/v1/race-rating-overrides/${id}`, { method: 'DELETE' });
+  }
+
+  async deleteByRaces(raceIds: string[]): Promise<void> {
+    await Promise.all(
+      raceIds.map((r) => apiFetch(`/api/v1/races/${r}/rating-overrides`, { method: 'DELETE' })),
+    );
+  }
+}
+
 class ApiFinishRepository implements FinishRepository {
   listByRace(raceId: string): Promise<Finish[]> {
     return apiFetch<Finish[]>(`/api/v1/races/${raceId}/finishes`);
@@ -304,6 +343,7 @@ export const fleetRepo: FleetRepository = new ApiFleetRepository();
 export const competitorRepo: CompetitorRepository = new ApiCompetitorRepository();
 export const raceRepo: RaceRepository = new ApiRaceRepository();
 export const raceStartRepo: RaceStartRepository = new ApiRaceStartRepository();
+export const raceRatingOverrideRepo: RaceRatingOverrideRepository = new ApiRaceRatingOverrideRepository();
 export const finishRepo: FinishRepository = new ApiFinishRepository();
 export const ftpServerRepo: FtpServerRepository = new ApiFtpServerRepository();
 

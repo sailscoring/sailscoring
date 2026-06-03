@@ -43,22 +43,6 @@ const oneDesigns: OneDesignInput[] = [
   { fleetId: 'cf-sigma33', name: 'Sigma 33', parentClass: 2, fleet: load('sigma33-95462.html') },
 ];
 
-// Flag boats whose IRC TCC changes mid-series: HalSail scores these per-race,
-// but our model stores one fixed `ircTcc`, so the generated file uses the
-// boat's first-race TCC and its later races may not match HalSail exactly.
-for (const cl of classes) {
-  if (!cl.irc) continue;
-  for (const c of cl.irc.competitors) {
-    const applied = [...new Set(cl.irc.races
-      .flatMap((r) => r.finishers.filter((f) => f.sail === c.sail))
-      .map((f) => f.hcap)
-      .filter((h): h is number => h != null))];
-    if (applied.length > 1) {
-      console.warn(`  ! IRC TCC changes mid-series for sail ${c.sail} (Cruisers ${cl.classNum}): ${applied.join(' → ')}; using first. Expect a parity mismatch on later races.`);
-    }
-  }
-}
-
 const file = buildThursdayBlueSeries(classes, oneDesigns, {
   // Stable export marker so re-running produces a byte-identical file.
   exportedAt: '2026-06-02T00:00:00.000Z',
