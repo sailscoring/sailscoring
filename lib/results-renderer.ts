@@ -160,6 +160,7 @@ export interface RaceResultData {
   penaltyOverride: number | null;
   // Handicap fields — only set for IRC/PY fleets
   tcc?: number;              // Time Correction Factor (TCC for IRC, 1000/PY for PY)
+  tccOverride?: boolean;     // true when tcc is a per-race override (mid-series rating change)
   finishTime?: string;       // "HH:MM:SS"
   elapsedTimeSecs?: number;  // integer seconds (finishTime − startTime)
   correctedTimeSecs?: number; // integer seconds, rounded half-up (elapsedTimeSecs × tcc)
@@ -335,6 +336,7 @@ td.rank3 { background: #da6841; }
 td.discard { background: #f2f2f2; }
 td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 td.excluded { color: #888; text-align: center; }
+.override-marker { color: #b45309; font-weight: bold; margin-left: 1px; cursor: help; }
 table.summarytable td .rating { display: block; font-size: 0.85em; color: #666; margin-top: 1px; font-family: monospace; }
 table.summarytable td.discard .rating { color: #888; }
 table.summarytable td.seedrating { font-family: monospace; }
@@ -645,7 +647,7 @@ function renderRaceTable(
         ? [
             `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
             `<td class="mono">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>`,
-            `<td class="mono">${r.tcc != null ? r.tcc.toFixed(3) : ''}</td>`,
+            `<td class="mono">${r.tcc != null ? r.tcc.toFixed(3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
             `<td class="mono">${r.correctedTimeSecs != null ? formatCorrectedSecs(r.correctedTimeSecs) : ''}</td>`,
           ]
         : [];
@@ -1030,7 +1032,7 @@ export function assembleSeriesResultsData(
     raceDiscards: boolean[];
     raceExcluded?: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
   competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; club?: string; nationality?: string; subdivision?: string; ircTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
@@ -1094,10 +1096,15 @@ export function assembleSeriesResultsData(
       let correctedTimeSecs: number | undefined;
 
       if (isHandicap && startSecs !== null) {
-        if (scoringSystem === 'irc' && competitor.ircTcc != null) {
-          tcc = competitor.ircTcc;
-        } else if (scoringSystem === 'py' && competitor.pyNumber != null && competitor.pyNumber > 0) {
-          tcc = 1000 / competitor.pyNumber;
+        // `score.tcfApplied` is the rating actually used to score this race —
+        // override-aware for static fleets (a mid-series rating change), and the
+        // running rating for progressive fleets. Fall back to the competitor's
+        // current rating only when the engine emitted no per-race value.
+        if (scoringSystem === 'irc') {
+          tcc = score.tcfApplied ?? competitor.ircTcc ?? undefined;
+        } else if (scoringSystem === 'py') {
+          tcc = score.tcfApplied
+            ?? (competitor.pyNumber != null && competitor.pyNumber > 0 ? 1000 / competitor.pyNumber : undefined);
         } else if ((scoringSystem === 'nhc' || scoringSystem === 'echo') && score.tcfApplied != null) {
           tcc = score.tcfApplied;
         }
@@ -1164,6 +1171,7 @@ export function assembleSeriesResultsData(
         penaltyCode: score.penaltyCode ?? null,
         penaltyOverride: score.penaltyOverride ?? null,
         ...(tcc != null ? { tcc } : {}),
+        ...(score.tccOverride ? { tccOverride: true } : {}),
         ...(score.finishTime && isHandicap ? { finishTime: score.finishTime } : {}),
         ...(elapsedTimeSecs != null ? { elapsedTimeSecs } : {}),
         ...(correctedTimeSecs != null ? { correctedTimeSecs } : {}),

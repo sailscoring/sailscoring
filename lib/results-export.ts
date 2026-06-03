@@ -200,13 +200,27 @@ export async function buildFleetHtmlFiles(
         }
 
         let scores;
+        // Per-race static-rating overrides (mid-series rating change) for this
+        // fleet's system, keyed by competitor.
+        const overrideField = fleet.scoringSystem === 'irc' ? 'ircTcc' : fleet.scoringSystem === 'py' ? 'pyNumber' : null;
+        const overrideByComp = new Map<string, number>();
+        if (overrideField) {
+          for (const o of allRatingOverrides) {
+            if (o.raceId === race.id && o.field === overrideField) overrideByComp.set(o.competitorId, o.value);
+          }
+        }
         if (isHandicap && raceStart) {
-          // Build the applied-TCF map from each competitor's static rating
-          // (IRC/PY only — NHC took the early-return path above).
+          // Applied-TCF map from each competitor's static rating, honouring any
+          // per-race override (IRC/PY only — NHC/ECHO took the early returns).
           const tcfMap = new Map<string, number>();
           for (const c of fleetCompetitors) {
-            if (fleet.scoringSystem === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
-            else if (fleet.scoringSystem === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
+            if (fleet.scoringSystem === 'irc') {
+              const tcc = overrideByComp.get(c.id) ?? c.ircTcc;
+              if (tcc != null) tcfMap.set(c.id, tcc);
+            } else if (fleet.scoringSystem === 'py') {
+              const py = overrideByComp.get(c.id) ?? c.pyNumber;
+              if (py != null && py > 0) tcfMap.set(c.id, 1000 / py);
+            }
           }
           const ratedFleetCompetitors = fleetCompetitors.filter((c) => tcfMap.has(c.id));
           scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap, series.dnfScoring ?? 'seriesEntries').scores;
@@ -226,6 +240,8 @@ export async function buildFleetHtmlFiles(
                 penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
                 penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
                 finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                ...('tcfApplied' in s ? { tcfApplied: (s as { tcfApplied: number | null }).tcfApplied } : {}),
+                ...(overrideByComp.has(id) ? { tccOverride: true } : {}),
               },
             ]),
         );
