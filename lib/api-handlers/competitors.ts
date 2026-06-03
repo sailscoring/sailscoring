@@ -17,7 +17,7 @@ import {
   competitorsBulkInputSchema,
   handicapBulkUpdateSchema,
 } from '@/lib/validation/competitor';
-import type { AuditStamp, Competitor } from '@/lib/types';
+import type { AuditStamp, Competitor, RaceRatingOverride } from '@/lib/types';
 
 async function assertSeriesInWorkspace(
   workspace: WorkspaceContext,
@@ -131,11 +131,12 @@ export async function bulkUpdateHandicaps(
   body: unknown,
 ): Promise<{ updated: Competitor[] }> {
   await assertSeriesWritable(workspace, seriesId);
-  const { updates } = handicapBulkUpdateSchema.parse(body);
+  const { updates, freezeScoredRaces } = handicapBulkUpdateSchema.parse(body);
 
   const db = getDb();
   const updated: Competitor[] = [];
   let addedToFleet = 0;
+  let frozenRaces = 0;
   await db.transaction(async (tx) => {
     const repos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
 
@@ -145,6 +146,29 @@ export async function bulkUpdateHandicaps(
     const seriesFleetIds = wantsFleetAdd
       ? new Set((await repos.fleets.listBySeries(seriesId)).map((f) => f.id))
       : new Set<string>();
+
+    // Freeze-past: when a static rating changes, pin the boat's already-scored
+    // races to the *old* value with per-race overrides. Load the series' races,
+    // finishes and existing overrides once, up front.
+    const newOverrides: RaceRatingOverride[] = [];
+    let scoredRacesByComp = new Map<string, string[]>(); // competitorId → raceIds with a finish
+    let existingOverrideKeys = new Set<string>(); // `${raceId}:${competitorId}:${field}`
+    if (freezeScoredRaces) {
+      const [races, finishes] = await Promise.all([
+        repos.races.listBySeries(seriesId),
+        repos.finishes.listBySeries(seriesId, updates.map((u) => u.competitorId)),
+      ]);
+      const raceIds = races.map((r) => r.id);
+      const overrides = await repos.raceRatingOverrides.listByRaces(raceIds);
+      existingOverrideKeys = new Set(overrides.map((o) => `${o.raceId}:${o.competitorId}:${o.field}`));
+      scoredRacesByComp = new Map();
+      for (const f of finishes) {
+        if (!f.competitorId) continue;
+        const list = scoredRacesByComp.get(f.competitorId) ?? [];
+        list.push(f.raceId);
+        scoredRacesByComp.set(f.competitorId, list);
+      }
+    }
 
     for (const u of updates) {
       const existing = await repos.competitors.get(u.competitorId);
@@ -174,18 +198,40 @@ export async function bulkUpdateHandicaps(
         ...(u.echoStartingTcf !== undefined ? { echoStartingTcf: u.echoStartingTcf } : {}),
         ...(u.boatClass !== undefined ? { boatClass: u.boatClass } : {}),
       };
+      // Freeze-past: for each static rating that actually changes, pin the
+      // boat's already-scored races to the OLD value (unless already pinned).
+      if (freezeScoredRaces) {
+        const fields: RaceRatingOverride['field'][] = ['ircTcc', 'pyNumber'];
+        for (const field of fields) {
+          const oldValue = existing[field];
+          const newValue = u[field];
+          if (newValue === undefined || oldValue == null || oldValue === newValue) continue;
+          for (const raceId of scoredRacesByComp.get(u.competitorId) ?? []) {
+            const key = `${raceId}:${u.competitorId}:${field}`;
+            if (existingOverrideKeys.has(key)) continue;
+            existingOverrideKeys.add(key);
+            newOverrides.push({ id: crypto.randomUUID(), raceId, competitorId: u.competitorId, field, value: oldValue });
+          }
+        }
+      }
+
       const saved = await repos.competitors.save(next, {
         expectedVersion: u.expectedVersion,
         updatedBy: workspace.userId,
       });
       updated.push(saved);
     }
+
+    if (newOverrides.length > 0) {
+      await repos.raceRatingOverrides.saveMany(newOverrides, { updatedBy: workspace.userId });
+      frozenRaces = newOverrides.length;
+    }
   });
   const n = updated.length;
-  const summary =
-    addedToFleet > 0
-      ? `Updated handicaps for ${n} competitor${n === 1 ? '' : 's'}; added ${addedToFleet} to a fleet`
-      : `Updated handicaps for ${n} competitor${n === 1 ? '' : 's'}`;
+  const parts = [`Updated handicaps for ${n} competitor${n === 1 ? '' : 's'}`];
+  if (addedToFleet > 0) parts.push(`added ${addedToFleet} to a fleet`);
+  if (frozenRaces > 0) parts.push(`froze ${frozenRaces} scored race${frozenRaces === 1 ? '' : 's'} on the old rating`);
+  const summary = parts.join('; ');
   await recordActivity(workspace, {
     action: 'competitors.handicaps_updated',
     seriesId,

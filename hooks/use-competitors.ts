@@ -79,8 +79,13 @@ export function useSaveCompetitors() {
  */
 export function useUpdateHandicaps(seriesId: string) {
   const qc = useQueryClient();
-  return useMutation<{ updated: Competitor[] }, Error, HandicapUpdateRow[]>({
-    mutationFn: (updates) => updateHandicaps(seriesId, updates),
+  return useMutation<
+    { updated: Competitor[] },
+    Error,
+    { updates: HandicapUpdateRow[]; freezeScoredRaces?: boolean }
+  >({
+    mutationFn: ({ updates, freezeScoredRaces }) =>
+      updateHandicaps(seriesId, updates, { freezeScoredRaces }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.competitors.bySeries(seriesId) });
     },

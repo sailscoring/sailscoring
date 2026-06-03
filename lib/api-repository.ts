@@ -548,10 +548,11 @@ export interface HandicapUpdateRow {
 export async function updateHandicaps(
   seriesId: string,
   updates: HandicapUpdateRow[],
+  opts: { freezeScoredRaces?: boolean } = {},
 ): Promise<{ updated: Competitor[] }> {
   return apiFetch<{ updated: Competitor[] }>(
     `/api/v1/series/${seriesId}/competitors/handicaps`,
-    { method: 'PATCH', body: { updates } },
+    { method: 'PATCH', body: { updates, freezeScoredRaces: opts.freezeScoredRaces } },
   );
 }
 

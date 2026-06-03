@@ -69,6 +69,11 @@ export const handicapUpdateSchema = z.object({
 
 export const handicapBulkUpdateSchema = z.object({
   updates: z.array(handicapUpdateSchema).min(1),
+  /** When true, a boat whose static rating (ircTcc/pyNumber) changes keeps its
+   *  already-scored races on the *old* value via per-race rating overrides
+   *  (mid-series rating change). Default false re-scores every race on the new
+   *  value (a correction). */
+  freezeScoredRaces: z.boolean().optional(),
 });
 
 const _competitorFromZod: Competitor = undefined as unknown as z.infer<typeof competitorSchema>;

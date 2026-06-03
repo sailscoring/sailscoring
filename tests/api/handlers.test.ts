@@ -21,6 +21,7 @@ import * as fleets from '@/lib/api-handlers/fleets';
 import * as competitors from '@/lib/api-handlers/competitors';
 import * as races from '@/lib/api-handlers/races';
 import * as raceStarts from '@/lib/api-handlers/race-starts';
+import * as raceRatingOverrides from '@/lib/api-handlers/race-rating-overrides';
 import * as finishes from '@/lib/api-handlers/finishes';
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -409,6 +410,57 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     ).rejects.toBeInstanceOf(BadRequestError);
     const afterReject = await competitors.getCompetitor(ctxA, seriesId, compId);
     expect(afterReject.fleetIds.sort()).toEqual([scratchId, ircId].sort());
+
+    await removeSeries(ctxA, seriesId);
+  });
+
+  test('competitors.bulkUpdateHandicaps freezeScoredRaces pins scored races to the old rating', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'IRC', displayOrder: 0, scoringSystem: 'irc' as const,
+    });
+    const compId = uuid();
+    const created = await competitors.putCompetitor(ctxA, seriesId, compId, {
+      id: compId, seriesId, fleetIds: [fleetId],
+      sailNumber: '1', name: 'Boat', club: '', gender: '' as const, age: null,
+      createdAt: Date.now(), ircTcc: 1.008,
+    });
+    // One scored race (the boat finished it on the old TCC) and one future race.
+    const raceId = uuid();
+    await races.putRace(ctxA, seriesId, raceId, { id: raceId, seriesId, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() });
+    const futureRaceId = uuid();
+    await races.putRace(ctxA, seriesId, futureRaceId, { id: futureRaceId, seriesId, raceNumber: 2, date: '2026-04-08', createdAt: Date.now() });
+    await finishes.bulkPutFinishes(ctxA, raceId, {
+      finishes: [{
+        id: uuid(), raceId, competitorId: compId, sortOrder: 1, finishTime: '12:00:00',
+        resultCode: null, startPresent: true, penaltyCode: null, penaltyOverride: null,
+        redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+        tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
+      }],
+    });
+
+    // New certificate: change the TCC, keeping scored races on the old value.
+    const { updated } = await competitors.bulkUpdateHandicaps(ctxA, seriesId, {
+      updates: [{ competitorId: compId, expectedVersion: created.version, ircTcc: 1.001 }],
+      freezeScoredRaces: true,
+    });
+    expect(updated[0].ircTcc).toBe(1.001); // competitor carries the current value
+
+    // The scored race is pinned to the old TCC; the future race has no override.
+    const scoredOverrides = await raceRatingOverrides.listRaceRatingOverrides(ctxA, raceId);
+    expect(scoredOverrides).toEqual([
+      expect.objectContaining({ raceId, competitorId: compId, field: 'ircTcc', value: 1.008 }),
+    ]);
+    expect(await raceRatingOverrides.listRaceRatingOverrides(ctxA, futureRaceId)).toEqual([]);
+
+    // Re-applying without freeze (a correction) creates no new overrides.
+    const reread = await competitors.getCompetitor(ctxA, seriesId, compId);
+    await competitors.bulkUpdateHandicaps(ctxA, seriesId, {
+      updates: [{ competitorId: compId, expectedVersion: reread.version, ircTcc: 0.995 }],
+    });
+    expect(await raceRatingOverrides.listRaceRatingOverrides(ctxA, raceId)).toHaveLength(1);
 
     await removeSeries(ctxA, seriesId);
   });

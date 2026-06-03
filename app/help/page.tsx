@@ -397,6 +397,15 @@ export default async function HelpPage() {
           Untick individual rows to keep specific boats unchanged. A boat that doesn&apos;t appear
           in the source series, or that has no value to copy, is left at its current handicap.
         </p>
+        <p>
+          When a change affects an <strong className="text-foreground">IRC or PY</strong> rating and
+          the boat has already-scored races, the dialog offers{' '}
+          <strong className="text-foreground">Keep already-scored races on the old rating</strong>{' '}
+          (on by default). Leave it on for a <em>mid-series rating change</em> — a new certificate —
+          so races already sailed keep their old rating and only later races use the new value;
+          the boat&apos;s record still carries the new rating forward. Turn it off to{' '}
+          <em>correct</em> a wrong rating, which re-scores every race on the new value.
+        </p>
       </Section>
 
       {has('irc-rating') && (

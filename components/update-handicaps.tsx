@@ -277,6 +277,11 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
 
   const updateMut = useUpdateHandicaps(seriesId);
 
+  // Mid-series rating change: keep already-scored races on the old rating
+  // (per-race overrides) rather than re-scoring them on the new value. Applies
+  // to static systems (IRC/PY); default on.
+  const [freezeScoredRaces, setFreezeScoredRaces] = useState(true);
+
   // Seed the fleet mapping the first time the picked source series's
   // fleets are loaded. React 19's "derive state from props" pattern: do
   // the setState in render guarded by a prev-tracking sentinel so the
@@ -440,7 +445,10 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
     setErrorMsg(null);
     if (ryaPyUpdateRows.length === 0) return;
     try {
-      const response = await updateMut.mutateAsync(ryaPyUpdateRows);
+      const response = await updateMut.mutateAsync({
+        updates: ryaPyUpdateRows,
+        freezeScoredRaces,
+      });
       const renamed = ryaPyUpdateRows.filter((r) => r.boatClass !== undefined).length;
       const numberChanged = ryaPyUpdateRows.filter((r) => r.pyNumber !== undefined).length;
       const resolvedKeys = new Set(
@@ -513,7 +521,10 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
     if (updatesByComp.size === 0) return;
 
     try {
-      const response = await updateMut.mutateAsync([...updatesByComp.values()]);
+      const response = await updateMut.mutateAsync({
+        updates: [...updatesByComp.values()],
+        freezeScoredRaces,
+      });
       const bySystem: Partial<Record<HandicapSystem, number>> = {};
       for (const row of changeRows) {
         bySystem[row.system] = (bySystem[row.system] ?? 0) + 1;
@@ -746,6 +757,27 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                 </>
               )}
             </div>
+
+            {previewRows.some(
+              (r) => r.status === 'change' && !excludedRowIds.has(rowKey(r)) && (r.system === 'irc' || r.system === 'py'),
+            ) && (
+              <label className="flex items-start gap-2 px-1 pt-1 cursor-pointer text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={freezeScoredRaces}
+                  onChange={(e) => setFreezeScoredRaces(e.target.checked)}
+                />
+                <span>
+                  Keep already-scored races on the old rating
+                  <span className="block text-xs text-muted-foreground">
+                    For a boat re-rated mid-series (a new certificate): races already sailed stay on
+                    their old rating; only later races use the new one. Uncheck to re-score every race
+                    on the new rating (a correction).
+                  </span>
+                </span>
+              </label>
+            )}
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
