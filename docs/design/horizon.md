@@ -554,7 +554,7 @@ faithfully yet (see `docs/notes/halsail/querying-public-results.md`):
 
 See also "Mid-series rating changes" below — a related per-race-rating gap.
 
-### Mid-series rating changes (effective-dated fixed ratings)
+### Mid-series rating changes (per-race rating overrides)
 
 A boat can change its **fixed** rating part-way through a series: a new IRC
 certificate after a re-measurement, sail/configuration change or endorsement
@@ -571,30 +571,29 @@ in that case the wrong rating changed only a corrected *time*, not a place, so
 the standings still matched — but it's luck, not correctness.
 
 This differs from the progressive systems (ECHO/NHC), which recompute a new
-rating every race by design and already carry per-race ratings. The need here
-is a **stepwise, scorer-set** rating: "from race N, this boat's TCC is X",
-because a certificate's issue date doesn't always map cleanly to the race it
-first takes scoring effect (it depends on when the change was notified under
-the SI).
+rating every race by design and already carry per-race ratings.
 
-Shape of the change:
-- **Data:** an effective-from list per competitor per system, e.g.
-  `ircTccChanges?: { fromRaceNumber: number; value: number }[]` (sparse;
-  absent = today's single-value behaviour). Carried in the file format,
-  validation, repositories.
-- **Engine:** when building the applied rating for a race in a fixed fleet,
-  resolve the latest change with `fromRaceNumber <= race` (else the base
-  rating). Today's static `appliedTcfMap` becomes per-race, like the
-  progressive path already is.
-- **UI:** a "rating change from race N" affordance on the competitor's
-  handicap fields.
-- **Converter:** HalSail already exposes the per-race `Hcap`; the
-  `halsail-to-series` converter can emit the effective-from entries instead of
-  taking the first value and warning.
+**Chosen model — per-race rating overrides, with the competitor value kept
+current.** Rather than store a history on the competitor, keep
+`competitor.ircTcc` (etc.) as the *current* rating — so it carries forward to
+new races and future series unchanged — and pin the *past* with a sparse
+per-race **rating override**: a record `(race, competitor, field, value)`
+saying "treat this boat's `ircTcc` in this race as 1.008". Overrides are the
+exception (only re-rated boats, only their already-scored races); a race with
+no override uses the competitor's current value. Scoped to rating fields
+(`ircTcc`, `pyNumber`) for now, with a `field` discriminator so it can extend.
 
-Root cause is shared with the per-fleet redress gap above: a rating that
-varies by race (and, for redress, by fleet) on what is currently one shared
-value per competitor.
+Workflow: when the scorer updates a rating (e.g. "update handicaps from IRC")
+on a boat that already has scored races, offer **"keep scored races on the old
+rating"** (default — pins each not-yet-overridden scored race to the outgoing
+value) vs **"re-score everything"** (a correction, no overrides). Pinning to
+race *id* (not a race-number boundary) is robust to reordering. The
+`halsail-to-series` converter applies the same shape: set the competitor to the
+latest `Hcap` and emit overrides for the earlier races.
+
+Root cause is shared with the per-fleet redress gap above: a rating that varies
+by race (and, for redress, by fleet) on what is currently one shared value per
+competitor. Implementation plan tracked outside this doc.
 
 ---
 
