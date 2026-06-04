@@ -170,6 +170,15 @@ const PAIRINGS = cfg.pairings;
 // above this.
 const POINTS_TOLERANCE = 0.05;
 
+// Codes the engine actually understands (result codes + additive penalties).
+// A HalSail code outside this set — after the converter's CODE_MAP normalises
+// equivalents like TLE→DNF — means the engine would silently mis-score it, so
+// the compare flags it rather than trusting a bare string match.
+const KNOWN_CODES = new Set([
+  'DNC', 'DNS', 'OCS', 'NSC', 'DNF', 'RET', 'DSQ', 'DNE', 'UFD', 'BFD', 'RDG',
+  'SCP', 'ZFP', 'DPI',
+]);
+
 // ---- our side: run the engine on the .sailscoring ----
 
 interface SailscoringFile {
@@ -256,7 +265,11 @@ function parseCell(text: string): { points: number; code: string | null; discard
   const [ptsText, codeText] = inner.split('/');
   const points = Number(ptsText);
   if (!Number.isFinite(points)) return null;
-  return { points, code: codeText ? codeText.trim().toUpperCase() : null, discarded };
+  let code = codeText ? codeText.trim().toUpperCase() : null;
+  // The converter maps HalSail's TLE (Time Limit Expired) to DNF (DBSC scores
+  // them identically); line the published code up with ours.
+  if (code === 'TLE') code = 'DNF';
+  return { points, code, discarded };
 }
 
 /** Parse the standings (Rank …) table out of a fragment into rows by sail. */
@@ -329,6 +342,11 @@ function compareFleet(
       const hc = h.byRaceNumber.get(rn);
       if (!oc || !hc) continue;
       const probs: string[] = [];
+      // Integrity guard: a code HalSail uses that the engine doesn't recognise
+      // (after the converter's CODE_MAP) would otherwise pass on a string match
+      // while the engine silently mis-scores it. Flag it so we never again
+      // "match" an unhandled code by coincidence (e.g. TLE).
+      if (hc.code && !KNOWN_CODES.has(hc.code)) probs.push(`unrecognised code ${hc.code}`);
       if (Math.abs(oc.points - hc.points) > POINTS_TOLERANCE) probs.push(`pts ${oc.points}≠${hc.points}`);
       if ((oc.code ?? '') !== (hc.code ?? '')) probs.push(`code ${oc.code ?? '—'}≠${hc.code ?? '—'}`);
       if (oc.discarded !== hc.discarded) probs.push(`discard ${oc.discarded}≠${hc.discarded}`);

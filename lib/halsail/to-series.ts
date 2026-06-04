@@ -61,6 +61,13 @@ const RDG_TYPE_TO_METHOD: Record<number, 'all_races' | 'all_races_excl_dnc' | 'r
   2: 'all_races_excl_dnc',
   3: 'races_before',
 };
+
+// HalSail result codes with no exact Sail Scoring equivalent, mapped to the
+// nearest one. TLE (Time Limit Expired) is a came-but-didn't-finish outcome;
+// DBSC scores it the same as DNF (starters + 1 under the modified A5.3), so the
+// boat carries DNF.
+const CODE_MAP: Record<string, string> = { TLE: 'DNF' };
+const normalizeCode = (code: string) => CODE_MAP[code] ?? code;
 interface FileRaceStart {
   id: string;
   fleetIds: string[];
@@ -662,7 +669,7 @@ function assembleFinishes(rn: number, crossings: Crossing[]): FileFinish[] {
       id: `fin-${rn}-${c.compId}`,
       competitorId: c.compId,
       sortOrder: null,
-      resultCode: c.code!,
+      resultCode: normalizeCode(c.code!),
       startPresent: true,
       penaltyCode: null,
       penaltyOverride: null,
