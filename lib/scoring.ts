@@ -704,7 +704,12 @@ function symmetricBlendAdjustment(
     }
     const ctRatio = s.tcfApplied! > 0 ? fairTcf / s.tcfApplied! : 1;
     const adjustment = updateSuppressed ? 0 : alpha * (fairTcf - s.tcfApplied!);
-    const newTcf = s.tcfApplied! + adjustment;
+    // Round the carried handicap to 3 dp, matching the published ECHO rating
+    // (Irish Sailing publishes 3 dp; HalSail carries the rounded value into the
+    // next race). The NHC path rounds the same way. Carrying full precision
+    // makes a multi-race progression drift from the published numbers and can
+    // flip a tight corrected-time finish.
+    const newTcf = Math.round((s.tcfApplied! + adjustment) * 1000) / 1000;
     const calc: EchoRaceCalc = { ctRatio, fairTcf, adjustment, alphaApplied: alpha };
     perFinisherCalc.set(cid, calc);
     newTcfByCompetitorId.set(cid, newTcf);

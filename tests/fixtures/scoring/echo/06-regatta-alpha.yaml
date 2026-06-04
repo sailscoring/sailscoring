@@ -50,21 +50,21 @@ races:
         tcfApplied: 1.000
         pi: 1.040202
         adjustment: 0.020101
-        newTcf: 1.020101
+        newTcf: 1.020
       - sailor: "2"
         rank: 2
         points: 2
         tcfApplied: 1.020
         pi: 1.023150
         adjustment: 0.001575
-        newTcf: 1.021575
+        newTcf: 1.022
       - sailor: "3"
         rank: 3
         points: 3
         tcfApplied: 1.050
         pi: 1.006648
         adjustment: -0.021676
-        newTcf: 1.028324
+        newTcf: 1.028
 
 expected:
   standings:

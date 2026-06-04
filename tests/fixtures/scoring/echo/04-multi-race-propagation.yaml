@@ -51,7 +51,7 @@ races:
         tcfApplied: 1.000
         pi: 1.040202
         adjustment: 0.010051
-        newTcf: 1.010051
+        newTcf: 1.010
       - sailor: "2"
         rank: 2
         points: 2
@@ -60,7 +60,7 @@ races:
         tcfApplied: 1.020
         pi: 1.023150
         adjustment: 0.000787
-        newTcf: 1.020787
+        newTcf: 1.021
       - sailor: "3"
         rank: 3
         points: 3
@@ -69,7 +69,7 @@ races:
         tcfApplied: 1.050
         pi: 1.006648
         adjustment: -0.010838
-        newTcf: 1.039162
+        newTcf: 1.039
 
   - number: 2
     startTime: "12:00:00"
@@ -92,26 +92,26 @@ races:
         rank: 1
         points: 1
         elapsedTime: 3580
-        tcfApplied: 1.010051
+        tcfApplied: 1.010
         pi: 1.044078
-        adjustment: 0.008507
-        newTcf: 1.018557
+        adjustment: 0.008519
+        newTcf: 1.019
       - sailor: "2"
         rank: 2
         points: 2
         elapsedTime: 3680
-        tcfApplied: 1.020787
+        tcfApplied: 1.021
         pi: 1.015706
-        adjustment: -0.001270
-        newTcf: 1.019517
+        adjustment: -0.001323
+        newTcf: 1.020
       - sailor: "3"
         rank: 3
         points: 3
         elapsedTime: 3700
-        tcfApplied: 1.039162
+        tcfApplied: 1.039
         pi: 1.010216
-        adjustment: -0.007236
-        newTcf: 1.031925
+        adjustment: -0.007196
+        newTcf: 1.032
 
 expected:
   standings:
