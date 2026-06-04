@@ -5,6 +5,7 @@
 import { apiFetch } from './api-client';
 import type { IrishSailingRatings } from './irish-sailing-ratings';
 import type { IrcRatings } from './irc-rating';
+import type { VprsClub, VprsRatings } from './vprs-rating';
 import type {
   CompetitorRepository,
   FinishRepository,
@@ -419,6 +420,26 @@ export function loadIrishSailingRatings(): Promise<IrishSailingRatings> {
  */
 export function loadIrcRatings(): Promise<IrcRatings> {
   return apiFetch<IrcRatings>('/api/v1/handicap-sources/irc-rating');
+}
+
+/**
+ * The VPRS club index — the list of clubs that publish VPRS rating listings.
+ * Server-fetched from vprs.org/ratings.html and cached; gated behind the `vprs`
+ * feature (#175).
+ */
+export function loadVprsClubs(): Promise<{ clubs: VprsClub[] }> {
+  return apiFetch<{ clubs: VprsClub[] }>('/api/v1/handicap-sources/vprs-rating/clubs');
+}
+
+/**
+ * One club's VPRS rating listing, fetched (and cached server-side) on demand
+ * when the scorer picks that club. `clubId` is a {@link VprsClub.id} from
+ * {@link loadVprsClubs}; the server validates it against the index.
+ */
+export function loadVprsClubRatings(clubId: string): Promise<VprsRatings> {
+  return apiFetch<VprsRatings>(
+    `/api/v1/handicap-sources/vprs-rating?club=${encodeURIComponent(clubId)}`,
+  );
 }
 
 /**

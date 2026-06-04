@@ -1,0 +1,6 @@
+import { getVprsClubs } from '@/lib/api-handlers/vprs-rating';
+import { workspaceRoute } from '../../../_lib/handler';
+
+export const dynamic = 'force-dynamic';
+
+export const GET = workspaceRoute(async (_req, { workspace }) => getVprsClubs(workspace));

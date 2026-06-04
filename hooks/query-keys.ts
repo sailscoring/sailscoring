@@ -81,4 +81,10 @@ export const queryKeys = {
   ircRatings: {
     all: ['ircRatings'] as const,
   },
+  vprsClubs: {
+    all: ['vprsClubs'] as const,
+  },
+  vprsClubRatings: {
+    byClub: (clubId: string) => ['vprsClubRatings', clubId] as const,
+  },
 } as const;
