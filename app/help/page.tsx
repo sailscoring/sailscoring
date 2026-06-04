@@ -49,6 +49,8 @@ export default async function HelpPage() {
             ['#updating-handicaps', 'Updating handicaps from another series'],
             // Gated: only listed when irc-rating is enabled (on by default, #168 follow-up).
             ['#update-handicaps-irc-rating', 'Updating IRC TCCs from the rating list', 'irc-rating'],
+            // Gated: only listed when vprs is enabled (#175).
+            ['#update-handicaps-vprs', 'Updating VPRS TCCs from a club list', 'vprs'],
             // Gated: only listed when echo is enabled (#168).
             ['#update-handicaps-irish-sailing', 'Updating ECHO from Irish Sailing', 'echo'],
             // Gated: only listed when rya-py is enabled (on by default).
@@ -445,6 +447,29 @@ export default async function HelpPage() {
           target fleet, and it joins that fleet with the rating seeded in one step. Adding a boat
           to a fleet mid-series means it is scored <strong className="text-foreground">DNC</strong>{' '}
           for races already sailed in that fleet, so this is opt-in per boat.
+        </p>
+      </Section>
+      )}
+
+      {has('vprs') && (
+      <Section id="update-handicaps-vprs" title="Updating VPRS TCCs from a club list">
+        <p>
+          The <strong className="text-foreground">Update handicaps</strong> dialog can pull VPRS
+          TCCs from a club&apos;s published rating list, matched by sail number. Choose{' '}
+          <em>VPRS TCC</em> as the source, then pick the club. VPRS publishes a separate list per
+          club — and a boat&apos;s TCC can differ between them — so the club you choose is the one
+          whose ratings are applied. On an Irish setup the Irish clubs are listed first.
+        </p>
+        <p>
+          As with IRC, each VPRS fleet has its own{' '}
+          <strong className="text-foreground">spinnaker</strong> /{' '}
+          <strong className="text-foreground">no-spinnaker</strong> choice — set the
+          no-spinnaker classes to their no-spin TCC. Every change is previewed as{' '}
+          <code className="font-mono text-xs">current → new</code> before anything is written, and
+          you can untick individual boats. Sail numbers match ignoring case, spacing, and a missing
+          country code; turn on <strong className="text-foreground">Also match by boat name</strong>{' '}
+          to catch boats whose sail number doesn&apos;t line up. Boats not on the club&apos;s list
+          are left unchanged.
         </p>
       </Section>
       )}

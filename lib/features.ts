@@ -78,13 +78,13 @@ export const FEATURES = {
     defaultOn: true,
   },
   vprs: {
-    // Gates the VPRS scoring system (#175). Opt-in (default off): VPRS is new
-    // and not yet reconciled against real published results, so we keep the
-    // audience small and enumerable until it's proven, per the containment
-    // model. Gated inline in the help page's rating-systems list, so no whole
-    // section to hide here.
+    // Gates the VPRS scoring system *and* the VPRS club rating source in the
+    // Update-handicaps dialog (#175). Opt-in (default off): VPRS is new and not
+    // yet reconciled against real published results, so we keep the audience
+    // small and enumerable until it's proven, per the containment model. Also
+    // gated inline in the help page's rating-systems list.
     label: 'VPRS scoring',
-    helpSectionIds: [],
+    helpSectionIds: ['update-handicaps-vprs'],
   },
 } as const satisfies Record<string, FeatureDef>;
 

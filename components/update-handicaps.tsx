@@ -15,7 +15,10 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -39,6 +42,8 @@ import {
   listTcfHistoryBySeries,
   loadIrcRatings,
   loadIrishSailingRatings,
+  loadVprsClubRatings,
+  loadVprsClubs,
   raceRepo,
   type HandicapUpdateRow,
 } from '@/lib/api-repository';
@@ -52,6 +57,7 @@ import {
   planEchoUpdates,
   planIrcFleetAdditions,
   planIrcUpdates,
+  planVprsUpdates,
   proposeFleetMapping,
   type FleetAdditionCandidate,
   type HandicapSystem,
@@ -64,7 +70,7 @@ import { RYA_PY_VERSION } from '@/lib/rya-py/generated/py-list';
 import type { RyaPyClass } from '@/lib/rya-py/types';
 import type { Competitor, Fleet } from '@/lib/types';
 
-type HandicapSource = 'series' | 'irish-sailing' | 'irc-rating' | 'rya-py';
+type HandicapSource = 'series' | 'irish-sailing' | 'irc-rating' | 'vprs-rating' | 'rya-py';
 
 export interface UpdateHandicapsHandle {
   open: () => void;
@@ -101,8 +107,8 @@ function formatTcf(v: number | null, system: HandicapSystem): string {
 /** System label for a preview row — IRC rows from Irish Sailing also show
  *  which TCC variant was used, so a mixed spin/non-spin run is auditable. */
 function systemLabel(r: PreviewRow): string {
-  if (r.system === 'irc' && r.ircVariant) {
-    return `IRC (${r.ircVariant === 'non-spin' ? 'non-spin' : 'spin'})`;
+  if ((r.system === 'irc' || r.system === 'vprs') && r.ircVariant) {
+    return `${SYSTEM_LABEL[r.system]} (${r.ircVariant === 'non-spin' ? 'non-spin' : 'spin'})`;
   }
   return SYSTEM_LABEL[r.system];
 }
@@ -186,6 +192,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   const irishSailingEnabled = has('echo');
   const ircRatingEnabled = has('irc-rating');
   const ryaPyEnabled = has('rya-py');
+  const vprsRatingEnabled = has('vprs');
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<
@@ -193,13 +200,17 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
     | 'source-series'
     | 'source-irish-sailing'
     | 'source-irc-rating'
+    | 'source-vprs'
     | 'source-rya-py'
     | 'done'
   >('source-picker');
   const [source, setSource] = useState<HandicapSource>('series');
   const [sourceSeriesId, setSourceSeriesId] = useState<string | null>(null);
-  // Spin/non-spin per IRC fleet; a fleet absent from the map defaults to spin.
+  // Spin/non-spin per IRC/VPRS fleet; a fleet absent from the map defaults to
+  // spin. Shared across the IRC and VPRS sources — fleet ids don't collide.
   const [ircVariantByFleet, setIrcVariantByFleet] = useState<Record<string, IrcTccVariant>>({});
+  // VPRS source: which club's listing to pull (a VprsClub id).
+  const [vprsClubId, setVprsClubId] = useState<string | null>(null);
   const [matchByName, setMatchByName] = useState(false);
   // Per-boat certificate override (boats holding a primary + secondary "(SC)").
   const [certChoiceByCompetitor, setCertChoiceByCompetitor] = useState<Record<string, string>>({});
@@ -230,6 +241,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
       setSource('series');
       setSourceSeriesId(null);
       setIrcVariantByFleet({});
+      setVprsClubId(null);
       setMatchByName(false);
       setCertChoiceByCompetitor({});
       setAddSelected(new Set());
@@ -341,6 +353,22 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
     staleTime: 60 * 60 * 1000, // worldwide list; fine to reuse within a session
   });
 
+  // VPRS → the club index (loaded when the VPRS step opens), then the selected
+  // club's listing (loaded only once a club is picked, matching the server's
+  // per-club caching).
+  const vprsClubs = useQuery({
+    queryKey: queryKeys.vprsClubs.all,
+    queryFn: () => loadVprsClubs(),
+    enabled: step === 'source-vprs',
+    staleTime: 60 * 60 * 1000,
+  });
+  const vprsRatings = useQuery({
+    queryKey: queryKeys.vprsClubRatings.byClub(vprsClubId ?? ''),
+    queryFn: () => loadVprsClubRatings(vprsClubId!),
+    enabled: step === 'source-vprs' && vprsClubId !== null,
+    staleTime: 60 * 60 * 1000,
+  });
+
   // Country to assume for a competitor's prefix-less sail number (deployment
   // parameter — IRL by default). Matters most against the worldwide IRC list.
   const defaultCountry = defaultSailCountry();
@@ -369,12 +397,42 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
     });
   }, [targetCompetitors.data, targetFleets.data, ircRatings.data, ircVariantByFleet, matchByName, certChoiceByCompetitor, defaultCountry]);
 
+  const vprsPreviewRows = useMemo<PreviewRow[]>(() => {
+    if (!targetCompetitors.data || !targetFleets.data || !vprsRatings.data) return [];
+    return planVprsUpdates({
+      targetCompetitors: targetCompetitors.data,
+      targetFleets: targetFleets.data,
+      records: vprsRatings.data.records,
+      ircVariantByFleet,
+      matchByName,
+      defaultCountry,
+    });
+  }, [targetCompetitors.data, targetFleets.data, vprsRatings.data, ircVariantByFleet, matchByName, defaultCountry]);
+
   // IRC fleets in the target series — each gets its own spin/non-spin selector
   // (IRC source only).
   const ircFleets = useMemo(
     () => (targetFleets.data ?? []).filter((f) => f.scoringSystem === 'irc'),
     [targetFleets.data],
   );
+
+  // VPRS fleets — each gets its own spin/non-spin selector on the VPRS step.
+  const vprsFleets = useMemo(
+    () => (targetFleets.data ?? []).filter((f) => f.scoringSystem === 'vprs'),
+    [targetFleets.data],
+  );
+
+  // VPRS clubs, with local clubs surfaced first. As a deployment hint, when the
+  // instance's default sail country is Ireland (NEXT_PUBLIC_DEFAULT_SAIL_COUNTRY
+  // = "IRL"), Irish clubs lead, then the rest in the site's document order.
+  const vprsClubGroups = useMemo(() => {
+    const all = vprsClubs.data?.clubs ?? [];
+    if (defaultCountry !== 'IRL') return { local: [], rest: all };
+    return {
+      local: all.filter((c) => c.region.toLowerCase() === 'ireland'),
+      rest: all.filter((c) => c.region.toLowerCase() !== 'ireland'),
+    };
+  }, [vprsClubs.data, defaultCountry]);
 
   // Races in the target series — drives the DNC caution on fleet additions.
   const targetRaces = useQuery({
@@ -428,7 +486,10 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
     return buildRyaPyUpdates(ryaPyProposals, byId, renameOff, numberOff);
   }, [ryaPyProposals, targetCompetitors.data, renameOff, numberOff]);
 
-  const additionCandidates = step === 'source-irc-rating' ? ircAdditions : echoAdditions;
+  const additionCandidates =
+    step === 'source-irc-rating' ? ircAdditions
+      : step === 'source-irish-sailing' ? echoAdditions
+        : [];
 
   // A candidate can actually be applied once it has a target fleet and a value.
   const checkedAdditions = additionCandidates.filter(
@@ -438,9 +499,11 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   const previewRows =
     step === 'source-irc-rating'
       ? ircPreviewRows
-      : step === 'source-irish-sailing'
-        ? echoPreviewRows
-        : seriesPreviewRows;
+      : step === 'source-vprs'
+        ? vprsPreviewRows
+        : step === 'source-irish-sailing'
+          ? echoPreviewRows
+          : seriesPreviewRows;
 
   // ── Apply ──────────────────────────────────────────────────────────────────
   async function handleApplyRyaPy() {
@@ -627,6 +690,25 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                 </label>
               )}
 
+              {vprsRatingEnabled && (
+                <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="source"
+                    className="mt-1"
+                    checked={source === 'vprs-rating'}
+                    onChange={() => setSource('vprs-rating')}
+                  />
+                  <div>
+                    <div className="font-medium">VPRS TCC</div>
+                    <div className="text-sm text-muted-foreground">
+                      Pull each boat&apos;s current VPRS TCC from a club&apos;s published rating
+                      list, matched by sail number.
+                    </div>
+                  </div>
+                </label>
+              )}
+
               {irishSailingEnabled && (
                 <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
                   <input
@@ -673,11 +755,13 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                   setStep(
                     source === 'irc-rating'
                       ? 'source-irc-rating'
-                      : source === 'irish-sailing'
-                        ? 'source-irish-sailing'
-                        : source === 'rya-py'
-                          ? 'source-rya-py'
-                          : 'source-series',
+                      : source === 'vprs-rating'
+                        ? 'source-vprs'
+                        : source === 'irish-sailing'
+                          ? 'source-irish-sailing'
+                          : source === 'rya-py'
+                            ? 'source-rya-py'
+                            : 'source-series',
                   )
                 }
               >
@@ -936,6 +1020,161 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                 {updateMut.isPending
                   ? 'Applying…'
                   : `Apply ${checkedChangedCount + checkedAdditions.length}`}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {step === 'source-vprs' && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Update handicaps from VPRS ratings</DialogTitle>
+              <DialogDescription>
+                Pick a club, then we match each boat by sail number against that club&apos;s
+                published VPRS rating list and propose its TCC.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2 min-h-0 min-w-0 overflow-y-auto">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Club</label>
+                <Select value={vprsClubId ?? ''} onValueChange={(v) => setVprsClubId(v || null)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={vprsClubs.isLoading ? 'Loading clubs…' : 'Pick a club…'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vprsClubGroups.local.length > 0 && (
+                      <>
+                        <SelectGroup>
+                          <SelectLabel>Ireland</SelectLabel>
+                          {vprsClubGroups.local.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                        <SelectSeparator />
+                        <SelectGroup>
+                          <SelectLabel>Other clubs</SelectLabel>
+                          {vprsClubGroups.rest.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </>
+                    )}
+                    {vprsClubGroups.local.length === 0 &&
+                      vprsClubGroups.rest.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {vprsClubs.isError && (
+                <p className="text-sm text-destructive">
+                  Couldn&apos;t load the VPRS club list. Please try again later.
+                </p>
+              )}
+
+              {vprsClubId && (
+                <>
+                  {vprsFleets.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium">VPRS rating per fleet</div>
+                      <div className="rounded-md border">
+                        {vprsFleets.map((f, i) => (
+                          <div
+                            key={f.id}
+                            className={`flex items-center gap-3 p-2 ${i > 0 ? 'border-t' : ''}`}
+                          >
+                            <div className="flex-1 text-sm font-medium">{f.name}</div>
+                            <Select
+                              value={ircVariantByFleet[f.id] ?? 'spin'}
+                              onValueChange={(v) =>
+                                setIrcVariantByFleet((prev) => ({ ...prev, [f.id]: v as IrcTccVariant }))
+                              }
+                            >
+                              <SelectTrigger className="w-48">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="spin">Spinnaker TCC</SelectItem>
+                                <SelectItem value="non-spin">No-spinnaker TCC</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Set non-spinnaker classes to use their no-spin TCC.
+                      </p>
+                    </div>
+                  )}
+
+                  <label className="flex items-start gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-3.5 w-3.5"
+                      checked={matchByName}
+                      onChange={(e) => setMatchByName(e.target.checked)}
+                    />
+                    <span>
+                      Also match by boat name
+                      <span className="block text-xs text-muted-foreground">
+                        Helps when a sail number is entered without its country code or doesn&apos;t
+                        match. Names collide more easily — check the proposed boat before applying.
+                      </span>
+                    </span>
+                  </label>
+
+                  {vprsRatings.isLoading && (
+                    <p className="text-sm text-muted-foreground">Loading club ratings…</p>
+                  )}
+
+                  {vprsRatings.isError && (
+                    <p className="text-sm text-destructive">
+                      Couldn&apos;t load that club&apos;s VPRS ratings. Please try again later.
+                    </p>
+                  )}
+
+                  {vprsRatings.data && (
+                    <>
+                      <PreviewSection
+                        changedRows={changedRows}
+                        unchangedRows={unchangedRows}
+                        notFoundRows={notFoundRows}
+                        excludedRowIds={excludedRowIds}
+                        onToggleRow={(key, included) => {
+                          setExcludedRowIds((prev) => {
+                            const next = new Set(prev);
+                            if (included) next.delete(key);
+                            else next.add(key);
+                            return next;
+                          });
+                        }}
+                        targetCompetitorById={targetCompetitorById}
+                        targetFleetById={targetFleetById}
+                        sourceFleetById={sourceFleetById}
+                      />
+
+                      {vprsRatings.data.updatedAt && (
+                        <p className="text-xs text-muted-foreground">
+                          VPRS ratings as of {vprsRatings.data.updatedAt}.
+                        </p>
+                      )}
+
+                      {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button
+                onClick={handleApply}
+                disabled={!vprsRatings.data || checkedChangedCount === 0 || updateMut.isPending}
+              >
+                {updateMut.isPending ? 'Applying…' : `Apply ${checkedChangedCount}`}
               </Button>
             </DialogFooter>
           </>
