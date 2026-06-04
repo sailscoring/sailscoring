@@ -46,8 +46,8 @@ interface FileFinish {
   finishTime?: string;
   resultCode: string | null;
   startPresent: boolean | null;
-  penaltyCode: null;
-  penaltyOverride: null;
+  penaltyCode: string | null;
+  penaltyOverride: number | null;
   redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before';
 }
 
@@ -290,7 +290,7 @@ export function buildCruiserDaySeries(
         // (DNF/RET/OCS/…) are kept as explicit coded finishes so they count
         // toward the "came to the starting area" tally.
         if (!f.finish && (f.code === 'DNC' || !f.code)) continue;
-        crossings.push({ compId: cid, sail: f.sail, finish: f.finish, code: f.code, redressType: f.redressType });
+        crossings.push({ compId: cid, sail: f.sail, finish: f.finish, code: f.code, redressType: f.redressType, penaltyCode: f.penaltyCode, penaltyPercent: f.penaltyPercent });
       }
     }
 
@@ -363,7 +363,6 @@ export function buildCombinedCruisersSeries(
   for (const rn of raceNumbers) {
     const starts: FileRaceStart[] = [];
     let date = '';
-    interface Crossing { compId: string; sail: string; finish: string | null; code: string | null; redressType: number | null; }
     const crossings: Crossing[] = [];
     for (const ef of echoFleets) {
       const race = ef.fleet.races.find((r) => r.raceNumber === rn);
@@ -374,7 +373,7 @@ export function buildCombinedCruisersSeries(
         const cid = sailToComp.get(f.sail);
         if (!cid) continue;
         if (!f.finish && (f.code === 'DNC' || !f.code)) continue; // DNC implicit
-        crossings.push({ compId: cid, sail: f.sail, finish: f.finish, code: f.code, redressType: f.redressType });
+        crossings.push({ compId: cid, sail: f.sail, finish: f.finish, code: f.code, redressType: f.redressType, penaltyCode: f.penaltyCode, penaltyPercent: f.penaltyPercent });
       }
     }
     races.push({
@@ -395,7 +394,15 @@ export function buildCombinedCruisersSeries(
   });
 }
 
-interface Crossing { compId: string; sail: string; finish: string | null; code: string | null; redressType: number | null; }
+interface Crossing {
+  compId: string;
+  sail: string;
+  finish: string | null;
+  code: string | null;
+  redressType: number | null;
+  penaltyCode?: string | null;
+  penaltyPercent?: number | null;
+}
 
 /** Crossing order (by finish time of day) into ordered finishes, with coded
  *  non-finishers (DNF/RET/RDG…) appended. Shared by the cruiser-day builders. */
@@ -412,8 +419,10 @@ function assembleFinishes(rn: number, crossings: Crossing[]): FileFinish[] {
       finishTime: c.finish!,
       resultCode: null,
       startPresent: true,
-      penaltyCode: null,
-      penaltyOverride: null,
+      // A finisher may carry an additive scoring penalty (e.g. SCP 20%); the
+      // engine applies it on top of the finishing-place score.
+      penaltyCode: c.penaltyCode ?? null,
+      penaltyOverride: c.penaltyCode ? (c.penaltyPercent ?? null) : null,
     });
   }
   for (const c of crossings.filter((x) => !x.finish)) {

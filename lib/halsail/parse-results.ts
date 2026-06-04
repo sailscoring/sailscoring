@@ -34,6 +34,8 @@ export interface HalsailFinisher {
   points: number | null;
   code: string | null; // DNC/DNF/RET/... derived from the Place cell
   redressType: number | null; // RDG type (1-5) from a cell like "RDG 2"; null unless code === 'RDG'
+  penaltyCode: string | null; // additive scoring penalty on a finisher, e.g. "SCP" from "2/SCP_20%"
+  penaltyPercent: number | null; // the penalty percentage, e.g. 20; null if none or unstated
   nextHcap: number | null; // progressive rating AFTER this race
 }
 
@@ -193,6 +195,11 @@ function parseRaceTable(table: string, cap: string): HalsailRace | null {
     const code = codeMatch ? codeMatch[1] : null;
     // RDG cells encode the redress type as a trailing number, e.g. "RDG 2".
     const typeMatch = code === 'RDG' ? placeText.match(/(\d+)\s*$/) : null;
+    // A *finisher* may carry an additive scoring penalty appended to its place,
+    // e.g. "2/SCP_20%" — finished 2nd, 20% scoring penalty. This is distinct
+    // from a result code (DNC/RDG/…), which replaces the place entirely, so we
+    // only look for it when the place is a number.
+    const penaltyMatch = code === null ? placeText.match(/\/([A-Z]{2,5})(?:_(\d+(?:\.\d+)?)%)?/) : null;
     finishers.push({
       sail,
       place: codeMatch ? null : num(placeText),
@@ -203,6 +210,8 @@ function parseRaceTable(table: string, cap: string): HalsailRace | null {
       points: pointsValue(row.byKey('points')),
       code,
       redressType: typeMatch ? Number(typeMatch[1]) : null,
+      penaltyCode: penaltyMatch ? penaltyMatch[1] : null,
+      penaltyPercent: penaltyMatch && penaltyMatch[2] != null ? Number(penaltyMatch[2]) : null,
       nextHcap: num(row.byKey('nexthcap')),
     });
   }

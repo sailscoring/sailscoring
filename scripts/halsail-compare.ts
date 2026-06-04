@@ -151,7 +151,10 @@ function computeOurStandings(): { raceNumbers: number[]; byFleetName: Map<string
       raceNumbers.forEach((rn, i) => {
         byRaceNumber.set(rn, {
           points: s.racePoints[i],
-          code: s.raceCodes[i] ?? null,
+          // HalSail shows a scoring penalty (SCP/ZFP/DPI) as the cell "code",
+          // so fall back to our additive penalty code when there's no result
+          // code, to line the two up.
+          code: s.raceCodes[i] ?? s.racePenaltyCodes[i] ?? null,
           discarded: s.raceDiscards[i] ?? false,
         });
       });

@@ -55,6 +55,36 @@ export function roundCorrectedSecs(elapsedSecs: number, tcf: number): number {
  *   'startingAreaInclDnc' (A5.3 with DNC also scored from the starting area)
  * @returns  Map of competitorId → RaceScore
  */
+/** The A6.2 penalty ceiling for a race: the score a boat gets for DNF, per the
+ *  dnfScoring rule (mirrors `startingAreaPenalty` in calculateRaceScores). A
+ *  penalised finisher is never scored worse than this. `fleetFinishes` must be
+ *  pre-filtered to the fleet. */
+function dnfScoreForRace(fleetFinishes: Finish[], entrantCount: number, dnfScoring: DnfScoring): number {
+  if (dnfScoring === 'seriesEntries') return entrantCount + 1;
+  const hasCheckin = fleetFinishes.some((f) => f.startPresent === true);
+  const startingAreaCount = hasCheckin
+    ? fleetFinishes.filter((f) => f.startPresent === true).length
+    : fleetFinishes.filter((f) => f.resultCode !== 'DNC').length;
+  return startingAreaCount + 1;
+}
+
+/** Apply an additive scoring penalty (ZFP/SCP/DPI) to a finisher's points. Per
+ *  RRS A6.2 the percentage penalty is rounded to the nearest whole number, and
+ *  a boat is never scored worse than DNF (`cap`). No-op when the finish carries
+ *  no penalty. Caller restricts this to finishers. */
+function applyAdditivePenalty(basePoints: number, finish: Finish | undefined, cap: number): number {
+  if (!finish?.penaltyCode) return basePoints;
+  const method = getCodeDefinition(finish.penaltyCode)?.pointsMethod;
+  if (method?.type === 'additive_percentage') {
+    const pct = finish.penaltyOverride ?? method.defaultPct;
+    return Math.min(basePoints + Math.round((pct / 100) * cap), cap);
+  }
+  if (method?.type === 'additive_stated') {
+    return Math.min(basePoints + (finish.penaltyOverride ?? 0), cap);
+  }
+  return basePoints;
+}
+
 export function calculateRaceScores(
   finishes: Finish[],
   competitors: Competitor[],
@@ -170,27 +200,11 @@ export function calculateRaceScores(
   // Per A6.2 other boats are NOT re-ranked; duplicate scores are allowed.
   // Cap: penalised score cannot exceed the DNF score (startingAreaPenalty).
   for (const competitor of competitors) {
-    const finish = finishMap.get(competitor.id);
-    if (!finish?.penaltyCode) continue;
     const score = result.get(competitor.id);
     if (!score || score.place === null) continue; // only apply to finishers
-
-    const def = getCodeDefinition(finish.penaltyCode);
-    if (!def) continue;
-
-    const method = def.pointsMethod;
-    const cap = startingAreaPenalty; // DNF score (starters base) is the ceiling
-    let penalized = score.points;
-
-    if (method.type === 'additive_percentage') {
-      const pct = finish.penaltyOverride ?? method.defaultPct;
-      penalized = Math.min(score.points + Math.round(pct / 100 * cap), cap);
-    } else if (method.type === 'additive_stated') {
-      const pts = finish.penaltyOverride ?? 0;
-      penalized = Math.min(score.points + pts, cap);
-    }
-
-    result.set(competitor.id, { ...score, points: penalized });
+    // Cap at the DNF score (starters base) per A6.2.
+    const penalized = applyAdditivePenalty(score.points, finishMap.get(competitor.id), startingAreaPenalty);
+    if (penalized !== score.points) result.set(competitor.id, { ...score, points: penalized });
   }
 
   return result;
@@ -1242,6 +1256,7 @@ function calculateHandicapStandings(
   // at all) are excluded from scoring per issue #129: 0 points for everyone
   // and they do not count toward the discard threshold.
   const raceExcluded = new Array<boolean>(races.length).fill(false);
+  const fleetCompetitorIds = new Set(competitors.map((c) => c.id));
 
   for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
     const race = races[raceIdx];
@@ -1322,14 +1337,23 @@ function calculateHandicapStandings(
     const hasFinisher = [...scores.values()].some((s) => s.place !== null);
     raceExcluded[raceIdx] = !hasFinisher;
 
+    // Additive scoring penalties (ZFP/SCP/DPI) apply to finishers in handicap
+    // fleets too, capped at this race's DNF score.
+    const fleetRaceFinishes = raceFinishes.filter((f) => f.competitorId !== null && fleetCompetitorIds.has(f.competitorId));
+    const penaltyCap = dnfScoreForRace(fleetRaceFinishes, competitors.length, dnfScoring);
+    const finishMap = new Map(fleetRaceFinishes.map((f) => [f.competitorId as string, f]));
+
     for (const competitor of competitors) {
       if (rejectedIds.has(competitor.id)) continue; // excluded from scoring
       const score = scores.get(competitor.id);
       const rawPoints = score?.points ?? competitors.length + 1;
-      competitorRacePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : rawPoints);
+      const finish = finishMap.get(competitor.id);
+      const isFinisher = score?.place != null;
+      const points = isFinisher ? applyAdditivePenalty(rawPoints, finish, penaltyCap) : rawPoints;
+      competitorRacePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : points);
       competitorRaceCodes.get(competitor.id)!.push(score !== undefined ? score.resultCode : 'DNC');
-      competitorRacePenaltyCodes.get(competitor.id)!.push(null);
-      competitorRacePenaltyOverrides.get(competitor.id)!.push(null);
+      competitorRacePenaltyCodes.get(competitor.id)!.push(isFinisher ? (finish?.penaltyCode ?? null) : null);
+      competitorRacePenaltyOverrides.get(competitor.id)!.push(isFinisher ? (finish?.penaltyOverride ?? null) : null);
       competitorRaceRedressFlags.get(competitor.id)!.push(false);
     }
   }

@@ -1,0 +1,76 @@
+description: "IRC — additive scoring penalty (SCP) applies in a handicap fleet"
+rrs_notes: >
+  Additive penalties (ZFP/SCP/DPI under A6.2) apply to finishers in handicap
+  fleets exactly as in scratch fleets: the penalty is added to the
+  corrected-time finishing-place score, rounded to the nearest whole number,
+  and capped at the DNF score. This mirrors the scratch fixture
+  codes/05-scp-penalty so the two paths are demonstrably consistent.
+
+  All five boats carry TCC 1.000, so corrected-time order equals finishing
+  order. Five competitors, N=5, DNF score = 6.
+    Alice  1st + SCP (default 20%)  -> 1 + round(0.20 x 6) = 1 + 1 = 2
+    Bob    2nd + SCP (override 30%) -> 2 + round(0.30 x 6) = 2 + 2 = 4
+    Carol  3rd                      -> 3
+    Dave   4th                      -> 4   (ties Bob; A6.2 does not re-rank)
+    Eve    5th                      -> 5
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "1", name: "Alice", ircTcc: 1.000 }
+  - { sailNumber: "2", name: "Bob", ircTcc: 1.000 }
+  - { sailNumber: "3", name: "Carol", ircTcc: 1.000 }
+  - { sailNumber: "4", name: "Dave", ircTcc: 1.000 }
+  - { sailNumber: "5", name: "Eve", ircTcc: 1.000 }
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - { sailor: "1", finishTime: "15:00:00", penaltyCode: SCP }
+      - { sailor: "2", finishTime: "15:01:00", penaltyCode: SCP, penaltyOverride: 30 }
+      - { sailor: "3", finishTime: "15:02:00" }
+      - { sailor: "4", finishTime: "15:03:00" }
+      - { sailor: "5", finishTime: "15:04:00" }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 2
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 3
+      sailor: "2"
+      racePoints: [4]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 3
+      sailor: "4"
+      racePoints: [4]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 5
+      sailor: "5"
+      racePoints: [5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5
