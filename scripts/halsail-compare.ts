@@ -60,6 +60,10 @@ const DAYS: Record<string, DayCompare> = {
       { file: 'c3-echo-95466.html', fleet: 'Cruisers 3 ECHO' },
       { file: 'j109-95454.html', fleet: 'J/109' },
       { file: 'sigma33-95462.html', fleet: 'Sigma 33' },
+      { file: 'c45a-vprs-95884.html', fleet: 'Cruisers 4-5A VPRS' },
+      { file: 'c45b-vprs-95886.html', fleet: 'Cruisers 4-5B VPRS' },
+      { file: 'c5a-echo-95473.html', fleet: 'Cruisers 5A ECHO' },
+      { file: 'c5b-echo-95475.html', fleet: 'Cruisers 5B ECHO' },
     ],
   },
   saturday: {
@@ -74,6 +78,10 @@ const DAYS: Record<string, DayCompare> = {
       { file: 'sat-c3-echo-95465.html', fleet: 'Cruisers 3 ECHO' },
       { file: 'sat-j109-95453.html', fleet: 'J/109' },
       { file: 'sat-sigma33-95461.html', fleet: 'Sigma 33' },
+      { file: 'sat-c45a-vprs-95883.html', fleet: 'Cruisers 4-5A VPRS' },
+      { file: 'sat-c45b-vprs-95885.html', fleet: 'Cruisers 4-5B VPRS' },
+      { file: 'sat-c5a-echo-95472.html', fleet: 'Cruisers 5A ECHO' },
+      { file: 'sat-c5b-echo-95474.html', fleet: 'Cruisers 5B ECHO' },
     ],
   },
   tuesday: {

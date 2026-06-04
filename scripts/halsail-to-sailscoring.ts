@@ -58,6 +58,10 @@ const DAYS: Record<string, DayConfig> = {
           { fleetId: 'cf-sigma33', name: 'Sigma 33', parentClass: 2, fleet: load('sigma33-95462.html') },
         ],
         opts,
+        [
+          { vprsFleetId: 'cf-45a-vprs', vprsName: 'Cruisers 4-5A VPRS', startKey: '45a', vprs: load('c45a-vprs-95884.html'), echoFleets: [{ fleetId: 'cf-5a-echo', name: 'Cruisers 5A ECHO', echo: load('c5a-echo-95473.html') }] },
+          { vprsFleetId: 'cf-45b-vprs', vprsName: 'Cruisers 4-5B VPRS', startKey: '45b', vprs: load('c45b-vprs-95886.html'), echoFleets: [{ fleetId: 'cf-5b-echo', name: 'Cruisers 5B ECHO', echo: load('c5b-echo-95475.html') }] },
+        ],
       ),
   },
   saturday: {
@@ -77,6 +81,10 @@ const DAYS: Record<string, DayConfig> = {
           { fleetId: 'cf-sigma33', name: 'Sigma 33', parentClass: 2, fleet: load('sat-sigma33-95461.html') },
         ],
         opts,
+        [
+          { vprsFleetId: 'cf-45a-vprs', vprsName: 'Cruisers 4-5A VPRS', startKey: '45a', vprs: load('sat-c45a-vprs-95883.html'), echoFleets: [{ fleetId: 'cf-5a-echo', name: 'Cruisers 5A ECHO', echo: load('sat-c5a-echo-95472.html') }] },
+          { vprsFleetId: 'cf-45b-vprs', vprsName: 'Cruisers 4-5B VPRS', startKey: '45b', vprs: load('sat-c45b-vprs-95885.html'), echoFleets: [{ fleetId: 'cf-5b-echo', name: 'Cruisers 5B ECHO', echo: load('sat-c5b-echo-95474.html') }] },
+        ],
       ),
   },
   tuesday: {

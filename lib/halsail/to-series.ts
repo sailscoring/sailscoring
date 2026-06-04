@@ -1,5 +1,5 @@
 /**
- * Build a `.sailscoring` SeriesFile (format v6) from parsed HalSail fleet
+ * Build a `.sailscoring` SeriesFile (format v7) from parsed HalSail fleet
  * results. Produces *input only* — competitors with ratings, races, starts,
  * finishes and result codes — so that scoring (corrected times, points,
  * discards, the ECHO progression) is recomputed independently by the app and
@@ -21,7 +21,7 @@ interface FileFleet {
   id: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
   echoAlpha?: number;
 }
 interface FileCompetitor {
@@ -37,6 +37,7 @@ interface FileCompetitor {
   gender: 'M' | 'F' | '';
   age: number | null;
   ircTcc?: number;
+  vprsTcc?: number;
   echoStartingTcf?: number;
 }
 interface FileFinish {
@@ -67,7 +68,7 @@ interface FileRaceStart {
 interface FileRatingOverride {
   id: string;
   competitorId: string;
-  field: 'ircTcc' | 'pyNumber';
+  field: 'ircTcc' | 'pyNumber' | 'vprsTcc';
   value: number;
 }
 interface FileRace {
@@ -123,6 +124,19 @@ export interface OneDesignInput {
   fleet: HalsailFleet; // roster only (which sails belong)
 }
 
+/** A VPRS pool on the cruiser sheet — Cruisers 4/5, scored under VPRS (a fixed
+ *  time-on-time rating). The VPRS fragment is the authoritative roster +
+ *  finishes + per-boat rating (the Hcap column). The pool combines a
+ *  spinnaker-band pair (4A+5A or 4B+5B); the C5 sub-divisions are *also* scored
+ *  under ECHO (C4 is VPRS-only, so it has no echo sub-fleet). */
+export interface VprsClassInput {
+  vprsFleetId: string; // e.g. "cf-45a-vprs"
+  vprsName: string; // e.g. "Cruisers 4-5A VPRS"
+  startKey: string; // unique start-id suffix, e.g. "45a"
+  vprs: HalsailFleet; // roster + finishes + VPRS rating (Hcap)
+  echoFleets?: { fleetId: string; name: string; echo: HalsailFleet }[];
+}
+
 export interface BuildOptions {
   seriesName?: string;
   venue?: string;
@@ -174,6 +188,7 @@ export function buildCruiserDaySeries(
   classes: ClassInput[],
   oneDesigns: OneDesignInput[],
   opts: BuildOptions = {},
+  vprsClasses: VprsClassInput[] = [],
 ): SeriesFile {
   const fleets: FileFleet[] = [];
   let order = 0;
@@ -183,6 +198,12 @@ export function buildCruiserDaySeries(
   }
   for (const od of oneDesigns) {
     fleets.push({ id: od.fleetId, name: od.name, displayOrder: order++, scoringSystem: 'scratch' });
+  }
+  for (const vc of vprsClasses) {
+    fleets.push({ id: vc.vprsFleetId, name: vc.vprsName, displayOrder: order++, scoringSystem: 'vprs' });
+    for (const ef of vc.echoFleets ?? []) {
+      fleets.push({ id: ef.fleetId, name: ef.name, displayOrder: order++, scoringSystem: 'echo', echoAlpha: 0.25 });
+    }
   }
 
   // Membership lookups for the one-design fleets, by sail.
@@ -200,7 +221,7 @@ export function buildCruiserDaySeries(
   // Per-race IRC TCC overrides (mid-series rating change), keyed by race number.
   // The competitor carries its *current* (latest) TCC; earlier races where the
   // applied TCC differed get an override pinning the old value.
-  const ircOverridesByRace = new Map<number, FileRatingOverride[]>();
+  const overridesByRace = new Map<number, FileRatingOverride[]>();
   for (const cl of classes) {
     const ircBySail = new Map(cl.irc?.competitors.map((c) => [c.sail, c]) ?? []);
     for (const c of cl.echo.competitors) {
@@ -221,8 +242,8 @@ export function buildCruiserDaySeries(
         fleetIds.push(ircFleetId(cl.classNum));
         for (const { raceNumber, hcap } of ircHcaps) {
           if (hcap === ircTcc) continue;
-          if (!ircOverridesByRace.has(raceNumber)) ircOverridesByRace.set(raceNumber, []);
-          ircOverridesByRace.get(raceNumber)!.push({
+          if (!overridesByRace.has(raceNumber)) overridesByRace.set(raceNumber, []);
+          overridesByRace.get(raceNumber)!.push({
             id: `ro-${raceNumber}-${id}-ircTcc`,
             competitorId: id,
             field: 'ircTcc',
@@ -251,6 +272,60 @@ export function buildCruiserDaySeries(
     }
   }
 
+  // VPRS pools (Cruisers 4/5). Roster + finishes + VPRS rating come from the
+  // VPRS fragment; C5 boats also join an ECHO sub-fleet (with its own seed),
+  // C4 boats are VPRS-only. A mid-season re-rate becomes a per-race vprsTcc
+  // override, exactly as for IRC.
+  for (const vc of vprsClasses) {
+    const vprsBySail = new Map(vc.vprs.competitors.map((c) => [c.sail, c]));
+    // A C5 boat with a VPRS rating is in both the VPRS pool and an ECHO
+    // sub-fleet; a C4 boat is VPRS-only; and a C5 boat with no VPRS cert is
+    // ECHO-only. Union the rosters so none are dropped.
+    const echoSubBySail = new Map<string, { fleetId: string; echo: HalsailFleet; comp: (typeof vc.vprs.competitors)[number] }>();
+    for (const ef of vc.echoFleets ?? []) {
+      for (const c of ef.echo.competitors) if (!echoSubBySail.has(c.sail)) echoSubBySail.set(c.sail, { fleetId: ef.fleetId, echo: ef.echo, comp: c });
+    }
+    for (const sail of new Set([...vprsBySail.keys(), ...echoSubBySail.keys()])) {
+      if (sailToComp.has(sail)) continue;
+      const id = compId(sail);
+      const fleetIds: string[] = [];
+      const vcomp = vprsBySail.get(sail);
+      let vprsTcc: number | null = null;
+      if (vcomp) {
+        fleetIds.push(vc.vprsFleetId);
+        const vHcaps = perRaceHcaps(vc.vprs, sail);
+        vprsTcc = vHcaps.length ? vHcaps[vHcaps.length - 1].hcap : (vcomp.hcap ?? null);
+        if (vprsTcc != null) {
+          for (const { raceNumber, hcap } of vHcaps) {
+            if (hcap === vprsTcc) continue;
+            if (!overridesByRace.has(raceNumber)) overridesByRace.set(raceNumber, []);
+            overridesByRace.get(raceNumber)!.push({ id: `ro-${raceNumber}-${id}-vprsTcc`, competitorId: id, field: 'vprsTcc', value: hcap });
+          }
+        }
+      }
+      const sub = echoSubBySail.get(sail);
+      const seed = sub ? firstAppliedHcap(sub.echo, sail) : null;
+      if (sub) fleetIds.push(sub.fleetId);
+      const meta = vcomp ?? sub!.comp;
+      competitors.push({
+        id,
+        fleetIds,
+        sailNumber: sail,
+        ...(meta.name ? { boatName: meta.name } : {}),
+        ...(meta.type ? { boatClass: meta.type } : {}),
+        name: meta.owner || meta.name || sail,
+        ...(meta.owner ? { owner: meta.owner } : {}),
+        ...(meta.helm ? { helm: meta.helm } : {}),
+        club: meta.club ?? '',
+        gender: '',
+        age: null,
+        ...(vprsTcc != null ? { vprsTcc } : {}),
+        ...(seed != null ? { echoStartingTcf: seed } : {}),
+      });
+      sailToComp.set(sail, id);
+    }
+  }
+
   // Per-class extra fleets that share the class start (one-designs).
   const extraStartFleets = new Map<number, string[]>();
   for (const od of oneDesigns) {
@@ -261,7 +336,10 @@ export function buildCruiserDaySeries(
   // Races — union of race numbers across classes; each class contributes only
   // the races it sailed (the engine excludes a race for a fleet with no
   // finishers, so absent classes are correctly not scored that race).
-  const raceNumbers = [...new Set(classes.flatMap((cl) => cl.echo.races.map((r) => r.raceNumber)))].sort((a, b) => a - b);
+  const raceNumbers = [...new Set([
+    ...classes.flatMap((cl) => cl.echo.races.map((r) => r.raceNumber)),
+    ...vprsClasses.flatMap((vc) => vc.vprs.races.map((r) => r.raceNumber)),
+  ])].sort((a, b) => a - b);
 
   const races: FileRace[] = [];
   for (const rn of raceNumbers) {
@@ -294,7 +372,35 @@ export function buildCruiserDaySeries(
       }
     }
 
-    const ratingOverrides = ircOverridesByRace.get(rn);
+    for (const vc of vprsClasses) {
+      // Finishes come from the VPRS fragment (all C4/5 boats with a rating) and
+      // the ECHO sub-fragments (ECHO-only boats), deduped by sail — a boat in
+      // both has the same crossing in each.
+      const sources = [vc.vprs, ...(vc.echoFleets ?? []).map((e) => e.echo)];
+      const raceObjs = sources
+        .map((s) => s.races.find((r) => r.raceNumber === rn))
+        .filter((r): r is NonNullable<typeof r> => !!r);
+      if (raceObjs.length === 0) continue;
+      const r0 = raceObjs.find((r) => r.startTime) ?? raceObjs[0];
+      if (r0.date) date ||= r0.date;
+      starts.push({
+        id: `rs-${rn}-${vc.startKey}`,
+        fleetIds: [vc.vprsFleetId, ...(vc.echoFleets ?? []).map((e) => e.fleetId)],
+        startTime: r0.startTime ?? '18:45:00',
+      });
+      const seen = new Set<string>();
+      for (const race of raceObjs) {
+        for (const f of race.finishers) {
+          const cid = sailToComp.get(f.sail);
+          if (!cid || seen.has(f.sail)) continue;
+          if (!f.finish && (f.code === 'DNC' || !f.code)) continue;
+          seen.add(f.sail);
+          crossings.push({ compId: cid, sail: f.sail, finish: f.finish, code: f.code, redressType: f.redressType, penaltyCode: f.penaltyCode, penaltyPercent: f.penaltyPercent });
+        }
+      }
+    }
+
+    const ratingOverrides = overridesByRace.get(rn);
     races.push({
       id: `race-${rn}`,
       raceNumber: rn,
@@ -465,7 +571,9 @@ function assembleSeries(
   const snapshotId = opts.snapshotId ?? 'f9a1c0de-2026-4b1e-8c00-000000000001';
 
   return {
-    formatVersion: 6,
+    // v7: carries vprsTcc (VPRS scoring). The non-VPRS day files are forward-
+    // compatible at v7 too; the field is simply absent.
+    formatVersion: 7,
     seriesId: opts.seriesId,
     snapshotId,
     snapshotHistory: [snapshotId],
