@@ -608,6 +608,32 @@ describe('calculateFleetStandings', () => {
     expect(b1.raceExcluded[2]).toBe(true);
     expect(a1.raceExcluded).toEqual([false, false, true]);
   });
+
+  // Scores are multiples of 0.1, but summing/subtracting them in float leaves
+  // IEEE residue (6.6 - 2.6 = 3.9999999999999996) that surfaced raw in the
+  // in-app standings. net/total must come out clean.
+  it('net score has no floating-point residue after discarding a fractional race', () => {
+    const fleet: Fleet = { id: 'f1', seriesId: 's1', name: 'IRC', displayOrder: 0, scoringSystem: 'irc' };
+    const mk = (id: string): Competitor => ({ ...makeCompetitor(id, 's1', 'f1'), ircTcc: 1.0 });
+    const comps = [mk('A'), mk('B')];
+    const racesAB = [makeRace('r1', 1), makeRace('r2', 2)];
+    const starts: RaceStart[] = [
+      { id: 's1', raceId: 'r1', fleetIds: ['f1'], startTime: '14:00:00' },
+      { id: 's2', raceId: 'r2', fleetIds: ['f1'], startTime: '14:00:00' },
+    ];
+    // came = 2 → DNF score 3; SCP = 0.20 × 3 = 0.6. A: R1 = 1 + 0.6 = 1.6, R2 = 1.
+    const finishes: Finish[] = [
+      { ...makeFinish('r1', 'A', 1, null, 'SCP'), finishTime: '15:00:00', startPresent: true },
+      { ...makeFinish('r1', 'B', 2), finishTime: '15:10:00', startPresent: true },
+      { ...makeFinish('r2', 'A', 1), finishTime: '15:00:00', startPresent: true },
+      { ...makeFinish('r2', 'B', 2), finishTime: '15:10:00', startPresent: true },
+    ];
+    const { fleetStandings } = calculateFleetStandings([fleet], comps, racesAB, finishes, [{ minRaces: 2, discardCount: 1 }], 'startingArea', starts);
+    const a = fleetStandings[0].standings.find((s) => s.competitor.id === 'A')!;
+    expect(a.racePoints).toEqual([1.6, 1]);
+    expect(a.totalPoints).toBe(2.6);
+    expect(a.netPoints).toBe(1); // 2.6 − 1.6, discarding the SCP race — clean, not 1.0000000000000002
+  });
 });
 
 // ─── Unknown finishes (null competitorId) ────────────────────────────────────

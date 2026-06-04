@@ -82,10 +82,12 @@ function applyAdditivePenalty(basePoints: number, finish: Finish | undefined, ca
     // pct% of the DNF score, to the nearest 0.1 (0.05 rounded up). pct and cap
     // are whole numbers, so pct*cap/10 is exact before the half-up rounding.
     const penalty = Math.round((pct * cap) / 10) / 10;
-    return Math.min(basePoints + penalty, cap);
+    // roundToTenth on the sum: base is a tenth and so is the penalty, but their
+    // float sum (e.g. 2 + 0.6) carries IEEE noise that would surface in the UI.
+    return Math.min(roundToTenth(basePoints + penalty), cap);
   }
   if (method?.type === 'additive_stated') {
-    return Math.min(basePoints + (finish.penaltyOverride ?? 0), cap);
+    return Math.min(roundToTenth(basePoints + (finish.penaltyOverride ?? 0)), cap);
   }
   return basePoints;
 }
@@ -1074,7 +1076,10 @@ export function calculateStandings(
     const racePenaltyCodes = competitorRacePenaltyCodes.get(competitor.id)!;
     const racePenaltyOverrides = competitorRacePenaltyOverrides.get(competitor.id)!;
     const raceRedressFlags = competitorRaceRedressFlags.get(competitor.id)!;
-    const totalPoints = racePoints.reduce((sum, p) => sum + p, 0);
+    // roundToTenth on the series totals: every per-race score is a multiple of
+    // 0.1, so summing them is exact in principle but accumulates IEEE noise
+    // (e.g. 6.6 - 2.6 = 3.9999999999999996) that would show in the UI.
+    const totalPoints = roundToTenth(racePoints.reduce((sum, p) => sum + p, 0));
 
     // Determine non-discardable flags from code definitions
     const raceNonDiscardable = raceCodes.map((code) => {
@@ -1097,10 +1102,10 @@ export function calculateStandings(
       }
     }
 
-    const netPoints = racePoints.reduce(
+    const netPoints = roundToTenth(racePoints.reduce(
       (sum, p, i) => sum + (raceDiscards[i] ? 0 : p),
       0,
-    );
+    ));
 
     return { rank: 0, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded] };
   });
@@ -1442,7 +1447,10 @@ function calculateHandicapStandings(
     const racePenaltyCodes = competitorRacePenaltyCodes.get(competitor.id)!;
     const racePenaltyOverrides = competitorRacePenaltyOverrides.get(competitor.id)!;
     const raceRedressFlags = competitorRaceRedressFlags.get(competitor.id)!;
-    const totalPoints = racePoints.reduce((sum, p) => sum + p, 0);
+    // roundToTenth on the series totals: scores are multiples of 0.1, but
+    // summing/subtracting them in float accumulates IEEE noise (e.g.
+    // 6.6 - 2.6 = 3.9999999999999996) that would otherwise show in the UI.
+    const totalPoints = roundToTenth(racePoints.reduce((sum, p) => sum + p, 0));
     const raceNonDiscardable = raceCodes.map((code) => {
       if (!code) return false;
       const def = getCodeDefinition(code);
@@ -1463,6 +1471,7 @@ function calculateHandicapStandings(
         raceDiscards[i] = true;
         netPoints -= racePoints[i];
       }
+      netPoints = roundToTenth(netPoints);
     }
 
     return {
