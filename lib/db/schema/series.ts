@@ -223,7 +223,7 @@ export const fleets = pgTable(
     index('fleets_workspace_idx').on(table.workspaceId),
     check(
       'fleets_scoring_system_chk',
-      sql`${table.scoringSystem} in ('scratch','irc','py','nhc','echo')`,
+      sql`${table.scoringSystem} in ('scratch','irc','py','nhc','echo','vprs')`,
     ),
   ],
 );
@@ -255,6 +255,7 @@ export const competitors = pgTable(
       .notNull()
       .defaultNow(),
     ircTcc: real('irc_tcc'),
+    vprsTcc: real('vprs_tcc'),
     pyNumber: real('py_number'),
     nhcStartingTcf: real('nhc_starting_tcf'),
     echoStartingTcf: real('echo_starting_tcf'),
@@ -339,7 +340,7 @@ export const raceRatingOverrides = pgTable(
     ),
     check(
       'race_rating_overrides_field_chk',
-      sql`${table.field} in ('ircTcc','pyNumber')`,
+      sql`${table.field} in ('ircTcc','pyNumber','vprsTcc')`,
     ),
   ],
 );

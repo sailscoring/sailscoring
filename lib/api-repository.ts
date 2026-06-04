@@ -534,6 +534,7 @@ export interface HandicapUpdateRow {
   competitorId: string;
   expectedVersion: number;
   ircTcc?: number;
+  vprsTcc?: number;
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
@@ -590,7 +591,7 @@ export async function ensureFleet(
   seriesId: string,
   name: string,
   options?: {
-    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
+    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
     echoAlpha?: number;
     nhcProfile?: import('./types').NhcProfile;
   },

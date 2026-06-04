@@ -1033,7 +1033,7 @@ export function assembleSeriesResultsData(
     raceExcluded?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; club?: string; nationality?: string; subdivision?: string; ircTcc?: number; pyNumber?: number }>,
+  competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; club?: string; nationality?: string; subdivision?: string; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -1048,7 +1048,7 @@ export function assembleSeriesResultsData(
     /** ID of the fleet being rendered */
     fleetId?: string;
     /** Scoring system of the fleet */
-    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
+    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
     /** When set (NHC fleets only), per-race aggregates that drive the
      *  rating-calculation fleet header line above each race table and the
      *  per-row explainability columns. Pass undefined to suppress the
@@ -1067,7 +1067,7 @@ export function assembleSeriesResultsData(
   },
 ): SeriesResultsData {
   const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, subdivisionLabel, showPerRaceRatings, seedRatingByCompetitorId } = options ?? {};
-  const isHandicap = scoringSystem === 'irc' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo';
+  const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
 
@@ -1102,6 +1102,8 @@ export function assembleSeriesResultsData(
         // current rating only when the engine emitted no per-race value.
         if (scoringSystem === 'irc') {
           tcc = score.tcfApplied ?? competitor.ircTcc ?? undefined;
+        } else if (scoringSystem === 'vprs') {
+          tcc = score.tcfApplied ?? competitor.vprsTcc ?? undefined;
         } else if (scoringSystem === 'py') {
           tcc = score.tcfApplied
             ?? (competitor.pyNumber != null && competitor.pyNumber > 0 ? 1000 / competitor.pyNumber : undefined);

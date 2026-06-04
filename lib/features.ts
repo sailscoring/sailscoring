@@ -77,6 +77,14 @@ export const FEATURES = {
     helpSectionIds: ['update-handicaps-rya-py'],
     defaultOn: true,
   },
+  vprs: {
+    // Gates the VPRS scoring system *and* the VPRS rating source in the
+    // Update-handicaps dialog (#175). Opt-in (default off): VPRS is new and not
+    // yet reconciled against real published results, so we keep the audience
+    // small and enumerable until it's proven, per the containment model.
+    label: 'VPRS scoring',
+    helpSectionIds: ['update-handicaps-vprs'],
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;

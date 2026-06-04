@@ -5,6 +5,7 @@ export type MissingRating = { fleetName: string; ratingLabel: string };
 
 export function fleetRatingLabel(fleet: Fleet): string | null {
   if (fleet.scoringSystem === 'irc') return 'IRC TCC';
+  if (fleet.scoringSystem === 'vprs') return 'VPRS TCC';
   if (fleet.scoringSystem === 'py') return 'PY number';
   if (fleet.scoringSystem === 'nhc') return 'NHC starting TCF';
   if (fleet.scoringSystem === 'echo') return 'ECHO starting handicap';
@@ -40,7 +41,7 @@ export function requiredForFleetsHint(fleetNames: string[]): string {
   return `Required for ${fleetNames.join(', ')} ${suffix}.`;
 }
 
-export type RatingSystemCode = 'irc' | 'py' | 'nhc' | 'echo';
+export type RatingSystemCode = 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
 
 export type RatingDisplay = {
   system: RatingSystemCode;
@@ -50,6 +51,7 @@ export type RatingDisplay = {
 
 const RATING_LABEL: Record<RatingSystemCode, string> = {
   irc: 'IRC',
+  vprs: 'VPRS',
   py: 'PY',
   nhc: 'NHC',
   echo: 'ECHO',
@@ -59,6 +61,8 @@ function ratingValueFor(competitor: Competitor, system: RatingSystemCode): strin
   switch (system) {
     case 'irc':
       return competitor.ircTcc != null ? String(competitor.ircTcc) : '—';
+    case 'vprs':
+      return competitor.vprsTcc != null ? String(competitor.vprsTcc) : '—';
     case 'py':
       return competitor.pyNumber != null ? String(competitor.pyNumber) : '—';
     case 'nhc':

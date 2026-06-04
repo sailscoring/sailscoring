@@ -42,12 +42,13 @@
 
 import type { Competitor, Fleet } from './types';
 
-export type RatingSystem = 'irc' | 'py' | 'nhc' | 'echo';
+export type RatingSystem = 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
 export type ScoringSystem = RatingSystem | 'scratch';
 
 const SYSTEM_SUFFIX: Record<ScoringSystem, string> = {
   scratch: 'Scratch',
   irc: 'IRC',
+  vprs: 'VPRS',
   py: 'PY',
   nhc: 'NHC',
   echo: 'ECHO',

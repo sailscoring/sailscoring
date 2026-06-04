@@ -202,7 +202,7 @@ export async function buildFleetHtmlFiles(
         let scores;
         // Per-race static-rating overrides (mid-series rating change) for this
         // fleet's system, keyed by competitor.
-        const overrideField = fleet.scoringSystem === 'irc' ? 'ircTcc' : fleet.scoringSystem === 'py' ? 'pyNumber' : null;
+        const overrideField = fleet.scoringSystem === 'irc' ? 'ircTcc' : fleet.scoringSystem === 'vprs' ? 'vprsTcc' : fleet.scoringSystem === 'py' ? 'pyNumber' : null;
         const overrideByComp = new Map<string, number>();
         if (overrideField) {
           for (const o of allRatingOverrides) {
@@ -216,6 +216,9 @@ export async function buildFleetHtmlFiles(
           for (const c of fleetCompetitors) {
             if (fleet.scoringSystem === 'irc') {
               const tcc = overrideByComp.get(c.id) ?? c.ircTcc;
+              if (tcc != null) tcfMap.set(c.id, tcc);
+            } else if (fleet.scoringSystem === 'vprs') {
+              const tcc = overrideByComp.get(c.id) ?? c.vprsTcc;
               if (tcc != null) tcfMap.set(c.id, tcc);
             } else if (fleet.scoringSystem === 'py') {
               const py = overrideByComp.get(c.id) ?? c.pyNumber;

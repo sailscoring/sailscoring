@@ -65,9 +65,13 @@ export interface SeriesFileRepos {
  *  v6 adds optional `Competitor.subdivision` (Gold/Silver/Bronze or age
  *  categories) and `Series.subdivisionLabel` (its display label). Additive;
  *  older files load with the field absent and the label defaulting to
- *  "Division". */
-export const FORMAT_VERSION = 6;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6];
+ *  "Division".
+ *
+ *  v7 adds the `vprs` fleet scoring system and the optional
+ *  `Competitor.vprsTcc` rating (with `vprsTcc` as a per-race rating-override
+ *  field). Additive; older files load with the field absent. */
+export const FORMAT_VERSION = 7;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -76,7 +80,7 @@ interface SeriesFileFleet {
   id: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
   echoAlpha?: number; // present iff scoringSystem === 'echo'
   // Inline NHC profile override (per-fleet). Present iff scoringSystem === 'nhc'
   // AND parameters differ from the SWNHC2015 defaults; absent means "use
@@ -127,6 +131,7 @@ interface SeriesFileCompetitor {
   age: number | null;
   subdivision?: string;  // v6+
   ircTcc?: number;
+  vprsTcc?: number;
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
@@ -160,7 +165,7 @@ interface SeriesFileRaceStart {
 interface SeriesFileRatingOverride {
   id: string;
   competitorId: string;
-  field: 'ircTcc' | 'pyNumber';
+  field: 'ircTcc' | 'pyNumber' | 'vprsTcc';
   value: number;
 }
 
@@ -352,6 +357,7 @@ export async function buildSeriesFile(
       age: c.age,
       ...(c.subdivision ? { subdivision: c.subdivision } : {}),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
+      ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
@@ -749,6 +755,7 @@ async function writeFleetsCompetitorsRaces(
         ...(c.subdivision ? { subdivision: c.subdivision } : {}),
         createdAt: now,
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
+        ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),

@@ -10,6 +10,7 @@ export const scoringSystemSchema = z.enum([
   'py',
   'nhc',
   'echo',
+  'vprs',
 ]);
 
 // Inline NHC profile (per-fleet override of the stock SWNHC2015 parameters).

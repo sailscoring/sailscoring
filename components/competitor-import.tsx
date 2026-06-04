@@ -121,6 +121,7 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   subdivision: 'Division',  // fallback; overridden per-series in buildFieldLabels
   fleet: 'Fleet',
   tcc: 'IRC TCC',
+  vprsTcc: 'VPRS TCC',
   py: 'PY number',
   nhcStartingTcf: 'NHC starting TCF',
   echoStartingTcf: 'ECHO starting handicap',
@@ -152,6 +153,7 @@ function buildFieldLabels(
     subdivision: subdivisionLabel,
     fleet: STATIC_FIELD_LABELS.fleet,
     tcc: STATIC_FIELD_LABELS.tcc,
+    vprsTcc: STATIC_FIELD_LABELS.vprsTcc,
     py: STATIC_FIELD_LABELS.py,
     nhcStartingTcf: STATIC_FIELD_LABELS.nhcStartingTcf,
     echoStartingTcf: STATIC_FIELD_LABELS.echoStartingTcf,
@@ -206,6 +208,7 @@ function reconcileColumnMap(columnMap: ColumnMap, proposed: PrimaryPersonLabel):
  *  rating systems the planner cares about. */
 const RATING_FIELD_TO_SYSTEM: Partial<Record<CompetitorField, RatingSystem>> = {
   tcc: 'irc',
+  vprsTcc: 'vprs',
   py: 'py',
   nhcStartingTcf: 'nhc',
   echoStartingTcf: 'echo',
@@ -252,6 +255,7 @@ function groupProposedByCsvName(proposed: ProposedFleet[]): [string, ProposedFle
 const SCORING_SYSTEM_LABEL: Record<ProposedFleet['scoringSystem'], string> = {
   scratch: 'Scratch',
   irc: 'IRC',
+  vprs: 'VPRS',
   py: 'PY',
   nhc: 'NHC',
   echo: 'ECHO',
@@ -827,6 +831,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let subdivision = '';
       let fleet = '';
       let tcc = '';
+      let vprsTccStr = '';
       let py = '';
       let nhcStartingTcfStr = '';
       let echoStartingTcfStr = '';
@@ -847,6 +852,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'subdivision') subdivision = val;
         else if (field === 'fleet') fleet = val;
         else if (field === 'tcc') tcc = val;
+        else if (field === 'vprsTcc') vprsTccStr = val;
         else if (field === 'py') py = val;
         else if (field === 'nhcStartingTcf') nhcStartingTcfStr = val;
         else if (field === 'echoStartingTcf') echoStartingTcfStr = val;
@@ -869,10 +875,12 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         : sailCandidates.find((c) => sameFleetIdSet(c.fleetIds, fleetIds)) ?? sailCandidates[0];
 
       const parsedTcc = tcc ? parseFloat(tcc) : null;
+      const parsedVprs = vprsTccStr ? parseFloat(vprsTccStr) : null;
       const parsedPy = py ? parseInt(py, 10) : null;
       const parsedNhc = nhcStartingTcfStr ? parseFloat(nhcStartingTcfStr) : null;
       const parsedEcho = echoStartingTcfStr ? parseFloat(echoStartingTcfStr) : null;
       const ircTcc = parsedTcc != null && !isNaN(parsedTcc) ? parsedTcc : existingCompetitor?.ircTcc;
+      const vprsTcc = parsedVprs != null && !isNaN(parsedVprs) ? parsedVprs : existingCompetitor?.vprsTcc;
       const pyNumber = parsedPy != null && !isNaN(parsedPy) ? parsedPy : existingCompetitor?.pyNumber;
       const nhcStartingTcf = parsedNhc != null && !isNaN(parsedNhc) ? parsedNhc : existingCompetitor?.nhcStartingTcf;
       const echoStartingTcf = parsedEcho != null && !isNaN(parsedEcho) ? parsedEcho : existingCompetitor?.echoStartingTcf;
@@ -920,6 +928,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(resolvedSubdivision ? { subdivision: resolvedSubdivision } : {}),
         createdAt: existingCompetitor?.createdAt ?? Date.now(),
         ...(ircTcc != null ? { ircTcc } : {}),
+        ...(vprsTcc != null ? { vprsTcc } : {}),
         ...(pyNumber != null ? { pyNumber } : {}),
         ...(nhcStartingTcf != null ? { nhcStartingTcf } : {}),
         ...(echoStartingTcf != null ? { echoStartingTcf } : {}),
@@ -940,6 +949,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         existingCompetitor.age === competitor.age &&
         (existingCompetitor.subdivision ?? '') === (competitor.subdivision ?? '') &&
         existingCompetitor.ircTcc === competitor.ircTcc &&
+        existingCompetitor.vprsTcc === competitor.vprsTcc &&
         existingCompetitor.pyNumber === competitor.pyNumber &&
         existingCompetitor.nhcStartingTcf === competitor.nhcStartingTcf &&
         existingCompetitor.echoStartingTcf === competitor.echoStartingTcf

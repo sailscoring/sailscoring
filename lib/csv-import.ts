@@ -21,6 +21,7 @@ export type CompetitorField =
   | 'subdivision'
   | 'fleet'
   | 'tcc'
+  | 'vprsTcc'
   | 'py'
   | 'nhcStartingTcf'
   | 'echoStartingTcf'
@@ -59,6 +60,9 @@ export function autoDetectField(header: string): CompetitorField {
   // is far more often the boat class than a subdivision label.
   if (/\bsubdivision\b|division|category/.test(h)) return 'subdivision';
   if (/\bfleet\b/.test(h)) return 'fleet';
+  // VPRS must be checked before the generic `tcc` rule — a "VPRS TCC" header
+  // contains "tcc" and would otherwise be read as an IRC column.
+  if (/vprs/.test(h)) return 'vprsTcc';
   if (/tcc|irc.*rating|rating.*irc/.test(h)) return 'tcc';
   if (/\bpy\b|portsmouth/.test(h)) return 'py';
   if (/\bnhc\b|nhc.*tcf|nhc.*rating/.test(h)) return 'nhcStartingTcf';

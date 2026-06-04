@@ -78,7 +78,7 @@ export interface PublicSeriesExport {
   fleets: {
     name: string;
     displayOrder: number;
-    scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
+    scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
     /** ECHO blend rate α (present iff scoringSystem === 'echo'). */
     echoAlpha?: number;
     /** Inline NHC profile (present iff scoringSystem === 'nhc' and parameters differ from SWNHC2015 defaults). */
@@ -104,6 +104,8 @@ export interface PublicSeriesExport {
     subdivision?: string;
     fleetNames: string[];
     ircTcc?: number;
+    /** VPRS Time Correction Coefficient. */
+    vprsTcc?: number;
     pyNumber?: number;
     /** NHC starting TCF (race-1 input). */
     nhcStartingTcf?: number;
@@ -504,6 +506,7 @@ export async function buildPublicExport(
       ...(c.subdivision ? { subdivision: c.subdivision } : {}),
       fleetNames: c.fleetIds.map((id) => fleetNameById.get(id) ?? id),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
+      ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
@@ -639,6 +642,7 @@ export async function importPublicExport(
         ...(c.subdivision ? { subdivision: c.subdivision } : {}),
         createdAt: now,
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
+        ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),

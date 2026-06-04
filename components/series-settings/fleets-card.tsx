@@ -306,6 +306,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                       {(has('rya-py') || fleet.scoringSystem === 'py') && (
                         <SelectItem value="py">PY</SelectItem>
                       )}
+                      {/* VPRS is experimental/gated (#155, #175); still offer it
+                          for a fleet that already uses it if a workspace opts out. */}
+                      {(has('vprs') || fleet.scoringSystem === 'vprs') && (
+                        <SelectItem value="vprs">VPRS</SelectItem>
+                      )}
                       <SelectItem value="nhc">NHC</SelectItem>
                       {/* ECHO is experimental/gated (#155); still offer it for a
                           fleet that already uses it so the control isn't broken. */}

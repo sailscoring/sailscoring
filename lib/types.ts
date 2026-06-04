@@ -115,7 +115,7 @@ export interface Fleet {
   seriesId: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
   echoAlpha?: number; // present iff scoringSystem === 'echo'; default 0.25 (75/25 club racing)
   // Inline (unshared) NHC profile override. Present iff scoringSystem === 'nhc'
   // AND the scorer has customised the parameters away from the SWNHC2015
@@ -137,7 +137,7 @@ export interface RaceStart {
 }
 
 /** A static-rating field that can be overridden per race. */
-export type RatingField = 'ircTcc' | 'pyNumber';
+export type RatingField = 'ircTcc' | 'pyNumber' | 'vprsTcc';
 
 /**
  * Per-race override of a competitor's static rating (mid-series rating change,
@@ -174,6 +174,7 @@ export interface Competitor {
   subdivision?: string;  // subdivision within a Fleet for prize-giving/filtering, not scoring (e.g. "Gold"/"Silver"/"Bronze", or age categories like "Grand Master"). Labelled per Series.subdivisionLabel
   createdAt: number;
   ircTcc?: number;    // IRC Time Correction Coefficient, e.g. 0.972
+  vprsTcc?: number;   // VPRS Time Correction Coefficient, e.g. 0.992 (single applied value; the spin/non-spin pair lives in the rating-source layer, like IRC)
   pyNumber?: number;  // RYA Portsmouth Yardstick number, e.g. 1034
   nhcStartingTcf?: number;  // initial TCF for NHC fleets; required for NHC competitors
   echoStartingTcf?: number; // initial TCF for ECHO fleets; required for ECHO competitors

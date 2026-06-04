@@ -24,6 +24,7 @@ export const competitorSchema = z.object({
   subdivision: z.string().optional(),
   createdAt: epochMsSchema,
   ircTcc: z.number().optional(),
+  vprsTcc: z.number().optional(),
   pyNumber: z.number().optional(),
   nhcStartingTcf: z.number().optional(),
   echoStartingTcf: z.number().optional(),
@@ -56,6 +57,7 @@ export const handicapUpdateSchema = z.object({
   // by the client) has nothing to update on this path either.
   expectedVersion: z.number().int().positive(),
   ircTcc: z.number().optional(),
+  vprsTcc: z.number().optional(),
   pyNumber: z.number().optional(),
   nhcStartingTcf: z.number().optional(),
   echoStartingTcf: z.number().optional(),

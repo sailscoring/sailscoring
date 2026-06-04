@@ -82,6 +82,7 @@ interface CompetitorFormData {
   subdivision: string;
   fleetIds: string[];   // IDs of existing fleets to assign the competitor to
   ircTcc: string;       // decimal string, e.g. "0.972"; empty if not set
+  vprsTcc: string;      // decimal string, e.g. "0.992"; empty if not set
   pyNumber: string;     // integer string, e.g. "1034"; empty if not set
   nhcStartingTcf: string; // decimal string, e.g. "1.005"; empty if not set
   echoStartingTcf: string; // decimal string, e.g. "1.020"; empty if not set
@@ -102,6 +103,7 @@ const emptyForm: CompetitorFormData = {
   subdivision: '',
   fleetIds: [],
   ircTcc: '',
+  vprsTcc: '',
   pyNumber: '',
   nhcStartingTcf: '',
   echoStartingTcf: '',
@@ -196,10 +198,12 @@ function CompetitorForm({
   // Determine which rating fields to show based on selected fleets
   const selectedFleets = availableFleets.filter((f) => data.fleetIds.includes(f.id));
   const ircFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'irc').map((f) => f.name);
+  const vprsFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'vprs').map((f) => f.name);
   const pyFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'py').map((f) => f.name);
   const nhcFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'nhc').map((f) => f.name);
   const echoFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'echo').map((f) => f.name);
   const needsIrcTcc = ircFleetNames.length > 0;
+  const needsVprsTcc = vprsFleetNames.length > 0;
   const needsPyNumber = pyFleetNames.length > 0;
   const needsNhcStartingTcf = nhcFleetNames.length > 0;
   const needsEchoStartingTcf = echoFleetNames.length > 0;
@@ -238,6 +242,13 @@ function CompetitorForm({
       const tcc = parseFloat(data.ircTcc);
       if (isNaN(tcc) || tcc < 0.5 || tcc > 1.5) {
         setError('TCC must be a decimal number between 0.5 and 1.5 (e.g. 0.972).');
+        return;
+      }
+    }
+    if (needsVprsTcc && data.vprsTcc.trim()) {
+      const tcc = parseFloat(data.vprsTcc);
+      if (isNaN(tcc) || tcc < 0.5 || tcc > 1.5) {
+        setError('VPRS TCC must be a decimal number between 0.5 and 1.5 (e.g. 0.992).');
         return;
       }
     }
@@ -469,6 +480,20 @@ function CompetitorForm({
             )}
           </div>
         )}
+        {needsVprsTcc && (
+          <div className="space-y-1.5">
+            <Label htmlFor="vprsTcc">VPRS TCC</Label>
+            <Input
+              id="vprsTcc"
+              value={data.vprsTcc}
+              onChange={(e) => set('vprsTcc', e.target.value)}
+              placeholder="e.g. 0.992"
+            />
+            {!data.vprsTcc.trim() && (
+              <p className="text-sm text-amber-600">{requiredForFleetsHint(vprsFleetNames)}</p>
+            )}
+          </div>
+        )}
         {needsPyNumber && (
           <div className="space-y-1.5">
             <Label htmlFor="pyNumber">PY number</Label>
@@ -609,13 +634,15 @@ export default function CompetitorsPage({
     }
   });
 
-  function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'pyNumber' | 'nhcStartingTcf' | 'echoStartingTcf'> {
+  function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'vprsTcc' | 'pyNumber' | 'nhcStartingTcf' | 'echoStartingTcf'> {
     const tcc = data.ircTcc.trim() ? parseFloat(data.ircTcc.trim()) : undefined;
+    const vprs = data.vprsTcc.trim() ? parseFloat(data.vprsTcc.trim()) : undefined;
     const py = data.pyNumber.trim() ? parseInt(data.pyNumber.trim(), 10) : undefined;
     const nhc = data.nhcStartingTcf.trim() ? parseFloat(data.nhcStartingTcf.trim()) : undefined;
     const echo = data.echoStartingTcf.trim() ? parseFloat(data.echoStartingTcf.trim()) : undefined;
     return {
       ...(tcc != null && !isNaN(tcc) ? { ircTcc: tcc } : {}),
+      ...(vprs != null && !isNaN(vprs) ? { vprsTcc: vprs } : {}),
       ...(py != null && !isNaN(py) ? { pyNumber: py } : {}),
       ...(nhc != null && !isNaN(nhc) ? { nhcStartingTcf: nhc } : {}),
       ...(echo != null && !isNaN(echo) ? { echoStartingTcf: echo } : {}),
@@ -680,6 +707,7 @@ export default function CompetitorsPage({
     };
     // Clear ratings no longer relevant
     if (!updated.ircTcc) delete updated.ircTcc;
+    if (!updated.vprsTcc) delete updated.vprsTcc;
     if (!updated.pyNumber) delete updated.pyNumber;
     if (!updated.nhcStartingTcf) delete updated.nhcStartingTcf;
     if (!updated.echoStartingTcf) delete updated.echoStartingTcf;
@@ -878,6 +906,7 @@ export default function CompetitorsPage({
                 subdivision: editingCompetitor.subdivision ?? '',
                 fleetIds: editingCompetitor.fleetIds,
                 ircTcc: editingCompetitor.ircTcc?.toString() ?? '',
+                vprsTcc: editingCompetitor.vprsTcc?.toString() ?? '',
                 pyNumber: editingCompetitor.pyNumber?.toString() ?? '',
                 nhcStartingTcf: editingCompetitor.nhcStartingTcf?.toString() ?? '',
                 echoStartingTcf: editingCompetitor.echoStartingTcf?.toString() ?? '',

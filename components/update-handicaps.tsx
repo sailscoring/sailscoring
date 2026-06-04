@@ -74,14 +74,16 @@ const SYSTEM_LABEL: Record<HandicapSystem, string> = {
   nhc: 'NHC',
   echo: 'ECHO',
   irc: 'IRC',
+  vprs: 'VPRS',
   py: 'PY',
 };
 
 /** The TCF field on `Competitor` written for each handicap system. */
-const SYSTEM_FIELD: Record<HandicapSystem, keyof Pick<Competitor, 'nhcStartingTcf' | 'echoStartingTcf' | 'ircTcc' | 'pyNumber'>> = {
+const SYSTEM_FIELD: Record<HandicapSystem, keyof Pick<Competitor, 'nhcStartingTcf' | 'echoStartingTcf' | 'ircTcc' | 'vprsTcc' | 'pyNumber'>> = {
   nhc: 'nhcStartingTcf',
   echo: 'echoStartingTcf',
   irc: 'ircTcc',
+  vprs: 'vprsTcc',
   py: 'pyNumber',
 };
 

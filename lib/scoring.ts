@@ -219,8 +219,9 @@ export function calculateRaceScores(
 
 /**
  * Derive the Time Correction Factor for a competitor in a handicap fleet.
- * IRC: TCF = TCC (stored directly on the competitor).
- * PY:  TCF = 1000 / pyNumber.
+ * IRC:  TCF = TCC (stored directly on the competitor).
+ * VPRS: TCF = TCC (same static time-on-time shape as IRC).
+ * PY:   TCF = 1000 / pyNumber.
  * Returns null if the competitor has no rating for the fleet's scoring system.
  */
 /**
@@ -250,6 +251,11 @@ function getProgressiveStartingTcf(competitor: Competitor, fleet: Fleet): number
 function getTCF(competitor: Competitor, fleet: Fleet): number | null {
   if (fleet.scoringSystem === 'irc') {
     return competitor.ircTcc ?? null;
+  }
+  if (fleet.scoringSystem === 'vprs') {
+    // VPRS is time-on-time: CT = ET × TCC, the same static-TCF shape as IRC
+    // (vprs.org: "multiply the elapsed time by the yacht's TCC").
+    return competitor.vprsTcc ?? null;
   }
   if (fleet.scoringSystem === 'py') {
     return competitor.pyNumber != null ? 1000 / competitor.pyNumber : null;
@@ -1205,7 +1211,10 @@ function calculateHandicapStandings(
   // own units (IRC TCC = TCF; PY number → 1000/number). Indexed raceId →
   // competitorId → TCF.
   const overrideField: RaceRatingOverride['field'] | null =
-    fleet.scoringSystem === 'irc' ? 'ircTcc' : fleet.scoringSystem === 'py' ? 'pyNumber' : null;
+    fleet.scoringSystem === 'irc' ? 'ircTcc'
+      : fleet.scoringSystem === 'vprs' ? 'vprsTcc'
+        : fleet.scoringSystem === 'py' ? 'pyNumber'
+          : null;
   const overrideTcfByRace = new Map<string, Map<string, number>>();
   if (overrideField && !isProgressive) {
     for (const o of ratingOverrides) {
