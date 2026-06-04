@@ -146,6 +146,7 @@ const DAYS: Record<string, DayCompare> = {
       { file: 'tue-ilca7-95600.html', fleet: 'ILCA 7' },
       { file: 'tue-ilca6-95596.html', fleet: 'ILCA 6' },
       { file: 'tue-pyclass-95592.html', fleet: 'PY Class' },
+      { file: 'tue-wow-95505.html', fleet: 'Women on the Water' },
     ],
   },
   tuesday: {

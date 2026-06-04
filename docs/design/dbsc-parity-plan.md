@@ -484,16 +484,45 @@ fleet, `dbsc-water-wags-2026.sailscoring`).
 The use-case doc's earlier "DNC = entries + 2" claim has been corrected.
 
 **Milestone 4 is complete.** Every fleet DBSC publishes in 2026 except the
-composite/cross-series cases (M5/M6) now scores to parity with no engine change
-beyond what M1–M3 already landed.
+composite series (M5, now also done) and the series-of-series (M6) scores to
+parity with no engine change beyond what M1–M3 already landed.
+
+## Milestone 5 — Women on the Water (the Tuesday combine)
+
+The NoR (§4.4) describes WOW as a *separate* women-only series scored under
+**ECHO**, fed off the same Tuesday races as the boats' class series — which read
+like the project's first genuine **cross-series shared-finish** requirement.
+
+**The published data says otherwise** (same lesson as the Water Wags "+2"). The
+HalSail fleet "Women on the Water (Tue)" publishes one series, "Tuesday Overall"
+(95505), and:
+
+- It is scored **PY-style time-on-time** (`corrected = elapsed × 1000 ÷ hcap`),
+  *not* ECHO — verified to the second across SB20 (919), Ruffian (1031) and J/80
+  (917). See `docs/requirements/dbsc-use-case.md` for the worked check.
+- It scores the **same physical finishes** as the class fleets (finish times are
+  byte-identical), so it is the ordinary **within-series multi-fleet** pattern —
+  not a cross-series problem.
+- The published helms are mixed male/female; the engine sees a plain cross-class
+  handicap combine, so crew-eligibility gating is not a scoring concern.
+
+### Status — M5 achieved (verified by `pnpm halsail:compare`)
+
+**No new engine work, no cross-series mechanism.** WOW is one more PY fleet
+(`fl-wow`, "Women on the Water") added to the existing Tuesday series via the
+`buildFleetSeries` builder, self-contained from its own fragment
+(`tue-wow-95505.html`). `pnpm halsail:compare tuesday-od`: **Women on the Water
+green** (7 boats, races 1/4/6, 0 diffs), with every existing Tuesday fleet
+unchanged.
+
+The genuine cross-*series* shared-finish feed the NoR implied has **no 2026
+consumer** and is deferred — it would only matter if class results and the
+combine had to live in *distinct* Series objects for product/UX reasons, which
+parity does not require.
 
 ## Subsequent milestones (sketch)
 
 Each builds on the M1/M2 import→score→publish→compare loop.
-
-- **M5 — Composite series (WOW).** A separate series fed from the *same*
-  Tuesday finish sheet as the boats' class series — needs a cross-series
-  shared-finish feed so the sheet is still entered once.
 
 - **M6 — RAYC Super League.** Series-of-series: rank boats across DBSC races
   and external events (Lambay Race, waterfront regattas), scoring a parent

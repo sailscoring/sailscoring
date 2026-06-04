@@ -241,16 +241,44 @@ concern.
 
 ### Women on the Water (WOW) — composite cross-class series (NoR §4.4)
 
-A Tuesday-only parallel series in which boats from **four classes** (SB20,
-Sportsboats, Flying Fifteen, Ruffian) **race together and are scored under
-ECHO**, off the *same races* that also score each boat in its normal
-Tuesday class. Eligibility: ≥ 50% female crew including a female helm.
+The NoR (§4.4) describes WOW as:
 
-- A boat's Tuesday races feed **two** series (its class + WOW) from one
-  finish.
-- **Conditional per-race participation:** if a WOW-entered boat lacks
-  sufficient female crew for a race, it informs the RC and is scored
-  **DNC in WOW only** — the normal Tuesday series is unaffected.
+> Women on the Water (WOW): A boat in the SB20, Sportsboats, Flying Fifteen or
+> Ruffian class, racing on Tuesday with at least 50% female crew, including a
+> female helm, may enter the Women on the Water series. In that series, boats in
+> the four classes will race together and be scored using ECHO. The races will
+> also be scored in the normal Tuesday series for the relevant class. If a boat
+> has entered the WOW series, but has insufficient female crew for a particular
+> race, it shall inform the Race Committee and will be scored DNC in the WOW
+> series for that race – this will not affect the normal Tuesday series.
+
+**What the 2026 published results actually show.** The HalSail fleet labelled
+"Women on the Water (Tue)" publishes a single series, **"Tuesday Overall"**
+(seriesId 95505), and on inspection it differs from the NoR text on every
+substantive point — reverse-engineering the data is authoritative here, the same
+lesson the Water Wags "+2" claim taught:
+
+- **Not ECHO — PY-style time-on-time.** Each boat carries a fixed per-class
+  handicap number (SB20 919, Ruffian 1031, J/80 917) and is scored
+  `corrected = elapsed × 1000 ÷ hcap`. Verified to the second across the three
+  classes (e.g. SB20 3475, race 4: 0:38:48 × 1000/919 = 0:42:13, matching the
+  published corrected time). It is **not** the progressive ECHO the NoR names.
+- **Not women-only in practice.** The published helms are mixed male and female
+  (Charlotte O'Kelly and Ann Kirwan alongside Fred Tottenham, Frank Bradley,
+  Olivier Prouveur). The eligibility rule may be a paper requirement, but the
+  scoring engine sees an ordinary cross-class handicap combine. We reproduce
+  what is published; crew-eligibility gating is not a scoring concern.
+- **Same finishes as the class series** (confirmed: the finish times are
+  byte-identical to each boat's class result). A boat's one Tuesday finish does
+  feed both its class result *and* the WOW combine, exactly as the NoR says — but
+  this is the ordinary **within-series multi-fleet** pattern, not a new
+  cross-series mechanism (see "Already supported" below; M5 needed no new code).
+- **Per-race DNC.** A boat absent from a given Tuesday is DNC in the combine
+  only; the published cells confirm DNCs scattered per boat (the existing
+  `startingAreaInclDnc` handling covers this).
+
+So WOW is implemented as one more PY fleet ("Women on the Water") inside the
+Tuesday series, scored off the same finishes as the class fleets.
 
 ### RAYC Super League — series-of-series (SI A14)
 
@@ -417,12 +445,7 @@ is therefore "already supported" vs "genuinely new", not a fresh MVP list.
 2. **ORC Club** — new; time-on-time with a per-race wind band chosen by the
    RC. Needed only if a C0–3 class requests ORC this season.
 3. **YTC** — new; optional substitute for IRC/VPRS.
-4. **Composite cross-class series (WOW)** — a *separate* series fed from the
-   *same* finish sheet as the boats' class series. The multi-fleet trick is
-   within one series; feeding a second series off one sheet would force
-   double entry, which violates the entry rule. Needs a cross-series
-   shared-finish feed.
-5. **Two-vessel single series (Saturday non-Green)** — two finish sheets,
+4. **Two-vessel single series (Saturday non-Green)** — two finish sheets,
    one logical series. Either model as two series and merge for standings,
    or allow a series to take more than one finish sheet per race.
 
@@ -453,10 +476,14 @@ is therefore "already supported" vs "genuinely new", not a fresh MVP list.
   produce a one-design result too — IRC + ECHO for a cruiser, or Cruisers 2
   + Sigma 33 one-design for a Sigma. The single finish-sheet entry splits by
   registration automatically.
-- **Cross-*series* feed is the real gap (WOW).** A boat's one Tuesday finish
-  must feed its class series *and* the WOW series — two distinct series off
-  one sheet. The multi-fleet trick is within a single series, so this needs
-  a new shared-finish mechanism to avoid double entry.
+- **WOW is within-series multi-fleet too (turned out not to be a gap).** The
+  NoR framed WOW as a *separate* series fed off the class series' sheet, which
+  read like a cross-series problem. The published 2026 data shows it scoring the
+  *same* finishes as a PY combine — i.e. one more fleet (`Women on the Water`,
+  `scoringSystem='py'`) inside the Tuesday series, with the relevant boats in
+  both their class fleet and the combine via `fleetIds[]`. No new mechanism; see
+  the WOW section above. A genuine cross-*series* shared-finish feed has no 2026
+  consumer and is deferred.
 - **Two finish sheets, one series (Saturday non-Green).** The model assumes
   one finish sheet per series; the Saturday Blue/Red split breaks that.
   Either merge two series for standings, or let a series accept multiple

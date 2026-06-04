@@ -167,6 +167,11 @@ const DAYS: Record<string, DayConfig> = {
           { fleetId: 'fl-ilca7', name: 'ILCA 7', system: 'scratch', fragment: load('tue-ilca7-95600.html') },
           { fleetId: 'fl-ilca6', name: 'ILCA 6', system: 'scratch', fragment: load('tue-ilca6-95596.html') },
           { fleetId: 'fl-pyclass', name: 'PY Class', system: 'py', fragment: load('tue-pyclass-95592.html') },
+          // The "Women on the Water" combine (HalSail series "Tuesday Overall"):
+          // the Tuesday one-design boats re-scored together under a PY-style
+          // time-on-time handicap off the same finishes, so cross-class boats can
+          // be ranked against each other. Self-contained from its own fragment.
+          { fleetId: 'fl-wow', name: 'Women on the Water', system: 'py', fragment: load('tue-wow-95505.html') },
         ] satisfies DayFleetSpec[],
         opts,
       ),
