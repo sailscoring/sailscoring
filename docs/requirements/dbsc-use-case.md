@@ -355,10 +355,10 @@ notified to the Honorary Secretary (SI A15.3).
 part-way through the season, and HalSail then scores its earlier races on the
 old TCC and later races on the new one (flagged with `*` in the published Hcap
 column; observed on Chimaera, 1.008 → 1.001). The fixed-rating systems (IRC,
-PY) therefore can't be modelled as a single per-boat value. *Added during M1:*
-per-race rating overrides let a boat keep its current rating while earlier
-races pin the superseded value. The progressive systems (ECHO/VPRS) don't need
-this — their rating already varies per race by construction.
+VPRS, YTC, PY) therefore can't be modelled as a single per-boat value.
+*Added during M1:* per-race rating overrides let a boat keep its current rating
+while earlier races pin the superseded value. The progressive system (ECHO)
+doesn't need this — its rating varies per race by construction.
 
 ## Water Wags
 

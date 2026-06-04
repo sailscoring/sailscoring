@@ -261,12 +261,102 @@ The tooling is day-aware (`pnpm halsail:to-sailscoring <day>` /
 **M2 is complete: `pnpm halsail:compare {thursday,tuesday,saturday}` is green on
 every fleet.**
 
+## Milestone 3 — VPRS, completing the cruiser picture (Cruisers 4/5)
+
+The first milestone to add a **new rating system** to the engine. M1/M2 stayed
+within IRC/ECHO/scratch; M3 brings in **VPRS**, the system DBSC uses for the
+non-spinnaker Cruisers 4/5 (and, later, the Mixed Sportsboats). It rides the
+**finish sheets we already process** — Thursday Blue and Saturday — so no new
+sheets are needed; it adds fleets to the existing day series and, with C4/5 in,
+**completes the cruiser picture (C0–5)** on those sheets.
+
+### Why this slice
+
+VPRS is the smallest step that exercises a brand-new corrected-time system end
+to end, on data we already capture, against the existing compare harness. It
+also de-risks M4/M6, which need VPRS for the Mixed Sportsboats and lean on the
+same "add a rating system" machinery.
+
+### Scope (concrete series, from the catalog)
+
+On the existing Thursday Blue and Saturday cruiser sheets:
+
+| Fleet | System | HalSail series (Thu / Sat) |
+|-------|--------|----------------------------|
+| Cruisers 4-5A NS (pools C4A + C5A) | VPRS | `95884` / `95883` |
+| Cruisers 4-5B NS (pools C4B + C5B) | VPRS | `95886` / `95885` |
+| Cruisers 5A | ECHO | `95473` / `95472` |
+| Cruisers 5B | ECHO | `95475` / `95474` |
+
+Multi-fleet membership as before: a C5A boat sits in `Cruisers 4-5A VPRS` *and*
+`Cruisers 5A ECHO`; **C4 is VPRS-only** (DBSC publishes no C4 ECHO fleet — ECHO
+applies to C0–3 and C5A/5B, not C4). The VPRS pools combine the spinnaker-band
+4 and 5 sub-divisions (4A+5A, 4B+5B).
+
+Deferred: **Mixed Sportsboats** (also VPRS) ride the Thursday Red / Saturday
+Green sheets, which M4 captures — by then VPRS already exists, so they come
+along for free. ORC Club and YTC (the other new rating systems) stay in M4.
+
+### The genuinely new piece — and its one unknown
+
+**A `vprs` scoring system.** VPRS is a **fixed, measured rating** (use-case
+classifies it alongside IRC, not progressive), so if it is time-on-time —
+`corrected = elapsed × rating` — it reuses the existing static-handicap path
+almost verbatim, with a new `vprsRating` competitor field and a fleet
+`scoringSystem: 'vprs'`. The **open unknown is the VPRS corrected-time formula**:
+the rule isn't in `reference/` and we haven't read a VPRS result yet. Two
+shapes to distinguish:
+
+- **time-on-time** (like IRC/ECHO) — a per-boat coefficient; trivial to add.
+- **time-on-distance** — needs per-race course distance, which the model does
+  not carry; a materially bigger change.
+
+The HalSail per-race detail settles it: `corrected ÷ elapsed` per boat reveals a
+time-on-time coefficient (constant per boat across races) versus a
+distance-dependent one. Capture a couple of VPRS fragments (`95883`/`95884`) and
+deduce the formula before building.
+
+### Sequencing (de-risking)
+
+1. **Source the formula first.** Capture the VPRS fragments, deduce the
+   corrected-time formula from `Elapsed`/`Corrected`/rating columns, and find
+   the VPRS rule to confirm it. This is the milestone's whole risk; everything
+   else is mechanical.
+2. **Add the engine system**, mirroring IRC if time-on-time. Fixtures for the
+   VPRS corrected-time math (and the 4A+5A / 4B+5B pooling, which is just fleet
+   membership).
+3. **Extend the converter + compare** for the new fleets on the existing
+   Thursday/Saturday builds; confirm `halsail:compare` stays green and the new
+   VPRS fleets match.
+
+### Tooling
+
+Reuses the day-aware converter/compare. Adds the VPRS fragments to
+`halsail/`, a VPRS branch in `buildCruiserDaySeries` (a measured rating field,
+like `ircTcc`), and the new fleet pairings. No new `.sailscoring` files — the
+fleets fold into the Thursday and Saturday series.
+
+### Open inputs
+
+- **The VPRS corrected-time formula** (headline) — sourced from the captured
+  fragments + the VPRS rule. Determines whether this is a near-trivial IRC-style
+  addition or a larger time-on-distance change.
+- **Per-boat VPRS ratings** — read from the HalSail `Hcap` column, as for IRC.
+- **Static vs progressive** — expected static (a measured certificate); confirm
+  from the fragments (does the applied rating change race to race?). If static,
+  it inherits the per-race override workflow for a mid-season re-rate, exactly
+  like IRC — note the use-case currently lists VPRS as "progressive" in the
+  mid-series-rating section, which should be corrected to "fixed".
+
+### Done when
+
+We fetch, generate and compare the Cruisers 4/5 VPRS and 5A/5B ECHO fleets on
+the Thursday and Saturday sheets, and `pnpm halsail:compare` is green for them —
+giving full C0–5 cruiser parity on both days.
+
 ## Subsequent milestones (sketch)
 
 Each builds on the M1/M2 import→score→publish→compare loop.
-
-- **M3 — VPRS.** New corrected-time system in the engine → brings in
-  Cruisers 4/5 and the Mixed Sportsboats, and completes the cruiser picture.
 
 - **M4 — Remaining one-designs and rating systems.** The Thursday Red and
   Saturday Green fleets (SB20, Sportsboats, Flying Fifteen, Ruffian, Beneteau
