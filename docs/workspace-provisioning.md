@@ -100,12 +100,13 @@ The current gated keys are:
 | `nhc-parameters` | off | the per-fleet **Configure…** custom-NHC dialog (NHC scoring with stock parameters stays available to everyone) |
 | `echo` | **on** | ECHO as a per-fleet scoring system **and** the "Irish Sailing ECHO" source in the Competitors **Update handicaps** dialog (pulls ECHO handicaps from the national Irish Sailing ratings list, matched by sail number). On by default because the seeded sample club-racing series uses ECHO fleets. |
 | `irc-rating` | **on** | IRC as a per-fleet scoring system **and** the "IRC TCC (international)" source in the Competitors **Update handicaps** dialog (pulls TCCs from the worldwide IRC ClubListing, #168) |
+| `rya-py` | **on** | PY (Portsmouth Yardstick) as a per-fleet scoring system **and** the "RYA Portsmouth Yardstick" source in the Competitors **Update handicaps** dialog (sets each class's PY number from the RYA's published list and tidies class names, matched by boat class). On by default. |
 | `vprs` | off | VPRS as a per-fleet scoring system **and** the "VPRS TCC" source in the Competitors **Update handicaps** dialog (pick a club, then pull each boat's TCC from that club's published `vprs.org` listing, matched by sail number, #175). Off by default — VPRS is new and not yet reconciled against real published results, so the audience stays small until it's proven. |
 
 **Default-on features.** Most gated features are opt-in (off until enabled),
 but a feature can be marked default-on in `lib/features.ts` — on for every
-workspace unless that workspace records an explicit opt-out. `echo` and
-`irc-rating` are currently default-on. `disable-feature` records the opt-out;
+workspace unless that workspace records an explicit opt-out. `echo`,
+`irc-rating` and `rya-py` are currently default-on. `disable-feature` records the opt-out;
 `enable-feature` clears it again. An opt-out on the active workspace always
 wins, even over a feature inherited from a club (Model B).
 
