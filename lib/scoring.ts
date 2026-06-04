@@ -974,19 +974,26 @@ export function calculateStandings(
   // All RDG assignments: { competitorId, raceIdx, finish }
   const rdgAssignments: Array<{ competitorId: string; raceIdx: number; finish: Finish }> = [];
 
-  // Races with no finishers (every entry is a non-finish code, or no entries
-  // at all) are excluded from scoring per issue #129: they score 0 for every
-  // competitor, do not count toward the discard threshold, and are not
-  // available in the RDG pool.
+  // A race is excluded for this fleet (scores 0, does not count toward the
+  // discard threshold, not in the RDG pool — issue #129) unless it was validly
+  // held *and* this fleet sailed it. "Validly held" = at least one boat
+  // anywhere on the sheet finished (so an abandoned/all-DNC race is excluded
+  // for everyone). "This fleet sailed it" = at least one of the fleet's boats
+  // came to the start (a non-DNC record); a fleet absent from a race (all
+  // implicit DNC) is excluded, but a fleet that came and all retired/DNF'd
+  // still scores the race (came-to-start + 1), matching how a multi-fleet sheet
+  // is published.
   const raceExcluded = new Array<boolean>(races.length).fill(false);
 
   for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
     const race = races[raceIdx];
-    const raceFinishes = (finishesByRace.get(race.id) ?? []).filter((f) => f.competitorId !== null && competitorIds.has(f.competitorId));
+    const allRaceFinishes = finishesByRace.get(race.id) ?? [];
+    const raceFinishes = allRaceFinishes.filter((f) => f.competitorId !== null && competitorIds.has(f.competitorId));
     const raceFinishMap = new Map(raceFinishes.map((f) => [f.competitorId!, f]));
     const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
-    const hasFinisher = [...scores.values()].some((s) => s.place !== null);
-    raceExcluded[raceIdx] = !hasFinisher;
+    const raceHeld = allRaceFinishes.some((f) => f.resultCode === null && (f.finishTime != null || f.sortOrder !== null));
+    const fleetCameToStart = raceFinishes.some((f) => f.resultCode !== 'DNC');
+    raceExcluded[raceIdx] = !(raceHeld && fleetCameToStart);
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
       const rawPoints = score?.points ?? competitors.length + 1;
@@ -1264,9 +1271,10 @@ function calculateHandicapStandings(
     competitorRaceRedressFlags.set(competitor.id, []);
   }
 
-  // Races with no finishers (every entry is a non-finish code, or no entries
-  // at all) are excluded from scoring per issue #129: 0 points for everyone
-  // and they do not count toward the discard threshold.
+  // A race is excluded for this fleet (0 points, no discard-threshold credit,
+  // not in the RDG pool — issue #129) unless it was validly held (some boat on
+  // the sheet finished) *and* this fleet sailed it (some boat came to the
+  // start). See the fuller note in calculateStandings.
   const raceExcluded = new Array<boolean>(races.length).fill(false);
   const fleetCompetitorIds = new Set(competitors.map((c) => c.id));
 
@@ -1346,12 +1354,19 @@ function calculateHandicapStandings(
       scores = new Map([...scratchScores.entries()].map(([id, s]) => [id, { points: s.points, place: s.place, resultCode: s.resultCode }]));
     }
 
-    const hasFinisher = [...scores.values()].some((s) => s.place !== null);
-    raceExcluded[raceIdx] = !hasFinisher;
+    // Exclude a race only if it was not validly held (no boat anywhere on the
+    // sheet finished) or this fleet did not sail it (no boat came to the start,
+    // i.e. all implicit DNC). A fleet that came and all retired/DNF'd still
+    // scores the race (came-to-start + 1). See the matching note in
+    // calculateStandings (issue #129). `raceFinishes` here is the whole sheet;
+    // `fleetRaceFinishes` is this fleet.
+    const fleetRaceFinishes = raceFinishes.filter((f) => f.competitorId !== null && fleetCompetitorIds.has(f.competitorId));
+    const raceHeld = raceFinishes.some((f) => f.resultCode === null && (f.finishTime != null || f.sortOrder !== null));
+    const fleetCameToStart = fleetRaceFinishes.some((f) => f.resultCode !== 'DNC');
+    raceExcluded[raceIdx] = !(raceHeld && fleetCameToStart);
 
     // Additive scoring penalties (ZFP/SCP/DPI) apply to finishers in handicap
     // fleets too, capped at this race's DNF score.
-    const fleetRaceFinishes = raceFinishes.filter((f) => f.competitorId !== null && fleetCompetitorIds.has(f.competitorId));
     const penaltyCap = dnfScoreForRace(fleetRaceFinishes, competitors.length, dnfScoring);
     const finishMap = new Map(fleetRaceFinishes.map((f) => [f.competitorId as string, f]));
 

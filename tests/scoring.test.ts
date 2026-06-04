@@ -576,6 +576,38 @@ describe('calculateFleetStandings', () => {
     expect(results[0].fleet.name).toBe('Alpha');
     expect(results[1].fleet.name).toBe('Zephyr');
   });
+
+  // Per-fleet exclusion is about whether the fleet *sailed* a validly-held race,
+  // not whether that fleet had a finisher (#174). On a shared sheet one class
+  // can finish while another comes to the start and all retire.
+  it('counts a validly-held race for a fleet that came but had no finisher', () => {
+    const racesABC = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3)];
+    const fleetA = [makeCompetitor('A1', 's1', 'fA'), makeCompetitor('A2', 's1', 'fA')];
+    const fleetB = [makeCompetitor('B1', 's1', 'fB'), makeCompetitor('B2', 's1', 'fB')];
+    const fleets = [makeFleet('fA', 'A', 0), makeFleet('fB', 'B', 1)];
+    const finishes: Finish[] = [
+      // r1: fleet A finishes; fleet B comes but neither finishes (B1 RET, B2 DNC).
+      makeFinish('r1', 'A1', 1), makeFinish('r1', 'A2', 2),
+      makeFinish('r1', 'B1', null, 'RET'),
+      // r2: fleet A finishes; fleet B absent (both implicit DNC).
+      makeFinish('r2', 'A1', 1), makeFinish('r2', 'A2', 2),
+      // r3: nobody finishes anywhere — abandoned.
+      makeFinish('r3', 'A1', null, 'RET'), makeFinish('r3', 'A2', null, 'RET'),
+      makeFinish('r3', 'B1', null, 'RET'), makeFinish('r3', 'B2', null, 'RET'),
+    ];
+    const { fleetStandings } = calculateFleetStandings(fleets, [...fleetA, ...fleetB], racesABC, finishes);
+    const b1 = fleetStandings.find((f) => f.fleet.id === 'fB')!.standings.find((s) => s.competitor.id === 'B1')!;
+    // r1: held (A finished) + B came (B1 RET) → counts; B1 scores RET (N+1 = 3), not 0/excluded.
+    expect(b1.raceExcluded[0]).toBe(false);
+    expect(b1.racePoints[0]).toBe(3);
+    // r2: B did not sail (no boat came) → excluded for B.
+    expect(b1.raceExcluded[1]).toBe(true);
+    expect(b1.racePoints[1]).toBe(0);
+    // r3: no finisher anywhere → abandoned → excluded for everyone.
+    const a1 = fleetStandings.find((f) => f.fleet.id === 'fA')!.standings.find((s) => s.competitor.id === 'A1')!;
+    expect(b1.raceExcluded[2]).toBe(true);
+    expect(a1.raceExcluded).toEqual([false, false, true]);
+  });
 });
 
 // ─── Unknown finishes (null competitorId) ────────────────────────────────────
