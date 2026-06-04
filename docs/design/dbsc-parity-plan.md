@@ -357,6 +357,21 @@ We fetch, generate and compare the Cruisers 4/5 VPRS and 5A/5B ECHO fleets on
 the Thursday and Saturday sheets, and `pnpm halsail:compare` is green for them —
 giving full C0–5 cruiser parity on both days.
 
+### Status — achieved (verified by `pnpm halsail:compare`)
+
+The VPRS engine system shipped under #175 (static, time-on-time:
+`corrected = elapsed × vprsTcc`), confirmed against the real fragments
+(`corrected ÷ elapsed` is a constant per-boat coefficient). The converter gained
+a `vprsClasses` input on `buildCruiserDaySeries`: each VPRS pool unions its VPRS
+roster (C4 VPRS-only + rated C5) with the ECHO sub-fleet roster (C5, including
+ECHO-only boats), pulling finishes from both fragments. A mid-season re-rate
+becomes a per-race `vprsTcc` override, like IRC. Output bumped to format v7.
+
+`halsail:compare` is now **green on every fleet across all three days** —
+Thursday 13/13, Tuesday 2/2, Saturday 13/13 — full cruiser parity C0–5, and the
+first new rating system reconciled against real published results. Mixed
+Sportsboats VPRS now needs only the Red/Green sheets (M4); the system is built.
+
 ## Subsequent milestones (sketch)
 
 Each builds on the M1/M2 import→score→publish→compare loop.
