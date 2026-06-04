@@ -1,8 +1,10 @@
-description: "Scratch — tie broken by most second places after equal first places (RRS A8.2)"
+description: "Scratch — RRS A8.1 tie broken at the third-best score"
 rrs_notes: >
-  RRS A8.2: After counting first-place finishes (equal here at one each), proceed to
-  count second-place finishes. Alice has two second-place finishes against Bob's one,
-  so Alice ranks ahead despite equal total points and equal first-place counts.
+  RRS A8.1: list each boat's race scores best-to-worst (excluding discards) and
+  break the tie at the first point of difference.
+  Alice and Bob both score 10 net points. Best-to-worst, Alice is [1, 2, 2, 5]
+  and Bob is [1, 2, 3, 4]; they tie at the first two positions, then Alice's
+  third-best 2 beats Bob's 3, so Alice ranks ahead.
 
 series:
   discardThresholds: []
@@ -19,14 +21,14 @@ competitors:
 
 # 4 boats, so N+1 = 5 (DNC penalty).
 #
-# Alice: 1st, 2nd, 2nd, DNC → 1+2+2+5=10   (1 first, 2 seconds)
-# Bob:   2nd, 1st, 4th, 3rd → 2+1+4+3=10   (1 first, 1 second)
-# Carol: 3rd, 3rd, 1st, 2nd → 3+3+1+2=9    (1 first, 1 second — but lower total, ranks 1st)
-# David: 4th, 4th, 3rd, 4th → 4+4+3+4=15
+# Alice: 1st, 2nd, 2nd, DNC → 1+2+2+5=10   best-to-worst [1, 2, 2, 5]
+# Bob:   2nd, 1st, 4th, 3rd → 2+1+4+3=10   best-to-worst [1, 2, 3, 4]
+# Carol: 3rd, 3rd, 1st, 2nd → 3+3+1+2=9    lower total, ranks 1st outright
+# David: 4th, 4th, 3rd, 1st → 4+4+3+1=12
 #
 # Carol wins outright (9 < 10). Alice and Bob tied at 10.
-# Tie-break step 1 — count 1s: Alice=1, Bob=1 → equal.
-# Tie-break step 2 — count 2s: Alice=2, Bob=1 → Alice wins.
+# A8.1: [1,2,2,5] vs [1,2,3,4] — equal at the first two positions, then Alice's
+# third-best 2 beats Bob's 3 → Alice wins.
 races:
   - number: 1
     finishes:

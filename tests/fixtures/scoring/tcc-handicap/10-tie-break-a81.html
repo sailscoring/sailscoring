@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>IRC — series tie broken by RRS A8.1/A8.2 on the handicap path — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All IRC handicap examples</a></p>
+<h1>IRC — series tie broken by RRS A8.1/A8.2 on the handicap path</h1>
+<p style="font-style:italic; color:#444;">The A8 tie-break is shared by scratch and handicap scoring. This fixture exercises it through the corrected-time path (calculateHandicapStandings). All boats carry TCC 1.0, so corrected time equals elapsed time and finishing order is the race order. Alice and Bob both net 5 with one discard; their non-discarded scores are identical ([2, 3] each), so A8.1 cannot separate them (Alice's discard is a DNC, Bob's is a 4th — both excluded). A8.2 then counts back from the last race: race 3 has Alice 3rd and Bob 4th, so Alice ranks ahead. This is the handicap mirror of scratch fixture 14.
+</p>
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> IRC
+</div>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">4 boats, N+1 = 5 (DNC). One discard. TCC 1.0 throughout → CT = ET.
+
+Alice: DNC, 2nd, 3rd → {5,2,3} discard 5 → net 5, kept best-to-worst [2, 3]
+Bob:   2nd, 3rd, 4th → {2,3,4} discard 4 → net 5, kept best-to-worst [2, 3]
+Carol: 1st, 1st, 1st → net 2 (wins outright)
+David: DNC, 4th, 2nd → {5,4,2} discard 5 → net 6 (last)
+
+  A8.1 — kept [2,3] vs [2,3] → identical, cannot separate
+  A8.2 — last race (race 3): Alice=3, Bob=4 → Alice wins
+    Alice and David DNC; Carol 1st (30 min), Bob 2nd (31 min)</pre>
+<h2 style="margin-top:1.5em;">Race 1</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 12:00:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Carol</td>
+  <td class="mono">303</td>
+  <td class="mono">1.000</td>
+  <td class="mono">12:30:00</td>
+  <td class="mono">30m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">30m 00s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Bob</td>
+  <td class="mono">202</td>
+  <td class="mono">1.000</td>
+  <td class="mono">12:31:00</td>
+  <td class="mono">31m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">31m 00s</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Alice</td>
+  <td class="mono">101</td>
+  <td class="mono">1.000</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">—</td>
+  <td>5</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>David</td>
+  <td class="mono">404</td>
+  <td class="mono">1.000</td>
+  <td class="mono">DNC</td>
+  <td class="mono">—</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">—</td>
+  <td>5</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Race 2</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 12:00:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Carol</td>
+  <td class="mono">303</td>
+  <td class="mono">1.000</td>
+  <td class="mono">12:30:00</td>
+  <td class="mono">30m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">30m 00s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Alice</td>
+  <td class="mono">101</td>
+  <td class="mono">1.000</td>
+  <td class="mono">12:31:00</td>
+  <td class="mono">31m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">31m 00s</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Bob</td>
+  <td class="mono">202</td>
+  <td class="mono">1.000</td>
+  <td class="mono">12:32:00</td>
+  <td class="mono">32m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">32m 00s</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>David</td>
+  <td class="mono">404</td>
+  <td class="mono">1.000</td>
+  <td class="mono">12:33:00</td>
+  <td class="mono">33m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">33m 00s</td>
+  <td>4</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Race 3</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 12:00:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>TCC</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Carol</td>
+  <td class="mono">303</td>
+  <td class="mono">1.000</td>
+  <td class="mono">12:30:00</td>
+  <td class="mono">30m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">30m 00s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>David</td>
+  <td class="mono">404</td>
+  <td class="mono">1.000</td>
+  <td class="mono">12:31:00</td>
+  <td class="mono">31m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">31m 00s</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Alice</td>
+  <td class="mono">101</td>
+  <td class="mono">1.000</td>
+  <td class="mono">12:32:00</td>
+  <td class="mono">32m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">32m 00s</td>
+  <td>3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>Bob</td>
+  <td class="mono">202</td>
+  <td class="mono">1.000</td>
+  <td class="mono">12:33:00</td>
+  <td class="mono">33m 00s</td>
+  <td class="mono">1.0000</td>
+  <td class="mono">33m 00s</td>
+  <td>4</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>R2</th><th>R3</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Carol</td>
+  <td class="mono">303</td>
+  <td class="mono" style="text-decoration:line-through;color:#888;">1</td><td class="mono">1</td><td class="mono">1</td>
+  <td class="mono">3</td>
+  <td class="mono">2</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Alice</td>
+  <td class="mono">101</td>
+  <td class="mono" style="text-decoration:line-through;color:#888;">DNC</td><td class="mono">2</td><td class="mono">3</td>
+  <td class="mono">10</td>
+  <td class="mono">5</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Bob</td>
+  <td class="mono">202</td>
+  <td class="mono">2</td><td class="mono">3</td><td class="mono" style="text-decoration:line-through;color:#888;">4</td>
+  <td class="mono">9</td>
+  <td class="mono">5</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>David</td>
+  <td class="mono">404</td>
+  <td class="mono" style="text-decoration:line-through;color:#888;">DNC</td><td class="mono">4</td><td class="mono">2</td>
+  <td class="mono">11</td>
+  <td class="mono">6</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

@@ -1167,9 +1167,10 @@ Detailed UX for entry, lookup, insertion, and reordering is in
 
 ### Tie-breaking
 
-RRS A8.2 (most first places, then most second places, etc.) applies unchanged.
-In handicap scoring "first place" means first on corrected time. The tie-break
-logic is identical; only place determination changes.
+The RRS A8 tie-break (A8.1 sorted non-discarded scores, then A8.2 last-race
+countback) applies unchanged. In handicap scoring a "score" derives from the
+corrected-time place rather than the crossing-order place. The tie-break logic
+is identical; only place determination changes.
 
 ### Discards and penalty codes
 

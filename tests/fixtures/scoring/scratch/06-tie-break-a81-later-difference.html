@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="description" content="sail scoring results">
 <meta name="viewport" content="width=device-width">
-<title>Results for Scratch — tie broken by most second places after equal first places (RRS A8.2)</title>
+<title>Results for Scratch — RRS A8.1 tie broken at the third-best score</title>
 <style type="text/css">
 body {font: 100% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
@@ -30,6 +30,7 @@ td.rank3 { background: #da6841; }
 td.discard { background: #f2f2f2; }
 td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 td.excluded { color: #888; text-align: center; }
+.override-marker { color: #b45309; font-weight: bold; margin-left: 1px; cursor: help; }
 table.summarytable td .rating { display: block; font-size: 0.85em; color: #666; margin-top: 1px; font-family: monospace; }
 table.summarytable td.discard .rating { color: #888; }
 table.summarytable td.seedrating { font-family: monospace; }
@@ -45,7 +46,7 @@ td.nat .nattext { font-size: 0.8em; }
 <tr>
 <td width="30%"></td>
 <td width="40%" align="center">
-<h1>Scratch — tie broken by most second places after equal first places (RRS A8.2)</h1>
+<h1>Scratch — RRS A8.1 tie broken at the third-best score</h1>
 
 </td>
 <td width="30%"></td>
@@ -54,16 +55,16 @@ td.nat .nattext { font-size: 0.8em; }
 </table>
 <div style="clear:both;"></div>
 <div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
-<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.2: After counting first-place finishes (equal here at one each), proceed to count second-place finishes. Alice has two second-place finishes against Bob's one, so Alice ranks ahead despite equal total points and equal first-place counts.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">4 boats, so N+1 = 5 (DNC penalty).
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.1: list each boat's race scores best-to-worst (excluding discards) and break the tie at the first point of difference. Alice and Bob both score 10 net points. Best-to-worst, Alice is [1, 2, 2, 5] and Bob is [1, 2, 3, 4]; they tie at the first two positions, then Alice's third-best 2 beats Bob's 3, so Alice ranks ahead.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">4 boats, so N+1 = 5 (DNC penalty).
 
-Alice: 1st, 2nd, 2nd, DNC → 1+2+2+5=10   (1 first, 2 seconds)
-Bob:   2nd, 1st, 4th, 3rd → 2+1+4+3=10   (1 first, 1 second)
-Carol: 3rd, 3rd, 1st, 2nd → 3+3+1+2=9    (1 first, 1 second — but lower total, ranks 1st)
-David: 4th, 4th, 3rd, 4th → 4+4+3+4=15
+Alice: 1st, 2nd, 2nd, DNC → 1+2+2+5=10   best-to-worst [1, 2, 2, 5]
+Bob:   2nd, 1st, 4th, 3rd → 2+1+4+3=10   best-to-worst [1, 2, 3, 4]
+Carol: 3rd, 3rd, 1st, 2nd → 3+3+1+2=9    lower total, ranks 1st outright
+David: 4th, 4th, 3rd, 1st → 4+4+3+1=12
 
 Carol wins outright (9 &lt; 10). Alice and Bob tied at 10.
-Tie-break step 1 — count 1s: Alice=1, Bob=1 → equal.
-Tie-break step 2 — count 2s: Alice=2, Bob=1 → Alice wins.
+A8.1: [1,2,2,5] vs [1,2,3,4] — equal at the first two positions, then Alice's
+third-best 2 beats Bob's 3 → Alice wins.
     Alice gets DNC (N+1 = 5 pts); Carol 2nd, Bob 3rd</pre>
 </div>
 <style>div.applicant-break {page-break-after:always;}</style>

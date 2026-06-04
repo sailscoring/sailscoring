@@ -1,9 +1,11 @@
-description: "Scratch — tie broken by most first places (RRS A8.2)"
+description: "Scratch — series tie broken by RRS A8.1 (sorted race scores)"
 rrs_notes: >
-  RRS A8.2: When boats are tied on net points, rank by most first-place finishes,
-  then most second-place finishes, and so on.
-  Alice and Bob both score 5 net points. Alice has two first-place finishes; Bob has one.
-  Alice ranks ahead.
+  RRS A8.1: when boats are tied on net points, each boat's race scores are
+  listed best-to-worst (excluding discards) and the tie is broken at the first
+  point of difference in favour of the better score.
+  Alice and Bob both score 5 net points. Best-to-worst, Alice is [1, 1, 3] and
+  Bob is [1, 2, 2]; their best scores tie at 1, but Alice's second-best 1 beats
+  Bob's 2, so Alice ranks ahead.
 
 series:
   discardThresholds: []
@@ -16,8 +18,8 @@ competitors:
   - sailNumber: "303"
     name: "Carol"
 
-# Alice: 1st, 3rd, 1st  → 5 pts, two firsts
-# Bob:   2nd, 1st, 2nd  → 5 pts, one first
+# Alice: 1st, 3rd, 1st  → 5 pts, sorted best-to-worst [1, 1, 3]
+# Bob:   2nd, 1st, 2nd  → 5 pts, sorted best-to-worst [1, 2, 2]
 # Carol: 3rd, 2nd, 3rd  → 8 pts
 races:
   - number: 1
@@ -49,7 +51,8 @@ races:
       - sailor: "303"
         position: 3
 
-# Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice wins.
+# Alice and Bob both total 5. A8.1: [1,1,3] vs [1,2,2] — equal at the best score,
+# Alice's second-best 1 beats Bob's 2 → Alice wins.
 expected:
   standings:
     - rank: 1

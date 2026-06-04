@@ -1,0 +1,106 @@
+description: "Scratch — A8.1 excludes discards, then A8.2 countback decides"
+rrs_notes: >
+  RRS A8.1 lists each boat's race scores best-to-worst "No excluded scores shall
+  be used" — discarded races are left out. Here that exclusion is decisive.
+  Alice and Bob both net 5 with one discard. Their non-discarded scores are
+  identical ([2, 3] each), so A8.1 cannot separate them — even though Alice's
+  discarded race is a DNC (5) and Bob's is a 4th (4). A8.2 then counts back from
+  the last race: race 3 has Alice 3rd and Bob 4th, so Alice ranks ahead.
+
+  This is the case the pre-2025 place-count tie-break got wrong: it counted
+  Bob's discarded 4th place (a back-of-fleet score) as if it helped him and
+  ranked Bob ahead. A8.1/A8.2 rank Alice ahead.
+
+series:
+  discardThresholds:
+    - minRaces: 3
+      discardCount: 1
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+
+# 4 boats, N+1 = 5 (DNC). One discard (worst score dropped).
+#
+# Alice: DNC, 2nd, 3rd → {5,2,3} discard 5 → net 5, kept best-to-worst [2, 3]
+# Bob:   2nd, 3rd, 4th → {2,3,4} discard 4 → net 5, kept best-to-worst [2, 3]
+# Carol: 1st, 1st, 1st → {1,1,1} discard 1 → net 2 (wins outright)
+# David: DNC, 4th, 2nd → {5,4,2} discard 5 → net 6 (last)
+#
+# Alice and Bob tie at net 5.
+#   A8.1 — kept scores [2,3] vs [2,3] → identical, cannot separate
+#   A8.2 — last race (race 3): Alice=3, Bob=4 → Alice wins
+races:
+  - number: 1
+    # Alice and David DNC; Carol 1st, Bob 2nd
+    finishes:
+      - sailor: "303"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "101"
+        code: DNC
+      - sailor: "404"
+        code: DNC
+
+  - number: 2
+    finishes:
+      - sailor: "303"
+        position: 1
+      - sailor: "101"
+        position: 2
+      - sailor: "202"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 3
+    finishes:
+      - sailor: "303"
+        position: 1
+      - sailor: "404"
+        position: 2
+      - sailor: "101"
+        position: 3
+      - sailor: "202"
+        position: 4
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "303"
+      racePoints: [1, 1, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 3
+      netPoints: 2
+
+    - rank: 2
+      sailor: "101"
+      racePoints: [5, 2, 3]
+      raceCodes: ["DNC", null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 10
+      netPoints: 5
+
+    - rank: 3
+      sailor: "202"
+      racePoints: [2, 3, 4]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, true]
+      totalPoints: 9
+      netPoints: 5
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [5, 4, 2]
+      raceCodes: ["DNC", null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 11
+      netPoints: 6

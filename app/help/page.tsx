@@ -774,8 +774,10 @@ export default async function HelpPage() {
         <p>
           Sail Scoring uses{' '}
           <strong className="text-foreground">Low Point scoring</strong>: 1st place scores 1 point,
-          2nd scores 2, and so on. Lower totals are better. The standings are ordered by total
-          points, with tie-breaking by most first places, then most second places, and so on.
+          2nd scores 2, and so on. Lower totals are better. The standings are ordered by net
+          points; ties are broken per RRS A8 — first by each boat&apos;s race scores listed
+          best-to-worst excluding discards (A8.1), then, if still tied, by the score in the last
+          race, the next-to-last, and so on (A8.2).
         </p>
         <p>
           Result codes are shown in parentheses in the race columns, e.g. <em>7 (DNF)</em>.

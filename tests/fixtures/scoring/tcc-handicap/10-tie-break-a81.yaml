@@ -1,0 +1,113 @@
+description: "IRC — series tie broken by RRS A8.1/A8.2 on the handicap path"
+rrs_notes: >
+  The A8 tie-break is shared by scratch and handicap scoring. This fixture
+  exercises it through the corrected-time path (calculateHandicapStandings).
+  All boats carry TCC 1.0, so corrected time equals elapsed time and finishing
+  order is the race order. Alice and Bob both net 5 with one discard; their
+  non-discarded scores are identical ([2, 3] each), so A8.1 cannot separate
+  them (Alice's discard is a DNC, Bob's is a 4th — both excluded). A8.2 then
+  counts back from the last race: race 3 has Alice 3rd and Bob 4th, so Alice
+  ranks ahead. This is the handicap mirror of scratch fixture 14.
+
+series:
+  discardThresholds:
+    - minRaces: 3
+      discardCount: 1
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+    ircTcc: 1.0
+  - sailNumber: "202"
+    name: "Bob"
+    ircTcc: 1.0
+  - sailNumber: "303"
+    name: "Carol"
+    ircTcc: 1.0
+  - sailNumber: "404"
+    name: "David"
+    ircTcc: 1.0
+
+# 4 boats, N+1 = 5 (DNC). One discard. TCC 1.0 throughout → CT = ET.
+#
+# Alice: DNC, 2nd, 3rd → {5,2,3} discard 5 → net 5, kept best-to-worst [2, 3]
+# Bob:   2nd, 3rd, 4th → {2,3,4} discard 4 → net 5, kept best-to-worst [2, 3]
+# Carol: 1st, 1st, 1st → net 2 (wins outright)
+# David: DNC, 4th, 2nd → {5,4,2} discard 5 → net 6 (last)
+#
+#   A8.1 — kept [2,3] vs [2,3] → identical, cannot separate
+#   A8.2 — last race (race 3): Alice=3, Bob=4 → Alice wins
+races:
+  - number: 1
+    startTime: "12:00:00"
+    # Alice and David DNC; Carol 1st (30 min), Bob 2nd (31 min)
+    finishes:
+      - sailor: "303"
+        finishTime: "12:30:00"
+      - sailor: "202"
+        finishTime: "12:31:00"
+      - sailor: "101"
+        code: DNC
+      - sailor: "404"
+        code: DNC
+
+  - number: 2
+    startTime: "12:00:00"
+    finishes:
+      - sailor: "303"
+        finishTime: "12:30:00"
+      - sailor: "101"
+        finishTime: "12:31:00"
+      - sailor: "202"
+        finishTime: "12:32:00"
+      - sailor: "404"
+        finishTime: "12:33:00"
+
+  - number: 3
+    startTime: "12:00:00"
+    finishes:
+      - sailor: "303"
+        finishTime: "12:30:00"
+      - sailor: "404"
+        finishTime: "12:31:00"
+      - sailor: "101"
+        finishTime: "12:32:00"
+      - sailor: "202"
+        finishTime: "12:33:00"
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "303"
+      racePoints: [1, 1, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 3
+      netPoints: 2
+
+    - rank: 2
+      sailor: "101"
+      racePoints: [5, 2, 3]
+      raceCodes: ["DNC", null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 10
+      netPoints: 5
+
+    - rank: 3
+      sailor: "202"
+      racePoints: [2, 3, 4]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, true]
+      totalPoints: 9
+      netPoints: 5
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [5, 4, 2]
+      raceCodes: ["DNC", null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 11
+      netPoints: 6

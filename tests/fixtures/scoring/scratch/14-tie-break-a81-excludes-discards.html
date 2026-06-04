@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="description" content="sail scoring results">
 <meta name="viewport" content="width=device-width">
-<title>Results for Scratch — tie broken by most first places (RRS A8.2)</title>
+<title>Results for Scratch — A8.1 excludes discards, then A8.2 countback decides</title>
 <style type="text/css">
 body {font: 100% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
@@ -30,6 +30,7 @@ td.rank3 { background: #da6841; }
 td.discard { background: #f2f2f2; }
 td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 td.excluded { color: #888; text-align: center; }
+.override-marker { color: #b45309; font-weight: bold; margin-left: 1px; cursor: help; }
 table.summarytable td .rating { display: block; font-size: 0.85em; color: #666; margin-top: 1px; font-family: monospace; }
 table.summarytable td.discard .rating { color: #888; }
 table.summarytable td.seedrating { font-family: monospace; }
@@ -45,7 +46,7 @@ td.nat .nattext { font-size: 0.8em; }
 <tr>
 <td width="30%"></td>
 <td width="40%" align="center">
-<h1>Scratch — tie broken by most first places (RRS A8.2)</h1>
+<h1>Scratch — A8.1 excludes discards, then A8.2 countback decides</h1>
 
 </td>
 <td width="30%"></td>
@@ -54,12 +55,18 @@ td.nat .nattext { font-size: 0.8em; }
 </table>
 <div style="clear:both;"></div>
 <div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
-<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.2: When boats are tied on net points, rank by most first-place finishes, then most second-place finishes, and so on. Alice and Bob both score 5 net points. Alice has two first-place finishes; Bob has one. Alice ranks ahead.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Alice: 1st, 3rd, 1st  → 5 pts, two firsts
-Bob:   2nd, 1st, 2nd  → 5 pts, one first
-Carol: 3rd, 2nd, 3rd  → 8 pts
-    Bob wins; Alice struggles
-    Alice wins again; Bob 2nd
-Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice wins.</pre>
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.1 lists each boat's race scores best-to-worst &quot;No excluded scores shall be used&quot; — discarded races are left out. Here that exclusion is decisive. Alice and Bob both net 5 with one discard. Their non-discarded scores are identical ([2, 3] each), so A8.1 cannot separate them — even though Alice's discarded race is a DNC (5) and Bob's is a 4th (4). A8.2 then counts back from the last race: race 3 has Alice 3rd and Bob 4th, so Alice ranks ahead.
+This is the case the pre-2025 place-count tie-break got wrong: it counted Bob's discarded 4th place (a back-of-fleet score) as if it helped him and ranked Bob ahead. A8.1/A8.2 rank Alice ahead.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> 1 discard from race 3. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">4 boats, N+1 = 5 (DNC). One discard (worst score dropped).
+
+Alice: DNC, 2nd, 3rd → {5,2,3} discard 5 → net 5, kept best-to-worst [2, 3]
+Bob:   2nd, 3rd, 4th → {2,3,4} discard 4 → net 5, kept best-to-worst [2, 3]
+Carol: 1st, 1st, 1st → {1,1,1} discard 1 → net 2 (wins outright)
+David: DNC, 4th, 2nd → {5,4,2} discard 5 → net 6 (last)
+
+Alice and Bob tie at net 5.
+  A8.1 — kept scores [2,3] vs [2,3] → identical, cannot separate
+  A8.2 — last race (race 3): Alice=3, Bob=4 → Alice wins
+    Alice and David DNC; Carol 1st, Bob 2nd</pre>
 </div>
 <style>div.applicant-break {page-break-after:always;}</style>
 
@@ -68,7 +75,7 @@ Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice w
 
 
 <table class="summarytable" cellspacing="0" cellpadding="0" border="0">
-<colgroup span="8">
+<colgroup span="9">
 <col class="rank" />
 <col class="sailno" />
 <col class="boatname" />
@@ -77,6 +84,7 @@ Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice w
 <col class="race" />
 <col class="race" />
 <col class="total" />
+<col class="nett" />
 </colgroup>
 <thead>
 <tr class="titlerow">
@@ -88,38 +96,53 @@ Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice w
 <th><a class="racelink" href="#r2">R2</a></th>
 <th><a class="racelink" href="#r3">R3</a></th>
 <th>Total</th>
+<th>Nett</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd summaryrow">
 <td>1st</td>
-<td>101</td>
+<td>303</td>
 <td></td>
-<td>Alice</td>
+<td>Carol</td>
+<td class="discard rank1">(1.0)</td>
 <td class="rank1">1.0</td>
-<td class="rank3">3.0</td>
 <td class="rank1">1.0</td>
-<td>5.0</td>
+<td>3.0</td>
+<td>2.0</td>
 </tr>
 <tr class="even summaryrow">
 <td>2nd</td>
-<td>202</td>
+<td>101</td>
 <td></td>
-<td>Bob</td>
+<td>Alice</td>
+<td class="discard">(5.0 DNC)</td>
 <td class="rank2">2.0</td>
-<td class="rank1">1.0</td>
-<td class="rank2">2.0</td>
+<td class="rank3">3.0</td>
+<td>10.0</td>
 <td>5.0</td>
 </tr>
 <tr class="odd summaryrow">
 <td>3rd</td>
-<td>303</td>
+<td>202</td>
 <td></td>
-<td>Carol</td>
-<td class="rank3">3.0</td>
+<td>Bob</td>
 <td class="rank2">2.0</td>
 <td class="rank3">3.0</td>
-<td>8.0</td>
+<td class="discard">(4.0)</td>
+<td>9.0</td>
+<td>5.0</td>
+</tr>
+<tr class="even summaryrow">
+<td>4th</td>
+<td>404</td>
+<td></td>
+<td>David</td>
+<td class="discard">(5.0 DNC)</td>
+<td>4.0</td>
+<td class="rank2">2.0</td>
+<td>11.0</td>
+<td>6.0</td>
 </tr>
 </tbody>
 </table>
@@ -145,9 +168,9 @@ Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice w
 <tbody>
 <tr class="odd racerow">
 <td class="rank1">1</td>
-<td>101</td>
+<td>303</td>
 <td></td>
-<td>Alice</td>
+<td>Carol</td>
 <td>1.0</td>
 </tr>
 <tr class="even racerow">
@@ -158,11 +181,18 @@ Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice w
 <td>2.0</td>
 </tr>
 <tr class="odd racerow">
-<td class="rank3">3</td>
-<td>303</td>
 <td></td>
-<td>Carol</td>
-<td>3.0</td>
+<td>101</td>
+<td></td>
+<td>Alice</td>
+<td>5.0 DNC</td>
+</tr>
+<tr class="even racerow">
+<td></td>
+<td>404</td>
+<td></td>
+<td>David</td>
+<td>5.0 DNC</td>
 </tr>
 </tbody>
 </table>
@@ -188,24 +218,31 @@ Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice w
 <tbody>
 <tr class="odd racerow">
 <td class="rank1">1</td>
-<td>202</td>
+<td>303</td>
 <td></td>
-<td>Bob</td>
+<td>Carol</td>
 <td>1.0</td>
 </tr>
 <tr class="even racerow">
 <td class="rank2">2</td>
-<td>303</td>
+<td>101</td>
 <td></td>
-<td>Carol</td>
+<td>Alice</td>
 <td>2.0</td>
 </tr>
 <tr class="odd racerow">
 <td class="rank3">3</td>
-<td>101</td>
+<td>202</td>
 <td></td>
-<td>Alice</td>
+<td>Bob</td>
 <td>3.0</td>
+</tr>
+<tr class="even racerow">
+<td>4</td>
+<td>404</td>
+<td></td>
+<td>David</td>
+<td>4.0</td>
 </tr>
 </tbody>
 </table>
@@ -231,24 +268,31 @@ Alice and Bob both total 5. Tie-break: Alice has 2 firsts, Bob has 1 → Alice w
 <tbody>
 <tr class="odd racerow">
 <td class="rank1">1</td>
-<td>101</td>
+<td>303</td>
 <td></td>
-<td>Alice</td>
+<td>Carol</td>
 <td>1.0</td>
 </tr>
 <tr class="even racerow">
 <td class="rank2">2</td>
-<td>202</td>
+<td>404</td>
 <td></td>
-<td>Bob</td>
+<td>David</td>
 <td>2.0</td>
 </tr>
 <tr class="odd racerow">
 <td class="rank3">3</td>
-<td>303</td>
+<td>101</td>
 <td></td>
-<td>Carol</td>
+<td>Alice</td>
 <td>3.0</td>
+</tr>
+<tr class="even racerow">
+<td>4</td>
+<td>202</td>
+<td></td>
+<td>Bob</td>
+<td>4.0</td>
 </tr>
 </tbody>
 </table>

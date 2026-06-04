@@ -878,9 +878,9 @@ export function getDiscardCount(
  *
  * Races and finishes must cover the same series. Standings are sorted
  * by net_points ascending (lowest wins, after applying discards). Ties broken
- * per RRS A8.2: most first places, then most second places, etc. (using all
- * race points including discards). If still tied, the competitor with the
- * better (lower) score in the most recent race ranks higher.
+ * per RRS A8: A8.1 compares each boat's non-discarded race scores best-to-worst;
+ * if still tied, A8.2 counts back from the last race (using all race points,
+ * including discards). See `tieBreak`.
  *
  * Non-discardable codes (DNE) are protected from discard selection even
  * when they are the worst score. (A plain BFD is an ordinary, discardable
@@ -1067,18 +1067,18 @@ export function calculateStandings(
     return { rank: 0, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded] };
   });
 
-  // Sort: lowest net points wins, tie-break per RRS A8.2 (uses all race points)
+  // Sort: lowest net points wins, ties broken per RRS A8 (A8.1 then A8.2)
   standings.sort((a, b) => {
     if (a.netPoints !== b.netPoints) {
       return a.netPoints - b.netPoints;
     }
-    return tieBreak(a, b, races.length);
+    return tieBreak(a, b);
   });
 
   // Assign ranks (tied competitors share the same rank)
   let rank = 1;
   for (let i = 0; i < standings.length; i++) {
-    if (i > 0 && isTied(standings[i - 1], standings[i], races.length)) {
+    if (i > 0 && isTied(standings[i - 1], standings[i])) {
       standings[i].rank = standings[i - 1].rank;
     } else {
       standings[i].rank = rank;
@@ -1425,15 +1425,15 @@ function calculateHandicapStandings(
     };
   });
 
-  // Rank by netPoints (tie-break: most first places, then last race).
+  // Rank by netPoints; ties broken per RRS A8 (A8.1 then A8.2).
   // Tied competitors share the same rank, matching calculateStandings.
   standings.sort((a, b) => {
     if (a.netPoints !== b.netPoints) return a.netPoints - b.netPoints;
-    return tieBreak(a, b, races.length);
+    return tieBreak(a, b);
   });
   let hrank = 1;
   for (let i = 0; i < standings.length; i++) {
-    if (i > 0 && isTied(standings[i - 1], standings[i], races.length)) {
+    if (i > 0 && isTied(standings[i - 1], standings[i])) {
       standings[i].rank = standings[i - 1].rank;
     } else {
       standings[i].rank = hrank;
@@ -1549,24 +1549,46 @@ export function calculateFleetStandings(
 }
 
 /**
- * Tie-break two competitors per RRS A8.2:
- * 1. Most first places (then most second places, etc.)
- * 2. If still tied: better score in the last race
- *
- * Returns negative if a beats b, positive if b beats a.
+ * Non-discarded race scores for a standing, sorted best (lowest) to worst
+ * (highest) — the list A8.1 compares. Excluded races (nobody finished) score 0
+ * for every boat, so they add equal leading entries and never affect the
+ * first point of difference.
  */
-function tieBreak(a: Standing, b: Standing, raceCount: number): number {
-  // Count places for each rank position
-  const maxPlace = raceCount + 1;
-  for (let place = 1; place <= maxPlace; place++) {
-    const aCount = a.racePoints.filter((p) => p === place).length;
-    const bCount = b.racePoints.filter((p) => p === place).length;
-    if (aCount !== bCount) {
-      return bCount - aCount; // more wins = better
-    }
+function nonDiscardedScoresSorted(s: Standing): number[] {
+  const scores: number[] = [];
+  for (let i = 0; i < s.racePoints.length; i++) {
+    if (!s.raceDiscards[i]) scores.push(s.racePoints[i]);
+  }
+  return scores.sort((x, y) => x - y);
+}
+
+/**
+ * Tie-break two competitors per RRS A8 (2025-2028 Appendix A), in order:
+ *
+ *   A8.1  List each boat's race scores best (lowest points) to worst,
+ *         EXCLUDING discarded scores, and break the tie in favour of the boat
+ *         that is better at the first point of difference.
+ *   A8.2  If a tie remains, rank by score in the last race, then the
+ *         next-to-last race, and so on. These scores are used even if some of
+ *         them are discarded.
+ *
+ * There is no place-count rung ("most 1sts, then 2nds, …") — that was removed
+ * from the RRS before the 2025-2028 edition.
+ *
+ * Returns negative if a beats b (a ranks ahead), positive if b beats a, 0 if
+ * the boats are still perfectly tied.
+ */
+function tieBreak(a: Standing, b: Standing): number {
+  // A8.1 — compare non-discarded scores position-by-position, best to worst.
+  const aSorted = nonDiscardedScoresSorted(a);
+  const bSorted = nonDiscardedScoresSorted(b);
+  const len = Math.min(aSorted.length, bSorted.length);
+  for (let i = 0; i < len; i++) {
+    const diff = aSorted[i] - bSorted[i];
+    if (diff !== 0) return diff;
   }
 
-  // Last resort: better score in most recent race (last in array)
+  // A8.2 — countback from the last race, using all scores incl. discards.
   for (let i = a.racePoints.length - 1; i >= 0; i--) {
     const diff = a.racePoints[i] - b.racePoints[i];
     if (diff !== 0) return diff;
@@ -1575,6 +1597,6 @@ function tieBreak(a: Standing, b: Standing, raceCount: number): number {
   return 0;
 }
 
-function isTied(a: Standing, b: Standing, raceCount: number): boolean {
-  return tieBreak(a, b, raceCount) === 0;
+function isTied(a: Standing, b: Standing): boolean {
+  return tieBreak(a, b) === 0;
 }

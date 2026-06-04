@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="description" content="sail scoring results">
 <meta name="viewport" content="width=device-width">
-<title>Results for Scratch — RRS A8.1 cannot separate, so RRS A8.2 last-race countback decides</title>
+<title>Results for Scratch — A8.1 separates on mid-fleet scores the old place-count bound missed</title>
 <style type="text/css">
 body {font: 100% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
@@ -46,7 +46,7 @@ td.nat .nattext { font-size: 0.8em; }
 <tr>
 <td width="30%"></td>
 <td width="40%" align="center">
-<h1>Scratch — RRS A8.1 cannot separate, so RRS A8.2 last-race countback decides</h1>
+<h1>Scratch — A8.1 separates on mid-fleet scores the old place-count bound missed</h1>
 
 </td>
 <td width="30%"></td>
@@ -55,18 +55,21 @@ td.nat .nattext { font-size: 0.8em; }
 </table>
 <div style="clear:both;"></div>
 <div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
-<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.1 then A8.2. Alice and Bob each score 8 points with identical sorted score lists ([1, 2, 5] each), so A8.1 cannot separate them. A8.2 then ranks by the last race (both DNC, equal), then the next-to-last race (race 2), where Bob finished 1st and Alice 2nd: Bob ranks ahead. These countback scores are used even though one of them (the DNC) would be discarded — A8.2 includes excluded scores.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">4 boats, N+1 = 5.
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.1 compares the full best-to-worst list, including back-of-fleet scores. Pat and Quinn both net 12 in a 7-boat fleet with one discard. Their kept (non-discarded) scores are Pat [6, 6] and Quinn [5, 7]; at the first point of difference Quinn's 5 beats Pat's 6, so Quinn ranks ahead — matching HalSail.
+This reproduces the DBSC Thursday Blue regression. The pre-2025 place-count tie-break only counted places up to (races + 1) = 4, so every distinguishing score here (5, 6, 7) fell outside its window; it found no difference and fell through to a last-race countback that ranked Pat ahead. Wrong.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> 1 discard from race 3. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">7 boats, N+1 = 8 (DNC). One discard.
 
-Alice: 1st, 2nd, DNC → 1+2+5=8  sorted best-to-worst [1, 2, 5]
-Bob:   2nd, 1st, DNC → 2+1+5=8  sorted best-to-worst [1, 2, 5] ← identical to Alice
-Carol: 3rd, 3rd, 1st → 3+3+1=7  (wins outright)
-David: 4th, 4th, 2nd → 4+4+2=10
+Pat:   6th, 6th, DNC → {6,6,8} discard 8 → net 12, kept best-to-worst [6, 6]
+Quinn: 5th, 7th, DNC → {5,7,8} discard 8 → net 12, kept best-to-worst [5, 7]
 
-Tie-break (Alice vs Bob):
-  A8.1 — sorted scores [1,2,5] vs [1,2,5] → identical, cannot separate
-  A8.2 — last race (race 3): Alice=5, Bob=5 → equal
-         next-to-last race (race 2): Alice=2, Bob=1 → Bob wins
-    Alice and Bob both DNC; Carol wins, David 2nd</pre>
+Pat and Quinn tie at net 12.
+  A8.1 — kept [6,6] vs [5,7]: Quinn's best 5 beats Pat's best 6 → Quinn wins.
+The old place-count loop only looked at places 1..(races+1)=1..4, so the
+5/6/7 scores were invisible and it wrongly fell through to a countback.
+
+Fillers finish ahead and never tie the contenders:
+  F1 1/1/1 → net 2;  F2 2/2/2 → net 4;  F3 3/3/3 → net 6;
+  F4 4/4/4 → net 8;  F5 7/5/5 → {7,5,5} discard 7 → net 10
+    Pat and Quinn both DNC (8 pts); fillers finish 1-5</pre>
 </div>
 <style>div.applicant-break {page-break-after:always;}</style>
 
@@ -75,7 +78,7 @@ Tie-break (Alice vs Bob):
 
 
 <table class="summarytable" cellspacing="0" cellpadding="0" border="0">
-<colgroup span="8">
+<colgroup span="9">
 <col class="rank" />
 <col class="sailno" />
 <col class="boatname" />
@@ -84,6 +87,7 @@ Tie-break (Alice vs Bob):
 <col class="race" />
 <col class="race" />
 <col class="total" />
+<col class="nett" />
 </colgroup>
 <thead>
 <tr class="titlerow">
@@ -95,48 +99,86 @@ Tie-break (Alice vs Bob):
 <th><a class="racelink" href="#r2">R2</a></th>
 <th><a class="racelink" href="#r3">R3</a></th>
 <th>Total</th>
+<th>Nett</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd summaryrow">
 <td>1st</td>
-<td>303</td>
+<td>1</td>
 <td></td>
-<td>Carol</td>
-<td class="rank3">3.0</td>
-<td class="rank3">3.0</td>
+<td>Filler One</td>
+<td class="discard rank1">(1.0)</td>
 <td class="rank1">1.0</td>
-<td>7.0</td>
+<td class="rank1">1.0</td>
+<td>3.0</td>
+<td>2.0</td>
 </tr>
 <tr class="even summaryrow">
 <td>2nd</td>
-<td>202</td>
+<td>2</td>
 <td></td>
-<td>Bob</td>
+<td>Filler Two</td>
+<td class="discard rank2">(2.0)</td>
 <td class="rank2">2.0</td>
-<td class="rank1">1.0</td>
-<td>5.0 DNC</td>
-<td>8.0</td>
+<td class="rank2">2.0</td>
+<td>6.0</td>
+<td>4.0</td>
 </tr>
 <tr class="odd summaryrow">
 <td>3rd</td>
-<td>101</td>
+<td>3</td>
 <td></td>
-<td>Alice</td>
-<td class="rank1">1.0</td>
-<td class="rank2">2.0</td>
-<td>5.0 DNC</td>
-<td>8.0</td>
+<td>Filler Three</td>
+<td class="discard rank3">(3.0)</td>
+<td class="rank3">3.0</td>
+<td class="rank3">3.0</td>
+<td>9.0</td>
+<td>6.0</td>
 </tr>
 <tr class="even summaryrow">
 <td>4th</td>
-<td>404</td>
+<td>4</td>
 <td></td>
-<td>David</td>
+<td>Filler Four</td>
+<td class="discard">(4.0)</td>
 <td>4.0</td>
 <td>4.0</td>
-<td class="rank2">2.0</td>
+<td>12.0</td>
+<td>8.0</td>
+</tr>
+<tr class="odd summaryrow">
+<td>5th</td>
+<td>5</td>
+<td></td>
+<td>Filler Five</td>
+<td class="discard">(7.0)</td>
+<td>5.0</td>
+<td>5.0</td>
+<td>17.0</td>
 <td>10.0</td>
+</tr>
+<tr class="even summaryrow">
+<td>6th</td>
+<td>800</td>
+<td></td>
+<td>Quinn</td>
+<td>5.0</td>
+<td>7.0</td>
+<td class="discard">(8.0 DNC)</td>
+<td>20.0</td>
+<td>12.0</td>
+</tr>
+<tr class="odd summaryrow">
+<td>7th</td>
+<td>700</td>
+<td></td>
+<td>Pat</td>
+<td>6.0</td>
+<td>6.0</td>
+<td class="discard">(8.0 DNC)</td>
+<td>20.0</td>
+<td>12.0</td>
 </tr>
 </tbody>
 </table>
@@ -162,31 +204,52 @@ Tie-break (Alice vs Bob):
 <tbody>
 <tr class="odd racerow">
 <td class="rank1">1</td>
-<td>101</td>
+<td>1</td>
 <td></td>
-<td>Alice</td>
+<td>Filler One</td>
 <td>1.0</td>
 </tr>
 <tr class="even racerow">
 <td class="rank2">2</td>
-<td>202</td>
+<td>2</td>
 <td></td>
-<td>Bob</td>
+<td>Filler Two</td>
 <td>2.0</td>
 </tr>
 <tr class="odd racerow">
 <td class="rank3">3</td>
-<td>303</td>
+<td>3</td>
 <td></td>
-<td>Carol</td>
+<td>Filler Three</td>
 <td>3.0</td>
 </tr>
 <tr class="even racerow">
 <td>4</td>
-<td>404</td>
+<td>4</td>
 <td></td>
-<td>David</td>
+<td>Filler Four</td>
 <td>4.0</td>
+</tr>
+<tr class="odd racerow">
+<td>5</td>
+<td>800</td>
+<td></td>
+<td>Quinn</td>
+<td>5.0</td>
+</tr>
+<tr class="even racerow">
+<td>6</td>
+<td>700</td>
+<td></td>
+<td>Pat</td>
+<td>6.0</td>
+</tr>
+<tr class="odd racerow">
+<td>7</td>
+<td>5</td>
+<td></td>
+<td>Filler Five</td>
+<td>7.0</td>
 </tr>
 </tbody>
 </table>
@@ -212,31 +275,52 @@ Tie-break (Alice vs Bob):
 <tbody>
 <tr class="odd racerow">
 <td class="rank1">1</td>
-<td>202</td>
+<td>1</td>
 <td></td>
-<td>Bob</td>
+<td>Filler One</td>
 <td>1.0</td>
 </tr>
 <tr class="even racerow">
 <td class="rank2">2</td>
-<td>101</td>
+<td>2</td>
 <td></td>
-<td>Alice</td>
+<td>Filler Two</td>
 <td>2.0</td>
 </tr>
 <tr class="odd racerow">
 <td class="rank3">3</td>
-<td>303</td>
+<td>3</td>
 <td></td>
-<td>Carol</td>
+<td>Filler Three</td>
 <td>3.0</td>
 </tr>
 <tr class="even racerow">
 <td>4</td>
-<td>404</td>
+<td>4</td>
 <td></td>
-<td>David</td>
+<td>Filler Four</td>
 <td>4.0</td>
+</tr>
+<tr class="odd racerow">
+<td>5</td>
+<td>5</td>
+<td></td>
+<td>Filler Five</td>
+<td>5.0</td>
+</tr>
+<tr class="even racerow">
+<td>6</td>
+<td>700</td>
+<td></td>
+<td>Pat</td>
+<td>6.0</td>
+</tr>
+<tr class="odd racerow">
+<td>7</td>
+<td>800</td>
+<td></td>
+<td>Quinn</td>
+<td>7.0</td>
 </tr>
 </tbody>
 </table>
@@ -262,31 +346,52 @@ Tie-break (Alice vs Bob):
 <tbody>
 <tr class="odd racerow">
 <td class="rank1">1</td>
-<td>303</td>
+<td>1</td>
 <td></td>
-<td>Carol</td>
+<td>Filler One</td>
 <td>1.0</td>
 </tr>
 <tr class="even racerow">
 <td class="rank2">2</td>
-<td>404</td>
+<td>2</td>
 <td></td>
-<td>David</td>
+<td>Filler Two</td>
 <td>2.0</td>
 </tr>
 <tr class="odd racerow">
+<td class="rank3">3</td>
+<td>3</td>
 <td></td>
-<td>101</td>
+<td>Filler Three</td>
+<td>3.0</td>
+</tr>
+<tr class="even racerow">
+<td>4</td>
+<td>4</td>
 <td></td>
-<td>Alice</td>
-<td>5.0 DNC</td>
+<td>Filler Four</td>
+<td>4.0</td>
+</tr>
+<tr class="odd racerow">
+<td>5</td>
+<td>5</td>
+<td></td>
+<td>Filler Five</td>
+<td>5.0</td>
 </tr>
 <tr class="even racerow">
 <td></td>
-<td>202</td>
+<td>700</td>
 <td></td>
-<td>Bob</td>
-<td>5.0 DNC</td>
+<td>Pat</td>
+<td>8.0 DNC</td>
+</tr>
+<tr class="odd racerow">
+<td></td>
+<td>800</td>
+<td></td>
+<td>Quinn</td>
+<td>8.0 DNC</td>
 </tr>
 </tbody>
 </table>

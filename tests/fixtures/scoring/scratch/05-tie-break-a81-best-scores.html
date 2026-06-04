@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="description" content="sail scoring results">
 <meta name="viewport" content="width=device-width">
-<title>Results for Scratch — RRS A8.1 cannot separate, so RRS A8.2 last-race countback decides</title>
+<title>Results for Scratch — series tie broken by RRS A8.1 (sorted race scores)</title>
 <style type="text/css">
 body {font: 100% arial, helvetica, sans-serif; text-align: center;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
@@ -46,7 +46,7 @@ td.nat .nattext { font-size: 0.8em; }
 <tr>
 <td width="30%"></td>
 <td width="40%" align="center">
-<h1>Scratch — RRS A8.1 cannot separate, so RRS A8.2 last-race countback decides</h1>
+<h1>Scratch — series tie broken by RRS A8.1 (sorted race scores)</h1>
 
 </td>
 <td width="30%"></td>
@@ -55,18 +55,13 @@ td.nat .nattext { font-size: 0.8em; }
 </table>
 <div style="clear:both;"></div>
 <div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
-<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.1 then A8.2. Alice and Bob each score 8 points with identical sorted score lists ([1, 2, 5] each), so A8.1 cannot separate them. A8.2 then ranks by the last race (both DNC, equal), then the next-to-last race (race 2), where Bob finished 1st and Alice 2nd: Bob ranks ahead. These countback scores are used even though one of them (the DNC) would be discarded — A8.2 includes excluded scores.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">4 boats, N+1 = 5.
-
-Alice: 1st, 2nd, DNC → 1+2+5=8  sorted best-to-worst [1, 2, 5]
-Bob:   2nd, 1st, DNC → 2+1+5=8  sorted best-to-worst [1, 2, 5] ← identical to Alice
-Carol: 3rd, 3rd, 1st → 3+3+1=7  (wins outright)
-David: 4th, 4th, 2nd → 4+4+2=10
-
-Tie-break (Alice vs Bob):
-  A8.1 — sorted scores [1,2,5] vs [1,2,5] → identical, cannot separate
-  A8.2 — last race (race 3): Alice=5, Bob=5 → equal
-         next-to-last race (race 2): Alice=2, Bob=1 → Bob wins
-    Alice and Bob both DNC; Carol wins, David 2nd</pre>
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS A8.1: when boats are tied on net points, each boat's race scores are listed best-to-worst (excluding discards) and the tie is broken at the first point of difference in favour of the better score. Alice and Bob both score 5 net points. Best-to-worst, Alice is [1, 1, 3] and Bob is [1, 2, 2]; their best scores tie at 1, but Alice's second-best 1 beats Bob's 2, so Alice ranks ahead.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Alice: 1st, 3rd, 1st  → 5 pts, sorted best-to-worst [1, 1, 3]
+Bob:   2nd, 1st, 2nd  → 5 pts, sorted best-to-worst [1, 2, 2]
+Carol: 3rd, 2nd, 3rd  → 8 pts
+    Bob wins; Alice struggles
+    Alice wins again; Bob 2nd
+Alice and Bob both total 5. A8.1: [1,1,3] vs [1,2,2] — equal at the best score,
+Alice's second-best 1 beats Bob's 2 → Alice wins.</pre>
 </div>
 <style>div.applicant-break {page-break-after:always;}</style>
 
@@ -100,13 +95,13 @@ Tie-break (Alice vs Bob):
 <tbody>
 <tr class="odd summaryrow">
 <td>1st</td>
-<td>303</td>
+<td>101</td>
 <td></td>
-<td>Carol</td>
-<td class="rank3">3.0</td>
+<td>Alice</td>
+<td class="rank1">1.0</td>
 <td class="rank3">3.0</td>
 <td class="rank1">1.0</td>
-<td>7.0</td>
+<td>5.0</td>
 </tr>
 <tr class="even summaryrow">
 <td>2nd</td>
@@ -115,28 +110,18 @@ Tie-break (Alice vs Bob):
 <td>Bob</td>
 <td class="rank2">2.0</td>
 <td class="rank1">1.0</td>
-<td>5.0 DNC</td>
-<td>8.0</td>
+<td class="rank2">2.0</td>
+<td>5.0</td>
 </tr>
 <tr class="odd summaryrow">
 <td>3rd</td>
-<td>101</td>
+<td>303</td>
 <td></td>
-<td>Alice</td>
-<td class="rank1">1.0</td>
+<td>Carol</td>
+<td class="rank3">3.0</td>
 <td class="rank2">2.0</td>
-<td>5.0 DNC</td>
+<td class="rank3">3.0</td>
 <td>8.0</td>
-</tr>
-<tr class="even summaryrow">
-<td>4th</td>
-<td>404</td>
-<td></td>
-<td>David</td>
-<td>4.0</td>
-<td>4.0</td>
-<td class="rank2">2.0</td>
-<td>10.0</td>
 </tr>
 </tbody>
 </table>
@@ -181,13 +166,6 @@ Tie-break (Alice vs Bob):
 <td>Carol</td>
 <td>3.0</td>
 </tr>
-<tr class="even racerow">
-<td>4</td>
-<td>404</td>
-<td></td>
-<td>David</td>
-<td>4.0</td>
-</tr>
 </tbody>
 </table>
 <h3 class="racetitle" id="r2">R2&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
@@ -219,24 +197,17 @@ Tie-break (Alice vs Bob):
 </tr>
 <tr class="even racerow">
 <td class="rank2">2</td>
-<td>101</td>
+<td>303</td>
 <td></td>
-<td>Alice</td>
+<td>Carol</td>
 <td>2.0</td>
 </tr>
 <tr class="odd racerow">
 <td class="rank3">3</td>
-<td>303</td>
+<td>101</td>
 <td></td>
-<td>Carol</td>
+<td>Alice</td>
 <td>3.0</td>
-</tr>
-<tr class="even racerow">
-<td>4</td>
-<td>404</td>
-<td></td>
-<td>David</td>
-<td>4.0</td>
 </tr>
 </tbody>
 </table>
@@ -262,31 +233,24 @@ Tie-break (Alice vs Bob):
 <tbody>
 <tr class="odd racerow">
 <td class="rank1">1</td>
-<td>303</td>
+<td>101</td>
 <td></td>
-<td>Carol</td>
+<td>Alice</td>
 <td>1.0</td>
 </tr>
 <tr class="even racerow">
 <td class="rank2">2</td>
-<td>404</td>
-<td></td>
-<td>David</td>
-<td>2.0</td>
-</tr>
-<tr class="odd racerow">
-<td></td>
-<td>101</td>
-<td></td>
-<td>Alice</td>
-<td>5.0 DNC</td>
-</tr>
-<tr class="even racerow">
-<td></td>
 <td>202</td>
 <td></td>
 <td>Bob</td>
-<td>5.0 DNC</td>
+<td>2.0</td>
+</tr>
+<tr class="odd racerow">
+<td class="rank3">3</td>
+<td>303</td>
+<td></td>
+<td>Carol</td>
+<td>3.0</td>
 </tr>
 </tbody>
 </table>

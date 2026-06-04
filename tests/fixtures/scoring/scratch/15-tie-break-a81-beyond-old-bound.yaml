@@ -1,0 +1,156 @@
+description: "Scratch — A8.1 separates on mid-fleet scores the old place-count bound missed"
+rrs_notes: >
+  RRS A8.1 compares the full best-to-worst list, including back-of-fleet scores.
+  Pat and Quinn both net 12 in a 7-boat fleet with one discard. Their kept
+  (non-discarded) scores are Pat [6, 6] and Quinn [5, 7]; at the first point of
+  difference Quinn's 5 beats Pat's 6, so Quinn ranks ahead — matching HalSail.
+
+  This reproduces the DBSC Thursday Blue regression. The pre-2025 place-count
+  tie-break only counted places up to (races + 1) = 4, so every distinguishing
+  score here (5, 6, 7) fell outside its window; it found no difference and fell
+  through to a last-race countback that ranked Pat ahead. Wrong.
+
+series:
+  discardThresholds:
+    - minRaces: 3
+      discardCount: 1
+
+competitors:
+  - sailNumber: "700"
+    name: "Pat"
+  - sailNumber: "800"
+    name: "Quinn"
+  - sailNumber: "1"
+    name: "Filler One"
+  - sailNumber: "2"
+    name: "Filler Two"
+  - sailNumber: "3"
+    name: "Filler Three"
+  - sailNumber: "4"
+    name: "Filler Four"
+  - sailNumber: "5"
+    name: "Filler Five"
+
+# 7 boats, N+1 = 8 (DNC). One discard.
+#
+# Pat:   6th, 6th, DNC → {6,6,8} discard 8 → net 12, kept best-to-worst [6, 6]
+# Quinn: 5th, 7th, DNC → {5,7,8} discard 8 → net 12, kept best-to-worst [5, 7]
+#
+# Pat and Quinn tie at net 12.
+#   A8.1 — kept [6,6] vs [5,7]: Quinn's best 5 beats Pat's best 6 → Quinn wins.
+# The old place-count loop only looked at places 1..(races+1)=1..4, so the
+# 5/6/7 scores were invisible and it wrongly fell through to a countback.
+#
+# Fillers finish ahead and never tie the contenders:
+#   F1 1/1/1 → net 2;  F2 2/2/2 → net 4;  F3 3/3/3 → net 6;
+#   F4 4/4/4 → net 8;  F5 7/5/5 → {7,5,5} discard 7 → net 10
+races:
+  - number: 1
+    finishes:
+      - sailor: "1"
+        position: 1
+      - sailor: "2"
+        position: 2
+      - sailor: "3"
+        position: 3
+      - sailor: "4"
+        position: 4
+      - sailor: "800"
+        position: 5
+      - sailor: "700"
+        position: 6
+      - sailor: "5"
+        position: 7
+
+  - number: 2
+    finishes:
+      - sailor: "1"
+        position: 1
+      - sailor: "2"
+        position: 2
+      - sailor: "3"
+        position: 3
+      - sailor: "4"
+        position: 4
+      - sailor: "5"
+        position: 5
+      - sailor: "700"
+        position: 6
+      - sailor: "800"
+        position: 7
+
+  - number: 3
+    # Pat and Quinn both DNC (8 pts); fillers finish 1-5
+    finishes:
+      - sailor: "1"
+        position: 1
+      - sailor: "2"
+        position: 2
+      - sailor: "3"
+        position: 3
+      - sailor: "4"
+        position: 4
+      - sailor: "5"
+        position: 5
+      - sailor: "700"
+        code: DNC
+      - sailor: "800"
+        code: DNC
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1, 1, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 3
+      netPoints: 2
+
+    - rank: 2
+      sailor: "2"
+      racePoints: [2, 2, 2]
+      raceCodes: [null, null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 6
+      netPoints: 4
+
+    - rank: 3
+      sailor: "3"
+      racePoints: [3, 3, 3]
+      raceCodes: [null, null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 9
+      netPoints: 6
+
+    - rank: 4
+      sailor: "4"
+      racePoints: [4, 4, 4]
+      raceCodes: [null, null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 12
+      netPoints: 8
+
+    - rank: 5
+      sailor: "5"
+      racePoints: [7, 5, 5]
+      raceCodes: [null, null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 17
+      netPoints: 10
+
+    - rank: 6
+      sailor: "800"
+      racePoints: [5, 7, 8]
+      raceCodes: [null, null, "DNC"]
+      raceDiscards: [false, false, true]
+      totalPoints: 20
+      netPoints: 12
+
+    - rank: 7
+      sailor: "700"
+      racePoints: [6, 6, 8]
+      raceCodes: [null, null, "DNC"]
+      raceDiscards: [false, false, true]
+      totalPoints: 20
+      netPoints: 12

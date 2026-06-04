@@ -210,7 +210,7 @@ describe('calculateStandings', () => {
     // A and B tied at 3 — tie-break below
   });
 
-  it('uses most first places to break ties (RRS A8.2)', () => {
+  it('breaks a tie by RRS A8.2 countback when A8.1 cannot separate', () => {
     const finishes: Finish[] = [
       // Race 1: A=1, B=2, C=3
       makeFinish('r1', 'A', 1),
@@ -221,15 +221,14 @@ describe('calculateStandings', () => {
       makeFinish('r2', 'A', 2),
       makeFinish('r2', 'C', 3),
     ];
-    // A: 1+2=3 (one first place), B: 2+1=3 (one first place) — equal on firsts
-    // Move to second places: A has one 2nd, B has one 2nd — still equal
-    // Last resort: most recent race — A got 2, B got 1 → B wins tie
+    // A and B both net 3. A8.1 sorted scores [1,2] vs [1,2] → identical, no
+    // separation. A8.2 counts back from the last race: A got 2, B got 1 → B wins.
     const { standings } = calculateStandings(competitors, races, finishes);
     expect(standings[0].competitor.id).toBe('B');
     expect(standings[1].competitor.id).toBe('A');
   });
 
-  it('tie-break: more first places wins', () => {
+  it('ranks by net points before any tie-break is needed', () => {
     const threeRaces = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3)];
     const abc = ['A', 'B'].map(id => makeCompetitor(id));
     const finishes: Finish[] = [
@@ -237,12 +236,69 @@ describe('calculateStandings', () => {
       makeFinish('r1', 'A', 1), makeFinish('r1', 'B', 2),
       // Race 2: B=1, A=2
       makeFinish('r2', 'B', 1), makeFinish('r2', 'A', 2),
-      // Race 3: A=1, B=2  → A has 2 firsts, B has 1 first
+      // Race 3: A=1, B=2
       makeFinish('r3', 'A', 1), makeFinish('r3', 'B', 2),
     ];
-    // A: 1+2+1=4, B: 2+1+2=5  — not tied, but let's verify rank
+    // A: 1+2+1=4, B: 2+1+2=5 — not tied; A wins outright on net points.
     const { standings } = calculateStandings(abc, threeRaces, finishes);
     expect(standings[0].competitor.id).toBe('A');
+  });
+
+  it('A8.1 excludes discards: a discarded back-of-fleet score never helps (regression)', () => {
+    // Regression for the pre-2025 place-count tie-break, which ranked Bob ahead
+    // by counting his discarded 4th place. A8.1 ignores discards: Alice and Bob
+    // both net 5 with kept scores [2,3] each, so A8.1 ties; A8.2's last-race
+    // countback (Alice 3rd, Bob 4th) ranks Alice ahead.
+    const [a, b, c, d] = ['A', 'B', 'C', 'D'].map((id) => makeCompetitor(id));
+    const fourBoats = [a, b, c, d];
+    const r = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3)];
+    const discardThresholds: DiscardThreshold[] = [{ minRaces: 3, discardCount: 1 }];
+    const finishes: Finish[] = [
+      // R1: C 1st, B 2nd; A and D DNC (=5)
+      makeFinish('r1', 'C', 1), makeFinish('r1', 'B', 2),
+      makeFinish('r1', 'A', null, 'DNC'), makeFinish('r1', 'D', null, 'DNC'),
+      // R2: C 1st, A 2nd, B 3rd, D 4th
+      makeFinish('r2', 'C', 1), makeFinish('r2', 'A', 2), makeFinish('r2', 'B', 3), makeFinish('r2', 'D', 4),
+      // R3: C 1st, D 2nd, A 3rd, B 4th
+      makeFinish('r3', 'C', 1), makeFinish('r3', 'D', 2), makeFinish('r3', 'A', 3), makeFinish('r3', 'B', 4),
+    ];
+    const { standings } = calculateStandings(fourBoats, r, finishes, discardThresholds);
+    const alice = standings.find((s) => s.competitor.id === 'A')!;
+    const bob = standings.find((s) => s.competitor.id === 'B')!;
+    expect(alice.netPoints).toBe(5);
+    expect(bob.netPoints).toBe(5);
+    expect(alice.rank).toBe(2);
+    expect(bob.rank).toBe(3);
+  });
+
+  it('A8.1 compares scores beyond the old (races+1) place-count bound (regression)', () => {
+    // Regression for the DBSC Thursday Blue mis-ranking. In a 7-boat fleet with
+    // one discard, Pat keeps [6,6] and Quinn keeps [5,7], both net 12. Every
+    // distinguishing score (5/6/7) sat outside the old place-count window of
+    // 1..(races+1)=1..4, so the bug fell through to a countback and ranked Pat
+    // ahead. A8.1 compares the full sorted list: Quinn's 5 beats Pat's 6.
+    const ids = ['P', 'Q', 'F1', 'F2', 'F3', 'F4', 'F5'];
+    const boats = ids.map((id) => makeCompetitor(id)); // 7 boats → DNC = 8
+    const r = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3)];
+    const discardThresholds: DiscardThreshold[] = [{ minRaces: 3, discardCount: 1 }];
+    const finishes: Finish[] = [
+      // R1: F1..F4 = 1..4, Q 5th, P 6th, F5 7th
+      makeFinish('r1', 'F1', 1), makeFinish('r1', 'F2', 2), makeFinish('r1', 'F3', 3), makeFinish('r1', 'F4', 4),
+      makeFinish('r1', 'Q', 5), makeFinish('r1', 'P', 6), makeFinish('r1', 'F5', 7),
+      // R2: F1..F5 = 1..5, P 6th, Q 7th
+      makeFinish('r2', 'F1', 1), makeFinish('r2', 'F2', 2), makeFinish('r2', 'F3', 3), makeFinish('r2', 'F4', 4),
+      makeFinish('r2', 'F5', 5), makeFinish('r2', 'P', 6), makeFinish('r2', 'Q', 7),
+      // R3: F1..F5 = 1..5, P and Q DNC (=8)
+      makeFinish('r3', 'F1', 1), makeFinish('r3', 'F2', 2), makeFinish('r3', 'F3', 3), makeFinish('r3', 'F4', 4),
+      makeFinish('r3', 'F5', 5), makeFinish('r3', 'P', null, 'DNC'), makeFinish('r3', 'Q', null, 'DNC'),
+    ];
+    const { standings } = calculateStandings(boats, r, finishes, discardThresholds);
+    const pat = standings.find((s) => s.competitor.id === 'P')!;
+    const quinn = standings.find((s) => s.competitor.id === 'Q')!;
+    expect(pat.netPoints).toBe(12);
+    expect(quinn.netPoints).toBe(12);
+    expect(quinn.rank).toBe(6);
+    expect(pat.rank).toBe(7);
   });
 
   it('counts DNC/DNF from missing finishes correctly in standings', () => {
@@ -281,7 +337,7 @@ describe('calculateStandings', () => {
       makeFinish('r2', 'A', 2), makeFinish('r2', 'B', 1),
     ];
     const { standings } = calculateStandings([a, b], races, tiedFinishes);
-    // A: 1+2=3, B: 2+1=3; tie-break: each has one 1st → still tied; last race: A=2, B=1 → B wins
+    // A: 1+2=3, B: 2+1=3; A8.1 sorted [1,2] vs [1,2] ties; A8.2 last race: A=2, B=1 → B wins
     expect(standings[0].competitor.id).toBe('B');
     expect(standings[0].rank).toBe(1);
     expect(standings[1].rank).toBe(2);

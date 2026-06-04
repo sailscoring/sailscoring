@@ -1,10 +1,11 @@
-description: "Scratch — tie broken by best score in most recent race (RRS A8.2 last resort)"
+description: "Scratch — RRS A8.1 cannot separate, so RRS A8.2 last-race countback decides"
 rrs_notes: >
-  RRS A8.2: If boats are still tied after counting place-by-place occurrences, rank them
-  by their score in the most recent race, then the next most recent, and so on.
-  Alice and Bob each score 8 points, with identical place distributions
-  (one 1st, one 2nd, one DNC each). Race 3 is a draw — both took DNC.
-  Looking back to race 2, Bob finished 1st and Alice 2nd: Bob ranks ahead.
+  RRS A8.1 then A8.2. Alice and Bob each score 8 points with identical sorted
+  score lists ([1, 2, 5] each), so A8.1 cannot separate them. A8.2 then ranks by
+  the last race (both DNC, equal), then the next-to-last race (race 2), where
+  Bob finished 1st and Alice 2nd: Bob ranks ahead. These countback scores are
+  used even though one of them (the DNC) would be discarded — A8.2 includes
+  excluded scores.
 
 series:
   discardThresholds: []
@@ -21,17 +22,15 @@ competitors:
 
 # 4 boats, N+1 = 5.
 #
-# Alice: 1st, 2nd, DNC → 1+2+5=8  (one 1st, one 2nd, one DNC)
-# Bob:   2nd, 1st, DNC → 2+1+5=8  (one 1st, one 2nd, one DNC) ← tied with Alice
+# Alice: 1st, 2nd, DNC → 1+2+5=8  sorted best-to-worst [1, 2, 5]
+# Bob:   2nd, 1st, DNC → 2+1+5=8  sorted best-to-worst [1, 2, 5] ← identical to Alice
 # Carol: 3rd, 3rd, 1st → 3+3+1=7  (wins outright)
 # David: 4th, 4th, 2nd → 4+4+2=10
 #
 # Tie-break (Alice vs Bob):
-#   Step 1 — count 1s: Alice=1, Bob=1 → equal
-#   Step 2 — count 2s: Alice=1, Bob=1 → equal
-#   Step 3 — count 5s (DNC): Alice=1, Bob=1 → equal (all counts identical)
-#   Last resort — most recent race (race 3): Alice=5, Bob=5 → equal
-#   Next race back (race 2): Alice=2, Bob=1 → Bob wins
+#   A8.1 — sorted scores [1,2,5] vs [1,2,5] → identical, cannot separate
+#   A8.2 — last race (race 3): Alice=5, Bob=5 → equal
+#          next-to-last race (race 2): Alice=2, Bob=1 → Bob wins
 races:
   - number: 1
     finishes:

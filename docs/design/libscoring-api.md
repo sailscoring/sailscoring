@@ -185,12 +185,18 @@ output.
 
 ## Tie-breaking
 
-Ties in series standings are broken per RRS Appendix A8:
+Ties in series standings are broken per RRS Appendix A8 (2025-2028):
 
-1. Most first places (excluding discards); if still tied,
-2. Most second places (excluding discards); and so on.
-3. If still tied after counting all places: the tie stands; both
-   competitors receive the same rank.
+1. **A8.1** — each boat's race scores are listed best-to-worst, *excluding
+   discards*; the tie is broken at the first point of difference in favour of
+   the better score.
+2. **A8.2** — if still tied, rank by the score in the last race, then the
+   next-to-last, and so on. These scores are used even if some are discarded.
+3. If still tied after A8.2: the tie stands; both competitors receive the same
+   rank.
+
+There is no place-count rung ("most firsts, then seconds, …") — that method was
+removed from the RRS before the 2025-2028 edition.
 
 `SeriesStanding.rank` reflects the tie-break result. Tied competitors
 receive the same rank value (both ranked 3rd, for example).
