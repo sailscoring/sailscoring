@@ -100,6 +100,7 @@ The current gated keys are:
 | `nhc-parameters` | off | the per-fleet **Configure…** custom-NHC dialog (NHC scoring with stock parameters stays available to everyone) |
 | `echo` | **on** | ECHO as a per-fleet scoring system **and** the "Irish Sailing ECHO" source in the Competitors **Update handicaps** dialog (pulls ECHO handicaps from the national Irish Sailing ratings list, matched by sail number). On by default because the seeded sample club-racing series uses ECHO fleets. |
 | `irc-rating` | **on** | IRC as a per-fleet scoring system **and** the "IRC TCC (international)" source in the Competitors **Update handicaps** dialog (pulls TCCs from the worldwide IRC ClubListing, #168) |
+| `vprs` | off | VPRS as a per-fleet scoring system **and** the "VPRS TCC" source in the Competitors **Update handicaps** dialog (pick a club, then pull each boat's TCC from that club's published `vprs.org` listing, matched by sail number, #175). Off by default — VPRS is new and not yet reconciled against real published results, so the audience stays small until it's proven. |
 
 **Default-on features.** Most gated features are opt-in (off until enabled),
 but a feature can be marked default-on in `lib/features.ts` — on for every
