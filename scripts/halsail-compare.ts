@@ -155,6 +155,12 @@ const DAYS: Record<string, DayCompare> = {
       { file: 'tue-c3-echo-95467.html', fleet: 'Cruisers 3 ECHO' },
     ],
   },
+  'water-wags': {
+    sailscoring: 'dbsc-water-wags-2026.sailscoring',
+    pairings: [
+      { file: 'wed-waterwag-95516.html', fleet: 'Water Wag' },
+    ],
+  },
 };
 
 const day = process.argv.slice(2).find((a) => !a.startsWith('--')) ?? 'thursday';

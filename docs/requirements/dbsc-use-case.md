@@ -295,9 +295,11 @@ Largely the HYC ashore-from-records pattern, with handicap correction:
 
 ### Result codes and scoring specifics
 
-- **Modified A5.3** (NoR §8, SI A13.2): a keelboat that did not come to the
-  starting area is scored **(boats that came to the starting area) + 1**;
-  a Water Wag is scored **(boats entered in the series) + 2**.
+- **Modified A5.3** (NoR §8, SI A13.2): a boat that did not come to the
+  starting area is scored **(boats that came to the starting area) + 1**.
+  This applies to Water Wags too — the published 2026 results confirm DNC =
+  came + 1, identical to the keelboats (verified against the HalSail summary
+  for races with no DNS, where came = finishers and DNC = finishers + 1).
 - **DNS** (SI A8.4): not started within **10 minutes** of own starting
   signal → DNS without a hearing.
 - **OCS** may be announced by VHF after the start (changes RRS 29.1); a
@@ -364,7 +366,10 @@ doesn't need this — its rating varies per race by construction.
 
 - Wednesday evenings; up to **three divisions** assigned by the class.
 - Some series may mix divisions (NoR §8.2).
-- Distinct A5.3: DNC = (boats entered in the series) + 2.
+- A5.3: DNC = (boats that came to the starting area) + 1 — the same as the
+  keelboats, **not** entries + 2. An earlier reading of the NoR took the Water
+  Wags as a distinct variant; the 2026 published results disprove it (see the
+  scoring-specifics note above). No separate `dnfScoring` mode is needed.
 - Usually one race, optional second at RO discretion.
 
 ## Feature Analysis (vs the current engine)
@@ -412,14 +417,12 @@ is therefore "already supported" vs "genuinely new", not a fresh MVP list.
 2. **ORC Club** — new; time-on-time with a per-race wind band chosen by the
    RC. Needed only if a C0–3 class requests ORC this season.
 3. **YTC** — new; optional substitute for IRC/VPRS.
-4. **Water Wags A5.3 variant** — DNC = entries **+ 2** (engine does +1
-   only), plus up to three divisions. Small change; blocks Water Wags.
-5. **Composite cross-class series (WOW)** — a *separate* series fed from the
+4. **Composite cross-class series (WOW)** — a *separate* series fed from the
    *same* finish sheet as the boats' class series. The multi-fleet trick is
    within one series; feeding a second series off one sheet would force
    double entry, which violates the entry rule. Needs a cross-series
    shared-finish feed.
-6. **Two-vessel single series (Saturday non-Green)** — two finish sheets,
+5. **Two-vessel single series (Saturday non-Green)** — two finish sheets,
    one logical series. Either model as two series and merge for standings,
    or allow a series to take more than one finish sheet per race.
 

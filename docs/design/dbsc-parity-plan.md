@@ -382,17 +382,19 @@ plus the Water Wags.
 2026.** No class opted into either system this season, so they have no consumer
 — every remaining fleet runs on a system the engine already has (scratch, ECHO,
 VPRS, PY). ORC Club and YTC therefore move to **deferred** (revisit only if a
-class requests them in a future season); they are no longer M4 blockers. The
-only genuinely-new engine work in M4 is the Water Wags DNC variant, which is a
-`dnfScoring` mode, not a rating system.
+class requests them in a future season); they are no longer M4 blockers. M4
+turned out to need **no new engine work at all**: the one suspected exception —
+a Water Wags DNC variant — was disproven by the published 2026 results (see M4b
+status below).
 
 ### Sequencing
 
 1. **M4a — everything except Water Wags, in one shot.** All the one-design,
    sportsboat and PY fleets, on existing systems. No engine change; the work is
    capturing the remaining sheets and generalising the converter.
-2. **M4b — Water Wags.** Add the A5.3 "+2" `dnfScoring` mode (DNC = entries + 2)
-   and the Water Wag divisions, then score the Wags series.
+2. **M4b — Water Wags.** Suspected to need an A5.3 "+2" `dnfScoring` mode; the
+   published results showed Water Wags actually score DNC = came + 1, identical
+   to the keelboats, so no engine change was needed (see M4b status).
 
 ### M4a scope (existing systems only)
 
@@ -429,12 +431,15 @@ reusing the multi-fleet, redress, penalty and DNC machinery already in place.
 
 ### M4b scope (Water Wags)
 
-- **A5.3 "+2" DNC** — Water Wags score a boat that did not come to the start as
-  (boats entered in the series) **+ 2** (NoR/SI), versus the keelboats' + 1.
-  A new `dnfScoring` mode in the engine (alongside `startingArea` /
-  `startingAreaInclDnc`), gated by fixtures — small, self-contained.
+- **A5.3 DNC** — the NoR was read as scoring a Water Wag that did not come to the
+  start as (boats entered in the series) **+ 2**, versus the keelboats' + 1,
+  which would have wanted a new `dnfScoring` mode. The published 2026 results
+  disprove this: DNC = (boats that came to the start) **+ 1**, identical to the
+  keelboats. No engine change needed — the existing `startingAreaInclDnc` mode is
+  correct (see M4b status).
 - **Divisions** — up to three Water Wag divisions, some series mixing them; a
-  per-fleet subdivision within the one Wags series.
+  per-fleet subdivision within the one Wags series. The 2026 Summer Series scored
+  the Wags as a single fleet, so no divisions were needed for parity.
 
 ### Deferred (no 2026 consumer)
 
@@ -464,7 +469,23 @@ PY is `corrected = elapsed × 1000/pyNumber`.
 SKIP — fleets with no scored races yet). The compare also learned HalSail's
 tied-rank marker (`22=`) and to SKIP fleets with no published results.
 
-M4b (Water Wags + the A5.3 "+2" `dnfScoring` mode) is the remaining piece.
+### Status — M4b achieved (verified by `pnpm halsail:compare`)
+
+**Also no engine change.** The suspected Water Wags "+2" DNC variant turned out
+not to exist: the published 2026 Summer Series scores a Water Wag that did not
+come to the start as came + 1, the same as every other DBSC fleet. The clean
+proof is race 3, which had no DNS — 21 finishers, came = 21, DNC = 22 = came + 1
+(not entries + 2 = 23). So the Wags are an ordinary scratch one-design series
+under the existing `startingAreaInclDnc` mode, built via the same
+`buildFleetSeries` day builder (a `water-wags` day config, one `Water Wag`
+fleet, `dbsc-water-wags-2026.sailscoring`).
+
+`halsail:compare water-wags`: **1 fleet green, 0 diffs** (27 boats, races 1/3/7).
+The use-case doc's earlier "DNC = entries + 2" claim has been corrected.
+
+**Milestone 4 is complete.** Every fleet DBSC publishes in 2026 except the
+composite/cross-series cases (M5/M6) now scores to parity with no engine change
+beyond what M1–M3 already landed.
 
 ## Subsequent milestones (sketch)
 

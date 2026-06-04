@@ -184,6 +184,18 @@ const DAYS: Record<string, DayConfig> = {
         opts,
       ),
   },
+  'water-wags': {
+    outFile: 'dbsc-water-wags-2026.sailscoring',
+    defaultSeriesId: 'dbsc-water-wags-2026',
+    seriesName: 'DBSC Water Wags (2026)',
+    build: (opts) =>
+      buildFleetSeries(
+        [
+          { fleetId: 'fl-waterwag', name: 'Water Wag', system: 'scratch', fragment: load('wed-waterwag-95516.html') },
+        ] satisfies DayFleetSpec[],
+        opts,
+      ),
+  },
 };
 
 const args = process.argv.slice(2);
