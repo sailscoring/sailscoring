@@ -509,6 +509,17 @@ Sailwave and occasionally specified in Notices of Race, but not common enough
 to prioritise. Captured here so that when a real-world series needs one, we
 have a starting point rather than a blank page.
 
+### Windsurfing (Appendix B) and kiteboarding (Appendix F) scoring
+
+The engine implements the standard RRS Appendix A series tie-break (A8.1 then
+A8.2). RRS Appendix B (windsurfing) and Appendix F (kiteboarding) change parts
+of Appendix A — including the series-score sums and the A8 tie-break — so we
+can't currently score those disciplines faithfully. Not a priority until a
+real board-racing series turns up.
+
+Shape of the change: a per-fleet discipline flag selecting the Appendix A / B /
+F variant, with the affected steps (series scoring, tie-break) branching on it.
+
 ### Non-discardable races
 
 A series NoR can designate certain races as non-discardable — they must count
