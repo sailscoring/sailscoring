@@ -233,7 +233,7 @@ We fetch, generate and compare the Tuesday and Saturday cruiser series, and
 `pnpm halsail:compare saturday` / `pnpm halsail:compare tuesday` are green as
 Thursday Blue is, and stay green once DBSC scores the next race.
 
-### Status — in progress
+### Status — achieved (verified by `pnpm halsail:compare`)
 
 The tooling is day-aware (`pnpm halsail:to-sailscoring <day>` /
 `pnpm halsail:compare <day>`); the per-class builder is `buildCruiserDaySeries`
@@ -242,12 +242,24 @@ The tooling is day-aware (`pnpm halsail:to-sailscoring <day>` /
 - **Tuesday — done.** Combined Cruisers (pooled C0/1/2 ECHO, `95502`) and
   Cruisers 3 ECHO (`95467`) both green. The pooled ECHO needed only a fleet
   definition, no engine change, as predicted.
-- **Saturday — 5/9 fleets green** (Cruisers 2/3 ECHO, Cruisers 2 IRC, J/109,
-  Sigma 33). C0/C1 diverge on three genuinely-new scoring scenarios, none of
-  which Thursday Blue exercised — tracked in **#174**: (1) per-fleet race
-  exclusion is too aggressive for a validly-held race with no finishers in one
-  fleet (engine, refines #129); (2) SCP scoring penalties aren't captured by
-  the converter; (3) RDG redress awarded to a boat that finished isn't read.
+- **Saturday — done, 9/9 fleets green.** Getting there surfaced four
+  scoring issues (#174), all fixed — and notably all four were **engine**
+  corrections that benefit every handicap series, not converter quirks:
+  1. **Per-fleet race exclusion** (refines #129) — a validly-held race with no
+     finishers in one fleet was wrongly dropped; now a fleet that came and all
+     retired/DNF'd still scores it (came-to-start + 1).
+  2. **Additive penalties in handicap fleets** — SCP/ZFP/DPI were applied only
+     in the scratch path; now applied in the handicap path too, and rounded to
+     the nearest tenth per RRS 44.3(c) (was rounding to a whole point).
+  3. **Redress pool** — a boat with RDG in two races got order-dependent values;
+     now each redress excludes the boat's other RDG races, equalling the mean of
+     its sailed races.
+  4. **ECHO 3 dp carry** — the progressive handicap carried full precision
+     between races and drifted from the published 3 dp rating; now rounded each
+     race like NHC, so a tight corrected-time finish orders correctly.
+
+**M2 is complete: `pnpm halsail:compare {thursday,tuesday,saturday}` is green on
+every fleet.**
 
 ## Subsequent milestones (sketch)
 
