@@ -490,10 +490,10 @@ Race Times and Racing Programme docs. What remains:
   adjustment. To reproduce ECHO from race 1 we need each boat's **seed
   `echoStartingTcf`** (the 2025 end-of-season value). IRC has no such
   dependency — TCCs come from certificates.
-- **VPRS / ORC Club / YTC** — corrected-time formulas, and whether they're
-  in scope soon or deferred with the Super League. Each blocks specific
-  classes (VPRS → C4/5 + Sportsboats; ORC → only if a C0–3 class requested
-  it this season; YTC → only where substituted).
+- **VPRS / ORC Club / YTC.** Resolved from the catalog: **VPRS** is done (a
+  static time-on-time rating; reconciled for C4/5 + Mixed Sportsboats — parity
+  plan M3). **ORC Club and YTC have no fleet in DBSC's 2026 catalog** — no class
+  opted in — so they are deferred, not 2026 blockers (parity plan M4).
 - **Saturday two-vessel series** — confirm how DBSC/HalSail merges the
   Blue/Red split into one published series, to decide the model approach.
 - **Still unseen, but only affecting deferred/course work:** SI Supplements

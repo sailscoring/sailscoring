@@ -372,15 +372,87 @@ Thursday 13/13, Tuesday 2/2, Saturday 13/13 — full cruiser parity C0–5, and 
 first new rating system reconciled against real published results. Mixed
 Sportsboats VPRS now needs only the Red/Green sheets (M4); the system is built.
 
+## Milestone 4 — the remaining fleets (one-designs, sportsboats, PY)
+
+Everything DBSC publishes that isn't a Cruisers 0–5 fleet: the one-designs, the
+Mixed Sportsboats, and the Portsmouth Yardstick classes, across all three days
+plus the Water Wags.
+
+**The headline finding from the catalog: there are no ORC Club or YTC fleets in
+2026.** No class opted into either system this season, so they have no consumer
+— every remaining fleet runs on a system the engine already has (scratch, ECHO,
+VPRS, PY). ORC Club and YTC therefore move to **deferred** (revisit only if a
+class requests them in a future season); they are no longer M4 blockers. The
+only genuinely-new engine work in M4 is the Water Wags DNC variant, which is a
+`dnfScoring` mode, not a rating system.
+
+### Sequencing
+
+1. **M4a — everything except Water Wags, in one shot.** All the one-design,
+   sportsboat and PY fleets, on existing systems. No engine change; the work is
+   capturing the remaining sheets and generalising the converter.
+2. **M4b — Water Wags.** Add the A5.3 "+2" `dnfScoring` mode (DNC = entries + 2)
+   and the Water Wag divisions, then score the Wags series.
+
+### M4a scope (existing systems only)
+
+The non-cruiser fleets, by system (per-day `seriesId`s are in the catalog,
+`_catalog-public-95476.html` — e.g. Dragon Thu `95483` / Sat `95482` /
+Tue `95484`):
+
+| System (built) | Fleets |
+|----------------|--------|
+| **scratch** one-design | Dragon, Flying Fifteen, Ruffian 23, SB20, Shipman, Dublin Bay 21, Fireball, IDRA 14, ILCA 6, ILCA 7, J/80, Glen, Beneteau 211 (scratch), Beneteau 31.7 (scratch) |
+| **ECHO** | Beneteau 211, Beneteau 31.7 (each also ECHO, per day) |
+| **VPRS** | Mixed Sportsboats (confirmed time-on-time; mixes 1720/J80/etc. on one rating) |
+| **PY** | Glen-Mermaid PY (combined when Mermaid numbers are low), PY Class |
+
+Finish-sheet / series structure to settle at execution (no new systems needed):
+- **Thursday Red** (Freebird) is its own series — the Thursday one-designs +
+  sportsboats + Glen-Mermaid PY.
+- **Saturday Green** (Freebird: SB20, Sportsboats, Flying Fifteen, Beneteau
+  211) is its own series; the other Saturday one-designs ride the non-Green
+  sheet alongside the cruisers (fold into the existing Saturday series or a
+  sibling, per the Race Times make-up).
+- **Tuesday** is one vessel / one sheet for all keelboats, so its one-designs
+  and sportsboats extend the existing Tuesday series (the four starts already
+  modelled as per-fleet start times).
+- Multi-fleet overlaps recur: e.g. a J/80 is in the **J/80** one-design fleet
+  *and* the **Mixed Sportsboats** VPRS fleet — the same `fleetIds[]` trick used
+  for Sigma 33 / the C5 boats.
+
+The genuinely-new M4a work is therefore **tooling, not scoring**: capture the
+Red/Green (and remaining Tuesday) fragments, and generalise the converter for
+one-design-heavy sheets — the current builders are cruiser-shaped, so this
+wants a general "day series from a set of fleets" builder (or new day configs),
+reusing the multi-fleet, redress, penalty and DNC machinery already in place.
+
+### M4b scope (Water Wags)
+
+- **A5.3 "+2" DNC** — Water Wags score a boat that did not come to the start as
+  (boats entered in the series) **+ 2** (NoR/SI), versus the keelboats' + 1.
+  A new `dnfScoring` mode in the engine (alongside `startingArea` /
+  `startingAreaInclDnc`), gated by fixtures — small, self-contained.
+- **Divisions** — up to three Water Wag divisions, some series mixing them; a
+  per-fleet subdivision within the one Wags series.
+
+### Deferred (no 2026 consumer)
+
+- **ORC Club** — time-on-time/distance with an RC-selected wind band per race.
+  No DBSC fleet uses it in 2026; defer until a class requests it (then it's a
+  new rating system, scoped like VPRS was).
+- **YTC** — optional IRC/VPRS substitute; likewise no 2026 fleet. See #175's
+  sibling territory and `docs/design/horizon.md`.
+
+### Done when
+
+`pnpm halsail:compare` is green for the M4a fleets across their days, then for
+the Water Wags series once M4b lands — leaving only the composite/cross-series
+milestones (M5/M6) outstanding.
+
 ## Subsequent milestones (sketch)
 
 Each builds on the M1/M2 import→score→publish→compare loop.
-
-- **M4 — Remaining one-designs and rating systems.** The Thursday Red and
-  Saturday Green fleets (SB20, Sportsboats, Flying Fifteen, Ruffian, Beneteau
-  211/31.7, Dragon, Shipman, Glen/Mermaid, Dublin Bay 21), plus ORC Club and
-  YTC where classes requested them, and the PY Mermaid/Glen case. Includes
-  the Water Wags A5.3 "+2" variant and divisions.
 
 - **M5 — Composite series (WOW).** A separate series fed from the *same*
   Tuesday finish sheet as the boats' class series — needs a cross-series
