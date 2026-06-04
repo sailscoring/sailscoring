@@ -93,12 +93,14 @@ standings for C0/1/2/3 (plus J/109 and Sigma 33 scratch) match the
 corresponding HalSail tables — and the same holds for the next race once
 DBSC scores it.
 
-### Status — achieved (verified by hand)
+### Status — achieved (verified by `pnpm halsail:compare`)
 
 The generated file reproduces the Thursday Blue IRC + ECHO standings exactly:
 net points, per-race places, codes, discards, and finishing order, matched
-against the HalSail tables. Reaching parity needed four engine changes and
-one converter fix, all landed:
+against the HalSail tables. `pnpm halsail:compare` confirms this
+automatically — green on all nine fleets (Cruisers 0/1/2 IRC, Cruisers
+0/1/2/3 ECHO, J/109, Sigma 33). Reaching parity needed five engine changes
+and one converter fix, all landed:
 
 1. **`startingAreaInclDnc` `dnfScoring` mode** — modified A5.3 where DNC also
    scores as (came to the starting area) + 1, per race (DBSC SI A13.2). The
@@ -119,6 +121,11 @@ one converter fix, all landed:
    in the published per-race detail). Boat 2160 (Chimaera), which re-rated
    1.008 → 1.001 mid-series, now reproduces the right *corrected time* in each
    race, not just the right placing — closing what was a latent discrepancy.
+5. **RRS A8.1 series tie-break** — surfaced by `halsail:compare` once the
+   other four landed: the shared tie-break skipped A8.1 (sorted race scores,
+   discards excluded) and mis-ordered boats on equal net points. Now applies
+   the A8 ladder in order (A8.1 → A8.2 last-race countback). Affected scratch
+   and handicap series alike, not just DBSC (#173).
 
 Converter fix: snapshot lineage ids are now valid RFC 4122 UUIDs, so the file
 imports cleanly through the app's `z.uuid()` API boundary (Postgres' `uuid`
