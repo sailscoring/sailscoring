@@ -1,14 +1,14 @@
 description: "ZFP (Z Flag Penalty) adds 20% of DNF score to finish place"
 rrs_notes: >
   RRS 30.2 (Z Flag Rule): a boat in the triangle zone during the last minute
-  before the start is penalised without a hearing. The score becomes the
-  finishing place plus 20% of the DNF score, rounded to the nearest whole
-  number, but not more than the DNF score (formula per rule 44.3(c)).
-  A6.2: other boats' scores are unchanged (duplicate scores are permitted).
+  before the start is penalised without a hearing. Per rule 44.3(c) the score
+  becomes the finishing place plus 20% of the DNF score, rounded to the nearest
+  tenth of a point (0.05 up), but not more than the DNF score. 44.3(c): other
+  boats' scores are unchanged (duplicate scores are permitted).
   5 competitors, N=5, DNF score=6.
-  ZFP adds round(0.20 × 6) = round(1.2) = 1 point.
-  Alice finishes 1st + ZFP → 1+1 = 2.
-  Bob finishes 2nd → 2 (unchanged; A6.2 — two boats may share 2).
+  ZFP adds 0.20 × 6 = 1.2 points (already a tenth).
+  Alice finishes 1st + ZFP → 1 + 1.2 = 2.2.
+  Bob finishes 2nd → 2 (unchanged).
   Carol finishes 3rd → 3.
   Dave finishes 4th → 4.
   Eve finishes 5th → 5.
@@ -42,14 +42,14 @@ expected:
       raceDiscards: [false]
       totalPoints: 2
       netPoints: 2
-    - rank: 1
+    - rank: 2
       sailor: "1"
-      racePoints: [2]
+      racePoints: [2.2]
       raceCodes: [null]
       racePenaltyCodes: [ZFP]
       raceDiscards: [false]
-      totalPoints: 2
-      netPoints: 2
+      totalPoints: 2.2
+      netPoints: 2.2
     - rank: 3
       sailor: "3"
       racePoints: [3]

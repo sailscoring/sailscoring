@@ -1,17 +1,18 @@
 description: "IRC — additive scoring penalty (SCP) applies in a handicap fleet"
 rrs_notes: >
-  Additive penalties (ZFP/SCP/DPI under A6.2) apply to finishers in handicap
-  fleets exactly as in scratch fleets: the penalty is added to the
-  corrected-time finishing-place score, rounded to the nearest whole number,
-  and capped at the DNF score. This mirrors the scratch fixture
-  codes/05-scp-penalty so the two paths are demonstrably consistent.
+  Additive penalties (ZFP/SCP/DPI under RRS 44.3(c)) apply to finishers in
+  handicap fleets exactly as in scratch fleets: the penalty is the stated % of
+  the DNF score, rounded to the nearest tenth of a point (0.05 up), added to the
+  corrected-time finishing-place score, and capped at the DNF score. This
+  mirrors the scratch fixture codes/05-scp-penalty so the two paths are
+  demonstrably consistent.
 
   All five boats carry TCC 1.000, so corrected-time order equals finishing
   order. Five competitors, N=5, DNF score = 6.
-    Alice  1st + SCP (default 20%)  -> 1 + round(0.20 x 6) = 1 + 1 = 2
-    Bob    2nd + SCP (override 30%) -> 2 + round(0.30 x 6) = 2 + 2 = 4
+    Alice  1st + SCP (default 20%)  -> 1 + 0.20 x 6 = 1 + 1.2 = 2.2
+    Bob    2nd + SCP (override 30%) -> 2 + 0.30 x 6 = 2 + 1.8 = 3.8
     Carol  3rd                      -> 3
-    Dave   4th                      -> 4   (ties Bob; A6.2 does not re-rank)
+    Dave   4th                      -> 4
     Eve    5th                      -> 5
 
 series:
@@ -41,11 +42,11 @@ expected:
   standings:
     - rank: 1
       sailor: "1"
-      racePoints: [2]
+      racePoints: [2.2]
       raceCodes: [null]
       raceDiscards: [false]
-      totalPoints: 2
-      netPoints: 2
+      totalPoints: 2.2
+      netPoints: 2.2
     - rank: 2
       sailor: "3"
       racePoints: [3]
@@ -55,12 +56,12 @@ expected:
       netPoints: 3
     - rank: 3
       sailor: "2"
-      racePoints: [4]
+      racePoints: [3.8]
       raceCodes: [null]
       raceDiscards: [false]
-      totalPoints: 4
-      netPoints: 4
-    - rank: 3
+      totalPoints: 3.8
+      netPoints: 3.8
+    - rank: 4
       sailor: "4"
       racePoints: [4]
       raceCodes: [null]

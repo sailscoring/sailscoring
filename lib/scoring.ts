@@ -55,9 +55,9 @@ export function roundCorrectedSecs(elapsedSecs: number, tcf: number): number {
  *   'startingAreaInclDnc' (A5.3 with DNC also scored from the starting area)
  * @returns  Map of competitorId → RaceScore
  */
-/** The A6.2 penalty ceiling for a race: the score a boat gets for DNF, per the
- *  dnfScoring rule (mirrors `startingAreaPenalty` in calculateRaceScores). A
- *  penalised finisher is never scored worse than this. `fleetFinishes` must be
+/** The penalty ceiling for a race (RRS 44.3(c): never worse than DNF): the
+ *  score a boat gets for DNF, per the dnfScoring rule (mirrors
+ *  `startingAreaPenalty` in calculateRaceScores). `fleetFinishes` must be
  *  pre-filtered to the fleet. */
 function dnfScoreForRace(fleetFinishes: Finish[], entrantCount: number, dnfScoring: DnfScoring): number {
   if (dnfScoring === 'seriesEntries') return entrantCount + 1;
@@ -69,15 +69,20 @@ function dnfScoreForRace(fleetFinishes: Finish[], entrantCount: number, dnfScori
 }
 
 /** Apply an additive scoring penalty (ZFP/SCP/DPI) to a finisher's points. Per
- *  RRS A6.2 the percentage penalty is rounded to the nearest whole number, and
- *  a boat is never scored worse than DNF (`cap`). No-op when the finish carries
- *  no penalty. Caller restricts this to finishers. */
+ *  RRS 44.3(c) a percentage penalty is the stated % (default 20%) of the DNF
+ *  score, **rounded to the nearest tenth of a point (0.05 up)** — not the
+ *  nearest whole number — and a boat is never scored worse than DNF (`cap`).
+ *  No-op when the finish carries no penalty. Caller restricts this to
+ *  finishers. */
 function applyAdditivePenalty(basePoints: number, finish: Finish | undefined, cap: number): number {
   if (!finish?.penaltyCode) return basePoints;
   const method = getCodeDefinition(finish.penaltyCode)?.pointsMethod;
   if (method?.type === 'additive_percentage') {
     const pct = finish.penaltyOverride ?? method.defaultPct;
-    return Math.min(basePoints + Math.round((pct / 100) * cap), cap);
+    // pct% of the DNF score, to the nearest 0.1 (0.05 rounded up). pct and cap
+    // are whole numbers, so pct*cap/10 is exact before the half-up rounding.
+    const penalty = Math.round((pct * cap) / 10) / 10;
+    return Math.min(basePoints + penalty, cap);
   }
   if (method?.type === 'additive_stated') {
     return Math.min(basePoints + (finish.penaltyOverride ?? 0), cap);

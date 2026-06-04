@@ -1,10 +1,11 @@
 description: "SCP (Scoring Penalty) — default 20% and explicit override"
 rrs_notes: >
-  SCP default: same 20% formula as ZFP.
-  SCP with penaltyOverride=30 means 30% of DNF score.
+  RRS 44.3(c): the penalty is the stated % (default 20%) of the DNF score,
+  rounded to the nearest tenth of a point (0.05 up), and never makes the score
+  worse than DNF. Other boats are not re-ranked.
   5 competitors, N=5, DNF score=6.
-  Alice finishes 1st + SCP (default 20%) → 1 + round(0.20×6) = 1+1 = 2.
-  Bob finishes 2nd + SCP (override 30%) → 2 + round(0.30×6) = 2+2 = 4.
+  Alice finishes 1st + SCP (default 20%) → 1 + 0.20×6 = 1 + 1.2 = 2.2.
+  Bob finishes 2nd + SCP (override 30%) → 2 + 0.30×6 = 2 + 1.8 = 3.8.
   Carol finishes 3rd → 3.
   Dave finishes 4th → 4.
   Eve finishes 5th → 5.
@@ -32,12 +33,12 @@ expected:
   standings:
     - rank: 1
       sailor: "1"
-      racePoints: [2]
+      racePoints: [2.2]
       raceCodes: [null]
       racePenaltyCodes: [SCP]
       raceDiscards: [false]
-      totalPoints: 2
-      netPoints: 2
+      totalPoints: 2.2
+      netPoints: 2.2
     - rank: 2
       sailor: "3"
       racePoints: [3]
@@ -48,13 +49,13 @@ expected:
       netPoints: 3
     - rank: 3
       sailor: "2"
-      racePoints: [4]
+      racePoints: [3.8]
       raceCodes: [null]
       racePenaltyCodes: [SCP]
       raceDiscards: [false]
-      totalPoints: 4
-      netPoints: 4
-    - rank: 3
+      totalPoints: 3.8
+      netPoints: 3.8
+    - rank: 4
       sailor: "4"
       racePoints: [4]
       raceCodes: [null]

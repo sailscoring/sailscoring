@@ -621,28 +621,28 @@ describe('calculateRaceScores — additive penalties (ZFP/SCP/DPI)', () => {
   const dnfScore = n + 1; // 6
 
   it('ZFP adds 20% of DNF score to finish place', () => {
+    // RRS 44.3(c): 20% of the DNF score, rounded to the nearest tenth.
     const finishes = [
-      makeFinish('r1', 'A', 1, null, 'ZFP'),  // 1 + round(0.2×6)=1 → 2
+      makeFinish('r1', 'A', 1, null, 'ZFP'),  // 1 + 0.2×6 = 1 + 1.2 = 2.2
       makeFinish('r1', 'B', 2),               // 2 (unchanged)
       makeFinish('r1', 'C', 3),               // 3
       makeFinish('r1', 'D', 4),               // 4
       makeFinish('r1', 'E', 5),               // 5
     ];
     const scores = calculateRaceScores(finishes, competitors);
-    expect(scores.get('A')?.points).toBe(2);  // 1 + 1 = 2
+    expect(scores.get('A')?.points).toBe(2.2);  // 1 + 1.2
     expect(scores.get('B')?.points).toBe(2);  // unchanged
     expect(scores.get('A')?.resultCode).toBeNull();
   });
 
   it('ZFP penalty is capped at DNF score', () => {
-    // 4th place + ZFP: 4 + round(0.2×6) = 4+1 = 5 — under cap
-    // Last place + ZFP: 5 + 1 = 6 = cap exactly
+    // Last place + ZFP: 5 + 1.2 = 6.2 → capped at the DNF score (6).
     const finishes = [
       makeFinish('r1', 'A', 1),
       makeFinish('r1', 'B', 2),
       makeFinish('r1', 'C', 3),
       makeFinish('r1', 'D', 4),
-      makeFinish('r1', 'E', 5, null, 'ZFP'),  // 5 + 1 = 6 = dnfScore
+      makeFinish('r1', 'E', 5, null, 'ZFP'),  // 5 + 1.2 = 6.2 → 6
     ];
     const scores = calculateRaceScores(finishes, competitors);
     expect(scores.get('E')?.points).toBe(dnfScore); // capped at 6
@@ -650,26 +650,26 @@ describe('calculateRaceScores — additive penalties (ZFP/SCP/DPI)', () => {
 
   it('SCP uses default 20% when no override', () => {
     const finishes = [
-      makeFinish('r1', 'A', 1, null, 'SCP'),  // same as ZFP: 1+1=2
+      makeFinish('r1', 'A', 1, null, 'SCP'),  // same as ZFP: 1 + 1.2 = 2.2
       makeFinish('r1', 'B', 2),
       makeFinish('r1', 'C', 3),
       makeFinish('r1', 'D', 4),
       makeFinish('r1', 'E', 5),
     ];
     const scores = calculateRaceScores(finishes, competitors);
-    expect(scores.get('A')?.points).toBe(2);
+    expect(scores.get('A')?.points).toBe(2.2);
   });
 
   it('SCP uses penaltyOverride percentage when specified', () => {
     const finishes = [
-      makeFinish('r1', 'A', 2, null, 'SCP', 30),  // 2 + round(0.3×6)=2 → 4
+      makeFinish('r1', 'A', 2, null, 'SCP', 30),  // 2 + 0.3×6 = 2 + 1.8 = 3.8
       makeFinish('r1', 'B', 1),
       makeFinish('r1', 'C', 3),
       makeFinish('r1', 'D', 4),
       makeFinish('r1', 'E', 5),
     ];
     const scores = calculateRaceScores(finishes, competitors);
-    expect(scores.get('A')?.points).toBe(4); // 2 + 2 = 4
+    expect(scores.get('A')?.points).toBe(3.8); // 2 + 1.8
   });
 
   it('DPI adds stated points from penaltyOverride', () => {
@@ -696,7 +696,7 @@ describe('calculateRaceScores — additive penalties (ZFP/SCP/DPI)', () => {
     expect(scores.get('A')?.points).toBe(dnfScore); // capped
   });
 
-  it('penalty code does not affect other boats scores (A6.2)', () => {
+  it('penalty code does not affect other boats scores (44.3(c))', () => {
     const finishes = [
       makeFinish('r1', 'A', 1, null, 'ZFP'),
       makeFinish('r1', 'B', 2),

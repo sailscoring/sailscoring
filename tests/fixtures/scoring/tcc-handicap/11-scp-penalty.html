@@ -18,12 +18,12 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 <body>
 <p><a href="../">&larr; All IRC handicap examples</a></p>
 <h1>IRC — additive scoring penalty (SCP) applies in a handicap fleet</h1>
-<p style="font-style:italic; color:#444;">Additive penalties (ZFP/SCP/DPI under A6.2) apply to finishers in handicap fleets exactly as in scratch fleets: the penalty is added to the corrected-time finishing-place score, rounded to the nearest whole number, and capped at the DNF score. This mirrors the scratch fixture codes/05-scp-penalty so the two paths are demonstrably consistent.
+<p style="font-style:italic; color:#444;">Additive penalties (ZFP/SCP/DPI under RRS 44.3(c)) apply to finishers in handicap fleets exactly as in scratch fleets: the penalty is the stated % of the DNF score, rounded to the nearest tenth of a point (0.05 up), added to the corrected-time finishing-place score, and capped at the DNF score. This mirrors the scratch fixture codes/05-scp-penalty so the two paths are demonstrably consistent.
 All five boats carry TCC 1.000, so corrected-time order equals finishing order. Five competitors, N=5, DNF score = 6.
-  Alice  1st + SCP (default 20%)  -&gt; 1 + round(0.20 x 6) = 1 + 1 = 2
-  Bob    2nd + SCP (override 30%) -&gt; 2 + round(0.30 x 6) = 2 + 2 = 4
+  Alice  1st + SCP (default 20%)  -&gt; 1 + 0.20 x 6 = 1 + 1.2 = 2.2
+  Bob    2nd + SCP (override 30%) -&gt; 2 + 0.30 x 6 = 2 + 1.8 = 3.8
   Carol  3rd                      -&gt; 3
-  Dave   4th                      -&gt; 4   (ties Bob; A6.2 does not re-rank)
+  Dave   4th                      -&gt; 4
   Eve    5th                      -&gt; 5
 </p>
 <div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
@@ -106,9 +106,9 @@ All five boats carry TCC 1.000, so corrected-time order equals finishing order. 
   <td>1</td>
   <td>Alice</td>
   <td class="mono">1</td>
-  <td class="mono">2</td>
-  <td class="mono">2</td>
-  <td class="mono">2</td>
+  <td class="mono">2.2</td>
+  <td class="mono">2.2</td>
+  <td class="mono">2.2</td>
 </tr>
 <tr>
   <td>2</td>
@@ -122,12 +122,12 @@ All five boats carry TCC 1.000, so corrected-time order equals finishing order. 
   <td>3</td>
   <td>Bob</td>
   <td class="mono">2</td>
-  <td class="mono">4</td>
-  <td class="mono">4</td>
-  <td class="mono">4</td>
+  <td class="mono">3.8</td>
+  <td class="mono">3.8</td>
+  <td class="mono">3.8</td>
 </tr>
 <tr>
-  <td>3</td>
+  <td>4</td>
   <td>Dave</td>
   <td class="mono">4</td>
   <td class="mono">4</td>

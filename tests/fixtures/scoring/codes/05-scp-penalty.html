@@ -55,7 +55,7 @@ td.nat .nattext { font-size: 0.8em; }
 </table>
 <div style="clear:both;"></div>
 <div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
-<p style="margin:0 0 0.5em; font-style:italic; color:#444;">SCP default: same 20% formula as ZFP. SCP with penaltyOverride=30 means 30% of DNF score. 5 competitors, N=5, DNF score=6. Alice finishes 1st + SCP (default 20%) → 1 + round(0.20×6) = 1+1 = 2. Bob finishes 2nd + SCP (override 30%) → 2 + round(0.30×6) = 2+2 = 4. Carol finishes 3rd → 3. Dave finishes 4th → 4. Eve finishes 5th → 5.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p>
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">RRS 44.3(c): the penalty is the stated % (default 20%) of the DNF score, rounded to the nearest tenth of a point (0.05 up), and never makes the score worse than DNF. Other boats are not re-ranked. 5 competitors, N=5, DNF score=6. Alice finishes 1st + SCP (default 20%) → 1 + 0.20×6 = 1 + 1.2 = 2.2. Bob finishes 2nd + SCP (override 30%) → 2 + 0.30×6 = 2 + 1.8 = 3.8. Carol finishes 3rd → 3. Dave finishes 4th → 4. Eve finishes 5th → 5.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p>
 </div>
 <style>div.applicant-break {page-break-after:always;}</style>
 
@@ -88,8 +88,8 @@ td.nat .nattext { font-size: 0.8em; }
 <td>1</td>
 <td></td>
 <td>Alice</td>
-<td>2.0 SCP</td>
-<td>2.0</td>
+<td>2.2 SCP</td>
+<td>2.2</td>
 </tr>
 <tr class="even summaryrow">
 <td>2nd</td>
@@ -104,11 +104,11 @@ td.nat .nattext { font-size: 0.8em; }
 <td>2</td>
 <td></td>
 <td>Bob</td>
-<td>4.0 SCP(30%)</td>
-<td>4.0</td>
+<td>3.8 SCP(30%)</td>
+<td>3.8</td>
 </tr>
 <tr class="even summaryrow">
-<td>3rd</td>
+<td>4th</td>
 <td>4</td>
 <td></td>
 <td>Dave</td>
@@ -150,14 +150,14 @@ td.nat .nattext { font-size: 0.8em; }
 <td>1</td>
 <td></td>
 <td>Alice</td>
-<td>2.0 SCP</td>
+<td>2.2 SCP</td>
 </tr>
 <tr class="even racerow">
 <td class="rank2">2</td>
 <td>2</td>
 <td></td>
 <td>Bob</td>
-<td>4.0 SCP(30%)</td>
+<td>3.8 SCP(30%)</td>
 </tr>
 <tr class="odd racerow">
 <td class="rank3">3</td>
