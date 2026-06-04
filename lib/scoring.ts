@@ -841,6 +841,13 @@ function resolveRedressScore(
 
   poolIndices = poolIndices.filter((i) => !raceExcluded[i]);
 
+  // A redress score is itself an average of other races; never fold one redress
+  // result into another's pool. Otherwise a boat with RDG in two races gets
+  // order-dependent values (each averaging the other's placeholder) instead of
+  // both equalling the mean of its actually-sailed races. Exclude the boat's
+  // other RDG races from every pool.
+  poolIndices = poolIndices.filter((i) => allCodes[i] !== 'RDG');
+
   if (finish.redressMethod === 'all_races_excl_dnc') {
     // Drop the worst (highest-points) DNC results, up to the discard allowance.
     const dncWorstFirst = poolIndices

@@ -1,0 +1,81 @@
+description: "RDG in two races — each redress is the mean of the boat's *sailed* races, not of the other redress"
+rrs_notes: >
+  A redress score is itself an average of other races, so one redress result
+  must never be folded into another's pool — otherwise the two values become
+  order-dependent (each averaging the other's placeholder). Both redress races
+  are the mean of the boat's actually-sailed races.
+  4 boats, 4 races, no discards. Alice is granted redress (RDG type 1,
+  all_races) in races 1 and 2, and sails races 3 (2nd = 2) and 4 (3rd = 3).
+  Each redress = mean of her sailed races, excluding the other RDG race:
+  (2 + 3) / 2 = 2.5. So race 1 = race 2 = 2.5.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - { sailNumber: "1", name: "Alice" }
+  - { sailNumber: "2", name: "Bob" }
+  - { sailNumber: "3", name: "Carol" }
+  - { sailNumber: "4", name: "Dave" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "1", code: RDG, redressMethod: all_races }
+      - { sailor: "2", position: 1 }
+      - { sailor: "3", position: 2 }
+      - { sailor: "4", position: 3 }
+  - number: 2
+    finishes:
+      - { sailor: "1", code: RDG, redressMethod: all_races }
+      - { sailor: "2", position: 1 }
+      - { sailor: "3", position: 2 }
+      - { sailor: "4", position: 3 }
+  - number: 3
+    finishes:
+      - { sailor: "2", position: 1 }
+      - { sailor: "1", position: 2 }
+      - { sailor: "3", position: 3 }
+      - { sailor: "4", position: 4 }
+  - number: 4
+    finishes:
+      - { sailor: "2", position: 1 }
+      - { sailor: "3", position: 2 }
+      - { sailor: "1", position: 3 }
+      - { sailor: "4", position: 4 }
+
+# Points (no discards):
+#   Bob:   [1, 1, 1, 1]       total 4    (rank 1)
+#   Carol: [2, 2, 3, 2]       total 9    (rank 2)
+#   Alice: [2.5/RDG, 2.5/RDG, 2, 3] total 10 (rank 3)
+#   Dave:  [3, 3, 4, 4]       total 14   (rank 4)
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [1, 1, 1, 1]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [false, false, false, false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 2
+      sailor: "3"
+      racePoints: [2, 2, 3, 2]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [false, false, false, false]
+      totalPoints: 9
+      netPoints: 9
+    - rank: 3
+      sailor: "1"
+      racePoints: [2.5, 2.5, 2, 3]
+      raceCodes: ["RDG", "RDG", null, null]
+      raceDiscards: [false, false, false, false]
+      totalPoints: 10
+      netPoints: 10
+    - rank: 4
+      sailor: "4"
+      racePoints: [3, 3, 4, 4]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [false, false, false, false]
+      totalPoints: 14
+      netPoints: 14
