@@ -43,20 +43,45 @@ const oneDesigns: OneDesignInput[] = [
   { fleetId: 'cf-sigma33', name: 'Sigma 33', parentClass: 2, fleet: load('sigma33-95462.html') },
 ];
 
+const outPath = join(DATA_DIR, 'dbsc-thursday-blue-2026.sailscoring');
+
+// Identity + snapshot lineage. The app matches a file to an existing series by
+// `seriesId`, and `checkLineage` treats the file as a clean descendant when its
+// `snapshotHistory` includes the local series' `lastSnapshotId`. So to keep a
+// weekly regeneration importing cleanly as an *update* (Settings → "Update
+// from file"), we carry the seriesId and history forward from the previously
+// generated file rather than re-minting them.
+//
+// `seriesId` is the in-app series' UUID once the file has been imported and
+// re-seeded. Pass `--adopt <export.sailscoring>` once to take the seriesId and
+// history from an in-app export — the bootstrap that stamps the committed file
+// with the real UUID the first time. A never-yet-imported file has no UUID to
+// carry, so it falls back to the builder's slug and imports as a new series.
+function readIdentity(path: string): { seriesId?: string; history: string[] } {
+  const j = JSON.parse(readFileSync(path, 'utf8')) as { seriesId?: string; snapshotHistory?: string[] };
+  return {
+    seriesId: j.seriesId && RFC_UUID.test(j.seriesId) ? j.seriesId : undefined,
+    // Drop entries that aren't valid RFC 4122 UUIDs: early versions sliced raw
+    // hash digests into ids the app's z.uuid() boundary rejects, and such a
+    // snapshot could never have been imported, so it carries no lineage.
+    history: (j.snapshotHistory ?? []).filter((id) => RFC_UUID.test(id)),
+  };
+}
+
+const adoptIdx = process.argv.indexOf('--adopt');
+const adoptPath = adoptIdx >= 0 ? process.argv[adoptIdx + 1] : undefined;
+const identitySource = adoptPath ?? (existsSync(outPath) ? outPath : undefined);
+const identity = identitySource ? readIdentity(identitySource) : { history: [] as string[] };
+
 const file = buildThursdayBlueSeries(classes, oneDesigns, {
   // Stable export marker so re-running produces a byte-identical file.
   exportedAt: '2026-06-02T00:00:00.000Z',
+  ...(identity.seriesId ? { seriesId: identity.seriesId } : {}),
 });
 
-const outPath = join(DATA_DIR, 'dbsc-thursday-blue-2026.sailscoring');
-
-// Snapshot lineage so a regenerated file re-imports cleanly as an *update* of
-// the already-imported series (Import Series → "Update existing"). The app's
-// checkLineage treats a file as a clean descendant when its snapshotHistory
-// includes the local series' last snapshotId. We derive a content-hash
-// snapshotId (stable for unchanged data → byte-identical reruns) and append it
-// to the previous file's history, so every snapshot the user ever imported
-// stays in the chain. See docs/notes/halsail/querying-public-results.md.
+// Content-hash snapshotId — stable for unchanged data, so an unchanged
+// regeneration is byte-identical. Appended to the carried history unless the
+// content is unchanged (in which case the head already equals it).
 function contentSnapshotId(f: typeof file): string {
   return contentHashUuid(
     JSON.stringify({ series: f.series, fleets: f.fleets, competitors: f.competitors, races: f.races }),
@@ -64,20 +89,10 @@ function contentSnapshotId(f: typeof file): string {
 }
 
 const snapshotId = contentSnapshotId(file);
-let snapshotHistory: string[] = [snapshotId];
-if (existsSync(outPath)) {
-  const prior = JSON.parse(readFileSync(outPath, 'utf8')) as { snapshotHistory?: string[] };
-  // Drop any prior entries that aren't valid RFC 4122 UUIDs: earlier versions
-  // of this script sliced raw hash digests, producing ids the app's z.uuid()
-  // boundary rejects. Such a snapshot could never have been imported, so it
-  // carries no lineage worth preserving.
-  const priorHistory = (prior.snapshotHistory ?? []).filter((id) => RFC_UUID.test(id));
-  // Append only when the content actually changed; otherwise keep the chain
-  // as-is so an unchanged regeneration is byte-identical.
-  snapshotHistory = priorHistory.includes(snapshotId) ? priorHistory : [...priorHistory, snapshotId];
-}
 file.snapshotId = snapshotId;
-file.snapshotHistory = snapshotHistory;
+file.snapshotHistory = identity.history.includes(snapshotId)
+  ? identity.history
+  : [...identity.history, snapshotId];
 
 writeFileSync(outPath, JSON.stringify(file, null, 2) + '\n');
 
