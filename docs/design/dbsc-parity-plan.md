@@ -520,14 +520,37 @@ consumer** and is deferred — it would only matter if class results and the
 combine had to live in *distinct* Series objects for product/UX reasons, which
 parity does not require.
 
-## Subsequent milestones (sketch)
+## Milestone 6 — RAYC Super League — out of scope (not a HalSail artifact)
 
-Each builds on the M1/M2 import→score→publish→compare loop.
+M6 was sketched as a series-of-series: rank boats across DBSC races and external
+events (HYC Lambay Race, the waterfront regattas), scoring a parent series off
+child-series placements with external-result import.
 
-- **M6 — RAYC Super League.** Series-of-series: rank boats across DBSC races
-  and external events (Lambay Race, waterfront regattas), scoring a parent
-  series off child-series placements with external-result import.
+**There is no evidence HalSail computes it.** A full sweep of the 2026 Summer
+Series catalog (`_catalog-public-95476.html`) shows no Super League / RAYC /
+Lambay / regatta / coastal fleet or series — and the league by definition pulls
+in *other clubs'* events that the DBSC HalSail instance never sees. It is almost
+certainly maintained off-platform (a spreadsheet), so there is nothing to
+reproduce or diff against. M6 is therefore **out of scope for HalSail parity**;
+if Sail Scoring ever grows a series-of-series feature it would be driven by the
+SI, not by matching a HalSail table. (The "Overall" labels in the catalog are
+just HalSail's per-day naming for each fleet's own series — not cross-fleet
+combines; the only genuine combine, Women on the Water, is done in M5.)
 
-Presentation-layer items (prize-exclusion awareness, "starred" race
-exclusion, average-points-for-duty overrides) are folded in where the
-relevant classes land, not milestones of their own.
+## Parity achieved (for everything HalSail publishes)
+
+As of M5, Sail Scoring reproduces **every fleet DBSC publishes** in the 2026
+Summer Series. A full `pnpm halsail:compare` sweep across all seven day-series:
+**71 fleets green, 0 diffs, 0 fails** (8 SKIP — fleets with no published results
+yet). The only DBSC scoring artifact not covered is the RAYC Super League, which
+HalSail does not compute (above).
+
+This was reached with **no new engine work beyond M1–M3**: M4 (one-designs,
+sportsboats, PY, Water Wags) and M5 (Women on the Water) both turned out to be
+existing systems and the within-series multi-fleet pattern, once the published
+data corrected the NoR-derived assumptions (VPRS-not-progressive, Water Wags
+came+1-not-+2, WOW PY-not-ECHO and same-finish-not-cross-series).
+
+Presentation-layer items (prize-exclusion awareness, "starred" race exclusion,
+average-points-for-duty overrides) are folded in where the relevant classes
+land, not milestones of their own.
