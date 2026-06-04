@@ -526,28 +526,35 @@ export function buildFleetSeries(specs: DayFleetSpec[], opts: BuildOptions = {})
     ...(s.system === 'echo' ? { echoAlpha: 0.25 } : {}),
   }));
 
+  // Competitors are scoped per fleet, not unioned by sail: sail numbers are not
+  // unique across a mixed keelboat/dinghy sheet (a Dragon and an ILCA can both
+  // be "161"), so a global union would merge different boats. A boat genuinely
+  // in two fleets (a J/80 in both the J/80 one-design and the Mixed Sportsboats
+  // VPRS fleet) becomes one competitor per fleet and scores in each — correct,
+  // since HalSail publishes those as independent per-fleet results.
+  const fleetCompId = (fleetId: string, sail: string) => `comp-${fleetId}-${sail.replace(/[^A-Za-z0-9]/g, '')}`;
   const overridesByRace = new Map<number, FileRatingOverride[]>();
-  const compBySail = new Map<string, FileCompetitor>();
+  const competitors: FileCompetitor[] = [];
+  const validIdsByFleet = new Map<string, Set<string>>();
   for (const spec of specs) {
+    const valid = new Set<string>();
+    validIdsByFleet.set(spec.fleetId, valid);
     for (const c of spec.fragment.competitors) {
-      let comp = compBySail.get(c.sail);
-      if (!comp) {
-        comp = {
-          id: compId(c.sail),
-          fleetIds: [],
-          sailNumber: c.sail,
-          ...(c.name ? { boatName: c.name } : {}),
-          ...(c.type ? { boatClass: c.type } : {}),
-          name: c.owner || c.name || c.sail,
-          ...(c.owner ? { owner: c.owner } : {}),
-          ...(c.helm ? { helm: c.helm } : {}),
-          club: c.club ?? '',
-          gender: '',
-          age: null,
-        };
-        compBySail.set(c.sail, comp);
-      }
-      comp.fleetIds.push(spec.fleetId);
+      const id = fleetCompId(spec.fleetId, c.sail);
+      valid.add(id);
+      const comp: FileCompetitor = {
+        id,
+        fleetIds: [spec.fleetId],
+        sailNumber: c.sail,
+        ...(c.name ? { boatName: c.name } : {}),
+        ...(c.type ? { boatClass: c.type } : {}),
+        name: c.owner || c.name || c.sail,
+        ...(c.owner ? { owner: c.owner } : {}),
+        ...(c.helm ? { helm: c.helm } : {}),
+        club: c.club ?? '',
+        gender: '',
+        age: null,
+      };
       if (spec.system === 'irc' || spec.system === 'vprs') {
         const hc = perRaceHcaps(spec.fragment, c.sail);
         const rating = hc.length ? hc[hc.length - 1].hcap : (c.hcap ?? null);
@@ -557,7 +564,7 @@ export function buildFleetSeries(specs: DayFleetSpec[], opts: BuildOptions = {})
           for (const { raceNumber, hcap } of hc) {
             if (hcap === rating) continue;
             if (!overridesByRace.has(raceNumber)) overridesByRace.set(raceNumber, []);
-            overridesByRace.get(raceNumber)!.push({ id: `ro-${raceNumber}-${comp.id}-${field}`, competitorId: comp.id, field, value: hcap });
+            overridesByRace.get(raceNumber)!.push({ id: `ro-${raceNumber}-${id}-${field}`, competitorId: id, field, value: hcap });
           }
         }
       } else if (spec.system === 'echo') {
@@ -567,10 +574,9 @@ export function buildFleetSeries(specs: DayFleetSpec[], opts: BuildOptions = {})
         const py = firstAppliedHcap(spec.fragment, c.sail) ?? c.hcap ?? null;
         if (py != null) comp.pyNumber = py;
       }
+      competitors.push(comp);
     }
   }
-  const competitors = [...compBySail.values()];
-  const sailToComp = new Map([...compBySail].map(([sail, c]) => [sail, c.id]));
 
   const raceNumbers = [...new Set(specs.flatMap((s) => s.fragment.races.map((r) => r.raceNumber)))].sort((a, b) => a - b);
   const races: FileRace[] = [];
@@ -578,18 +584,17 @@ export function buildFleetSeries(specs: DayFleetSpec[], opts: BuildOptions = {})
     const starts: FileRaceStart[] = [];
     let date = '';
     const crossings: Crossing[] = [];
-    const seen = new Set<string>(); // a boat crosses once per race, shared across its fleets
     for (const spec of specs) {
       const race = spec.fragment.races.find((r) => r.raceNumber === rn);
       if (!race) continue;
       if (race.date) date ||= race.date;
+      const valid = validIdsByFleet.get(spec.fleetId)!;
       starts.push({ id: `rs-${rn}-${spec.fleetId}`, fleetIds: [spec.fleetId], startTime: race.startTime ?? '18:45:00' });
       for (const f of race.finishers) {
-        const cid = sailToComp.get(f.sail);
-        if (!cid || seen.has(f.sail)) continue;
+        const id = fleetCompId(spec.fleetId, f.sail);
+        if (!valid.has(id)) continue; // a sail in the detail but not the summary roster
         if (!f.finish && (f.code === 'DNC' || !f.code)) continue;
-        seen.add(f.sail);
-        crossings.push({ compId: cid, sail: f.sail, finish: f.finish, code: f.code, redressType: f.redressType, penaltyCode: f.penaltyCode, penaltyPercent: f.penaltyPercent });
+        crossings.push({ compId: id, sail: f.sail, finish: f.finish, code: f.code, redressType: f.redressType, penaltyCode: f.penaltyCode, penaltyPercent: f.penaltyPercent });
       }
     }
     const ratingOverrides = overridesByRace.get(rn);

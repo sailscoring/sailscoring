@@ -102,6 +102,52 @@ const DAYS: Record<string, DayCompare> = {
       { file: 'b317-echo-95471.html', fleet: 'Beneteau 31.7 ECHO' },
     ],
   },
+  'saturday-od': {
+    sailscoring: 'dbsc-saturday-od-2026.sailscoring',
+    pairings: [
+      { file: 'sat-dragon-95482.html', fleet: 'Dragon' },
+      { file: 'sat-ff-95485.html', fleet: 'Flying Fifteen' },
+      { file: 'sat-ruffian-95487.html', fleet: 'Ruffian 23' },
+      { file: 'sat-sb20-95489.html', fleet: 'SB20' },
+      { file: 'sat-shipman-95491.html', fleet: 'Shipman' },
+      { file: 'sat-sportsboats-95494.html', fleet: 'Mixed Sportsboats' },
+      { file: 'sat-glen-95499.html', fleet: 'Glen' },
+      { file: 'sat-j80-95875.html', fleet: 'J/80' },
+      { file: 'sat-glenmermaid-py-95496.html', fleet: 'Glen-Mermaid PY' },
+      { file: 'sat-b211-scr-95476.html', fleet: 'Beneteau 211' },
+      { file: 'sat-b211-echo-95479.html', fleet: 'Beneteau 211 ECHO' },
+      { file: 'sat-b317-scr-95468.html', fleet: 'Beneteau 31.7' },
+      { file: 'sat-b317-echo-95470.html', fleet: 'Beneteau 31.7 ECHO' },
+      { file: 'sat-db21-95511.html', fleet: 'Dublin Bay 21' },
+      { file: 'sat-fireball-95587.html', fleet: 'Fireball' },
+      { file: 'sat-idra14-95589.html', fleet: 'IDRA 14' },
+      { file: 'sat-ilca7-95602.html', fleet: 'ILCA 7' },
+      { file: 'sat-ilca6-95598.html', fleet: 'ILCA 6' },
+      { file: 'sat-pyclass-95594.html', fleet: 'PY Class' },
+    ],
+  },
+  'tuesday-od': {
+    sailscoring: 'dbsc-tuesday-od-2026.sailscoring',
+    pairings: [
+      { file: 'tue-dragon-95484.html', fleet: 'Dragon' },
+      { file: 'tue-ff-95509.html', fleet: 'Flying Fifteen' },
+      { file: 'tue-ruffian-95510.html', fleet: 'Ruffian 23' },
+      { file: 'tue-sb20-95508.html', fleet: 'SB20' },
+      { file: 'tue-shipman-95493.html', fleet: 'Shipman' },
+      { file: 'tue-sportsboats-95507.html', fleet: 'Mixed Sportsboats' },
+      { file: 'tue-glen-95501.html', fleet: 'Glen' },
+      { file: 'tue-j80-95877.html', fleet: 'J/80' },
+      { file: 'tue-glenmermaid-py-95498.html', fleet: 'Glen-Mermaid PY' },
+      { file: 'tue-b211-scr-95478.html', fleet: 'Beneteau 211' },
+      { file: 'tue-b211-echo-95481.html', fleet: 'Beneteau 211 ECHO' },
+      { file: 'tue-db21-95517.html', fleet: 'Dublin Bay 21' },
+      { file: 'tue-fireball-95586.html', fleet: 'Fireball' },
+      { file: 'tue-idra14-95588.html', fleet: 'IDRA 14' },
+      { file: 'tue-ilca7-95600.html', fleet: 'ILCA 7' },
+      { file: 'tue-ilca6-95596.html', fleet: 'ILCA 6' },
+      { file: 'tue-pyclass-95592.html', fleet: 'PY Class' },
+    ],
+  },
   tuesday: {
     sailscoring: 'dbsc-tuesday-cruisers-2026.sailscoring',
     pairings: [
@@ -305,8 +351,15 @@ function main() {
     }
     const hal = parseHalsailSummary(readFileSync(join(HALSAIL_DIR, file), 'utf8'));
     if (!hal) {
-      console.log(`FAIL  ${fleet}: could not parse HalSail summary in ${file}`);
-      anyDiff = true;
+      // No summary table = the fleet has no scored races yet on this day. If we
+      // also have no boats for it, there's nothing to compare; only flag it if
+      // our side somehow produced standings HalSail doesn't.
+      if (ours.size === 0) {
+        console.log(`SKIP  ${fleet}: no published results yet`);
+      } else {
+        console.log(`FAIL  ${fleet}: HalSail has no summary but we have ${ours.size} boats (${file})`);
+        anyDiff = true;
+      }
       continue;
     }
     const diffs = compareFleet(fleet, ours, hal);
