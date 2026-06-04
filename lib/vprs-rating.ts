@@ -60,6 +60,26 @@ export interface VprsRatings {
   records: VprsRatingRecord[];
 }
 
+/** Base of the VPRS site; relative listing hrefs resolve against it. */
+export const VPRS_BASE_URL = 'https://vprs.org/';
+
+/** The index of per-club rating listings. */
+export const VPRS_RATINGS_INDEX_URL = `${VPRS_BASE_URL}ratings.html`;
+
+/** One club's entry in the VPRS ratings index. */
+export interface VprsClub {
+  /** The listing filename without extension, e.g. `"dublin_bay_ratings_2026"`.
+   *  Stable id used to request and cache a club's listing. */
+  id: string;
+  /** Club name as published, e.g. `"Dublin Bay Sailing Club"`. */
+  name: string;
+  /** The region heading the club sits under, e.g. `"Ireland"`, `"Solent"`.
+   *  Used to surface local clubs first. */
+  region: string;
+  /** Absolute URL of the club's rating listing. */
+  url: string;
+}
+
 // ─── HTML parsing ─────────────────────────────────────────────────────────────
 
 /** Decode the handful of HTML entities that appear in VPRS boat names / designs
@@ -179,4 +199,69 @@ export async function fetchVprsRatings(listingUrl: string): Promise<VprsRatings>
   }
   const records = parseVprsListing(await res.text());
   return { updatedAt: formatLastModified(res.headers.get('last-modified')), records };
+}
+
+// ─── Club index parsing ───────────────────────────────────────────────────────
+
+// A region heading: a bold, size-4 blue font (`<font ... size="4"><B>Solent</B>`).
+// The page title is size 5 and the nav bar isn't bold-in-a-size-4 font, so this
+// matches only the region group headings.
+const REGION_RE = /<font[^>]*\bsize=["']?4["']?[^>]*>\s*<b>([^<]*)<\/b>/i;
+// A club link to a per-club listing: `<A HREF=dublin_bay_ratings_2026.html>...`.
+// The year is matched generically so a new season's filenames still parse; the
+// archive index links (`ratings_2025.html`) have no `_ratings_` and don't match.
+const CLUB_LINK_RE =
+  /<a\s+href=["']?([^"'\s>]*_ratings_\d{4}\.html)["']?[^>]*>\s*<font[^>]*>([^<]*)<\/font>/i;
+// Combined, kept global so we can walk headings and links in document order.
+const INDEX_TOKEN_RE = new RegExp(`${REGION_RE.source}|${CLUB_LINK_RE.source}`, 'gi');
+// The archive section repeats prior-year links we don't want; stop before it.
+const ARCHIVE_ANCHOR_RE = /<a\s+name=["']?archive_certificates/i;
+
+/**
+ * Parse the VPRS ratings index (`ratings.html`) into the list of per-club
+ * listings, in document order, each tagged with the region heading it sits
+ * under. Commented-out clubs and the prior-year archive section are skipped.
+ */
+export function parseVprsClubIndex(html: string, baseUrl: string = VPRS_BASE_URL): VprsClub[] {
+  let body = html.replace(/<!--[\s\S]*?-->/g, '');
+  const archiveAt = body.search(ARCHIVE_ANCHOR_RE);
+  if (archiveAt >= 0) body = body.slice(0, archiveAt);
+
+  const clubs: VprsClub[] = [];
+  let region = '';
+  INDEX_TOKEN_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = INDEX_TOKEN_RE.exec(body)) !== null) {
+    if (m[1] !== undefined) {
+      region = decodeEntities(m[1]).replace(/\s+/g, ' ').trim();
+      continue;
+    }
+    const href = m[2];
+    const name = decodeEntities(m[3]).replace(/\s+/g, ' ').trim();
+    if (!href || !name) continue;
+    const file = href.split('/').pop() ?? href;
+    const id = file.replace(/\.html$/i, '');
+    const url = /^https?:/i.test(href) ? href : baseUrl + href.replace(/^\//, '');
+    clubs.push({ id, name, region, url });
+  }
+  return clubs;
+}
+
+/**
+ * Fetch and parse the VPRS club index. The I/O seam for the index; the API
+ * route wraps it in caching (refreshed periodically — ratings change through
+ * the season). Individual club listings are fetched on demand via
+ * {@link fetchVprsRatings}.
+ */
+export async function fetchVprsClubIndex(): Promise<VprsClub[]> {
+  const res = await fetch(VPRS_RATINGS_INDEX_URL, {
+    headers: {
+      'user-agent':
+        'Mozilla/5.0 (compatible; SailScoring/1.0; +https://app.sailscoring.ie)',
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`VPRS club index fetch failed: HTTP ${res.status}`);
+  }
+  return parseVprsClubIndex(await res.text());
 }

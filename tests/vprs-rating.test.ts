@@ -5,12 +5,18 @@ import { describe, expect, it } from 'vitest';
 
 import {
   formatLastModified,
+  parseVprsClubIndex,
   parseVprsListing,
   sailFromCertHref,
 } from '@/lib/vprs-rating';
 
 const FIXTURE = readFileSync(
   join(process.cwd(), 'tests/fixtures/vprs/dublin_bay_ratings_2026.html'),
+  'utf-8',
+);
+
+const INDEX_FIXTURE = readFileSync(
+  join(process.cwd(), 'tests/fixtures/vprs/ratings_index_2026.html'),
   'utf-8',
 );
 
@@ -74,6 +80,43 @@ describe('parseVprsListing', () => {
         if (v != null) expect(Number.isFinite(v)).toBe(true);
       }
     }
+  });
+});
+
+describe('parseVprsClubIndex', () => {
+  const clubs = parseVprsClubIndex(INDEX_FIXTURE);
+  const byId = (id: string) => clubs.find((c) => c.id === id);
+
+  it('extracts per-club listings with their region and absolute URL', () => {
+    expect(byId('dublin_bay_ratings_2026')).toEqual({
+      id: 'dublin_bay_ratings_2026',
+      name: 'Dublin Bay Sailing Club',
+      region: 'Ireland',
+      url: 'https://vprs.org/dublin_bay_ratings_2026.html',
+    });
+  });
+
+  it('tags clubs with the region heading they sit under', () => {
+    expect(byId('pyra_ratings_2026')?.region).toBe('Poole Harbour');
+    expect(byId('royal_southern_ratings_2026')?.region).toBe('Solent');
+    expect(byId('plym_ratings_2026')?.region).toBe('Plymouth');
+    expect(byId('bahia_ratings_2026')?.region).toBe('Brazil');
+  });
+
+  it('preserves document order', () => {
+    const ids = clubs.map((c) => c.id);
+    expect(ids.indexOf('pyra_ratings_2026')).toBeLessThan(ids.indexOf('dublin_bay_ratings_2026'));
+  });
+
+  it('excludes the VPRS Championship (not a _ratings_ listing) and the archive', () => {
+    expect(clubs.some((c) => /championship/i.test(c.id))).toBe(false);
+    expect(byId('ratings_2025')).toBeUndefined();
+    expect(byId('ratings_2024')).toBeUndefined();
+  });
+
+  it('skips commented-out clubs (e.g. the inactive Brazilian fleets)', () => {
+    expect(byId('frevo_ratings_2026')).toBeUndefined();
+    expect(byId('guanabara_ratings_2026')).toBeUndefined();
   });
 });
 
