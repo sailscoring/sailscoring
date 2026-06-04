@@ -299,6 +299,9 @@ along for free. ORC Club and YTC (the other new rating systems) stay in M4.
 
 ### The genuinely new piece — and its one unknown
 
+The engine work to add VPRS as a rating system (independent of DBSC) is tracked
+in **#175**.
+
 **A `vprs` scoring system.** VPRS is a **fixed, measured rating** (use-case
 classifies it alongside IRC, not progressive), so if it is time-on-time —
 `corrected = elapsed × rating` — it reuses the existing static-handicap path
