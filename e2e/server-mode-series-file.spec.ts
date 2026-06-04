@@ -134,7 +134,7 @@ test.describe('series file save / open / update, server mode', () => {
     await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
     const original = await saveToFile(page);
 
-    expect(original.formatVersion).toBe(6);
+    expect(original.formatVersion).toBe(7);
     expect(original.seriesId).toBe(seriesId);
     expect(typeof original.snapshotId).toBe('string');
     expect(original.snapshotHistory).toEqual([original.snapshotId]);

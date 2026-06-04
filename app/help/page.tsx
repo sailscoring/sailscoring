@@ -829,6 +829,17 @@ export default async function HelpPage() {
             carries a published TCC; corrected time is elapsed time × TCC. Ratings do not
             change race to race within a series.
           </li>
+          {has('vprs') && (
+            <li>
+              <strong className="text-foreground">VPRS</strong> — the Velocity
+              Prediction Rating System, a UK measurement handicap. Like IRC it is a
+              static handicap scored time-on-time: each boat carries a published TCC
+              and corrected time is elapsed time × TCC. Boats rated with a downwind
+              sail also publish a <em>no-spinnaker</em> TCC; choose which applies per
+              fleet when entering handicaps. Ratings are published per club at{' '}
+              <code className="text-foreground text-sm">vprs.org</code>.
+            </li>
+          )}
           <li>
             <strong className="text-foreground">PY (Portsmouth Yardstick)</strong> —
             static handicap for mixed dinghy fleets. Each class carries a published PY

@@ -141,7 +141,7 @@ test('series file version is current with IRC fleet scoring system', async ({ pa
   }
   const json = JSON.parse(Buffer.concat(chunks).toString());
 
-  expect(json.formatVersion).toBe(6);
+  expect(json.formatVersion).toBe(7);
 
   const ircFleet = json.fleets?.find((f: { name: string }) => f.name === 'IRC');
   expect(ircFleet?.scoringSystem).toBe('irc');
