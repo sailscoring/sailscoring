@@ -84,6 +84,24 @@ const DAYS: Record<string, DayCompare> = {
       { file: 'sat-c5b-echo-95474.html', fleet: 'Cruisers 5B ECHO' },
     ],
   },
+  'thursday-red': {
+    sailscoring: 'dbsc-thursday-red-2026.sailscoring',
+    pairings: [
+      { file: 'dragon-95483.html', fleet: 'Dragon' },
+      { file: 'ff-95486.html', fleet: 'Flying Fifteen' },
+      { file: 'ruffian-95488.html', fleet: 'Ruffian 23' },
+      { file: 'sb20-95490.html', fleet: 'SB20' },
+      { file: 'shipman-95492.html', fleet: 'Shipman' },
+      { file: 'sportsboats-95495.html', fleet: 'Mixed Sportsboats' },
+      { file: 'glen-95500.html', fleet: 'Glen' },
+      { file: 'j80-95876.html', fleet: 'J/80' },
+      { file: 'glenmermaid-py-95497.html', fleet: 'Glen-Mermaid PY' },
+      { file: 'b211-scr-95477.html', fleet: 'Beneteau 211' },
+      { file: 'b211-echo-95480.html', fleet: 'Beneteau 211 ECHO' },
+      { file: 'b317-scr-95469.html', fleet: 'Beneteau 31.7' },
+      { file: 'b317-echo-95471.html', fleet: 'Beneteau 31.7 ECHO' },
+    ],
+  },
   tuesday: {
     sailscoring: 'dbsc-tuesday-cruisers-2026.sailscoring',
     pairings: [
@@ -222,7 +240,9 @@ function parseHalsailSummary(html: string): { raceNumbers: number[]; rows: Map<s
       if (tds.length < ths.length) continue;
       const sail = normSail(tds[sailIdx] ?? '');
       if (!sail) continue;
-      const rank = Number(tds[0]);
+      // HalSail marks a tied rank with a trailing "=" (e.g. "22="); take the
+      // leading integer.
+      const rank = parseInt(tds[0], 10);
       const net = Number(tds[scoreIdx]);
       const byRaceNumber = new Map<number, { points: number; code: string | null; discarded: boolean }>();
       for (const { idx, raceNumber } of raceCols) {

@@ -38,6 +38,7 @@ interface FileCompetitor {
   age: number | null;
   ircTcc?: number;
   vprsTcc?: number;
+  pyNumber?: number;
   echoStartingTcf?: number;
 }
 interface FileFinish {
@@ -494,6 +495,117 @@ export function buildCombinedCruisersSeries(
   return assembleSeries(fleets, competitors, races, {
     seriesId: opts.seriesId ?? 'dbsc-tuesday-cruisers-2026',
     seriesName: opts.seriesName ?? 'DBSC Tuesday Cruisers (2026)',
+    venue: opts.venue ?? 'Dublin Bay Sailing Club',
+    snapshotId: opts.snapshotId,
+    exportedAt: opts.exportedAt,
+  });
+}
+
+/** A single fleet on a day's finish sheet: its scoring system and the HalSail
+ *  fragment that is its authoritative roster + finishes + (system) rating. */
+export interface DayFleetSpec {
+  fleetId: string;
+  name: string;
+  system: 'scratch' | 'echo' | 'irc' | 'vprs' | 'py';
+  fragment: HalsailFleet;
+}
+
+/** General day-series builder for the one-design / sportsboat / PY sheets
+ *  (Thursday Red, Saturday Green, the rest of Tuesday). Each fleet owns its
+ *  fragment; rosters are unioned by sail so a boat in several fleets (e.g. a
+ *  J/80 in the J/80 one-design *and* the Mixed Sportsboats VPRS fleet) lands in
+ *  all of them with the right rating for each. Each fleet gets its own start
+ *  (time from its fragment), so the engine times each boat against the gun for
+ *  the fleet being scored. Reuses the cruiser-day finish/series assembly. */
+export function buildFleetSeries(specs: DayFleetSpec[], opts: BuildOptions = {}): SeriesFile {
+  const fleets: FileFleet[] = specs.map((s, i) => ({
+    id: s.fleetId,
+    name: s.name,
+    displayOrder: i,
+    scoringSystem: s.system,
+    ...(s.system === 'echo' ? { echoAlpha: 0.25 } : {}),
+  }));
+
+  const overridesByRace = new Map<number, FileRatingOverride[]>();
+  const compBySail = new Map<string, FileCompetitor>();
+  for (const spec of specs) {
+    for (const c of spec.fragment.competitors) {
+      let comp = compBySail.get(c.sail);
+      if (!comp) {
+        comp = {
+          id: compId(c.sail),
+          fleetIds: [],
+          sailNumber: c.sail,
+          ...(c.name ? { boatName: c.name } : {}),
+          ...(c.type ? { boatClass: c.type } : {}),
+          name: c.owner || c.name || c.sail,
+          ...(c.owner ? { owner: c.owner } : {}),
+          ...(c.helm ? { helm: c.helm } : {}),
+          club: c.club ?? '',
+          gender: '',
+          age: null,
+        };
+        compBySail.set(c.sail, comp);
+      }
+      comp.fleetIds.push(spec.fleetId);
+      if (spec.system === 'irc' || spec.system === 'vprs') {
+        const hc = perRaceHcaps(spec.fragment, c.sail);
+        const rating = hc.length ? hc[hc.length - 1].hcap : (c.hcap ?? null);
+        if (rating != null) {
+          const field = spec.system === 'irc' ? 'ircTcc' : 'vprsTcc';
+          comp[field] = rating;
+          for (const { raceNumber, hcap } of hc) {
+            if (hcap === rating) continue;
+            if (!overridesByRace.has(raceNumber)) overridesByRace.set(raceNumber, []);
+            overridesByRace.get(raceNumber)!.push({ id: `ro-${raceNumber}-${comp.id}-${field}`, competitorId: comp.id, field, value: hcap });
+          }
+        }
+      } else if (spec.system === 'echo') {
+        const seed = firstAppliedHcap(spec.fragment, c.sail);
+        if (seed != null) comp.echoStartingTcf = seed;
+      } else if (spec.system === 'py') {
+        const py = firstAppliedHcap(spec.fragment, c.sail) ?? c.hcap ?? null;
+        if (py != null) comp.pyNumber = py;
+      }
+    }
+  }
+  const competitors = [...compBySail.values()];
+  const sailToComp = new Map([...compBySail].map(([sail, c]) => [sail, c.id]));
+
+  const raceNumbers = [...new Set(specs.flatMap((s) => s.fragment.races.map((r) => r.raceNumber)))].sort((a, b) => a - b);
+  const races: FileRace[] = [];
+  for (const rn of raceNumbers) {
+    const starts: FileRaceStart[] = [];
+    let date = '';
+    const crossings: Crossing[] = [];
+    const seen = new Set<string>(); // a boat crosses once per race, shared across its fleets
+    for (const spec of specs) {
+      const race = spec.fragment.races.find((r) => r.raceNumber === rn);
+      if (!race) continue;
+      if (race.date) date ||= race.date;
+      starts.push({ id: `rs-${rn}-${spec.fleetId}`, fleetIds: [spec.fleetId], startTime: race.startTime ?? '18:45:00' });
+      for (const f of race.finishers) {
+        const cid = sailToComp.get(f.sail);
+        if (!cid || seen.has(f.sail)) continue;
+        if (!f.finish && (f.code === 'DNC' || !f.code)) continue;
+        seen.add(f.sail);
+        crossings.push({ compId: cid, sail: f.sail, finish: f.finish, code: f.code, redressType: f.redressType, penaltyCode: f.penaltyCode, penaltyPercent: f.penaltyPercent });
+      }
+    }
+    const ratingOverrides = overridesByRace.get(rn);
+    races.push({
+      id: `race-${rn}`,
+      raceNumber: rn,
+      date: date || '2026-01-01',
+      starts,
+      finishes: assembleFinishes(rn, crossings),
+      ...(ratingOverrides?.length ? { ratingOverrides } : {}),
+    });
+  }
+
+  return assembleSeries(fleets, competitors, races, {
+    seriesId: opts.seriesId ?? 'dbsc-day-fleets-2026',
+    seriesName: opts.seriesName ?? 'DBSC Day Fleets (2026)',
     venue: opts.venue ?? 'Dublin Bay Sailing Club',
     snapshotId: opts.snapshotId,
     exportedAt: opts.exportedAt,

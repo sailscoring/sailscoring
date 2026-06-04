@@ -22,7 +22,9 @@ import { RFC_UUID, contentHashUuid } from '../lib/halsail/snapshot-id';
 import {
   buildCruiserDaySeries,
   buildCombinedCruisersSeries,
+  buildFleetSeries,
   type BuildOptions,
+  type DayFleetSpec,
   type SeriesFile,
 } from '../lib/halsail/to-series';
 
@@ -85,6 +87,30 @@ const DAYS: Record<string, DayConfig> = {
           { vprsFleetId: 'cf-45a-vprs', vprsName: 'Cruisers 4-5A VPRS', startKey: '45a', vprs: load('sat-c45a-vprs-95883.html'), echoFleets: [{ fleetId: 'cf-5a-echo', name: 'Cruisers 5A ECHO', echo: load('sat-c5a-echo-95472.html') }] },
           { vprsFleetId: 'cf-45b-vprs', vprsName: 'Cruisers 4-5B VPRS', startKey: '45b', vprs: load('sat-c45b-vprs-95885.html'), echoFleets: [{ fleetId: 'cf-5b-echo', name: 'Cruisers 5B ECHO', echo: load('sat-c5b-echo-95474.html') }] },
         ],
+      ),
+  },
+  'thursday-red': {
+    outFile: 'dbsc-thursday-red-2026.sailscoring',
+    defaultSeriesId: 'dbsc-thursday-red-2026',
+    seriesName: 'DBSC Thursday Red — One-designs & Sportsboats (2026)',
+    build: (opts) =>
+      buildFleetSeries(
+        [
+          { fleetId: 'fl-dragon', name: 'Dragon', system: 'scratch', fragment: load('dragon-95483.html') },
+          { fleetId: 'fl-ff', name: 'Flying Fifteen', system: 'scratch', fragment: load('ff-95486.html') },
+          { fleetId: 'fl-ruffian', name: 'Ruffian 23', system: 'scratch', fragment: load('ruffian-95488.html') },
+          { fleetId: 'fl-sb20', name: 'SB20', system: 'scratch', fragment: load('sb20-95490.html') },
+          { fleetId: 'fl-shipman', name: 'Shipman', system: 'scratch', fragment: load('shipman-95492.html') },
+          { fleetId: 'fl-sportsboats', name: 'Mixed Sportsboats', system: 'vprs', fragment: load('sportsboats-95495.html') },
+          { fleetId: 'fl-glen', name: 'Glen', system: 'scratch', fragment: load('glen-95500.html') },
+          { fleetId: 'fl-j80', name: 'J/80', system: 'scratch', fragment: load('j80-95876.html') },
+          { fleetId: 'fl-glenmermaid-py', name: 'Glen-Mermaid PY', system: 'py', fragment: load('glenmermaid-py-95497.html') },
+          { fleetId: 'fl-b211', name: 'Beneteau 211', system: 'scratch', fragment: load('b211-scr-95477.html') },
+          { fleetId: 'fl-b211-echo', name: 'Beneteau 211 ECHO', system: 'echo', fragment: load('b211-echo-95480.html') },
+          { fleetId: 'fl-b317', name: 'Beneteau 31.7', system: 'scratch', fragment: load('b317-scr-95469.html') },
+          { fleetId: 'fl-b317-echo', name: 'Beneteau 31.7 ECHO', system: 'echo', fragment: load('b317-echo-95471.html') },
+        ] satisfies DayFleetSpec[],
+        opts,
       ),
   },
   tuesday: {
