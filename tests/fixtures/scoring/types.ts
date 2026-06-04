@@ -104,7 +104,7 @@ export interface FixtureRace {
   aggregates?: FixtureAggregates;
   rejected?: FixtureRejection[];
   /** Per-race static-rating overrides (mid-series rating change). */
-  ratingOverrides?: { sailor: string; field: 'ircTcc' | 'pyNumber'; value: number }[];
+  ratingOverrides?: { sailor: string; field: 'ircTcc' | 'pyNumber' | 'vprsTcc'; value: number }[];
 }
 
 export interface FixtureStanding {
@@ -127,13 +127,14 @@ export interface FixtureCompetitor {
   name: string;
   fleet?: string;            // multi-fleet scratch fixtures
   ircTcc?: number;
+  vprsTcc?: number;
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
 }
 
 export interface FixtureFleet {
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
   alpha?: number;            // ECHO only (mapped to echoAlpha); NHC ignores
   // NHC only — full inline profile override (mapped to fleet.nhcProfile).
   // Absent means the engine falls back to DEFAULT_NHC_PROFILE.
@@ -232,6 +233,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       age: null,
       createdAt: 0,
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
+      ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),

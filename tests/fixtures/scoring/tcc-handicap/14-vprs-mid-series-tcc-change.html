@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="description" content="sail scoring results">
+<meta name="viewport" content="width=device-width">
+<title>Results for VPRS — mid-series TCC change via per-race rating override</title>
+<style type="text/css">
+body {font: 100% arial, helvetica, sans-serif; text-align: center;}
+.hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
+.hardright {text-align: right; float: right; margin: 15px 25px 15px 0;}
+.breadcrumb {text-align: left; margin: 0 0 12px 25px; font-size: 0.9em;}
+table {text-align: left; margin: 0px auto 30px auto; font-size: 1em; border-collapse: collapse; border: 1px #fff solid;}
+td, th {padding: 4px; border: 2px #fff solid; vertical-align: top;}
+th {background-color: #aaf;}
+.caption {padding: 5px; text-align: center; border: 0; font-weight: bold;}
+h1 {font-size: 1.6em;}
+h2 {font-size: 1.4em;}
+h3 {font-size: 1.2em;}
+p {text-align: center;}
+.odd {background-color: #ddf;}
+.even {background-color: #bbf;}
+table.headertable {border: 0px;}
+table.headertable td{border: 0px;}
+td.rank1 { background: #ffd700; }
+td.rank2 { background: #6a91c5; }
+td.rank3 { background: #da6841; }
+td.discard { background: #f2f2f2; }
+td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
+td.excluded { color: #888; text-align: center; }
+.override-marker { color: #b45309; font-weight: bold; margin-left: 1px; cursor: help; }
+table.summarytable td .rating { display: block; font-size: 0.85em; color: #666; margin-top: 1px; font-family: monospace; }
+table.summarytable td.discard .rating { color: #888; }
+table.summarytable td.seedrating { font-family: monospace; }
+td.nat { font-family: monospace; }
+td.nat .flag { display: block; width: 20px; height: 13px; margin-bottom: 2px; border: 1px solid #ccc; }
+td.nat .flag svg { display: block; width: 100%; height: 100%; }
+td.nat .nattext { font-size: 0.8em; }
+</style>
+</head>
+<body>
+<table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
+<tbody>
+<tr>
+<td width="30%"></td>
+<td width="40%" align="center">
+<h1>VPRS — mid-series TCC change via per-race rating override</h1>
+
+</td>
+<td width="30%"></td>
+</tr>
+</tbody>
+</table>
+<div style="clear:both;"></div>
+<div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">A VPRS boat can be re-measured part-way through a series (a new certificate). The competitor keeps its *current* TCC; earlier races are pinned to the old value with a per-race rating override on the vprsTcc field — exactly the IRC mechanism. Here Zelus races on TCC 1.000 in race 1 (override) and on its current TCC 0.900 in race 2.
+Race 1, start 14:00:00 — both sail 1:00:00 elapsed (3600 s):
+  Optique TCC 1.000            CT 3600.0 → tie 1st
+  Zelus   TCC 1.000 (override) CT 3600.0 → tie 1st
+Identical corrected times share rank 1 (RRS A8 averaged: 1.5 each).
+Race 2, start 14:00:00:
+  Optique finish 15:00:00  ET 3600  TCC 1.000           CT 3600.0 → 2nd
+  Zelus   finish 15:05:00  ET 3900  TCC 0.900 (current)  CT 3510.0 → 1st
+Without the race-1 override Zelus would score on 0.900 there too (CT 3900 × 0.9 = 3510 ≠ 3600) — the override is what reproduces race 1.</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">Points:
+  Optique: race1 1.5 (tie), race2 2  → total 3.5
+  Zelus:   race1 1.5 (tie), race2 1  → total 2.5  (rank 1)</pre>
+</div>
+<style>div.applicant-break {page-break-after:always;}</style>
+
+
+
+
+
+<table class="summarytable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="7">
+<col class="rank" />
+<col class="sailno" />
+<col class="boatname" />
+<col class="helmname" />
+<col class="race" />
+<col class="race" />
+<col class="total" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail Number</th>
+<th>Boat</th>
+<th>Competitor</th>
+<th><a class="racelink" href="#r1">R1</a></th>
+<th><a class="racelink" href="#r2">R2</a></th>
+<th>Total</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd summaryrow">
+<td>1st</td>
+<td>IRL1725</td>
+<td></td>
+<td>Optique</td>
+<td>3.0 DNF</td>
+<td>3.0 DNF</td>
+<td>6.0</td>
+</tr>
+<tr class="even summaryrow">
+<td>1st</td>
+<td>IRL1540</td>
+<td></td>
+<td>Zelus</td>
+<td>3.0 DNF</td>
+<td>3.0 DNF</td>
+<td>6.0</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r1">R1&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="boatname" />
+<col class="helmname" />
+
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail Number</th>
+<th>Boat</th>
+<th>Competitor</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td></td>
+<td>IRL1540</td>
+<td></td>
+<td>Zelus</td>
+<td>3.0 DNF</td>
+</tr>
+<tr class="even racerow">
+<td></td>
+<td>IRL1725</td>
+<td></td>
+<td>Optique</td>
+<td>3.0 DNF</td>
+</tr>
+</tbody>
+</table>
+<h3 class="racetitle" id="r2">R2&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" />
+<col class="sailno" />
+<col class="boatname" />
+<col class="helmname" />
+
+<col class="points" />
+</colgroup>
+<thead>
+<tr class="titlerow">
+<th>Rank</th>
+<th>Sail Number</th>
+<th>Boat</th>
+<th>Competitor</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd racerow">
+<td></td>
+<td>IRL1540</td>
+<td></td>
+<td>Zelus</td>
+<td>3.0 DNF</td>
+</tr>
+<tr class="even racerow">
+<td></td>
+<td>IRL1725</td>
+<td></td>
+<td>Optique</td>
+<td>3.0 DNF</td>
+</tr>
+</tbody>
+</table>
+<p class="hardleft"></p>
+<p class="hardright"></p>
+<div style="clear:both;"></div>
+<p>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a></p>
+
+
+</body>
+</html>

@@ -1,0 +1,97 @@
+description: "VPRS — non-spinnaker TCCs, three races, one discard, A8 tie-break"
+rrs_notes: >
+  A non-spinnaker VPRS class is scored on each boat's "No spin" TCC — the same
+  static time-on-time path, just the other coefficient (the per-fleet spin/non-
+  spin choice is made when handicaps are entered, so the engine sees one
+  applied vprsTcc). TCCs are real DBSC 2026 no-spin values. Three races with a
+  single discard; Boomerang and Optique finish level on net points and split on
+  RRS A8.2 (last-race count-back).
+
+# Start 14:00:00 (50400 s) every race. CT = ET × TCC, half-up to whole seconds.
+# No-spin TCCs: Boomerang 0.945, Optique 0.954, Sweet Martini 0.789.
+#
+# Race 1
+#   Sweet Martini ET 4300  CT 4300×0.789 = 3392.70 → 3393  → 1
+#   Boomerang     ET 3600  CT 3600×0.945 = 3402.00 → 3402  → 2
+#   Optique       ET 3580  CT 3580×0.954 = 3415.32 → 3415  → 3
+# Race 2
+#   Optique       ET 3460  CT 3460×0.954 = 3300.84 → 3301  → 1
+#   Boomerang     ET 3500  CT 3500×0.945 = 3307.50 → 3308  → 2
+#   Sweet Martini ET 4250  CT 4250×0.789 = 3353.25 → 3353  → 3
+# Race 3 (Sweet Martini DNF → entries+1 = 4)
+#   Boomerang     ET 3550  CT 3550×0.945 = 3354.75 → 3355  → 1
+#   Optique       ET 3540  CT 3540×0.954 = 3377.16 → 3377  → 2
+#
+# Raw points       R1 R2 R3   total   (discard worst)   net
+#   Boomerang       2  2  1      5      drop R1 (2)       3
+#   Optique         3  1  2      6      drop R1 (3)       3
+#   Sweet Martini   1  3  4(DNF) 8      drop R3 (4)       4
+# Boomerang and Optique tie on net 3; A8.1 (sorted non-discards [1,2] each)
+# still level; A8.2 counts back the last race: Boomerang 1 beats Optique 2.
+
+series:
+  discardThresholds:
+    - { minRaces: 3, discardCount: 1 }
+
+fleet:
+  scoringSystem: vprs
+
+competitors:
+  - { sailNumber: "IRL1367", name: "Boomerang", vprsTcc: 0.945 }
+  - { sailNumber: "IRL1725", name: "Optique", vprsTcc: 0.954 }
+  - { sailNumber: "IRL5013", name: "Sweet Martini", vprsTcc: 0.789 }
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - { sailor: "IRL5013", finishTime: "15:11:40" }
+      - { sailor: "IRL1367", finishTime: "15:00:00" }
+      - { sailor: "IRL1725", finishTime: "14:59:40" }
+    expected:
+      - { sailor: "IRL5013", rank: 1, points: 1.0, elapsedTime: 4300, correctedTime: 3393, tcfApplied: 0.789 }
+      - { sailor: "IRL1367", rank: 2, points: 2.0, elapsedTime: 3600, correctedTime: 3402, tcfApplied: 0.945 }
+      - { sailor: "IRL1725", rank: 3, points: 3.0, elapsedTime: 3580, correctedTime: 3415, tcfApplied: 0.954 }
+  - number: 2
+    startTime: "14:00:00"
+    finishes:
+      - { sailor: "IRL1725", finishTime: "14:57:40" }
+      - { sailor: "IRL1367", finishTime: "14:58:20" }
+      - { sailor: "IRL5013", finishTime: "15:10:50" }
+    expected:
+      - { sailor: "IRL1725", rank: 1, points: 1.0, elapsedTime: 3460, correctedTime: 3301, tcfApplied: 0.954 }
+      - { sailor: "IRL1367", rank: 2, points: 2.0, elapsedTime: 3500, correctedTime: 3308, tcfApplied: 0.945 }
+      - { sailor: "IRL5013", rank: 3, points: 3.0, elapsedTime: 4250, correctedTime: 3353, tcfApplied: 0.789 }
+  - number: 3
+    startTime: "14:00:00"
+    finishes:
+      - { sailor: "IRL1367", finishTime: "14:59:10" }
+      - { sailor: "IRL1725", finishTime: "14:59:00" }
+      - { sailor: "IRL5013", code: "DNF" }
+    expected:
+      - { sailor: "IRL1367", rank: 1, points: 1.0, elapsedTime: 3550, correctedTime: 3355, tcfApplied: 0.945 }
+      - { sailor: "IRL1725", rank: 2, points: 2.0, elapsedTime: 3540, correctedTime: 3377, tcfApplied: 0.954 }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "IRL1367"
+      racePoints: [2, 2, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 5
+      netPoints: 3
+    - rank: 2
+      sailor: "IRL1725"
+      racePoints: [3, 1, 2]
+      raceCodes: [null, null, null]
+      raceDiscards: [true, false, false]
+      totalPoints: 6
+      netPoints: 3
+    - rank: 3
+      sailor: "IRL5013"
+      racePoints: [1, 3, 4]
+      raceCodes: [null, null, "DNF"]
+      raceDiscards: [false, false, true]
+      totalPoints: 8
+      netPoints: 4

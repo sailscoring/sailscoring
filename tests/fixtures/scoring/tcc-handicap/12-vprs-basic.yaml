@@ -1,0 +1,61 @@
+description: "VPRS — corrected-time order differs from finish order (spinnaker TCC)"
+rrs_notes: >
+  VPRS is scored time-on-time, exactly like IRC: CT = ET × TCC, ranked by
+  lowest corrected time. The TCCs here are real Dublin Bay SC 2026 spinnaker
+  ratings (vprs.org). Gung-Ho (a slow Super Seal 26, TCC 0.855) crosses the
+  line last but wins on handicap; Optique (a Cork 1720, TCC 1.003) is fastest
+  on the water but only second on corrected time.
+
+# Start 14:00:00 (= 50400 s since midnight). Corrected times are rounded
+# half-up to whole seconds before ranking (matches HalSail/Sailwave).
+#
+# Optique   ET 3498  CT = 3498 × 1.003 = 3508.49 → 3508  → 2nd (fastest elapsed)
+# Boomerang ET 3540  CT = 3540 × 0.992 = 3511.68 → 3512  → 3rd
+# Gung-Ho   ET 4090  CT = 4090 × 0.855 = 3496.95 → 3497  → 1st (slowest elapsed)
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: vprs
+
+competitors:
+  - { sailNumber: "IRL1725", name: "Optique", vprsTcc: 1.003 }
+  - { sailNumber: "IRL1367", name: "Boomerang", vprsTcc: 0.992 }
+  - { sailNumber: "IRL216", name: "Gung-Ho", vprsTcc: 0.855 }
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - { sailor: "IRL1725", finishTime: "14:58:18" }
+      - { sailor: "IRL1367", finishTime: "14:59:00" }
+      - { sailor: "IRL216", finishTime: "15:08:10" }
+    expected:
+      - { sailor: "IRL216", rank: 1, points: 1.0, elapsedTime: 4090, correctedTime: 3497, tcfApplied: 0.855 }
+      - { sailor: "IRL1725", rank: 2, points: 2.0, elapsedTime: 3498, correctedTime: 3508, tcfApplied: 1.003 }
+      - { sailor: "IRL1367", rank: 3, points: 3.0, elapsedTime: 3540, correctedTime: 3512, tcfApplied: 0.992 }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "IRL216"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "IRL1725"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "IRL1367"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
