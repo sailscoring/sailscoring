@@ -450,6 +450,22 @@ reusing the multi-fleet, redress, penalty and DNC machinery already in place.
 the Water Wags series once M4b lands — leaving only the composite/cross-series
 milestones (M5/M6) outstanding.
 
+### Status — M4a achieved (verified by `pnpm halsail:compare`)
+
+M4a is done with **no engine change**, via a general `buildFleetSeries` day
+builder (`thursday-red`, `saturday-od`, `tuesday-od` day configs). It scopes
+competitors **per fleet** (`comp-{fleetId}-{sail}`) rather than unioning by
+sail — sail numbers aren't unique across a mixed keelboat/dinghy sheet (a Dragon
+and an ILCA can both be "161"), and a boat genuinely in two fleets scores in
+each, matching HalSail's per-fleet publishing. Mixed Sportsboats confirmed VPRS;
+PY is `corrected = elapsed × 1000/pyNumber`.
+
+`halsail:compare` across all six day-series: **69 fleets green, 0 diffs** (8
+SKIP — fleets with no scored races yet). The compare also learned HalSail's
+tied-rank marker (`22=`) and to SKIP fleets with no published results.
+
+M4b (Water Wags + the A5.3 "+2" `dnfScoring` mode) is the remaining piece.
+
 ## Subsequent milestones (sketch)
 
 Each builds on the M1/M2 import→score→publish→compare loop.
