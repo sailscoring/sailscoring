@@ -141,16 +141,105 @@ column had been lenient and masked the invalid ids).
   (`Elapsed`/`Finish` columns) via `lib/halsail/parse-results.ts`. A real DBSC
   finish sheet would substitute cleanly for the same import.
 
+## Milestone 2 — Tuesday and Saturday cruisers
+
+Extends M1's working loop to the other two keelboat days, staying within the
+**same cruiser classes and the same rating systems M1 proved** (IRC, ECHO,
+scratch). No new corrected-time system — Cruisers 4/5 and the sportsboats,
+which need VPRS, wait for M3. The point is to prove the model holds across a
+boat's *three independent* per-day series, and to confront the one genuinely
+new structural problem the season poses: a single results series fed by two
+committee boats.
+
+### Why this slice
+
+Tuesday and Saturday reuse everything M1 built (time entry, per-class starts,
+multi-fleet dual scoring, the discard ladder, modified A5.3, redress, per-race
+overrides) on the same boats, so divergences isolate cleanly to the two things
+that are actually new. It also exercises **per-day progressive ECHO** for real
+— the same boat carrying a different, independently-evolving ECHO number on
+Tuesday, Thursday and Saturday (each its own series, so this falls out of the
+model rather than needing new keying — but it is now tested, not assumed).
+
+### Scope
+
+The cruiser fleets on each day, each a HalSail series we replicate:
+
+- **Tuesday** (one vessel, West Pier Hut, one finish sheet, four starts).
+  Cruisers 0/1/2 under IRC; the cruisers under ECHO scored as a single
+  **Combined Cruisers** pool (not per class — the Tuesday-only wrinkle); plus
+  the J/109, Sigma 33 and Beneteau 31.7 one-design results that ride the
+  cruiser starts.
+- **Saturday non-Green** (two vessels — Hut + Corinthian — swapping weekly,
+  one logical series). Saturday Blue (Beneteau 31.7, Cruisers 2) and Saturday
+  Red (Cruisers 3, plus the Shipman/Ruffian/Glen/Mermaid one-designs) under
+  their scratch/handicap systems. Cruisers 4/5 defer to M3 (VPRS).
+
+Deferred to later milestones: the Red and Green one-design / sportsboat fleets
+(M4), the VPRS cruisers C4/5 (M3), WOW (M5).
+
+### What's genuinely new
+
+1. **Combined Cruisers pooled ECHO (Tuesday).** Thursday scores ECHO per
+   cruiser class; Tuesday pools all cruisers into one ECHO fleet for the
+   adjustment and ranking. If HalSail publishes this as a single "Combined
+   Cruisers ECHO" series, the existing per-fleet ECHO models it directly — one
+   fleet holding every cruiser, each boat still in its own IRC class fleet via
+   `fleetIds[]` — so likely no engine change. But the pooling mechanics (is the
+   adjustment computed over the whole pool, or per class within it?) must be
+   confirmed against HalSail before assuming so.
+2. **Two finish sheets, one series (Saturday non-Green).** The structural gap
+   flagged in the use case: the non-Green keelboats are one published series
+   but physically split across two committee boats each week. Options, to be
+   decided when we reach it:
+   - one Sail Scoring series whose race accepts **finishes from both sheets**
+     (the engine already scores one finish list per race with per-fleet start
+     times, so this may be mostly an entry-UX problem, not a scoring one); or
+   - two series merged for standings (heavier — duplicates discard/series
+     logic).
+   Which is needed hinges on **how HalSail publishes the split**: if it
+   publishes one merged non-Green series we match that; if per vessel, the
+   problem may not surface at the results layer at all.
+
+### Sequencing (de-risking)
+
+1. **Tuesday first.** Single vessel, single sheet — the clean case. Adds only
+   the pooled-ECHO wrinkle and the Tuesday ECHO seeds. Proves independent
+   per-day ECHO and the Combined Cruisers model.
+2. **Saturday non-Green next.** Tackles the two-vessel / one-series problem on
+   the cruiser subset, with the Red one-design boats coming along for the ride.
+
+### Tooling
+
+`halsail-to-sailscoring` and `halsail:compare` are currently Thursday-Blue-
+specific (hard-coded fragment files and fleet pairings). M2 generalises them to
+per-day inputs — capture the Tuesday/Saturday fragments, add the builders and
+pairings — producing one `.sailscoring` per day-series, each carrying its own
+`seriesId` + lineage per the M1 update workflow.
+
+### Open inputs
+
+- **Catalog enumeration.** The Tuesday/Saturday cruiser `seriesId`s, from the
+  `/Result/Public` catalog shell (`_catalog-public-95476.html`) — including
+  whether Tuesday ECHO is one "Combined Cruisers" series or per class, and
+  whether Saturday non-Green is one merged series or per vessel.
+- **Per-day ECHO seeds.** Tuesday and Saturday 2025 end-of-season
+  `echoStartingTcf` per cruiser, independent of the Thursday seeds (or
+  recovered, as for Thursday, from the rating going into each boat's first
+  scored race of that day).
+- **Combined Cruisers pooling mechanics** and the **Saturday split publishing**
+  model — both confirmed against HalSail before building.
+
+### Done when
+
+We fetch, generate, update and compare the Tuesday and Saturday cruiser fleets
+— IRC and ECHO for C0/1/2/3 (pooled on Tuesday), plus the J/109, Sigma 33 and
+Beneteau 31.7 one-design results — and `pnpm halsail:compare` is green for them
+as it is for Thursday Blue, and stays green once DBSC scores the next race.
+
 ## Subsequent milestones (sketch)
 
-Each builds on M1's working import→score→publish→compare loop.
-
-- **M2 — More days, same cruisers.** Add Tuesday and Saturday cruiser
-  racing. Proves independent per-day ECHO (separate series by construction)
-  and surfaces the **Saturday two-vessel / one logical series** problem
-  (Blue + Red split across Hut and Corinthian) — decide whether to merge two
-  series or let one series take multiple finish sheets per race. Also the
-  Tuesday `Combined Cruisers` pooled-ECHO fleet.
+Each builds on the M1/M2 import→score→publish→compare loop.
 
 - **M3 — VPRS.** New corrected-time system in the engine → brings in
   Cruisers 4/5 and the Mixed Sportsboats, and completes the cruiser picture.
