@@ -40,20 +40,59 @@ import type {
 
 const DATA_DIR = join(__dirname, '..', 'reference', 'data', '2026-dbsc-summer-series');
 const HALSAIL_DIR = join(DATA_DIR, 'halsail');
-const SAILSCORING = join(DATA_DIR, 'dbsc-thursday-blue-2026.sailscoring');
 
-// HalSail fragment file → our fleet name. One published series per fleet.
-const PAIRINGS: { file: string; fleet: string }[] = [
-  { file: 'c0-irc-95446.html', fleet: 'Cruisers 0 IRC' },
-  { file: 'c1-irc-95450.html', fleet: 'Cruisers 1 IRC' },
-  { file: 'c2-irc-95458.html', fleet: 'Cruisers 2 IRC' },
-  { file: 'c0-echo-95445.html', fleet: 'Cruisers 0 ECHO' },
-  { file: 'c1-echo-95452.html', fleet: 'Cruisers 1 ECHO' },
-  { file: 'c2-echo-95460.html', fleet: 'Cruisers 2 ECHO' },
-  { file: 'c3-echo-95466.html', fleet: 'Cruisers 3 ECHO' },
-  { file: 'j109-95454.html', fleet: 'J/109' },
-  { file: 'sigma33-95462.html', fleet: 'Sigma 33' },
-];
+// Per-day: the generated .sailscoring and the HalSail fragment → our fleet name
+// pairings (one published series per fleet).
+interface DayCompare {
+  sailscoring: string;
+  pairings: { file: string; fleet: string }[];
+}
+const DAYS: Record<string, DayCompare> = {
+  thursday: {
+    sailscoring: 'dbsc-thursday-blue-2026.sailscoring',
+    pairings: [
+      { file: 'c0-irc-95446.html', fleet: 'Cruisers 0 IRC' },
+      { file: 'c1-irc-95450.html', fleet: 'Cruisers 1 IRC' },
+      { file: 'c2-irc-95458.html', fleet: 'Cruisers 2 IRC' },
+      { file: 'c0-echo-95445.html', fleet: 'Cruisers 0 ECHO' },
+      { file: 'c1-echo-95452.html', fleet: 'Cruisers 1 ECHO' },
+      { file: 'c2-echo-95460.html', fleet: 'Cruisers 2 ECHO' },
+      { file: 'c3-echo-95466.html', fleet: 'Cruisers 3 ECHO' },
+      { file: 'j109-95454.html', fleet: 'J/109' },
+      { file: 'sigma33-95462.html', fleet: 'Sigma 33' },
+    ],
+  },
+  saturday: {
+    sailscoring: 'dbsc-saturday-cruisers-2026.sailscoring',
+    pairings: [
+      { file: 'sat-c0-irc-95443.html', fleet: 'Cruisers 0 IRC' },
+      { file: 'sat-c1-irc-95449.html', fleet: 'Cruisers 1 IRC' },
+      { file: 'sat-c2-irc-95457.html', fleet: 'Cruisers 2 IRC' },
+      { file: 'sat-c0-echo-95444.html', fleet: 'Cruisers 0 ECHO' },
+      { file: 'sat-c1-echo-95451.html', fleet: 'Cruisers 1 ECHO' },
+      { file: 'sat-c2-echo-95459.html', fleet: 'Cruisers 2 ECHO' },
+      { file: 'sat-c3-echo-95465.html', fleet: 'Cruisers 3 ECHO' },
+      { file: 'sat-j109-95453.html', fleet: 'J/109' },
+      { file: 'sat-sigma33-95461.html', fleet: 'Sigma 33' },
+    ],
+  },
+  tuesday: {
+    sailscoring: 'dbsc-tuesday-cruisers-2026.sailscoring',
+    pairings: [
+      { file: 'tue-combined-95502.html', fleet: 'Combined Cruisers' },
+      { file: 'tue-c3-echo-95467.html', fleet: 'Cruisers 3 ECHO' },
+    ],
+  },
+};
+
+const day = process.argv.slice(2).find((a) => !a.startsWith('--')) ?? 'thursday';
+const cfg = DAYS[day];
+if (!cfg) {
+  console.error(`Unknown day "${day}". Use one of: ${Object.keys(DAYS).join(', ')}.`);
+  process.exit(1);
+}
+const SAILSCORING = join(DATA_DIR, cfg.sailscoring);
+const PAIRINGS = cfg.pairings;
 
 // Points are low-point integers (RDG averages can be fractional); flag deltas
 // above this.

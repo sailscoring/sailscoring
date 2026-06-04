@@ -166,7 +166,11 @@ function perRaceHcaps(fleet: HalsailFleet, sail: string): { raceNumber: number; 
   return out;
 }
 
-export function buildThursdayBlueSeries(
+/** Per-class cruiser day series (Thursday Blue, Saturday): Cruisers 0/1/2 under
+ *  ECHO + IRC, Cruisers 3 under ECHO, plus one-design fleets that ride a class
+ *  start. The structure is identical across these days; only the fragments and
+ *  the series name/id differ. */
+export function buildCruiserDaySeries(
   classes: ClassInput[],
   oneDesigns: OneDesignInput[],
   opts: BuildOptions = {},
@@ -263,7 +267,6 @@ export function buildThursdayBlueSeries(
   for (const rn of raceNumbers) {
     const starts: FileRaceStart[] = [];
     let date = '';
-    interface Crossing { compId: string; sail: string; finish: string | null; code: string | null; redressType: number | null; }
     const crossings: Crossing[] = [];
 
     for (const cl of classes) {
@@ -291,79 +294,177 @@ export function buildThursdayBlueSeries(
       }
     }
 
-    // Crossing order across the whole sheet, by finish time of day.
-    const finished = crossings.filter((c) => c.finish).sort((a, b) => a.finish!.localeCompare(b.finish!));
-    const finishes: FileFinish[] = [];
-    let sortOrder = 0;
-    for (const c of finished) {
-      sortOrder++;
-      finishes.push({
-        id: `fin-${rn}-${c.compId}`,
-        competitorId: c.compId,
-        sortOrder,
-        finishTime: c.finish!,
-        resultCode: null,
-        startPresent: true,
-        penaltyCode: null,
-        penaltyOverride: null,
-      });
-    }
-    for (const c of crossings.filter((x) => !x.finish)) {
-      // Map HalSail's RDG type to the engine's redress method. The engine then
-      // computes the per-fleet value (a single stated figure can't be right for
-      // IRC and ECHO at once). Types 4/5 have no engine equivalent yet.
-      let redress: { redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before' } = {};
-      if (c.code === 'RDG') {
-        const method = c.redressType != null ? RDG_TYPE_TO_METHOD[c.redressType] : undefined;
-        if (method) {
-          redress = { redressMethod: method };
-        } else {
-          console.warn(`  ! Unsupported RDG type ${c.redressType ?? '?'} for sail ${c.sail} race ${rn}; falling back to all-races average. See horizon.`);
-          redress = { redressMethod: 'all_races' };
-        }
-      }
-      finishes.push({
-        id: `fin-${rn}-${c.compId}`,
-        competitorId: c.compId,
-        sortOrder: null,
-        resultCode: c.code!, // non-DNC (DNCs were omitted above)
-        startPresent: true, // came to the start but didn't finish
-        penaltyCode: null,
-        penaltyOverride: null,
-        ...redress,
-      });
-    }
-
     const ratingOverrides = ircOverridesByRace.get(rn);
     races.push({
       id: `race-${rn}`,
       raceNumber: rn,
       date: date || '2026-01-01',
       starts,
-      finishes,
+      finishes: assembleFinishes(rn, crossings),
       ...(ratingOverrides?.length ? { ratingOverrides } : {}),
     });
   }
 
-  const startDate = races.length ? races.map((r) => r.date).sort()[0] : '2026-01-01';
-  const endDate = races.length ? races.map((r) => r.date).sort()[races.length - 1] : startDate;
-  const seriesId = opts.seriesId ?? 'dbsc-thursday-blue-2026';
+  return assembleSeries(fleets, competitors, races, {
+    seriesId: opts.seriesId ?? 'dbsc-thursday-blue-2026',
+    seriesName: opts.seriesName ?? 'DBSC Thursday Blue — Cruisers (2026)',
+    venue: opts.venue ?? 'Dublin Bay Sailing Club',
+    snapshotId: opts.snapshotId,
+    exportedAt: opts.exportedAt,
+  });
+}
+
+/** Tuesday cruisers: ECHO only, with Cruisers 0/1/2 pooled into one "Combined
+ *  Cruisers" fleet (HalSail series 95502) and Cruisers 3 scored separately
+ *  (95467). No IRC and no one-design splits are published on Tuesday — the boats
+ *  fold into the pool. Each input is an ECHO fleet whose HalSail fragment is the
+ *  authoritative roster + finishes + per-race rating. */
+export function buildCombinedCruisersSeries(
+  echoFleets: { fleetId: string; name: string; fleet: HalsailFleet }[],
+  opts: BuildOptions = {},
+): SeriesFile {
+  const fleets: FileFleet[] = echoFleets.map((ef, i) => ({
+    id: ef.fleetId,
+    name: ef.name,
+    displayOrder: i,
+    scoringSystem: 'echo',
+    echoAlpha: 0.25,
+  }));
+
+  const competitors: FileCompetitor[] = [];
+  const sailToComp = new Map<string, string>();
+  const sailToFleet = new Map<string, string>();
+  for (const ef of echoFleets) {
+    for (const c of ef.fleet.competitors) {
+      if (sailToComp.has(c.sail)) continue; // a sail belongs to one Tuesday fleet
+      const id = compId(c.sail);
+      const seed = firstAppliedHcap(ef.fleet, c.sail);
+      competitors.push({
+        id,
+        fleetIds: [ef.fleetId],
+        sailNumber: c.sail,
+        ...(c.name ? { boatName: c.name } : {}),
+        ...(c.type ? { boatClass: c.type } : {}),
+        name: c.owner || c.name || c.sail,
+        ...(c.owner ? { owner: c.owner } : {}),
+        ...(c.helm ? { helm: c.helm } : {}),
+        club: c.club ?? '',
+        gender: '',
+        age: null,
+        ...(seed != null ? { echoStartingTcf: seed } : {}),
+      });
+      sailToComp.set(c.sail, id);
+      sailToFleet.set(c.sail, ef.fleetId);
+    }
+  }
+
+  const raceNumbers = [...new Set(echoFleets.flatMap((ef) => ef.fleet.races.map((r) => r.raceNumber)))].sort((a, b) => a - b);
+  const races: FileRace[] = [];
+  for (const rn of raceNumbers) {
+    const starts: FileRaceStart[] = [];
+    let date = '';
+    interface Crossing { compId: string; sail: string; finish: string | null; code: string | null; redressType: number | null; }
+    const crossings: Crossing[] = [];
+    for (const ef of echoFleets) {
+      const race = ef.fleet.races.find((r) => r.raceNumber === rn);
+      if (!race) continue;
+      if (race.date) date ||= race.date;
+      starts.push({ id: `rs-${rn}-${ef.fleetId}`, fleetIds: [ef.fleetId], startTime: race.startTime ?? '18:55:00' });
+      for (const f of race.finishers) {
+        const cid = sailToComp.get(f.sail);
+        if (!cid) continue;
+        if (!f.finish && (f.code === 'DNC' || !f.code)) continue; // DNC implicit
+        crossings.push({ compId: cid, sail: f.sail, finish: f.finish, code: f.code, redressType: f.redressType });
+      }
+    }
+    races.push({
+      id: `race-${rn}`,
+      raceNumber: rn,
+      date: date || '2026-01-01',
+      starts,
+      finishes: assembleFinishes(rn, crossings),
+    });
+  }
+
+  return assembleSeries(fleets, competitors, races, {
+    seriesId: opts.seriesId ?? 'dbsc-tuesday-cruisers-2026',
+    seriesName: opts.seriesName ?? 'DBSC Tuesday Cruisers (2026)',
+    venue: opts.venue ?? 'Dublin Bay Sailing Club',
+    snapshotId: opts.snapshotId,
+    exportedAt: opts.exportedAt,
+  });
+}
+
+interface Crossing { compId: string; sail: string; finish: string | null; code: string | null; redressType: number | null; }
+
+/** Crossing order (by finish time of day) into ordered finishes, with coded
+ *  non-finishers (DNF/RET/RDG…) appended. Shared by the cruiser-day builders. */
+function assembleFinishes(rn: number, crossings: Crossing[]): FileFinish[] {
+  const finished = crossings.filter((c) => c.finish).sort((a, b) => a.finish!.localeCompare(b.finish!));
+  const finishes: FileFinish[] = [];
+  let sortOrder = 0;
+  for (const c of finished) {
+    sortOrder++;
+    finishes.push({
+      id: `fin-${rn}-${c.compId}`,
+      competitorId: c.compId,
+      sortOrder,
+      finishTime: c.finish!,
+      resultCode: null,
+      startPresent: true,
+      penaltyCode: null,
+      penaltyOverride: null,
+    });
+  }
+  for (const c of crossings.filter((x) => !x.finish)) {
+    let redress: { redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before' } = {};
+    if (c.code === 'RDG') {
+      const method = c.redressType != null ? RDG_TYPE_TO_METHOD[c.redressType] : undefined;
+      if (method) redress = { redressMethod: method };
+      else {
+        console.warn(`  ! Unsupported RDG type ${c.redressType ?? '?'} for sail ${c.sail} race ${rn}; falling back to all-races average. See horizon.`);
+        redress = { redressMethod: 'all_races' };
+      }
+    }
+    finishes.push({
+      id: `fin-${rn}-${c.compId}`,
+      competitorId: c.compId,
+      sortOrder: null,
+      resultCode: c.code!,
+      startPresent: true,
+      penaltyCode: null,
+      penaltyOverride: null,
+      ...redress,
+    });
+  }
+  return finishes;
+}
+
+/** Shared SeriesFile scaffolding — the DBSC cruiser series config (handicap,
+ *  modified A5.3, sliding discards) is the same for every day. */
+function assembleSeries(
+  fleets: FileFleet[],
+  competitors: FileCompetitor[],
+  races: FileRace[],
+  opts: { seriesId: string; seriesName: string; venue: string; snapshotId?: string; exportedAt?: string },
+): SeriesFile {
+  const dates = races.map((r) => r.date).sort();
+  const startDate = dates.length ? dates[0] : '2026-01-01';
+  const endDate = dates.length ? dates[dates.length - 1] : startDate;
   // snapshotId lands in the `series.last_snapshot_id` UUID column on import, so
-  // it must be a valid UUID (unlike seriesId/fleet/competitor ids, which are
-  // remapped to fresh UUIDs by openSeriesFromFile). Fixed literal for stable,
-  // byte-identical regeneration.
+  // it must be a valid UUID. Fixed literal default for stable regeneration.
   const snapshotId = opts.snapshotId ?? 'f9a1c0de-2026-4b1e-8c00-000000000001';
 
   return {
     formatVersion: 6,
-    seriesId,
+    seriesId: opts.seriesId,
     snapshotId,
     snapshotHistory: [snapshotId],
     exportedAt: opts.exportedAt ?? new Date().toISOString(),
     series: {
-      id: seriesId,
-      name: opts.seriesName ?? 'DBSC Thursday Blue — Cruisers (2026)',
-      venue: opts.venue ?? 'Dublin Bay Sailing Club',
+      id: opts.seriesId,
+      name: opts.seriesName,
+      venue: opts.venue,
       startDate,
       endDate,
       venueLogoUrl: '',

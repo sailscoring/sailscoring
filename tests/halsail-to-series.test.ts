@@ -3,12 +3,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { parseHalsailFleet } from '../lib/halsail/parse-results';
-import { buildThursdayBlueSeries } from '../lib/halsail/to-series';
+import { buildCruiserDaySeries } from '../lib/halsail/to-series';
 
 const DIR = join(__dirname, '..', 'reference', 'data', '2026-dbsc-summer-series', 'halsail');
 const load = (f: string) => parseHalsailFleet(readFileSync(join(DIR, f), 'utf8'));
 
-const file = buildThursdayBlueSeries(
+const file = buildCruiserDaySeries(
   [
     { classNum: 0, echo: load('c0-echo-95445.html'), irc: load('c0-irc-95446.html') },
     { classNum: 1, echo: load('c1-echo-95452.html'), irc: load('c1-irc-95450.html') },
@@ -23,7 +23,7 @@ const file = buildThursdayBlueSeries(
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-describe('buildThursdayBlueSeries', () => {
+describe('buildCruiserDaySeries', () => {
   it('emits a UUID snapshotId (the series.last_snapshot_id column is a uuid)', () => {
     // Regression: a non-UUID snapshotId fails import with a Postgres
     // "invalid input syntax for type uuid" error.
