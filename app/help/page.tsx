@@ -1160,8 +1160,8 @@ export default async function HelpPage() {
               <em>Club website</em>), the FTP hostname, port (default 21), username, and password.
               Tick <strong className="text-foreground">FTPS (TLS)</strong> if your host requires an
               encrypted connection. You can configure multiple servers and switch between them at upload
-              time. Credentials are stored on this device only and are never included in series file
-              exports.
+              time. Credentials are stored encrypted, scoped to your workspace, and are never included
+              in series file exports.
             </p>
             <p>
               <strong className="text-foreground">Uploading:</strong> on the{' '}
@@ -1190,7 +1190,7 @@ export default async function HelpPage() {
           <strong className="text-foreground">Open in Sail Scoring</strong> link in the footer.
           Anyone viewing the results page can click it to open the series directly in the app
           — competitors, races, finishes, and standings are all imported automatically as a new
-          series. If you already have a series with that name on this device, the import gets a{' '}
+          series. If you already have a series with that name in your workspace, the import gets a{' '}
           <code className="text-foreground text-sm">(2)</code> suffix so the two are easy to
           tell apart.
         </p>

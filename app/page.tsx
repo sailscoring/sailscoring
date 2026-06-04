@@ -692,9 +692,9 @@ export default function HomePage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>&ldquo;{flowExisting?.name}&rdquo; is already on this device</DialogTitle>
+            <DialogTitle>&ldquo;{flowExisting?.name}&rdquo; is already in your workspace</DialogTitle>
             <DialogDescription>
-              The file you opened and the copy on this device are the same series.
+              The file you opened and the copy in your workspace are the same series.
               What would you like to do?
             </DialogDescription>
           </DialogHeader>
@@ -706,7 +706,7 @@ export default function HomePage() {
               Open as a new copy
             </Button>
             <Button onClick={() => handleDisambiguate('update')}>
-              Update this device&apos;s copy
+              Update the workspace copy
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -721,9 +721,9 @@ export default function HomePage() {
           <DialogHeader>
             <DialogTitle>Update &ldquo;{flowExisting?.name}&rdquo;?</DialogTitle>
             <DialogDescription>
-              This file is a newer version of your local copy.{' '}
+              This file is a newer version of your workspace copy.{' '}
               {flowFile && `Saved on ${new Date(flowFile.exportedAt).toLocaleString()}.`}
-              {' '}Your local copy will be replaced. This cannot be undone.
+              {' '}Your workspace copy will be replaced. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -744,7 +744,7 @@ export default function HomePage() {
           <DialogHeader>
             <DialogTitle>Nothing to update</DialogTitle>
             <DialogDescription>
-              This file matches your local copy. No changes were made.
+              This file matches your workspace copy. No changes were made.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -760,17 +760,17 @@ export default function HomePage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>⚠ This file conflicts with your local copy</DialogTitle>
+            <DialogTitle>⚠ This file conflicts with your workspace copy</DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2">
                 <p>
-                  This file and your local copy appear to have diverged — both have changes
+                  This file and your workspace copy appear to have diverged — both have changes
                   the other doesn&apos;t.
                 </p>
                 {flowFile && flowExisting && (
                   <div className="text-sm">
                     <p>This file: saved {new Date(flowFile.exportedAt).toLocaleString()}</p>
-                    <p>Local copy: last modified {new Date(flowExisting.lastModifiedAt).toLocaleString()}</p>
+                    <p>Workspace copy: last modified {new Date(flowExisting.lastModifiedAt).toLocaleString()}</p>
                   </div>
                 )}
               </div>
@@ -784,7 +784,7 @@ export default function HomePage() {
               Open as a new copy
             </Button>
             <Button variant="destructive" onClick={() => handleConfirmUpdate(false)}>
-              Replace local copy
+              Replace workspace copy
             </Button>
           </DialogFooter>
         </DialogContent>

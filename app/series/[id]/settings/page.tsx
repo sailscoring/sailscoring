@@ -738,7 +738,7 @@ export default function SettingsPage({
             {series.lastSavedAt
               ? <>Last saved: {formatTimestamp(series.lastSavedAt)}{isModified && <span className="ml-2 text-amber-600 dark:text-amber-400">· modified since last save</span>}</>
               : hasFileHistory
-              ? 'Opened from file — not yet saved from this device'
+              ? 'Opened from file — not yet saved'
               : 'Not saved to file'}
           </p>
         </div>
@@ -844,7 +844,7 @@ export default function SettingsPage({
           <DialogHeader>
             <DialogTitle>Nothing to update</DialogTitle>
             <DialogDescription>
-              This file matches your local copy. No changes were made.
+              This file matches your workspace copy. No changes were made.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -862,10 +862,10 @@ export default function SettingsPage({
           <DialogHeader>
             <DialogTitle>Update &ldquo;{series.name}&rdquo;?</DialogTitle>
             <DialogDescription>
-              This file is a newer version of your local copy.{' '}
+              This file is a newer version of your workspace copy.{' '}
               {updateFlow.step === 'confirm' &&
                 `Saved on ${new Date(updateFlow.file.exportedAt).toLocaleString()}.`}
-              {' '}Your local copy will be replaced. This cannot be undone.
+              {' '}Your workspace copy will be replaced. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -884,17 +884,17 @@ export default function SettingsPage({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>⚠ This file conflicts with your local copy</DialogTitle>
+            <DialogTitle>⚠ This file conflicts with your workspace copy</DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2">
                 <p>
-                  This file and your local copy appear to have diverged — both have changes
+                  This file and your workspace copy appear to have diverged — both have changes
                   the other doesn&apos;t.
                 </p>
                 {updateFlow.step === 'confirm' && (
                   <div className="text-sm">
                     <p>This file: saved {new Date(updateFlow.file.exportedAt).toLocaleString()}</p>
-                    <p>Local copy: last modified {formatTimestamp(series.lastModifiedAt)}</p>
+                    <p>Workspace copy: last modified {formatTimestamp(series.lastModifiedAt)}</p>
                   </div>
                 )}
               </div>
@@ -908,7 +908,7 @@ export default function SettingsPage({
               Open as a new copy
             </Button>
             <Button variant="destructive" onClick={() => handleConfirmUpdate(false)}>
-              Replace local copy
+              Replace workspace copy
             </Button>
           </DialogFooter>
         </DialogContent>

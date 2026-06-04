@@ -580,7 +580,7 @@ export async function updateSeriesFromFile(
   await repos.deleteSeriesChildren(seriesId);
 
   // Authoritative file-replay write — no `expectedVersion`. The user has
-  // already confirmed the lineage dialog ("Update" or "Replace local copy").
+  // already confirmed the lineage dialog ("Update" or "Replace workspace copy").
   // Spreading `...current` preserves `categoryId`/`archived` (#154): the file
   // doesn't carry them, and an update must not silently re-file or un-archive
   // the existing series.

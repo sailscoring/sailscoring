@@ -373,7 +373,7 @@ test('series file: diverged snapshot shows conflict dialog; open as new copy cre
   // ── Update from the diverged file ────────────────────────────────────────
   await updateFromFile(page, diverged);
 
-  await expect(page.getByRole('dialog', { name: /conflicts with your local copy/ })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: /conflicts with your workspace copy/ })).toBeVisible();
   await expect(page.getByRole('dialog')).toContainText('diverged');
 
   // ── Choose "Open as a new copy" ───────────────────────────────────────────

@@ -197,7 +197,7 @@ test.describe('series file save / open / update, server mode', () => {
 
     await updateFromFile(page, diverged);
 
-    await expect(page.getByRole('dialog', { name: /conflicts with your local copy/ })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: /conflicts with your workspace copy/ })).toBeVisible();
     await expect(page.getByRole('dialog')).toContainText('diverged');
 
     // "Open as a new copy" exercises openSeriesFromFile against Postgres.
