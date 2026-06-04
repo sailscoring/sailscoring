@@ -351,6 +351,15 @@ A boat scored under any rating system must hold a valid current certificate
 for it (NoR §3.5); ratings other than routine ECHO/PY updates must be
 notified to the Honorary Secretary (SI A15.3).
 
+**Mid-series re-rating happens** — a boat can lodge a new IRC certificate
+part-way through the season, and HalSail then scores its earlier races on the
+old TCC and later races on the new one (flagged with `*` in the published Hcap
+column; observed on Chimaera, 1.008 → 1.001). The fixed-rating systems (IRC,
+PY) therefore can't be modelled as a single per-boat value. *Added during M1:*
+per-race rating overrides let a boat keep its current rating while earlier
+races pin the superseded value. The progressive systems (ECHO/VPRS) don't need
+this — their rating already varies per race by construction.
+
 ## Water Wags
 
 - Wednesday evenings; up to **three divisions** assigned by the class.
@@ -385,8 +394,16 @@ is therefore "already supported" vs "genuinely new", not a fresh MVP list.
   a separate Series (see ECHO section); no special keying needed.
 - **Sliding-scale discards** — `discardThresholds: {minRaces, discardCount}[]`
   is already a table; the DBSC ladder is pure configuration.
-- **Modified A5.3 (DNC = starters + 1)** — `dnfScoring='startingArea'`
-  computes `startingAreaCount + 1`.
+- **Modified A5.3 (DNC = starters + 1)** — `dnfScoring='startingAreaInclDnc'`
+  scores DNC as `startingAreaCount + 1` too. *Added during M1:* the existing
+  `startingArea` mode applied the starters-+1 value to came-but-didn't-finish
+  codes only and left DNC on the A5.2 (entries + 1) value, which is **not**
+  what DBSC's SI A13.2 specifies; the new mode extends it to DNC.
+- **Redress (RDG)** — DBSC's published results carry RDG redress (per-fleet
+  average). *Added during M1:* the engine now resolves the redress average in
+  handicap (IRC/ECHO) fleets, not just scratch, and supports the RDG-type
+  variants HalSail emits (average over all races / excluding DNC / races
+  before the incident).
 
 ### Genuinely new (required before the relevant classes can be scored)
 

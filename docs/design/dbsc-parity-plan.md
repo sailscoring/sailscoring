@@ -67,9 +67,9 @@ configuration.
 
 ### Scoring config to confirm against HalSail
 
-- `dnfScoring = 'startingArea'` — DNC = (boats that came to the starting
-  area) + 1, computed **per race** (observed `10/DNC` and `9/DNC` in
-  different races of the same series).
+- `dnfScoring = 'startingAreaInclDnc'` — DNC = (boats that came to the
+  starting area) + 1, computed **per race** (observed `10/DNC` and `9/DNC` in
+  different races of the same series). DBSC SI A13.2; added for this milestone.
 - Discard ladder per SI A13.4 (`<4`→0, `4–6`→1, `7–11`→2, … `32+`→6).
 - IRC: fixed `Competitor.ircTcc` from the published `Hcap` column.
 - ECHO: alpha 0.25 (club), scored **per cruiser class** on Thursday (the
@@ -93,14 +93,46 @@ standings for C0/1/2/3 (plus J/109 and Sigma 33 scratch) match the
 corresponding HalSail tables — and the same holds for the next race once
 DBSC scores it.
 
-### Open inputs
+### Status — achieved (verified by hand)
 
-- DBSC's 2025 end-of-season ECHO seed handicaps for the Thursday cruisers,
-  and confirmation of the ECHO method/alpha and per-class (not pooled)
-  scoring.
-- The Thursday Blue finish-sheet data itself (sail numbers + finish times per
-  race) — from DBSC, or reconstructed from the HalSail per-race detail
-  tables (`Elapsed`/`Finish` columns) as a stopgap.
+The generated file reproduces the Thursday Blue IRC + ECHO standings exactly:
+net points, per-race places, codes, discards, and finishing order, matched
+against the HalSail tables. Reaching parity needed four engine changes and
+one converter fix, all landed:
+
+1. **`startingAreaInclDnc` `dnfScoring` mode** — modified A5.3 where DNC also
+   scores as (came to the starting area) + 1, per race (DBSC SI A13.2). The
+   existing `startingArea` mode left DNC on the A5.2 (entries + 1) value.
+2. **Redress in handicap fleets** — redress (RDG) previously resolved only in
+   scratch fleets; the engine now computes the per-fleet redress average in
+   IRC/ECHO fleets too, including the circular-redress aggregation.
+3. **RDG types from HalSail + a new method** — the parser reads the RDG type
+   from the Place cell; type 2 maps to a new `all_races_excl_dnc` redress
+   method (average excluding DNC, up to the discard allowance), with types 1
+   (`all_races`) and 3 (`races_before`) mapped to existing methods. Types 4/5
+   are noted in `docs/design/horizon.md`.
+4. **Per-race rating overrides** — a mid-series fixed-rating (IRC/PY) change
+   is modelled exactly: the boat carries its current rating and earlier races
+   pin the old value via a per-race override (new `race_rating_overrides`
+   table, engine resolution of the per-race applied TCF, a freeze-past
+   workflow on handicap update, a per-race Ratings tab, and an override marker
+   in the published per-race detail). Boat 2160 (Chimaera), which re-rated
+   1.008 → 1.001 mid-series, now reproduces the right *corrected time* in each
+   race, not just the right placing — closing what was a latent discrepancy.
+
+Converter fix: snapshot lineage ids are now valid RFC 4122 UUIDs, so the file
+imports cleanly through the app's `z.uuid()` API boundary (Postgres' `uuid`
+column had been lenient and masked the invalid ids).
+
+### Open inputs — resolved for M1
+
+- ECHO seeds and method: confirmed — the engine's Irish Sailing 2022
+  progressive ECHO (club alpha 0.25, scored per cruiser class on Thursday)
+  reproduces HalSail's ECHO standings; seeds are recovered from the HalSail
+  per-race detail (the rating going into each boat's first scored race).
+- Finish-sheet data: reconstructed from the HalSail per-race detail tables
+  (`Elapsed`/`Finish` columns) via `lib/halsail/parse-results.ts`. A real DBSC
+  finish sheet would substitute cleanly for the same import.
 
 ## Subsequent milestones (sketch)
 
