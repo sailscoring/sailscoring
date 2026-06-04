@@ -606,6 +606,39 @@ Root cause is shared with the per-fleet redress gap above: a rating that varies
 by race (and, for redress, by fleet) on what is currently one shared value per
 competitor. Implementation plan tracked outside this doc.
 
+### TLE (Time Limit Expired) — points relative to the last finisher
+
+A result code for boats that don't finish within a stated **Finishing Window**
+(the time allowed after the first boat sails the course and finishes). Unlike a
+plain time limit, TLE keeps the boat in the results rather than scoring it DNF:
+a boat scored TLE gets points for the finishing place a fixed number — `[one]`
+or `[two]`, chosen by the NoR/SI — *more* than the last boat that finished
+within the window. The World Sailing SI template wording (clause 16.3):
+
+> The Finishing Window is the time for boats to finish after the first boat
+> sails the course and finishes. Boats failing to finish within the Finishing
+> Window, and not subsequently retiring, penalized or given redress, will be
+> scored Time Limit Expired (TLE) without a hearing. A boat scored TLE shall be
+> scored points for the finishing place [one][two] more than the points scored
+> by the last boat that finished within the Finishing Window. This changes RRS
+> 35, A5.1, A5.2 and A10.
+
+Source: <https://www.racingrulesofsailing.org/posts/896-time-limit-expired-tle>.
+
+Sail Scoring has no TLE code today. **DBSC use it, and the HalSail converter
+currently maps it to DNF** — which over-penalises: a TLE boat should sit just
+behind the last finisher, not be lumped with the whole non-finishing field at
+`finishers + 1`.
+
+Shape of the change: a `TLE` entry in `lib/scoring-codes.ts` whose points aren't
+a fixed `finishers + 1` but are computed *relative to the last in-window
+finisher* — `(points of last finisher) + offset`, with `offset` ∈ {1, 2} a
+series-level setting (the `[one][two]` choice). All TLE boats in a race share
+that same points value and tie with each other. Note the cross-references it
+changes: A5.1/A5.2 (so a redress or scoring-penalty boat is excluded from the
+TLE set, per the SI proviso) and A10 (tie resolution). Worth scoring a fixture
+against a real DBSC race once the code lands.
+
 ---
 
 ## Deferred handicap-system work
