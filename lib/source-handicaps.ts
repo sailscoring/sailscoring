@@ -206,8 +206,9 @@ export interface PreviewRow {
   /** How the source row was matched. Set only for non-exact Irish Sailing
    *  matches so the dialog can show the basis for the scorer to verify. */
   match?: RatingMatch;
-  /** Which IRC TCC was used for this row. Set only on Irish Sailing `irc`
-   *  rows, so the dialog can label "IRC (spin)" / "IRC (non-spin)". */
+  /** Which spin/non-spin TCC was used for this row. Set on IRC and VPRS rows
+   *  (both carry the split), so the dialog can label e.g. "IRC (spin)" /
+   *  "VPRS (non-spin)". */
   ircVariant?: IrcTccVariant;
   /** Present on an Irish Sailing `irc` row when the boat holds more than one
    *  certificate (a primary plus a secondary "(SC)" — different sail
@@ -424,6 +425,11 @@ export interface RatingRecord {
   /** Non-spinnaker IRC TCC. */
   ircNonSpinTcc?: number;
   ircCertNumber?: string;
+  /** Spinnaker VPRS TCC. Same spin/non-spin split as IRC, sourced from the
+   *  VPRS club listing (`vprs-rating.ts`). */
+  vprsTcc?: number;
+  /** Non-spinnaker VPRS TCC ("No spin" column). */
+  vprsNonSpinTcc?: number;
   /** ECHO standard (Irish Sailing only). */
   echo?: number;
   /** Explicit secondary-certificate flag (IRC list `Secondary = SEC`). When
@@ -564,8 +570,18 @@ function push<T>(map: Map<string, T[]>, key: string, value: T): void {
   else map.set(key, [value]);
 }
 
-/** A boat's TCC for a given spin/non-spin variant. */
-function tccForVariant(record: RatingRecord, variant: IrcTccVariant): number | null {
+/** The two TCC systems that carry a spin/non-spin split. */
+type VariantSystem = 'irc' | 'vprs';
+
+/** A boat's TCC for a given spin/non-spin variant, from the IRC or VPRS pair. */
+function tccForVariant(
+  record: RatingRecord,
+  variant: IrcTccVariant,
+  system: VariantSystem = 'irc',
+): number | null {
+  if (system === 'vprs') {
+    return (variant === 'non-spin' ? record.vprsNonSpinTcc : record.vprsTcc) ?? null;
+  }
   return (variant === 'non-spin' ? record.ircNonSpinTcc : record.ircTcc) ?? null;
 }
 
@@ -590,13 +606,14 @@ function buildCertChoice(
   records: readonly RatingRecord[],
   variant: IrcTccVariant,
   chosenIndex: number,
+  system: VariantSystem = 'irc',
 ): CertChoice {
   return {
     chosen: certId(records[chosenIndex], chosenIndex),
     options: records.map((r, i) => ({
       certId: certId(r, i),
       label: `${r.ircCertNumber ? `#${r.ircCertNumber}` : '—'} · ${isSecondaryCert(r) ? 'secondary' : 'primary'}`,
-      tcc: tccForVariant(r, variant),
+      tcc: tccForVariant(r, variant, system),
       isSecondary: isSecondaryCert(r),
     })),
   };
@@ -605,6 +622,7 @@ function buildCertChoice(
 /** Allowed-system sets for the two rating-list sources. */
 const IRC_ONLY: ReadonlySet<HandicapSystem> = new Set<HandicapSystem>(['irc']);
 const ECHO_ONLY: ReadonlySet<HandicapSystem> = new Set<HandicapSystem>(['echo']);
+const VPRS_ONLY: ReadonlySet<HandicapSystem> = new Set<HandicapSystem>(['vprs']);
 
 /**
  * Produce preview rows for a rating-list source (Irish Sailing ECHO or
@@ -646,8 +664,12 @@ function planRatingUpdates(
       const system = systemForFleet(targetFleet);
       if (!system || !allowed.has(system)) continue;
 
-      // Per-fleet IRC variant; undefined on ECHO rows.
-      const ircVariant = system === 'irc' ? ircVariantByFleet[targetFleetId] ?? 'spin' : undefined;
+      // IRC and VPRS both carry a spin/non-spin split and use the per-fleet
+      // variant; ECHO does not. `variantSystem` is the system whose TCC pair we
+      // read (null for ECHO).
+      const variantSystem: VariantSystem | null =
+        system === 'irc' || system === 'vprs' ? system : null;
+      const ircVariant = variantSystem ? ircVariantByFleet[targetFleetId] ?? 'spin' : undefined;
       const base = {
         competitorId: targetComp.id,
         targetFleetId,
@@ -668,20 +690,21 @@ function planRatingUpdates(
       const records = matchResult.records;
 
       // Pick the certificate: an explicit per-boat override if it names one of
-      // this boat's certs, otherwise the higher-TCC default (for IRC, by the
-      // row's variant; for ECHO the value is the same across certs).
+      // this boat's certs, otherwise the higher-TCC default (for IRC/VPRS, by
+      // the row's variant; for ECHO the value is the same across certs).
       const rankVariant: IrcTccVariant = ircVariant ?? 'spin';
       const override = certChoiceByCompetitor[targetComp.id];
-      const chosenIndex = pickCertIndex(records, rankVariant, override);
+      const chosenIndex = pickCertIndex(records, rankVariant, override, variantSystem ?? 'irc');
       const record = records[chosenIndex];
 
-      // Offer a switch only for IRC rows where the boat has more than one cert.
+      // Offer a switch only for IRC/VPRS rows where the boat has more than one
+      // cert (VPRS publishes one row per boat, so this is inert there).
       const certChoice =
-        system === 'irc' && records.length > 1
-          ? buildCertChoice(records, rankVariant, chosenIndex)
+        variantSystem && records.length > 1
+          ? buildCertChoice(records, rankVariant, chosenIndex, variantSystem)
           : undefined;
 
-      const newTcf = system === 'irc' ? tccForVariant(record, ircVariant!) : record.echo ?? null;
+      const newTcf = variantSystem ? tccForVariant(record, ircVariant!, variantSystem) : record.echo ?? null;
 
       // Annotate non-exact matches so the scorer can verify the boat.
       const match: RatingMatch | undefined =
@@ -727,6 +750,16 @@ export function planEchoUpdates(input: RatingPlanInput): PreviewRow[] {
 }
 
 /**
+ * Preview rows for the VPRS source (a per-club listing). One row per target
+ * VPRS fleet membership; spin/non-spin per fleet, like IRC. VPRS publishes one
+ * row per boat, so the primary/secondary certificate switch never fires. Non-
+ * VPRS fleets produce no rows.
+ */
+export function planVprsUpdates(input: RatingPlanInput): PreviewRow[] {
+  return planRatingUpdates(input, VPRS_ONLY);
+}
+
+/**
  * Choose which certificate to use for a boat holding several. An `override`
  * `certId` wins when it names one of them; otherwise the default is the
  * certificate with the higher TCC for `variant` (nulls rank last). Returns the
@@ -736,15 +769,16 @@ function pickCertIndex(
   records: readonly RatingRecord[],
   variant: IrcTccVariant,
   override: string | undefined,
+  system: VariantSystem = 'irc',
 ): number {
   if (override) {
     const i = records.findIndex((r, idx) => certId(r, idx) === override);
     if (i >= 0) return i;
   }
   let best = 0;
-  let bestTcc = tccForVariant(records[0], variant);
+  let bestTcc = tccForVariant(records[0], variant, system);
   for (let i = 1; i < records.length; i++) {
-    const tcc = tccForVariant(records[i], variant);
+    const tcc = tccForVariant(records[i], variant, system);
     if (tcc !== null && (bestTcc === null || tcc > bestTcc)) {
       best = i;
       bestTcc = tcc;
