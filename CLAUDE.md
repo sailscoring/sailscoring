@@ -38,6 +38,7 @@ The full-stack transition (ADR-008) is complete through Phase 8. Better Auth + P
 - **GitHub:** `github.com/sailscoring/sailscoring` (private; org is `sailscoring`)
 - **Git:** Direct commits to `main` are fine; no PR requirement; SSH remote
 - **License:** All rights reserved, copyright Mark McLoughlin — deliberately deferred pending open-source vs. commercial decision. See `LICENSE` and `docs/goals.md`. This constraint should inform dependency choices: avoid copyleft (GPL) libraries that would limit future licensing options; prefer MIT, Apache 2.0, or BSD.
+- **Brand assets:** the logo, mark, favicons, and brand book live in a **separate git-lfs repo** — `github.com/sailscoring/branding` (private), checked out locally at `../branding`. Produced in the June 2026 refresh (Fiverr designer Ahtisham Ali); copyright transferred to Mark McLoughlin, "Sail Scoring" + logo asserted as unregistered (™) trademarks (see that repo's `LICENSE` / `TRADEMARK.md`). Fonts are **Audiowide** (display) + **Poppins** (body), both Google Fonts under the OFL. Not yet wired into the app — when doing so, build the favicon from the true-vector mark `logo/logo_mark 1.svg` (red `#fb3a3b`), **not** the shipped `favicon/*.svg`, which are raster bitmaps wrapped in SVG. The mark ships in red (`logo_mark 1`, light bg), white (`logo_mark 2`, dark/navy bg) and black (`logo_mark 4`, mono) colourways, all transparent — so use white on navy and the red-on-dark legibility worry doesn't arise.
 
 ## Issues Workflow
 
