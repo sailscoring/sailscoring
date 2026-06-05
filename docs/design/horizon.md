@@ -39,48 +39,6 @@ lead with in developer-facing documentation.
 
 *(Was GitHub issue #16)*
 
-### Fetch PY numbers from RYA
-
-Portsmouth Yardstick numbers are published by the RYA. Fetching them directly would
-let scorers select a class and get the current PY number automatically, rather than
-looking it up manually. Requires understanding the RYA's data availability — whether
-there's a public API or whether scraping/download is needed.
-
-### Fetch IRC and ECHO certs from rating authorities
-
-Importing IRC TCCs and ECHO handicaps directly — by sail number or boat name —
-would save scorers from manually entering handicap values and reduce
-transcription errors. Two candidate sources, with different coverage and terms:
-
-- **Irish Sailing** (`sailing.ie/Racing/Racing-Services/Echo-IRC-Ratings`) — the
-  primary source for Irish events. Publishes the full national list (IRC *and*
-  ECHO, ~358 boats) as a single server-rendered HTML table; no API, JSON, or
-  download endpoint, but one GET returns everything. A stdlib-only scraper and a
-  CSV snapshot live in `reference/data/irc-echo-ratings/`. This is the only
-  source for **ECHO** (an Irish-specific system), and it covers IRC for Irish
-  boats too, so for an event of only Irish boats it's sufficient on its own.
-
-- **International IRC TCC database** (RORC/YCF) — the online TCC listings at
-  `ircrating.org/irc-racing/online-tcc-listings/`, with the full club listing
-  downloadable as `topyacht.com.au/rorc/data/ClubListing.csv`. Needed only when
-  an event includes non-Irish IRC boats; overkill for Irish-only events.
-  RORC/YCF provide the data "solely for the purpose of verification of IRC TCCs
-  … for boats competing in IRC events" and forbid using it to create or
-  contribute to any handicap/rating. Applying a published TCC to score an IRC
-  event is the data's intended use and is in scope (TopYacht, who host the CSV,
-  are themselves a scoring vendor). Two boundaries to respect: (1) never let IRC
-  TCCs feed ECHO computation — ECHO is itself a rating, so that would cross the
-  "creation of a handicap" line; (2) fetch per-event for boats in events being
-  scored rather than maintaining a permanent public mirror of the whole DB. The
-  Irish Sailing terms are the open question for that source.
-
-Two further sources join these once **VPRS** and **YTC** scoring lands (see
-"VPRS and YTC (DBSC 2026)" under Deferred handicap-system work): VPRS ratings at
-`vprs.org/ratings.html`, and RYA YTC certificates listed by the RORC Rating
-Office at `rorcrating.com/ryaytc/ryaytclistings`. Same per-event,
-verification-only posture as the IRC listing — fetch the boats in an event being
-scored, don't mirror the whole database.
-
 ### Submit results to Irish Sailing and RYA
 
 After scoring a series, results could be submitted back to Irish Sailing (for ECHO
@@ -116,14 +74,6 @@ an external sink rather than the API being consumed.
 ---
 
 ## Finish entry UX
-
-### Drag-reorder in finish list
-
-Insertion and position editing cover the current UX needs. Drag-reorder could make
-mid-list corrections faster, but whether it's worth the complexity depends on how
-the existing UX holds up in real use. Revisit once there's experience with it.
-
-*(Was GitHub issue #20)*
 
 ### Elapsed time recording in finish entry
 
@@ -183,18 +133,16 @@ the snapshot history entries in the series file format.
 
 *(Was GitHub issue #37)*
 
-### Lock or archive a finished series — resolved by #154
+### Per-race lock granularity and unlock audit trail
 
-**Decided: archive *is* the lock — one action, not two.** Archiving a series (#154)
-makes it read-only and collapses it out of the active list; unarchiving (or copying to
-another workspace) restores editing. Read-only is enforced server-side, not just in the
-UI. Delete is gated behind archiving first (archive-then-delete). This subsumes the
-"lock a finished series" idea this section originally proposed — there is no separate
-lock action.
-
-Still genuinely future: per-race lock granularity (vs. whole-series), and an unlock
-audit trail once revision history exists. Those can layer on top of archive if a need
-emerges; they don't change the archive model.
+Whole-series locking is done: archiving a series (#154) makes it read-only
+(enforced server-side) and collapses it out of the active list; unarchiving or
+copying to another workspace restores editing, and delete is gated behind
+archive-first. What's still future layers on top of that model without changing
+it: **per-race lock granularity** (freeze individual races while the rest of the
+series stays editable), and an **unlock audit trail** that records who reopened a
+locked series or race and when — which only becomes meaningful once revision
+history (above) exists to record against.
 
 ### Attach committee-boat finish-sheet photos to a race
 
@@ -563,48 +511,12 @@ faithfully yet (see `docs/notes/halsail/querying-public-results.md`):
   HalSail converter maps types 1/2/3 (the averages, which the engine recomputes
   per fleet) and warns on 4/5.
 
-See also "Mid-series rating changes" below — a related per-race-rating gap.
-
-### Mid-series rating changes (per-race rating overrides)
-
-A boat can change its **fixed** rating part-way through a series: a new IRC
-certificate after a re-measurement, sail/configuration change or endorsement
-(and the same for VPRS, ORC Club, YTC, PY). Races sailed before the change are
-scored on the old rating; races from the change onward on the new one. HalSail
-records the rating per race (and marks a changed boat with `*` in the summary);
-Sailwave likewise lets you set a boat's rating per race.
-
-Sail Scoring currently stores **one rating per competitor** (`ircTcc`,
-`pyNumber`, …), applied to every race in the fleet. So a mid-series change
-can't be represented. Observed in DBSC: boat 2160 (Chimaera) went IRC 1.008
-→ 1.001 between races 3 and 5. The converter uses the first value and warns;
-in that case the wrong rating changed only a corrected *time*, not a place, so
-the standings still matched — but it's luck, not correctness.
-
-This differs from the progressive systems (ECHO/NHC), which recompute a new
-rating every race by design and already carry per-race ratings.
-
-**Chosen model — per-race rating overrides, with the competitor value kept
-current.** Rather than store a history on the competitor, keep
-`competitor.ircTcc` (etc.) as the *current* rating — so it carries forward to
-new races and future series unchanged — and pin the *past* with a sparse
-per-race **rating override**: a record `(race, competitor, field, value)`
-saying "treat this boat's `ircTcc` in this race as 1.008". Overrides are the
-exception (only re-rated boats, only their already-scored races); a race with
-no override uses the competitor's current value. Scoped to rating fields
-(`ircTcc`, `pyNumber`) for now, with a `field` discriminator so it can extend.
-
-Workflow: when the scorer updates a rating (e.g. "update handicaps from IRC")
-on a boat that already has scored races, offer **"keep scored races on the old
-rating"** (default — pins each not-yet-overridden scored race to the outgoing
-value) vs **"re-score everything"** (a correction, no overrides). Pinning to
-race *id* (not a race-number boundary) is robust to reordering. The
-`halsail-to-series` converter applies the same shape: set the competitor to the
-latest `Hcap` and emit overrides for the earlier races.
-
-Root cause is shared with the per-fleet redress gap above: a rating that varies
-by race (and, for redress, by fleet) on what is currently one shared value per
-competitor. Implementation plan tracked outside this doc.
+The per-race-rating analogue of this — mid-series changes to a boat's *fixed*
+rating (a new IRC/VPRS/PY certificate part-way through a series) — is now
+implemented as per-race rating overrides (`RaceRatingOverride`): the competitor
+keeps its current rating and already-scored races are pinned to the outgoing
+value. Redress remains the open gap because its per-race value is also
+*per-fleet*, which the shared `Finish` model can't yet express.
 
 ### TLE (Time Limit Expired) — points relative to the last finisher
 
@@ -718,19 +630,6 @@ algorithm — out of scope for the first pass, captured so it isn't lost:
 Detail in `docs/design/handicap-scoring.md` (ECHO → "Out of scope (first
 ECHO pass): certificate-layer features").
 
-### Carry-over of starting handicaps between series
-
-Progressive systems (NHC, ECHO) need a starting handicap for race 1 of
-each series. Today the scorer enters it per competitor by hand. A future
-flow could auto-carry each boat's end-of-last-series TCF into the new
-series.
-
-Open question first: the HYC Championships data shows boats starting a
-series on a TCF that differs from their carried-over master rating, so
-the real-world convention isn't pinned down — straight carry-over, a
-class-baseline reset between seasons, or deliberate manual entry. Ask the
-fleet scorer before building anything.
-
 ### VPRS and YTC (DBSC 2026)
 
 The **DBSC 2026 Summer Series** NoR
@@ -768,12 +667,15 @@ winning under IRC/VPRS forfeits the parallel ECHO prize (NoR 9.2) — the
 parallel-scoring and prize-eligibility shape is the same as the ECHO/one-design
 pairing already supported.
 
-**Rating sources.** Both want a fetch path mirroring the IRC rating import
-(`lib/irc-rating.ts`, #170): VPRS publishes its ratings at
-`vprs.org/ratings.html`, and RYA YTC certificates are listed by the RORC Rating
-Office at `rorcrating.com/ryaytc/ryaytclistings`. See the "Fetch IRC and ECHO
-certs from rating authorities" entry above for the per-event, verification-only
-terms posture these sources share.
+**Rating sources.** The IRC, ECHO and VPRS fetch paths are implemented
+(`lib/irc-rating.ts`, `lib/irish-sailing-ratings.ts`, `lib/vprs-rating.ts`);
+VPRS reads its ratings from `vprs.org/ratings.html`. YTC is the remaining
+source: RYA YTC certificates are listed by the RORC Rating Office at
+`rorcrating.com/ryaytc/ryaytclistings`, and its fetch path lands with YTC
+scoring. All these sources share the same posture the implemented ones already
+follow — per-event and verification-only: fetch the boats in an event being
+scored, never mirror the whole database, and never let a rating fetched for one
+system feed another's computation (e.g. IRC TCCs must not feed ECHO).
 
 ### PHRF (time-on-distance)
 
