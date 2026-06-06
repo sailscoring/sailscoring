@@ -85,12 +85,21 @@ function markSvg(fill: string, size: number): string {
   return `<svg viewBox="205 205 840 840" width="${size}" height="${size}" aria-hidden="true" style="vertical-align:middle;"><path fill="${fill}" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>`;
 }
 
+/** Brand lockup for the hero: white sail mark + the "Sail Scoring" wordmark,
+ *  side by side, linking to the brand site. */
+function brandLockup(): string {
+  return `<a class="brand" href="https://sailscoring.ie" target="_top" rel="noopener">${markSvg('#ffffff', 34)}<span class="brandname">Sail Scoring</span></a>`;
+}
+
 const FOOTER = `<footer class="credit">${markSvg('#fb3a3b', 14)} Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a></footer>`;
 
 const STYLE = `*{box-sizing:border-box;}
 body { font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, helvetica, sans-serif; margin: 0; background: #f4f6f8; color: #1a1a1a; }
 .hero { background: #073358; color: #fff; padding: 30px 24px 26px; text-align: center; border-bottom: 4px solid #fb3a3b; }
 .hero h1 { font-size: 1.7em; font-weight: 700; color: #fff; margin: 10px 0 0; }
+.hero .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.hero .brandname { color: #fff; font-size: 1.25em; font-weight: 700; letter-spacing: 0.01em; }
+.hero .brand:hover .brandname { text-decoration: underline; }
 .hero p.back { max-width: 720px; margin: 0 auto 4px; text-align: left; font-size: 0.9em; }
 .hero p.back a { color: #cfe0f0; text-decoration: none; }
 .hero p.back a:hover { color: #fff; text-decoration: underline; }
@@ -212,7 +221,7 @@ export function renderWorkspaceIndexHtml(
   items: WorkspaceIndexItem[],
 ): string {
   const heading = `${esc(workspaceName)} &mdash; published results`;
-  const hero = `${markSvg('#ffffff', 44)}\n<h1>${heading}</h1>`;
+  const hero = `${brandLockup()}\n<h1>${heading}</h1>`;
   if (items.length === 0) {
     return shell(
       `${workspaceName} — published results`,
@@ -304,6 +313,6 @@ ${pages
           .join('\n');
 
   const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)} &mdash; published results</a></p>`;
-  const hero = `${back}\n<h1>${esc(title)}</h1>`;
+  const hero = `${brandLockup()}\n${back}\n<h1>${esc(title)}</h1>`;
   return shell(title, hero, sections);
 }
