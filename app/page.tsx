@@ -125,7 +125,7 @@ function SeriesCard({
       ref={sortable?.ref}
       style={sortable?.style}
       data-testid="series-row"
-      className="flex items-center gap-1 border rounded-lg px-5 py-4 hover:bg-accent/50 transition-colors"
+      className="flex items-center gap-1 bg-card border rounded-lg px-5 py-4 shadow-sm transition-all hover:bg-accent/50 hover:shadow-md"
     >
       {sortable && (
         <DragHandle {...sortable.handleProps} data-testid={`series-drag-${series.id}`} />
@@ -501,7 +501,7 @@ export default function HomePage() {
           ) : (
             activeGroups.map((g) => (
               <section key={groupKey(g)} className="space-y-2">
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-primary">
                   {g.category?.name ?? 'Uncategorized'}
                 </h2>
                 <div className="space-y-2">{renderActiveGroup(g)}</div>
