@@ -80,25 +80,36 @@ export interface SeriesIndexGroup {
   pages: SeriesIndexPage[];
 }
 
-const FOOTER =
-  '<p>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a></p>';
+/** Inline brand sail mark — self-contained (no external image). */
+function markSvg(fill: string, size: number): string {
+  return `<svg viewBox="205 205 840 840" width="${size}" height="${size}" aria-hidden="true" style="vertical-align:middle;"><path fill="${fill}" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>`;
+}
 
-const STYLE = `body { font: 90% arial, helvetica, sans-serif; text-align: center; margin: 24px; }
-h1 { font-size: 1.6em; }
-h2.series { font-size: 1.1em; max-width: 640px; margin: 20px auto 6px; text-align: left; color: #334; }
-ul.listing { list-style: none; padding: 0; max-width: 640px; margin: 24px auto; text-align: left; }
-ul.listing li { padding: 10px 14px; border: 1px #ccd solid; border-radius: 6px; margin-bottom: 8px; }
-ul.listing li a { font-size: 1.1em; text-decoration: none; }
-ul.listing li a:hover { text-decoration: underline; }
-ul.listing .meta { display: block; color: #666; font-size: 0.85em; margin-top: 2px; }
-h2.section { font-size: 0.95em; text-transform: uppercase; letter-spacing: 0.04em; color: #556; max-width: 640px; margin: 24px auto 8px; text-align: left; }
-h3.year { font-size: 1em; color: #556; max-width: 640px; margin: 16px auto 6px; text-align: left; }
-h2.past { font-size: 1.2em; max-width: 640px; margin: 36px auto 0; text-align: left; border-top: 1px solid #ddd; padding-top: 16px; }
-p.empty { color: #666; }
-p.back { max-width: 640px; margin: 0 auto; text-align: left; font-size: 0.9em; }
-p { text-align: center; }`;
+const FOOTER = `<footer class="credit">${markSvg('#fb3a3b', 14)} Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a></footer>`;
 
-function shell(title: string, body: string): string {
+const STYLE = `*{box-sizing:border-box;}
+body { font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, helvetica, sans-serif; margin: 0; background: #f4f6f8; color: #1a1a1a; }
+.hero { background: #073358; color: #fff; padding: 30px 24px 26px; text-align: center; border-bottom: 4px solid #fb3a3b; }
+.hero h1 { font-size: 1.7em; font-weight: 700; color: #fff; margin: 10px 0 0; }
+.hero p.back { max-width: 720px; margin: 0 auto 4px; text-align: left; font-size: 0.9em; }
+.hero p.back a { color: #cfe0f0; text-decoration: none; }
+.hero p.back a:hover { color: #fff; text-decoration: underline; }
+.content { max-width: 720px; margin: 28px auto 40px; padding: 0 20px; }
+ul.listing { list-style: none; padding: 0; margin: 16px 0; }
+ul.listing li { background: #fff; border: 1px solid #e2e6ea; border-left: 4px solid transparent; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(7,51,88,0.06); transition: box-shadow .15s, border-color .15s, transform .1s; }
+ul.listing li:hover { box-shadow: 0 4px 14px rgba(7,51,88,0.13); border-left-color: #fb3a3b; transform: translateY(-1px); }
+ul.listing li a { display: block; padding: 14px 18px; font-size: 1.15em; font-weight: 600; color: #073358; text-decoration: none; }
+ul.listing .meta { display: block; color: #6b7280; font-size: 0.78em; font-weight: 400; margin-top: 3px; }
+h2.section { font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.08em; color: #073358; font-weight: 700; margin: 28px 0 10px; }
+h2.series { font-size: 1.15em; color: #073358; font-weight: 700; margin: 24px 0 8px; }
+h2.past { font-size: 1.2em; color: #073358; font-weight: 700; margin: 36px 0 0; border-top: 1px solid #e2e6ea; padding-top: 18px; }
+h3.year { font-size: 0.95em; color: #556; font-weight: 600; margin: 18px 0 8px; }
+p.empty { color: #6b7280; text-align: center; margin: 48px 0; }
+footer.credit { text-align: center; color: #475569; font-size: 0.85em; padding: 22px 20px; border-top: 1px solid #e2e6ea; }
+footer.credit a { color: #073358; text-decoration: none; }
+footer.credit a:hover { color: #fb3a3b; text-decoration: underline; }`;
+
+function shell(title: string, hero: string, body: string): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -111,7 +122,10 @@ ${STYLE}
 </style>
 </head>
 <body>
+<header class="hero">${hero}</header>
+<main class="content">
 ${body}
+</main>
 ${FOOTER}
 </body>
 </html>`;
@@ -198,10 +212,12 @@ export function renderWorkspaceIndexHtml(
   items: WorkspaceIndexItem[],
 ): string {
   const heading = `${esc(workspaceName)} &mdash; published results`;
+  const hero = `${markSvg('#ffffff', 44)}\n<h1>${heading}</h1>`;
   if (items.length === 0) {
     return shell(
       `${workspaceName} — published results`,
-      `<h1>${heading}</h1>\n<p class="empty">No published results yet.</p>`,
+      hero,
+      '<p class="empty">No published results yet.</p>',
     );
   }
 
@@ -242,10 +258,7 @@ export function renderWorkspaceIndexHtml(
     sections = activeHtml + pastHtml;
   }
 
-  return shell(
-    `${workspaceName} — published results`,
-    `<h1>${heading}</h1>\n${sections}`,
-  );
+  return shell(`${workspaceName} — published results`, hero, sections);
 }
 
 /**
@@ -291,5 +304,6 @@ ${pages
           .join('\n');
 
   const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)} &mdash; published results</a></p>`;
-  return shell(title, `${back}\n<h1>${esc(title)}</h1>\n${sections}`);
+  const hero = `${back}\n<h1>${esc(title)}</h1>`;
+  return shell(title, hero, sections);
 }
