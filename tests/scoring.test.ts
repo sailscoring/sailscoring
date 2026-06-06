@@ -430,6 +430,61 @@ describe('getDiscardCount', () => {
   });
 });
 
+// ─── per-race ranks (podium badges) ──────────────────────────────────────────
+
+describe('calculateStandings raceRanks', () => {
+  const competitors = ['A', 'B', 'C'].map((id) => makeCompetitor(id));
+
+  it('records each clean finisher\'s within-fleet finish rank per race', () => {
+    const races = [makeRace('r1', 1), makeRace('r2', 2)];
+    const finishes: Finish[] = [
+      makeFinish('r1', 'A', 1), makeFinish('r1', 'B', 2), makeFinish('r1', 'C', 3),
+      makeFinish('r2', 'A', 3), makeFinish('r2', 'B', 1), makeFinish('r2', 'C', 2),
+    ];
+    const { standings } = calculateStandings(competitors, races, finishes);
+    const byId = (id: string) => standings.find((s) => s.competitor.id === id)!;
+    expect(byId('A').raceRanks).toEqual([1, 3]);
+    expect(byId('B').raceRanks).toEqual([2, 1]);
+    expect(byId('C').raceRanks).toEqual([3, 2]);
+  });
+
+  it('leaves coded finishes (DNC) with a null rank', () => {
+    const races = [makeRace('r1', 1)];
+    const finishes: Finish[] = [
+      makeFinish('r1', 'A', 1), makeFinish('r1', 'B', 2),
+      // C has no record → implicit DNC
+    ];
+    const { standings } = calculateStandings(competitors, races, finishes);
+    const c = standings.find((s) => s.competitor.id === 'C')!;
+    expect(c.raceRanks).toEqual([null]);
+  });
+
+  it('leaves an excluded race (no finishers) with a null rank', () => {
+    const races = [makeRace('r1', 1)];
+    // Nobody finished → race not validly held → excluded.
+    const finishes: Finish[] = [
+      makeFinish('r1', 'A', null, 'DNC'),
+      makeFinish('r1', 'B', null, 'DNC'),
+      makeFinish('r1', 'C', null, 'DNC'),
+    ];
+    const { standings } = calculateStandings(competitors, races, finishes);
+    expect(standings.every((s) => s.raceRanks[0] === null)).toBe(true);
+  });
+
+  it('populates raceRanks through the fleet path too', () => {
+    const races = [makeRace('r1', 1)];
+    const fleetCompetitors = ['A', 'B'].map((id) => makeCompetitor(id, 's1', 'f1'));
+    const fleet = makeFleet('f1', 'Default', 0);
+    const finishes: Finish[] = [
+      makeFinish('r1', 'A', 2), makeFinish('r1', 'B', 1),
+    ];
+    const { fleetStandings: [result] } = calculateFleetStandings([fleet], fleetCompetitors, races, finishes);
+    const byId = (id: string) => result.standings.find((s) => s.competitor.id === id)!;
+    expect(byId('A').raceRanks).toEqual([2]);
+    expect(byId('B').raceRanks).toEqual([1]);
+  });
+});
+
 // ─── calculateStandings with discards ────────────────────────────────────────
 
 describe('calculateStandings with discards', () => {

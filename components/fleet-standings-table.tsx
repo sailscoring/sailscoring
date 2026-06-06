@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   Table,
   TableBody,
@@ -122,7 +123,7 @@ function StandingRow({
   showNationality,
   showSubdivision,
 }: StandingRowProps) {
-  const { rank, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded } = standing;
+  const { rank, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded } = standing;
 
   const isFirst = rank === 1;
 
@@ -153,6 +154,13 @@ function StandingRow({
         const penaltyCode = racePenaltyCodes?.[i] ?? null;
         const penaltyOverride = racePenaltyOverrides?.[i] ?? null;
         const isRedress = raceRedressFlags?.[i] ?? false;
+        // Medal-badge the top-three finishers of each race, mirroring the
+        // overall Rank column (and the HTML export's td.rank1/2/3). Only clean,
+        // non-discarded finishes qualify — coded/penalty/redress cells keep
+        // their existing treatment, and discards stay struck through.
+        const raceRank = raceRanks?.[i] ?? null;
+        const showRaceMedal =
+          raceRank !== null && raceRank <= 3 && !isDiscard;
         const penaltyLabel = penaltyCode
           ? penaltyOverride !== null
             ? penaltyCode === 'DPI'
@@ -201,6 +209,8 @@ function StandingRow({
                 {points}
                 <span className="ml-0.5">({penaltyLabel})</span>
               </span>
+            ) : showRaceMedal ? (
+              <RankBadge rank={raceRank} label={points} />
             ) : (
               points
             )}
@@ -230,8 +240,14 @@ function StandingRow({
   );
 }
 
-/** Top-three ranks get a medal-coloured badge; the rest a plain number. */
-function RankBadge({ rank }: { rank: number }) {
+/**
+ * Top-three ranks get a medal-coloured badge; the rest a plain number. The
+ * colour is chosen from `rank`, while `label` controls what's shown inside —
+ * the overall Rank column shows the rank itself, but per-race cells show the
+ * race points (which equal the finishing place for clean finishers).
+ */
+function RankBadge({ rank, label }: { rank: number; label?: ReactNode }) {
+  const content = label ?? rank;
   const medal =
     rank === 1
       ? 'bg-[#d4a72c] text-black'
@@ -242,17 +258,18 @@ function RankBadge({ rank }: { rank: number }) {
           : null;
   if (!medal) {
     return (
-      <span className="text-sm tabular-nums text-muted-foreground">{rank}</span>
+      <span className="text-sm tabular-nums text-muted-foreground">{content}</span>
     );
   }
   return (
     <span
+      data-testid="podium-badge"
       className={cn(
-        'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold',
+        'inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold tabular-nums',
         medal,
       )}
     >
-      {rank}
+      {content}
     </span>
   );
 }

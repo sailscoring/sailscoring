@@ -946,6 +946,7 @@ export function calculateStandings(
         rank: i + 1,
         competitor: c,
         racePoints: [],
+        raceRanks: [],
         raceCodes: [],
         racePenaltyCodes: [],
         racePenaltyOverrides: [],
@@ -970,12 +971,14 @@ export function calculateStandings(
 
   // Calculate per-race scores for each competitor
   const competitorRacePoints = new Map<string, number[]>();
+  const competitorRaceRanks = new Map<string, (number | null)[]>();
   const competitorRaceCodes = new Map<string, (ResultCode | null)[]>();
   const competitorRacePenaltyCodes = new Map<string, (PenaltyCode | null)[]>();
   const competitorRacePenaltyOverrides = new Map<string, (number | null)[]>();
   const competitorRaceRedressFlags = new Map<string, boolean[]>();
   for (const competitor of competitors) {
     competitorRacePoints.set(competitor.id, []);
+    competitorRaceRanks.set(competitor.id, []);
     competitorRaceCodes.set(competitor.id, []);
     competitorRacePenaltyCodes.set(competitor.id, []);
     competitorRacePenaltyOverrides.set(competitor.id, []);
@@ -1013,6 +1016,7 @@ export function calculateStandings(
       const code = score ? score.resultCode : 'DNC';
       const finish = raceFinishMap.get(competitor.id);
       competitorRacePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : rawPoints);
+      competitorRaceRanks.get(competitor.id)!.push(raceExcluded[raceIdx] ? null : (score?.rank ?? null));
       competitorRaceCodes.get(competitor.id)!.push(code);
       competitorRacePenaltyCodes.get(competitor.id)!.push(finish?.penaltyCode ?? null);
       competitorRacePenaltyOverrides.get(competitor.id)!.push(finish?.penaltyOverride ?? null);
@@ -1078,6 +1082,7 @@ export function calculateStandings(
   // Build initial standings with discard info
   const standings: Standing[] = competitors.map((competitor) => {
     const racePoints = competitorRacePoints.get(competitor.id)!;
+    const raceRanks = competitorRaceRanks.get(competitor.id)!;
     const raceCodes = competitorRaceCodes.get(competitor.id)!;
     const racePenaltyCodes = competitorRacePenaltyCodes.get(competitor.id)!;
     const racePenaltyOverrides = competitorRacePenaltyOverrides.get(competitor.id)!;
@@ -1113,7 +1118,7 @@ export function calculateStandings(
       0,
     ));
 
-    return { rank: 0, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded] };
+    return { rank: 0, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded] };
   });
 
   // Sort: lowest net points wins, ties broken per RRS A8 (A8.1 then A8.2)
@@ -1233,6 +1238,7 @@ function calculateHandicapStandings(
         rank: i + 1,
         competitor: c,
         racePoints: [],
+        raceRanks: [],
         raceCodes: [],
         racePenaltyCodes: [],
         racePenaltyOverrides: [],
@@ -1278,12 +1284,14 @@ function calculateHandicapStandings(
   const tcfHistory: TcfRecord[] = [];
 
   const competitorRacePoints = new Map<string, number[]>();
+  const competitorRaceRanks = new Map<string, (number | null)[]>();
   const competitorRaceCodes = new Map<string, (ResultCode | null)[]>();
   const competitorRacePenaltyCodes = new Map<string, (PenaltyCode | null)[]>();
   const competitorRacePenaltyOverrides = new Map<string, (number | null)[]>();
   const competitorRaceRedressFlags = new Map<string, boolean[]>();
   for (const competitor of competitors) {
     competitorRacePoints.set(competitor.id, []);
+    competitorRaceRanks.set(competitor.id, []);
     competitorRaceCodes.set(competitor.id, []);
     competitorRacePenaltyCodes.set(competitor.id, []);
     competitorRacePenaltyOverrides.set(competitor.id, []);
@@ -1302,7 +1310,7 @@ function calculateHandicapStandings(
     const raceFinishes = finishesByRace.get(race.id) ?? [];
     const raceStart = startsByRaceId.get(race.id);
 
-    let scores: Map<string, { points: number; place: number | null; resultCode: ResultCode | null }>;
+    let scores: Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null }>;
     if (raceStart) {
       // Phase A — race scoring (applies to both static and progressive fleets).
       // For static fleets, apply this race's rating overrides over the base map.
@@ -1370,7 +1378,7 @@ function calculateHandicapStandings(
     } else {
       // No start recorded yet — fall back to scratch scoring
       const scratchScores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
-      scores = new Map([...scratchScores.entries()].map(([id, s]) => [id, { points: s.points, place: s.place, resultCode: s.resultCode }]));
+      scores = new Map([...scratchScores.entries()].map(([id, s]) => [id, { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode }]));
     }
 
     // Exclude a race only if it was not validly held (no boat anywhere on the
@@ -1397,6 +1405,7 @@ function calculateHandicapStandings(
       const isFinisher = score?.place != null;
       const points = isFinisher ? applyAdditivePenalty(rawPoints, finish, penaltyCap) : rawPoints;
       competitorRacePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : points);
+      competitorRaceRanks.get(competitor.id)!.push(raceExcluded[raceIdx] ? null : (score?.rank ?? null));
       competitorRaceCodes.get(competitor.id)!.push(score !== undefined ? score.resultCode : 'DNC');
       competitorRacePenaltyCodes.get(competitor.id)!.push(isFinisher ? (finish?.penaltyCode ?? null) : null);
       competitorRacePenaltyOverrides.get(competitor.id)!.push(isFinisher ? (finish?.penaltyOverride ?? null) : null);
@@ -1452,6 +1461,7 @@ function calculateHandicapStandings(
 
   const standings: Standing[] = ratedCompetitors.map((competitor) => {
     const racePoints = competitorRacePoints.get(competitor.id)!;
+    const raceRanks = competitorRaceRanks.get(competitor.id)!;
     const raceCodes = competitorRaceCodes.get(competitor.id)!;
     const racePenaltyCodes = competitorRacePenaltyCodes.get(competitor.id)!;
     const racePenaltyOverrides = competitorRacePenaltyOverrides.get(competitor.id)!;
@@ -1487,6 +1497,7 @@ function calculateHandicapStandings(
       rank: 0,
       competitor,
       racePoints,
+      raceRanks,
       raceCodes,
       racePenaltyCodes,
       racePenaltyOverrides,

@@ -485,6 +485,7 @@ export interface Standing {
   rank: number;
   competitor: Competitor;
   racePoints: number[];                  // points per race, in race order
+  raceRanks: (number | null)[];          // within-fleet finish rank per race (1/2/3… for clean finishers); null for coded/penalty/redress/excluded/not-yet-sailed
   raceCodes: (ResultCode | null)[];      // result code per race (null = normal finish)
   racePenaltyCodes: (PenaltyCode | null)[];        // additive penalty per race (null = no penalty)
   racePenaltyOverrides: (number | null)[];          // override value per race (SCP %  or DPI pts; null = no override / no penalty)

@@ -136,6 +136,12 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   const daveRow = rows.filter({ hasText: 'Dave Walsh' });
   await expect(daveRow.getByRole('cell').last()).toContainText('12');
 
+  // Per-race podium badges: Alice has the overall rank badge plus a medal in
+  // each race (R1 1st, R2 2nd) → 3 badges. Bob, OCS in R2, only earns the R1
+  // 2nd medal alongside his overall 3rd → 2 badges (no badge on the OCS cell).
+  await expect(aliceRow.getByTestId('podium-badge')).toHaveCount(3);
+  await expect(rows.filter({ hasText: 'Bob Kelly' }).getByTestId('podium-badge')).toHaveCount(2);
+
   // Verify race count displayed
   await expect(page.getByText('2 races')).toBeVisible();
 

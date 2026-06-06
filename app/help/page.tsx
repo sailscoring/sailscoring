@@ -808,6 +808,12 @@ export default async function HelpPage() {
           Result codes are shown in parentheses in the race columns, e.g. <em>7 (DNF)</em>.
         </p>
         <p>
+          The <strong className="text-foreground">Rank</strong> column gives the top three overall a
+          gold, silver, or bronze badge. The same badges appear in the race columns on each race&apos;s
+          top three finishers, so you can spot the podium of every race at a glance. Coded,
+          penalised, redress, and discarded scores keep their usual styling and are never badged.
+        </p>
+        <p>
           When discard rules are configured, a{' '}
           <strong className="text-foreground">Nett</strong> column appears showing each
           competitor&apos;s series total after their worst score(s) are dropped. Discarded scores
