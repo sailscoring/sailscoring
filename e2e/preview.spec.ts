@@ -47,6 +47,16 @@ test('Preview renders the results page in an in-app iframe', async ({ page }) =>
   // Single-fleet: no fleet selector, just Download + Publish.
   await expect(dialog.getByRole('combobox')).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: 'Download' })).toBeVisible();
+
+  // The race column header in the standings summary is an in-page fragment
+  // link (`#r1`). Clicking it must scroll within the preview, not navigate the
+  // frame back into the app. (Regression: under `srcdoc` the fragment resolved
+  // against the app's URL and loaded the app inside the frame.)
+  await frame.getByRole('link', { name: 'R1' }).click();
+  await expect(frame.getByRole('heading', { name: /^R1\b/ })).toBeInViewport();
+  // Still the results page, not the app shell.
+  await expect(frame.getByText('Preview Cup 2026')).toBeVisible();
+  await expect(frame.getByRole('button', { name: 'Add competitor' })).toHaveCount(0);
 });
 
 test('Preview → Publish opens the Publish dialog', async ({ page }) => {

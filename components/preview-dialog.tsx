@@ -68,6 +68,27 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
 
   const current = files?.[selected] ?? null;
 
+  // Render via a blob URL rather than `srcdoc`. A srcdoc document inherits its
+  // base URL from the embedding app page, so the results' in-page race-column
+  // links (`href="#r1"`) would resolve against the app URL and navigate the
+  // frame back into the app instead of scrolling. A blob URL gives the frame
+  // its own document URL, so fragment links stay inside the preview.
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  // Object-URL lifecycle is an external resource the effect owns, so the
+  // setState here is the intended synchronisation (and needs revoke cleanup,
+  // which useMemo can't do).
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!current) {
+      setBlobUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([current.html], { type: 'text/html' }));
+    setBlobUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [current]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent
@@ -117,10 +138,10 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
               Nothing to preview yet — add competitors and race results first.
             </p>
           )}
-          {phase === 'idle' && current && (
+          {phase === 'idle' && current && blobUrl && (
             <iframe
               title="Results preview"
-              srcDoc={current.html}
+              src={blobUrl}
               className="h-full w-full"
               // Not sandboxed: this is the exact self-contained, script-free
               // artifact we already serve publicly (renderSeriesHtml escapes
