@@ -6,7 +6,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
   PRIMARY_PERSON_LABEL_TEXT,
@@ -47,9 +46,10 @@ export function FleetStandingsTable({
   const showNationality = enabledFields.includes('nationality');
   const showSubdivision = enabledFields.includes('subdivision');
   return (
+    <div className="overflow-hidden rounded-lg border">
     <Table>
       <TableHeader>
-        <TableRow>
+        <TableRow className="bg-primary hover:bg-primary [&>th]:text-primary-foreground [&>th]:font-semibold">
           <TableHead className="w-12 text-center">Rank</TableHead>
           <TableHead className="w-20">Sail no.</TableHead>
           {showBoat && <TableHead>Boat</TableHead>}
@@ -91,6 +91,7 @@ export function FleetStandingsTable({
         ))}
       </TableBody>
     </Table>
+    </div>
   );
 }
 
@@ -123,19 +124,16 @@ function StandingRow({
 }: StandingRowProps) {
   const { rank, competitor, racePoints, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded } = standing;
 
-  // Highlight rank 1 row
   const isFirst = rank === 1;
 
   return (
-    <TableRow className={cn(isFirst && 'bg-accent/40')}>
+    <TableRow
+      className={cn(
+        isFirst ? 'bg-primary/[0.06] font-medium' : 'odd:bg-muted/30',
+      )}
+    >
       <TableCell className="text-center">
-        {rank === 1 ? (
-          <Badge variant="default" className="text-xs">
-            1st
-          </Badge>
-        ) : (
-          <span className="text-sm">{rank}</span>
-        )}
+        <RankBadge rank={rank} />
       </TableCell>
       <TableCell className="font-mono">{competitor.sailNumber}</TableCell>
       {showBoat && <TableCell>{competitor.boatName ?? ''}</TableCell>}
@@ -215,14 +213,46 @@ function StandingRow({
           —
         </TableCell>
       ))}
-      <TableCell className="text-center font-semibold tabular-nums">
+      <TableCell
+        className={cn(
+          'text-center tabular-nums',
+          hasDiscards ? 'font-semibold' : 'font-bold text-primary',
+        )}
+      >
         {totalPoints}
       </TableCell>
       {hasDiscards && (
-        <TableCell className="text-center font-semibold tabular-nums">
+        <TableCell className="text-center font-bold text-primary tabular-nums">
           {netPoints}
         </TableCell>
       )}
     </TableRow>
+  );
+}
+
+/** Top-three ranks get a medal-coloured badge; the rest a plain number. */
+function RankBadge({ rank }: { rank: number }) {
+  const medal =
+    rank === 1
+      ? 'bg-[#d4a72c] text-black'
+      : rank === 2
+        ? 'bg-[#9ca3af] text-black'
+        : rank === 3
+          ? 'bg-[#b07a48] text-white'
+          : null;
+  if (!medal) {
+    return (
+      <span className="text-sm tabular-nums text-muted-foreground">{rank}</span>
+    );
+  }
+  return (
+    <span
+      className={cn(
+        'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold',
+        medal,
+      )}
+    >
+      {rank}
+    </span>
   );
 }
