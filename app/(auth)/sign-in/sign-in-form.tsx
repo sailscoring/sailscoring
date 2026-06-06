@@ -49,7 +49,7 @@ export function SignInForm() {
       ) : (
         <>
           <form onSubmit={onSubmit} className="flex flex-col gap-3">
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
