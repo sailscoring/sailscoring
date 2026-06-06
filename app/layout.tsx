@@ -1,8 +1,17 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Poppins } from 'next/font/google';
 import { eq } from 'drizzle-orm';
 
 import './globals.css';
+
+// Brand body font, matching sailscoring.ie. Audiowide (brand display face) is
+// reserved for the logo, not running text.
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+});
 import { Providers } from './providers';
 import { getOptionalSession } from '@/lib/auth/require-session';
 import { personalWorkspaceSlug } from '@/lib/auth/require-workspace';
@@ -22,6 +31,7 @@ import { Footer } from '@/components/footer';
 export const metadata: Metadata = {
   title: 'Sail Scoring',
   description: 'Sail race scoring',
+  metadataBase: new URL('https://app.sailscoring.ie'),
 };
 
 interface HeaderState {
@@ -92,7 +102,7 @@ export default async function RootLayout({
   const header = await loadHeaderState();
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      <body className={poppins.className}>
         <Providers>
           <WorkspaceMembershipsProvider
             memberships={header?.memberships ?? []}
