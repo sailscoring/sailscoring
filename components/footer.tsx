@@ -17,6 +17,10 @@ export function Footer() {
       >
         Terms
       </a>
+      <span className="ml-auto">
+        © {new Date().getFullYear()} Mark McLoughlin. Sail Scoring™ is an
+        unregistered trademark of Mark McLoughlin.
+      </span>
     </footer>
   );
 }

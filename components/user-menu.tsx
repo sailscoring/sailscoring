@@ -69,6 +69,15 @@ export function UserMenu({
           <DropdownMenuItem asChild>
             <Link href="/account">Account</Link>
           </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a
+              href="https://sailscoring.ie"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Visit sailscoring.ie
+            </a>
+          </DropdownMenuItem>
           {feedbackEnabled && (
             <DropdownMenuItem
               data-testid="user-menu-feedback"
