@@ -718,15 +718,15 @@ export default function ResultEntryPage({
       </div>
 
       {/* Tab selector */}
-      <div className="flex gap-1 border-b">
+      <div className="inline-flex flex-wrap gap-1 rounded-lg border bg-card p-1 shadow-sm">
         <button
           type="button"
           onClick={() => setActiveTab('finish')}
           className={cn(
-            'px-3 py-1.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+            'rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors',
             activeTab === 'finish'
-              ? 'border-foreground text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground',
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
           )}
         >
           Finish entry
@@ -735,10 +735,10 @@ export default function ResultEntryPage({
           type="button"
           onClick={() => setActiveTab('checkin')}
           className={cn(
-            'px-3 py-1.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+            'rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors',
             activeTab === 'checkin'
-              ? 'border-foreground text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground',
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
           )}
         >
           Start check-in
@@ -751,7 +751,7 @@ export default function ResultEntryPage({
             type="button"
             onClick={() => setActiveTab('ratings')}
             className={cn(
-              'px-3 py-1.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+              'rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors',
               activeTab === 'ratings'
                 ? 'border-foreground text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
@@ -763,6 +763,7 @@ export default function ResultEntryPage({
       </div>
 
       {activeTab === 'checkin' && (
+        <div className="bg-card border rounded-lg p-5">
         <CheckInTab
           competitors={competitors}
           showCrew={showCrew}
@@ -771,20 +772,23 @@ export default function ResultEntryPage({
           effectivelyPresent={effectivelyPresent}
           toggleStartPresent={toggleStartPresent}
         />
+        </div>
       )}
 
       {activeTab === 'ratings' && (
+        <div className="bg-card border rounded-lg p-5">
         <RatingsTab
           seriesId={seriesId}
           raceId={raceId}
           competitors={competitors}
           fleets={fleets ?? []}
         />
+        </div>
       )}
 
       {/* Race starts — only shown for handicap series */}
       {activeTab === 'finish' && isHandicapSeries && (
-        <div className="border rounded-lg px-4 py-3 space-y-2">
+        <div className="bg-card border rounded-lg px-4 py-3 space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-sm">Race starts</h3>
             {!startsExpanded ? (
@@ -848,6 +852,7 @@ export default function ResultEntryPage({
       />
 
       {activeTab === 'finish' && (
+        <div className="bg-card border rounded-lg p-5">
         <FinishTab
           finishEntry={finishEntry}
           competitors={competitors}
@@ -871,6 +876,7 @@ export default function ResultEntryPage({
           seriesId={seriesId}
           leave={leave}
         />
+        </div>
       )}
 
       <div className="flex gap-3 items-center border-t pt-4">
