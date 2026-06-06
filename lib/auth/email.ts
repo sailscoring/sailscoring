@@ -3,6 +3,8 @@ import path from 'node:path';
 
 const FROM_DEFAULT = 'Sail Scoring <noreply@sailscoring.ie>';
 const REPLY_TO = 'mark@hyc.ie';
+// Hosted in the app's public/ — email clients can't render the SVG logo.
+const LOGO_URL = 'https://app.sailscoring.ie/email-logo.png';
 
 const STEALTH_BETA_TEXT = `
 
@@ -57,15 +59,15 @@ export function renderMagicLinkHtml(args: { to: string; url: string; isNewUser: 
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="padding:32px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border-radius:8px;padding:32px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border-radius:8px;padding:32px;border-top:3px solid #fb3a3b;">
           <tr>
             <td>
-              <p style="margin:0 0 24px;font-size:14px;font-weight:600;color:#0f172a;letter-spacing:0.02em;">Sail Scoring</p>
+              <img src="${LOGO_URL}" alt="Sail Scoring" width="180" style="display:block;border:0;outline:none;text-decoration:none;margin:0 0 24px;">
               <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hi,</p>
               <p style="margin:0 0 24px;font-size:16px;line-height:1.6;">You asked to sign in to Sail Scoring as <strong>${toSafe}</strong>. Use the button below to finish signing in — open it in the same browser you used to request the link.</p>
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
                 <tr>
-                  <td style="border-radius:6px;background:#0f172a;">
+                  <td style="border-radius:6px;background:#073358;">
                     <a href="${urlSafe}" style="display:inline-block;padding:12px 24px;font-size:16px;color:#ffffff;text-decoration:none;font-weight:500;border-radius:6px;">Sign in to Sail Scoring</a>
                   </td>
                 </tr>
@@ -128,15 +130,15 @@ export function renderInvitationHtml(args: {
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="padding:32px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border-radius:8px;padding:32px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border-radius:8px;padding:32px;border-top:3px solid #fb3a3b;">
           <tr>
             <td>
-              <p style="margin:0 0 24px;font-size:14px;font-weight:600;color:#0f172a;letter-spacing:0.02em;">Sail Scoring</p>
+              <img src="${LOGO_URL}" alt="Sail Scoring" width="180" style="display:block;border:0;outline:none;text-decoration:none;margin:0 0 24px;">
               <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hi,</p>
               <p style="margin:0 0 24px;font-size:16px;line-height:1.6;"><strong>${inviterSafe}</strong> has invited you to join the <strong>${orgSafe}</strong> workspace on Sail Scoring as <strong>${roleSafe}</strong>.</p>
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
                 <tr>
-                  <td style="border-radius:6px;background:#0f172a;">
+                  <td style="border-radius:6px;background:#073358;">
                     <a href="${urlSafe}" style="display:inline-block;padding:12px 24px;font-size:16px;color:#ffffff;text-decoration:none;font-weight:500;border-radius:6px;">Accept invitation</a>
                   </td>
                 </tr>
