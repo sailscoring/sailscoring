@@ -271,7 +271,7 @@ function Wizard({
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 bg-card border rounded-lg p-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold">
           {isUpdate ? 'Update from Sailwave' : 'Import from Sailwave'}

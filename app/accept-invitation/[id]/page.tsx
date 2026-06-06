@@ -27,7 +27,7 @@ export default async function AcceptInvitationPage({
   if (!session) {
     const callbackURL = `/accept-invitation/${id}`;
     return (
-      <section className="max-w-sm">
+      <section className="max-w-sm mx-auto mt-8 bg-card border rounded-lg p-6">
         <h1 className="text-2xl font-semibold mb-1">Workspace invitation</h1>
         <p className="text-sm text-muted-foreground mb-6">
           You’ve been invited to a shared scoring workspace on Sail Scoring.
@@ -68,7 +68,7 @@ export default async function AcceptInvitationPage({
 
   if (!invitation) {
     return (
-      <section className="max-w-sm">
+      <section className="max-w-sm mx-auto mt-8 bg-card border rounded-lg p-6">
         <h1 className="text-2xl font-semibold mb-1">Invitation</h1>
         <p className="text-sm text-muted-foreground mb-6">
           This invitation isn’t valid anymore — it may have expired, been used

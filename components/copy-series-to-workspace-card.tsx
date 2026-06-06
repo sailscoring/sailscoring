@@ -91,7 +91,7 @@ export function CopySeriesToWorkspaceCard({
   }
 
   return (
-    <div className="border rounded-lg p-5 space-y-3">
+    <div className="bg-card border rounded-lg p-5 space-y-3">
       <div>
         <h2 className="text-sm font-medium">Copy to another workspace</h2>
         <p className="text-sm text-muted-foreground mt-0.5">

@@ -205,7 +205,7 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
     : `${ruleCount} discard rule${ruleCount !== 1 ? 's' : ''} · ${dnfLabel}`;
 
   return (
-    <div className="border rounded-lg p-5 space-y-4">
+    <div className="bg-card border rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">Scoring</h2>
         {!expanded && (
