@@ -781,7 +781,7 @@ export default function CompetitorsPage({
       </div>
 
       {showAddForm && (
-        <div className="border rounded-lg p-5">
+        <div className="bg-card border rounded-lg p-5">
           <h2 className="font-medium mb-4">Add competitor</h2>
           <CompetitorForm
             initial={emptyForm}
@@ -797,6 +797,7 @@ export default function CompetitorsPage({
       )}
 
       {competitors !== undefined && competitors.length > 0 && (
+        <div className="overflow-hidden rounded-lg border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -872,6 +873,7 @@ export default function CompetitorsPage({
             ))}
           </TableBody>
         </Table>
+        </div>
       )}
 
       {competitors !== undefined && competitors.length === 0 && !showAddForm && (

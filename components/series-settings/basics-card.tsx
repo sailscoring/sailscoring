@@ -202,7 +202,7 @@ export function BasicsCard({
   const summary = parts.length ? parts.join(' · ') : 'No venue or dates set';
 
   return (
-    <div className="border rounded-lg p-5 space-y-4">
+    <div className="bg-card border rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">Basic</h2>
         {!expanded && (

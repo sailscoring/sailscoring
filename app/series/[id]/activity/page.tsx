@@ -84,7 +84,7 @@ export default function SeriesActivityPage({
       <p className="text-sm text-muted-foreground">
         Who changed what, newest first. Co-scorers&apos; edits appear here too.
       </p>
-      <ul className="divide-y" data-testid="activity-feed">
+      <ul className="divide-y bg-card border rounded-lg px-5" data-testid="activity-feed">
         {entries.map((entry) => (
           <ActivityRow key={entry.id} entry={entry} />
         ))}

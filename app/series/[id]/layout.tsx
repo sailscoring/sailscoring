@@ -110,7 +110,7 @@ export default function SeriesLayout({
         </div>
       )}
 
-      <nav className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1">
+      <nav className="inline-flex flex-wrap gap-1 rounded-lg border bg-card p-1 shadow-sm">
         {tabs.map((tab) => {
           const href = tab.href(id);
           const active = pathname.startsWith(href);

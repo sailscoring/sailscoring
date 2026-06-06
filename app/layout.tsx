@@ -147,7 +147,7 @@ export default async function RootLayout({
             {header && header.memberships.length === 1 && (
               <StealthBetaBanner />
             )}
-            <main className="px-6 py-8">{children}</main>
+            <main className="px-6 py-8 bg-muted min-h-[70vh]">{children}</main>
             <Footer />
             </FeaturesProvider>
           </WorkspaceMembershipsProvider>

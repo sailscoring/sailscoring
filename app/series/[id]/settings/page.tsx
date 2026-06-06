@@ -106,7 +106,7 @@ function ScoringModeCard({ seriesId, series }: { seriesId: string; series: Serie
     : 'Scratch (position-based)';
 
   return (
-    <div className="border rounded-lg p-5 space-y-4">
+    <div className="bg-card border rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">Scoring mode</h2>
         {!expanded && (
@@ -257,7 +257,7 @@ function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: 
   };
 
   return (
-    <div className="border rounded-lg p-5 space-y-4">
+    <div className="bg-card border rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">Competitor fields</h2>
         {!expanded && (
@@ -394,7 +394,7 @@ function PublishingCard({ seriesId, series, anyProgressiveFleet }: { seriesId: s
   const summary = summaryParts.join(' · ');
 
   return (
-    <div className="border rounded-lg p-5 space-y-4">
+    <div className="bg-card border rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">Publishing</h2>
         {!expanded && (
@@ -521,7 +521,7 @@ function ArchiveCard({ seriesId, series }: { seriesId: string; series: Series })
   }
 
   return (
-    <div className="border rounded-lg p-5 space-y-4">
+    <div className="bg-card border rounded-lg p-5 space-y-4">
       <div>
         <h2 className="text-sm font-medium">Archive</h2>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -731,7 +731,7 @@ export default function SettingsPage({
       <ArchiveCard seriesId={seriesId} series={series} />
       <CopySeriesToWorkspaceCard seriesId={seriesId} seriesName={series.name} />
       {/* File card */}
-      <div className={`border rounded-lg p-5 space-y-4 ${!hasFileHistory ? 'opacity-70' : ''}`}>
+      <div className={`bg-card border rounded-lg p-5 space-y-4 ${!hasFileHistory ? 'opacity-70' : ''}`}>
         <div>
           <h2 className="text-sm font-medium">File</h2>
           <p className="text-sm text-muted-foreground mt-0.5">

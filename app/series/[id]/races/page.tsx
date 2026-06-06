@@ -47,7 +47,7 @@ function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
 
   return (
     <div
-      className="flex items-center justify-between border rounded-lg px-5 py-4 cursor-pointer hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex items-center justify-between bg-card border rounded-lg px-5 py-4 cursor-pointer hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       tabIndex={0}
       onClick={() => router.push(`/series/${seriesId}/races/${race.id}`)}
       onKeyDown={(e) => {

@@ -46,7 +46,7 @@ export function FleetStandingsTable({
   const showNationality = enabledFields.includes('nationality');
   const showSubdivision = enabledFields.includes('subdivision');
   return (
-    <div className="overflow-hidden rounded-lg border">
+    <div className="overflow-hidden rounded-lg border bg-card">
     <Table>
       <TableHeader>
         <TableRow className="bg-primary hover:bg-primary [&>th]:text-primary-foreground [&>th]:font-semibold">
