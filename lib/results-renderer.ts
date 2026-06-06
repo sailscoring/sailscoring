@@ -313,11 +313,14 @@ export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercen
 <meta name="description" content="sail scoring results">
 <meta name="viewport" content="width=device-width">
 <title>Results for ${esc(series.name)}${series.venue ? ' at ' + esc(series.venue) : ''}${titleSuffix}</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="205 205 840 840"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>')}">
 <style type="text/css">
 body {font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, arial, helvetica, sans-serif; font-size: ${fontPercent}%; text-align: center; color: #1a1a1a; border-top: 4px solid #fb3a3b;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
 .hardright {text-align: right; float: right; margin: 15px 25px 15px 0;}
-.breadcrumb {text-align: left; margin: 0 0 12px 25px; font-size: 0.9em;}
+.breadcrumb {text-align: left; margin: 0 0 14px 25px; font-size: 0.78em;}
+.breadcrumb a {color: #073358; text-decoration: none;}
+.breadcrumb a:hover {color: #fb3a3b; text-decoration: underline;}
 table {text-align: left; margin: 0px auto 30px auto; font-size: 1em; border-collapse: collapse; border: 1px #fff solid;}
 td, th {padding: 4px; border: 2px #fff solid; vertical-align: top;}
 th {background-color: #073358; color: #ffffff; font-weight: 600;}

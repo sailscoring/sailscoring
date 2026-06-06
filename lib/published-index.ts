@@ -80,10 +80,19 @@ export interface SeriesIndexGroup {
   pages: SeriesIndexPage[];
 }
 
+/** The sail-mark path, on the tightened `205 205 840 840` viewBox. */
+const MARK_PATH =
+  'M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z';
+
 /** Inline brand sail mark — self-contained (no external image). */
 function markSvg(fill: string, size: number): string {
-  return `<svg viewBox="205 205 840 840" width="${size}" height="${size}" aria-hidden="true" style="vertical-align:middle;"><path fill="${fill}" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>`;
+  return `<svg viewBox="205 205 840 840" width="${size}" height="${size}" aria-hidden="true" style="vertical-align:middle;"><path fill="${fill}" d="${MARK_PATH}"/></svg>`;
 }
+
+/** Self-contained SVG favicon (red sail mark as a data URI). */
+const FAVICON = `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="205 205 840 840"><path fill="#fb3a3b" d="${MARK_PATH}"/></svg>`,
+)}">`;
 
 /** Brand lockup for the hero: white sail mark + the "Sail Scoring" wordmark,
  *  side by side, linking to the brand site. */
@@ -100,10 +109,10 @@ body { font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Ari
 .hero .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
 .hero .brandname { color: #fff; font-size: 1.25em; font-weight: 700; letter-spacing: 0.01em; }
 .hero .brand:hover .brandname { text-decoration: underline; }
-.hero p.back { max-width: 720px; margin: 0 auto 4px; text-align: left; font-size: 0.9em; }
-.hero p.back a { color: #cfe0f0; text-decoration: none; }
-.hero p.back a:hover { color: #fff; text-decoration: underline; }
 .content { max-width: 720px; margin: 28px auto 40px; padding: 0 20px; }
+p.back { margin: 0 0 16px; font-size: 0.82em; }
+p.back a { color: #073358; text-decoration: none; }
+p.back a:hover { color: #fb3a3b; text-decoration: underline; }
 ul.listing { list-style: none; padding: 0; margin: 16px 0; }
 ul.listing li { background: #fff; border: 1px solid #e2e6ea; border-left: 4px solid transparent; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(7,51,88,0.06); transition: box-shadow .15s, border-color .15s, transform .1s; }
 ul.listing li:hover { box-shadow: 0 4px 14px rgba(7,51,88,0.13); border-left-color: #fb3a3b; transform: translateY(-1px); }
@@ -126,6 +135,7 @@ function shell(title: string, hero: string, body: string): string {
 <meta name="viewport" content="width=device-width">
 <meta name="robots" content="noindex">
 <title>${esc(title)}</title>
+${FAVICON}
 <style type="text/css">
 ${STYLE}
 </style>
@@ -313,6 +323,6 @@ ${pages
           .join('\n');
 
   const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)} &mdash; published results</a></p>`;
-  const hero = `${brandLockup()}\n${back}\n<h1>${esc(title)}</h1>`;
-  return shell(title, hero, sections);
+  const hero = `${brandLockup()}\n<h1>${esc(title)}</h1>`;
+  return shell(title, hero, `${back}\n${sections}`);
 }

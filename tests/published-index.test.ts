@@ -67,14 +67,14 @@ describe('renderSeriesIndexHtml', () => {
     expect(html).toContain('Spring Series');
   });
 
-  it('links back up to the workspace index above the heading', () => {
+  it('links back up to the workspace index above the listing', () => {
     const html = renderSeriesIndexHtml('hyc', 'Howth Yacht Club', 'spring-26', 'Spring Series', [
       { seriesName: 'Spring Series', pages: [{ fleetName: 'Cruisers', subPath: 'standings' }] },
     ]);
     expect(html).toContain('href="/p/hyc"');
     expect(html).toContain('Howth Yacht Club &mdash; published results');
-    // The back-link sits before the page heading.
-    expect(html.indexOf('href="/p/hyc"')).toBeLessThan(html.indexOf('<h1>'));
+    // The back-link sits above the listing content.
+    expect(html.indexOf('href="/p/hyc"')).toBeLessThan(html.indexOf('<ul'));
   });
 
   it('lists each named fleet for a multi-fleet publication', () => {
