@@ -110,7 +110,7 @@ export default function SeriesLayout({
         </div>
       )}
 
-      <nav className="flex gap-1 border-b">
+      <nav className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1">
         {tabs.map((tab) => {
           const href = tab.href(id);
           const active = pathname.startsWith(href);
@@ -118,11 +118,12 @@ export default function SeriesLayout({
             <Link
               key={tab.label}
               href={href}
+              aria-current={active ? 'page' : undefined}
               className={cn(
-                'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                'rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors',
                 active
-                  ? 'border-foreground text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground',
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
               )}
             >
               {tab.label}
