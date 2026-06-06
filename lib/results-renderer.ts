@@ -328,6 +328,8 @@ h3 {font-size: 1.2em;}
 p {text-align: center;}
 a {color: #073358;}
 a:hover {color: #fb3a3b;}
+th a {color: #ffffff; text-decoration: underline;}
+th a:hover {color: #cfe0f0;}
 .odd {background-color: #eef2f7;}
 .even {background-color: #dde7f0;}
 table.headertable {border: 0px;}
