@@ -116,8 +116,8 @@ p.back a:hover { color: #fb3a3b; text-decoration: underline; }
 ul.listing { list-style: none; padding: 0; margin: 16px 0; }
 ul.listing li { background: #fff; border: 1px solid #e2e6ea; border-left: 4px solid transparent; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(7,51,88,0.06); transition: box-shadow .15s, border-color .15s, transform .1s; }
 ul.listing li:hover { box-shadow: 0 4px 14px rgba(7,51,88,0.13); border-left-color: #fb3a3b; transform: translateY(-1px); }
-ul.listing li a { display: block; padding: 14px 18px; font-size: 1.15em; font-weight: 600; color: #073358; text-decoration: none; }
-ul.listing .meta { display: block; color: #6b7280; font-size: 0.78em; font-weight: 400; margin-top: 3px; }
+ul.listing li a { display: block; padding: 16px 18px; font-size: 1.15em; font-weight: 600; color: #073358; text-decoration: none; }
+ul.listing .meta { display: block; color: #6b7280; font-size: 0.78em; font-weight: 400; margin-top: 6px; }
 h2.section { font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.08em; color: #073358; font-weight: 700; margin: 28px 0 10px; }
 h2.series { font-size: 1.15em; color: #073358; font-weight: 700; margin: 24px 0 8px; }
 h2.past { font-size: 1.2em; color: #073358; font-weight: 700; margin: 36px 0 0; border-top: 1px solid #e2e6ea; padding-top: 18px; }
