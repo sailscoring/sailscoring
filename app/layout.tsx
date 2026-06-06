@@ -109,9 +109,19 @@ export default async function RootLayout({
             activeOrganizationId={header?.activeOrganizationId ?? null}
           >
             <FeaturesProvider features={header?.features ?? []}>
-            <header className="border-b px-6 py-3 flex items-baseline gap-3">
-              <Link href="/" className="font-semibold hover:underline">
-                Sail Scoring
+            <div className="h-[3px] bg-brand-red" />
+            <header className="border-b px-6 py-3 flex items-center gap-3">
+              <Link
+                href="/"
+                aria-label="Sail Scoring — home"
+                className="flex items-center"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/sail-scoring-wordmark.svg"
+                  alt="Sail Scoring"
+                  className="h-[22px] w-auto"
+                />
               </Link>
               {header && (
                 <WorkspaceSwitcher
@@ -119,7 +129,7 @@ export default async function RootLayout({
                   activeOrganizationId={header.activeOrganizationId}
                 />
               )}
-              <div className="ml-auto flex items-baseline gap-3">
+              <div className="ml-auto flex items-center gap-3">
                 <Link
                   href="/help"
                   className="text-sm text-muted-foreground hover:underline"
