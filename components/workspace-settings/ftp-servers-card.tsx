@@ -161,7 +161,7 @@ export function FtpServersCard() {
   }
 
   return (
-    <div className="border rounded-lg p-5 space-y-4">
+    <div className="bg-card border rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">FTP servers</h2>
         <Button size="sm" variant="outline" onClick={openAdd}>

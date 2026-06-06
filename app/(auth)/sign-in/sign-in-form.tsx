@@ -35,7 +35,7 @@ export function SignInForm() {
   }
 
   return (
-    <section className="max-w-sm">
+    <section className="max-w-sm mx-auto mt-8 bg-card border rounded-lg p-6">
       <h1 className="text-2xl font-semibold mb-1">Sign in</h1>
       <p className="text-sm text-muted-foreground mb-6">
         Enter your email and we&apos;ll send you a one-time link.

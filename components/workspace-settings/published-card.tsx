@@ -36,7 +36,7 @@ export function PublishedCard() {
   }
 
   return (
-    <div className="border rounded-lg p-5 space-y-4">
+    <div className="bg-card border rounded-lg p-5 space-y-4">
       <h2 className="text-sm font-medium">Published results</h2>
 
       {published === undefined && (

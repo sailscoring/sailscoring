@@ -35,7 +35,7 @@ export default async function AccountPage() {
     (rows.length === 1 ? rows[0] : null);
 
   return (
-    <section className="max-w-xl">
+    <section className="max-w-xl bg-card border rounded-lg p-6">
       <h1 className="text-2xl font-semibold mb-6">Account</h1>
 
       <dl className="grid grid-cols-[8rem_1fr] gap-y-2 text-sm mb-6">

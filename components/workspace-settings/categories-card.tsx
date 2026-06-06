@@ -19,7 +19,7 @@ export function CategoriesCard() {
   const list = categories ?? [];
 
   return (
-    <div className="border rounded-lg p-5 space-y-4">
+    <div className="bg-card border rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">Series categories</h2>
         <Button variant="outline" size="sm" onClick={() => setOpen(true)}>

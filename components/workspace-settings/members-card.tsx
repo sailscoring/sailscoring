@@ -98,7 +98,7 @@ export function MembersCard({ currentUserEmail }: { currentUserEmail: string | n
   }
 
   return (
-    <section className="rounded-lg border p-5 space-y-4">
+    <section className="bg-card rounded-lg border p-5 space-y-4">
       <div>
         <h2 className="text-lg font-semibold">Members</h2>
         <p className="text-sm text-muted-foreground">
