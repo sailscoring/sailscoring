@@ -367,8 +367,8 @@ short clock; this is about *them* deleting *their own* account on demand.
 `sailscoring.ie` is scoped to Irish clubs and classes deliberately — a narrow,
 legible userbase is far easier for a central organisation to fund or operate
 than the open-ended cost of running the service for the entire world (see
-[sustainability.md](../sustainability.md), "A central organisation funds or
-operates the service"). The natural consequence is that other governing bodies
+[sustainability.md](https://github.com/sailscoring/governance/blob/main/sustainability.md),
+"A central organisation funds or operates the service"). The natural consequence is that other governing bodies
 or large clubs may want their own country-scoped instance —
 `sailscoring.co.uk` run by/for the RYA, `sailscoring.fr` for the FFVoile, and
 so on — each funded and operated by an entity with an interest in its own
@@ -402,7 +402,8 @@ What's deferred is everything around making that repeatable and supported:
 Strongly tied to the open-source-vs-commercial decision: an open project that
 an adopter "who doesn't fit the funded audience can always host their own
 instance" of is exactly the federation story above
-([sustainability.md](../sustainability.md), "The bus factor").
+([sustainability.md](https://github.com/sailscoring/governance/blob/main/sustainability.md),
+"The bus factor").
 
 ### Localization (i18n)
 
