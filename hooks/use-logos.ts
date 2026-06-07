@@ -11,10 +11,11 @@ import type { Logo } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
 
-export function useLogos() {
+export function useLogos(enabled = true) {
   return useQuery<Logo[]>({
     queryKey: queryKeys.logos.list(),
     queryFn: () => logoRepo.list(),
+    enabled,
   });
 }
 

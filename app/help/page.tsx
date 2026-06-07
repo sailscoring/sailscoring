@@ -1130,9 +1130,12 @@ export default async function HelpPage() {
         </p>
         <p>
           Logos are shared with everyone in the workspace, so a logo one scorer cleans up is there
-          for the whole team. Picking a library logo when setting a series&apos; venue and event
-          burgees — instead of pasting a URL — is coming next; for now the library is where the
-          assets live.
+          for the whole team. When you set a series&apos; <strong className="text-foreground">venue</strong>{' '}
+          or <strong className="text-foreground">event logo</strong> in{' '}
+          <strong className="text-foreground">Basic</strong> settings, click{' '}
+          <strong className="text-foreground">Library</strong> to pick one — or paste a URL as before.
+          Picking from the library links the published results to the logo rather than a copy, so
+          updating the logo in the library updates results that use it without re-publishing.
         </p>
       </Section>
       )}

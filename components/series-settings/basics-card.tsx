@@ -5,6 +5,7 @@ import type { Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LogoField } from '@/components/series-settings/logo-field';
 
 export type BasicsValues = Pick<Series, 'name' | 'venue' | 'startDate' | 'endDate' | 'venueLogoUrl' | 'eventLogoUrl' | 'venueUrl' | 'eventUrl'>;
 
@@ -149,16 +150,12 @@ export function BasicsCard({
       </div>
       {showLogos && (
         <>
-          <div className="space-y-1.5">
-            <Label htmlFor="venueLogoUrl">Venue logo URL</Label>
-            <Input
-              id="venueLogoUrl"
-              type="url"
-              value={draft.venueLogoUrl}
-              onChange={(e) => update({ venueLogoUrl: e.target.value })}
-              placeholder="https://…"
-            />
-          </div>
+          <LogoField
+            id="venueLogoUrl"
+            label="Venue logo"
+            value={draft.venueLogoUrl}
+            onChange={(url) => update({ venueLogoUrl: url })}
+          />
           <div className="space-y-1.5">
             <Label htmlFor="venueUrl">Venue website URL</Label>
             <Input
@@ -170,16 +167,12 @@ export function BasicsCard({
             />
             <p className="text-xs text-muted-foreground">The venue logo and name link here in exported results.</p>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="eventLogoUrl">Event logo URL</Label>
-            <Input
-              id="eventLogoUrl"
-              type="url"
-              value={draft.eventLogoUrl}
-              onChange={(e) => update({ eventLogoUrl: e.target.value })}
-              placeholder="https://…"
-            />
-          </div>
+          <LogoField
+            id="eventLogoUrl"
+            label="Event logo"
+            value={draft.eventLogoUrl}
+            onChange={(url) => update({ eventLogoUrl: url })}
+          />
           <div className="space-y-1.5">
             <Label htmlFor="eventUrl">Event website URL</Label>
             <Input

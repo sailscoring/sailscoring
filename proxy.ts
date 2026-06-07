@@ -22,7 +22,8 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Match every path except: the sign-in page itself, the public help
   // page, the public published-results pages (`/p/{slug}`, ADR-008 Phase 9),
-  // every API route (which already returns 401 JSON), Next.js internals, and
-  // any path with a file extension (favicon, static assets).
-  matcher: ['/((?!sign-in|help|p/|api/|_next/|.*\\.).*)'],
+  // the public logo indirection route (`/logos/{id}`), every API route (which
+  // already returns 401 JSON), Next.js internals, and any path with a file
+  // extension (favicon, static assets).
+  matcher: ['/((?!sign-in|help|p/|logos/|api/|_next/|.*\\.).*)'],
 };

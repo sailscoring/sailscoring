@@ -74,3 +74,31 @@ export function logoBlobKey(
 ): string {
   return `logos/${workspaceId}/${sha256}.${logoExtension(contentType)}`;
 }
+
+/**
+ * Public indirection URL for a library logo, written into a series'
+ * `venueLogoUrl` / `eventLogoUrl` when the scorer picks from the library. The
+ * `/logos/{id}` route resolves it to the current bytes, so re-pointing the
+ * library entry updates published pages without a republish — and because the
+ * stored value is just a URL string, the existing series fields carry it with
+ * no format or export change. Keyed by the row id alone (a UUID, globally
+ * unique and durable across a workspace-slug rename) rather than `{ws}/{id}`.
+ *
+ * `base` is the canonical origin (`NEXT_PUBLIC_APP_URL`); when empty the URL is
+ * root-relative, which still resolves for in-app and `/p/` rendering on the
+ * same origin. Production sets the origin so downloaded/emailed exports resolve.
+ */
+export function logoPublicUrl(id: string, base = ''): string {
+  return `${base.replace(/\/$/, '')}/logos/${id}`;
+}
+
+const LOGO_URL_RE =
+  /\/logos\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+/** The logo id if `url` is a flag-locker indirection URL (absolute or
+ *  relative), else null. Lets the picker recognise a stored library reference
+ *  and pre-select it, distinguishing it from a hand-typed external URL. */
+export function parseLogoId(url: string): string | null {
+  const m = url.trim().match(LOGO_URL_RE);
+  return m ? m[1].toLowerCase() : null;
+}

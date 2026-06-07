@@ -5,6 +5,8 @@ import {
   isLogoClass,
   logoBlobKey,
   logoExtension,
+  logoPublicUrl,
+  parseLogoId,
   LOGO_CLASSES,
 } from '@/lib/flag-locker';
 import { logoCreateSchema, logoUpdateSchema } from '@/lib/validation/logo';
@@ -31,6 +33,22 @@ describe('flag-locker helpers', () => {
   test('blob key is content-addressed and namespaced', () => {
     const key = logoBlobKey('org_123', 'abc123', 'image/png');
     expect(key).toBe('logos/org_123/abc123.png');
+  });
+
+  test('public indirection URL round-trips through parseLogoId', () => {
+    const id = '11111111-2222-3333-4444-555555555555';
+    expect(logoPublicUrl(id)).toBe(`/logos/${id}`);
+    expect(logoPublicUrl(id, 'https://app.sailscoring.ie/')).toBe(
+      `https://app.sailscoring.ie/logos/${id}`,
+    );
+    expect(parseLogoId(logoPublicUrl(id))).toBe(id);
+    expect(parseLogoId(logoPublicUrl(id, 'https://app.sailscoring.ie'))).toBe(id);
+  });
+
+  test('parseLogoId ignores non-library URLs', () => {
+    expect(parseLogoId('https://hyc.ie/system/sponsor_logos/568/x.png')).toBeNull();
+    expect(parseLogoId('')).toBeNull();
+    expect(parseLogoId('/logos/not-a-uuid')).toBeNull();
   });
 });
 

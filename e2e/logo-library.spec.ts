@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { enableFeatures } from './helpers';
+import { createSeriesQuick, enableFeatures } from './helpers';
 
 /**
  * E2E for the flag locker — the per-workspace logo library (shared logo
@@ -53,4 +53,34 @@ test('Logo library: add, rename, delete', async ({ page }) => {
   // ── Delete ───────────────────────────────────────────────────────────────
   await page.getByRole('button', { name: 'Delete AIB Bank' }).click();
   await expect(page.getByText('No logos yet.')).toBeVisible();
+});
+
+test('pick a library logo as a series venue burgee', async ({ page }) => {
+  // Seed a logo in the library.
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Add logo' }).click();
+  await page.getByLabel('Image').setInputFiles(pngFile('hyc.png'));
+  await page.getByLabel('Name').fill('HYC');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('HYC', { exact: true })).toBeVisible();
+
+  // Open a series' Basic settings and pick the logo for the venue slot.
+  await createSeriesQuick(page, { name: 'Frostbite 2026', venue: 'Howth' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.locator('h2', { hasText: 'Basic' }).locator('..').getByRole('button', { name: /Edit/ }).click();
+
+  await page.getByRole('button', { name: 'Choose Venue logo from library' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /HYC/ }).click();
+
+  // The slot now holds the indirection URL, and the preview resolves it.
+  const venueLogo = page.getByRole('textbox', { name: 'Venue logo' });
+  await expect(venueLogo).toHaveValue(/\/logos\/[0-9a-f-]{36}$/);
+  const url = await venueLogo.inputValue();
+
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  // The public indirection route serves the bytes, unauthenticated.
+  const res = await page.request.get(url);
+  expect(res.status()).toBe(200);
+  expect(res.headers()['content-type']).toContain('image/png');
 });

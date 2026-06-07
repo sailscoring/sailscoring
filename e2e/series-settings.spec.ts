@@ -22,8 +22,8 @@ test('settings basics card saves venue, dates, and logo URLs', async ({ page }) 
   await page.getByLabel('Venue', { exact: true }).fill('Dún Laoghaire Harbour');
   await page.getByLabel('Start date').fill('2025-07-11');
   await page.getByLabel('End date').fill('2025-07-13');
-  await page.getByLabel('Venue logo URL').fill('https://example.com/venue-logo.png');
-  await page.getByLabel('Event logo URL').fill('https://example.com/event-logo.png');
+  await page.getByRole('textbox', { name: 'Venue logo' }).fill('https://example.com/venue-logo.png');
+  await page.getByRole('textbox', { name: 'Event logo' }).fill('https://example.com/event-logo.png');
   await page.getByLabel('Venue website URL').fill('https://venue.example.com');
   await page.getByLabel('Event website URL').fill('https://event.example.com');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -39,8 +39,8 @@ test('settings basics card saves venue, dates, and logo URLs', async ({ page }) 
   await expect(page.getByLabel('Venue', { exact: true })).toHaveValue('Dún Laoghaire Harbour');
   await expect(page.getByLabel('Start date')).toHaveValue('2025-07-11');
   await expect(page.getByLabel('End date')).toHaveValue('2025-07-13');
-  await expect(page.getByLabel('Venue logo URL')).toHaveValue('https://example.com/venue-logo.png');
-  await expect(page.getByLabel('Event logo URL')).toHaveValue('https://example.com/event-logo.png');
+  await expect(page.getByRole('textbox', { name: 'Venue logo' })).toHaveValue('https://example.com/venue-logo.png');
+  await expect(page.getByRole('textbox', { name: 'Event logo' })).toHaveValue('https://example.com/event-logo.png');
   await expect(page.getByLabel('Venue website URL')).toHaveValue('https://venue.example.com');
   await expect(page.getByLabel('Event website URL')).toHaveValue('https://event.example.com');
 });
@@ -53,8 +53,8 @@ test('logo and website URLs produce clickable logos and footer links in exported
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByLabel('Venue', { exact: true }).fill('Test Venue');
-  await page.getByLabel('Venue logo URL').fill('https://example.com/venue.png');
-  await page.getByLabel('Event logo URL').fill('https://example.com/event.png');
+  await page.getByRole('textbox', { name: 'Venue logo' }).fill('https://example.com/venue.png');
+  await page.getByRole('textbox', { name: 'Event logo' }).fill('https://example.com/event.png');
   await page.getByLabel('Venue website URL').fill('https://venue.example.com');
   await page.getByLabel('Event website URL').fill('https://event.example.com');
   await page.getByRole('button', { name: 'Save', exact: true }).click();

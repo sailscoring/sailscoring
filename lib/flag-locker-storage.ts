@@ -68,6 +68,27 @@ export async function putLogo(
   return `${DB_PREFIX}${key}`;
 }
 
+/**
+ * Public, unauthenticated lookup of a logo's stored bytes-locator by id, for
+ * the `/logos/{id}` indirection route. Not workspace-scoped: a logo referenced
+ * from a published page must resolve for anonymous viewers, and logos aren't
+ * secret. Returns enough to serve and to set an ETag (`sha256`).
+ */
+export async function getPublicLogo(
+  id: string,
+): Promise<{ locator: string; contentType: string; sha256: string } | null> {
+  const [row] = await getDb()
+    .select({
+      locator: schema.flagLockerLogos.locator,
+      contentType: schema.flagLockerLogos.contentType,
+      sha256: schema.flagLockerLogos.sha256,
+    })
+    .from(schema.flagLockerLogos)
+    .where(eq(schema.flagLockerLogos.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
 /** Read the bytes for a locator returned by `putLogo`, or null. */
 export async function readLogo(locator: string): Promise<Buffer | null> {
   if (locator.startsWith(DB_PREFIX)) {
