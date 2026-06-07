@@ -97,7 +97,7 @@ const FAVICON = `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,
 /** Brand lockup for the hero: white sail mark + the "Sail Scoring" wordmark,
  *  side by side, linking to the brand site. */
 function brandLockup(): string {
-  return `<a class="brand" href="https://sailscoring.ie" target="_top" rel="noopener">${markSvg('#ffffff', 34)}<span class="brandname">Sail Scoring</span></a>`;
+  return `<a class="brand" href="https://sailscoring.ie" target="_top" rel="noopener">${markSvg('#ffffff', 44)}<span class="brandname">Sail Scoring</span></a>`;
 }
 
 /** The workspace's own logo in the hero, on a white chip so any colourway stays
@@ -111,13 +111,17 @@ const FOOTER = `<footer class="credit">${markSvg('#fb3a3b', 14)} Sail Scoring &m
 
 const STYLE = `*{box-sizing:border-box;}
 body { font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, helvetica, sans-serif; margin: 0; background: #f4f6f8; color: #1a1a1a; }
-.hero { background: #073358; color: #fff; padding: 30px 24px 26px; text-align: center; border-bottom: 4px solid #fb3a3b; }
-.hero h1 { font-size: 1.7em; font-weight: 700; color: #fff; margin: 10px 0 0; }
-.hero .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
-.hero .brandname { color: #fff; font-size: 1.25em; font-weight: 700; letter-spacing: 0.01em; }
+.hero { background: #073358; color: #fff; padding: 32px 24px 28px; text-align: center; border-bottom: 4px solid #fb3a3b; }
+.hero h1 { font-size: 1.7em; font-weight: 700; color: #fff; margin: 22px 0 0; }
+/* Logos sit in a centred row with a generous gap. The lockup is vertically
+   stacked — mark over wordmark — so it reads square next to the (usually
+   squarish) workspace logo rather than as a wide banner. */
+.hero .herologos { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 40px; }
+.hero .brand { display: inline-flex; flex-direction: column; align-items: center; gap: 8px; text-decoration: none; }
+.hero .brandname { color: #fff; font-size: 1.15em; font-weight: 700; letter-spacing: 0.01em; }
 .hero .brand:hover .brandname { text-decoration: underline; }
-.hero .wslogo { display: inline-flex; align-items: center; justify-content: center; background: #fff; border-radius: 10px; padding: 10px 14px; margin: 16px 0 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
-.hero .wslogo img { display: block; height: 56px; width: auto; max-width: 260px; object-fit: contain; }
+.hero .wslogo { display: inline-flex; align-items: center; justify-content: center; background: #fff; border-radius: 10px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
+.hero .wslogo img { display: block; height: 60px; width: auto; max-width: 260px; object-fit: contain; }
 .content { max-width: 720px; margin: 28px auto 40px; padding: 0 20px; }
 p.back { margin: 0 0 16px; font-size: 0.82em; }
 p.back a { color: #073358; text-decoration: none; }
@@ -241,7 +245,7 @@ export function renderWorkspaceIndexHtml(
   logoUrl = '',
 ): string {
   const heading = `${esc(workspaceName)} &mdash; published results`;
-  const hero = `${brandLockup()}\n${heroLogo(logoUrl)}\n<h1>${heading}</h1>`;
+  const hero = `<div class="herologos">${brandLockup()}${heroLogo(logoUrl)}</div>\n<h1>${heading}</h1>`;
   if (items.length === 0) {
     return shell(
       `${workspaceName} — published results`,
@@ -334,6 +338,6 @@ ${pages
           .join('\n');
 
   const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)} &mdash; published results</a></p>`;
-  const hero = `${brandLockup()}\n${heroLogo(logoUrl)}\n<h1>${esc(title)}</h1>`;
+  const hero = `<div class="herologos">${brandLockup()}${heroLogo(logoUrl)}</div>\n<h1>${esc(title)}</h1>`;
   return shell(title, hero, `${back}\n${sections}`);
 }
