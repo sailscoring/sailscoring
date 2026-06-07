@@ -40,6 +40,20 @@ The full-stack transition (ADR-008) is complete through Phase 8. Better Auth + P
 - **License:** All rights reserved, copyright Mark McLoughlin — deliberately deferred pending open-source vs. commercial decision. See `LICENSE` and `docs/goals.md`. This constraint should inform dependency choices: avoid copyleft (GPL) libraries that would limit future licensing options; prefer MIT, Apache 2.0, or BSD.
 - **Brand assets:** the logo, mark, favicons, and brand book live in a **separate git-lfs repo** — `github.com/sailscoring/branding` (private), checked out locally at `../branding`. Produced in the June 2026 refresh (Fiverr designer Ahtisham Ali); copyright transferred to Mark McLoughlin, "Sail Scoring" + logo asserted as unregistered (™) trademarks (see that repo's `LICENSE` / `TRADEMARK.md`). Fonts are **Audiowide** (display) + **Poppins** (body), both Google Fonts under the OFL. Not yet wired into the app — when doing so, build the favicon from the true-vector mark `logo/logo_mark 1.svg` (red `#fb3a3b`), **not** the shipped `favicon/*.svg`, which are raster bitmaps wrapped in SVG. The mark ships in red (`logo_mark 1`, light bg), white (`logo_mark 2`, dark/navy bg) and black (`logo_mark 4`, mono) colourways, all transparent — so use white on navy and the red-on-dark legibility worry doesn't arise.
 
+### Sibling repositories
+
+Sail Scoring is spread across several repos under the `sailscoring` org, all private and SSH, each checked out as a sibling directory of this one (`../<repo>`). When a task touches one of these concerns, the source of truth lives in the named repo — not here:
+
+| Repo | Local path | What it holds |
+|------|-----------|---------------|
+| `sailscoring/sailscoring` | `../sailscoring` | **This repo** — the Next.js app and scoring engine. |
+| `sailscoring/sailscoring.ie` | `../sailscoring.ie` | The apex **marketing site** (`sailscoring.ie`), a separate Vercel project. The **legal pages** (`app/legal/privacy/page.tsx`, `app/legal/terms/page.tsx`) live here — see the Feature Checklist note on Privacy Policy and Terms. See `docs/design/marketing-site.md`. |
+| `sailscoring/governance` | `../governance` | The **non-technical** side, kept deliberately in the open: funding, sponsorship, governance, and long-term sustainability. Sustainability/finance docs were moved out of this app repo into here. |
+| `sailscoring/branding` | `../branding` | **Brand assets** (git-lfs): logo, mark, favicons, brand book. Detailed in the Brand assets bullet above. |
+| `sailscoring/national-letters` | `../national-letters` | A versioned, public-domain **dataset of three-letter national codes** (with country names + flag images) for entry-list dropdowns and results. The app vendors it into `lib/nationality/generated/` via `scripts/sync-national-letters.ts` (`pnpm nationality:sync`). |
+| `sailscoring/canonical-logos` | `../canonical-logos` | The maintained, versioned **canonical sailing-logo set** (governing bodies, clubs, class associations, sponsors, venues) served from `logos.sailscoring.ie` as the built-in tier of the workspace logo library (the `logo-library` feature). |
+| `sailscoring/scupper` | `../scupper` | **scupper** — the temporary FTP upload relay for the local-first MVP (`lib/scupper.ts` talks to it). Slated for shutdown; do not build anything new on it. |
+
 ## Issues Workflow
 
 | Type | When | Label | Command |
