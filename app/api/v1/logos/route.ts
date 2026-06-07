@@ -4,8 +4,11 @@ import { workspaceRoute } from '../_lib/handler';
 export const dynamic = 'force-dynamic';
 
 export const GET = workspaceRoute<Record<string, never>, unknown>(
-  async (_req, { workspace }) => {
-    return listLogos(workspace);
+  async (req, { workspace }) => {
+    // `?from={workspaceId}` lists another workspace the caller belongs to,
+    // for the cross-workspace copy picker (Phase 4).
+    const from = req.nextUrl.searchParams.get('from') ?? undefined;
+    return listLogos(workspace, from);
   },
 );
 

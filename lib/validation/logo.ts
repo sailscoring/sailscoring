@@ -39,5 +39,12 @@ export const logoDefaultsSchema = z.object({
   eventLogoId: uuidSchema.nullable(),
 });
 
+/** Copy a logo from another workspace the caller belongs to into the active
+ *  one (Phase 4). Copy, not reference — the target gets its own bytes + row. */
+export const logoCopySchema = z.object({
+  sourceWorkspaceId: z.string().min(1),
+  sourceLogoId: uuidSchema,
+});
+
 export type LogoCreateInput = z.infer<typeof logoCreateSchema>;
 export type LogoUpdateInput = z.infer<typeof logoUpdateSchema>;

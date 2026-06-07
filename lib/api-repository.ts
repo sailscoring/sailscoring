@@ -365,6 +365,19 @@ class ApiLogoRepository {
     return apiFetch<Logo[]>('/api/v1/logos');
   }
 
+  /** List the logos of another workspace the caller belongs to (copy picker). */
+  listFrom(workspaceId: string): Promise<Logo[]> {
+    return apiFetch<Logo[]>(`/api/v1/logos?from=${encodeURIComponent(workspaceId)}`);
+  }
+
+  /** Copy a logo from another workspace into the active one (copy, not ref). */
+  copyFrom(sourceWorkspaceId: string, sourceLogoId: string): Promise<Logo> {
+    return apiFetch<Logo>('/api/v1/logos/copy', {
+      method: 'POST',
+      body: { sourceWorkspaceId, sourceLogoId },
+    });
+  }
+
   create(upload: LogoUpload): Promise<Logo> {
     return apiFetch<Logo>('/api/v1/logos', { method: 'POST', body: upload });
   }

@@ -10,6 +10,7 @@ import {
   LOGO_CLASSES,
 } from '@/lib/flag-locker';
 import {
+  logoCopySchema,
   logoCreateSchema,
   logoDefaultsSchema,
   logoUpdateSchema,
@@ -100,6 +101,22 @@ describe('logo validation', () => {
     ).toBe(true);
     expect(
       logoDefaultsSchema.safeParse({ venueLogoId: 'nope', eventLogoId: null }).success,
+    ).toBe(false);
+  });
+
+  test('copy requires a source workspace id and a uuid logo id', () => {
+    expect(
+      logoCopySchema.safeParse({
+        sourceWorkspaceId: 'org_abc',
+        sourceLogoId: crypto.randomUUID(),
+      }).success,
+    ).toBe(true);
+    expect(
+      logoCopySchema.safeParse({ sourceWorkspaceId: '', sourceLogoId: crypto.randomUUID() })
+        .success,
+    ).toBe(false);
+    expect(
+      logoCopySchema.safeParse({ sourceWorkspaceId: 'org_abc', sourceLogoId: 'nope' }).success,
     ).toBe(false);
   });
 });

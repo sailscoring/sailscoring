@@ -4,19 +4,23 @@ import { useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 
 import {
+  useCopyLogo,
   useCreateLogo,
   useDeleteLogo,
   useLogoDefaults,
   useLogos,
+  useLogosFrom,
   useSetLogoDefaults,
   useUpdateLogo,
 } from '@/hooks/use-logos';
+import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
 import { logoRepo } from '@/lib/api-repository';
 import {
   isAllowedLogoContentType,
   LOGO_CLASS_LABELS,
   LOGO_CLASSES,
   LOGO_CONTENT_TYPES,
+  logoPublicUrl,
   MAX_LOGO_BYTES,
 } from '@/lib/flag-locker';
 import { Button } from '@/components/ui/button';
@@ -93,6 +97,97 @@ function DefaultsSection({ logos }: { logos: Logo[] }) {
         A new series starts with these logos; you can change them per series. Existing series aren&apos;t affected.
       </p>
     </div>
+  );
+}
+
+/** Copy a logo from another workspace the scorer belongs to into this one. A
+ *  copy, not a link: the logo keeps working here if the source changes it. */
+function CopyFromWorkspaceDialog({
+  open,
+  targets,
+  onClose,
+}: {
+  open: boolean;
+  targets: { organizationId: string; name: string }[];
+  onClose: () => void;
+}) {
+  const [sourceId, setSourceId] = useState('');
+  const { data: sourceLogos } = useLogosFrom(sourceId || null, open);
+  const copyLogo = useCopyLogo();
+  const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
+
+  async function handleCopy(id: string) {
+    await copyLogo.mutateAsync({ sourceWorkspaceId: sourceId, sourceLogoId: id });
+    setCopiedIds((prev) => new Set(prev).add(id));
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>Copy from another workspace</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Select
+            value={sourceId}
+            onValueChange={(v) => {
+              setSourceId(v);
+              setCopiedIds(new Set());
+            }}
+          >
+            <SelectTrigger className="w-full" data-testid="copy-source-workspace">
+              <SelectValue placeholder="Choose a workspace…" />
+            </SelectTrigger>
+            <SelectContent>
+              {targets.map((m) => (
+                <SelectItem key={m.organizationId} value={m.organizationId}>
+                  {m.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {sourceId && sourceLogos === undefined && (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          )}
+          {sourceId && sourceLogos?.length === 0 && (
+            <p className="text-sm text-muted-foreground">That workspace has no logos.</p>
+          )}
+          {sourceLogos && sourceLogos.length > 0 && (
+            <div className="grid grid-cols-1 gap-2 max-h-80 overflow-y-auto">
+              {sourceLogos.map((logo) => (
+                <div
+                  key={logo.id}
+                  className="flex items-center gap-2 border rounded-md px-2 py-2"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logoPublicUrl(logo.id)}
+                    alt={logo.displayName}
+                    className="h-8 w-8 shrink-0 object-contain"
+                  />
+                  <span className="min-w-0 flex-1 text-sm truncate">{logo.displayName}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={copiedIds.has(logo.id) || copyLogo.isPending}
+                    aria-label={`Copy ${logo.displayName}`}
+                    onClick={() => handleCopy(logo.id)}
+                  >
+                    {copiedIds.has(logo.id) ? 'Copied' : 'Copy'}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Done
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -258,10 +353,15 @@ function LogoDialog({
 export function LogosCard() {
   const { data: logos } = useLogos();
   const deleteLogo = useDeleteLogo();
+  const { memberships, activeOrganizationId } = useWorkspaceMemberships();
+  const copyTargets = memberships.filter(
+    (m) => m.organizationId !== activeOrganizationId,
+  );
   const [dialog, setDialog] = useState<{ open: boolean; logo: Logo | null }>({
     open: false,
     logo: null,
   });
+  const [copyOpen, setCopyOpen] = useState(false);
 
   function openAdd() {
     setDialog({ open: true, logo: null });
@@ -283,9 +383,16 @@ export function LogosCard() {
     <div className="bg-card border rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">Logo library</h2>
-        <Button size="sm" variant="outline" onClick={openAdd}>
-          Add logo
-        </Button>
+        <div className="flex gap-2">
+          {copyTargets.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => setCopyOpen(true)}>
+              Copy from workspace…
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={openAdd}>
+            Add logo
+          </Button>
+        </div>
       </div>
 
       {logos === undefined && (
@@ -350,6 +457,14 @@ export function LogosCard() {
         initial={dialog.logo}
         onClose={closeDialog}
       />
+
+      {copyTargets.length > 0 && (
+        <CopyFromWorkspaceDialog
+          open={copyOpen}
+          targets={copyTargets}
+          onClose={() => setCopyOpen(false)}
+        />
+      )}
     </div>
   );
 }

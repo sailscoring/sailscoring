@@ -50,6 +50,31 @@ export function useDeleteLogo() {
   });
 }
 
+/** Logos of another workspace the caller belongs to (the copy picker). */
+export function useLogosFrom(workspaceId: string | null, enabled = true) {
+  return useQuery<Logo[]>({
+    queryKey: queryKeys.logos.listFrom(workspaceId ?? ''),
+    queryFn: () => logoRepo.listFrom(workspaceId as string),
+    enabled: enabled && !!workspaceId,
+  });
+}
+
+export function useCopyLogo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sourceWorkspaceId,
+      sourceLogoId,
+    }: {
+      sourceWorkspaceId: string;
+      sourceLogoId: string;
+    }) => logoRepo.copyFrom(sourceWorkspaceId, sourceLogoId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.logos.list() });
+    },
+  });
+}
+
 export function useLogoDefaults(enabled = true) {
   return useQuery<LogoDefaults>({
     queryKey: queryKeys.logos.defaults(),

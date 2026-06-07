@@ -140,6 +140,47 @@ function randomId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
 }
 
+// 1×1 transparent PNG, base64 — the byte payload `logo_blobs` stores locally.
+const SEED_PNG_B64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+/**
+ * Insert a logo straight into a workspace's flag locker (Phase 4 cross-workspace
+ * copy tests). Seeds the `logo_blobs` byte row + the `flag_locker_logos`
+ * metadata row using the local `db:` locator, so the source workspace has a logo
+ * without needing the feature enabled or the upload UI. Returns the logo id.
+ */
+export async function seedLogo(
+  workspaceId: string,
+  displayName: string,
+): Promise<string> {
+  const { db, close } = adminDb();
+  try {
+    const id = crypto.randomUUID();
+    const key = `logos/${workspaceId}/${id}.png`;
+    await db.insert(schema.logoBlobs).values({
+      key,
+      data: SEED_PNG_B64,
+      contentType: 'image/png',
+      updatedAt: new Date(),
+    });
+    await db.insert(schema.flagLockerLogos).values({
+      id,
+      workspaceId,
+      displayName,
+      logoClass: 'sponsor',
+      locator: `db:${key}`,
+      contentType: 'image/png',
+      byteSize: 70,
+      sha256: id,
+      sourceUrl: null,
+    });
+    return id;
+  } finally {
+    await close();
+  }
+}
+
 /**
  * Create an organization workspace with a unique slug. Returns the
  * organization id so the caller can pass it to `addMemberByEmail` and

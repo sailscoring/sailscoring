@@ -1143,6 +1143,12 @@ export default async function HelpPage() {
           starts with those logos already in place (you can still change them per series); existing
           series aren&apos;t touched.
         </p>
+        <p>
+          If you belong to more than one workspace, <strong className="text-foreground">Copy from
+          workspace…</strong> pulls a logo another of your workspaces has already cleaned up into
+          this one. It&apos;s a copy, not a link — the logo keeps working here even if the original
+          is later changed or removed.
+        </p>
       </Section>
       )}
 

@@ -1,5 +1,11 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures } from './helpers';
+import {
+  addMemberByEmail,
+  createOrgWorkspace,
+  createSeriesQuick,
+  enableFeatures,
+  seedLogo,
+} from './helpers';
 
 /**
  * E2E for the flag locker — the per-workspace logo library (shared logo
@@ -109,4 +115,29 @@ test('workspace default logo is copied into a new series', async ({ page }) => {
     /\/logos\/[0-9a-f-]{36}$/,
   );
   await expect(page.getByRole('textbox', { name: 'Event logo' })).toHaveValue('');
+});
+
+test('copy a logo from another workspace into this one', async ({ page, signedInEmail }) => {
+  // A second workspace the user belongs to, with a logo seeded directly.
+  const orgName = `Source Club ${Date.now()}`;
+  const org = await createOrgWorkspace(orgName);
+  await addMemberByEmail(org.id, signedInEmail, 'owner');
+  await seedLogo(org.id, 'Shared Burgee');
+
+  // Active workspace stays personal; copy the logo across into it.
+  await page.goto('/workspace');
+  await expect(page.getByText('No logos yet.')).toBeVisible();
+  await page.getByRole('button', { name: 'Copy from workspace…' }).click();
+
+  await page.getByTestId('copy-source-workspace').click();
+  await page.getByRole('option').filter({ hasText: /Source Club/i }).click();
+
+  await page.getByRole('button', { name: 'Copy Shared Burgee' }).click();
+  await expect(page.getByRole('button', { name: 'Copy Shared Burgee' })).toHaveText('Copied');
+
+  await page.getByRole('dialog').getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  // The copy now lives in this workspace's library.
+  await expect(page.locator('main').getByText('Shared Burgee', { exact: true })).toBeVisible();
 });
