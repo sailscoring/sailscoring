@@ -44,7 +44,8 @@
     "halsail:compare": "tsx scripts/halsail-compare.ts",
     "nationality:sync": "tsx scripts/sync-national-letters.ts",
     "canonical:sync": "tsx scripts/sync-canonical-logos.ts",
-    "hyc-ftp-paths": "tsx --env-file-if-exists=.env.tmp scripts/hyc-ftp-paths.ts"
+    "hyc-ftp-paths": "tsx --env-file-if-exists=.env.tmp scripts/hyc-ftp-paths.ts",
+    "screenshots": "tsx scripts/screenshots.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

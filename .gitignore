@@ -38,6 +38,9 @@ yarn-error.log*
 .env*.local
 .env.tmp
 
+# saved Better Auth session for scripts/screenshots.ts (production cookie)
+/scripts/.auth/
+
 # vercel
 .vercel
 
