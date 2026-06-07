@@ -21,24 +21,40 @@ export const CANONICAL_CLASS_LABELS: Record<CanonicalLogoClass, string> = {
   regatta: 'Regatta',
 };
 
+/** The dedicated canonical-logo origin, when configured. In production this is
+ *  `https://logos.sailscoring.ie`, which serves the dataset bundle at its root
+ *  (`/{file}`). When unset — local dev, CI, e2e — the app self-hosts the synced
+ *  bundle under `/canonical-logos/{file}` from `public/` instead. */
+const CANONICAL_ORIGIN = (process.env.NEXT_PUBLIC_CANONICAL_LOGOS_URL ?? '').replace(
+  /\/$/,
+  '',
+);
+
 /**
- * Public URL for a canonical asset. Served from the app's own origin today
- * (`{base}/canonical-logos/{file}`); `base` is `NEXT_PUBLIC_APP_URL` so
+ * Public URL for a canonical asset. With a dedicated origin configured it is
+ * `{origin}/{file}` (already absolute); otherwise the app-hosted fallback
+ * `{appBase}/canonical-logos/{file}` — `appBase` is `NEXT_PUBLIC_APP_URL` so
  * downloaded/published exports resolve absolutely, empty for same-origin
- * in-app rendering. Relocating to a dedicated `logos.sailscoring.ie` origin is
- * a future change isolated to this one helper (see docs/design/horizon.md).
+ * in-app rendering. The hosting choice is isolated to this one helper.
  */
-export function canonicalLogoUrl(file: string, base = ''): string {
-  return `${base.replace(/\/$/, '')}/canonical-logos/${file}`;
+export function canonicalLogoUrl(file: string, appBase = ''): string {
+  if (CANONICAL_ORIGIN) return `${CANONICAL_ORIGIN}/${file}`;
+  return `${appBase.replace(/\/$/, '')}/canonical-logos/${file}`;
 }
 
-const CANONICAL_URL_RE = /\/canonical-logos\/([A-Za-z0-9._-]+)$/;
+const CANONICAL_PATH_RE = /\/canonical-logos\/([A-Za-z0-9._-]+)$/;
 
-/** The asset filename if `url` is a canonical reference (absolute or relative),
- *  else null — lets the picker recognise and pre-select a stored canonical
- *  choice and distinguish it from a hand-typed URL or a flag-locker reference. */
+/** The asset filename if `url` is a canonical reference (dedicated origin or
+ *  app-hosted fallback, absolute or relative), else null — lets the picker
+ *  recognise and pre-select a stored canonical choice and distinguish it from a
+ *  hand-typed URL or a flag-locker reference. */
 export function parseCanonicalLogoFile(url: string): string | null {
-  const m = url.trim().match(CANONICAL_URL_RE);
+  const u = url.trim();
+  if (CANONICAL_ORIGIN && u.startsWith(`${CANONICAL_ORIGIN}/`)) {
+    const rest = u.slice(CANONICAL_ORIGIN.length + 1);
+    return rest && !rest.includes('/') ? rest : null;
+  }
+  const m = u.match(CANONICAL_PATH_RE);
   return m ? m[1] : null;
 }
 

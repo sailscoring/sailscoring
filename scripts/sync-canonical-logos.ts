@@ -118,6 +118,16 @@ async function main() {
     );
   }
 
+  // When a dedicated origin (logos.sailscoring.ie) serves the assets, the app
+  // doesn't bundle them at all — the committed catalogue is enough. Skip the
+  // fetch entirely so production builds carry no logo binaries.
+  if (process.env.NEXT_PUBLIC_CANONICAL_LOGOS_URL) {
+    console.log(
+      `canonical-logos served from ${process.env.NEXT_PUBLIC_CANONICAL_LOGOS_URL} — skipping local asset sync.`,
+    );
+    return;
+  }
+
   // Skip the download when the assets on disk already match the pin. The
   // generated manifest.ts is committed, so it is already present too.
   const haveManifest = existsSync(join(GENERATED_DIR, 'manifest.ts'));

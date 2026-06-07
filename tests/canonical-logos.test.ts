@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   canonicalLogoUrl,
@@ -40,5 +40,25 @@ describe('canonical logo helpers', () => {
     expect(aib).toBeDefined();
     expect(findCanonicalByFile(aib!.file)?.id).toBe('aib');
     expect(findCanonicalByFile('does-not-exist.png')).toBeUndefined();
+  });
+});
+
+describe('canonical helpers with a dedicated origin', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  test('url + parse use the configured origin at its root', async () => {
+    vi.stubEnv('NEXT_PUBLIC_CANONICAL_LOGOS_URL', 'https://logos.sailscoring.ie');
+    vi.resetModules();
+    const mod = await import('@/lib/canonical-logos');
+
+    expect(mod.canonicalLogoUrl('aib.png')).toBe('https://logos.sailscoring.ie/aib.png');
+    expect(mod.parseCanonicalLogoFile('https://logos.sailscoring.ie/aib.png')).toBe('aib.png');
+    // The app-hosted fallback path is still recognised (older stored refs).
+    expect(mod.parseCanonicalLogoFile('/canonical-logos/aib.png')).toBe('aib.png');
+    // A different origin is not mistaken for a canonical reference.
+    expect(mod.parseCanonicalLogoFile('https://evil.example/aib.png')).toBeNull();
   });
 });
