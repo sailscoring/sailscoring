@@ -91,15 +91,16 @@ async function workspaceIndex(
   // ETag from listing metadata so repeat views revalidate without re-rendering.
   // Includes the placement fields (category / archive / order / year) so
   // re-categorising, archiving, or reordering a series busts the cached page.
-  const etag = `"${await contentHash(
-    items.map(
+  const etag = `"${await contentHash([
+    `logo:${workspace.logo}`,
+    ...items.map(
       (i) =>
         `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.year ?? ''}`,
     ),
-  )}"`;
+  ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
-  const html = renderWorkspaceIndexHtml(workspaceSlug, workspace.name, items);
+  const html = renderWorkspaceIndexHtml(workspaceSlug, workspace.name, items, workspace.logo);
   return htmlResponse(html, etag);
 }
 
@@ -118,8 +119,12 @@ async function seriesIndex(
   if (group.length === 0) return NOT_FOUND;
 
   // The listing changes only when a contributor re-publishes, so the members'
-  // content hashes compose a sound ETag.
-  const etag = `"${await contentHash(group.map((p) => p.contentHash))}"`;
+  // content hashes compose a sound ETag — plus the workspace logo, which the
+  // hero shows.
+  const etag = `"${await contentHash([
+    `logo:${workspace.logo}`,
+    ...group.map((p) => p.contentHash),
+  ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
 
@@ -141,6 +146,7 @@ async function seriesIndex(
     seriesSlug,
     title,
     groups,
+    workspace.logo,
   );
   return htmlResponse(html, etag);
 }

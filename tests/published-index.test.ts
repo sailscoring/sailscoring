@@ -34,6 +34,22 @@ describe('renderWorkspaceIndexHtml', () => {
     expect(html.indexOf('autumn-26')).toBeLessThan(html.indexOf('spring-26'));
   });
 
+  it('shows the workspace logo in the hero when given, on a white chip', () => {
+    const html = renderWorkspaceIndexHtml(
+      'hyc',
+      'HYC',
+      items,
+      'https://logos.sailscoring.ie/hyc.png',
+    );
+    expect(html).toContain('class="wslogo"');
+    expect(html).toContain('src="https://logos.sailscoring.ie/hyc.png"');
+  });
+
+  it('omits the logo chip when the workspace has no logo', () => {
+    const html = renderWorkspaceIndexHtml('hyc', 'HYC', items);
+    expect(html).not.toContain('class="wslogo"');
+  });
+
   it('renders an empty-state message when nothing is published', () => {
     const html = renderWorkspaceIndexHtml('hyc', 'HYC', []);
     expect(html).toContain('No published results yet');
@@ -65,6 +81,19 @@ describe('renderSeriesIndexHtml', () => {
     // The bare fleet name is not used as the link label for a single fleet.
     expect(html).not.toContain('>Cruisers<');
     expect(html).toContain('Spring Series');
+  });
+
+  it('shows the workspace logo in the hero when given', () => {
+    const html = renderSeriesIndexHtml(
+      'hyc',
+      'HYC',
+      'spring-26',
+      'Spring Series',
+      [{ seriesName: 'Spring Series', pages: [{ fleetName: 'Cruisers', subPath: 'standings' }] }],
+      '/logos/abc',
+    );
+    expect(html).toContain('class="wslogo"');
+    expect(html).toContain('src="/logos/abc"');
   });
 
   it('links back up to the workspace index above the listing', () => {

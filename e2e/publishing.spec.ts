@@ -142,6 +142,36 @@ test('workspace index lists published series and links through to a fleet page',
   await expect(page.getByRole('cell', { name: '42' }).first()).toBeVisible();
 });
 
+test('the workspace logo appears in the published index hero', async ({ page }) => {
+  // Give the workspace a logo (a built-in one), then publish a series.
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Choose workspace logo' }).click();
+  await page.getByRole('dialog').getByLabel('Search logos').fill('Howth');
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes('/api/v1/workspace') &&
+        r.request().method() === 'PATCH' &&
+        r.ok(),
+    ),
+    page.getByRole('dialog').getByRole('button', { name: 'Use Howth Yacht Club' }).click(),
+  ]);
+
+  await createSeriesWithData(page);
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const link = dialog.getByRole('link', { name: /\/p\// });
+  await expect(link).toBeVisible();
+  const workspaceSlug = new URL((await link.getAttribute('href')) ?? '').pathname.split('/')[2];
+
+  // The public workspace index hero shows the workspace logo.
+  await page.goto(`/p/${workspaceSlug}`);
+  const heroLogo = page.locator('.hero .wslogo img');
+  await expect(heroLogo).toBeVisible();
+  await expect(heroLogo).toHaveAttribute('src', /\/canonical-logos\/hyc\.png$/);
+});
+
 test('back-links chain a fleet page up to its series index and on to the workspace index', async ({ page }) => {
   await createSeriesWithData(page);
 

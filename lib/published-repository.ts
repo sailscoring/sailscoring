@@ -103,17 +103,22 @@ export async function getPublishedGroupByWorkspaceSlug(
   return rows.map(rowToPublished);
 }
 
-/** Resolve a workspace (id + display name) from its public slug. Drives the
- *  public route's workspace lookup and listing heading (#162). */
+/** Resolve a workspace (id + display name + own logo) from its public slug.
+ *  Drives the public route's workspace lookup, listing heading and hero logo
+ *  (#162). */
 export async function getWorkspaceBySlug(
   workspaceSlug: string,
-): Promise<{ id: string; name: string } | null> {
+): Promise<{ id: string; name: string; logo: string } | null> {
   const [row] = await getDb()
-    .select({ id: schema.organization.id, name: schema.organization.name })
+    .select({
+      id: schema.organization.id,
+      name: schema.organization.name,
+      logo: schema.organization.logo,
+    })
     .from(schema.organization)
     .where(eq(schema.organization.slug, workspaceSlug))
     .limit(1);
-  return row ?? null;
+  return row ? { id: row.id, name: row.name, logo: row.logo ?? '' } : null;
 }
 
 /** The display name of a series, or null if it no longer exists (orphaned

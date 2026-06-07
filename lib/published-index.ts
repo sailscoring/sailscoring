@@ -100,6 +100,13 @@ function brandLockup(): string {
   return `<a class="brand" href="https://sailscoring.ie" target="_top" rel="noopener">${markSvg('#ffffff', 34)}<span class="brandname">Sail Scoring</span></a>`;
 }
 
+/** The workspace's own logo in the hero, on a white chip so any colourway stays
+ *  legible on the navy background. Empty string when the workspace has no logo. */
+function heroLogo(url: string): string {
+  if (!url) return '';
+  return `<div class="wslogo"><img src="${esc(url)}" alt=""></div>`;
+}
+
 const FOOTER = `<footer class="credit">${markSvg('#fb3a3b', 14)} Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a></footer>`;
 
 const STYLE = `*{box-sizing:border-box;}
@@ -109,6 +116,8 @@ body { font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Ari
 .hero .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
 .hero .brandname { color: #fff; font-size: 1.25em; font-weight: 700; letter-spacing: 0.01em; }
 .hero .brand:hover .brandname { text-decoration: underline; }
+.hero .wslogo { display: inline-flex; align-items: center; justify-content: center; background: #fff; border-radius: 10px; padding: 10px 14px; margin: 16px 0 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
+.hero .wslogo img { display: block; height: 56px; width: auto; max-width: 260px; object-fit: contain; }
 .content { max-width: 720px; margin: 28px auto 40px; padding: 0 20px; }
 p.back { margin: 0 0 16px; font-size: 0.82em; }
 p.back a { color: #073358; text-decoration: none; }
@@ -229,9 +238,10 @@ export function renderWorkspaceIndexHtml(
   workspaceSlug: string,
   workspaceName: string,
   items: WorkspaceIndexItem[],
+  logoUrl = '',
 ): string {
   const heading = `${esc(workspaceName)} &mdash; published results`;
-  const hero = `${brandLockup()}\n<h1>${heading}</h1>`;
+  const hero = `${brandLockup()}\n${heroLogo(logoUrl)}\n<h1>${heading}</h1>`;
   if (items.length === 0) {
     return shell(
       `${workspaceName} — published results`,
@@ -300,6 +310,7 @@ export function renderSeriesIndexHtml(
   slug: string,
   title: string,
   groups: SeriesIndexGroup[],
+  logoUrl = '',
 ): string {
   const renderList = (pages: SeriesIndexPage[]): string => {
     const single = pages.length === 1;
@@ -323,6 +334,6 @@ ${pages
           .join('\n');
 
   const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)} &mdash; published results</a></p>`;
-  const hero = `${brandLockup()}\n<h1>${esc(title)}</h1>`;
+  const hero = `${brandLockup()}\n${heroLogo(logoUrl)}\n<h1>${esc(title)}</h1>`;
   return shell(title, hero, `${back}\n${sections}`);
 }
