@@ -29,9 +29,18 @@
  * this when the session lapses. The public shots need no auth.
  *
  * ── RUN ────────────────────────────────────────────────────────────────────
- *   pnpm screenshots                      # generic profile, defaults below
- *   SERIES_NAME='…' pnpm screenshots      # showcase a different in-app series
- *   PUBLIC_INDEX_URL=… PUBLIC_SERIES_URL=… PUBLIC_STANDINGS_URL=… pnpm screenshots
+ *   pnpm screenshots                      # generic: sample series, your
+ *                                         # personal "My Workspace", → generic/
+ *
+ * Org run (e.g. HYC) — switch workspace, pick one of its series, write to a
+ * gitignored per-org folder, and point the public shots at its listing:
+ *   WORKSPACE_NAME='Howth Yacht Club' \
+ *   SERIES_NAME='HYC Autumn League 2025' \
+ *   SCREENSHOT_OUT="$PWD/../governance/sponsorship/screenshots/hyc" \
+ *   PUBLIC_INDEX_URL='https://app.sailscoring.ie/p/hyc' \
+ *   PUBLIC_SERIES_URL='https://app.sailscoring.ie/p/hyc/autumn-league' \
+ *   PUBLIC_STANDINGS_URL='https://app.sailscoring.ie/p/hyc/autumn-league/class-1-irc' \
+ *   pnpm screenshots
  */
 
 import { mkdir, access } from 'node:fs/promises';
@@ -44,15 +53,24 @@ import { chromium, type Page } from '@playwright/test';
 const BASE = process.env.SCREENSHOT_BASE_URL ?? 'https://app.sailscoring.ie';
 const AUTH_STATE = resolve(__dirname, '.auth', 'app.json');
 
-/** Generic shots ship in the public prospectus, so they go in the committed
- *  governance folder (sibling checkout, like strawman/build.js → branding). */
+/** Generic shots ship in the public introduction leaflet, so they go in the
+ *  committed governance folder (sibling checkout, like introduction/build.js
+ *  → branding). */
 const OUT_DIR =
   process.env.SCREENSHOT_OUT ??
   resolve(__dirname, '..', '..', 'governance', 'sponsorship', 'screenshots', 'generic');
 
+/** Switch into this workspace before capturing, matched by the name shown in
+ *  the header switcher (e.g. "Howth Yacht Club"). Leave unset to stay in the
+ *  account's currently-active workspace — right for the generic sample shots,
+ *  which live in your personal "My Workspace". Set it for an org run so the
+ *  home page lists that org's series rather than your personal ones. */
+const WORKSPACE_NAME = process.env.WORKSPACE_NAME ?? '';
+
 /** The in-app series to showcase, matched by its name on the home page. The
  *  club-racing sample (IRC/ECHO, real boats) reads better than the dinghy
- *  regatta for a club/class prospectus. */
+ *  regatta for a club/class prospectus. For an org run, set this to one of that
+ *  org's own series. */
 const SERIES_NAME = process.env.SERIES_NAME ?? 'Sample Tuesday Evening League 2026';
 
 /** Public published listing URLs (no auth). The sample series must be published
@@ -95,12 +113,39 @@ async function settle(page: Page) {
   await page.waitForTimeout(400);
 }
 
+/** Flip the active workspace via the header switcher — the same path the app
+ *  uses (Better Auth setActiveOrganization, then a hard reload to '/'). No-op
+ *  if already in the target workspace. The switcher trigger and items are the
+ *  app's own test ids; items are matched by the workspace's display name. */
+async function switchWorkspace(page: Page, name: string): Promise<void> {
+  await page.goto(`${BASE}/`);
+  await settle(page);
+  const switcher = page.getByTestId('workspace-switcher');
+  if ((await switcher.textContent())?.includes(name)) return; // already active
+  await switcher.click();
+  await page.getByRole('menuitem').filter({ hasText: name }).first().click();
+  // The switch hard-reloads to '/'; wait until the trigger shows the new name.
+  for (let i = 0; i < 40; i++) {
+    await page.waitForTimeout(250);
+    if ((await switcher.textContent().catch(() => null))?.includes(name)) {
+      await settle(page);
+      return;
+    }
+  }
+  throw new Error(`workspace switch to "${name}" did not take effect`);
+}
+
 // ── Capture ──────────────────────────────────────────────────────────────────
 
 async function captureInApp(page: Page): Promise<void> {
+  if (WORKSPACE_NAME) {
+    console.log(`\nSwitching workspace → "${WORKSPACE_NAME}"`);
+    await switchWorkspace(page, WORKSPACE_NAME);
+  }
+
   console.log(`\nIn-app shots — "${SERIES_NAME}"`);
 
-  // Home → open the sample series. Capture the series id from the URL so we can
+  // Home → open the series. Capture the series id from the URL so we can
   // address tabs directly and keep navigation unambiguous.
   await page.goto(`${BASE}/`);
   await settle(page);

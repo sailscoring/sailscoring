@@ -1,10 +1,12 @@
 /**
- * Render a self-contained HTML file to a PNG, using this repo's Playwright
- * Chromium (so no separate system Chrome is needed). Screenshots the `.page`
- * element if present, else the full page, at 2× for crisp output.
+ * Render a self-contained HTML file using this repo's Playwright Chromium (so
+ * no separate system Chrome is needed). Output type follows the extension:
+ *   .pdf  → a print PDF honouring the document's @page size (multi-page OK)
+ *   .png  → a 2× screenshot of the `.page` element if present, else full page
  *
- * Used to turn the governance repo's branded HTML builds (the sponsorship
- * strawman and the screenshot storyboard) into committed PNGs:
+ * Used to turn the governance repo's branded HTML builds into their committed
+ * artifacts — the multi-page introduction leaflet (PDF) and the screenshot
+ * storyboard (PNG):
  *
  *   node ../governance/sponsorship/screenshots/build.js   # → storyboard.html
  *   npx tsx scripts/render-html.mjs \
@@ -16,7 +18,7 @@ import { chromium } from '@playwright/test';
 
 const [, , htmlPath, outPath] = process.argv;
 if (!htmlPath || !outPath) {
-  console.error('usage: render-html.mjs <input.html> <output.png>');
+  console.error('usage: render-html.mjs <input.html> <output.{pdf,png}>');
   process.exit(1);
 }
 
@@ -27,8 +29,13 @@ try {
     waitUntil: 'networkidle',
   });
   await page.waitForTimeout(300); // settle fonts/shadows
-  const target = (await page.$('.page')) ?? page;
-  await target.screenshot({ path: outPath });
+  if (outPath.endsWith('.pdf')) {
+    // preferCSSPageSize honours the HTML's `@page { size: … }`.
+    await page.pdf({ path: outPath, printBackground: true, preferCSSPageSize: true });
+  } else {
+    const target = (await page.$('.page')) ?? page;
+    await target.screenshot({ path: outPath });
+  }
   console.log('rendered', outPath);
 } finally {
   await browser.close();
