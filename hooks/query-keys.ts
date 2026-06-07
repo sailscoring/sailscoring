@@ -58,6 +58,7 @@ export const queryKeys = {
   logos: {
     all: ['logos'] as const,
     list: () => ['logos', 'list'] as const,
+    defaults: () => ['logos', 'defaults'] as const,
   },
   published: {
     all: ['published'] as const,

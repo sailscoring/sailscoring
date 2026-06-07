@@ -9,7 +9,11 @@ import {
   parseLogoId,
   LOGO_CLASSES,
 } from '@/lib/flag-locker';
-import { logoCreateSchema, logoUpdateSchema } from '@/lib/validation/logo';
+import {
+  logoCreateSchema,
+  logoDefaultsSchema,
+  logoUpdateSchema,
+} from '@/lib/validation/logo';
 
 describe('flag-locker helpers', () => {
   test('content-type allow-list', () => {
@@ -82,5 +86,20 @@ describe('logo validation', () => {
     expect(
       logoUpdateSchema.safeParse({ displayName: 'AIB', logoClass: 'sponsor' }).success,
     ).toBe(true);
+  });
+
+  test('defaults accept a uuid or null per slot', () => {
+    expect(
+      logoDefaultsSchema.safeParse({ venueLogoId: null, eventLogoId: null }).success,
+    ).toBe(true);
+    expect(
+      logoDefaultsSchema.safeParse({
+        venueLogoId: crypto.randomUUID(),
+        eventLogoId: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      logoDefaultsSchema.safeParse({ venueLogoId: 'nope', eventLogoId: null }).success,
+    ).toBe(false);
   });
 });

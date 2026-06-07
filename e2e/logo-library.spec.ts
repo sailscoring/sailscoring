@@ -84,3 +84,29 @@ test('pick a library logo as a series venue burgee', async ({ page }) => {
   expect(res.status()).toBe(200);
   expect(res.headers()['content-type']).toContain('image/png');
 });
+
+test('workspace default logo is copied into a new series', async ({ page }) => {
+  // Seed a logo and set it as the workspace default venue logo.
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Add logo' }).click();
+  await page.getByLabel('Image').setInputFiles(pngFile('dbsc.png'));
+  await page.getByLabel('Name').fill('DBSC');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('DBSC', { exact: true })).toBeVisible();
+
+  await page
+    .locator('div')
+    .filter({ hasText: /^Default venue logo/ })
+    .getByRole('combobox')
+    .click();
+  await page.getByRole('option', { name: 'DBSC' }).click();
+
+  // A newly-created series inherits the default into its venue slot.
+  await createSeriesQuick(page, { name: 'Spring League 2026' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.locator('h2', { hasText: 'Basic' }).locator('..').getByRole('button', { name: /Edit/ }).click();
+  await expect(page.getByRole('textbox', { name: 'Venue logo' })).toHaveValue(
+    /\/logos\/[0-9a-f-]{36}$/,
+  );
+  await expect(page.getByRole('textbox', { name: 'Event logo' })).toHaveValue('');
+});

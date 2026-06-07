@@ -15,8 +15,12 @@ import {
   sha256Hex,
 } from '@/lib/flag-locker-storage';
 import { createRepos } from '@/lib/postgres-repository';
-import { logoCreateSchema, logoUpdateSchema } from '@/lib/validation/logo';
-import type { Logo } from '@/lib/types';
+import {
+  logoCreateSchema,
+  logoDefaultsSchema,
+  logoUpdateSchema,
+} from '@/lib/validation/logo';
+import type { Logo, LogoDefaults } from '@/lib/types';
 
 // The flag locker (per-workspace logo library) is an experimental, gated
 // feature. The gate is enforced server-side on every endpoint — not just by
@@ -112,6 +116,31 @@ export async function deleteLogoEntry(
     );
     if (!stillUsed) await deleteLogo(stored.locator);
   }
+}
+
+export async function getLogoDefaults(
+  workspace: WorkspaceContext,
+): Promise<LogoDefaults> {
+  requireFeature(workspace, 'logo-library');
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  return repos.logos.getDefaults();
+}
+
+export async function setLogoDefaults(
+  workspace: WorkspaceContext,
+  body: unknown,
+): Promise<LogoDefaults> {
+  requireFeature(workspace, 'logo-library');
+  const input = logoDefaultsSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  // Each non-null default must be a logo in this workspace — guards against
+  // pointing a default at another workspace's id (the FK alone is global).
+  for (const id of [input.venueLogoId, input.eventLogoId]) {
+    if (id && !(await repos.logos.getStored(id))) {
+      throw new NotFoundError('logo');
+    }
+  }
+  return repos.logos.setDefaults(input, { updatedBy: workspace.userId });
 }
 
 /** Asset bytes for the management thumbnail, workspace-scoped. The public,

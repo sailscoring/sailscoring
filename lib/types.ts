@@ -504,6 +504,13 @@ export interface Logo {
   sourceUrl: string;  // '' if unset, mirroring Series.venueUrl/eventUrl
 }
 
+/** A workspace's default venue/event logos. A newly-created series inherits
+ *  these into its empty burgee slots (copy-at-creation). `null` = no default. */
+export interface LogoDefaults {
+  venueLogoId: string | null;
+  eventLogoId: string | null;
+}
+
 export interface Standing {
   rank: number;
   competitor: Competitor;

@@ -28,6 +28,7 @@ import type {
   FtpServer,
   Logo,
   LogoClass,
+  LogoDefaults,
   Race,
   RaceStart,
   RaceRatingOverride,
@@ -379,6 +380,17 @@ class ApiLogoRepository {
   /** `<img src>` for a logo's bytes (authenticated, workspace-scoped). */
   rawUrl(id: string): string {
     return `/api/v1/logos/${id}/raw`;
+  }
+
+  getDefaults(): Promise<LogoDefaults> {
+    return apiFetch<LogoDefaults>('/api/v1/logos/defaults');
+  }
+
+  setDefaults(defaults: LogoDefaults): Promise<LogoDefaults> {
+    return apiFetch<LogoDefaults>('/api/v1/logos/defaults', {
+      method: 'PUT',
+      body: defaults,
+    });
   }
 }
 

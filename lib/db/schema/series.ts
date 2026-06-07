@@ -631,6 +631,28 @@ export const flagLockerLogos = pgTable(
 );
 
 /**
+ * Per-workspace default logos (flag locker, Phase 3). One row per workspace
+ * holding the venue/event logos a newly-created series inherits into its empty
+ * burgee slots (copy-at-creation; the create handler writes the indirection URL
+ * into `series.venue_logo_url` / `event_logo_url`). Both nullable and
+ * `ON DELETE SET NULL`, so deleting a logo that's a default just clears the
+ * default rather than blocking the delete.
+ */
+export const flagLockerDefaults = pgTable('flag_locker_defaults', {
+  workspaceId: text('workspace_id')
+    .primaryKey()
+    .references(() => organization.id, { onDelete: 'cascade' }),
+  venueLogoId: uuid('venue_logo_id').references(() => flagLockerLogos.id, {
+    onDelete: 'set null',
+  }),
+  eventLogoId: uuid('event_logo_id').references(() => flagLockerLogos.id, {
+    onDelete: 'set null',
+  }),
+  updatedAt: updatedAtCol,
+  updatedBy: updatedByCol,
+});
+
+/**
  * Local-dev / CI fallback for logo asset bytes, mirroring `published_blobs`:
  * when `BLOB_READ_WRITE_TOKEN` is unset, `flag-locker-storage` writes here and
  * the `locator` is `db:{key}`. Bytes are stored base64-encoded in a text column

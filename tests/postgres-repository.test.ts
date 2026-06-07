@@ -820,4 +820,43 @@ describe.skipIf(skip)('postgres repositories', () => {
     await reposA.logos.delete(two.id);
   });
 
+  test('LogoRepository defaults: round-trip and ON DELETE SET NULL', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+
+    // No row yet → both null.
+    expect(await repos.logos.getDefaults()).toEqual({
+      venueLogoId: null,
+      eventLogoId: null,
+    });
+
+    const venue = makeLogo();
+    const event = makeLogo();
+    await repos.logos.create(venue, { updatedBy: null });
+    await repos.logos.create(event, { updatedBy: null });
+
+    await repos.logos.setDefaults(
+      { venueLogoId: venue.id, eventLogoId: event.id },
+      { updatedBy: null },
+    );
+    expect(await repos.logos.getDefaults()).toEqual({
+      venueLogoId: venue.id,
+      eventLogoId: event.id,
+    });
+
+    // Deleting a logo that's a default clears just that slot (FK SET NULL).
+    await repos.logos.delete(venue.id);
+    expect(await repos.logos.getDefaults()).toEqual({
+      venueLogoId: null,
+      eventLogoId: event.id,
+    });
+
+    // Re-setting overwrites, including back to null.
+    await repos.logos.setDefaults({ venueLogoId: null, eventLogoId: null });
+    expect(await repos.logos.getDefaults()).toEqual({
+      venueLogoId: null,
+      eventLogoId: null,
+    });
+    await repos.logos.delete(event.id);
+  });
+
 });

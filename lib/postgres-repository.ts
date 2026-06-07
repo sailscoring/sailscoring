@@ -26,6 +26,7 @@ import type {
   FtpServer,
   Logo,
   LogoClass,
+  LogoDefaults,
   NhcProfile,
   PenaltyCode,
   Race,
@@ -1902,6 +1903,47 @@ export class PostgresLogoRepository {
           eq(schema.flagLockerLogos.workspaceId, this.workspaceId),
         ),
       );
+  }
+
+  /** The workspace's default venue/event logos (Phase 3). Absent row → both
+   *  null. */
+  async getDefaults(): Promise<LogoDefaults> {
+    const [row] = await this.db
+      .select({
+        venueLogoId: schema.flagLockerDefaults.venueLogoId,
+        eventLogoId: schema.flagLockerDefaults.eventLogoId,
+      })
+      .from(schema.flagLockerDefaults)
+      .where(eq(schema.flagLockerDefaults.workspaceId, this.workspaceId))
+      .limit(1);
+    return {
+      venueLogoId: row?.venueLogoId ?? null,
+      eventLogoId: row?.eventLogoId ?? null,
+    };
+  }
+
+  async setDefaults(
+    defaults: LogoDefaults,
+    opts?: { updatedBy?: string | null },
+  ): Promise<LogoDefaults> {
+    await this.db
+      .insert(schema.flagLockerDefaults)
+      .values({
+        workspaceId: this.workspaceId,
+        venueLogoId: defaults.venueLogoId,
+        eventLogoId: defaults.eventLogoId,
+        updatedBy: opts?.updatedBy ?? null,
+      })
+      .onConflictDoUpdate({
+        target: schema.flagLockerDefaults.workspaceId,
+        set: {
+          venueLogoId: defaults.venueLogoId,
+          eventLogoId: defaults.eventLogoId,
+          updatedAt: sql`now()`,
+          updatedBy: opts?.updatedBy ?? null,
+        },
+      });
+    return defaults;
   }
 }
 

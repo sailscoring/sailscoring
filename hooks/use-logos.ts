@@ -7,7 +7,7 @@ import {
   type LogoMetaPatch,
   type LogoUpload,
 } from '@/lib/api-repository';
-import type { Logo } from '@/lib/types';
+import type { Logo, LogoDefaults } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
 
@@ -46,6 +46,24 @@ export function useDeleteLogo() {
     mutationFn: (id: string) => logoRepo.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.logos.list() });
+    },
+  });
+}
+
+export function useLogoDefaults(enabled = true) {
+  return useQuery<LogoDefaults>({
+    queryKey: queryKeys.logos.defaults(),
+    queryFn: () => logoRepo.getDefaults(),
+    enabled,
+  });
+}
+
+export function useSetLogoDefaults() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (defaults: LogoDefaults) => logoRepo.setDefaults(defaults),
+    onSuccess: (data) => {
+      qc.setQueryData(queryKeys.logos.defaults(), data);
     },
   });
 }

@@ -1137,6 +1137,12 @@ export default async function HelpPage() {
           Picking from the library links the published results to the logo rather than a copy, so
           updating the logo in the library updates results that use it without re-publishing.
         </p>
+        <p>
+          You can also set <strong className="text-foreground">defaults for new series</strong> — a
+          default venue and event logo the workspace reaches for automatically. Every new series
+          starts with those logos already in place (you can still change them per series); existing
+          series aren&apos;t touched.
+        </p>
       </Section>
       )}
 

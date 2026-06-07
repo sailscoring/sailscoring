@@ -33,5 +33,11 @@ export const logoUpdateSchema = z.object({
   sourceUrl: z.string().max(2000).optional().default(''),
 });
 
+/** Workspace default venue/event logos (Phase 3). Either may be null. */
+export const logoDefaultsSchema = z.object({
+  venueLogoId: uuidSchema.nullable(),
+  eventLogoId: uuidSchema.nullable(),
+});
+
 export type LogoCreateInput = z.infer<typeof logoCreateSchema>;
 export type LogoUpdateInput = z.infer<typeof logoUpdateSchema>;

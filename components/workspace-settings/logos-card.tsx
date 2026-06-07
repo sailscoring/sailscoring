@@ -6,7 +6,9 @@ import { Pencil, Trash2 } from 'lucide-react';
 import {
   useCreateLogo,
   useDeleteLogo,
+  useLogoDefaults,
   useLogos,
+  useSetLogoDefaults,
   useUpdateLogo,
 } from '@/hooks/use-logos';
 import { logoRepo } from '@/lib/api-repository';
@@ -35,6 +37,64 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { Logo, LogoClass } from '@/lib/types';
+
+const NONE = 'none';
+
+/** Workspace default venue/event logos — a new series inherits these into its
+ *  empty burgee slots (copy-at-creation). */
+function DefaultsSection({ logos }: { logos: Logo[] }) {
+  const { data: defaults } = useLogoDefaults();
+  const setDefaults = useSetLogoDefaults();
+
+  function update(patch: { venueLogoId?: string | null; eventLogoId?: string | null }) {
+    setDefaults.mutate({
+      venueLogoId: defaults?.venueLogoId ?? null,
+      eventLogoId: defaults?.eventLogoId ?? null,
+      ...patch,
+    });
+  }
+
+  const rows: Array<{ key: 'venue' | 'event'; label: string; value: string }> = [
+    { key: 'venue', label: 'Default venue logo', value: defaults?.venueLogoId ?? NONE },
+    { key: 'event', label: 'Default event logo', value: defaults?.eventLogoId ?? NONE },
+  ];
+
+  return (
+    <div className="space-y-3 border-t pt-4">
+      <p className="text-sm font-medium">Defaults for new series</p>
+      {rows.map((row) => (
+        <div key={row.key} className="flex items-center gap-3">
+          <Label className="w-32 shrink-0 text-sm font-normal">{row.label}</Label>
+          <Select
+            value={row.value}
+            onValueChange={(v) =>
+              update(
+                row.key === 'venue'
+                  ? { venueLogoId: v === NONE ? null : v }
+                  : { eventLogoId: v === NONE ? null : v },
+              )
+            }
+          >
+            <SelectTrigger size="sm" className="flex-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>None</SelectItem>
+              {logos.map((logo) => (
+                <SelectItem key={logo.id} value={logo.id}>
+                  {logo.displayName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ))}
+      <p className="text-xs text-muted-foreground">
+        A new series starts with these logos; you can change them per series. Existing series aren&apos;t affected.
+      </p>
+    </div>
+  );
+}
 
 const ACCEPT = Object.keys(LOGO_CONTENT_TYPES).join(',');
 
@@ -278,8 +338,10 @@ export function LogosCard() {
         </div>
       )}
 
+      {logos !== undefined && logos.length > 0 && <DefaultsSection logos={logos} />}
+
       <p className="text-xs text-muted-foreground">
-        Logos are shared with everyone in this workspace. Soon you&apos;ll be able to pick them when setting a series&apos; venue and event burgees.
+        Logos are shared with everyone in this workspace. Pick one for a series&apos; venue and event burgees in its Basic settings.
       </p>
 
       <LogoDialog
