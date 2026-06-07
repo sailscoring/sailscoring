@@ -1133,7 +1133,9 @@ export default async function HelpPage() {
           for the whole team. When you set a series&apos; <strong className="text-foreground">venue</strong>{' '}
           or <strong className="text-foreground">event logo</strong> in{' '}
           <strong className="text-foreground">Basic</strong> settings, click{' '}
-          <strong className="text-foreground">Library</strong> to pick one — or paste a URL as before.
+          <strong className="text-foreground">Library</strong> to pick one — from your workspace&apos;s
+          own logos or the <strong className="text-foreground">built-in</strong> set of official
+          club, class, governing-body, and sponsor marks — or paste a URL as before.
           Picking from the library links the published results to the logo rather than a copy, so
           updating the logo in the library updates results that use it without re-publishing.
         </p>

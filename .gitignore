@@ -44,3 +44,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# canonical-logos assets — fetched at build by scripts/sync-canonical-logos.ts
+# from the pinned release; only the catalogue (lib/canonical-logos/generated)
+# is committed, not the binary assets.
+/public/canonical-logos/

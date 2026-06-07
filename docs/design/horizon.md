@@ -288,6 +288,28 @@ light/dark variants) mirroring the `sailscoring.ie` logo entry below; and how a 
 logo renders into the published HTML, which today embeds the full series rather than
 linking out.
 
+The library is now built (the **flag locker**): per-workspace upload/manage, a
+series venue/event picker that writes a stable `/logos/{id}` indirection URL
+(update-without-republish), per-workspace default logos copied into new series,
+cross-workspace copy, and the built-in canonical tier
+(`sailscoring/canonical-logos`). What remains deferred is fleet-level overrides,
+below.
+
+### Fleet-level logo overrides
+
+The venue/event burgees are set per *series*; a multi-fleet series shows the
+same two logos on every fleet's page. Some events want a fleet to carry its own
+mark — a class association's logo on that class's fleet page, say — overriding
+the series venue or event slot. Shape of the change: optional per-fleet
+`venueLogoOverride` / `eventLogoOverride` plus a per-fleet toggle for *which*
+slot the override replaces, falling back to the series slot when unset. This is
+the one piece of the logo library that adds persistent fields to `Fleet` in
+`lib/types.ts`, so it pulls in `series-file.ts`, the public JSON export, and a
+file-format version bump — which is why it's separated out rather than shipped
+with the per-series picker. Open question: whether a fleet override should be
+pickable from the same library/canonical sources (almost certainly yes, reusing
+the existing `LogoField` picker).
+
 ### Per-event branding
 
 Published results today carry a single, workspace-level look. Real events often want

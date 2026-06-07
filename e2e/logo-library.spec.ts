@@ -117,6 +117,27 @@ test('workspace default logo is copied into a new series', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: 'Event logo' })).toHaveValue('');
 });
 
+test('pick a built-in canonical logo for a series', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Autumn League 2026', venue: 'Howth' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.locator('h2', { hasText: 'Basic' }).locator('..').getByRole('button', { name: /Edit/ }).click();
+
+  await page.getByRole('button', { name: 'Choose Event logo from library' }).click();
+  await page.getByRole('dialog').getByLabel('Search logos').fill('AIB');
+  await page.getByRole('dialog').getByRole('button', { name: 'Use AIB' }).click();
+
+  const eventLogo = page.getByRole('textbox', { name: 'Event logo' });
+  await expect(eventLogo).toHaveValue(/\/canonical-logos\/aib\.png$/);
+  const url = await eventLogo.inputValue();
+
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  // The synced canonical asset is served from the app's public path.
+  const res = await page.request.get(url);
+  expect(res.status()).toBe(200);
+  expect(res.headers()['content-type']).toContain('image');
+});
+
 test('copy a logo from another workspace into this one', async ({ page, signedInEmail }) => {
   // A second workspace the user belongs to, with a logo seeded directly.
   const orgName = `Source Club ${Date.now()}`;

@@ -7,8 +7,9 @@
     "dev": "next dev",
     "dev:local": "DATABASE_URL=postgres://sailscoring:sailscoring@localhost:5432/sailscoring next dev",
     "predev:local": "./scripts/db-up.sh",
+    "prebuild": "pnpm canonical:sync",
     "build": "next build",
-    "vercel-build": "tsx --env-file-if-exists=.env.local scripts/db-migrate.ts && next build",
+    "vercel-build": "tsx --env-file-if-exists=.env.local scripts/db-migrate.ts && pnpm build",
     "start": "next start",
     "start:test": "./scripts/start-test.sh",
     "lint": "eslint",
@@ -42,6 +43,7 @@
     "halsail:to-sailscoring": "tsx scripts/halsail-to-sailscoring.ts",
     "halsail:compare": "tsx scripts/halsail-compare.ts",
     "nationality:sync": "tsx scripts/sync-national-letters.ts",
+    "canonical:sync": "tsx scripts/sync-canonical-logos.ts",
     "hyc-ftp-paths": "tsx --env-file-if-exists=.env.tmp scripts/hyc-ftp-paths.ts"
   },
   "dependencies": {
