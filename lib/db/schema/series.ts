@@ -632,22 +632,19 @@ export const flagLockerLogos = pgTable(
 
 /**
  * Per-workspace default logos (flag locker, Phase 3). One row per workspace
- * holding the venue/event logos a newly-created series inherits into its empty
- * burgee slots (copy-at-creation; the create handler writes the indirection URL
- * into `series.venue_logo_url` / `event_logo_url`). Both nullable and
- * `ON DELETE SET NULL`, so deleting a logo that's a default just clears the
- * default rather than blocking the delete.
+ * holding the venue/event logo URLs a newly-created series inherits into its
+ * empty burgee slots (copy-at-creation; the create handler copies the URL into
+ * `series.venue_logo_url` / `event_logo_url`). Stored as URLs — not flag-locker
+ * row ids — so a default can be a workspace logo, a built-in canonical logo, or
+ * any pasted URL, exactly like a series slot. Deleting a workspace logo that's a
+ * default is handled in the delete path by clearing the matching default URL.
  */
 export const flagLockerDefaults = pgTable('flag_locker_defaults', {
   workspaceId: text('workspace_id')
     .primaryKey()
     .references(() => organization.id, { onDelete: 'cascade' }),
-  venueLogoId: uuid('venue_logo_id').references(() => flagLockerLogos.id, {
-    onDelete: 'set null',
-  }),
-  eventLogoId: uuid('event_logo_id').references(() => flagLockerLogos.id, {
-    onDelete: 'set null',
-  }),
+  venueLogoUrl: text('venue_logo_url'),
+  eventLogoUrl: text('event_logo_url'),
   updatedAt: updatedAtCol,
   updatedBy: updatedByCol,
 });

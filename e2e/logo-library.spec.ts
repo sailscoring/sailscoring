@@ -91,28 +91,31 @@ test('pick a library logo as a series venue burgee', async ({ page }) => {
   expect(res.headers()['content-type']).toContain('image/png');
 });
 
-test('workspace default logo is copied into a new series', async ({ page }) => {
-  // Seed a logo and set it as the workspace default venue logo.
+test('a built-in canonical logo can be the workspace default, copied into a new series', async ({ page }) => {
+  // Set a canonical (built-in) logo as the default venue logo — no need to have
+  // uploaded it to the workspace first.
   await page.goto('/workspace');
-  await page.getByRole('button', { name: 'Add logo' }).click();
-  await page.getByLabel('Image').setInputFiles(pngFile('dbsc.png'));
-  await page.getByLabel('Name').fill('DBSC');
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('DBSC', { exact: true })).toBeVisible();
-
   await page
-    .locator('div')
-    .filter({ hasText: /^Default venue logo/ })
-    .getByRole('combobox')
+    .getByRole('button', { name: 'Choose Default venue logo' })
     .click();
-  await page.getByRole('option', { name: 'DBSC' }).click();
+  await page.getByRole('dialog').getByLabel('Search logos').fill('Howth');
+  // Wait for the default to persist before moving on.
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes('/api/v1/logos/defaults') &&
+        r.request().method() === 'PUT' &&
+        r.ok(),
+    ),
+    page.getByRole('dialog').getByRole('button', { name: 'Use Howth Yacht Club' }).click(),
+  ]);
 
-  // A newly-created series inherits the default into its venue slot.
+  // A newly-created series inherits the canonical default into its venue slot.
   await createSeriesQuick(page, { name: 'Spring League 2026' });
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.locator('h2', { hasText: 'Basic' }).locator('..').getByRole('button', { name: /Edit/ }).click();
   await expect(page.getByRole('textbox', { name: 'Venue logo' })).toHaveValue(
-    /\/logos\/[0-9a-f-]{36}$/,
+    /\/canonical-logos\/hyc\.png$/,
   );
   await expect(page.getByRole('textbox', { name: 'Event logo' })).toHaveValue('');
 });

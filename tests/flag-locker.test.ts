@@ -89,18 +89,19 @@ describe('logo validation', () => {
     ).toBe(true);
   });
 
-  test('defaults accept a uuid or null per slot', () => {
+  test('defaults accept a URL string (or empty) per slot', () => {
     expect(
-      logoDefaultsSchema.safeParse({ venueLogoId: null, eventLogoId: null }).success,
+      logoDefaultsSchema.safeParse({ venueLogoUrl: '', eventLogoUrl: '' }).success,
     ).toBe(true);
     expect(
       logoDefaultsSchema.safeParse({
-        venueLogoId: crypto.randomUUID(),
-        eventLogoId: null,
+        venueLogoUrl: 'https://logos.sailscoring.ie/hyc.png',
+        eventLogoUrl: '',
       }).success,
     ).toBe(true);
+    // Missing a slot is rejected (both required, '' to clear).
     expect(
-      logoDefaultsSchema.safeParse({ venueLogoId: 'nope', eventLogoId: null }).success,
+      logoDefaultsSchema.safeParse({ venueLogoUrl: '' }).success,
     ).toBe(false);
   });
 

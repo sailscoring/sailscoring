@@ -14,6 +14,7 @@ import {
   useUpdateLogo,
 } from '@/hooks/use-logos';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
+import { LogoPickerDialog } from '@/components/logo-picker-dialog';
 import { logoRepo } from '@/lib/api-repository';
 import {
   isAllowedLogoContentType,
@@ -42,25 +43,28 @@ import {
 } from '@/components/ui/dialog';
 import type { Logo, LogoClass } from '@/lib/types';
 
-const NONE = 'none';
-
 /** Workspace default venue/event logos — a new series inherits these into its
- *  empty burgee slots (copy-at-creation). */
-function DefaultsSection({ logos }: { logos: Logo[] }) {
+ *  empty burgee slots (copy-at-creation). Stored as URLs, so a default can be a
+ *  workspace logo or a built-in canonical one; chosen with the shared picker. */
+function DefaultsSection() {
   const { data: defaults } = useLogoDefaults();
   const setDefaults = useSetLogoDefaults();
+  const [picking, setPicking] = useState<null | 'venue' | 'event'>(null);
 
-  function update(patch: { venueLogoId?: string | null; eventLogoId?: string | null }) {
+  const venueLogoUrl = defaults?.venueLogoUrl ?? '';
+  const eventLogoUrl = defaults?.eventLogoUrl ?? '';
+
+  function choose(slot: 'venue' | 'event', url: string | null) {
     setDefaults.mutate({
-      venueLogoId: defaults?.venueLogoId ?? null,
-      eventLogoId: defaults?.eventLogoId ?? null,
-      ...patch,
+      venueLogoUrl: slot === 'venue' ? (url ?? '') : venueLogoUrl,
+      eventLogoUrl: slot === 'event' ? (url ?? '') : eventLogoUrl,
     });
+    setPicking(null);
   }
 
-  const rows: Array<{ key: 'venue' | 'event'; label: string; value: string }> = [
-    { key: 'venue', label: 'Default venue logo', value: defaults?.venueLogoId ?? NONE },
-    { key: 'event', label: 'Default event logo', value: defaults?.eventLogoId ?? NONE },
+  const rows: Array<{ key: 'venue' | 'event'; label: string; url: string }> = [
+    { key: 'venue', label: 'Default venue logo', url: venueLogoUrl },
+    { key: 'event', label: 'Default event logo', url: eventLogoUrl },
   ];
 
   return (
@@ -69,33 +73,39 @@ function DefaultsSection({ logos }: { logos: Logo[] }) {
       {rows.map((row) => (
         <div key={row.key} className="flex items-center gap-3">
           <Label className="w-32 shrink-0 text-sm font-normal">{row.label}</Label>
-          <Select
-            value={row.value}
-            onValueChange={(v) =>
-              update(
-                row.key === 'venue'
-                  ? { venueLogoId: v === NONE ? null : v }
-                  : { eventLogoId: v === NONE ? null : v },
-              )
-            }
+          {row.url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={row.url}
+              alt=""
+              className="h-8 w-8 shrink-0 rounded border object-contain bg-muted"
+            />
+          ) : (
+            <span className="text-sm text-muted-foreground">None</span>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto"
+            aria-label={`Choose ${row.label}`}
+            onClick={() => setPicking(row.key)}
           >
-            <SelectTrigger size="sm" className="flex-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>None</SelectItem>
-              {logos.map((logo) => (
-                <SelectItem key={logo.id} value={logo.id}>
-                  {logo.displayName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {row.url ? 'Change…' : 'Choose…'}
+          </Button>
         </div>
       ))}
       <p className="text-xs text-muted-foreground">
         A new series starts with these logos; you can change them per series. Existing series aren&apos;t affected.
       </p>
+
+      <LogoPickerDialog
+        open={picking !== null}
+        value={picking === 'venue' ? venueLogoUrl : picking === 'event' ? eventLogoUrl : ''}
+        onClose={() => setPicking(null)}
+        onPick={(url) => {
+          if (picking) choose(picking, url);
+        }}
+      />
     </div>
   );
 }
@@ -445,7 +455,7 @@ export function LogosCard() {
         </div>
       )}
 
-      {logos !== undefined && logos.length > 0 && <DefaultsSection logos={logos} />}
+      {logos !== undefined && <DefaultsSection />}
 
       <p className="text-xs text-muted-foreground">
         Logos are shared with everyone in this workspace. Pick one for a series&apos; venue and event burgees in its Basic settings.

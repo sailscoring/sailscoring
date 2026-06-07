@@ -33,10 +33,10 @@ export const logoUpdateSchema = z.object({
   sourceUrl: z.string().max(2000).optional().default(''),
 });
 
-/** Workspace default venue/event logos (Phase 3). Either may be null. */
+/** Workspace default venue/event logo URLs (Phase 3). '' = no default. */
 export const logoDefaultsSchema = z.object({
-  venueLogoId: uuidSchema.nullable(),
-  eventLogoId: uuidSchema.nullable(),
+  venueLogoUrl: z.string().max(2000),
+  eventLogoUrl: z.string().max(2000),
 });
 
 /** Copy a logo from another workspace the caller belongs to into the active

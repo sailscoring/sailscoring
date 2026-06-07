@@ -1905,20 +1905,20 @@ export class PostgresLogoRepository {
       );
   }
 
-  /** The workspace's default venue/event logos (Phase 3). Absent row → both
-   *  null. */
+  /** The workspace's default venue/event logo URLs (Phase 3). Absent row or
+   *  null column → ''. */
   async getDefaults(): Promise<LogoDefaults> {
     const [row] = await this.db
       .select({
-        venueLogoId: schema.flagLockerDefaults.venueLogoId,
-        eventLogoId: schema.flagLockerDefaults.eventLogoId,
+        venueLogoUrl: schema.flagLockerDefaults.venueLogoUrl,
+        eventLogoUrl: schema.flagLockerDefaults.eventLogoUrl,
       })
       .from(schema.flagLockerDefaults)
       .where(eq(schema.flagLockerDefaults.workspaceId, this.workspaceId))
       .limit(1);
     return {
-      venueLogoId: row?.venueLogoId ?? null,
-      eventLogoId: row?.eventLogoId ?? null,
+      venueLogoUrl: row?.venueLogoUrl ?? '',
+      eventLogoUrl: row?.eventLogoUrl ?? '',
     };
   }
 
@@ -1926,24 +1926,41 @@ export class PostgresLogoRepository {
     defaults: LogoDefaults,
     opts?: { updatedBy?: string | null },
   ): Promise<LogoDefaults> {
+    const venueLogoUrl = defaults.venueLogoUrl || null;
+    const eventLogoUrl = defaults.eventLogoUrl || null;
     await this.db
       .insert(schema.flagLockerDefaults)
       .values({
         workspaceId: this.workspaceId,
-        venueLogoId: defaults.venueLogoId,
-        eventLogoId: defaults.eventLogoId,
+        venueLogoUrl,
+        eventLogoUrl,
         updatedBy: opts?.updatedBy ?? null,
       })
       .onConflictDoUpdate({
         target: schema.flagLockerDefaults.workspaceId,
         set: {
-          venueLogoId: defaults.venueLogoId,
-          eventLogoId: defaults.eventLogoId,
+          venueLogoUrl,
+          eventLogoUrl,
           updatedAt: sql`now()`,
           updatedBy: opts?.updatedBy ?? null,
         },
       });
-    return defaults;
+    return { venueLogoUrl: venueLogoUrl ?? '', eventLogoUrl: eventLogoUrl ?? '' };
+  }
+
+  /** Clear any default that points at logo `id` (its indirection URL ends in
+   *  `/logos/{id}`). Called when that logo is deleted, so a default never
+   *  dangles at a removed asset — the URL-storage analogue of the old FK
+   *  `ON DELETE SET NULL`. */
+  async clearDefaultsReferencingLogo(id: string): Promise<void> {
+    const suffix = `%/logos/${id}`;
+    await this.db
+      .update(schema.flagLockerDefaults)
+      .set({
+        venueLogoUrl: sql`case when ${schema.flagLockerDefaults.venueLogoUrl} like ${suffix} then null else ${schema.flagLockerDefaults.venueLogoUrl} end`,
+        eventLogoUrl: sql`case when ${schema.flagLockerDefaults.eventLogoUrl} like ${suffix} then null else ${schema.flagLockerDefaults.eventLogoUrl} end`,
+      })
+      .where(eq(schema.flagLockerDefaults.workspaceId, this.workspaceId));
   }
 }
 

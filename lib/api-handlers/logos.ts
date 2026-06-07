@@ -142,6 +142,8 @@ export async function deleteLogoEntry(
   // Drop the row first, then the bytes — but only when no other logo (a
   // duplicate upload sharing the content-addressed key) still references them.
   await repos.logos.delete(id);
+  // A workspace default pointing at this logo would now dangle — clear it.
+  await repos.logos.clearDefaultsReferencingLogo(id);
   if (stored) {
     const stillUsed = await repos.logos.locatorReferencedElsewhere(
       stored.locator,
@@ -166,14 +168,10 @@ export async function setLogoDefaults(
   requireFeature(workspace, 'logo-library');
   const input = logoDefaultsSchema.parse(body);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  // Each non-null default must be a logo in this workspace — guards against
-  // pointing a default at another workspace's id (the FK alone is global).
-  for (const id of [input.venueLogoId, input.eventLogoId]) {
-    if (id && !(await repos.logos.getStored(id))) {
-      throw new NotFoundError('logo');
-    }
-  }
-  return repos.logos.setDefaults(input, { updatedBy: workspace.userId });
+  return repos.logos.setDefaults(
+    { venueLogoUrl: input.venueLogoUrl.trim(), eventLogoUrl: input.eventLogoUrl.trim() },
+    { updatedBy: workspace.userId },
+  );
 }
 
 /**

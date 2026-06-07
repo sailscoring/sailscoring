@@ -820,43 +820,46 @@ describe.skipIf(skip)('postgres repositories', () => {
     await reposA.logos.delete(two.id);
   });
 
-  test('LogoRepository defaults: round-trip and ON DELETE SET NULL', async () => {
+  test('LogoRepository defaults: URL round-trip, clear-on-delete, canonical', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
 
-    // No row yet → both null.
+    // No row yet → both empty.
     expect(await repos.logos.getDefaults()).toEqual({
-      venueLogoId: null,
-      eventLogoId: null,
+      venueLogoUrl: '',
+      eventLogoUrl: '',
     });
 
     const venue = makeLogo();
-    const event = makeLogo();
     await repos.logos.create(venue, { updatedBy: null });
-    await repos.logos.create(event, { updatedBy: null });
 
+    // A workspace-logo default and a canonical default coexist (both URLs).
     await repos.logos.setDefaults(
-      { venueLogoId: venue.id, eventLogoId: event.id },
+      {
+        venueLogoUrl: `https://app.test/logos/${venue.id}`,
+        eventLogoUrl: 'https://logos.sailscoring.ie/aib.png',
+      },
       { updatedBy: null },
     );
     expect(await repos.logos.getDefaults()).toEqual({
-      venueLogoId: venue.id,
-      eventLogoId: event.id,
+      venueLogoUrl: `https://app.test/logos/${venue.id}`,
+      eventLogoUrl: 'https://logos.sailscoring.ie/aib.png',
     });
 
-    // Deleting a logo that's a default clears just that slot (FK SET NULL).
+    // Deleting the workspace logo clears the default referencing it; the
+    // canonical default (a different origin) is untouched.
+    await repos.logos.clearDefaultsReferencingLogo(venue.id);
+    expect(await repos.logos.getDefaults()).toEqual({
+      venueLogoUrl: '',
+      eventLogoUrl: 'https://logos.sailscoring.ie/aib.png',
+    });
+
+    // Re-setting overwrites, including back to empty.
+    await repos.logos.setDefaults({ venueLogoUrl: '', eventLogoUrl: '' });
+    expect(await repos.logos.getDefaults()).toEqual({
+      venueLogoUrl: '',
+      eventLogoUrl: '',
+    });
     await repos.logos.delete(venue.id);
-    expect(await repos.logos.getDefaults()).toEqual({
-      venueLogoId: null,
-      eventLogoId: event.id,
-    });
-
-    // Re-setting overwrites, including back to null.
-    await repos.logos.setDefaults({ venueLogoId: null, eventLogoId: null });
-    expect(await repos.logos.getDefaults()).toEqual({
-      venueLogoId: null,
-      eventLogoId: null,
-    });
-    await repos.logos.delete(event.id);
   });
 
 });

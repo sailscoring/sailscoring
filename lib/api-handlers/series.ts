@@ -14,7 +14,6 @@ import { recordActivity } from '@/lib/activity-log';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
-import { logoPublicUrl } from '@/lib/flag-locker';
 import {
   assertSeriesDeletable,
   assertSeriesWritable,
@@ -99,17 +98,17 @@ export async function putSeries(
     source: input.source ?? existing?.source,
   };
   // Copy-at-creation (flag locker Phase 3): a brand-new series with empty
-  // burgee slots inherits the workspace's default venue/event logos as
-  // indirection URLs. Only on create and only for empty slots, so a scorer can
-  // still clear a slot on a later edit without it being re-filled.
+  // burgee slots inherits the workspace's default venue/event logo URLs. Only
+  // on create and only for empty slots, so a scorer can still clear a slot on a
+  // later edit without it being re-filled. The default is already a URL (a
+  // workspace, canonical, or pasted logo), so it copies across verbatim.
   if (!existing && workspace.features.includes('logo-library')) {
     const defaults = await repos.logos.getDefaults();
-    const base = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
-    if (!merged.venueLogoUrl && defaults.venueLogoId) {
-      merged.venueLogoUrl = logoPublicUrl(defaults.venueLogoId, base);
+    if (!merged.venueLogoUrl && defaults.venueLogoUrl) {
+      merged.venueLogoUrl = defaults.venueLogoUrl;
     }
-    if (!merged.eventLogoUrl && defaults.eventLogoId) {
-      merged.eventLogoUrl = logoPublicUrl(defaults.eventLogoId, base);
+    if (!merged.eventLogoUrl && defaults.eventLogoUrl) {
+      merged.eventLogoUrl = defaults.eventLogoUrl;
     }
   }
   const saved = await repos.series.save(merged, {
