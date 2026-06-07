@@ -46,5 +46,10 @@ export const logoCopySchema = z.object({
   sourceLogoId: uuidSchema,
 });
 
+/** The workspace's own logo URL (`organization.logo`). '' clears it. */
+export const workspaceLogoSchema = z.object({
+  logo: z.string().max(2000),
+});
+
 export type LogoCreateInput = z.infer<typeof logoCreateSchema>;
 export type LogoUpdateInput = z.infer<typeof logoUpdateSchema>;

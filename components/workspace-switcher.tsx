@@ -35,6 +35,26 @@ export interface WorkspaceMembership {
   name: string;
   slug: string;
   role: 'owner' | 'admin' | 'member';
+  /** The workspace's own logo URL (`organization.logo`), '' if unset. */
+  logo: string;
+}
+
+/** A workspace's logo as a small icon. Renders nothing when unset, and hides
+ *  itself if the URL fails to load so a dead logo never leaves a broken-image
+ *  icon in the header. */
+function WsLogo({ url }: { url: string }) {
+  if (!url) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt=""
+      className="h-4 w-4 shrink-0 rounded-sm object-contain"
+      onError={(e) => {
+        e.currentTarget.style.display = 'none';
+      }}
+    />
+  );
 }
 
 export function WorkspaceSwitcher({
@@ -82,6 +102,7 @@ export function WorkspaceSwitcher({
         )}
         data-testid="workspace-switcher"
       >
+        {active && <WsLogo url={active.logo} />}
         <span>{active ? active.name : 'Select workspace…'}</span>
         <ChevronDown className="h-3.5 w-3.5" />
       </DropdownMenuTrigger>
@@ -93,17 +114,20 @@ export function WorkspaceSwitcher({
             key={m.organizationId}
             onSelect={() => switchTo(m.organizationId)}
             data-testid={`workspace-switcher-item-${m.slug}`}
-            className="flex flex-col items-start gap-0.5"
+            className="flex items-center gap-2"
           >
-            <span
-              className={cn(
-                'text-sm',
-                m.organizationId === activeOrganizationId && 'font-semibold',
-              )}
-            >
-              {m.name}
+            <WsLogo url={m.logo} />
+            <span className="flex flex-col items-start gap-0.5">
+              <span
+                className={cn(
+                  'text-sm',
+                  m.organizationId === activeOrganizationId && 'font-semibold',
+                )}
+              >
+                {m.name}
+              </span>
+              <span className="text-xs text-muted-foreground">{m.role}</span>
             </span>
-            <span className="text-xs text-muted-foreground">{m.role}</span>
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />

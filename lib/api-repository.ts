@@ -405,6 +405,14 @@ class ApiLogoRepository {
       body: defaults,
     });
   }
+
+  /** Set the active workspace's own logo (`organization.logo`); '' clears it. */
+  setWorkspaceLogo(logo: string): Promise<{ logo: string }> {
+    return apiFetch<{ logo: string }>('/api/v1/workspace', {
+      method: 'PATCH',
+      body: { logo },
+    });
+  }
 }
 
 export const seriesRepo: SeriesRepository = new ApiSeriesRepository();

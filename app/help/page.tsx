@@ -1129,6 +1129,12 @@ export default async function HelpPage() {
           give it a name and a type, and optionally note where it came from.
         </p>
         <p>
+          The workspace can also have a <strong className="text-foreground">logo of its own</strong>
+          {' '}— set it at the top of the card (from your logos or a built-in one). It shows beside
+          the workspace name in the switcher and becomes the default venue logo for new series
+          unless you set a specific default below.
+        </p>
+        <p>
           Logos are shared with everyone in the workspace, so a logo one scorer cleans up is there
           for the whole team. When you set a series&apos; <strong className="text-foreground">venue</strong>{' '}
           or <strong className="text-foreground">event logo</strong> in{' '}

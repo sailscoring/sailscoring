@@ -91,6 +91,35 @@ test('pick a library logo as a series venue burgee', async ({ page }) => {
   expect(res.headers()['content-type']).toContain('image/png');
 });
 
+test('workspace logo shows in the switcher and seeds a new series venue', async ({ page }) => {
+  // Give the workspace its own logo (a built-in one), with no explicit default.
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Choose workspace logo' }).click();
+  await page.getByRole('dialog').getByLabel('Search logos').fill('Howth');
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes('/api/v1/workspace') &&
+        r.request().method() === 'PATCH' &&
+        r.ok(),
+    ),
+    page.getByRole('dialog').getByRole('button', { name: 'Use Howth Yacht Club' }).click(),
+  ]);
+
+  // It appears in the workspace switcher.
+  await expect(page.getByTestId('workspace-switcher').locator('img')).toBeVisible();
+
+  // And a new series' venue slot defaults to it (the default-default), with no
+  // explicit default venue logo set.
+  await createSeriesQuick(page, { name: 'Club League 2026' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.locator('h2', { hasText: 'Basic' }).locator('..').getByRole('button', { name: /Edit/ }).click();
+  await expect(page.getByRole('textbox', { name: 'Venue logo' })).toHaveValue(
+    /\/canonical-logos\/hyc\.png$/,
+  );
+  await expect(page.getByRole('textbox', { name: 'Event logo' })).toHaveValue('');
+});
+
 test('a built-in canonical logo can be the workspace default, copied into a new series', async ({ page }) => {
   // Set a canonical (built-in) logo as the default venue logo — no need to have
   // uploaded it to the workspace first.

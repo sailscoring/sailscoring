@@ -862,4 +862,21 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.logos.delete(venue.id);
   });
 
+  test('LogoRepository workspace logo round-trips on organization.logo', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    expect(await repos.logos.getWorkspaceLogo()).toBe('');
+
+    await repos.logos.setWorkspaceLogo('https://logos.sailscoring.ie/hyc.png');
+    expect(await repos.logos.getWorkspaceLogo()).toBe(
+      'https://logos.sailscoring.ie/hyc.png',
+    );
+
+    // Scoped to the workspace — B is unaffected.
+    const reposB = createRepos({ db, workspaceId: workspaceB });
+    expect(await reposB.logos.getWorkspaceLogo()).toBe('');
+
+    await repos.logos.setWorkspaceLogo('');
+    expect(await repos.logos.getWorkspaceLogo()).toBe('');
+  });
+
 });

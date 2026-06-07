@@ -104,8 +104,12 @@ export async function putSeries(
   // workspace, canonical, or pasted logo), so it copies across verbatim.
   if (!existing && workspace.features.includes('logo-library')) {
     const defaults = await repos.logos.getDefaults();
-    if (!merged.venueLogoUrl && defaults.venueLogoUrl) {
-      merged.venueLogoUrl = defaults.venueLogoUrl;
+    // Venue falls back to the explicit default, then to the workspace's own
+    // logo (the default-default). Event has no workspace-logo fallback.
+    const venueDefault =
+      defaults.venueLogoUrl || (await repos.logos.getWorkspaceLogo());
+    if (!merged.venueLogoUrl && venueDefault) {
+      merged.venueLogoUrl = venueDefault;
     }
     if (!merged.eventLogoUrl && defaults.eventLogoUrl) {
       merged.eventLogoUrl = defaults.eventLogoUrl;

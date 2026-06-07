@@ -140,6 +140,7 @@ describe('computeEffectiveFeatures (Model B)', () => {
       'echo',
       'ftp-upload',
       'irc-rating',
+      'logo-library',
       'rya-py',
     ]);
   });
@@ -154,6 +155,7 @@ describe('computeEffectiveFeatures (Model B)', () => {
       'echo',
       'ftp-upload',
       'irc-rating',
+      'logo-library',
       'rya-py',
       'sailwave-import',
     ]);
@@ -171,6 +173,7 @@ describe('computeEffectiveFeatures (Model B)', () => {
       'echo',
       'ftp-upload',
       'irc-rating',
+      'logo-library',
       'rya-py',
     ]);
   });
@@ -183,6 +186,7 @@ describe('computeEffectiveFeatures (Model B)', () => {
     expect(computeEffectiveFeatures('u-alice', memberships).sort()).toEqual([
       'echo',
       'irc-rating',
+      'logo-library',
       'nhc-parameters',
       'rya-py',
     ]);
@@ -191,13 +195,17 @@ describe('computeEffectiveFeatures (Model B)', () => {
   it('default-on features are present with no enabled features anywhere', () => {
     expect(
       computeEffectiveFeatures('u-alice', [personal('u-alice')]).sort(),
-    ).toEqual(['echo', 'irc-rating', 'rya-py']);
+    ).toEqual(['echo', 'irc-rating', 'logo-library', 'rya-py']);
   });
 
   it('an explicit opt-out switches a default-on feature off', () => {
-    // Opt out irc-rating; the other default-on features (echo, rya-py) stay on.
+    // Opt out irc-rating; the other default-on features stay on.
     const memberships = [personal('u-alice', [], ['irc-rating'])];
-    expect(computeEffectiveFeatures('u-alice', memberships)).toEqual(['echo', 'rya-py']);
+    expect(computeEffectiveFeatures('u-alice', memberships).sort()).toEqual([
+      'echo',
+      'logo-library',
+      'rya-py',
+    ]);
   });
 
   it('the active workspace opt-out wins over a club-inherited feature', () => {
@@ -207,16 +215,21 @@ describe('computeEffectiveFeatures (Model B)', () => {
       club('hyc', ['echo']),
       personal('u-alice', [], ['echo']),
     ];
-    expect(computeEffectiveFeatures('u-alice', memberships)).toEqual([
+    expect(computeEffectiveFeatures('u-alice', memberships).sort()).toEqual([
       'irc-rating',
+      'logo-library',
       'rya-py',
     ]);
   });
 
   it('a club can opt out of a default-on feature for its workspace', () => {
-    // Opt out irc-rating; the other default-on features (echo, rya-py) stay on.
+    // Opt out irc-rating; the other default-on features stay on.
     const memberships = [club('hyc', [], ['irc-rating']), personal('u-alice')];
-    expect(computeEffectiveFeatures('hyc', memberships)).toEqual(['echo', 'rya-py']);
+    expect(computeEffectiveFeatures('hyc', memberships).sort()).toEqual([
+      'echo',
+      'logo-library',
+      'rya-py',
+    ]);
   });
 });
 

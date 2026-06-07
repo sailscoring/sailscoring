@@ -28,6 +28,7 @@ import {
   logoCreateSchema,
   logoDefaultsSchema,
   logoUpdateSchema,
+  workspaceLogoSchema,
 } from '@/lib/validation/logo';
 import type { Logo, LogoDefaults } from '@/lib/types';
 
@@ -218,6 +219,17 @@ export async function copyLogoFromWorkspace(
     },
     { updatedBy: workspace.userId },
   );
+}
+
+export async function setWorkspaceLogo(
+  workspace: WorkspaceContext,
+  body: unknown,
+): Promise<{ logo: string }> {
+  requireFeature(workspace, 'logo-library');
+  const input = workspaceLogoSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const logo = await repos.logos.setWorkspaceLogo(input.logo.trim());
+  return { logo };
 }
 
 /** Asset bytes for the management thumbnail, workspace-scoped. The public,

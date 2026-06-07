@@ -50,12 +50,13 @@ export const FEATURES = {
     helpSectionIds: [],
   },
   'logo-library': {
-    // The flag locker — the per-workspace logo library (shared logo library,
-    // tier 1). Opt-in (default off): new and still growing toward the
-    // cross-workspace and canonical tiers, so we keep the audience small and
-    // enumerable per the containment model.
+    // The flag locker — the per-workspace logo library plus the built-in
+    // canonical tier and per-workspace logo. On by default: the picker draws on
+    // the canonical set served from logos.sailscoring.ie, so it's useful to
+    // every workspace out of the box. A workspace can still opt out.
     label: 'Logo library',
     helpSectionIds: ['logo-library'],
+    defaultOn: true,
   },
   'nhc-parameters': {
     label: 'Custom NHC parameters',

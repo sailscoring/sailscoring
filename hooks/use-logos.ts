@@ -92,3 +92,12 @@ export function useSetLogoDefaults() {
     },
   });
 }
+
+/** Set the active workspace's own logo. The current value comes from the
+ *  server-rendered memberships, so callers `router.refresh()` after success to
+ *  reflect it in the header/switcher. */
+export function useSetWorkspaceLogo() {
+  return useMutation({
+    mutationFn: (logo: string) => logoRepo.setWorkspaceLogo(logo),
+  });
+}

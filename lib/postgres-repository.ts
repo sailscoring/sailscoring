@@ -1948,6 +1948,26 @@ export class PostgresLogoRepository {
     return { venueLogoUrl: venueLogoUrl ?? '', eventLogoUrl: eventLogoUrl ?? '' };
   }
 
+  /** The workspace's own logo URL (Better Auth `organization.logo`), or ''. The
+   *  default-default new-series venue logo, and what the switcher shows. */
+  async getWorkspaceLogo(): Promise<string> {
+    const [row] = await this.db
+      .select({ logo: schema.organization.logo })
+      .from(schema.organization)
+      .where(eq(schema.organization.id, this.workspaceId))
+      .limit(1);
+    return row?.logo ?? '';
+  }
+
+  async setWorkspaceLogo(url: string): Promise<string> {
+    const logo = url || null;
+    await this.db
+      .update(schema.organization)
+      .set({ logo })
+      .where(eq(schema.organization.id, this.workspaceId));
+    return logo ?? '';
+  }
+
   /** Clear any default that points at logo `id` (its indirection URL ends in
    *  `/logos/{id}`). Called when that logo is deleted, so a default never
    *  dangles at a removed asset — the URL-storage analogue of the old FK

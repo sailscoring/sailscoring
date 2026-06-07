@@ -50,6 +50,7 @@ async function loadHeaderState(): Promise<HeaderState | null> {
       name: organization.name,
       slug: organization.slug,
       role: member.role,
+      logo: organization.logo,
       metadata: organization.metadata,
     })
     .from(member)
@@ -61,6 +62,7 @@ async function loadHeaderState(): Promise<HeaderState | null> {
     name: r.name,
     slug: r.slug,
     role: r.role as WorkspaceMembership['role'],
+    logo: r.logo ?? '',
   }));
   const sessionActiveId = session.session.activeOrganizationId ?? null;
   // Mirror requireWorkspace's bootstrap-pick: a fresh login has

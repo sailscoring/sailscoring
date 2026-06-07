@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Pencil, Trash2 } from 'lucide-react';
 
 import {
@@ -11,6 +12,7 @@ import {
   useLogos,
   useLogosFrom,
   useSetLogoDefaults,
+  useSetWorkspaceLogo,
   useUpdateLogo,
 } from '@/hooks/use-logos';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
@@ -42,6 +44,65 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { Logo, LogoClass } from '@/lib/types';
+
+/** The workspace's own logo (`organization.logo`) — shown in the workspace
+ *  switcher and used as the default-default venue logo for new series. Chosen
+ *  with the shared picker (own logos or a built-in one). */
+function WorkspaceLogoSection() {
+  const router = useRouter();
+  const { memberships, activeOrganizationId } = useWorkspaceMemberships();
+  const active = memberships.find((m) => m.organizationId === activeOrganizationId);
+  const setWorkspaceLogo = useSetWorkspaceLogo();
+  const [picking, setPicking] = useState(false);
+  // Local override so the preview updates instantly, before the server-rendered
+  // memberships refresh catches up.
+  const [localLogo, setLocalLogo] = useState<string | null>(null);
+  const logo = localLogo ?? active?.logo ?? '';
+
+  async function choose(url: string | null) {
+    setLocalLogo(url ?? '');
+    setPicking(false);
+    await setWorkspaceLogo.mutateAsync(url ?? '');
+    router.refresh();
+  }
+
+  return (
+    <div className="space-y-3 pb-1">
+      <p className="text-sm font-medium">Workspace logo</p>
+      <div className="flex items-center gap-3">
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logo}
+            alt=""
+            className="h-8 w-8 shrink-0 rounded border object-contain bg-muted"
+          />
+        ) : (
+          <span className="text-sm text-muted-foreground">None</span>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          className="ml-auto"
+          aria-label="Choose workspace logo"
+          onClick={() => setPicking(true)}
+        >
+          {logo ? 'Change…' : 'Choose…'}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Shown in the workspace switcher, and the default venue logo for new series unless you set one below.
+      </p>
+
+      <LogoPickerDialog
+        open={picking}
+        value={logo}
+        onClose={() => setPicking(false)}
+        onPick={choose}
+      />
+    </div>
+  );
+}
 
 /** Workspace default venue/event logos — a new series inherits these into its
  *  empty burgee slots (copy-at-creation). Stored as URLs, so a default can be a
@@ -405,6 +466,11 @@ export function LogosCard() {
         </div>
       </div>
 
+      <WorkspaceLogoSection />
+
+      <div className="border-t pt-4 space-y-4">
+      <p className="text-sm font-medium">Logos</p>
+
       {logos === undefined && (
         <p className="text-sm text-muted-foreground">Loading…</p>
       )}
@@ -455,11 +521,12 @@ export function LogosCard() {
         </div>
       )}
 
-      {logos !== undefined && <DefaultsSection />}
-
       <p className="text-xs text-muted-foreground">
         Logos are shared with everyone in this workspace. Pick one for a series&apos; venue and event burgees in its Basic settings.
       </p>
+      </div>
+
+      {logos !== undefined && <DefaultsSection />}
 
       <LogoDialog
         key={dialog.logo?.id ?? 'new'}

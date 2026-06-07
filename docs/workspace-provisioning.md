@@ -97,7 +97,7 @@ The current gated keys are:
 | `sailwave-import` | off | the "Sailwave export" option in the home Import dialog |
 | `csv-finish-import` | off | the per-race "Import CSV" finish-sheet control |
 | `ftp-upload` | off | the Standings "Upload via FTP" button + the Workspace-settings FTP-servers card |
-| `logo-library` | off | the Workspace-settings **Logo library** card (upload + manage logos, set per-workspace default venue/event logos, copy a logo from another workspace you belong to) **and** the **Library** picker on a series' venue/event logo fields, drawing on both the workspace's own logos and the built-in canonical set served from `logos.sailscoring.ie` |
+| `logo-library` | **on** | the Workspace-settings **Logo library** card (the workspace's own logo, upload + manage logos, per-workspace default venue/event logos, copy a logo from another workspace you belong to) **and** the **Library** picker on a series' venue/event logo fields, drawing on both the workspace's own logos and the built-in canonical set served from `logos.sailscoring.ie`. On by default — the canonical set makes it useful to every workspace out of the box. |
 | `nhc-parameters` | off | the per-fleet **Configure…** custom-NHC dialog (NHC scoring with stock parameters stays available to everyone) |
 | `echo` | **on** | ECHO as a per-fleet scoring system **and** the "Irish Sailing ECHO" source in the Competitors **Update handicaps** dialog (pulls ECHO handicaps from the national Irish Sailing ratings list, matched by sail number). On by default because the seeded sample club-racing series uses ECHO fleets. |
 | `irc-rating` | **on** | IRC as a per-fleet scoring system **and** the "IRC TCC (international)" source in the Competitors **Update handicaps** dialog (pulls TCCs from the worldwide IRC ClubListing, #168) |
@@ -107,7 +107,7 @@ The current gated keys are:
 **Default-on features.** Most gated features are opt-in (off until enabled),
 but a feature can be marked default-on in `lib/features.ts` — on for every
 workspace unless that workspace records an explicit opt-out. `echo`,
-`irc-rating` and `rya-py` are currently default-on. `disable-feature` records the opt-out;
+`irc-rating`, `rya-py` and `logo-library` are currently default-on. `disable-feature` records the opt-out;
 `enable-feature` clears it again. An opt-out on the active workspace always
 wins, even over a feature inherited from a club (Model B).
 
