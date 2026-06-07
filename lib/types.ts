@@ -481,6 +481,29 @@ export interface FtpServer {
   version?: number;  // server-side concurrency token (see Series.version)
 }
 
+/** How a logo is grouped in the flag locker (the per-workspace logo library).
+ *  The same vocabulary the canonical tier will use (see
+ *  docs/notes/canonical-logo-library.md §3); purely organisational here. */
+export type LogoClass =
+  | 'governing-body'
+  | 'sailing-club'
+  | 'class-assoc'
+  | 'sponsor'
+  | 'venue';
+
+/** A logo in a workspace's flag locker. Metadata only — the asset bytes are
+ *  served from `/api/v1/logos/{id}/raw` (and, in a later phase, a public
+ *  indirection URL the renderer links to). */
+export interface Logo {
+  id: string;
+  displayName: string;
+  logoClass: LogoClass;
+  contentType: string;
+  byteSize: number;
+  sha256: string;
+  sourceUrl: string;  // '' if unset, mirroring Series.venueUrl/eventUrl
+}
+
 export interface Standing {
   rank: number;
   competitor: Competitor;

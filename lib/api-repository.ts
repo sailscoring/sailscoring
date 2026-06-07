@@ -26,6 +26,8 @@ import type {
   Finish,
   Fleet,
   FtpServer,
+  Logo,
+  LogoClass,
   Race,
   RaceStart,
   RaceRatingOverride,
@@ -339,6 +341,47 @@ class ApiFtpServerRepository implements FtpServerRepository {
   }
 }
 
+/** Fields the upload card supplies. `data` is the asset bytes base64-encoded;
+ *  the server decodes, size-checks, and computes the sha256. */
+export interface LogoUpload {
+  id: string;
+  displayName: string;
+  logoClass: LogoClass;
+  contentType: string;
+  data: string;
+  sourceUrl: string;
+}
+
+/** Metadata-only edit for an existing logo. */
+export interface LogoMetaPatch {
+  displayName: string;
+  logoClass: LogoClass;
+  sourceUrl: string;
+}
+
+class ApiLogoRepository {
+  list(): Promise<Logo[]> {
+    return apiFetch<Logo[]>('/api/v1/logos');
+  }
+
+  create(upload: LogoUpload): Promise<Logo> {
+    return apiFetch<Logo>('/api/v1/logos', { method: 'POST', body: upload });
+  }
+
+  updateMeta(id: string, patch: LogoMetaPatch): Promise<Logo> {
+    return apiFetch<Logo>(`/api/v1/logos/${id}`, { method: 'PUT', body: patch });
+  }
+
+  async delete(id: string): Promise<void> {
+    await apiFetch(`/api/v1/logos/${id}`, { method: 'DELETE' });
+  }
+
+  /** `<img src>` for a logo's bytes (authenticated, workspace-scoped). */
+  rawUrl(id: string): string {
+    return `/api/v1/logos/${id}/raw`;
+  }
+}
+
 export const seriesRepo: SeriesRepository = new ApiSeriesRepository();
 export const fleetRepo: FleetRepository = new ApiFleetRepository();
 export const competitorRepo: CompetitorRepository = new ApiCompetitorRepository();
@@ -347,6 +390,7 @@ export const raceStartRepo: RaceStartRepository = new ApiRaceStartRepository();
 export const raceRatingOverrideRepo: RaceRatingOverrideRepository = new ApiRaceRatingOverrideRepository();
 export const finishRepo: FinishRepository = new ApiFinishRepository();
 export const ftpServerRepo: FtpServerRepository = new ApiFtpServerRepository();
+export const logoRepo = new ApiLogoRepository();
 
 // ─── Series-list organisation (#154) ─────────────────────────────────────────
 

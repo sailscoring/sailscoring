@@ -55,6 +55,10 @@ export const queryKeys = {
     all: ['ftpServers'] as const,
     list: () => ['ftpServers', 'list'] as const,
   },
+  logos: {
+    all: ['logos'] as const,
+    list: () => ['logos', 'list'] as const,
+  },
   published: {
     all: ['published'] as const,
     list: () => ['published', 'list'] as const,

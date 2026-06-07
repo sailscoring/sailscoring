@@ -6,6 +6,7 @@ import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
 import { CategoriesCard } from '@/components/workspace-settings/categories-card';
 import { FtpServersCard } from '@/components/workspace-settings/ftp-servers-card';
+import { LogosCard } from '@/components/workspace-settings/logos-card';
 import { MembersCard } from '@/components/workspace-settings/members-card';
 import { PublishedCard } from '@/components/workspace-settings/published-card';
 
@@ -58,6 +59,7 @@ export default async function WorkspacePage() {
       <MembersCard currentUserEmail={session?.user.email ?? null} />
       <CategoriesCard />
       <PublishedCard />
+      {features.includes('logo-library') && <LogosCard />}
       {features.includes('ftp-upload') && <FtpServersCard />}
     </div>
   );

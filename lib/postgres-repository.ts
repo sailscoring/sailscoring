@@ -24,6 +24,8 @@ import type {
   Fleet,
   Finish,
   FtpServer,
+  Logo,
+  LogoClass,
   NhcProfile,
   PenaltyCode,
   Race,
@@ -1753,6 +1755,156 @@ export class PostgresFtpServerRepository implements FtpServerRepository {
   }
 }
 
+// ─── Flag locker (logo library) ──────────────────────────────────────────────
+
+/** Row fields a create needs once the bytes are stored and the locator known.
+ *  The handler does the Blob IO; the repository only persists the row. */
+export interface NewLogo {
+  id: string;
+  displayName: string;
+  logoClass: LogoClass;
+  locator: string;
+  contentType: string;
+  byteSize: number;
+  sha256: string;
+  sourceUrl: string;
+}
+
+function logoRowToType(
+  row: typeof schema.flagLockerLogos.$inferSelect,
+): Logo {
+  return {
+    id: row.id,
+    displayName: row.displayName,
+    logoClass: row.logoClass as LogoClass,
+    contentType: row.contentType,
+    byteSize: row.byteSize,
+    sha256: row.sha256,
+    sourceUrl: row.sourceUrl ?? '',
+  };
+}
+
+/**
+ * Per-workspace logo library — the flag locker. Workspace-scoped, no optimistic
+ * concurrency (like categories): logos are low-churn metadata, edited one at a
+ * time, so last-write-wins is fine. Asset bytes live in Blob via
+ * `flag-locker-storage`; this repository persists only the row. Metadata edits
+ * (`updateMeta`) never touch the bytes, so the `locator` is stable across a
+ * rename.
+ */
+export class PostgresLogoRepository {
+  private readonly db: SailScoringDb;
+  private readonly workspaceId: string;
+
+  constructor(ctx: RepoCtx) {
+    this.db = ctx.db ?? getDb();
+    this.workspaceId = ctx.workspaceId;
+  }
+
+  async list(): Promise<Logo[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.flagLockerLogos)
+      .where(eq(schema.flagLockerLogos.workspaceId, this.workspaceId))
+      .orderBy(schema.flagLockerLogos.createdAt);
+    return rows.map(logoRowToType);
+  }
+
+  async create(logo: NewLogo, opts?: { updatedBy?: string | null }): Promise<Logo> {
+    const [row] = await this.db
+      .insert(schema.flagLockerLogos)
+      .values({
+        id: logo.id,
+        workspaceId: this.workspaceId,
+        displayName: logo.displayName,
+        logoClass: logo.logoClass,
+        locator: logo.locator,
+        contentType: logo.contentType,
+        byteSize: logo.byteSize,
+        sha256: logo.sha256,
+        sourceUrl: logo.sourceUrl || null,
+        updatedBy: opts?.updatedBy ?? null,
+      })
+      .returning();
+    return logoRowToType(row);
+  }
+
+  async updateMeta(
+    id: string,
+    patch: { displayName: string; logoClass: LogoClass; sourceUrl: string },
+    opts?: { updatedBy?: string | null },
+  ): Promise<Logo | undefined> {
+    const [row] = await this.db
+      .update(schema.flagLockerLogos)
+      .set({
+        displayName: patch.displayName,
+        logoClass: patch.logoClass,
+        sourceUrl: patch.sourceUrl || null,
+        version: sql`${schema.flagLockerLogos.version} + 1`,
+        updatedAt: sql`now()`,
+        updatedBy: opts?.updatedBy ?? null,
+      })
+      .where(
+        and(
+          eq(schema.flagLockerLogos.id, id),
+          eq(schema.flagLockerLogos.workspaceId, this.workspaceId),
+        ),
+      )
+      .returning();
+    return row ? logoRowToType(row) : undefined;
+  }
+
+  /** The stored locator + content type for serving or deleting the bytes.
+   *  Workspace-scoped so a caller can't reach another workspace's asset. */
+  async getStored(
+    id: string,
+  ): Promise<{ locator: string; contentType: string } | undefined> {
+    const [row] = await this.db
+      .select({
+        locator: schema.flagLockerLogos.locator,
+        contentType: schema.flagLockerLogos.contentType,
+      })
+      .from(schema.flagLockerLogos)
+      .where(
+        and(
+          eq(schema.flagLockerLogos.id, id),
+          eq(schema.flagLockerLogos.workspaceId, this.workspaceId),
+        ),
+      )
+      .limit(1);
+    return row ?? undefined;
+  }
+
+  /** Whether any other logo in the workspace still references `locator` — the
+   *  guard before deleting content-addressed bytes a duplicate upload may share. */
+  async locatorReferencedElsewhere(
+    locator: string,
+    excludeId: string,
+  ): Promise<boolean> {
+    const rows = await this.db
+      .select({ id: schema.flagLockerLogos.id })
+      .from(schema.flagLockerLogos)
+      .where(
+        and(
+          eq(schema.flagLockerLogos.workspaceId, this.workspaceId),
+          eq(schema.flagLockerLogos.locator, locator),
+        ),
+      );
+    return rows.some((r) => r.id !== excludeId);
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.db
+      .delete(schema.flagLockerLogos)
+      .where(
+        and(
+          eq(schema.flagLockerLogos.id, id),
+          eq(schema.flagLockerLogos.workspaceId, this.workspaceId),
+        ),
+      );
+  }
+}
+
 // ─── Categories ──────────────────────────────────────────────────────────────
 
 function categoryRowToType(row: typeof schema.categories.$inferSelect): Category {
@@ -1862,5 +2014,6 @@ export function createRepos(ctx: RepoCtx) {
     raceRatingOverrides: new PostgresRaceRatingOverrideRepository(ctx),
     finishes: new PostgresFinishRepository(ctx),
     ftpServers: new PostgresFtpServerRepository(ctx),
+    logos: new PostgresLogoRepository(ctx),
   };
 }

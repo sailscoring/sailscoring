@@ -593,3 +593,55 @@ export const activityLog = pgTable(
     ),
   ],
 );
+
+/**
+ * Per-workspace logo library — the "flag locker" (shared logo library, tier 1;
+ * see docs/notes/canonical-logo-library.md and docs/design/horizon.md). Holds
+ * metadata only; the asset bytes live in Blob (or the `logo_blobs` fallback
+ * locally), addressed by `locator` exactly like `published_series.blobUrl`.
+ *
+ * `locator` is content-addressed (key embeds the asset's `sha256`), so a blob
+ * is immutable and a re-upload writes a fresh object and re-points the row —
+ * the stable handle a consumer references is the row `id`, not the locator.
+ * `logoClass` groups entries the way the HYC scorers' table does (and the way
+ * the canonical tier will), but it is purely organisational here.
+ */
+export const flagLockerLogos = pgTable(
+  'flag_locker_logos',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    displayName: text('display_name').notNull(),
+    logoClass: text('class').notNull(),
+    locator: text('locator').notNull(),
+    contentType: text('content_type').notNull(),
+    byteSize: integer('byte_size').notNull(),
+    sha256: text('sha256').notNull(),
+    sourceUrl: text('source_url'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
+  },
+  (table) => [index('flag_locker_logos_workspace_idx').on(table.workspaceId)],
+);
+
+/**
+ * Local-dev / CI fallback for logo asset bytes, mirroring `published_blobs`:
+ * when `BLOB_READ_WRITE_TOKEN` is unset, `flag-locker-storage` writes here and
+ * the `locator` is `db:{key}`. Bytes are stored base64-encoded in a text column
+ * (binary-safe, no `bytea` custom type needed) — local-only, so the ~33%
+ * inflation is irrelevant; production uses Blob.
+ */
+export const logoBlobs = pgTable('logo_blobs', {
+  key: text('key').primaryKey(),
+  data: text('data').notNull(),
+  contentType: text('content_type').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

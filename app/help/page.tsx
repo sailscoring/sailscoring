@@ -68,6 +68,8 @@ export default async function HelpPage() {
             ['#a53-scoring', 'A5.3 starting-area scoring'],
             ['#saving-and-sharing', 'Saving and sharing a series'],
             ['#activity', 'Activity and working with co-scorers'],
+            // Gated: only listed when logo-library is enabled.
+            ['#logo-library', 'The logo library', 'logo-library'],
             ['#publishing-results', 'Publishing results'],
             ['#json-export', 'JSON data export and Open in Sail Scoring'],
             ['#sending-feedback', 'Sending feedback'],
@@ -1115,6 +1117,25 @@ export default async function HelpPage() {
           the rest of your panel.
         </p>
       </Section>
+
+      {has('logo-library') && (
+      <Section id="logo-library" title="The logo library">
+        <p>
+          Your workspace has a shared <strong className="text-foreground">logo library</strong> —
+          a place to keep the venue, club, class, sponsor, and governing-body logos you reach for
+          when branding results. Manage it from{' '}
+          <strong className="text-foreground">Workspace settings → Logo library</strong>: upload a
+          PNG, JPEG, GIF, WebP, or SVG (a transparent background looks best in results headers),
+          give it a name and a type, and optionally note where it came from.
+        </p>
+        <p>
+          Logos are shared with everyone in the workspace, so a logo one scorer cleans up is there
+          for the whole team. Picking a library logo when setting a series&apos; venue and event
+          burgees — instead of pasting a URL — is coming next; for now the library is where the
+          assets live.
+        </p>
+      </Section>
+      )}
 
       <Section id="publishing-results" title="Publishing results">
         <p>

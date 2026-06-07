@@ -750,4 +750,74 @@ describe.skipIf(skip)('postgres repositories', () => {
     expect((err as InstanceType<typeof ConflictError>).detail?.actor).toBeUndefined();
   });
 
+  // ─── LogoRepository (flag locker) ────────────────────────────────────────────
+
+  function makeLogo(id: string = uuid(), locator = `db:logos/x/${id}.png`) {
+    return {
+      id,
+      displayName: `Logo ${id.slice(0, 8)}`,
+      logoClass: 'sponsor' as const,
+      locator,
+      contentType: 'image/png',
+      byteSize: 1234,
+      sha256: 'deadbeef',
+      sourceUrl: '',
+    };
+  }
+
+  test('LogoRepository.create then list and getStored round-trip', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const created = await repos.logos.create(makeLogo(), { updatedBy: null });
+    expect(created.displayName).toMatch(/^Logo /);
+    expect(created.sourceUrl).toBe('');
+
+    const all = await repos.logos.list();
+    expect(all.find((l) => l.id === created.id)).toBeTruthy();
+
+    const stored = await repos.logos.getStored(created.id);
+    expect(stored?.contentType).toBe('image/png');
+    expect(stored?.locator).toContain('db:logos/');
+  });
+
+  test('LogoRepository.updateMeta edits metadata without touching the locator', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const logo = makeLogo();
+    await repos.logos.create(logo, { updatedBy: null });
+
+    const before = await repos.logos.getStored(logo.id);
+    const updated = await repos.logos.updateMeta(
+      logo.id,
+      { displayName: 'Renamed', logoClass: 'sailing-club', sourceUrl: 'https://x.test' },
+      { updatedBy: null },
+    );
+    expect(updated?.displayName).toBe('Renamed');
+    expect(updated?.logoClass).toBe('sailing-club');
+    expect(updated?.sourceUrl).toBe('https://x.test');
+
+    const after = await repos.logos.getStored(logo.id);
+    expect(after?.locator).toBe(before?.locator);
+  });
+
+  test('LogoRepository: tenancy isolation and locator-reference guard', async () => {
+    const reposA = createRepos({ db, workspaceId: workspaceA });
+    const reposB = createRepos({ db, workspaceId: workspaceB });
+
+    const shared = `db:logos/shared/${uuid()}.png`;
+    const one = makeLogo(uuid(), shared);
+    const two = makeLogo(uuid(), shared);
+    await reposA.logos.create(one, { updatedBy: null });
+    await reposA.logos.create(two, { updatedBy: null });
+
+    // B can't see, fetch, or edit A's logo.
+    expect(await reposB.logos.getStored(one.id)).toBeUndefined();
+    expect(await reposB.logos.updateMeta(one.id, { displayName: 'x', logoClass: 'venue', sourceUrl: '' }, { updatedBy: null })).toBeUndefined();
+
+    // Two A-logos share the content-addressed locator, so deleting one leaves
+    // the bytes referenced by the other.
+    expect(await reposA.logos.locatorReferencedElsewhere(shared, one.id)).toBe(true);
+    await reposA.logos.delete(one.id);
+    expect(await reposA.logos.locatorReferencedElsewhere(shared, two.id)).toBe(false);
+    await reposA.logos.delete(two.id);
+  });
+
 });

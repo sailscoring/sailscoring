@@ -49,6 +49,14 @@ export const FEATURES = {
     label: 'FTP upload',
     helpSectionIds: [],
   },
+  'logo-library': {
+    // The flag locker — the per-workspace logo library (shared logo library,
+    // tier 1). Opt-in (default off): new and still growing toward the
+    // cross-workspace and canonical tiers, so we keep the audience small and
+    // enumerable per the containment model.
+    label: 'Logo library',
+    helpSectionIds: ['logo-library'],
+  },
   'nhc-parameters': {
     label: 'Custom NHC parameters',
     helpSectionIds: [],
