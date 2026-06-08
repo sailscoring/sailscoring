@@ -73,6 +73,38 @@ an external sink rather than the API being consumed.
 
 ---
 
+### Pull scoring inquiries and protest decisions back from racingrulesofsailing.org
+
+The competitor-push above is one half of the RRS.org loop; this is the other half. Once
+an event runs its protest/redress process on RRS.org, decisions there change the score:
+a scoring inquiry ("my finish position is wrong"), a protest decision (DSQ a boat, or
+reinstate one), or a request for redress that awards points by some redress method. Today
+the scorer learns of these out-of-band — a jury chair emails the result, or they read the
+notice board — and re-enters the consequence into the scoring tool by hand, with no link
+back to the decision that caused it.
+
+Sail Scoring could surface RRS.org's open items inline: pull the event's scoring inquiries
+and hearing decisions for a series and show them as a worklist on (or beside) the relevant
+race, so the scorer sees "Inquiry: boat 1234, claims finish should be 3rd not 5th" or
+"Protest 7: 1234 DSQ under RRS 10" as actionable items. The scorer resolves each one in
+Sail Scoring — apply the code, adjust the finish, grant the redress (ties into the redress
+methods under *Esoteric scoring engine requirements* below) — and the resolution is
+submitted back to RRS.org so the jury's tool reflects that the scoring consequence has been
+applied. That closes the loop the competitor-push opens: competitors flow out, decisions
+flow back in, resolutions flow back out.
+
+Open questions, mostly the same shape as the push side: there's no documented public RRS.org
+API, so the read endpoints (what an inquiry/decision payload looks like) and the write-back
+contract would both need to be agreed with them, not reverse-engineered. There's also a
+workflow-ownership question — the jury owns the *decision*, the scorer owns its *scoring
+consequence*, and the two tools would need a clear handshake about which side is
+authoritative for "this has been actioned" so a decision isn't double-applied or silently
+dropped. Pairs naturally with the changelog/snapshot-history work under *Scoring records and
+audit trail* — a resolution sourced from an RRS.org decision is exactly the kind of change
+that wants an attributed, linkable audit entry.
+
+---
+
 ## Finish entry UX
 
 ### Elapsed time recording in finish entry
