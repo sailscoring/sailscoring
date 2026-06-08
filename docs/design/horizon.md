@@ -201,6 +201,54 @@ camera's full-colour JPEG, while keeping the writing perfectly legible — the s
 document scanner applies to a page of text. Do the conversion server-side on ingest so the
 stored artifact is the small one regardless of what the committee boat's phone produced.
 
+How the committee boat gets the photo *into* Sail Scoring matters as much as where it
+lands. The boat crew are wet, gloved, and on a heaving deck — they will not log into a web
+app and navigate to a race. The natural capture-and-send gestures are the ones they
+already use: snap the sheet, then share it to a single fixed destination. So the realistic
+ingest channels are **a dedicated email address** the photo is forwarded to (an inbound
+mail webhook parses the attachment and files it against the right race) or **a WhatsApp
+message** to a number the club watches (via the WhatsApp Business / Cloud API, or in the
+crude interim a human who relays it). Either way the hard part isn't receiving the image —
+it's routing it to the correct race without the sender typing anything structured. Options:
+a per-race or per-race-day magic address / alias the SI hands the committee boat
+(`finish+<token>@…`), a subject-line or message-body convention (event + race number), or
+an unrouted inbox the scorer triages and attaches by hand. Lean: start with the manual-triage
+inbox (zero routing logic, immediately useful) and earn the addressing scheme only once the
+volume justifies it.
+
+The routing question has two halves — *which workspace* and *which series/race within it* —
+and the clean answer to both is **the address is the capability**. Rather than trying to
+recognise the sender (committee-boat phones are shared, mail gets forwarded, From: is
+trivially spoofed — sender identity is a weak key), mint an opaque per-series token and
+publish the address that carries it in the Sailing Instructions: `finish+<token>@in.sailscoring.ie`.
+The token resolves to exactly one `(workspace, series)`, so whoever holds it can post finish
+sheets to that series and nothing else — which is the right trust level for an inbound audit
+artifact (low-stakes, and the SI already hands the token to precisely the people who should
+have it). That collapses "which workspace / which series" into a single lookup and means the
+committee boat types nothing. The residual question is *which race*: a race day usually spans
+several races and fleets, so options are a finer-grained per-race-day or per-race token, a
+race number parsed from the subject/message, or — simplest — file every inbound sheet against
+the series' open race day as **unassigned** and let the scorer drop each photo onto the right
+race during triage. The token needs a small lifecycle of its own: minted when a series is
+created (or first published), shown in workspace/series settings for the SI author to copy,
+and rotatable/revocable so a leaked or end-of-season address can be retired. WhatsApp doesn't
+get per-series addresses cheaply (numbers cost money), so it routes differently: a per-workspace
+number a club provisions, with series/race resolved from the message body or a short
+back-and-forth ("which race?") — another reason email is the better first target and WhatsApp
+the later, club-specific upgrade.
+
+Because the channel is conversational, it can talk back. The same email/WhatsApp reply path
+gives a natural way to **acknowledge receipt and flag a bad capture** without the committee
+boat ever opening the app: a quick automated reply ("got it — sheet filed against Race 3")
+closes the loop, and if the image fails a quality gate the reply asks for a re-shoot while
+the boat is still on station and the sheet still in hand — far better than the scorer
+discovering an unreadable photo hours later ashore. The cheap, high-value check is
+resolution / blur (reject anything below a sensible pixel-density or sharpness threshold).
+A genuine **legibility** check is more ambitious — OCR or a vision model deciding whether
+the pencil is actually readable — and is firmly a later refinement, but worth noting because
+the same model could eventually *transcribe* the sheet into a draft finish list, not just
+judge it.
+
 Shape of the change: an attachments relation on `Race` (Blob key, original filename,
 uploaded-by, uploaded-at), an upload affordance in race settings / the finish sheet view,
 a server-side image-normalisation step (greyscale + contrast, optional bilevel, sensible
