@@ -1320,7 +1320,8 @@ export default async function HelpPage() {
       <Section id="keyboard-shortcuts" title="Keyboard shortcuts">
         <p>
           Press <strong className="text-foreground">?</strong> anywhere in the app (outside a text
-          input) to open the keyboard shortcuts reference.
+          input) to open the keyboard shortcuts reference. Press{' '}
+          <strong className="text-foreground">Shift+D</strong> to toggle dark mode.
         </p>
       </Section>
     </div>

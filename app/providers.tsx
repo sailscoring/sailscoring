@@ -14,6 +14,7 @@
  * throttle, both of which are larger than this commit warrants.
  */
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { ThemeProvider } from 'next-themes';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { ConflictNoticeProvider, useNotifyConflict } from '@/components/conflict-notice';
@@ -36,12 +37,19 @@ export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(createQueryClient);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ConflictNoticeProvider>
-        <ConflictMutationSubscriber />
-        {children}
-      </ConflictNoticeProvider>
-    </QueryClientProvider>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <QueryClientProvider client={queryClient}>
+        <ConflictNoticeProvider>
+          <ConflictMutationSubscriber />
+          {children}
+        </ConflictNoticeProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

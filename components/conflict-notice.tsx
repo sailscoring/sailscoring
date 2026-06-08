@@ -52,7 +52,7 @@ export function ConflictNoticeProvider({ children }: { children: ReactNode }) {
         <div
           role="status"
           aria-live="polite"
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 shadow-md"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 shadow-md dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
         >
           This page was edited elsewhere — refreshed.
         </div>

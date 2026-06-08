@@ -25,6 +25,7 @@ import { WorkspaceMembershipsProvider } from '@/components/workspace-memberships
 import { FeaturesProvider } from '@/components/features-provider';
 import { computeEffectiveFeatures, type FeatureKey } from '@/lib/features';
 import { UserMenu } from '@/components/user-menu';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { StealthBetaBanner } from '@/components/stealth-beta-banner';
 import { Footer } from '@/components/footer';
 
@@ -138,6 +139,7 @@ export default async function RootLayout({
                 >
                   Help
                 </Link>
+                <ThemeToggle />
                 {header && (
                   <UserMenu
                     email={header.email}
