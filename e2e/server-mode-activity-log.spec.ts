@@ -81,19 +81,22 @@ test.describe('activity log on a shared workspace', () => {
       await expect(card).toContainText('Recorded finishes for Race 1');
       await expect(card).toContainText(sarahName);
 
-      // Open the series and read its Activity tab.
+      // Open the series and read its History tab (the per-series change record
+      // since the Activity tab was folded into it, #166).
       await brian.getByText(seriesName).click();
       await expect(brian).toHaveURL(/\/series\/[0-9a-f-]{36}\/competitors$/);
-      await brian.getByRole('navigation').getByRole('link', { name: 'Activity' }).click();
-      await expect(brian).toHaveURL(/\/series\/[0-9a-f-]{36}\/activity$/);
+      await brian.getByRole('navigation').getByRole('link', { name: 'History' }).click();
+      await expect(brian).toHaveURL(/\/series\/[0-9a-f-]{36}\/history$/);
 
-      const feed = brian.getByTestId('activity-feed');
-      await expect(feed).toBeVisible();
-      await expect(feed).toContainText('Created the series');
-      await expect(feed).toContainText('Added Race 1');
-      await expect(feed).toContainText('Recorded finishes for Race 1');
-      // Attributed to Sarah, not Brian.
-      await expect(feed).toContainText(sarahName);
+      const list = brian.getByTestId('revision-list');
+      await expect(list).toBeVisible();
+      // Sarah's edits coalesced into one revision, attributed to her.
+      await expect(list).toContainText(sarahName);
+      // Expand it to see the individual changes she made.
+      await brian.getByRole('button', { name: /Created the series/ }).click();
+      await expect(list).toContainText('Created the series');
+      await expect(list).toContainText('Added Race 1');
+      await expect(list).toContainText('Recorded finishes for Race 1');
     } finally {
       await ctxSarah.close();
       await ctxBrian.close();

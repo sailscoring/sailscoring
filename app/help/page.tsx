@@ -67,7 +67,7 @@ export default async function HelpPage() {
             ['#discard-rules', 'Discard rules'],
             ['#a53-scoring', 'A5.3 starting-area scoring'],
             ['#saving-and-sharing', 'Saving and sharing a series'],
-            ['#activity', 'Activity and working with co-scorers'],
+            ['#collaboration', 'Working with co-scorers'],
             ['#history', 'Version history'],
             // Gated: only listed when logo-library is enabled.
             ['#logo-library', 'The logo library', 'logo-library'],
@@ -131,7 +131,7 @@ export default async function HelpPage() {
           shared workspace from your <strong className="text-foreground">Account</strong> page —
           give it a name and we&apos;ll set it up and make you its owner, ready to invite the rest
           of your panel (see{' '}
-          <a href="#activity" className="underline">Activity and working with co-scorers</a>).
+          <a href="#collaboration" className="underline">Working with co-scorers</a>).
           Once you belong to a shared workspace, the switcher in the header shows both your personal
           workspace and the shared one; pick the shared one and the rest of the app reorients onto
           the panel&apos;s data.
@@ -1077,22 +1077,13 @@ export default async function HelpPage() {
         </p>
       </Section>
 
-      <Section id="activity" title="Activity and working with co-scorers">
+      <Section id="collaboration" title="Working with co-scorers">
         <p>
           When a club scoring panel shares a workspace, several scorers work on
           the same series at once — typically split by fleet. Sail Scoring
           doesn&apos;t lock anything; instead it keeps a clear record of what
-          changed, when, and by whom.
-        </p>
-        <p>
-          Every series has an <strong className="text-foreground">Activity</strong>{' '}
-          tab (or press <strong className="text-foreground">g</strong> then{' '}
-          <strong className="text-foreground">a</strong>) showing a
-          newest-first log: results entered, races added, competitors imported,
-          settings changed, and so on — each line naming the scorer and how long
-          ago it happened. It&apos;s there for confidence about the current
-          state, for the correction trail behind a scoring inquiry, and for
-          protest-committee accountability.
+          changed, when, and by whom — see the{' '}
+          <strong className="text-foreground">History</strong> tab (below).
         </p>
         <p>
           The series list mirrors the most recent change under each series, so
@@ -1130,10 +1121,10 @@ export default async function HelpPage() {
         </p>
         <p>
           The list is newest-first, each version naming the scorer and how long
-          ago it was. Expand a version to see the individual changes it
-          covers — the same entries you&apos;d find on the Activity tab, grouped
-          under the session that made them. It&apos;s the record behind a scoring
-          inquiry and the audit trail for a protest committee.
+          ago it was. Expand a version to see the individual changes it covers —
+          results entered, races added, competitors imported, settings changed —
+          each grouped under the session that made them. It&apos;s the record
+          behind a scoring inquiry and the audit trail for a protest committee.
         </p>
         <p>
           To roll back a mistake, press{' '}

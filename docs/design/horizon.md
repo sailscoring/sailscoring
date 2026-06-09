@@ -120,18 +120,15 @@ worth asking real recorders before building anything.
 
 ## Scoring records and audit trail
 
-### Revision history with revert and diff
+### Rendered (WYSIWYG) revision diff
 
-Scorers need confidence that changes are tracked and reversible. Full revision history
-of scoring data, allowing scorers to revert to an earlier state or compare between
-revisions.
-
-Open questions: granularity (per-save, per-field-change, or per-deliberate-checkpoint);
-compression strategy; how far back to retain; how revisions are surfaced in the UI.
-Revision history must be included in the JSON export — it is part of the authoritative
-record.
-
-*(Was GitHub issue #7)*
+Revision history itself is implemented (#166): per-session snapshots, a History tab,
+restore, named checkpoints, and history embedded in the saved `.sailscoring` file. The
+remaining horizon piece is a **rendered diff** between two revisions — a WYSIWYG
+standings/results view that highlights what changed (added/removed/changed cells)
+rather than the current "list the actions in this revision's window" drill-down. The
+stored snapshots make it addable later: it needs a structural differ over
+competitors/finishes plus a diff-aware results renderer.
 
 ### Recover a deleted series
 

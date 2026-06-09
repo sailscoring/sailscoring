@@ -30,11 +30,19 @@ function actorLabel(actor: RevisionEntry['actor']): string {
   return actor?.displayName ?? actor?.email ?? 'Someone';
 }
 
-/** Headline for a revision row: a named checkpoint's label, else its summary. */
-function revisionTitle(rev: RevisionEntry): string {
+/**
+ * Headline for a revision row. Named checkpoints use their label and reverts
+ * their message; an auto revision's headline is derived from the *set* of
+ * changes in its window (chronological, de-duplicated) rather than the
+ * last-action `summary`, which only described whatever happened to land last.
+ */
+function revisionTitle(rev: RevisionEntry, windowActivity: ActivityEntry[]): string {
   if (rev.kind === 'named' && rev.label) return rev.label;
-  if (rev.summary) return rev.summary;
-  return rev.kind === 'revert' ? 'Restored an earlier version' : 'Edited the series';
+  if (rev.kind === 'revert') return rev.summary ?? 'Restored an earlier version';
+  const summaries = [...new Set([...windowActivity].reverse().map((a) => a.summary))];
+  if (summaries.length === 0) return rev.summary ?? 'Edited the series';
+  if (summaries.length <= 2) return summaries.join(', ');
+  return `${summaries.slice(0, 2).join(', ')} +${summaries.length - 2} more`;
 }
 
 function KindBadge({ kind }: { kind: RevisionEntry['kind'] }) {
@@ -90,7 +98,7 @@ function RevisionRow({
           </span>
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-2 text-sm">
-              <span className="font-medium">{revisionTitle(rev)}</span>
+              <span className="font-medium">{revisionTitle(rev, windowActivity)}</span>
               <KindBadge kind={rev.kind} />
             </p>
             <p className="text-xs text-muted-foreground">

@@ -35,13 +35,13 @@ test('history tab: a session is one revision, expandable to its changes', async 
   await expect(list).toBeVisible();
 
   // All of this session's edits coalesced into a single revision, headlined by
-  // the most recent change.
+  // the set of changes it covers (not just the last action).
   const rows = list.getByRole('listitem');
   await expect(rows).toHaveCount(1);
-  await expect(list).toContainText('Recorded finishes for Race 1');
-
-  // Expand it → the earlier changes in the session are listed underneath.
-  await page.getByRole('button', { name: /Recorded finishes for Race 1/ }).click();
   await expect(list).toContainText('Created the series');
+
+  // Expand it → every change in the session is listed underneath.
+  await page.getByRole('button', { name: /Created the series/ }).click();
   await expect(list).toContainText('Added Race 1');
+  await expect(list).toContainText('Recorded finishes for Race 1');
 });
