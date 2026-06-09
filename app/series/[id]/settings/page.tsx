@@ -601,6 +601,7 @@ export default function SettingsPage({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sailwaveInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
+  const [includeHistory, setIncludeHistory] = useState(true);
   const [updateFlow, setUpdateFlow] = useState<UpdateFlow>({ step: 'idle' });
 
   if (isLoading || series === undefined) return <p className="text-muted-foreground">Loading…</p>;
@@ -614,7 +615,7 @@ export default function SettingsPage({
   async function handleSaveToFile() {
     setSaving(true);
     try {
-      await saveSeriesFile(seriesId, repos);
+      await saveSeriesFile(seriesId, repos, { includeRevisions: includeHistory });
       // saveSeriesFile writes lastSavedAt directly via the seriesRepo,
       // bypassing the React Query cache. Force a refetch so the file card
       // reflects the new "Last saved" state.
@@ -757,6 +758,16 @@ export default function SettingsPage({
             </Button>
           )}
         </div>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={includeHistory}
+            onChange={(e) => setIncludeHistory(e.target.checked)}
+            className="h-3.5 w-3.5 shrink-0"
+            data-testid="include-history"
+          />
+          Include version history in the saved file
+        </label>
         {!series.lastSavedAt && (
           <p className="text-xs text-muted-foreground">
             Save to a file to share this series with co-scorers or back it up.

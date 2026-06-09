@@ -401,14 +401,16 @@ export async function buildSeriesFile(
 export async function saveSeriesFile(
   seriesId: string,
   repos: SeriesFileRepos,
+  opts: { includeRevisions?: boolean } = {},
 ): Promise<void> {
   const file = await buildSeriesFile(seriesId, repos);
   const series = await repos.seriesRepo.get(seriesId);
   if (!series) throw new Error(`Series ${seriesId} not found`);
 
   // Embed the revision history by default (#166), so the file is a complete,
-  // restorable backup. Implementations without revision support omit it.
-  if (repos.listRevisionsForExport) {
+  // restorable backup. The scorer can opt out for a lean file, and
+  // implementations without revision support omit it regardless.
+  if (opts.includeRevisions !== false && repos.listRevisionsForExport) {
     file.revisions = await repos.listRevisionsForExport(seriesId);
   }
 

@@ -214,6 +214,20 @@ test('series file: save exports correct JSON with all series fields, competitors
   expect(file.revisions![0].snapshot.series.name).toBe('Autumn League 2025');
 });
 
+test('series file: unticking "Include version history" omits revisions from the saved file', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Lean Save Test' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+
+  // Default save embeds history…
+  const withHistory = await saveToFile(page);
+  expect((withHistory.revisions?.length ?? 0)).toBeGreaterThanOrEqual(1);
+
+  // …unticking the box drops it.
+  await page.getByTestId('include-history').uncheck();
+  const without = await saveToFile(page);
+  expect(without).not.toHaveProperty('revisions');
+});
+
 test('series file: Update from File replaces the series in place (matched by seriesId)', async ({ page }) => {
   // ── Create series with a competitor, save to file ─────────────────────────
   await createSeriesQuick(page, { name: 'Update In Place Test' });
