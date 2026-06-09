@@ -23,6 +23,7 @@ import type {
   StartGroup,
   PublishedSeriesPage,
 } from '@/lib/types';
+import type { SeriesFile } from '@/lib/series-file';
 
 /**
  * ADR-008 Phase 2 schema. Mirrors `lib/types.ts` 1:1.
@@ -585,6 +586,47 @@ export const activityLog = pgTable(
       table.workspaceId,
       table.dedupeKey,
       table.actorUserId,
+    ),
+  ],
+);
+
+/**
+ * Revision history (#166). Each row is a full point-in-time snapshot of a
+ * series in `.sailscoring` file shape, captured automatically as scorers edit.
+ * Consecutive edits by the same actor within a short idle window coalesce into
+ * one `auto` revision (the row is overwritten in place), so the list stays
+ * coarse — see `lib/revision-log.ts`. `named` revisions are user-pinned
+ * checkpoints; `revert` revisions record a restore. The activity-log entries in
+ * a revision's window provide the finer-grained drill-down.
+ */
+export const seriesRevision = pgTable(
+  'series_revision',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    seriesId: uuid('series_id')
+      .notNull()
+      .references(() => series.id, { onDelete: 'cascade' }),
+    actorUserId: text('actor_user_id'),
+    kind: text('kind').notNull().default('auto'),
+    label: text('label'),
+    summary: text('summary'),
+    snapshot: jsonb('snapshot').notNull().$type<SeriesFile>(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('series_revision_series_created_idx').on(
+      table.seriesId,
+      table.createdAt.desc(),
+    ),
+    index('series_revision_coalesce_idx').on(
+      table.seriesId,
+      table.actorUserId,
+      table.kind,
     ),
   ],
 );

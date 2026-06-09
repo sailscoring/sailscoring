@@ -552,6 +552,23 @@ export interface ActivityEntry {
   actor: { id: string; email?: string; displayName?: string } | null;
 }
 
+/** A single revision in a series' history (#166). Metadata only — the full
+ *  point-in-time snapshot blob is fetched separately when viewing or reverting. */
+export interface RevisionEntry {
+  id: string;
+  seriesId: string;
+  /** `auto` = session-coalesced autosave; `named` = pinned checkpoint;
+   *  `revert` = a restore of an earlier revision. */
+  kind: 'auto' | 'named' | 'revert';
+  /** User-supplied name for a `named` checkpoint; null otherwise. */
+  label: string | null;
+  /** Short human description of what the revision captured, if any. */
+  summary: string | null;
+  /** ISO-8601 timestamp of the revision (end of its editing session). */
+  createdAt: string;
+  actor: { id: string; email?: string; displayName?: string } | null;
+}
+
 /**
  * Read-only "who last touched this record" stamp (#153), derived from the
  * row's server-managed `updated_at` / `updated_by`. Surfaced in the competitor

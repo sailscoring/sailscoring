@@ -2,6 +2,7 @@ import 'server-only';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
+import { captureRevision } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
 import {
@@ -56,6 +57,9 @@ export async function putFinish(
       summary: `Recorded finishes for Race ${race.raceNumber}`,
       dedupeKey: `finishes:${raceId}`,
     });
+    await captureRevision(workspace, race.seriesId, {
+      summary: `Recorded finishes for Race ${race.raceNumber}`,
+    });
   }
   return saved;
 }
@@ -98,13 +102,15 @@ export async function bulkDeleteFinishes(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const race = await repos.races.get(raceId);
   await repos.finishes.deleteByRace(raceId);
+  const clearedSummary = race
+    ? `Cleared all finishes for Race ${race.raceNumber}`
+    : 'Cleared all finishes';
   await recordActivity(workspace, {
     action: 'finishes.cleared',
     seriesId: race?.seriesId ?? null,
-    summary: race
-      ? `Cleared all finishes for Race ${race.raceNumber}`
-      : 'Cleared all finishes',
+    summary: clearedSummary,
   });
+  if (race) await captureRevision(workspace, race.seriesId, { summary: clearedSummary });
 }
 
 /**
@@ -131,12 +137,14 @@ export async function bulkPutFinishes(
   await repos.finishes.saveMany(finishes, { updatedBy: workspace.userId });
   const race = await repos.races.get(raceId);
   const n = finishes.length;
+  const enteredSummary = race
+    ? `Entered ${n} finishes for Race ${race.raceNumber}`
+    : `Entered ${n} finishes`;
   await recordActivity(workspace, {
     action: 'finishes.entered',
     seriesId: race?.seriesId ?? null,
-    summary: race
-      ? `Entered ${n} finishes for Race ${race.raceNumber}`
-      : `Entered ${n} finishes`,
+    summary: enteredSummary,
   });
+  if (race) await captureRevision(workspace, race.seriesId, { summary: enteredSummary });
   return { count: finishes.length };
 }

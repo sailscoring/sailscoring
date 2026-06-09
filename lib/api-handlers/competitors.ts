@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm';
 
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
+import { captureRevision } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
@@ -106,11 +107,9 @@ export async function bulkPutCompetitors(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.competitors.saveMany(competitors, { updatedBy: workspace.userId });
   const n = competitors.length;
-  await recordActivity(workspace, {
-    action: 'competitors.imported',
-    seriesId,
-    summary: `Imported ${n} competitor${n === 1 ? '' : 's'}`,
-  });
+  const summary = `Imported ${n} competitor${n === 1 ? '' : 's'}`;
+  await recordActivity(workspace, { action: 'competitors.imported', seriesId, summary });
+  await captureRevision(workspace, seriesId, { summary });
   return { count: competitors.length };
 }
 
@@ -238,6 +237,7 @@ export async function bulkUpdateHandicaps(
     seriesId,
     summary,
   });
+  await captureRevision(workspace, seriesId, { summary });
   return { updated };
 }
 
@@ -258,6 +258,7 @@ export async function bulkDeleteCompetitors(
     seriesId,
     summary: 'Cleared all competitors',
   });
+  await captureRevision(workspace, seriesId, { summary: 'Cleared all competitors' });
 }
 
 /**
