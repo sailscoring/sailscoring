@@ -104,6 +104,7 @@ function RevisionRow({
             <p className="text-xs text-muted-foreground">
               {actorLabel(rev.actor)} · {formatRelativeTime(rev.createdAt)}
               {expandable && ` · ${windowActivity.length} change${windowActivity.length === 1 ? '' : 's'}`}
+              {!rev.hasSnapshot && ' · snapshot no longer kept'}
             </p>
           </div>
         </button>
@@ -229,7 +230,7 @@ export default function SeriesHistoryPage({
             rev={rev}
             windowActivity={windowFor(i)}
             // The newest revision is the current state — nothing to restore to.
-            canRestore={!readOnly && i !== 0}
+            canRestore={!readOnly && i !== 0 && rev.hasSnapshot}
             onRestore={setConfirming}
           />
         ))}

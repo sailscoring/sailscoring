@@ -1157,6 +1157,14 @@ export default async function HelpPage() {
           <code>.sailscoring</code> file is a complete backup — reopen it as a
           new series elsewhere and its history comes with it.
         </p>
+        <p>
+          To keep things tidy, older <em>automatic</em> versions are gradually
+          thinned out — recent ones are all kept, then roughly one per day, then
+          only the timeline entry remains (so the record of who changed what
+          stays, even though that exact state is no longer restorable). Versions
+          you marked deliberately — named checkpoints, published, and saved
+          versions — are always kept restorable.
+        </p>
       </Section>
 
       {has('logo-library') && (

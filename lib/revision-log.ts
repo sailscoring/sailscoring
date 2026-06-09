@@ -1,7 +1,7 @@
 import 'server-only';
 import { after } from 'next/server';
 import { gzipSync, gunzipSync } from 'node:zlib';
-import { and, desc, eq, gt, isNull } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
 import { user } from '@/lib/db/schema/auth';
@@ -27,15 +27,15 @@ function packSnapshot(file: SeriesFile): Buffer {
 }
 
 /** Read a snapshot, preferring the compressed column and falling back to the
- *  legacy uncompressed `snapshot` jsonb. */
+ *  legacy uncompressed `snapshot` jsonb. Null when the blob has been thinned. */
 function unpackSnapshot(row: {
   snapshot: SeriesFile | null;
   snapshotGz: Buffer | null;
-}): SeriesFile {
+}): SeriesFile | null {
   if (row.snapshotGz) {
     return JSON.parse(gunzipSync(row.snapshotGz).toString('utf-8')) as SeriesFile;
   }
-  return row.snapshot as SeriesFile;
+  return row.snapshot;
 }
 
 /** Strip an imported snapshot to known keys only — defence against a
@@ -142,6 +142,10 @@ export async function captureRevision(
       sessionKey,
       snapshotGz: packSnapshot(snapshot),
     });
+
+    // A new revision was born — opportunistically thin this series' old auto
+    // snapshots. (Coalesce updates above return early and don't trigger it.)
+    await thinRevisions(actor.workspaceId, seriesId);
   } catch (err) {
     console.error('captureRevision failed (non-fatal):', err);
   }
@@ -202,6 +206,8 @@ const REVISION_SELECTION = {
   label: seriesRevision.label,
   summary: seriesRevision.summary,
   createdAt: seriesRevision.createdAt,
+  // Whether a blob is still stored — without pulling the (large) blob itself.
+  hasSnapshot: sql<boolean>`(${seriesRevision.snapshotGz} is not null or ${seriesRevision.snapshot} is not null)`,
   actorId: user.id,
   actorEmail: user.email,
   actorName: user.name,
@@ -214,6 +220,7 @@ function toEntry(row: {
   label: string | null;
   summary: string | null;
   createdAt: Date;
+  hasSnapshot: boolean;
   actorId: string | null;
   actorEmail: string | null;
   actorName: string | null;
@@ -225,6 +232,7 @@ function toEntry(row: {
     label: row.label,
     summary: row.summary,
     createdAt: row.createdAt.toISOString(),
+    hasSnapshot: row.hasSnapshot,
     actor: row.actorId
       ? {
           id: row.actorId,
@@ -265,7 +273,7 @@ export async function listRevisions(
 export async function getRevision(
   actor: Actor,
   revisionId: string,
-): Promise<{ seriesId: string; snapshot: SeriesFile; createdAt: string } | null> {
+): Promise<{ seriesId: string; snapshot: SeriesFile | null; createdAt: string } | null> {
   const db = getDb();
   const [row] = await db
     .select({
@@ -321,20 +329,103 @@ export async function listRevisionsForExport(
       ),
     )
     .orderBy(seriesRevision.createdAt);
-  return rows.map((r) => ({
-    kind: r.kind as SeriesFileRevision['kind'],
-    label: r.label,
-    summary: r.summary,
-    createdAt: r.createdAt.toISOString(),
-    actor:
-      r.actorEmail || r.actorName
-        ? {
-            email: r.actorEmail ?? undefined,
-            displayName: r.actorName && r.actorName.trim().length > 0 ? r.actorName : undefined,
-          }
-        : null,
-    snapshot: unpackSnapshot(r),
-  }));
+  // Thinned revisions (no blob) can't be embedded — skip them.
+  return rows.flatMap((r) => {
+    const snapshot = unpackSnapshot(r);
+    if (!snapshot) return [];
+    return [{
+      kind: r.kind as SeriesFileRevision['kind'],
+      label: r.label,
+      summary: r.summary,
+      createdAt: r.createdAt.toISOString(),
+      actor:
+        r.actorEmail || r.actorName
+          ? {
+              email: r.actorEmail ?? undefined,
+              displayName: r.actorName && r.actorName.trim().length > 0 ? r.actorName : undefined,
+            }
+          : null,
+      snapshot,
+    }];
+  });
+}
+
+/** Retention tiers (#166): keep every auto snapshot newer than this… */
+const THIN_KEEP_ALL_DAYS = 7;
+/** …keep one auto snapshot per day between the two cutoffs, drop the rest, and
+ *  drop every auto snapshot older than this. (Named / revert / publish / saved
+ *  milestones and the latest auto revision are never thinned.) */
+const THIN_DAILY_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Thin a series' old auto revisions (#166): drop the snapshot blob (keeping the
+ * row, so the timeline and audit trail survive) per the age tiers above. Run
+ * opportunistically when a new revision is born. Best-effort.
+ */
+export async function thinRevisions(
+  workspaceId: string,
+  seriesId: string,
+): Promise<void> {
+  try {
+    const db = getDb();
+    const now = Date.now();
+    const recentCutoff = new Date(now - THIN_KEEP_ALL_DAYS * DAY_MS);
+    const dailyCutoff = new Date(now - THIN_DAILY_DAYS * DAY_MS);
+
+    // Always keep the latest auto revision restorable, whatever its age.
+    const [newest] = await db
+      .select({ id: seriesRevision.id })
+      .from(seriesRevision)
+      .where(
+        and(
+          eq(seriesRevision.workspaceId, workspaceId),
+          eq(seriesRevision.seriesId, seriesId),
+          eq(seriesRevision.kind, 'auto'),
+        ),
+      )
+      .orderBy(desc(seriesRevision.createdAt))
+      .limit(1);
+
+    // Candidate auto revisions: older than the keep-all window and still
+    // holding a blob.
+    const candidates = await db
+      .select({ id: seriesRevision.id, createdAt: seriesRevision.createdAt })
+      .from(seriesRevision)
+      .where(
+        and(
+          eq(seriesRevision.workspaceId, workspaceId),
+          eq(seriesRevision.seriesId, seriesId),
+          eq(seriesRevision.kind, 'auto'),
+          lt(seriesRevision.createdAt, recentCutoff),
+          sql`(${seriesRevision.snapshotGz} is not null or ${seriesRevision.snapshot} is not null)`,
+        ),
+      )
+      .orderBy(desc(seriesRevision.createdAt));
+
+    const toThin: string[] = [];
+    const keptDays = new Set<string>();
+    for (const r of candidates) {
+      if (r.id === newest?.id) continue;
+      if (r.createdAt.getTime() < dailyCutoff.getTime()) {
+        toThin.push(r.id); // older than the daily tier — drop
+        continue;
+      }
+      // Daily tier: keep the newest per day (candidates are newest-first), thin the rest.
+      const day = r.createdAt.toISOString().slice(0, 10);
+      if (keptDays.has(day)) toThin.push(r.id);
+      else keptDays.add(day);
+    }
+
+    if (toThin.length > 0) {
+      await db
+        .update(seriesRevision)
+        .set({ snapshot: null, snapshotGz: null })
+        .where(inArray(seriesRevision.id, toThin));
+    }
+  } catch (err) {
+    console.error('thinRevisions failed (non-fatal):', err);
+  }
 }
 
 /**

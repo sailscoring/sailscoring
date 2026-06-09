@@ -568,6 +568,9 @@ export interface RevisionEntry {
   /** ISO-8601 timestamp of the revision (end of its editing session). */
   createdAt: string;
   actor: { id: string; email?: string; displayName?: string } | null;
+  /** Whether the snapshot blob is still stored. Old auto revisions are thinned
+   *  (#166) — the row stays for the timeline/audit but can no longer be restored. */
+  hasSnapshot: boolean;
 }
 
 /**

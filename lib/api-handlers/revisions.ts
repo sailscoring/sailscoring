@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
@@ -60,6 +60,11 @@ export async function revertToRevision(
   const revision = await getRevision(actor, revisionId);
   if (!revision || revision.seriesId !== seriesId) {
     throw new NotFoundError('revision');
+  }
+  if (!revision.snapshot) {
+    // The snapshot was thinned (#166) — the row survives for the timeline, but
+    // there's nothing to restore to.
+    throw new BadRequestError('this version is no longer restorable');
   }
 
   // Replay the snapshot over the existing series row (preserves its id,

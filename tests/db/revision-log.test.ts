@@ -22,6 +22,7 @@ import {
   listRevisions,
   listRevisionsForExport,
   sealOpenRevisions,
+  thinRevisions,
 } from '@/lib/revision-log';
 import type { Series } from '@/lib/types';
 
@@ -228,6 +229,48 @@ describe.skipIf(skip)('revision log', () => {
     const named = imported.find((r) => r.kind === 'named')!;
     const snap = await getRevisionSnapshot({ workspaceId, userId: actorA }, named.id);
     expect(snap?.series.name).toBe('Export Source');
+  });
+
+  test('thinning drops old auto snapshot blobs by age tier, protecting milestones and the latest', async () => {
+    const seriesId = await seedSeries('Thinning Series');
+    const actor = { workspaceId, userId: actorA };
+    const DAY = 24 * 60 * 60 * 1000;
+
+    // Distinct sessionKeys so none coalesce; backdate each by id afterwards.
+    await captureRevision(actor, seriesId, { summary: 'recent', sessionKey: 'k-recent' });
+    await captureRevision(actor, seriesId, { summary: 'old40', sessionKey: 'k-old40' });
+    await captureRevision(actor, seriesId, { summary: 'dayA', sessionKey: 'k-dayA' });
+    await captureRevision(actor, seriesId, { summary: 'dayB', sessionKey: 'k-dayB' });
+    await captureRevision(actor, seriesId, { kind: 'named', label: 'pinned', sessionKey: 'k-named' });
+
+    const byText = (revs: Awaited<ReturnType<typeof listRevisions>>, t: string) =>
+      revs.find((r) => r.summary === t || r.label === t)!;
+
+    const initial = await listRevisions(actor, seriesId);
+    async function backdate(id: string, when: Date) {
+      await db.update(schema.seriesRevision).set({ createdAt: when }).where(eq(schema.seriesRevision.id, id));
+    }
+    const sameDay = new Date(Date.now() - 10 * DAY);
+    sameDay.setUTCHours(12, 0, 0, 0);
+    // 'recent' stays at ~now (newest auto). The rest are aged into the tiers.
+    await backdate(byText(initial, 'old40').id, new Date(Date.now() - 40 * DAY));
+    await backdate(byText(initial, 'dayA').id, sameDay); // 12:00
+    await backdate(byText(initial, 'dayB').id, new Date(sameDay.getTime() + 3600_000)); // 13:00, same day
+    await backdate(byText(initial, 'pinned').id, new Date(Date.now() - 40 * DAY));
+
+    await thinRevisions(workspaceId, seriesId);
+
+    const after = await listRevisions(actor, seriesId);
+    const has = (t: string) => byText(after, t).hasSnapshot;
+    expect(has('recent')).toBe(true); // <7d (and newest auto)
+    expect(has('old40')).toBe(false); // >30d → dropped
+    expect(has('dayB')).toBe(true); // newest of its day in the daily tier → kept
+    expect(has('dayA')).toBe(false); // older same-day duplicate → dropped
+    expect(has('pinned')).toBe(true); // named milestone → never thinned
+
+    // The thinned rows survive for the timeline, just not restorable.
+    expect(after).toHaveLength(5);
+    expect(await getRevisionSnapshot(actor, byText(after, 'old40').id)).toBeNull();
   });
 
   test('import strips a planted nested `revisions` block (and unknown keys) from a snapshot', async () => {
