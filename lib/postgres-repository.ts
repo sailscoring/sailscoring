@@ -18,6 +18,7 @@ import {
   type SaveOpts,
   type SeriesRepository,
 } from './repository';
+import type { SeriesFileRepos } from './series-file';
 import type {
   Category,
   Competitor,
@@ -2088,5 +2089,38 @@ export function createRepos(ctx: RepoCtx) {
     finishes: new PostgresFinishRepository(ctx),
     ftpServers: new PostgresFtpServerRepository(ctx),
     logos: new PostgresLogoRepository(ctx),
+  };
+}
+
+/**
+ * Adapt the workspace-scoped repos to the `SeriesFileRepos` shape that the
+ * `lib/series-file.ts` helpers (`buildSeriesFile`, `openSeriesFromFile`,
+ * `updateSeriesFromFile`) consume. Server-side counterpart of the client
+ * `api-repository` module that already satisfies the same interface.
+ */
+export function seriesFileReposFor(ctx: RepoCtx): SeriesFileRepos {
+  const repos = createRepos(ctx);
+  return {
+    seriesRepo: repos.series,
+    competitorRepo: repos.competitors,
+    fleetRepo: repos.fleets,
+    raceRepo: repos.races,
+    raceStartRepo: repos.raceStarts,
+    raceRatingOverrideRepo: repos.raceRatingOverrides,
+    finishRepo: repos.finishes,
+    async listSeriesNames(opts) {
+      const all = await repos.series.list();
+      return all
+        .filter((s) => s.id !== opts?.excludeId)
+        .map((s) => s.name);
+    },
+    // Mirror of the client `deleteSeriesChildren`: races cascade to their
+    // starts/finishes/overrides, so deleting races, competitors, and fleets
+    // clears the lot.
+    async deleteSeriesChildren(seriesId) {
+      await repos.races.deleteBySeries(seriesId);
+      await repos.competitors.deleteBySeries(seriesId);
+      await repos.fleets.deleteBySeries(seriesId);
+    },
   };
 }

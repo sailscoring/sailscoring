@@ -20,6 +20,7 @@ export const ACTIVITY_ACTIONS = [
   'series.recategorized',
   'series.deleted',
   'series.copied',
+  'series.reverted',
   'competitors.imported',
   'competitors.handicaps_updated',
   'competitors.cleared',

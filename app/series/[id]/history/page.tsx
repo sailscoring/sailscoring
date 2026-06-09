@@ -3,10 +3,20 @@
 import { use, useState } from 'react';
 import { ChevronRight, History, Pin, Undo2 } from 'lucide-react';
 
-import { useSeriesRevisions } from '@/hooks/use-revisions';
+import { useSeriesRevisions, useRevertToRevision } from '@/hooks/use-revisions';
 import { useSeriesActivity } from '@/hooks/use-activity';
+import { useSeriesReadOnly } from '@/components/series-read-only';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import type { ActivityEntry, RevisionEntry } from '@/lib/types';
 
 function actorLabel(actor: RevisionEntry['actor']): string {
@@ -41,42 +51,59 @@ function KindBadge({ kind }: { kind: RevisionEntry['kind'] }) {
 function RevisionRow({
   rev,
   windowActivity,
+  canRestore,
+  onRestore,
 }: {
   rev: RevisionEntry;
   windowActivity: ActivityEntry[];
+  canRestore: boolean;
+  onRestore: (rev: RevisionEntry) => void;
 }) {
   const [open, setOpen] = useState(false);
   const expandable = windowActivity.length > 0;
 
   return (
     <li className="py-3">
-      <button
-        type="button"
-        className={cn(
-          'flex w-full items-start gap-3 text-left',
-          expandable ? 'cursor-pointer' : 'cursor-default',
-        )}
-        onClick={() => expandable && setOpen((v) => !v)}
-        aria-expanded={expandable ? open : undefined}
-      >
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center text-muted-foreground">
-          {expandable ? (
-            <ChevronRight className={cn('h-4 w-4 transition-transform', open && 'rotate-90')} />
-          ) : (
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          className={cn(
+            'flex min-w-0 flex-1 items-start gap-3 text-left',
+            expandable ? 'cursor-pointer' : 'cursor-default',
           )}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2 text-sm">
-            <span className="font-medium">{revisionTitle(rev)}</span>
-            <KindBadge kind={rev.kind} />
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {actorLabel(rev.actor)} · {formatRelativeTime(rev.createdAt)}
-            {expandable && ` · ${windowActivity.length} change${windowActivity.length === 1 ? '' : 's'}`}
-          </p>
-        </div>
-      </button>
+          onClick={() => expandable && setOpen((v) => !v)}
+          aria-expanded={expandable ? open : undefined}
+        >
+          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center text-muted-foreground">
+            {expandable ? (
+              <ChevronRight className={cn('h-4 w-4 transition-transform', open && 'rotate-90')} />
+            ) : (
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-2 text-sm">
+              <span className="font-medium">{revisionTitle(rev)}</span>
+              <KindBadge kind={rev.kind} />
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {actorLabel(rev.actor)} · {formatRelativeTime(rev.createdAt)}
+              {expandable && ` · ${windowActivity.length} change${windowActivity.length === 1 ? '' : 's'}`}
+            </p>
+          </div>
+        </button>
+        {canRestore && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => onRestore(rev)}
+          >
+            <Undo2 className="h-4 w-4" />
+            Restore
+          </Button>
+        )}
+      </div>
       {open && expandable && (
         <ul className="mt-2 ml-10 space-y-1 border-l pl-4">
           {windowActivity.map((a) => (
@@ -98,10 +125,13 @@ export default function SeriesHistoryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const readOnly = useSeriesReadOnly();
   const { data: revisions, isLoading, isError } = useSeriesRevisions(id);
   // Activity feeds the per-revision drill-down. The first page is enough for the
   // recent sessions; older revisions simply show without expandable detail.
   const { data: activityPages } = useSeriesActivity(id);
+  const revert = useRevertToRevision(id);
+  const [confirming, setConfirming] = useState<RevisionEntry | null>(null);
 
   if (isLoading) {
     return <p className="text-muted-foreground">Loading history…</p>;
@@ -148,9 +178,44 @@ export default function SeriesHistoryPage({
       </p>
       <ul className="divide-y bg-card border rounded-lg px-5" data-testid="revision-list">
         {revs.map((rev, i) => (
-          <RevisionRow key={rev.id} rev={rev} windowActivity={windowFor(i)} />
+          <RevisionRow
+            key={rev.id}
+            rev={rev}
+            windowActivity={windowFor(i)}
+            // The newest revision is the current state — nothing to restore to.
+            canRestore={!readOnly && i !== 0}
+            onRestore={setConfirming}
+          />
         ))}
       </ul>
+
+      <Dialog open={confirming !== null} onOpenChange={(o) => { if (!o) setConfirming(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Restore this version?</DialogTitle>
+            <DialogDescription>
+              The series will be replaced with its state{' '}
+              {confirming && `from ${new Date(confirming.createdAt).toLocaleString()}`}.
+              Your current version is kept in the history, and this restore is
+              recorded as a new version — so you can undo it by restoring again.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirming(null)} disabled={revert.isPending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!confirming) return;
+                revert.mutate(confirming.id, { onSuccess: () => setConfirming(null) });
+              }}
+              disabled={revert.isPending}
+            >
+              {revert.isPending ? 'Restoring…' : 'Restore'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

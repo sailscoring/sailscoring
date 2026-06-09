@@ -1,9 +1,17 @@
 import 'server-only';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { recordActivity } from '@/lib/activity-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
-import { createRepos } from '@/lib/postgres-repository';
-import { listRevisions, type RevisionEntry } from '@/lib/revision-log';
+import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
+import { createRepos, seriesFileReposFor } from '@/lib/postgres-repository';
+import {
+  captureRevision,
+  getRevision,
+  listRevisions,
+  type RevisionEntry,
+} from '@/lib/revision-log';
+import { updateSeriesFromFile } from '@/lib/series-file';
 
 /**
  * Revision history read endpoint (#166). The write side lives in the mutation
@@ -25,4 +33,39 @@ export async function getSeriesRevisions(
     seriesId,
   );
   return { items };
+}
+
+/**
+ * Restore a series to an earlier revision. Replays the revision's snapshot over
+ * the series (the same authoritative file-replay path a `.sailscoring` import
+ * uses), then records the restore as a new `revert` revision plus an activity
+ * entry — so reverting is itself part of the history, never a silent rewind.
+ */
+export async function revertToRevision(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  revisionId: string,
+): Promise<{ ok: true }> {
+  // Tenancy + writability (rejects archived series and missing/foreign ids).
+  await assertSeriesWritable(workspace, seriesId);
+
+  const actor = { workspaceId: workspace.workspaceId, userId: workspace.userId };
+  const revision = await getRevision(actor, revisionId);
+  if (!revision || revision.seriesId !== seriesId) {
+    throw new NotFoundError('revision');
+  }
+
+  // Replay the snapshot over the existing series row (preserves its id,
+  // createdAt, category, archived flag — see updateSeriesFromFile).
+  await updateSeriesFromFile(
+    seriesId,
+    revision.snapshot,
+    seriesFileReposFor({ workspaceId: workspace.workspaceId }),
+  );
+
+  const summary = `Restored the version from ${new Date(revision.createdAt).toLocaleString('en-IE')}`;
+  await recordActivity(workspace, { action: 'series.reverted', seriesId, summary });
+  await captureRevision(actor, seriesId, { kind: 'revert', summary });
+
+  return { ok: true };
 }

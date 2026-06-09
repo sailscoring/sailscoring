@@ -4,8 +4,8 @@ import { and, desc, eq, gt } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
 import { user } from '@/lib/db/schema/auth';
 import { seriesRevision } from '@/lib/db/schema/series';
-import { createRepos } from '@/lib/postgres-repository';
-import { buildSeriesFile, type SeriesFile, type SeriesFileRepos } from '@/lib/series-file';
+import { seriesFileReposFor } from '@/lib/postgres-repository';
+import { buildSeriesFile, type SeriesFile } from '@/lib/series-file';
 import type { RevisionEntry } from '@/lib/types';
 
 export type { RevisionEntry };
@@ -32,22 +32,6 @@ interface Actor {
   userId: string;
 }
 
-/** A `SeriesFileRepos` backed by the workspace-scoped Postgres repos.
- *  `buildSeriesFile` only reads, so the two mutating members it never calls
- *  (`listSeriesNames`, `deleteSeriesChildren`) are omitted. */
-function fileReposFor(workspaceId: string): SeriesFileRepos {
-  const repos = createRepos({ workspaceId });
-  return {
-    seriesRepo: repos.series,
-    competitorRepo: repos.competitors,
-    fleetRepo: repos.fleets,
-    raceRepo: repos.races,
-    raceStartRepo: repos.raceStarts,
-    raceRatingOverrideRepo: repos.raceRatingOverrides,
-    finishRepo: repos.finishes,
-  } as unknown as SeriesFileRepos;
-}
-
 /**
  * Snapshot the current state of a series into the revision history.
  *
@@ -68,7 +52,7 @@ export async function captureRevision(
     const kind = opts.kind ?? 'auto';
     const snapshot: SeriesFile = await buildSeriesFile(
       seriesId,
-      fileReposFor(actor.workspaceId),
+      seriesFileReposFor({ workspaceId: actor.workspaceId }),
     );
 
     if (kind === 'auto') {
@@ -179,15 +163,20 @@ export async function listRevisions(
   return rows.map(toEntry);
 }
 
-/** The full snapshot blob for one revision, or null if it doesn't exist in the
- *  caller's workspace. */
-export async function getRevisionSnapshot(
+/** One revision's snapshot blob plus the metadata a caller needs to act on it
+ *  (its series and timestamp), scoped to the caller's workspace. Null if it
+ *  doesn't exist there. */
+export async function getRevision(
   actor: Actor,
   revisionId: string,
-): Promise<SeriesFile | null> {
+): Promise<{ seriesId: string; snapshot: SeriesFile; createdAt: string } | null> {
   const db = getDb();
   const [row] = await db
-    .select({ snapshot: seriesRevision.snapshot })
+    .select({
+      seriesId: seriesRevision.seriesId,
+      snapshot: seriesRevision.snapshot,
+      createdAt: seriesRevision.createdAt,
+    })
     .from(seriesRevision)
     .where(
       and(
@@ -196,5 +185,20 @@ export async function getRevisionSnapshot(
       ),
     )
     .limit(1);
-  return row?.snapshot ?? null;
+  if (!row) return null;
+  return {
+    seriesId: row.seriesId,
+    snapshot: row.snapshot,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+/** The full snapshot blob for one revision, or null if it doesn't exist in the
+ *  caller's workspace. */
+export async function getRevisionSnapshot(
+  actor: Actor,
+  revisionId: string,
+): Promise<SeriesFile | null> {
+  const rev = await getRevision(actor, revisionId);
+  return rev?.snapshot ?? null;
 }

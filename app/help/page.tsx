@@ -1135,6 +1135,15 @@ export default async function HelpPage() {
           under the session that made them. It&apos;s the record behind a scoring
           inquiry and the audit trail for a protest committee.
         </p>
+        <p>
+          To roll back a mistake, press{' '}
+          <strong className="text-foreground">Restore</strong> on any earlier
+          version: the series is replaced with its state at that point. Nothing
+          is lost — your current version stays in the history, and the restore
+          itself is recorded as a new version, so you can always undo it by
+          restoring again. (Restore is unavailable on an archived, read-only
+          series.)
+        </p>
       </Section>
 
       {has('logo-library') && (

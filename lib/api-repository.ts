@@ -740,6 +740,17 @@ export async function listRevisions(seriesId: string): Promise<RevisionEntry[]> 
   return items;
 }
 
+/** Restore a series to an earlier revision (#166). The restore is recorded as
+ *  a new revision server-side. */
+export async function revertToRevision(
+  seriesId: string,
+  revisionId: string,
+): Promise<void> {
+  await apiFetch(`/api/v1/series/${seriesId}/revisions/${revisionId}/revert`, {
+    method: 'POST',
+  });
+}
+
 /** "Who last edited this competitor" stamp for the edit dialog (#153). */
 export function getCompetitorAudit(id: string): Promise<AuditStamp> {
   return apiFetch<AuditStamp>(`/api/v1/competitors/${id}/audit`);
