@@ -1145,6 +1145,13 @@ export default async function HelpPage() {
           series.)
         </p>
         <p>
+          To mark a moment deliberately — before a protest hearing, say, or
+          after publishing — press{' '}
+          <strong className="text-foreground">Name this version</strong> and give
+          it a name. A named checkpoint is pinned in the history and never folded
+          into an automatic session, so it stays an obvious point to return to.
+        </p>
+        <p>
           Saving the series to a file (<strong className="text-foreground">Save
           to File</strong>) includes this version history, so a saved{' '}
           <code>.sailscoring</code> file is a complete backup — reopen it as a

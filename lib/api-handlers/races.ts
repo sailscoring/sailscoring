@@ -2,7 +2,7 @@ import 'server-only';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
-import { captureRevision } from '@/lib/revision-log';
+import { captureRevisionAfter } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
 import {
@@ -68,7 +68,7 @@ export async function putRace(
       seriesId,
       summary: `Added Race ${saved.raceNumber}`,
     });
-    await captureRevision(workspace, seriesId, { summary: `Added Race ${saved.raceNumber}` });
+    captureRevisionAfter(workspace, seriesId, { summary: `Added Race ${saved.raceNumber}` });
   }
   return saved;
 }
@@ -88,7 +88,7 @@ export async function deleteRace(
     seriesId,
     summary: `Deleted Race ${existing.raceNumber}`,
   });
-  await captureRevision(workspace, seriesId, { summary: `Deleted Race ${existing.raceNumber}` });
+  captureRevisionAfter(workspace, seriesId, { summary: `Deleted Race ${existing.raceNumber}` });
 }
 
 /**

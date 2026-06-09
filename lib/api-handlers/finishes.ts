@@ -2,7 +2,7 @@ import 'server-only';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
-import { captureRevision } from '@/lib/revision-log';
+import { captureRevisionAfter } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
 import {
@@ -57,7 +57,7 @@ export async function putFinish(
       summary: `Recorded finishes for Race ${race.raceNumber}`,
       dedupeKey: `finishes:${raceId}`,
     });
-    await captureRevision(workspace, race.seriesId, {
+    captureRevisionAfter(workspace, race.seriesId, {
       summary: `Recorded finishes for Race ${race.raceNumber}`,
     });
   }
@@ -110,7 +110,7 @@ export async function bulkDeleteFinishes(
     seriesId: race?.seriesId ?? null,
     summary: clearedSummary,
   });
-  if (race) await captureRevision(workspace, race.seriesId, { summary: clearedSummary });
+  if (race) captureRevisionAfter(workspace, race.seriesId, { summary: clearedSummary });
 }
 
 /**
@@ -145,6 +145,6 @@ export async function bulkPutFinishes(
     seriesId: race?.seriesId ?? null,
     summary: enteredSummary,
   });
-  if (race) await captureRevision(workspace, race.seriesId, { summary: enteredSummary });
+  if (race) captureRevisionAfter(workspace, race.seriesId, { summary: enteredSummary });
   return { count: finishes.length };
 }

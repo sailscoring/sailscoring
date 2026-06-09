@@ -752,6 +752,14 @@ export async function revertToRevision(
   });
 }
 
+/** Create a named checkpoint of the series' current state (#166). */
+export async function createCheckpoint(seriesId: string, label: string): Promise<void> {
+  await apiFetch(`/api/v1/series/${seriesId}/revisions`, {
+    method: 'POST',
+    body: { label },
+  });
+}
+
 /** The series' revision history in `.sailscoring` shape, for embedding in a
  *  saved file (#166). Satisfies the optional `SeriesFileRepos` member. */
 export async function listRevisionsForExport(

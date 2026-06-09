@@ -85,6 +85,7 @@ export function KeyboardHelp({
               { keys: ['g', 't'], action: 'Go to Settings' },
               { keys: ['g', 'a'], action: 'Go to Activity' },
               { keys: ['g', 'h'], action: 'Go to History' },
+              { keys: ['n'], action: 'Name this version (History tab)' },
             ]}
           />
 

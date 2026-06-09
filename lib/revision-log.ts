@@ -1,4 +1,5 @@
 import 'server-only';
+import { after } from 'next/server';
 import { and, desc, eq, gt } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
@@ -100,6 +101,28 @@ export async function captureRevision(
     });
   } catch (err) {
     console.error('captureRevision failed (non-fatal):', err);
+  }
+}
+
+/**
+ * Capture on the autosave hot path: snapshotting must never add latency to the
+ * mutation it follows, so it runs *after* the response flushes (Fluid Compute
+ * keeps the instance alive to finish it). Use this for the auto revisions
+ * piggybacked on data writes; deliberate captures (named checkpoints, reverts)
+ * stay synchronous so the caller can confirm them.
+ */
+export function captureRevisionAfter(
+  actor: Actor,
+  seriesId: string,
+  opts: { kind?: RevisionKind; label?: string; summary?: string } = {},
+): void {
+  try {
+    after(() => captureRevision(actor, seriesId, opts));
+  } catch {
+    // No request scope (e.g. a unit test invoking the handler directly, or a
+    // script): fall back to a fire-and-forget capture. `captureRevision`
+    // swallows its own errors, so the floating promise never rejects.
+    void captureRevision(actor, seriesId, opts);
   }
 }
 

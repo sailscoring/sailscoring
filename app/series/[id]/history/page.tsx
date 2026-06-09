@@ -3,12 +3,19 @@
 import { use, useState } from 'react';
 import { ChevronRight, History, Pin, Undo2 } from 'lucide-react';
 
-import { useSeriesRevisions, useRevertToRevision } from '@/hooks/use-revisions';
+import {
+  useSeriesRevisions,
+  useRevertToRevision,
+  useCreateCheckpoint,
+} from '@/hooks/use-revisions';
 import { useSeriesActivity } from '@/hooks/use-activity';
+import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Pin as PinIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -131,7 +138,30 @@ export default function SeriesHistoryPage({
   // recent sessions; older revisions simply show without expandable detail.
   const { data: activityPages } = useSeriesActivity(id);
   const revert = useRevertToRevision(id);
+  const checkpoint = useCreateCheckpoint(id);
   const [confirming, setConfirming] = useState<RevisionEntry | null>(null);
+  const [naming, setNaming] = useState(false);
+  const [label, setLabel] = useState('');
+
+  function saveCheckpoint() {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    checkpoint.mutate(trimmed, {
+      onSuccess: () => {
+        setNaming(false);
+        setLabel('');
+      },
+    });
+  }
+
+  // `n` opens the "Name this version" dialog (page-level action), unless the
+  // user is typing or the series is read-only.
+  useGlobalKeyDown((e) => {
+    if (e.key !== 'n' || readOnly || naming) return;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')) return;
+    e.preventDefault();
+    setNaming(true);
+  });
 
   if (isLoading) {
     return <p className="text-muted-foreground">Loading history…</p>;
@@ -171,11 +201,19 @@ export default function SeriesHistoryPage({
 
   return (
     <div className="max-w-2xl space-y-4">
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <History className="h-4 w-4" />
-        Saved versions, newest first. Each editing session is captured
-        automatically; expand one to see the changes it covers.
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <History className="h-4 w-4" />
+          Saved versions, newest first. Each editing session is captured
+          automatically; expand one to see the changes it covers.
+        </p>
+        {!readOnly && (
+          <Button variant="outline" size="sm" className="shrink-0" onClick={() => setNaming(true)}>
+            <PinIcon className="h-4 w-4" />
+            Name this version
+          </Button>
+        )}
+      </div>
       <ul className="divide-y bg-card border rounded-lg px-5" data-testid="revision-list">
         {revs.map((rev, i) => (
           <RevisionRow
@@ -212,6 +250,35 @@ export default function SeriesHistoryPage({
               disabled={revert.isPending}
             >
               {revert.isPending ? 'Restoring…' : 'Restore'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={naming} onOpenChange={(o) => { if (!o) { setNaming(false); setLabel(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Name this version</DialogTitle>
+            <DialogDescription>
+              Save the series&apos; current state as a named checkpoint you can
+              always return to. It&apos;s pinned in the history and never folded
+              into an editing session.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            placeholder="e.g. Before protest hearing"
+            value={label}
+            maxLength={100}
+            onChange={(e) => setLabel(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') saveCheckpoint(); }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setNaming(false); setLabel(''); }} disabled={checkpoint.isPending}>
+              Cancel
+            </Button>
+            <Button onClick={saveCheckpoint} disabled={checkpoint.isPending || label.trim().length === 0}>
+              {checkpoint.isPending ? 'Saving…' : 'Save checkpoint'}
             </Button>
           </DialogFooter>
         </DialogContent>

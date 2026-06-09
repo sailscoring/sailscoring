@@ -14,7 +14,10 @@ import {
   type RevisionEntry,
 } from '@/lib/revision-log';
 import { updateSeriesFromFile, type SeriesFileRevision } from '@/lib/series-file';
-import { seriesRevisionsImportSchema } from '@/lib/validation/revision';
+import {
+  checkpointInputSchema,
+  seriesRevisionsImportSchema,
+} from '@/lib/validation/revision';
 
 /**
  * Revision history read endpoint (#166). The write side lives in the mutation
@@ -70,6 +73,26 @@ export async function revertToRevision(
   await recordActivity(workspace, { action: 'series.reverted', seriesId, summary });
   await captureRevision(actor, seriesId, { kind: 'revert', summary });
 
+  return { ok: true };
+}
+
+/**
+ * Create a user-named checkpoint (#166): a pinned `named` revision snapshotting
+ * the series' current state. Unlike auto revisions, it never coalesces, so it
+ * stays a deliberate marker the scorer can always return to.
+ */
+export async function createNamedCheckpoint(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<{ ok: true }> {
+  await assertSeriesWritable(workspace, seriesId);
+  const { label } = checkpointInputSchema.parse(body);
+  await captureRevision(
+    { workspaceId: workspace.workspaceId, userId: workspace.userId },
+    seriesId,
+    { kind: 'named', label, summary: label },
+  );
   return { ok: true };
 }
 

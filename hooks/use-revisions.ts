@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { listRevisions, revertToRevision } from '@/lib/api-repository';
+import { createCheckpoint, listRevisions, revertToRevision } from '@/lib/api-repository';
 
 import { queryKeys } from './query-keys';
 
@@ -15,6 +15,16 @@ export function useSeriesRevisions(seriesId: string) {
   return useQuery({
     queryKey: queryKeys.revisions.bySeries(seriesId),
     queryFn: () => listRevisions(seriesId),
+  });
+}
+
+/** Create a named checkpoint of the series' current state (#166). */
+export function useCreateCheckpoint(seriesId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (label: string) => createCheckpoint(seriesId, label),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.revisions.bySeries(seriesId) }),
   });
 }
 

@@ -11,7 +11,7 @@ import {
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
 import { recordActivity } from '@/lib/activity-log';
-import { captureRevision } from '@/lib/revision-log';
+import { captureRevisionAfter } from '@/lib/revision-log';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
@@ -131,7 +131,7 @@ export async function putSeries(
         }
       : { action: 'series.created', seriesId: id, summary: 'Created the series' },
   );
-  await captureRevision(workspace, id, {
+  captureRevisionAfter(workspace, id, {
     summary: existing ? 'Updated series settings' : 'Created the series',
   });
   return saved;

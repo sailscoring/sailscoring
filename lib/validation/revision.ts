@@ -25,3 +25,8 @@ const fileRevisionSchema = z.object({
 export const seriesRevisionsImportSchema = z.object({
   revisions: z.array(fileRevisionSchema),
 });
+
+/** A user-named checkpoint (#166). The label is required and trimmed. */
+export const checkpointInputSchema = z.object({
+  label: z.string().trim().min(1).max(100),
+});
