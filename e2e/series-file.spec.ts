@@ -44,6 +44,7 @@ interface SeriesFile {
   formatVersion: number;
   seriesId: string;
   exportedAt: string;
+  revisions?: { kind: string; snapshot: { series: { name: string } } }[];
   series: {
     id: string;
     name: string;
@@ -206,6 +207,11 @@ test('series file: save exports correct JSON with all series fields, competitors
   expect(file.races[0].raceNumber).toBe(1);
   expect(file.races[0].finishes).toHaveLength(1);
   expect(file.races[0].finishes[0].sortOrder).toBe(1);
+
+  // Revision history is embedded by default (#166): this editing session
+  // coalesced into a revision carrying a full snapshot.
+  expect(file.revisions?.length ?? 0).toBeGreaterThanOrEqual(1);
+  expect(file.revisions![0].snapshot.series.name).toBe('Autumn League 2025');
 });
 
 test('series file: Update from File replaces the series in place (matched by seriesId)', async ({ page }) => {

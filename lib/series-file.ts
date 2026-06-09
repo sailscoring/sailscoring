@@ -43,6 +43,11 @@ export interface SeriesFileRepos {
   finishRepo: FinishRepository;
   listSeriesNames(opts?: { excludeId?: string }): Promise<string[]>;
   deleteSeriesChildren(seriesId: string): Promise<void>;
+  /** Embedded revision history (#166). Optional: implementations that don't
+   *  support it (seed, tests) simply omit them, and the file is saved without
+   *  a `revisions` block / imported without restoring history. */
+  listRevisionsForExport?(seriesId: string): Promise<SeriesFileRevision[]>;
+  importRevisions?(seriesId: string, revisions: SeriesFileRevision[]): Promise<void>;
 }
 
 /** File format version. v2 adds `Competitor.owner` and `Series.primaryPersonLabel`.
@@ -191,6 +196,19 @@ interface SeriesFileTcfRecord {
   newTcf: number;
 }
 
+/** A single entry of the embedded revision history (#166). Optional on the
+ *  file (v8+): present when the series was saved with its history included.
+ *  `snapshot` is a full point-in-time `SeriesFile` (itself carrying no nested
+ *  `revisions`). The actor is display-only — user ids don't cross workspaces. */
+export interface SeriesFileRevision {
+  kind: 'auto' | 'named' | 'revert';
+  label: string | null;
+  summary: string | null;
+  createdAt: string;
+  actor: { displayName?: string; email?: string } | null;
+  snapshot: SeriesFile;
+}
+
 export interface SeriesFile {
   formatVersion: number;
   seriesId: string;
@@ -203,6 +221,9 @@ export interface SeriesFile {
   /** Pre-v4 alias for `tcfHistory`. Loader accepts either key; writer emits
    *  the new key only. Kept on the type so v1–v3 files parse without a cast. */
   nhcTcfHistory?: SeriesFileTcfRecord[];
+  /** Embedded revision history (#166), included on save by default. Absent on
+   *  files saved without it and on snapshots stored *inside* a revision. */
+  revisions?: SeriesFileRevision[];
 }
 
 // ---- Build and save ----
@@ -383,6 +404,12 @@ export async function saveSeriesFile(
   const series = await repos.seriesRepo.get(seriesId);
   if (!series) throw new Error(`Series ${seriesId} not found`);
 
+  // Embed the revision history by default (#166), so the file is a complete,
+  // restorable backup. Implementations without revision support omit it.
+  if (repos.listRevisionsForExport) {
+    file.revisions = await repos.listRevisionsForExport(seriesId);
+  }
+
   // Trigger download
   const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -544,6 +571,13 @@ export async function openSeriesFromFile(
   });
 
   await writeFleetsCompetitorsRaces(repos, file, newSeriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
+
+  // Restore embedded revision history (#166) into the fresh series, if the file
+  // carries it and the backend supports it. Only on a brand-new open: an
+  // in-place update keeps the series' existing server-side history.
+  if (file.revisions?.length && repos.importRevisions) {
+    await repos.importRevisions(newSeriesId, file.revisions);
+  }
 
   return newSeriesId;
 }

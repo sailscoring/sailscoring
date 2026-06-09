@@ -5,7 +5,11 @@ import { getDb } from '@/lib/db/client';
 import { user } from '@/lib/db/schema/auth';
 import { seriesRevision } from '@/lib/db/schema/series';
 import { seriesFileReposFor } from '@/lib/postgres-repository';
-import { buildSeriesFile, type SeriesFile } from '@/lib/series-file';
+import {
+  buildSeriesFile,
+  type SeriesFile,
+  type SeriesFileRevision,
+} from '@/lib/series-file';
 import type { RevisionEntry } from '@/lib/types';
 
 export type { RevisionEntry };
@@ -191,6 +195,79 @@ export async function getRevision(
     snapshot: row.snapshot,
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+/**
+ * The whole revision history for one series in `.sailscoring` file shape
+ * (#166), oldest-first — for embedding in an exported file. Carries each
+ * revision's full snapshot plus display-only actor info (user ids don't cross
+ * workspaces).
+ */
+export async function listRevisionsForExport(
+  actor: Actor,
+  seriesId: string,
+): Promise<SeriesFileRevision[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      kind: seriesRevision.kind,
+      label: seriesRevision.label,
+      summary: seriesRevision.summary,
+      createdAt: seriesRevision.createdAt,
+      snapshot: seriesRevision.snapshot,
+      actorEmail: user.email,
+      actorName: user.name,
+    })
+    .from(seriesRevision)
+    .leftJoin(user, eq(user.id, seriesRevision.actorUserId))
+    .where(
+      and(
+        eq(seriesRevision.workspaceId, actor.workspaceId),
+        eq(seriesRevision.seriesId, seriesId),
+      ),
+    )
+    .orderBy(seriesRevision.createdAt);
+  return rows.map((r) => ({
+    kind: r.kind as SeriesFileRevision['kind'],
+    label: r.label,
+    summary: r.summary,
+    createdAt: r.createdAt.toISOString(),
+    actor:
+      r.actorEmail || r.actorName
+        ? {
+            email: r.actorEmail ?? undefined,
+            displayName: r.actorName && r.actorName.trim().length > 0 ? r.actorName : undefined,
+          }
+        : null,
+    snapshot: r.snapshot,
+  }));
+}
+
+/**
+ * Restore an embedded revision history into a (freshly imported) series (#166).
+ * Original timestamps are preserved; actor attribution is dropped — the source
+ * users don't exist in this workspace, so `actorUserId` is null.
+ */
+export async function importRevisions(
+  actor: Actor,
+  seriesId: string,
+  revisions: SeriesFileRevision[],
+): Promise<void> {
+  if (revisions.length === 0) return;
+  const db = getDb();
+  await db.insert(seriesRevision).values(
+    revisions.map((rev) => ({
+      id: crypto.randomUUID(),
+      workspaceId: actor.workspaceId,
+      seriesId,
+      actorUserId: null,
+      kind: rev.kind,
+      label: rev.label,
+      summary: rev.summary,
+      snapshot: rev.snapshot,
+      createdAt: new Date(rev.createdAt),
+    })),
+  );
 }
 
 /** The full snapshot blob for one revision, or null if it doesn't exist in the

@@ -3,6 +3,7 @@
  * `/api/v1`. UI callers wrap these in TanStack Query (see hooks/use-*.ts).
  */
 import { apiFetch } from './api-client';
+import type { SeriesFileRevision } from './series-file';
 import type { IrishSailingRatings } from './irish-sailing-ratings';
 import type { IrcRatings } from './irc-rating';
 import type { VprsClub, VprsRatings } from './vprs-rating';
@@ -748,6 +749,28 @@ export async function revertToRevision(
 ): Promise<void> {
   await apiFetch(`/api/v1/series/${seriesId}/revisions/${revisionId}/revert`, {
     method: 'POST',
+  });
+}
+
+/** The series' revision history in `.sailscoring` shape, for embedding in a
+ *  saved file (#166). Satisfies the optional `SeriesFileRepos` member. */
+export async function listRevisionsForExport(
+  seriesId: string,
+): Promise<SeriesFileRevision[]> {
+  const { revisions } = await apiFetch<{ revisions: SeriesFileRevision[] }>(
+    `/api/v1/series/${seriesId}/revisions/export`,
+  );
+  return revisions;
+}
+
+/** Restore an embedded revision history into a freshly imported series (#166). */
+export async function importRevisions(
+  seriesId: string,
+  revisions: SeriesFileRevision[],
+): Promise<void> {
+  await apiFetch(`/api/v1/series/${seriesId}/revisions/import`, {
+    method: 'POST',
+    body: { revisions },
   });
 }
 

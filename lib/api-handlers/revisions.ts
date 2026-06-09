@@ -8,10 +8,13 @@ import { createRepos, seriesFileReposFor } from '@/lib/postgres-repository';
 import {
   captureRevision,
   getRevision,
+  importRevisions,
   listRevisions,
+  listRevisionsForExport,
   type RevisionEntry,
 } from '@/lib/revision-log';
-import { updateSeriesFromFile } from '@/lib/series-file';
+import { updateSeriesFromFile, type SeriesFileRevision } from '@/lib/series-file';
+import { seriesRevisionsImportSchema } from '@/lib/validation/revision';
 
 /**
  * Revision history read endpoint (#166). The write side lives in the mutation
@@ -68,4 +71,38 @@ export async function revertToRevision(
   await captureRevision(actor, seriesId, { kind: 'revert', summary });
 
   return { ok: true };
+}
+
+/** The series' full revision history in `.sailscoring` shape, for embedding in
+ *  an exported file (#166). */
+export async function exportSeriesRevisions(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<{ revisions: SeriesFileRevision[] }> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const series = await repos.series.get(seriesId);
+  if (!series) throw new NotFoundError('series');
+
+  const revisions = await listRevisionsForExport(
+    { workspaceId: workspace.workspaceId, userId: workspace.userId },
+    seriesId,
+  );
+  return { revisions };
+}
+
+/** Restore an embedded revision history into a freshly imported series (#166).
+ *  Called by the open-as-new flow after the series and its entities are written. */
+export async function importSeriesRevisions(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<{ count: number }> {
+  await assertSeriesWritable(workspace, seriesId);
+  const { revisions } = seriesRevisionsImportSchema.parse(body);
+  await importRevisions(
+    { workspaceId: workspace.workspaceId, userId: workspace.userId },
+    seriesId,
+    revisions as unknown as SeriesFileRevision[],
+  );
+  return { count: revisions.length };
 }

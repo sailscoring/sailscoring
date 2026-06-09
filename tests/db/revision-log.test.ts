@@ -18,7 +18,9 @@ import { createRepos } from '@/lib/postgres-repository';
 import {
   captureRevision,
   getRevisionSnapshot,
+  importRevisions,
   listRevisions,
+  listRevisionsForExport,
 } from '@/lib/revision-log';
 import type { Series } from '@/lib/types';
 
@@ -173,5 +175,32 @@ describe.skipIf(skip)('revision log', () => {
     const revs = await listRevisions(actor, seriesId);
     expect(revs).toHaveLength(2);
     expect(revs.find((r) => r.kind === 'named')).toMatchObject({ label: 'Before protest' });
+  });
+
+  test('exports the history (with snapshots + actor) and re-imports it into a fresh series', async () => {
+    const seriesId = await seedSeries('Export Source');
+    await captureRevision({ workspaceId, userId: actorA }, seriesId, { summary: 'first' });
+    await captureRevision({ workspaceId, userId: actorB }, seriesId, { kind: 'named', label: 'Pinned', summary: 'second' });
+
+    const exported = await listRevisionsForExport({ workspaceId, userId: actorA }, seriesId);
+    expect(exported).toHaveLength(2);
+    // Oldest-first, full snapshots, actor display preserved on export.
+    expect(exported[0].summary).toBe('first');
+    expect(exported[0].snapshot.series.name).toBe('Export Source');
+    expect(exported[0].actor?.displayName).toBe('Mark');
+    expect(exported[1]).toMatchObject({ kind: 'named', label: 'Pinned' });
+
+    // Re-import into a different series.
+    const targetId = await seedSeries('Import Target');
+    await importRevisions({ workspaceId, userId: actorA }, targetId, exported);
+
+    const imported = await listRevisions({ workspaceId, userId: actorA }, targetId);
+    expect(imported).toHaveLength(2);
+    // Original timestamps and kinds survive; actor attribution is dropped.
+    expect(imported.map((r) => r.kind).sort()).toEqual(['auto', 'named']);
+    expect(imported.every((r) => r.actor === null)).toBe(true);
+    const named = imported.find((r) => r.kind === 'named')!;
+    const snap = await getRevisionSnapshot({ workspaceId, userId: actorA }, named.id);
+    expect(snap?.series.name).toBe('Export Source');
   });
 });

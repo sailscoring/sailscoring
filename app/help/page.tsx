@@ -1144,6 +1144,12 @@ export default async function HelpPage() {
           restoring again. (Restore is unavailable on an archived, read-only
           series.)
         </p>
+        <p>
+          Saving the series to a file (<strong className="text-foreground">Save
+          to File</strong>) includes this version history, so a saved{' '}
+          <code>.sailscoring</code> file is a complete backup — reopen it as a
+          new series elsewhere and its history comes with it.
+        </p>
       </Section>
 
       {has('logo-library') && (
