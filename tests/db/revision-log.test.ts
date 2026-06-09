@@ -21,6 +21,7 @@ import {
   importRevisions,
   listRevisions,
   listRevisionsForExport,
+  sealOpenRevisions,
 } from '@/lib/revision-log';
 import type { Series } from '@/lib/types';
 
@@ -136,6 +137,31 @@ describe.skipIf(skip)('revision log', () => {
     expect(revs).toHaveLength(1);
     // The single row reflects the latest edit.
     expect(revs[0].summary).toBe('edit 3');
+  });
+
+  test('edits with the same context key coalesce; a different key starts a new revision', async () => {
+    const seriesId = await seedSeries('Context Key Series');
+    const actor = { workspaceId, userId: actorA };
+    await captureRevision(actor, seriesId, { summary: 'finishes a', sessionKey: 'finishes:race-1' });
+    await captureRevision(actor, seriesId, { summary: 'finishes b', sessionKey: 'finishes:race-1' });
+    await captureRevision(actor, seriesId, { summary: 'settings', sessionKey: 'settings' });
+
+    const revs = await listRevisions(actor, seriesId);
+    expect(revs).toHaveLength(2);
+    // The finishes:race-1 pair coalesced (latest summary), settings is its own.
+    expect(revs.map((r) => r.summary).sort()).toEqual(['finishes b', 'settings'].sort());
+  });
+
+  test('sealing the open revision forces the next same-key edit into a new one', async () => {
+    const seriesId = await seedSeries('Seal Series');
+    const actor = { workspaceId, userId: actorA };
+    await captureRevision(actor, seriesId, { summary: 'before', sessionKey: 'finishes:race-1' });
+    await sealOpenRevisions(workspaceId, seriesId);
+    await captureRevision(actor, seriesId, { summary: 'after', sessionKey: 'finishes:race-1' });
+
+    const revs = await listRevisions(actor, seriesId);
+    expect(revs).toHaveLength(2);
+    expect(revs.map((r) => r.summary)).toEqual(['after', 'before']);
   });
 
   test('a stale session (outside the idle window) opens a new revision', async () => {

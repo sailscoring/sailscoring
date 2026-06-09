@@ -613,6 +613,13 @@ export const seriesRevision = pgTable(
     kind: text('kind').notNull().default('auto'),
     label: text('label'),
     summary: text('summary'),
+    // Context key for coalescing (#166): auto revisions only fold together
+    // while the same actor keeps editing the *same* thing (a race's finishes,
+    // settings, …). Switching context starts a new revision.
+    sessionKey: text('session_key'),
+    // A sealed revision is closed: a milestone (publish / save / revert) or an
+    // explicit boundary set it, so later edits never coalesce back into it.
+    sealed: boolean('sealed').notNull().default(false),
     snapshot: jsonb('snapshot').notNull().$type<SeriesFile>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()

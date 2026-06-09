@@ -90,10 +90,9 @@ test.describe('activity log on a shared workspace', () => {
 
       const list = brian.getByTestId('revision-list');
       await expect(list).toBeVisible();
-      // Sarah's edits coalesced into one revision, attributed to her.
+      // Sarah's edits — one revision per context (settings / races / finishes),
+      // all attributed to her.
       await expect(list).toContainText(sarahName);
-      // Expand it to see the individual changes she made.
-      await brian.getByRole('button', { name: /Created the series/ }).click();
       await expect(list).toContainText('Created the series');
       await expect(list).toContainText('Added Race 1');
       await expect(list).toContainText('Recorded finishes for Race 1');

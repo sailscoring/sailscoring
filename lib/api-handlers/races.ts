@@ -68,7 +68,7 @@ export async function putRace(
       seriesId,
       summary: `Added Race ${saved.raceNumber}`,
     });
-    captureRevisionAfter(workspace, seriesId, { summary: `Added Race ${saved.raceNumber}` });
+    captureRevisionAfter(workspace, seriesId, { summary: `Added Race ${saved.raceNumber}`, sessionKey: 'races' });
   }
   return saved;
 }
@@ -88,7 +88,7 @@ export async function deleteRace(
     seriesId,
     summary: `Deleted Race ${existing.raceNumber}`,
   });
-  captureRevisionAfter(workspace, seriesId, { summary: `Deleted Race ${existing.raceNumber}` });
+  captureRevisionAfter(workspace, seriesId, { summary: `Deleted Race ${existing.raceNumber}`, sessionKey: 'races' });
 }
 
 /**

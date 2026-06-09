@@ -133,6 +133,7 @@ export async function putSeries(
   );
   captureRevisionAfter(workspace, id, {
     summary: existing ? 'Updated series settings' : 'Created the series',
+    sessionKey: 'settings',
   });
   return saved;
 }

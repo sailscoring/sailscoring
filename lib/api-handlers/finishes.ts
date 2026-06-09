@@ -59,6 +59,7 @@ export async function putFinish(
     });
     captureRevisionAfter(workspace, race.seriesId, {
       summary: `Recorded finishes for Race ${race.raceNumber}`,
+      sessionKey: `finishes:${raceId}`,
     });
   }
   return saved;
@@ -110,7 +111,7 @@ export async function bulkDeleteFinishes(
     seriesId: race?.seriesId ?? null,
     summary: clearedSummary,
   });
-  if (race) captureRevisionAfter(workspace, race.seriesId, { summary: clearedSummary });
+  if (race) captureRevisionAfter(workspace, race.seriesId, { summary: clearedSummary, sessionKey: `finishes:${raceId}` });
 }
 
 /**
@@ -145,6 +146,6 @@ export async function bulkPutFinishes(
     seriesId: race?.seriesId ?? null,
     summary: enteredSummary,
   });
-  if (race) captureRevisionAfter(workspace, race.seriesId, { summary: enteredSummary });
+  if (race) captureRevisionAfter(workspace, race.seriesId, { summary: enteredSummary, sessionKey: `finishes:${raceId}` });
   return { count: finishes.length };
 }

@@ -1,6 +1,6 @@
 import 'server-only';
 import { after } from 'next/server';
-import { and, desc, eq, gt } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
 import { user } from '@/lib/db/schema/auth';
@@ -50,11 +50,12 @@ interface Actor {
 export async function captureRevision(
   actor: Actor,
   seriesId: string,
-  opts: { kind?: RevisionKind; label?: string; summary?: string } = {},
+  opts: { kind?: RevisionKind; label?: string; summary?: string; sessionKey?: string } = {},
 ): Promise<void> {
   try {
     const db = getDb();
     const kind = opts.kind ?? 'auto';
+    const sessionKey = opts.sessionKey ?? null;
     const snapshot: SeriesFile = await buildSeriesFile(
       seriesId,
       seriesFileReposFor({ workspaceId: actor.workspaceId }),
@@ -62,6 +63,8 @@ export async function captureRevision(
 
     if (kind === 'auto') {
       const cutoff = new Date(Date.now() - COALESCE_WINDOW_MS);
+      // Coalesce only into the same actor's still-open session for the *same*
+      // context (sessionKey) within the window — and never into a sealed one.
       const [open] = await db
         .select({ id: seriesRevision.id })
         .from(seriesRevision)
@@ -70,6 +73,10 @@ export async function captureRevision(
             eq(seriesRevision.seriesId, seriesId),
             eq(seriesRevision.actorUserId, actor.userId),
             eq(seriesRevision.kind, 'auto'),
+            eq(seriesRevision.sealed, false),
+            sessionKey === null
+              ? isNull(seriesRevision.sessionKey)
+              : eq(seriesRevision.sessionKey, sessionKey),
             gt(seriesRevision.createdAt, cutoff),
           ),
         )
@@ -97,10 +104,37 @@ export async function captureRevision(
       kind,
       label: opts.label ?? null,
       summary: opts.summary ?? null,
+      sessionKey,
       snapshot,
     });
   } catch (err) {
     console.error('captureRevision failed (non-fatal):', err);
+  }
+}
+
+/**
+ * Seal every still-open auto revision for a series (#166) — called by a
+ * milestone (publish / save / revert) so subsequent edits start a fresh
+ * revision instead of folding back into the pre-milestone one. Best-effort.
+ */
+export async function sealOpenRevisions(
+  workspaceId: string,
+  seriesId: string,
+): Promise<void> {
+  try {
+    await getDb()
+      .update(seriesRevision)
+      .set({ sealed: true })
+      .where(
+        and(
+          eq(seriesRevision.workspaceId, workspaceId),
+          eq(seriesRevision.seriesId, seriesId),
+          eq(seriesRevision.kind, 'auto'),
+          eq(seriesRevision.sealed, false),
+        ),
+      );
+  } catch (err) {
+    console.error('sealOpenRevisions failed (non-fatal):', err);
   }
 }
 
@@ -114,7 +148,7 @@ export async function captureRevision(
 export function captureRevisionAfter(
   actor: Actor,
   seriesId: string,
-  opts: { kind?: RevisionKind; label?: string; summary?: string } = {},
+  opts: { kind?: RevisionKind; label?: string; summary?: string; sessionKey?: string } = {},
 ): void {
   try {
     after(() => captureRevision(actor, seriesId, opts));

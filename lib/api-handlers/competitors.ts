@@ -109,7 +109,7 @@ export async function bulkPutCompetitors(
   const n = competitors.length;
   const summary = `Imported ${n} competitor${n === 1 ? '' : 's'}`;
   await recordActivity(workspace, { action: 'competitors.imported', seriesId, summary });
-  captureRevisionAfter(workspace, seriesId, { summary });
+  captureRevisionAfter(workspace, seriesId, { summary, sessionKey: 'competitors' });
   return { count: competitors.length };
 }
 
@@ -237,7 +237,7 @@ export async function bulkUpdateHandicaps(
     seriesId,
     summary,
   });
-  captureRevisionAfter(workspace, seriesId, { summary });
+  captureRevisionAfter(workspace, seriesId, { summary, sessionKey: 'competitors' });
   return { updated };
 }
 
@@ -258,7 +258,7 @@ export async function bulkDeleteCompetitors(
     seriesId,
     summary: 'Cleared all competitors',
   });
-  captureRevisionAfter(workspace, seriesId, { summary: 'Cleared all competitors' });
+  captureRevisionAfter(workspace, seriesId, { summary: 'Cleared all competitors', sessionKey: 'competitors' });
 }
 
 /**

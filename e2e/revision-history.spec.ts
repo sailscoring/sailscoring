@@ -2,28 +2,33 @@ import { signedInTest as test, expect } from './fixtures';
 import { createSeriesQuick } from './helpers';
 
 /**
- * E2E for the History tab (#166, revision history phase 3).
+ * E2E for the History tab (#166).
  *
- * A single editing session by one scorer coalesces into one "auto" revision
- * (5-minute idle window), which is expandable to the individual changes it
- * covers (the activity entries in its window).
+ * Revisions coalesce by *context* (#166 phase 2): editing the same thing folds
+ * into one revision, while switching to a different kind of work starts a new
+ * one. So entering several finishes for a race is a single revision, but
+ * creating the series, adding the race, and entering finishes are three.
  */
-test('history tab: a session is one revision, expandable to its changes', async ({ page }) => {
+test('history tab: same-context edits coalesce, different contexts split', async ({ page }) => {
   await createSeriesQuick(page, { name: 'History Spec Series' });
 
-  // A competitor (no revision of its own) so a finish has something to attach to.
-  await page.getByRole('button', { name: 'Add competitor' }).click();
-  await page.getByLabel('Sail number').fill('H1');
-  await page.getByLabel('Competitor name').fill('History Boat');
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByRole('cell', { name: 'H1' })).toBeVisible();
+  // Two competitors (single adds don't create revisions of their own).
+  for (const [sail, name] of [['H1', 'Boat One'], ['H2', 'Boat Two']]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByLabel('Competitor name').fill(name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: sail })).toBeVisible();
+  }
 
-  // A race and a recorded finish.
+  // A race, then two finishes in it (same context → one revision).
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByText('Race 1').click();
-  await page.getByLabel('Sail number').fill('H1');
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  for (const sail of ['H1', 'H2']) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
   await page.getByTestId('back-to-races').click();
 
@@ -34,14 +39,11 @@ test('history tab: a session is one revision, expandable to its changes', async 
   const list = page.getByTestId('revision-list');
   await expect(list).toBeVisible();
 
-  // All of this session's edits coalesced into a single revision, headlined by
-  // the set of changes it covers (not just the last action).
-  const rows = list.getByRole('listitem');
-  await expect(rows).toHaveCount(1);
+  // The two finishes coalesced into a single finishes revision…
+  await expect(
+    list.getByRole('listitem').filter({ hasText: 'Recorded finishes for Race 1' }),
+  ).toHaveCount(1);
+  // …while creating the series and adding the race are their own revisions.
   await expect(list).toContainText('Created the series');
-
-  // Expand it → every change in the session is listed underneath.
-  await page.getByRole('button', { name: /Created the series/ }).click();
   await expect(list).toContainText('Added Race 1');
-  await expect(list).toContainText('Recorded finishes for Race 1');
 });
