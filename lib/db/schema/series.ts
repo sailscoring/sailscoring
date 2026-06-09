@@ -11,7 +11,15 @@ import {
   index,
   uniqueIndex,
   check,
+  customType,
 } from 'drizzle-orm/pg-core';
+
+/** Postgres `bytea` ↔ Node `Buffer` (Drizzle has no built-in bytea type). */
+const bytea = customType<{ data: Buffer; default: false }>({
+  dataType() {
+    return 'bytea';
+  },
+});
 
 import { organization } from './auth';
 import type {
@@ -620,7 +628,11 @@ export const seriesRevision = pgTable(
     // A sealed revision is closed: a milestone (publish / save / revert) or an
     // explicit boundary set it, so later edits never coalesce back into it.
     sealed: boolean('sealed').notNull().default(false),
-    snapshot: jsonb('snapshot').notNull().$type<SeriesFile>(),
+    // Snapshot storage. New rows write gzipped JSON to `snapshotGz`; the legacy
+    // uncompressed `snapshot` (jsonb) stays for rows written before compression
+    // landed. Readers prefer `snapshotGz` and fall back to `snapshot`.
+    snapshot: jsonb('snapshot').$type<SeriesFile>(),
+    snapshotGz: bytea('snapshot_gz'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

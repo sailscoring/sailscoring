@@ -229,4 +229,35 @@ describe.skipIf(skip)('revision log', () => {
     const snap = await getRevisionSnapshot({ workspaceId, userId: actorA }, named.id);
     expect(snap?.series.name).toBe('Export Source');
   });
+
+  test('import strips a planted nested `revisions` block (and unknown keys) from a snapshot', async () => {
+    const seriesId = await seedSeries('Strip Target');
+    const tampered = {
+      kind: 'auto' as const,
+      label: null,
+      summary: 'tampered',
+      createdAt: new Date().toISOString(),
+      actor: null,
+      snapshot: {
+        formatVersion: 8,
+        seriesId: 'x',
+        exportedAt: new Date().toISOString(),
+        series: { id: 'x', name: 'Tampered' },
+        fleets: [],
+        competitors: [],
+        races: [],
+        // Junk that must not survive the import:
+        revisions: [{ kind: 'auto', snapshot: { deeply: 'nested' } }],
+        evil: 'payload',
+      },
+    } as unknown as Parameters<typeof importRevisions>[2][number];
+
+    await importRevisions({ workspaceId, userId: actorA }, seriesId, [tampered]);
+    const [rev] = await listRevisions({ workspaceId, userId: actorA }, seriesId);
+    const snap = await getRevisionSnapshot({ workspaceId, userId: actorA }, rev.id);
+    expect(snap).not.toBeNull();
+    expect(snap).not.toHaveProperty('revisions');
+    expect(snap).not.toHaveProperty('evil');
+    expect(snap?.series.name).toBe('Tampered');
+  });
 });

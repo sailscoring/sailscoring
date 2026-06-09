@@ -1,5 +1,6 @@
 import 'server-only';
 import { after } from 'next/server';
+import { gzipSync, gunzipSync } from 'node:zlib';
 import { and, desc, eq, gt, isNull } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
@@ -12,6 +13,39 @@ import {
   type SeriesFileRevision,
 } from '@/lib/series-file';
 import type { RevisionEntry } from '@/lib/types';
+
+/** Known top-level keys of a `.sailscoring` snapshot. Anything else (notably a
+ *  nested `revisions` block a tampered import might carry) is dropped. */
+const SNAPSHOT_KEYS = [
+  'formatVersion', 'seriesId', 'exportedAt', 'series',
+  'fleets', 'competitors', 'races', 'tcfHistory', 'nhcTcfHistory',
+] as const;
+
+/** gzip a snapshot for storage in `snapshot_gz`. */
+function packSnapshot(file: SeriesFile): Buffer {
+  return gzipSync(Buffer.from(JSON.stringify(file)));
+}
+
+/** Read a snapshot, preferring the compressed column and falling back to the
+ *  legacy uncompressed `snapshot` jsonb. */
+function unpackSnapshot(row: {
+  snapshot: SeriesFile | null;
+  snapshotGz: Buffer | null;
+}): SeriesFile {
+  if (row.snapshotGz) {
+    return JSON.parse(gunzipSync(row.snapshotGz).toString('utf-8')) as SeriesFile;
+  }
+  return row.snapshot as SeriesFile;
+}
+
+/** Strip an imported snapshot to known keys only — defence against a
+ *  hand-crafted file smuggling a nested `revisions` block or other junk. */
+function sanitizeSnapshot(raw: unknown): SeriesFile {
+  const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const clean: Record<string, unknown> = {};
+  for (const k of SNAPSHOT_KEYS) if (k in obj) clean[k] = obj[k];
+  return clean as unknown as SeriesFile;
+}
 
 export type { RevisionEntry };
 
@@ -87,7 +121,8 @@ export async function captureRevision(
         await db
           .update(seriesRevision)
           .set({
-            snapshot,
+            snapshotGz: packSnapshot(snapshot),
+            snapshot: null,
             summary: opts.summary ?? null,
             createdAt: new Date(),
           })
@@ -105,7 +140,7 @@ export async function captureRevision(
       label: opts.label ?? null,
       summary: opts.summary ?? null,
       sessionKey,
-      snapshot,
+      snapshotGz: packSnapshot(snapshot),
     });
   } catch (err) {
     console.error('captureRevision failed (non-fatal):', err);
@@ -236,6 +271,7 @@ export async function getRevision(
     .select({
       seriesId: seriesRevision.seriesId,
       snapshot: seriesRevision.snapshot,
+      snapshotGz: seriesRevision.snapshotGz,
       createdAt: seriesRevision.createdAt,
     })
     .from(seriesRevision)
@@ -249,7 +285,7 @@ export async function getRevision(
   if (!row) return null;
   return {
     seriesId: row.seriesId,
-    snapshot: row.snapshot,
+    snapshot: unpackSnapshot(row),
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -272,6 +308,7 @@ export async function listRevisionsForExport(
       summary: seriesRevision.summary,
       createdAt: seriesRevision.createdAt,
       snapshot: seriesRevision.snapshot,
+      snapshotGz: seriesRevision.snapshotGz,
       actorEmail: user.email,
       actorName: user.name,
     })
@@ -296,7 +333,7 @@ export async function listRevisionsForExport(
             displayName: r.actorName && r.actorName.trim().length > 0 ? r.actorName : undefined,
           }
         : null,
-    snapshot: r.snapshot,
+    snapshot: unpackSnapshot(r),
   }));
 }
 
@@ -321,7 +358,9 @@ export async function importRevisions(
       kind: rev.kind,
       label: rev.label,
       summary: rev.summary,
-      snapshot: rev.snapshot,
+      // Sanitise then compress — a tampered file can't smuggle a nested
+      // `revisions` block (or other junk) into a stored snapshot.
+      snapshotGz: packSnapshot(sanitizeSnapshot(rev.snapshot)),
       createdAt: new Date(rev.createdAt),
     })),
   );
