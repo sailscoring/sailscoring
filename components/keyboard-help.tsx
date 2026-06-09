@@ -84,6 +84,7 @@ export function KeyboardHelp({
               { keys: ['g', 's'], action: 'Go to Standings' },
               { keys: ['g', 't'], action: 'Go to Settings' },
               { keys: ['g', 'a'], action: 'Go to Activity' },
+              { keys: ['g', 'h'], action: 'Go to History' },
             ]}
           />
 

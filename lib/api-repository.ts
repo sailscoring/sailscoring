@@ -31,6 +31,7 @@ import type {
   LogoDefaults,
   Race,
   RaceStart,
+  RevisionEntry,
   RaceRatingOverride,
   Series,
   TcfRecord,
@@ -727,6 +728,14 @@ export function listActivity(opts?: {
 export async function listRecentActivity(): Promise<ActivityEntry[]> {
   const { items } = await apiFetch<{ items: ActivityEntry[] }>(
     '/api/v1/activity/recent',
+  );
+  return items;
+}
+
+/** Revision history for one series — backs the History tab (#166). */
+export async function listRevisions(seriesId: string): Promise<RevisionEntry[]> {
+  const { items } = await apiFetch<{ items: RevisionEntry[] }>(
+    `/api/v1/series/${seriesId}/revisions`,
   );
   return items;
 }

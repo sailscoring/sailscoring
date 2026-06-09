@@ -68,6 +68,7 @@ export default async function HelpPage() {
             ['#a53-scoring', 'A5.3 starting-area scoring'],
             ['#saving-and-sharing', 'Saving and sharing a series'],
             ['#activity', 'Activity and working with co-scorers'],
+            ['#history', 'Version history'],
             // Gated: only listed when logo-library is enabled.
             ['#logo-library', 'The logo library', 'logo-library'],
             ['#publishing-results', 'Publishing results'],
@@ -1115,6 +1116,24 @@ export default async function HelpPage() {
           <strong className="text-foreground">Account</strong> page — give it a
           name and we&apos;ll set it up and make you the owner, ready to invite
           the rest of your panel.
+        </p>
+      </Section>
+
+      <Section id="history" title="Version history">
+        <p>
+          Every series keeps a versioned <strong className="text-foreground">History</strong>{' '}
+          tab (or press <strong className="text-foreground">g</strong> then{' '}
+          <strong className="text-foreground">h</strong>). As you edit, Sail
+          Scoring saves point-in-time versions automatically: a continuous
+          editing session by one scorer is captured as a single version, so the
+          list stays readable rather than one entry per keystroke.
+        </p>
+        <p>
+          The list is newest-first, each version naming the scorer and how long
+          ago it was. Expand a version to see the individual changes it
+          covers — the same entries you&apos;d find on the Activity tab, grouped
+          under the session that made them. It&apos;s the record behind a scoring
+          inquiry and the audit trail for a protest committee.
         </p>
       </Section>
 

@@ -75,6 +75,10 @@ export const queryKeys = {
     bySeries: (seriesId: string) => ['activity', 'bySeries', seriesId] as const,
     recent: () => ['activity', 'recent'] as const,
   },
+  revisions: {
+    all: ['revisions'] as const,
+    bySeries: (seriesId: string) => ['revisions', 'bySeries', seriesId] as const,
+  },
   workspaceMembers: {
     all: ['workspaceMembers'] as const,
   },

@@ -21,6 +21,7 @@ const tabs = [
   { label: 'Standings', href: (id: string) => `/series/${id}/standings` },
   { label: 'Settings', href: (id: string) => `/series/${id}/settings` },
   { label: 'Activity', href: (id: string) => `/series/${id}/activity` },
+  { label: 'History', href: (id: string) => `/series/${id}/history` },
 ];
 
 export default function SeriesLayout({
@@ -44,6 +45,7 @@ export default function SeriesLayout({
     s: () => router.push(tabs[2].href(id)),
     t: () => router.push(tabs[3].href(id)),
     a: () => router.push(tabs[4].href(id)),
+    h: () => router.push(tabs[5].href(id)),
   });
 
   useGlobalKeyDown((e) => {
