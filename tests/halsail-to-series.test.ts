@@ -21,14 +21,11 @@ const file = buildCruiserDaySeries(
   ],
 );
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
 describe('buildCruiserDaySeries', () => {
-  it('emits a UUID snapshotId (the series.last_snapshot_id column is a uuid)', () => {
-    // Regression: a non-UUID snapshotId fails import with a Postgres
-    // "invalid input syntax for type uuid" error.
-    expect(file.snapshotId).toMatch(UUID_RE);
-    expect(file.snapshotHistory).toEqual([file.snapshotId]);
+  it('emits a v8 file with no snapshot-lineage fields', () => {
+    expect(file.formatVersion).toBe(8);
+    expect(file).not.toHaveProperty('snapshotId');
+    expect(file).not.toHaveProperty('snapshotHistory');
   });
 
   it('builds 9 fleets (3 IRC, 4 ECHO, 2 one-design) and the cruiser roster', () => {

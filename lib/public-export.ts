@@ -27,8 +27,8 @@ import { disambiguateSeriesName } from './series-name';
 // ---- Public export type ----
 //
 // A stripped-down, public-facing snapshot of a series. Intentionally excludes all
-// scorer-private fields: snapshotId, snapshotHistory, ftpHost, ftpPath, ftpPaths,
-// and all internal UUIDs (competitors are keyed by sailNumber instead).
+// scorer-private fields: ftpHost, ftpPath, ftpPaths, and all internal UUIDs
+// (competitors are keyed by sailNumber instead).
 
 /** Start sequence group as it appears in the public export. Refers to fleets
  *  by name rather than by internal UUID (mirroring how `races[].starts` does).
@@ -520,8 +520,8 @@ export async function buildPublicExport(
 
 /**
  * Create a new series from a PublicSeriesExport. Fresh UUIDs are assigned to all
- * entities — the imported series has no file history, no snapshot lineage, and no
- * publishing config. Returns the new seriesId.
+ * entities — the imported series has no file history and no publishing config.
+ * Returns the new seriesId.
  *
  * NHC/ECHO TCF history is *not* persisted — the engine recomputes it from
  * finishes + starting TCFs on next render, matching what the file-export
@@ -586,10 +586,8 @@ export async function importPublicExport(
     venueUrl: data.series.venueUrl ?? '',
     eventUrl: data.series.eventUrl ?? '',
     createdAt: now,
-    lastSnapshotId: null,
     lastSavedAt: null,
     lastModifiedAt: now,
-    snapshotHistory: [],
     scoringMode: data.series.scoringMode,
     ...(importedDefaultStartSequence?.length ? { defaultStartSequence: importedDefaultStartSequence } : {}),
     discardThresholds: data.series.discardThresholds,

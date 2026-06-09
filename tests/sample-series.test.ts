@@ -80,8 +80,8 @@ function load(name: string) {
  * A `SeriesFileRepos` that validates every payload against the real `/api/v1`
  * Zod input schemas — the exact boundary that returns 400 on import. Driving
  * `openSeriesFromFile` through it reproduces a manual "Open from File" without a
- * DB, so a schema violation (e.g. a non-UUID snapshot id) fails the test instead
- * of only surfacing as a runtime 400.
+ * DB, so a schema violation fails the test instead of only surfacing as a
+ * runtime 400.
  */
 function makeValidatingRepos(): SeriesFileRepos {
   const noop = async () => {};
@@ -139,7 +139,7 @@ describe('sample series files', () => {
   it('regatta: 6 scratch fleets, full results, no orphans or rejections', () => {
     const { file, fleets, competitors, races, raceStarts, finishes } = load('regatta.sailscoring');
 
-    expect(file.formatVersion).toBe(6);
+    expect(file.formatVersion).toBe(8);
     expect(file.series.scoringMode).toBe('scratch');
     expect(fleets).toHaveLength(6);
     expect(fleets.every((f) => f.scoringSystem === 'scratch')).toBe(true);

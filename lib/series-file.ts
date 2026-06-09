@@ -69,9 +69,14 @@ export interface SeriesFileRepos {
  *
  *  v7 adds the `vprs` fleet scoring system and the optional
  *  `Competitor.vprsTcc` rating (with `vprsTcc` as a per-race rating-override
- *  field). Additive; older files load with the field absent. */
-export const FORMAT_VERSION = 7;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7];
+ *  field). Additive; older files load with the field absent.
+ *
+ *  v8 drops the snapshot-lineage fields (`snapshotId`, `snapshotHistory`):
+ *  file-exchange is no longer the collaboration mechanism, so a re-import is
+ *  always an authoritative overwrite matched by `seriesId` alone. v1–v7 files
+ *  still load — the parser ignores the now-unused keys. */
+export const FORMAT_VERSION = 8;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -189,8 +194,6 @@ interface SeriesFileTcfRecord {
 export interface SeriesFile {
   formatVersion: number;
   seriesId: string;
-  snapshotId: string;
-  snapshotHistory: string[];
   exportedAt: string;
   series: SeriesFileSeries;
   fleets: SeriesFileFleet[];
@@ -202,19 +205,10 @@ export interface SeriesFile {
   nhcTcfHistory?: SeriesFileTcfRecord[];
 }
 
-export type LineageStatus = 'clean' | 'identical' | 'diverged';
-
-export function checkLineage(localSeries: Series, file: SeriesFile): LineageStatus {
-  if (!localSeries.lastSnapshotId) return 'diverged';
-  if (file.snapshotId === localSeries.lastSnapshotId) return 'identical';
-  if (file.snapshotHistory.includes(localSeries.lastSnapshotId)) return 'clean';
-  return 'diverged';
-}
-
 // ---- Build and save ----
 
 /** Build the in-memory SeriesFile for a series without side effects.
- *  Used by `saveSeriesFile` (which then downloads + bumps the snapshot)
+ *  Used by `saveSeriesFile` (which then downloads + records the save)
  *  and by the Phase 5 migration flow (which builds from Dexie repos and
  *  then writes via API repos through `openSeriesFromFile`). */
 export async function buildSeriesFile(
@@ -298,14 +292,9 @@ export async function buildSeriesFile(
     overridesByRace.get(o.raceId)!.push({ id: o.id, competitorId: o.competitorId, field: o.field, value: o.value });
   }
 
-  const snapshotId = crypto.randomUUID();
-  const snapshotHistory = [...series.snapshotHistory, snapshotId];
-
   const file: SeriesFile = {
     formatVersion: FORMAT_VERSION,
     seriesId: series.id,
-    snapshotId,
-    snapshotHistory,
     exportedAt: new Date().toISOString(),
     fleets: fleets.map((f) => ({
       id: f.id,
@@ -413,14 +402,12 @@ export async function saveSeriesFile(
 
   // Record the save. CAS via `expectedVersion` so a concurrent edit in
   // another tab surfaces as 409 → refresh-and-retry rather than silently
-  // overwriting the other tab's snapshot lineage.
+  // overwriting the other tab's `lastSavedAt`.
   const now = Date.now();
   await repos.seriesRepo.save(
     {
       ...series,
-      lastSnapshotId: file.snapshotId,
       lastSavedAt: now,
-      snapshotHistory: file.snapshotHistory,
     },
     { expectedVersion: series.version },
   );
@@ -440,8 +427,6 @@ export function parseSeriesFile(content: string): SeriesFile {
   if (typeof obj.formatVersion !== 'number' || !SUPPORTED_FORMAT_VERSIONS.includes(obj.formatVersion))
     throw new Error(`Unsupported file format version: ${obj.formatVersion ?? 'unknown'}`);
   if (typeof obj.seriesId !== 'string') throw new Error('Invalid file: missing seriesId');
-  if (typeof obj.snapshotId !== 'string') throw new Error('Invalid file: missing snapshotId');
-  if (!Array.isArray(obj.snapshotHistory)) throw new Error('Invalid file: missing snapshotHistory');
   if (typeof obj.exportedAt !== 'string') throw new Error('Invalid file: missing exportedAt');
   if (typeof obj.series !== 'object' || obj.series === null)
     throw new Error('Invalid file: missing series');
@@ -537,10 +522,8 @@ export async function openSeriesFromFile(
     venueUrl: file.series.venueUrl ?? '',
     eventUrl: file.series.eventUrl ?? '',
     createdAt: now,
-    lastSnapshotId: file.snapshotId,
     lastSavedAt: null,
     lastModifiedAt: now,
-    snapshotHistory: [...file.snapshotHistory],
     scoringMode: file.series.scoringMode,
     defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
@@ -586,7 +569,7 @@ export async function updateSeriesFromFile(
   await repos.deleteSeriesChildren(seriesId);
 
   // Authoritative file-replay write — no `expectedVersion`. The user has
-  // already confirmed the lineage dialog ("Update" or "Replace workspace copy").
+  // already confirmed the overwrite ("Update" or "Open as a new copy").
   // Spreading `...current` preserves `categoryId`/`archived` (#154): the file
   // doesn't carry them, and an update must not silently re-file or un-archive
   // the existing series.
@@ -600,9 +583,7 @@ export async function updateSeriesFromFile(
     eventLogoUrl: file.series.eventLogoUrl,
     venueUrl: file.series.venueUrl ?? '',
     eventUrl: file.series.eventUrl ?? '',
-    lastSnapshotId: file.snapshotId,
     lastModifiedAt: now,
-    snapshotHistory: [...file.snapshotHistory],
     scoringMode: file.series.scoringMode,
     defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
@@ -666,9 +647,9 @@ function remapFtpPathsByFleetName(
  * `defaultStartSequence` is dropped because it keys fleet ids that no longer
  * exist after the re-import.
  *
- * File lineage (`lastSnapshotId` / `snapshotHistory` / `lastSavedAt`) is left
- * untouched — no `.sailscoring` file was involved — so the series correctly
- * reads as "modified since last save" afterwards.
+ * File-tracking (`lastSavedAt`) is left untouched — no `.sailscoring` file was
+ * involved — so the series correctly reads as "modified since last save"
+ * afterwards.
  */
 export async function updateSeriesFromSailwave(
   seriesId: string,

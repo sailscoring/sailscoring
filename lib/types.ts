@@ -69,10 +69,8 @@ export interface Series {
   eventUrl: string;    // website the event logo/name links to in exports (empty if unset)
   createdAt: number;   // Date.now()
   // File tracking
-  lastSnapshotId: string | null;  // snapshotId of last Save to File or Open from File
   lastSavedAt: number | null;     // Date.now() of last Save to File
   lastModifiedAt: number;         // Date.now() of last data change
-  snapshotHistory: string[];      // ordered lineage of all snapshot IDs
   // Scoring configuration
   scoringMode: 'scratch' | 'handicap';  // series-level fork; locked after first race has finishes
   defaultStartSequence?: StartGroup[];  // default start groups and offsets for race creation

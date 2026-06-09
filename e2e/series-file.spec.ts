@@ -8,9 +8,8 @@ import { createSeriesQuick } from './helpers';
  * Covers:
  *   - Save to File exports correct JSON (all series fields, competitors, races,
  *     FTP host/path)
- *   - Update from File: identical snapshot → "nothing to update" dialog
- *   - Update from File: clean lineage (descendant) → in-place update
- *   - Update from File: diverged → conflict dialog (open as new copy path)
+ *   - Update from File: confirm dialog → in-place update (matched by seriesId)
+ *   - Update from File: "Open as a new copy" path creates a second series
  */
 
 // ─── local types matching the file format ────────────────────────────────────
@@ -44,8 +43,6 @@ interface FileRace {
 interface SeriesFile {
   formatVersion: number;
   seriesId: string;
-  snapshotId: string;
-  snapshotHistory: string[];
   exportedAt: string;
   series: {
     id: string;
@@ -179,10 +176,10 @@ test('series file: save exports correct JSON with all series fields, competitors
   const file = await saveToFile(page);
 
   // Top-level envelope
-  expect(file.formatVersion).toBe(7);
+  expect(file.formatVersion).toBe(8);
   expect(file.seriesId).toBe(seriesId);
-  expect(typeof file.snapshotId).toBe('string');
-  expect(file.snapshotHistory).toEqual([file.snapshotId]);
+  expect(file).not.toHaveProperty('snapshotId');
+  expect(file).not.toHaveProperty('snapshotHistory');
   expect(typeof file.exportedAt).toBe('string');
 
   // Series fields
@@ -211,23 +208,9 @@ test('series file: save exports correct JSON with all series fields, competitors
   expect(file.races[0].finishes[0].sortOrder).toBe(1);
 });
 
-test('series file: identical snapshot shows "nothing to update"', async ({ page }) => {
-  // ── Create series and save ────────────────────────────────────────────────
-  await createSeriesQuick(page, { name: 'Identical Test' });
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const file = await saveToFile(page);
-
-  // ── Upload the same file back ─────────────────────────────────────────────
-  await updateFromFile(page, file);
-
-  await expect(page.getByRole('dialog', { name: 'Nothing to update' })).toBeVisible();
-  await page.getByRole('button', { name: 'OK' }).click();
-  await expect(page.getByRole('dialog', { name: 'Nothing to update' })).not.toBeVisible();
-});
-
-test('series file: clean lineage updates series in place', async ({ page }) => {
+test('series file: Update from File replaces the series in place (matched by seriesId)', async ({ page }) => {
   // ── Create series with a competitor, save to file ─────────────────────────
-  await createSeriesQuick(page, { name: 'Clean Test' });
+  await createSeriesQuick(page, { name: 'Update In Place Test' });
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('10');
@@ -237,13 +220,10 @@ test('series file: clean lineage updates series in place', async ({ page }) => {
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   const original = await saveToFile(page);
 
-  // ── Build a descendant file: new snapshotId, original in history ──────────
-  // Simulates a co-scorer who received the file, made changes, and saved again.
-  const newSnapshotId = crypto.randomUUID();
-  const descendant: SeriesFile = {
+  // ── Build an edited file carrying the same seriesId ───────────────────────
+  // Simulates a regenerated / co-scorer-edited file of the same series.
+  const edited: SeriesFile = {
     ...original,
-    snapshotId: newSnapshotId,
-    snapshotHistory: [...original.snapshotHistory, newSnapshotId],
     series: { ...original.series, name: 'Updated by Co-scorer', venue: 'RIYC' },
     competitors: [
       ...original.competitors,
@@ -251,14 +231,12 @@ test('series file: clean lineage updates series in place', async ({ page }) => {
     ],
   };
 
-  // ── Update from the descendant file ──────────────────────────────────────
-  await updateFromFile(page, descendant);
+  // ── Update from the edited file → single confirm → in-place replace ───────
+  await updateFromFile(page, edited);
 
-  await expect(page.getByRole('dialog', { name: /Update/ })).toBeVisible();
-  await expect(page.getByRole('dialog')).toContainText('newer version');
+  await expect(page.getByRole('dialog', { name: /Update .* from file\?/ })).toBeVisible();
   await page.getByRole('button', { name: 'Update' }).click();
 
-  // ── Verify the series was updated in place ────────────────────────────────
   await expect(page).toHaveURL(/\/races$/);
   await expect(page.getByRole('heading', { name: 'Updated by Co-scorer' })).toBeVisible();
 });
@@ -352,36 +330,28 @@ test('series file: importing a new .sailscoring file lets you file it under a ca
   await expect(section.getByText('Imported Into Category')).toBeVisible();
 });
 
-test('series file: diverged snapshot shows conflict dialog; open as new copy creates second series', async ({ page }) => {
+test('series file: Update from File → "Open as a new copy" creates a second series', async ({ page }) => {
   // ── Create series and save to file ────────────────────────────────────────
-  await createSeriesQuick(page, { name: 'Diverged Original' });
+  await createSeriesQuick(page, { name: 'New Copy Original' });
   const originalSeriesId = getSeriesId(page);
 
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   const original = await saveToFile(page);
 
-  // ── Build a diverged file: independent snapshot history (no common ancestor)
-  // Simulates two scorers who both edited from the same starting point and
-  // saved independently — neither file's history includes the other's snapshot.
-  const diverged: SeriesFile = {
+  const edited: SeriesFile = {
     ...original,
-    snapshotId: crypto.randomUUID(),
-    snapshotHistory: [crypto.randomUUID(), crypto.randomUUID()],
-    series: { ...original.series, name: 'Diverged Copy' },
+    series: { ...original.series, name: 'New Copy Result' },
   };
 
-  // ── Update from the diverged file ────────────────────────────────────────
-  await updateFromFile(page, diverged);
+  // ── Update from the file, but choose "Open as a new copy" ─────────────────
+  await updateFromFile(page, edited);
 
-  await expect(page.getByRole('dialog', { name: /conflicts with your workspace copy/ })).toBeVisible();
-  await expect(page.getByRole('dialog')).toContainText('diverged');
-
-  // ── Choose "Open as a new copy" ───────────────────────────────────────────
+  await expect(page.getByRole('dialog', { name: /Update .* from file\?/ })).toBeVisible();
   await page.getByRole('button', { name: 'Open as a new copy' }).click();
 
-  // Should land on a new series (different ID) with the diverged file's name
+  // Should land on a new series (different ID) with the edited file's name
   await expect(page).toHaveURL(/\/races$/);
   const newSeriesId = getSeriesId(page);
   expect(newSeriesId).not.toBe(originalSeriesId);
-  await expect(page.getByRole('heading', { name: 'Diverged Copy' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'New Copy Result' })).toBeVisible();
 });

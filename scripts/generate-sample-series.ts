@@ -128,8 +128,6 @@ interface FileSeries {
 interface SeriesFile {
   formatVersion: number;
   seriesId: string;
-  snapshotId: string;
-  snapshotHistory: string[];
   exportedAt: string;
   series: FileSeries;
   fleets: FileFleet[];
@@ -139,14 +137,6 @@ interface SeriesFile {
 
 // Stable timestamp so the file is deterministic across runs.
 const EXPORTED_AT = '2026-01-01T00:00:00.000Z';
-
-// Snapshot IDs must be valid UUIDs: `openSeriesFromFile` writes `file.snapshotId`
-// straight into `series.lastSnapshotId` / `snapshotHistory`, which the
-// `/api/v1` series schema validates with `z.uuid()` (the entity IDs below are
-// remapped to fresh UUIDs on import, so only these — and nothing else — need to
-// be UUID-shaped). Fixed values keep the output deterministic.
-const REGATTA_SNAPSHOT = 'a0000000-0000-4000-8000-000000000001';
-const CLUB_SNAPSHOT = 'b0000000-0000-4000-8000-000000000001';
 
 /** Seconds-of-day → "HH:MM:SS". */
 function hms(totalSeconds: number): string {
@@ -391,10 +381,8 @@ function buildRegatta(): SeriesFile {
   ];
 
   return {
-    formatVersion: 6,
+    formatVersion: 8,
     seriesId: 'sample-regatta',
-    snapshotId: REGATTA_SNAPSHOT,
-    snapshotHistory: [REGATTA_SNAPSHOT],
     exportedAt: EXPORTED_AT,
     series: {
       id: 'sample-regatta',
@@ -664,10 +652,8 @@ function buildClubRacing(): SeriesFile {
   ];
 
   return {
-    formatVersion: 6,
+    formatVersion: 8,
     seriesId: 'sample-club-racing',
-    snapshotId: CLUB_SNAPSHOT,
-    snapshotHistory: [CLUB_SNAPSHOT],
     exportedAt: EXPORTED_AT,
     series: {
       id: 'sample-club-racing',

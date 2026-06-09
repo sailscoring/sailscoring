@@ -239,6 +239,13 @@
       "when": 1780847169784,
       "tag": "0033_misty_black_bird",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1780996093540,
+      "tag": "0034_right_alex_wilder",
+      "breakpoints": true
     }
   ]
 }

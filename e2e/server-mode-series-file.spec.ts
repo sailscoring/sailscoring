@@ -3,15 +3,12 @@
  *
  * Covers the three repo-touching paths in `lib/series-file.ts`:
  *   - saveSeriesFile        (Save to File)
- *   - updateSeriesFromFile  (Update from File: clean lineage)
- *   - openSeriesFromFile    (Update from File: diverged → "open as new copy")
+ *   - updateSeriesFromFile  (Update from File → "Update": in-place replace)
+ *   - openSeriesFromFile    (Update from File → "Open as a new copy")
  *
- * Two tests rather than one-per-dialog: each magic-link sign-in counts
- * against the Better Auth rate limit shared with other server-mode specs,
- * and the "identical snapshot" branch is pure UI logic with no extra
- * server round trip. The local-mode spec exercises that branch.
+ * Two tests rather than more: each magic-link sign-in counts against the
+ * Better Auth rate limit shared with other server-mode specs.
  */
-import { randomUUID } from 'node:crypto';
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import { createSeriesQuick, signInFreshUser } from './helpers';
@@ -47,8 +44,6 @@ interface FileRace {
 interface SeriesFile {
   formatVersion: number;
   seriesId: string;
-  snapshotId: string;
-  snapshotHistory: string[];
   exportedAt: string;
   series: {
     id: string;
@@ -102,7 +97,7 @@ async function updateFromFile(page: Page, file: object): Promise<void> {
 // ─── tests ────────────────────────────────────────────────────────────────────
 
 test.describe('series file save / open / update, server mode', () => {
-  test('Save to File then Update from File (clean lineage) round-trips through Postgres', async ({ page }) => {
+  test('Save to File then Update from File (in-place) round-trips through Postgres', async ({ page }) => {
     await signInFreshUser(page, 'server-file-roundtrip');
 
     await createSeriesQuick(page, { name: 'Server Roundtrip Test', venue: 'Howth Yacht Club' });
@@ -134,10 +129,10 @@ test.describe('series file save / open / update, server mode', () => {
     await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
     const original = await saveToFile(page);
 
-    expect(original.formatVersion).toBe(7);
+    expect(original.formatVersion).toBe(8);
     expect(original.seriesId).toBe(seriesId);
-    expect(typeof original.snapshotId).toBe('string');
-    expect(original.snapshotHistory).toEqual([original.snapshotId]);
+    expect(original).not.toHaveProperty('snapshotId');
+    expect(original).not.toHaveProperty('snapshotHistory');
     expect(original.series.name).toBe('Server Roundtrip Test');
     expect(original.series.venue).toBe('Howth Yacht Club');
     expect(original.competitors).toHaveLength(1);
@@ -145,13 +140,10 @@ test.describe('series file save / open / update, server mode', () => {
     expect(original.races).toHaveLength(1);
     expect(original.races[0].finishes).toHaveLength(1);
 
-    // Build a descendant file (real UUIDs — Postgres validates them) and
-    // upload it. Exercises updateSeriesFromFile against Postgres.
-    const newSnapshotId = randomUUID();
-    const descendant: SeriesFile = {
+    // Build an edited file carrying the same seriesId and upload it.
+    // Exercises updateSeriesFromFile against Postgres.
+    const edited: SeriesFile = {
       ...original,
-      snapshotId: newSnapshotId,
-      snapshotHistory: [...original.snapshotHistory, newSnapshotId],
       series: { ...original.series, name: 'Updated by Co-scorer', venue: 'RIYC' },
       competitors: [
         ...original.competitors,
@@ -167,38 +159,32 @@ test.describe('series file save / open / update, server mode', () => {
       ],
     };
 
-    await updateFromFile(page, descendant);
+    await updateFromFile(page, edited);
 
-    await expect(page.getByRole('dialog', { name: /Update/ })).toBeVisible();
-    await expect(page.getByRole('dialog')).toContainText('newer version');
+    await expect(page.getByRole('dialog', { name: /Update .* from file\?/ })).toBeVisible();
     await page.getByRole('button', { name: 'Update' }).click();
 
     await expect(page).toHaveURL(/\/races$/);
     await expect(page.getByRole('heading', { name: 'Updated by Co-scorer' })).toBeVisible();
   });
 
-  test('Update from File: diverged shows conflict dialog; "open as new copy" creates a second series', async ({ page }) => {
-    await signInFreshUser(page, 'server-file-diverged');
+  test('Update from File → "open as new copy" creates a second series', async ({ page }) => {
+    await signInFreshUser(page, 'server-file-newcopy');
 
-    await createSeriesQuick(page, { name: 'Server Diverged Original' });
+    await createSeriesQuick(page, { name: 'Server New Copy Original' });
     const originalSeriesId = getSeriesId(page);
 
     await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
     const original = await saveToFile(page);
 
-    const diverged: SeriesFile = {
+    const edited: SeriesFile = {
       ...original,
-      snapshotId: randomUUID(),
-      // Two unrelated snapshot UUIDs — neither matches the original's
-      // lineage, so checkLineage() returns 'diverged'.
-      snapshotHistory: [randomUUID(), randomUUID()],
-      series: { ...original.series, name: 'Server Diverged Copy' },
+      series: { ...original.series, name: 'Server New Copy Result' },
     };
 
-    await updateFromFile(page, diverged);
+    await updateFromFile(page, edited);
 
-    await expect(page.getByRole('dialog', { name: /conflicts with your workspace copy/ })).toBeVisible();
-    await expect(page.getByRole('dialog')).toContainText('diverged');
+    await expect(page.getByRole('dialog', { name: /Update .* from file\?/ })).toBeVisible();
 
     // "Open as a new copy" exercises openSeriesFromFile against Postgres.
     await page.getByRole('button', { name: 'Open as a new copy' }).click();
@@ -206,6 +192,6 @@ test.describe('series file save / open / update, server mode', () => {
     await expect(page).toHaveURL(/\/races$/);
     const newSeriesId = getSeriesId(page);
     expect(newSeriesId).not.toBe(originalSeriesId);
-    await expect(page.getByRole('heading', { name: 'Server Diverged Copy' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Server New Copy Result' })).toBeVisible();
   });
 });

@@ -18,7 +18,6 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { parseHalsailFleet } from '../lib/halsail/parse-results';
-import { RFC_UUID, contentHashUuid } from '../lib/halsail/snapshot-id';
 import {
   buildCruiserDaySeries,
   buildCombinedCruisersSeries,
@@ -212,32 +211,30 @@ if (!cfg) {
 }
 const outPath = join(DATA_DIR, cfg.outFile);
 
-// Identity + snapshot lineage. The app matches a file to an existing series by
-// `seriesId`, and `checkLineage` treats the file as a clean descendant when its
-// `snapshotHistory` includes the local series' `lastSnapshotId`. So to keep a
-// weekly regeneration importing cleanly as an *update* (Settings → "Update from
-// file"), we carry the seriesId and history forward from the previously
-// generated file rather than re-minting them.
+// Series identity. The app matches a re-imported file to an existing series by
+// `seriesId` alone, so to keep a weekly regeneration importing cleanly as an
+// *update* (Settings → "Update from file" → "Update"), we carry the seriesId
+// forward from the previously generated file rather than re-minting it.
 //
-// Pass `--adopt <export.sailscoring>` once to take the seriesId and history from
-// an in-app export — the bootstrap that stamps the committed file with the real
-// UUID the first time. A never-yet-imported file falls back to the day's slug
-// and imports as a new series.
-function readIdentity(path: string): { seriesId?: string; history: string[] } {
-  const j = JSON.parse(readFileSync(path, 'utf8')) as { seriesId?: string; snapshotHistory?: string[] };
+// Pass `--adopt <export.sailscoring>` once to take the seriesId from an in-app
+// export — the bootstrap that stamps the committed file with the real UUID the
+// first time. A never-yet-imported file falls back to the day's slug and imports
+// as a new series. (A slug seriesId is only adopted forward once it's a real
+// UUID, i.e. came from an in-app export.)
+const RFC_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function readIdentity(path: string): { seriesId?: string } {
+  const j = JSON.parse(readFileSync(path, 'utf8')) as { seriesId?: string };
   return {
     seriesId: j.seriesId && RFC_UUID.test(j.seriesId) ? j.seriesId : undefined,
-    // Drop entries that aren't valid RFC 4122 UUIDs: early versions sliced raw
-    // hash digests into ids the app's z.uuid() boundary rejects, and such a
-    // snapshot could never have been imported, so it carries no lineage.
-    history: (j.snapshotHistory ?? []).filter((id) => RFC_UUID.test(id)),
   };
 }
 
 const adoptIdx = process.argv.indexOf('--adopt');
 const adoptPath = adoptIdx >= 0 ? process.argv[adoptIdx + 1] : undefined;
 const identitySource = adoptPath ?? (existsSync(outPath) ? outPath : undefined);
-const identity = identitySource ? readIdentity(identitySource) : { history: [] as string[] };
+const identity = identitySource ? readIdentity(identitySource) : {};
 
 const file = cfg.build({
   seriesName: cfg.seriesName,
@@ -245,17 +242,6 @@ const file = cfg.build({
   // Stable export marker so re-running produces a byte-identical file.
   exportedAt: '2026-06-02T00:00:00.000Z',
 });
-
-// Content-hash snapshotId — stable for unchanged data, so an unchanged
-// regeneration is byte-identical. Appended to the carried history unless the
-// content is unchanged (in which case the head already equals it).
-const snapshotId = contentHashUuid(
-  JSON.stringify({ series: file.series, fleets: file.fleets, competitors: file.competitors, races: file.races }),
-);
-file.snapshotId = snapshotId;
-file.snapshotHistory = identity.history.includes(snapshotId)
-  ? identity.history
-  : [...identity.history, snapshotId];
 
 writeFileSync(outPath, JSON.stringify(file, null, 2) + '\n');
 

@@ -67,11 +67,9 @@ import {
 import type { ActivityEntry, Category, Series } from '@/lib/types';
 import {
   parseSeriesFile,
-  checkLineage,
   openSeriesFromFile,
   updateSeriesFromFile,
   type SeriesFile,
-  type LineageStatus,
 } from '@/lib/series-file';
 import { parseSailwaveBlw, SailwaveImportError } from '@/lib/sailwave-import';
 import { SAILWAVE_HANDOFF_KEY } from '@/app/series/import-sailwave/page';
@@ -83,7 +81,7 @@ type OpenFlow =
   | { step: 'choose-format' }
   | { step: 'confirm-new'; file: SeriesFile; categoryId: string | null }
   | { step: 'disambiguate'; file: SeriesFile; existing: Series }
-  | { step: 'confirm-update'; file: SeriesFile; existing: Series; status: LineageStatus }
+  | { step: 'confirm-update'; file: SeriesFile; existing: Series }
   | { step: 'working' }
   | { step: 'error'; message: string };
 
@@ -369,9 +367,7 @@ export default function HomePage() {
       return;
     }
 
-    // Run lineage check
-    const status = checkLineage(existing, file);
-    setOpenFlow({ step: 'confirm-update', file, existing, status });
+    setOpenFlow({ step: 'confirm-update', file, existing });
   }
 
   async function handleConfirmUpdate(asNewCopy: boolean) {
@@ -712,60 +708,19 @@ export default function HomePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm clean update dialog */}
+      {/* Confirm update-from-file dialog */}
       <Dialog
-        open={openFlow.step === 'confirm-update' && openFlow.status === 'clean'}
+        open={openFlow.step === 'confirm-update'}
         onOpenChange={(open) => { if (!open) setOpenFlow({ step: 'idle' }); }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Update &ldquo;{flowExisting?.name}&rdquo;?</DialogTitle>
-            <DialogDescription>
-              This file is a newer version of your workspace copy.{' '}
-              {flowFile && `Saved on ${new Date(flowFile.exportedAt).toLocaleString()}.`}
-              {' '}Your workspace copy will be replaced. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenFlow({ step: 'idle' })}>
-              Cancel
-            </Button>
-            <Button onClick={() => handleConfirmUpdate(false)}>Update</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Identical snapshot dialog */}
-      <Dialog
-        open={openFlow.step === 'confirm-update' && openFlow.status === 'identical'}
-        onOpenChange={(open) => { if (!open) setOpenFlow({ step: 'idle' }); }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nothing to update</DialogTitle>
-            <DialogDescription>
-              This file matches your workspace copy. No changes were made.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => setOpenFlow({ step: 'idle' })}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Diverged dialog */}
-      <Dialog
-        open={openFlow.step === 'confirm-update' && openFlow.status === 'diverged'}
-        onOpenChange={(open) => { if (!open) setOpenFlow({ step: 'idle' }); }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>⚠ This file conflicts with your workspace copy</DialogTitle>
+            <DialogTitle>Update &ldquo;{flowExisting?.name}&rdquo; from file?</DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2">
                 <p>
-                  This file and your workspace copy appear to have diverged — both have changes
-                  the other doesn&apos;t.
+                  Your workspace copy will be replaced with the contents of this file.
+                  This cannot be undone.
                 </p>
                 {flowFile && flowExisting && (
                   <div className="text-sm">
@@ -783,9 +738,7 @@ export default function HomePage() {
             <Button variant="outline" onClick={() => handleConfirmUpdate(true)}>
               Open as a new copy
             </Button>
-            <Button variant="destructive" onClick={() => handleConfirmUpdate(false)}>
-              Replace workspace copy
-            </Button>
+            <Button onClick={() => handleConfirmUpdate(false)}>Update</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -47,11 +47,9 @@ import {
 import {
   saveSeriesFile,
   parseSeriesFile,
-  checkLineage,
   openSeriesFromFile,
   updateSeriesFromFile,
   type SeriesFile,
-  type LineageStatus,
 } from '@/lib/series-file';
 import { parseSailwaveBlw, SailwaveImportError } from '@/lib/sailwave-import';
 import { SAILWAVE_HANDOFF_KEY } from '@/app/series/import-sailwave/page';
@@ -486,7 +484,7 @@ function PublishingCard({ seriesId, series, anyProgressiveFleet }: { seriesId: s
 
 type UpdateFlow =
   | { step: 'idle' }
-  | { step: 'confirm'; file: SeriesFile; status: LineageStatus }
+  | { step: 'confirm'; file: SeriesFile }
   | { step: 'working' }
   | { step: 'error'; message: string };
 
@@ -610,7 +608,6 @@ export default function SettingsPage({
 
   const anyProgressiveFleet = fleets.some((f) => f.scoringSystem === 'nhc' || f.scoringSystem === 'echo');
 
-  const hasFileHistory = series.lastSnapshotId !== null;
   const isModified =
     series.lastSavedAt !== null && series.lastModifiedAt > series.lastSavedAt;
 
@@ -618,10 +615,9 @@ export default function SettingsPage({
     setSaving(true);
     try {
       await saveSeriesFile(seriesId, repos);
-      // saveSeriesFile writes lastSnapshotId / lastSavedAt directly via
-      // the seriesRepo, bypassing the React Query cache. Force a refetch
-      // so the file card reflects the new state and the "Update from File"
-      // button becomes visible.
+      // saveSeriesFile writes lastSavedAt directly via the seriesRepo,
+      // bypassing the React Query cache. Force a refetch so the file card
+      // reflects the new "Last saved" state.
       await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(seriesId) });
     } catch (err) {
       console.error(err);
@@ -682,8 +678,7 @@ export default function SettingsPage({
         return;
       }
 
-      const status = checkLineage(series!, parsed);
-      setUpdateFlow({ step: 'confirm', file: parsed, status });
+      setUpdateFlow({ step: 'confirm', file: parsed });
     } catch (err) {
       setUpdateFlow({
         step: 'error',
@@ -731,14 +726,12 @@ export default function SettingsPage({
       <ArchiveCard seriesId={seriesId} series={series} />
       <CopySeriesToWorkspaceCard seriesId={seriesId} seriesName={series.name} />
       {/* File card */}
-      <div className={`bg-card border rounded-lg p-5 space-y-4 ${!hasFileHistory ? 'opacity-70' : ''}`}>
+      <div className={`bg-card border rounded-lg p-5 space-y-4 ${!series.lastSavedAt ? 'opacity-70' : ''}`}>
         <div>
           <h2 className="text-sm font-medium">File</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
             {series.lastSavedAt
               ? <>Last saved: {formatTimestamp(series.lastSavedAt)}{isModified && <span className="ml-2 text-amber-600 dark:text-amber-400">· modified since last save</span>}</>
-              : hasFileHistory
-              ? 'Opened from file — not yet saved'
               : 'Not saved to file'}
           </p>
         </div>
@@ -746,7 +739,7 @@ export default function SettingsPage({
           <Button onClick={handleSaveToFile} disabled={saving} variant="outline">
             {saving ? 'Saving…' : 'Save to File'}
           </Button>
-          {hasFileHistory && !series.archived && (
+          {!series.archived && (
             <Button onClick={handleUpdateFromFile} variant="outline">
               Update from File
             </Button>
@@ -764,7 +757,7 @@ export default function SettingsPage({
             </Button>
           )}
         </div>
-        {!hasFileHistory && (
+        {!series.lastSavedAt && (
           <p className="text-xs text-muted-foreground">
             Save to a file to share this series with co-scorers or back it up.
           </p>
@@ -835,61 +828,19 @@ export default function SettingsPage({
         onChange={handleSailwaveSelected}
       />
 
-      {/* Identical snapshot */}
+      {/* Confirm update from file */}
       <Dialog
-        open={updateFlow.step === 'confirm' && updateFlow.status === 'identical'}
+        open={updateFlow.step === 'confirm'}
         onOpenChange={(open) => { if (!open) setUpdateFlow({ step: 'idle' }); }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nothing to update</DialogTitle>
-            <DialogDescription>
-              This file matches your workspace copy. No changes were made.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => setUpdateFlow({ step: 'idle' })}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Clean update */}
-      <Dialog
-        open={updateFlow.step === 'confirm' && updateFlow.status === 'clean'}
-        onOpenChange={(open) => { if (!open) setUpdateFlow({ step: 'idle' }); }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update &ldquo;{series.name}&rdquo;?</DialogTitle>
-            <DialogDescription>
-              This file is a newer version of your workspace copy.{' '}
-              {updateFlow.step === 'confirm' &&
-                `Saved on ${new Date(updateFlow.file.exportedAt).toLocaleString()}.`}
-              {' '}Your workspace copy will be replaced. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUpdateFlow({ step: 'idle' })}>
-              Cancel
-            </Button>
-            <Button onClick={() => handleConfirmUpdate(false)}>Update</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Diverged */}
-      <Dialog
-        open={updateFlow.step === 'confirm' && updateFlow.status === 'diverged'}
-        onOpenChange={(open) => { if (!open) setUpdateFlow({ step: 'idle' }); }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>⚠ This file conflicts with your workspace copy</DialogTitle>
+            <DialogTitle>Update &ldquo;{series.name}&rdquo; from file?</DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2">
                 <p>
-                  This file and your workspace copy appear to have diverged — both have changes
-                  the other doesn&apos;t.
+                  Your workspace copy will be replaced with the contents of this file.
+                  This cannot be undone.
                 </p>
                 {updateFlow.step === 'confirm' && (
                   <div className="text-sm">
@@ -907,9 +858,7 @@ export default function SettingsPage({
             <Button variant="outline" onClick={() => handleConfirmUpdate(true)}>
               Open as a new copy
             </Button>
-            <Button variant="destructive" onClick={() => handleConfirmUpdate(false)}>
-              Replace workspace copy
-            </Button>
+            <Button onClick={() => handleConfirmUpdate(false)}>Update</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -110,8 +110,6 @@ interface FileSeries {
 export interface SeriesFile {
   formatVersion: number;
   seriesId: string;
-  snapshotId: string;
-  snapshotHistory: string[];
   exportedAt: string;
   series: FileSeries;
   fleets: FileFleet[];
@@ -149,7 +147,6 @@ export interface BuildOptions {
   seriesName?: string;
   venue?: string;
   seriesId?: string;
-  snapshotId?: string; // must be a valid UUID (lands in series.last_snapshot_id)
   exportedAt?: string;
 }
 
@@ -423,7 +420,6 @@ export function buildCruiserDaySeries(
     seriesId: opts.seriesId ?? 'dbsc-thursday-blue-2026',
     seriesName: opts.seriesName ?? 'DBSC Thursday Blue — Cruisers (2026)',
     venue: opts.venue ?? 'Dublin Bay Sailing Club',
-    snapshotId: opts.snapshotId,
     exportedAt: opts.exportedAt,
   });
 }
@@ -503,7 +499,6 @@ export function buildCombinedCruisersSeries(
     seriesId: opts.seriesId ?? 'dbsc-tuesday-cruisers-2026',
     seriesName: opts.seriesName ?? 'DBSC Tuesday Cruisers (2026)',
     venue: opts.venue ?? 'Dublin Bay Sailing Club',
-    snapshotId: opts.snapshotId,
     exportedAt: opts.exportedAt,
   });
 }
@@ -619,7 +614,6 @@ export function buildFleetSeries(specs: DayFleetSpec[], opts: BuildOptions = {})
     seriesId: opts.seriesId ?? 'dbsc-day-fleets-2026',
     seriesName: opts.seriesName ?? 'DBSC Day Fleets (2026)',
     venue: opts.venue ?? 'Dublin Bay Sailing Club',
-    snapshotId: opts.snapshotId,
     exportedAt: opts.exportedAt,
   });
 }
@@ -685,22 +679,17 @@ function assembleSeries(
   fleets: FileFleet[],
   competitors: FileCompetitor[],
   races: FileRace[],
-  opts: { seriesId: string; seriesName: string; venue: string; snapshotId?: string; exportedAt?: string },
+  opts: { seriesId: string; seriesName: string; venue: string; exportedAt?: string },
 ): SeriesFile {
   const dates = races.map((r) => r.date).sort();
   const startDate = dates.length ? dates[0] : '2026-01-01';
   const endDate = dates.length ? dates[dates.length - 1] : startDate;
-  // snapshotId lands in the `series.last_snapshot_id` UUID column on import, so
-  // it must be a valid UUID. Fixed literal default for stable regeneration.
-  const snapshotId = opts.snapshotId ?? 'f9a1c0de-2026-4b1e-8c00-000000000001';
 
   return {
-    // v7: carries vprsTcc (VPRS scoring). The non-VPRS day files are forward-
-    // compatible at v7 too; the field is simply absent.
-    formatVersion: 7,
+    // v8: carries vprsTcc (VPRS scoring) and drops snapshot lineage. The non-VPRS
+    // day files are forward-compatible at v8 too; the field is simply absent.
+    formatVersion: 8,
     seriesId: opts.seriesId,
-    snapshotId,
-    snapshotHistory: [snapshotId],
     exportedAt: opts.exportedAt ?? new Date().toISOString(),
     series: {
       id: opts.seriesId,

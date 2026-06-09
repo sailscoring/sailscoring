@@ -94,10 +94,8 @@ function makeSeries(over: Partial<Series>): Series {
     venueUrl: 'www.hyc.ie',
     eventUrl: 'www.event.ie',
     createdAt: 1000,
-    lastSnapshotId: 'snap-1',
     lastSavedAt: 5000,
     lastModifiedAt: 5000,
-    snapshotHistory: ['snap-1'],
     scoringMode: 'handicap',
     defaultStartSequence: [{ fleetIds: ['old-fleet-a'], intervalMinutes: 0 }],
     discardThresholds: [{ minRaces: 4, discardCount: 1 }],
@@ -121,10 +119,8 @@ function makeSeries(over: Partial<Series>): Series {
 
 function makeFile(over: Partial<SeriesFile['series']> = {}): SeriesFile {
   return {
-    formatVersion: 6,
+    formatVersion: 8,
     seriesId: 'file-series',
-    snapshotId: 'file-snap',
-    snapshotHistory: ['file-snap'],
     exportedAt: '2026-05-01T00:00:00.000Z',
     series: {
       id: 'file-series',
@@ -243,14 +239,12 @@ describe('updateSeriesFromSailwave', () => {
     expect(saved.ftpPaths).toEqual({ [newCruisersId]: '/results/cruisers' });
   });
 
-  it('bumps lastModifiedAt but leaves the .sailscoring lineage untouched', async () => {
+  it('bumps lastModifiedAt but leaves lastSavedAt untouched', async () => {
     const before = Date.now();
     await updateSeriesFromSailwave('series-1', makeFile(), repos);
     const saved = repos.savedSeries.at(-1)!;
     expect(saved.lastModifiedAt).toBeGreaterThanOrEqual(before);
-    expect(saved.lastSnapshotId).toBe('snap-1');
     expect(saved.lastSavedAt).toBe(5000);
-    expect(saved.snapshotHistory).toEqual(['snap-1']);
   });
 
   it('throws when the series does not exist', async () => {

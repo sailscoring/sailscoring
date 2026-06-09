@@ -1,10 +1,6 @@
 {
-  "formatVersion": 6,
+  "formatVersion": 8,
   "seriesId": "sample-club-racing",
-  "snapshotId": "b0000000-0000-4000-8000-000000000001",
-  "snapshotHistory": [
-    "b0000000-0000-4000-8000-000000000001"
-  ],
   "exportedAt": "2026-01-01T00:00:00.000Z",
   "series": {
     "id": "sample-club-racing",

@@ -67,8 +67,6 @@ function makeFile(): SeriesFile {
   return {
     formatVersion: 6,
     seriesId: 'file-series',
-    snapshotId: 'file-snap',
-    snapshotHistory: ['file-snap'],
     exportedAt: '2026-05-01T00:00:00.000Z',
     series: {
       id: 'file-series',
@@ -133,10 +131,8 @@ describe('defaultStartSequence fleet remap on import', () => {
       venueUrl: '',
       eventUrl: '',
       createdAt: 1000,
-      lastSnapshotId: 'snap-0',
       lastSavedAt: 1000,
       lastModifiedAt: 1000,
-      snapshotHistory: ['snap-0'],
       scoringMode: 'handicap',
       defaultStartSequence: undefined,
       discardThresholds: [],

@@ -112,17 +112,12 @@ export const series = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
-    // File-tracking fields. Mostly carried for round-trip with the
-    // .sailscoring file format and migration of local-first data.
-    lastSnapshotId: uuid('last_snapshot_id'),
+    // File-tracking fields. Carried for round-trip with the .sailscoring
+    // file format and migration of local-first data.
     lastSavedAt: timestamp('last_saved_at', { withTimezone: true }),
     lastModifiedAt: timestamp('last_modified_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
-    snapshotHistory: jsonb('snapshot_history')
-      .$type<string[]>()
-      .notNull()
-      .default(sql`'[]'::jsonb`),
     // Scoring config.
     scoringMode: text('scoring_mode').notNull().default('scratch'),
     defaultStartSequence: jsonb('default_start_sequence').$type<StartGroup[]>(),

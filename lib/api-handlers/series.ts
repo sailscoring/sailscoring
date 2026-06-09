@@ -72,10 +72,8 @@ export async function putSeries(
     venueUrl: input.venueUrl,
     eventUrl: input.eventUrl,
     createdAt: input.createdAt ?? now,
-    lastSnapshotId: input.lastSnapshotId ?? null,
     lastSavedAt: input.lastSavedAt ?? null,
     lastModifiedAt: input.lastModifiedAt ?? now,
-    snapshotHistory: input.snapshotHistory ?? [],
     scoringMode: input.scoringMode,
     defaultStartSequence: input.defaultStartSequence,
     discardThresholds: input.discardThresholds,
@@ -252,8 +250,8 @@ export async function reorderSeries(
  *
  * Strips workspace-scoped references that don't carry across:
  *   - FTP credentials (`ftpHost`, `ftpPath`, `ftpPaths`) — distinct per workspace
- *   - File-tracking metadata (`lastSnapshotId`, `lastSavedAt`,
- *     `snapshotHistory`) — the copy has no file lineage of its own
+ *   - File-tracking metadata (`lastSavedAt`) — the copy has no file history
+ *     of its own
  *   - Series-list organisation (`categoryId`, `archived`) — workspace-local;
  *     the copy lands active and uncategorised (#154)
  *
@@ -348,10 +346,8 @@ export async function copySeries(
       venueUrl: source.venueUrl,
       eventUrl: source.eventUrl,
       createdAt: now,
-      lastSnapshotId: null,
       lastSavedAt: null,
       lastModifiedAt: now,
-      snapshotHistory: [],
       scoringMode: source.scoringMode,
       defaultStartSequence: source.defaultStartSequence ?? null,
       discardThresholds: source.discardThresholds,

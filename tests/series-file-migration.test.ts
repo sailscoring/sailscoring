@@ -38,6 +38,52 @@ function v2FileWithSequence(sequence: { fleetIds: string[]; offsetMinutes: numbe
   });
 }
 
+describe('parseSeriesFile — v8 snapshot-lineage removal', () => {
+  function minimalFile(extra: Record<string, unknown>): string {
+    return JSON.stringify({
+      formatVersion: 8,
+      seriesId: 's1',
+      exportedAt: '2026-06-09T00:00:00.000Z',
+      series: {
+        id: 's1',
+        name: 'Series',
+        venue: 'HYC',
+        startDate: '2026-06-01',
+        endDate: '2026-06-30',
+        venueLogoUrl: '',
+        eventLogoUrl: '',
+        discardThresholds: [],
+        dnfScoring: 'seriesEntries',
+        ftpHost: '',
+        ftpPath: '',
+        includeJsonExport: true,
+        enabledCompetitorFields: [],
+        primaryPersonLabel: 'helm',
+        scoringMode: 'scratch',
+      },
+      fleets: [],
+      competitors: [],
+      races: [],
+      ...extra,
+    });
+  }
+
+  it('parses a v8 file that omits snapshotId / snapshotHistory', () => {
+    const file = parseSeriesFile(minimalFile({}));
+    expect(file.seriesId).toBe('s1');
+    expect(file).not.toHaveProperty('snapshotId');
+    expect(file).not.toHaveProperty('snapshotHistory');
+  });
+
+  it('tolerates legacy snapshot fields on an older file (keys ignored)', () => {
+    // A v7 file still carries the lineage keys; they must not break parsing.
+    const file = parseSeriesFile(
+      minimalFile({ formatVersion: 7, snapshotId: 'snap-1', snapshotHistory: ['snap-1'] }),
+    );
+    expect(file.seriesId).toBe('s1');
+  });
+});
+
 describe('parseSeriesFile — v1/v2 → v3 start-sequence migration', () => {
   it('converts a 3-start cumulative sequence to per-step intervals', () => {
     const file = parseSeriesFile(

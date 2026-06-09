@@ -927,7 +927,6 @@ export function buildSeriesFileFromSailwave(
   }
 
   const seriesId = cryptoUuid();
-  const snapshotId = cryptoUuid();
   const sortedRaceDates = races.map((r) => r.date).filter(Boolean).sort();
   const startDateIso = (opts.startDate?.trim() || sortedRaceDates[0] || defaultDate);
   const endDateIso = (opts.endDate?.trim() || sortedRaceDates[sortedRaceDates.length - 1] || startDateIso);
@@ -940,8 +939,6 @@ export function buildSeriesFileFromSailwave(
   const file: SeriesFile = {
     formatVersion: FORMAT_VERSION,
     seriesId,
-    snapshotId,
-    snapshotHistory: [snapshotId],
     exportedAt: new Date().toISOString(),
     series: {
       id: seriesId,
