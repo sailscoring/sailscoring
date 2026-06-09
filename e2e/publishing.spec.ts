@@ -599,3 +599,18 @@ test('keyboard shortcut p opens the publish dialog', async ({ page }) => {
   await page.keyboard.press('p');
   await expect(page.getByRole('dialog', { name: 'Publish results' })).toBeVisible();
 });
+
+test('publishing pins a "Published" milestone in the History tab (#166)', async ({ page }) => {
+  await createSeriesWithData(page, { name: 'Publish Milestone Series' });
+
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(dialog.getByRole('link', { name: /\/p\// })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('navigation').getByRole('link', { name: 'History' }).click();
+  const list = page.getByTestId('revision-list');
+  const published = list.getByRole('listitem').filter({ hasText: 'Published to /p/' });
+  await expect(published).toContainText('Published');
+});

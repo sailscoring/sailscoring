@@ -4,6 +4,7 @@ import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { deletePublishedHtml, putPublishedHtml } from '@/lib/blob-storage';
 import { createRepos } from '@/lib/postgres-repository';
+import { captureRevision, sealOpenRevisions } from '@/lib/revision-log';
 import {
   contentHash,
   deriveSeriesSlug,
@@ -300,6 +301,16 @@ export async function publishSeries(
   for (const page of supersededPages) {
     await deletePublishedHtml(page.blobUrl);
   }
+
+  // Revision milestone (#166): seal the open session and pin a `publish`
+  // revision capturing exactly what went public — a clean "restore to what I
+  // published" point and an audit anchor. Best-effort; never fails the publish.
+  const actor = { workspaceId: workspace.workspaceId, userId: workspace.userId };
+  await sealOpenRevisions(workspace.workspaceId, seriesId);
+  await captureRevision(actor, seriesId, {
+    kind: 'publish',
+    label: `Published to /p/${workspace.workspaceSlug}/${slug}`,
+  });
 
   return toResult(workspace.workspaceSlug, published);
 }

@@ -1143,6 +1143,15 @@ export default async function HelpPage() {
           into an automatic session, so it stays an obvious point to return to.
         </p>
         <p>
+          Key moments are marked for you, too: <strong className="text-foreground">publishing</strong>{' '}
+          results pins a <em>Published</em> version (the exact state that went
+          public — a clean point to restore to), and{' '}
+          <strong className="text-foreground">Save to File</strong> pins a{' '}
+          <em>Saved</em> version. Both also close off the current editing session,
+          so later edits start a fresh version rather than blurring into the one
+          before the milestone.
+        </p>
+        <p>
           Saving the series to a file (<strong className="text-foreground">Save
           to File</strong>) includes this version history, so a saved{' '}
           <code>.sailscoring</code> file is a complete backup — reopen it as a

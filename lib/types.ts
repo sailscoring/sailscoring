@@ -558,8 +558,9 @@ export interface RevisionEntry {
   id: string;
   seriesId: string;
   /** `auto` = session-coalesced autosave; `named` = pinned checkpoint;
-   *  `revert` = a restore of an earlier revision. */
-  kind: 'auto' | 'named' | 'revert';
+   *  `revert` = a restore of an earlier revision; `publish` / `saved` =
+   *  milestones captured when results are published or saved to a file. */
+  kind: 'auto' | 'named' | 'revert' | 'publish' | 'saved';
   /** User-supplied name for a `named` checkpoint; null otherwise. */
   label: string | null;
   /** Short human description of what the revision captured, if any. */

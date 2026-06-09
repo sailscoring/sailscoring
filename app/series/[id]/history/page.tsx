@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState } from 'react';
-import { ChevronRight, History, Pin, Undo2 } from 'lucide-react';
+import { ChevronRight, Globe, History, Pin, Save, Undo2 } from 'lucide-react';
 
 import {
   useSeriesRevisions,
@@ -15,7 +15,6 @@ import { formatRelativeTime } from '@/lib/relative-time';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pin as PinIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -37,7 +36,8 @@ function actorLabel(actor: RevisionEntry['actor']): string {
  * last-action `summary`, which only described whatever happened to land last.
  */
 function revisionTitle(rev: RevisionEntry, windowActivity: ActivityEntry[]): string {
-  if (rev.kind === 'named' && rev.label) return rev.label;
+  // named / publish / saved carry an explicit label.
+  if (rev.label) return rev.label;
   if (rev.kind === 'revert') return rev.summary ?? 'Restored an earlier version';
   const summaries = [...new Set([...windowActivity].reverse().map((a) => a.summary))];
   if (summaries.length === 0) return rev.summary ?? 'Edited the series';
@@ -45,22 +45,22 @@ function revisionTitle(rev: RevisionEntry, windowActivity: ActivityEntry[]): str
   return `${summaries.slice(0, 2).join(', ')} +${summaries.length - 2} more`;
 }
 
+const KIND_BADGE: Partial<Record<RevisionEntry['kind'], { icon: typeof Pin; label: string }>> = {
+  named: { icon: Pin, label: 'Checkpoint' },
+  revert: { icon: Undo2, label: 'Revert' },
+  publish: { icon: Globe, label: 'Published' },
+  saved: { icon: Save, label: 'Saved' },
+};
+
 function KindBadge({ kind }: { kind: RevisionEntry['kind'] }) {
-  if (kind === 'named') {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
-        <Pin className="h-3 w-3" /> Checkpoint
-      </span>
-    );
-  }
-  if (kind === 'revert') {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
-        <Undo2 className="h-3 w-3" /> Revert
-      </span>
-    );
-  }
-  return null;
+  const badge = KIND_BADGE[kind];
+  if (!badge) return null;
+  const Icon = badge.icon;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
+      <Icon className="h-3 w-3" /> {badge.label}
+    </span>
+  );
 }
 
 function RevisionRow({
@@ -217,7 +217,7 @@ export default function SeriesHistoryPage({
         </p>
         {!readOnly && (
           <Button variant="outline" size="sm" className="shrink-0" onClick={() => setNaming(true)}>
-            <PinIcon className="h-4 w-4" />
+            <Pin className="h-4 w-4" />
             Name this version
           </Button>
         )}

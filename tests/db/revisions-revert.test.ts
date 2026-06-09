@@ -15,7 +15,7 @@ import postgres, { type Sql } from 'postgres';
 import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
 import { captureRevision, listRevisions } from '@/lib/revision-log';
-import { revertToRevision } from '@/lib/api-handlers/revisions';
+import { recordSaveMilestone, revertToRevision } from '@/lib/api-handlers/revisions';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import type { Competitor, Series } from '@/lib/types';
 
@@ -151,5 +151,27 @@ describe.skipIf(skip)('revertToRevision', () => {
     const revs = await listRevisions(ctx(actorA), seriesId);
     expect(revs).toHaveLength(3);
     expect(revs[0].kind).toBe('revert');
+  });
+
+  test('a save milestone seals the open session and pins a `saved` revision', async () => {
+    const repos = createRepos({ workspaceId });
+    const seriesId = uuid();
+    await repos.series.save(makeSeries(seriesId));
+
+    await captureRevision({ workspaceId, userId: actorA }, seriesId, {
+      summary: 'edit', sessionKey: 'settings',
+    });
+    await recordSaveMilestone(ctx(actorA), seriesId);
+    // A same-context edit after the milestone must not fold back into the
+    // sealed pre-save revision.
+    await captureRevision({ workspaceId, userId: actorA }, seriesId, {
+      summary: 'edit 2', sessionKey: 'settings',
+    });
+
+    const revs = await listRevisions(ctx(actorA), seriesId);
+    // pre-save auto · saved milestone · post-save auto
+    expect(revs).toHaveLength(3);
+    expect(revs.map((r) => r.kind)).toEqual(['auto', 'saved', 'auto']);
+    expect(revs.find((r) => r.kind === 'saved')?.label).toBe('Saved to file');
   });
 });

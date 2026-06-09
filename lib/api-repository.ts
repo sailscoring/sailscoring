@@ -752,6 +752,12 @@ export async function revertToRevision(
   });
 }
 
+/** Record a "Saved to file" milestone revision (#166). Satisfies the optional
+ *  `SeriesFileRepos` member, called from `saveSeriesFile`. */
+export async function recordSaveMilestone(seriesId: string): Promise<void> {
+  await apiFetch(`/api/v1/series/${seriesId}/revisions/saved`, { method: 'POST' });
+}
+
 /** Create a named checkpoint of the series' current state (#166). */
 export async function createCheckpoint(seriesId: string, label: string): Promise<void> {
   await apiFetch(`/api/v1/series/${seriesId}/revisions`, {

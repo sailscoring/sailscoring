@@ -30,7 +30,7 @@ export type { RevisionEntry };
  *  together than this fold into one `auto` revision. */
 const COALESCE_WINDOW_MS = 5 * 60 * 1000;
 
-type RevisionKind = 'auto' | 'named' | 'revert';
+type RevisionKind = 'auto' | 'named' | 'revert' | 'publish' | 'saved';
 
 interface Actor {
   workspaceId: string;

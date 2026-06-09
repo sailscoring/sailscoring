@@ -9,7 +9,7 @@ import { z } from 'zod';
  * fields that drive behaviour (kind, timestamp) are checked.
  */
 const fileRevisionSchema = z.object({
-  kind: z.enum(['auto', 'named', 'revert']),
+  kind: z.enum(['auto', 'named', 'revert', 'publish', 'saved']),
   label: z.string().nullable(),
   summary: z.string().nullable(),
   createdAt: z.string(),

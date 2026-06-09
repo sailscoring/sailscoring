@@ -48,6 +48,8 @@ export interface SeriesFileRepos {
    *  a `revisions` block / imported without restoring history. */
   listRevisionsForExport?(seriesId: string): Promise<SeriesFileRevision[]>;
   importRevisions?(seriesId: string, revisions: SeriesFileRevision[]): Promise<void>;
+  /** Record a "Saved to file" milestone revision (#166). */
+  recordSaveMilestone?(seriesId: string): Promise<void>;
 }
 
 /** File format version. v2 adds `Competitor.owner` and `Series.primaryPersonLabel`.
@@ -201,7 +203,7 @@ interface SeriesFileTcfRecord {
  *  `snapshot` is a full point-in-time `SeriesFile` (itself carrying no nested
  *  `revisions`). The actor is display-only — user ids don't cross workspaces. */
 export interface SeriesFileRevision {
-  kind: 'auto' | 'named' | 'revert';
+  kind: 'auto' | 'named' | 'revert' | 'publish' | 'saved';
   label: string | null;
   summary: string | null;
   createdAt: string;
@@ -438,6 +440,9 @@ export async function saveSeriesFile(
     },
     { expectedVersion: series.version },
   );
+
+  // Pin a "Saved to file" milestone revision (#166), if the backend supports it.
+  await repos.recordSaveMilestone?.(seriesId);
 }
 
 // ---- Parse ----

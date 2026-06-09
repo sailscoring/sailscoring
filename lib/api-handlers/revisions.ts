@@ -11,6 +11,7 @@ import {
   importRevisions,
   listRevisions,
   listRevisionsForExport,
+  sealOpenRevisions,
   type RevisionEntry,
 } from '@/lib/revision-log';
 import { updateSeriesFromFile, type SeriesFileRevision } from '@/lib/series-file';
@@ -69,6 +70,9 @@ export async function revertToRevision(
     seriesFileReposFor({ workspaceId: workspace.workspaceId }),
   );
 
+  // Seal the pre-revert session so subsequent edits don't fold back into it,
+  // then pin the restore as its own revision.
+  await sealOpenRevisions(workspace.workspaceId, seriesId);
   const summary = `Restored the version from ${new Date(revision.createdAt).toLocaleString('en-IE')}`;
   await recordActivity(workspace, { action: 'series.reverted', seriesId, summary });
   await captureRevision(actor, seriesId, { kind: 'revert', summary });
@@ -92,6 +96,25 @@ export async function createNamedCheckpoint(
     { workspaceId: workspace.workspaceId, userId: workspace.userId },
     seriesId,
     { kind: 'named', label, summary: label },
+  );
+  return { ok: true };
+}
+
+/**
+ * Record a "Saved to file" milestone (#166): seal the open session and pin a
+ * `saved` revision capturing the state that was exported — so a saved
+ * `.sailscoring` corresponds to a marked point in the history.
+ */
+export async function recordSaveMilestone(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<{ ok: true }> {
+  await assertSeriesWritable(workspace, seriesId);
+  await sealOpenRevisions(workspace.workspaceId, seriesId);
+  await captureRevision(
+    { workspaceId: workspace.workspaceId, userId: workspace.userId },
+    seriesId,
+    { kind: 'saved', label: 'Saved to file' },
   );
   return { ok: true };
 }
