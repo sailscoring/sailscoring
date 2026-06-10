@@ -273,6 +273,32 @@ describe.skipIf(skip)('revision log', () => {
     expect(await getRevisionSnapshot(actor, byText(after, 'old40').id)).toBeNull();
   });
 
+  test('reads legacy gzip and uncompressed jsonb snapshots (codec sniffing)', async () => {
+    const { gzipSync } = await import('node:zlib');
+    const seriesId = await seedSeries('Legacy Codec');
+    const actor = { workspaceId, userId: actorA };
+    const snap = {
+      formatVersion: 8, seriesId, exportedAt: new Date().toISOString(),
+      series: { id: seriesId, name: 'Legacy State' }, fleets: [], competitors: [], races: [],
+    };
+
+    // A round-2 gzip row (snapshot_gz holds gzip bytes).
+    const gzId = uuid();
+    await db.insert(schema.seriesRevision).values({
+      id: gzId, workspaceId, seriesId, actorUserId: actorA, kind: 'auto',
+      snapshotGz: gzipSync(Buffer.from(JSON.stringify(snap))),
+    });
+    // A round-1 uncompressed row (jsonb `snapshot`, no blob).
+    const jsonId = uuid();
+    await db.insert(schema.seriesRevision).values({
+      id: jsonId, workspaceId, seriesId, actorUserId: actorA, kind: 'auto',
+      snapshot: snap as never,
+    });
+
+    expect((await getRevisionSnapshot(actor, gzId))?.series.name).toBe('Legacy State');
+    expect((await getRevisionSnapshot(actor, jsonId))?.series.name).toBe('Legacy State');
+  });
+
   test('import strips a planted nested `revisions` block (and unknown keys) from a snapshot', async () => {
     const seriesId = await seedSeries('Strip Target');
     const tampered = {

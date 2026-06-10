@@ -1,6 +1,6 @@
 import 'server-only';
 import { after } from 'next/server';
-import { gzipSync, gunzipSync } from 'node:zlib';
+import { gunzipSync, zstdCompressSync, zstdDecompressSync } from 'node:zlib';
 import { and, desc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
@@ -23,19 +23,23 @@ const SNAPSHOT_KEYS = [
   'fleets', 'competitors', 'races', 'tcfHistory', 'nhcTcfHistory',
 ] as const;
 
-/** gzip a snapshot for storage in `snapshot_gz`. */
+/** Compress a snapshot (zstd) for storage in `snapshot_gz`. */
 function packSnapshot(file: SeriesFile): Buffer {
-  return gzipSync(Buffer.from(JSON.stringify(file)));
+  return zstdCompressSync(Buffer.from(JSON.stringify(file)));
 }
 
-/** Read a snapshot, preferring the compressed column and falling back to the
- *  legacy uncompressed `snapshot` jsonb. Null when the blob has been thinned. */
+/** Read a snapshot, sniffing the compressed column's codec (zstd for new rows,
+ *  gzip for the brief round-2 window, neither → legacy uncompressed `snapshot`
+ *  jsonb). Null when the blob has been thinned. */
 function unpackSnapshot(row: {
   snapshot: SeriesFile | null;
   snapshotGz: Buffer | null;
 }): SeriesFile | null {
-  if (row.snapshotGz) {
-    return JSON.parse(gunzipSync(row.snapshotGz).toString('utf-8')) as SeriesFile;
+  const blob = row.snapshotGz;
+  if (blob && blob.length >= 4) {
+    const isZstd = blob[0] === 0x28 && blob[1] === 0xb5 && blob[2] === 0x2f && blob[3] === 0xfd;
+    const raw = isZstd ? zstdDecompressSync(blob) : gunzipSync(blob);
+    return JSON.parse(raw.toString('utf-8')) as SeriesFile;
   }
   return row.snapshot;
 }
