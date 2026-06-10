@@ -1,9 +1,12 @@
 import 'server-only';
+import { eq } from 'drizzle-orm';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
-import { captureRevisionAfter } from '@/lib/revision-log';
+import { captureRevisionAfter, trackChange } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
+import { getDb } from '@/lib/db/client';
+import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
 import {
   assertFinishWritable,
@@ -73,6 +76,16 @@ export async function deleteFinish(
   await assertRaceWritable(workspace, raceId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.finishes.delete(finishId);
+  const race = await repos.races.get(raceId);
+  if (race) {
+    await trackChange(workspace, {
+      action: 'finish.deleted',
+      seriesId: race.seriesId,
+      summary: `Removed a finish from Race ${race.raceNumber}`,
+      sessionKey: `finishes:${raceId}`,
+      dedupeKey: `finishes-del:${raceId}`,
+    });
+  }
 }
 
 /**
@@ -86,7 +99,25 @@ export async function deleteFinishFlat(
 ): Promise<void> {
   await assertFinishWritable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  // FinishRepository has no get(id); resolve the parent race for the summary.
+  const [row] = await getDb()
+    .select({ raceId: schema.finishes.raceId })
+    .from(schema.finishes)
+    .where(eq(schema.finishes.id, id))
+    .limit(1);
   await repos.finishes.delete(id);
+  if (row) {
+    const race = await repos.races.get(row.raceId);
+    if (race) {
+      await trackChange(workspace, {
+        action: 'finish.deleted',
+        seriesId: race.seriesId,
+        summary: `Removed a finish from Race ${race.raceNumber}`,
+        sessionKey: `finishes:${row.raceId}`,
+        dedupeKey: `finishes-del:${row.raceId}`,
+      });
+    }
+  }
 }
 
 /**

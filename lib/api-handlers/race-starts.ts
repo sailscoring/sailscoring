@@ -1,8 +1,12 @@
 import 'server-only';
+import { eq } from 'drizzle-orm';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
+import { getDb } from '@/lib/db/client';
+import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
+import { trackChange } from '@/lib/revision-log';
 import {
   assertRaceStartWritable,
   assertRaceWritable,
@@ -20,6 +24,24 @@ async function assertRaceInWorkspace(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const race = await repos.races.get(raceId);
   if (!race) throw new NotFoundError('race');
+}
+
+/** Record a start-config change (#166) against the race's series. */
+async function trackStartChange(
+  workspace: WorkspaceContext,
+  repos: ReturnType<typeof createRepos>,
+  raceId: string,
+  cleared = false,
+): Promise<void> {
+  const race = await repos.races.get(raceId);
+  if (!race) return;
+  await trackChange(workspace, {
+    action: cleared ? 'starts.cleared' : 'starts.updated',
+    seriesId: race.seriesId,
+    summary: `${cleared ? 'Cleared' : 'Updated'} start times for Race ${race.raceNumber}`,
+    sessionKey: `starts:${raceId}`,
+    dedupeKey: `starts:${raceId}`,
+  });
 }
 
 export async function listRaceStarts(
@@ -44,10 +66,12 @@ export async function putRaceStart(
   if (id !== pathStartId) throw new NotFoundError('race start id mismatch');
   if (input.raceId !== raceId) throw new NotFoundError('race start race mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  return repos.raceStarts.save(
+  const saved = await repos.raceStarts.save(
     { ...input, id },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
+  await trackStartChange(workspace, repos, raceId);
+  return saved;
 }
 
 export async function deleteRaceStart(
@@ -58,6 +82,7 @@ export async function deleteRaceStart(
   await assertRaceWritable(workspace, raceId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.raceStarts.delete(startId);
+  await trackStartChange(workspace, repos, raceId);
 }
 
 /**
@@ -71,7 +96,13 @@ export async function deleteRaceStartFlat(
 ): Promise<void> {
   await assertRaceStartWritable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const [row] = await getDb()
+    .select({ raceId: schema.raceStarts.raceId })
+    .from(schema.raceStarts)
+    .where(eq(schema.raceStarts.id, id))
+    .limit(1);
   await repos.raceStarts.delete(id);
+  if (row) await trackStartChange(workspace, repos, row.raceId);
 }
 
 /**
@@ -87,6 +118,7 @@ export async function bulkDeleteRaceStarts(
   await assertRaceWritable(workspace, raceId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.raceStarts.deleteByRace(raceId);
+  await trackStartChange(workspace, repos, raceId, true);
 }
 
 /**
@@ -111,5 +143,6 @@ export async function bulkPutRaceStarts(
   }));
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.raceStarts.saveMany(starts, { updatedBy: workspace.userId });
+  await trackStartChange(workspace, repos, raceId);
   return { count: starts.length };
 }

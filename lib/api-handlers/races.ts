@@ -2,7 +2,7 @@ import 'server-only';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
-import { captureRevisionAfter } from '@/lib/revision-log';
+import { captureRevisionAfter, trackChange } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
 import {
@@ -55,21 +55,19 @@ export async function putRace(
   if (id !== pathRaceId) throw new NotFoundError('race id mismatch');
   if (input.seriesId !== seriesId) throw new NotFoundError('race series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  // Adding vs editing: only the first write of a race id is logged ("Added
-  // Race N"); later metadata edits (date/number) are low-signal and skipped.
   const existing = await repos.races.get(id);
   const saved = await repos.races.save(
     { ...input, id },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
-  if (!existing) {
-    await recordActivity(workspace, {
-      action: 'race.added',
-      seriesId,
-      summary: `Added Race ${saved.raceNumber}`,
-    });
-    captureRevisionAfter(workspace, seriesId, { summary: `Added Race ${saved.raceNumber}`, sessionKey: 'races' });
-  }
+  await trackChange(workspace, {
+    action: existing ? 'race.updated' : 'race.added',
+    seriesId,
+    summary: `${existing ? 'Updated' : 'Added'} Race ${saved.raceNumber}`,
+    sessionKey: 'races',
+    // Edits to one race coalesce in the feed; an add is its own entry.
+    dedupeKey: existing ? `race:${id}` : undefined,
+  });
   return saved;
 }
 
@@ -104,6 +102,12 @@ export async function bulkDeleteRaces(
   await assertSeriesWritable(workspace, seriesId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.races.deleteBySeries(seriesId);
+  await trackChange(workspace, {
+    action: 'races.cleared',
+    seriesId,
+    summary: 'Cleared all races',
+    sessionKey: 'races',
+  });
 }
 
 /**
@@ -128,5 +132,13 @@ export async function deleteRaceFlat(
 ): Promise<void> {
   await assertRaceDeletable(workspace, raceId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const existing = await repos.races.get(raceId);
+  if (!existing) return;
   await repos.races.delete(raceId);
+  await trackChange(workspace, {
+    action: 'race.deleted',
+    seriesId: existing.seriesId,
+    summary: `Deleted Race ${existing.raceNumber}`,
+    sessionKey: 'races',
+  });
 }

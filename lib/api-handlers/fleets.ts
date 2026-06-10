@@ -3,6 +3,7 @@ import 'server-only';
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
+import { trackChange } from '@/lib/revision-log';
 import {
   assertFleetWritable,
   assertSeriesWritable,
@@ -59,10 +60,19 @@ export async function putFleet(
   if (id !== pathFleetId) throw new NotFoundError('fleet id mismatch with path');
   if (input.seriesId !== seriesId) throw new NotFoundError('fleet series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  return repos.fleets.save(
+  const existing = await repos.fleets.get(id);
+  const saved = await repos.fleets.save(
     { ...input, id },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
+  await trackChange(workspace, {
+    action: 'fleet.updated',
+    seriesId,
+    summary: `${existing ? 'Updated' : 'Added'} fleet ${saved.name}`,
+    sessionKey: 'fleets',
+    dedupeKey: existing ? `fleet:${id}` : undefined,
+  });
+  return saved;
 }
 
 export async function deleteFleet(
@@ -75,6 +85,12 @@ export async function deleteFleet(
   const existing = await repos.fleets.get(fleetId);
   if (!existing || existing.seriesId !== seriesId) return;
   await repos.fleets.delete(fleetId);
+  await trackChange(workspace, {
+    action: 'fleet.deleted',
+    seriesId,
+    summary: `Removed fleet ${existing.name}`,
+    sessionKey: 'fleets',
+  });
 }
 
 /**
@@ -87,7 +103,15 @@ export async function deleteFleetFlat(
 ): Promise<void> {
   await assertFleetWritable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const existing = await repos.fleets.get(id);
+  if (!existing) return;
   await repos.fleets.delete(id);
+  await trackChange(workspace, {
+    action: 'fleet.deleted',
+    seriesId: existing.seriesId,
+    summary: `Removed fleet ${existing.name}`,
+    sessionKey: 'fleets',
+  });
 }
 
 /**
@@ -112,6 +136,13 @@ export async function bulkPutFleets(
   }));
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.fleets.saveMany(fleets, { updatedBy: workspace.userId });
+  const n = fleets.length;
+  await trackChange(workspace, {
+    action: 'fleet.updated',
+    seriesId,
+    summary: `Saved ${n} fleet${n === 1 ? '' : 's'}`,
+    sessionKey: 'fleets',
+  });
   return { count: fleets.length };
 }
 
@@ -127,6 +158,12 @@ export async function bulkDeleteFleets(
   await assertSeriesWritable(workspace, seriesId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.fleets.deleteBySeries(seriesId);
+  await trackChange(workspace, {
+    action: 'fleets.cleared',
+    seriesId,
+    summary: 'Cleared all fleets',
+    sessionKey: 'fleets',
+  });
 }
 
 export async function ensureFleet(

@@ -24,11 +24,23 @@ export const ACTIVITY_ACTIONS = [
   'competitors.imported',
   'competitors.handicaps_updated',
   'competitors.cleared',
+  'competitor.updated',
+  'competitor.deleted',
+  'fleet.updated',
+  'fleet.deleted',
+  'fleets.cleared',
   'race.added',
+  'race.updated',
   'race.deleted',
+  'races.cleared',
   'finishes.recorded',
   'finishes.entered',
   'finishes.cleared',
+  'finish.deleted',
+  'starts.updated',
+  'starts.cleared',
+  'ratings.updated',
+  'ratings.cleared',
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
@@ -36,6 +48,7 @@ export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
 export type ActivityKind =
   | 'series'
   | 'competitor'
+  | 'fleet'
   | 'race'
   | 'finish'
   | 'other';
@@ -47,8 +60,9 @@ export type ActivityKind =
  */
 export function activityKind(action: string): ActivityKind {
   if (action.startsWith('series.')) return 'series';
-  if (action.startsWith('competitors.')) return 'competitor';
-  if (action.startsWith('finishes.')) return 'finish';
-  if (action.startsWith('race.')) return 'race';
+  if (action.startsWith('competitor')) return 'competitor';
+  if (action.startsWith('fleet')) return 'fleet';
+  if (action.startsWith('finish')) return 'finish';
+  if (action.startsWith('race') || action.startsWith('starts.') || action.startsWith('ratings.')) return 'race';
   return 'other';
 }

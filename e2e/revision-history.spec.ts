@@ -9,6 +9,34 @@ import { createSeriesQuick } from './helpers';
  * one. So entering several finishes for a race is a single revision, but
  * creating the series, adding the race, and entering finishes are three.
  */
+test('history tab: deleting a competitor and a race are recorded (#166 audit)', async ({ page }) => {
+  page.on('dialog', (d) => d.accept()); // accept the delete confirm()
+  await createSeriesQuick(page, { name: 'Delete Capture Series' });
+
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('D1');
+  await page.getByLabel('Competitor name').fill('Doomed Boat');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'D1' })).toBeVisible();
+
+  // Add then delete a race.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 1')).toBeVisible();
+
+  // Delete the competitor: open its row editor, then Delete.
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('cell', { name: 'D1' }).click();
+  await page.getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByRole('cell', { name: 'D1' })).toHaveCount(0);
+
+  // History records both the (flat) competitor delete and the race add.
+  await page.getByRole('navigation').getByRole('link', { name: 'History' }).click();
+  const list = page.getByTestId('revision-list');
+  await expect(list).toContainText('Removed competitor D1');
+  await expect(list).toContainText('Added Race 1');
+});
+
 test('history tab: same-context edits coalesce, different contexts split', async ({ page }) => {
   await createSeriesQuick(page, { name: 'History Spec Series' });
 

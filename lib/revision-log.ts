@@ -4,6 +4,8 @@ import { gzipSync, gunzipSync } from 'node:zlib';
 import { and, desc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
+import { recordActivity } from '@/lib/activity-log';
+import type { ActivityAction } from '@/lib/activity-actions';
 import { user } from '@/lib/db/schema/auth';
 import { seriesRevision } from '@/lib/db/schema/series';
 import { seriesFileReposFor } from '@/lib/postgres-repository';
@@ -197,6 +199,34 @@ export function captureRevisionAfter(
     // swallows its own errors, so the floating promise never rejects.
     void captureRevision(actor, seriesId, opts);
   }
+}
+
+/**
+ * One-call seam for a scoring-data mutation (#166): record the human-readable
+ * activity entry *and* capture a (deferred, context-coalesced) revision. Use
+ * this wherever a handler changes competitors / fleets / races / finishes /
+ * starts / rating-overrides so history and the audit trail stay complete.
+ */
+export async function trackChange(
+  actor: Actor,
+  input: {
+    action: ActivityAction;
+    seriesId: string;
+    summary: string;
+    sessionKey: string;
+    dedupeKey?: string;
+  },
+): Promise<void> {
+  await recordActivity(actor, {
+    action: input.action,
+    seriesId: input.seriesId,
+    summary: input.summary,
+    dedupeKey: input.dedupeKey,
+  });
+  captureRevisionAfter(actor, input.seriesId, {
+    summary: input.summary,
+    sessionKey: input.sessionKey,
+  });
 }
 
 const REVISION_SELECTION = {

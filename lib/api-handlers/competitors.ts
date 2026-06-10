@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
-import { captureRevisionAfter } from '@/lib/revision-log';
+import { captureRevisionAfter, trackChange } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
@@ -65,10 +65,19 @@ export async function putCompetitor(
   if (id !== pathCompetitorId) throw new NotFoundError('competitor id mismatch');
   if (input.seriesId !== seriesId) throw new NotFoundError('competitor series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  return repos.competitors.save(
+  const existing = await repos.competitors.get(id);
+  const saved = await repos.competitors.save(
     { ...input, id },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
+  await trackChange(workspace, {
+    action: 'competitor.updated',
+    seriesId,
+    summary: `${existing ? 'Updated' : 'Added'} competitor ${saved.sailNumber}`,
+    sessionKey: 'competitors',
+    dedupeKey: `competitor:${id}`,
+  });
+  return saved;
 }
 
 export async function deleteCompetitor(
@@ -81,6 +90,12 @@ export async function deleteCompetitor(
   const existing = await repos.competitors.get(competitorId);
   if (!existing || existing.seriesId !== seriesId) return;
   await repos.competitors.delete(competitorId);
+  await trackChange(workspace, {
+    action: 'competitor.deleted',
+    seriesId,
+    summary: `Removed competitor ${existing.sailNumber}`,
+    sessionKey: 'competitors',
+  });
 }
 
 /**
@@ -281,7 +296,15 @@ export async function deleteCompetitorFlat(
 ): Promise<void> {
   await assertCompetitorWritable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const existing = await repos.competitors.get(id);
+  if (!existing) return;
   await repos.competitors.delete(id);
+  await trackChange(workspace, {
+    action: 'competitor.deleted',
+    seriesId: existing.seriesId,
+    summary: `Removed competitor ${existing.sailNumber}`,
+    sessionKey: 'competitors',
+  });
 }
 
 /**
