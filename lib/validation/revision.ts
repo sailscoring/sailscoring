@@ -3,10 +3,9 @@ import { z } from 'zod';
 /**
  * Validation for the embedded revision-history import (#166).
  *
- * The per-revision `snapshot` is a full `.sailscoring` payload that's stored
- * verbatim as `jsonb` and only ever re-served, so it's validated as an opaque
- * object rather than re-deriving the whole file schema here. The structural
- * fields that drive behaviour (kind, timestamp) are checked.
+ * Per-revision metadata is validated structurally; the snapshots ride in the
+ * opaque base64 `revisionSnapshots` blob (whole-array zstd), decompressed and
+ * sanitised server-side, so it's just checked to be a string here.
  */
 const fileRevisionSchema = z.object({
   kind: z.enum(['auto', 'named', 'revert', 'publish', 'saved']),
@@ -19,11 +18,11 @@ const fileRevisionSchema = z.object({
       email: z.string().optional(),
     })
     .nullable(),
-  snapshot: z.record(z.string(), z.unknown()),
 });
 
 export const seriesRevisionsImportSchema = z.object({
   revisions: z.array(fileRevisionSchema),
+  revisionSnapshots: z.string(),
 });
 
 /** A user-named checkpoint (#166). The label is required and trimmed. */

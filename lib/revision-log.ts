@@ -1,6 +1,6 @@
 import 'server-only';
 import { after } from 'next/server';
-import { gunzipSync, zstdCompressSync, zstdDecompressSync } from 'node:zlib';
+import { constants as zlibConstants, gunzipSync, zstdCompressSync, zstdDecompressSync } from 'node:zlib';
 import { and, desc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
@@ -333,15 +333,16 @@ export async function getRevision(
 }
 
 /**
- * The whole revision history for one series in `.sailscoring` file shape
- * (#166), oldest-first — for embedding in an exported file. Carries each
- * revision's full snapshot plus display-only actor info (user ids don't cross
- * workspaces).
+ * The whole revision history for one series for embedding in an exported file
+ * (#166), oldest-first: readable per-revision metadata plus one opaque
+ * `revisionSnapshots` blob (base64 whole-array zstd of `[snapshot|null, …]`
+ * index-aligned to the metadata; null = a thinned revision). Whole-array
+ * compression dedupes the near-identical snapshots, so history is tiny.
  */
-export async function listRevisionsForExport(
+export async function exportRevisions(
   actor: Actor,
   seriesId: string,
-): Promise<SeriesFileRevision[]> {
+): Promise<{ revisions: SeriesFileRevision[]; revisionSnapshots: string }> {
   const db = getDb();
   const rows = await db
     .select({
@@ -363,25 +364,25 @@ export async function listRevisionsForExport(
       ),
     )
     .orderBy(seriesRevision.createdAt);
-  // Thinned revisions (no blob) can't be embedded — skip them.
-  return rows.flatMap((r) => {
-    const snapshot = unpackSnapshot(r);
-    if (!snapshot) return [];
-    return [{
-      kind: r.kind as SeriesFileRevision['kind'],
-      label: r.label,
-      summary: r.summary,
-      createdAt: r.createdAt.toISOString(),
-      actor:
-        r.actorEmail || r.actorName
-          ? {
-              email: r.actorEmail ?? undefined,
-              displayName: r.actorName && r.actorName.trim().length > 0 ? r.actorName : undefined,
-            }
-          : null,
-      snapshot,
-    }];
-  });
+
+  const revisions: SeriesFileRevision[] = rows.map((r) => ({
+    kind: r.kind as SeriesFileRevision['kind'],
+    label: r.label,
+    summary: r.summary,
+    createdAt: r.createdAt.toISOString(),
+    actor:
+      r.actorEmail || r.actorName
+        ? {
+            email: r.actorEmail ?? undefined,
+            displayName: r.actorName && r.actorName.trim().length > 0 ? r.actorName : undefined,
+          }
+        : null,
+  }));
+  const snapshots = rows.map((r) => unpackSnapshot(r)); // null = thinned
+  const revisionSnapshots = zstdCompressSync(Buffer.from(JSON.stringify(snapshots)), {
+    params: { [zlibConstants.ZSTD_c_compressionLevel]: 19 },
+  }).toString('base64');
+  return { revisions, revisionSnapshots };
 }
 
 /** Retention tiers (#166): keep every auto snapshot newer than this… */
@@ -464,30 +465,46 @@ export async function thinRevisions(
 
 /**
  * Restore an embedded revision history into a (freshly imported) series (#166).
- * Original timestamps are preserved; actor attribution is dropped — the source
- * users don't exist in this workspace, so `actorUserId` is null.
+ * `revisionSnapshots` is the base64 whole-array zstd blob whose decompressed
+ * `[snapshot|null, …]` is index-aligned to `revisions`. Original timestamps are
+ * preserved; actor attribution is dropped (source users don't exist here, so
+ * `actorUserId` is null); a null entry restores as a thinned (metadata-only)
+ * revision. Snapshots are sanitised before storage.
  */
 export async function importRevisions(
   actor: Actor,
   seriesId: string,
-  revisions: SeriesFileRevision[],
+  payload: { revisions: SeriesFileRevision[]; revisionSnapshots: string },
 ): Promise<void> {
+  const { revisions, revisionSnapshots } = payload;
   if (revisions.length === 0) return;
+
+  const snapshots = JSON.parse(
+    zstdDecompressSync(Buffer.from(revisionSnapshots, 'base64')).toString('utf-8'),
+  ) as (unknown | null)[];
+  if (snapshots.length !== revisions.length) {
+    throw new Error('revisionSnapshots length does not match revisions');
+  }
+
   const db = getDb();
   await db.insert(seriesRevision).values(
-    revisions.map((rev) => ({
-      id: crypto.randomUUID(),
-      workspaceId: actor.workspaceId,
-      seriesId,
-      actorUserId: null,
-      kind: rev.kind,
-      label: rev.label,
-      summary: rev.summary,
-      // Sanitise then compress — a tampered file can't smuggle a nested
-      // `revisions` block (or other junk) into a stored snapshot.
-      snapshotGz: packSnapshot(sanitizeSnapshot(rev.snapshot)),
-      createdAt: new Date(rev.createdAt),
-    })),
+    revisions.map((rev, i) => {
+      const raw = snapshots[i];
+      return {
+        id: crypto.randomUUID(),
+        workspaceId: actor.workspaceId,
+        seriesId,
+        actorUserId: null,
+        kind: rev.kind,
+        label: rev.label,
+        summary: rev.summary,
+        // Sanitise then compress — a tampered file can't smuggle a nested
+        // `revisions` block (or other junk) into a stored snapshot. A null
+        // snapshot (thinned in the source) restores as a metadata-only row.
+        snapshotGz: raw == null ? null : packSnapshot(sanitizeSnapshot(raw)),
+        createdAt: new Date(rev.createdAt),
+      };
+    }),
   );
 }
 

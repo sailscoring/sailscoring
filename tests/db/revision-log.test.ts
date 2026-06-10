@@ -18,9 +18,9 @@ import { createRepos } from '@/lib/postgres-repository';
 import {
   captureRevision,
   getRevisionSnapshot,
+  exportRevisions,
   importRevisions,
   listRevisions,
-  listRevisionsForExport,
   sealOpenRevisions,
   thinRevisions,
 } from '@/lib/revision-log';
@@ -209,13 +209,15 @@ describe.skipIf(skip)('revision log', () => {
     await captureRevision({ workspaceId, userId: actorA }, seriesId, { summary: 'first' });
     await captureRevision({ workspaceId, userId: actorB }, seriesId, { kind: 'named', label: 'Pinned', summary: 'second' });
 
-    const exported = await listRevisionsForExport({ workspaceId, userId: actorA }, seriesId);
-    expect(exported).toHaveLength(2);
-    // Oldest-first, full snapshots, actor display preserved on export.
-    expect(exported[0].summary).toBe('first');
-    expect(exported[0].snapshot.series.name).toBe('Export Source');
-    expect(exported[0].actor?.displayName).toBe('Mark');
-    expect(exported[1]).toMatchObject({ kind: 'named', label: 'Pinned' });
+    const exported = await exportRevisions({ workspaceId, userId: actorA }, seriesId);
+    expect(exported.revisions).toHaveLength(2);
+    // Oldest-first metadata; actor display preserved on export.
+    expect(exported.revisions[0].summary).toBe('first');
+    expect(exported.revisions[0].actor?.displayName).toBe('Mark');
+    expect(exported.revisions[1]).toMatchObject({ kind: 'named', label: 'Pinned' });
+    // Snapshots ride in the opaque blob, not the metadata.
+    expect(exported.revisions[0]).not.toHaveProperty('snapshot');
+    expect(typeof exported.revisionSnapshots).toBe('string');
 
     // Re-import into a different series.
     const targetId = await seedSeries('Import Target');
@@ -300,28 +302,28 @@ describe.skipIf(skip)('revision log', () => {
   });
 
   test('import strips a planted nested `revisions` block (and unknown keys) from a snapshot', async () => {
+    const { zstdCompressSync } = await import('node:zlib');
     const seriesId = await seedSeries('Strip Target');
-    const tampered = {
-      kind: 'auto' as const,
-      label: null,
-      summary: 'tampered',
-      createdAt: new Date().toISOString(),
-      actor: null,
-      snapshot: {
-        formatVersion: 8,
-        seriesId: 'x',
-        exportedAt: new Date().toISOString(),
-        series: { id: 'x', name: 'Tampered' },
-        fleets: [],
-        competitors: [],
-        races: [],
-        // Junk that must not survive the import:
-        revisions: [{ kind: 'auto', snapshot: { deeply: 'nested' } }],
-        evil: 'payload',
-      },
-    } as unknown as Parameters<typeof importRevisions>[2][number];
+    const tamperedSnapshot = {
+      formatVersion: 8,
+      seriesId: 'x',
+      exportedAt: new Date().toISOString(),
+      series: { id: 'x', name: 'Tampered' },
+      fleets: [],
+      competitors: [],
+      races: [],
+      // Junk that must not survive the import:
+      revisions: [{ kind: 'auto', snapshot: { deeply: 'nested' } }],
+      evil: 'payload',
+    };
+    const revisionSnapshots = zstdCompressSync(
+      Buffer.from(JSON.stringify([tamperedSnapshot])),
+    ).toString('base64');
 
-    await importRevisions({ workspaceId, userId: actorA }, seriesId, [tampered]);
+    await importRevisions({ workspaceId, userId: actorA }, seriesId, {
+      revisions: [{ kind: 'auto', label: null, summary: 'tampered', createdAt: new Date().toISOString(), actor: null }],
+      revisionSnapshots,
+    });
     const [rev] = await listRevisions({ workspaceId, userId: actorA }, seriesId);
     const snap = await getRevisionSnapshot({ workspaceId, userId: actorA }, rev.id);
     expect(snap).not.toBeNull();

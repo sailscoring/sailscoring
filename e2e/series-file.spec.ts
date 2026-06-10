@@ -44,7 +44,8 @@ interface SeriesFile {
   formatVersion: number;
   seriesId: string;
   exportedAt: string;
-  revisions?: { kind: string; snapshot: { series: { name: string } } }[];
+  revisions?: { kind: string; summary: string | null }[];
+  revisionSnapshots?: string;
   series: {
     id: string;
     name: string;
@@ -208,10 +209,10 @@ test('series file: save exports correct JSON with all series fields, competitors
   expect(file.races[0].finishes).toHaveLength(1);
   expect(file.races[0].finishes[0].sortOrder).toBe(1);
 
-  // Revision history is embedded by default (#166): this editing session
-  // coalesced into a revision carrying a full snapshot.
+  // Revision history is embedded by default (#166): readable metadata plus an
+  // opaque whole-array zstd snapshot blob.
   expect(file.revisions?.length ?? 0).toBeGreaterThanOrEqual(1);
-  expect(file.revisions![0].snapshot.series.name).toBe('Autumn League 2025');
+  expect(typeof file.revisionSnapshots).toBe('string');
 });
 
 test('series file: unticking "Include version history" omits revisions from the saved file', async ({ page }) => {
@@ -226,6 +227,7 @@ test('series file: unticking "Include version history" omits revisions from the 
   await page.getByTestId('include-history').uncheck();
   const without = await saveToFile(page);
   expect(without).not.toHaveProperty('revisions');
+  expect(without).not.toHaveProperty('revisionSnapshots');
 });
 
 test('series file: Update from File replaces the series in place (matched by seriesId)', async ({ page }) => {
@@ -374,4 +376,8 @@ test('series file: Update from File → "Open as a new copy" creates a second se
   const newSeriesId = getSeriesId(page);
   expect(newSeriesId).not.toBe(originalSeriesId);
   await expect(page.getByRole('heading', { name: 'New Copy Result' })).toBeVisible();
+
+  // The embedded history rode in through the opaque blob and was restored.
+  await page.getByRole('navigation').getByRole('link', { name: 'History' }).click();
+  await expect(page.getByTestId('revision-list').getByRole('listitem').first()).toBeVisible();
 });

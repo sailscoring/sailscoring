@@ -7,10 +7,10 @@ import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
 import { createRepos, seriesFileReposFor } from '@/lib/postgres-repository';
 import {
   captureRevision,
+  exportRevisions,
   getRevision,
   importRevisions,
   listRevisions,
-  listRevisionsForExport,
   sealOpenRevisions,
   type RevisionEntry,
 } from '@/lib/revision-log';
@@ -124,21 +124,20 @@ export async function recordSaveMilestone(
   return { ok: true };
 }
 
-/** The series' full revision history in `.sailscoring` shape, for embedding in
- *  an exported file (#166). */
+/** The series' revision history for embedding in an exported file (#166):
+ *  readable metadata + one opaque whole-array zstd snapshot blob. */
 export async function exportSeriesRevisions(
   workspace: WorkspaceContext,
   seriesId: string,
-): Promise<{ revisions: SeriesFileRevision[] }> {
+): Promise<{ revisions: SeriesFileRevision[]; revisionSnapshots: string }> {
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const series = await repos.series.get(seriesId);
   if (!series) throw new NotFoundError('series');
 
-  const revisions = await listRevisionsForExport(
+  return exportRevisions(
     { workspaceId: workspace.workspaceId, userId: workspace.userId },
     seriesId,
   );
-  return { revisions };
 }
 
 /** Restore an embedded revision history into a freshly imported series (#166).
@@ -149,11 +148,11 @@ export async function importSeriesRevisions(
   body: unknown,
 ): Promise<{ count: number }> {
   await assertSeriesWritable(workspace, seriesId);
-  const { revisions } = seriesRevisionsImportSchema.parse(body);
+  const payload = seriesRevisionsImportSchema.parse(body);
   await importRevisions(
     { workspaceId: workspace.workspaceId, userId: workspace.userId },
     seriesId,
-    revisions as unknown as SeriesFileRevision[],
+    payload as unknown as { revisions: SeriesFileRevision[]; revisionSnapshots: string },
   );
-  return { count: revisions.length };
+  return { count: payload.revisions.length };
 }

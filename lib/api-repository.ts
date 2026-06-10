@@ -766,25 +766,26 @@ export async function createCheckpoint(seriesId: string, label: string): Promise
   });
 }
 
-/** The series' revision history in `.sailscoring` shape, for embedding in a
- *  saved file (#166). Satisfies the optional `SeriesFileRepos` member. */
-export async function listRevisionsForExport(
+/** The series' revision history for embedding in a saved file (#166): readable
+ *  metadata + an opaque whole-array zstd snapshot blob. Satisfies the optional
+ *  `SeriesFileRepos.exportRevisions` member. */
+export async function exportRevisions(
   seriesId: string,
-): Promise<SeriesFileRevision[]> {
-  const { revisions } = await apiFetch<{ revisions: SeriesFileRevision[] }>(
+): Promise<{ revisions: SeriesFileRevision[]; revisionSnapshots: string }> {
+  return apiFetch<{ revisions: SeriesFileRevision[]; revisionSnapshots: string }>(
     `/api/v1/series/${seriesId}/revisions/export`,
   );
-  return revisions;
 }
 
-/** Restore an embedded revision history into a freshly imported series (#166). */
+/** Restore an embedded revision history into a freshly imported series (#166).
+ *  The blob is passed through opaque — decompression happens server-side. */
 export async function importRevisions(
   seriesId: string,
-  revisions: SeriesFileRevision[],
+  payload: { revisions: SeriesFileRevision[]; revisionSnapshots: string },
 ): Promise<void> {
   await apiFetch(`/api/v1/series/${seriesId}/revisions/import`, {
     method: 'POST',
-    body: { revisions },
+    body: payload,
   });
 }
 

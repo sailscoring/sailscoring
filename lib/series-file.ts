@@ -45,9 +45,16 @@ export interface SeriesFileRepos {
   deleteSeriesChildren(seriesId: string): Promise<void>;
   /** Embedded revision history (#166). Optional: implementations that don't
    *  support it (seed, tests) simply omit them, and the file is saved without
-   *  a `revisions` block / imported without restoring history. */
-  listRevisionsForExport?(seriesId: string): Promise<SeriesFileRevision[]>;
-  importRevisions?(seriesId: string, revisions: SeriesFileRevision[]): Promise<void>;
+   *  a history block / imported without restoring history. Compression lives
+   *  server-side, so callers treat `revisionSnapshots` as an opaque blob. */
+  exportRevisions?(seriesId: string): Promise<{
+    revisions: SeriesFileRevision[];
+    revisionSnapshots: string;
+  }>;
+  importRevisions?(
+    seriesId: string,
+    payload: { revisions: SeriesFileRevision[]; revisionSnapshots: string },
+  ): Promise<void>;
   /** Record a "Saved to file" milestone revision (#166). */
   recordSaveMilestone?(seriesId: string): Promise<void>;
 }
@@ -198,17 +205,16 @@ interface SeriesFileTcfRecord {
   newTcf: number;
 }
 
-/** A single entry of the embedded revision history (#166). Optional on the
- *  file (v8+): present when the series was saved with its history included.
- *  `snapshot` is a full point-in-time `SeriesFile` (itself carrying no nested
- *  `revisions`). The actor is display-only — user ids don't cross workspaces. */
+/** Readable metadata for one entry of the embedded revision history (#166).
+ *  The point-in-time snapshots themselves live, compressed, in the file's
+ *  `revisionSnapshots` blob (index-aligned to this array) so they don't bloat
+ *  the file. The actor is display-only — user ids don't cross workspaces. */
 export interface SeriesFileRevision {
   kind: 'auto' | 'named' | 'revert' | 'publish' | 'saved';
   label: string | null;
   summary: string | null;
   createdAt: string;
   actor: { displayName?: string; email?: string } | null;
-  snapshot: SeriesFile;
 }
 
 export interface SeriesFile {
@@ -223,9 +229,13 @@ export interface SeriesFile {
   /** Pre-v4 alias for `tcfHistory`. Loader accepts either key; writer emits
    *  the new key only. Kept on the type so v1–v3 files parse without a cast. */
   nhcTcfHistory?: SeriesFileTcfRecord[];
-  /** Embedded revision history (#166), included on save by default. Absent on
-   *  files saved without it and on snapshots stored *inside* a revision. */
+  /** Embedded revision history (#166), included on save by default — readable
+   *  metadata, newest concerns aside it's just an ordered list. */
   revisions?: SeriesFileRevision[];
+  /** Base64 whole-array zstd of `[snapshot|null, …]`, index-aligned to
+   *  `revisions` (null = a thinned revision). Opaque to the client; the server
+   *  produces it on export and consumes it on import. */
+  revisionSnapshots?: string;
 }
 
 // ---- Build and save ----
@@ -408,10 +418,15 @@ export async function saveSeriesFile(
   if (!series) throw new Error(`Series ${seriesId} not found`);
 
   // Embed the revision history by default (#166), so the file is a complete,
-  // restorable backup. The scorer can opt out for a lean file, and
-  // implementations without revision support omit it regardless.
-  if (opts.includeRevisions !== false && repos.listRevisionsForExport) {
-    file.revisions = await repos.listRevisionsForExport(seriesId);
+  // restorable backup: readable metadata + one compressed snapshot blob. The
+  // scorer can opt out for a lean file, and implementations without revision
+  // support omit it regardless.
+  if (opts.includeRevisions !== false && repos.exportRevisions) {
+    const { revisions, revisionSnapshots } = await repos.exportRevisions(seriesId);
+    if (revisions.length > 0) {
+      file.revisions = revisions;
+      file.revisionSnapshots = revisionSnapshots;
+    }
   }
 
   // Trigger download
@@ -582,8 +597,11 @@ export async function openSeriesFromFile(
   // Restore embedded revision history (#166) into the fresh series, if the file
   // carries it and the backend supports it. Only on a brand-new open: an
   // in-place update keeps the series' existing server-side history.
-  if (file.revisions?.length && repos.importRevisions) {
-    await repos.importRevisions(newSeriesId, file.revisions);
+  if (file.revisions?.length && file.revisionSnapshots && repos.importRevisions) {
+    await repos.importRevisions(newSeriesId, {
+      revisions: file.revisions,
+      revisionSnapshots: file.revisionSnapshots,
+    });
   }
 
   return newSeriesId;
