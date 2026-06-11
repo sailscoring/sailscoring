@@ -2,8 +2,9 @@ import 'server-only';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
-import { createRepos } from '@/lib/postgres-repository';
+import { seriesFileReposFor } from '@/lib/postgres-repository';
 import { calculateFleetStandings } from '@/lib/scoring';
+import { loadSeriesSnapshot } from '@/lib/series-snapshot';
 import type { TcfRecord } from '@/lib/types';
 
 /**
@@ -21,33 +22,21 @@ export async function listTcfHistory(
   workspace: WorkspaceContext,
   seriesId: string,
 ): Promise<TcfRecord[]> {
-  const repos = createRepos({ workspaceId: workspace.workspaceId });
-  const series = await repos.series.get(seriesId);
-  if (!series) throw new NotFoundError('series');
-
-  const [fleets, competitors, races] = await Promise.all([
-    repos.fleets.listBySeries(seriesId),
-    repos.competitors.listBySeries(seriesId),
-    repos.races.listBySeries(seriesId),
-  ]);
+  const repos = seriesFileReposFor({ workspaceId: workspace.workspaceId });
+  const snapshot = await loadSeriesSnapshot(repos, seriesId);
+  if (!snapshot) throw new NotFoundError('series');
+  const { series, competitors, fleets, races, finishes, raceStarts, ratingOverrides } = snapshot;
   if (races.length === 0 || competitors.length === 0) return [];
-
-  const raceIds = races.map((r) => r.id);
-  const [allFinishes, allRaceStarts, allRatingOverrides] = await Promise.all([
-    repos.finishes.listBySeries(seriesId, competitors.map((c) => c.id)),
-    repos.raceStarts.listByRaces(raceIds),
-    repos.raceRatingOverrides.listByRaces(raceIds),
-  ]);
 
   const { fleetStandings } = calculateFleetStandings(
     fleets,
     competitors,
     races,
-    allFinishes,
+    finishes,
     series.discardThresholds ?? [],
     series.dnfScoring ?? 'seriesEntries',
-    allRaceStarts,
-    allRatingOverrides,
+    raceStarts,
+    ratingOverrides,
   );
   return fleetStandings.flatMap((fr) => fr.tcfHistory ?? []);
 }

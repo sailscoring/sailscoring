@@ -4,7 +4,8 @@ import {
   calculateHandicapRaceScores,
 } from './scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from './results-renderer';
-import { buildPublicExport, type ExportRepos } from './public-export';
+import { buildPublicExportFromSnapshot, type ExportRepos } from './public-export';
+import { loadSeriesSnapshot } from './series-snapshot';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -62,19 +63,19 @@ export async function buildFleetHtmlFiles(
   // parent — see `SeriesResultsData.seriesIndexUrl`.
   seriesIndexUrl?: string,
 ): Promise<{ fleetName: string; isDefault: boolean; html: string }[] | null> {
-  const [series, competitors, races, fleets] = await Promise.all([
-    repos.seriesRepo.get(seriesId),
-    repos.competitorRepo.listBySeries(seriesId),
-    repos.raceRepo.listBySeries(seriesId),
-    repos.fleetRepo.listBySeries(seriesId),
-  ]);
-  if (!series || competitors.length === 0 || races.length === 0) return null;
-
-  const [allFinishes, allRaceStarts, allRatingOverrides] = await Promise.all([
-    repos.finishRepo.listBySeries(seriesId, competitors.map((c) => c.id)),
-    repos.raceStartRepo.listByRaces(races.map((r) => r.id)),
-    repos.raceRatingOverrideRepo.listByRaces(races.map((r) => r.id)),
-  ]);
+  const snapshot = await loadSeriesSnapshot(repos, seriesId);
+  if (!snapshot || snapshot.competitors.length === 0 || snapshot.races.length === 0) {
+    return null;
+  }
+  const {
+    series,
+    competitors,
+    fleets,
+    races,
+    finishes: allFinishes,
+    raceStarts: allRaceStarts,
+    ratingOverrides: allRatingOverrides,
+  } = snapshot;
   const { fleetStandings: fleetResults } = calculateFleetStandings(
     fleets,
     competitors,
@@ -88,9 +89,11 @@ export async function buildFleetHtmlFiles(
 
   const isSingleDefault = fleets.length <= 1;
 
-  // Build JSON export once for the whole series (embedded in every fleet's HTML)
+  // Build the JSON export once for the whole series (embedded in every
+  // fleet's HTML) from the snapshot and standings already in hand, so the
+  // data is loaded and scored exactly once per export.
   const publicExport = (series.includeJsonExport ?? true)
-    ? await buildPublicExport(seriesId, repos)
+    ? buildPublicExportFromSnapshot(snapshot, { fleetStandings: fleetResults })
     : null;
 
   // Pull the inline flag SVG payload only when this export actually references

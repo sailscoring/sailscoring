@@ -17,6 +17,7 @@ import type {
   SeriesRepository,
 } from './repository';
 import { calculateFleetStandings, calculateRaceScores } from './scoring';
+import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -260,30 +261,46 @@ export async function buildPublicExport(
   seriesId: string,
   repos: ExportRepos,
 ): Promise<PublicSeriesExport | null> {
-  const [series, competitors, races, fleets] = await Promise.all([
-    repos.seriesRepo.get(seriesId),
-    repos.competitorRepo.listBySeries(seriesId),
-    repos.raceRepo.listBySeries(seriesId),
-    repos.fleetRepo.listBySeries(seriesId),
-  ]);
-  if (!series || competitors.length === 0 || races.length === 0) return null;
+  const snapshot = await loadSeriesSnapshot(repos, seriesId);
+  if (!snapshot) return null;
+  return buildPublicExportFromSnapshot(snapshot);
+}
 
-  const [allFinishes, allRaceStarts, allRatingOverrides] = await Promise.all([
-    repos.finishRepo.listBySeries(seriesId, competitors.map((c) => c.id)),
-    repos.raceStartRepo.listByRaces(races.map((r) => r.id)),
-    repos.raceRatingOverrideRepo.listByRaces(races.map((r) => r.id)),
-  ]);
-
-  const { fleetStandings } = calculateFleetStandings(
-    fleets,
+/**
+ * Pure half of `buildPublicExport`: build the export from an
+ * already-loaded snapshot. Callers that have both the snapshot and the
+ * fleet standings in hand (the per-fleet HTML builder) pass the standings
+ * in so one publish/preview/FTP/download runs the scoring engine once.
+ */
+export function buildPublicExportFromSnapshot(
+  snapshot: SeriesSnapshot,
+  opts?: {
+    fleetStandings?: ReturnType<typeof calculateFleetStandings>['fleetStandings'];
+  },
+): PublicSeriesExport | null {
+  const {
+    series,
     competitors,
+    fleets,
     races,
-    allFinishes,
-    series.discardThresholds,
-    series.dnfScoring,
-    allRaceStarts,
-    allRatingOverrides,
-  );
+    finishes: allFinishes,
+    raceStarts: allRaceStarts,
+    ratingOverrides: allRatingOverrides,
+  } = snapshot;
+  if (competitors.length === 0 || races.length === 0) return null;
+
+  const fleetStandings =
+    opts?.fleetStandings ??
+    calculateFleetStandings(
+      fleets,
+      competitors,
+      races,
+      allFinishes,
+      series.discardThresholds,
+      series.dnfScoring,
+      allRaceStarts,
+      allRatingOverrides,
+    ).fleetStandings;
 
   // Build fleet name lookup
   const fleetNameById = new Map(fleets.map((f) => [f.id, f.name]));

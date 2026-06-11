@@ -18,6 +18,7 @@ import {
   DEFAULT_SUBDIVISION_LABEL,
 } from './competitor-fields';
 import { calculateFleetStandings } from './scoring';
+import { loadSeriesSnapshot } from './series-snapshot';
 import { disambiguateSeriesName } from './series-name';
 import type {
   CompetitorRepository,
@@ -248,30 +249,17 @@ export async function buildSeriesFile(
   seriesId: string,
   repos: SeriesFileRepos,
 ): Promise<SeriesFile> {
-  const series = await repos.seriesRepo.get(seriesId);
-  if (!series) throw new Error(`Series ${seriesId} not found`);
-
-  const [competitorsUnsorted, fleetsUnsorted, racesUnsorted] = await Promise.all([
-    repos.competitorRepo.listBySeries(seriesId),
-    repos.fleetRepo.listBySeries(seriesId),
-    repos.raceRepo.listBySeries(seriesId),
-  ]);
-  // Both repository implementations sort by these keys already; sort
-  // defensively so the file is deterministic regardless of backend.
-  const competitors = [...competitorsUnsorted].sort((a, b) =>
-    a.sailNumber.localeCompare(b.sailNumber),
-  );
-  const fleets = [...fleetsUnsorted].sort((a, b) => a.displayOrder - b.displayOrder);
-  const races = [...racesUnsorted].sort((a, b) => a.raceNumber - b.raceNumber);
-
-  const raceIds = races.map((r) => r.id);
-  const competitorIds = competitors.map((c) => c.id);
-
-  const [allFinishes, allRaceStarts, allRatingOverrides] = await Promise.all([
-    repos.finishRepo.listBySeries(seriesId, competitorIds),
-    repos.raceStartRepo.listByRaces(raceIds),
-    repos.raceRatingOverrideRepo.listByRaces(raceIds),
-  ]);
+  const snapshot = await loadSeriesSnapshot(repos, seriesId);
+  if (!snapshot) throw new Error(`Series ${seriesId} not found`);
+  const {
+    series,
+    competitors,
+    fleets,
+    races,
+    finishes: allFinishes,
+    raceStarts: allRaceStarts,
+    ratingOverrides: allRatingOverrides,
+  } = snapshot;
 
   // Compute progressive-handicap (NHC/ECHO) TCF history from the engine
   // rather than reading it from a persisted table. The history is purely
