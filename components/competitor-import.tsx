@@ -54,6 +54,7 @@ import {
   PRIMARY_PERSON_LABEL_TEXT,
   defaultEnabledCompetitorFields,
   isFieldDisabledByPrimary,
+  sameFleetIdSet,
 } from '@/lib/competitor-fields';
 import { log } from '@/lib/debug';
 
@@ -164,12 +165,6 @@ function buildFieldLabels(
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function sameFleetIdSet(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false;
-  const set = new Set(a);
-  for (const id of b) if (!set.has(id)) return false;
-  return true;
-}
 
 /** Propose a primary-person label from the detected column roles. Matches
  *  the plan in issue #93: Owner + Helm both → Owner (cruiser pattern); Owner

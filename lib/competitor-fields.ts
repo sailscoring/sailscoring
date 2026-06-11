@@ -162,3 +162,11 @@ export function subdivisionFieldLabel(
 ): string {
   return series.subdivisionLabel?.trim() || DEFAULT_SUBDIVISION_LABEL;
 }
+
+/** Whether two fleet-membership lists contain the same ids (order-insensitive). */
+export function sameFleetIdSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  for (const id of b) if (!set.has(id)) return false;
+  return true;
+}
