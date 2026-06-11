@@ -52,13 +52,22 @@ function FleetBadges({
   );
 }
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
-import type { useFinishEntry, NonFinisherCode } from '@/hooks/use-finish-entry';
+import {
+  NON_FINISHER_CODE_LABELS,
+  type NonFinisherCode,
+  type NonFinisherView,
+} from '@/lib/finish-entry';
+import type { useFinishInput } from '@/hooks/use-finish-input';
+import type { useFinishRowOps } from '@/hooks/use-finish-row-ops';
 
 type Derived = ReturnType<typeof deriveFinishState>;
-type FinishEntryHook = ReturnType<typeof useFinishEntry>;
 
 export interface FinishTabProps {
-  finishEntry: FinishEntryHook;
+  /** The sail-number entry flow (see hooks/use-finish-input.ts). */
+  finishInput: ReturnType<typeof useFinishInput>;
+  /** Committed-row operations (see hooks/use-finish-row-ops.ts). */
+  rowOps: ReturnType<typeof useFinishRowOps>;
+  nonFinishers: NonFinisherView[];
   competitors: Competitor[];
   competitorMap: Map<string, Competitor>;
   fleetById: Map<string, Fleet>;
@@ -72,8 +81,6 @@ export interface FinishTabProps {
   setEditingPenaltyEntryId: (competitorId: string) => void;
   openRedressDialog: (competitorId: string, isFinisher: boolean) => void;
   setResolvingEntry: (entry: FinishEntry & { kind: 'unknown' }) => void;
-  setNonFinisherCode: (competitorId: string, code: NonFinisherCode) => void;
-  codeLabels: Record<NonFinisherCode, string>;
   /** Persistence helpers used by the inline finish-time editor. */
   patchCache: (updater: (rows: Finish[]) => Finish[]) => void;
   saveFinish: { mutate: (f: Finish) => unknown };
@@ -84,35 +91,43 @@ export interface FinishTabProps {
 export function FinishTab(props: FinishTabProps) {
   const { has } = useFeatures();
   const {
-    finishEntry, competitors, competitorMap, fleetById,
+    finishInput, rowOps, nonFinishers,
+    competitors, competitorMap, fleetById,
     showFleetBadge, showCrew, enabledCompetitorFields, derived, savedFinishes,
     finishSheetImportRef, applyCsvImport,
     setEditingPenaltyEntryId, openRedressDialog, setResolvingEntry,
-    setNonFinisherCode, codeLabels,
     patchCache, saveFinish, leave,
   } = props;
   const {
     finishingOrder, tiedWithPrevious, finishTimes,
     finisherPenalties, redressEntries, finishByCompetitorId,
   } = derived;
+  // Alias-destructure the two hooks back to the local names the JSX below
+  // has always used — the markup is unchanged from the single-hook days.
   const {
-    sailInput, setSailInput,
-    inputError, setInputError,
+    suggestions, needsFinishTime,
+    addFinisher, commitCompetitor, recordAsUnknown,
+  } = finishInput;
+  const {
+    value: sailInput, setValue: setSailInput,
+    error: inputError, setError: setInputError,
     pendingUnknownSail, setPendingUnknownSail,
     highlightedIndex, setHighlightedIndex,
-    pendingTimeEntry,
-    pendingTimeValue, setPendingTimeValue,
-    pendingTimeError, setPendingTimeError,
-    pendingTimeInputRef,
-    flashedRowId,
-    editingTimes, setEditingTimes,
-    inputRef,
-    nonFinishers, suggestions,
-    needsFinishTime,
-    addFinisher, commitCompetitor,
-    confirmPendingTime, cancelPendingTime, recordAsUnknown,
+    ref: inputRef,
+  } = finishInput.input;
+  const {
+    entry: pendingTimeEntry,
+    value: pendingTimeValue, setValue: setPendingTimeValue,
+    error: pendingTimeError, setError: setPendingTimeError,
+    inputRef: pendingTimeInputRef,
+    confirm: confirmPendingTime, cancel: cancelPendingTime,
+  } = finishInput.pendingTime;
+  const {
+    flashedRowId, editingTimes, setEditingTimes,
     removeFinisher, toggleTiedWithPrevious, moveRowTo, reslotTimedRow,
-  } = finishEntry;
+    setNonFinisherCode,
+  } = rowOps;
+  const codeLabels = NON_FINISHER_CODE_LABELS;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

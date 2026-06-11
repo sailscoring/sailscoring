@@ -1,11 +1,31 @@
 'use client';
 
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { finishRepo } from '@/lib/api-repository';
 import type { Finish } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+
+/**
+ * Optimistic per-race cache patch: write the new shape immediately so the UI
+ * updates before the server round-trip resolves. Mutation onError rolls back
+ * by invalidating the query if the save fails. Every result-entry mutation
+ * path patches before it mutates — keep that ordering (the serialized
+ * `finishes` mutation scope depends on the cache leading the writes).
+ */
+export function useFinishCachePatch(raceId: string) {
+  const qc = useQueryClient();
+  return useCallback(
+    (updater: (rows: Finish[]) => Finish[]) => {
+      const key = queryKeys.finishes.byRace(raceId);
+      const prev = qc.getQueryData<Finish[]>(key) ?? [];
+      qc.setQueryData<Finish[]>(key, updater(prev));
+    },
+    [qc, raceId],
+  );
+}
 
 export function useFinishesByRace(raceId: string) {
   return useQuery<Finish[]>({

@@ -1,4 +1,4 @@
-import type { Finish, PenaltyCode, ResultCode } from './types';
+import type { Competitor, Finish, PenaltyCode, ResultCode } from './types';
 
 /** Build a fresh, fully-defaulted Finish row with the supplied overrides. */
 export function makeFinish(
@@ -256,4 +256,65 @@ export function reorderWithTies(
   next.splice(fromIndex, 1);
   next.splice(toIndex, 0, movedKey);
   return { keys: next, ties: nextTies };
+}
+
+// ─── Non-finisher view-model ─────────────────────────────────────────────────
+
+/** A non-finisher's displayed code: an explicit result code, or the implicit
+ *  DNC of a competitor with no row at all. */
+export type NonFinisherCode = ResultCode | 'implicit-dnc';
+
+export interface NonFinisherView {
+  competitor: Competitor;
+  code: NonFinisherCode;
+}
+
+/** Display labels for the non-finisher code dropdown, in menu order. */
+export const NON_FINISHER_CODE_LABELS: Record<NonFinisherCode, string> = {
+  'implicit-dnc': 'DNC (absent)',
+  // Common operational codes — shown first
+  DNS: 'DNS',
+  DNF: 'DNF',
+  OCS: 'OCS',
+  NSC: 'NSC',
+  RET: 'RET',
+  // Protest committee codes
+  DSQ: 'DSQ',
+  DNE: 'DNE',
+  UFD: 'UFD',
+  BFD: 'BFD',
+  // Explicit absence
+  DNC: 'DNC',
+  // Redress
+  RDG: 'RDG (redress)',
+};
+
+/** The competitor ids currently in the finishing order. */
+export function finishedCompetitorIds(finishingOrder: FinishEntry[]): Set<string> {
+  return new Set(
+    finishingOrder.flatMap((e) => (e.kind === 'known' ? [e.competitorId] : [])),
+  );
+}
+
+/** Every competitor not in the finishing order, with the code to display:
+ *  the explicit result code if one is recorded, DNF for a boat that was
+ *  checked in at the start, implicit DNC otherwise. */
+export function deriveNonFinishers(
+  competitors: Competitor[],
+  finishedIds: Set<string>,
+  nonFinisherCodes: Map<string, ResultCode>,
+  savedFinishes: Finish[] | undefined,
+): NonFinisherView[] {
+  return competitors
+    .filter((c) => !finishedIds.has(c.id))
+    .map((c) => {
+      const explicitCode = nonFinisherCodes.get(c.id);
+      const isPresent = savedFinishes?.some(
+        (f) => f.competitorId === c.id && f.startPresent === true,
+      );
+      return {
+        competitor: c,
+        code: explicitCode ?? (isPresent ? 'DNF' : 'implicit-dnc'),
+      };
+    });
 }
