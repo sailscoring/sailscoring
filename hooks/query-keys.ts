@@ -44,8 +44,8 @@ export const queryKeys = {
   raceStarts: {
     all: ['raceStarts'] as const,
     byRace: (raceId: string) => ['raceStarts', 'byRace', raceId] as const,
-    byRaces: (raceIds: string[]) =>
-      ['raceStarts', 'byRaces', [...raceIds].sort()] as const,
+    bySeries: (seriesId: string) =>
+      ['raceStarts', 'bySeries', seriesId] as const,
   },
   raceRatingOverrides: {
     all: ['raceRatingOverrides'] as const,

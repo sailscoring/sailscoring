@@ -14,14 +14,10 @@ export function useRaceStartsByRace(raceId: string) {
   });
 }
 
-export function useRaceStartsByRaces(raceIds: string[]) {
-  const enabled = raceIds.length > 0;
+export function useRaceStartsBySeries(seriesId: string) {
   return useQuery<RaceStart[]>({
-    queryKey: queryKeys.raceStarts.byRaces(raceIds),
-    queryFn: () => raceStartRepo.listByRaces(raceIds),
-    enabled,
-    // See useFinishesBySeries — same reason (#116).
-    initialData: enabled ? undefined : ([] as RaceStart[]),
+    queryKey: queryKeys.raceStarts.bySeries(seriesId),
+    queryFn: () => raceStartRepo.listBySeries(seriesId),
   });
 }
 

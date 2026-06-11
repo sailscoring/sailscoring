@@ -6,7 +6,7 @@ import { useCompetitorsBySeries } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useRacesBySeries } from '@/hooks/use-races';
 import { useFinishesBySeries } from '@/hooks/use-finishes';
-import { useRaceStartsByRaces } from '@/hooks/use-race-starts';
+import { useRaceStartsBySeries } from '@/hooks/use-race-starts';
 import { getDiscardCount, calculateFleetStandings } from '@/lib/scoring';
 import {
   defaultEnabledCompetitorFields,
@@ -40,13 +40,8 @@ export default function StandingsPage({
   const { data: competitors } = useCompetitorsBySeries(seriesId);
   const { data: fleets } = useFleetsBySeries(seriesId);
   const { data: races } = useRacesBySeries(seriesId);
-  const { data: allFinishes } = useFinishesBySeries(
-    seriesId,
-    (competitors ?? []).map((c) => c.id),
-  );
-  const { data: allRaceStarts } = useRaceStartsByRaces(
-    (races ?? []).map((r) => r.id),
-  );
+  const { data: allFinishes } = useFinishesBySeries(seriesId);
+  const { data: allRaceStarts } = useRaceStartsBySeries(seriesId);
 
   useGlobalKeyDown((e) => {
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')) return;

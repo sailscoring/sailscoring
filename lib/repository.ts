@@ -114,7 +114,9 @@ export interface FinishRepository {
 
 export interface RaceStartRepository {
   listByRace(raceId: string): Promise<RaceStart[]>;
-  listByRaces(raceIds: string[]): Promise<RaceStart[]>;
+  /** All starts across every race of the series — whole-series consumers
+   *  (standings, exports) use this instead of fanning out per race. */
+  listBySeries(seriesId: string): Promise<RaceStart[]>;
   save(raceStart: RaceStart, opts?: SaveOpts): Promise<RaceStart>;
   saveMany(raceStarts: RaceStart[], opts?: SaveOpts): Promise<void>;
   delete(id: string): Promise<void>;
@@ -124,6 +126,9 @@ export interface RaceStartRepository {
 
 export interface RaceRatingOverrideRepository {
   listByRaces(raceIds: string[]): Promise<RaceRatingOverride[]>;
+  /** All overrides across every race of the series — whole-series consumers
+   *  (standings, exports) use this instead of fanning out per race. */
+  listBySeries(seriesId: string): Promise<RaceRatingOverride[]>;
   saveMany(overrides: RaceRatingOverride[], opts?: SaveOpts): Promise<void>;
   delete(id: string): Promise<void>;
   deleteByRaces(raceIds: string[]): Promise<void>;

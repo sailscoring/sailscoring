@@ -187,9 +187,8 @@ class ApiRaceStartRepository implements RaceStartRepository {
     return apiFetch<RaceStart[]>(`/api/v1/races/${raceId}/starts`);
   }
 
-  async listByRaces(raceIds: string[]): Promise<RaceStart[]> {
-    const lists = await Promise.all(raceIds.map((id) => this.listByRace(id)));
-    return lists.flat();
+  listBySeries(seriesId: string): Promise<RaceStart[]> {
+    return apiFetch<RaceStart[]>(`/api/v1/series/${seriesId}/race-starts`);
   }
 
   save(s: RaceStart, opts?: SaveOpts): Promise<RaceStart> {
@@ -233,11 +232,17 @@ class ApiRaceStartRepository implements RaceStartRepository {
 }
 
 class ApiRaceRatingOverrideRepository implements RaceRatingOverrideRepository {
+  // Per-race reads (the ratings tab) pass a single id; whole-series readers
+  // use listBySeries below rather than fanning out per race.
   async listByRaces(raceIds: string[]): Promise<RaceRatingOverride[]> {
     const lists = await Promise.all(
       raceIds.map((id) => apiFetch<RaceRatingOverride[]>(`/api/v1/races/${id}/rating-overrides`)),
     );
     return lists.flat();
+  }
+
+  listBySeries(seriesId: string): Promise<RaceRatingOverride[]> {
+    return apiFetch<RaceRatingOverride[]>(`/api/v1/series/${seriesId}/rating-overrides`);
   }
 
   async saveMany(overrides: RaceRatingOverride[]): Promise<void> {
@@ -275,11 +280,12 @@ class ApiFinishRepository implements FinishRepository {
   }
 
   async listBySeries(seriesId: string, _competitorIds: string[]): Promise<Finish[]> {
+    // The series-scoped route returns every finish for the series' races in
+    // one response (unknown-sail rows included, like the per-race route);
+    // the competitorIds parameter exists for the Postgres implementation's
+    // tenancy-trust contract and is not needed here.
     void _competitorIds;
-    // Server side filters by series automatically; fan-out via races.
-    const races = await apiFetch<Race[]>(`/api/v1/series/${seriesId}/races`);
-    const lists = await Promise.all(races.map((r) => this.listByRace(r.id)));
-    return lists.flat();
+    return apiFetch<Finish[]>(`/api/v1/series/${seriesId}/finishes`);
   }
 
   save(f: Finish, opts?: SaveOpts): Promise<Finish> {

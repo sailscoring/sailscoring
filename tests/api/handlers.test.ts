@@ -730,4 +730,75 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
 
     await removeSeries(ctxA, seriesId);
   });
+
+  // ─── Series-scoped collections (#186) ──────────────────────────────────────
+
+  test('series-scoped finishes/starts/overrides collections aggregate across races; cross-workspace 404s', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'IRC', displayOrder: 0, scoringSystem: 'irc' as const,
+    });
+    const compId = uuid();
+    await competitors.putCompetitor(ctxA, seriesId, compId, {
+      id: compId, seriesId, fleetIds: [fleetId],
+      sailNumber: '7', name: 'Boat', club: '', gender: '' as const, age: null,
+      createdAt: Date.now(), ircTcc: 1.0,
+    });
+    const raceIds = [uuid(), uuid()];
+    for (const [i, raceId] of raceIds.entries()) {
+      await races.putRace(ctxA, seriesId, raceId, {
+        id: raceId, seriesId, raceNumber: i + 1, date: `2026-04-0${i + 1}`, createdAt: Date.now(),
+      });
+      await raceStarts.bulkPutRaceStarts(ctxA, raceId, {
+        starts: [{ id: uuid(), raceId, fleetIds: [fleetId], startTime: '11:00:00' }],
+      });
+      await finishes.bulkPutFinishes(ctxA, raceId, {
+        finishes: [
+          {
+            id: uuid(), raceId, competitorId: compId,
+            sortOrder: 1, resultCode: null, startPresent: true,
+            penaltyCode: null, penaltyOverride: null,
+            redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+            tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
+          },
+          // Unknown-sail crossing: the series-scoped route must include these
+          // null-competitor rows, matching the per-race route's shape.
+          {
+            id: uuid(), raceId, competitorId: null, unknownSailNumber: '999',
+            sortOrder: 2, resultCode: null, startPresent: null,
+            penaltyCode: null, penaltyOverride: null,
+            redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+            tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
+          },
+        ],
+      });
+      await raceRatingOverrides.bulkPutRaceRatingOverrides(ctxA, raceId, {
+        overrides: [{ id: uuid(), raceId, competitorId: compId, field: 'ircTcc' as const, value: 0.99 }],
+      });
+    }
+
+    const allFinishes = await finishes.listSeriesFinishes(ctxA, seriesId);
+    expect(allFinishes).toHaveLength(4);
+    expect(allFinishes.filter((f) => f.competitorId === null)).toHaveLength(2);
+    expect(new Set(allFinishes.map((f) => f.raceId))).toEqual(new Set(raceIds));
+
+    const allStarts = await raceStarts.listSeriesRaceStarts(ctxA, seriesId);
+    expect(allStarts).toHaveLength(2);
+    expect(new Set(allStarts.map((s) => s.raceId))).toEqual(new Set(raceIds));
+
+    const allOverrides = await raceRatingOverrides.listSeriesRaceRatingOverrides(ctxA, seriesId);
+    expect(allOverrides).toHaveLength(2);
+    expect(new Set(allOverrides.map((o) => o.raceId))).toEqual(new Set(raceIds));
+
+    // Tenancy: another workspace sees a 404, not an empty list.
+    await expect(finishes.listSeriesFinishes(ctxB, seriesId)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(raceStarts.listSeriesRaceStarts(ctxB, seriesId)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      raceRatingOverrides.listSeriesRaceRatingOverrides(ctxB, seriesId),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await removeSeries(ctxA, seriesId);
+  });
 });

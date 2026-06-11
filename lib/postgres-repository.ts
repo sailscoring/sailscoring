@@ -1181,6 +1181,22 @@ export class PostgresRaceStartRepository implements RaceStartRepository {
     return rows.map(raceStartRowToType);
   }
 
+  /** All starts across the series' races in one query; tenancy via the
+   *  parent races' workspace_id. */
+  async listBySeries(seriesId: string): Promise<RaceStart[]> {
+    const rows = await this.db
+      .select({ raceStart: schema.raceStarts })
+      .from(schema.raceStarts)
+      .innerJoin(schema.races, eq(schema.raceStarts.raceId, schema.races.id))
+      .where(
+        and(
+          eq(schema.races.seriesId, seriesId),
+          eq(schema.races.workspaceId, this.workspaceId),
+        ),
+      );
+    return rows.map((r) => raceStartRowToType(r.raceStart));
+  }
+
   async save(s: RaceStart, opts?: SaveOpts): Promise<RaceStart> {
     if (!(await isRaceInWorkspace(this.db, this.workspaceId, s.raceId))) {
       throw new Error(`race ${s.raceId} not in workspace`);
@@ -1289,6 +1305,22 @@ export class PostgresRaceRatingOverrideRepository implements RaceRatingOverrideR
       .from(schema.raceRatingOverrides)
       .where(inArray(schema.raceRatingOverrides.raceId, owned));
     return rows.map(raceRatingOverrideRowToType);
+  }
+
+  /** All overrides across the series' races in one query; tenancy via the
+   *  parent races' workspace_id. */
+  async listBySeries(seriesId: string): Promise<RaceRatingOverride[]> {
+    const rows = await this.db
+      .select({ override: schema.raceRatingOverrides })
+      .from(schema.raceRatingOverrides)
+      .innerJoin(schema.races, eq(schema.raceRatingOverrides.raceId, schema.races.id))
+      .where(
+        and(
+          eq(schema.races.seriesId, seriesId),
+          eq(schema.races.workspaceId, this.workspaceId),
+        ),
+      );
+    return rows.map((r) => raceRatingOverrideRowToType(r.override));
   }
 
   async saveMany(overrides: RaceRatingOverride[], opts?: SaveOpts): Promise<void> {
@@ -1410,6 +1442,25 @@ export class PostgresFinishRepository implements FinishRepository {
         ),
       );
     return rows.map(finishRowToType);
+  }
+
+  /** Every finish across the series' races in one query — including
+   *  unknown-sail rows (null competitorId), which `listBySeries`'s
+   *  competitor-id filter drops. Backs the series-scoped collection route,
+   *  whose shape must match the per-race route the client used to fan out
+   *  to. Tenancy via the parent races' workspace_id. */
+  async listAllBySeries(seriesId: string): Promise<Finish[]> {
+    const rows = await this.db
+      .select({ finish: schema.finishes })
+      .from(schema.finishes)
+      .innerJoin(schema.races, eq(schema.finishes.raceId, schema.races.id))
+      .where(
+        and(
+          eq(schema.races.seriesId, seriesId),
+          eq(schema.races.workspaceId, this.workspaceId),
+        ),
+      );
+    return rows.map((r) => finishRowToType(r.finish));
   }
 
   async save(f: Finish, opts?: SaveOpts): Promise<Finish> {

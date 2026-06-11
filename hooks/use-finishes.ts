@@ -14,16 +14,13 @@ export function useFinishesByRace(raceId: string) {
   });
 }
 
-export function useFinishesBySeries(seriesId: string, competitorIds: string[]) {
-  const enabled = competitorIds.length > 0;
+export function useFinishesBySeries(seriesId: string) {
   return useQuery<Finish[]>({
-    queryKey: [...queryKeys.finishes.bySeries(seriesId), [...competitorIds].sort()],
-    queryFn: () => finishRepo.listBySeries(seriesId, competitorIds),
-    enabled,
-    // When the input list is empty the query is disabled; without an initial
-    // value `data` stays undefined forever, which trips loading guards in
-    // callers like the Standings tab (see #116).
-    initialData: enabled ? undefined : ([] as Finish[]),
+    queryKey: queryKeys.finishes.bySeries(seriesId),
+    // The series-scoped endpoint needs no competitor ids, so the key is just
+    // the seriesId — no key churn when the competitor list changes (the
+    // mutation invalidations cover refresh).
+    queryFn: () => finishRepo.listBySeries(seriesId, []),
   });
 }
 

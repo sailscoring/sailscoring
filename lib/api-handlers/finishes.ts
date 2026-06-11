@@ -33,6 +33,19 @@ export async function listFinishes(
   return repos.finishes.listByRace(raceId);
 }
 
+/** Series-scoped collection: every finish across the series' races in one
+ *  response, so whole-series readers (standings, exports) don't fan out one
+ *  request per race. Includes unknown-sail rows, matching the per-race GET. */
+export async function listSeriesFinishes(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<Finish[]> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const series = await repos.series.get(seriesId);
+  if (!series) throw new NotFoundError('series');
+  return repos.finishes.listAllBySeries(seriesId);
+}
+
 export async function putFinish(
   workspace: WorkspaceContext,
   raceId: string,

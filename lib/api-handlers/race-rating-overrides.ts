@@ -39,6 +39,18 @@ export async function listRaceRatingOverrides(
   return repos.raceRatingOverrides.listByRaces([raceId]);
 }
 
+/** Series-scoped collection: every rating override across the series' races
+ *  in one response, so whole-series readers don't fan out per race. */
+export async function listSeriesRaceRatingOverrides(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<RaceRatingOverride[]> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const series = await repos.series.get(seriesId);
+  if (!series) throw new NotFoundError('series');
+  return repos.raceRatingOverrides.listBySeries(seriesId);
+}
+
 /** Bulk upsert. Body `{ overrides: RaceRatingOverride[] }`, all sharing raceId. */
 export async function bulkPutRaceRatingOverrides(
   workspace: WorkspaceContext,

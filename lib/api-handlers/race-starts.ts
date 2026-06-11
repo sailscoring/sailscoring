@@ -53,6 +53,18 @@ export async function listRaceStarts(
   return repos.raceStarts.listByRace(raceId);
 }
 
+/** Series-scoped collection: every start across the series' races in one
+ *  response, so whole-series readers don't fan out one request per race. */
+export async function listSeriesRaceStarts(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<RaceStart[]> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const series = await repos.series.get(seriesId);
+  if (!series) throw new NotFoundError('series');
+  return repos.raceStarts.listBySeries(seriesId);
+}
+
 export async function putRaceStart(
   workspace: WorkspaceContext,
   raceId: string,

@@ -235,20 +235,16 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
         patch: { defaultStartSequence: next.length > 0 ? next : undefined },
       });
     }
-    const races = await raceRepo.listBySeries(seriesId);
-    const raceIds = races.map((r) => r.id);
-    if (raceIds.length > 0) {
-      const allStarts = await raceStartRepo.listByRaces(raceIds);
-      const affected = allStarts.filter((s) => s.fleetIds.includes(fleet.id));
-      await Promise.all(
-        affected.map((s) => {
-          const remaining = s.fleetIds.filter((id) => id !== fleet.id);
-          return remaining.length === 0
-            ? deleteRaceStart.mutateAsync({ id: s.id, raceId: s.raceId })
-            : saveRaceStart.mutateAsync({ ...s, fleetIds: remaining });
-        }),
-      );
-    }
+    const allStarts = await raceStartRepo.listBySeries(seriesId);
+    const affected = allStarts.filter((s) => s.fleetIds.includes(fleet.id));
+    await Promise.all(
+      affected.map((s) => {
+        const remaining = s.fleetIds.filter((id) => id !== fleet.id);
+        return remaining.length === 0
+          ? deleteRaceStart.mutateAsync({ id: s.id, raceId: s.raceId })
+          : saveRaceStart.mutateAsync({ ...s, fleetIds: remaining });
+      }),
+    );
     await deleteFleetMutation.mutateAsync({ id: fleet.id, seriesId });
   }
 

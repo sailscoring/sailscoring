@@ -50,11 +50,10 @@ export async function loadSeriesSnapshot(
   const fleets = [...fleetsUnsorted].sort((a, b) => a.displayOrder - b.displayOrder);
   const races = [...racesUnsorted].sort((a, b) => a.raceNumber - b.raceNumber);
 
-  const raceIds = races.map((r) => r.id);
   const [finishes, raceStarts, ratingOverrides] = await Promise.all([
     repos.finishRepo.listBySeries(seriesId, competitors.map((c) => c.id)),
-    repos.raceStartRepo.listByRaces(raceIds),
-    repos.raceRatingOverrideRepo.listByRaces(raceIds),
+    repos.raceStartRepo.listBySeries(seriesId),
+    repos.raceRatingOverrideRepo.listBySeries(seriesId),
   ]);
 
   return { series, competitors, fleets, races, finishes, raceStarts, ratingOverrides };
