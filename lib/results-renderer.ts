@@ -1,4 +1,6 @@
 import type { ResultCode, PenaltyCode, CompetitorFieldKey, PrimaryPersonLabel } from './types';
+import { escapeHtml as esc } from './html';
+import { parseHmsToSeconds } from './time-parse';
 import {
   PRIMARY_PERSON_LABEL_TEXT,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -972,11 +974,6 @@ function formatIsoDate(iso: string): string {
 }
 
 /** Parse "HH:MM:SS" → total seconds */
-function parseTimeSecs(hms: string): number {
-  const [h, m, s] = hms.split(':').map(Number);
-  return h * 3600 + m * 60 + s;
-}
-
 /** Format integer seconds as H:MM:SS or M:SS */
 function formatDurationSecs(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -993,14 +990,6 @@ function formatCorrectedSecs(secs: number): string {
 }
 
 /** Escape HTML special characters */
-function esc(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 /** Ensure a link URL is absolute so it points outward rather than resolving
  *  relative to the results page. Sailwave (and scorers) often store a bare host
  *  like "www.hyc.ie" or "ilcaireland.com/event/"; prefix https:// when there's
@@ -1091,7 +1080,7 @@ export function assembleSeriesResultsData(
   const raceDataList: RaceData[] = races.map((race) => {
     const scoresForRace = raceScoresByRaceId.get(race.id) ?? new Map();
     const startTime = startTimeByRaceId.get(race.id);
-    const startSecs = startTime ? parseTimeSecs(startTime) : null;
+    const startSecs = startTime ? parseHmsToSeconds(startTime) ?? NaN : null;
     const results: RaceResultData[] = [];
 
     for (const [competitorId, score] of scoresForRace) {
@@ -1118,7 +1107,7 @@ export function assembleSeriesResultsData(
           tcc = score.tcfApplied;
         }
         if (tcc != null && score.finishTime) {
-          const finishSecs = parseTimeSecs(score.finishTime);
+          const finishSecs = parseHmsToSeconds(score.finishTime) ?? NaN;
           elapsedTimeSecs = finishSecs - startSecs;
           correctedTimeSecs = roundCorrectedSecs(elapsedTimeSecs, tcc);
         }

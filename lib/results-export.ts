@@ -11,11 +11,10 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
   DEFAULT_SUBDIVISION_LABEL,
 } from './competitor-fields';
+import { seriesSlug } from './series-name';
 import type { ResultCode, PenaltyCode } from './types';
 
-export function seriesSlug(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'series';
-}
+export { seriesSlug };
 
 /** Derive a per-fleet bilge slug from the bundle prefix. */
 export function fleetBilgeSlug(prefix: string, fleetName: string, isSingleDefault: boolean): string {

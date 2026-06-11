@@ -1,23 +1,9 @@
 import type { StartGroup } from './types';
+import { formatSecondsAsHms, parseHmsToSeconds } from './time-parse';
 
 /**
  * Parse a time string "HH:MM:SS" into total seconds since midnight.
  */
-function parseTime(time: string): number {
-  const [h, m, s] = time.split(':').map(Number);
-  return h * 3600 + m * 60 + s;
-}
-
-/**
- * Format total seconds since midnight into "HH:MM:SS".
- */
-function formatTime(totalSeconds: number): string {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
 /**
  * Generate race starts from a default start sequence and a first start time.
  *
@@ -34,14 +20,14 @@ export function generateStarts(
 ): { fleetIds: string[]; startTime: string }[] {
   if (groups.length === 0) return [];
 
-  const baseSeconds = parseTime(firstStartTime);
+  const baseSeconds = parseHmsToSeconds(firstStartTime) ?? NaN;
 
   let cumulativeMinutes = 0;
   return groups.map((group, i) => {
     if (i > 0) cumulativeMinutes += group.intervalMinutes;
     return {
       fleetIds: group.fleetIds,
-      startTime: formatTime(baseSeconds + cumulativeMinutes * 60),
+      startTime: formatSecondsAsHms(baseSeconds + cumulativeMinutes * 60),
     };
   });
 }

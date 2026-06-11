@@ -14,6 +14,7 @@ import {
 import { useFleetsBySeries, useSaveFleet } from '@/hooks/use-fleets';
 import { queryKeys } from '@/hooks/query-keys';
 import { isDuplicateSeriesName } from '@/lib/series-name';
+import { formatDayStamp } from '@/lib/format-date';
 import type { CompetitorFieldKey, PrimaryPersonLabel } from '@/lib/types';
 import { BasicsCard } from '@/components/series-settings/basics-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
@@ -489,17 +490,6 @@ type UpdateFlow =
   | { step: 'working' }
   | { step: 'error'; message: string };
 
-function formatTimestamp(ts: number): string {
-  const d = new Date(ts);
-  const now = new Date();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  if (d.toDateString() === now.toDateString()) return `today at ${time}`;
-  if (d.toDateString() === yesterday.toDateString()) return `yesterday at ${time}`;
-  return d.toLocaleDateString();
-}
-
 /**
  * Series lifecycle (#154). Archiving makes the series read-only and collapses
  * it into the home Archived section; delete is gated behind archiving first
@@ -733,7 +723,7 @@ export default function SettingsPage({
           <h2 className="text-sm font-medium">File</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
             {series.lastSavedAt
-              ? <>Last saved: {formatTimestamp(series.lastSavedAt)}{isModified && <span className="ml-2 text-amber-600 dark:text-amber-400">· modified since last save</span>}</>
+              ? <>Last saved: {formatDayStamp(series.lastSavedAt)}{isModified && <span className="ml-2 text-amber-600 dark:text-amber-400">· modified since last save</span>}</>
               : 'Not saved to file'}
           </p>
         </div>
@@ -857,7 +847,7 @@ export default function SettingsPage({
                 {updateFlow.step === 'confirm' && (
                   <div className="text-sm">
                     <p>This file: saved {new Date(updateFlow.file.exportedAt).toLocaleString()}</p>
-                    <p>Workspace copy: last modified {formatTimestamp(series.lastModifiedAt)}</p>
+                    <p>Workspace copy: last modified {formatDayStamp(series.lastModifiedAt)}</p>
                   </div>
                 )}
               </div>

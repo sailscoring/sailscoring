@@ -12,15 +12,8 @@
  * footer) so a listing and a results page feel like one site.
  */
 
-/** HTML-escape for text and attribute interpolation. Mirrors the private
- *  helper in `results-renderer.ts`. */
-function esc(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import { formatShortDate as formatDate } from './format-date';
+import { escapeHtml as esc } from './html';
 
 /** A published series as shown in the workspace listing. */
 export interface WorkspaceIndexItem {
@@ -161,14 +154,6 @@ ${body}
 ${FOOTER}
 </body>
 </html>`;
-}
-
-function formatDate(ms: number): string {
-  return new Date(ms).toLocaleDateString('en-IE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
 }
 
 /**

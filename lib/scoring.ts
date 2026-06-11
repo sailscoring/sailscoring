@@ -1,5 +1,6 @@
 import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates } from './types';
 import { getCodeDefinition } from './scoring-codes';
+import { parseHmsToSeconds } from './time-parse';
 
 export const ECHO_DEFAULT_ALPHA = 0.25;  // Irish Sailing 2022 ECHO Guide: 75/25 club racing
 export const ECHO_REGATTA_ALPHA = 0.50;  // Irish Sailing 2022 ECHO Guide: 50/50 regattas/major events
@@ -264,18 +265,6 @@ function getTCF(competitor: Competitor, fleet: Fleet): number | null {
 }
 
 /**
- * Parse an "HH:MM:SS" time string into seconds-since-midnight.
- * Returns null if the string is missing or malformed.
- */
-function parseTimeToSeconds(t: string | undefined): number | null {
-  if (!t) return null;
-  const parts = t.split(':').map(Number);
-  if (parts.length !== 3 || parts.some(isNaN)) return null;
-  const [h, m, s] = parts;
-  return h * 3600 + m * 60 + s;
-}
-
-/**
  * Phase A — race scoring. Calculates per-race scores for a time-corrected fleet
  * (IRC, PY, or any progressive system) using time-on-time correction:
  *
@@ -312,7 +301,7 @@ export function calculateHandicapRaceScores(
   appliedTcfByCompetitorId: Map<string, number>,
   dnfScoring: DnfScoring = 'seriesEntries',
 ): { scores: Map<string, HandicapRaceScore> } {
-  const startSeconds = parseTimeToSeconds(raceStart.startTime);
+  const startSeconds = parseHmsToSeconds(raceStart.startTime);
 
   const n = competitors.length;
   const seriesEntryPenalty = n + 1;
@@ -368,7 +357,7 @@ export function calculateHandicapRaceScores(
       candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: tcf, resultCode: finish.resultCode, isFinisher: false });
       continue;
     }
-    const finishSeconds = parseTimeToSeconds(finish.finishTime);
+    const finishSeconds = parseHmsToSeconds(finish.finishTime);
     if (finishSeconds === null || startSeconds === null) {
       candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: tcf, resultCode: 'DNF', isFinisher: false });
       continue;

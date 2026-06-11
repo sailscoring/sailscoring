@@ -19,7 +19,7 @@ import {
 } from './competitor-fields';
 import { calculateFleetStandings } from './scoring';
 import { loadSeriesSnapshot } from './series-snapshot';
-import { disambiguateSeriesName } from './series-name';
+import { disambiguateSeriesName, seriesSlug } from './series-name';
 import type {
   CompetitorRepository,
   FinishRepository,
@@ -422,7 +422,7 @@ export async function saveSeriesFile(
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = slugify(series.name) + FILE_EXTENSION;
+  a.download = seriesSlug(series.name) + FILE_EXTENSION;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -858,11 +858,3 @@ async function writeFleetsCompetitorsRaces(
   // file-export path, which now recomputes via calculateFleetStandings.
 }
 
-function slugify(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'series'
-  );
-}

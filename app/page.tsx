@@ -28,6 +28,7 @@ import { formatRelativeTime } from '@/lib/relative-time';
 import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
+import { formatSaveDate } from '@/lib/format-date';
 import { KeyboardHelp } from '@/components/keyboard-help';
 import { useFeatures } from '@/components/features-provider';
 import {
@@ -84,18 +85,6 @@ type OpenFlow =
   | { step: 'confirm-update'; file: SeriesFile; existing: Series }
   | { step: 'working' }
   | { step: 'error'; message: string };
-
-function formatSaveDate(ts: number): string {
-  const d = new Date(ts);
-  const now = new Date();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === now.toDateString())
-    return `last saved today at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  if (d.toDateString() === yesterday.toDateString())
-    return `last saved yesterday`;
-  return `last saved ${d.toLocaleDateString()}`;
-}
 
 function SeriesCard({
   series,

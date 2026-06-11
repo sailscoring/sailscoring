@@ -1,4 +1,5 @@
 import { promises as fs } from 'node:fs';
+import { escapeHtmlAttr as escapeHtml } from '../html';
 import path from 'node:path';
 
 const FROM_DEFAULT = 'Sail Scoring <noreply@sailscoring.ie>';
@@ -21,15 +22,6 @@ const STEALTH_BETA_HTML = `
   While we're still iterating, accounts created outside our trial cohort may
   be deleted (with a copy of your data emailed back) after a couple of weeks.
 </p>`;
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 export function renderMagicLinkText(args: { to: string; url: string; isNewUser: boolean }): string {
   return `Hi,

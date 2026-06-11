@@ -48,3 +48,10 @@ export function disambiguateSeriesName(baseName: string, existing: Iterable<stri
   while (existingNorm.has(normalizeSeriesName(`${root} (${n})`))) n++;
   return `${root} (${n})`;
 }
+
+/** Lowercase/strip/hyphenate a series name for filenames and published URLs.
+ *  Identical behaviour matters in both: a saved file and its published page
+ *  must agree on the slug. */
+export function seriesSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'series';
+}
