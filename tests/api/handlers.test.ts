@@ -126,28 +126,70 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await expect(series.getSeries(ctxA, id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  test('series: PUT round-trips every optional / default-true field', async () => {
-    // The booleans below default to `true` on save, so a field dropped in the
-    // putSeries merge is silently coerced back to `true` (the showPerRace bug).
-    // Set them `false` and the other optionals to non-defaults so any dropped
-    // field surfaces as a failed round-trip rather than hiding behind a default.
+  test('series: PUT round-trips every persisted field', async () => {
+    // Every field is set to a non-default value so a field dropped between
+    // the input schema and the saved row surfaces as a failed round-trip
+    // rather than hiding behind a default (the showPerRace bug, generalised).
+    // This is the regression net for putSeries's spread-of-validated-input.
     const id = uuid();
     const input = {
       ...sampleSeries(id),
+      name: 'Round Trip Regatta',
+      venue: 'Howth',
+      startDate: '2026-05-01',
+      endDate: '2026-05-30',
+      venueLogoUrl: 'https://example.test/venue.png',
+      eventLogoUrl: 'https://example.test/event.png',
+      venueUrl: 'https://example.test/venue',
+      eventUrl: 'https://example.test/event',
+      lastSavedAt: 1_700_000_000_000,
+      scoringMode: 'handicap' as const,
+      defaultStartSequence: [{ fleetIds: [], intervalMinutes: 5 }],
+      discardThresholds: [{ minRaces: 4, discardCount: 1 }],
+      dnfScoring: 'startingArea' as const,
+      ftpHost: 'ftp.example.test',
+      ftpPath: '/results/legacy.html',
+      ftpPaths: { 'fleet-1': '/results/fleet-1.html' },
       includeJsonExport: false,
       publishRatingCalculations: false,
       showPerRaceRatingsInSummary: false,
-      defaultStartSequence: [{ fleetIds: [], intervalMinutes: 5 }],
+      enabledCompetitorFields: ['boatName', 'club', 'crewName'],
+      primaryPersonLabel: 'owner' as const,
       subdivisionLabel: 'Class',
+      source: 'sailwave' as const,
     };
     await series.putSeries(ctxA, id, input);
 
     const got = await series.getSeries(ctxA, id);
-    expect(got.includeJsonExport).toBe(false);
-    expect(got.publishRatingCalculations).toBe(false);
-    expect(got.showPerRaceRatingsInSummary).toBe(false);
-    expect(got.defaultStartSequence).toEqual(input.defaultStartSequence);
-    expect(got.subdivisionLabel).toBe('Class');
+    expect(got).toMatchObject({
+      name: 'Round Trip Regatta',
+      venue: 'Howth',
+      startDate: '2026-05-01',
+      endDate: '2026-05-30',
+      venueLogoUrl: 'https://example.test/venue.png',
+      eventLogoUrl: 'https://example.test/event.png',
+      venueUrl: 'https://example.test/venue',
+      eventUrl: 'https://example.test/event',
+      lastSavedAt: 1_700_000_000_000,
+      scoringMode: 'handicap',
+      defaultStartSequence: input.defaultStartSequence,
+      discardThresholds: input.discardThresholds,
+      dnfScoring: 'startingArea',
+      ftpHost: 'ftp.example.test',
+      ftpPath: '/results/legacy.html',
+      ftpPaths: { 'fleet-1': '/results/fleet-1.html' },
+      includeJsonExport: false,
+      publishRatingCalculations: false,
+      showPerRaceRatingsInSummary: false,
+      enabledCompetitorFields: ['boatName', 'club', 'crewName'],
+      primaryPersonLabel: 'owner',
+      subdivisionLabel: 'Class',
+      source: 'sailwave',
+      categoryId: null,
+      archived: false,
+    });
+    expect(got.createdAt).toBe(input.createdAt);
+    expect(got.lastModifiedAt).toBe(input.lastModifiedAt);
 
     await removeSeries(ctxA, id);
   });

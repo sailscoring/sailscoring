@@ -109,6 +109,14 @@ export const seriesInputSchema = seriesSchema.extend({
   id: uuidSchema.optional(),
 });
 
+// Drift guard: the parsed input must remain assignable to `Series` (minus the
+// optional id), so `putSeries` can spread it without a field-by-field copy.
+// A schema field that loosens away from `lib/types.ts` becomes a type error
+// here instead of silent data loss on every settings save.
+type SeriesInput = z.infer<typeof seriesInputSchema>;
+type AssertAssignable<T extends U, U> = T;
+type _SeriesInputMatchesSeries = AssertAssignable<SeriesInput, Omit<Series, 'id'> & { id?: string }>;
+
 // ─── Type-fidelity guard ─────────────────────────────────────────────────────
 // If the Zod schema drifts from the TS interface in `lib/types.ts`, one of
 // these assignments will fail the typecheck. Both directions catch addition

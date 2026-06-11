@@ -58,36 +58,16 @@ export async function putSeries(
   // endpoint (`setSeriesArchived`) and bypasses this path.
   const existing = await repos.series.get(id);
   if (existing?.archived) throw new ArchivedError();
-  const now = Date.now();
-  // Defaults for the file-tracking fields when missing on input. Clients
-  // are expected to round-trip these, but new-series creation can be
-  // sparse and the server fills the rest.
+  // Spread the validated input rather than hand-copying field by field — a
+  // field accepted by the schema but dropped here would silently disappear
+  // on every settings save (the Feature Checklist's data-loss hazard). The
+  // schema↔type drift guard lives next to seriesInputSchema, so this spread
+  // stays total by construction. displayOrder and version ride along
+  // harmlessly: the repository ignores both on save (displayOrder is
+  // server-managed; version flows via expectedVersion).
   const merged: Series = {
+    ...input,
     id,
-    name: input.name,
-    venue: input.venue,
-    startDate: input.startDate,
-    endDate: input.endDate,
-    venueLogoUrl: input.venueLogoUrl,
-    eventLogoUrl: input.eventLogoUrl,
-    venueUrl: input.venueUrl,
-    eventUrl: input.eventUrl,
-    createdAt: input.createdAt ?? now,
-    lastSavedAt: input.lastSavedAt ?? null,
-    lastModifiedAt: input.lastModifiedAt ?? now,
-    scoringMode: input.scoringMode,
-    defaultStartSequence: input.defaultStartSequence,
-    discardThresholds: input.discardThresholds,
-    dnfScoring: input.dnfScoring,
-    ftpHost: input.ftpHost,
-    ftpPath: input.ftpPath,
-    ftpPaths: input.ftpPaths,
-    includeJsonExport: input.includeJsonExport,
-    publishRatingCalculations: input.publishRatingCalculations,
-    showPerRaceRatingsInSummary: input.showPerRaceRatingsInSummary,
-    enabledCompetitorFields: input.enabledCompetitorFields,
-    primaryPersonLabel: input.primaryPersonLabel,
-    subdivisionLabel: input.subdivisionLabel,
     // Round-trip the series-list organisation fields (#154) so a full save
     // doesn't wipe them. The archive *toggle* has its own endpoint; category
     // moves have their own too — but both must survive an ordinary PUT.
