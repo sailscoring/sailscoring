@@ -1,20 +1,17 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   Archive,
   ArchiveRestore,
   ChevronDown,
   ChevronRight,
   FolderInput,
-  Loader2,
   MoreVertical,
   Trash2,
 } from 'lucide-react';
-import * as repos from '@/lib/api-repository';
 import {
   useSeriesList,
   useDeleteSeriesCascade,
@@ -25,12 +22,12 @@ import {
 import { useCategories } from '@/hooks/use-categories';
 import { useRecentActivity } from '@/hooks/use-activity';
 import { formatRelativeTime } from '@/lib/relative-time';
-import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { formatSaveDate } from '@/lib/format-date';
 import { KeyboardHelp } from '@/components/keyboard-help';
-import { useFeatures } from '@/components/features-provider';
+import { OpenSeriesFlow } from '@/components/open-series-flow';
+import { useOpenSeriesFile } from '@/hooks/use-open-series-file';
 import {
   Dialog,
   DialogContent,
@@ -39,15 +36,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { SortableList, DragHandle, type SortableRenderProps } from '@/components/ui/sortable-list';
 import {
   DropdownMenu,
@@ -66,25 +54,6 @@ import {
   groupArchivedByYear,
 } from '@/lib/series-list';
 import type { ActivityEntry, Category, Series } from '@/lib/types';
-import {
-  parseSeriesFile,
-  openSeriesFromFile,
-  updateSeriesFromFile,
-  type SeriesFile,
-} from '@/lib/series-file';
-import { parseSailwaveBlw, SailwaveImportError } from '@/lib/sailwave-import';
-import { SAILWAVE_HANDOFF_KEY } from '@/app/series/import-sailwave/page';
-
-type ImportFormat = 'sailscoring' | 'sailwave';
-
-type OpenFlow =
-  | { step: 'idle' }
-  | { step: 'choose-format' }
-  | { step: 'confirm-new'; file: SeriesFile; categoryId: string | null }
-  | { step: 'disambiguate'; file: SeriesFile; existing: Series }
-  | { step: 'confirm-update'; file: SeriesFile; existing: Series }
-  | { step: 'working' }
-  | { step: 'error'; message: string };
 
 function SeriesCard({
   series,
@@ -203,9 +172,6 @@ function SeriesCard({
 
 export default function HomePage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { has } = useFeatures();
-  const { seriesRepo } = repos;
   const { data: seriesList } = useSeriesList();
   const { data: categories } = useCategories();
   const { data: recentById } = useRecentActivity();
@@ -216,9 +182,7 @@ export default function HomePage() {
   const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
-  const [openFlow, setOpenFlow] = useState<OpenFlow>({ step: 'idle' });
-  const [importFormat, setImportFormat] = useState<ImportFormat>('sailscoring');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const openFlow = useOpenSeriesFile();
 
   // No description: the dialog's static Global section documents `?` itself.
   useShortcuts([{ key: '?', handler: () => setShowHelp(true) }]);
@@ -241,152 +205,6 @@ export default function HomePage() {
   function handleMove(series: Series, categoryId: string | null) {
     setSeriesCategory.mutate({ id: series.id, categoryId });
   }
-
-  function handleImportSeriesClick() {
-    setOpenFlow({ step: 'choose-format' });
-  }
-
-  function handleFormatChosen(format: ImportFormat) {
-    setImportFormat(format);
-    setOpenFlow({ step: 'idle' });
-    // Defer the picker open one tick so the dialog has finished closing —
-    // some browsers swallow the .click() if it fires during the dialog
-    // unmount animation.
-    setTimeout(() => fileInputRef.current?.click(), 0);
-  }
-
-  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-
-    if (importFormat === 'sailwave') {
-      try {
-        const bytes = await file.arrayBuffer();
-        const raw = parseSailwaveBlw(bytes);
-        sessionStorage.setItem(
-          SAILWAVE_HANDOFF_KEY,
-          JSON.stringify({ fileName: file.name, raw }),
-        );
-        router.push('/series/import-sailwave');
-      } catch (err) {
-        setOpenFlow({
-          step: 'error',
-          message: err instanceof SailwaveImportError
-            ? err.message
-            : `Could not read Sailwave file: ${(err as Error).message}`,
-        });
-      }
-      return;
-    }
-
-    let parsed: SeriesFile;
-    try {
-      const content = await file.text();
-      parsed = parseSeriesFile(content);
-    } catch (err) {
-      setOpenFlow({
-        step: 'error',
-        message: err instanceof Error ? err.message : 'Could not read file.',
-      });
-      return;
-    }
-
-    setOpenFlow({ step: 'working' });
-
-    try {
-      // Check if a series with the same seriesId already exists
-      const all = await seriesRepo.list();
-      const existing = all.find((s) => s.id === parsed.seriesId);
-
-      if (!existing) {
-        // No match — open as new. When the workspace has categories, pause on
-        // a confirm step so the scorer can file it (and eyeball the details);
-        // otherwise open straight through to keep the common case one-click.
-        if ((categories?.length ?? 0) > 0) {
-          setOpenFlow({ step: 'confirm-new', file: parsed, categoryId: null });
-          return;
-        }
-        await openNewFromFile(parsed, null);
-        return;
-      }
-
-      setOpenFlow({ step: 'disambiguate', file: parsed, existing });
-    } catch (err) {
-      console.error(err);
-      setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
-    }
-  }
-
-  // Open a parsed file as a brand-new series, optionally filed under a category.
-  // No invalidateQueries: the navigation unmounts this page, aborting the
-  // refetch and logging a "Failed to fetch" console.error that the e2e
-  // console-monitor treats as a failure. The new series's own pages refetch
-  // what they need on mount.
-  async function openNewFromFile(file: SeriesFile, categoryId: string | null) {
-    setOpenFlow({ step: 'working' });
-    try {
-      const newId = await openSeriesFromFile(file, repos, { categoryId });
-      router.push(`/series/${newId}/races`);
-    } catch (err) {
-      console.error(err);
-      setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
-    }
-  }
-
-  async function handleDisambiguate(choice: 'update' | 'new-copy') {
-    if (openFlow.step !== 'disambiguate') return;
-    const { file, existing } = openFlow;
-
-    if (choice === 'new-copy') {
-      setOpenFlow({ step: 'working' });
-      try {
-        const newId = await openSeriesFromFile(file, repos);
-        router.push(`/series/${newId}/races`);
-      } catch (err) {
-        console.error(err);
-        setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
-      }
-      return;
-    }
-
-    setOpenFlow({ step: 'confirm-update', file, existing });
-  }
-
-  async function handleConfirmUpdate(asNewCopy: boolean) {
-    if (openFlow.step !== 'confirm-update') return;
-    const { file, existing } = openFlow;
-    setOpenFlow({ step: 'working' });
-    try {
-      if (asNewCopy) {
-        const newId = await openSeriesFromFile(file, repos);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
-        router.push(`/series/${newId}/races`);
-      } else {
-        await updateSeriesFromFile(existing.id, file, repos);
-        // The file-replay path bypasses the React Query cache; force every
-        // affected query to refetch before we route to the next page.
-        await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(existing.id) });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(existing.id) });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.competitors.bySeries(existing.id) });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.races.bySeries(existing.id) });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.finishes.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.raceStarts.all });
-        router.push(`/series/${existing.id}/races`);
-      }
-    } catch (err) {
-      console.error(err);
-      setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
-    }
-  }
-
-  const flowFile = openFlow.step === 'disambiguate' || openFlow.step === 'confirm-update'
-    ? openFlow.file
-    : null;
-  const flowExisting = openFlow.step === 'disambiguate' || openFlow.step === 'confirm-update'
-    ? openFlow.existing
-    : null;
 
   const cats = categories ?? [];
   const allSeries = seriesList ?? [];
@@ -443,7 +261,7 @@ export default function HomePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Series</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleImportSeriesClick}>
+          <Button variant="outline" onClick={openFlow.start}>
             Import Series
           </Button>
           <Button asChild>
@@ -463,7 +281,7 @@ export default function HomePage() {
             Create your first series
           </Link>{' '}
           or{' '}
-          <button className="underline" onClick={handleImportSeriesClick}>
+          <button className="underline" onClick={openFlow.start}>
             import a series file
           </button>
           {' '}to get started.
@@ -521,125 +339,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept={importFormat === 'sailwave' ? '.blw' : '.sailscoring,application/json'}
-        className="hidden"
-        onChange={handleFileSelected}
-      />
-
-      {/* Format-choice dialog (first step of Import) */}
-      <Dialog
-        open={openFlow.step === 'choose-format'}
-        onOpenChange={(open) => { if (!open) setOpenFlow({ step: 'idle' }); }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Import Series</DialogTitle>
-            <DialogDescription>What kind of file would you like to import?</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <button
-              type="button"
-              data-testid="import-format-sailscoring"
-              className="w-full text-left border rounded-lg px-4 py-3 hover:bg-accent/50 transition-colors"
-              onClick={() => handleFormatChosen('sailscoring')}
-            >
-              <div className="font-medium">Sail Scoring file</div>
-              <div className="text-sm text-muted-foreground">A <span className="font-mono">.sailscoring</span> file saved from this app.</div>
-            </button>
-            {has('sailwave-import') && (
-              <button
-                type="button"
-                data-testid="import-format-sailwave"
-                className="w-full text-left border rounded-lg px-4 py-3 hover:bg-accent/50 transition-colors"
-                onClick={() => handleFormatChosen('sailwave')}
-              >
-                <div className="font-medium">Sailwave file</div>
-                <div className="text-sm text-muted-foreground">A <span className="font-mono">.blw</span> series file from Sailwave.</div>
-              </button>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenFlow({ step: 'idle' })}>
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirm new-series import (.sailscoring) — pick a category */}
-      <Dialog
-        open={openFlow.step === 'confirm-new'}
-        onOpenChange={(open) => { if (!open) setOpenFlow({ step: 'idle' }); }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Import &ldquo;{openFlow.step === 'confirm-new' ? openFlow.file.series.name : ''}&rdquo;?
-            </DialogTitle>
-            <DialogDescription>
-              This will open the file as a new series in your scoring app.
-            </DialogDescription>
-          </DialogHeader>
-          {openFlow.step === 'confirm-new' && (
-            <div className="space-y-4">
-              <div className="space-y-2 text-sm">
-                {openFlow.file.series.venue && (
-                  <div>
-                    <span className="text-muted-foreground">Venue:</span> {openFlow.file.series.venue}
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">{openFlow.file.competitors.length} competitors</Badge>
-                  <Badge variant="secondary">{openFlow.file.races.length} races</Badge>
-                  <Badge variant="secondary">{openFlow.file.fleets.length} fleets</Badge>
-                  <Badge variant="outline">
-                    Saved {new Date(openFlow.file.exportedAt).toLocaleDateString()}
-                  </Badge>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="import-category">Category</Label>
-                <Select
-                  value={openFlow.categoryId ?? 'none'}
-                  onValueChange={(v) =>
-                    setOpenFlow((prev) =>
-                      prev.step === 'confirm-new'
-                        ? { ...prev, categoryId: v === 'none' ? null : v }
-                        : prev,
-                    )
-                  }
-                >
-                  <SelectTrigger id="import-category" className="w-full" data-testid="import-category">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Uncategorized</SelectItem>
-                    {(categories ?? []).map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenFlow({ step: 'idle' })}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (openFlow.step !== 'confirm-new') return;
-                openNewFromFile(openFlow.file, openFlow.categoryId);
-              }}
-            >
-              Open series
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <OpenSeriesFlow flow={openFlow} />
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
 
@@ -664,105 +364,6 @@ export default function HomePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Disambiguate dialog */}
-      <Dialog
-        open={openFlow.step === 'disambiguate'}
-        onOpenChange={(open) => { if (!open) setOpenFlow({ step: 'idle' }); }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>&ldquo;{flowExisting?.name}&rdquo; is already in your workspace</DialogTitle>
-            <DialogDescription>
-              The file you opened and the copy in your workspace are the same series.
-              What would you like to do?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenFlow({ step: 'idle' })}>
-              Cancel
-            </Button>
-            <Button variant="outline" onClick={() => handleDisambiguate('new-copy')}>
-              Open as a new copy
-            </Button>
-            <Button onClick={() => handleDisambiguate('update')}>
-              Update the workspace copy
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirm update-from-file dialog */}
-      <Dialog
-        open={openFlow.step === 'confirm-update'}
-        onOpenChange={(open) => { if (!open) setOpenFlow({ step: 'idle' }); }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update &ldquo;{flowExisting?.name}&rdquo; from file?</DialogTitle>
-            <DialogDescription asChild>
-              <div className="space-y-2">
-                <p>
-                  Your workspace copy will be replaced with the contents of this file.
-                  This cannot be undone.
-                </p>
-                {flowFile && flowExisting && (
-                  <div className="text-sm">
-                    <p>This file: saved {new Date(flowFile.exportedAt).toLocaleString()}</p>
-                    <p>Workspace copy: last modified {new Date(flowExisting.lastModifiedAt).toLocaleString()}</p>
-                  </div>
-                )}
-              </div>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenFlow({ step: 'idle' })}>
-              Cancel
-            </Button>
-            <Button variant="outline" onClick={() => handleConfirmUpdate(true)}>
-              Open as a new copy
-            </Button>
-            <Button onClick={() => handleConfirmUpdate(false)}>Update</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Working dialog */}
-      <Dialog open={openFlow.step === 'working'}>
-        <DialogContent
-          showCloseButton={false}
-          onEscapeKeyDown={(e) => e.preventDefault()}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle>Opening series…</DialogTitle>
-            <DialogDescription>
-              Loading the series file. This may take a moment for large series.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-center py-2">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Error dialog */}
-      <Dialog
-        open={openFlow.step === 'error'}
-        onOpenChange={(open) => { if (!open) setOpenFlow({ step: 'idle' }); }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Could not open file</DialogTitle>
-            <DialogDescription>
-              {openFlow.step === 'error' ? openFlow.message : ''}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => setOpenFlow({ step: 'idle' })}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
