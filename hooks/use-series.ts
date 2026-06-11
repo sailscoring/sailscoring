@@ -18,6 +18,7 @@ import { ConflictApiError } from '@/lib/api-client';
 import type { Series } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+import { useVersionedSave } from './use-versioned-save';
 
 /**
  * Save a series row, retrying once on a version conflict with a re-read row.
@@ -67,21 +68,18 @@ export function useSeries(
 }
 
 export function useSaveSeries() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (series: Series) => {
-      // Pull `version` from the cached row to drive optimistic concurrency.
-      const cached = qc.getQueryData<Series | null>(queryKeys.series.detail(series.id));
-      return saveSeriesRetrying(series.id, series, cached?.version, () => series);
-    },
-    onSuccess: (saved) => {
+  return useVersionedSave<Series>({
+    listKey: (series) => queryKeys.series.detail(series.id),
+    // The detail cache holds a single row, not a list.
+    readCachedVersion: (qc, series) =>
+      qc.getQueryData<Series | null>(queryKeys.series.detail(series.id))?.version,
+    save: (series, opts) =>
+      saveSeriesRetrying(series.id, series, opts.expectedVersion, () => series),
+    scopeId: 'series',
+    onSaved: (qc, saved) => {
       qc.setQueryData(queryKeys.series.detail(saved.id), saved);
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });
     },
-    // Serialize series writes so a rapid second mutate sees the cache update
-    // from the first's onSuccess and sends the fresh `expectedVersion`. Without
-    // this, two parallel mutates both read V0 and the second 409s.
-    scope: { id: 'series' },
   });
 }
 

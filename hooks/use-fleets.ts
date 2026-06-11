@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { fleetRepo, ensureFleet, pruneFleet } from '@/lib/api-repository';
+import { useVersionedSave } from './use-versioned-save';
 import type { Fleet } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
@@ -15,25 +16,17 @@ export function useFleetsBySeries(seriesId: string) {
 }
 
 export function useSaveFleet() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (fleet: Fleet) => {
-      // The fleets list is the only cached source — there's no per-fleet
-      // detail query — so we look up `version` from the list.
-      const list = qc.getQueryData<Fleet[]>(queryKeys.fleets.bySeries(fleet.seriesId));
-      const cached = list?.find((f) => f.id === fleet.id);
-      return fleetRepo.save(fleet, { expectedVersion: cached?.version });
-    },
-    onSuccess: async (saved) => {
+  return useVersionedSave<Fleet>({
+    listKey: (fleet) => queryKeys.fleets.bySeries(fleet.seriesId),
+    save: (fleet, opts) => fleetRepo.save(fleet, opts),
+    scopeId: 'fleets',
+    onSaved: async (qc, saved) => {
       qc.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(saved.seriesId) });
       // Every child write bumps the series row's lastModifiedAt + version
       // server-side. Await the series refetch so a caller that proceeds to a
       // series settings save reads a fresh expectedVersion, not a stale 409.
       await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
-    // Serialize so a rapid second save sees the cache update from the first
-    // and sends the fresh `expectedVersion`. See useSaveSeries for context.
-    scope: { id: 'fleets' },
   });
 }
 

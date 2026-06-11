@@ -6,6 +6,7 @@ import { raceRepo } from '@/lib/api-repository';
 import type { Race } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+import { useVersionedSave } from './use-versioned-save';
 
 export function useRacesBySeries(seriesId: string) {
   return useQuery<Race[]>({
@@ -22,17 +23,20 @@ export function useRace(raceId: string) {
 }
 
 export function useSaveRace() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (race: Race) => {
-      const cached =
+  return useVersionedSave<Race>({
+    listKey: (race) => queryKeys.races.bySeries(race.seriesId),
+    // The per-race detail cache is fresher than the series list when both
+    // exist (the result-entry page keeps it warm) — prefer it.
+    readCachedVersion: (qc, race) =>
+      (
         qc.getQueryData<Race | null>(queryKeys.races.detail(race.id)) ??
         qc
           .getQueryData<Race[]>(queryKeys.races.bySeries(race.seriesId))
-          ?.find((r) => r.id === race.id);
-      return raceRepo.save(race, { expectedVersion: cached?.version });
-    },
-    onSuccess: async (saved) => {
+          ?.find((r) => r.id === race.id)
+      )?.version,
+    save: (race, opts) => raceRepo.save(race, opts),
+    scopeId: 'races',
+    onSaved: async (qc, saved) => {
       qc.setQueryData(queryKeys.races.detail(saved.id), saved);
       qc.invalidateQueries({ queryKey: queryKeys.races.bySeries(saved.seriesId) });
       // Every child write bumps the series row's lastModifiedAt + version
@@ -40,9 +44,6 @@ export function useSaveRace() {
       // series settings save reads a fresh expectedVersion, not a stale 409.
       await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
-    // Serialize so a rapid second save sees the cache update from the first
-    // and sends the fresh `expectedVersion`. See useSaveSeries for context.
-    scope: { id: 'races' },
   });
 }
 

@@ -11,6 +11,7 @@ import {
 import type { AuditStamp, Competitor } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+import { useVersionedSave } from './use-versioned-save';
 
 export function useCompetitorsBySeries(seriesId: string) {
   return useQuery<Competitor[]>({
@@ -32,16 +33,11 @@ export function useCompetitorAudit(id: string | null) {
 }
 
 export function useSaveCompetitor() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (competitor: Competitor) => {
-      const list = qc.getQueryData<Competitor[]>(
-        queryKeys.competitors.bySeries(competitor.seriesId),
-      );
-      const cached = list?.find((c) => c.id === competitor.id);
-      return competitorRepo.save(competitor, { expectedVersion: cached?.version });
-    },
-    onSuccess: async (saved) => {
+  return useVersionedSave<Competitor>({
+    listKey: (competitor) => queryKeys.competitors.bySeries(competitor.seriesId),
+    save: (competitor, opts) => competitorRepo.save(competitor, opts),
+    scopeId: 'competitors',
+    onSaved: async (qc, saved) => {
       qc.invalidateQueries({
         queryKey: queryKeys.competitors.bySeries(saved.seriesId),
       });
@@ -50,9 +46,6 @@ export function useSaveCompetitor() {
       // series settings save reads a fresh expectedVersion, not a stale 409.
       await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
-    // Serialize so a rapid second save sees the cache update from the first
-    // and sends the fresh `expectedVersion`. See useSaveSeries for context.
-    scope: { id: 'competitors' },
   });
 }
 

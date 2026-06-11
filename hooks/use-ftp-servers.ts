@@ -6,6 +6,7 @@ import { ftpServerRepo } from '@/lib/api-repository';
 import type { FtpServer } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+import { useVersionedSave } from './use-versioned-save';
 
 export function useFtpServers() {
   return useQuery<FtpServer[]>({
@@ -15,16 +16,10 @@ export function useFtpServers() {
 }
 
 export function useSaveFtpServer() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (server: FtpServer) => {
-      const list = qc.getQueryData<FtpServer[]>(queryKeys.ftpServers.list());
-      const cached = list?.find((s) => s.id === server.id);
-      return ftpServerRepo.save(server, { expectedVersion: cached?.version });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.ftpServers.list() });
-    },
+  return useVersionedSave<FtpServer>({
+    listKey: () => queryKeys.ftpServers.list(),
+    save: (server, opts) => ftpServerRepo.save(server, opts),
+    scopeId: 'ftp-servers',
   });
 }
 

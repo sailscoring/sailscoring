@@ -7,6 +7,7 @@ import { finishRepo } from '@/lib/api-repository';
 import type { Finish } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+import { useVersionedSave } from './use-versioned-save';
 
 /**
  * Optimistic per-race cache patch: write the new shape immediately so the UI
@@ -46,14 +47,11 @@ export function useFinishesBySeries(seriesId: string, opts?: { enabled?: boolean
 }
 
 export function useSaveFinish() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (finish: Finish) => {
-      const list = qc.getQueryData<Finish[]>(queryKeys.finishes.byRace(finish.raceId));
-      const cached = list?.find((f) => f.id === finish.id);
-      return finishRepo.save(finish, { expectedVersion: cached?.version });
-    },
-    onSuccess: (saved) => {
+  return useVersionedSave<Finish>({
+    listKey: (finish) => queryKeys.finishes.byRace(finish.raceId),
+    save: (finish, opts) => finishRepo.save(finish, opts),
+    scopeId: 'finishes',
+    onSaved: (qc, saved) => {
       // Splice the saved row into the per-race cache so the next save
       // in the serialized queue reads the bumped version (no 409) and
       // the UI reflects server truth. New rows (no cache hit) are
@@ -78,9 +76,6 @@ export function useSaveFinish() {
       // the entry flow saves the series row.
       void qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
-    // Serialize so a rapid second save sees the cache update from the first
-    // and sends the fresh `expectedVersion`. See useSaveSeries for context.
-    scope: { id: 'finishes' },
   });
 }
 
