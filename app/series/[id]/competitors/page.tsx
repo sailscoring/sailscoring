@@ -65,7 +65,7 @@ import {
   subdivisionFieldLabel,
 } from '@/lib/competitor-fields';
 import { log } from '@/lib/debug';
-import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
+import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 
 interface CompetitorFormData {
   sailNumber: string;
@@ -618,20 +618,22 @@ export default function CompetitorsPage({
 
   const hasHandicapFleet = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
 
-  // 'n' to show add form, 'i' to import CSV, 'u' to update handicaps
-  useGlobalKeyDown((e) => {
-    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')) return;
-    if (e.key === 'n') {
-      e.preventDefault();
-      setShowAddForm(true);
-    } else if (e.key === 'i') {
-      e.preventDefault();
-      importRef.current?.trigger();
-    } else if (e.key === 'u' && hasHandicapFleet) {
-      e.preventDefault();
-      updateHandicapsRef.current?.open();
-    }
-  });
+  useShortcuts([
+    { key: 'n', description: 'Add competitor', section: 'Competitors', handler: () => setShowAddForm(true) },
+    { key: 'i', description: 'Import CSV', section: 'Competitors', handler: () => importRef.current?.trigger() },
+    {
+      key: 'u',
+      description: 'Update handicaps (handicap fleets only)',
+      section: 'Competitors',
+      when: () => hasHandicapFleet,
+      handler: () => updateHandicapsRef.current?.open(),
+    },
+  ]);
+  // Row-level keys bound on the focused table row itself.
+  useShortcutHelp([
+    { key: 'e', description: 'Edit focused row', section: 'Competitors' },
+    { key: 'd', description: 'Delete focused row', section: 'Competitors' },
+  ]);
 
   function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'vprsTcc' | 'pyNumber' | 'nhcStartingTcf' | 'echoStartingTcf'> {
     const tcc = data.ircTcc.trim() ? parseFloat(data.ircTcc.trim()) : undefined;

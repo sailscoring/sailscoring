@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useFeatures } from '@/components/features-provider';
+import { useActiveShortcuts } from '@/hooks/use-keyboard-shortcut';
 
 function Shortcut({ keys }: { keys: string[] }) {
   return (
@@ -56,6 +56,13 @@ function Section({
   );
 }
 
+/**
+ * The `?` dialog. The shortcut registry (`useShortcuts` / `useShortcutHelp`
+ * in hooks/use-keyboard-shortcut.ts) is the source of truth: pages register
+ * their shortcuts and the dialog shows whatever is active right now. Only
+ * the app-wide items — the `?` key itself, the raw-handler globals, and the
+ * `g` chords from `useChordShortcut` — stay static here.
+ */
 export function KeyboardHelp({
   open,
   onClose,
@@ -63,13 +70,27 @@ export function KeyboardHelp({
   open: boolean;
   onClose: () => void;
 }) {
-  const { has } = useFeatures();
+  const active = useActiveShortcuts();
+
+  // Group registered entries by section, preserving first-seen section order
+  // and per-section registration order.
+  const sections = new Map<string, { keys: string[]; action: string }[]>();
+  for (const entry of active) {
+    const section = entry.section ?? 'This page';
+    const rows = sections.get(section) ?? [];
+    rows.push({
+      keys: entry.displayKeys ?? [entry.key],
+      action: entry.description ?? '',
+    });
+    sections.set(section, rows);
+  }
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Keyboard shortcuts</DialogTitle>
-          <DialogDescription>A reference of all available keyboard shortcuts.</DialogDescription>
+          <DialogDescription>Shortcuts available on this page.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 pt-1">
@@ -84,58 +105,12 @@ export function KeyboardHelp({
               { keys: ['g', 's'], action: 'Go to Standings' },
               { keys: ['g', 't'], action: 'Go to Settings' },
               { keys: ['g', 'h'], action: 'Go to History' },
-              { keys: ['n'], action: 'Name this version (History tab)' },
             ]}
           />
 
-          <Section
-            title="Competitors"
-            rows={[
-              { keys: ['n'], action: 'Add competitor' },
-              { keys: ['i'], action: 'Import CSV' },
-              { keys: ['u'], action: 'Update handicaps (handicap fleets only)' },
-              { keys: ['e'], action: 'Edit focused row' },
-              { keys: ['d'], action: 'Delete focused row' },
-            ]}
-          />
-
-          <Section
-            title="Races"
-            rows={[
-              { keys: ['n'], action: 'Add race' },
-              { keys: ['↵'], action: 'Open focused race' },
-              { keys: ['d'], action: 'Delete focused race' },
-            ]}
-          />
-
-          <Section
-            title="Standings"
-            rows={[
-              { keys: ['p'], action: 'Publish results' },
-              { keys: ['x'], action: 'Preview results' },
-              // Gated: FTP upload is experimental (#155).
-              ...(has('ftp-upload')
-                ? [{ keys: ['f'], action: 'Upload via FTP' }]
-                : []),
-            ]}
-          />
-
-          <Section
-            title="Finish entry"
-            rows={[
-              { keys: ['⌃', '↵'], action: 'Save results' },
-              { keys: ['↑', '↓'], action: 'Navigate autocomplete' },
-              { keys: ['↵'], action: 'Confirm / add finisher (or record as unknown)' },
-              { keys: ['Esc'], action: 'Clear input or go back' },
-              { keys: ['Tab'], action: 'Move between fields' },
-              { keys: ['c'], action: 'Toggle start check-in tab' },
-              // Gated: finish-sheet CSV import is experimental (#155).
-              ...(has('csv-finish-import')
-                ? [{ keys: ['i'], action: 'Import finish sheet from CSV' }]
-                : []),
-              { keys: ['s'], action: 'Add start (handicap series only)' },
-            ]}
-          />
+          {[...sections.entries()].map(([title, rows]) => (
+            <Section key={title} title={title} rows={rows} />
+          ))}
         </div>
       </DialogContent>
     </Dialog>

@@ -27,7 +27,7 @@ import {
 import { Trash2 } from 'lucide-react';
 import type { Race } from '@/lib/types';
 import { log } from '@/lib/debug';
-import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
+import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { generateStarts } from '@/lib/start-sequence';
 
 function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
@@ -146,20 +146,28 @@ export default function RacesPage({
     (raceListRef.current?.querySelector<HTMLElement>('[tabindex="0"]'))?.focus();
   }, [races]);
 
-  useGlobalKeyDown((e) => {
-    if (e.key === 'n' && !readOnly && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
-      (document.activeElement?.tagName ?? '')
-    )) {
-      e.preventDefault();
-      if (isHandicap && hasStartSequence) {
-        setFirstStartTime('');
-        setNewRaceError('');
-        setShowNewRaceDialog(true);
-      } else {
-        handleAddRaceScratch();
-      }
-    }
-  });
+  useShortcuts([
+    {
+      key: 'n',
+      description: 'Add race',
+      section: 'Races',
+      when: () => !readOnly,
+      handler: () => {
+        if (isHandicap && hasStartSequence) {
+          setFirstStartTime('');
+          setNewRaceError('');
+          setShowNewRaceDialog(true);
+        } else {
+          handleAddRaceScratch();
+        }
+      },
+    },
+  ]);
+  // Row-level keys bound on the focused race row itself.
+  useShortcutHelp([
+    { key: '↵', description: 'Open focused race', section: 'Races' },
+    { key: 'd', description: 'Delete focused race', section: 'Races' },
+  ]);
 
   async function handleAddRaceScratch() {
     if (addingRace) return;

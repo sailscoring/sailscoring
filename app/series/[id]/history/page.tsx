@@ -9,7 +9,7 @@ import {
   useCreateCheckpoint,
 } from '@/hooks/use-revisions';
 import { useSeriesActivity } from '@/hooks/use-activity';
-import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
+import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { cn } from '@/lib/utils';
@@ -165,12 +165,15 @@ export default function SeriesHistoryPage({
 
   // `n` opens the "Name this version" dialog (page-level action), unless the
   // user is typing or the series is read-only.
-  useGlobalKeyDown((e) => {
-    if (e.key !== 'n' || readOnly || naming) return;
-    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')) return;
-    e.preventDefault();
-    setNaming(true);
-  });
+  useShortcuts([
+    {
+      key: 'n',
+      description: 'Name this version',
+      section: 'History',
+      when: () => !readOnly && !naming,
+      handler: () => setNaming(true),
+    },
+  ]);
 
   if (isLoading) {
     return <p className="text-muted-foreground">Loading history…</p>;

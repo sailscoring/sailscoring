@@ -97,7 +97,7 @@ If a script lacks a feature you need (e.g. a missing subcommand on `provision-or
 
 When implementing any new user-facing feature, ensure the following are covered before considering it done:
 
-- **Keyboard shortcut** — if the feature is a page-level action (add, import, export, etc.), add a shortcut via `useGlobalKeyDown` in the relevant page, register it in `components/keyboard-help.tsx` under the appropriate section, and document it in `app/help/page.tsx` if that page covers the area.
+- **Keyboard shortcut** — if the feature is a page-level action (add, import, export, etc.), add a `ShortcutSpec` via `useShortcuts` (`hooks/use-keyboard-shortcut.ts`) in the relevant page; the `?` help dialog renders from the shortcut registry automatically. Keys a page binds itself (element-level handlers, custom `useGlobalKeyDown` logic) contribute their dialog rows via `useShortcutHelp`. Document the shortcut in `app/help/page.tsx` if that page covers the area.
 - **Help documentation** — update `app/help/page.tsx` if the feature introduces a workflow or concept that a new scorer would need guidance on.
 - **Unit tests** — if the feature includes pure logic (calculations, parsers, validators), add Vitest tests in `tests/`. E2e covers workflows; unit tests cover correctness of the underlying functions.
 - **E2E test** — add a Playwright test in `e2e/` covering the happy path. Console errors and page errors fail tests automatically (see `e2e/` setup).

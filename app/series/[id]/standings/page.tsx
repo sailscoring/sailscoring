@@ -6,7 +6,7 @@ import { getDiscardCount, calculateFleetStandings } from '@/lib/scoring';
 import { subdivisionFieldLabel } from '@/lib/competitor-fields';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { Button } from '@/components/ui/button';
-import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
+import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useFeatures } from '@/components/features-provider';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
@@ -30,19 +30,13 @@ export default function StandingsPage({
 
   const data = useSeriesData(seriesId, { finishes: true, raceStarts: true });
 
-  useGlobalKeyDown((e) => {
-    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')) return;
-    if (e.key === 'x') {
-      e.preventDefault();
-      setShowPreviewDialog(true);
-    } else if (e.key === 'f' && has('ftp-upload')) {
-      e.preventDefault();
-      setShowFtpDialog(true);
-    } else if (e.key === 'p') {
-      e.preventDefault();
-      setShowPublishDialog(true);
-    }
-  });
+  useShortcuts([
+    { key: 'p', description: 'Publish results', section: 'Standings', handler: () => setShowPublishDialog(true) },
+    { key: 'x', description: 'Preview results', section: 'Standings', handler: () => setShowPreviewDialog(true) },
+    ...(has('ftp-upload')
+      ? [{ key: 'f', description: 'Upload via FTP', section: 'Standings', handler: () => setShowFtpDialog(true) }]
+      : []),
+  ]);
 
   if (data.status !== 'ready') {
     return <SeriesTabFallback status={data.status} />;

@@ -8,7 +8,7 @@ import { Archive, ArchiveRestore } from 'lucide-react';
 import { useSeries, useArchiveSeries } from '@/hooks/use-series';
 import { queryKeys } from '@/hooks/query-keys';
 import { cn } from '@/lib/utils';
-import { useGlobalKeyDown, useChordShortcut } from '@/hooks/use-keyboard-shortcut';
+import { useChordShortcut, useGlobalKeyDown, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
 import { SeriesReadOnlyProvider } from '@/components/series-read-only';
 import { Button } from '@/components/ui/button';
@@ -47,13 +47,10 @@ export default function SeriesLayout({
     h: () => router.push(tabs[4].href(id)),
   });
 
+  // No description: the dialog's static Global section documents `?` itself.
+  useShortcuts([{ key: '?', handler: () => setShowHelp(true) }]);
   useGlobalKeyDown((e) => {
-    if (e.key === '?' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
-      (document.activeElement?.tagName ?? '')
-    )) {
-      e.preventDefault();
-      setShowHelp(true);
-    } else if (e.ctrlKey && !e.metaKey && e.key === 's' && !/\/races\/[^/]+/.test(pathname)) {
+    if (e.ctrlKey && !e.metaKey && e.key === 's' && !/\/races\/[^/]+/.test(pathname)) {
       // Ctrl+S saves to file from any series page except finish entry (which owns Ctrl+S itself)
       e.preventDefault();
       saveSeriesFile(id, repos)

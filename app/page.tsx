@@ -27,7 +27,7 @@ import { useRecentActivity } from '@/hooks/use-activity';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { queryKeys } from '@/hooks/query-keys';
 import { Button } from '@/components/ui/button';
-import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
+import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
 import { useFeatures } from '@/components/features-provider';
 import {
@@ -231,14 +231,8 @@ export default function HomePage() {
   const [importFormat, setImportFormat] = useState<ImportFormat>('sailscoring');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useGlobalKeyDown((e) => {
-    if (e.key === '?' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(
-      (document.activeElement?.tagName ?? '')
-    )) {
-      e.preventDefault();
-      setShowHelp(true);
-    }
-  });
+  // No description: the dialog's static Global section documents `?` itself.
+  useShortcuts([{ key: '?', handler: () => setShowHelp(true) }]);
 
   async function handleConfirmDelete() {
     if (!pendingDelete) return;

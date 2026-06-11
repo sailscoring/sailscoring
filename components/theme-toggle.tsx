@@ -4,7 +4,7 @@ import { useTheme } from 'next-themes';
 import { Moon, Sun } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
+import { isInputFocused, useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 
 /**
  * Light/dark toggle. A 2-state flip (light↔dark) over the already-branded
@@ -30,9 +30,7 @@ export function ThemeToggle() {
       !e.metaKey &&
       !e.altKey &&
       (e.key === 'D' || e.key === 'd') &&
-      !['INPUT', 'TEXTAREA', 'SELECT'].includes(
-        document.activeElement?.tagName ?? '',
-      )
+      !isInputFocused()
     ) {
       e.preventDefault();
       toggle();

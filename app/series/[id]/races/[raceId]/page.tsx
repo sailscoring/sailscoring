@@ -33,7 +33,7 @@ import {
   finishedCompetitorIds,
 } from '@/lib/finish-entry';
 import { useCsvFinishImport } from '@/hooks/use-csv-finish-import';
-import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
+import { isInputFocused, useGlobalKeyDown, useShortcutHelp } from '@/hooks/use-keyboard-shortcut';
 import { useFeatures } from '@/components/features-provider';
 import { type FinishSheetImportHandle } from '@/components/finish-sheet-import';
 import { RaceEntryHeader } from '@/components/race-entry/race-entry-header';
@@ -171,22 +171,18 @@ export default function ResultEntryPage({
   }
 
   // Esc to leave; c to toggle check-in tab; s to add a start; i to import.
+  // A raw handler rather than useShortcuts: the conditions mix tab state,
+  // fleet shape, and feature gates per key. The help rows register below.
   useGlobalKeyDown((e) => {
-    if (
-      e.key === 'Escape' &&
-      !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')
-    ) {
+    if (e.key === 'Escape' && !isInputFocused()) {
       e.preventDefault();
       leave();
-    } else if (
-      e.key === 'c' &&
-      !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')
-    ) {
+    } else if (e.key === 'c' && !isInputFocused()) {
       e.preventDefault();
       setActiveTab((t) => t === 'checkin' ? 'finish' : 'checkin');
     } else if (
       e.key === 's' &&
-      !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '') &&
+      !isInputFocused() &&
       fleets?.some((f) => f.scoringSystem !== 'scratch')
     ) {
       e.preventDefault();
@@ -194,13 +190,24 @@ export default function ResultEntryPage({
     } else if (
       e.key === 'i' &&
       has('csv-finish-import') &&
-      !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '') &&
+      !isInputFocused() &&
       activeTab === 'finish'
     ) {
       e.preventDefault();
       finishSheetImportRef.current?.trigger();
     }
   });
+  useShortcutHelp([
+    { key: '↑', displayKeys: ['↑', '↓'], description: 'Navigate autocomplete', section: 'Finish entry' },
+    { key: '↵', description: 'Confirm / add finisher (or record as unknown)', section: 'Finish entry' },
+    { key: 'Esc', description: 'Clear input or go back', section: 'Finish entry' },
+    { key: 'Tab', description: 'Move between fields', section: 'Finish entry' },
+    { key: 'c', description: 'Toggle start check-in tab', section: 'Finish entry' },
+    ...(has('csv-finish-import')
+      ? [{ key: 'i', description: 'Import finish sheet from CSV', section: 'Finish entry' }]
+      : []),
+    { key: 's', description: 'Add start (handicap series only)', section: 'Finish entry' },
+  ]);
 
   if (race === undefined || competitors === undefined) {
     return <SeriesTabFallback status="loading" />;
