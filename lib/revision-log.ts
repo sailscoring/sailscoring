@@ -227,10 +227,19 @@ export async function trackChange(
     summary: string;
     sessionKey: string;
     dedupeKey?: string;
+    /**
+     * Skip the lastModifiedAt/version touch. Only for the series PUT itself,
+     * which round-trips lastModifiedAt in its own payload — an extra version
+     * bump there would invalidate the version the client just received.
+     * Child-entity mutations always touch (the default).
+     */
+    touch?: boolean;
   },
 ): Promise<void> {
-  const repos = createRepos({ workspaceId: actor.workspaceId });
-  await repos.series.touch(input.seriesId);
+  if (input.touch ?? true) {
+    const repos = createRepos({ workspaceId: actor.workspaceId });
+    await repos.series.touch(input.seriesId);
+  }
   await recordActivity(actor, {
     action: input.action,
     seriesId: input.seriesId,

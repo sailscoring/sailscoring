@@ -11,7 +11,7 @@ import {
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
 import { recordActivity } from '@/lib/activity-log';
-import { captureRevisionAfter } from '@/lib/revision-log';
+import { trackChange } from '@/lib/revision-log';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
@@ -100,20 +100,15 @@ export async function putSeries(
   });
   // Activity (#153): distinguish first write (create) from later edits. Edits
   // coalesce per series+actor so a run of saves reads as one "updated" entry.
-  await recordActivity(
-    workspace,
-    existing
-      ? {
-          action: 'series.updated',
-          seriesId: id,
-          summary: 'Updated series settings',
-          dedupeKey: `series:${id}`,
-        }
-      : { action: 'series.created', seriesId: id, summary: 'Created the series' },
-  );
-  captureRevisionAfter(workspace, id, {
+  // touch: false — the PUT carries its own lastModifiedAt and the saved row's
+  // version is already in the client's hands.
+  await trackChange(workspace, {
+    action: existing ? 'series.updated' : 'series.created',
+    seriesId: id,
     summary: existing ? 'Updated series settings' : 'Created the series',
     sessionKey: 'settings',
+    dedupeKey: existing ? `series:${id}` : undefined,
+    touch: false,
   });
   return saved;
 }
