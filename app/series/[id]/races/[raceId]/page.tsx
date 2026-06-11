@@ -80,6 +80,7 @@ import { CheckInTab } from '@/components/check-in-tab';
 import { FinishTab } from '@/components/finish-tab';
 import { RatingsTab } from '@/components/ratings-tab';
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
+import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 /** Inline editor for a race's date. Renders the date as a subtle button that
  *  swaps to a native date input on click; commits on change/blur, cancels on
@@ -322,7 +323,7 @@ export default function ResultEntryPage({
   });
 
   if (race === undefined || competitors === undefined) {
-    return <p className="text-muted-foreground">Loading…</p>;
+    return <SeriesTabFallback status="loading" />;
   }
   if (race === null) {
     return <p className="text-muted-foreground">Race not found.</p>;

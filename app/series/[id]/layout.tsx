@@ -14,6 +14,7 @@ import { SeriesReadOnlyProvider } from '@/components/series-read-only';
 import { Button } from '@/components/ui/button';
 import * as repos from '@/lib/api-repository';
 import { saveSeriesFile } from '@/lib/series-file';
+import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 const tabs = [
   { label: 'Competitors', href: (id: string) => `/series/${id}/competitors` },
@@ -64,11 +65,11 @@ export default function SeriesLayout({
   });
 
   if (isLoading || series === undefined) {
-    return <p className="text-muted-foreground">Loading…</p>;
+    return <SeriesTabFallback status="loading" />;
   }
 
   if (series === null) {
-    return <p className="text-muted-foreground">Series not found.</p>;
+    return <SeriesTabFallback status="missing" />;
   }
 
   const readOnly = series.archived ?? false;

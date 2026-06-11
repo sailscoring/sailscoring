@@ -14,10 +14,11 @@ export function useRaceStartsByRace(raceId: string) {
   });
 }
 
-export function useRaceStartsBySeries(seriesId: string) {
+export function useRaceStartsBySeries(seriesId: string, opts?: { enabled?: boolean }) {
   return useQuery<RaceStart[]>({
     queryKey: queryKeys.raceStarts.bySeries(seriesId),
     queryFn: () => raceStartRepo.listBySeries(seriesId),
+    enabled: opts?.enabled ?? true,
   });
 }
 

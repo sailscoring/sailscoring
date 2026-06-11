@@ -1,18 +1,10 @@
 'use client';
 
 import { use, useState } from 'react';
-import { useSeries } from '@/hooks/use-series';
-import { useCompetitorsBySeries } from '@/hooks/use-competitors';
-import { useFleetsBySeries } from '@/hooks/use-fleets';
-import { useRacesBySeries } from '@/hooks/use-races';
-import { useFinishesBySeries } from '@/hooks/use-finishes';
-import { useRaceStartsBySeries } from '@/hooks/use-race-starts';
+import { useSeriesData } from '@/hooks/use-series-data';
 import { getDiscardCount, calculateFleetStandings } from '@/lib/scoring';
-import {
-  defaultEnabledCompetitorFields,
-  DEFAULT_PRIMARY_PERSON_LABEL,
-  subdivisionFieldLabel,
-} from '@/lib/competitor-fields';
+import { subdivisionFieldLabel } from '@/lib/competitor-fields';
+import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { Button } from '@/components/ui/button';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import { useFeatures } from '@/components/features-provider';
@@ -36,12 +28,7 @@ export default function StandingsPage({
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
 
-  const { data: series } = useSeries(seriesId);
-  const { data: competitors } = useCompetitorsBySeries(seriesId);
-  const { data: fleets } = useFleetsBySeries(seriesId);
-  const { data: races } = useRacesBySeries(seriesId);
-  const { data: allFinishes } = useFinishesBySeries(seriesId);
-  const { data: allRaceStarts } = useRaceStartsBySeries(seriesId);
+  const data = useSeriesData(seriesId, { finishes: true, raceStarts: true });
 
   useGlobalKeyDown((e) => {
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName ?? '')) return;
@@ -57,20 +44,12 @@ export default function StandingsPage({
     }
   });
 
-  if (
-    series === undefined ||
-    competitors === undefined ||
-    fleets === undefined ||
-    races === undefined ||
-    allFinishes === undefined ||
-    allRaceStarts === undefined
-  ) {
-    return <p className="text-muted-foreground">Loading…</p>;
+  if (data.status !== 'ready') {
+    return <SeriesTabFallback status={data.status} />;
   }
-
-  if (series === null) {
-    return <p className="text-muted-foreground">Series not found.</p>;
-  }
+  const { series, competitors, fleets, races } = data;
+  const allFinishes = data.finishes ?? [];
+  const allRaceStarts = data.raceStarts ?? [];
 
   if (competitors.length === 0) {
     return (
@@ -102,7 +81,7 @@ export default function StandingsPage({
   const isSingleFleet = fleets.length <= 1;
   const fleetCountLabel = fleets.length > 1 ? ` · ${fleets.length} fleets` : '';
 
-  const enabledFields = series.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
+  const enabledFields = data.enabledFields;
   const subdivisionLabel = subdivisionFieldLabel(series);
 
   return (
@@ -162,7 +141,7 @@ export default function StandingsPage({
               races={races}
               hasDiscards={hasDiscards}
               enabledFields={enabledFields}
-              primaryLabel={series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL}
+              primaryLabel={data.primaryLabel}
               subdivisionLabel={subdivisionLabel}
             />
           </div>

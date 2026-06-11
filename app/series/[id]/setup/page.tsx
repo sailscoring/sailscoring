@@ -23,6 +23,7 @@ import { CompetitorImport } from '@/components/competitor-import';
 import { BasicsCard } from '@/components/series-settings/basics-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
+import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 const STEP_LABELS = ['Name & Basics', 'Competitors', 'Fleets', 'Scoring'];
 
@@ -290,10 +291,10 @@ export default function SetupPage({
   const [step, setStep] = useState(1);
 
   if (isLoading || series === undefined) {
-    return <p className="text-muted-foreground">Loading…</p>;
+    return <SeriesTabFallback status="loading" />;
   }
   if (series === null) {
-    return <p className="text-muted-foreground">Series not found.</p>;
+    return <SeriesTabFallback status="missing" />;
   }
 
   function handleFinish() {

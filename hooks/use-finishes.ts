@@ -14,13 +14,14 @@ export function useFinishesByRace(raceId: string) {
   });
 }
 
-export function useFinishesBySeries(seriesId: string) {
+export function useFinishesBySeries(seriesId: string, opts?: { enabled?: boolean }) {
   return useQuery<Finish[]>({
     queryKey: queryKeys.finishes.bySeries(seriesId),
     // The series-scoped endpoint needs no competitor ids, so the key is just
     // the seriesId — no key churn when the competitor list changes (the
     // mutation invalidations cover refresh).
     queryFn: () => finishRepo.listBySeries(seriesId, []),
+    enabled: opts?.enabled ?? true,
   });
 }
 

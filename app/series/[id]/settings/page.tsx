@@ -54,6 +54,7 @@ import { parseSailwaveBlw, SailwaveImportError } from '@/lib/sailwave-import';
 import { SAILWAVE_HANDOFF_KEY } from '@/app/series/import-sailwave/page';
 import { useFeatures } from '@/components/features-provider';
 import type { Series } from '@/lib/types';
+import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 function ScoringModeCard({ seriesId, series }: { seriesId: string; series: Series }) {
   const { raceRepo, finishRepo, fleetRepo } = repos;
@@ -604,8 +605,8 @@ export default function SettingsPage({
   const [includeHistory, setIncludeHistory] = useState(true);
   const [updateFlow, setUpdateFlow] = useState<UpdateFlow>({ step: 'idle' });
 
-  if (isLoading || series === undefined) return <p className="text-muted-foreground">Loading…</p>;
-  if (series === null) return <p className="text-muted-foreground">Series not found.</p>;
+  if (isLoading || series === undefined) return <SeriesTabFallback status="loading" />;
+  if (series === null) return <SeriesTabFallback status="missing" />;
 
   const anyProgressiveFleet = fleets.some((f) => f.scoringSystem === 'nhc' || f.scoringSystem === 'echo');
 
