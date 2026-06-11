@@ -912,6 +912,258 @@ export function getDiscardCount(
   return 0;
 }
 
+// ─── Shared standings-assembly phases ────────────────────────────────────────
+//
+// `calculateStandings` (scratch) and `calculateHandicapStandings` orchestrate
+// the same series-assembly pipeline around their different per-race scoring.
+// Each shared phase lives here exactly once: this is the scoring engine, and
+// silent drift between the two paths means wrong published results.
+
+/** The per-competitor, per-race series accumulators the race loops fill in.
+ *  One entry per competitor; each array is indexed by race. */
+interface PerCompetitorSeries {
+  racePoints: Map<string, number[]>;
+  raceRanks: Map<string, (number | null)[]>;
+  raceCodes: Map<string, (ResultCode | null)[]>;
+  racePenaltyCodes: Map<string, (PenaltyCode | null)[]>;
+  racePenaltyOverrides: Map<string, (number | null)[]>;
+  raceRedressFlags: Map<string, boolean[]>;
+}
+
+function initPerCompetitorSeries(competitors: Competitor[]): PerCompetitorSeries {
+  const per: PerCompetitorSeries = {
+    racePoints: new Map(),
+    raceRanks: new Map(),
+    raceCodes: new Map(),
+    racePenaltyCodes: new Map(),
+    racePenaltyOverrides: new Map(),
+    raceRedressFlags: new Map(),
+  };
+  for (const c of competitors) {
+    per.racePoints.set(c.id, []);
+    per.raceRanks.set(c.id, []);
+    per.raceCodes.set(c.id, []);
+    per.racePenaltyCodes.set(c.id, []);
+    per.racePenaltyOverrides.set(c.id, []);
+    per.raceRedressFlags.set(c.id, []);
+  }
+  return per;
+}
+
+function groupFinishesByRace(allFinishes: Finish[]): Map<string, Finish[]> {
+  const byRace = new Map<string, Finish[]>();
+  for (const finish of allFinishes) {
+    const list = byRace.get(finish.raceId) ?? [];
+    list.push(finish);
+    byRace.set(finish.raceId, list);
+  }
+  return byRace;
+}
+
+/** Standings for the degenerate no-competitors / no-races case. */
+function emptyStandings(competitors: Competitor[]): Standing[] {
+  return competitors.map((c, i) => ({
+    rank: i + 1,
+    competitor: c,
+    racePoints: [],
+    raceRanks: [],
+    raceCodes: [],
+    racePenaltyCodes: [],
+    racePenaltyOverrides: [],
+    raceRedressFlags: [],
+    totalPoints: 0,
+    netPoints: 0,
+    raceDiscards: [],
+    raceNonDiscardable: [],
+    raceExcluded: [],
+  }));
+}
+
+/**
+ * A race is excluded for a fleet (scores 0, does not count toward the
+ * discard threshold, not in the RDG pool — issue #129) unless it was validly
+ * held *and* the fleet sailed it. "Validly held" = at least one boat
+ * anywhere on the sheet finished (so an abandoned/all-DNC race is excluded
+ * for everyone). "The fleet sailed it" = at least one of the fleet's boats
+ * came to the start (a non-DNC record); a fleet absent from a race (all
+ * implicit DNC) is excluded, but a fleet that came and all retired/DNF'd
+ * still scores the race (came-to-start + 1), matching how a multi-fleet sheet
+ * is published.
+ */
+function computeRaceExclusion(
+  allRaceFinishes: Finish[],
+  fleetFinishes: Finish[],
+): boolean {
+  const raceHeld = allRaceFinishes.some(
+    (f) => f.resultCode === null && (f.finishTime != null || f.sortOrder !== null),
+  );
+  const fleetCameToStart = fleetFinishes.some((f) => f.resultCode !== 'DNC');
+  return !(raceHeld && fleetCameToStart);
+}
+
+/**
+ * The discard allowances derived from the races that actually happened (per
+ * issue #129, excluded races earn no discard-threshold credit):
+ * - `discardCount` — how many races each competitor discards, capped at the
+ *   sailed-race count.
+ * - `redressDiscardAllowance` — the uncapped threshold value, which feeds
+ *   RDG type 2 (`all_races_excl_dnc` drops worst DNCs up to this many).
+ */
+function computeDiscardCounts(
+  raceExcluded: boolean[],
+  discardThresholds: DiscardThreshold[],
+): { discardCount: number; redressDiscardAllowance: number } {
+  const sailedRaceCount = raceExcluded.filter((x) => !x).length;
+  const redressDiscardAllowance = getDiscardCount(sailedRaceCount, discardThresholds);
+  return {
+    discardCount: Math.min(redressDiscardAllowance, sailedRaceCount),
+    redressDiscardAllowance,
+  };
+}
+
+/**
+ * Second pass over the sheet: collect RDG finishes and resolve each one via
+ * `resolveRedressScore` against the per-race points the race loop produced.
+ * Mutates `per.racePoints` / `per.raceRedressFlags` in place.
+ *
+ * 2+ RDG in the same race is a circular dependency (each boat's average
+ * would fold in the other's placeholder), so those races keep their
+ * placeholder scores; the returned race numbers let the UI flag them.
+ */
+function collectAndResolveRdg(args: {
+  races: Race[];
+  finishesByRace: Map<string, Finish[]>;
+  /** Whether a competitor participates in this fleet's standings — fleet
+   *  membership, and for handicap fleets, not rejected for a missing rating. */
+  eligible: (competitorId: string) => boolean;
+  per: PerCompetitorSeries;
+  raceExcluded: boolean[];
+  fallbackPoints: number;
+  discardAllowance: number;
+}): number[] {
+  const { races, finishesByRace, eligible, per, raceExcluded } = args;
+
+  const rdgAssignments: Array<{ competitorId: string; raceIdx: number; finish: Finish }> = [];
+  const rdgCountByRaceId = new Map<string, number>();
+  for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
+    for (const f of finishesByRace.get(races[raceIdx].id) ?? []) {
+      if (f.resultCode === 'RDG' && f.competitorId !== null && eligible(f.competitorId)) {
+        rdgAssignments.push({ competitorId: f.competitorId, raceIdx, finish: f });
+        rdgCountByRaceId.set(
+          races[raceIdx].id,
+          (rdgCountByRaceId.get(races[raceIdx].id) ?? 0) + 1,
+        );
+      }
+    }
+  }
+
+  const circularRaceIds = new Set<string>();
+  const circularRedressRaces: number[] = [];
+  for (const [raceId, count] of rdgCountByRaceId) {
+    if (count >= 2) {
+      circularRaceIds.add(raceId);
+      const r = races.find((rr) => rr.id === raceId);
+      if (r) circularRedressRaces.push(r.raceNumber);
+    }
+  }
+
+  for (const { competitorId, raceIdx, finish } of rdgAssignments) {
+    if (circularRaceIds.has(races[raceIdx].id)) continue; // leave placeholder in place
+    per.racePoints.get(competitorId)![raceIdx] = resolveRedressScore(
+      finish,
+      raceIdx,
+      per.racePoints.get(competitorId)!,
+      per.raceCodes.get(competitorId)!,
+      races,
+      raceExcluded,
+      args.fallbackPoints,
+      args.discardAllowance,
+    );
+    per.raceRedressFlags.get(competitorId)![raceIdx] = true;
+    // resultCode 'RDG' is already in per.raceCodes from the race loop
+  }
+
+  return circularRedressRaces;
+}
+
+/**
+ * Per-competitor standings assembly: series totals, non-discardable flags
+ * from the code definitions, worst-N discard selection, net points.
+ * `competitors` is the list that appears in the standings — for handicap
+ * fleets that's the rated competitors only.
+ */
+function assembleStandings(
+  competitors: Competitor[],
+  per: PerCompetitorSeries,
+  raceExcluded: boolean[],
+  discardCount: number,
+): Standing[] {
+  return competitors.map((competitor) => {
+    const racePoints = per.racePoints.get(competitor.id)!;
+    const raceRanks = per.raceRanks.get(competitor.id)!;
+    const raceCodes = per.raceCodes.get(competitor.id)!;
+    const racePenaltyCodes = per.racePenaltyCodes.get(competitor.id)!;
+    const racePenaltyOverrides = per.racePenaltyOverrides.get(competitor.id)!;
+    const raceRedressFlags = per.raceRedressFlags.get(competitor.id)!;
+    // roundToTenth on the series totals: every per-race score is a multiple of
+    // 0.1, so summing them is exact in principle but accumulates IEEE noise
+    // (e.g. 6.6 - 2.6 = 3.9999999999999996) that would show in the UI.
+    const totalPoints = roundToTenth(racePoints.reduce((sum, p) => sum + p, 0));
+
+    // Determine non-discardable flags from code definitions
+    const raceNonDiscardable = raceCodes.map((code) => {
+      if (!code) return false;
+      const def = getCodeDefinition(code);
+      return def ? !def.discardable : false;
+    });
+
+    // Select worst N discardable scores to discard. Excluded races (no
+    // finishers) and codes that protect against discard are skipped; among
+    // equal scores the earliest race is discarded first.
+    const raceDiscards = new Array<boolean>(racePoints.length).fill(false);
+    if (discardCount > 0) {
+      const discardable = racePoints
+        .map((p, i) => ({ p, i }))
+        .filter(({ i }) => !raceNonDiscardable[i] && !raceExcluded[i]);
+      discardable.sort((a, b) => b.p - a.p || a.i - b.i);
+      const effectiveCount = Math.min(discardCount, discardable.length);
+      for (let d = 0; d < effectiveCount; d++) {
+        raceDiscards[discardable[d].i] = true;
+      }
+    }
+
+    const netPoints = roundToTenth(racePoints.reduce(
+      (sum, p, i) => sum + (raceDiscards[i] ? 0 : p),
+      0,
+    ));
+
+    return { rank: 0, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded] };
+  });
+}
+
+/**
+ * Final sort — lowest net points wins, ties broken per RRS A8 (A8.1 then
+ * A8.2, see `tieBreak`) — and rank assignment, with tied competitors
+ * sharing the same rank. Sorts and ranks in place.
+ */
+function sortAndRank(standings: Standing[]): void {
+  standings.sort((a, b) => {
+    if (a.netPoints !== b.netPoints) {
+      return a.netPoints - b.netPoints;
+    }
+    return tieBreak(a, b);
+  });
+  let rank = 1;
+  for (let i = 0; i < standings.length; i++) {
+    if (i > 0 && isTied(standings[i - 1], standings[i])) {
+      standings[i].rank = standings[i - 1].rank;
+    } else {
+      standings[i].rank = rank;
+    }
+    rank++;
+  }
+}
+
 /**
  * Calculate series standings.
  *
@@ -941,204 +1193,52 @@ export function calculateStandings(
   const competitorIds = new Set(competitors.map((c) => c.id));
 
   if (competitors.length === 0 || races.length === 0) {
-    return {
-      standings: competitors.map((c, i) => ({
-        rank: i + 1,
-        competitor: c,
-        racePoints: [],
-        raceRanks: [],
-        raceCodes: [],
-        racePenaltyCodes: [],
-        racePenaltyOverrides: [],
-        raceRedressFlags: [],
-        totalPoints: 0,
-        netPoints: 0,
-        raceDiscards: [],
-        raceNonDiscardable: [],
-        raceExcluded: [],
-      })),
-      circularRedressRaces: [],
-    };
+    return { standings: emptyStandings(competitors), circularRedressRaces: [] };
   }
 
-  // Group finishes by raceId for quick lookup
-  const finishesByRace = new Map<string, Finish[]>();
-  for (const finish of allFinishes) {
-    const list = finishesByRace.get(finish.raceId) ?? [];
-    list.push(finish);
-    finishesByRace.set(finish.raceId, list);
-  }
-
-  // Calculate per-race scores for each competitor
-  const competitorRacePoints = new Map<string, number[]>();
-  const competitorRaceRanks = new Map<string, (number | null)[]>();
-  const competitorRaceCodes = new Map<string, (ResultCode | null)[]>();
-  const competitorRacePenaltyCodes = new Map<string, (PenaltyCode | null)[]>();
-  const competitorRacePenaltyOverrides = new Map<string, (number | null)[]>();
-  const competitorRaceRedressFlags = new Map<string, boolean[]>();
-  for (const competitor of competitors) {
-    competitorRacePoints.set(competitor.id, []);
-    competitorRaceRanks.set(competitor.id, []);
-    competitorRaceCodes.set(competitor.id, []);
-    competitorRacePenaltyCodes.set(competitor.id, []);
-    competitorRacePenaltyOverrides.set(competitor.id, []);
-    competitorRaceRedressFlags.set(competitor.id, []);
-  }
-
-  // Collect RDG finishes for the second pass: raceId → [competitorIds with RDG]
-  const rdgByRaceId = new Map<string, string[]>();
-  // All RDG assignments: { competitorId, raceIdx, finish }
-  const rdgAssignments: Array<{ competitorId: string; raceIdx: number; finish: Finish }> = [];
-
-  // A race is excluded for this fleet (scores 0, does not count toward the
-  // discard threshold, not in the RDG pool — issue #129) unless it was validly
-  // held *and* this fleet sailed it. "Validly held" = at least one boat
-  // anywhere on the sheet finished (so an abandoned/all-DNC race is excluded
-  // for everyone). "This fleet sailed it" = at least one of the fleet's boats
-  // came to the start (a non-DNC record); a fleet absent from a race (all
-  // implicit DNC) is excluded, but a fleet that came and all retired/DNF'd
-  // still scores the race (came-to-start + 1), matching how a multi-fleet sheet
-  // is published.
+  const finishesByRace = groupFinishesByRace(allFinishes);
+  const per = initPerCompetitorSeries(competitors);
   const raceExcluded = new Array<boolean>(races.length).fill(false);
 
+  // Race loop: per-race scratch scores into the per-competitor accumulators.
   for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
     const race = races[raceIdx];
     const allRaceFinishes = finishesByRace.get(race.id) ?? [];
     const raceFinishes = allRaceFinishes.filter((f) => f.competitorId !== null && competitorIds.has(f.competitorId));
     const raceFinishMap = new Map(raceFinishes.map((f) => [f.competitorId!, f]));
     const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
-    const raceHeld = allRaceFinishes.some((f) => f.resultCode === null && (f.finishTime != null || f.sortOrder !== null));
-    const fleetCameToStart = raceFinishes.some((f) => f.resultCode !== 'DNC');
-    raceExcluded[raceIdx] = !(raceHeld && fleetCameToStart);
+    raceExcluded[raceIdx] = computeRaceExclusion(allRaceFinishes, raceFinishes);
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
       const rawPoints = score?.points ?? competitors.length + 1;
       const code = score ? score.resultCode : 'DNC';
       const finish = raceFinishMap.get(competitor.id);
-      competitorRacePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : rawPoints);
-      competitorRaceRanks.get(competitor.id)!.push(raceExcluded[raceIdx] ? null : (score?.rank ?? null));
-      competitorRaceCodes.get(competitor.id)!.push(code);
-      competitorRacePenaltyCodes.get(competitor.id)!.push(finish?.penaltyCode ?? null);
-      competitorRacePenaltyOverrides.get(competitor.id)!.push(finish?.penaltyOverride ?? null);
-      competitorRaceRedressFlags.get(competitor.id)!.push(false);
-    }
-    // Collect RDG finishes in this race
-    const raceRdgIds: string[] = [];
-    for (const finish of raceFinishes) {
-      if (finish.resultCode === 'RDG' && finish.competitorId !== null) {
-        raceRdgIds.push(finish.competitorId);
-        rdgAssignments.push({ competitorId: finish.competitorId, raceIdx, finish });
-      }
-    }
-    if (raceRdgIds.length > 0) rdgByRaceId.set(race.id, raceRdgIds);
-  }
-
-  // ── Second pass: resolve RDG scores ─────────────────────────────────────────
-
-  // Circular dependency: 2+ competitors with RDG in the same race
-  const circularRedressRaces: number[] = [];
-  const circularRaceIds = new Set<string>();
-  for (const [raceId, compIds] of rdgByRaceId) {
-    if (compIds.length >= 2) {
-      const race = races.find((r) => r.id === raceId);
-      if (race) {
-        circularRedressRaces.push(race.raceNumber);
-        circularRaceIds.add(raceId);
-      }
+      per.racePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : rawPoints);
+      per.raceRanks.get(competitor.id)!.push(raceExcluded[raceIdx] ? null : (score?.rank ?? null));
+      per.raceCodes.get(competitor.id)!.push(code);
+      per.racePenaltyCodes.get(competitor.id)!.push(finish?.penaltyCode ?? null);
+      per.racePenaltyOverrides.get(competitor.id)!.push(finish?.penaltyOverride ?? null);
+      per.raceRedressFlags.get(competitor.id)!.push(false);
     }
   }
 
-  // Discard allowance feeds RDG type 2 (drop DNC up to this many).
-  const redressDiscardAllowance = getDiscardCount(
-    raceExcluded.filter((x) => !x).length,
+  const { discardCount, redressDiscardAllowance } = computeDiscardCounts(
+    raceExcluded,
     discardThresholds,
   );
 
-  for (const { competitorId, raceIdx, finish } of rdgAssignments) {
-    const race = races[raceIdx];
-    if (circularRaceIds.has(race.id)) continue; // leave placeholder in place
-
-    competitorRacePoints.get(competitorId)![raceIdx] = resolveRedressScore(
-      finish,
-      raceIdx,
-      competitorRacePoints.get(competitorId)!,
-      competitorRaceCodes.get(competitorId)!,
-      races,
-      raceExcluded,
-      competitors.length + 1,
-      redressDiscardAllowance,
-    );
-    competitorRaceRedressFlags.get(competitorId)![raceIdx] = true;
-    // resultCode 'RDG' is already in competitorRaceCodes from the first pass
-  }
-
-  // Discard threshold counts only races that actually happened (per issue #129).
-  const sailedRaceCount = raceExcluded.filter((x) => !x).length;
-  const discardCount = Math.min(
-    getDiscardCount(sailedRaceCount, discardThresholds),
-    sailedRaceCount,
-  );
-
-  // Build initial standings with discard info
-  const standings: Standing[] = competitors.map((competitor) => {
-    const racePoints = competitorRacePoints.get(competitor.id)!;
-    const raceRanks = competitorRaceRanks.get(competitor.id)!;
-    const raceCodes = competitorRaceCodes.get(competitor.id)!;
-    const racePenaltyCodes = competitorRacePenaltyCodes.get(competitor.id)!;
-    const racePenaltyOverrides = competitorRacePenaltyOverrides.get(competitor.id)!;
-    const raceRedressFlags = competitorRaceRedressFlags.get(competitor.id)!;
-    // roundToTenth on the series totals: every per-race score is a multiple of
-    // 0.1, so summing them is exact in principle but accumulates IEEE noise
-    // (e.g. 6.6 - 2.6 = 3.9999999999999996) that would show in the UI.
-    const totalPoints = roundToTenth(racePoints.reduce((sum, p) => sum + p, 0));
-
-    // Determine non-discardable flags from code definitions
-    const raceNonDiscardable = raceCodes.map((code) => {
-      if (!code) return false;
-      const def = getCodeDefinition(code);
-      return def ? !def.discardable : false;
-    });
-
-    // Select worst N discardable scores to discard. Excluded races (no
-    // finishers) and codes that protect against discard are skipped.
-    const raceDiscards = new Array<boolean>(racePoints.length).fill(false);
-    if (discardCount > 0) {
-      const discardable = racePoints
-        .map((p, i) => ({ p, i }))
-        .filter(({ i }) => !raceNonDiscardable[i] && !raceExcluded[i]);
-      discardable.sort((a, b) => b.p - a.p || a.i - b.i);
-      const effectiveCount = Math.min(discardCount, discardable.length);
-      for (let d = 0; d < effectiveCount; d++) {
-        raceDiscards[discardable[d].i] = true;
-      }
-    }
-
-    const netPoints = roundToTenth(racePoints.reduce(
-      (sum, p, i) => sum + (raceDiscards[i] ? 0 : p),
-      0,
-    ));
-
-    return { rank: 0, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded] };
+  const circularRedressRaces = collectAndResolveRdg({
+    races,
+    finishesByRace,
+    eligible: (competitorId) => competitorIds.has(competitorId),
+    per,
+    raceExcluded,
+    fallbackPoints: competitors.length + 1,
+    discardAllowance: redressDiscardAllowance,
   });
 
-  // Sort: lowest net points wins, ties broken per RRS A8 (A8.1 then A8.2)
-  standings.sort((a, b) => {
-    if (a.netPoints !== b.netPoints) {
-      return a.netPoints - b.netPoints;
-    }
-    return tieBreak(a, b);
-  });
-
-  // Assign ranks (tied competitors share the same rank)
-  let rank = 1;
-  for (let i = 0; i < standings.length; i++) {
-    if (i > 0 && isTied(standings[i - 1], standings[i])) {
-      standings[i].rank = standings[i - 1].rank;
-    } else {
-      standings[i].rank = rank;
-    }
-    rank++;
-  }
+  const standings = assembleStandings(competitors, per, raceExcluded, discardCount);
+  sortAndRank(standings);
 
   return { standings, circularRedressRaces };
 }
@@ -1234,21 +1334,7 @@ function calculateHandicapStandings(
   if (competitors.length === 0 || races.length === 0) {
     const rated = competitors.filter((c) => !rejectedIds.has(c.id));
     return {
-      standings: rated.map((c, i) => ({
-        rank: i + 1,
-        competitor: c,
-        racePoints: [],
-        raceRanks: [],
-        raceCodes: [],
-        racePenaltyCodes: [],
-        racePenaltyOverrides: [],
-        raceRedressFlags: [],
-        totalPoints: 0,
-        netPoints: 0,
-        raceDiscards: [],
-        raceNonDiscardable: [],
-        raceExcluded: [],
-      })),
+      standings: emptyStandings(rated),
       rejections: allRejections,
       ...(isNhc ? { nhcRaceScoresByRaceId: new Map(), nhcAggregatesByRaceId: new Map() } : {}),
       ...(isEcho ? { echoRaceScoresByRaceId: new Map(), echoAggregatesByRaceId: new Map() } : {}),
@@ -1265,12 +1351,7 @@ function calculateHandicapStandings(
     }
   }
 
-  const finishesByRace = new Map<string, Finish[]>();
-  for (const finish of allFinishes) {
-    const list = finishesByRace.get(finish.raceId) ?? [];
-    list.push(finish);
-    finishesByRace.set(finish.raceId, list);
-  }
+  const finishesByRace = groupFinishesByRace(allFinishes);
 
   const ratedCompetitors = competitors.filter((c) => !rejectedIds.has(c.id));
 
@@ -1283,25 +1364,7 @@ function calculateHandicapStandings(
   const echoAggregatesByRaceId = new Map<string, EchoRaceAggregates>();
   const tcfHistory: TcfRecord[] = [];
 
-  const competitorRacePoints = new Map<string, number[]>();
-  const competitorRaceRanks = new Map<string, (number | null)[]>();
-  const competitorRaceCodes = new Map<string, (ResultCode | null)[]>();
-  const competitorRacePenaltyCodes = new Map<string, (PenaltyCode | null)[]>();
-  const competitorRacePenaltyOverrides = new Map<string, (number | null)[]>();
-  const competitorRaceRedressFlags = new Map<string, boolean[]>();
-  for (const competitor of competitors) {
-    competitorRacePoints.set(competitor.id, []);
-    competitorRaceRanks.set(competitor.id, []);
-    competitorRaceCodes.set(competitor.id, []);
-    competitorRacePenaltyCodes.set(competitor.id, []);
-    competitorRacePenaltyOverrides.set(competitor.id, []);
-    competitorRaceRedressFlags.set(competitor.id, []);
-  }
-
-  // A race is excluded for this fleet (0 points, no discard-threshold credit,
-  // not in the RDG pool — issue #129) unless it was validly held (some boat on
-  // the sheet finished) *and* this fleet sailed it (some boat came to the
-  // start). See the fuller note in calculateStandings.
+  const per = initPerCompetitorSeries(competitors);
   const raceExcluded = new Array<boolean>(races.length).fill(false);
   const fleetCompetitorIds = new Set(competitors.map((c) => c.id));
 
@@ -1381,16 +1444,10 @@ function calculateHandicapStandings(
       scores = new Map([...scratchScores.entries()].map(([id, s]) => [id, { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode }]));
     }
 
-    // Exclude a race only if it was not validly held (no boat anywhere on the
-    // sheet finished) or this fleet did not sail it (no boat came to the start,
-    // i.e. all implicit DNC). A fleet that came and all retired/DNF'd still
-    // scores the race (came-to-start + 1). See the matching note in
-    // calculateStandings (issue #129). `raceFinishes` here is the whole sheet;
-    // `fleetRaceFinishes` is this fleet.
+    // `raceFinishes` here is the whole sheet; `fleetRaceFinishes` is this
+    // fleet (issue #129 — see computeRaceExclusion).
     const fleetRaceFinishes = raceFinishes.filter((f) => f.competitorId !== null && fleetCompetitorIds.has(f.competitorId));
-    const raceHeld = raceFinishes.some((f) => f.resultCode === null && (f.finishTime != null || f.sortOrder !== null));
-    const fleetCameToStart = fleetRaceFinishes.some((f) => f.resultCode !== 'DNC');
-    raceExcluded[raceIdx] = !(raceHeld && fleetCameToStart);
+    raceExcluded[raceIdx] = computeRaceExclusion(raceFinishes, fleetRaceFinishes);
 
     // Additive scoring penalties (ZFP/SCP/DPI) apply to finishers in handicap
     // fleets too, capped at this race's DNF score.
@@ -1404,127 +1461,36 @@ function calculateHandicapStandings(
       const finish = finishMap.get(competitor.id);
       const isFinisher = score?.place != null;
       const points = isFinisher ? applyAdditivePenalty(rawPoints, finish, penaltyCap) : rawPoints;
-      competitorRacePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : points);
-      competitorRaceRanks.get(competitor.id)!.push(raceExcluded[raceIdx] ? null : (score?.rank ?? null));
-      competitorRaceCodes.get(competitor.id)!.push(score !== undefined ? score.resultCode : 'DNC');
-      competitorRacePenaltyCodes.get(competitor.id)!.push(isFinisher ? (finish?.penaltyCode ?? null) : null);
-      competitorRacePenaltyOverrides.get(competitor.id)!.push(isFinisher ? (finish?.penaltyOverride ?? null) : null);
-      competitorRaceRedressFlags.get(competitor.id)!.push(false);
+      per.racePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : points);
+      per.raceRanks.get(competitor.id)!.push(raceExcluded[raceIdx] ? null : (score?.rank ?? null));
+      per.raceCodes.get(competitor.id)!.push(score !== undefined ? score.resultCode : 'DNC');
+      per.racePenaltyCodes.get(competitor.id)!.push(isFinisher ? (finish?.penaltyCode ?? null) : null);
+      per.racePenaltyOverrides.get(competitor.id)!.push(isFinisher ? (finish?.penaltyOverride ?? null) : null);
+      per.raceRedressFlags.get(competitor.id)!.push(false);
     }
   }
 
-  // Discard threshold counts only races that actually happened (per issue #129).
-  const sailedRaceCount = raceExcluded.filter((x) => !x).length;
-  const discardCount = Math.min(
-    getDiscardCount(sailedRaceCount, discardThresholds),
-    sailedRaceCount,
+  const { discardCount, redressDiscardAllowance } = computeDiscardCounts(
+    raceExcluded,
+    discardThresholds,
   );
 
-  // ── Redress (RDG) ─────────────────────────────────────────────────────────
-  // Resolve RDG scores against the per-race points computed above, then they
-  // participate in discards/totals normally. Mirrors calculateStandings.
-  const fleetCompIds = new Set(competitors.map((c) => c.id));
-  const rdgAssignments: Array<{ competitorId: string; raceIdx: number; finish: Finish }> = [];
-  const rdgByRaceId = new Map<string, number>();
-  for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
-    for (const f of finishesByRace.get(races[raceIdx].id) ?? []) {
-      if (f.resultCode === 'RDG' && f.competitorId !== null && fleetCompIds.has(f.competitorId) && !rejectedIds.has(f.competitorId)) {
-        rdgAssignments.push({ competitorId: f.competitorId, raceIdx, finish: f });
-        rdgByRaceId.set(races[raceIdx].id, (rdgByRaceId.get(races[raceIdx].id) ?? 0) + 1);
-      }
-    }
-  }
-  // 2+ RDG in the same race is a circular dependency — leave placeholders.
-  const circularRaceIds = new Set<string>();
-  const circularRedressRaces: number[] = [];
-  for (const [raceId, count] of rdgByRaceId) {
-    if (count >= 2) {
-      circularRaceIds.add(raceId);
-      const r = races.find((rr) => rr.id === raceId);
-      if (r) circularRedressRaces.push(r.raceNumber);
-    }
-  }
-  for (const { competitorId, raceIdx, finish } of rdgAssignments) {
-    if (circularRaceIds.has(races[raceIdx].id)) continue;
-    competitorRacePoints.get(competitorId)![raceIdx] = resolveRedressScore(
-      finish,
-      raceIdx,
-      competitorRacePoints.get(competitorId)!,
-      competitorRaceCodes.get(competitorId)!,
-      races,
-      raceExcluded,
-      competitors.length + 1,
-      getDiscardCount(sailedRaceCount, discardThresholds),
-    );
-    competitorRaceRedressFlags.get(competitorId)![raceIdx] = true;
-  }
-
-  const standings: Standing[] = ratedCompetitors.map((competitor) => {
-    const racePoints = competitorRacePoints.get(competitor.id)!;
-    const raceRanks = competitorRaceRanks.get(competitor.id)!;
-    const raceCodes = competitorRaceCodes.get(competitor.id)!;
-    const racePenaltyCodes = competitorRacePenaltyCodes.get(competitor.id)!;
-    const racePenaltyOverrides = competitorRacePenaltyOverrides.get(competitor.id)!;
-    const raceRedressFlags = competitorRaceRedressFlags.get(competitor.id)!;
-    // roundToTenth on the series totals: scores are multiples of 0.1, but
-    // summing/subtracting them in float accumulates IEEE noise (e.g.
-    // 6.6 - 2.6 = 3.9999999999999996) that would otherwise show in the UI.
-    const totalPoints = roundToTenth(racePoints.reduce((sum, p) => sum + p, 0));
-    const raceNonDiscardable = raceCodes.map((code) => {
-      if (!code) return false;
-      const def = getCodeDefinition(code);
-      return def ? !def.discardable : false;
-    });
-
-    let netPoints = totalPoints;
-    const raceDiscards = racePoints.map(() => false);
-    if (discardCount > 0) {
-      // Discard worst non-protected scores; excluded races (no finishers) are
-      // ineligible.
-      const indexed = racePoints
-        .map((p, i) => ({ p, i }))
-        .filter(({ i }) => !raceNonDiscardable[i] && !raceExcluded[i])
-        .sort((a, b) => b.p - a.p);
-      const toDiscard = indexed.slice(0, discardCount);
-      for (const { i } of toDiscard) {
-        raceDiscards[i] = true;
-        netPoints -= racePoints[i];
-      }
-      netPoints = roundToTenth(netPoints);
-    }
-
-    return {
-      rank: 0,
-      competitor,
-      racePoints,
-      raceRanks,
-      raceCodes,
-      racePenaltyCodes,
-      racePenaltyOverrides,
-      raceRedressFlags,
-      totalPoints,
-      netPoints,
-      raceDiscards,
-      raceNonDiscardable,
-      raceExcluded: [...raceExcluded],
-    };
+  // Resolve RDG against the per-race points computed above, then they
+  // participate in discards/totals normally. Rejected (unrated) competitors
+  // are excluded from scoring entirely, RDG included.
+  const circularRedressRaces = collectAndResolveRdg({
+    races,
+    finishesByRace,
+    eligible: (competitorId) =>
+      fleetCompetitorIds.has(competitorId) && !rejectedIds.has(competitorId),
+    per,
+    raceExcluded,
+    fallbackPoints: competitors.length + 1,
+    discardAllowance: redressDiscardAllowance,
   });
 
-  // Rank by netPoints; ties broken per RRS A8 (A8.1 then A8.2).
-  // Tied competitors share the same rank, matching calculateStandings.
-  standings.sort((a, b) => {
-    if (a.netPoints !== b.netPoints) return a.netPoints - b.netPoints;
-    return tieBreak(a, b);
-  });
-  let hrank = 1;
-  for (let i = 0; i < standings.length; i++) {
-    if (i > 0 && isTied(standings[i - 1], standings[i])) {
-      standings[i].rank = standings[i - 1].rank;
-    } else {
-      standings[i].rank = hrank;
-    }
-    hrank++;
-  }
+  const standings = assembleStandings(ratedCompetitors, per, raceExcluded, discardCount);
+  sortAndRank(standings);
 
   return {
     standings,
