@@ -1,5 +1,6 @@
 import 'server-only';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
+import type { PgInsertValue, PgUpdateSetSource } from 'drizzle-orm/pg-core';
 
 import { DEFAULT_SUBDIVISION_LABEL } from './competitor-fields';
 import { decryptCredential, encryptCredential } from './crypto';
@@ -215,7 +216,10 @@ type Versionable =
   | typeof schema.races
   | typeof schema.ftpServers;
 
-type RaceScopedVersionable = typeof schema.raceStarts | typeof schema.finishes;
+type RaceScopedVersionable =
+  | typeof schema.raceStarts
+  | typeof schema.finishes
+  | typeof schema.raceRatingOverrides;
 
 /**
  * Build a `ConflictError` carrying the current `version` from the database,
@@ -319,7 +323,230 @@ async function buildConflictError(
   });
 }
 
+// ─── Versioned save helpers ─────────────────────────────────────────────────
+
+type VersionedTable = Versionable | RaceScopedVersionable;
+
+/**
+ * Tenancy strategy for a versioned write:
+ * - `workspace`: the table carries `workspace_id`; the CAS update filters on
+ *   it and the upsert gets a `targetWhere` guard so a cross-workspace id
+ *   collision (not supposed to happen — UUIDs are unique) can never update a
+ *   row in another workspace.
+ * - `parent-race`: race-scoped child rows whose tenancy is enforced by the
+ *   caller's pre-check against the parent race; the CAS update filters on
+ *   `race_id` and the upsert has no guard.
+ */
+type SaveTenancy = { kind: 'workspace' } | { kind: 'parent-race'; raceId: string };
+
+interface VersionedSaveSpec<TTable extends VersionedTable> {
+  db: SailScoringDb;
+  table: TTable;
+  workspaceId: string;
+  /** Full row for the insert side of the upsert. `updatedBy` is stamped here,
+   *  not by the caller's row builder. */
+  values: PgInsertValue<TTable>;
+  /**
+   * The columns a save may change on an existing row. The CAS/upsert update
+   * set and the bulk `excluded.*` set are all derived from this one list, so
+   * a new field needs adding exactly once. Immutable columns (`id`,
+   * `workspaceId`, `seriesId`, `createdAt`, …) stay off the list.
+   */
+  updateColumns: readonly Extract<keyof TTable['$inferInsert'], string>[];
+  tenancy: SaveTenancy;
+  opts?: SaveOpts;
+}
+
+function buildUpdateSet<TTable extends VersionedTable>(
+  spec: Pick<VersionedSaveSpec<TTable>, 'table' | 'updateColumns'>,
+  values: Record<string, unknown>,
+  updatedBy: string | null,
+): PgUpdateSetSource<TTable> {
+  const set: Record<string, unknown> = { updatedBy };
+  for (const col of spec.updateColumns) {
+    set[col] = values[col];
+  }
+  return {
+    ...set,
+    version: sql`${spec.table.version} + 1`,
+    updatedAt: sql`now()`,
+  } as PgUpdateSetSource<TTable>;
+}
+
+/** `excluded.<column>` reference for the bulk-upsert path. ON CONFLICT DO
+ *  UPDATE in Postgres can pick values from the `excluded` pseudo-row (the row
+ *  that would have been inserted), which lets one statement upsert many rows.
+ *  The DB column name comes from the Drizzle column metadata, so there are no
+ *  hand-written snake_case strings to drift. */
+function excludedColumn(table: VersionedTable, col: string): SQL {
+  const columns: Record<string, { name: string } | undefined> =
+    getTableColumns(table);
+  const column = columns[col];
+  if (!column) {
+    throw new Error(`unknown column ${col} on table`);
+  }
+  return sql`excluded.${sql.identifier(column.name)}`;
+}
+
+/**
+ * The save pattern shared by every versioned repository:
+ * - `opts.expectedVersion` set → compare-and-swap update on
+ *   id + tenancy + version; no row back means a concurrent write won, so
+ *   throw the `ConflictError` (→ 409) with the current version attached.
+ * - otherwise → unconditional upsert (first write or authoritative import),
+ *   bumping `version` and `updatedAt` when the row already exists.
+ */
+async function versionedSave<TTable extends VersionedTable, T>(
+  spec: VersionedSaveSpec<TTable> & {
+    id: string;
+    rowToType: (row: TTable['$inferSelect']) => T;
+  },
+): Promise<T> {
+  const { db, table, workspaceId, id, tenancy, opts } = spec;
+  const updatedBy = opts?.updatedBy ?? null;
+  const values = { ...(spec.values as object), updatedBy } as PgInsertValue<TTable>;
+  const updateSet = buildUpdateSet(spec, values as Record<string, unknown>, updatedBy);
+
+  if (opts?.expectedVersion !== undefined) {
+    const tenancyFilter =
+      tenancy.kind === 'workspace'
+        ? eq((table as Versionable).workspaceId, workspaceId)
+        : eq((table as RaceScopedVersionable).raceId, tenancy.raceId);
+    const [row] = await db
+      .update(table)
+      .set(updateSet)
+      .where(
+        and(
+          eq(table.id, id),
+          tenancyFilter,
+          eq(table.version, opts.expectedVersion),
+        ),
+      )
+      .returning();
+    if (!row) {
+      throw tenancy.kind === 'workspace'
+        ? await buildConflictError(
+            db,
+            table as Versionable,
+            id,
+            workspaceId,
+            opts.expectedVersion,
+          )
+        : await buildConflictError(
+            db,
+            table as RaceScopedVersionable,
+            id,
+            workspaceId,
+            opts.expectedVersion,
+            'parent-race',
+          );
+    }
+    return spec.rowToType(row as TTable['$inferSelect']);
+  }
+
+  const [row] = await db
+    .insert(table)
+    .values(values)
+    .onConflictDoUpdate({
+      target: table.id,
+      ...(tenancy.kind === 'workspace'
+        ? { targetWhere: eq((table as Versionable).workspaceId, workspaceId) }
+        : {}),
+      set: updateSet,
+    })
+    .returning();
+  return spec.rowToType(row as TTable['$inferSelect']);
+}
+
+/**
+ * Bulk counterpart of `versionedSave`: one multi-row upsert whose conflict
+ * set reads from `excluded.*`, derived from the same `updateColumns` list.
+ * Callers do their workspace-ownership pre-check (via
+ * `filterSeriesIdsByWorkspace` / `filterRaceIdsByWorkspace`) before calling.
+ */
+async function versionedSaveMany<TTable extends VersionedTable>(
+  spec: Omit<VersionedSaveSpec<TTable>, 'values' | 'tenancy'> & {
+    values: PgInsertValue<TTable>[];
+    tenancy: SaveTenancy['kind'];
+  },
+): Promise<void> {
+  const { db, table, workspaceId } = spec;
+  const updatedBy = spec.opts?.updatedBy ?? null;
+  const values = spec.values.map(
+    (v) => ({ ...(v as object), updatedBy }) as PgInsertValue<TTable>,
+  );
+  const excludedSet: Record<string, unknown> = {
+    updatedBy: excludedColumn(table, 'updatedBy'),
+  };
+  for (const col of spec.updateColumns) {
+    excludedSet[col] = excludedColumn(table, col);
+  }
+  await db
+    .insert(table)
+    .values(values)
+    .onConflictDoUpdate({
+      target: table.id,
+      ...(spec.tenancy === 'workspace'
+        ? { targetWhere: eq((table as Versionable).workspaceId, workspaceId) }
+        : {}),
+      set: {
+        ...excludedSet,
+        version: sql`${table.version} + 1`,
+        updatedAt: sql`now()`,
+      } as PgUpdateSetSource<TTable>,
+    });
+}
+
 // ─── Series ───────────────────────────────────────────────────────────────────
+
+function seriesToRow(s: Series, workspaceId: string) {
+  return {
+    id: s.id,
+    workspaceId,
+    name: s.name,
+    venue: s.venue,
+    startDate: s.startDate,
+    endDate: s.endDate,
+    venueLogoUrl: s.venueLogoUrl,
+    eventLogoUrl: s.eventLogoUrl,
+    venueUrl: s.venueUrl,
+    eventUrl: s.eventUrl,
+    createdAt: new Date(s.createdAt),
+    lastSavedAt: s.lastSavedAt != null ? new Date(s.lastSavedAt) : null,
+    lastModifiedAt: new Date(s.lastModifiedAt),
+    scoringMode: s.scoringMode,
+    defaultStartSequence: s.defaultStartSequence ?? null,
+    discardThresholds: s.discardThresholds,
+    dnfScoring: s.dnfScoring,
+    ftpHost: s.ftpHost,
+    ftpPath: s.ftpPath,
+    ftpPaths: s.ftpPaths,
+    includeJsonExport: s.includeJsonExport,
+    publishRatingCalculations: s.publishRatingCalculations ?? true,
+    showPerRaceRatingsInSummary: s.showPerRaceRatingsInSummary ?? true,
+    enabledCompetitorFields: s.enabledCompetitorFields,
+    primaryPersonLabel: s.primaryPersonLabel,
+    subdivisionLabel: s.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+    categoryId: s.categoryId ?? null,
+    archived: s.archived ?? false,
+    source: s.source ?? null,
+    // New series append to the end of the active list. Computed
+    // server-side so the client needn't know the current max; display_order
+    // is not in seriesUpdateColumns, so updates preserve it.
+    displayOrder: sql<number>`(select coalesce(max(${schema.series.displayOrder}) + 1, 0) from ${schema.series} where ${schema.series.workspaceId} = ${workspaceId})`,
+  };
+}
+
+const seriesUpdateColumns = [
+  'name', 'venue', 'startDate', 'endDate',
+  'venueLogoUrl', 'eventLogoUrl', 'venueUrl', 'eventUrl',
+  'lastSavedAt', 'lastModifiedAt',
+  'scoringMode', 'defaultStartSequence', 'discardThresholds', 'dnfScoring',
+  'ftpHost', 'ftpPath', 'ftpPaths', 'includeJsonExport',
+  'publishRatingCalculations', 'showPerRaceRatingsInSummary',
+  'enabledCompetitorFields', 'primaryPersonLabel', 'subdivisionLabel',
+  'categoryId', 'archived', 'source',
+] as const satisfies readonly (keyof ReturnType<typeof seriesToRow>)[];
 
 export class PostgresSeriesRepository implements SeriesRepository {
   private readonly db: SailScoringDb;
@@ -356,117 +583,17 @@ export class PostgresSeriesRepository implements SeriesRepository {
   }
 
   async save(s: Series, opts?: SaveOpts): Promise<Series> {
-    const updatedBy = opts?.updatedBy ?? null;
-    const insertValues = {
-      id: s.id,
+    return versionedSave({
+      db: this.db,
+      table: schema.series,
+      rowToType: seriesRowToType,
       workspaceId: this.workspaceId,
-      name: s.name,
-      venue: s.venue,
-      startDate: s.startDate,
-      endDate: s.endDate,
-      venueLogoUrl: s.venueLogoUrl,
-      eventLogoUrl: s.eventLogoUrl,
-      venueUrl: s.venueUrl,
-      eventUrl: s.eventUrl,
-      createdAt: new Date(s.createdAt),
-      lastSavedAt: s.lastSavedAt != null ? new Date(s.lastSavedAt) : null,
-      lastModifiedAt: new Date(s.lastModifiedAt),
-      scoringMode: s.scoringMode,
-      defaultStartSequence: s.defaultStartSequence ?? null,
-      discardThresholds: s.discardThresholds,
-      dnfScoring: s.dnfScoring,
-      ftpHost: s.ftpHost,
-      ftpPath: s.ftpPath,
-      ftpPaths: s.ftpPaths,
-      includeJsonExport: s.includeJsonExport,
-      publishRatingCalculations: s.publishRatingCalculations ?? true,
-      showPerRaceRatingsInSummary: s.showPerRaceRatingsInSummary ?? true,
-      enabledCompetitorFields: s.enabledCompetitorFields,
-      primaryPersonLabel: s.primaryPersonLabel,
-      subdivisionLabel: s.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
-      categoryId: s.categoryId ?? null,
-      archived: s.archived ?? false,
-      source: s.source ?? null,
-      // New series append to the end of the active list. Computed
-      // server-side so the client needn't know the current max; on conflict
-      // (update) display_order is omitted from updateSet, so it's preserved.
-      displayOrder: sql<number>`(select coalesce(max(${schema.series.displayOrder}) + 1, 0) from ${schema.series} where ${schema.series.workspaceId} = ${this.workspaceId})`,
-      updatedBy,
-    };
-    const updateSet = {
-      name: insertValues.name,
-      venue: insertValues.venue,
-      startDate: insertValues.startDate,
-      endDate: insertValues.endDate,
-      venueLogoUrl: insertValues.venueLogoUrl,
-      eventLogoUrl: insertValues.eventLogoUrl,
-      venueUrl: insertValues.venueUrl,
-      eventUrl: insertValues.eventUrl,
-      lastSavedAt: insertValues.lastSavedAt,
-      lastModifiedAt: insertValues.lastModifiedAt,
-      scoringMode: insertValues.scoringMode,
-      defaultStartSequence: insertValues.defaultStartSequence,
-      discardThresholds: insertValues.discardThresholds,
-      dnfScoring: insertValues.dnfScoring,
-      ftpHost: insertValues.ftpHost,
-      ftpPath: insertValues.ftpPath,
-      ftpPaths: insertValues.ftpPaths,
-      includeJsonExport: insertValues.includeJsonExport,
-      publishRatingCalculations: insertValues.publishRatingCalculations,
-      showPerRaceRatingsInSummary: insertValues.showPerRaceRatingsInSummary,
-      enabledCompetitorFields: insertValues.enabledCompetitorFields,
-      primaryPersonLabel: insertValues.primaryPersonLabel,
-      subdivisionLabel: insertValues.subdivisionLabel,
-      categoryId: insertValues.categoryId,
-      archived: insertValues.archived,
-      source: insertValues.source,
-      updatedBy,
-    };
-    if (opts?.expectedVersion !== undefined) {
-      const [row] = await this.db
-        .update(schema.series)
-        .set({
-          ...updateSet,
-          version: sql`${schema.series.version} + 1`,
-          updatedAt: sql`now()`,
-        })
-        .where(
-          and(
-            eq(schema.series.id, s.id),
-            eq(schema.series.workspaceId, this.workspaceId),
-            eq(schema.series.version, opts.expectedVersion),
-          ),
-        )
-        .returning();
-      if (!row) {
-        throw await buildConflictError(
-          this.db,
-          schema.series,
-          s.id,
-          this.workspaceId,
-          opts.expectedVersion,
-        );
-      }
-      return seriesRowToType(row);
-    }
-    const [row] = await this.db
-      .insert(schema.series)
-      .values(insertValues)
-      .onConflictDoUpdate({
-        target: schema.series.id,
-        // Tenancy guard on conflict: only update if the existing row is in
-        // this workspace. A cross-workspace id collision is not supposed to
-        // happen (UUIDs are unique), but if it ever did, this keeps the
-        // tenancy boundary intact.
-        targetWhere: eq(schema.series.workspaceId, this.workspaceId),
-        set: {
-          ...updateSet,
-          version: sql`${schema.series.version} + 1`,
-          updatedAt: sql`now()`,
-        },
-      })
-      .returning();
-    return seriesRowToType(row);
+      id: s.id,
+      values: seriesToRow(s, this.workspaceId),
+      updateColumns: seriesUpdateColumns,
+      tenancy: { kind: 'workspace' },
+      opts,
+    });
   }
 
   async delete(id: string): Promise<void> {
@@ -521,6 +648,23 @@ export class PostgresSeriesRepository implements SeriesRepository {
 
 // ─── Fleets ───────────────────────────────────────────────────────────────────
 
+function fleetToRow(f: Fleet, workspaceId: string) {
+  return {
+    id: f.id,
+    seriesId: f.seriesId,
+    workspaceId,
+    name: f.name,
+    displayOrder: f.displayOrder,
+    scoringSystem: f.scoringSystem,
+    echoAlpha: f.echoAlpha ?? null,
+    nhcProfile: f.nhcProfile ?? null,
+  };
+}
+
+const fleetUpdateColumns = [
+  'name', 'displayOrder', 'scoringSystem', 'echoAlpha', 'nhcProfile',
+] as const satisfies readonly (keyof ReturnType<typeof fleetToRow>)[];
+
 export class PostgresFleetRepository implements FleetRepository {
   private readonly db: SailScoringDb;
   private readonly workspaceId: string;
@@ -559,72 +703,21 @@ export class PostgresFleetRepository implements FleetRepository {
   }
 
   async save(fleet: Fleet, opts?: SaveOpts): Promise<Fleet> {
-    const updatedBy = opts?.updatedBy ?? null;
-    const values = {
-      id: fleet.id,
-      seriesId: fleet.seriesId,
+    return versionedSave({
+      db: this.db,
+      table: schema.fleets,
+      rowToType: fleetRowToType,
       workspaceId: this.workspaceId,
-      name: fleet.name,
-      displayOrder: fleet.displayOrder,
-      scoringSystem: fleet.scoringSystem,
-      echoAlpha: fleet.echoAlpha ?? null,
-      nhcProfile: fleet.nhcProfile ?? null,
-      updatedBy,
-    };
-    const updateSet = {
-      name: values.name,
-      displayOrder: values.displayOrder,
-      scoringSystem: values.scoringSystem,
-      echoAlpha: values.echoAlpha,
-      nhcProfile: values.nhcProfile,
-      updatedBy,
-    };
-    if (opts?.expectedVersion !== undefined) {
-      const [row] = await this.db
-        .update(schema.fleets)
-        .set({
-          ...updateSet,
-          version: sql`${schema.fleets.version} + 1`,
-          updatedAt: sql`now()`,
-        })
-        .where(
-          and(
-            eq(schema.fleets.id, fleet.id),
-            eq(schema.fleets.workspaceId, this.workspaceId),
-            eq(schema.fleets.version, opts.expectedVersion),
-          ),
-        )
-        .returning();
-      if (!row) {
-        throw await buildConflictError(
-          this.db,
-          schema.fleets,
-          fleet.id,
-          this.workspaceId,
-          opts.expectedVersion,
-        );
-      }
-      return fleetRowToType(row);
-    }
-    const [row] = await this.db
-      .insert(schema.fleets)
-      .values(values)
-      .onConflictDoUpdate({
-        target: schema.fleets.id,
-        targetWhere: eq(schema.fleets.workspaceId, this.workspaceId),
-        set: {
-          ...updateSet,
-          version: sql`${schema.fleets.version} + 1`,
-          updatedAt: sql`now()`,
-        },
-      })
-      .returning();
-    return fleetRowToType(row);
+      id: fleet.id,
+      values: fleetToRow(fleet, this.workspaceId),
+      updateColumns: fleetUpdateColumns,
+      tenancy: { kind: 'workspace' },
+      opts,
+    });
   }
 
   async saveMany(fleets: Fleet[], opts?: SaveOpts): Promise<void> {
     if (fleets.length === 0) return;
-    const updatedBy = opts?.updatedBy ?? null;
     const seriesIds = [...new Set(fleets.map((f) => f.seriesId))];
     const owned = await filterSeriesIdsByWorkspace(
       this.db,
@@ -634,34 +727,15 @@ export class PostgresFleetRepository implements FleetRepository {
     if (owned.length !== seriesIds.length) {
       throw new Error('some series not in workspace');
     }
-    const values = fleets.map((f) => ({
-      id: f.id,
-      seriesId: f.seriesId,
+    await versionedSaveMany({
+      db: this.db,
+      table: schema.fleets,
       workspaceId: this.workspaceId,
-      name: f.name,
-      displayOrder: f.displayOrder,
-      scoringSystem: f.scoringSystem,
-      echoAlpha: f.echoAlpha ?? null,
-      nhcProfile: f.nhcProfile ?? null,
-      updatedBy,
-    }));
-    await this.db
-      .insert(schema.fleets)
-      .values(values)
-      .onConflictDoUpdate({
-        target: schema.fleets.id,
-        targetWhere: eq(schema.fleets.workspaceId, this.workspaceId),
-        set: {
-          name: sql`excluded.name`,
-          displayOrder: sql`excluded.display_order`,
-          scoringSystem: sql`excluded.scoring_system`,
-          echoAlpha: sql`excluded.echo_alpha`,
-          nhcProfile: sql`excluded.nhc_profile`,
-          updatedBy: sql`excluded.updated_by`,
-          version: sql`${schema.fleets.version} + 1`,
-          updatedAt: sql`now()`,
-        },
-      });
+      values: fleets.map((f) => fleetToRow(f, this.workspaceId)),
+      updateColumns: fleetUpdateColumns,
+      tenancy: 'workspace',
+      opts,
+    });
   }
 
   async delete(id: string): Promise<void> {
@@ -782,6 +856,40 @@ export class PostgresFleetRepository implements FleetRepository {
 
 // ─── Competitors ──────────────────────────────────────────────────────────────
 
+function competitorToRow(c: Competitor, workspaceId: string) {
+  return {
+    id: c.id,
+    seriesId: c.seriesId,
+    workspaceId,
+    fleetIds: c.fleetIds,
+    sailNumber: c.sailNumber,
+    boatName: c.boatName ?? null,
+    boatClass: c.boatClass ?? null,
+    name: c.name,
+    owner: c.owner ?? null,
+    helm: c.helm ?? null,
+    crewName: c.crewName ?? null,
+    club: c.club,
+    nationality: c.nationality ?? null,
+    gender: c.gender,
+    age: c.age,
+    subdivision: c.subdivision ?? null,
+    createdAt: new Date(c.createdAt),
+    ircTcc: c.ircTcc ?? null,
+    vprsTcc: c.vprsTcc ?? null,
+    pyNumber: c.pyNumber ?? null,
+    nhcStartingTcf: c.nhcStartingTcf ?? null,
+    echoStartingTcf: c.echoStartingTcf ?? null,
+  };
+}
+
+const competitorUpdateColumns = [
+  'fleetIds', 'sailNumber', 'boatName', 'boatClass', 'name',
+  'owner', 'helm', 'crewName', 'club', 'nationality',
+  'gender', 'age', 'subdivision',
+  'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf',
+] as const satisfies readonly (keyof ReturnType<typeof competitorToRow>)[];
+
 export class PostgresCompetitorRepository implements CompetitorRepository {
   private readonly db: SailScoringDb;
   private readonly workspaceId: string;
@@ -820,99 +928,21 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
   }
 
   async save(c: Competitor, opts?: SaveOpts): Promise<Competitor> {
-    const updatedBy = opts?.updatedBy ?? null;
-    const values = {
-      id: c.id,
-      seriesId: c.seriesId,
+    return versionedSave({
+      db: this.db,
+      table: schema.competitors,
+      rowToType: competitorRowToType,
       workspaceId: this.workspaceId,
-      fleetIds: c.fleetIds,
-      sailNumber: c.sailNumber,
-      boatName: c.boatName ?? null,
-      boatClass: c.boatClass ?? null,
-      name: c.name,
-      owner: c.owner ?? null,
-      helm: c.helm ?? null,
-      crewName: c.crewName ?? null,
-      club: c.club,
-      nationality: c.nationality ?? null,
-      gender: c.gender,
-      age: c.age,
-      subdivision: c.subdivision ?? null,
-      createdAt: new Date(c.createdAt),
-      ircTcc: c.ircTcc ?? null,
-      vprsTcc: c.vprsTcc ?? null,
-      pyNumber: c.pyNumber ?? null,
-      nhcStartingTcf: c.nhcStartingTcf ?? null,
-      echoStartingTcf: c.echoStartingTcf ?? null,
-      updatedBy,
-    };
-    const updateSet = {
-      fleetIds: values.fleetIds,
-      sailNumber: values.sailNumber,
-      boatName: values.boatName,
-      boatClass: values.boatClass,
-      name: values.name,
-      owner: values.owner,
-      helm: values.helm,
-      crewName: values.crewName,
-      club: values.club,
-      nationality: values.nationality,
-      gender: values.gender,
-      age: values.age,
-      subdivision: values.subdivision,
-      ircTcc: values.ircTcc,
-      vprsTcc: values.vprsTcc,
-      pyNumber: values.pyNumber,
-      nhcStartingTcf: values.nhcStartingTcf,
-      echoStartingTcf: values.echoStartingTcf,
-      updatedBy,
-    };
-    if (opts?.expectedVersion !== undefined) {
-      const [row] = await this.db
-        .update(schema.competitors)
-        .set({
-          ...updateSet,
-          version: sql`${schema.competitors.version} + 1`,
-          updatedAt: sql`now()`,
-        })
-        .where(
-          and(
-            eq(schema.competitors.id, c.id),
-            eq(schema.competitors.workspaceId, this.workspaceId),
-            eq(schema.competitors.version, opts.expectedVersion),
-          ),
-        )
-        .returning();
-      if (!row) {
-        throw await buildConflictError(
-          this.db,
-          schema.competitors,
-          c.id,
-          this.workspaceId,
-          opts.expectedVersion,
-        );
-      }
-      return competitorRowToType(row);
-    }
-    const [row] = await this.db
-      .insert(schema.competitors)
-      .values(values)
-      .onConflictDoUpdate({
-        target: schema.competitors.id,
-        targetWhere: eq(schema.competitors.workspaceId, this.workspaceId),
-        set: {
-          ...updateSet,
-          version: sql`${schema.competitors.version} + 1`,
-          updatedAt: sql`now()`,
-        },
-      })
-      .returning();
-    return competitorRowToType(row);
+      id: c.id,
+      values: competitorToRow(c, this.workspaceId),
+      updateColumns: competitorUpdateColumns,
+      tenancy: { kind: 'workspace' },
+      opts,
+    });
   }
 
   async saveMany(competitors: Competitor[], opts?: SaveOpts): Promise<void> {
     if (competitors.length === 0) return;
-    const updatedBy = opts?.updatedBy ?? null;
     const seriesIds = [...new Set(competitors.map((c) => c.seriesId))];
     const owned = await filterSeriesIdsByWorkspace(
       this.db,
@@ -922,61 +952,15 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
     if (owned.length !== seriesIds.length) {
       throw new Error('some series not in workspace');
     }
-    const values = competitors.map((c) => ({
-      id: c.id,
-      seriesId: c.seriesId,
+    await versionedSaveMany({
+      db: this.db,
+      table: schema.competitors,
       workspaceId: this.workspaceId,
-      fleetIds: c.fleetIds,
-      sailNumber: c.sailNumber,
-      boatName: c.boatName ?? null,
-      boatClass: c.boatClass ?? null,
-      name: c.name,
-      owner: c.owner ?? null,
-      helm: c.helm ?? null,
-      crewName: c.crewName ?? null,
-      club: c.club,
-      nationality: c.nationality ?? null,
-      gender: c.gender,
-      age: c.age,
-      subdivision: c.subdivision ?? null,
-      createdAt: new Date(c.createdAt),
-      ircTcc: c.ircTcc ?? null,
-      vprsTcc: c.vprsTcc ?? null,
-      pyNumber: c.pyNumber ?? null,
-      nhcStartingTcf: c.nhcStartingTcf ?? null,
-      echoStartingTcf: c.echoStartingTcf ?? null,
-      updatedBy,
-    }));
-    await this.db
-      .insert(schema.competitors)
-      .values(values)
-      .onConflictDoUpdate({
-        target: schema.competitors.id,
-        targetWhere: eq(schema.competitors.workspaceId, this.workspaceId),
-        set: {
-          fleetIds: sql`excluded.fleet_ids`,
-          sailNumber: sql`excluded.sail_number`,
-          boatName: sql`excluded.boat_name`,
-          boatClass: sql`excluded.boat_class`,
-          name: sql`excluded.name`,
-          owner: sql`excluded.owner`,
-          helm: sql`excluded.helm`,
-          crewName: sql`excluded.crew_name`,
-          club: sql`excluded.club`,
-          nationality: sql`excluded.nationality`,
-          gender: sql`excluded.gender`,
-          age: sql`excluded.age`,
-          subdivision: sql`excluded.subdivision`,
-          ircTcc: sql`excluded.irc_tcc`,
-          vprsTcc: sql`excluded.vprs_tcc`,
-          pyNumber: sql`excluded.py_number`,
-          nhcStartingTcf: sql`excluded.nhc_starting_tcf`,
-          echoStartingTcf: sql`excluded.echo_starting_tcf`,
-          updatedBy: sql`excluded.updated_by`,
-          version: sql`${schema.competitors.version} + 1`,
-          updatedAt: sql`now()`,
-        },
-      });
+      values: competitors.map((c) => competitorToRow(c, this.workspaceId)),
+      updateColumns: competitorUpdateColumns,
+      tenancy: 'workspace',
+      opts,
+    });
   }
 
   async delete(id: string): Promise<void> {
@@ -1003,6 +987,21 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
 }
 
 // ─── Races ────────────────────────────────────────────────────────────────────
+
+function raceToRow(r: Race, workspaceId: string) {
+  return {
+    id: r.id,
+    seriesId: r.seriesId,
+    workspaceId,
+    raceNumber: r.raceNumber,
+    date: r.date,
+    createdAt: new Date(r.createdAt),
+  };
+}
+
+const raceUpdateColumns = [
+  'raceNumber', 'date',
+] as const satisfies readonly (keyof ReturnType<typeof raceToRow>)[];
 
 export class PostgresRaceRepository implements RaceRepository {
   private readonly db: SailScoringDb;
@@ -1042,62 +1041,17 @@ export class PostgresRaceRepository implements RaceRepository {
   }
 
   async save(r: Race, opts?: SaveOpts): Promise<Race> {
-    const updatedBy = opts?.updatedBy ?? null;
-    const values = {
-      id: r.id,
-      seriesId: r.seriesId,
+    return versionedSave({
+      db: this.db,
+      table: schema.races,
+      rowToType: raceRowToType,
       workspaceId: this.workspaceId,
-      raceNumber: r.raceNumber,
-      date: r.date,
-      createdAt: new Date(r.createdAt),
-      updatedBy,
-    };
-    const updateSet = {
-      raceNumber: values.raceNumber,
-      date: values.date,
-      updatedBy,
-    };
-    if (opts?.expectedVersion !== undefined) {
-      const [row] = await this.db
-        .update(schema.races)
-        .set({
-          ...updateSet,
-          version: sql`${schema.races.version} + 1`,
-          updatedAt: sql`now()`,
-        })
-        .where(
-          and(
-            eq(schema.races.id, r.id),
-            eq(schema.races.workspaceId, this.workspaceId),
-            eq(schema.races.version, opts.expectedVersion),
-          ),
-        )
-        .returning();
-      if (!row) {
-        throw await buildConflictError(
-          this.db,
-          schema.races,
-          r.id,
-          this.workspaceId,
-          opts.expectedVersion,
-        );
-      }
-      return raceRowToType(row);
-    }
-    const [row] = await this.db
-      .insert(schema.races)
-      .values(values)
-      .onConflictDoUpdate({
-        target: schema.races.id,
-        targetWhere: eq(schema.races.workspaceId, this.workspaceId),
-        set: {
-          ...updateSet,
-          version: sql`${schema.races.version} + 1`,
-          updatedAt: sql`now()`,
-        },
-      })
-      .returning();
-    return raceRowToType(row);
+      id: r.id,
+      values: raceToRow(r, this.workspaceId),
+      updateColumns: raceUpdateColumns,
+      tenancy: { kind: 'workspace' },
+      opts,
+    });
   }
 
   async delete(id: string): Promise<void> {
@@ -1182,6 +1136,19 @@ async function isRaceInWorkspace(
 
 // ─── RaceStarts ──────────────────────────────────────────────────────────────
 
+function raceStartToRow(s: RaceStart) {
+  return {
+    id: s.id,
+    raceId: s.raceId,
+    fleetIds: s.fleetIds,
+    startTime: s.startTime,
+  };
+}
+
+const raceStartUpdateColumns = [
+  'fleetIds', 'startTime',
+] as const satisfies readonly (keyof ReturnType<typeof raceStartToRow>)[];
+
 export class PostgresRaceStartRepository implements RaceStartRepository {
   private readonly db: SailScoringDb;
   private readonly workspaceId: string;
@@ -1218,65 +1185,21 @@ export class PostgresRaceStartRepository implements RaceStartRepository {
     if (!(await isRaceInWorkspace(this.db, this.workspaceId, s.raceId))) {
       throw new Error(`race ${s.raceId} not in workspace`);
     }
-    const updatedBy = opts?.updatedBy ?? null;
-    const values = {
+    return versionedSave({
+      db: this.db,
+      table: schema.raceStarts,
+      rowToType: raceStartRowToType,
+      workspaceId: this.workspaceId,
       id: s.id,
-      raceId: s.raceId,
-      fleetIds: s.fleetIds,
-      startTime: s.startTime,
-      updatedBy,
-    };
-    const updateSet = {
-      fleetIds: values.fleetIds,
-      startTime: values.startTime,
-      updatedBy,
-    };
-    if (opts?.expectedVersion !== undefined) {
-      const [row] = await this.db
-        .update(schema.raceStarts)
-        .set({
-          ...updateSet,
-          version: sql`${schema.raceStarts.version} + 1`,
-          updatedAt: sql`now()`,
-        })
-        .where(
-          and(
-            eq(schema.raceStarts.id, s.id),
-            eq(schema.raceStarts.raceId, s.raceId),
-            eq(schema.raceStarts.version, opts.expectedVersion),
-          ),
-        )
-        .returning();
-      if (!row) {
-        throw await buildConflictError(
-          this.db,
-          schema.raceStarts,
-          s.id,
-          this.workspaceId,
-          opts.expectedVersion,
-          'parent-race',
-        );
-      }
-      return raceStartRowToType(row);
-    }
-    const [row] = await this.db
-      .insert(schema.raceStarts)
-      .values(values)
-      .onConflictDoUpdate({
-        target: schema.raceStarts.id,
-        set: {
-          ...updateSet,
-          version: sql`${schema.raceStarts.version} + 1`,
-          updatedAt: sql`now()`,
-        },
-      })
-      .returning();
-    return raceStartRowToType(row);
+      values: raceStartToRow(s),
+      updateColumns: raceStartUpdateColumns,
+      tenancy: { kind: 'parent-race', raceId: s.raceId },
+      opts,
+    });
   }
 
   async saveMany(starts: RaceStart[], opts?: SaveOpts): Promise<void> {
     if (starts.length === 0) return;
-    const updatedBy = opts?.updatedBy ?? null;
     // Verify every parent race is in this workspace before writing anything.
     const raceIds = [...new Set(starts.map((s) => s.raceId))];
     const owned = await filterRaceIdsByWorkspace(
@@ -1287,26 +1210,15 @@ export class PostgresRaceStartRepository implements RaceStartRepository {
     if (owned.length !== raceIds.length) {
       throw new Error('some races not in workspace');
     }
-    const values = starts.map((s) => ({
-      id: s.id,
-      raceId: s.raceId,
-      fleetIds: s.fleetIds,
-      startTime: s.startTime,
-      updatedBy,
-    }));
-    await this.db
-      .insert(schema.raceStarts)
-      .values(values)
-      .onConflictDoUpdate({
-        target: schema.raceStarts.id,
-        set: {
-          fleetIds: sql`excluded.fleet_ids`,
-          startTime: sql`excluded.start_time`,
-          updatedBy: sql`excluded.updated_by`,
-          version: sql`${schema.raceStarts.version} + 1`,
-          updatedAt: sql`now()`,
-        },
-      });
+    await versionedSaveMany({
+      db: this.db,
+      table: schema.raceStarts,
+      workspaceId: this.workspaceId,
+      values: starts.map(raceStartToRow),
+      updateColumns: raceStartUpdateColumns,
+      tenancy: 'parent-race',
+      opts,
+    });
   }
 
   async delete(id: string): Promise<void> {
@@ -1346,6 +1258,20 @@ export class PostgresRaceStartRepository implements RaceStartRepository {
   }
 }
 
+function raceRatingOverrideToRow(o: RaceRatingOverride) {
+  return {
+    id: o.id,
+    raceId: o.raceId,
+    competitorId: o.competitorId,
+    field: o.field,
+    value: o.value,
+  };
+}
+
+const raceRatingOverrideUpdateColumns = [
+  'field', 'value',
+] as const satisfies readonly (keyof ReturnType<typeof raceRatingOverrideToRow>)[];
+
 export class PostgresRaceRatingOverrideRepository implements RaceRatingOverrideRepository {
   private readonly db: SailScoringDb;
   private readonly workspaceId: string;
@@ -1367,33 +1293,20 @@ export class PostgresRaceRatingOverrideRepository implements RaceRatingOverrideR
 
   async saveMany(overrides: RaceRatingOverride[], opts?: SaveOpts): Promise<void> {
     if (overrides.length === 0) return;
-    const updatedBy = opts?.updatedBy ?? null;
     const raceIds = [...new Set(overrides.map((o) => o.raceId))];
     const owned = await filterRaceIdsByWorkspace(this.db, this.workspaceId, raceIds);
     if (owned.length !== raceIds.length) {
       throw new Error('some races not in workspace');
     }
-    const values = overrides.map((o) => ({
-      id: o.id,
-      raceId: o.raceId,
-      competitorId: o.competitorId,
-      field: o.field,
-      value: o.value,
-      updatedBy,
-    }));
-    await this.db
-      .insert(schema.raceRatingOverrides)
-      .values(values)
-      .onConflictDoUpdate({
-        target: schema.raceRatingOverrides.id,
-        set: {
-          field: sql`excluded.field`,
-          value: sql`excluded.value`,
-          updatedBy: sql`excluded.updated_by`,
-          version: sql`${schema.raceRatingOverrides.version} + 1`,
-          updatedAt: sql`now()`,
-        },
-      });
+    await versionedSaveMany({
+      db: this.db,
+      table: schema.raceRatingOverrides,
+      workspaceId: this.workspaceId,
+      values: overrides.map(raceRatingOverrideToRow),
+      updateColumns: raceRatingOverrideUpdateColumns,
+      tenancy: 'parent-race',
+      opts,
+    });
   }
 
   async delete(id: string): Promise<void> {
@@ -1422,6 +1335,34 @@ export class PostgresRaceRatingOverrideRepository implements RaceRatingOverrideR
 }
 
 // ─── Finishes ────────────────────────────────────────────────────────────────
+
+function finishToRow(f: Finish) {
+  return {
+    id: f.id,
+    raceId: f.raceId,
+    competitorId: f.competitorId,
+    unknownSailNumber: f.unknownSailNumber ?? null,
+    sortOrder: f.sortOrder,
+    tiedWithPrevious: f.tiedWithPrevious,
+    finishTime: f.finishTime ?? null,
+    resultCode: f.resultCode,
+    startPresent: f.startPresent,
+    penaltyCode: f.penaltyCode,
+    penaltyOverride: f.penaltyOverride,
+    redressMethod: f.redressMethod,
+    redressExcludeRaces: f.redressExcludeRaces,
+    redressIncludeRaces: f.redressIncludeRaces,
+    redressIncludeAllLater: f.redressIncludeAllLater,
+    redressPoints: f.redressPoints,
+  };
+}
+
+const finishUpdateColumns = [
+  'competitorId', 'unknownSailNumber', 'sortOrder', 'tiedWithPrevious',
+  'finishTime', 'resultCode', 'startPresent', 'penaltyCode', 'penaltyOverride',
+  'redressMethod', 'redressExcludeRaces', 'redressIncludeRaces',
+  'redressIncludeAllLater', 'redressPoints',
+] as const satisfies readonly (keyof ReturnType<typeof finishToRow>)[];
 
 export class PostgresFinishRepository implements FinishRepository {
   private readonly db: SailScoringDb;
@@ -1475,56 +1416,21 @@ export class PostgresFinishRepository implements FinishRepository {
     if (!(await isRaceInWorkspace(this.db, this.workspaceId, f.raceId))) {
       throw new Error(`race ${f.raceId} not in workspace`);
     }
-    const updatedBy = opts?.updatedBy ?? null;
-    const values = { ...finishToRow(f), updatedBy };
-    if (opts?.expectedVersion !== undefined) {
-      const [row] = await this.db
-        .update(schema.finishes)
-        .set({
-          ...finishUpdateSet(values),
-          updatedBy,
-          version: sql`${schema.finishes.version} + 1`,
-          updatedAt: sql`now()`,
-        })
-        .where(
-          and(
-            eq(schema.finishes.id, f.id),
-            eq(schema.finishes.raceId, f.raceId),
-            eq(schema.finishes.version, opts.expectedVersion),
-          ),
-        )
-        .returning();
-      if (!row) {
-        throw await buildConflictError(
-          this.db,
-          schema.finishes,
-          f.id,
-          this.workspaceId,
-          opts.expectedVersion,
-          'parent-race',
-        );
-      }
-      return finishRowToType(row);
-    }
-    const [row] = await this.db
-      .insert(schema.finishes)
-      .values(values)
-      .onConflictDoUpdate({
-        target: schema.finishes.id,
-        set: {
-          ...finishUpdateSet(values),
-          updatedBy,
-          version: sql`${schema.finishes.version} + 1`,
-          updatedAt: sql`now()`,
-        },
-      })
-      .returning();
-    return finishRowToType(row);
+    return versionedSave({
+      db: this.db,
+      table: schema.finishes,
+      rowToType: finishRowToType,
+      workspaceId: this.workspaceId,
+      id: f.id,
+      values: finishToRow(f),
+      updateColumns: finishUpdateColumns,
+      tenancy: { kind: 'parent-race', raceId: f.raceId },
+      opts,
+    });
   }
 
   async saveMany(finishes: Finish[], opts?: SaveOpts): Promise<void> {
     if (finishes.length === 0) return;
-    const updatedBy = opts?.updatedBy ?? null;
     // Verify every parent race is in this workspace before writing anything.
     const raceIds = [...new Set(finishes.map((f) => f.raceId))];
     const owned = await filterRaceIdsByWorkspace(
@@ -1535,19 +1441,15 @@ export class PostgresFinishRepository implements FinishRepository {
     if (owned.length !== raceIds.length) {
       throw new Error('some races not in workspace');
     }
-    const values = finishes.map((f) => ({ ...finishToRow(f), updatedBy }));
-    await this.db
-      .insert(schema.finishes)
-      .values(values)
-      .onConflictDoUpdate({
-        target: schema.finishes.id,
-        set: {
-          ...finishUpdateSetExcluded(),
-          updatedBy: sql`excluded.updated_by`,
-          version: sql`${schema.finishes.version} + 1`,
-          updatedAt: sql`now()`,
-        },
-      });
+    await versionedSaveMany({
+      db: this.db,
+      table: schema.finishes,
+      workspaceId: this.workspaceId,
+      values: finishes.map(finishToRow),
+      updateColumns: finishUpdateColumns,
+      tenancy: 'parent-race',
+      opts,
+    });
   }
 
   async delete(id: string): Promise<void> {
@@ -1584,71 +1486,23 @@ export class PostgresFinishRepository implements FinishRepository {
   }
 }
 
-function finishToRow(f: Finish) {
-  return {
-    id: f.id,
-    raceId: f.raceId,
-    competitorId: f.competitorId,
-    unknownSailNumber: f.unknownSailNumber ?? null,
-    sortOrder: f.sortOrder,
-    tiedWithPrevious: f.tiedWithPrevious,
-    finishTime: f.finishTime ?? null,
-    resultCode: f.resultCode,
-    startPresent: f.startPresent,
-    penaltyCode: f.penaltyCode,
-    penaltyOverride: f.penaltyOverride,
-    redressMethod: f.redressMethod,
-    redressExcludeRaces: f.redressExcludeRaces,
-    redressIncludeRaces: f.redressIncludeRaces,
-    redressIncludeAllLater: f.redressIncludeAllLater,
-    redressPoints: f.redressPoints,
-  };
-}
-
-function finishUpdateSet(values: ReturnType<typeof finishToRow>) {
-  return {
-    competitorId: values.competitorId,
-    unknownSailNumber: values.unknownSailNumber,
-    sortOrder: values.sortOrder,
-    tiedWithPrevious: values.tiedWithPrevious,
-    finishTime: values.finishTime,
-    resultCode: values.resultCode,
-    startPresent: values.startPresent,
-    penaltyCode: values.penaltyCode,
-    penaltyOverride: values.penaltyOverride,
-    redressMethod: values.redressMethod,
-    redressExcludeRaces: values.redressExcludeRaces,
-    redressIncludeRaces: values.redressIncludeRaces,
-    redressIncludeAllLater: values.redressIncludeAllLater,
-    redressPoints: values.redressPoints,
-  };
-}
-
-/**
- * `excluded` reference for the bulk-upsert path. ON CONFLICT DO UPDATE in
- * Postgres can pick values from the `excluded` pseudo-row (the row that
- * would have been inserted), which lets one statement upsert many rows.
- */
-function finishUpdateSetExcluded() {
-  return {
-    competitorId: sql`excluded.competitor_id`,
-    unknownSailNumber: sql`excluded.unknown_sail_number`,
-    sortOrder: sql`excluded.sort_order`,
-    tiedWithPrevious: sql`excluded.tied_with_previous`,
-    finishTime: sql`excluded.finish_time`,
-    resultCode: sql`excluded.result_code`,
-    startPresent: sql`excluded.start_present`,
-    penaltyCode: sql`excluded.penalty_code`,
-    penaltyOverride: sql`excluded.penalty_override`,
-    redressMethod: sql`excluded.redress_method`,
-    redressExcludeRaces: sql`excluded.redress_exclude_races`,
-    redressIncludeRaces: sql`excluded.redress_include_races`,
-    redressIncludeAllLater: sql`excluded.redress_include_all_later`,
-    redressPoints: sql`excluded.redress_points`,
-  };
-}
-
 // ─── FTP servers ─────────────────────────────────────────────────────────────
+
+function ftpServerToRow(server: FtpServer, workspaceId: string) {
+  return {
+    id: server.id,
+    workspaceId,
+    host: server.host,
+    port: server.port,
+    username: server.username,
+    encryptedPassword: encryptCredential(server.password),
+    ftps: server.ftps,
+  };
+}
+
+const ftpServerUpdateColumns = [
+  'host', 'port', 'username', 'encryptedPassword', 'ftps',
+] as const satisfies readonly (keyof ReturnType<typeof ftpServerToRow>)[];
 
 export class PostgresFtpServerRepository implements FtpServerRepository {
   private readonly db: SailScoringDb;
@@ -1677,66 +1531,19 @@ export class PostgresFtpServerRepository implements FtpServerRepository {
   }
 
   async save(server: FtpServer, opts?: SaveOpts): Promise<FtpServer> {
-    const updatedBy = opts?.updatedBy ?? null;
-    const values = {
-      id: server.id,
+    return versionedSave({
+      db: this.db,
+      table: schema.ftpServers,
+      // The plaintext password never round-trips through the row; echo the
+      // input back with the version the write produced.
+      rowToType: (row) => ({ ...server, version: row.version }),
       workspaceId: this.workspaceId,
-      host: server.host,
-      port: server.port,
-      username: server.username,
-      encryptedPassword: encryptCredential(server.password),
-      ftps: server.ftps,
-      updatedBy,
-    };
-    const updateSet = {
-      host: values.host,
-      port: values.port,
-      username: values.username,
-      encryptedPassword: values.encryptedPassword,
-      ftps: values.ftps,
-      updatedBy,
-    };
-    if (opts?.expectedVersion !== undefined) {
-      const [row] = await this.db
-        .update(schema.ftpServers)
-        .set({
-          ...updateSet,
-          version: sql`${schema.ftpServers.version} + 1`,
-          updatedAt: sql`now()`,
-        })
-        .where(
-          and(
-            eq(schema.ftpServers.id, server.id),
-            eq(schema.ftpServers.workspaceId, this.workspaceId),
-            eq(schema.ftpServers.version, opts.expectedVersion),
-          ),
-        )
-        .returning();
-      if (!row) {
-        throw await buildConflictError(
-          this.db,
-          schema.ftpServers,
-          server.id,
-          this.workspaceId,
-          opts.expectedVersion,
-        );
-      }
-      return { ...server, version: row.version };
-    }
-    const [row] = await this.db
-      .insert(schema.ftpServers)
-      .values(values)
-      .onConflictDoUpdate({
-        target: schema.ftpServers.id,
-        targetWhere: eq(schema.ftpServers.workspaceId, this.workspaceId),
-        set: {
-          ...updateSet,
-          version: sql`${schema.ftpServers.version} + 1`,
-          updatedAt: sql`now()`,
-        },
-      })
-      .returning();
-    return { ...server, version: row.version };
+      id: server.id,
+      values: ftpServerToRow(server, this.workspaceId),
+      updateColumns: ftpServerUpdateColumns,
+      tenancy: { kind: 'workspace' },
+      opts,
+    });
   }
 
   async delete(id: string): Promise<void> {
