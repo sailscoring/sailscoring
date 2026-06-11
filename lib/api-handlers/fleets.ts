@@ -180,5 +180,10 @@ export async function ensureFleet(
     nhcProfile: input.nhcProfile,
     updatedBy: workspace.userId,
   });
+  // Mark the series modified. Ensure can be a no-op lookup (the fleet already
+  // exists) — the repo doesn't say which — but every caller is an import or
+  // entry flow that writes more data right after, so an occasional spurious
+  // heartbeat is harmless and a missed create never is.
+  await repos.series.touch(seriesId);
   return { fleetId };
 }

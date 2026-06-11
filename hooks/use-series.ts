@@ -14,9 +14,36 @@ import {
   listSeriesNames,
   setSeriesCategory,
 } from '@/lib/api-repository';
+import { ConflictApiError } from '@/lib/api-client';
 import type { Series } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+
+/**
+ * Save a series row, retrying once on a version conflict with a re-read row.
+ *
+ * Every child write (competitor, fleet, race, finish, …) bumps the series
+ * row's version server-side, so the series version is a noisy token: a 409
+ * here usually means "a child write landed since the cache was read", not
+ * "a collaborator changed the settings". Re-read the live row for its fresh
+ * version and resend; `rebuild` reapplies the caller's intent on top of the
+ * fresh row (a patch merges onto it, a whole-row save just resends).
+ */
+async function saveSeriesRetrying(
+  id: string,
+  payload: Series,
+  expectedVersion: number | undefined,
+  rebuild: (fresh: Series) => Series,
+): Promise<Series> {
+  try {
+    return await seriesRepo.save(payload, { expectedVersion });
+  } catch (err) {
+    if (!(err instanceof ConflictApiError)) throw err;
+    const fresh = await seriesRepo.get(id);
+    if (!fresh) throw err;
+    return seriesRepo.save(rebuild(fresh), { expectedVersion: fresh.version });
+  }
+}
 
 export function useSeriesList(
   options?: Omit<UseQueryOptions<Series[]>, 'queryKey' | 'queryFn'>,
@@ -45,7 +72,7 @@ export function useSaveSeries() {
     mutationFn: (series: Series) => {
       // Pull `version` from the cached row to drive optimistic concurrency.
       const cached = qc.getQueryData<Series | null>(queryKeys.series.detail(series.id));
-      return seriesRepo.save(series, { expectedVersion: cached?.version });
+      return saveSeriesRetrying(series.id, series, cached?.version, () => series);
     },
     onSuccess: (saved) => {
       qc.setQueryData(queryKeys.series.detail(saved.id), saved);
@@ -70,7 +97,12 @@ export function useUpdateSeries() {
       const cached = qc.getQueryData<Series | null>(queryKeys.series.detail(id));
       const current = cached ?? (await seriesRepo.get(id)) ?? null;
       if (!current) throw new Error(`series ${id} not found`);
-      return seriesRepo.save({ ...current, ...patch }, { expectedVersion: current.version });
+      return saveSeriesRetrying(
+        id,
+        { ...current, ...patch },
+        current.version,
+        (fresh) => ({ ...fresh, ...patch }),
+      );
     },
     onSuccess: (saved) => {
       qc.setQueryData(queryKeys.series.detail(saved.id), saved);
@@ -96,26 +128,6 @@ export function useDeleteSeriesCascade() {
       qc.invalidateQueries({ queryKey: queryKeys.finishes.all });
       qc.invalidateQueries({ queryKey: queryKeys.raceStarts.all });
     },
-  });
-}
-
-export function useTouchSeries() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => seriesRepo.touch(id),
-    // `touch` bumps the row's `version` server-side but returns nothing, so —
-    // unlike useUpdateSeries/useSaveSeries — we can't setQueryData the fresh
-    // row. Await the detail refetch instead: react-query awaits this async
-    // onSuccess before mutateAsync resolves, so a caller doing
-    // `await touchSeries.mutateAsync(id)` is guaranteed a fresh cached version
-    // before its next series write. Without this the cache lags the DB and the
-    // next useUpdateSeries sends a stale `expectedVersion` → 409.
-    onSuccess: async (_void, id) => {
-      await qc.invalidateQueries({ queryKey: queryKeys.series.detail(id) });
-      qc.invalidateQueries({ queryKey: queryKeys.series.list() });
-    },
-    // See useSaveSeries — same scope so touch/update/save serialize together.
-    scope: { id: 'series' },
   });
 }
 

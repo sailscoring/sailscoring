@@ -24,8 +24,12 @@ export function useSaveFleet() {
       const cached = list?.find((f) => f.id === fleet.id);
       return fleetRepo.save(fleet, { expectedVersion: cached?.version });
     },
-    onSuccess: (saved) => {
+    onSuccess: async (saved) => {
       qc.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(saved.seriesId) });
+      // Every child write bumps the series row's lastModifiedAt + version
+      // server-side. Await the series refetch so a caller that proceeds to a
+      // series settings save reads a fresh expectedVersion, not a stale 409.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
     // Serialize so a rapid second save sees the cache update from the first
     // and sends the fresh `expectedVersion`. See useSaveSeries for context.
@@ -64,6 +68,10 @@ export function useSaveFleets() {
         qc.setQueryData(queryKeys.fleets.bySeries(seriesId), prev);
       }
     },
+    onSuccess: async () => {
+      // See useSaveFleet — keep the cached series row's version fresh.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
+    },
     // Reconcile with the server on both success and rollback.
     onSettled: (_data, _err, fleets) => {
       const seriesIds = new Set(fleets.map((f) => f.seriesId));
@@ -79,10 +87,12 @@ export function useDeleteFleet() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id }: { id: string; seriesId: string }) => fleetRepo.delete(id),
-    onSuccess: (_void, { seriesId }) => {
+    onSuccess: async (_void, { seriesId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(seriesId) });
       // Competitors carry fleetIds[] that may now reference a deleted id.
       qc.invalidateQueries({ queryKey: queryKeys.competitors.bySeries(seriesId) });
+      // See useSaveFleet — keep the cached series row's version fresh.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
   });
 }
@@ -99,8 +109,10 @@ export function useEnsureFleet() {
       name: string;
       options?: Parameters<typeof ensureFleet>[2];
     }) => ensureFleet(seriesId, name, options),
-    onSuccess: (_id, { seriesId }) => {
+    onSuccess: async (_id, { seriesId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(seriesId) });
+      // See useSaveFleet — keep the cached series row's version fresh.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
   });
 }
@@ -110,8 +122,10 @@ export function usePruneFleet() {
   return useMutation({
     mutationFn: ({ seriesId, fleetId }: { seriesId: string; fleetId: string }) =>
       pruneFleet(seriesId, fleetId),
-    onSuccess: (_void, { seriesId }) => {
+    onSuccess: async (_void, { seriesId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.fleets.bySeries(seriesId) });
+      // See useSaveFleet — keep the cached series row's version fresh.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
   });
 }

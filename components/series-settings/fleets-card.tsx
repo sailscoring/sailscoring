@@ -11,7 +11,7 @@ import {
 import { useFleetsBySeries, useDeleteFleet, useSaveFleet, useSaveFleets } from '@/hooks/use-fleets';
 import { useSaveCompetitors } from '@/hooks/use-competitors';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
-import { useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
+import { useUpdateSeries } from '@/hooks/use-series';
 import type { Fleet, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -52,7 +52,6 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
   const saveCompetitors = useSaveCompetitors();
   const saveRaceStart = useSaveRaceStart();
   const deleteRaceStart = useDeleteRaceStart();
-  const touchSeries = useTouchSeries();
   const updateSeries = useUpdateSeries();
   const [expanded, setExpanded] = useState(isWizard);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -211,7 +210,6 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
       displayOrder: maxOrder + 1,
       scoringSystem: 'scratch',
     });
-    await touchSeries.mutateAsync(seriesId);
     setNewFleetName('');
     setNewFleetError('');
     setAddingFleet(false);
@@ -252,7 +250,6 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
       );
     }
     await deleteFleetMutation.mutateAsync({ id: fleet.id, seriesId });
-    await touchSeries.mutateAsync(seriesId);
   }
 
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
@@ -422,8 +419,10 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
           value={series.defaultStartSequence}
           fleets={sorted}
           onSave={async (next) => {
-            await updateSeries.mutateAsync({ id: seriesId, patch: { defaultStartSequence: next } });
-            await touchSeries.mutateAsync(seriesId);
+            await updateSeries.mutateAsync({
+              id: seriesId,
+              patch: { defaultStartSequence: next, lastModifiedAt: Date.now() },
+            });
           }}
         />
       )}

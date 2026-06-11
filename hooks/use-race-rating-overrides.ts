@@ -19,6 +19,10 @@ function invalidate(qc: ReturnType<typeof useQueryClient>, raceId: string) {
   qc.invalidateQueries({ queryKey: queryKeys.raceRatingOverrides.all });
   // Overrides change scoring, so the series' TCF history (and standings) shift.
   qc.invalidateQueries({ queryKey: queryKeys.tcfHistory.all });
+  // The write bumped the series row server-side; refresh the cached series so
+  // a follow-on settings save reads a fresh expectedVersion. Returned so the
+  // mutation's onSuccess awaits the refetch before mutateAsync resolves.
+  return qc.invalidateQueries({ queryKey: queryKeys.series.all });
 }
 
 export function useSaveRaceRatingOverride() {

@@ -64,7 +64,6 @@ function makeRepo(initial: Series): { repo: SeriesRepository; current: () => Ser
       return { ...current };
     },
     delete: async () => {},
-    touch: async () => {},
     reorder: async () => {},
   };
   return { repo, current: () => current };

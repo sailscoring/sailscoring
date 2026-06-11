@@ -7,7 +7,7 @@ import {
   competitorRepo,
   DEFAULT_FLEET_NAME,
 } from '@/lib/api-repository';
-import { useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
+import { useUpdateSeries } from '@/hooks/use-series';
 import { useSaveFleets } from '@/hooks/use-fleets';
 import { useSaveCompetitors } from '@/hooks/use-competitors';
 import { parseFleetCell, autoDetectField, type CompetitorField } from '@/lib/csv-import';
@@ -616,7 +616,6 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
   trigger?: React.ReactNode;
 }>(function CompetitorImport({ seriesId, fleets, onComplete, trigger }, ref) {
   const updateSeries = useUpdateSeries();
-  const touchSeries = useTouchSeries();
   const saveFleets = useSaveFleets();
   const saveCompetitors = useSaveCompetitors();
   const [importFlow, setImportFlow] = useState<ImportFlow>({ step: 'idle' });
@@ -976,7 +975,6 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       // Phase 7 audit note in lib/repository.ts SaveOpts doc-comment.
       await saveCompetitors.mutateAsync(competitorsToSave);
     }
-    await touchSeries.mutateAsync(seriesId);
     setImportFlow({ step: 'done', added, updated, unchanged, fleetsCreated: newFleetNames, errors });
   }
 

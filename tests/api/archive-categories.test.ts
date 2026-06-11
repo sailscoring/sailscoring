@@ -109,7 +109,6 @@ describe.skipIf(skip)('archive + categories (#154)', () => {
     await expect(
       series.putSeries(ctx, id, { ...sampleSeries(id), name: 'Renamed' }),
     ).rejects.toBeInstanceOf(ArchivedError);
-    await expect(series.touchSeries(ctx, id)).rejects.toBeInstanceOf(ArchivedError);
     const fleetId = uuid();
     await expect(
       fleets.putFleet(ctx, id, fleetId, {

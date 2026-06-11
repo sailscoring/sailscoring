@@ -77,8 +77,6 @@ export interface FinishTabProps {
   /** Persistence helpers used by the inline finish-time editor. */
   patchCache: (updater: (rows: Finish[]) => Finish[]) => void;
   saveFinish: { mutate: (f: Finish) => unknown };
-  touchSeries: { mutateAsync: (id: string) => Promise<unknown> };
-  seriesId: string;
   /** Called when the user presses Escape with no input + no suggestions. */
   leave: () => void;
 }
@@ -91,7 +89,7 @@ export function FinishTab(props: FinishTabProps) {
     finishSheetImportRef, applyCsvImport,
     setEditingPenaltyEntryId, openRedressDialog, setResolvingEntry,
     setNonFinisherCode, codeLabels,
-    patchCache, saveFinish, touchSeries, seriesId, leave,
+    patchCache, saveFinish, leave,
   } = props;
   const {
     finishingOrder, tiedWithPrevious, finishTimes,
@@ -396,7 +394,6 @@ export function FinishTab(props: FinishTabProps) {
                       const updated: Finish = { ...finish, finishTime: normalized };
                       patchCache((rows) => rows.map((r) => (r.id === finish.id ? updated : r)));
                       saveFinish.mutate(updated);
-                      void touchSeries.mutateAsync(seriesId);
                       reslotTimedRow(competitorId, normalized);
                     }}
                     placeholder="HH:MM:SS"

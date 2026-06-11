@@ -53,6 +53,12 @@ export function useSaveFinish() {
           return [...rows, saved];
         },
       );
+      // Every child write bumps the series row's lastModifiedAt + version
+      // server-side. Fire-and-forget (unlike the other child hooks): finish
+      // entry autosaves row by row, and awaiting a series refetch per row
+      // would slow the serialized entry queue for no benefit — nothing in
+      // the entry flow saves the series row.
+      void qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
     // Serialize so a rapid second save sees the cache update from the first
     // and sends the fresh `expectedVersion`. See useSaveSeries for context.
@@ -64,12 +70,15 @@ export function useSaveFinishes() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (finishes: Finish[]) => finishRepo.saveMany(finishes),
-    onSuccess: (_void, finishes) => {
+    onSuccess: async (_void, finishes) => {
       const raceIds = new Set(finishes.map((f) => f.raceId));
       for (const raceId of raceIds) {
         qc.invalidateQueries({ queryKey: queryKeys.finishes.byRace(raceId) });
       }
       qc.invalidateQueries({ queryKey: queryKeys.finishes.all });
+      // The write bumped the series row server-side; refresh the cached
+      // series so a follow-on settings save reads a fresh expectedVersion.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
     // Share the 'finishes' scope with useSaveFinish so a bulk import queues
     // behind any in-flight single-row autosave instead of racing it.
@@ -81,9 +90,12 @@ export function useDeleteFinish() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id }: { id: string; raceId: string }) => finishRepo.delete(id),
-    onSuccess: (_void, { raceId }) => {
+    onSuccess: async (_void, { raceId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.finishes.byRace(raceId) });
       qc.invalidateQueries({ queryKey: queryKeys.finishes.all });
+      // The write bumped the series row server-side; refresh the cached
+      // series so a follow-on settings save reads a fresh expectedVersion.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
   });
 }

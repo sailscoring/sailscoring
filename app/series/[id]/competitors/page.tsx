@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState, useRef, useEffect } from 'react';
-import { useSeries, useTouchSeries } from '@/hooks/use-series';
+import { useSeries } from '@/hooks/use-series';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import {
@@ -578,7 +578,6 @@ export default function CompetitorsPage({
   const { data: series } = useSeries(seriesId);
   const saveCompetitor = useSaveCompetitor();
   const deleteCompetitor = useDeleteCompetitor();
-  const touchSeries = useTouchSeries();
   const enabledFields: CompetitorFieldKey[] =
     series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
   const primaryLabel: PrimaryPersonLabel =
@@ -676,7 +675,6 @@ export default function CompetitorsPage({
     };
     log('competitors', 'adding', competitor);
     await saveCompetitor.mutateAsync(competitor);
-    await touchSeries.mutateAsync(seriesId);
     setShowAddForm(false);
   }
 
@@ -720,7 +718,6 @@ export default function CompetitorsPage({
     if (!data.subdivision.trim()) delete updated.subdivision;
     log('competitors', 'updating', updated);
     await saveCompetitor.mutateAsync(updated);
-    await touchSeries.mutateAsync(seriesId);
     setEditingCompetitor(null);
   }
 
@@ -728,7 +725,6 @@ export default function CompetitorsPage({
     if (!confirm(`Delete ${competitor.name} (${competitor.sailNumber})?`)) return;
     log('competitors', 'deleting', competitor.id);
     await deleteCompetitor.mutateAsync({ id: competitor.id, seriesId });
-    await touchSeries.mutateAsync(seriesId);
     // Close the edit dialog (delete is now dialog-only) and drop the stale
     // row ref so the close effect doesn't try to refocus a removed row.
     editingRowRef.current = null;

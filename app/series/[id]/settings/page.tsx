@@ -9,7 +9,6 @@ import {
   useSeries,
   useArchiveSeries,
   useDeleteSeriesCascade,
-  useTouchSeries,
   useUpdateSeries,
 } from '@/hooks/use-series';
 import { useFleetsBySeries, useSaveFleet } from '@/hooks/use-fleets';
@@ -59,7 +58,6 @@ import type { Series } from '@/lib/types';
 function ScoringModeCard({ seriesId, series }: { seriesId: string; series: Series }) {
   const { raceRepo, finishRepo, fleetRepo } = repos;
   const updateSeries = useUpdateSeries();
-  const touchSeries = useTouchSeries();
   const saveFleet = useSaveFleet();
   const [expanded, setExpanded] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -86,7 +84,10 @@ function ScoringModeCard({ seriesId, series }: { seriesId: string; series: Serie
 
   async function handleChange(mode: 'scratch' | 'handicap') {
     if (locked || mode === series.scoringMode) return;
-    await updateSeries.mutateAsync({ id: seriesId, patch: { scoringMode: mode } });
+    await updateSeries.mutateAsync({
+      id: seriesId,
+      patch: { scoringMode: mode, lastModifiedAt: Date.now() },
+    });
     // When switching to scratch, reset all fleet scoring systems to scratch
     if (mode === 'scratch') {
       const fleets = await fleetRepo.listBySeries(seriesId);
@@ -96,7 +97,6 @@ function ScoringModeCard({ seriesId, series }: { seriesId: string; series: Serie
         }
       }
     }
-    await touchSeries.mutateAsync(seriesId);
   }
 
   const summary = series.scoringMode === 'handicap'

@@ -41,10 +41,14 @@ export function useSaveCompetitor() {
       const cached = list?.find((c) => c.id === competitor.id);
       return competitorRepo.save(competitor, { expectedVersion: cached?.version });
     },
-    onSuccess: (saved) => {
+    onSuccess: async (saved) => {
       qc.invalidateQueries({
         queryKey: queryKeys.competitors.bySeries(saved.seriesId),
       });
+      // Every child write bumps the series row's lastModifiedAt + version
+      // server-side. Await the series refetch so a caller that proceeds to a
+      // series settings save reads a fresh expectedVersion, not a stale 409.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
     // Serialize so a rapid second save sees the cache update from the first
     // and sends the fresh `expectedVersion`. See useSaveSeries for context.
@@ -57,13 +61,15 @@ export function useSaveCompetitors() {
   return useMutation({
     mutationFn: (competitors: Competitor[]) =>
       competitorRepo.saveMany(competitors),
-    onSuccess: (_void, competitors) => {
+    onSuccess: async (_void, competitors) => {
       const seriesIds = new Set(competitors.map((c) => c.seriesId));
       for (const seriesId of seriesIds) {
         qc.invalidateQueries({
           queryKey: queryKeys.competitors.bySeries(seriesId),
         });
       }
+      // See useSaveCompetitor — keep the cached series row's version fresh.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
     scope: { id: 'competitors' },
   });
@@ -86,8 +92,10 @@ export function useUpdateHandicaps(seriesId: string) {
   >({
     mutationFn: ({ updates, freezeScoredRaces }) =>
       updateHandicaps(seriesId, updates, { freezeScoredRaces }),
-    onSuccess: () => {
+    onSuccess: async () => {
       qc.invalidateQueries({ queryKey: queryKeys.competitors.bySeries(seriesId) });
+      // See useSaveCompetitor — keep the cached series row's version fresh.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
     scope: { id: 'competitors' },
   });
@@ -98,12 +106,14 @@ export function useDeleteCompetitor() {
   return useMutation({
     mutationFn: ({ id }: { id: string; seriesId: string }) =>
       competitorRepo.delete(id),
-    onSuccess: (_void, { seriesId }) => {
+    onSuccess: async (_void, { seriesId }) => {
       qc.invalidateQueries({
         queryKey: queryKeys.competitors.bySeries(seriesId),
       });
       // Finishes reference competitorId; cached lists may need a refresh.
       qc.invalidateQueries({ queryKey: queryKeys.finishes.all });
+      // See useSaveCompetitor — keep the cached series row's version fresh.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
   });
 }

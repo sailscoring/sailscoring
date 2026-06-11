@@ -3,8 +3,7 @@ import 'server-only';
 import { and, eq } from 'drizzle-orm';
 
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
-import { recordActivity } from '@/lib/activity-log';
-import { captureRevisionAfter, trackChange } from '@/lib/revision-log';
+import { trackChange } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
@@ -122,9 +121,12 @@ export async function bulkPutCompetitors(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.competitors.saveMany(competitors, { updatedBy: workspace.userId });
   const n = competitors.length;
-  const summary = `Imported ${n} competitor${n === 1 ? '' : 's'}`;
-  await recordActivity(workspace, { action: 'competitors.imported', seriesId, summary });
-  captureRevisionAfter(workspace, seriesId, { summary, sessionKey: 'competitors' });
+  await trackChange(workspace, {
+    action: 'competitors.imported',
+    seriesId,
+    summary: `Imported ${n} competitor${n === 1 ? '' : 's'}`,
+    sessionKey: 'competitors',
+  });
   return { count: competitors.length };
 }
 
@@ -246,13 +248,12 @@ export async function bulkUpdateHandicaps(
   const parts = [`Updated handicaps for ${n} competitor${n === 1 ? '' : 's'}`];
   if (addedToFleet > 0) parts.push(`added ${addedToFleet} to a fleet`);
   if (frozenRaces > 0) parts.push(`froze ${frozenRaces} scored race${frozenRaces === 1 ? '' : 's'} on the old rating`);
-  const summary = parts.join('; ');
-  await recordActivity(workspace, {
+  await trackChange(workspace, {
     action: 'competitors.handicaps_updated',
     seriesId,
-    summary,
+    summary: parts.join('; '),
+    sessionKey: 'competitors',
   });
-  captureRevisionAfter(workspace, seriesId, { summary, sessionKey: 'competitors' });
   return { updated };
 }
 
@@ -268,12 +269,12 @@ export async function bulkDeleteCompetitors(
   await assertSeriesWritable(workspace, seriesId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.competitors.deleteBySeries(seriesId);
-  await recordActivity(workspace, {
+  await trackChange(workspace, {
     action: 'competitors.cleared',
     seriesId,
     summary: 'Cleared all competitors',
+    sessionKey: 'competitors',
   });
-  captureRevisionAfter(workspace, seriesId, { summary: 'Cleared all competitors', sessionKey: 'competitors' });
 }
 
 /**

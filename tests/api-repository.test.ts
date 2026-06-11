@@ -98,13 +98,6 @@ describe('api-repository routing', () => {
     expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
   });
 
-  test('seriesRepo.touch POSTs to /touch', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(204));
-    await seriesRepo.touch(stubSeries.id);
-    expect(fetchMock.mock.calls[0][0]).toBe(`/api/v1/series/${stubSeries.id}/touch`);
-    expect(fetchMock.mock.calls[0][1].method).toBe('POST');
-  });
-
   test('fleetRepo.listBySeries hits the nested route', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, []));
     const seriesId = 'b1b2c3d4-1111-4222-8333-444444444444';

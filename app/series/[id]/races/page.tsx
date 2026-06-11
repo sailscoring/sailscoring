@@ -3,7 +3,7 @@
 import { use, useRef, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { raceRepo } from '@/lib/api-repository';
-import { useSeries, useTouchSeries } from '@/hooks/use-series';
+import { useSeries } from '@/hooks/use-series';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import {
   useDeleteRace,
@@ -35,14 +35,12 @@ function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
   const readOnly = useSeriesReadOnly();
   const { data: finishes } = useFinishesByRace(race.id);
   const deleteRace = useDeleteRace();
-  const touchSeries = useTouchSeries();
   const finisherCount = finishes?.filter((f) => f.sortOrder !== null).length;
 
   async function handleDelete() {
     if (!confirm(`Delete Race ${race.raceNumber}? This will also delete all results for this race.`)) return;
     // Finishes / race-starts cascade with the race row in Postgres.
     await deleteRace.mutateAsync({ id: race.id, seriesId });
-    await touchSeries.mutateAsync(seriesId);
   }
 
   return (
@@ -113,7 +111,6 @@ export default function RacesPage({
   const { data: fleets } = useFleetsBySeries(seriesId);
   const saveRace = useSaveRace();
   const saveRaceStarts = useSaveRaceStarts();
-  const touchSeries = useTouchSeries();
   const raceListRef = useRef<HTMLDivElement>(null);
   const didAutoFocus = useRef(false);
 
@@ -179,7 +176,6 @@ export default function RacesPage({
       };
       log('races', 'adding', race);
       await saveRace.mutateAsync(race);
-      await touchSeries.mutateAsync(seriesId);
     } finally {
       setAddingRace(false);
     }
@@ -222,7 +218,6 @@ export default function RacesPage({
         })),
       );
 
-      await touchSeries.mutateAsync(seriesId);
       setShowNewRaceDialog(false);
     } finally {
       setAddingRace(false);

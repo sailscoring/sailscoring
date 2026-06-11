@@ -8,7 +8,7 @@ import { recordActivity } from '@/lib/activity-log';
 import type { ActivityAction } from '@/lib/activity-actions';
 import { user } from '@/lib/db/schema/auth';
 import { seriesRevision } from '@/lib/db/schema/series';
-import { seriesFileReposFor } from '@/lib/postgres-repository';
+import { createRepos, seriesFileReposFor } from '@/lib/postgres-repository';
 import {
   buildSeriesFile,
   type SeriesFile,
@@ -206,10 +206,18 @@ export function captureRevisionAfter(
 }
 
 /**
- * One-call seam for a scoring-data mutation (#166): record the human-readable
- * activity entry *and* capture a (deferred, context-coalesced) revision. Use
- * this wherever a handler changes competitors / fleets / races / finishes /
- * starts / rating-overrides so history and the audit trail stay complete.
+ * One-call seam for a scoring-data mutation (#166): mark the series
+ * modified, record the human-readable activity entry, and capture a
+ * (deferred, context-coalesced) revision. Use this wherever a handler changes
+ * competitors / fleets / races / finishes / starts / rating-overrides so the
+ * unsaved-changes tracking, history, and audit trail stay complete with no
+ * client cooperation.
+ *
+ * The touch bumps `lastModifiedAt` + `version` but deliberately does not
+ * stamp `updatedBy` — it's the file-tracking heartbeat, not a user edit; the
+ * activity entry below carries the actor. Callers have already passed a
+ * writability guard (`assertSeriesWritable` / `assertRaceWritable` / …), so
+ * no archived-series check is needed here.
  */
 export async function trackChange(
   actor: Actor,
@@ -221,6 +229,8 @@ export async function trackChange(
     dedupeKey?: string;
   },
 ): Promise<void> {
+  const repos = createRepos({ workspaceId: actor.workspaceId });
+  await repos.series.touch(input.seriesId);
   await recordActivity(actor, {
     action: input.action,
     seriesId: input.seriesId,

@@ -21,7 +21,6 @@ export interface NonFinisherView {
 
 export interface UseFinishEntryArgs {
   raceId: string;
-  seriesId: string;
   isHandicapSeries: boolean;
   competitors: Competitor[];
   fleets: Fleet[];
@@ -37,7 +36,6 @@ export interface UseFinishEntryArgs {
     mutate: (input: { id: string; raceId: string }) => unknown;
     mutateAsync: (input: { id: string; raceId: string }) => Promise<unknown>;
   };
-  touchSeries: { mutateAsync: (id: string) => Promise<unknown> };
   patchCache: (updater: (rows: Finish[]) => Finish[]) => void;
   /** True once race + competitors have loaded; gates initial focus. */
   ready: boolean;
@@ -52,10 +50,10 @@ export interface UseFinishEntryArgs {
  */
 export function useFinishEntry(args: UseFinishEntryArgs) {
   const {
-    raceId, seriesId, isHandicapSeries,
+    raceId, isHandicapSeries,
     competitors, fleetById, raceStarts, savedFinishes,
     derived,
-    saveFinish, deleteFinish, touchSeries,
+    saveFinish, deleteFinish,
     patchCache, ready,
   } = args;
   const {
@@ -192,7 +190,6 @@ export function useFinishEntry(args: UseFinishEntryArgs) {
     // the per-row save path, so a follow-on edit waits for the last
     // reorder save's onSuccess to land the bumped version.
     for (const u of updates) saveFinish.mutate(u);
-    void touchSeries.mutateAsync(seriesId);
   }
 
   // Core "add this competitor to the finishing order" — optionally with a pre-known finish time.

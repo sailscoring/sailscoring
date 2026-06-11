@@ -33,9 +33,13 @@ export function useSaveRaceStart() {
       const cached = list?.find((s) => s.id === start.id);
       return raceStartRepo.save(start, { expectedVersion: cached?.version });
     },
-    onSuccess: (saved) => {
+    onSuccess: async (saved) => {
       qc.invalidateQueries({ queryKey: queryKeys.raceStarts.byRace(saved.raceId) });
       qc.invalidateQueries({ queryKey: queryKeys.raceStarts.all });
+      // Every child write bumps the series row's lastModifiedAt + version
+      // server-side. Await the series refetch so a caller that proceeds to a
+      // series settings save reads a fresh expectedVersion, not a stale 409.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
     // Serialize so a rapid second save sees the cache update from the first
     // and sends the fresh `expectedVersion`. See useSaveSeries for context.
@@ -47,12 +51,14 @@ export function useSaveRaceStarts() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (starts: RaceStart[]) => raceStartRepo.saveMany(starts),
-    onSuccess: (_void, starts) => {
+    onSuccess: async (_void, starts) => {
       const raceIds = new Set(starts.map((s) => s.raceId));
       for (const raceId of raceIds) {
         qc.invalidateQueries({ queryKey: queryKeys.raceStarts.byRace(raceId) });
       }
       qc.invalidateQueries({ queryKey: queryKeys.raceStarts.all });
+      // See useSaveRaceStart — keep the cached series row's version fresh.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
     // Share the scope with useSaveRaceStart so a bulk write and a rapid
     // single save can't interleave on the same rows.
@@ -65,9 +71,11 @@ export function useDeleteRaceStart() {
   return useMutation({
     mutationFn: ({ id }: { id: string; raceId: string }) =>
       raceStartRepo.delete(id),
-    onSuccess: (_void, { raceId }) => {
+    onSuccess: async (_void, { raceId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.raceStarts.byRace(raceId) });
       qc.invalidateQueries({ queryKey: queryKeys.raceStarts.all });
+      // See useSaveRaceStart — keep the cached series row's version fresh.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
   });
 }

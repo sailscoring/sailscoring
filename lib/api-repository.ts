@@ -65,10 +65,6 @@ class ApiSeriesRepository implements SeriesRepository {
     await apiFetch(`/api/v1/series/${id}`, { method: 'DELETE' });
   }
 
-  async touch(id: string): Promise<void> {
-    await apiFetch(`/api/v1/series/${id}/touch`, { method: 'POST' });
-  }
-
   async reorder(orderedIds: string[]): Promise<void> {
     await apiFetch('/api/v1/series/reorder', {
       method: 'POST',

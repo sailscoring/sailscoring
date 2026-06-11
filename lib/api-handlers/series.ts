@@ -154,14 +154,6 @@ export async function deleteSeries(workspace: WorkspaceContext, id: string): Pro
   });
 }
 
-export async function touchSeries(workspace: WorkspaceContext, id: string): Promise<void> {
-  // touch bumps lastModifiedAt — a modification heartbeat, so it's a write
-  // and blocked on an archived series (#154).
-  await assertSeriesWritable(workspace, id);
-  const repos = createRepos({ workspaceId: workspace.workspaceId });
-  await repos.series.touch(id);
-}
-
 /**
  * Archive / unarchive toggle (#154). Its own endpoint rather than a field on
  * the general PUT, so the PUT stays uniformly guarded by the read-only check

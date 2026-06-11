@@ -32,9 +32,13 @@ export function useSaveRace() {
           ?.find((r) => r.id === race.id);
       return raceRepo.save(race, { expectedVersion: cached?.version });
     },
-    onSuccess: (saved) => {
+    onSuccess: async (saved) => {
       qc.setQueryData(queryKeys.races.detail(saved.id), saved);
       qc.invalidateQueries({ queryKey: queryKeys.races.bySeries(saved.seriesId) });
+      // Every child write bumps the series row's lastModifiedAt + version
+      // server-side. Await the series refetch so a caller that proceeds to a
+      // series settings save reads a fresh expectedVersion, not a stale 409.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
     // Serialize so a rapid second save sees the cache update from the first
     // and sends the fresh `expectedVersion`. See useSaveSeries for context.
@@ -46,13 +50,15 @@ export function useDeleteRace() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id }: { id: string; seriesId: string }) => raceRepo.delete(id),
-    onSuccess: (_void, { id, seriesId }) => {
+    onSuccess: async (_void, { id, seriesId }) => {
       qc.removeQueries({ queryKey: queryKeys.races.detail(id) });
       qc.invalidateQueries({ queryKey: queryKeys.races.bySeries(seriesId) });
       // Finishes / race-starts cascaded in Postgres along with the race
       // row. Don't invalidate or remove the per-race cache entries —
       // either would trigger a refetch that 404s. Leave the orphan
       // entries to be reaped when the RaceRow components unmount.
+      // See useSaveRace — keep the cached series row's version fresh.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
   });
 }

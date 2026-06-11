@@ -104,8 +104,8 @@ test.describe('series file save / open / update, server mode', () => {
     const seriesId = getSeriesId(page);
 
     // Add competitor and wait for the row to land — confirms saveCompetitor
-    // + touchSeries have settled. Without the wait, Save to File can race
-    // the in-flight series version bump and 409.
+    // (and the server-side series touch it implies) has settled. Without the
+    // wait, Save to File can race the in-flight series version bump and 409.
     await page.getByRole('button', { name: 'Add competitor' }).click();
     await page.getByLabel('Sail number').fill('1234');
     await page.getByLabel('Competitor name').fill('Jane Doe');

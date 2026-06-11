@@ -81,7 +81,6 @@ export interface SeriesRepository {
   get(id: string): Promise<Series | undefined>;
   save(series: Series, opts?: SaveOpts): Promise<Series>;
   delete(id: string): Promise<void>;
-  touch(id: string): Promise<void>;
   /** Rewrite the manual sort order to match the given id sequence. */
   reorder(orderedIds: string[]): Promise<void>;
 }

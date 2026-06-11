@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
-import { captureRevisionAfter, trackChange } from '@/lib/revision-log';
+import { trackChange } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
@@ -54,15 +54,12 @@ export async function putFinish(
   // one "recorded finishes for Race N" entry rather than one row per boat.
   const race = await repos.races.get(raceId);
   if (race) {
-    await recordActivity(workspace, {
+    await trackChange(workspace, {
       action: 'finishes.recorded',
       seriesId: race.seriesId,
       summary: `Recorded finishes for Race ${race.raceNumber}`,
-      dedupeKey: `finishes:${raceId}`,
-    });
-    captureRevisionAfter(workspace, race.seriesId, {
-      summary: `Recorded finishes for Race ${race.raceNumber}`,
       sessionKey: `finishes:${raceId}`,
+      dedupeKey: `finishes:${raceId}`,
     });
   }
   return saved;
@@ -134,15 +131,21 @@ export async function bulkDeleteFinishes(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const race = await repos.races.get(raceId);
   await repos.finishes.deleteByRace(raceId);
-  const clearedSummary = race
-    ? `Cleared all finishes for Race ${race.raceNumber}`
-    : 'Cleared all finishes';
-  await recordActivity(workspace, {
-    action: 'finishes.cleared',
-    seriesId: race?.seriesId ?? null,
-    summary: clearedSummary,
-  });
-  if (race) captureRevisionAfter(workspace, race.seriesId, { summary: clearedSummary, sessionKey: `finishes:${raceId}` });
+  if (race) {
+    await trackChange(workspace, {
+      action: 'finishes.cleared',
+      seriesId: race.seriesId,
+      summary: `Cleared all finishes for Race ${race.raceNumber}`,
+      sessionKey: `finishes:${raceId}`,
+    });
+  } else {
+    // Defensive: the writability guard means the race should always resolve.
+    await recordActivity(workspace, {
+      action: 'finishes.cleared',
+      seriesId: null,
+      summary: 'Cleared all finishes',
+    });
+  }
 }
 
 /**
@@ -169,14 +172,20 @@ export async function bulkPutFinishes(
   await repos.finishes.saveMany(finishes, { updatedBy: workspace.userId });
   const race = await repos.races.get(raceId);
   const n = finishes.length;
-  const enteredSummary = race
-    ? `Entered ${n} finishes for Race ${race.raceNumber}`
-    : `Entered ${n} finishes`;
-  await recordActivity(workspace, {
-    action: 'finishes.entered',
-    seriesId: race?.seriesId ?? null,
-    summary: enteredSummary,
-  });
-  if (race) captureRevisionAfter(workspace, race.seriesId, { summary: enteredSummary, sessionKey: `finishes:${raceId}` });
+  if (race) {
+    await trackChange(workspace, {
+      action: 'finishes.entered',
+      seriesId: race.seriesId,
+      summary: `Entered ${n} finishes for Race ${race.raceNumber}`,
+      sessionKey: `finishes:${raceId}`,
+    });
+  } else {
+    // Defensive: the writability guard means the race should always resolve.
+    await recordActivity(workspace, {
+      action: 'finishes.entered',
+      seriesId: null,
+      summary: `Entered ${n} finishes`,
+    });
+  }
   return { count: finishes.length };
 }

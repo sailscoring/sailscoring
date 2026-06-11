@@ -3,7 +3,7 @@
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fleetRepo, listSeriesNames } from '@/lib/api-repository';
-import { useSeries, useTouchSeries, useUpdateSeries } from '@/hooks/use-series';
+import { useSeries, useUpdateSeries } from '@/hooks/use-series';
 import { useFleetsBySeries, useSaveFleet } from '@/hooks/use-fleets';
 import { useCompetitorsBySeries } from '@/hooks/use-competitors';
 import { useCategories } from '@/hooks/use-categories';
@@ -38,13 +38,14 @@ function Step1({
   onNext: () => void;
 }) {
   const updateSeries = useUpdateSeries();
-  const touchSeries = useTouchSeries();
   const { data: categories } = useCategories();
   const [nextError, setNextError] = useState<string | null>(null);
 
   async function persist(patch: Partial<Series>) {
-    await updateSeries.mutateAsync({ id: seriesId, patch });
-    await touchSeries.mutateAsync(seriesId);
+    await updateSeries.mutateAsync({
+      id: seriesId,
+      patch: { ...patch, lastModifiedAt: Date.now() },
+    });
   }
 
   async function validateName(name: string): Promise<string | null> {
@@ -178,12 +179,14 @@ function Step3({
   onBack: () => void;
 }) {
   const updateSeries = useUpdateSeries();
-  const touchSeries = useTouchSeries();
   const saveFleet = useSaveFleet();
 
   async function handleScoringMode(mode: 'scratch' | 'handicap') {
     if (mode === series.scoringMode) return;
-    await updateSeries.mutateAsync({ id: seriesId, patch: { scoringMode: mode } });
+    await updateSeries.mutateAsync({
+      id: seriesId,
+      patch: { scoringMode: mode, lastModifiedAt: Date.now() },
+    });
     if (mode === 'scratch') {
       const fleets = await fleetRepo.listBySeries(seriesId);
       for (const f of fleets) {
@@ -192,7 +195,6 @@ function Step3({
         }
       }
     }
-    await touchSeries.mutateAsync(seriesId);
   }
 
   return (
@@ -256,11 +258,12 @@ function Step4({
   onFinish: () => void;
 }) {
   const updateSeries = useUpdateSeries();
-  const touchSeries = useTouchSeries();
 
   async function persist(patch: Partial<Series>) {
-    await updateSeries.mutateAsync({ id: seriesId, patch });
-    await touchSeries.mutateAsync(seriesId);
+    await updateSeries.mutateAsync({
+      id: seriesId,
+      patch: { ...patch, lastModifiedAt: Date.now() },
+    });
   }
 
   return (

@@ -9,7 +9,7 @@ import {
   useFinishEntry,
   type NonFinisherCode,
 } from '@/hooks/use-finish-entry';
-import { useSeries, useTouchSeries } from '@/hooks/use-series';
+import { useSeries } from '@/hooks/use-series';
 import { useCompetitorsBySeries, useSaveCompetitor } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useRace, useRacesBySeries, useSaveRace } from '@/hooks/use-races';
@@ -176,7 +176,6 @@ export default function ResultEntryPage({
   const saveRaceStart = useSaveRaceStart();
   const deleteRaceStartMutation = useDeleteRaceStart();
   const saveRace = useSaveRace();
-  const touchSeries = useTouchSeries();
   const readOnly = useSeriesReadOnly();
 
   // Source of truth: every visible "view model" derives from savedFinishes.
@@ -230,7 +229,6 @@ export default function ResultEntryPage({
 
   const finishEntry = useFinishEntry({
     raceId,
-    seriesId,
     isHandicapSeries,
     competitors: competitors ?? [],
     fleets: fleets ?? [],
@@ -240,7 +238,6 @@ export default function ResultEntryPage({
     derived,
     saveFinish,
     deleteFinish,
-    touchSeries,
     patchCache,
     ready: race != null && competitors != null,
   });
@@ -286,13 +283,11 @@ export default function ResultEntryPage({
       startTime: draft.startTime,
     };
     await saveRaceStart.mutateAsync(raceStart);
-    await touchSeries.mutateAsync(seriesId);
     setStartDialogMode(null);
   }
 
   async function handleDeleteStart(id: string) {
     await deleteRaceStartMutation.mutateAsync({ id, raceId });
-    await touchSeries.mutateAsync(seriesId);
   }
 
   useGlobalKeyDown((e) => {
@@ -351,7 +346,6 @@ export default function ResultEntryPage({
     };
     patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
     saveFinish.mutate(next);
-    void touchSeries.mutateAsync(seriesId);
     setEditingPenaltyEntryId(null);
   }
 
@@ -394,7 +388,6 @@ export default function ResultEntryPage({
       ? rows.map((r) => (r.id === existing.id ? next : r))
       : [...rows, next]);
     saveFinish.mutate(next);
-    void touchSeries.mutateAsync(seriesId);
     setRedressDialog(null);
   }
 
@@ -424,7 +417,6 @@ export default function ResultEntryPage({
       patchCache((rows) => rows.filter((r) => r.id !== existing.id));
       deleteFinish.mutate({ id: existing.id, raceId });
     }
-    void touchSeries.mutateAsync(seriesId);
     setRedressDialog(null);
   }
 
@@ -477,7 +469,6 @@ export default function ResultEntryPage({
       existing.map((f) => deleteFinish.mutateAsync({ id: f.id, raceId })),
     );
     await saveFinishes.mutateAsync(newRows);
-    void touchSeries.mutateAsync(seriesId);
     setSailInput('');
     setInputError('');
     setPendingUnknownSail(null);
@@ -528,7 +519,6 @@ export default function ResultEntryPage({
       patchCache((rows) => [...rows, next]);
       saveFinish.mutate(next);
     }
-    void touchSeries.mutateAsync(seriesId);
   }
 
   async function toggleStartPresent(competitor: Competitor) {
@@ -593,7 +583,6 @@ export default function ResultEntryPage({
         });
       }
     }
-    await touchSeries.mutateAsync(seriesId);
   }
 
   function closeResolveDialog() {
@@ -612,7 +601,6 @@ export default function ResultEntryPage({
       };
       patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
       saveFinish.mutate(next);
-      void touchSeries.mutateAsync(seriesId);
     }
     closeResolveDialog();
   }
@@ -632,7 +620,6 @@ export default function ResultEntryPage({
       createdAt,
     };
     await saveCompetitor.mutateAsync(competitor);
-    await touchSeries.mutateAsync(seriesId);
 
     const finish = finishByEntryKey.get(resolvingEntry.finishId);
     if (finish) {
@@ -698,7 +685,6 @@ export default function ResultEntryPage({
             readOnly={readOnly}
             onSave={async (date) => {
               await saveRace.mutateAsync({ ...race, date });
-              await touchSeries.mutateAsync(seriesId);
             }}
           />
         </div>
@@ -872,8 +858,6 @@ export default function ResultEntryPage({
           codeLabels={codeLabels}
           patchCache={patchCache}
           saveFinish={saveFinish}
-          touchSeries={touchSeries}
-          seriesId={seriesId}
           leave={leave}
         />
         </div>
