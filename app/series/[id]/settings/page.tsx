@@ -77,10 +77,6 @@ export default function SettingsPage({
       />
       <CompetitorFieldsCard seriesId={seriesId} series={series} />
       <PublishingCard seriesId={seriesId} series={series} anyProgressiveFleet={anyProgressiveFleet} />
-      <p className="text-xs text-muted-foreground">
-        Looking for Save to File, Copy to workspace, or Archive? They moved to
-        the ⋯ menu in the series header.
-      </p>
     </div>
   );
 }
