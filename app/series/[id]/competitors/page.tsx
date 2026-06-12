@@ -2,6 +2,7 @@
 
 import { use, useState, useRef, useEffect } from 'react';
 import { useSeries } from '@/hooks/use-series';
+import { FollowOnProvenanceNote } from '@/components/follow-on-provenance-note';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import {
@@ -273,6 +274,9 @@ export default function CompetitorsPage({
 
   return (
     <div className="space-y-6">
+      {series?.previousSeriesId && (
+        <FollowOnProvenanceNote previousSeriesId={series.previousSeriesId} />
+      )}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {competitors === undefined
