@@ -34,7 +34,9 @@ export interface WorkspaceMembership {
   organizationId: string;
   name: string;
   slug: string;
-  role: 'owner' | 'admin' | 'member';
+  /** The member's role string as stored — `lib/auth/permissions.ts` maps it
+   *  to permissions, failing closed to read-only for unknown values. */
+  role: string;
   /** The workspace's own logo URL (`organization.logo`), '' if unset. */
   logo: string;
 }

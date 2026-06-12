@@ -104,6 +104,14 @@ export const FEATURES = {
     label: 'Follow-on series',
     helpSectionIds: ['creating-a-follow-on-series'],
   },
+  'fine-grained-roles': {
+    // Gates offering the `scorer` role in the Members card's role selects.
+    // Enforcement of role permissions is always on — this flag only controls
+    // whether a workspace can hand the new role out while it bakes. Opt-in
+    // (default off) per the containment model.
+    label: 'Fine-grained roles (scorer)',
+    helpSectionIds: [],
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;

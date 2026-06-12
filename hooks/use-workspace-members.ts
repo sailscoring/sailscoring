@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { authClient } from '@/lib/auth-client';
+import type { WorkspaceRole } from '@/lib/auth/permissions';
 
 import { queryKeys } from './query-keys';
 
@@ -13,7 +14,7 @@ import { queryKeys } from './query-keys';
  * so the card reflects changes immediately.
  */
 
-export type WorkspaceRole = 'owner' | 'admin' | 'member';
+export type { WorkspaceRole };
 
 export interface WorkspaceMemberRow {
   id: string;

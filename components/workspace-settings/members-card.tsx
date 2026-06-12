@@ -22,14 +22,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-const ROLES: WorkspaceRole[] = ['owner', 'admin', 'member'];
-
 function RoleSelect({
+  roles,
   value,
   onChange,
   disabled,
   testId,
 }: {
+  roles: WorkspaceRole[];
   value: WorkspaceRole;
   onChange: (role: WorkspaceRole) => void;
   disabled?: boolean;
@@ -41,7 +41,7 @@ function RoleSelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {ROLES.map((r) => (
+        {roles.map((r) => (
           <SelectItem key={r} value={r}>
             {r}
           </SelectItem>
@@ -58,7 +58,17 @@ function RoleSelect({
  * user's email comes from the (server) workspace page so we can find their
  * member row — and their role — once the roster loads.
  */
-export function MembersCard({ currentUserEmail }: { currentUserEmail: string | null }) {
+export function MembersCard({
+  currentUserEmail,
+  canAssignScorer = false,
+}: {
+  currentUserEmail: string | null;
+  /** Whether the `scorer` role is offered — the `fine-grained-roles` feature. */
+  canAssignScorer?: boolean;
+}) {
+  const roles: WorkspaceRole[] = canAssignScorer
+    ? ['owner', 'admin', 'scorer', 'member']
+    : ['owner', 'admin', 'member'];
   const { data, isLoading, isError } = useFullWorkspace();
   const invite = useInviteMember();
   const updateRole = useUpdateMemberRole();
@@ -102,8 +112,9 @@ export function MembersCard({ currentUserEmail }: { currentUserEmail: string | n
       <div>
         <h2 className="text-lg font-semibold">Members</h2>
         <p className="text-sm text-muted-foreground">
-          Everyone in this workspace can see and edit the same series. Changes
-          show up in each series&apos; Activity log.
+          Owners and admins can see and edit every series in this workspace;
+          members get read-only access. Changes show up in each series&apos;
+          Activity log.
         </p>
       </div>
 
@@ -134,6 +145,7 @@ export function MembersCard({ currentUserEmail }: { currentUserEmail: string | n
                 {canManage && !isSelf ? (
                   <div className="flex items-center gap-2 shrink-0">
                     <RoleSelect
+                      roles={roles}
                       value={m.role as WorkspaceRole}
                       onChange={(role) => run(() => updateRole.mutateAsync({ memberId: m.id, role }))}
                       disabled={updateRole.isPending}
@@ -196,14 +208,19 @@ export function MembersCard({ currentUserEmail }: { currentUserEmail: string | n
               onChange={(e) => setInviteEmail(e.target.value)}
               disabled={invite.isPending}
             />
-            <RoleSelect value={inviteRole} onChange={setInviteRole} disabled={invite.isPending} testId="invite-role" />
+            <RoleSelect roles={roles} value={inviteRole} onChange={setInviteRole} disabled={invite.isPending} testId="invite-role" />
             <Button type="submit" disabled={invite.isPending || !inviteEmail.trim()}>
               {invite.isPending ? 'Inviting…' : 'Invite'}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
             They’ll get an email with a link to accept. The invite is pending
-            until they do.
+            until they do. Members can view everything but change nothing;
+            {canAssignScorer && (
+              <> scorers can run race days — races, finishes, publishing —
+              but can&apos;t change series setup;</>
+            )}{' '}
+            admins have full access.
           </p>
         </form>
       )}

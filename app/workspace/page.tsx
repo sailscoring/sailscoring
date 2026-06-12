@@ -56,7 +56,10 @@ export default async function WorkspacePage() {
   return (
     <div className="space-y-6 max-w-lg mx-auto">
       <h1 className="text-2xl font-semibold">{title}</h1>
-      <MembersCard currentUserEmail={session?.user.email ?? null} />
+      <MembersCard
+        currentUserEmail={session?.user.email ?? null}
+        canAssignScorer={features.includes('fine-grained-roles')}
+      />
       <CategoriesCard />
       <PublishedCard />
       {features.includes('logo-library') && <LogosCard />}

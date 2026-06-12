@@ -5,6 +5,7 @@ import { organization } from 'better-auth/plugins/organization';
 import { eq } from 'drizzle-orm';
 
 import { sendInvitationEmail, sendMagicLinkEmail } from '@/lib/auth/email';
+import { orgAccessControl, orgRoles } from '@/lib/auth/org-roles';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
 import * as authSchema from '@/lib/db/schema/auth';
 
@@ -72,6 +73,11 @@ export const auth = betterAuth({
       rateLimit: { window: 600, max: 5 },
     }),
     organization({
+      // Registers the app's role set — notably `scorer` — so the plugin's
+      // invite / update-role endpoints accept it. App-level permissions are
+      // enforced separately; see lib/auth/org-roles.ts.
+      ac: orgAccessControl,
+      roles: orgRoles,
       // Org creation is admin-approved out-of-band (Phase 10 #153, iteration 3):
       // users request a workspace and the project owner provisions it. The
       // plugin's self-serve create endpoint stays closed; personal workspaces

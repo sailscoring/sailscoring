@@ -4,6 +4,8 @@ import { createAuthClient } from 'better-auth/client';
 import { magicLinkClient } from 'better-auth/client/plugins';
 import { organizationClient } from 'better-auth/client/plugins';
 
+import { orgAccessControl, orgRoles } from '@/lib/auth/org-roles';
+
 // No baseURL: Better Auth uses the current page origin, which is
 // always the right answer in the browser (localhost in dev, the
 // preview hostname on previews, app.sailscoring.ie in production).
@@ -11,5 +13,8 @@ import { organizationClient } from 'better-auth/client/plugins';
 // in the app for "Open in Sail Scoring" links — pointing the auth
 // client at it would break local dev.
 export const authClient = createAuthClient({
-  plugins: [magicLinkClient(), organizationClient()],
+  plugins: [
+    magicLinkClient(),
+    organizationClient({ ac: orgAccessControl, roles: orgRoles }),
+  ],
 });
