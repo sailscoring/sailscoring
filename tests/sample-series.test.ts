@@ -109,6 +109,11 @@ function makeValidatingRepos(): SeriesFileRepos {
         return r;
       },
     } as unknown as SeriesFileRepos['raceRepo'],
+    subSeriesRepo: {
+      listBySeries: async () => [],
+      saveMany: async () => {},
+      deleteBySeries: async () => {},
+    } as unknown as SeriesFileRepos['subSeriesRepo'],
     raceStartRepo: {
       saveMany: async (ss: RaceStart[]) => {
         for (const s of ss) raceStartSchema.parse(s);

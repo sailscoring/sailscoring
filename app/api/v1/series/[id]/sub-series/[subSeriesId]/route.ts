@@ -1,4 +1,4 @@
-import { deleteSubSeries, renameSubSeries } from '@/lib/api-handlers/sub-series';
+import { deleteSubSeries, putSubSeries } from '@/lib/api-handlers/sub-series';
 import { parseIfMatch, workspaceRoute } from '../../../../_lib/handler';
 
 export const dynamic = 'force-dynamic';
@@ -7,7 +7,7 @@ type Params = { id: string; subSeriesId: string };
 
 export const PUT = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
   const body = await req.json();
-  return renameSubSeries(workspace, params.id, params.subSeriesId, body, {
+  return putSubSeries(workspace, params.id, params.subSeriesId, body, {
     expectedVersion: parseIfMatch(req),
   });
 });

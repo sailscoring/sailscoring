@@ -66,6 +66,11 @@ function makeRepos(initial: {
         return r;
       },
     } as unknown as SeriesFileRepos['raceRepo'],
+    subSeriesRepo: {
+      listBySeries: async () => [],
+      saveMany: async () => {},
+      deleteBySeries: async () => {},
+    } as unknown as SeriesFileRepos['subSeriesRepo'],
     raceStartRepo: {
       async saveMany(_: RaceStart[]) {},
     } as unknown as SeriesFileRepos['raceStartRepo'],

@@ -158,10 +158,12 @@ describe.skipIf(skip)('sub-series handlers', () => {
     expect(after[0].subSeriesId).not.toBe(spring.id);
   });
 
-  test('rename round-trips', async () => {
+  test('rename round-trips via PUT upsert', async () => {
     const { seriesId } = await makeSeriesWithRaces(1);
     const block = await subSeries.createSubSeries(ctxA, seriesId, { name: 'Winter' });
-    const renamed = await subSeries.renameSubSeries(ctxA, seriesId, block.id, { name: 'Frostbite Winter' });
+    const renamed = await subSeries.putSubSeries(ctxA, seriesId, block.id, {
+      ...block, name: 'Frostbite Winter',
+    });
     expect(renamed.name).toBe('Frostbite Winter');
     const blocks = await subSeries.listSubSeries(ctxA, seriesId);
     expect(blocks[0].name).toBe('Frostbite Winter');
@@ -233,7 +235,7 @@ describe.skipIf(skip)('sub-series handlers', () => {
 
     await expect(subSeries.listSubSeries(ctxB, seriesId)).rejects.toBeInstanceOf(NotFoundError);
     await expect(
-      subSeries.renameSubSeries(ctxB, seriesId, block.id, { name: 'X' }),
+      subSeries.putSubSeries(ctxB, seriesId, block.id, { ...block, name: 'X' }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

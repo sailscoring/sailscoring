@@ -8,7 +8,7 @@ import { groupRacesBySubSeries } from '@/lib/scoring';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
 import {
   subSeriesCreateInputSchema,
-  subSeriesRenameInputSchema,
+  subSeriesInputSchema,
 } from '@/lib/validation/sub-series';
 import type { SubSeries } from '@/lib/types';
 
@@ -160,32 +160,60 @@ export async function createSubSeries(
   return saved;
 }
 
-export async function renameSubSeries(
+/**
+ * Plain upsert (PUT). The interactive rename gesture and the file-import
+ * replay both land here; the split gesture with its partition rewriting is
+ * the POST (createSubSeries).
+ */
+export async function putSubSeries(
   workspace: WorkspaceContext,
   seriesId: string,
-  subSeriesId: string,
+  pathSubSeriesId: string,
   body: unknown,
   opts?: { expectedVersion?: number },
 ): Promise<SubSeries> {
   await assertSeriesWritable(workspace, seriesId);
-  const input = subSeriesRenameInputSchema.parse(body);
+  const input = subSeriesInputSchema.parse(body);
+  const id = input.id ?? pathSubSeriesId;
+  if (id !== pathSubSeriesId) throw new NotFoundError('sub-series id mismatch');
+  if (input.seriesId !== seriesId) throw new NotFoundError('sub-series series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  const existing = await repos.subSeries.get(subSeriesId);
-  if (!existing || existing.seriesId !== seriesId) {
-    throw new NotFoundError('sub-series');
-  }
+  const existing = await repos.subSeries.get(id);
   const saved = await repos.subSeries.save(
-    { ...existing, name: input.name },
+    { ...input, id },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
   await trackChange(workspace, {
-    action: 'sub-series.renamed',
+    action: existing ? 'sub-series.renamed' : 'sub-series.created',
     seriesId,
-    summary: `Renamed sub-series ${existing.name} to ${saved.name}`,
+    summary: existing
+      ? `Renamed sub-series ${existing.name} to ${saved.name}`
+      : `Added sub-series ${saved.name}`,
     sessionKey: 'sub-series',
-    dedupeKey: `sub-series:${subSeriesId}`,
+    dedupeKey: existing ? `sub-series:${id}` : undefined,
   });
   return saved;
+}
+
+/**
+ * Raw collection delete: drop every block and return the series to
+ * blockless. The file-import replace path; the interactive "remove this
+ * block" with merge semantics is deleteSubSeries below.
+ */
+export async function bulkDeleteSubSeries(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<void> {
+  await assertSeriesWritable(workspace, seriesId);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.races.clearSubSeries(seriesId);
+  await repos.subSeries.deleteBySeries(seriesId);
+  await trackChange(workspace, {
+    action: 'sub-series.cleared',
+    seriesId,
+    summary: 'Cleared all sub-series',
+    sessionKey: 'sub-series',
+  });
 }
 
 /**

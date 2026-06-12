@@ -39,6 +39,7 @@ export const ACTIVITY_ACTIONS = [
   'sub-series.created',
   'sub-series.renamed',
   'sub-series.deleted',
+  'sub-series.cleared',
   'finishes.recorded',
   'finishes.entered',
   'finishes.cleared',

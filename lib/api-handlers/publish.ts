@@ -79,6 +79,7 @@ function exportReposFor(workspaceId: string): ExportRepos {
     competitorRepo: repos.competitors,
     raceRepo: repos.races,
     fleetRepo: repos.fleets,
+    subSeriesRepo: repos.subSeries,
     finishRepo: repos.finishes,
     raceStartRepo: repos.raceStarts,
     raceRatingOverrideRepo: repos.raceRatingOverrides,

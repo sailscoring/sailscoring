@@ -1,4 +1,4 @@
-import { createSubSeries, listSubSeries } from '@/lib/api-handlers/sub-series';
+import { bulkDeleteSubSeries, createSubSeries, listSubSeries } from '@/lib/api-handlers/sub-series';
 import { workspaceRoute } from '../../../_lib/handler';
 
 export const dynamic = 'force-dynamic';
@@ -13,4 +13,9 @@ export const GET = workspaceRoute<Params, unknown>(async (_req, { workspace, par
 export const POST = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
   const body = await req.json();
   return createSubSeries(workspace, params.id, body);
+});
+
+/** Raw collection delete: drop every block (file-import replace path). */
+export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
+  await bulkDeleteSubSeries(workspace, params.id);
 });

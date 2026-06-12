@@ -17,6 +17,7 @@ import type {
   RaceRatingOverrideRepository,
   SaveOpts,
   SeriesRepository,
+  SubSeriesRepository,
 } from './repository';
 import type {
   ActivityEntry,
@@ -276,6 +277,44 @@ class ApiRaceRatingOverrideRepository implements RaceRatingOverrideRepository {
   }
 }
 
+class ApiSubSeriesRepository implements SubSeriesRepository {
+  listBySeries(seriesId: string): Promise<SubSeries[]> {
+    return apiFetch<SubSeries[]>(`/api/v1/series/${seriesId}/sub-series`);
+  }
+
+  get(_id: string): Promise<SubSeries | undefined> {
+    return Promise.reject(
+      new Error('ApiSubSeriesRepository.get(id) requires seriesId; use listBySeries'),
+    );
+  }
+
+  save(s: SubSeries, opts?: SaveOpts): Promise<SubSeries> {
+    return apiFetch<SubSeries>(`/api/v1/series/${s.seriesId}/sub-series/${s.id}`, {
+      method: 'PUT',
+      body: s,
+      expectedVersion: opts?.expectedVersion,
+    });
+  }
+
+  async saveMany(list: SubSeries[], opts?: SaveOpts): Promise<void> {
+    for (const item of list) {
+      await this.save(item, opts);
+    }
+  }
+
+  delete(_id: string): Promise<void> {
+    return Promise.reject(
+      new Error('ApiSubSeriesRepository.delete(id) requires seriesId; use deleteSubSeries'),
+    );
+  }
+
+  /** Raw collection delete (file-import replace path). The interactive
+   *  "remove this block" gesture with merge semantics is deleteSubSeries. */
+  async deleteBySeries(seriesId: string): Promise<void> {
+    await apiFetch(`/api/v1/series/${seriesId}/sub-series`, { method: 'DELETE' });
+  }
+}
+
 class ApiFinishRepository implements FinishRepository {
   listByRace(raceId: string): Promise<Finish[]> {
     return apiFetch<Finish[]>(`/api/v1/races/${raceId}/finishes`);
@@ -420,6 +459,7 @@ export const seriesRepo: SeriesRepository = new ApiSeriesRepository();
 export const fleetRepo: FleetRepository = new ApiFleetRepository();
 export const competitorRepo: CompetitorRepository = new ApiCompetitorRepository();
 export const raceRepo: RaceRepository = new ApiRaceRepository();
+export const subSeriesRepo: SubSeriesRepository = new ApiSubSeriesRepository();
 export const raceStartRepo: RaceStartRepository = new ApiRaceStartRepository();
 export const raceRatingOverrideRepo: RaceRatingOverrideRepository = new ApiRaceRatingOverrideRepository();
 export const finishRepo: FinishRepository = new ApiFinishRepository();
@@ -448,17 +488,6 @@ export function createSubSeries(
   return apiFetch<SubSeries>(`/api/v1/series/${seriesId}/sub-series`, {
     method: 'POST',
     body: input,
-  });
-}
-
-export function renameSubSeries(
-  seriesId: string,
-  subSeriesId: string,
-  name: string,
-): Promise<SubSeries> {
-  return apiFetch<SubSeries>(`/api/v1/series/${seriesId}/sub-series/${subSeriesId}`, {
-    method: 'PUT',
-    body: { name },
   });
 }
 
@@ -657,6 +686,7 @@ export async function listSeriesNames(
  */
 export async function deleteSeriesChildren(seriesId: string): Promise<void> {
   await raceRepo.deleteBySeries(seriesId);
+  await subSeriesRepo.deleteBySeries(seriesId);
   await competitorRepo.deleteBySeries(seriesId);
   await fleetRepo.deleteBySeries(seriesId);
 }

@@ -7,6 +7,7 @@ import type {
   RaceRatingOverride,
   RaceStart,
   Series,
+  SubSeries,
 } from './types';
 
 /** Everything a whole-series consumer needs in one in-memory value. */
@@ -15,6 +16,7 @@ export interface SeriesSnapshot {
   competitors: Competitor[];
   fleets: Fleet[];
   races: Race[];
+  subSeries: SubSeries[];
   finishes: Finish[];
   raceStarts: RaceStart[];
   ratingOverrides: RaceRatingOverride[];
@@ -38,6 +40,7 @@ export async function loadSeriesSnapshot(
     competitorsUnsorted,
     fleetsUnsorted,
     racesUnsorted,
+    subSeriesUnsorted,
     finishes,
     raceStarts,
     ratingOverrides,
@@ -46,6 +49,7 @@ export async function loadSeriesSnapshot(
     repos.competitorRepo.listBySeries(seriesId),
     repos.fleetRepo.listBySeries(seriesId),
     repos.raceRepo.listBySeries(seriesId),
+    repos.subSeriesRepo.listBySeries(seriesId),
     repos.finishRepo.listBySeries(seriesId),
     repos.raceStartRepo.listBySeries(seriesId),
     repos.raceRatingOverrideRepo.listBySeries(seriesId),
@@ -59,6 +63,7 @@ export async function loadSeriesSnapshot(
   );
   const fleets = [...fleetsUnsorted].sort((a, b) => a.displayOrder - b.displayOrder);
   const races = [...racesUnsorted].sort((a, b) => a.raceNumber - b.raceNumber);
+  const subSeries = [...subSeriesUnsorted].sort((a, b) => a.displayOrder - b.displayOrder);
 
-  return { series, competitors, fleets, races, finishes, raceStarts, ratingOverrides };
+  return { series, competitors, fleets, races, subSeries, finishes, raceStarts, ratingOverrides };
 }

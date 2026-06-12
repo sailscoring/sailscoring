@@ -29,8 +29,8 @@ export const subSeriesCreateInputSchema = z.object({
   initialName: subSeriesNameSchema.optional(),
 });
 
-export const subSeriesRenameInputSchema = z.object({
-  name: subSeriesNameSchema,
+export const subSeriesInputSchema = subSeriesSchema.extend({
+  id: uuidSchema.optional(),
 });
 
 const _subSeriesFromZod: SubSeries = undefined as unknown as z.infer<typeof subSeriesSchema>;

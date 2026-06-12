@@ -2084,6 +2084,7 @@ export function seriesFileReposFor(ctx: RepoCtx): SeriesFileRepos {
     competitorRepo: repos.competitors,
     fleetRepo: repos.fleets,
     raceRepo: repos.races,
+    subSeriesRepo: repos.subSeries,
     raceStartRepo: repos.raceStarts,
     raceRatingOverrideRepo: repos.raceRatingOverrides,
     finishRepo: repos.finishes,
@@ -2098,6 +2099,7 @@ export function seriesFileReposFor(ctx: RepoCtx): SeriesFileRepos {
     // clears the lot.
     async deleteSeriesChildren(seriesId) {
       await repos.races.deleteBySeries(seriesId);
+      await repos.subSeries.deleteBySeries(seriesId);
       await repos.competitors.deleteBySeries(seriesId);
       await repos.fleets.deleteBySeries(seriesId);
     },

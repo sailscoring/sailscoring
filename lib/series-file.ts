@@ -28,6 +28,7 @@ import type {
   RaceStartRepository,
   RaceRatingOverrideRepository,
   SeriesRepository,
+  SubSeriesRepository,
 } from './repository';
 
 /**
@@ -39,6 +40,7 @@ export interface SeriesFileRepos {
   competitorRepo: CompetitorRepository;
   fleetRepo: FleetRepository;
   raceRepo: RaceRepository;
+  subSeriesRepo: SubSeriesRepository;
   raceStartRepo: RaceStartRepository;
   raceRatingOverrideRepo: RaceRatingOverrideRepository;
   finishRepo: FinishRepository;
@@ -89,9 +91,13 @@ export interface SeriesFileRepos {
  *  v8 drops the snapshot-lineage fields (`snapshotId`, `snapshotHistory`):
  *  file-exchange is no longer the collaboration mechanism, so a re-import is
  *  always an authoritative overwrite matched by `seriesId` alone. v1–v7 files
- *  still load — the parser ignores the now-unused keys. */
-export const FORMAT_VERSION = 8;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8];
+ *  still load — the parser ignores the now-unused keys.
+ *
+ *  v9 adds sub-series: a top-level `subSeries` list (named blocks of races,
+ *  each scored independently) and `races[*].subSeriesId` membership.
+ *  Additive; older files load blockless. */
+export const FORMAT_VERSION = 9;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -193,9 +199,16 @@ interface SeriesFileRace {
   id: string;
   raceNumber: number;
   date: string;
+  subSeriesId?: string;  // v9+; sub-series membership, absent when blockless
   starts: SeriesFileRaceStart[];
   finishes: SeriesFileFinish[];
   ratingOverrides?: SeriesFileRatingOverride[]; // additive; absent in older files
+}
+
+interface SeriesFileSubSeries {
+  id: string;
+  name: string;
+  displayOrder: number;
 }
 
 interface SeriesFileTcfRecord {
@@ -226,6 +239,9 @@ export interface SeriesFile {
   fleets: SeriesFileFleet[];
   competitors: SeriesFileCompetitor[];
   races: SeriesFileRace[];
+  /** Sub-series (v9+): named blocks of races, each scored independently.
+   *  Absent or empty when the series has none. */
+  subSeries?: SeriesFileSubSeries[];
   tcfHistory?: SeriesFileTcfRecord[];
   /** Pre-v4 alias for `tcfHistory`. Loader accepts either key; writer emits
    *  the new key only. Kept on the type so v1–v3 files parse without a cast. */
@@ -256,6 +272,7 @@ export async function buildSeriesFile(
     competitors,
     fleets,
     races,
+    subSeries,
     finishes: allFinishes,
     raceStarts: allRaceStarts,
     ratingOverrides: allRatingOverrides,
@@ -376,10 +393,20 @@ export async function buildSeriesFile(
       id: r.id,
       raceNumber: r.raceNumber,
       date: r.date,
+      ...(r.subSeriesId ? { subSeriesId: r.subSeriesId } : {}),
       starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
       ...(overridesByRace.get(r.id)?.length ? { ratingOverrides: overridesByRace.get(r.id) } : {}),
     })),
+    ...(subSeries.length > 0
+      ? {
+          subSeries: subSeries.map((ss) => ({
+            id: ss.id,
+            name: ss.name,
+            displayOrder: ss.displayOrder,
+          })),
+        }
+      : {}),
     ...(allTcfHistory.length > 0
       ? {
           tcfHistory: allTcfHistory.map((h) => ({
@@ -475,6 +502,8 @@ export function parseSeriesFile(content: string): SeriesFile {
   if (!Array.isArray(obj.fleets)) throw new Error('Invalid file: missing fleets');
   if (!Array.isArray(obj.competitors)) throw new Error('Invalid file: missing competitors');
   if (!Array.isArray(obj.races)) throw new Error('Invalid file: missing races');
+  if (obj.subSeries !== undefined && !Array.isArray(obj.subSeries))
+    throw new Error('Invalid file: subSeries must be a list');
 
   if (obj.formatVersion < 3) migrateStartSequenceCumulativeToIntervals(obj.series);
   if (obj.formatVersion < 4 && obj.nhcTcfHistory !== undefined && obj.tcfHistory === undefined) {
@@ -865,6 +894,21 @@ async function writeFleetsCompetitorsRaces(
     }),
   );
 
+  // Sub-series before races: race rows reference their block.
+  const subSeriesIdMap = new Map(
+    (file.subSeries ?? []).map((ss) => [ss.id, crypto.randomUUID()]),
+  );
+  if (file.subSeries?.length) {
+    await repos.subSeriesRepo.saveMany(
+      file.subSeries.map((ss) => ({
+        id: subSeriesIdMap.get(ss.id)!,
+        seriesId,
+        name: ss.name,
+        displayOrder: ss.displayOrder,
+      })),
+    );
+  }
+
   // Races sequentially because their starts and finishes FK back to the
   // race row that has to exist first. Inside each race we batch.
   for (const r of file.races) {
@@ -875,6 +919,8 @@ async function writeFleetsCompetitorsRaces(
       raceNumber: r.raceNumber,
       date: r.date,
       createdAt: now,
+      subSeriesId:
+        r.subSeriesId != null ? subSeriesIdMap.get(r.subSeriesId) ?? null : null,
     });
 
     await repos.raceStartRepo.saveMany(
