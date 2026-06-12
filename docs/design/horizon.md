@@ -771,6 +771,61 @@ ORC International scoring.
 
 ---
 
+## Series lineage and seasons
+
+### Automatic handicap refresh along the series-lineage chain
+
+The "Create follow-on series" rollover (#201) copies a series's structure
+(settings, fleets, competitors — no races or finishes), seeds each boat's
+progressive starting handicap from the predecessor's end-of-series TCF, and
+records the lineage (`previousSeriesId` + the race the seed was taken as-of).
+The deferred work is making that seed *stay* current: when the predecessor
+gains or changes scored races, refresh the follow-on series's starting TCFs
+automatically instead of asking the scorer to re-run Update Handicaps.
+
+One design constraint is already settled. This must be **automatic refresh of
+a snapshot, not live read-through resolution**: the `.sailscoring` file
+format, the public JSON export, the published `/p/...` pages, and the scoring
+engine all require a series to be self-contained, so the follow-on series
+always carries concrete `nhcStartingTcf` / `echoStartingTcf` values. The
+lineage chain only governs when those values get rewritten. The write path is
+the same one the rollover and the Update Handicaps dialog already share
+(`endOfSeriesTcfs()` over the predecessor's `TcfRecord` history), so the
+delta is purely *when it fires* and *what policy governs it*.
+
+The motivating workflow is season-upfront setup (DBSC): create every series
+and its races at the start of the season, chained via rollover, and let
+results flow — each series boundary resolving itself as the predecessor
+completes, with no per-boundary manual step.
+
+Open questions, deliberately left to be answered by a season of rollover
+usage at Howth/DBSC before building this:
+
+- **Refresh vs freeze.** Starting TCFs feed race 1 and progressive ratings
+  chain forward, so a refresh re-flows the *entire* follow-on series. If a
+  predecessor protest is decided after the follow-on has sailed and published
+  races, does the refresh silently change published results? Scorers may
+  want "frozen once the follow-on has a scored race" — a product decision
+  with RRS-adjacent weight.
+- **Overlapping series.** Series can overlap in time; "predecessor finished"
+  is not always a clean moment to hang the refresh on.
+- **Late entrants.** The rollover copies competitor rows 1:1, so identity is
+  exact at creation. Boats added to the follow-on later need sail-number
+  matching against the predecessor (the machinery exists in
+  `lib/source-handicaps.ts`, but the dialog resolves ambiguity by *asking*;
+  auto mode needs defaults).
+- **Predecessor lifecycle.** What a dangling `previousSeriesId` means when
+  the predecessor is trashed, deleted, or moved.
+
+The rollover's "Handicaps seeded from {series} as of Race {n}" provenance
+note is the UI hook this work hangs on — staleness detection ("seed is out
+of date — refresh?") is the natural intermediate step before fully automatic
+refresh. Season-spanning *views* (a season grouping above the series, results
+across a season) are a separate idea that the lineage chain enables; they
+connect to the perpetual-trophies question under Prize allocation.
+
+---
+
 ## Prize allocation
 
 ### Allocating prizes
