@@ -696,6 +696,22 @@ export async function copySeriesToWorkspace(
 }
 
 /**
+ * Create a follow-on series in the same workspace: configuration, fleets,
+ * and competitors carried over (no races or finishes), progressive starting
+ * handicaps seeded from the source's end-of-series TCFs. `seededCount` is
+ * how many starting handicaps the server seeded.
+ */
+export async function createFollowOnSeries(
+  sourceSeriesId: string,
+  body: { name?: string; startDate?: string },
+): Promise<{ id: string; seededCount: number }> {
+  return apiFetch<{ id: string; seededCount: number }>(
+    `/api/v1/series/${sourceSeriesId}/follow-on`,
+    { method: 'POST', body },
+  );
+}
+
+/**
  * Find or create a fleet by case-insensitive name. Mirror of the Dexie
  * helper used by the CSV competitor importer. The server endpoint wraps
  * the lookup-then-insert in a Postgres transaction guarded by an

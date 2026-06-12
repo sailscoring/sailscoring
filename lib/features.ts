@@ -95,6 +95,15 @@ export const FEATURES = {
     label: 'VPRS scoring',
     helpSectionIds: ['update-handicaps-vprs'],
   },
+  'follow-on-series': {
+    // Gates the "Create follow-on series" action on the series list: roll a
+    // finished series into the next one of the season, carrying competitors
+    // and seeding progressive starting handicaps from the end-of-series TCFs.
+    // Opt-in (default off) while the rollover semantics are proven against a
+    // real season, per the containment model.
+    label: 'Follow-on series',
+    helpSectionIds: ['creating-a-follow-on-series'],
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;

@@ -8,6 +8,7 @@ import {
   ArchiveRestore,
   ChevronDown,
   ChevronRight,
+  CopyPlus,
   FolderInput,
   MoreVertical,
   RotateCcw,
@@ -31,6 +32,8 @@ import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { formatSaveDate } from '@/lib/format-date';
 import { KeyboardHelp } from '@/components/keyboard-help';
 import { OpenSeriesFlow } from '@/components/open-series-flow';
+import { CreateFollowOnSeriesDialog } from '@/components/create-follow-on-series-dialog';
+import { useFeatures } from '@/components/features-provider';
 import { useOpenSeriesFile } from '@/hooks/use-open-series-file';
 import {
   Dialog,
@@ -67,6 +70,7 @@ function SeriesCard({
   onUnarchive,
   onMove,
   onDeleteClick,
+  onFollowOn,
   sortable,
 }: {
   series: Series;
@@ -76,6 +80,8 @@ function SeriesCard({
   onUnarchive: (series: Series) => void;
   onMove: (series: Series, categoryId: string | null) => void;
   onDeleteClick: (series: Series) => void;
+  /** Absent when the follow-on-series feature is off for this workspace. */
+  onFollowOn?: (series: Series) => void;
   /** Present for active rows that can be drag-reordered. */
   sortable?: SortableRenderProps;
 }) {
@@ -130,6 +136,12 @@ function SeriesCard({
                 <ArchiveRestore className="h-4 w-4" />
                 Unarchive
               </DropdownMenuItem>
+              {onFollowOn && (
+                <DropdownMenuItem onClick={() => onFollowOn(series)}>
+                  <CopyPlus className="h-4 w-4" />
+                  Create follow-on series…
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"
@@ -162,6 +174,12 @@ function SeriesCard({
                   </DropdownMenuRadioGroup>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
+              {onFollowOn && (
+                <DropdownMenuItem onClick={() => onFollowOn(series)}>
+                  <CopyPlus className="h-4 w-4" />
+                  Create follow-on series…
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => onArchive(series)}>
                 <Archive className="h-4 w-4" />
                 Archive
@@ -226,6 +244,7 @@ function TrashRow({
 
 export default function HomePage() {
   const router = useRouter();
+  const { has } = useFeatures();
   const { data: seriesList } = useSeriesList();
   const { data: categories } = useCategories();
   const { data: recentById } = useRecentActivity();
@@ -237,6 +256,8 @@ export default function HomePage() {
   const restoreFromTrash = useRestoreFromTrash();
   const purgeFromTrash = usePurgeFromTrash();
   const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
+  // The series being rolled into a follow-on (feature-gated menu action).
+  const [pendingFollowOn, setPendingFollowOn] = useState<Series | null>(null);
   // The series in the permanent-delete (type-the-name) confirmation, and the
   // current text typed to confirm it.
   const [pendingPurge, setPendingPurge] = useState<DeletedSeriesEntry | null>(null);
@@ -307,6 +328,7 @@ export default function HomePage() {
       onUnarchive={handleUnarchive}
       onMove={handleMove}
       onDeleteClick={setPendingDelete}
+      onFollowOn={has('follow-on-series') ? setPendingFollowOn : undefined}
       sortable={sortable}
     />
   );
@@ -486,6 +508,18 @@ export default function HomePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Follow-on dialog — keyed by source so the name suggestion
+          re-initialises per series. */}
+      {pendingFollowOn && (
+        <CreateFollowOnSeriesDialog
+          key={pendingFollowOn.id}
+          source={pendingFollowOn}
+          existingNames={allSeries.map((s) => s.name)}
+          open
+          onOpenChange={(open) => { if (!open) setPendingFollowOn(null); }}
+        />
+      )}
 
       {/* Permanent-delete dialog — type the series name to confirm. */}
       <Dialog

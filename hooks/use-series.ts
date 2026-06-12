@@ -11,6 +11,7 @@ import {
 import {
   seriesRepo,
   archiveSeries,
+  createFollowOnSeries,
   deleteSeriesCascade,
   listSeriesNames,
   setSeriesCategory,
@@ -162,6 +163,27 @@ export function useArchiveSeries() {
       archiveSeries(id, archived),
     onSuccess: (saved) => {
       qc.setQueryData(queryKeys.series.detail(saved.id), saved);
+      qc.invalidateQueries({ queryKey: queryKeys.series.list() });
+    },
+    scope: { id: 'series' },
+  });
+}
+
+/** Roll a series into a follow-on: same structure and competitors, no
+ *  races, progressive starting handicaps seeded from the source. */
+export function useCreateFollowOnSeries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sourceSeriesId,
+      name,
+      startDate,
+    }: {
+      sourceSeriesId: string;
+      name?: string;
+      startDate?: string;
+    }) => createFollowOnSeries(sourceSeriesId, { name, startDate }),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });
     },
     scope: { id: 'series' },
