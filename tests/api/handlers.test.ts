@@ -202,6 +202,67 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
+  test('series: copy remaps start-group fleet ids and carries vprsTcc', async () => {
+    // copySeries requires the caller to be a member of the target workspace.
+    const userId = `copy-user-${uuid().slice(0, 8)}`;
+    await db.insert(schema.user).values({
+      id: userId,
+      name: 'Copy User',
+      email: `${userId}@sailscoring.test`,
+    });
+    await db.insert(schema.member).values({
+      id: `mem_${uuid().replace(/-/g, '')}`,
+      organizationId: workspaceB,
+      userId,
+      role: 'owner',
+      createdAt: new Date(),
+    });
+    const ctxACopier = { ...ctxA, userId };
+
+    const srcId = uuid();
+    await series.putSeries(ctxACopier, srcId, sampleSeries(srcId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxACopier, srcId, fleetId, {
+      id: fleetId, seriesId: srcId, name: 'VPRS', displayOrder: 0,
+      scoringSystem: 'vprs' as const,
+    });
+    await series.putSeries(ctxACopier, srcId, {
+      ...sampleSeries(srcId),
+      defaultStartSequence: [{ fleetIds: [fleetId], intervalMinutes: 5 }],
+    });
+    const compId = uuid();
+    await competitors.putCompetitor(ctxACopier, srcId, compId, {
+      id: compId, seriesId: srcId, fleetIds: [fleetId],
+      sailNumber: 'IRL 7007', name: 'Helm', club: 'HYC',
+      gender: '' as const, age: null, createdAt: Date.now(),
+      vprsTcc: 0.992,
+    });
+
+    const { id: copyId } = await series.copySeries(ctxACopier, srcId, {
+      targetWorkspaceId: workspaceB,
+    });
+    const ctxBCopier = { ...ctxB, userId };
+
+    const copiedFleets = await fleets.listFleets(ctxBCopier, copyId);
+    expect(copiedFleets).toHaveLength(1);
+    expect(copiedFleets[0].id).not.toBe(fleetId);
+
+    // The copy's start groups must reference the copy's fleet, not the source's.
+    const copied = await series.getSeries(ctxBCopier, copyId);
+    expect(copied.defaultStartSequence).toEqual([
+      { fleetIds: [copiedFleets[0].id], intervalMinutes: 5 },
+    ]);
+
+    const copiedComps = await competitors.listCompetitors(ctxBCopier, copyId);
+    expect(copiedComps).toHaveLength(1);
+    expect(copiedComps[0].vprsTcc).toBe(0.992);
+    expect(copiedComps[0].fleetIds).toEqual([copiedFleets[0].id]);
+
+    await removeSeries(ctxBCopier, copyId);
+    await removeSeries(ctxACopier, srcId);
+    await db.delete(schema.user).where(eq(schema.user.id, userId));
+  });
+
   // ─── Fleets ────────────────────────────────────────────────────────────────
 
   test('fleets: list/get/put/delete; series-id mismatch rejected', async () => {

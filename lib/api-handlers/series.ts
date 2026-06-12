@@ -321,7 +321,14 @@ export async function copySeries(
       lastSavedAt: null,
       lastModifiedAt: now,
       scoringMode: source.scoringMode,
-      defaultStartSequence: source.defaultStartSequence ?? null,
+      // Start groups reference fleets by id, so they remap like every
+      // other fleet-bearing child row.
+      defaultStartSequence: source.defaultStartSequence
+        ? source.defaultStartSequence.map((g) => ({
+            ...g,
+            fleetIds: g.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
+          }))
+        : null,
       discardThresholds: source.discardThresholds,
       dnfScoring: source.dnfScoring,
       ftpHost: '',
@@ -384,6 +391,7 @@ export async function copySeries(
           subdivision: c.subdivision ?? null,
           createdAt: new Date(c.createdAt),
           ircTcc: c.ircTcc ?? null,
+          vprsTcc: c.vprsTcc ?? null,
           pyNumber: c.pyNumber ?? null,
           nhcStartingTcf: c.nhcStartingTcf ?? null,
           echoStartingTcf: c.echoStartingTcf ?? null,
