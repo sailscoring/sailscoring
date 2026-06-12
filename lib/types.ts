@@ -438,9 +438,13 @@ export interface TcfRecord {
  */
 export interface PublishedSeriesPage {
   fleetName: string;   // fleet name as scored ("Default" for a single-fleet series)
+  // Sub-series (block) the page covers, by name. Absent for whole-series
+  // pages; a series with sub-series publishes one page per (block, fleet).
+  subSeriesName?: string;
   // Sub-path under the slug: `standings` for a single (default) fleet, or
-  // `kebab(fleetName)` for a named fleet. Never empty (the bare slug is the
-  // future listing). The full path is `/p/{workspaceSlug}/{slug}/{subPath}`.
+  // `kebab(fleetName)` for a named fleet — prefixed `kebab(block)/` for a
+  // sub-series page. Never empty (the bare slug is the listing). The full
+  // path is `/p/{workspaceSlug}/{slug}/{subPath}`.
   subPath: string;
   blobUrl: string;     // storage locator (Vercel Blob URL, or `db:` key in dev)
 }
@@ -464,7 +468,9 @@ export interface PublishResult {
   slug: string;
   publishedAt: number;
   publishedVersion: number;
-  pages: { fleetName: string; url: string }[]; // per-fleet public URLs
+  // One entry per page: per fleet, or per (sub-series, fleet) when the
+  // series has blocks.
+  pages: { fleetName: string; subSeriesName?: string; url: string }[];
 }
 
 /**

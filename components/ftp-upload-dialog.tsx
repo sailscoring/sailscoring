@@ -26,6 +26,7 @@ import { uploadViaScupper } from '@/lib/scupper';
 import {
   buildFleetHtmlFiles,
   derivePrefillPaths,
+  fleetFtpPath,
   seriesSlug,
 } from '@/lib/results-export';
 import type { Fleet, Series } from '@/lib/types';
@@ -99,15 +100,24 @@ export function FtpUploadDialog({
       return;
     }
 
-    // Match each fleetFile back to its fleet id by name. buildFleetHtmlFiles
-    // returns one entry per fleet in fleet order, so the indices align — but
-    // be explicit so a future refactor that drops empty fleets stays correct.
+    // Match each file back to its fleet by name (the path inputs are per
+    // fleet, in fleet order). A series with sub-series yields several files
+    // per fleet; each block's page goes to the fleet's configured path with
+    // a block suffix before the extension (frostbites.html →
+    // frostbites-winter.html).
     const fleetByName = new Map(fleets.map((f) => [f.name, f]));
+    const pathByFleetName = new Map(
+      fleets.map((f, i) => [f.name, (fleetPaths[i] ?? '').trim()]),
+    );
 
     const uploadedPaths: Record<string, string> = {};
-    for (let i = 0; i < fleetFiles.length; i++) {
-      const path = (fleetPaths[i] ?? '').trim();
-      if (!path) continue;
+    for (const file of fleetFiles) {
+      const basePath =
+        pathByFleetName.get(file.fleetName) ?? (fleetPaths[0] ?? '').trim();
+      if (!basePath) continue;
+      const path = file.subSeriesName
+        ? fleetFtpPath(basePath, file.subSeriesName, false)
+        : basePath;
       const result = await uploadViaScupper({
         ftpHost: server.host,
         ftpPort: server.port,
@@ -115,14 +125,14 @@ export function FtpUploadDialog({
         ftpPassword: server.password,
         ftpPath: path,
         ftps: server.ftps,
-        html: fleetFiles[i].html,
+        html: file.html,
       });
       if (!result.ok) {
         setUploadState({ success: false, error: result.error });
         return;
       }
-      const fleet = fleetByName.get(fleetFiles[i].fleetName);
-      if (fleet) uploadedPaths[fleet.id] = path;
+      const fleet = fleetByName.get(file.fleetName);
+      if (fleet) uploadedPaths[fleet.id] = basePath;
     }
 
     // Persist verbatim per-fleet paths so the next dialog open reproduces

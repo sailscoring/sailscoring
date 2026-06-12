@@ -19,7 +19,7 @@ import * as repos from '@/lib/api-repository';
 import { buildFleetHtmlFiles, fleetHtmlFilename, triggerDownload } from '@/lib/results-export';
 import type { Fleet, Series } from '@/lib/types';
 
-type FleetHtmlFile = { fleetName: string; isDefault: boolean; html: string };
+type FleetHtmlFile = { fleetName: string; isDefault: boolean; subSeriesName?: string; html: string };
 
 export interface PreviewDialogProps {
   series: Series;
@@ -108,8 +108,8 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
               </SelectTrigger>
               <SelectContent>
                 {files.map((f, i) => (
-                  <SelectItem key={f.fleetName} value={String(i)}>
-                    {f.fleetName}
+                  <SelectItem key={`${f.subSeriesName ?? ''}/${f.fleetName}`} value={String(i)}>
+                    {f.subSeriesName ? `${f.subSeriesName} — ${f.fleetName}` : f.fleetName}
                   </SelectItem>
                 ))}
               </SelectContent>

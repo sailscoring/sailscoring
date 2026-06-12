@@ -2,6 +2,7 @@ import {
   calculateFleetStandings,
   calculateRaceScores,
   calculateHandicapRaceScores,
+  calculateSubSeriesFleetStandings,
 } from './scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from './results-renderer';
 import { buildPublicExportFromSnapshot, type ExportRepos } from './public-export';
@@ -61,7 +62,7 @@ export async function buildFleetHtmlFiles(
   // undefined for downloads, FTP uploads, and previews, which have no `/p/`
   // parent — see `SeriesResultsData.seriesIndexUrl`.
   seriesIndexUrl?: string,
-): Promise<{ fleetName: string; isDefault: boolean; html: string }[] | null> {
+): Promise<{ fleetName: string; isDefault: boolean; subSeriesName?: string; html: string }[] | null> {
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
   if (!snapshot || snapshot.competitors.length === 0 || snapshot.races.length === 0) {
     return null;
@@ -71,6 +72,7 @@ export async function buildFleetHtmlFiles(
     competitors,
     fleets,
     races,
+    subSeries,
     finishes: allFinishes,
     raceStarts: allRaceStarts,
     ratingOverrides: allRatingOverrides,
@@ -107,9 +109,21 @@ export async function buildFleetHtmlFiles(
 
   const seriesInfo = { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl, venueUrl: series.venueUrl, eventUrl: series.eventUrl };
 
-  const results: { fleetName: string; isDefault: boolean; html: string }[] = [];
+  const results: { fleetName: string; isDefault: boolean; subSeriesName?: string; html: string }[] = [];
 
-  for (const { fleet, standings, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId } of fleetResults) {
+  // Render one HTML page per fleet of a view: the whole series, or one
+  // sub-series scored independently. Block pages renumber their races 1..n
+  // within the block ("Spring Race 3", not the series-wide race number) and
+  // carry the block name in the page title.
+  const renderView = (
+    viewFleetResults: typeof fleetResults,
+    viewRaces: typeof races,
+    subSeriesName?: string,
+  ) => {
+  const viewSeriesInfo = subSeriesName
+    ? { ...seriesInfo, name: `${seriesInfo.name} — ${subSeriesName}` }
+    : seriesInfo;
+  for (const { fleet, standings, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId } of viewFleetResults) {
     const fleetCompetitorIds = new Set(standings.map((s) => s.competitor.id));
 
     // Per-fleet race score maps (only this fleet's competitors)
@@ -135,7 +149,7 @@ export async function buildFleetHtmlFiles(
       echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number };
     };
     const raceScoresByRaceId = new Map<string, Map<string, RaceScoreCellForRender>>(
-      races.map((race) => {
+      viewRaces.map((race) => {
         const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
         const finishByCompetitorId = new Map(
           finishesForRace
@@ -297,8 +311,8 @@ export async function buildFleetHtmlFiles(
       : undefined;
 
     const data = assembleSeriesResultsData(
-      seriesInfo,
-      races,
+      viewSeriesInfo,
+      viewRaces,
       standings,
       raceScoresByRaceId,
       competitorsById,
@@ -338,8 +352,31 @@ export async function buildFleetHtmlFiles(
     results.push({
       fleetName: fleet.name,
       isDefault: isSingleDefault,
+      ...(subSeriesName ? { subSeriesName } : {}),
       html: renderSeriesHtml(data),
     });
+  }
+  };
+
+  if (subSeries.length > 0) {
+    const blockResults = calculateSubSeriesFleetStandings(
+      subSeries,
+      fleets,
+      competitors,
+      races,
+      allFinishes,
+      series.discardThresholds ?? [],
+      series.dnfScoring ?? 'seriesEntries',
+      allRaceStarts,
+      allRatingOverrides,
+    );
+    for (const block of blockResults) {
+      if (block.races.length === 0) continue;
+      const renumbered = block.races.map((r, i) => ({ ...r, raceNumber: i + 1 }));
+      renderView(block.fleetStandings, renumbered, block.subSeries.name);
+    }
+  } else {
+    renderView(fleetResults, races);
   }
 
   return results.length > 0 ? results : null;
@@ -359,11 +396,13 @@ export function triggerDownload(filename: string, html: string) {
 }
 
 /** Download filename for one fleet's HTML, e.g. `my-series.html` (single/default
- *  fleet) or `my-series-junior.html` (named fleet in a multi-fleet series). */
+ *  fleet) or `my-series-junior.html` (named fleet in a multi-fleet series).
+ *  Sub-series pages carry the block name: `my-series-winter[-junior].html`. */
 export function fleetHtmlFilename(
   seriesName: string,
-  file: { fleetName: string; isDefault: boolean },
+  file: { fleetName: string; isDefault: boolean; subSeriesName?: string },
 ): string {
+  const block = file.subSeriesName ? '-' + seriesSlug(file.subSeriesName) : '';
   const suffix = file.isDefault ? '' : '-' + seriesSlug(file.fleetName);
-  return seriesSlug(seriesName) + suffix + '.html';
+  return seriesSlug(seriesName) + block + suffix + '.html';
 }

@@ -53,7 +53,8 @@ function htmlResponse(html: string, etag: string): Response {
  *
  *   /p/{ws}                     → workspace index: every published series (rendered live)
  *   /p/{ws}/{series}            → series index: that publication's fleet pages (rendered live)
- *   /p/{ws}/{series}/{subPath}  → a fleet's standings HTML (`standings` or `kebab(fleet)`)
+ *   /p/{ws}/{series}/{subPath}  → a fleet's standings HTML (`standings` or `kebab(fleet)`;
+ *                                 sub-series pages add a block segment, `{block}/{fleet}`)
  *
  * The read path is a thin always-fresh function rather than a static blob
  * rewrite: re-publish freshness matters more than shaving the function/DB hit
@@ -69,11 +70,13 @@ export async function GET(
   { params }: { params: Promise<{ slug: string[] }> },
 ): Promise<Response> {
   const { slug: segments } = await params;
-  if (segments.length < 1 || segments.length > 3) return NOT_FOUND;
+  if (segments.length < 1 || segments.length > 4) return NOT_FOUND;
 
   if (segments.length === 1) return workspaceIndex(req, segments[0]);
   if (segments.length === 2) return seriesIndex(req, segments[0], segments[1]);
-  return fleetPage(req, segments[0], segments[1], segments[2]);
+  // Page sub-paths are one segment per fleet page, two for a sub-series page
+  // (`{kebab(block)}/{fleet}`); the stored subPath carries the slash.
+  return fleetPage(req, segments[0], segments[1], segments.slice(2).join('/'));
 }
 
 /** `/p/{ws}` — the public workspace listing. */
@@ -134,6 +137,7 @@ async function seriesIndex(
         (p.seriesId ? await getSeriesName(p.seriesId) : null) ?? seriesSlug,
       pages: p.pages.map((pg) => ({
         fleetName: pg.fleetName,
+        ...(pg.subSeriesName ? { subSeriesName: pg.subSeriesName } : {}),
         subPath: pg.subPath,
       })),
     })),

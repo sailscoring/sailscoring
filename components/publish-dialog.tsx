@@ -18,6 +18,7 @@ import {
   unpublishSeries,
 } from '@/lib/api-repository';
 import { fleetSubPath } from '@/lib/publishing';
+import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import type { Fleet, PublicationStatus, Series } from '@/lib/types';
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
@@ -69,6 +70,10 @@ interface FleetRow {
  * ("tuesday-puppeteers-hph") when several series share one slug.
  */
 export function PublishDialog({ series, fleets, open, onClose }: PublishDialogProps) {
+  // Sub-series publish one page per (block, fleet) with server-derived
+  // `{block}/{leaf}` paths, so the per-fleet URL editors don't apply.
+  const { data: subSeriesList } = useSubSeriesBySeries(series.id);
+  const hasBlocks = (subSeriesList?.length ?? 0) > 0;
   const [status, setStatus] = useState<PublicationStatus | null>(null);
   const [slug, setSlug] = useState('');
   // Selected fleet names (the set to publish) and per-fleet editable sub-paths.
@@ -172,9 +177,11 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
     const page = published?.pages[0];
     return {
       fleetName: page?.fleetName ?? fleets[0]?.name ?? 'Standings',
-      url: page?.url ?? `${urlPrefix}/${singlePath || 'standings'}`,
+      // With sub-series there are several pages; link the series index that
+      // lists them all rather than one block's page.
+      url: hasBlocks ? urlPrefix : page?.url ?? `${urlPrefix}/${singlePath || 'standings'}`,
     };
-  }, [published, fleets, urlPrefix, singlePath]);
+  }, [published, fleets, urlPrefix, singlePath, hasBlocks]);
 
   // Client-side guard so the button reflects what the server would reject. The
   // single default page needs a non-empty sub-path while it's still editable
@@ -184,11 +191,12 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
   // need at least one, with distinct sub-paths.
   const validation = useMemo(() => {
     if (!multiFleet) {
-      if (isPublished) return null;
+      if (isPublished || hasBlocks) return null;
       return singlePath ? null : 'Give the page a URL.';
     }
     const live = rows.filter((r) => r.frozen || selected.has(r.name));
     if (live.length === 0) return 'Select at least one fleet to publish.';
+    if (hasBlocks) return null; // paths are server-derived per block
     const seen = new Set<string>();
     for (const r of live) {
       const seg = segmentFor(r);
@@ -198,7 +206,7 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [multiFleet, isPublished, singlePath, rows, selected, subPaths, published]);
+  }, [multiFleet, isPublished, hasBlocks, singlePath, rows, selected, subPaths, published]);
 
   const pendingEdits = published
     ? Math.max(0, (series.version ?? 1) - published.publishedVersion)
@@ -237,13 +245,15 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
       if (multiFleet) {
         const fleetNames = rows.filter((r) => selected.has(r.name)).map((r) => r.name);
         const overrides: Record<string, string> = {};
-        for (const r of rows) {
-          if (r.frozen || !selected.has(r.name)) continue;
-          const seg = segmentFor(r);
-          if (seg !== defaultSubPath(r.name)) overrides[r.name] = seg;
+        if (!hasBlocks) {
+          for (const r of rows) {
+            if (r.frozen || !selected.has(r.name)) continue;
+            const seg = segmentFor(r);
+            if (seg !== defaultSubPath(r.name)) overrides[r.name] = seg;
+          }
         }
         selection = { fleets: fleetNames, subPaths: overrides };
-      } else if (!isPublished) {
+      } else if (!isPublished && !hasBlocks) {
         selection = { defaultSubPath: singlePath };
       }
       const result = await publishSeries(series.id, {
@@ -433,7 +443,11 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
                           >
                             {row.name}
                           </span>
-                          {row.frozen ? (
+                          {hasBlocks ? (
+                            <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground">
+                              one page per sub-series
+                            </span>
+                          ) : row.frozen ? (
                             <a
                               href={row.publishedUrl ?? url}
                               target="_blank"
@@ -458,7 +472,7 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
                               className="flex-1 min-w-0 h-7 text-xs font-mono"
                             />
                           )}
-                          {row.frozen && (
+                          {row.frozen && !hasBlocks && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -496,6 +510,11 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
                   Copy
                 </Button>
               </div>
+            ) : hasBlocks ? (
+              <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/`}>
+                Each sub-series publishes its own page under{' '}
+                <span className="font-mono">/p/{workspaceSlug}/{slug || '…'}/</span>
+              </p>
             ) : (
               // First publish of the lone default page: its sub-path is editable,
               // seeded `standings`, so the scorer controls the URL even when the

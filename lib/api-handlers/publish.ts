@@ -8,6 +8,7 @@ import { captureRevision, sealOpenRevisions } from '@/lib/revision-log';
 import {
   contentHash,
   deriveSeriesSlug,
+  kebab,
   publicationSubPath,
   publishedBlobKey,
 } from '@/lib/publishing';
@@ -55,6 +56,7 @@ function toResult(
     publishedVersion: published.publishedVersion,
     pages: published.pages.map((p) => ({
       fleetName: p.fleetName,
+      ...(p.subSeriesName ? { subSeriesName: p.subSeriesName } : {}),
       url: `${base}/${p.subPath}`,
     })),
   };
@@ -210,14 +212,21 @@ export async function publishSeries(
     });
   }
 
+  // Pages are identified by (sub-series, fleet) — a series with blocks
+  // publishes one page per block per fleet; a blockless one per fleet.
+  const pageKey = (p: { fleetName: string; subSeriesName?: string }): string =>
+    `${p.subSeriesName ?? ''}\u0000${p.fleetName}`;
+
   // Sub-paths are frozen per page: a fleet that was already published keeps its
   // existing path, so a publication's URLs never shift when another series later
   // joins (or leaves) the slug — or when the scorer overrides a sibling's path.
   // Resolution order: frozen (immutable once published) → caller override (only
   // for a not-yet-frozen fleet) → derived default. Only genuinely new fleets get
-  // a fresh path, and only those accept an override.
+  // a fresh path, and only those accept an override. Sub-series pages live one
+  // segment down — `kebab(block)/{leaf}` — so each block reads as its own
+  // little series under the slug.
   const frozen = new Map(
-    (existing?.pages ?? []).map((p) => [p.fleetName, p.subPath]),
+    (existing?.pages ?? []).map((p) => [pageKey(p), p.subPath]),
   );
   const shared = others.length > 0;
   const seriesSlug = deriveSeriesSlug(series.name);
@@ -226,10 +235,11 @@ export async function publishSeries(
   // `isDefault`), since its fleet name can be synthetic and unknown to the
   // client; named fleets use `subPaths[fleetName]`.
   const defaultOverride = input.defaultSubPath?.trim();
-  const subPathFor = (file: { fleetName: string; isDefault: boolean }): string => {
-    const existingPath = frozen.get(file.fleetName);
+  const subPathFor = (file: { fleetName: string; isDefault: boolean; subSeriesName?: string }): string => {
+    const existingPath = frozen.get(pageKey(file));
     if (existingPath !== undefined) return existingPath;
     const override = file.isDefault ? defaultOverride : overrides[file.fleetName]?.trim();
+    let leaf: string;
     if (override) {
       if (!isValidSlugSegment(override)) {
         throw new BadRequestError('invalid fleet sub-path', {
@@ -237,12 +247,14 @@ export async function publishSeries(
           fleetName: file.fleetName,
         });
       }
-      return override;
+      leaf = override;
+    } else {
+      leaf = publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared);
     }
-    return publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared);
+    return file.subSeriesName ? `${kebab(file.subSeriesName)}/${leaf}` : leaf;
   };
 
-  // Resolve each built fleet's path once, then guard uniqueness on two fronts:
+  // Resolve each built page's path once, then guard uniqueness on two fronts:
   // no two of this series' own live pages may share a path (overrides — and
   // carried pages — make that possible), and none may collide with another
   // contributor publishing into the same slug. Carried pages already occupy
@@ -259,29 +271,35 @@ export async function publishSeries(
       });
     }
     mine.add(subPath);
-    subPaths.set(file.fleetName, subPath);
+    subPaths.set(pageKey(file), subPath);
   }
 
-  const builtByName = new Map<string, PublishedSeriesPage>();
+  const builtByKey = new Map<string, PublishedSeriesPage>();
   for (const file of toBuild) {
-    const subPath = subPaths.get(file.fleetName)!;
+    const subPath = subPaths.get(pageKey(file))!;
     const key = publishedBlobKey(workspace.workspaceSlug, slug, subPath, hash);
     const blobUrl = await putPublishedHtml(key, file.html);
-    builtByName.set(file.fleetName, { fleetName: file.fleetName, subPath, blobUrl });
+    builtByKey.set(pageKey(file), {
+      fleetName: file.fleetName,
+      ...(file.subSeriesName ? { subSeriesName: file.subSeriesName } : {}),
+      subPath,
+      blobUrl,
+    });
   }
 
-  // Merge built and carried pages, ordered by the series' fleet order; any
-  // carried page whose fleet no longer exists (a deleted fleet's leftover page)
-  // is kept at the end rather than silently dropped.
-  const carriedByName = new Map(carried.map((p) => [p.fleetName, p]));
+  // Merge built and carried pages, ordered as built (block order, then the
+  // series' fleet order); any carried page whose (block, fleet) no longer
+  // exists — a deleted fleet's leftover page, or a page from before the
+  // series gained blocks — is kept at the end rather than silently dropped.
+  const carriedByKey = new Map(carried.map((p) => [pageKey(p), p]));
   const pages: PublishedSeriesPage[] = [];
   for (const file of allFiles) {
-    const page = builtByName.get(file.fleetName) ?? carriedByName.get(file.fleetName);
+    const page = builtByKey.get(pageKey(file)) ?? carriedByKey.get(pageKey(file));
     if (page) pages.push(page);
   }
-  const known = new Set(allFiles.map((f) => f.fleetName));
+  const known = new Set(allFiles.map((f) => pageKey(f)));
   for (const page of carried) {
-    if (!known.has(page.fleetName)) pages.push(page);
+    if (!known.has(pageKey(page))) pages.push(page);
   }
 
   const published: PublishedSeries = {

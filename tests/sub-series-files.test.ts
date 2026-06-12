@@ -215,3 +215,37 @@ describe('public JSON export sub-series round-trip', () => {
     expect(data!.races.every((r) => r.subSeries === undefined)).toBe(true);
   });
 });
+
+describe('buildFleetHtmlFiles with sub-series', () => {
+  it('renders one page per (block, fleet) with block-local race numbers', async () => {
+    const { buildFleetHtmlFiles } = await import('@/lib/results-export');
+    const { repos } = makeRecordingRepos(snapshot);
+    const files = await buildFleetHtmlFiles(repos, 's1');
+    expect(files).not.toBeNull();
+    expect(files!.map((f) => f.subSeriesName)).toEqual(['Winter', 'Spring']);
+
+    const winterPage = files![0];
+    expect(winterPage.html).toContain('Frostbites — Winter');
+    // Two Winter races, numbered within the block.
+    expect(winterPage.html).toContain('R1');
+    expect(winterPage.html).toContain('R2');
+
+    const springPage = files![1];
+    expect(springPage.html).toContain('Frostbites — Spring');
+    // The lone Spring race is R1 in its block, not series-wide R3.
+    expect(springPage.html).not.toContain('>R3<');
+  });
+
+  it('a blockless series still renders one page per fleet', async () => {
+    const { buildFleetHtmlFiles } = await import('@/lib/results-export');
+    const blockless: SeriesSnapshot = {
+      ...snapshot,
+      subSeries: [],
+      races: snapshot.races.map((r) => ({ ...r, subSeriesId: null })),
+    };
+    const { repos } = makeRecordingRepos(blockless);
+    const files = await buildFleetHtmlFiles(repos, 's1');
+    expect(files).toHaveLength(1);
+    expect(files![0].subSeriesName).toBeUndefined();
+  });
+});
