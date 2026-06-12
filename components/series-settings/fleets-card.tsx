@@ -225,14 +225,18 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     if (patched.length > 0) {
       await saveCompetitors.mutateAsync(patched);
     }
-    const seq = series.defaultStartSequence;
-    if (seq?.some((g) => g.fleetIds.includes(fleet.id))) {
-      const next = seq
-        .map((g) => ({ ...g, fleetIds: g.fleetIds.filter((id) => id !== fleet.id) }))
-        .filter((g) => g.fleetIds.length > 0);
+    if (series.defaultStartSequence?.some((g) => g.fleetIds.includes(fleet.id))) {
+      // Functional patch: strip the fleet from the sequence the save lands
+      // on, not the prop — an in-flight sequence edit would otherwise be
+      // clobbered by a version filtered from stale state.
       await updateSeries.mutateAsync({
         id: seriesId,
-        patch: { defaultStartSequence: next.length > 0 ? next : undefined },
+        patch: (current) => {
+          const next = (current.defaultStartSequence ?? [])
+            .map((g) => ({ ...g, fleetIds: g.fleetIds.filter((id) => id !== fleet.id) }))
+            .filter((g) => g.fleetIds.length > 0);
+          return { defaultStartSequence: next.length > 0 ? next : undefined };
+        },
       });
     }
     const allStarts = await raceStartRepo.listBySeries(seriesId);

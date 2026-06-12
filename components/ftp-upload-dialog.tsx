@@ -127,11 +127,15 @@ export function FtpUploadDialog({
 
     // Persist verbatim per-fleet paths so the next dialog open reproduces
     // exactly what the user typed (#131). Merge into existing ftpPaths so
-    // fleets that weren't uploaded this round retain their prior entry.
-    const mergedPaths = { ...(series.ftpPaths ?? {}), ...uploadedPaths };
+    // fleets that weren't uploaded this round retain their prior entry —
+    // merging into the freshest row, not the prop, so an in-flight save's
+    // entries survive.
     await updateSeries.mutateAsync({
       id: series.id,
-      patch: { ftpHost: server.host, ftpPaths: mergedPaths },
+      patch: (current) => ({
+        ftpHost: server.host,
+        ftpPaths: { ...(current.ftpPaths ?? {}), ...uploadedPaths },
+      }),
     });
     setUploadState({ success: true });
   }

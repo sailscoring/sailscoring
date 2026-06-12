@@ -743,22 +743,35 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     // UI reads the correct config.
     const seriesPatch: {
       primaryPersonLabel?: PrimaryPersonLabel;
-      enabledCompetitorFields?: CompetitorFieldKey[];
       scoringMode?: 'scratch' | 'handicap';
       lastModifiedAt?: number;
     } = {};
     if (proposedPrimary !== currentPrimary) seriesPatch.primaryPersonLabel = proposedPrimary;
-    const fieldsChanged =
-      proposedFields.length !== currentFields.length ||
-      proposedFields.some((f, i) => f !== currentFields[i]);
-    if (fieldsChanged) seriesPatch.enabledCompetitorFields = proposedFields;
+    // The wizard's field intent is the delta against the snapshot it opened
+    // with; re-apply that delta to the row the save lands on, so a field
+    // toggled elsewhere while the wizard was open isn't silently reverted.
+    const fieldAdditions = proposedFields.filter((f) => !currentFields.includes(f));
+    const fieldRemovals = currentFields.filter((f) => !proposedFields.includes(f));
+    const fieldsChanged = fieldAdditions.length > 0 || fieldRemovals.length > 0;
     const planHasHandicapFleet = plan.proposed.some((p) => p.scoringSystem !== 'scratch');
     if (seriesScoringMode === 'scratch' && planHasHandicapFleet) {
       seriesPatch.scoringMode = 'handicap';
     }
-    if (Object.keys(seriesPatch).length > 0) {
+    if (Object.keys(seriesPatch).length > 0 || fieldsChanged) {
       seriesPatch.lastModifiedAt = Date.now();
-      await updateSeries.mutateAsync({ id: seriesId, patch: seriesPatch });
+      await updateSeries.mutateAsync({
+        id: seriesId,
+        patch: (current) => {
+          if (!fieldsChanged) return seriesPatch;
+          const fields = new Set(current.enabledCompetitorFields ?? defaultEnabledCompetitorFields());
+          for (const f of fieldAdditions) fields.add(f);
+          for (const f of fieldRemovals) fields.delete(f);
+          return {
+            ...seriesPatch,
+            enabledCompetitorFields: ALL_COMPETITOR_FIELDS.filter((f) => fields.has(f)),
+          };
+        },
+      });
     }
 
     const fleetIdByPlanKey = new Map<string, string>();

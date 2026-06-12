@@ -206,3 +206,48 @@ test('disabling a field preserves its data on re-enable', async ({ page }) => {
   await page.getByRole('link', { name: 'Competitors' }).click();
   await expect(page.getByRole('cell', { name: 'Windchaser' })).toBeVisible();
 });
+
+test('a toggle made while a prior save is in flight does not revert it', async ({ page }) => {
+  // The lost-update window: save A (uncheck Boat name) is still in flight
+  // when the user navigates away and back, so the re-opened card renders
+  // from the pre-A cache. Toggle B (check Crew name) must not patch Boat
+  // name back to enabled. Hold A's PUT at the network layer to pin the
+  // window open deterministically.
+  await createSeriesQuick(page, { name: 'In-flight Toggle' });
+
+  let releaseHold!: () => void;
+  const hold = new Promise<void>((resolve) => { releaseHold = resolve; });
+  let held = false;
+  await page.route('**/api/v1/series/*', async (route) => {
+    if (route.request().method() === 'PUT' && !held) {
+      held = true;
+      await hold;
+    }
+    await route.fallback();
+  });
+
+  // ── 1. Uncheck Boat name — save A is now held in flight ──────────────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByLabel('Boat name').uncheck();
+
+  // ── 2. Navigate away and back; the re-opened card shows the stale,
+  //       pre-A state (Boat name checked again). Check Crew name — save B
+  //       queues behind A. ─────────────────────────────────────────────────
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByLabel('Crew name').check();
+
+  // ── 3. Release A; once both saves land the card re-syncs to the
+  //       persisted row — Boat name must stay unchecked. ───────────────────
+  releaseHold();
+  await expect(page.getByLabel('Boat name')).not.toBeChecked();
+  await expect(page.getByLabel('Crew name')).toBeChecked();
+
+  // ── 4. The persisted state agrees after a full reload ────────────────────
+  await page.reload();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await expect(page.getByLabel('Boat name')).not.toBeChecked();
+  await expect(page.getByLabel('Crew name')).toBeChecked();
+});

@@ -4,6 +4,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query';
 
@@ -30,19 +31,20 @@ import { useVersionedSave } from './use-versioned-save';
  * version and resend; `rebuild` reapplies the caller's intent on top of the
  * fresh row (a patch merges onto it, a whole-row save just resends).
  */
-async function saveSeriesRetrying(
+async function saveSeriesRetryingWith(
+  repo: Pick<typeof seriesRepo, 'get' | 'save'>,
   id: string,
   payload: Series,
   expectedVersion: number | undefined,
   rebuild: (fresh: Series) => Series,
 ): Promise<Series> {
   try {
-    return await seriesRepo.save(payload, { expectedVersion });
+    return await repo.save(payload, { expectedVersion });
   } catch (err) {
     if (!(err instanceof ConflictApiError)) throw err;
-    const fresh = await seriesRepo.get(id);
+    const fresh = await repo.get(id);
     if (!fresh) throw err;
-    return seriesRepo.save(rebuild(fresh), { expectedVersion: fresh.version });
+    return repo.save(rebuild(fresh), { expectedVersion: fresh.version });
   }
 }
 
@@ -74,7 +76,7 @@ export function useSaveSeries() {
     readCachedVersion: (qc, series) =>
       qc.getQueryData<Series | null>(queryKeys.series.detail(series.id))?.version,
     save: (series, opts) =>
-      saveSeriesRetrying(series.id, series, opts.expectedVersion, () => series),
+      saveSeriesRetryingWith(seriesRepo, series.id, series, opts.expectedVersion, () => series),
     scopeId: 'series',
     onSaved: (qc, saved) => {
       qc.setQueryData(queryKeys.series.detail(saved.id), saved);
@@ -84,31 +86,51 @@ export function useSaveSeries() {
 }
 
 /**
+ * A patch for `useUpdateSeries`: either a plain partial row, or a function
+ * deriving one from the row being patched. Use the functional form whenever
+ * the new value is computed from the old one (list toggles, map merges) —
+ * a plain object computed at click time can bake in a stale prop and revert
+ * a save that was still in flight when the prop was read. The function runs
+ * inside the serialized mutation, against the freshest row, and is re-run on
+ * the 409 retry path against the re-read row.
+ */
+export type SeriesPatch = Partial<Series> | ((current: Series) => Partial<Series>);
+
+/**
+ * Mutation options for `useUpdateSeries`, extracted so tests can exercise
+ * the real config (cache read, patch resolution, retry rebuild, scope)
+ * against a fake repository instead of mirroring it.
+ */
+export function updateSeriesMutationOptions(
+  qc: QueryClient,
+  repo: Pick<typeof seriesRepo, 'get' | 'save'> = seriesRepo,
+) {
+  return {
+    mutationFn: async ({ id, patch }: { id: string; patch: SeriesPatch }) => {
+      const cached = qc.getQueryData<Series | null>(queryKeys.series.detail(id));
+      const current = cached ?? (await repo.get(id)) ?? null;
+      if (!current) throw new Error(`series ${id} not found`);
+      const resolve = (base: Series) => (typeof patch === 'function' ? patch(base) : patch);
+      const rebuild = (fresh: Series) => ({ ...fresh, ...resolve(fresh) });
+      return saveSeriesRetryingWith(repo, id, rebuild(current), current.version, rebuild);
+    },
+    onSuccess: (saved: Series) => {
+      qc.setQueryData(queryKeys.series.detail(saved.id), saved);
+      qc.invalidateQueries({ queryKey: queryKeys.series.list() });
+    },
+    // See useSaveSeries — same scope so update/save serialize together.
+    scope: { id: 'series' },
+  };
+}
+
+/**
  * Partial-update wrapper. Reads the current series from the query cache
  * if present (or fetches), merges the patch, and writes the whole row.
  * Replaces direct `db.series.update(id, patch)` calls.
  */
 export function useUpdateSeries() {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Series> }) => {
-      const cached = qc.getQueryData<Series | null>(queryKeys.series.detail(id));
-      const current = cached ?? (await seriesRepo.get(id)) ?? null;
-      if (!current) throw new Error(`series ${id} not found`);
-      return saveSeriesRetrying(
-        id,
-        { ...current, ...patch },
-        current.version,
-        (fresh) => ({ ...fresh, ...patch }),
-      );
-    },
-    onSuccess: (saved) => {
-      qc.setQueryData(queryKeys.series.detail(saved.id), saved);
-      qc.invalidateQueries({ queryKey: queryKeys.series.list() });
-    },
-    // See useSaveSeries — same scope so update/save serialize together.
-    scope: { id: 'series' },
-  });
+  return useMutation(updateSeriesMutationOptions(qc));
 }
 
 export function useDeleteSeriesCascade() {

@@ -55,14 +55,19 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
   async function toggle(field: CompetitorFieldKey, checked: boolean) {
     const next = new Set(enabledSet);
     if (checked) next.add(field); else next.delete(field);
-    const nextArray = ALL_COMPETITOR_FIELDS.filter((f) => next.has(f));
-    setLocalEnabled(nextArray);
+    setLocalEnabled(ALL_COMPETITOR_FIELDS.filter((f) => next.has(f)));
+    // Functional patch: derive the new list from the row the save actually
+    // lands on, not from the prop this card was rendered with — a stale prop
+    // here can resurrect a field another in-flight save just removed.
     await updateSeries.mutateAsync({
       id: seriesId,
-      patch: {
-        enabledCompetitorFields: nextArray,
-        // eslint-disable-next-line react-hooks/purity -- Date.now() runs inside an async event handler, not render.
-        lastModifiedAt: Date.now(),
+      patch: (current) => {
+        const fields = new Set(current.enabledCompetitorFields ?? defaultEnabledCompetitorFields());
+        if (checked) fields.add(field); else fields.delete(field);
+        return {
+          enabledCompetitorFields: ALL_COMPETITOR_FIELDS.filter((f) => fields.has(f)),
+          lastModifiedAt: Date.now(),
+        };
       },
     });
   }
