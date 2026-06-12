@@ -795,32 +795,11 @@ refresh. Season-spanning *views* (a season grouping above the series, results
 across a season) are a separate idea that the lineage chain enables; they
 connect to the perpetual-trophies question under Prize allocation.
 
-### Sub-series within a single series
-
-A season block often scores as several short series sailed back-to-back — say
-fifteen races split into three sub-series of five, each with its own standings,
-discards, and prizes. Today that means three separate series chained via
-rollover, with the handicap-refresh machinery above papering over the
-boundaries. The alternative: one series containing three *sub-series*, with
-standings calculated per sub-series (a selector on the Standings page), each
-sub-series published independently, and per-competitor opt-out of individual
-sub-series (a boat that skips the autumn block simply isn't in that
-sub-series's standings).
-
-The big win is that progressive handicaps flow from one sub-series to the next
-*for free* — the progressive chain already runs across all races of a series,
-so the entire refresh/freeze problem above evaporates inside a sub-series
-structure. Entry lists, fleet definitions, and settings are shared rather than
-copied.
-
-Open questions: the data model (race-range boundaries vs. an explicit grouping
-each race belongs to); whether discard rules and other scoring settings can
-vary per sub-series or are inherited; whether an *overall* standings across
-the whole series is also wanted (which starts to look like the season-spanning
-views idea); published URL shape (`/p/{workspace}/{series}` currently assumes
-one standings table per fleet); and where the line sits between this and the
-rollover/lineage chain — overlapping series and mid-season entry changes may
-still need separate series, so the two mechanisms likely coexist.
+Sub-series within a single series (#203) reduces the pressure on this work:
+back-to-back blocks sharing one entry list become one series, so the
+highest-value boundary (e.g. a Frostbite Winter→Spring) stops being a series
+boundary at all. Rollover remains for entry-list turnover, fleet
+restructuring, and series that overlap in time.
 
 ---
 
