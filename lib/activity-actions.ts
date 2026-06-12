@@ -19,6 +19,8 @@ export const ACTIVITY_ACTIONS = [
   'series.unarchived',
   'series.recategorized',
   'series.deleted',
+  'series.restored',
+  'series.purged',
   'series.copied',
   'series.reverted',
   'competitors.imported',

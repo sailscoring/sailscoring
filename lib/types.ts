@@ -573,6 +573,23 @@ export interface RevisionEntry {
   hasSnapshot: boolean;
 }
 
+/** A soft-deleted series in the workspace Trash ("Recover a deleted series").
+ *  Metadata only — the whole-series snapshot blob stays server-side and is
+ *  decoded only when the entry is recovered. */
+export interface DeletedSeriesEntry {
+  /** The tombstone id (what recover / permanent-delete address). */
+  id: string;
+  /** The original series id, preserved so recovery restores it unchanged. */
+  seriesId: string;
+  name: string;
+  /** ISO-8601 timestamp of the deletion. */
+  deletedAt: string;
+  actor: { id: string; email?: string; displayName?: string } | null;
+  /** The series had a live published results page when deleted — left orphaned
+   *  (still online, disconnected), so the Trash view notes it. */
+  hadPublication: boolean;
+}
+
 /**
  * Read-only "who last touched this record" stamp (#153), derived from the
  * row's server-managed `updated_at` / `updated_by`. Surfaced in the competitor

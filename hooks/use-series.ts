@@ -140,6 +140,9 @@ export function useDeleteSeriesCascade() {
     onSuccess: (_void, id) => {
       qc.removeQueries({ queryKey: queryKeys.series.detail(id) });
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });
+      // Delete is now a soft delete — the series moves to the Trash, so its
+      // list is stale too ("Recover a deleted series").
+      qc.invalidateQueries({ queryKey: queryKeys.trash.list() });
       // Children invalidations are conservative — the series is gone, so
       // every cached child collection under it is stale.
       qc.invalidateQueries({ queryKey: queryKeys.fleets.all });

@@ -23,6 +23,7 @@ import type {
   AuditStamp,
   Category,
   Competitor,
+  DeletedSeriesEntry,
   OrgRequest,
   Finish,
   Fleet,
@@ -565,6 +566,26 @@ export function listPublished(): Promise<PublishedListItem[]> {
  *  only path that reaches an orphan. */
 export async function unpublishById(id: string): Promise<void> {
   await apiFetch(`/api/v1/published/${id}`, { method: 'DELETE' });
+}
+
+/** The workspace Trash — soft-deleted series recoverable within the retention
+ *  window ("Recover a deleted series"). */
+export async function listTrash(): Promise<DeletedSeriesEntry[]> {
+  const { items } = await apiFetch<{ items: DeletedSeriesEntry[] }>('/api/v1/trash');
+  return items;
+}
+
+/** Recover a trashed series. `tombstoneId` is the {@link DeletedSeriesEntry.id};
+ *  returns the restored series' (original) id. */
+export async function restoreFromTrash(tombstoneId: string): Promise<{ seriesId: string }> {
+  return apiFetch<{ seriesId: string }>(`/api/v1/trash/${tombstoneId}/restore`, {
+    method: 'POST',
+  });
+}
+
+/** Permanently delete a trashed series — the "delete forever" path. */
+export async function purgeFromTrash(tombstoneId: string): Promise<void> {
+  await apiFetch(`/api/v1/trash/${tombstoneId}`, { method: 'DELETE' });
 }
 
 /**

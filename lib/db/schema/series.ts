@@ -203,6 +203,55 @@ export const series = pgTable(
   ],
 );
 
+/**
+ * Soft-delete tombstone for a deleted series ("Recover a deleted series").
+ *
+ * Deleting a series hard-deletes the live rows (as before) but first writes one
+ * self-contained tombstone here: a whole-series `.sailscoring` snapshot
+ * (including the embedded revision history) zstd-compressed into `snapshot_gz`.
+ * Recovery decodes the blob and re-inserts the series — under its **original**
+ * `series_id` — via the same file-replay path an import uses. A daily cron
+ * purges tombstones past the retention window; permanent delete-from-Trash drops
+ * the row immediately.
+ *
+ * Deliberately keeps all cost off the hot query path: the active series list is
+ * untouched (no `deleted_at IS NULL` filter to forget), there are no lingering
+ * child rows, and a deleted series no longer squats its name.
+ *
+ * `series_id` is the original id but is *not* a foreign key — the series row it
+ * named is gone. `deleted_by` references `user.id` semantically only, like the
+ * other actor-attribution columns.
+ */
+export const deletedSeries = pgTable(
+  'deleted_series',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    seriesId: uuid('series_id').notNull(),
+    name: text('name').notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    deletedBy: text('deleted_by'),
+    // Whether the series had a live publication when deleted — the published
+    // page is left orphaned, so the Trash view surfaces this as a note.
+    hadPublication: boolean('had_publication').notNull().default(false),
+    // Whole-series `.sailscoring` snapshot (incl. revision history), zstd.
+    snapshotGz: bytea('snapshot_gz').notNull(),
+  },
+  (table) => [
+    // Trash view: newest-first within a workspace.
+    index('deleted_series_workspace_idx').on(
+      table.workspaceId,
+      table.deletedAt.desc(),
+    ),
+    // Retention sweep scans by age across all workspaces.
+    index('deleted_series_purge_idx').on(table.deletedAt),
+  ],
+);
+
 export const fleets = pgTable(
   'fleets',
   {

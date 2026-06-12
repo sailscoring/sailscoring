@@ -10,6 +10,7 @@ import {
   ChevronRight,
   FolderInput,
   MoreVertical,
+  RotateCcw,
   Trash2,
 } from 'lucide-react';
 import {
@@ -19,10 +20,13 @@ import {
   useSetSeriesCategory,
   useReorderSeries,
 } from '@/hooks/use-series';
+import { useTrash, useRestoreFromTrash, usePurgeFromTrash } from '@/hooks/use-trash';
+import { usePublicationStatus } from '@/hooks/use-published';
 import { useCategories } from '@/hooks/use-categories';
 import { useRecentActivity } from '@/hooks/use-activity';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { formatSaveDate } from '@/lib/format-date';
 import { KeyboardHelp } from '@/components/keyboard-help';
@@ -53,7 +57,7 @@ import {
   groupActiveByCategory,
   groupArchivedByYear,
 } from '@/lib/series-list';
-import type { ActivityEntry, Category, Series } from '@/lib/types';
+import type { ActivityEntry, Category, DeletedSeriesEntry, Series } from '@/lib/types';
 
 function SeriesCard({
   series,
@@ -170,6 +174,56 @@ function SeriesCard({
   );
 }
 
+/** One soft-deleted series in the Trash. A trashed series can't be opened — the
+ *  only actions are Recover (back to the archived list) and a guarded permanent
+ *  delete. */
+function TrashRow({
+  entry,
+  onRecover,
+  onDeleteForever,
+  busy,
+}: {
+  entry: DeletedSeriesEntry;
+  onRecover: (entry: DeletedSeriesEntry) => void;
+  onDeleteForever: (entry: DeletedSeriesEntry) => void;
+  busy: boolean;
+}) {
+  const who = entry.actor?.displayName ?? entry.actor?.email ?? 'someone';
+  return (
+    <div className="flex items-center gap-1 bg-card border rounded-lg px-5 py-4 shadow-sm">
+      <div className="flex-1 min-w-0">
+        <div className="font-medium text-muted-foreground">{entry.name}</div>
+        <div className="text-sm text-muted-foreground mt-0.5">
+          Deleted {formatRelativeTime(entry.deletedAt)} by {who}
+        </div>
+        {entry.hadPublication && (
+          <div className="text-xs text-muted-foreground mt-1">
+            Its published results page is still online but disconnected.
+          </div>
+        )}
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={busy}
+        onClick={() => onRecover(entry)}
+      >
+        <RotateCcw className="h-4 w-4" />
+        Recover
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={`Permanently delete ${entry.name}`}
+        disabled={busy}
+        onClick={() => onDeleteForever(entry)}
+      >
+        <Trash2 className="h-4 w-4 text-destructive" />
+      </Button>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
   const { data: seriesList } = useSeriesList();
@@ -179,10 +233,22 @@ export default function HomePage() {
   const archiveSeries = useArchiveSeries();
   const setSeriesCategory = useSetSeriesCategory();
   const reorderSeries = useReorderSeries();
+  const { data: trash } = useTrash();
+  const restoreFromTrash = useRestoreFromTrash();
+  const purgeFromTrash = usePurgeFromTrash();
   const [pendingDelete, setPendingDelete] = useState<Series | null>(null);
+  // The series in the permanent-delete (type-the-name) confirmation, and the
+  // current text typed to confirm it.
+  const [pendingPurge, setPendingPurge] = useState<DeletedSeriesEntry | null>(null);
+  const [purgeConfirmText, setPurgeConfirmText] = useState('');
   const [showHelp, setShowHelp] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
   const openFlow = useOpenSeriesFile();
+
+  // Whether the series queued for deletion has a live published page — drives
+  // the orphaned-page warning. Only fetched while the dialog is open.
+  const { data: pendingPublication } = usePublicationStatus(pendingDelete?.id ?? null);
 
   // No description: the dialog's static Global section documents `?` itself.
   useShortcuts([{ key: '?', handler: () => setShowHelp(true) }]);
@@ -192,6 +258,18 @@ export default function HomePage() {
     const seriesId = pendingDelete.id;
     setPendingDelete(null);
     await deleteCascade.mutateAsync(seriesId);
+  }
+
+  function handleRecover(entry: DeletedSeriesEntry) {
+    restoreFromTrash.mutate(entry.id);
+  }
+
+  async function handleConfirmPurge() {
+    if (!pendingPurge) return;
+    const tombstoneId = pendingPurge.id;
+    setPendingPurge(null);
+    setPurgeConfirmText('');
+    await purgeFromTrash.mutateAsync(tombstoneId);
   }
 
   function handleArchive(series: Series) {
@@ -214,6 +292,7 @@ export default function HomePage() {
   );
   const archivedGroups = groupArchivedByYear(allSeries.filter((s) => s.archived));
   const archivedCount = archivedGroups.reduce((n, g) => n + g.series.length, 0);
+  const trashList = trash ?? [];
   // Flat (no section headers) when nothing is categorised — preserves the
   // original look for workspaces that don't use categories.
   const flatActive = activeGroups.length <= 1 && activeGroups[0]?.category == null;
@@ -274,7 +353,7 @@ export default function HomePage() {
         <p className="text-muted-foreground">Loading…</p>
       )}
 
-      {seriesList !== undefined && seriesList.length === 0 && (
+      {seriesList !== undefined && seriesList.length === 0 && trashList.length === 0 && (
         <p className="text-muted-foreground">
           No series yet.{' '}
           <Link href="/series/new" className="underline">
@@ -288,7 +367,7 @@ export default function HomePage() {
         </p>
       )}
 
-      {seriesList !== undefined && seriesList.length > 0 && (
+      {seriesList !== undefined && (seriesList.length > 0 || trashList.length > 0) && (
         <div className="space-y-6">
           {/* Active series, partitioned by category — drag-reorder within a group */}
           {flatActive ? (
@@ -336,6 +415,42 @@ export default function HomePage() {
               )}
             </div>
           )}
+
+          {/* Trash — soft-deleted series, recoverable for 30 days. Collapsed
+              by default; a trashed series can't be opened, only recovered. */}
+          {trashList.length > 0 && (
+            <div className="border-t pt-4">
+              <button
+                type="button"
+                className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground"
+                aria-expanded={showTrash}
+                onClick={() => setShowTrash((v) => !v)}
+              >
+                {showTrash ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+                Trash ({trashList.length})
+              </button>
+              {showTrash && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Deleted series are kept for 30 days, then removed for good.
+                  </p>
+                  {trashList.map((entry) => (
+                    <TrashRow
+                      key={entry.id}
+                      entry={entry}
+                      onRecover={handleRecover}
+                      onDeleteForever={setPendingPurge}
+                      busy={restoreFromTrash.isPending || purgeFromTrash.isPending}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -343,22 +458,68 @@ export default function HomePage() {
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
 
-      {/* Delete dialog */}
+      {/* Delete dialog — a soft delete: the series moves to the Trash and is
+          recoverable for 30 days. */}
       <Dialog open={pendingDelete !== null} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete &ldquo;{pendingDelete?.name}&rdquo;?</DialogTitle>
             <DialogDescription>
-              This will permanently delete the series and all its competitors, races, and results.
-              This cannot be undone.
+              The series, with all its competitors, races, and results, moves to the Trash.
+              You can recover it for 30 days, after which it&rsquo;s removed for good.
             </DialogDescription>
           </DialogHeader>
+          {pendingPublication?.published && (
+            <p className="text-sm text-muted-foreground">
+              Its published results page stays online but becomes disconnected — recovering
+              the series won&rsquo;t reconnect it. Unpublish first if you don&rsquo;t want it
+              to remain public.
+            </p>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingDelete(null)}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleConfirmDelete}>
               Delete series
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permanent-delete dialog — type the series name to confirm. */}
+      <Dialog
+        open={pendingPurge !== null}
+        onOpenChange={(open) => { if (!open) { setPendingPurge(null); setPurgeConfirmText(''); } }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Permanently delete &ldquo;{pendingPurge?.name}&rdquo;?</DialogTitle>
+            <DialogDescription>
+              This removes the series and everything in it for good — it can&rsquo;t be recovered.
+              Type the series name to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={purgeConfirmText}
+            onChange={(e) => setPurgeConfirmText(e.target.value)}
+            placeholder={pendingPurge?.name}
+            aria-label="Type the series name to confirm"
+            autoComplete="off"
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setPendingPurge(null); setPurgeConfirmText(''); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={purgeConfirmText !== pendingPurge?.name}
+              onClick={handleConfirmPurge}
+            >
+              Delete forever
             </Button>
           </DialogFooter>
         </DialogContent>

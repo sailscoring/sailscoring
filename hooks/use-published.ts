@@ -2,8 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { listPublished, unpublishById } from '@/lib/api-repository';
-import type { PublishedListItem } from '@/lib/types';
+import { getPublication, listPublished, unpublishById } from '@/lib/api-repository';
+import type { PublicationStatus, PublishedListItem } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
 
@@ -12,6 +12,17 @@ export function usePublishedList() {
   return useQuery<PublishedListItem[]>({
     queryKey: queryKeys.published.list(),
     queryFn: () => listPublished(),
+  });
+}
+
+/** A single series' publication status — `data.published` is non-null when it
+ *  has a live public page. Disabled until `seriesId` is set so callers can drive
+ *  it from a lazily-opened dialog. */
+export function usePublicationStatus(seriesId: string | null) {
+  return useQuery<PublicationStatus>({
+    queryKey: queryKeys.published.status(seriesId ?? ''),
+    queryFn: () => getPublication(seriesId!),
+    enabled: seriesId !== null,
   });
 }
 

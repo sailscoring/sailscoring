@@ -11,6 +11,7 @@ import {
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
 import { recordActivity } from '@/lib/activity-log';
+import { captureTombstone } from '@/lib/deleted-series';
 import { trackChange } from '@/lib/revision-log';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
@@ -119,6 +120,11 @@ export async function deleteSeries(workspace: WorkspaceContext, id: string): Pro
   await assertSeriesDeletable(workspace, id);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const existing = await repos.series.get(id);
+  // Soft delete: capture a recoverable tombstone before the live rows go. The
+  // snapshot reads them, so it must run before the hard delete. The Trash view
+  // recovers it within the retention window.
+  const actor = { workspaceId: workspace.workspaceId, userId: workspace.userId };
+  await captureTombstone(actor, id);
   await repos.series.delete(id);
   // Workspace-level entry: the series page is gone, so it carries the name and
   // no seriesId.

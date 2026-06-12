@@ -64,6 +64,11 @@ export const queryKeys = {
   published: {
     all: ['published'] as const,
     list: () => ['published', 'list'] as const,
+    status: (seriesId: string) => ['published', 'status', seriesId] as const,
+  },
+  trash: {
+    all: ['trash'] as const,
+    list: () => ['trash', 'list'] as const,
   },
   tcfHistory: {
     all: ['tcfHistory'] as const,

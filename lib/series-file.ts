@@ -595,6 +595,73 @@ export async function openSeriesFromFile(
   return newSeriesId;
 }
 
+// ---- Restore a soft-deleted series from its tombstone snapshot ----
+
+/**
+ * Re-create a deleted series from its tombstone snapshot ("Recover a deleted
+ * series"). Unlike {@link openSeriesFromFile}, this is a *restore*, not an
+ * import: the series comes back under its **original** `series_id` (so its
+ * identity is stable) and keeps its name verbatim — no fresh id, no name
+ * disambiguation. It lands `archived` (delete is archive-gated, so the series
+ * was archived when it was trashed) and uncategorised (`categoryId` and
+ * `source` are workspace-local, not carried in the file, so they reset).
+ *
+ * The live rows were hard-deleted when the series was trashed, so the series
+ * `save` here is a plain insert; ids carried in the snapshot are remapped to
+ * fresh ones exactly as on import.
+ */
+export async function restoreSeriesFromFile(
+  seriesId: string,
+  file: SeriesFile,
+  repos: SeriesFileRepos,
+): Promise<void> {
+  const now = Date.now();
+
+  const fleetIdMap = new Map(file.fleets.map((f) => [f.id, crypto.randomUUID()]));
+  const competitorIdMap = new Map(file.competitors.map((c) => [c.id, crypto.randomUUID()]));
+  const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
+
+  await repos.seriesRepo.save({
+    id: seriesId,
+    name: file.series.name,
+    venue: file.series.venue,
+    startDate: file.series.startDate,
+    endDate: file.series.endDate,
+    venueLogoUrl: file.series.venueLogoUrl,
+    eventLogoUrl: file.series.eventLogoUrl,
+    venueUrl: file.series.venueUrl ?? '',
+    eventUrl: file.series.eventUrl ?? '',
+    createdAt: now,
+    lastSavedAt: null,
+    lastModifiedAt: now,
+    scoringMode: file.series.scoringMode,
+    defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
+    discardThresholds: file.series.discardThresholds,
+    dnfScoring: file.series.dnfScoring,
+    ftpHost: file.series.ftpHost,
+    ftpPath: file.series.ftpPath,
+    ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
+    includeJsonExport: file.series.includeJsonExport,
+    publishRatingCalculations: file.series.publishRatingCalculations ?? true,
+    showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
+    enabledCompetitorFields: file.series.enabledCompetitorFields,
+    primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+    subdivisionLabel: file.series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+    categoryId: null,
+    archived: true,
+  });
+
+  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
+
+  // Bring the revision history back with the series, if the snapshot carries it.
+  if (file.revisions?.length && file.revisionSnapshots && repos.importRevisions) {
+    await repos.importRevisions(seriesId, {
+      revisions: file.revisions,
+      revisionSnapshots: file.revisionSnapshots,
+    });
+  }
+}
+
 // ---- Update existing series from file ----
 
 export async function updateSeriesFromFile(

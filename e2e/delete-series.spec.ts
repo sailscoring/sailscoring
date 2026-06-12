@@ -4,10 +4,13 @@ import { createSeriesQuick } from './helpers';
 /**
  * Delete is gated behind archiving first (#154): a series can only be deleted
  * once it's archived (archive-then-delete, to block destructive snap
- * decisions). This spec drives that two-step from the home list. Server-side
- * cascade integrity is covered by the postgres-repository tests.
+ * decisions). Delete is a soft delete — the series moves to the Trash, where
+ * it's recoverable for 30 days ("Recover a deleted series"). This spec drives
+ * the archive → delete → Trash path; the recover and permanent-delete actions
+ * have their own spec. Server-side cascade/restore integrity is covered by the
+ * DB tests.
  */
-test('archive then delete a series from the home list', async ({ page }) => {
+test('archive then delete a series moves it to the Trash', async ({ page }) => {
   await createSeriesQuick(page, { name: 'Series to Keep' });
   await createSeriesQuick(page, { name: 'Series to Delete' });
 
@@ -28,9 +31,12 @@ test('archive then delete a series from the home list', async ({ page }) => {
   await page.getByRole('button', { name: 'Actions for Series to Delete' }).click();
   await page.getByRole('menuitem', { name: /Delete/ }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByText(/permanently delete/i)).toBeVisible();
+  await expect(page.getByText(/recover it for 30 days/i)).toBeVisible();
   await page.getByRole('button', { name: 'Delete series' }).click();
 
+  // Gone from the active/archived lists, now in the collapsed Trash.
   await expect(page.getByText('Series to Delete')).toBeHidden();
   await expect(page.getByText('Series to Keep')).toBeVisible();
+  await page.getByRole('button', { name: /Trash \(1\)/ }).click();
+  await expect(page.getByText('Series to Delete')).toBeVisible();
 });

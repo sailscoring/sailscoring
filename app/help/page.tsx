@@ -214,7 +214,17 @@ export default async function HelpPage() {
         </p>
         <p>
           Deleting a series requires archiving it first — a deliberate two-step so a finished
-          season can&apos;t be thrown away by accident.
+          season can&apos;t be thrown away by accident. Deleting is a{' '}
+          <strong className="text-foreground">soft delete</strong>: the series moves to a collapsed{' '}
+          <strong className="text-foreground">Trash</strong> section at the foot of the list, where
+          it stays recoverable for <strong className="text-foreground">30 days</strong> before it
+          is removed for good. <strong className="text-foreground">Recover</strong> brings it back
+          (archived, exactly as it was, with its history); a trashed series can&apos;t be opened
+          until you recover it. To remove one immediately you can{' '}
+          <strong className="text-foreground">delete it forever</strong> from the Trash — guarded by
+          typing the series name to confirm. If the series had a published results page, that page
+          stays online but disconnected; recovering won&apos;t reconnect it, so unpublish first if
+          you don&apos;t want it to remain public.
         </p>
       </Section>
 
