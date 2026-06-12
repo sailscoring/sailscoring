@@ -25,7 +25,7 @@ import {
 import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-renderer';
 import { defaultEnabledCompetitorFields } from '../lib/competitor-fields';
 import type { DiscardThreshold, ResultCode, PenaltyCode } from '../lib/types';
-import { buildFixtureInputs, type Fixture } from '../tests/fixtures/scoring/types';
+import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests/fixtures/scoring/types';
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -199,8 +199,13 @@ function fmtPoints(p: number): string {
   return p % 1 === 0 ? p.toString() : p.toFixed(1);
 }
 
-function renderStandingsTable(fixture: Fixture): string {
-  const rows = fixture.expected.standings.map((s) => {
+function renderExpectedStandingsTable(
+  fixture: Fixture,
+  standings: FixtureStanding[],
+  raceHeaders: string[],
+  title: string,
+): string {
+  const rows = standings.map((s) => {
     const competitor = fixture.competitors.find((c) => c.sailNumber === s.sailor);
     const name = competitor?.name ?? s.sailor;
     const racePointsCells = s.racePoints.map((p, i) => {
@@ -219,21 +224,22 @@ function renderStandingsTable(fixture: Fixture): string {
 </tr>`;
   }).join('\n');
 
-  const raceCount = fixture.races.length;
-  const raceHeaders = Array.from({ length: raceCount }, (_, i) => {
-    const r = fixture.races[i];
-    return `<th>R${r.number ?? i + 1}</th>`;
-  }).join('');
+  const headerCells = raceHeaders.map((h) => `<th>${esc(h)}</th>`).join('');
 
-  return `<h2 style="margin-top:1.5em;">Series standings</h2>
+  return `<h2 style="margin-top:1.5em;">${esc(title)}</h2>
 <table>
 <thead>
-<tr><th>Rank</th><th>Name</th><th>Sail #</th>${raceHeaders}<th>Total</th><th>Net</th></tr>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th>${headerCells}<th>Total</th><th>Net</th></tr>
 </thead>
 <tbody>
 ${rows}
 </tbody>
 </table>`;
+}
+
+function renderStandingsTable(fixture: Fixture): string {
+  const raceHeaders = fixture.races.map((r, i) => `R${r.number ?? i + 1}`);
+  return renderExpectedStandingsTable(fixture, fixture.expected.standings ?? [], raceHeaders, 'Series standings');
 }
 
 // ─── IRC / PY renderer ───────────────────────────────────────────────────────
@@ -645,7 +651,62 @@ ${renderStandingsTable(fixture)}
 
 // ─── Dispatcher ──────────────────────────────────────────────────────────────
 
+// ─── Sub-series renderer ─────────────────────────────────────────────────────
+
+function generateSubSeriesFixtureHtml(fixture: Fixture, yamlSource: string): string {
+  const notesHtml = fixture.rrs_notes
+    ? `<p style="font-style:italic; color:#444;">${esc(fixture.rrs_notes)}</p>`
+    : '';
+  const comments = extractComments(yamlSource);
+  const commentsHtml = comments
+    ? `<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">${esc(comments)}</pre>`
+    : '';
+  const sysLabel = (fixture.fleet?.scoringSystem ?? 'scratch').toUpperCase();
+
+  // One standings table per block. Race columns are numbered within the
+  // block (a "Spring Race 3", not the series-wide race number), matching
+  // how sub-series standings are displayed and published.
+  const blockSections = (fixture.expected.subSeries ?? []).map((block) => {
+    const blockRaceCount = fixture.races.filter((r) => r.subSeries === block.name).length;
+    const raceHeaders = Array.from({ length: blockRaceCount }, (_, i) => `R${i + 1}`);
+    return renderExpectedStandingsTable(fixture, block.standings, raceHeaders, `${block.name} standings`);
+  }).join('\n');
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>${esc(fixture.description)} — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All sub-series examples</a></p>
+<h1>${esc(fixture.description)}</h1>
+${notesHtml}
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> ${esc(sysLabel)} &middot;
+  <strong>Discards:</strong> ${esc(discardThresholdsSummary(fixture.series.discardThresholds))}
+</div>
+${commentsHtml}
+${blockSections}
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>
+`;
+}
+
 function generateFixtureHtml(fixture: Fixture, yamlSource: string): string {
+  if (fixture.expected.subSeries) return generateSubSeriesFixtureHtml(fixture, yamlSource);
   const sys = fixture.fleet?.scoringSystem ?? 'scratch';
   if (sys === 'nhc') return generateNhcFixtureHtml(fixture, yamlSource);
   if (sys === 'echo') return generateEchoFixtureHtml(fixture, yamlSource);
@@ -675,6 +736,10 @@ const CATEGORY_META: Record<string, { title: string; intro: string }> = {
   nhc: {
     title: 'NHC progressive handicap',
     intro: 'Progressive handicap (NHC1): each boat’s TCF is updated after every race\n  based on its finish, so fast boats acquire higher TCFs and slow boats lower\n  ones. Race N+1 uses race N’s updated TCF. The blend factor α controls how\n  quickly the TCF responds to each race’s result.',
+  },
+  'sub-series': {
+    title: 'Sub-series',
+    intro: 'Named blocks of races inside one series, each scored independently — its\n  own standings, discards (the series discard rule applied to the block’s race\n  count), and entrants (a boat with no result other than DNC across a block\n  isn’t an entrant in it). Progressive handicaps chain across block boundaries\n  unchanged.',
   },
   echo: {
     title: 'ECHO progressive handicap',

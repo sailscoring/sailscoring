@@ -168,7 +168,7 @@ describe('ECHO handicap scoring fixtures', () => {
 
       // ─── Series standings ───────────────────────────────────────────────
       const standingsBySail = new Map(standings.map((s) => [s.competitor.sailNumber, s]));
-      for (const exp of fixture.expected.standings) {
+      for (const exp of fixture.expected.standings ?? []) {
         const standing = standingsBySail.get(exp.sailor);
         expect(standing, `No standing for sailor ${exp.sailor}`).toBeDefined();
         if (!standing) continue;

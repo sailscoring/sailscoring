@@ -1,0 +1,145 @@
+description: "Sub-series — two blocks, each with its own discards and entrants"
+rrs_notes: "RRS Appendix A2.1 (discards) and A5 applied per sub-series"
+notes: |
+  One six-race series split into two sub-series: Winter (races 1–4) and
+  Spring (races 5–6). Each block is scored independently with the series
+  discard rule — 1 discard from 4 races sailed — applied to the block's own
+  race count: Winter gets one discard, Spring (2 races) gets none.
+
+  Entrants are per block. Emma sails only Winter, so she simply isn't in the
+  Spring standings. Brian enters Spring (he sails race 6) but misses race 5;
+  his race-5 DNC scores Spring entrants + 1 = 5, based on the four boats that
+  took part in the block — not the five-boat series entry list.
+
+series:
+  discardThresholds:
+    - minRaces: 4
+      discardCount: 1
+
+competitors:
+  - sailNumber: "1"
+    name: "Aoife"
+  - sailNumber: "2"
+    name: "Brian"
+  - sailNumber: "3"
+    name: "Ciara"
+  - sailNumber: "4"
+    name: "Dara"
+  - sailNumber: "5"
+    name: "Emma"
+
+races:
+  - number: 1
+    subSeries: "Winter"
+    finishes:
+      - { sailor: "1", position: 1 }
+      - { sailor: "2", position: 2 }
+      - { sailor: "3", position: 3 }
+      - { sailor: "4", position: 4 }
+      - { sailor: "5", position: 5 }
+  - number: 2
+    subSeries: "Winter"
+    finishes:
+      - { sailor: "2", position: 1 }
+      - { sailor: "1", position: 2 }
+      - { sailor: "4", position: 3 }
+      - { sailor: "3", position: 4 }
+      - { sailor: "5", position: 5 }
+  - number: 3
+    subSeries: "Winter"
+    finishes:
+      - { sailor: "1", position: 1 }
+      - { sailor: "2", position: 2 }
+      - { sailor: "3", position: 3 }
+      - { sailor: "5", position: 4 }
+      - { sailor: "4", position: 5 }
+  - number: 4
+    subSeries: "Winter"
+    finishes:
+      - { sailor: "1", position: 1 }
+      - { sailor: "3", position: 2 }
+      - { sailor: "4", position: 3 }
+      - { sailor: "2", position: 4 }
+  - number: 5
+    subSeries: "Spring"
+    finishes:
+      - { sailor: "1", position: 1 }
+      - { sailor: "3", position: 2 }
+      - { sailor: "4", position: 3 }
+  - number: 6
+    subSeries: "Spring"
+    finishes:
+      - { sailor: "2", position: 1 }
+      - { sailor: "1", position: 2 }
+      - { sailor: "3", position: 3 }
+      - { sailor: "4", position: 4 }
+
+expected:
+  subSeries:
+    - name: "Winter"
+      standings:
+        - rank: 1
+          sailor: "1"
+          racePoints: [1, 2, 1, 1]
+          raceCodes: [null, null, null, null]
+          raceDiscards: [false, true, false, false]
+          totalPoints: 5
+          netPoints: 3
+        - rank: 2
+          sailor: "2"
+          racePoints: [2, 1, 2, 4]
+          raceCodes: [null, null, null, null]
+          raceDiscards: [false, false, false, true]
+          totalPoints: 9
+          netPoints: 5
+        - rank: 3
+          sailor: "3"
+          racePoints: [3, 4, 3, 2]
+          raceCodes: [null, null, null, null]
+          raceDiscards: [false, true, false, false]
+          totalPoints: 12
+          netPoints: 8
+        - rank: 4
+          sailor: "4"
+          racePoints: [4, 3, 5, 3]
+          raceCodes: [null, null, null, null]
+          raceDiscards: [false, false, true, false]
+          totalPoints: 15
+          netPoints: 10
+        - rank: 5
+          sailor: "5"
+          racePoints: [5, 5, 4, 6]
+          raceCodes: [null, null, null, "DNC"]
+          raceDiscards: [false, false, false, true]
+          totalPoints: 20
+          netPoints: 14
+    - name: "Spring"
+      standings:
+        - rank: 1
+          sailor: "1"
+          racePoints: [1, 2]
+          raceCodes: [null, null]
+          raceDiscards: [false, false]
+          totalPoints: 3
+          netPoints: 3
+        - rank: 2
+          sailor: "3"
+          racePoints: [2, 3]
+          raceCodes: [null, null]
+          raceDiscards: [false, false]
+          totalPoints: 5
+          netPoints: 5
+        - rank: 3
+          sailor: "2"
+          racePoints: [5, 1]
+          raceCodes: ["DNC", null]
+          raceDiscards: [false, false]
+          totalPoints: 6
+          netPoints: 6
+        - rank: 4
+          sailor: "4"
+          racePoints: [3, 4]
+          raceCodes: [null, null]
+          raceDiscards: [false, false]
+          totalPoints: 7
+          netPoints: 7

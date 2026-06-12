@@ -23,6 +23,7 @@ import type {
   Race,
   RaceStart, RaceRatingOverride,
   ResultCode,
+  SubSeries,
 } from '@/lib/types';
 
 // ─── Fixture schema ──────────────────────────────────────────────────────────
@@ -99,6 +100,9 @@ export interface FixtureRejection {
 export interface FixtureRace {
   number?: number;
   startTime?: string;
+  /** Sub-series (block) this race belongs to, by name. Either every race
+   *  names a block or none does. */
+  subSeries?: string;
   finishes: FixtureFinish[];
   expected?: FixtureRaceExpected[];
   aggregates?: FixtureAggregates;
@@ -141,6 +145,12 @@ export interface FixtureFleet {
   nhcProfile?: import('@/lib/types').NhcProfile;
 }
 
+/** Expected standings for one sub-series, matched to the block by name. */
+export interface FixtureSubSeriesExpected {
+  name: string;
+  standings: FixtureStanding[];
+}
+
 export interface Fixture {
   description: string;
   rrs_notes?: string;
@@ -153,7 +163,10 @@ export interface Fixture {
   competitors: FixtureCompetitor[];
   races: FixtureRace[];
   expected: {
-    standings: FixtureStanding[];
+    /** Whole-series standings. Omitted by sub-series fixtures, which carry
+     *  per-block standings instead (blocks replace the overall table). */
+    standings?: FixtureStanding[];
+    subSeries?: FixtureSubSeriesExpected[];
   };
 }
 
@@ -169,6 +182,9 @@ export interface FixtureInputs {
   discardThresholds: DiscardThreshold[];
   dnfScoring: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
   sailToId: Map<string, string>;
+  /** Sub-series named by races' `subSeries:` fields, in race order; empty
+   *  when the fixture has none. */
+  subSeriesList: SubSeries[];
 }
 
 export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
@@ -240,12 +256,26 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     };
   });
 
+  const subSeriesIdByName = new Map<string, string>();
+  for (const r of fixture.races) {
+    if (r.subSeries && !subSeriesIdByName.has(r.subSeries)) {
+      subSeriesIdByName.set(r.subSeries, `ss-${subSeriesIdByName.size}`);
+    }
+  }
+  const subSeriesList: SubSeries[] = [...subSeriesIdByName.entries()].map(([name, id], i) => ({
+    id,
+    seriesId: 's1',
+    name,
+    displayOrder: i,
+  }));
+
   const races: Race[] = fixture.races.map((r, i) => ({
     id: `r-${i}`,
     seriesId: 's1',
     raceNumber: r.number ?? i + 1,
     date: '2025-01-01',
     createdAt: 0,
+    ...(r.subSeries ? { subSeriesId: subSeriesIdByName.get(r.subSeries)! } : {}),
   }));
 
   const raceStarts: RaceStart[] = [];
@@ -304,6 +334,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     discardThresholds: fixture.series.discardThresholds,
     dnfScoring: fixture.series.dnfScoring ?? 'seriesEntries',
     sailToId,
+    subSeriesList,
   };
 }
 
