@@ -52,7 +52,7 @@ export function WelcomeForm({ next }: { next: string }) {
       </p>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
-        <div>
+        <div className="space-y-1.5">
           <Label htmlFor="name">Name</Label>
           <Input
             id="name"
