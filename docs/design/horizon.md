@@ -298,27 +298,6 @@ sizing/quiet-zone so it scans reliably off paper.
 
 ## Workspaces and sharing
 
-### Reconsider snapshot lineage once file-sharing is no longer the collaboration mechanism
-
-`Series.lastSnapshotId`, `Series.snapshotHistory`, and `checkLineage()` exist to make
-`.sailscoring` file exchange between scorers safe — classifying an incoming file as
-`identical` / `clean` / `diverged` before clobbering local changes. The mechanism is
-woven through `lib/types.ts`, `lib/series-file.ts`, the Postgres schema, validation,
-API handlers, and the Open/Save dialogs in settings.
-
-After Phase 8 (server-of-record) and Phase 10 (collaboration UX, #153) land, two scorers in
-the same workspace edit the same row with `lastModifiedAt` doing conflict detection,
-and cross-workspace sharing is "copy to my workspace" (which already resets lineage).
-The only residual role for `.sailscoring` files is backup / occasional offline rescue,
-none of which needs a multi-step history — a single "exported from" marker would do.
-
-Once Phase 8 is stable, decide whether to keep the lineage as-is, simplify to a single
-"last exported snapshot id", or remove it entirely and treat every file open as
-diverged (matching cross-workspace copy semantics). Knock-on effects on the series-file
-format (potential `formatVersion` bump), the Postgres schema, and the Open dialog UX.
-
-*(Was GitHub issue #127)*
-
 ### Fine-grained workspace roles (read-only member, scorer)
 
 `WorkspaceRole` in `lib/auth/require-workspace.ts` already distinguishes
