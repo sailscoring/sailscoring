@@ -13,19 +13,57 @@
  * `PersistQueryClientProvider` Suspense boundary plus a near-zero
  * throttle, both of which are larger than this commit warrants.
  */
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import {
+  MutationCache,
+  QueryCache,
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { ConflictNoticeProvider, useNotifyConflict } from '@/components/conflict-notice';
-import { ConflictApiError } from '@/lib/api-client';
+import { AuthError, ConflictApiError } from '@/lib/api-client';
+import { authClient } from '@/lib/auth-client';
+
+/**
+ * Self-heal for a present-but-invalid session cookie. The proxy's
+ * optimistic cookie check lets such a request through, server-side
+ * session resolution finds nothing, and every data fetch 401s — without
+ * this, client-fetching pages would sit on "Loading…" forever. Better
+ * Auth's sign-out endpoint deletes the session cookie even when the
+ * token no longer matches a session row, so the stale cookie is cleared
+ * before the hard navigation to sign-in.
+ */
+let redirectingToSignIn = false;
+
+async function redirectToSignIn(): Promise<void> {
+  if (redirectingToSignIn || window.location.pathname === '/sign-in') return;
+  redirectingToSignIn = true;
+  await authClient.signOut().catch(() => {});
+  const callbackURL = window.location.pathname + window.location.search;
+  window.location.assign(
+    `/sign-in?callbackURL=${encodeURIComponent(callbackURL)}`,
+  );
+}
+
+function onApiError(error: unknown): void {
+  if (error instanceof AuthError) void redirectToSignIn();
+}
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
+    queryCache: new QueryCache({ onError: onApiError }),
+    mutationCache: new MutationCache({ onError: onApiError }),
     defaultOptions: {
       queries: {
         staleTime: 1000 * 30,
         refetchOnWindowFocus: false,
+        // A 401 won't heal on retry; fail fast so the sign-in redirect
+        // fires immediately instead of after the default retry cycle.
+        retry: (failureCount, error) =>
+          !(error instanceof AuthError) && failureCount < 3,
       },
     },
   });

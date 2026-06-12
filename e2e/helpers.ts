@@ -248,6 +248,30 @@ export async function addMemberByEmail(
 }
 
 /**
+ * Delete every session row for a user (looked up by email), leaving the
+ * browser's session cookie in place. Simulates a server-side revocation /
+ * DB wipe so the stale-cookie self-heal can be exercised.
+ */
+export async function deleteUserSessions(email: string): Promise<void> {
+  const { db, close } = adminDb();
+  try {
+    const [user] = await db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, email.toLowerCase()))
+      .limit(1);
+    if (!user) {
+      throw new Error(`deleteUserSessions: user "${email}" not found`);
+    }
+    await db
+      .delete(schema.session)
+      .where(eq(schema.session.userId, user.id));
+  } finally {
+    await close();
+  }
+}
+
+/**
  * Read the most recent pending invitation id for an email (#153). Invitations
  * are emailed in production; in e2e we pull the id straight from the DB to
  * build the `/accept-invitation/{id}` URL, the same way the magic-link log
