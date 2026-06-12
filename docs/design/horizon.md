@@ -319,6 +319,33 @@ format (potential `formatVersion` bump), the Postgres schema, and the Open dialo
 
 *(Was GitHub issue #127)*
 
+### Fine-grained workspace roles (read-only member, scorer)
+
+`WorkspaceRole` in `lib/auth/require-workspace.ts` already distinguishes
+`owner | admin | member`, but no API handler gates on it — every member has
+full read-write over everything in the workspace. Two finer-grained roles have
+obvious demand:
+
+- **Read-only member** — can see series, standings, and activity, but change
+  nothing. For committee members and class captains who want visibility
+  without the ability to (accidentally) edit.
+- **Scorer** — can do race-day operations only: enter finishes, change start
+  sequence times, and publish results. Cannot edit series settings,
+  competitors, handicaps, or workspace membership. This is the role for a
+  rostered duty scorer who runs one evening's racing.
+
+Enforcement belongs at the `require-workspace` seam plus a per-handler
+permission check (the route files are thin glue, so the natural shape is a
+declared required-permission per handler in `lib/api-handlers/`). The activity
+log already attributes every change to a user, which pairs well — a scorer
+role narrows what can be done, the log records what was done.
+
+Open questions: whether "scorer" is workspace-wide or per-series (a duty
+scorer arguably only needs the series they're running); how the UI degrades
+for read-only users (hide controls vs. disable them); and how this maps onto
+Better Auth's organization-plugin role machinery vs. a parallel
+application-level permission table.
+
 ### Light/dark colourway logo variants
 
 The canonical-logos manifest schema carries `variants` + `background`, but every
@@ -823,6 +850,33 @@ of date — refresh?") is the natural intermediate step before fully automatic
 refresh. Season-spanning *views* (a season grouping above the series, results
 across a season) are a separate idea that the lineage chain enables; they
 connect to the perpetual-trophies question under Prize allocation.
+
+### Sub-series within a single series
+
+A season block often scores as several short series sailed back-to-back — say
+fifteen races split into three sub-series of five, each with its own standings,
+discards, and prizes. Today that means three separate series chained via
+rollover, with the handicap-refresh machinery above papering over the
+boundaries. The alternative: one series containing three *sub-series*, with
+standings calculated per sub-series (a selector on the Standings page), each
+sub-series published independently, and per-competitor opt-out of individual
+sub-series (a boat that skips the autumn block simply isn't in that
+sub-series's standings).
+
+The big win is that progressive handicaps flow from one sub-series to the next
+*for free* — the progressive chain already runs across all races of a series,
+so the entire refresh/freeze problem above evaporates inside a sub-series
+structure. Entry lists, fleet definitions, and settings are shared rather than
+copied.
+
+Open questions: the data model (race-range boundaries vs. an explicit grouping
+each race belongs to); whether discard rules and other scoring settings can
+vary per sub-series or are inherited; whether an *overall* standings across
+the whole series is also wanted (which starts to look like the season-spanning
+views idea); published URL shape (`/p/{workspace}/{series}` currently assumes
+one standings table per fleet); and where the line sits between this and the
+rollover/lineage chain — overlapping series and mid-season entry changes may
+still need separate series, so the two mechanisms likely coexist.
 
 ---
 
