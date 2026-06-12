@@ -149,6 +149,68 @@ describe('workspaceRoute', () => {
     consoleSpy.mockRestore();
   });
 
+  describe('role enforcement', () => {
+    const asRole = (role: string) =>
+      mockedRequire.mockResolvedValueOnce({ ...okWorkspace, role });
+
+    const call = (
+      method: string,
+      opts?: Parameters<typeof workspaceRoute>[1],
+    ) => {
+      const handler = workspaceRoute(async () => ({ ok: true }), opts);
+      return handler(makeRequest(method) as Parameters<typeof handler>[0], {
+        params: Promise.resolve({}),
+      });
+    };
+
+    test('member can GET but not write', async () => {
+      asRole('member');
+      expect((await call('GET')).status).toBe(200);
+      asRole('member');
+      const res = await call('PUT');
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({
+        error: 'forbidden',
+        reason: 'permission-denied:manage-series',
+      });
+    });
+
+    test('scorer passes score routes but not the manage-series default', async () => {
+      asRole('scorer');
+      expect((await call('POST', { requires: 'score' })).status).toBe(200);
+      asRole('scorer');
+      expect((await call('POST')).status).toBe(403);
+      asRole('scorer');
+      expect((await call('PUT', { requires: 'manage-workspace' })).status).toBe(403);
+    });
+
+    test('member is denied score routes; explicit read writes pass', async () => {
+      asRole('member');
+      const res = await call('POST', { requires: 'score' });
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({
+        error: 'forbidden',
+        reason: 'permission-denied:score',
+      });
+      asRole('member');
+      expect((await call('POST', { requires: 'read' })).status).toBe(200);
+    });
+
+    test('admin passes everything, including manage-workspace and a GET demanding it', async () => {
+      asRole('admin');
+      expect((await call('DELETE', { requires: 'manage-workspace' })).status).toBe(200);
+      asRole('admin');
+      expect((await call('GET', { requires: 'manage-workspace' })).status).toBe(200);
+    });
+
+    test('an unrecognised role fails closed to read-only', async () => {
+      asRole('superuser');
+      expect((await call('GET')).status).toBe(200);
+      asRole('superuser');
+      expect((await call('POST', { requires: 'score' })).status).toBe(403);
+    });
+  });
+
   test('params are awaited and passed to the handler', async () => {
     mockedRequire.mockResolvedValueOnce(okWorkspace);
     const handler = workspaceRoute<{ id: string }, { seenId: string }>(

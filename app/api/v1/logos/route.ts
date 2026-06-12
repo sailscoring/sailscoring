@@ -17,4 +17,5 @@ export const POST = workspaceRoute<Record<string, never>, unknown>(
     const body = await req.json();
     return createLogo(workspace, body);
   },
+  { requires: 'manage-workspace' },
 );

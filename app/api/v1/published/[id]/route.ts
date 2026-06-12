@@ -12,4 +12,5 @@ export const DELETE = workspaceRoute<Params, void>(
   async (_req, { workspace, params }) => {
     await unpublishById(workspace, params.id);
   },
+  { requires: 'score' },
 );

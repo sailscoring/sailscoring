@@ -13,4 +13,4 @@ export const GET = workspaceRoute<Params, unknown>(async (_req, { workspace, par
 
 export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
   await deleteRaceFlat(workspace, params.raceId);
-});
+}, { requires: 'score' });

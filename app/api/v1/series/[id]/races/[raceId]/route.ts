@@ -14,8 +14,8 @@ export const PUT = workspaceRoute<Params, unknown>(async (req, { workspace, para
   return putRace(workspace, params.id, params.raceId, body, {
     expectedVersion: parseIfMatch(req),
   });
-});
+}, { requires: 'score' });
 
 export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
   await deleteRace(workspace, params.id, params.raceId);
-});
+}, { requires: 'score' });

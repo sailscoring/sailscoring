@@ -7,4 +7,4 @@ type Params = { id: string };
 
 export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
   await deleteRaceStartFlat(workspace, params.id);
-});
+}, { requires: 'score' });

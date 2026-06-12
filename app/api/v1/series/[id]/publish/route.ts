@@ -25,6 +25,7 @@ export const POST = workspaceRoute<Params, PublishResult>(
     const input = await readJson(req, publishInputSchema);
     return publishSeries(workspace, params.id, input);
   },
+  { requires: 'score' },
 );
 
 // Unpublish this series' live publication — the publish dialog's convenience
@@ -35,4 +36,5 @@ export const DELETE = workspaceRoute<Params, void>(
   async (_req, { workspace, params }) => {
     await unpublishBySeries(workspace, params.id);
   },
+  { requires: 'score' },
 );

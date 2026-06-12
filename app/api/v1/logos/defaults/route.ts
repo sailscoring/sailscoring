@@ -17,4 +17,5 @@ export const PUT = workspaceRoute<Record<string, never>, unknown>(
     const body = await req.json();
     return setLogoDefaults(workspace, body);
   },
+  { requires: 'manage-workspace' },
 );

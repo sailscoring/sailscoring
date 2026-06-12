@@ -5,7 +5,9 @@ import { ZodError } from 'zod';
 import {
   ForbiddenError,
   UnauthenticatedError,
+  requirePermission,
   requireWorkspace,
+  type Permission,
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
 import { ConflictError } from '@/lib/repository';
@@ -75,12 +77,30 @@ export type RouteEntrypoint<P> = (
   raw: { params: Promise<P> },
 ) => Promise<Response>;
 
+export interface RouteOptions {
+  /**
+   * The workspace permission this route demands. When omitted, GET requires
+   * `read` and every other method requires `manage-series` — the strictest
+   * common write level, so a write route that forgets to declare itself
+   * fails closed against the narrower roles rather than silently allowing
+   * them. Race-day routes declare `score`; workspace-configuration routes
+   * declare `manage-workspace`; user-scoped writes any member may make
+   * (feedback, org requests) declare `read` explicitly.
+   */
+  requires?: Permission;
+}
+
 export function workspaceRoute<P, R>(
   handler: RouteHandler<P, R>,
+  options?: RouteOptions,
 ): RouteEntrypoint<P> {
   return async (req, raw) => {
     try {
       const workspace = await requireWorkspace();
+      requirePermission(
+        workspace,
+        options?.requires ?? (req.method === 'GET' ? 'read' : 'manage-series'),
+      );
       const params = await raw.params;
 
       // Idempotency-Key replay (write methods only). The header is

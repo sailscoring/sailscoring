@@ -11,4 +11,5 @@ export const PATCH = workspaceRoute<Record<string, never>, unknown>(
     const body = await req.json();
     return setWorkspaceLogo(workspace, body);
   },
+  { requires: 'manage-workspace' },
 );

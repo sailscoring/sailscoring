@@ -10,6 +10,7 @@ import {
   ForbiddenError,
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
+import { hasPermission } from '@/lib/auth/permissions';
 import { recordActivity } from '@/lib/activity-log';
 import { captureTombstone } from '@/lib/deleted-series';
 import { trackChange } from '@/lib/revision-log';
@@ -262,9 +263,12 @@ export async function copySeries(
 
   // Verify the caller belongs to the target workspace too. Source-side
   // membership is implied: workspaceRoute resolved workspace.workspaceId
-  // and the series-load below is workspace-scoped.
+  // and the series-load below is workspace-scoped. The route itself only
+  // demands `read` (copying out is read-level on the source), so the
+  // create-side permission is checked here against the caller's role in
+  // the *target* workspace.
   const [targetMember] = await db
-    .select({ id: schema.member.id })
+    .select({ id: schema.member.id, role: schema.member.role })
     .from(schema.member)
     .where(
       and(
@@ -275,6 +279,9 @@ export async function copySeries(
     .limit(1);
   if (!targetMember) {
     throw new ForbiddenError('not-a-member-of-target-workspace');
+  }
+  if (!hasPermission(targetMember.role, 'manage-series')) {
+    throw new ForbiddenError('permission-denied:manage-series');
   }
 
   // Read source rows (workspace-scoped via the source workspaceId).

@@ -12,6 +12,7 @@ export const GET = workspaceRoute<Record<string, never>, unknown>(
   },
 );
 
+// User-scoped like the GET above — any signed-in role may request an org.
 export const POST = workspaceRoute<Record<string, never>, unknown>(
   async (req, { workspace }) => {
     return submitOrgRequest(
@@ -19,4 +20,5 @@ export const POST = workspaceRoute<Record<string, never>, unknown>(
       await req.json(),
     );
   },
+  { requires: 'read' },
 );

@@ -17,9 +17,9 @@ export const GET = workspaceRoute<Params, unknown>(async (_req, { workspace, par
 export const POST = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
   const body = await req.json();
   return bulkPutRaceStarts(workspace, params.raceId, body);
-});
+}, { requires: 'score' });
 
 /** Collection delete: drop every start in the race. */
 export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
   return bulkDeleteRaceStarts(workspace, params.raceId);
-});
+}, { requires: 'score' });

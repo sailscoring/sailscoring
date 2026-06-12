@@ -7,4 +7,4 @@ type Params = { id: string };
 
 export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
   return deleteRaceRatingOverrideFlat(workspace, params.id);
-});
+}, { requires: 'score' });

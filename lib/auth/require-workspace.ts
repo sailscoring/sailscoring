@@ -10,10 +10,17 @@ import {
   session as sessionTable,
 } from '@/lib/db/schema/auth';
 import {
+  hasPermission,
+  type Permission,
+  type WorkspaceRole,
+} from '@/lib/auth/permissions';
+import {
   computeEffectiveFeatures,
   type FeatureKey,
   type FeatureMembership,
 } from '@/lib/features';
+
+export type { Permission, WorkspaceRole };
 
 /**
  * Personal workspaces are created with slug `u-${userId.slice(0, 16)}`
@@ -51,8 +58,6 @@ export class ForbiddenError extends Error {
   }
 }
 
-export type WorkspaceRole = 'owner' | 'admin' | 'member';
-
 export interface WorkspaceContext {
   userId: string;
   email: string;
@@ -76,6 +81,22 @@ export interface WorkspaceContext {
 export function requireFeature(ctx: WorkspaceContext, key: FeatureKey): void {
   if (!ctx.features.includes(key)) {
     throw new ForbiddenError(`feature-disabled:${key}`);
+  }
+}
+
+/**
+ * Throws `ForbiddenError('permission-denied:<permission>')` (→ 403) when the
+ * caller's workspace role doesn't grant the permission. The `workspaceRoute`
+ * wrapper applies this to every `/api/v1` request; handlers call it directly
+ * only for checks the wrapper can't express (e.g. the target workspace of a
+ * cross-workspace copy).
+ */
+export function requirePermission(
+  ctx: WorkspaceContext,
+  permission: Permission,
+): void {
+  if (!hasPermission(ctx.role, permission)) {
+    throw new ForbiddenError(`permission-denied:${permission}`);
   }
 }
 

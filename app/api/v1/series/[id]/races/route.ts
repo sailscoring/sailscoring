@@ -12,4 +12,4 @@ export const GET = workspaceRoute<Params, unknown>(async (_req, { workspace, par
 /** Collection delete: drop every race in the series (FK-cascades to starts/finishes). */
 export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
   return bulkDeleteRaces(workspace, params.id);
-});
+}, { requires: 'score' });

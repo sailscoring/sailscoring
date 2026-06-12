@@ -16,4 +16,4 @@ export const GET = workspaceRoute<Params, unknown>(async (_req, { workspace, par
 export const POST = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
   const body = await req.json();
   return createNamedCheckpoint(workspace, params.id, body);
-});
+}, { requires: 'score' });
