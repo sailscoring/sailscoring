@@ -184,12 +184,32 @@ export interface Competitor {
   version?: number;         // server-side concurrency token (see Series.version)
 }
 
+/**
+ * A named block of races inside a series, scored independently: its own
+ * standings, discards (the series discard thresholds applied to the block's
+ * race count), and published pages. Sub-series partition the race list the
+ * way fleets partition the entry list. A series has either no sub-series
+ * (every race's subSeriesId is null) or a full partition (every race
+ * assigned). Grouping races into sub-series never changes any boat's
+ * progressive rating — the NHC/ECHO chain runs across the whole series.
+ */
+export interface SubSeries {
+  id: string;
+  seriesId: string;
+  name: string;
+  displayOrder: number;
+  version?: number;    // server-side concurrency token (see Series.version)
+}
+
 export interface Race {
   id: string;
   seriesId: string;
   raceNumber: number;
   date: string;        // ISO date string
   createdAt: number;
+  // Sub-series membership. Null/absent when the series has no sub-series;
+  // always set when it does (full-partition invariant, enforced server-side).
+  subSeriesId?: string | null;
   version?: number;    // server-side concurrency token (see Series.version)
 }
 

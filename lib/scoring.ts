@@ -1,4 +1,4 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries } from './types';
 import { getCodeDefinition } from './scoring-codes';
 import { parseHmsToSeconds } from './time-parse';
 
@@ -1258,6 +1258,7 @@ function calculateHandicapStandings(
   discardThresholds: DiscardThreshold[] = [],
   dnfScoring: DnfScoring = 'seriesEntries',
   ratingOverrides: RaceRatingOverride[] = [],
+  startingTcfOverrides?: Map<string, number>,
 ): {
   standings: Standing[];
   rejections: ScoringRejection[];
@@ -1298,6 +1299,17 @@ function calculateHandicapStandings(
   // (not the carried ratings) so cumulative drift doesn't compound across a
   // series — see issue #147 §3(b).
   const baseTcfByCompetitorId = new Map(appliedTcfMap);
+
+  // Sub-series seeding: when a block of races is scored mid-chain, the
+  // applied TCFs start from the carried end-of-previous-block values rather
+  // than the competitors' series-initial ratings. The realignment anchor
+  // above deliberately stays series-initial, so a block-by-block computation
+  // reproduces the whole-series chain exactly.
+  if (isProgressive && startingTcfOverrides) {
+    for (const [competitorId, tcf] of startingTcfOverrides) {
+      if (appliedTcfMap.has(competitorId)) appliedTcfMap.set(competitorId, tcf);
+    }
+  }
 
   // Per-race rating overrides (mid-series rating change). Static fleets only —
   // progressive systems recompute the rating every race and ignore them. The
@@ -1491,6 +1503,23 @@ function calculateHandicapStandings(
   };
 }
 
+/** One fleet's slice of a {@link calculateFleetStandings} result. */
+export interface FleetStandingsEntry {
+  fleet: Fleet;
+  standings: Standing[];
+  rejections: ScoringRejection[];
+  nhcRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
+  nhcAggregatesByRaceId?: Map<string, NhcRaceAggregates>;
+  echoRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
+  echoAggregatesByRaceId?: Map<string, EchoRaceAggregates>;
+  tcfHistory?: TcfRecord[];
+}
+
+export interface FleetStandingsResult {
+  fleetStandings: FleetStandingsEntry[];
+  circularRedressRaces: number[];
+}
+
 /**
  * Calculate series standings grouped by fleet.
  *
@@ -1507,6 +1536,10 @@ function calculateHandicapStandings(
  * @param discardThresholds  Discard rules for this series
  * @param dnfScoring  'seriesEntries' (A5.2, default) or 'startingArea' (A5.3)
  * @param raceStarts  All race starts in the series (for handicap fleets)
+ * @param ratingOverrides  Per-race static-rating overrides
+ * @param progressiveSeedTcfs  Per-fleet applied-TCF seeds (fleetId →
+ *   competitorId → TCF) for scoring a block of races mid-chain; see
+ *   calculateSubSeriesFleetStandings
  */
 export function calculateFleetStandings(
   fleets: Fleet[],
@@ -1517,19 +1550,8 @@ export function calculateFleetStandings(
   dnfScoring: DnfScoring = 'seriesEntries',
   raceStarts: RaceStart[] = [],
   ratingOverrides: RaceRatingOverride[] = [],
-): {
-  fleetStandings: {
-    fleet: Fleet;
-    standings: Standing[];
-    rejections: ScoringRejection[];
-    nhcRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
-    nhcAggregatesByRaceId?: Map<string, NhcRaceAggregates>;
-    echoRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
-    echoAggregatesByRaceId?: Map<string, EchoRaceAggregates>;
-    tcfHistory?: TcfRecord[];
-  }[];
-  circularRedressRaces: number[];
-} {
+  progressiveSeedTcfs?: Map<string, Map<string, number>>,
+): FleetStandingsResult {
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
   const knownFleetIds = new Set(fleets.map((f) => f.id));
 
@@ -1563,6 +1585,7 @@ export function calculateFleetStandings(
         discardThresholds,
         dnfScoring,
         ratingOverrides,
+        progressiveSeedTcfs?.get(fleet.id),
       );
       allCircular.push(...circularRedressRaces);
       return { fleet, standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory };
@@ -1586,6 +1609,139 @@ export function calculateFleetStandings(
   }
 
   return { fleetStandings, circularRedressRaces: [...new Set(allCircular)].sort((a, b) => a - b) };
+}
+
+// ─── Sub-series ──────────────────────────────────────────────────────────────
+
+/**
+ * Competitors counted as entrants of a block of races: those with any
+ * recorded result other than DNC in at least one of the races. A boat that
+ * never came to the start area across an entire sub-series isn't an entrant
+ * in it — it is left out of that block's standings and out of the entry
+ * count its DNC/DNS penalty scores are based on.
+ */
+export function subSeriesEntrantIds(blockRaces: Race[], allFinishes: Finish[]): Set<string> {
+  const raceIds = new Set(blockRaces.map((r) => r.id));
+  const entrants = new Set<string>();
+  for (const f of allFinishes) {
+    if (f.competitorId === null || !raceIds.has(f.raceId)) continue;
+    // Any finish row that isn't an explicit DNC is participation — a
+    // position-based finish, a timed finish, or a coded result (DNS, DNF,
+    // RDG, …) all mean the boat took part in the block.
+    if (f.resultCode !== 'DNC') entrants.add(f.competitorId);
+  }
+  return entrants;
+}
+
+/**
+ * Group a series' races into its sub-series. Blocks are returned in race
+ * order (the order their first race appears in the raceNumber-sorted list),
+ * followed by any blocks that have no races yet, in displayOrder. Races with
+ * no subSeriesId are omitted — under the full-partition invariant that only
+ * happens in a series with no sub-series at all, which callers score via
+ * {@link calculateFleetStandings} instead.
+ */
+export function groupRacesBySubSeries(
+  subSeriesList: SubSeries[],
+  races: Race[],
+): { subSeries: SubSeries; races: Race[] }[] {
+  const byId = new Map(subSeriesList.map((s) => [s.id, s]));
+  const sortedRaces = [...races].sort((a, b) => a.raceNumber - b.raceNumber);
+  const grouped = new Map<string, Race[]>();
+  for (const race of sortedRaces) {
+    if (!race.subSeriesId || !byId.has(race.subSeriesId)) continue;
+    const list = grouped.get(race.subSeriesId) ?? [];
+    list.push(race);
+    grouped.set(race.subSeriesId, list);
+  }
+  const result = [...grouped.entries()].map(([id, blockRaces]) => ({
+    subSeries: byId.get(id)!,
+    races: blockRaces,
+  }));
+  const withRaces = new Set(grouped.keys());
+  const emptyBlocks = subSeriesList
+    .filter((s) => !withRaces.has(s.id))
+    .sort((a, b) => a.displayOrder - b.displayOrder);
+  result.push(...emptyBlocks.map((subSeries) => ({ subSeries, races: [] as Race[] })));
+  return result;
+}
+
+/** Standings for one sub-series: the block's races scored independently. */
+export interface SubSeriesStandings {
+  subSeries: SubSeries;
+  /** The block's races, sorted by raceNumber. */
+  races: Race[];
+  fleetStandings: FleetStandingsEntry[];
+  circularRedressRaces: number[];
+}
+
+/**
+ * Calculate standings for every sub-series of a series, every fleet within
+ * every block.
+ *
+ * Each block is scored independently: its own discards (the series-level
+ * thresholds applied to the block's race count), tie-breaks, and RDG pools,
+ * over the block's entrants (see {@link subSeriesEntrantIds}).
+ *
+ * Progressive (NHC/ECHO) ratings chain across block boundaries: blocks are
+ * computed in race order and each block's applied TCFs are seeded from the
+ * carried end-of-previous-block values, while realignment stays anchored to
+ * the series-initial base ratings. The per-race ratings are therefore
+ * identical to what one whole-series chain produces — grouping races into
+ * sub-series never changes any boat's rating, only how points are
+ * aggregated.
+ */
+export function calculateSubSeriesFleetStandings(
+  subSeriesList: SubSeries[],
+  fleets: Fleet[],
+  competitors: Competitor[],
+  races: Race[],
+  allFinishes: Finish[],
+  discardThresholds: DiscardThreshold[] = [],
+  dnfScoring: DnfScoring = 'seriesEntries',
+  raceStarts: RaceStart[] = [],
+  ratingOverrides: RaceRatingOverride[] = [],
+): SubSeriesStandings[] {
+  const blocks = groupRacesBySubSeries(subSeriesList, races);
+
+  // Carried progressive ratings, fleetId → competitorId → TCF. Updated from
+  // each block's TCF history so the next block seeds where this one ended; a
+  // boat that sits out a block keeps its carried rating.
+  const carriedTcfByFleetId = new Map<string, Map<string, number>>();
+
+  const results: SubSeriesStandings[] = [];
+  for (const { subSeries, races: blockRaces } of blocks) {
+    const blockRaceIds = new Set(blockRaces.map((r) => r.id));
+    const blockFinishes = allFinishes.filter((f) => blockRaceIds.has(f.raceId));
+    const entrantIds = subSeriesEntrantIds(blockRaces, blockFinishes);
+    const entrants = competitors.filter((c) => entrantIds.has(c.id));
+
+    const { fleetStandings, circularRedressRaces } = calculateFleetStandings(
+      fleets,
+      entrants,
+      blockRaces,
+      blockFinishes,
+      discardThresholds,
+      dnfScoring,
+      raceStarts,
+      ratingOverrides,
+      carriedTcfByFleetId,
+    );
+
+    for (const entry of fleetStandings) {
+      if (!entry.tcfHistory || entry.tcfHistory.length === 0) continue;
+      const carried = carriedTcfByFleetId.get(entry.fleet.id) ?? new Map<string, number>();
+      // History records are in race order, so sequential writes leave each
+      // competitor's end-of-block rating in the map.
+      for (const record of entry.tcfHistory) {
+        carried.set(record.competitorId, record.newTcf);
+      }
+      carriedTcfByFleetId.set(entry.fleet.id, carried);
+    }
+
+    results.push({ subSeries, races: blockRaces, fleetStandings, circularRedressRaces });
+  }
+  return results;
 }
 
 /**
