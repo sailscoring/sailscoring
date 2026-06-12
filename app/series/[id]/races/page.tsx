@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { raceRepo } from '@/lib/api-repository';
 import { useSeries } from '@/hooks/use-series';
 import { useSeriesReadOnly } from '@/components/series-read-only';
+import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import {
   useDeleteRace,
   useRacesBySeries,
@@ -32,7 +33,8 @@ import { generateStarts } from '@/lib/start-sequence';
 
 function RaceRow({ race, seriesId }: { race: Race; seriesId: string }) {
   const router = useRouter();
-  const readOnly = useSeriesReadOnly();
+  const { can } = useWorkspacePermissions();
+  const readOnly = useSeriesReadOnly() || !can('score');
   const { data: finishes } = useFinishesByRace(race.id);
   const deleteRace = useDeleteRace();
   const finisherCount = finishes?.filter((f) => f.sortOrder !== null).length;
@@ -105,7 +107,9 @@ export default function RacesPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: seriesId } = use(params);
-  const readOnly = useSeriesReadOnly();
+  const { can } = useWorkspacePermissions();
+  // Race-day operations: archived series and roles without score view-only.
+  const readOnly = useSeriesReadOnly() || !can('score');
   const { data: races } = useRacesBySeries(seriesId);
   const { data: series } = useSeries(seriesId);
   const { data: fleets } = useFleetsBySeries(seriesId);

@@ -3,6 +3,7 @@
 import { Copy, ExternalLink, Trash2 } from 'lucide-react';
 
 import { usePublishedList, useUnpublish } from '@/hooks/use-published';
+import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { Button } from '@/components/ui/button';
 import type { PublishedListItem } from '@/lib/types';
 
@@ -23,6 +24,8 @@ function formatNameList(names: string[]): string {
 export function PublishedCard() {
   const { data: published } = usePublishedList();
   const unpublish = useUnpublish();
+  // Unpublishing is part of the publish (score) job; the list itself is a read.
+  const canUnpublish = useWorkspacePermissions().can('score');
 
   async function handleUnpublish(item: PublishedListItem) {
     const shared = item.sharedWith.length > 0;
@@ -111,15 +114,17 @@ export function PublishedCard() {
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleUnpublish(item)}
-                  disabled={unpublish.isPending}
-                  aria-label={`Unpublish ${item.title}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {canUnpublish && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleUnpublish(item)}
+                    disabled={unpublish.isPending}
+                    aria-label={`Unpublish ${item.title}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
           ))}

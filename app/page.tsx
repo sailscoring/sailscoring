@@ -35,6 +35,7 @@ import { OpenSeriesFlow } from '@/components/open-series-flow';
 import { CreateFollowOnSeriesDialog } from '@/components/create-follow-on-series-dialog';
 import { useFeatures } from '@/components/features-provider';
 import { useOpenSeriesFile } from '@/hooks/use-open-series-file';
+import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import {
   Dialog,
   DialogContent,
@@ -86,6 +87,7 @@ function SeriesCard({
   sortable?: SortableRenderProps;
 }) {
   const archived = series.archived ?? false;
+  const { can } = useWorkspacePermissions();
   return (
     <div
       ref={sortable?.ref}
@@ -118,6 +120,9 @@ function SeriesCard({
           </div>
         )}
       </Link>
+      {/* Every menu action is a manage-series write; the menu hides whole
+          for roles without it. */}
+      {can('manage-series') && (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -188,6 +193,7 @@ function SeriesCard({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+      )}
     </div>
   );
 }
@@ -206,6 +212,7 @@ function TrashRow({
   onDeleteForever: (entry: DeletedSeriesEntry) => void;
   busy: boolean;
 }) {
+  const { can } = useWorkspacePermissions();
   const who = entry.actor?.displayName ?? entry.actor?.email ?? 'someone';
   return (
     <div className="flex items-center gap-1 bg-card border rounded-lg px-5 py-4 shadow-sm">
@@ -220,24 +227,28 @@ function TrashRow({
           </div>
         )}
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={busy}
-        onClick={() => onRecover(entry)}
-      >
-        <RotateCcw className="h-4 w-4" />
-        Recover
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={`Permanently delete ${entry.name}`}
-        disabled={busy}
-        onClick={() => onDeleteForever(entry)}
-      >
-        <Trash2 className="h-4 w-4 text-destructive" />
-      </Button>
+      {can('manage-series') && (
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => onRecover(entry)}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Recover
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Permanently delete ${entry.name}`}
+            disabled={busy}
+            onClick={() => onDeleteForever(entry)}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </>
+      )}
     </div>
   );
 }
@@ -245,6 +256,8 @@ function TrashRow({
 export default function HomePage() {
   const router = useRouter();
   const { has } = useFeatures();
+  const { can } = useWorkspacePermissions();
+  const canManage = can('manage-series');
   const { data: seriesList } = useSeriesList();
   const { data: categories } = useCategories();
   const { data: recentById } = useRecentActivity();
@@ -329,7 +342,7 @@ export default function HomePage() {
       onMove={handleMove}
       onDeleteClick={setPendingDelete}
       onFollowOn={has('follow-on-series') ? setPendingFollowOn : undefined}
-      sortable={sortable}
+      sortable={canManage ? sortable : undefined}
     />
   );
 
@@ -361,14 +374,16 @@ export default function HomePage() {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Series</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={openFlow.start}>
-            Import Series
-          </Button>
-          <Button asChild>
-            <Link href="/series/new">New series</Link>
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={openFlow.start}>
+              Import Series
+            </Button>
+            <Button asChild>
+              <Link href="/series/new">New series</Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       {seriesList === undefined && (
@@ -376,17 +391,21 @@ export default function HomePage() {
       )}
 
       {seriesList !== undefined && seriesList.length === 0 && trashList.length === 0 && (
-        <p className="text-muted-foreground">
-          No series yet.{' '}
-          <Link href="/series/new" className="underline">
-            Create your first series
-          </Link>{' '}
-          or{' '}
-          <button className="underline" onClick={openFlow.start}>
-            import a series file
-          </button>
-          {' '}to get started.
-        </p>
+        canManage ? (
+          <p className="text-muted-foreground">
+            No series yet.{' '}
+            <Link href="/series/new" className="underline">
+              Create your first series
+            </Link>{' '}
+            or{' '}
+            <button className="underline" onClick={openFlow.start}>
+              import a series file
+            </button>
+            {' '}to get started.
+          </p>
+        ) : (
+          <p className="text-muted-foreground">No series yet.</p>
+        )
       )}
 
       {seriesList !== undefined && (seriesList.length > 0 || trashList.length > 0) && (

@@ -4,6 +4,7 @@ import { use, useState, useRef, useEffect } from 'react';
 import { useSeries } from '@/hooks/use-series';
 import { FollowOnProvenanceNote } from '@/components/follow-on-provenance-note';
 import { useSeriesReadOnly } from '@/components/series-read-only';
+import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import {
   useCompetitorsBySeries,
@@ -95,7 +96,9 @@ export default function CompetitorsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: seriesId } = use(params);
-  const readOnly = useSeriesReadOnly();
+  const { can } = useWorkspacePermissions();
+  // Archived series and roles without manage-series both view-only here.
+  const readOnly = useSeriesReadOnly() || !can('manage-series');
   const { data: competitors } = useCompetitorsBySeries(seriesId);
   const { data: fleets } = useFleetsBySeries(seriesId);
   const { data: series } = useSeries(seriesId);

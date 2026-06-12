@@ -26,8 +26,9 @@ export interface PreviewDialogProps {
   fleets: Fleet[];
   open: boolean;
   onClose: () => void;
-  /** Hand off to the Publish flow (parent closes this and opens PublishDialog). */
-  onPublish: () => void;
+  /** Hand off to the Publish flow (parent closes this and opens PublishDialog).
+   *  Omit when the viewer can't publish — the Publish button is hidden. */
+  onPublish?: () => void;
 }
 
 /**
@@ -123,9 +124,11 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
             >
               Download
             </Button>
-            <Button size="sm" onClick={onPublish}>
-              Publish
-            </Button>
+            {onPublish && (
+              <Button size="sm" onClick={onPublish}>
+                Publish
+              </Button>
+            )}
           </div>
         </div>
 

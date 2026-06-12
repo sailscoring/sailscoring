@@ -13,6 +13,7 @@
 import { useMemo, useState } from 'react';
 
 import { authClient } from '@/lib/auth-client';
+import { hasPermission } from '@/lib/auth/permissions';
 import { copySeriesToWorkspace } from '@/lib/api-repository';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
 import { Button } from '@/components/ui/button';
@@ -46,8 +47,15 @@ export function CopySeriesToWorkspaceDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { memberships, activeOrganizationId } = useWorkspaceMemberships();
+  // Only workspaces where the user can create series qualify as targets —
+  // the copy handler enforces the same against the target-side member row.
   const targets = useMemo(
-    () => memberships.filter((m) => m.organizationId !== activeOrganizationId),
+    () =>
+      memberships.filter(
+        (m) =>
+          m.organizationId !== activeOrganizationId &&
+          hasPermission(m.role, 'manage-series'),
+      ),
     [memberships, activeOrganizationId],
   );
 

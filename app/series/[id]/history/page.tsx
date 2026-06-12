@@ -11,6 +11,7 @@ import {
 import { useSeriesActivity } from '@/hooks/use-activity';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useSeriesReadOnly } from '@/components/series-read-only';
+import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -141,7 +142,12 @@ export default function SeriesHistoryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const readOnly = useSeriesReadOnly();
+  const archived = useSeriesReadOnly();
+  const { can } = useWorkspacePermissions();
+  // Naming a checkpoint is a race-day-level write; restoring a revision
+  // rewrites the whole series and demands manage-series.
+  const readOnly = archived || !can('score');
+  const canRestore = !archived && can('manage-series');
   const { data: revisions, isLoading, isError } = useSeriesRevisions(id);
   // Activity feeds the per-revision drill-down. The first page is enough for the
   // recent sessions; older revisions simply show without expandable detail.
@@ -233,7 +239,7 @@ export default function SeriesHistoryPage({
             rev={rev}
             windowActivity={windowFor(i)}
             // The newest revision is the current state — nothing to restore to.
-            canRestore={!readOnly && i !== 0 && rev.hasSnapshot}
+            canRestore={canRestore && i !== 0 && rev.hasSnapshot}
             onRestore={setConfirming}
           />
         ))}

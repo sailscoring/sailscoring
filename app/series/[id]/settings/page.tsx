@@ -12,6 +12,7 @@ import { ScoringModeCard } from '@/components/series-settings/scoring-mode-card'
 import { CompetitorFieldsCard } from '@/components/series-settings/competitor-fields-card';
 import { PublishingCard } from '@/components/series-settings/publishing-card';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
+import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 
 export default function SettingsPage({
   params,
@@ -19,6 +20,7 @@ export default function SettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: seriesId } = use(params);
+  const { can } = useWorkspacePermissions();
   const { listSeriesNames } = repos;
   const { data: series, isLoading } = useSeries(seriesId);
   const { data: fleetsData } = useFleetsBySeries(seriesId);
@@ -39,6 +41,19 @@ export default function SettingsPage({
         <p className="text-sm text-muted-foreground">
           Archived series are read-only. Unarchive this series from the banner
           above to change its settings.
+        </p>
+      </div>
+    );
+  }
+
+  // Same shape for roles that can't manage series — the cards auto-save, so
+  // rendering them would only bounce every edit off the server's 403.
+  if (!can('manage-series')) {
+    return (
+      <div className="max-w-lg">
+        <p className="text-sm text-muted-foreground">
+          Your role in this workspace doesn&apos;t allow changing series
+          settings. Ask a workspace admin if something here needs to change.
         </p>
       </div>
     );

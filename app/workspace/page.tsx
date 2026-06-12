@@ -1,7 +1,11 @@
 import { eq } from 'drizzle-orm';
 
 import { getOptionalSession } from '@/lib/auth/require-session';
-import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
+import {
+  requireWorkspace,
+  type WorkspaceContext,
+} from '@/lib/auth/require-workspace';
+import { hasPermission } from '@/lib/auth/permissions';
 import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
 import { CategoriesCard } from '@/components/workspace-settings/categories-card';
@@ -48,10 +52,23 @@ export default async function WorkspacePage() {
     ? `Workspace settings: ${workspaceName}`
     : 'Workspace settings';
 
-  // FTP upload is an experimental, gated feature (#155). Don't mount the card
-  // when it's off — it would otherwise fetch /api/v1/ftp-servers and hit the
-  // server-side feature gate (403).
-  const features = await getEffectiveFeatures();
+  // Feature-gated cards (#155) don't mount when their feature is off — they
+  // would otherwise fetch and hit the server-side feature gate (403). The
+  // same goes for cards whose API surface the viewer's role can't use: the
+  // logo and FTP cards are manage-workspace tools (the FTP list endpoint
+  // won't even answer reads below that), and the categories card's only
+  // purpose is editing.
+  let workspace: WorkspaceContext | null = null;
+  try {
+    workspace = await requireWorkspace();
+  } catch {
+    workspace = null;
+  }
+  const features = workspace?.features ?? [];
+  const canManageSeries =
+    workspace !== null && hasPermission(workspace.role, 'manage-series');
+  const canManageWorkspace =
+    workspace !== null && hasPermission(workspace.role, 'manage-workspace');
 
   return (
     <div className="space-y-6 max-w-lg mx-auto">
@@ -60,10 +77,10 @@ export default async function WorkspacePage() {
         currentUserEmail={session?.user.email ?? null}
         canAssignScorer={features.includes('fine-grained-roles')}
       />
-      <CategoriesCard />
+      {canManageSeries && <CategoriesCard />}
       <PublishedCard />
-      {features.includes('logo-library') && <LogosCard />}
-      {features.includes('ftp-upload') && <FtpServersCard />}
+      {features.includes('logo-library') && canManageWorkspace && <LogosCard />}
+      {features.includes('ftp-upload') && canManageWorkspace && <FtpServersCard />}
     </div>
   );
 }

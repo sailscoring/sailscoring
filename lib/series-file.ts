@@ -399,6 +399,12 @@ export async function buildSeriesFile(
 export async function saveSeriesFile(
   seriesId: string,
   repos: SeriesFileRepos,
+  opts?: {
+    /** Skip the post-download bookkeeping writes (`lastSavedAt` + the saved
+     *  milestone) — for callers whose workspace role can't write them. The
+     *  download itself is a pure read available to every role. */
+    recordSave?: boolean;
+  },
 ): Promise<void> {
   const file = await buildSeriesFile(seriesId, repos);
   const series = await repos.seriesRepo.get(seriesId);
@@ -429,8 +435,9 @@ export async function saveSeriesFile(
   // The download above is a pure read. An archived series is read-only
   // (#154), so we stop here: recording the save would write file-tracking
   // fields back through the API and hit the read-only guard (423). Archived
-  // series intentionally don't accrue file-lineage updates.
-  if (series.archived) return;
+  // series intentionally don't accrue file-lineage updates. Callers without
+  // write permission opt out the same way (recordSave: false).
+  if (series.archived || opts?.recordSave === false) return;
 
   // Record the save. CAS via `expectedVersion` so a concurrent edit in
   // another tab surfaces as 409 → refresh-and-retry rather than silently

@@ -10,6 +10,7 @@ import { useChordShortcut, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
 import { SeriesActionsMenu } from '@/components/series-actions-menu';
 import { SeriesReadOnlyProvider } from '@/components/series-read-only';
+import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { Button } from '@/components/ui/button';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
@@ -33,6 +34,7 @@ export default function SeriesLayout({
   const router = useRouter();
   const { data: series, isLoading } = useSeries(id);
   const archiveSeries = useArchiveSeries();
+  const { can } = useWorkspacePermissions();
   const [showHelp, setShowHelp] = useState(false);
 
   useChordShortcut({
@@ -85,15 +87,17 @@ export default function SeriesLayout({
             <strong>This series is archived and read-only.</strong> Unarchive it
             to make changes, or copy it to another workspace from the ⋯ menu.
           </p>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={archiveSeries.isPending}
-            onClick={() => archiveSeries.mutate({ id, archived: false })}
-          >
-            <ArchiveRestore className="h-4 w-4" />
-            Unarchive
-          </Button>
+          {can('manage-series') && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={archiveSeries.isPending}
+              onClick={() => archiveSeries.mutate({ id, archived: false })}
+            >
+              <ArchiveRestore className="h-4 w-4" />
+              Unarchive
+            </Button>
+          )}
         </div>
       )}
 

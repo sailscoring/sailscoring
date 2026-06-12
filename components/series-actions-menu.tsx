@@ -36,6 +36,8 @@ import { usePublicationStatus } from '@/hooks/use-published';
 import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 import { useFeatures } from '@/components/features-provider';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
+import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
+import { hasPermission } from '@/lib/auth/permissions';
 import { CopySeriesToWorkspaceDialog } from '@/components/copy-series-to-workspace-dialog';
 import { formatDayStamp } from '@/lib/format-date';
 import { Button } from '@/components/ui/button';
@@ -71,6 +73,8 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
   const queryClient = useQueryClient();
   const { has } = useFeatures();
   const { memberships, activeOrganizationId } = useWorkspaceMemberships();
+  const { can } = useWorkspacePermissions();
+  const canManageSeries = can('manage-series');
   const archiveSeries = useArchiveSeries();
   const deleteCascade = useDeleteSeriesCascade();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,13 +87,16 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
   const archived = series.archived ?? false;
   const isModified =
     series.lastSavedAt !== null && series.lastModifiedAt > series.lastSavedAt;
+  // A copy target is any other workspace where the user can create series.
   const hasCopyTargets = memberships.some(
-    (m) => m.organizationId !== activeOrganizationId,
+    (m) =>
+      m.organizationId !== activeOrganizationId &&
+      hasPermission(m.role, 'manage-series'),
   );
 
   async function handleSaveToFile() {
     try {
-      await saveSeriesFile(seriesId, repos);
+      await saveSeriesFile(seriesId, repos, { recordSave: canManageSeries });
       // saveSeriesFile writes lastSavedAt directly via the seriesRepo,
       // bypassing the React Query cache. Force a refetch so the menu's
       // "Last saved" label reflects the new state.
@@ -233,13 +240,13 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
             Save to File
             <DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
           </DropdownMenuItem>
-          {!archived && (
+          {!archived && canManageSeries && (
             <DropdownMenuItem onSelect={() => openChooser(fileInputRef)}>
               <FileUp className="h-4 w-4" />
               Update from File…
             </DropdownMenuItem>
           )}
-          {series.source === 'sailwave' && has('sailwave-import') && !archived && (
+          {series.source === 'sailwave' && has('sailwave-import') && !archived && canManageSeries && (
             <DropdownMenuItem
               data-testid="update-from-sailwave"
               onSelect={() => openChooser(sailwaveInputRef)}
@@ -257,32 +264,36 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
               </DropdownMenuItem>
             </>
           )}
-          <DropdownMenuSeparator />
-          {archived ? (
+          {canManageSeries && (
             <>
-              <DropdownMenuItem
-                disabled={archiveSeries.isPending}
-                onSelect={() => archiveSeries.mutate({ id: seriesId, archived: false })}
-              >
-                <ArchiveRestore className="h-4 w-4" />
-                Unarchive
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={() => setConfirmDelete(true)}
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete…
-              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {archived ? (
+                <>
+                  <DropdownMenuItem
+                    disabled={archiveSeries.isPending}
+                    onSelect={() => archiveSeries.mutate({ id: seriesId, archived: false })}
+                  >
+                    <ArchiveRestore className="h-4 w-4" />
+                    Unarchive
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => setConfirmDelete(true)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete…
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <DropdownMenuItem
+                  disabled={archiveSeries.isPending}
+                  onSelect={() => archiveSeries.mutate({ id: seriesId, archived: true })}
+                >
+                  <Archive className="h-4 w-4" />
+                  Archive series
+                </DropdownMenuItem>
+              )}
             </>
-          ) : (
-            <DropdownMenuItem
-              disabled={archiveSeries.isPending}
-              onSelect={() => archiveSeries.mutate({ id: seriesId, archived: true })}
-            >
-              <Archive className="h-4 w-4" />
-              Archive series
-            </DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>

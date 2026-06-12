@@ -8,6 +8,7 @@ import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { Button } from '@/components/ui/button';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useFeatures } from '@/components/features-provider';
+import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
 import { FtpUploadDialog } from '@/components/ftp-upload-dialog';
@@ -24,6 +25,11 @@ export default function StandingsPage({
 }) {
   const { id: seriesId } = use(params);
   const { has } = useFeatures();
+  const { can } = useWorkspacePermissions();
+  // Publishing is a race-day (score) operation; the FTP dialog reads the
+  // credential-bearing server list, which demands manage-workspace.
+  const canPublish = can('score');
+  const canFtp = has('ftp-upload') && can('manage-workspace');
   const [showFtpDialog, setShowFtpDialog] = useState(false);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
@@ -31,9 +37,11 @@ export default function StandingsPage({
   const data = useSeriesData(seriesId, { finishes: true, raceStarts: true });
 
   useShortcuts([
-    { key: 'p', description: 'Publish results', section: 'Standings', handler: () => setShowPublishDialog(true) },
+    ...(canPublish
+      ? [{ key: 'p', description: 'Publish results', section: 'Standings', handler: () => setShowPublishDialog(true) }]
+      : []),
     { key: 'x', description: 'Preview results', section: 'Standings', handler: () => setShowPreviewDialog(true) },
-    ...(has('ftp-upload')
+    ...(canFtp
       ? [{ key: 'f', description: 'Upload via FTP', section: 'Standings', handler: () => setShowFtpDialog(true) }]
       : []),
   ]);
@@ -96,10 +104,12 @@ export default function StandingsPage({
           · {competitors.length} competitor{competitors.length === 1 ? '' : 's'}
         </p>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => setShowPublishDialog(true)} title="Publish (p)">
-            Publish
-          </Button>
-          {has('ftp-upload') && (
+          {canPublish && (
+            <Button size="sm" variant="outline" onClick={() => setShowPublishDialog(true)} title="Publish (p)">
+              Publish
+            </Button>
+          )}
+          {canFtp && (
             <Button size="sm" variant="outline" onClick={() => setShowFtpDialog(true)} title="Upload via FTP (f)">
               Upload via FTP
             </Button>
@@ -147,10 +157,14 @@ export default function StandingsPage({
         fleets={fleets}
         open={showPreviewDialog}
         onClose={() => setShowPreviewDialog(false)}
-        onPublish={() => {
-          setShowPreviewDialog(false);
-          setShowPublishDialog(true);
-        }}
+        onPublish={
+          canPublish
+            ? () => {
+                setShowPreviewDialog(false);
+                setShowPublishDialog(true);
+              }
+            : undefined
+        }
       />
       <PublishDialog
         series={series}

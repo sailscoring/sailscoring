@@ -12,6 +12,7 @@ import { useCompetitorsBySeries } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useRace, useRacesBySeries, useSaveRace } from '@/hooks/use-races';
 import { useSeriesReadOnly } from '@/components/series-read-only';
+import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import {
   useDeleteFinish,
   useFinishCachePatch,
@@ -85,7 +86,10 @@ export default function ResultEntryPage({
   const saveFinishes = useSaveFinishes();
   const deleteFinish = useDeleteFinish();
   const saveRace = useSaveRace();
-  const readOnly = useSeriesReadOnly();
+  const { can } = useWorkspacePermissions();
+  // Finish entry is a race-day operation: archived series and roles without
+  // score view-only.
+  const readOnly = useSeriesReadOnly() || !can('score');
   const patchCache = useFinishCachePatch(raceId);
 
   // Source of truth: every visible "view model" derives from savedFinishes.
