@@ -128,19 +128,16 @@ test.describe('copy series to workspace', () => {
     await addMemberByEmail(target.id, email, 'owner');
     await page.reload();
 
-    // Drive the Settings tab "Copy to workspace…" action.
-    await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-
     // Set website URLs on the source so we can assert the copy carries them.
+    await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
     await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
     await page.getByLabel('Venue website URL').fill('https://venue.example.com');
     await page.getByLabel('Event website URL').fill('https://event.example.com');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
 
-    await expect(
-      page.getByRole('heading', { name: 'Copy to another workspace' }),
-    ).toBeVisible();
-    await page.getByRole('button', { name: 'Copy to workspace…' }).click();
+    // Drive the "Copy to workspace…" action from the series actions menu.
+    await page.getByRole('button', { name: 'Series actions' }).click();
+    await page.getByRole('menuitem', { name: 'Copy to workspace…' }).click();
     await page.getByTestId('copy-target-workspace').click();
     await page
       .getByRole('option')

@@ -129,9 +129,9 @@ test('series file version is current with IRC fleet scoring system', async ({ pa
   await page.getByRole('button', { name: 'Save' }).click();
 
   // ── 2. Save to file and verify format version ─────────────────────────────
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Series actions' }).click();
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Save to File' }).click();
+  await page.getByRole('menuitem', { name: 'Save to File' }).click();
   const dl = await download;
 
   const stream = await dl.createReadStream();

@@ -74,11 +74,12 @@ function getSeriesId(page: Page): string {
   return match[1];
 }
 
-/** Clicks "Save to File" and returns the parsed JSON. Must be on Settings tab. */
+/** Opens the series-header ⋯ menu, clicks "Save to File", and returns the parsed JSON. */
 async function saveToFile(page: Page): Promise<SeriesFile> {
+  await page.getByRole('button', { name: 'Series actions' }).click();
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Save to File' }).click(),
+    page.getByRole('menuitem', { name: 'Save to File' }).click(),
   ]);
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
@@ -86,11 +87,12 @@ async function saveToFile(page: Page): Promise<SeriesFile> {
   return JSON.parse(Buffer.concat(chunks).toString('utf-8')) as SeriesFile;
 }
 
-/** Clicks "Update from File" and supplies the given object as the file content. */
+/** Opens the ⋯ menu, clicks "Update from File…", and supplies the given object as the file content. */
 async function updateFromFile(page: Page, file: object): Promise<void> {
+  await page.getByRole('button', { name: 'Series actions' }).click();
   const [fileChooser] = await Promise.all([
     page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: 'Update from File' }).click(),
+    page.getByRole('menuitem', { name: 'Update from File…' }).click(),
   ]);
   await fileChooser.setFiles({
     name: 'test.sailscoring',

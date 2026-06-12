@@ -3,17 +3,14 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArchiveRestore } from 'lucide-react';
 import { useSeries, useArchiveSeries } from '@/hooks/use-series';
-import { queryKeys } from '@/hooks/query-keys';
 import { cn } from '@/lib/utils';
-import { useChordShortcut, useGlobalKeyDown, useShortcuts } from '@/hooks/use-keyboard-shortcut';
+import { useChordShortcut, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { KeyboardHelp } from '@/components/keyboard-help';
+import { SeriesActionsMenu } from '@/components/series-actions-menu';
 import { SeriesReadOnlyProvider } from '@/components/series-read-only';
 import { Button } from '@/components/ui/button';
-import * as repos from '@/lib/api-repository';
-import { saveSeriesFile } from '@/lib/series-file';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 const tabs = [
@@ -34,7 +31,6 @@ export default function SeriesLayout({
   const { id } = use(params);
   const pathname = usePathname();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { data: series, isLoading } = useSeries(id);
   const archiveSeries = useArchiveSeries();
   const [showHelp, setShowHelp] = useState(false);
@@ -48,18 +44,8 @@ export default function SeriesLayout({
   });
 
   // No description: the dialog's static Global section documents `?` itself.
+  // (Ctrl+S save-to-file is bound by SeriesActionsMenu below.)
   useShortcuts([{ key: '?', handler: () => setShowHelp(true) }]);
-  useGlobalKeyDown((e) => {
-    if (e.ctrlKey && !e.metaKey && e.key === 's' && !/\/races\/[^/]+/.test(pathname)) {
-      // Ctrl+S saves to file from any series page except finish entry (which owns Ctrl+S itself)
-      e.preventDefault();
-      saveSeriesFile(id, repos)
-        .then(() =>
-          queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(id) }),
-        )
-        .catch(console.error);
-    }
-  });
 
   if (isLoading || series === undefined) {
     return <SeriesTabFallback status="loading" />;
@@ -73,28 +59,31 @@ export default function SeriesLayout({
 
   return (
     <div className="space-y-6 max-w-screen-2xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-semibold flex items-center gap-2">
-          {series.name}
-          {readOnly && (
-            <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground align-middle">
-              <Archive className="h-3 w-3" />
-              Archived
-            </span>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            {series.name}
+            {readOnly && (
+              <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground align-middle">
+                <Archive className="h-3 w-3" />
+                Archived
+              </span>
+            )}
+          </h1>
+          {(series.venue || series.startDate) && (
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {[series.venue, series.startDate].filter(Boolean).join(' · ')}
+            </p>
           )}
-        </h1>
-        {(series.venue || series.startDate) && (
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {[series.venue, series.startDate].filter(Boolean).join(' · ')}
-          </p>
-        )}
+        </div>
+        <SeriesActionsMenu series={series} />
       </div>
 
       {readOnly && (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/40">
           <p className="text-amber-900 dark:text-amber-200">
             <strong>This series is archived and read-only.</strong> Unarchive it
-            to make changes, or copy it to another workspace from Settings.
+            to make changes, or copy it to another workspace from the ⋯ menu.
           </p>
           <Button
             size="sm"

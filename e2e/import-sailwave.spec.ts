@@ -71,9 +71,9 @@ test('update from Sailwave: re-import in place replaces data and keeps the serie
 
   const seriesId = page.url().match(/\/series\/([^/]+)\/competitors/)![1];
 
-  // The "Update from Sailwave file" affordance is offered on Settings for a
-  // Sailwave-born series.
-  await page.goto(`/series/${seriesId}/settings`);
+  // The "Update from Sailwave file" affordance is offered in the series
+  // actions menu for a Sailwave-born series.
+  await page.getByRole('button', { name: 'Series actions' }).click();
   const updateButton = page.getByTestId('update-from-sailwave');
   await expect(updateButton).toBeVisible();
 

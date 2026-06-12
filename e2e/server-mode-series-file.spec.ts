@@ -72,9 +72,10 @@ function getSeriesId(page: Page): string {
 }
 
 async function saveToFile(page: Page): Promise<SeriesFile> {
+  await page.getByRole('button', { name: 'Series actions' }).click();
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Save to File' }).click(),
+    page.getByRole('menuitem', { name: 'Save to File' }).click(),
   ]);
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
@@ -83,9 +84,10 @@ async function saveToFile(page: Page): Promise<SeriesFile> {
 }
 
 async function updateFromFile(page: Page, file: object): Promise<void> {
+  await page.getByRole('button', { name: 'Series actions' }).click();
   const [fileChooser] = await Promise.all([
     page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: 'Update from File' }).click(),
+    page.getByRole('menuitem', { name: 'Update from File…' }).click(),
   ]);
   await fileChooser.setFiles({
     name: 'test.sailscoring',
@@ -125,8 +127,8 @@ test.describe('series file save / open / update, server mode', () => {
     await page.getByTestId('back-to-races').click();
     await expect(page).toHaveURL(/\/races$/);
 
-    // Save to file from Settings — exercises saveSeriesFile against Postgres.
-    await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+    // Save to file from the series actions menu — exercises saveSeriesFile
+    // against Postgres.
     const original = await saveToFile(page);
 
     expect(original.formatVersion).toBe(8);
@@ -174,7 +176,6 @@ test.describe('series file save / open / update, server mode', () => {
     await createSeriesQuick(page, { name: 'Server New Copy Original' });
     const originalSeriesId = getSeriesId(page);
 
-    await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
     const original = await saveToFile(page);
 
     const edited: SeriesFile = {
