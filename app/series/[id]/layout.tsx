@@ -59,8 +59,8 @@ export default function SeriesLayout({
 
   return (
     <div className="space-y-6 max-w-screen-2xl mx-auto">
-      <div className="flex items-start justify-between gap-2">
-        <div>
+      <div>
+        <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             {series.name}
             {readOnly && (
@@ -70,13 +70,13 @@ export default function SeriesLayout({
               </span>
             )}
           </h1>
-          {(series.venue || series.startDate) && (
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {[series.venue, series.startDate].filter(Boolean).join(' · ')}
-            </p>
-          )}
+          <SeriesActionsMenu series={series} />
         </div>
-        <SeriesActionsMenu series={series} />
+        {(series.venue || series.startDate) && (
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {[series.venue, series.startDate].filter(Boolean).join(' · ')}
+          </p>
+        )}
       </div>
 
       {readOnly && (

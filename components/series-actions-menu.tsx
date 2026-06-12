@@ -210,8 +210,9 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Series actions">
+          <Button variant="outline" size="sm" aria-label="Series actions">
             <MoreVertical className="h-4 w-4" />
+            Actions
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
