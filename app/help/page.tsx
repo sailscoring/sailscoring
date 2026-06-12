@@ -55,6 +55,8 @@ export default async function HelpPage() {
             ['#update-handicaps-irish-sailing', 'Updating ECHO from Irish Sailing', 'echo'],
             // Gated: only listed when rya-py is enabled (on by default).
             ['#update-handicaps-rya-py', 'Updating PY numbers from the RYA list', 'rya-py'],
+            // Gated: only listed when follow-on-series is enabled.
+            ['#creating-a-follow-on-series', 'Creating a follow-on series', 'follow-on-series'],
             ['#adding-races', 'Adding races'],
             ['#entering-results', 'Entering results'],
             // Gated: only listed when csv-finish-import is enabled (#155).
@@ -548,6 +550,31 @@ export default async function HelpPage() {
           <span className="text-amber-600 dark:text-amber-500">guide only</span> — the RYA publishes
           them as starting points to review locally. The list is bundled with the app and refreshed
           at most once a year, so its version is shown at the foot of the dialog.
+        </p>
+      </Section>
+      )}
+
+      {has('follow-on-series') && (
+      <Section id="creating-a-follow-on-series" title="Creating a follow-on series">
+        <p>
+          When one series of a season ends and the next begins —{' '}
+          <em>Spring Series 1</em> into <em>Spring Series 2</em> — pick{' '}
+          <strong className="text-foreground">Create follow-on series</strong> from the series&apos;
+          row menu on the home page. The new series starts with the same settings, fleets, and
+          competitors; none of the old series&apos; races or results come along.
+        </p>
+        <p>
+          For progressive-handicap fleets (NHC, ECHO), each boat&apos;s starting handicap in the new
+          series is its handicap after the old series&apos; last scored race, so the ratings pick up
+          exactly where they left off. Boats that never raced keep the starting handicap they had.
+          Static ratings (IRC, PY, VPRS) carry over unchanged. The Competitors tab of the new series
+          notes which series it was carried forward from; if handicaps in the old series change
+          later (a reinstated boat, a corrected finish), use{' '}
+          <strong className="text-foreground">Update handicaps</strong> to re-pull them.
+        </p>
+        <p>
+          The new series keeps its predecessor&apos;s category but starts unpublished, with its own
+          name and start date — both asked for when you create it.
         </p>
       </Section>
       )}
