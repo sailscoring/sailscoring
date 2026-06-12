@@ -137,9 +137,9 @@ export default async function HelpPage() {
           the panel&apos;s data.
         </p>
         <p>
-          To move a series from your personal workspace into a shared one, open its{' '}
-          <strong className="text-foreground">Settings</strong> tab and use the{' '}
-          <strong className="text-foreground">Copy to another workspace</strong> card at the top.
+          To move a series from your personal workspace into a shared one, open the{' '}
+          <strong className="text-foreground">⋯</strong> menu in the series header and choose{' '}
+          <strong className="text-foreground">Copy to workspace…</strong>.
           The original stays in your personal workspace; the copy lands in the target workspace
           with a fresh history. FTP credentials and publishing state are not carried over.
         </p>
@@ -204,7 +204,8 @@ export default async function HelpPage() {
         </p>
         <p>
           <strong className="text-foreground">Archiving</strong> a series (from its{' '}
-          <strong className="text-foreground">⋯</strong> menu or the Settings tab) moves it into a
+          <strong className="text-foreground">⋯</strong> menu, on the home list or in the series
+          header) moves it into a
           collapsed <strong className="text-foreground">Archived</strong> section at the foot of
           the list, grouped by year, and makes it{' '}
           <strong className="text-foreground">read-only</strong>: a safeguard against a stray edit
@@ -1026,7 +1027,7 @@ export default async function HelpPage() {
         </p>
         <p>
           To back up a series or share it with someone outside your workspace, open the{' '}
-          <strong className="text-foreground">Settings</strong> tab and click{' '}
+          <strong className="text-foreground">⋯</strong> menu in the series header and click{' '}
           <strong className="text-foreground">Save to File</strong>. This downloads a{' '}
           <code className="text-foreground text-sm">.sailscoring</code> file containing the
           complete series — all competitors, races, and results. You can save the file to Google
@@ -1061,8 +1062,8 @@ export default async function HelpPage() {
             </p>
             <p>
               If you keep scoring a series in Sailwave and treat Sail Scoring as the publishing
-              front end, open the series&apos; <strong className="text-foreground">Settings</strong>{' '}
-              tab and click <strong className="text-foreground">Update from Sailwave file</strong>{' '}
+              front end, open the series&apos; <strong className="text-foreground">⋯</strong> menu
+              and click <strong className="text-foreground">Update from Sailwave file…</strong>{' '}
               (shown only for series that were imported from Sailwave). Pick a fresh{' '}
               <code className="text-foreground text-sm">.blw</code> export and the wizard replaces the
               competitors, fleets, races and results from the file while keeping the series name,
@@ -1073,8 +1074,8 @@ export default async function HelpPage() {
         )}
         <p>
           To bring a series someone else is scoring into your workspace, open the{' '}
-          <strong className="text-foreground">Settings</strong> tab on the existing series and
-          click <strong className="text-foreground">Update from File</strong>. The app checks
+          <strong className="text-foreground">⋯</strong> menu on the existing series and
+          click <strong className="text-foreground">Update from File…</strong>. The app checks
           whether the incoming file is a clean continuation of the workspace copy and warns you
           if both copies have diverged.
         </p>
