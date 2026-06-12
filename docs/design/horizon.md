@@ -395,29 +395,6 @@ assets.
 
 ---
 
-## Account lifecycle
-
-### Self-service account deletion
-
-The Privacy Policy directs users wanting their account deleted to email `mark@hyc.ie`,
-and we act within the GDPR one-month window. That's a defensible interim position at
-the current scale, but the modern expectation is a self-service button in `/account`
-that removes the account without anyone in the loop.
-
-Open questions: confirmation flow (typing the account email, an email-loop confirm,
-or both); a short retention window for accidental deletes versus immediate hard
-delete; what happens to workspaces the user owns alone (transfer to another member?
-force-delete with notice?) versus workspaces where they are one of several members
-(just remove the membership); whether to offer a one-click export of owned workspaces
-before deletion; how `lastModifiedBy` and activity-log references survive an erased
-user (tombstone identifier vs. anonymise).
-
-Distinct from the operator-triggered stealth-beta cleanup that landed under #121
-(export-and-email by the operator) — that was about *us* deleting *their* data on a
-short clock; this is about *them* deleting *their own* account on demand.
-
----
-
 ## Country-scoped instances
 
 ### Standing up Sail Scoring instances beyond sailscoring.ie
@@ -1007,7 +984,7 @@ spreadsheet export — we'd likely want at least time-to-win in-page); whether a
 in the published `/p/...` output for competitors, or stay scorer/organiser-facing; and
 how they interact with multi-fleet series and discards (is time-to-win computed before or
 after discards?). Pairs with the operator-facing engagement metrics under Operator
-visibility — those measure the *product*; these measure a *series*.
+administration — those measure the *product*; these measure a *series*.
 
 ---
 
@@ -1045,7 +1022,57 @@ is correct.
 
 ---
 
-## Operator visibility
+## Operator administration
+
+### An admin interface for the instance operator
+
+Everything the operator of `sailscoring.ie` does today happens through CLI scripts
+run against the production `DATABASE_URL` (`docs/account-admin.md`,
+`scripts/provision-org.ts`) plus runbooks. That was the right shape while every
+operation was rare, but the surface keeps growing — org-request fulfilment, feature
+toggles, account deletion — and each is a UI-shaped task being done with
+copy-pasted CLI invocations. The proposal: a gated in-app admin area (an `/admin`
+route group) giving the operator the same operations with the safety of forms,
+confirmations, and visibility.
+
+The prerequisite is an *operator identity*: the schema has workspace-level roles
+(`owner | admin | member`) but no site-level operator concept. Gating could start
+as simply as an env-var email allowlist checked in a `requireOperator()` seam,
+mirroring `require-workspace.ts`. Per-instance operators also fall out of the
+country-scoped-instances idea above — each instance has its own operator, so the
+admin surface should not assume a single hard-coded person.
+
+### What the CLI scripts provide today
+
+Each script is a candidate admin-UI page; the script logic is already factored as
+importable functions writing through Drizzle, so a UI can share it rather than
+shelling out.
+
+- **`provision-org`** — the privileged workspace lifecycle: `create-org` /
+  `delete-org`, pre-creating users, break-glass member operations (`add-member`,
+  `set-role`, `remove-member`, `list-members`), fulfilment of self-service
+  org-creation requests (`list-requests` / `fulfil-request` / `decline-request`),
+  and per-workspace feature toggles (`enable-feature` / `disable-feature` /
+  `list-feature`).
+- **`user-stats`** — read-only per-user engagement: ever logged in, session count
+  and recency, workspace memberships, series/race/competitor/finish counts.
+- **`change-email`** — reassigns a user's login email; the supported recovery path
+  while magic-link is the only sign-in method and self-service email change
+  doesn't exist.
+- **`delete-account`** — deletes a user and their private data, with a dry-run
+  plan (sole-member workspaces cascade, shared workspaces survive, ownerless
+  workspaces flagged) and `--force` to execute.
+
+### Workspace feature matrix
+
+A table view of which gated features (#155, `lib/features.ts`) are enabled for
+each workspace: workspaces as rows, registered features as columns, each cell a
+toggle. This replaces the `enable-feature` / `disable-feature` / `list-feature`
+CLI round-trips and gives the containment-audience question ("who do we need to
+talk to before retiring this?") a single screen. The registry's `label` field
+already anticipates this ("used by … any future admin UI"). Toggles must honour
+the default-on semantics: disabling a default-on feature records an explicit
+opt-out in `disabledFeatures`, not just the absence of an enable.
 
 ### User engagement metrics
 
@@ -1061,8 +1088,8 @@ needs to see growth in both, and the right question evolves with the user base.
   single `requireWorkspace()` seam would naturally be the place to stamp a throttled
   `member.lastSeenAt` — which also powers a "Last active" column in the Members card.
 - *As the user base grows:* weekly/monthly active scorers, retention cohorts,
-  per-workspace activity counts. At that point engagement belongs on a dedicated
-  operator surface, not the per-workspace Members card — the questions are about the
+  per-workspace activity counts. At that point engagement belongs on the admin
+  interface, not the per-workspace Members card — the questions are about the
   product as a whole, not a specific club's roster.
 
 **Result viewers.**
@@ -1073,11 +1100,36 @@ needs to see growth in both, and the right question evolves with the user base.
 - *Next:* hits per series and per workspace over time — distinguishing pages that
   draw repeat traffic from one-shot regatta wrap-ups.
 - *As publishing grows:* aggregate trends across all workspaces, surfaced on the
-  same operator-side dashboard as the scorer metrics.
+  same admin dashboard as the scorer metrics.
 
 Natural first concrete steps, when each check actually needs answering: a
 `member.lastSeenAt` stamp in `requireWorkspace()` on the scorer side, and turning
 on request counting at the `/p` function (or Vercel analytics) on the viewer side.
+
+### Account deletion
+
+The Privacy Policy directs users wanting their account deleted to email
+`mark@hyc.ie`, and we act within the GDPR one-month window — today by running
+`delete-account` by hand. Two steps forward from there:
+
+1. **Operator-performed deletion in the admin UI.** The script's dry-run plan
+   (which workspaces cascade, which survive, which end up ownerless) is exactly
+   the confirmation screen the admin UI should show before the destructive step.
+   This also forces resolving the caveat in `docs/account-admin.md` that the
+   script has no backup-before-delete and is scoped to test accounts.
+2. **Self-service deletion in `/account`.** The modern expectation is a button
+   that removes the account without anyone in the loop. Open questions:
+   confirmation flow (typing the account email, an email-loop confirm, or both);
+   a short retention window for accidental deletes versus immediate hard delete;
+   what happens to workspaces the user owns alone (transfer to another member?
+   force-delete with notice?) versus workspaces where they are one of several
+   members (just remove the membership); whether to offer a one-click export of
+   owned workspaces before deletion; how `lastModifiedBy` and activity-log
+   references survive an erased user (tombstone identifier vs. anonymise).
+
+Distinct from the operator-triggered stealth-beta cleanup that landed under #121
+(export-and-email by the operator) — that was about *us* deleting *their* data on
+a short clock; these are about deletion on the account holder's request.
 
 ---
 
