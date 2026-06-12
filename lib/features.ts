@@ -49,6 +49,13 @@ export const FEATURES = {
     label: 'FTP upload',
     helpSectionIds: [],
   },
+  'sub-series': {
+    // Named blocks of races inside one series, each scored independently
+    // (own standings, discards, published pages) over a shared entry list,
+    // with progressive handicaps chaining across block boundaries.
+    label: 'Sub-series',
+    helpSectionIds: ['sub-series'],
+  },
   'logo-library': {
     // The flag locker — the per-workspace logo library plus the built-in
     // canonical tier and per-workspace logo. On by default: the picker draws on

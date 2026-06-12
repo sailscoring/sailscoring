@@ -30,6 +30,10 @@ export const queryKeys = {
     detail: (id: string) => ['competitors', 'detail', id] as const,
     audit: (id: string) => ['competitors', 'audit', id] as const,
   },
+  subSeries: {
+    all: ['subSeries'] as const,
+    bySeries: (seriesId: string) => ['subSeries', 'bySeries', seriesId] as const,
+  },
   races: {
     all: ['races'] as const,
     bySeries: (seriesId: string) => ['races', 'bySeries', seriesId] as const,

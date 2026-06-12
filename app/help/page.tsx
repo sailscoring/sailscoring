@@ -58,6 +58,8 @@ export default async function HelpPage() {
             // Gated: only listed when follow-on-series is enabled.
             ['#creating-a-follow-on-series', 'Creating a follow-on series', 'follow-on-series'],
             ['#adding-races', 'Adding races'],
+            // Gated: only listed when sub-series is enabled (#203).
+            ['#sub-series', 'Sub-series', 'sub-series'],
             ['#entering-results', 'Entering results'],
             // Gated: only listed when csv-finish-import is enabled (#155).
             ['#importing-finish-sheet', 'Importing a finish sheet from CSV', 'csv-finish-import'],
@@ -592,6 +594,32 @@ export default async function HelpPage() {
           re-sailed on another day).
         </p>
       </Section>
+
+      {has('sub-series') && (
+        <Section id="sub-series" title="Sub-series">
+          <p>
+            A season often scores as several short series sailed back-to-back — a Winter block and
+            a Spring block, say, each with its own standings, discards, and prizes, but sharing one
+            entry list and fleet structure. Sub-series let you keep that whole season in a single
+            series: on the <strong className="text-foreground">Races</strong> tab, use the scissors
+            on a race to start a new sub-series there, or <strong className="text-foreground">Add
+            sub-series</strong> to name the first block or open the next one before its races exist.
+            New races are added to the last sub-series.
+          </p>
+          <p>
+            Each sub-series is scored on its own. The series discard rule applies to each block&apos;s
+            race count separately, and a boat that sits out an entire block simply isn&apos;t in that
+            block&apos;s standings — absences in a block are scored against the boats that took part in
+            it. A one-off feature race can be its own one-race sub-series.
+          </p>
+          <p>
+            Progressive handicaps (NHC, ECHO) carry straight across sub-series boundaries: ratings
+            flow race to race exactly as they would without the grouping, so there is no
+            end-of-block handicap reseeding to manage. Removing a sub-series merges its races into
+            the neighbouring block; nothing about the races themselves changes.
+          </p>
+        </Section>
+      )}
 
       <Section id="entering-results" title="Entering results">
         <p>
