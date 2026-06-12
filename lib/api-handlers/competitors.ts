@@ -172,7 +172,7 @@ export async function bulkUpdateHandicaps(
     if (freezeScoredRaces) {
       const [races, finishes] = await Promise.all([
         repos.races.listBySeries(seriesId),
-        repos.finishes.listBySeries(seriesId, updates.map((u) => u.competitorId)),
+        repos.finishes.listBySeries(seriesId),
       ]);
       const raceIds = races.map((r) => r.id);
       const overrides = await repos.raceRatingOverrides.listByRaces(raceIds);

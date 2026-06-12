@@ -281,13 +281,7 @@ export async function copySeries(
     sourceRaceIds.length > 0
       ? await repos.raceStarts.listByRaces(sourceRaceIds)
       : [];
-  const sourceFinishes =
-    sourceCompetitors.length > 0
-      ? await repos.finishes.listBySeries(
-          sourceSeriesId,
-          sourceCompetitors.map((c) => c.id),
-        )
-      : [];
+  const sourceFinishes = await repos.finishes.listBySeries(sourceSeriesId);
   // Build id remap tables. UUIDs are generated up front so child rows
   // can rewrite parent FKs consistently inside the transaction.
   const newSeriesId = crypto.randomUUID();

@@ -14,7 +14,8 @@ import { eq } from 'drizzle-orm';
 import postgres, { type Sql } from 'postgres';
 
 import * as schema from '@/lib/db/schema';
-import { createRepos } from '@/lib/postgres-repository';
+import { createRepos, seriesFileReposFor } from '@/lib/postgres-repository';
+import { loadSeriesSnapshot } from '@/lib/series-snapshot';
 import type {
   Competitor,
   Finish,
@@ -302,8 +303,36 @@ describe.skipIf(skip)('postgres repositories', () => {
     const byRace = await repos.finishes.listByRace(race.id);
     expect(byRace).toHaveLength(1);
     expect(byRace[0]).toMatchObject({ id: finish.id, sortOrder: 1, startPresent: true });
-    const bySeries = await repos.finishes.listBySeries(s.id, [competitor.id]);
-    expect(bySeries).toHaveLength(1);
+
+    // An unknown-sail crossing (null competitorId) must come back from the
+    // whole-series read alongside the resolved finish.
+    const unknown: Finish = {
+      id: uuid(), raceId: race.id, competitorId: null,
+      unknownSailNumber: '9999',
+      sortOrder: 2, finishTime: '12:05:00',
+      resultCode: null, startPresent: true,
+      penaltyCode: null, penaltyOverride: null,
+      redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+      tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
+    };
+    await repos.finishes.save(unknown);
+
+    const bySeries = await repos.finishes.listBySeries(s.id);
+    expect(bySeries).toHaveLength(2);
+    expect(bySeries.find((f) => f.id === unknown.id)).toMatchObject({
+      competitorId: null,
+      unknownSailNumber: '9999',
+    });
+
+    // The whole-series snapshot fan-in (publish, exports, revision capture)
+    // must carry the unknown row too.
+    const snapshot = await loadSeriesSnapshot(
+      seriesFileReposFor({ db, workspaceId: workspaceA }),
+      s.id,
+    );
+    expect(snapshot?.finishes.map((f) => f.id).sort()).toEqual(
+      [finish.id, unknown.id].sort(),
+    );
 
     await repos.series.delete(s.id);
   });

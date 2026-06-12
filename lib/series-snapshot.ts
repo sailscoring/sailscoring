@@ -23,9 +23,8 @@ export interface SeriesSnapshot {
 /**
  * The canonical whole-series fan-in, shared by the `.sailscoring` file
  * builder, the public JSON export, the per-fleet HTML renderer, and the TCF
- * history handler. Two parallel stages: the series row and the per-series
- * lists first, then the race-scoped children once the race and competitor
- * ids are known.
+ * history handler. Every read is series-scoped, so all seven run in
+ * parallel.
  *
  * Returns `null` when the series doesn't exist; empty-series semantics
  * (no competitors / no races) are each caller's own business.
@@ -34,11 +33,22 @@ export async function loadSeriesSnapshot(
   repos: ExportRepos,
   seriesId: string,
 ): Promise<SeriesSnapshot | null> {
-  const [series, competitorsUnsorted, fleetsUnsorted, racesUnsorted] = await Promise.all([
+  const [
+    series,
+    competitorsUnsorted,
+    fleetsUnsorted,
+    racesUnsorted,
+    finishes,
+    raceStarts,
+    ratingOverrides,
+  ] = await Promise.all([
     repos.seriesRepo.get(seriesId),
     repos.competitorRepo.listBySeries(seriesId),
     repos.fleetRepo.listBySeries(seriesId),
     repos.raceRepo.listBySeries(seriesId),
+    repos.finishRepo.listBySeries(seriesId),
+    repos.raceStartRepo.listBySeries(seriesId),
+    repos.raceRatingOverrideRepo.listBySeries(seriesId),
   ]);
   if (!series) return null;
 
@@ -49,12 +59,6 @@ export async function loadSeriesSnapshot(
   );
   const fleets = [...fleetsUnsorted].sort((a, b) => a.displayOrder - b.displayOrder);
   const races = [...racesUnsorted].sort((a, b) => a.raceNumber - b.raceNumber);
-
-  const [finishes, raceStarts, ratingOverrides] = await Promise.all([
-    repos.finishRepo.listBySeries(seriesId, competitors.map((c) => c.id)),
-    repos.raceStartRepo.listBySeries(seriesId),
-    repos.raceRatingOverrideRepo.listBySeries(seriesId),
-  ]);
 
   return { series, competitors, fleets, races, finishes, raceStarts, ratingOverrides };
 }

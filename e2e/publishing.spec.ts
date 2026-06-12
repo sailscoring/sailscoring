@@ -13,10 +13,11 @@ import { addCompetitor, createFleets, createSeriesQuick } from './helpers';
  * database with no external service.
  */
 
-/** New series with one competitor finishing one race; returns the series id. */
+/** New series with one competitor finishing one race; returns the series id.
+ *  `unknownSail` additionally records an unresolved unknown-sail crossing. */
 async function createSeriesWithData(
   page: Page,
-  opts: { name?: string; sail?: string; date?: string } = {},
+  opts: { name?: string; sail?: string; date?: string; unknownSail?: string } = {},
 ): Promise<string> {
   const name = opts.name ?? 'HYC Autumn League 2026';
   const sail = opts.sail ?? '42';
@@ -34,6 +35,11 @@ async function createSeriesWithData(
   await page.getByText('Race 1').click();
   await page.getByLabel('Sail number').fill(sail);
   await page.getByRole('button', { name: 'Add' }).click();
+  if (opts.unknownSail) {
+    await page.getByLabel('Sail number').fill(opts.unknownSail);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('button', { name: 'Record as unknown' }).click();
+  }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   await page.getByRole('link', { name: 'Standings' }).click();
@@ -118,6 +124,38 @@ test('publish with a chosen slug → public page renders → bare slug lists the
   await expect(dialog.getByRole('link', { name: /\/autumn-26\/standings$/ })).toBeVisible();
   await dialog.getByRole('button', { name: 'Re-publish' }).click();
   await expect(dialog.getByRole('link', { name: /\/autumn-26\/standings$/ })).toBeVisible();
+});
+
+test('an unresolved unknown-sail crossing survives server-side publish (#198)', async ({ page }) => {
+  await createSeriesWithData(page, {
+    name: 'Unknown Crossing League',
+    unknownSail: '9999',
+  });
+
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const link = dialog.getByRole('link', { name: /\/p\// });
+  await expect(link).toBeVisible();
+  const path = new URL((await link.getAttribute('href')) ?? '').pathname;
+
+  // The published page embeds the public JSON export in the "Open in Sail
+  // Scoring" footer link. The publish ran server-side, so the unknown
+  // crossing must have made it through the server's whole-series read.
+  await page.goto(path);
+  const importHref =
+    (await page
+      .getByRole('link', { name: 'Open in Sail Scoring' })
+      .getAttribute('href')) ?? '';
+  const b64 = importHref.split('#data=')[1];
+  expect(b64).toBeTruthy();
+  const exported = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
+  const unknowns = exported.races.flatMap(
+    (r: { finishes: { unknownSailNumber?: string }[] }) =>
+      r.finishes.filter((f) => f.unknownSailNumber != null),
+  );
+  expect(unknowns).toHaveLength(1);
+  expect(unknowns[0]).toMatchObject({ unknownSailNumber: '9999' });
 });
 
 test('workspace index lists published series and links through to a fleet page', async ({ page }) => {

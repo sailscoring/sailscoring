@@ -1414,42 +1414,12 @@ export class PostgresFinishRepository implements FinishRepository {
     return rows.map(finishRowToType);
   }
 
-  async listBySeries(
-    seriesId: string,
-    competitorIds: string[],
-  ): Promise<Finish[]> {
-    if (competitorIds.length === 0) return [];
-    // Tenancy: gate via a join through races to confirm seriesId is in
-    // this workspace. The competitorIds are then trusted.
-    const ownedRaces = await this.db
-      .select({ id: schema.races.id })
-      .from(schema.races)
-      .where(
-        and(
-          eq(schema.races.seriesId, seriesId),
-          eq(schema.races.workspaceId, this.workspaceId),
-        ),
-      );
-    if (ownedRaces.length === 0) return [];
-    const ownedRaceIds = ownedRaces.map((r) => r.id);
-    const rows = await this.db
-      .select()
-      .from(schema.finishes)
-      .where(
-        and(
-          inArray(schema.finishes.competitorId, competitorIds),
-          inArray(schema.finishes.raceId, ownedRaceIds),
-        ),
-      );
-    return rows.map(finishRowToType);
-  }
-
   /** Every finish across the series' races in one query — including
-   *  unknown-sail rows (null competitorId), which `listBySeries`'s
-   *  competitor-id filter drops. Backs the series-scoped collection route,
-   *  whose shape must match the per-race route the client used to fan out
-   *  to. Tenancy via the parent races' workspace_id. */
-  async listAllBySeries(seriesId: string): Promise<Finish[]> {
+   *  unknown-sail rows (null competitorId), which whole-series consumers
+   *  (publish, exports, revision snapshots) and the series-scoped
+   *  collection route all need. Tenancy via the parent races'
+   *  workspace_id. */
+  async listBySeries(seriesId: string): Promise<Finish[]> {
     const rows = await this.db
       .select({ finish: schema.finishes })
       .from(schema.finishes)

@@ -279,12 +279,7 @@ class ApiFinishRepository implements FinishRepository {
     return apiFetch<Finish[]>(`/api/v1/races/${raceId}/finishes`);
   }
 
-  async listBySeries(seriesId: string, _competitorIds: string[]): Promise<Finish[]> {
-    // The series-scoped route returns every finish for the series' races in
-    // one response (unknown-sail rows included, like the per-race route);
-    // the competitorIds parameter exists for the Postgres implementation's
-    // tenancy-trust contract and is not needed here.
-    void _competitorIds;
+  listBySeries(seriesId: string): Promise<Finish[]> {
     return apiFetch<Finish[]>(`/api/v1/series/${seriesId}/finishes`);
   }
 

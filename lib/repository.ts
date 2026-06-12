@@ -104,7 +104,9 @@ export interface RaceRepository {
 
 export interface FinishRepository {
   listByRace(raceId: string): Promise<Finish[]>;
-  listBySeries(seriesId: string, competitorIds: string[]): Promise<Finish[]>;
+  /** Every finish across the series' races, including unknown-sail rows
+   *  (null competitorId) — whole-series consumers must see the full sheet. */
+  listBySeries(seriesId: string): Promise<Finish[]>;
   save(finish: Finish, opts?: SaveOpts): Promise<Finish>;
   saveMany(finishes: Finish[], opts?: SaveOpts): Promise<void>;
   delete(id: string): Promise<void>;

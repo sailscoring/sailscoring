@@ -43,7 +43,7 @@ export async function listSeriesFinishes(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const series = await repos.series.get(seriesId);
   if (!series) throw new NotFoundError('series');
-  return repos.finishes.listAllBySeries(seriesId);
+  return repos.finishes.listBySeries(seriesId);
 }
 
 export async function putFinish(
