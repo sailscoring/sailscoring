@@ -55,8 +55,28 @@ export async function putRace(
   if (input.seriesId !== seriesId) throw new NotFoundError('race series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const existing = await repos.races.get(id);
+
+  // Sub-series membership. A payload that names a block must name one of
+  // this series'; a payload that omits it keeps the row's current block, and
+  // a brand-new race defaults into the last block so the full-partition
+  // invariant survives race creation without the client thinking about it.
+  let subSeriesId = input.subSeriesId;
+  if (subSeriesId != null) {
+    const block = await repos.subSeries.get(subSeriesId);
+    if (!block || block.seriesId !== seriesId) {
+      throw new NotFoundError('sub-series');
+    }
+  } else if (subSeriesId === undefined) {
+    if (existing) {
+      subSeriesId = existing.subSeriesId ?? null;
+    } else {
+      const blocks = await repos.subSeries.listBySeries(seriesId);
+      subSeriesId = blocks.length > 0 ? blocks[blocks.length - 1].id : null;
+    }
+  }
+
   const saved = await repos.races.save(
-    { ...input, id },
+    { ...input, id, subSeriesId },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
   await trackChange(workspace, {

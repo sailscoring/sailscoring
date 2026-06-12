@@ -288,6 +288,13 @@
       "when": 1781285499792,
       "tag": "0040_promote-members-to-admin",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1781296428697,
+      "tag": "0041_classy_oracle",
+      "breakpoints": true
     }
   ]
 }

@@ -36,6 +36,9 @@ export const ACTIVITY_ACTIONS = [
   'race.updated',
   'race.deleted',
   'races.cleared',
+  'sub-series.created',
+  'sub-series.renamed',
+  'sub-series.deleted',
   'finishes.recorded',
   'finishes.entered',
   'finishes.cleared',
@@ -66,6 +69,6 @@ export function activityKind(action: string): ActivityKind {
   if (action.startsWith('competitor')) return 'competitor';
   if (action.startsWith('fleet')) return 'fleet';
   if (action.startsWith('finish')) return 'finish';
-  if (action.startsWith('race') || action.startsWith('starts.') || action.startsWith('ratings.')) return 'race';
+  if (action.startsWith('race') || action.startsWith('sub-series.') || action.startsWith('starts.') || action.startsWith('ratings.')) return 'race';
   return 'other';
 }

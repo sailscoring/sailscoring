@@ -338,6 +338,28 @@ export const competitors = pgTable(
   ],
 );
 
+export const subSeries = pgTable(
+  'sub_series',
+  {
+    id: uuid('id').primaryKey(),
+    seriesId: uuid('series_id')
+      .notNull()
+      .references(() => series.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    displayOrder: integer('display_order').notNull(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
+  },
+  (table) => [
+    index('sub_series_series_idx').on(table.seriesId),
+    index('sub_series_workspace_idx').on(table.workspaceId),
+  ],
+);
+
 export const races = pgTable(
   'races',
   {
@@ -353,6 +375,11 @@ export const races = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    // Sub-series membership; `set null` is the safety net for raw deletes —
+    // the API merges a deleted block's races into a neighbour first.
+    subSeriesId: uuid('sub_series_id').references(() => subSeries.id, {
+      onDelete: 'set null',
+    }),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,
@@ -360,6 +387,7 @@ export const races = pgTable(
   (table) => [
     uniqueIndex('races_series_number_uidx').on(table.seriesId, table.raceNumber),
     index('races_workspace_idx').on(table.workspaceId),
+    index('races_sub_series_idx').on(table.subSeriesId),
   ],
 );
 

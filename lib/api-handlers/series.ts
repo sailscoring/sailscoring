@@ -293,6 +293,7 @@ export async function copySeries(
   const sourceCompetitors = await repos.competitors.listBySeries(sourceSeriesId);
   const sourceRaces = await repos.races.listBySeries(sourceSeriesId);
 
+  const sourceSubSeries = await repos.subSeries.listBySeries(sourceSeriesId);
   const sourceRaceIds = sourceRaces.map((r) => r.id);
   const sourceRaceStarts =
     sourceRaceIds.length > 0
@@ -309,6 +310,8 @@ export async function copySeries(
     competitorIdMap.set(c.id, crypto.randomUUID());
   const raceIdMap = new Map<string, string>();
   for (const r of sourceRaces) raceIdMap.set(r.id, crypto.randomUUID());
+  const subSeriesIdMap = new Map<string, string>();
+  for (const ss of sourceSubSeries) subSeriesIdMap.set(ss.id, crypto.randomUUID());
 
   const trimmedName = (input.name ?? '').trim();
   const newName =
@@ -410,6 +413,19 @@ export async function copySeries(
       );
     }
 
+    // Sub-series — inserted before races so the membership FK resolves.
+    if (sourceSubSeries.length > 0) {
+      await tx.insert(schema.subSeries).values(
+        sourceSubSeries.map((ss) => ({
+          id: subSeriesIdMap.get(ss.id)!,
+          seriesId: newSeriesId,
+          workspaceId: targetWorkspaceId,
+          name: ss.name,
+          displayOrder: ss.displayOrder,
+        })),
+      );
+    }
+
     // Races.
     if (sourceRaces.length > 0) {
       await tx.insert(schema.races).values(
@@ -420,6 +436,8 @@ export async function copySeries(
           raceNumber: r.raceNumber,
           date: r.date,
           createdAt: new Date(r.createdAt),
+          subSeriesId:
+            r.subSeriesId != null ? subSeriesIdMap.get(r.subSeriesId) ?? null : null,
         })),
       );
     }

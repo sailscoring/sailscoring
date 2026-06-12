@@ -18,6 +18,7 @@ import {
   type RaceRatingOverrideRepository,
   type SaveOpts,
   type SeriesRepository,
+  type SubSeriesRepository,
 } from './repository';
 import type { SeriesFileRepos } from './series-file';
 import type {
@@ -36,6 +37,7 @@ import type {
   RaceRatingOverride,
   ResultCode,
   Series,
+  SubSeries,
 } from './types';
 
 /**
@@ -71,6 +73,7 @@ type SeriesRow = typeof schema.series.$inferSelect;
 type FleetRow = typeof schema.fleets.$inferSelect;
 type CompetitorRow = typeof schema.competitors.$inferSelect;
 type RaceRow = typeof schema.races.$inferSelect;
+type SubSeriesRow = typeof schema.subSeries.$inferSelect;
 type RaceStartRow = typeof schema.raceStarts.$inferSelect;
 type FinishRow = typeof schema.finishes.$inferSelect;
 
@@ -157,6 +160,17 @@ function raceRowToType(row: RaceRow): Race {
     raceNumber: row.raceNumber,
     date: row.date,
     createdAt: row.createdAt.getTime(),
+    subSeriesId: row.subSeriesId,
+    version: row.version,
+  };
+}
+
+function subSeriesRowToType(row: SubSeriesRow): SubSeries {
+  return {
+    id: row.id,
+    seriesId: row.seriesId,
+    name: row.name,
+    displayOrder: row.displayOrder,
     version: row.version,
   };
 }
@@ -215,6 +229,7 @@ type Versionable =
   | typeof schema.fleets
   | typeof schema.competitors
   | typeof schema.races
+  | typeof schema.subSeries
   | typeof schema.ftpServers;
 
 type RaceScopedVersionable =
@@ -997,11 +1012,12 @@ function raceToRow(r: Race, workspaceId: string) {
     raceNumber: r.raceNumber,
     date: r.date,
     createdAt: new Date(r.createdAt),
+    subSeriesId: r.subSeriesId ?? null,
   };
 }
 
 const raceUpdateColumns = [
-  'raceNumber', 'date',
+  'raceNumber', 'date', 'subSeriesId',
 ] as const satisfies readonly (keyof ReturnType<typeof raceToRow>)[];
 
 export class PostgresRaceRepository implements RaceRepository {
@@ -1073,6 +1089,139 @@ export class PostgresRaceRepository implements RaceRepository {
         and(
           eq(schema.races.seriesId, seriesId),
           eq(schema.races.workspaceId, this.workspaceId),
+        ),
+      );
+  }
+
+  /**
+   * Bulk sub-series reassignment — one statement, so a split or merge can't
+   * leave the partition half-rewritten. Deliberately not version-bumped:
+   * block membership isn't CAS-protected; concurrent editors converge on
+   * refetch.
+   */
+  async setSubSeries(
+    seriesId: string,
+    raceIds: string[],
+    subSeriesId: string | null,
+  ): Promise<void> {
+    if (raceIds.length === 0) return;
+    await this.db
+      .update(schema.races)
+      .set({ subSeriesId })
+      .where(
+        and(
+          inArray(schema.races.id, raceIds),
+          eq(schema.races.seriesId, seriesId),
+          eq(schema.races.workspaceId, this.workspaceId),
+        ),
+      );
+  }
+
+  /** Drop every race's sub-series membership (series back to blockless). */
+  async clearSubSeries(seriesId: string): Promise<void> {
+    await this.db
+      .update(schema.races)
+      .set({ subSeriesId: null })
+      .where(
+        and(
+          eq(schema.races.seriesId, seriesId),
+          eq(schema.races.workspaceId, this.workspaceId),
+        ),
+      );
+  }
+}
+
+// ─── Sub-series ───────────────────────────────────────────────────────────────
+
+function subSeriesToRow(s: SubSeries, workspaceId: string) {
+  return {
+    id: s.id,
+    seriesId: s.seriesId,
+    workspaceId,
+    name: s.name,
+    displayOrder: s.displayOrder,
+  };
+}
+
+const subSeriesUpdateColumns = [
+  'name', 'displayOrder',
+] as const satisfies readonly (keyof ReturnType<typeof subSeriesToRow>)[];
+
+export class PostgresSubSeriesRepository implements SubSeriesRepository {
+  private readonly db: SailScoringDb;
+  private readonly workspaceId: string;
+
+  constructor(ctx: RepoCtx) {
+    this.db = ctx.db ?? getDb();
+    this.workspaceId = ctx.workspaceId;
+  }
+
+  async listBySeries(seriesId: string): Promise<SubSeries[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.subSeries)
+      .where(
+        and(
+          eq(schema.subSeries.seriesId, seriesId),
+          eq(schema.subSeries.workspaceId, this.workspaceId),
+        ),
+      )
+      .orderBy(schema.subSeries.displayOrder);
+    return rows.map(subSeriesRowToType);
+  }
+
+  async get(id: string): Promise<SubSeries | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(schema.subSeries)
+      .where(
+        and(
+          eq(schema.subSeries.id, id),
+          eq(schema.subSeries.workspaceId, this.workspaceId),
+        ),
+      )
+      .limit(1);
+    return row ? subSeriesRowToType(row) : undefined;
+  }
+
+  async save(s: SubSeries, opts?: SaveOpts): Promise<SubSeries> {
+    return versionedSave({
+      db: this.db,
+      table: schema.subSeries,
+      rowToType: subSeriesRowToType,
+      workspaceId: this.workspaceId,
+      id: s.id,
+      values: subSeriesToRow(s, this.workspaceId),
+      updateColumns: subSeriesUpdateColumns,
+      tenancy: { kind: 'workspace' },
+      opts,
+    });
+  }
+
+  async saveMany(list: SubSeries[], opts?: SaveOpts): Promise<void> {
+    for (const s of list) {
+      await this.save(s, opts);
+    }
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.db
+      .delete(schema.subSeries)
+      .where(
+        and(
+          eq(schema.subSeries.id, id),
+          eq(schema.subSeries.workspaceId, this.workspaceId),
+        ),
+      );
+  }
+
+  async deleteBySeries(seriesId: string): Promise<void> {
+    await this.db
+      .delete(schema.subSeries)
+      .where(
+        and(
+          eq(schema.subSeries.seriesId, seriesId),
+          eq(schema.subSeries.workspaceId, this.workspaceId),
         ),
       );
   }
@@ -1913,6 +2062,7 @@ export function createRepos(ctx: RepoCtx) {
     fleets: new PostgresFleetRepository(ctx),
     competitors: new PostgresCompetitorRepository(ctx),
     races: new PostgresRaceRepository(ctx),
+    subSeries: new PostgresSubSeriesRepository(ctx),
     raceStarts: new PostgresRaceStartRepository(ctx),
     raceRatingOverrides: new PostgresRaceRatingOverrideRepository(ctx),
     finishes: new PostgresFinishRepository(ctx),

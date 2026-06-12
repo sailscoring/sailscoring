@@ -36,6 +36,7 @@ import type {
   RevisionEntry,
   RaceRatingOverride,
   Series,
+  SubSeries,
   TcfRecord,
   PublishResult,
   PublishedListItem,
@@ -424,6 +425,49 @@ export const raceRatingOverrideRepo: RaceRatingOverrideRepository = new ApiRaceR
 export const finishRepo: FinishRepository = new ApiFinishRepository();
 export const ftpServerRepo: FtpServerRepository = new ApiFtpServerRepository();
 export const logoRepo = new ApiLogoRepository();
+
+// ─── Sub-series (#203) ───────────────────────────────────────────────────────
+
+/** The series' sub-series, displayOrder matching race order. */
+export function listSubSeries(seriesId: string): Promise<SubSeries[]> {
+  return apiFetch<SubSeries[]>(`/api/v1/series/${seriesId}/sub-series`);
+}
+
+/**
+ * The "start a new sub-series here" gesture. The new block runs from
+ * `firstRaceId` to the end of the block containing it. On the first split of
+ * a blockless series, `initialName` names the block created for the races
+ * before the split (required when there are any). Omit `firstRaceId` to
+ * group every race into the new block (no blocks yet) or append an empty
+ * block (blocks exist).
+ */
+export function createSubSeries(
+  seriesId: string,
+  input: { name: string; firstRaceId?: string; initialName?: string },
+): Promise<SubSeries> {
+  return apiFetch<SubSeries>(`/api/v1/series/${seriesId}/sub-series`, {
+    method: 'POST',
+    body: input,
+  });
+}
+
+export function renameSubSeries(
+  seriesId: string,
+  subSeriesId: string,
+  name: string,
+): Promise<SubSeries> {
+  return apiFetch<SubSeries>(`/api/v1/series/${seriesId}/sub-series/${subSeriesId}`, {
+    method: 'PUT',
+    body: { name },
+  });
+}
+
+/** Remove a block; its races merge into the neighbouring block. */
+export async function deleteSubSeries(seriesId: string, subSeriesId: string): Promise<void> {
+  await apiFetch(`/api/v1/series/${seriesId}/sub-series/${subSeriesId}`, {
+    method: 'DELETE',
+  });
+}
 
 // ─── Series-list organisation (#154) ─────────────────────────────────────────
 
