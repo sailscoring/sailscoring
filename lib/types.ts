@@ -97,6 +97,11 @@ export interface Series {
   // series can be re-imported in place). Workspace-local like categoryId: not
   // carried in the .sailscoring file format or public JSON export.
   source?: SeriesSource;
+  // Lineage: the series this one was created as a follow-on of (competitors
+  // and starting handicaps carried forward). Workspace-local like categoryId;
+  // set once at creation and immutable thereafter. Null/absent for series
+  // with no predecessor or whose predecessor was permanently deleted.
+  previousSeriesId?: string | null;
   // Manual sort position within the active list. Server-seeded (new
   // series append to the end) and rewritten by drag-reorder; always present on
   // the server read path, optional in the type like `version` so file-built

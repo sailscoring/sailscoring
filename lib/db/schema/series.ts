@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   pgTable,
   text,
   timestamp,
@@ -178,6 +179,16 @@ export const series = pgTable(
     // hand-built series. No CHECK — the value space is the SeriesSource union,
     // bounded at the Zod layer; a future source needn't touch the schema.
     source: text('source').$type<SeriesSource>(),
+    // Lineage: the series this one was created as a follow-on of, with
+    // competitors and starting handicaps carried forward. Workspace-local
+    // (like category_id): excluded from the .sailscoring file format and
+    // public JSON export. Set once at creation, immutable thereafter (not in
+    // the update column set). Non-cascading: deleting the predecessor leaves
+    // the follow-on intact with its lineage cleared.
+    previousSeriesId: uuid('previous_series_id').references(
+      (): AnyPgColumn => series.id,
+      { onDelete: 'set null' },
+    ),
     // Manual sort position within the active list. Seeded on insert
     // (new series append to the end) and rewritten by drag-reorder.
     displayOrder: integer('display_order').notNull(),

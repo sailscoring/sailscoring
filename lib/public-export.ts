@@ -498,8 +498,9 @@ export function buildPublicExportFromSnapshot(
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
       ...(series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: series.showPerRaceRatingsInSummary } : {}),
       ...(exportedDefaultStartSequence ? { defaultStartSequence: exportedDefaultStartSequence } : {}),
-      // NB: `categoryId`/`archived` (#154) are deliberately not exported —
-      // they're workspace-local series-list organisation, not series data.
+      // NB: `categoryId`/`archived` (#154) and `previousSeriesId` are
+      // deliberately not exported — workspace-local organisation and
+      // lineage, not series data.
     },
     fleets: fleets.map((f) => ({
       name: f.name,

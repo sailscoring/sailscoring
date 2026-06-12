@@ -1,0 +1,2 @@
+ALTER TABLE "series" ADD COLUMN "previous_series_id" uuid;--> statement-breakpoint
+ALTER TABLE "series" ADD CONSTRAINT "series_previous_series_id_series_id_fk" FOREIGN KEY ("previous_series_id") REFERENCES "public"."series"("id") ON DELETE set null ON UPDATE no action;

@@ -104,6 +104,7 @@ function seriesRowToType(row: SeriesRow): Series {
     categoryId: row.categoryId,
     archived: row.archived,
     source: row.source ?? undefined,
+    previousSeriesId: row.previousSeriesId,
     displayOrder: row.displayOrder,
     version: row.version,
   };

@@ -546,6 +546,8 @@ export async function openSeriesFromFile(
   // `categoryId` isn't carried in the file format (it's workspace-local), so it
   // defaults to null unless the caller picks one in the import dialog (#154).
   // `archived` is likewise absent — a freshly opened file always lands active.
+  // `previousSeriesId` (follow-on lineage) is workspace-local too and stays
+  // out of the file; an opened file has no predecessor in this workspace.
   await repos.seriesRepo.save({
     id: newSeriesId,
     name,
