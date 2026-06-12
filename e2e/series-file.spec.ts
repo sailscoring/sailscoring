@@ -1,6 +1,7 @@
 import { signedInTest as test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import { createSeriesQuick } from './helpers';
+import { FORMAT_VERSION } from '@/lib/series-file';
 
 /**
  * E2E tests for the series file save / load round-trip.
@@ -180,7 +181,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   const file = await saveToFile(page);
 
   // Top-level envelope
-  expect(file.formatVersion).toBe(8);
+  expect(file.formatVersion).toBe(FORMAT_VERSION);
   expect(file.seriesId).toBe(seriesId);
   expect(file).not.toHaveProperty('snapshotId');
   expect(file).not.toHaveProperty('snapshotHistory');

@@ -12,6 +12,7 @@
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import { createSeriesQuick, signInFreshUser } from './helpers';
+import { FORMAT_VERSION } from '@/lib/series-file';
 
 // ─── local types matching the file format ────────────────────────────────────
 
@@ -131,7 +132,7 @@ test.describe('series file save / open / update, server mode', () => {
     // against Postgres.
     const original = await saveToFile(page);
 
-    expect(original.formatVersion).toBe(8);
+    expect(original.formatVersion).toBe(FORMAT_VERSION);
     expect(original.seriesId).toBe(seriesId);
     expect(original).not.toHaveProperty('snapshotId');
     expect(original).not.toHaveProperty('snapshotHistory');

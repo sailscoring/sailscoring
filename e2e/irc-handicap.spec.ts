@@ -1,5 +1,6 @@
 import { signedInTest as test, expect } from './fixtures';
 import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
+import { FORMAT_VERSION } from '@/lib/series-file';
 
 /**
  * E2E tests for IRC time-corrected handicap scoring (issue #61, Phase 1).
@@ -141,7 +142,7 @@ test('series file version is current with IRC fleet scoring system', async ({ pa
   }
   const json = JSON.parse(Buffer.concat(chunks).toString());
 
-  expect(json.formatVersion).toBe(8);
+  expect(json.formatVersion).toBe(FORMAT_VERSION);
 
   const ircFleet = json.fleets?.find((f: { name: string }) => f.name === 'IRC');
   expect(ircFleet?.scoringSystem).toBe('irc');
