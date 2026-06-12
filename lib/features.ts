@@ -110,7 +110,7 @@ export const FEATURES = {
     // whether a workspace can hand the new role out while it bakes. Opt-in
     // (default off) per the containment model.
     label: 'Fine-grained roles (scorer)',
-    helpSectionIds: [],
+    helpSectionIds: ['collaboration'],
   },
 } as const satisfies Record<string, FeatureDef>;
 

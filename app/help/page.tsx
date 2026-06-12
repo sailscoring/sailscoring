@@ -1141,6 +1141,28 @@ export default async function HelpPage() {
           a member&apos;s role or remove them there too.
         </p>
         <p>
+          What someone can do is set by their{' '}
+          <strong className="text-foreground">role</strong>.{' '}
+          <strong className="text-foreground">Owners</strong> and{' '}
+          <strong className="text-foreground">admins</strong> have full access:
+          every series, its settings, and the workspace configuration. A plain{' '}
+          <strong className="text-foreground">member</strong> is a viewer — they
+          see every series, its standings, and its history, but can change
+          nothing. That makes member the right role for committee members and
+          class captains who want visibility without the risk of an accidental
+          edit, and it&apos;s the default for new invitations: promote people
+          once they&apos;re scoring.
+          {has('fine-grained-roles') && (
+            <>
+              {' '}A <strong className="text-foreground">scorer</strong> sits in
+              between, scoped to running a race day: they can add races, enter
+              start times and finishes, and publish results, but can&apos;t
+              change competitors, handicaps, series settings, or workspace
+              configuration — the role for a rostered duty scorer.
+            </>
+          )}
+        </p>
+        <p>
           Don&apos;t have a shared workspace yet? Request one from your{' '}
           <strong className="text-foreground">Account</strong> page — give it a
           name and we&apos;ll set it up and make you the owner, ready to invite

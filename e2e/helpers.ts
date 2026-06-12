@@ -212,7 +212,7 @@ export async function createOrgWorkspace(name: string): Promise<{ id: string; sl
 export async function addMemberByEmail(
   orgId: string,
   email: string,
-  role: 'owner' | 'admin' | 'member' = 'member',
+  role: 'owner' | 'admin' | 'member' | 'scorer' = 'member',
 ): Promise<void> {
   const { db, close } = adminDb();
   try {
@@ -383,6 +383,26 @@ export async function enableFeatures(
     await close();
   }
   await page.reload();
+}
+
+/**
+ * Enable experimental features (#155) on an org (club) workspace by id.
+ * The org-workspace counterpart of `enableFeatures` above; callers reload
+ * affected pages themselves.
+ */
+export async function enableOrgFeatures(
+  orgId: string,
+  features: FeatureKey[],
+): Promise<void> {
+  const { db, close } = adminDb();
+  try {
+    await db
+      .update(schema.organization)
+      .set({ metadata: serializeOrgMetadata({ kind: 'club', enabledFeatures: features, disabledFeatures: [] }) })
+      .where(eq(schema.organization.id, orgId));
+  } finally {
+    await close();
+  }
 }
 
 /**

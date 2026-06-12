@@ -298,32 +298,20 @@ sizing/quiet-zone so it scans reliably off paper.
 
 ## Workspaces and sharing
 
-### Fine-grained workspace roles (read-only member, scorer)
+### Per-series scorer scope
 
-`WorkspaceRole` in `lib/auth/require-workspace.ts` already distinguishes
-`owner | admin | member`, but no API handler gates on it — every member has
-full read-write over everything in the workspace. Two finer-grained roles have
-obvious demand:
+Workspace roles shipped (#202): `member` is the read-only tier, `scorer` is
+race-day operations only (races, starts, finishes, publishing), and
+`owner`/`admin` have full access, enforced per-request at the `workspaceRoute`
+seam from the shared permission table in `lib/auth/permissions.ts`.
 
-- **Read-only member** — can see series, standings, and activity, but change
-  nothing. For committee members and class captains who want visibility
-  without the ability to (accidentally) edit.
-- **Scorer** — can do race-day operations only: enter finishes, change start
-  sequence times, and publish results. Cannot edit series settings,
-  competitors, handicaps, or workspace membership. This is the role for a
-  rostered duty scorer who runs one evening's racing.
-
-Enforcement belongs at the `require-workspace` seam plus a per-handler
-permission check (the route files are thin glue, so the natural shape is a
-declared required-permission per handler in `lib/api-handlers/`). The activity
-log already attributes every change to a user, which pairs well — a scorer
-role narrows what can be done, the log records what was done.
-
-Open questions: whether "scorer" is workspace-wide or per-series (a duty
-scorer arguably only needs the series they're running); how the UI degrades
-for read-only users (hide controls vs. disable them); and how this maps onto
-Better Auth's organization-plugin role machinery vs. a parallel
-application-level permission table.
+The deferred residue is scope: roles are workspace-wide, but a rostered duty
+scorer arguably only needs the series they're running that evening. Per-series
+scope would add a series dimension to the same permission check — a
+series-access table consulted when the role alone doesn't grant `score` — plus
+UI to assign a scorer to specific series. Not worth the machinery until a real
+panel asks for it; the activity log already records what was done, so the
+workspace-wide scorer role bounds the blast radius well enough for now.
 
 ### Light/dark colourway logo variants
 
