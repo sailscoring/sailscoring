@@ -2,10 +2,17 @@
 
 import { use, useState } from 'react';
 import { useSeriesData } from '@/hooks/use-series-data';
-import { getDiscardCount, calculateFleetStandings } from '@/lib/scoring';
+import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
+import {
+  getDiscardCount,
+  calculateFleetStandings,
+  calculateSubSeriesFleetStandings,
+  subSeriesEntrantIds,
+} from '@/lib/scoring';
 import { subdivisionFieldLabel } from '@/lib/competitor-fields';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useFeatures } from '@/components/features-provider';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
@@ -33,8 +40,10 @@ export default function StandingsPage({
   const [showFtpDialog, setShowFtpDialog] = useState(false);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
   const data = useSeriesData(seriesId, { finishes: true, raceStarts: true });
+  const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
 
   useShortcuts([
     ...(canPublish
@@ -46,8 +55,8 @@ export default function StandingsPage({
       : []),
   ]);
 
-  if (data.status !== 'ready') {
-    return <SeriesTabFallback status={data.status} />;
+  if (data.status !== 'ready' || subSeriesList === undefined) {
+    return <SeriesTabFallback status={data.status === 'missing' ? 'missing' : 'loading'} />;
   }
   const { series, competitors, fleets, races } = data;
   const allFinishes = data.finishes ?? [];
@@ -70,22 +79,86 @@ export default function StandingsPage({
   }
 
   const discardThresholds: DiscardThreshold[] = series.discardThresholds ?? [];
-  const { fleetStandings: fleetResults, circularRedressRaces } = calculateFleetStandings(
-    fleets,
-    competitors,
-    races,
-    allFinishes,
-    discardThresholds,
-    series.dnfScoring ?? 'seriesEntries',
-    allRaceStarts,
-  );
-  const discardCount = getDiscardCount(races.length, discardThresholds);
+  const enabledFields = data.enabledFields;
+  const subdivisionLabel = subdivisionFieldLabel(series);
   const isSingleFleet = fleets.length <= 1;
   const fleetCountLabel = fleets.length > 1 ? ` · ${fleets.length} fleets` : '';
 
-  const enabledFields = data.enabledFields;
-  const subdivisionLabel = subdivisionFieldLabel(series);
+  // Sub-series replace the whole-series standings: each block is scored
+  // independently, and the tab strip selects which one is shown.
+  const hasBlocks = subSeriesList.length > 0;
 
+  let raceLabels: { id: string; raceNumber: number }[];
+  let fleetResults: ReturnType<typeof calculateFleetStandings>['fleetStandings'];
+  let circularRedressRaces: number[];
+  let summary: string;
+  let blockTabs: { id: string; name: string }[] = [];
+  let effectiveBlockId: string | null = null;
+
+  if (hasBlocks) {
+    const blockResults = calculateSubSeriesFleetStandings(
+      subSeriesList,
+      fleets,
+      competitors,
+      races,
+      allFinishes,
+      discardThresholds,
+      series.dnfScoring ?? 'seriesEntries',
+      allRaceStarts,
+    );
+    const nonEmpty = blockResults.filter((b) => b.races.length > 0);
+    blockTabs = nonEmpty.map((b) => ({ id: b.subSeries.id, name: b.subSeries.name }));
+    // Default to the block currently being sailed: the last one with any
+    // recorded finishes (falling back to the first block).
+    const racesWithFinishes = new Set(allFinishes.map((f) => f.raceId));
+    const current =
+      [...nonEmpty].reverse().find((b) => b.races.some((r) => racesWithFinishes.has(r.id))) ??
+      nonEmpty[0];
+    const selected =
+      nonEmpty.find((b) => b.subSeries.id === selectedBlockId) ?? current;
+    if (!selected) {
+      return (
+        <p className="text-sm text-muted-foreground">
+          No races yet. Add races and record results to see standings.
+        </p>
+      );
+    }
+    effectiveBlockId = selected.subSeries.id;
+
+    // Race columns are numbered within the block — "Spring Race 3", not the
+    // series-wide race number.
+    raceLabels = selected.races.map((r, i) => ({ id: r.id, raceNumber: i + 1 }));
+    fleetResults = selected.fleetStandings;
+    circularRedressRaces = selected.circularRedressRaces;
+    const blockDiscards = getDiscardCount(selected.races.length, discardThresholds);
+    const entrantCount = subSeriesEntrantIds(selected.races, allFinishes).size;
+    summary =
+      `${selected.races.length} race${selected.races.length === 1 ? '' : 's'}${fleetCountLabel} · Low Point · ` +
+      (blockDiscards > 0
+        ? `${blockDiscards} discard${blockDiscards > 1 ? 's' : ''}`
+        : 'No discards') +
+      ` · ${entrantCount} entrant${entrantCount === 1 ? '' : 's'}`;
+  } else {
+    const whole = calculateFleetStandings(
+      fleets,
+      competitors,
+      races,
+      allFinishes,
+      discardThresholds,
+      series.dnfScoring ?? 'seriesEntries',
+      allRaceStarts,
+    );
+    raceLabels = races;
+    fleetResults = whole.fleetStandings;
+    circularRedressRaces = whole.circularRedressRaces;
+    const discardCount = getDiscardCount(races.length, discardThresholds);
+    summary =
+      `${races.length} race${races.length === 1 ? '' : 's'}${fleetCountLabel} · Low Point · ` +
+      (discardCount > 0
+        ? `${discardCount} discard${discardCount > 1 ? 's' : ''}`
+        : 'No discards') +
+      ` · ${competitors.length} competitor${competitors.length === 1 ? '' : 's'}`;
+  }
   return (
     <div className="space-y-4 overflow-x-auto">
       {circularRedressRaces.length > 0 && (
@@ -95,14 +168,19 @@ export default function StandingsPage({
           have RDG assigned. Assign one result manually to resolve.
         </div>
       )}
+      {blockTabs.length > 0 && effectiveBlockId && (
+        <Tabs value={effectiveBlockId} onValueChange={setSelectedBlockId}>
+          <TabsList>
+            {blockTabs.map((tab) => (
+              <TabsTrigger key={tab.id} value={tab.id}>
+                {tab.name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {races.length} race{races.length === 1 ? '' : 's'}{fleetCountLabel} · Low Point ·{' '}
-          {discardCount > 0
-            ? `${discardCount} discard${discardCount > 1 ? 's' : ''}`
-            : 'No discards'}{' '}
-          · {competitors.length} competitor{competitors.length === 1 ? '' : 's'}
-        </p>
+        <p className="text-sm text-muted-foreground">{summary}</p>
         <div className="flex gap-2">
           {canPublish && (
             <Button size="sm" variant="outline" onClick={() => setShowPublishDialog(true)} title="Publish (p)">
@@ -142,7 +220,7 @@ export default function StandingsPage({
             )}
             <FleetStandingsTable
               standings={standings}
-              races={races}
+              races={raceLabels}
               hasDiscards={hasDiscards}
               enabledFields={enabledFields}
               primaryLabel={data.primaryLabel}
@@ -181,4 +259,3 @@ export default function StandingsPage({
     </div>
   );
 }
-
