@@ -20,14 +20,18 @@ import {
   assertSeriesDeletable,
   assertSeriesWritable,
 } from '@/lib/api-handlers/series-access';
+import { listTcfHistory } from '@/lib/api-handlers/tcf-history';
+import { suggestFollowOnName } from '@/lib/series-name';
+import { endOfSeriesTcfKey, endOfSeriesTcfs } from '@/lib/source-handicaps';
 import { seriesCopyInputSchema } from '@/lib/validation/series-copy';
+import { seriesFollowOnInputSchema } from '@/lib/validation/series-follow-on';
 import {
   seriesArchiveInputSchema,
   seriesCategoryInputSchema,
   seriesInputSchema,
   seriesReorderSchema,
 } from '@/lib/validation/series';
-import type { Series } from '@/lib/types';
+import type { Competitor, Fleet, Series } from '@/lib/types';
 
 export async function listSeries(workspace: WorkspaceContext): Promise<{ items: Series[] }> {
   const repos = createRepos({ workspaceId: workspace.workspaceId });
@@ -463,4 +467,183 @@ export async function copySeries(
     },
   );
   return { id: newSeriesId };
+}
+
+/**
+ * Create a follow-on series in the same workspace — the next series of a
+ * season, rolled over from a finished one. Copies the source's
+ * configuration, fleets, and competitors; none of its races, starts,
+ * finishes, or rating overrides. Each boat's progressive starting handicap
+ * (NHC/ECHO) is seeded from its end-of-series TCF in the source, so the
+ * new series picks up where the old one's ratings left off; static ratings
+ * (IRC/PY/VPRS) carry on the competitor row as-is. The new series records
+ * its lineage in `previousSeriesId`.
+ *
+ * Archived sources are allowed: this never writes the source, and
+ * archiving the finished series before rolling it over is the natural
+ * order of operations.
+ */
+export async function createFollowOnSeries(
+  workspace: WorkspaceContext,
+  sourceSeriesId: string,
+  body: unknown,
+): Promise<{ id: string; seededCount: number }> {
+  const input = seriesFollowOnInputSchema.parse(body);
+  const db = getDb();
+  const repos = createRepos({ db, workspaceId: workspace.workspaceId });
+  const source = await repos.series.get(sourceSeriesId);
+  if (!source) throw new NotFoundError('series');
+
+  const sourceFleets = await repos.fleets.listBySeries(sourceSeriesId);
+  const sourceCompetitors = await repos.competitors.listBySeries(sourceSeriesId);
+  const sourceRaces = await repos.races.listBySeries(sourceSeriesId);
+
+  // End-of-series progressive handicaps. A (competitor × fleet) pairing
+  // with no scored races is absent from the map; those boats keep the
+  // starting TCF they already carry on the source row.
+  const history = await listTcfHistory(workspace, sourceSeriesId);
+  const endTcfs = endOfSeriesTcfs(
+    sourceCompetitors,
+    sourceFleets,
+    sourceRaces,
+    history,
+  );
+
+  const fleetById = new Map(sourceFleets.map((f) => [f.id, f]));
+  // A boat can sit in more than one fleet of the same progressive system,
+  // but the starting-TCF field is per system — the boat's first such fleet
+  // (by display order) wins.
+  const seededTcf = (
+    c: Competitor,
+    system: 'nhc' | 'echo',
+  ): number | undefined => {
+    const fleetsOfSystem = c.fleetIds
+      .map((fid) => fleetById.get(fid))
+      .filter((f): f is Fleet => f !== undefined && f.scoringSystem === system)
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+    for (const f of fleetsOfSystem) {
+      const entry = endTcfs.get(endOfSeriesTcfKey(c.id, f.id));
+      if (entry) return entry.endTcf;
+    }
+    return undefined;
+  };
+
+  const newSeriesId = crypto.randomUUID();
+  const fleetIdMap = new Map<string, string>();
+  for (const f of sourceFleets) fleetIdMap.set(f.id, crypto.randomUUID());
+
+  let newName = (input.name ?? '').trim();
+  if (newName.length === 0) {
+    const existing = await db
+      .select({ name: schema.series.name })
+      .from(schema.series)
+      .where(eq(schema.series.workspaceId, workspace.workspaceId));
+    newName = suggestFollowOnName(source.name, existing.map((r) => r.name));
+  }
+
+  let seededCount = 0;
+  const competitorRows = sourceCompetitors.map((c) => {
+    const nhcSeed = seededTcf(c, 'nhc');
+    const echoSeed = seededTcf(c, 'echo');
+    if (nhcSeed !== undefined) seededCount++;
+    if (echoSeed !== undefined) seededCount++;
+    return {
+      id: crypto.randomUUID(),
+      seriesId: newSeriesId,
+      workspaceId: workspace.workspaceId,
+      fleetIds: c.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
+      sailNumber: c.sailNumber,
+      boatName: c.boatName ?? null,
+      boatClass: c.boatClass ?? null,
+      name: c.name,
+      owner: c.owner ?? null,
+      helm: c.helm ?? null,
+      crewName: c.crewName ?? null,
+      club: c.club,
+      nationality: c.nationality ?? null,
+      gender: c.gender,
+      age: c.age,
+      subdivision: c.subdivision ?? null,
+      createdAt: new Date(c.createdAt),
+      ircTcc: c.ircTcc ?? null,
+      vprsTcc: c.vprsTcc ?? null,
+      pyNumber: c.pyNumber ?? null,
+      nhcStartingTcf: nhcSeed ?? c.nhcStartingTcf ?? null,
+      echoStartingTcf: echoSeed ?? c.echoStartingTcf ?? null,
+    };
+  });
+
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    // Series — publishing/file-tracking state resets like a copy, but the
+    // category carries: the follow-on belongs to the same season's bucket.
+    await tx.insert(schema.series).values({
+      id: newSeriesId,
+      workspaceId: workspace.workspaceId,
+      name: newName,
+      venue: source.venue,
+      startDate: input.startDate ?? '',
+      endDate: '',
+      venueLogoUrl: source.venueLogoUrl,
+      eventLogoUrl: source.eventLogoUrl,
+      venueUrl: source.venueUrl,
+      eventUrl: source.eventUrl,
+      createdAt: now,
+      lastSavedAt: null,
+      lastModifiedAt: now,
+      scoringMode: source.scoringMode,
+      defaultStartSequence: source.defaultStartSequence
+        ? source.defaultStartSequence.map((g) => ({
+            ...g,
+            fleetIds: g.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
+          }))
+        : null,
+      discardThresholds: source.discardThresholds,
+      dnfScoring: source.dnfScoring,
+      ftpHost: '',
+      ftpPath: '',
+      ftpPaths: {},
+      includeJsonExport: source.includeJsonExport,
+      publishRatingCalculations: source.publishRatingCalculations ?? true,
+      showPerRaceRatingsInSummary: source.showPerRaceRatingsInSummary ?? true,
+      enabledCompetitorFields: source.enabledCompetitorFields,
+      primaryPersonLabel: source.primaryPersonLabel,
+      subdivisionLabel: source.subdivisionLabel,
+      categoryId: source.categoryId ?? null,
+      archived: false,
+      source: null,
+      previousSeriesId: sourceSeriesId,
+      displayOrder: sql<number>`(select coalesce(max(${schema.series.displayOrder}) + 1, 0) from ${schema.series} where ${schema.series.workspaceId} = ${workspace.workspaceId})`,
+    });
+
+    if (sourceFleets.length > 0) {
+      await tx.insert(schema.fleets).values(
+        sourceFleets.map((f) => ({
+          id: fleetIdMap.get(f.id)!,
+          seriesId: newSeriesId,
+          workspaceId: workspace.workspaceId,
+          name: f.name,
+          displayOrder: f.displayOrder,
+          scoringSystem: f.scoringSystem,
+          echoAlpha: f.echoAlpha ?? null,
+          nhcProfile: f.nhcProfile ?? null,
+        })),
+      );
+    }
+
+    if (competitorRows.length > 0) {
+      await tx.insert(schema.competitors).values(competitorRows);
+    }
+  });
+
+  await recordActivity(
+    { workspaceId: workspace.workspaceId, userId: workspace.userId },
+    {
+      action: 'series.created-follow-on',
+      seriesId: newSeriesId,
+      summary: `Created follow-on series “${newName}” from “${source.name}”`,
+    },
+  );
+  return { id: newSeriesId, seededCount };
 }
