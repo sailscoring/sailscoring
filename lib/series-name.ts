@@ -49,6 +49,32 @@ export function disambiguateSeriesName(baseName: string, existing: Iterable<stri
   return `${root} (${n})`;
 }
 
+const TRAILING_INTEGER = /(\d+)\s*$/;
+
+/**
+ * Suggest a name for a follow-on series. Names that end in an integer
+ * increment it ("Spring Series 1" → "Spring Series 2", "Autumn 2025" →
+ * "Autumn 2026" — usually right for season-year names too); anything else
+ * gets " 2" appended ("Frostbites" → "Frostbites 2"). The counter keeps
+ * climbing past taken names, so rolling "Series 2" over while "Series 3"
+ * exists suggests "Series 4".
+ */
+export function suggestFollowOnName(
+  sourceName: string,
+  existing: Iterable<string>,
+): string {
+  const trimmed = sourceName.trim();
+  const existingNorm = new Set<string>();
+  for (const name of existing) existingNorm.add(normalizeSeriesName(name));
+
+  const match = trimmed.match(TRAILING_INTEGER);
+  const root = match ? trimmed.slice(0, -match[0].length) : `${trimmed} `;
+  let n = match ? Number(match[1]) + 1 : 2;
+
+  while (existingNorm.has(normalizeSeriesName(`${root}${n}`))) n++;
+  return `${root}${n}`;
+}
+
 /** Lowercase/strip/hyphenate a series name for filenames and published URLs.
  *  Identical behaviour matters in both: a saved file and its published page
  *  must agree on the slug. */

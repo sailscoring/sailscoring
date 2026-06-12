@@ -3,6 +3,7 @@ import {
   normalizeSeriesName,
   isDuplicateSeriesName,
   disambiguateSeriesName,
+  suggestFollowOnName,
 } from '@/lib/series-name';
 
 describe('normalizeSeriesName', () => {
@@ -67,5 +68,31 @@ describe('disambiguateSeriesName', () => {
   });
   it('treats only a trailing " (N)" as the counter, not middle occurrences', () => {
     expect(disambiguateSeriesName('Foo (2) Bar', ['Foo (2) Bar'])).toBe('Foo (2) Bar (2)');
+  });
+});
+
+describe('suggestFollowOnName', () => {
+  it('increments a trailing integer', () => {
+    expect(suggestFollowOnName('Spring Series 1', [])).toBe('Spring Series 2');
+    expect(suggestFollowOnName('Series 9', [])).toBe('Series 10');
+  });
+  it('increments a trailing year', () => {
+    expect(suggestFollowOnName('Autumn 2025', [])).toBe('Autumn 2026');
+  });
+  it('appends " 2" when the name has no trailing integer', () => {
+    expect(suggestFollowOnName('Frostbites', [])).toBe('Frostbites 2');
+  });
+  it('skips past taken names', () => {
+    expect(suggestFollowOnName('Series 2', ['Series 3'])).toBe('Series 4');
+    expect(suggestFollowOnName('Frostbites', ['Frostbites 2', 'Frostbites 3'])).toBe('Frostbites 4');
+  });
+  it('compares case-insensitively but preserves the input casing', () => {
+    expect(suggestFollowOnName('Spring Series 1', ['SPRING SERIES 2'])).toBe('Spring Series 3');
+  });
+  it('absorbs whitespace between the root and the counter', () => {
+    expect(suggestFollowOnName('Spring Series 1  ', [])).toBe('Spring Series 2');
+  });
+  it('only treats a trailing integer as the counter, not middle digits', () => {
+    expect(suggestFollowOnName('2026 Frostbites', [])).toBe('2026 Frostbites 2');
   });
 });
