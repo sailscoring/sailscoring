@@ -369,13 +369,12 @@ td.nat { font-family: monospace; }
 td.nat .flag { display: block; width: 20px; height: 13px; margin-bottom: 2px; border: 1px solid #ccc; }
 td.nat .flag svg { display: block; width: 100%; height: 100%; }
 td.nat .nattext { font-size: 0.8em; }
-.print-actions { text-align: center; margin: 4px 0 18px 0; }
-.print-btn { font: inherit; font-size: 0.8em; color: #666; background: none; border: 0; padding: 2px 4px; cursor: pointer; text-decoration: underline; }
+.print-btn { font: inherit; color: #073358; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
 .print-btn:hover { color: #fb3a3b; }
 @page { margin: 12mm; }
 @media print {
   body { border-top: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .breadcrumb, .nhc-toggle, .echo-toggle, .print-actions { display: none; }
+  .breadcrumb, .nhc-toggle, .echo-toggle, .print-btn { display: none; }
   thead { display: table-header-group; }
   tr { break-inside: avoid; }
   h3.racetitle { break-after: avoid; }
@@ -411,22 +410,21 @@ ${races
 <p class="hardleft">${leftUrl ? `<a href="${esc(externalHref(leftUrl))}" target="_top" rel="noopener">${esc(series.venue || leftUrl)}</a>` : ''}</p>
 <p class="hardright">${rightUrl ? `<a href="${esc(externalHref(rightUrl))}" target="_top" rel="noopener">${esc(series.name)}</a>` : ''}</p>
 <div style="clear:both;"></div>
-<p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}</p>
-${renderPrintButton()}
+<p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''} &mdash; ${renderPrintButton()}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
 </body>
 </html>`;
 }
 
-/** Screen-only "Save as PDF" control, rendered as an unobtrusive link in the
- *  footer. Calls the browser's print dialog, which the @media print stylesheet
- *  has tuned for a clean printout (and from which the viewer picks "Save as
- *  PDF"). Carries `.print-actions`, hidden in print so it doesn't land in the
+/** Screen-only "Save as PDF" control, rendered inline in the footer credit line
+ *  next to "Open in Sail Scoring". Calls the browser's print dialog, which the
+ *  @media print stylesheet has tuned for a clean printout (and from which the
+ *  viewer picks "Save as PDF"). Hidden in print so it doesn't land in the
  *  output. Present on the public `/p/` page; the in-app preview offers the same
  *  via its Download menu, so this is its public-page counterpart. */
 function renderPrintButton(): string {
-  return `<p class="print-actions"><button type="button" class="print-btn" onclick="window.print()">Save as PDF</button></p>`;
+  return `<button type="button" class="print-btn" onclick="window.print()">Save as PDF</button>`;
 }
 
 /** Viewer-facing toggle for NHC rating-calculation columns. Only emitted when
