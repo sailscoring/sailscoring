@@ -103,6 +103,33 @@ dropped. Pairs naturally with the changelog/snapshot-history work under *Scoring
 audit trail* — a resolution sourced from an RRS.org decision is exactly the kind of change
 that wants an attributed, linkable audit entry.
 
+### Reconciling competitor identity with external member databases
+
+The cross-series competitor-identity spine (#212) builds a *workspace-local* identity
+table — competitor rows across series collapse onto a stable recurring competitor,
+populated on demand and corrected by hand. The obvious next step is **automated
+reconciliation against the organisation's real member database**: IODAI's members
+system, a club's roster, a class association's register. Rather than the scorer
+confirming matches manually, the workspace identity table would be matched — and kept
+in sync — against the authoritative external source, so a sailor's identity, eligibility
+(e.g. paid-up membership, nationality), and history are pulled rather than re-keyed.
+
+This grows without bound: every club and class has its own member database, in its own
+format, with its own access story (most are not public — IODAI's isn't). Building a
+bespoke connector per organisation is not a product. Two things bound the risk. First,
+the local identity spine (#212) is deliberately useful *without* any of this — external
+reconciliation is an enhancement on top, not a prerequisite. Second, **Irish Sailing are
+building a Member Management System** with essentially this remit (one authoritative
+identity for every Irish sailor across clubs and classes); if it exposes an integration
+surface, it could become the long-term *universal* reconciliation source for Irish
+events, displacing the need for per-org connectors. We should avoid overlapping with
+that endeavour — start with whatever bespoke arrangement IODAI needs, and treat a future
+MMS integration as the general solution rather than reinventing it.
+
+Touches personal data and eligibility, so the sub-processor / Privacy Policy implications
+(legal pages live in the marketing-site repo) need checking before any real feed is wired
+up.
+
 ---
 
 ## Finish entry UX
