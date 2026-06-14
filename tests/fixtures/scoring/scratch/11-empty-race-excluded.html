@@ -16,6 +16,8 @@ body {font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, aria
 .breadcrumb a {color: #073358; text-decoration: none;}
 .breadcrumb a:hover {color: #fb3a3b; text-decoration: underline;}
 table {text-align: left; margin: 0px auto 30px auto; font-size: 1em; border-collapse: collapse; border: 1px #fff solid;}
+.tablewrap {overflow-x: auto; margin: 0 auto 30px auto;}
+.tablewrap table {margin: 0 auto;}
 td, th {padding: 4px; border: 2px #fff solid; vertical-align: top;}
 th {background-color: #073358; color: #ffffff; font-weight: 600;}
 .caption {padding: 5px; text-align: center; border: 0; font-weight: bold;}
@@ -45,6 +47,18 @@ td.nat { font-family: monospace; }
 td.nat .flag { display: block; width: 20px; height: 13px; margin-bottom: 2px; border: 1px solid #ccc; }
 td.nat .flag svg { display: block; width: 100%; height: 100%; }
 td.nat .nattext { font-size: 0.8em; }
+.print-btn { font: inherit; color: #073358; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.print-btn:hover { color: #fb3a3b; }
+@page { margin: 12mm; }
+@media print {
+  body { border-top: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .breadcrumb, .nhc-toggle, .echo-toggle, .print-btn { display: none; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  h3.racetitle { break-after: avoid; }
+  table { break-inside: auto; }
+  .tablewrap { overflow-x: visible; }
+}
 </style>
 </head>
 <body>
@@ -74,7 +88,7 @@ is below the 5-race threshold, so no discards apply.</pre>
 
 
 
-<table class="summarytable" cellspacing="0" cellpadding="0" border="0">
+<div class="tablewrap"><table class="summarytable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="9">
 <col class="rank" />
 <col class="sailno" />
@@ -156,9 +170,9 @@ is below the 5-race threshold, so no discards apply.</pre>
 <td>15.0</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 class="racetitle" id="r1">R1&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
-<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="5">
 <col class="rank" />
 <col class="sailno" />
@@ -213,9 +227,9 @@ is below the 5-race threshold, so no discards apply.</pre>
 <td>5.0</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 class="racetitle" id="r2">R2&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
-<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="5">
 <col class="rank" />
 <col class="sailno" />
@@ -270,9 +284,9 @@ is below the 5-race threshold, so no discards apply.</pre>
 <td>5.0</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 class="racetitle" id="r3">R3&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
-<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="5">
 <col class="rank" />
 <col class="sailno" />
@@ -327,9 +341,9 @@ is below the 5-race threshold, so no discards apply.</pre>
 <td>6.0 DNC</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 class="racetitle" id="r4">R4&nbsp;&mdash;&nbsp;1 Jan 2025</h3>
-<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="5">
 <col class="rank" />
 <col class="sailno" />
@@ -384,11 +398,11 @@ is below the 5-race threshold, so no discards apply.</pre>
 <td>5.0</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <p class="hardleft"></p>
 <p class="hardright"></p>
 <div style="clear:both;"></div>
-<p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a></p>
+<p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a> &mdash; <button type="button" class="print-btn" onclick="window.print()">Save as PDF</button></p>
 
 
 </body>

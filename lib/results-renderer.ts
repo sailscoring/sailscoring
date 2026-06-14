@@ -340,6 +340,8 @@ body {font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, aria
 .breadcrumb a {color: #073358; text-decoration: none;}
 .breadcrumb a:hover {color: #fb3a3b; text-decoration: underline;}
 table {text-align: left; margin: 0px auto 30px auto; font-size: 1em; border-collapse: collapse; border: 1px #fff solid;}
+.tablewrap {overflow-x: auto; margin: 0 auto 30px auto;}
+.tablewrap table {margin: 0 auto;}
 td, th {padding: 4px; border: 2px #fff solid; vertical-align: top;}
 th {background-color: #073358; color: #ffffff; font-weight: 600;}
 .caption {padding: 5px; text-align: center; border: 0; font-weight: bold;}
@@ -379,6 +381,7 @@ td.nat .nattext { font-size: 0.8em; }
   tr { break-inside: avoid; }
   h3.racetitle { break-after: avoid; }
   table { break-inside: auto; }
+  .tablewrap { overflow-x: visible; }
 }
 ${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.nhc-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.nhc-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.nhc-explainer p:last-child { margin-bottom: 0; }\ndiv.nhc-explainer .formula { font-family: monospace; }\ndiv.nhc-explainer dl { margin: 4px 0 0 0; }\ndiv.nhc-explainer dt { font-weight: bold; display: inline; }\ndiv.nhc-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.nhc-explainer dd:after { content: ""; display: block; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.echo-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.echo-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.echo-explainer p:last-child { margin-bottom: 0; }\ndiv.echo-explainer .formula { font-family: monospace; }\ndiv.echo-explainer dl { margin: 4px 0 0 0; }\ndiv.echo-explainer dt { font-weight: bold; display: inline; }\ndiv.echo-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.echo-explainer dd:after { content: ""; display: block; }\n' : ''}</style>
 </head>
@@ -636,7 +639,7 @@ function renderSummaryTable(
     })
     .join('\n');
 
-  return `<table class="summarytable" cellspacing="0" cellpadding="0" border="0">
+  return `<div class="tablewrap"><table class="summarytable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
 ${cols}
 </colgroup>
@@ -648,7 +651,7 @@ ${headerCells}
 <tbody>
 ${rows}
 </tbody>
-</table>`;
+</table></div>`;
 }
 
 // ---- Race detail table ----
@@ -783,7 +786,7 @@ function renderRaceTable(
 
   const primaryTh = esc(showCrewName ? `${primaryHeader} / Crew` : primaryHeader);
   return `<h3 class="racetitle" id="${esc(race.anchorId)}">${esc(race.label)}&nbsp;&mdash;&nbsp;${dateStr}${startStr}</h3>
-${nhcSubheading}${echoSubheading}<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
 <col class="rank" />
 <col class="sailno" />
@@ -802,7 +805,7 @@ ${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : '
 <tbody>
 ${rows}
 </tbody>
-</table>`;
+</table></div>`;
 }
 
 /** Emit one `<symbol>` per referenced nationality code, deduped, so 200
