@@ -454,8 +454,12 @@ export async function downloadFleetHtml(page: Page, fleetName?: string): Promise
     page.waitForEvent('download'),
     page.getByRole('menuitem', { name: 'HTML' }).click(),
   ]);
-  // Close so the helper can be called again (e.g. another fleet) from a clean state.
-  await page.keyboard.press('Escape');
+  // Close so the helper can be called again (e.g. another fleet) from a clean
+  // state. Wait for the Download menu to fully close first: an Escape pressed
+  // while its dismissable layer is still tearing down is swallowed by the menu
+  // and never reaches the dialog, leaving it open to block the next interaction.
+  await expect(page.getByRole('menuitem', { name: 'HTML' })).toBeHidden();
+  await dialog.getByRole('button', { name: 'Close' }).click();
   await expect(dialog).toBeHidden();
   return download;
 }
