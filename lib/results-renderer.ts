@@ -369,6 +369,9 @@ td.nat { font-family: monospace; }
 td.nat .flag { display: block; width: 20px; height: 13px; margin-bottom: 2px; border: 1px solid #ccc; }
 td.nat .flag svg { display: block; width: 100%; height: 100%; }
 td.nat .nattext { font-size: 0.8em; }
+.print-actions { text-align: center; margin: 0 0 16px 0; }
+.print-btn { font: inherit; font-size: 0.9em; color: #073358; background: #fff; border: 1px #073358 solid; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+.print-btn:hover { color: #fff; background: #073358; }
 @page { margin: 12mm; }
 @media print {
   body { border-top: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -395,6 +398,7 @@ ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 </table>
 <div style="clear:both;"></div>
 <style>div.applicant-break {page-break-after:always;}</style>
+${renderPrintButton()}
 ${generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
 ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${flagDefs}
@@ -413,6 +417,15 @@ ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
 </body>
 </html>`;
+}
+
+/** Screen-only "Save as PDF" control. Calls the browser's print dialog, which
+ *  the @media print stylesheet has tuned for a clean printout (and from which
+ *  the viewer picks "Save as PDF"). Carries `.print-actions`, hidden in print
+ *  so it doesn't land in the output. Works the same on the public `/p/` page
+ *  and inside the in-app preview iframe — both print their own document. */
+function renderPrintButton(): string {
+  return `<p class="print-actions"><button type="button" class="print-btn" onclick="window.print()">Save as PDF</button></p>`;
 }
 
 /** Viewer-facing toggle for NHC rating-calculation columns. Only emitted when

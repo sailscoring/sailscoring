@@ -894,7 +894,11 @@ export default async function HelpPage() {
           <strong className="text-foreground">x</strong>) to see the rendered results page in-app —
           exactly what publishing produces. From there you can{' '}
           <strong className="text-foreground">Download</strong> a self-contained file to email or
-          host on your club website, or <strong className="text-foreground">Publish</strong> it.
+          host on your club website, or <strong className="text-foreground">Publish</strong> it. The
+          rendered page (in the preview, and on the published page) has a{' '}
+          <strong className="text-foreground">Save as PDF</strong> button that opens your
+          browser&apos;s print dialog with a print-tuned layout — handy for a PDF to attach to an
+          email or pin to the noticeboard.
           {has('ftp-upload') && (
             <>
               {' '}To push results directly to a web server, see{' '}

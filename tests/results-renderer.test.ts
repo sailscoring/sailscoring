@@ -82,6 +82,17 @@ describe('renderSeriesHtml', () => {
     expect(html).toContain('</html>');
   });
 
+  it('includes a print stylesheet and a Save as PDF button', () => {
+    const html = renderSeriesHtml(MINIMAL);
+    // @media print block tuned for a clean printout (#207).
+    expect(html).toContain('@media print');
+    expect(html).toContain('print-color-adjust: exact');
+    // Screen-only control that opens the browser print dialog.
+    expect(html).toContain('class="print-actions"');
+    expect(html).toContain('onclick="window.print()"');
+    expect(html).toContain('Save as PDF');
+  });
+
   it('includes series name in title and heading', () => {
     const html = renderSeriesHtml(MINIMAL);
     expect(html).toContain('Test Series');
