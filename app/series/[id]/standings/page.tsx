@@ -160,7 +160,7 @@ export default function StandingsPage({
       ` · ${competitors.length} competitor${competitors.length === 1 ? '' : 's'}`;
   }
   return (
-    <div className="space-y-4 overflow-x-auto">
+    <div className="space-y-4">
       {circularRedressRaces.length > 0 && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           Circular redress: two or more boats in{' '}

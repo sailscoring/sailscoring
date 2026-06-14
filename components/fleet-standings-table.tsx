@@ -49,7 +49,7 @@ export function FleetStandingsTable({
   const showAge = enabledFields.includes('age');
   const showGender = enabledFields.includes('gender');
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
+    <div className="overflow-x-auto rounded-lg border bg-card">
     <Table>
       <TableHeader>
         <TableRow className="bg-primary hover:bg-primary [&>th]:text-primary-foreground [&>th]:font-semibold">
