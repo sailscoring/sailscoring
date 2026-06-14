@@ -50,7 +50,11 @@ test('Preview renders the results page in an in-app iframe', async ({ page }) =>
 
   // Single-fleet: no fleet selector, just Download + Publish.
   await expect(dialog.getByRole('combobox')).toHaveCount(0);
-  await expect(dialog.getByRole('button', { name: 'Download' })).toBeVisible();
+  // Download is a menu offering HTML or PDF (#207).
+  await dialog.getByRole('button', { name: 'Download' }).click();
+  await expect(page.getByRole('menuitem', { name: 'HTML' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'PDF' })).toBeVisible();
+  await page.keyboard.press('Escape'); // close the menu without printing
 
   // The race column header in the standings summary is an in-page fragment
   // link (`#r1`). Clicking it must scroll within the preview, not navigate the

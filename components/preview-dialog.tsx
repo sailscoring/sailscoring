@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown } from 'lucide-react';
 import * as repos from '@/lib/api-repository';
 import { buildFleetHtmlFiles, fleetHtmlFilename, triggerDownload } from '@/lib/results-export';
 import type { Fleet, Series } from '@/lib/types';
@@ -68,6 +75,15 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const current = files?.[selected] ?? null;
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // "Save as PDF" prints the preview iframe — the same self-contained document
+  // the public page carries, whose @media print stylesheet is tuned for it — so
+  // the viewer gets a PDF from the browser's print dialog. Printing the frame
+  // (not the app window) keeps the surrounding app chrome out of the output.
+  function printToPdf() {
+    iframeRef.current?.contentWindow?.print();
+  }
 
   // Render via a blob URL rather than `srcdoc`. A srcdoc document inherits its
   // base URL from the embedding app page, so the results' in-page race-column
@@ -116,14 +132,24 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
             </Select>
           )}
           <div className="ml-auto flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!current}
-              onClick={() => current && triggerDownload(fleetHtmlFilename(series.name, current), current.html)}
-            >
-              Download
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" disabled={!current}>
+                  Download
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={() =>
+                    current && triggerDownload(fleetHtmlFilename(series.name, current), current.html)
+                  }
+                >
+                  HTML
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={printToPdf}>PDF</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {onPublish && (
               <Button size="sm" onClick={onPublish}>
                 Publish
@@ -143,6 +169,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
           )}
           {phase === 'idle' && current && blobUrl && (
             <iframe
+              ref={iframeRef}
               title="Results preview"
               src={blobUrl}
               className="h-full w-full"

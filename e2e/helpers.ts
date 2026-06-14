@@ -448,9 +448,11 @@ export async function downloadFleetHtml(page: Page, fleetName?: string): Promise
     await dialog.getByRole('combobox').click();
     await page.getByRole('option', { name: fleetName }).click();
   }
+  // Download is a menu (HTML / PDF); the HTML item triggers the file download.
+  await dialog.getByRole('button', { name: 'Download' }).click();
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    dialog.getByRole('button', { name: 'Download' }).click(),
+    page.getByRole('menuitem', { name: 'HTML' }).click(),
   ]);
   // Close so the helper can be called again (e.g. another fleet) from a clean state.
   await page.keyboard.press('Escape');
