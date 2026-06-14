@@ -130,6 +130,40 @@ Touches personal data and eligibility, so the sub-processor / Privacy Policy imp
 (legal pages live in the marketing-site repo) need checking before any real feed is wired
 up.
 
+### Configurable, re-syncable entry-list source
+
+Clubs and class associations publish event entry lists as server-rendered HTML
+tables — IODAI at `members.iodai.com/event/entered/{id}` (Name / Sail number /
+Sail country, one table per fleet), HYC/MyClubAccount at
+`myclubaccount.co.uk/{club}/ClubEvents/EntryList?EventId={guid}` (Pos / Sail /
+Club / Helm / Crew). Scorers re-key these by hand, and the lists keep changing up
+to race day, so a one-shot import isn't enough.
+
+The proposal: attach an **entry-list source** to a series — a URL plus a saved
+column mapping (and fleet handling) — and let the scorer hit **Re-sync** to
+re-fetch and re-apply that mapping through the existing match-by-sail-number
+upsert path (`components/competitor-import.tsx` + `lib/csv-import.ts`), new
+entrants added and changed ones updated with no re-mapping. The mapping is
+persisted by **header name** (not column index) so a re-fetch survives column
+reordering. The server route mirrors the existing handicap-source fetchers
+(`lib/api-handlers/{irc-rating,vprs-rating,irish-sailing}` behind
+`/api/v1/handicap-sources/*`): fetch + parse the table to `string[][]`, hand it to
+the mapping flow. Server-rendered HTML only — JS-rendered/SPA and login-gated
+lists are out of scope, and only the fields the source exposes are recovered
+(IODAI's public list carries no club/age/gender/subdivision).
+
+Hard parts settled in the thread: **SSRF** guards on user-supplied URLs
+(scheme/redirect/private-range, timeout, size cap); new `Series.entryListSources`
+persistence (`lib/types.ts`, Drizzle migration, Zod, `lib/series-file.ts` version
+bump, a `public-export.ts` include/exclude decision); a **re-sync deletion
+policy** (dropped entrants reported, never auto-deleted — results may be
+attached); and the privacy implication of server-side pulling personal data
+(including minors) into our DB. Deferred further: a workspace-level member roster
+and ongoing two-way members-DB integration. The recurring-competitor spine and
+its reconciliation are explicitly *not* this issue's concern (that's #212 below).
+
+*(Was GitHub issue #208)*
+
 ---
 
 ## Finish entry UX
@@ -849,6 +883,96 @@ back-to-back blocks sharing one entry list become one series, so the
 highest-value boundary (e.g. a Frostbite Winter→Spring) stops being a series
 boundary at all. Rollover remains for entry-list turnover, fleet
 restructuring, and series that overlap in time.
+
+---
+
+## Cross-series identity and ranking
+
+### Cross-series competitor identity spine
+
+A `Competitor` is series-scoped (`lib/types.ts`, keyed on `seriesId`): the same
+sailor racing eight IODAI series in a season is eight unrelated rows, with nothing
+connecting them. This is the missing primitive under the cross-series ranking
+below — and several other deferred ideas (perpetual trophies, season views,
+lineage) want the same handle. The governing principle: **resolve identity once,
+at the point a competitor enters a series, and persist it** — a matcher exists
+only as a *suggestion feeding a human confirmation step*, never as the source of
+truth at compute time (the "resolve ambiguity by asking" pattern
+`lib/source-handicaps.ts` already uses for rating lists). The brittle alternative —
+inferring identity at ranking time by matching sail numbers or names — fails
+exactly on the close top places that decide a ranking, so it's deliberately ruled
+out.
+
+What recurs is **not always a person**: in single-handed dinghy classes
+(Optimist, ILCA) the ranked identity *is* a person, but in keelboat racing it's a
+**boat + crew/campaign**. So rather than a `Person`, the model is a
+workspace-scoped `CompetitorIdentity` (link field `Competitor.identityId`) that
+mirrors the polymorphism the `Competitor` row already carries (sail number, boat
+name, `name` labelled per `Series.primaryPersonLabel`, owner, helm, crew, club,
+nationality), rendering person- or boat-centric by the same rules. Identity is
+populated lazily, server-side, behind a feature gate, as series are scored —
+high-confidence matches link, everything else creates a new identity, and a
+reconcile UI lets the scorer merge / split / confirm. Matching leans on normalised
+sail number (strong within a season) corroborated by a new person-name normaliser
+(the cross-season signal), and is tuned to **prefer false-splits over
+false-merges** (a wrong split is one click to fix; a wrong merge silently corrupts
+a ranking). `identityId` is workspace-local — excluded from the `.sailscoring`
+file format and public JSON export, re-derived on import. Ships behind a
+default-off `lib/features.ts` gate, IODAI-first.
+
+External reconciliation against real member databases is the separate horizon
+entry above (*Reconciling competitor identity with external member databases*).
+The full design — data model, lifecycle, matching tiers, reconcile UI, backfill,
+privacy, and build sequencing — is preserved on the issue.
+
+*(Was GitHub issue #212)*
+
+### Workspace cross-series sailor ranking (season ladder)
+
+IODAI maintain a national/association ranking that aggregates a sailor's results
+across many series over a season (the Nationals place plus their two best regional
+places), reset each year. Once competitors and series live together in a
+workspace, the app has the data to compute and continuously display such a ranking
+*within the app* — "see that constantly" — rather than maintaining it externally.
+It sits *above* a series, distinct from a single series' standings and from
+sub-series blocks (#203, within one series).
+
+The hard part is **identity across series** — ranking a sailor means collapsing
+their separate competitor rows into one recurring competitor, which is exactly the
+spine above (#212); the ranking groups by `identityId` and builds no matcher of
+its own. Open questions captured on the issue: the aggregation rule (best-N,
+discards across series, points vs. placings — IODAI's actual rule needs
+capturing), the reset boundary and its rollover, and eligibility (which series
+count, members-only filtering). When designed, reconcile with the adjacent horizon
+ideas this overlaps: season-spanning *views* under *Series lineage and seasons*
+and perpetual trophies under *Prize allocation*.
+
+*(Was GitHub issue #209)*
+
+### Competitor career arc — a multi-year record page
+
+Once the identity spine collapses a sailor's series into one recurring
+competitor, a natural payoff is a **per-competitor record page that spans years** —
+every series they entered, their results, and their ranking over time, read off
+the identity link. This is especially powerful for an Optimist sailor, whose whole
+junior arc lives inside the class: joining as a regatta-coached eight-year-old,
+competing season after season, their ranking climbing through the main-fleet
+years, down to their final races and ranking before they age out. The same page
+works for a keelboat campaign's history, but the dinghy career arc is the vivid
+case.
+
+It's also a clean **scope-boundary test for the project**. Everything above is
+scoring data Sail Scoring owns — entries, results, rankings over time — so the
+record page is squarely in scope. The tempting next step is to make it a *photo*
+retrospective: tag regatta photos with a competitor ID so the career-arc page
+shows the sailor as well as their results. That steps outside scoring data, and it
+belongs **outside** the app — as a third-party integration built on the Sail
+Scoring API (the same "thin client over the API" framing as the mobile
+finish-recorder and clubhouse big-screen display under *Third-party integrations*),
+with the competitor identity as the join key, rather than photos becoming
+something Sail Scoring stores and manages itself. The exciting feature and its
+correct home are different things: the app exposes the identity and the record;
+someone else builds the photo wall on top.
 
 ---
 
