@@ -406,3 +406,19 @@ export function fleetHtmlFilename(
   const suffix = file.isDefault ? '' : '-' + seriesSlug(file.fleetName);
   return seriesSlug(seriesName) + block + suffix + '.html';
 }
+
+/** Human-readable document title for one fleet's results, e.g. `Autumn League
+ *  2026` (single/default fleet) or `Autumn League 2026 - Junior` (named fleet),
+ *  with the sub-series block first when present (`… - Winter - Junior`). Set as
+ *  the page title before printing the preview so the browser's print-to-PDF
+ *  dialog suggests this as the filename instead of the app title. Mirrors
+ *  `fleetHtmlFilename`'s ordering but stays human-readable. */
+export function fleetPdfTitle(
+  seriesName: string,
+  file: { fleetName: string; isDefault: boolean; subSeriesName?: string },
+): string {
+  const parts = [seriesName];
+  if (file.subSeriesName) parts.push(file.subSeriesName);
+  if (!file.isDefault) parts.push(file.fleetName);
+  return parts.join(' - ');
+}

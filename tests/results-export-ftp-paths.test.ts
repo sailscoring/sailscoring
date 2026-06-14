@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { derivePrefillPaths, fleetHtmlFilename } from '@/lib/results-export';
+import { derivePrefillPaths, fleetHtmlFilename, fleetPdfTitle } from '@/lib/results-export';
 
 // Regression coverage for #131. The dialog used to round-trip a single
 // "base" path and reconstruct each fleet's path by appending the fleet
@@ -70,5 +70,23 @@ describe('fleetHtmlFilename', () => {
   it('slugifies multi-word fleet names', () => {
     expect(fleetHtmlFilename('Spring Series', { fleetName: 'Puppeteer HPH', isDefault: false }))
       .toBe('spring-series-puppeteer-hph.html');
+  });
+});
+
+describe('fleetPdfTitle', () => {
+  it('is just the series name for the single/default fleet', () => {
+    expect(fleetPdfTitle('2026 Munsters', { fleetName: 'Default', isDefault: true }))
+      .toBe('2026 Munsters');
+  });
+
+  it('appends the fleet name for a named fleet, keeping spaces and casing', () => {
+    expect(fleetPdfTitle('2026 Munsters', { fleetName: 'Senior', isDefault: false }))
+      .toBe('2026 Munsters - Senior');
+  });
+
+  it('puts the sub-series block before the fleet', () => {
+    expect(
+      fleetPdfTitle('2026 Munsters', { fleetName: 'Senior', isDefault: false, subSeriesName: 'Main Fleet' }),
+    ).toBe('2026 Munsters - Main Fleet - Senior');
   });
 });

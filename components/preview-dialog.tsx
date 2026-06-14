@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ChevronDown } from 'lucide-react';
 import * as repos from '@/lib/api-repository';
-import { buildFleetHtmlFiles, fleetHtmlFilename, triggerDownload } from '@/lib/results-export';
+import { buildFleetHtmlFiles, fleetHtmlFilename, fleetPdfTitle, triggerDownload } from '@/lib/results-export';
 import type { Fleet, Series } from '@/lib/types';
 
 type FleetHtmlFile = { fleetName: string; isDefault: boolean; subSeriesName?: string; html: string };
@@ -81,8 +81,21 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
   // the public page carries, whose @media print stylesheet is tuned for it — so
   // the viewer gets a PDF from the browser's print dialog. Printing the frame
   // (not the app window) keeps the surrounding app chrome out of the output.
+  //
+  // The print dialog derives its suggested filename from the *top* document's
+  // title (not the iframe's), which is the app shell ("Sail Scoring"). Swap in a
+  // descriptive title for the duration of the print so the saved PDF is named
+  // after the series and fleet, then restore it.
   function printToPdf() {
-    iframeRef.current?.contentWindow?.print();
+    const frame = iframeRef.current;
+    if (!frame?.contentWindow || !current) return;
+    const previousTitle = document.title;
+    document.title = fleetPdfTitle(series.name, current);
+    const restore = () => {
+      document.title = previousTitle;
+    };
+    frame.contentWindow.addEventListener('afterprint', restore, { once: true });
+    frame.contentWindow.print();
   }
 
   // Render via a blob URL rather than `srcdoc`. A srcdoc document inherits its
