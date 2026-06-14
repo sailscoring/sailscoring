@@ -191,6 +191,49 @@ describe('renderSeriesHtml', () => {
     expect(html).not.toContain('<th>Nett</th>');
   });
 
+  it('renders Age and Gender columns when enabled and populated', () => {
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: ['age', 'gender'],
+      races: [makeRace(1, [['1', 'Alice', 1, null], ['2', 'Bob', 2, null]])],
+      standings: [
+        { ...makeStanding(1, '1', 'Alice', [{ points: 1, podiumRank: 1 }]), age: 15, gender: 'F' },
+        { ...makeStanding(2, '2', 'Bob', [{ points: 2, podiumRank: 2 }]), age: 12, gender: 'M' },
+      ],
+    };
+    const html = renderSeriesHtml(data);
+    expect(html).toContain('<th>Age</th>');
+    expect(html).toContain('<th>Gender</th>');
+    // Summary cells carry the integer age and the raw M/F code.
+    expect(html).toContain('<td>15</td>');
+    expect(html).toContain('<td>F</td>');
+    expect(html).toContain('<td>M</td>');
+  });
+
+  it('suppresses Age and Gender columns when enabled but no competitor has a value', () => {
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: ['age', 'gender'],
+      races: [makeRace(1, [['1', 'Alice', 1, null]])],
+      standings: [makeStanding(1, '1', 'Alice', [{ points: 1, podiumRank: 1 }])],
+    };
+    const html = renderSeriesHtml(data);
+    expect(html).not.toContain('<th>Age</th>');
+    expect(html).not.toContain('<th>Gender</th>');
+  });
+
+  it('omits Age and Gender columns when the fields are not enabled', () => {
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: ['club'],
+      races: [makeRace(1, [['1', 'Alice', 1, null]])],
+      standings: [{ ...makeStanding(1, '1', 'Alice', [{ points: 1, podiumRank: 1 }]), age: 15, gender: 'F' }],
+    };
+    const html = renderSeriesHtml(data);
+    expect(html).not.toContain('<th>Age</th>');
+    expect(html).not.toContain('<th>Gender</th>');
+  });
+
   it('includes provisional timestamp when generatedAt is set', () => {
     const html = renderSeriesHtml({
       ...MINIMAL,
