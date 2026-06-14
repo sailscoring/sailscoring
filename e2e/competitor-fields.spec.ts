@@ -251,3 +251,61 @@ test('a toggle made while a prior save is in flight does not revert it', async (
   await expect(page.getByLabel('Boat name')).not.toBeChecked();
   await expect(page.getByLabel('Crew name')).toBeChecked();
 });
+
+test('age and gender: standings columns and export columns (#211)', async ({ page }) => {
+  // ── 1. Create series ──────────────────────────────────────────────────────
+  await createSeriesQuick(page, { name: 'Optimist Munsters' });
+
+  // ── 2. Enable the Age and Gender fields ──────────────────────────────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('checkbox', { name: 'Age' }).check();
+  await page.getByRole('checkbox', { name: 'Gender' }).check();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 3. Add two competitors with age and gender ───────────────────────────
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  for (const { sail, name, age, gender } of [
+    { sail: '1', name: 'Maeve', age: '15', gender: 'F' },
+    { sail: '2', name: 'Rian', age: '12', gender: 'M' },
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByLabel('Competitor name').fill(name);
+    await page.getByLabel('Age').fill(age);
+    await page.getByRole('combobox').click();
+    await page.getByRole('option', { name: gender, exact: true }).click();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: sail, exact: true })).toBeVisible();
+  }
+
+  // The Competitors table surfaces the new columns.
+  await expect(page.getByRole('columnheader', { name: 'Age' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Gender' })).toBeVisible();
+
+  // ── 4. Add a race both boats finish ──────────────────────────────────────
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('1');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await page.getByLabel('Sail number').fill('2');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // ── 5. Standings: the Age and Gender columns appear ──────────────────────
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('columnheader', { name: 'Age' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Gender' })).toBeVisible();
+
+  // ── 6. Preview → Download carries both columns and the values ────────────
+  const download = await downloadFleetHtml(page);
+  const path = await download.path();
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(path, 'utf-8');
+  expect(html).toContain('<th>Age</th>');
+  expect(html).toContain('<th>Gender</th>');
+  expect(html).toContain('<td>15</td>');
+  expect(html).toContain('<td>F</td>');
+  expect(html).toContain('<td>M</td>');
+});

@@ -46,6 +46,8 @@ export function FleetStandingsTable({
   // standings page doesn't pull the ~2.5 MB flag dataset into its bundle.
   const showNationality = enabledFields.includes('nationality');
   const showSubdivision = enabledFields.includes('subdivision');
+  const showAge = enabledFields.includes('age');
+  const showGender = enabledFields.includes('gender');
   return (
     <div className="overflow-hidden rounded-lg border bg-card">
     <Table>
@@ -62,6 +64,8 @@ export function FleetStandingsTable({
           {showClub && <TableHead>Club</TableHead>}
           {showNationality && <TableHead>Nat</TableHead>}
           {showSubdivision && <TableHead>{subdivisionLabel}</TableHead>}
+          {showAge && <TableHead>Age</TableHead>}
+          {showGender && <TableHead>Gender</TableHead>}
           {races.map((race) => (
             <TableHead key={race.id} className="w-16 text-center">
               R{race.raceNumber}
@@ -88,6 +92,8 @@ export function FleetStandingsTable({
             showClub={showClub}
             showNationality={showNationality}
             showSubdivision={showSubdivision}
+            showAge={showAge}
+            showGender={showGender}
           />
         ))}
       </TableBody>
@@ -108,6 +114,8 @@ interface StandingRowProps {
   showClub: boolean;
   showNationality: boolean;
   showSubdivision: boolean;
+  showAge: boolean;
+  showGender: boolean;
 }
 
 function StandingRow({
@@ -122,6 +130,8 @@ function StandingRow({
   showClub,
   showNationality,
   showSubdivision,
+  showAge,
+  showGender,
 }: StandingRowProps) {
   const { rank, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded } = standing;
 
@@ -146,6 +156,8 @@ function StandingRow({
       {showClub && <TableCell className="text-muted-foreground">{competitor.club}</TableCell>}
       {showNationality && <TableCell className="font-mono">{competitor.nationality ?? ''}</TableCell>}
       {showSubdivision && <TableCell>{competitor.subdivision ?? ''}</TableCell>}
+      {showAge && <TableCell className="tabular-nums">{competitor.age ?? ''}</TableCell>}
+      {showGender && <TableCell>{competitor.gender}</TableCell>}
       {racePoints.map((points, i) => {
         const isDiscard = raceDiscards[i] ?? false;
         const isNonDiscardable = raceNonDiscardable[i] ?? false;
