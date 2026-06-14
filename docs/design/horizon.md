@@ -294,6 +294,28 @@ obvious first); whether it carries the canonical short `/p/...` URL or a per-pri
 tracking variant (probably canonical — tracking reintroduces the abuse surface); and
 sizing/quiet-zone so it scans reliably off paper.
 
+### Server-side PDF generation at publish time
+
+The first cut of PDF export (#207) is client-side: a print stylesheet on the rendered
+results HTML plus a "Save as PDF" affordance, so the scorer (or a viewer on the public
+`/p/...` page) drives the browser's print → Save as PDF. That covers "I want a PDF to
+email or pin to a noticeboard" with no new infrastructure.
+
+What it can't do is produce a deterministic, server-generated artifact that the publish
+flow can attach or link directly. The follow-on is to render the existing
+`renderSeriesHtml` output through headless Chromium (`puppeteer-core` +
+`@sparticuz/chromium` — both Apache-2.0 / BSD, clear of the GPL constraint) inside a
+Fluid function, store the resulting PDF as a blob next to the fleet HTML in the publish
+path, and serve it at e.g. `/p/{ws}/{series}/{fleet}.pdf` with a download link on the
+published page. Because it reuses the same renderer, there's no layout duplication — the
+PDF matches the HTML exactly.
+
+Costs that keep this deferred: a ~50 MB Chromium binary in the function bundle,
+cold-start and timeout headroom, and a heavier publish path (every re-publish now also
+renders a PDF). Revisit only if scorers ask for an attach-from-publish artifact rather
+than a print-it-yourself one. The print/PDF rendering path here is also where the
+print-only QR code above would live.
+
 ---
 
 ## Workspaces and sharing
