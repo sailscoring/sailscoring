@@ -140,6 +140,62 @@ function randomId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
 }
 
+/**
+ * Seed a reconciled cross-series competitor identity (#212): one series and one
+ * linked competitor per entry, plus the `competitor_identities` row they point
+ * at. Bypasses the reconcile clustering (unit/DB-tested separately) to give the
+ * UI and the public career-arc page a ready arc to render. Returns the identity
+ * id; the most-recent entry's name/sail seed the identity label/sailNumber.
+ */
+export async function seedCareerArc(
+  workspaceId: string,
+  opts: {
+    label: string;
+    club?: string;
+    entries: Array<{ year: number; eventName: string; sailNumber: string; club?: string }>;
+  },
+): Promise<string> {
+  const { db, close } = adminDb();
+  try {
+    const identityId = crypto.randomUUID();
+    const sorted = [...opts.entries].sort((a, b) => a.year - b.year);
+    const latest = sorted[sorted.length - 1];
+    await db.insert(schema.competitorIdentities).values({
+      id: identityId,
+      workspaceId,
+      label: opts.label,
+      sailNumber: latest?.sailNumber ?? '',
+      club: opts.club ?? null,
+    });
+    let order = 0;
+    for (const entry of sorted) {
+      const seriesId = crypto.randomUUID();
+      await db.insert(schema.series).values({
+        id: seriesId,
+        workspaceId,
+        name: entry.eventName,
+        startDate: `${entry.year}-05-01`,
+        displayOrder: order++,
+      });
+      await db.insert(schema.competitors).values({
+        id: crypto.randomUUID(),
+        seriesId,
+        workspaceId,
+        fleetIds: [],
+        sailNumber: entry.sailNumber,
+        name: opts.label,
+        club: entry.club ?? opts.club ?? '',
+        gender: '',
+        age: null,
+        identityId,
+      });
+    }
+    return identityId;
+  } finally {
+    await close();
+  }
+}
+
 // 1×1 transparent PNG, base64 — the byte payload `logo_blobs` stores locally.
 const SEED_PNG_B64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';

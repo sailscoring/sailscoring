@@ -3,6 +3,7 @@
  * `/api/v1`. UI callers wrap these in TanStack Query (see hooks/use-*.ts).
  */
 import { apiFetch } from './api-client';
+import type { IdentityWithArc } from './competitor-identity-repository';
 import type { SeriesFileRevision } from './series-file';
 import type { IrishSailingRatings } from './irish-sailing-ratings';
 import type { IrcRatings } from './irc-rating';
@@ -921,4 +922,36 @@ export function submitOrgRequest(input: {
     method: 'POST',
     body: input,
   });
+}
+
+// ─── Cross-series competitor identity (#212) ─────────────────────────────────
+
+/** The active workspace's recurring competitor identities with their arcs. */
+export async function listCompetitorIdentities(): Promise<IdentityWithArc[]> {
+  const { items } = await apiFetch<{ items: IdentityWithArc[] }>(
+    '/api/v1/competitor-identities',
+  );
+  return items;
+}
+
+/** Rename an identity's canonical label; returns the updated arc. */
+export function renameCompetitorIdentity(
+  id: string,
+  label: string,
+): Promise<IdentityWithArc> {
+  return apiFetch<IdentityWithArc>(`/api/v1/competitor-identities/${id}`, {
+    method: 'PATCH',
+    body: { label },
+  });
+}
+
+/** Split a competitor row off an identity; returns the trimmed arc. */
+export function unlinkCompetitorFromIdentity(
+  id: string,
+  competitorId: string,
+): Promise<IdentityWithArc> {
+  return apiFetch<IdentityWithArc>(
+    `/api/v1/competitor-identities/${id}/unlink`,
+    { method: 'POST', body: { competitorId } },
+  );
 }
