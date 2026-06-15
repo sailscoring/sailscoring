@@ -30,6 +30,7 @@
     "provision-org:test": "DATABASE_URL=postgres://sailscoring:sailscoring@localhost:5432/sailscoring tsx scripts/provision-org.ts",
     "provision-token": "tsx --env-file-if-exists=.env.local scripts/provision-token.ts",
     "provision-token:test": "DATABASE_URL=postgres://sailscoring:sailscoring@localhost:5432/sailscoring tsx scripts/provision-token.ts",
+    "cli": "tsx cli/index.ts",
     "change-email": "tsx --env-file-if-exists=.env.local scripts/change-email.ts",
     "change-email:test": "DATABASE_URL=postgres://sailscoring:sailscoring@localhost:5432/sailscoring tsx scripts/change-email.ts",
     "delete-account": "tsx --env-file-if-exists=.env.local scripts/delete-account.ts",
