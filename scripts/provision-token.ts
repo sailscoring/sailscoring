@@ -65,12 +65,58 @@ async function findMembershipOrg(
   return row;
 }
 
+// An "admin" key (--admin) is minted near-unlimited — a high ceiling over a
+// short window, enough to never trip a legitimate bulk import but still catch
+// a runaway loop hammering the API. The plugin's own (much lower) default
+// stays the floor for everything else, including future self-service keys.
+const ADMIN_RATE_LIMIT_MAX = 100_000;
+const ADMIN_RATE_LIMIT_WINDOW_SECONDS = 60;
+
+export interface ResolvedRateLimit {
+  enabled: boolean;
+  /** undefined → fall back to the plugin's per-key default. */
+  maxRequests?: number;
+  windowSeconds?: number;
+}
+
+function resolveRateLimit(args: {
+  admin?: boolean;
+  rateLimitDisabled?: boolean;
+  rateLimitMax?: number;
+  rateLimitWindowSeconds?: number;
+}): ResolvedRateLimit {
+  if (args.rateLimitDisabled) return { enabled: false };
+  const explicit =
+    args.rateLimitMax !== undefined || args.rateLimitWindowSeconds !== undefined;
+  if (args.admin || explicit) {
+    return {
+      enabled: true,
+      maxRequests: args.rateLimitMax ?? (args.admin ? ADMIN_RATE_LIMIT_MAX : undefined),
+      windowSeconds:
+        args.rateLimitWindowSeconds ??
+        (args.admin ? ADMIN_RATE_LIMIT_WINDOW_SECONDS : undefined),
+    };
+  }
+  return { enabled: true };
+}
+
+function describeRateLimit(rl: ResolvedRateLimit): string {
+  if (!rl.enabled) return 'disabled';
+  if (rl.maxRequests === undefined && rl.windowSeconds === undefined) {
+    return 'plugin default';
+  }
+  const max = rl.maxRequests ?? 'default';
+  const window = rl.windowSeconds ? `${rl.windowSeconds}s` : 'default window';
+  return `${max} requests / ${window}`;
+}
+
 export interface CreatedToken {
   key: string;
   id: string;
   userId: string;
   workspaceId?: string;
   workspaceSlug?: string;
+  rateLimit: ResolvedRateLimit;
 }
 
 export async function createToken(
@@ -80,6 +126,10 @@ export async function createToken(
     name?: string;
     workspaceSlugOrId?: string;
     expiresInDays?: number;
+    admin?: boolean;
+    rateLimitDisabled?: boolean;
+    rateLimitMax?: number;
+    rateLimitWindowSeconds?: number;
   },
 ): Promise<CreatedToken> {
   const u = await findUserByEmail(db, args.email);
@@ -97,9 +147,12 @@ export async function createToken(
     workspaceSlug = org.slug;
   }
 
+  const rateLimit = resolveRateLimit(args);
+
   // Mint through the plugin (no headers → server context, which keys the new
   // key to body.userId and stores the value hashed). The plaintext `key` is
-  // returned exactly once.
+  // returned exactly once. The rate-limit fields are persisted on the key row
+  // and enforced per-request, so they take effect without a deploy.
   const result = await auth.api.createApiKey({
     body: {
       userId: u.id,
@@ -108,10 +161,23 @@ export async function createToken(
       ...(args.expiresInDays
         ? { expiresIn: args.expiresInDays * 24 * 60 * 60 }
         : {}),
+      ...(rateLimit.enabled === false
+        ? { rateLimitEnabled: false }
+        : rateLimit.maxRequests !== undefined || rateLimit.windowSeconds !== undefined
+          ? {
+              rateLimitEnabled: true,
+              ...(rateLimit.maxRequests !== undefined
+                ? { rateLimitMax: rateLimit.maxRequests }
+                : {}),
+              ...(rateLimit.windowSeconds !== undefined
+                ? { rateLimitTimeWindow: rateLimit.windowSeconds * 1000 }
+                : {}),
+            }
+          : {}),
     },
   });
 
-  return { key: result.key, id: result.id, userId: u.id, workspaceId, workspaceSlug };
+  return { key: result.key, id: result.id, userId: u.id, workspaceId, workspaceSlug, rateLimit };
 }
 
 export interface TokenRow {
@@ -212,6 +278,7 @@ function usage(): string {
   return `provision-token — ADR-009 M1 bootstrap API-key minting
 
   create <email> [--name <label>] [--workspace <slug-or-id>] [--expires-in-days <n>]
+         [--admin | --no-rate-limit | --rate-limit-max <n> --rate-limit-window-seconds <n>]
   list <email>
   revoke <key-id>
 
@@ -219,6 +286,14 @@ create prints the plaintext key once — it is stored hashed and cannot be
 recovered, so copy it immediately. --workspace sets the key's default
 workspace (the client can still override per-request with the
 x-sailscoring-workspace header); the user must be a member of it.
+
+Rate limit (stored on the key, enforced per-request, no deploy needed):
+  --admin                       near-unlimited (${ADMIN_RATE_LIMIT_MAX} / ${ADMIN_RATE_LIMIT_WINDOW_SECONDS}s) — for the
+                                CLI and bulk import; still catches a runaway loop
+  --rate-limit-max <n>          custom ceiling per window
+  --rate-limit-window-seconds <n>  custom window
+  --no-rate-limit               disable entirely (use sparingly)
+Omit all of these to inherit the plugin's conservative default.
 
 The user must already exist (signed in once, or seeded via
 provision-org pre-create-user). Reads DATABASE_URL.`;
@@ -246,6 +321,21 @@ export async function runCli(argv: string[]): Promise<number> {
         if (expiresInDays !== undefined && !Number.isFinite(expiresInDays)) {
           throw new Error('--expires-in-days must be a number');
         }
+        const numericFlag = (name: string): number | undefined => {
+          if (!flags[name] || flags[name] === 'true') return undefined;
+          const n = Number(flags[name]);
+          if (!Number.isFinite(n) || n <= 0) {
+            throw new Error(`--${name} must be a positive number`);
+          }
+          return n;
+        };
+        const rateLimitMax = numericFlag('rate-limit-max');
+        const rateLimitWindowSeconds = numericFlag('rate-limit-window-seconds');
+        const rateLimitDisabled = flags['no-rate-limit'] === 'true';
+        const admin = flags.admin === 'true';
+        if (rateLimitDisabled && (admin || rateLimitMax || rateLimitWindowSeconds)) {
+          throw new Error('--no-rate-limit cannot be combined with --admin / --rate-limit-*');
+        }
         const result = await createToken(db, {
           email,
           name: flags.name && flags.name !== 'true' ? flags.name : undefined,
@@ -254,11 +344,16 @@ export async function runCli(argv: string[]): Promise<number> {
               ? flags.workspace
               : undefined,
           expiresInDays,
+          admin,
+          rateLimitDisabled,
+          rateLimitMax,
+          rateLimitWindowSeconds,
         });
         console.log(`created API key for ${email} (id: ${result.id})`);
         if (result.workspaceSlug) {
           console.log(`  default workspace: ${result.workspaceSlug}`);
         }
+        console.log(`  rate limit: ${describeRateLimit(result.rateLimit)}`);
         console.log('\n  copy this now — it will not be shown again:\n');
         console.log(`  ${result.key}\n`);
         return 0;

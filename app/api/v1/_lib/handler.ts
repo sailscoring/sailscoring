@@ -1,5 +1,6 @@
 import 'server-only';
 import type { NextRequest } from 'next/server';
+import { APIError } from 'better-auth/api';
 import { ZodError } from 'zod';
 
 import {
@@ -156,6 +157,26 @@ export function errorToResponse(err: unknown): Response {
   }
   if (err instanceof ZodError) {
     return Response.json({ error: 'invalid', issues: err.issues }, { status: 400 });
+  }
+  // Better Auth throws an APIError when a request trips a rate limit (notably
+  // the api-key plugin's per-key cap, reached during a Bearer-token request).
+  // Surface it as a real 429 with Retry-After rather than letting it fall
+  // through to the catch-all 500 — a masked 500 here once made a bulk CLI
+  // import look like a server outage.
+  if (err instanceof APIError && (err.status === 'TOO_MANY_REQUESTS' || err.statusCode === 429)) {
+    const tryAgainIn = (err.body as { details?: { tryAgainIn?: unknown } } | undefined)
+      ?.details?.tryAgainIn;
+    const retryAfter =
+      typeof tryAgainIn === 'number' && tryAgainIn > 0
+        ? Math.ceil(tryAgainIn / 1000)
+        : undefined;
+    return Response.json(
+      { error: 'rate-limited', retryAfter },
+      {
+        status: 429,
+        headers: retryAfter ? { 'retry-after': String(retryAfter) } : undefined,
+      },
+    );
   }
   console.error('unhandled route error:', err);
   return Response.json({ error: 'internal' }, { status: 500 });

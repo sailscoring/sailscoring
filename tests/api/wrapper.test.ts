@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, test, vi } from 'vitest';
+import { APIError } from 'better-auth/api';
 import { z } from 'zod';
 
 vi.mock('@/lib/auth/require-workspace', async (importOriginal) => {
@@ -133,6 +134,38 @@ describe('workspaceRoute', () => {
       { params: Promise.resolve({}) },
     );
     expect(res.status).toBe(400);
+  });
+
+  test('429 with Retry-After when a request trips a Better Auth rate limit', async () => {
+    mockedRequire.mockRejectedValueOnce(
+      new APIError('TOO_MANY_REQUESTS', {
+        message: 'Rate limit exceeded.',
+        code: 'RATE_LIMITED',
+        details: { tryAgainIn: 42000 },
+      }),
+    );
+    const handler = workspaceRoute(async () => ({}));
+    const res = await handler(
+      makeRequest('GET') as Parameters<typeof handler>[0],
+      { params: Promise.resolve({}) },
+    );
+    expect(res.status).toBe(429);
+    expect(res.headers.get('retry-after')).toBe('42');
+    expect(await res.json()).toEqual({ error: 'rate-limited', retryAfter: 42 });
+  });
+
+  test('429 without Retry-After when no tryAgainIn is present', async () => {
+    mockedRequire.mockRejectedValueOnce(
+      new APIError('TOO_MANY_REQUESTS', { message: 'Rate limit exceeded.' }),
+    );
+    const handler = workspaceRoute(async () => ({}));
+    const res = await handler(
+      makeRequest('GET') as Parameters<typeof handler>[0],
+      { params: Promise.resolve({}) },
+    );
+    expect(res.status).toBe(429);
+    expect(res.headers.get('retry-after')).toBeNull();
+    expect(await res.json()).toEqual({ error: 'rate-limited', retryAfter: undefined });
   });
 
   test('500 when handler throws an unrecognised error', async () => {

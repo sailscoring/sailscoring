@@ -113,6 +113,69 @@ describe.skipIf(skip)('provision-token', () => {
     expect(ctx).toMatchObject({ workspaceId: sharedOrgId, role: 'member' });
   });
 
+  async function rateLimitColumns(id: string) {
+    const [row] = await db
+      .select({
+        enabled: schema.apikey.rateLimitEnabled,
+        max: schema.apikey.rateLimitMax,
+        windowMs: schema.apikey.rateLimitTimeWindow,
+      })
+      .from(schema.apikey)
+      .where(eq(schema.apikey.id, id));
+    return row;
+  }
+
+  test('a default key inherits the conservative plugin rate limit', async () => {
+    const { email } = await makeUserWithWorkspaces();
+    const created = await createToken(db, { email, name: 'default' });
+    expect(created.rateLimit).toEqual({ enabled: true });
+    // Stored from the apiKey plugin config in lib/auth.ts (60 req / 60s).
+    const row = await rateLimitColumns(created.id);
+    expect(row.enabled).toBe(true);
+    expect(row.max).toBe(60);
+    expect(row.windowMs).toBe(60_000);
+  });
+
+  test('--admin mints a near-unlimited key', async () => {
+    const { email } = await makeUserWithWorkspaces();
+    const created = await createToken(db, { email, name: 'admin', admin: true });
+    expect(created.rateLimit).toEqual({
+      enabled: true,
+      maxRequests: 100_000,
+      windowSeconds: 60,
+    });
+    const row = await rateLimitColumns(created.id);
+    expect(row.enabled).toBe(true);
+    expect(row.max).toBe(100_000);
+    expect(row.windowMs).toBe(60_000);
+  });
+
+  test('--no-rate-limit disables the per-key limit', async () => {
+    const { email } = await makeUserWithWorkspaces();
+    const created = await createToken(db, { email, name: 'unlimited', rateLimitDisabled: true });
+    expect(created.rateLimit).toEqual({ enabled: false });
+    const row = await rateLimitColumns(created.id);
+    expect(row.enabled).toBe(false);
+  });
+
+  test('explicit --rate-limit-max / window override the default', async () => {
+    const { email } = await makeUserWithWorkspaces();
+    const created = await createToken(db, {
+      email,
+      name: 'custom',
+      rateLimitMax: 500,
+      rateLimitWindowSeconds: 30,
+    });
+    expect(created.rateLimit).toEqual({
+      enabled: true,
+      maxRequests: 500,
+      windowSeconds: 30,
+    });
+    const row = await rateLimitColumns(created.id);
+    expect(row.max).toBe(500);
+    expect(row.windowMs).toBe(30_000);
+  });
+
   test('rejects a workspace the user is not a member of', async () => {
     const { email } = await makeUserWithWorkspaces();
     const otherOrgId = `org_${uuid()}`;

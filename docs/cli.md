@@ -47,6 +47,20 @@ pnpm provision-token create you@example.com --name "laptop" --workspace <slug>
 different one per command with `--workspace`. See also `pnpm provision-token
 list <email>` and `pnpm provision-token revoke <key-id>`.
 
+**Rate limit.** Keys carry a per-key rate limit (stored on the key, enforced
+per request). The default is deliberately conservative; the bulk-import
+workflow below needs more, so mint the CLI's key with `--admin`:
+
+```sh
+pnpm provision-token create you@example.com --name "cli" --workspace <slug> --admin
+```
+
+`--admin` is near-unlimited but still trips on a runaway loop. Use
+`--rate-limit-max <n> --rate-limit-window-seconds <n>` for a custom ceiling, or
+`--no-rate-limit` to disable it entirely. A key minted without these gets the
+default — fine for interactive use, but a large `import` batch will exhaust it
+(the API then returns `429`).
+
 Then save it locally:
 
 ```sh

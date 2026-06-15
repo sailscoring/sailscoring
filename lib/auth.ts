@@ -109,6 +109,14 @@ export const auth = betterAuth({
     // target workspace from the `x-sailscoring-workspace` header or the key's
     // default-workspace metadata.
     apiKey({
+      // Per-key rate limit. The plugin's built-in default is a punishing 10
+      // requests / 24h — fine for a stray browser key, fatal for the bulk
+      // import the CLI exists for. Set a sane self-service default here
+      // (stored per-key at creation); admin/CLI keys are minted with a far
+      // higher ceiling via `provision-token --admin`, which writes its own
+      // limit onto the key row and overrides this. The window is short so a
+      // tripped key recovers in a minute rather than a day.
+      rateLimit: { enabled: true, maxRequests: 60, timeWindow: 60_000 },
       // Resolve a key into a session on every request (off by default), so
       // `auth.api.getSession` recognises a Bearer key and require-workspace.ts
       // gets a session for it.
