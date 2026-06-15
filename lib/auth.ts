@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink } from 'better-auth/plugins/magic-link';
 import { organization } from 'better-auth/plugins/organization';
+import { apiKey } from '@better-auth/api-key';
 import { eq } from 'drizzle-orm';
 
 import { sendInvitationEmail, sendMagicLinkEmail } from '@/lib/auth/email';
@@ -98,6 +99,21 @@ export const auth = betterAuth({
           role: data.role,
           acceptUrl: `${base}/accept-invitation/${data.id}`,
         });
+      },
+    }),
+    // Non-browser API access (ADR-009). The CLI and any API client present
+    // the key as `Authorization: Bearer <key>` for public-API familiarity;
+    // the plugin otherwise defaults to the `x-api-key` header. A request
+    // carrying a valid key gets a synthesized session (no
+    // `activeOrganizationId`); `lib/auth/require-workspace.ts` resolves the
+    // target workspace from the `x-sailscoring-workspace` header or the key's
+    // default-workspace metadata.
+    apiKey({
+      customAPIKeyGetter: (ctx) => {
+        const header = ctx.headers?.get('authorization') ?? null;
+        if (!header) return null;
+        const match = /^Bearer\s+(.+)$/i.exec(header);
+        return match ? match[1].trim() : null;
       },
     }),
   ],
