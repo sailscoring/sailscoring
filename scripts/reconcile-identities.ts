@@ -36,6 +36,24 @@ import { getDb, getDbClient, type SailScoringDb } from '@/lib/db/client';
 import { organization } from '@/lib/db/schema/auth';
 import { competitorIdentities, competitors, series } from '@/lib/db/schema/series';
 
+/**
+ * Delete every identity in the workspace (the FK's ON DELETE SET NULL clears
+ * `competitors.identity_id` for us), so the next pass rebuilds from scratch.
+ * Identities are derived data, so a rebuild is the clean way to retire a whole
+ * class of bad merge after a matcher fix — but it also discards any manual
+ * renames/splits, hence the `--reset` guard. Returns how many were removed.
+ */
+export async function resetIdentities(
+  db: SailScoringDb,
+  workspaceId: string,
+): Promise<number> {
+  const removed = await db
+    .delete(competitorIdentities)
+    .where(eq(competitorIdentities.workspaceId, workspaceId))
+    .returning({ id: competitorIdentities.id });
+  return removed.length;
+}
+
 /** Resolve a slug or id to a workspace (organization) id + display name. */
 async function resolveWorkspace(
   db: SailScoringDb,
@@ -221,11 +239,14 @@ function renderReport(result: ClusterResult): string {
 function usage(): string {
   return `reconcile-identities — cluster a workspace's competitors into recurring identities (#212)
 
-  pnpm reconcile-identities <workspace> [--apply] [--json]
+  pnpm reconcile-identities <workspace> [--apply] [--reset] [--json]
 
   <workspace>   organization slug or id
   --apply       write competitor_identities rows and stamp competitors.identity_id
                 (default is a dry run that writes nothing)
+  --reset       before applying, delete the workspace's existing identities and
+                rebuild from scratch (requires --apply). Use after a matcher fix
+                to retire bad merges wholesale. Discards manual renames/splits.
   --json        emit the full clustering result as JSON
 
 Reads DATABASE_URL.`;
@@ -234,9 +255,11 @@ Reads DATABASE_URL.`;
 export async function runCli(argv: string[]): Promise<number> {
   let workspaceRef: string | undefined;
   let apply = false;
+  let reset = false;
   let json = false;
   for (const arg of argv) {
     if (arg === '--apply') apply = true;
+    else if (arg === '--reset') reset = true;
     else if (arg === '--json') json = true;
     else if (arg === '--help' || arg === '-h') {
       console.log(usage());
@@ -258,12 +281,22 @@ export async function runCli(argv: string[]): Promise<number> {
     console.error(usage());
     return 1;
   }
+  if (reset && !apply) {
+    console.error('--reset rewrites data; pass --apply to confirm the rebuild\n');
+    console.error(usage());
+    return 1;
+  }
 
   const db = getDb();
   const ws = await resolveWorkspace(db, workspaceRef);
   if (!ws) {
     console.error(`no workspace matching "${workspaceRef}"`);
     return 1;
+  }
+
+  if (reset) {
+    const removed = await resetIdentities(db, ws.id);
+    console.log(`Reset: removed ${removed} existing identities (links cleared).`);
   }
 
   const inputs = await collectClusterInputs(db, ws.id);

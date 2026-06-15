@@ -14,7 +14,11 @@ import postgres, { type Sql } from 'postgres';
 
 import { clusterCompetitors } from '@/lib/competitor-identity-cluster';
 import * as schema from '@/lib/db/schema';
-import { applyClusters, collectClusterInputs } from '@/scripts/reconcile-identities';
+import {
+  applyClusters,
+  collectClusterInputs,
+  resetIdentities,
+} from '@/scripts/reconcile-identities';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const skip = !DATABASE_URL;
@@ -143,5 +147,18 @@ describe.skipIf(skip)('reconcile-identities apply path', () => {
     expect(applied.identitiesCreated).toBe(0); // joins the existing identity
     expect(applied.competitorsLinked).toBe(1); // only the new row
     expect(await identityIdOf(aoife3)).toBe(existing);
+  });
+
+  test('reset removes identities and clears links, ready for a clean rebuild', async () => {
+    expect(await identityCount()).toBeGreaterThan(0);
+    const removed = await resetIdentities(db, workspaceId);
+    expect(removed).toBeGreaterThan(0);
+    expect(await identityCount()).toBe(0);
+    expect(await identityIdOf(aoife1)).toBeNull(); // FK SET NULL cleared the link
+
+    // A fresh pass rebuilds from scratch.
+    const rebuilt = await reconcile();
+    expect(rebuilt.identitiesCreated).toBe(1);
+    expect(await identityIdOf(aoife1)).not.toBeNull();
   });
 });
