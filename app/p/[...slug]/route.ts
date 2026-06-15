@@ -1,11 +1,9 @@
 import type { NextRequest } from 'next/server';
 
 import { readPublishedHtml } from '@/lib/blob-storage';
+import { getCareerArc } from '@/lib/career-arc';
 import { renderCareerArcHtml } from '@/lib/career-arc-render';
-import {
-  getIdentityArc,
-  workspaceHasIdentityFeature,
-} from '@/lib/competitor-identity-repository';
+import { workspaceHasIdentityFeature } from '@/lib/competitor-identity-repository';
 import { contentHash, humanizeSlug } from '@/lib/publishing';
 import {
   renderSeriesIndexHtml,
@@ -128,15 +126,18 @@ async function careerArc(
   if (!workspace) return NOT_FOUND;
   if (!(await workspaceHasIdentityFeature(workspace.id))) return NOT_FOUND;
 
-  const identity = await getIdentityArc(workspace.id, identityId);
+  const identity = await getCareerArc(workspace.id, identityId);
   if (!identity) return NOT_FOUND;
 
-  // ETag over the arc's content so a re-reconcile (rename, split, a new linked
-  // series) busts the cache but a repeat view revalidates without re-rendering.
+  // ETag over the arc's content so a rename, split, a new linked series, or a
+  // re-score of a contributing series (which changes a rank) busts the cache,
+  // while a repeat view revalidates without re-rendering.
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     `label:${identity.label}`,
-    ...identity.entries.map((e) => `${e.competitorId}:${e.seriesName}:${e.year}:${e.sailNumber}`),
+    ...identity.entries.map(
+      (e) => `${e.competitorId}:${e.seriesName}:${e.year}:${e.sailNumber}:${e.rank}/${e.fleetSize}`,
+    ),
   ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;

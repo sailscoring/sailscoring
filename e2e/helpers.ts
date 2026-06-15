@@ -152,7 +152,16 @@ export async function seedCareerArc(
   opts: {
     label: string;
     club?: string;
-    entries: Array<{ year: number; eventName: string; sailNumber: string; club?: string }>;
+    entries: Array<{
+      year: number;
+      eventName: string;
+      sailNumber: string;
+      club?: string;
+      /** Also seed a 1-race scratch fleet with a filler boat so this entry
+       *  ranks (the star wins → "1st of 2"); otherwise the series has no races
+       *  and the entry is unplaced. */
+      scored?: boolean;
+    }>;
   },
 ): Promise<string> {
   const { db, close } = adminDb();
@@ -177,11 +186,26 @@ export async function seedCareerArc(
         startDate: `${entry.year}-05-01`,
         displayOrder: order++,
       });
+      const fleetIds: string[] = [];
+      let fleetId: string | undefined;
+      if (entry.scored) {
+        fleetId = crypto.randomUUID();
+        fleetIds.push(fleetId);
+        await db.insert(schema.fleets).values({
+          id: fleetId,
+          seriesId,
+          workspaceId,
+          name: 'Main Fleet',
+          displayOrder: 0,
+          scoringSystem: 'scratch',
+        });
+      }
+      const starId = crypto.randomUUID();
       await db.insert(schema.competitors).values({
-        id: crypto.randomUUID(),
+        id: starId,
         seriesId,
         workspaceId,
-        fleetIds: [],
+        fleetIds,
         sailNumber: entry.sailNumber,
         name: opts.label,
         club: entry.club ?? opts.club ?? '',
@@ -189,6 +213,32 @@ export async function seedCareerArc(
         age: null,
         identityId,
       });
+      if (entry.scored && fleetId) {
+        const fillerId = crypto.randomUUID();
+        const raceId = crypto.randomUUID();
+        await db.insert(schema.competitors).values({
+          id: fillerId,
+          seriesId,
+          workspaceId,
+          fleetIds: [fleetId],
+          sailNumber: '9999',
+          name: 'Filler Boat',
+          club: '',
+          gender: '',
+          age: null,
+        });
+        await db.insert(schema.races).values({
+          id: raceId,
+          seriesId,
+          workspaceId,
+          raceNumber: 1,
+          date: `${entry.year}-05-01`,
+        });
+        await db.insert(schema.finishes).values([
+          { id: crypto.randomUUID(), raceId, competitorId: starId, sortOrder: 0 },
+          { id: crypto.randomUUID(), raceId, competitorId: fillerId, sortOrder: 1 },
+        ]);
+      }
     }
     return identityId;
   } finally {

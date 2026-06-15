@@ -1335,9 +1335,11 @@ export default async function HelpPage() {
         </p>
         <p>
           Each identity has a public career-arc page listing every series the
-          competitor entered, in order. It shows only what&apos;s already public
-          in the results — event, year, sail number, club — never a sailor&apos;s
-          age.
+          competitor entered, in order, with their{' '}
+          <strong className="text-foreground">finishing position</strong> in each
+          (&ldquo;3rd of 48&rdquo;), scored by the same engine as the results
+          pages. It shows only what&apos;s already public in the results — event,
+          year, position, sail number, club — never a sailor&apos;s age.
         </p>
       </Section>
       )}

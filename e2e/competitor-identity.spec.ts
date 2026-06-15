@@ -98,7 +98,8 @@ test.describe('competitor identity reconcile', () => {
       label: 'Holly Cantwell',
       club: 'RSGYC',
       entries: [
-        { year: 2021, eventName: 'IODAI Connachts 2021', sailNumber: 'IRL1641' },
+        // A scored series shows a finishing position; race-less ones don't.
+        { year: 2021, eventName: 'IODAI Connachts 2021', sailNumber: 'IRL1641', scored: true },
         { year: 2023, eventName: 'IODAI Nationals 2023', sailNumber: 'IRL1641' },
         { year: 2026, eventName: 'IODAI Leinsters 2026', sailNumber: 'IRL1641' },
       ],
@@ -110,6 +111,8 @@ test.describe('competitor identity reconcile', () => {
     await expect(page.getByText('3 series')).toBeVisible();
     await expect(page.getByText('IODAI Connachts 2021')).toBeVisible();
     await expect(page.getByText('IODAI Leinsters 2026')).toBeVisible();
+    // The scored series shows the finishing position.
+    await expect(page.getByText('1st of 2')).toBeVisible();
     // Participation only — no age / birth year leaks into the public record.
     await expect(page.locator('body')).not.toContainText('age');
     expect(errors).toEqual([]);

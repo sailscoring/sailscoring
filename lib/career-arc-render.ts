@@ -12,8 +12,8 @@
  * year, which is a reconciliation signal kept server-side, never published.
  */
 
+import type { CareerArc, CareerArcEntry } from './career-arc';
 import { escapeHtml as esc } from './html';
-import type { IdentityWithArc } from './competitor-identity-repository';
 import { renderPublicHero, renderPublicShell } from './published-index';
 
 const ARC_CSS = `.arcsub { text-align: center; color: #c7d6e6; font-size: 0.95em; margin: 10px 0 0; }
@@ -22,14 +22,38 @@ const ARC_CSS = `.arcsub { text-align: center; color: #c7d6e6; font-size: 0.95em
 .arc .yr { font-weight: 700; color: #073358; font-variant-numeric: tabular-nums; min-width: 3.2em; }
 .arc .ev { flex: 1; min-width: 0; color: #1a2b3c; font-weight: 600; }
 .arc .ev .venue { display: block; font-weight: 400; color: #6b7280; font-size: 0.82em; margin-top: 2px; }
-.arc .sail { color: #6b7280; font-size: 0.9em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.arc .right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; }
+.arc .place { color: #073358; font-weight: 700; font-variant-numeric: tabular-nums; }
+.arc .place .of { color: #6b7280; font-weight: 400; }
+.arc .place .infleet { color: #6b7280; font-weight: 400; font-size: 0.85em; }
+.arc .sail { color: #9aa5b1; font-size: 0.82em; font-variant-numeric: tabular-nums; }
 p.empty { color: #6b7280; text-align: center; margin: 48px 0; }`;
+
+/** English ordinal: 1 → "1st", 22 → "22nd", 13 → "13th". */
+function ordinal(n: number): string {
+  const mod100 = n % 100;
+  const suffix =
+    mod100 >= 11 && mod100 <= 13
+      ? 'th'
+      : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th';
+  return `${n}${suffix}`;
+}
+
+/** The finishing-position cell: "3rd of 48", with the fleet name beneath for a
+ *  multi-fleet series. Empty when the series isn't rankable yet. */
+function placementHtml(entry: CareerArcEntry): string {
+  if (entry.rank == null || entry.fleetSize == null) return '';
+  const inFleet = entry.fleetName
+    ? `<span class="infleet">${esc(entry.fleetName)}</span>`
+    : '';
+  return `<span class="place">${ordinal(entry.rank)}<span class="of"> of ${entry.fleetSize}</span></span>${inFleet}`;
+}
 
 /** Render the public career arc for one recurring competitor. */
 export function renderCareerArcHtml(
   workspaceSlug: string,
   workspaceName: string,
-  identity: IdentityWithArc,
+  identity: CareerArc,
   logoUrl = '',
 ): string {
   const title = `${identity.label} — career`;
@@ -64,9 +88,11 @@ export function renderCareerArcHtml(
   const rows = identity.entries
     .map((e) => {
       const venue = e.venue ? `<span class="venue">${esc(e.venue)}</span>` : '';
+      const place = placementHtml(e);
+      const right = `<span class="right">${place}<span class="sail">${esc(e.sailNumber)}</span></span>`;
       return `<li><span class="yr">${e.year ?? '&mdash;'}</span><span class="ev">${esc(
         e.seriesName,
-      )}${venue}</span><span class="sail">${esc(e.sailNumber)}</span></li>`;
+      )}${venue}</span>${right}</li>`;
     })
     .join('\n');
 
