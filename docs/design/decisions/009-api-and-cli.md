@@ -383,38 +383,45 @@ is an API client**, not a DB tool. Concretely:
 
 ## Roadmap
 
-Sequenced so the **bulk-import goal is met at the end of M3** (M1→M2→M3 is a
-strict critical path); M4 onward is the mapped-out direction. Task-level
-detail lives in the tracking issue(s), not here.
+Sequenced so the **bulk-import goal is met at the end of M3** (M1→M2→M3 a
+strict critical path); M4 onward fills out the CLI surface and the public-API
+arc. Task-level detail lives in the tracking issues, not here.
 
-- **M1 — Keyed API access (auth foundation).** `@better-auth/api-key` wired
-  into `lib/auth.ts` (reading `Authorization: Bearer`), the `apikey`
-  migration, `requireWorkspace` resolving a keyed request, workspace
-  selection (key-metadata default + `x-sailscoring-workspace` override, fail
-  closed), and a `provision-token` bootstrap script. *Exit:* a Bearer token
-  authenticates a `/api/v1` request into a chosen workspace; auth/api suites
-  green (also the better-auth upgrade regression gate).
-- **M2 — Import endpoint.** `POST /api/v1/series/import` running
-  `openSeriesFromFile` server-side, a `SeriesFile` Zod schema round-trip
-  tested against `parseSeriesFile`, idempotency, mint-new-ids. *Exit:* one
-  authenticated POST imports one file atomically; replay is a no-op.
-- **M3 — Minimal CLI + bulk import (short-term goal).** `cli/` module,
-  `sailscoring auth login`, `sailscoring import <files…>` (per-file
-  idempotency, bounded concurrency, resume-on-failure), `--base-url` /
-  `--workspace`, `pnpm cli`. *Exit:* `sailscoring import *.sailscoring`
-  bulk-loads the files.
-- **M4 — Token management UX.** The `/account` "API keys" card (create / list
+- **M1 — Keyed API access (auth foundation).** ✅ `@better-auth/api-key` wired
+  into `lib/auth.ts` (Bearer), the `apikey` migration, `requireWorkspace`
+  resolving a keyed request, workspace selection (key-metadata default +
+  `x-sailscoring-workspace` override, fail closed), `provision-token`.
+- **M2 — Import endpoint.** ✅ `POST /api/v1/series/import` running
+  `openSeriesFromFile` server-side, idempotency, mint-new-ids (reuses
+  `parseSeriesFile`; no hand-written `SeriesFile` schema).
+- **M3 — Minimal CLI + bulk import.** ✅ `cli/` module, `auth login`,
+  `import <files…>` (per-file idempotency, bounded concurrency,
+  resume-on-failure). Plus **M3.1** co-publish under a shared slug (the IODAI
+  case) and **M3.2** categorise + archive — all `series`-oriented verbs over
+  existing endpoints.
+- **M4 — CLI read surface.** Adopt a `sailscoring <noun> <verb>` resource
+  grammar with `list`/`get` as the universal read verbs; migrate the M3 verbs
+  under `series` (top-level `import`/`publish` aliases kept). Cross-cutting
+  conventions every later command inherits: `--json`/`-o`, parent scoping via
+  `--series`, id-or-handle, global `--workspace`, `whoami`, the `ApiError`
+  envelope. Read commands for the key entities (series, competitor, race,
+  fleet, category, published, sub-series, activity), plus a new
+  `GET /api/v1/series/{id}/standings` (the `buildPublicExport` JSON) behind
+  `standings get` — the one server addition; every other read rides an
+  existing GET.
+- **M5 — Token management UX.** The `/account` "API keys" card (create / list
   / revoke, plaintext shown once, default-workspace picker), retiring
-  `provision-token` for normal users; likely feature-gated while
-  experimental.
-- **M5 — Spec + TS SDK (public-API inflection).** OpenAPI 3.1 generated from
+  `provision-token` for normal users; likely feature-gated while experimental.
+- **M6 — Spec + TS SDK (public-API inflection).** OpenAPI 3.1 generated from
   the Zod schemas with CI route-coverage assertion; the TS SDK extracted
-  (`api-repository` promoted to a publishable typed client); the CLI
-  refactored to ride the SDK.
-- **M6 — CLI breadth.** More subcommands (`series list/show/export`,
-  `publish`, `workspace`); distribution as a published npm package / `npx`,
-  optional single-file binary in reserve.
-- **M7 — Documented public API.** Stability / deprecation policy, published
+  (`api-repository` promoted to a publishable typed client); the CLI refactored
+  to ride the SDK.
+- **M7 — CLI breadth (create / update / delete).** Beyond the M3 action verbs
+  and the M4 reads: full write verbs across the resource grammar
+  (`series create`, `competitor create/update/delete`, `race …`, etc.), so the
+  CLI can drive any workflow the app can. Distribution as a published npm
+  package / `npx`; single-file binary (Node SEA / Bun) in reserve.
+- **M8 — Documented public API.** Stability / deprecation policy, published
   spec + docs, rate-limit / quota policy, polyglot SDKs on demand — its own
   follow-up ADR.
 
