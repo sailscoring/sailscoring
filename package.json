@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Sail race scoring application",
+  "bin": {
+    "sailscoring": "./cli/sailscoring.cjs"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:local": "DATABASE_URL=postgres://sailscoring:sailscoring@localhost:5432/sailscoring next dev",

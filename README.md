@@ -50,7 +50,7 @@ pnpm deploy        # preview
 pnpm deploy:prod   # production
 ```
 
-See `DEPLOY.md` for custom domain setup, `docs/workspace-provisioning.md` for setting up a shared org workspace via the `pnpm provision-org` CLI, and `docs/` for design docs, ADRs, and requirements.
+See `DEPLOY.md` for custom domain setup, `docs/workspace-provisioning.md` for setting up a shared org workspace via the `pnpm provision-org` CLI, `docs/cli.md` for the `sailscoring` CLI (bulk import, publish, and read access to the API), and `docs/` for design docs, ADRs, and requirements.
 
 ## License
 

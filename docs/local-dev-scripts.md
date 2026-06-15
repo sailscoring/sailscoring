@@ -34,6 +34,9 @@ from?", start here.
 | `pnpm delete-account:test` | Same, but against the local container              | Yes — run `pnpm db:up` first   |
 | `pnpm user-stats`        | Admin CLI: per-user activity/membership stats (uses `.env.local`) | Yes |
 | `pnpm user-stats:test`   | Same, but against the local container                | Yes — run `pnpm db:up` first   |
+| `pnpm provision-token`   | Admin CLI: mint/list/revoke API keys (Bearer tokens) for the CLI (uses `.env.local`) | Yes |
+| `pnpm provision-token:test` | Same, but against the local container             | Yes — run `pnpm db:up` first   |
+| `pnpm cli`               | The `sailscoring` CLI — a pure `/api/v1` client (import/publish/reads); see [cli.md](cli.md) | No (talks to a deployment) |
 | `pnpm generate:fixtures` | Regenerate scoring fixture HTML                      | No              |
 | `pnpm nationality:sync`  | Regenerate `lib/nationality/generated/` from upstream dataset | No     |
 | `pnpm deploy`            | `vercel deploy` (preview)                            | -               |
