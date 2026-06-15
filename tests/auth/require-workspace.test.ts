@@ -20,6 +20,7 @@ describe.skipIf(skip)('resolveWorkspace', () => {
   // Each test seeds its own user and orgs; clean them up at the end.
   const cleanupUserIds: string[] = [];
   const cleanupOrgIds: string[] = [];
+  const cleanupApiKeyIds: string[] = [];
 
   beforeAll(async () => {
     sql = postgres(DATABASE_URL!, { max: 1, prepare: false });
@@ -31,6 +32,9 @@ describe.skipIf(skip)('resolveWorkspace', () => {
   });
 
   afterAll(async () => {
+    for (const id of cleanupApiKeyIds) {
+      await db.delete(schema.apikey).where(eq(schema.apikey.id, id));
+    }
     for (const id of cleanupUserIds) {
       await db.delete(schema.user).where(eq(schema.user.id, id));
     }
@@ -80,6 +84,119 @@ describe.skipIf(skip)('resolveWorkspace', () => {
       createdAt,
     });
   }
+
+  async function makeApiKey(
+    userId: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<string> {
+    const id = `key_${uuid().replace(/-/g, '')}`;
+    cleanupApiKeyIds.push(id);
+    await db.insert(schema.apikey).values({
+      id,
+      configId: 'default',
+      referenceId: userId,
+      key: `hash_${id}`,
+      enabled: true,
+      requestCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      metadata: metadata ? JSON.stringify(metadata) : null,
+    });
+    return id;
+  }
+
+  test('workspaceOverride selects the named workspace (by slug and by id)', async () => {
+    const { resolveWorkspace } = await import('@/lib/auth/require-workspace');
+    const userId = await makeUser(`override-${Date.now()}@sailscoring.test`);
+    const personalOrg = await makeOrg('My Workspace');
+    const sharedOrg = await makeOrg('HYC', `hyc-${userId.slice(4, 12)}`);
+    await makeMember(personalOrg, userId, 'owner', new Date());
+    await makeMember(sharedOrg, userId, 'admin', new Date());
+
+    const bySlug = await resolveWorkspace({
+      userId,
+      email: 'a@b',
+      activeOrganizationId: personalOrg,
+      workspaceOverride: `hyc-${userId.slice(4, 12)}`,
+    });
+    expect(bySlug).toMatchObject({ workspaceId: sharedOrg, role: 'admin' });
+
+    const byId = await resolveWorkspace({
+      userId,
+      email: 'a@b',
+      activeOrganizationId: personalOrg,
+      workspaceOverride: sharedOrg,
+    });
+    expect(byId).toMatchObject({ workspaceId: sharedOrg });
+  });
+
+  test('workspaceOverride fails closed when the caller is not a member', async () => {
+    const { resolveWorkspace, ForbiddenError } = await import(
+      '@/lib/auth/require-workspace'
+    );
+    const userId = await makeUser(`override-nm-${Date.now()}@sailscoring.test`);
+    const ownOrg = await makeOrg('Own');
+    const otherOrg = await makeOrg('Other');
+    await makeMember(ownOrg, userId, 'owner', new Date());
+
+    const err = await resolveWorkspace({
+      userId,
+      email: 'a@b',
+      activeOrganizationId: ownOrg,
+      workspaceOverride: otherOrg,
+    }).catch((e) => e);
+    expect(err).toBeInstanceOf(ForbiddenError);
+    expect((err as InstanceType<typeof ForbiddenError>).reason).toBe(
+      'workspace-not-a-member',
+    );
+  });
+
+  test('apiKey default-workspace metadata selects the workspace when no override is given', async () => {
+    const { resolveWorkspace } = await import('@/lib/auth/require-workspace');
+    const userId = await makeUser(`key-default-${Date.now()}@sailscoring.test`);
+    const personalOrg = await makeOrg(
+      'My Workspace',
+      `u-${userId.slice(4, 20)}`,
+    );
+    const sharedOrg = await makeOrg('Club');
+    await makeMember(personalOrg, userId, 'owner', new Date());
+    await makeMember(sharedOrg, userId, 'member', new Date());
+    const keyId = await makeApiKey(userId, { defaultWorkspace: sharedOrg });
+
+    // Key sessions carry no activeOrganizationId; the key's metadata steers it.
+    const ctx = await resolveWorkspace({
+      userId,
+      email: 'a@b',
+      activeOrganizationId: null,
+      apiKeyId: keyId,
+    });
+    expect(ctx).toMatchObject({ workspaceId: sharedOrg, role: 'member' });
+  });
+
+  test('apiKey with a stale default-workspace falls through to bootstrap', async () => {
+    const { resolveWorkspace, personalWorkspaceSlug } = await import(
+      '@/lib/auth/require-workspace'
+    );
+    const userId = await makeUser(`key-stale-${Date.now()}@sailscoring.test`);
+    const personalOrg = await makeOrg(
+      'My Workspace',
+      personalWorkspaceSlug(userId),
+    );
+    const sharedOrg = await makeOrg('Club2');
+    const goneOrg = await makeOrg('Gone');
+    await makeMember(personalOrg, userId, 'owner', new Date());
+    await makeMember(sharedOrg, userId, 'member', new Date());
+    // Key points at an org the user is not (or no longer) a member of.
+    const keyId = await makeApiKey(userId, { defaultWorkspace: goneOrg });
+
+    const ctx = await resolveWorkspace({
+      userId,
+      email: 'a@b',
+      activeOrganizationId: null,
+      apiKeyId: keyId,
+    });
+    expect(ctx).toMatchObject({ workspaceId: personalOrg, role: 'owner' });
+  });
 
   test('throws ForbiddenError("no-workspace") when the user has no memberships', async () => {
     const { resolveWorkspace, ForbiddenError } = await import(

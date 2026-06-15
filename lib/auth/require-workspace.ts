@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db/client';
 import {
+  apikey,
   member,
   organization,
   session as sessionTable,
@@ -122,13 +123,23 @@ export function requirePermission(
  * memberships), we still throw and the switcher prompts them.
  */
 export async function requireWorkspace(): Promise<WorkspaceContext> {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const hdrs = await headers();
+  const session = await auth.api.getSession({ headers: hdrs });
   if (!session) throw new UnauthenticatedError();
+  // A key-authenticated request (ADR-009) gets a synthesized session from the
+  // @better-auth/api-key plugin: `session.session.id` is the API key's id and
+  // there is no `activeOrganizationId` property. Use that to (a) read the
+  // key's default-workspace metadata and (b) avoid persisting a bootstrap
+  // pick to a session row that doesn't exist.
+  const isApiKey = !('activeOrganizationId' in session.session);
+  const workspaceOverride = hdrs.get('x-sailscoring-workspace') ?? undefined;
   return resolveWorkspace({
     userId: session.user.id,
     email: session.user.email,
     activeOrganizationId: session.session.activeOrganizationId ?? null,
-    sessionId: session.session.id,
+    sessionId: isApiKey ? undefined : session.session.id,
+    apiKeyId: isApiKey ? session.session.id : undefined,
+    workspaceOverride,
   });
 }
 
@@ -152,16 +163,28 @@ export async function getEffectiveFeatures(): Promise<FeatureKey[]> {
  * Internal helper, exported for tests. Given just the session-level facts,
  * resolves a workspace context against the database.
  *
- * `sessionId` is optional so test callers can exercise the resolution
- * logic without a real session; when provided, the bootstrap-pick path
- * persists the chosen organization back to the session row so subsequent
- * requests skip this branch.
+ * Selection precedence:
+ *  1. `workspaceOverride` — an explicit slug or id (the `x-sailscoring-workspace`
+ *     header). Wins over everything and **fails closed**: a value the caller is
+ *     not a member of throws rather than falling back.
+ *  2. `activeOrganizationId` — the session's active workspace (browser flow).
+ *  3. `apiKeyId` — for key-authenticated requests with no explicit override,
+ *     the key's `metadata.defaultWorkspace`, if it names a current membership.
+ *  4. Bootstrap — the personal workspace (or the sole membership).
+ *
+ * `sessionId` is optional so test callers can exercise the resolution logic
+ * without a real session; when provided, the bootstrap-pick path persists the
+ * chosen organization back to the session row so subsequent requests skip this
+ * branch. It is deliberately omitted for key requests (their `session.id` is an
+ * API-key id, not a session row).
  */
 export async function resolveWorkspace(input: {
   userId: string;
   email: string;
   activeOrganizationId: string | null;
   sessionId?: string;
+  workspaceOverride?: string;
+  apiKeyId?: string;
 }): Promise<WorkspaceContext> {
   const memberships = await getDb()
     .select({
@@ -186,25 +209,46 @@ export async function resolveWorkspace(input: {
     metadata: m.metadata,
   }));
 
+  type Membership = (typeof memberships)[number];
+  const toContext = (m: Membership): WorkspaceContext => ({
+    userId: input.userId,
+    email: input.email,
+    workspaceId: m.organizationId,
+    workspaceSlug: m.slug,
+    role: m.role as WorkspaceRole,
+    features: computeEffectiveFeatures(m.slug, featureMemberships),
+  });
+  // A workspace reference is either an organization id or its slug.
+  const matchRef = (ref: string): Membership | undefined =>
+    memberships.find((m) => m.organizationId === ref || m.slug === ref);
+
+  // 1. Explicit override (header) — fail closed.
+  if (input.workspaceOverride) {
+    const m = matchRef(input.workspaceOverride);
+    if (!m) throw new ForbiddenError('workspace-not-a-member');
+    return toContext(m);
+  }
+
+  // 2. Session active workspace.
   if (input.activeOrganizationId) {
     const active = memberships.find(
       (m) => m.organizationId === input.activeOrganizationId,
     );
-    if (active) {
-      return {
-        userId: input.userId,
-        email: input.email,
-        workspaceId: active.organizationId,
-        workspaceSlug: active.slug,
-        role: active.role as WorkspaceRole,
-        features: computeEffectiveFeatures(active.slug, featureMemberships),
-      };
-    }
+    if (active) return toContext(active);
     // Stale active id — the user was removed from that org since the
-    // session column was last written. Fall through to the bootstrap
-    // path.
+    // session column was last written. Fall through.
   }
 
+  // 3. API-key default workspace from the key's metadata.
+  if (input.apiKeyId) {
+    const ref = await apiKeyDefaultWorkspace(input.apiKeyId);
+    if (ref) {
+      const m = matchRef(ref);
+      if (m) return toContext(m);
+    }
+  }
+
+  // 4. Bootstrap.
   const bootstrap =
     memberships.length === 1
       ? memberships[0]
@@ -219,15 +263,31 @@ export async function resolveWorkspace(input: {
         .set({ activeOrganizationId: bootstrap.organizationId })
         .where(eq(sessionTable.id, input.sessionId));
     }
-    return {
-      userId: input.userId,
-      email: input.email,
-      workspaceId: bootstrap.organizationId,
-      workspaceSlug: bootstrap.slug,
-      role: bootstrap.role as WorkspaceRole,
-      features: computeEffectiveFeatures(bootstrap.slug, featureMemberships),
-    };
+    return toContext(bootstrap);
   }
 
   throw new ForbiddenError('no-active-workspace');
+}
+
+/**
+ * Read the `defaultWorkspace` (slug or id) from an API key's metadata, or
+ * `null` when the key has none. Defensive: a missing key or malformed
+ * metadata resolves to `null` rather than throwing, so a bad default falls
+ * through to bootstrap rather than failing the request.
+ */
+async function apiKeyDefaultWorkspace(apiKeyId: string): Promise<string | null> {
+  try {
+    const [row] = await getDb()
+      .select({ metadata: apikey.metadata })
+      .from(apikey)
+      .where(eq(apikey.id, apiKeyId))
+      .limit(1);
+    if (!row?.metadata) return null;
+    const meta = JSON.parse(row.metadata) as { defaultWorkspace?: unknown };
+    return typeof meta.defaultWorkspace === 'string' && meta.defaultWorkspace
+      ? meta.defaultWorkspace
+      : null;
+  } catch {
+    return null;
+  }
 }
