@@ -1,6 +1,9 @@
 # ADR-009: API, SDK, and CLI
 
-**Status:** Proposed
+**Status:** Accepted — partially implemented. M1–M3 (keyed API access, the
+import endpoint, the bulk-import CLI with publish / categorise / archive) and
+the M4 read surface have landed; M4 Tier 3 and M5–M8 are deferred and tracked
+in [horizon.md](../horizon.md).
 
 **Date:** 2026-06-15
 

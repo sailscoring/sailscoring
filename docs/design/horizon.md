@@ -5,6 +5,51 @@ Not scheduled, not designed — just captured so they're not lost.
 
 ---
 
+## API, SDK & CLI follow-ons (ADR-009)
+
+[ADR-009](decisions/009-api-and-cli.md) is accepted and partially implemented:
+M1–M3 (keyed API access, the `POST /api/v1/series/import` endpoint, and the
+bulk-import CLI with publish / categorise / archive) and the M4 read surface
+have landed. The remaining roadmap milestones are captured here so they aren't
+lost if their tracking issues go stale; the ADR's Roadmap section holds the
+fuller framing.
+
+### M4 Tier 3 — CLI long-tail reads
+
+The stretch of the read surface: `ratings irc|echo|vprs`, `member list`,
+`revision list --series`, `trash list`. The grammar and conventions are already
+in place, so each is a thin command over an existing GET. Tracked on the M4
+issue.
+
+### M5 — Token-management UX
+
+An `/account` "API keys" card (create / list / revoke, plaintext shown once,
+default-workspace picker), retiring the `provision-token` bootstrap script for
+normal users. Likely feature-gated while experimental.
+
+### M6 — OpenAPI spec + TypeScript SDK
+
+Generate an OpenAPI 3.1 description from the Zod schemas (with a CI
+route-coverage assertion), extract the TS SDK (`api-repository` promoted to a
+publishable typed client), and refactor the CLI to ride it. The inflection
+point from "internal contract" toward a real public API.
+
+### M7 — CLI breadth (create / update / delete)
+
+Full write verbs across the resource grammar (`series create`,
+`competitor create/update/delete`, `race …`, etc.) beyond M3's action verbs and
+M4's reads, so the CLI can drive any workflow the app can. Includes proper
+distribution: a published npm package / `npx sailscoring`, and a standalone,
+dependency-free executable (Node SEA / Bun) to replace the current
+tsx-at-runtime bin.
+
+### M8 — Documented public API
+
+Stability / deprecation policy, published spec + docs, rate-limit / quota
+policy, and polyglot SDKs generated on demand — its own follow-up ADR.
+
+---
+
 ## Third-party integrations
 
 ### Mobile finish-recording app
