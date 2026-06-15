@@ -381,7 +381,42 @@ is an API client**, not a DB tool. Concretely:
     the spec generation is the groundwork landed with this work; extracting
     the TS SDK follows; polyglot generation is deferred until demand.
 
-The detailed milestone plan lives in the tracking issue, not here.
+## Roadmap
+
+Sequenced so the **bulk-import goal is met at the end of M3** (M1→M2→M3 is a
+strict critical path); M4 onward is the mapped-out direction. Task-level
+detail lives in the tracking issue(s), not here.
+
+- **M1 — Keyed API access (auth foundation).** `@better-auth/api-key` wired
+  into `lib/auth.ts` (reading `Authorization: Bearer`), the `apikey`
+  migration, `requireWorkspace` resolving a keyed request, workspace
+  selection (key-metadata default + `x-sailscoring-workspace` override, fail
+  closed), and a `provision-token` bootstrap script. *Exit:* a Bearer token
+  authenticates a `/api/v1` request into a chosen workspace; auth/api suites
+  green (also the better-auth upgrade regression gate).
+- **M2 — Import endpoint.** `POST /api/v1/series/import` running
+  `openSeriesFromFile` server-side, a `SeriesFile` Zod schema round-trip
+  tested against `parseSeriesFile`, idempotency, mint-new-ids. *Exit:* one
+  authenticated POST imports one file atomically; replay is a no-op.
+- **M3 — Minimal CLI + bulk import (short-term goal).** `cli/` module,
+  `sailscoring auth login`, `sailscoring import <files…>` (per-file
+  idempotency, bounded concurrency, resume-on-failure), `--base-url` /
+  `--workspace`, `pnpm cli`. *Exit:* `sailscoring import *.sailscoring`
+  bulk-loads the files.
+- **M4 — Token management UX.** The `/account` "API keys" card (create / list
+  / revoke, plaintext shown once, default-workspace picker), retiring
+  `provision-token` for normal users; likely feature-gated while
+  experimental.
+- **M5 — Spec + TS SDK (public-API inflection).** OpenAPI 3.1 generated from
+  the Zod schemas with CI route-coverage assertion; the TS SDK extracted
+  (`api-repository` promoted to a publishable typed client); the CLI
+  refactored to ride the SDK.
+- **M6 — CLI breadth.** More subcommands (`series list/show/export`,
+  `publish`, `workspace`); distribution as a published npm package / `npx`,
+  optional single-file binary in reserve.
+- **M7 — Documented public API.** Stability / deprecation policy, published
+  spec + docs, rate-limit / quota policy, polyglot SDKs on demand — its own
+  follow-up ADR.
 
 ## Consequences
 
