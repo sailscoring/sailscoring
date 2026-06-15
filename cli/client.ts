@@ -84,6 +84,33 @@ export class SailscoringClient {
     })) as { id: string };
     return result;
   }
+
+  /**
+   * Publish a series' current standings. `input.slug` co-publishes into a
+   * shared namespace; `input.join` confirms joining a slug that already holds
+   * other series. Returns the slug and per-fleet public URLs.
+   */
+  async publishSeries(
+    seriesId: string,
+    input: PublishRequest,
+  ): Promise<PublishResponse> {
+    return (await this.request('POST', `/api/v1/series/${seriesId}/publish`, {
+      body: input,
+    })) as PublishResponse;
+  }
+}
+
+export interface PublishRequest {
+  slug?: string;
+  join?: boolean;
+  fleets?: string[];
+  subPaths?: Record<string, string>;
+  defaultSubPath?: string;
+}
+
+export interface PublishResponse {
+  slug: string;
+  pages: { fleetName: string; subSeriesName?: string; url: string }[];
 }
 
 function safeJson(raw: string): unknown {

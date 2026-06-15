@@ -1,6 +1,9 @@
 import { SailscoringClient } from '../client';
 import { resolveConfig } from '../config';
+import { parsePairs } from '../flags';
 import { runImport } from '../import-runner';
+import { runPublish } from '../publish-runner';
+import { printPublishLine, summarisePublish } from './publish';
 
 /**
  * `sailscoring import <files…>` — bulk-import `.sailscoring` files into the
@@ -54,10 +57,42 @@ export async function importCommand(
     },
   });
 
-  const imported = results.filter((r) => r.status === 'imported').length;
-  const failed = results.length - imported;
+  const imported = results.filter((r) => r.status === 'imported');
+  const failed = results.length - imported.length;
   console.log(
-    `\n${imported} imported, ${failed} failed (${results.length} total) → ${cfg.baseUrl}`,
+    `\n${imported.length} imported, ${failed} failed (${results.length} total) → ${cfg.baseUrl}`,
   );
-  return failed > 0 ? 1 : 0;
+
+  // Optional publish phase: --publish-slug co-publishes every imported series
+  // under one slug (IODAI); --publish gives each its own derived slug.
+  const publishSlug =
+    flags['publish-slug'] && flags['publish-slug'] !== 'true'
+      ? flags['publish-slug']
+      : undefined;
+  const wantPublish = publishSlug !== undefined || flags.publish === 'true';
+  if (!wantPublish) return failed > 0 ? 1 : 0;
+
+  if (imported.length === 0) {
+    console.error('\nnothing imported — skipping publish');
+    return 1;
+  }
+
+  let subPaths: Record<string, string> | undefined;
+  try {
+    subPaths = parsePairs(flags.subpath);
+  } catch (err) {
+    console.error(`--subpath: ${err instanceof Error ? err.message : String(err)}`);
+    return 1;
+  }
+
+  console.log(`\nPublishing ${imported.length} series${publishSlug ? ` to ${publishSlug}` : ''}…`);
+  const published = await runPublish({
+    seriesIds: imported.map((r) => r.id!),
+    client,
+    slug: publishSlug,
+    subPaths,
+    onResult: printPublishLine,
+  });
+  const publishExit = summarisePublish(published, cfg.baseUrl);
+  return failed > 0 || publishExit !== 0 ? 1 : 0;
 }
