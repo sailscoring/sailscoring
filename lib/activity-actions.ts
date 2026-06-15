@@ -22,6 +22,7 @@ export const ACTIVITY_ACTIONS = [
   'series.restored',
   'series.purged',
   'series.copied',
+  'series.imported',
   'series.created-follow-on',
   'series.reverted',
   'competitors.imported',

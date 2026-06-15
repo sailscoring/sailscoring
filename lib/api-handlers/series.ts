@@ -16,15 +16,17 @@ import { captureTombstone } from '@/lib/deleted-series';
 import { trackChange } from '@/lib/revision-log';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
-import { createRepos } from '@/lib/postgres-repository';
+import { createRepos, seriesFileReposFor } from '@/lib/postgres-repository';
 import {
   assertSeriesDeletable,
   assertSeriesWritable,
 } from '@/lib/api-handlers/series-access';
 import { listTcfHistory } from '@/lib/api-handlers/tcf-history';
 import { suggestFollowOnName } from '@/lib/series-name';
+import { openSeriesFromFile, parseSeriesFile } from '@/lib/series-file';
 import { endOfSeriesTcfKey, endOfSeriesTcfs } from '@/lib/source-handicaps';
 import { seriesCopyInputSchema } from '@/lib/validation/series-copy';
+import { seriesImportInputSchema } from '@/lib/validation/series-import';
 import { seriesFollowOnInputSchema } from '@/lib/validation/series-follow-on';
 import {
   seriesArchiveInputSchema,
@@ -492,6 +494,45 @@ export async function copySeries(
     },
   );
   return { id: newSeriesId };
+}
+
+/**
+ * ADR-009 M2 — import a `.sailscoring` file into the active workspace. The
+ * body carries the raw file text; `parseSeriesFile` does the structural
+ * validation and version migration (a parse failure is a 400), and
+ * `openSeriesFromFile` mints a fresh series id, remaps every child id, and
+ * disambiguates the name against the workspace. The whole import runs in one
+ * transaction so a mid-import failure leaves no partial series.
+ *
+ * Embedded revision history is not restored: `seriesFileReposFor` omits the
+ * optional revision hooks, which suits bulk-importing historical files.
+ */
+export async function importSeries(
+  workspace: WorkspaceContext,
+  body: unknown,
+): Promise<{ id: string }> {
+  const { content } = seriesImportInputSchema.parse(body);
+  let file;
+  try {
+    file = parseSeriesFile(content);
+  } catch (err) {
+    throw new BadRequestError(
+      err instanceof Error ? err.message : 'invalid .sailscoring file',
+    );
+  }
+
+  const db = getDb();
+  const id = await db.transaction(async (tx) => {
+    const repos = seriesFileReposFor({ db: tx, workspaceId: workspace.workspaceId });
+    return openSeriesFromFile(file, repos);
+  });
+
+  await recordActivity(workspace, {
+    action: 'series.imported',
+    seriesId: id,
+    summary: `Imported series “${file.series.name}”`,
+  });
+  return { id };
 }
 
 /**
