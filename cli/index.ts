@@ -9,6 +9,8 @@
 import { loginCommand } from './commands/login';
 import { importCommand } from './commands/import';
 import { publishCommand } from './commands/publish';
+import { categoriseCommand } from './commands/categorise';
+import { archiveCommand } from './commands/archive';
 import { DEFAULT_BASE_URL } from './config';
 
 interface ParsedFlags {
@@ -46,15 +48,23 @@ function usage(): string {
 
   import <files…> [--workspace <slug-or-id>] [--base-url <url>] [--concurrency <n>]
                   [--publish | --publish-slug <slug>] [--subpath f=p,…]
+                  [--category <name>] [--archive]
       Bulk-import .sailscoring files into the active workspace. Resumable:
       failures are reported but don't stop the batch, and a re-run replays
       already-imported files. --workspace overrides the token's default.
       --publish-slug co-publishes every imported series under one slug (the
-      IODAI case); --publish gives each its own derived slug.
+      IODAI case); --publish gives each its own derived slug. --category and
+      --archive run after publishing (categorise before archive).
 
   publish [--slug <slug>] [--subpath f=p,…] [--fleets a,b] [--default-subpath p] <seriesId…>
       Publish series standings. With --slug the series co-publish into one
       shared namespace; without, each gets its own derived slug.
+
+  categorise <seriesId…> --category <name>
+      Move series into a category (created if missing). Do this before archiving.
+
+  archive <seriesId…> [--unarchive]
+      Archive (or unarchive) series.
 
 Env: SAILSCORING_TOKEN and SAILSCORING_BASE_URL override the saved config.`;
 }
@@ -84,6 +94,15 @@ export async function runCli(argv: string[]): Promise<number> {
     case 'publish': {
       const { positional, flags } = parseArgs(rest);
       return publishCommand(positional, flags);
+    }
+    case 'categorise':
+    case 'categorize': {
+      const { positional, flags } = parseArgs(rest);
+      return categoriseCommand(positional, flags);
+    }
+    case 'archive': {
+      const { positional, flags } = parseArgs(rest);
+      return archiveCommand(positional, flags);
     }
     default:
       console.error(`unknown command: ${command}\n`);

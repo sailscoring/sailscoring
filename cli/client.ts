@@ -98,6 +98,36 @@ export class SailscoringClient {
       body: input,
     })) as PublishResponse;
   }
+
+  /** Workspace categories (series-list organisation). */
+  async listCategories(): Promise<{ items: Category[] }> {
+    return (await this.request('GET', '/api/v1/categories')) as { items: Category[] };
+  }
+
+  /** Create a category; returns it. */
+  async createCategory(name: string): Promise<Category> {
+    return (await this.request('POST', '/api/v1/categories', { body: { name } })) as Category;
+  }
+
+  /** Move a series into a category (or `null` for uncategorised). Blocked on an
+   *  archived series — categorise before you archive. */
+  async setSeriesCategory(seriesId: string, categoryId: string | null): Promise<void> {
+    await this.request('POST', `/api/v1/series/${seriesId}/category`, {
+      body: { categoryId },
+    });
+  }
+
+  /** Archive or unarchive a series. */
+  async setSeriesArchived(seriesId: string, archived: boolean): Promise<void> {
+    await this.request('POST', `/api/v1/series/${seriesId}/archive`, {
+      body: { archived },
+    });
+  }
+}
+
+export interface Category {
+  id: string;
+  name: string;
 }
 
 export interface PublishRequest {
