@@ -1,6 +1,7 @@
 import { SailscoringClient } from '../client';
 import { resolveConfig } from '../config';
 import { parsePairs } from '../flags';
+import { printJson, resolveFormat } from '../output';
 import { runImport } from '../import-runner';
 import { runPublish } from '../publish-runner';
 import { findOrCreateCategory, runPerSeries } from '../series-ops';
@@ -46,21 +47,34 @@ export async function importCommand(
     workspace,
   });
 
+  // `--json` is for capturing ids to drive your own follow-up; it emits the
+  // results and skips the human log and the post-phases (use the dedicated
+  // publish/categorise/archive commands on the captured ids instead).
+  const json = resolveFormat(flags) === 'json';
+
   const results = await runImport({
     files,
     client,
     concurrency,
-    onResult: (r) => {
-      if (r.status === 'imported') {
-        console.log(`  ✓ ${r.file} → ${r.id}`);
-      } else {
-        console.error(`  ✗ ${r.file}: ${r.error}`);
-      }
-    },
+    onResult: json
+      ? undefined
+      : (r) => {
+          if (r.status === 'imported') {
+            console.log(`  ✓ ${r.file} → ${r.id}`);
+          } else {
+            console.error(`  ✗ ${r.file}: ${r.error}`);
+          }
+        },
   });
 
   const imported = results.filter((r) => r.status === 'imported');
   const failed = results.length - imported.length;
+
+  if (json) {
+    printJson(results);
+    return failed > 0 ? 1 : 0;
+  }
+
   console.log(
     `\n${imported.length} imported, ${failed} failed (${results.length} total) → ${cfg.baseUrl}`,
   );
