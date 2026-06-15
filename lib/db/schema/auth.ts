@@ -183,6 +183,47 @@ export const rateLimit = pgTable("rate_limit", {
   lastRequest: bigint("last_request", { mode: "number" }).notNull(),
 });
 
+// @better-auth/api-key plugin table (ADR-009 M1). Hand-written rather than
+// regenerated because this file carries app-custom tables (orgRequest,
+// rateLimit) that `better-auth generate` would not preserve. Drizzle keys
+// mirror the plugin's field names (camelCase) so the adapter maps them;
+// column names follow our snake_case convention. `referenceId` is the owning
+// user id (the plugin's default `references: "user"`); `metadata` is a JSON
+// string we use to carry the key's default workspace (read in
+// lib/auth/require-workspace.ts). No FK on referenceId — the plugin manages
+// key lifecycle and resolves the user via its own lookup.
+export const apikey = pgTable(
+  "apikey",
+  {
+    id: text("id").primaryKey(),
+    configId: text("config_id").notNull(),
+    name: text("name"),
+    start: text("start"),
+    referenceId: text("reference_id").notNull(),
+    prefix: text("prefix"),
+    key: text("key").notNull(),
+    refillInterval: bigint("refill_interval", { mode: "number" }),
+    refillAmount: integer("refill_amount"),
+    lastRefillAt: timestamp("last_refill_at"),
+    enabled: boolean("enabled").default(true).notNull(),
+    rateLimitEnabled: boolean("rate_limit_enabled").default(true).notNull(),
+    rateLimitTimeWindow: bigint("rate_limit_time_window", { mode: "number" }),
+    rateLimitMax: integer("rate_limit_max"),
+    requestCount: integer("request_count").default(0).notNull(),
+    remaining: integer("remaining"),
+    lastRequest: timestamp("last_request"),
+    expiresAt: timestamp("expires_at"),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+    permissions: text("permissions"),
+    metadata: text("metadata"),
+  },
+  (table) => [
+    index("apikey_referenceId_idx").on(table.referenceId),
+    index("apikey_key_idx").on(table.key),
+  ],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
