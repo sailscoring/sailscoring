@@ -123,6 +123,57 @@ export class SailscoringClient {
       body: { archived },
     });
   }
+
+  // ── Reads (ADR-009 M4). Returned shapes are passed straight to output, so
+  //    they stay `unknown` here; the generated TS SDK (M6) will type them. ──
+
+  /** The caller's identity + active workspace (role, features). */
+  whoami(): Promise<unknown> {
+    return this.request('GET', '/api/v1/workspace');
+  }
+
+  listSeries(): Promise<unknown> {
+    return this.request('GET', '/api/v1/series');
+  }
+
+  getSeries(seriesId: string): Promise<unknown> {
+    return this.request('GET', `/api/v1/series/${seriesId}`);
+  }
+
+  listFleets(seriesId: string): Promise<unknown> {
+    return this.request('GET', `/api/v1/series/${seriesId}/fleets`);
+  }
+
+  listCompetitors(seriesId: string): Promise<unknown> {
+    return this.request('GET', `/api/v1/series/${seriesId}/competitors`);
+  }
+
+  listRaces(seriesId: string): Promise<unknown> {
+    return this.request('GET', `/api/v1/series/${seriesId}/races`);
+  }
+
+  listSubSeries(seriesId: string): Promise<unknown> {
+    return this.request('GET', `/api/v1/series/${seriesId}/sub-series`);
+  }
+
+  /** Computed standings (the public-export JSON). */
+  getStandings(seriesId: string): Promise<unknown> {
+    return this.request('GET', `/api/v1/series/${seriesId}/standings`);
+  }
+
+  /** This series' publication status (slug + live fleet URLs), if any. */
+  getPublication(seriesId: string): Promise<unknown> {
+    return this.request('GET', `/api/v1/series/${seriesId}/publish`);
+  }
+
+  listPublished(): Promise<unknown> {
+    return this.request('GET', '/api/v1/published');
+  }
+
+  listActivity(seriesId?: string): Promise<unknown> {
+    const q = seriesId ? `?seriesId=${encodeURIComponent(seriesId)}` : '';
+    return this.request('GET', `/api/v1/activity${q}`);
+  }
 }
 
 export interface Category {
