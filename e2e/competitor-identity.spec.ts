@@ -83,4 +83,43 @@ test.describe('competitor identity reconcile', () => {
 
     expect(errors).toEqual([]);
   });
+
+  test('renders a public career-arc page, gated and age-free', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    const email = await signInFreshUser(page, 'arc');
+    const { id: orgId, slug } = await createOrgWorkspace('Arc Club');
+    await addMemberByEmail(orgId, email, 'owner');
+    await enableOrgFeatures(orgId, ['competitor-identity']);
+
+    const identityId = await seedCareerArc(orgId, {
+      label: 'Holly Cantwell',
+      club: 'RSGYC',
+      entries: [
+        { year: 2021, eventName: 'IODAI Connachts 2021', sailNumber: 'IRL1641' },
+        { year: 2023, eventName: 'IODAI Nationals 2023', sailNumber: 'IRL1641' },
+        { year: 2026, eventName: 'IODAI Leinsters 2026', sailNumber: 'IRL1641' },
+      ],
+    });
+
+    const res = await page.goto(`/p/${slug}/competitor/${identityId}`);
+    expect(res?.status()).toBe(200);
+    await expect(page.getByRole('heading', { name: 'Holly Cantwell' })).toBeVisible();
+    await expect(page.getByText('3 series')).toBeVisible();
+    await expect(page.getByText('IODAI Connachts 2021')).toBeVisible();
+    await expect(page.getByText('IODAI Leinsters 2026')).toBeVisible();
+    // Participation only — no age / birth year leaks into the public record.
+    await expect(page.locator('body')).not.toContainText('age');
+    expect(errors).toEqual([]);
+
+    // A non-existent identity 404s (so does any id when the feature is off).
+    // Navigating to it logs an expected resource-load error, so assert after
+    // the clean-console check above.
+    const missing = await page.goto(
+      `/p/${slug}/competitor/00000000-0000-0000-0000-000000000000`,
+    );
+    expect(missing?.status()).toBe(404);
+  });
 });

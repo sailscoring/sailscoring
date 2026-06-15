@@ -75,6 +75,8 @@ export default async function HelpPage() {
             ['#history', 'Version history'],
             // Gated: only listed when logo-library is enabled.
             ['#logo-library', 'The logo library', 'logo-library'],
+            // Gated: only listed when competitor-identity is enabled.
+            ['#competitor-identity', 'Competitor identities and career arcs', 'competitor-identity'],
             ['#publishing-results', 'Publishing results'],
             ['#json-export', 'JSON data export and Open in Sail Scoring'],
             ['#sending-feedback', 'Sending feedback'],
@@ -1300,6 +1302,42 @@ export default async function HelpPage() {
           workspace…</strong> pulls a logo another of your workspaces has already cleaned up into
           this one. It&apos;s a copy, not a link — the logo keeps working here even if the original
           is later changed or removed.
+        </p>
+      </Section>
+      )}
+
+      {has('competitor-identity') && (
+      <Section id="competitor-identity" title="Competitor identities and career arcs">
+        <p>
+          When the same sailor races series after series, each entry is a
+          separate row with nothing linking them. The{' '}
+          <strong className="text-foreground">competitor-identity</strong> spine
+          collapses those rows into one <strong className="text-foreground">recurring
+          competitor</strong>, so the app can show a sailor&apos;s whole history
+          across seasons — the basis of the public{' '}
+          <strong className="text-foreground">career-arc</strong> page.
+        </p>
+        <p>
+          Identities are built by an automatic reconcile pass that matches on
+          name, club, sail number, and — where age is recorded — implied birth
+          year. It is deliberately cautious: when a match isn&apos;t
+          corroborated it leaves the rows apart rather than risk merging two
+          different sailors. Review the result in{' '}
+          <strong className="text-foreground">Workspace settings → Competitor
+          identities</strong>: each card is one recurring competitor with the
+          series they entered. Click the name to{' '}
+          <strong className="text-foreground">rename</strong> it, or the{' '}
+          scissors on an entry to <strong className="text-foreground">split</strong>{' '}
+          off a row that was grouped by mistake. An arc that spans more years
+          than a sailor could plausibly stay in the class is flagged{' '}
+          <strong className="text-foreground">long arc</strong> — usually two
+          namesakes to split apart.
+        </p>
+        <p>
+          Each identity has a public career-arc page listing every series the
+          competitor entered, in order. It shows only what&apos;s already public
+          in the results — event, year, sail number, club — never a sailor&apos;s
+          age.
         </p>
       </Section>
       )}

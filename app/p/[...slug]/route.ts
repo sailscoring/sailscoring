@@ -1,6 +1,11 @@
 import type { NextRequest } from 'next/server';
 
 import { readPublishedHtml } from '@/lib/blob-storage';
+import { renderCareerArcHtml } from '@/lib/career-arc-render';
+import {
+  getIdentityArc,
+  workspaceHasIdentityFeature,
+} from '@/lib/competitor-identity-repository';
 import { contentHash, humanizeSlug } from '@/lib/publishing';
 import {
   renderSeriesIndexHtml,
@@ -73,6 +78,10 @@ export async function GET(
   if (segments.length < 1 || segments.length > 4) return NOT_FOUND;
 
   if (segments.length === 1) return workspaceIndex(req, segments[0]);
+  // `/p/{ws}/competitor/{identityId}` — the public career-arc page (#212).
+  if (segments.length === 3 && segments[1] === 'competitor') {
+    return careerArc(req, segments[0], segments[2]);
+  }
   if (segments.length === 2) return seriesIndex(req, segments[0], segments[1]);
   // Page sub-paths are one segment per fleet page, two for a sub-series page
   // (`{kebab(block)}/{fleet}`); the stored subPath carries the slash.
@@ -104,6 +113,40 @@ async function workspaceIndex(
   const cached = notModified(req, etag);
   if (cached) return cached;
   const html = renderWorkspaceIndexHtml(workspaceSlug, workspace.name, items, workspace.logo);
+  return htmlResponse(html, etag);
+}
+
+/** `/p/{ws}/competitor/{identityId}` — a recurring competitor's career arc
+ *  across every series they entered (#212). Gated on the workspace having the
+ *  `competitor-identity` feature, so it's invisible where it isn't enabled. */
+async function careerArc(
+  req: NextRequest,
+  workspaceSlug: string,
+  identityId: string,
+): Promise<Response> {
+  const workspace = await getWorkspaceBySlug(workspaceSlug);
+  if (!workspace) return NOT_FOUND;
+  if (!(await workspaceHasIdentityFeature(workspace.id))) return NOT_FOUND;
+
+  const identity = await getIdentityArc(workspace.id, identityId);
+  if (!identity) return NOT_FOUND;
+
+  // ETag over the arc's content so a re-reconcile (rename, split, a new linked
+  // series) busts the cache but a repeat view revalidates without re-rendering.
+  const etag = `"${await contentHash([
+    `logo:${workspace.logo}`,
+    `label:${identity.label}`,
+    ...identity.entries.map((e) => `${e.competitorId}:${e.seriesName}:${e.year}:${e.sailNumber}`),
+  ])}"`;
+  const cached = notModified(req, etag);
+  if (cached) return cached;
+
+  const html = renderCareerArcHtml(
+    workspaceSlug,
+    workspace.name,
+    identity,
+    workspace.logo,
+  );
   return htmlResponse(html, etag);
 }
 

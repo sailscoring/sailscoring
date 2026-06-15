@@ -933,7 +933,16 @@ restructuring, and series that overlap in time.
 
 ## Cross-series identity and ranking
 
-### Cross-series competitor identity spine
+> **Update (2026-06):** the identity spine and the career-arc page below are now
+> **implemented**, career-arc-first, behind the default-off `competitor-identity`
+> gate (#212). The shipped cut differs from the original sketch: name is the
+> cross-season spine (not sail number), implied birth year is a *transient*
+> reconciliation input rather than schema, identities are populated by a batch
+> reconcile pass (`scripts/reconcile-identities.ts`) rather than lazy per-add
+> linking, and the career-arc page is public. The two entries below are kept for
+> the rationale; the workspace cross-series ranking (#209) remains deferred.
+
+### Cross-series competitor identity spine *(implemented — #212)*
 
 A `Competitor` is series-scoped (`lib/types.ts`, keyed on `seriesId`): the same
 sailor racing eight IODAI series in a season is eight unrelated rows, with nothing
@@ -994,7 +1003,7 @@ and perpetual trophies under *Prize allocation*.
 
 *(Was GitHub issue #209)*
 
-### Competitor career arc — a multi-year record page
+### Competitor career arc — a multi-year record page *(implemented — #212)*
 
 Once the identity spine collapses a sailor's series into one recurring
 competitor, a natural payoff is a **per-competitor record page that spans years** —

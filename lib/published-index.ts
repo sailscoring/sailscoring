@@ -136,7 +136,18 @@ footer.credit { text-align: center; color: #475569; font-size: 0.85em; padding: 
 footer.credit a { color: #073358; text-decoration: none; }
 footer.credit a:hover { color: #fb3a3b; text-decoration: underline; }`;
 
-function shell(title: string, hero: string, body: string): string {
+/**
+ * The shared public-page chrome (navy hero, red accent, Poppins, the
+ * `Sail Scoring — sailscoring.ie` footer). Reused by the career-arc page so the
+ * whole `/p/...` surface reads as one site. `extraCss` is appended after the
+ * base stylesheet for page-specific rules.
+ */
+export function renderPublicShell(
+  title: string,
+  hero: string,
+  body: string,
+  extraCss = '',
+): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -147,6 +158,7 @@ function shell(title: string, hero: string, body: string): string {
 ${FAVICON}
 <style type="text/css">
 ${STYLE}
+${extraCss}
 </style>
 </head>
 <body>
@@ -157,6 +169,12 @@ ${body}
 ${FOOTER}
 </body>
 </html>`;
+}
+
+/** The standard hero: the brand lockup beside the workspace logo, then the
+ *  heading. `headingHtml` is inserted as-is (callers escape their own text). */
+export function renderPublicHero(headingHtml: string, logoUrl = ''): string {
+  return `<div class="herologos">${brandLockup()}${heroLogo(logoUrl)}</div>\n<h1>${headingHtml}</h1>`;
 }
 
 /**
@@ -233,9 +251,9 @@ export function renderWorkspaceIndexHtml(
   logoUrl = '',
 ): string {
   const heading = `${esc(workspaceName)} &mdash; published results`;
-  const hero = `<div class="herologos">${brandLockup()}${heroLogo(logoUrl)}</div>\n<h1>${heading}</h1>`;
+  const hero = renderPublicHero(heading, logoUrl);
   if (items.length === 0) {
-    return shell(
+    return renderPublicShell(
       `${workspaceName} — published results`,
       hero,
       '<p class="empty">No published results yet.</p>',
@@ -279,7 +297,7 @@ export function renderWorkspaceIndexHtml(
     sections = activeHtml + pastHtml;
   }
 
-  return shell(`${workspaceName} — published results`, hero, sections);
+  return renderPublicShell(`${workspaceName} — published results`, hero, sections);
 }
 
 /**
@@ -341,6 +359,6 @@ ${pages
           .join('\n');
 
   const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)} &mdash; published results</a></p>`;
-  const hero = `<div class="herologos">${brandLockup()}${heroLogo(logoUrl)}</div>\n<h1>${esc(title)}</h1>`;
-  return shell(title, hero, `${back}\n${sections}`);
+  const hero = renderPublicHero(esc(title), logoUrl);
+  return renderPublicShell(title, hero, `${back}\n${sections}`);
 }

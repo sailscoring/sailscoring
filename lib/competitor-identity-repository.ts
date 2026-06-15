@@ -3,7 +3,9 @@ import 'server-only';
 import { and, eq } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
+import { organization } from '@/lib/db/schema/auth';
 import { competitorIdentities, competitors, series } from '@/lib/db/schema/series';
+import { parseOrgMetadata } from '@/lib/features';
 
 /**
  * Server-side reads/writes for the cross-series competitor-identity spine
@@ -192,6 +194,26 @@ export async function unlinkCompetitor(
       ),
     );
   return (res.count ?? 0) > 0;
+}
+
+/**
+ * Whether the workspace has the `competitor-identity` feature enabled. Gates
+ * the public career-arc page: a workspace that hasn't opted in shows nothing,
+ * matching the containment model. (The feature is default-off, so a plain
+ * membership in `enabledFeatures` is the whole test.)
+ */
+export async function workspaceHasIdentityFeature(
+  workspaceId: string,
+): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ metadata: organization.metadata, slug: organization.slug })
+    .from(organization)
+    .where(eq(organization.id, workspaceId))
+    .limit(1);
+  if (!row) return false;
+  return parseOrgMetadata(row.metadata, row.slug).enabledFeatures.includes(
+    'competitor-identity',
+  );
 }
 
 /** Whether an identity has no linked competitors left (for optional GC). */
