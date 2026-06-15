@@ -61,14 +61,27 @@ describe('publicationSubPath', () => {
     );
   });
 
-  it('serves a default fleet at the series slug when co-publishing', () => {
-    // Two single-fleet series sharing a slug must not both claim "standings".
+  it('serves a *synthetic* default fleet at the series slug when co-publishing', () => {
+    // Two single-fleet series whose only fleet is the synthetic "Default" must
+    // not both claim "standings", so they fall back to the series slug.
     expect(publicationSubPath('Default', true, 'lambay-races-cruisers', true)).toBe(
       'lambay-races-cruisers',
     );
     expect(
       publicationSubPath('Default', true, 'lambay-races-one-designs', true),
     ).toBe('lambay-races-one-designs');
+  });
+
+  it('uses the kebab fleet name for a meaningfully-named lone fleet when co-publishing', () => {
+    // A single fleet with a real name (e.g. IODAI's Regatta fleets) is a named
+    // fleet that happens to be alone — it gets its own clean path, not the long
+    // series slug.
+    expect(
+      publicationSubPath('Regatta Racing', true, 'iodai-munsters-2025-regatta-racing', true),
+    ).toBe('regatta-racing');
+    expect(
+      publicationSubPath('Regatta', true, 'iodai-connachts-2021-regatta', true),
+    ).toBe('regatta');
   });
 
   it('uses the kebab fleet name for named fleets, shared or not', () => {

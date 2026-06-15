@@ -52,12 +52,17 @@ export function fleetSubPath(fleetName: string, isDefault: boolean): string {
 /**
  * Sub-path for a fleet's page within a (possibly shared) slug. A slug is a
  * shared namespace: when a series is the *sole* contributor its single default
- * fleet keeps the clean `standings` path, but when it co-publishes with others
- * the default fleet is served at the series' own slug instead — otherwise two
- * single-fleet series would both claim `standings`. Named fleets are always
- * `kebab(fleetName)` (distinct fleet names keep them apart; the publish handler
- * rejects a residual clash). Assigned once and then frozen per page, so a
- * publication's URLs never shift when another series later joins or leaves.
+ * fleet keeps the clean `standings` path. When it co-publishes with others, a
+ * *synthetic* default fleet (literally named "Default") is served at the
+ * series' own slug instead — otherwise two such single-fleet series would both
+ * claim `standings`. But a single fleet with a *meaningful* name (e.g.
+ * "Regatta Racing") is a real fleet that happens to be alone, so it gets its
+ * own `kebab(fleetName)` rather than the long series slug — co-published events
+ * read as `/{slug}/regatta-racing`, not `/{slug}/iodai-munsters-2025-regatta-racing`.
+ * Named (multi-)fleets are always `kebab(fleetName)`. Distinct names keep pages
+ * apart; the publish handler rejects a residual clash. Assigned once and then
+ * frozen per page, so a publication's URLs never shift when another series
+ * later joins or leaves.
  */
 export function publicationSubPath(
   fleetName: string,
@@ -66,7 +71,11 @@ export function publicationSubPath(
   shared: boolean,
 ): string {
   if (!isDefault) return kebab(fleetName);
-  return shared ? seriesSlug : 'standings';
+  if (!shared) return 'standings';
+  // The synthetic single fleet ("Default") falls back to the series slug so
+  // co-published single-fleet series don't collide; a named lone fleet uses
+  // its own name.
+  return fleetName === 'Default' ? seriesSlug : kebab(fleetName);
 }
 
 /**
