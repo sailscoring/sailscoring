@@ -119,6 +119,16 @@ export const FEATURES = {
     label: 'Fine-grained roles (scorer)',
     helpSectionIds: ['collaboration'],
   },
+  'competitor-identity': {
+    // Gates the cross-series competitor-identity spine: the reconcile surface
+    // that collapses a sailor's per-series competitor rows onto one recurring
+    // identity, and the public career-arc page read off that link. Off by
+    // default and introduced for IODAI first (a one-design junior class with a
+    // deep historical corpus) — invisible and inert everywhere else, per the
+    // containment model.
+    label: 'Cross-series competitor identity',
+    helpSectionIds: ['competitor-identity'],
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;
