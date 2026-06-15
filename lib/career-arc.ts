@@ -1,0 +1,93 @@
+import 'server-only';
+
+import {
+  placementInStandings,
+  type ArcPlacement,
+} from './career-arc-placement';
+import {
+  getIdentityArc,
+  type ArcEntry,
+  type IdentityWithArc,
+} from './competitor-identity-repository';
+import { seriesFileReposFor } from './postgres-repository';
+import { calculateFleetStandings, type FleetStandingsResult } from './scoring';
+import { loadSeriesSnapshot } from './series-snapshot';
+
+/**
+ * Career-arc data assembly (#212): an identity's arc, with each entry enriched
+ * by the competitor's finishing position in that series. Loads and scores each
+ * distinct series once through the same engine the standings and published
+ * pages use (`loadSeriesSnapshot` + `calculateFleetStandings`) — no
+ * re-implementation, so the arc shows exactly what the results page would.
+ */
+
+/** An arc entry plus where the competitor finished in that series. */
+export interface CareerArcEntry extends ArcEntry, ArcPlacement {}
+
+/** An identity's arc with per-event placements. */
+export interface CareerArc extends Omit<IdentityWithArc, 'entries'> {
+  entries: CareerArcEntry[];
+}
+
+interface ScoredSeries {
+  result: FleetStandingsResult;
+  hasRaces: boolean;
+  multiFleet: boolean;
+}
+
+/**
+ * One identity's career arc with finishing positions, or null if the identity
+ * isn't in the workspace. Each series in the arc is scored once and cached, so
+ * the cost is one snapshot-load + score per distinct series, not per entry.
+ */
+export async function getCareerArc(
+  workspaceId: string,
+  identityId: string,
+): Promise<CareerArc | null> {
+  const identity = await getIdentityArc(workspaceId, identityId);
+  if (!identity) return null;
+
+  const repos = seriesFileReposFor({ workspaceId });
+  const scoredBySeries = new Map<string, ScoredSeries | null>();
+
+  async function scoreSeries(seriesId: string): Promise<ScoredSeries | null> {
+    const cached = scoredBySeries.get(seriesId);
+    if (cached !== undefined) return cached;
+    const snap = await loadSeriesSnapshot(repos, seriesId);
+    if (!snap) {
+      scoredBySeries.set(seriesId, null);
+      return null;
+    }
+    const { fleetStandings } = calculateFleetStandings(
+      snap.fleets,
+      snap.competitors,
+      snap.races,
+      snap.finishes,
+      snap.series.discardThresholds ?? [],
+      snap.series.dnfScoring ?? 'seriesEntries',
+      snap.raceStarts,
+      snap.ratingOverrides,
+    );
+    const scored: ScoredSeries = {
+      result: { fleetStandings, circularRedressRaces: [] },
+      hasRaces: snap.races.length > 0,
+      multiFleet: snap.fleets.length > 1,
+    };
+    scoredBySeries.set(seriesId, scored);
+    return scored;
+  }
+
+  const entries: CareerArcEntry[] = [];
+  for (const entry of identity.entries) {
+    const scored = await scoreSeries(entry.seriesId);
+    const placement = scored
+      ? placementInStandings(scored.result, entry.competitorId, {
+          hasRaces: scored.hasRaces,
+          multiFleet: scored.multiFleet,
+        })
+      : { rank: null, fleetSize: null, fleetName: null };
+    entries.push({ ...entry, ...placement });
+  }
+
+  return { ...identity, entries };
+}
