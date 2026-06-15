@@ -73,6 +73,24 @@ export interface ClusterStats {
   suggestions: number;
   /** Clusters spanning ≥2 already-confirmed identities (manual review only). */
   conflicts: number;
+  /** Clusters whose year span exceeds a plausible single junior career — a
+   *  likely over-merge of namesakes the matcher couldn't split (no recorded
+   *  age in the older data). Surfaced for manual splitting. */
+  longArcs: number;
+}
+
+/**
+ * Year span beyond which a single Optimist identity is implausible: a sailor
+ * ages out of the class in well under a decade, so a longer arc is almost
+ * always two namesakes the matcher fused on a stable name + club + reused
+ * sail number. A review heuristic, not a hard rule.
+ */
+export const LONG_ARC_YEARS = 8;
+
+/** Whether a cluster's year span flags it as a probable over-merge. */
+export function isLongArc(cluster: IdentityCluster): boolean {
+  if (cluster.firstYear == null || cluster.lastYear == null) return false;
+  return cluster.lastYear - cluster.firstYear > LONG_ARC_YEARS;
 }
 
 export interface ClusterResult {
@@ -236,6 +254,7 @@ export function clusterCompetitors(inputs: ClusterInput[]): ClusterResult {
     sizeHistogram[bucket] = (sizeHistogram[bucket] ?? 0) + 1;
   }
   const conflicts = clusters.filter((c) => c.existingIdentityIds.length >= 2).length;
+  const longArcs = clusters.filter(isLongArc).length;
 
   return {
     clusters,
@@ -250,6 +269,7 @@ export function clusterCompetitors(inputs: ClusterInput[]): ClusterResult {
       sizeHistogram,
       suggestions: suggestions.length,
       conflicts,
+      longArcs,
     },
   };
 }

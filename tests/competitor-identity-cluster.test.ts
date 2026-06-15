@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   clusterCompetitors,
+  isLongArc,
   type ClusterInput,
 } from '@/lib/competitor-identity-cluster';
 
@@ -112,6 +113,27 @@ describe('clusterCompetitors', () => {
     const c = clusterOf(r, 'a');
     expect(c?.existingIdentityIds.sort()).toEqual(['id-1', 'id-2']);
     expect(r.stats.conflicts).toBe(1);
+  });
+
+  it('flags an implausibly long arc as a probable over-merge', () => {
+    // Same name, club and reused club sail number across 12 years — with no
+    // recorded age the matcher fuses them, but the span betrays an over-merge.
+    const r = clusterCompetitors([
+      row({ competitorId: 'a', name: 'Jonathan Dempsey', sailNumber: '1605', club: 'NYC', raceYear: 2013 }),
+      row({ competitorId: 'b', name: 'Jonathan Dempsey', sailNumber: '1605', club: 'NYC', raceYear: 2025 }),
+    ]);
+    const c = clusterOf(r, 'a')!;
+    expect(c.competitorIds.sort()).toEqual(['a', 'b']); // still merged…
+    expect(isLongArc(c)).toBe(true); // …but flagged
+    expect(r.stats.longArcs).toBe(1);
+  });
+
+  it('does not flag a plausible career span', () => {
+    const r = clusterCompetitors([
+      row({ competitorId: 'a', name: 'Holly Cantwell', sailNumber: 'IRL1641', club: 'RSGYC', raceYear: 2021 }),
+      row({ competitorId: 'b', name: 'Holly Cantwell', sailNumber: 'IRL1641', club: 'RSGYC', raceYear: 2026 }),
+    ]);
+    expect(r.stats.longArcs).toBe(0);
   });
 
   it('reports stats: singletons, multi-row clusters and surname-less rows', () => {
