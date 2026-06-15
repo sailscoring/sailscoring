@@ -90,7 +90,13 @@ sailscoring series import <files…>          # also: sailscoring import …
 sailscoring series publish <seriesIds…>     # also: sailscoring publish …
 sailscoring series categorise <seriesIds…> --category <name>
 sailscoring series archive <seriesIds…> [--unarchive]
+sailscoring series reorder <seriesIds…>
 ```
+
+`reorder` rewrites the workspace's series display order to match the id
+sequence (ids omitted keep their order, so pass the full set for a clean total
+order). This drives both the in-app series-list order and the order of
+contributing series on a shared-slug published page (`/p/{ws}/{slug}`).
 
 `import` and `publish` are also available as top-level aliases, since bulk
 import is the workflow the CLI grew out of.

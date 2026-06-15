@@ -124,6 +124,16 @@ export class SailscoringClient {
     });
   }
 
+  /** Rewrite the workspace's series `displayOrder` to match `orderedIds`. Ids
+   *  not listed keep their current order, so pass the full set for a clean
+   *  total order. Drives the series-list order and the shared-slug published
+   *  index order. */
+  async reorderSeries(orderedIds: string[]): Promise<void> {
+    await this.request('POST', '/api/v1/series/reorder', {
+      body: { orderedIds },
+    });
+  }
+
   // ── Reads (ADR-009 M4). Returned shapes are passed straight to output, so
   //    they stay `unknown` here; the generated TS SDK (M6) will type them. ──
 

@@ -13,6 +13,7 @@ import { importCommand } from './commands/import';
 import { publishCommand } from './commands/publish';
 import { categoriseCommand } from './commands/categorise';
 import { archiveCommand } from './commands/archive';
+import { reorderCommand } from './commands/reorder';
 import {
   activityListCommand,
   categoryListCommand,
@@ -74,6 +75,9 @@ Series
   series publish [--slug <slug>] [--subpath f=p,…] [--fleets a,b] <seriesId…>
   series categorise <seriesId…> --category <name>
   series archive <seriesId…> [--unarchive]
+  series reorder <seriesId…>
+      Rewrite display order to the given sequence (in-app list order and the
+      order of contributing series on a shared-slug published page).
       (import and publish are also available as top-level aliases.)
 
 Reads (all accept --json / --output json; child resources take --series <id>)
@@ -120,6 +124,8 @@ function seriesDispatch(rest: string[]): Promise<number> {
       return categoriseCommand(positional, flags);
     case 'archive':
       return archiveCommand(positional, flags);
+    case 'reorder':
+      return reorderCommand(positional, flags);
     default:
       console.error(`series: unknown verb \`${verb ?? ''}\``);
       return Promise.resolve(1);
