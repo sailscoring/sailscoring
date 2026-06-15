@@ -185,6 +185,27 @@ export interface Competitor {
 }
 
 /**
+ * Cross-series competitor identity (#212): the workspace-scoped recurring
+ * competitor that per-series Competitor rows link up to via the DB-only
+ * `competitors.identity_id` column (deliberately not a field on Competitor —
+ * it's workspace-local and excluded from the file format and public export).
+ * For IODAI the recurring identity is a person; the fields mirror a
+ * Competitor's so a boat-centric campaign reads correctly too. Denormalised
+ * fields are a display snapshot; `label` is the canonical display name.
+ */
+export interface CompetitorIdentity {
+  id: string;
+  workspaceId: string;
+  label: string;           // canonical display name, editable; seeds from first-linked competitor
+  sailNumber: string;      // representative sail number (denormalised display/match snapshot)
+  boatName?: string;
+  club?: string;
+  nationality?: string;    // 3-letter national-letters code
+  createdAt: number;
+  version?: number;        // server-side concurrency token (see Series.version)
+}
+
+/**
  * A named block of races inside a series, scored independently: its own
  * standings, discards (the series discard thresholds applied to the block's
  * race count), and published pages. Sub-series partition the race list the

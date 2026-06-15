@@ -323,6 +323,17 @@ export const competitors = pgTable(
     pyNumber: real('py_number'),
     nhcStartingTcf: real('nhc_starting_tcf'),
     echoStartingTcf: real('echo_starting_tcf'),
+    // Cross-series competitor-identity link (#212). Workspace-local: the row a
+    // sailor's identity collapses onto across series. Nullable; written only by
+    // the reconcile pass, never the standard competitor CRUD path (so an in-app
+    // edit preserves it — it's absent from competitorUpdateColumns). Excluded
+    // from the .sailscoring file format and public JSON export by virtue of not
+    // being on the `Competitor` domain type at all. `set null` on identity
+    // delete leaves the event data intact.
+    identityId: uuid('identity_id').references(
+      (): AnyPgColumn => competitorIdentities.id,
+      { onDelete: 'set null' },
+    ),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,
@@ -330,11 +341,51 @@ export const competitors = pgTable(
   (table) => [
     index('competitors_series_idx').on(table.seriesId),
     index('competitors_workspace_idx').on(table.workspaceId),
+    index('competitors_identity_idx').on(table.identityId),
     index('competitors_fleet_gin').using('gin', table.fleetIds),
     check(
       'competitors_gender_chk',
       sql`${table.gender} in ('M','F','')`,
     ),
+  ],
+);
+
+/**
+ * Cross-series competitor identity (#212) — the workspace-scoped recurring
+ * competitor that per-series `competitors` rows collapse onto. For the IODAI
+ * career-arc use case the recurring identity is a *person* (single-handed
+ * dinghy class), but the fields mirror the polymorphism a competitor row
+ * already carries so a boat-centric campaign reads correctly too. The
+ * denormalised fields are a stable display snapshot, not the source of truth —
+ * a sailor's name in a given event is still the competitor row's. `label` is
+ * what the reconcile UI and the career-arc page show; it seeds from the
+ * first-linked competitor and is editable. Workspace-local throughout.
+ *
+ * Deliberately no `birth_year` column: implied birth year (race-year − age) is
+ * a *transient reconciliation input*, recomputed from the linked rows when the
+ * reconcile pass runs, never persisted and never published.
+ */
+export const competitorIdentities = pgTable(
+  'competitor_identities',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    label: text('label').notNull(),
+    sailNumber: text('sail_number').notNull().default(''),
+    boatName: text('boat_name'),
+    club: text('club'),
+    nationality: text('nationality'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
+  },
+  (table) => [
+    index('competitor_identities_workspace_idx').on(table.workspaceId),
   ],
 );
 
