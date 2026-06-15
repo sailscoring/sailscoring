@@ -52,8 +52,12 @@ describe('personNamesMatch', () => {
     expect(match('John Keating', 'J. Keating')).toBe(true);
   });
 
-  it('tolerates a bare surname (older data)', () => {
-    expect(match('Keating', 'John Keating')).toBe(true);
+  it('does NOT match a bare surname against anyone (it would bridge namesakes)', () => {
+    // A lone "Dempsey" must not anchor an identity: treating it as a match
+    // makes it a hub fusing every same-surname person.
+    expect(match('Dempsey', 'John Dempsey')).toBe(false);
+    expect(match('Dempsey', 'Ella Dempsey')).toBe(false);
+    expect(match('Dempsey', 'Dempsey')).toBe(false);
   });
 
   it('does NOT fuse different first names sharing a surname (namesakes)', () => {

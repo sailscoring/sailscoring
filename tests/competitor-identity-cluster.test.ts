@@ -91,6 +91,29 @@ describe('clusterCompetitors', () => {
     expect(r.suggestions).toHaveLength(0); // not even a suggestion — distinct names
   });
 
+  it('does not let a bare-surname row bridge siblings into one identity', () => {
+    // The real Dempsey over-merge: three siblings at one club, boats handed
+    // down, ages partly missing — plus a lone "Dempsey" row. The bare row must
+    // not fuse Ella, Edward and Jonathan into a single 12-year "career".
+    const r = clusterCompetitors([
+      row({ competitorId: 'ella1', name: 'Ella Dempsey', sailNumber: '1423', club: 'NYC', raceYear: 2013 }),
+      row({ competitorId: 'ella2', name: 'Ella Dempsey', sailNumber: '1423', club: 'NYC', age: 11, raceYear: 2016 }),
+      row({ competitorId: 'ed1', name: 'Edward Dempsey', sailNumber: '1274', club: 'NYC', age: 9, raceYear: 2015 }),
+      row({ competitorId: 'ed2', name: 'Edward Dempsey', sailNumber: '1423', club: 'NYC', raceYear: 2019 }),
+      row({ competitorId: 'bare', name: 'Dempsey', sailNumber: '1274', club: 'NYC', age: 9, raceYear: 2019 }),
+      row({ competitorId: 'jon1', name: 'Jonathan Dempsey', sailNumber: '1605', club: 'NYC', age: 11, raceYear: 2021 }),
+      row({ competitorId: 'jon2', name: 'Jonathan Dempsey', sailNumber: '1605', club: 'NYC', age: 15, raceYear: 2025 }),
+    ]);
+    // Each sibling clusters with their own rows only.
+    expect(clusterOf(r, 'ella1')?.competitorIds.sort()).toEqual(['ella1', 'ella2']);
+    expect(clusterOf(r, 'ed1')?.competitorIds.sort()).toEqual(['ed1', 'ed2']);
+    expect(clusterOf(r, 'jon1')?.competitorIds.sort()).toEqual(['jon1', 'jon2']);
+    // The bare-surname row stays a singleton.
+    expect(clusterOf(r, 'bare')?.competitorIds).toEqual(['bare']);
+    // And nothing reads as a long arc any more.
+    expect(r.stats.longArcs).toBe(0);
+  });
+
   it('is idempotent: pre-seeds clusters from existing identity links', () => {
     const r = clusterCompetitors([
       // Two rows the matcher would NOT link on its own (different club, no age),

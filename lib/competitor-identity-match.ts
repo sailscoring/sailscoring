@@ -68,17 +68,24 @@ function givenTokensCompatible(a: string, b: string): boolean {
 
 /**
  * Whether two normalised names plausibly refer to the same person. Surnames
- * must be equal and non-empty; given names are compared position by position
- * and must all be compatible (`givenTokensCompatible`). A missing given token
- * on one side (`"Keating"` vs `"John Keating"`) is tolerated — bare surnames
- * occur in older data. Differing concrete first names (`"Jack"` vs `"John"`)
- * never match.
+ * must be equal and non-empty; *both* sides must carry at least one given name,
+ * and the leading given tokens must all be compatible (`givenTokensCompatible`,
+ * so `"J Keating"` ~ `"John Keating"`). Differing concrete first names
+ * (`"Jack"` vs `"John"`) never match.
+ *
+ * A **bare surname matches nobody**: a row recorded as just `"Dempsey"` is not
+ * evidence that it's the *same* Dempsey as any other, and treating it as a
+ * match makes it a hub that fuses every same-surname person (the real
+ * three-sibling Dempsey over-merge: a lone `"Dempsey"` row bridged Ella,
+ * Edward, and Jonathan into one identity). Such rows stay unlinked singletons
+ * for the scorer to attach by hand — the deliberate under-merge bias.
  */
 export function personNamesMatch(
   a: NormalizedPersonName,
   b: NormalizedPersonName,
 ): boolean {
   if (!a.surname || a.surname !== b.surname) return false;
+  if (a.given.length === 0 || b.given.length === 0) return false;
   const n = Math.min(a.given.length, b.given.length);
   for (let i = 0; i < n; i++) {
     if (!givenTokensCompatible(a.given[i], b.given[i])) return false;
