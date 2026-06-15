@@ -109,6 +109,13 @@ export const auth = betterAuth({
     // target workspace from the `x-sailscoring-workspace` header or the key's
     // default-workspace metadata.
     apiKey({
+      // Resolve a key into a session on every request (off by default), so
+      // `auth.api.getSession` recognises a Bearer key and require-workspace.ts
+      // gets a session for it.
+      enableSessionForAPIKeys: true,
+      // Keys carry a `defaultWorkspace` in metadata (also off by default);
+      // require-workspace.ts reads it.
+      enableMetadata: true,
       customAPIKeyGetter: (ctx) => {
         const header = ctx.headers?.get('authorization') ?? null;
         if (!header) return null;
