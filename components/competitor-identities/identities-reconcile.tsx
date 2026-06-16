@@ -166,8 +166,8 @@ export function IdentitiesReconcile({ workspaceSlug }: { workspaceSlug: string }
   if (identities.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No competitor identities yet. Run the reconcile pass to populate them
-        from this workspace&rsquo;s series.
+        No competitors yet. Run the reconcile pass to populate them from this
+        workspace&rsquo;s series.
       </p>
     );
   }
@@ -182,10 +182,10 @@ export function IdentitiesReconcile({ workspaceSlug }: { workspaceSlug: string }
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="h-9 max-w-xs"
-          aria-label="Search competitor identities"
+          aria-label="Search competitors"
         />
         <span className="text-xs text-muted-foreground shrink-0">
-          {identities.length} identities
+          {identities.length} competitors
           {longArcs > 0 && ` · ${longArcs} to review`}
         </span>
       </div>

@@ -76,7 +76,7 @@ export default async function HelpPage() {
             // Gated: only listed when logo-library is enabled.
             ['#logo-library', 'The logo library', 'logo-library'],
             // Gated: only listed when competitor-identity is enabled.
-            ['#competitor-identity', 'Competitor identities and career arcs', 'competitor-identity'],
+            ['#competitor-identity', 'Competitors and timelines', 'competitor-identity'],
             ['#publishing-results', 'Publishing results'],
             ['#json-export', 'JSON data export and Open in Sail Scoring'],
             ['#sending-feedback', 'Sending feedback'],
@@ -1307,7 +1307,7 @@ export default async function HelpPage() {
       )}
 
       {has('competitor-identity') && (
-      <Section id="competitor-identity" title="Competitor identities and career arcs">
+      <Section id="competitor-identity" title="Competitors and timelines">
         <p>
           When the same sailor races series after series, each entry is a
           separate row with nothing linking them. The{' '}
@@ -1315,16 +1315,16 @@ export default async function HelpPage() {
           collapses those rows into one <strong className="text-foreground">recurring
           competitor</strong>, so the app can show a sailor&apos;s whole history
           across seasons — the basis of the public{' '}
-          <strong className="text-foreground">career-arc</strong> page.
+          <strong className="text-foreground">competitor timeline</strong>.
         </p>
         <p>
-          Identities are built by an automatic reconcile pass that matches on
+          Competitors are built by an automatic reconcile pass that matches on
           name, club, sail number, and — where age is recorded — implied birth
           year. It is deliberately cautious: when a match isn&apos;t
           corroborated it leaves the rows apart rather than risk merging two
-          different sailors. Review the result in{' '}
-          <strong className="text-foreground">Workspace settings → Competitor
-          identities</strong>: each card is one recurring competitor with the
+          different sailors. Review the result under{' '}
+          <strong className="text-foreground">Competitors</strong> in the
+          workspace switcher: each card is one recurring competitor with the
           series they entered. Click the name to{' '}
           <strong className="text-foreground">rename</strong> it, or the{' '}
           scissors on an entry to <strong className="text-foreground">split</strong>{' '}
@@ -1334,8 +1334,8 @@ export default async function HelpPage() {
           namesakes to split apart.
         </p>
         <p>
-          Each identity has a public career-arc page listing every series the
-          competitor entered, in order, with their{' '}
+          Each competitor has a public timeline listing every series they
+          entered, in order, with their{' '}
           <strong className="text-foreground">finishing position</strong> in each
           (&ldquo;3rd of 48&rdquo;), scored by the same engine as the results
           pages. It shows only what&apos;s already public in the results — event,
