@@ -32,6 +32,9 @@ export interface ArcEntry {
 /** A recurring competitor and its arc across series. */
 export interface IdentityWithArc {
   id: string;
+  /** Vanity slug — the public URL handle (#217). Null only for rows awaiting
+   *  backfill; the reconcile pass mints one on create and fills any gaps. */
+  slug: string | null;
   label: string;
   sailNumber: string;
   club: string | null;
@@ -50,6 +53,7 @@ function yearOf(startDate: string): number | null {
 function assemble(
   rows: Array<{
     id: string;
+    slug: string | null;
     label: string;
     sailNumber: string;
     club: string | null;
@@ -70,6 +74,7 @@ function assemble(
     if (!identity) {
       identity = {
         id: r.id,
+        slug: r.slug,
         label: r.label,
         sailNumber: r.sailNumber,
         club: r.club,
@@ -107,6 +112,7 @@ function assemble(
 
 const selection = {
   id: competitorIdentities.id,
+  slug: competitorIdentities.slug,
   label: competitorIdentities.label,
   sailNumber: competitorIdentities.sailNumber,
   club: competitorIdentities.club,
@@ -152,6 +158,45 @@ export async function getIdentityArc(
     );
   const [identity] = assemble(rows);
   return identity ?? null;
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolve a `/p/.../competitor/{ref}` segment to an identity id within the
+ * workspace. Tries the vanity slug first (the canonical public handle), then
+ * falls back to a raw UUID so links minted before slugs — and the reconcile
+ * UI's own internal references — keep resolving. Null if neither matches.
+ */
+export async function findIdentityIdByRef(
+  workspaceId: string,
+  ref: string,
+): Promise<string | null> {
+  const [bySlug] = await getDb()
+    .select({ id: competitorIdentities.id })
+    .from(competitorIdentities)
+    .where(
+      and(
+        eq(competitorIdentities.workspaceId, workspaceId),
+        eq(competitorIdentities.slug, ref),
+      ),
+    )
+    .limit(1);
+  if (bySlug) return bySlug.id;
+
+  if (!UUID_RE.test(ref)) return null;
+  const [byId] = await getDb()
+    .select({ id: competitorIdentities.id })
+    .from(competitorIdentities)
+    .where(
+      and(
+        eq(competitorIdentities.workspaceId, workspaceId),
+        eq(competitorIdentities.id, ref),
+      ),
+    )
+    .limit(1);
+  return byId?.id ?? null;
 }
 
 /** Rename an identity's canonical label. Returns false if it isn't found. */
