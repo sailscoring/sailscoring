@@ -288,7 +288,7 @@ describe.skipIf(skip)('reconcile-identities manifest apply path (#218)', () => {
     return planManifestApply(
       manifest,
       workspaceId,
-      (seriesId, sail) => index.get(`${seriesId}|${sail}`) ?? null,
+      (seriesId, sail) => index.get(`${seriesId}|${sail}`),
     );
   }
 
@@ -421,5 +421,25 @@ describe.skipIf(skip)('reconcile-identities manifest apply path (#218)', () => {
       { slug: 'someone-else-ab12', seriesSlug: 'iodai-event-2021', sailNumber: '9999', reason: 'no-competitor' },
     ]);
     expect(plan.assignments[0].competitorIds).toHaveLength(1);
+  });
+
+  test('disambiguates two sailors sharing a sail in one series by name', async () => {
+    // A shared hull / placeholder sail: two competitors, same sail, same series.
+    const jess = await addCompetitor({ year: 2021, name: 'Jess Tottenham', sailNumber: '1682' });
+    const ellie = await addCompetitor({ year: 2021, name: 'Ellie Tottenham', sailNumber: '1682' });
+
+    const plan = await planFor({
+      version: 1,
+      series: seriesMap(),
+      identities: [
+        { slug: 'jess-tottenham-aa11', name: 'Jess Tottenham', members: [['iodai-event-2021', '1682']] },
+        { slug: 'ellie-tottenham-bb22', name: 'Ellie Tottenham', members: [['iodai-event-2021', '1682']] },
+      ],
+    });
+
+    expect(plan.unresolvedMembers).toEqual([]);
+    const byslug = Object.fromEntries(plan.assignments.map((a) => [a.slug, a.competitorIds]));
+    expect(byslug['jess-tottenham-aa11']).toEqual([jess]);
+    expect(byslug['ellie-tottenham-bb22']).toEqual([ellie]);
   });
 });

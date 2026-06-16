@@ -35,9 +35,17 @@ function manifestJson(overrides: Partial<Manifest> = {}): string {
   return JSON.stringify({ ...base, ...overrides });
 }
 
-/** A lookup backed by a plain `seriesId|sail` → competitorId map. */
+/** A lookup backed by a plain `seriesId|sail` → competitorId map (one each). */
 function lookupFrom(index: Record<string, string>) {
-  return (seriesId: string, sail: string) => index[`${seriesId}|${sail}`] ?? null;
+  return (seriesId: string, sail: string) => {
+    const id = index[`${seriesId}|${sail}`];
+    return id ? [{ competitorId: id, name: '' }] : undefined;
+  };
+}
+
+/** A lookup where a `seriesId|sail` key can carry several named candidates. */
+function lookupCandidates(index: Record<string, Array<{ competitorId: string; name: string }>>) {
+  return (seriesId: string, sail: string) => index[`${seriesId}|${sail}`];
 }
 
 describe('parseManifest', () => {
@@ -155,6 +163,78 @@ describe('planManifestApply', () => {
     expect(plan.assignments[1].competitorIds).toEqual([]);
     expect(plan.unresolvedMembers).toEqual([
       { slug: 'b-two', seriesSlug: 'iodai-nationals-2019', sailNumber: '1423', reason: 'already-claimed' },
+    ]);
+  });
+
+  it('disambiguates a shared sail by name so each sailor gets their own row', () => {
+    // Two siblings carry the same sail in one series (a shared hull / placeholder).
+    const m = parseManifest(
+      manifestJson({
+        identities: [
+          { slug: 'jess-tottenham-x', name: 'Jess Tottenham', members: [['iodai-nationals-2019', '1682']] },
+          { slug: 'ellie-tottenham-y', name: 'Ellie Tottenham', members: [['iodai-nationals-2019', '1682']] },
+        ],
+      }),
+    );
+    const plan = planManifestApply(
+      m,
+      'ws1',
+      lookupCandidates({
+        [`${NATIONALS}|1682`]: [
+          { competitorId: 'comp-jess', name: 'Jess Tottenham' },
+          { competitorId: 'comp-ellie', name: 'Ellie Tottenham' },
+        ],
+      }),
+    );
+    expect(plan.assignments[0].competitorIds).toEqual(['comp-jess']);
+    expect(plan.assignments[1].competitorIds).toEqual(['comp-ellie']);
+    expect(plan.unresolvedMembers).toEqual([]);
+  });
+
+  it('matches across a name variant (mojibake / casing) via token overlap', () => {
+    const m = parseManifest(
+      manifestJson({
+        identities: [
+          { slug: 'skye-x', name: "Skye O'Callaghan", members: [['iodai-nationals-2019', '1464']] },
+          { slug: 'jacob-y', name: 'Jacob Browne', members: [['iodai-nationals-2019', '1464']] },
+        ],
+      }),
+    );
+    const plan = planManifestApply(
+      m,
+      'ws1',
+      lookupCandidates({
+        [`${NATIONALS}|1464`]: [
+          { competitorId: 'comp-skye', name: 'Skye Oâ€™Callaghan' }, // mojibake in the DB
+          { competitorId: 'comp-jacob', name: 'Jacob Browne' },
+        ],
+      }),
+    );
+    expect(plan.assignments[0].competitorIds).toEqual(['comp-skye']);
+    expect(plan.assignments[1].competitorIds).toEqual(['comp-jacob']);
+  });
+
+  it('flags a member whose name matches none of the candidates as ambiguous', () => {
+    const m = parseManifest(
+      manifestJson({
+        identities: [
+          { slug: 'stranger-z', name: 'Total Stranger', members: [['iodai-nationals-2019', '0']] },
+        ],
+      }),
+    );
+    const plan = planManifestApply(
+      m,
+      'ws1',
+      lookupCandidates({
+        [`${NATIONALS}|0`]: [
+          { competitorId: 'comp-a', name: 'Alice Adams' },
+          { competitorId: 'comp-b', name: 'Bob Burns' },
+        ],
+      }),
+    );
+    expect(plan.assignments[0].competitorIds).toEqual([]);
+    expect(plan.unresolvedMembers).toEqual([
+      { slug: 'stranger-z', seriesSlug: 'iodai-nationals-2019', sailNumber: '0', reason: 'ambiguous' },
     ]);
   });
 

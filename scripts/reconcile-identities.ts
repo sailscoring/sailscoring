@@ -36,6 +36,7 @@ import {
 import {
   parseManifest,
   planManifestApply,
+  type CompetitorCandidate,
   type ManifestPlan,
 } from '@/lib/competitor-identity-manifest';
 import { mintSlug } from '@/lib/competitor-slug';
@@ -110,30 +111,37 @@ export async function collectClusterInputs(
 }
 
 /**
- * Build the `(seriesId, sailNumber)` → competitorId index the manifest planner
- * resolves member rows against. A sail can repeat within a series (blank-name
- * rows, placeholder "0"s — see the iodai-archive identity audit); first row
- * wins and the collision count is returned so the operator knows the index is
- * lossy for those keys.
+ * Build the `(seriesId, sailNumber)` → competitors index the manifest planner
+ * resolves member rows against. A sail can repeat within a series (placeholder
+ * sails in coached fleets, two siblings on a shared hull at one event — see the
+ * iodai-archive identity audit), so each key maps to *all* its candidates and
+ * the planner disambiguates by name. The collision count (keys with >1 row) is
+ * returned for the operator's report.
  */
 export async function collectCompetitorIndex(
   db: SailScoringDb,
   workspaceId: string,
-): Promise<{ index: Map<string, string>; collisions: number }> {
+): Promise<{ index: Map<string, CompetitorCandidate[]>; collisions: number }> {
   const rows = await db
     .select({
       competitorId: competitors.id,
       seriesId: competitors.seriesId,
       sailNumber: competitors.sailNumber,
+      name: competitors.name,
     })
     .from(competitors)
     .where(eq(competitors.workspaceId, workspaceId));
-  const index = new Map<string, string>();
+  const index = new Map<string, CompetitorCandidate[]>();
   let collisions = 0;
   for (const r of rows) {
     const key = `${r.seriesId}|${r.sailNumber}`;
-    if (index.has(key)) collisions++;
-    else index.set(key, r.competitorId);
+    const arr = index.get(key);
+    if (arr) {
+      arr.push({ competitorId: r.competitorId, name: r.name });
+      collisions++;
+    } else {
+      index.set(key, [{ competitorId: r.competitorId, name: r.name }]);
+    }
   }
   return { index, collisions };
 }
@@ -512,7 +520,7 @@ export async function runCli(argv: string[]): Promise<number> {
     const plan = planManifestApply(
       manifest,
       ws.id,
-      (seriesId, sail) => index.get(`${seriesId}|${sail}`) ?? null,
+      (seriesId, sail) => index.get(`${seriesId}|${sail}`),
     );
     if (!json) {
       console.log(renderManifestPlan(plan, collisions));

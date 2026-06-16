@@ -105,12 +105,36 @@ export interface ManifestAssignment {
   competitorIds: string[];
 }
 
+/** A workspace competitor a `(seriesId, sail)` member could resolve to. */
+export interface CompetitorCandidate {
+  competitorId: string;
+  name: string;
+}
+
 /** A member row that didn't resolve to a competitor, surfaced for the operator. */
 export interface UnresolvedMember {
   slug: string;
   seriesSlug: string;
   sailNumber: string;
-  reason: 'unknown-series' | 'no-competitor' | 'already-claimed';
+  reason: 'unknown-series' | 'no-competitor' | 'already-claimed' | 'ambiguous';
+}
+
+/** Normalised name tokens (≥2 chars, diacritics folded) for disambiguation. */
+function nameTokens(name: string): Set<string> {
+  return new Set(
+    name
+      .normalize('NFKD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 2),
+  );
+}
+
+function tokenOverlap(a: Set<string>, b: Set<string>): number {
+  let n = 0;
+  for (const t of a) if (b.has(t)) n++;
+  return n;
 }
 
 export interface ManifestPlan {
@@ -123,17 +147,23 @@ export interface ManifestPlan {
 /**
  * Resolve a parsed manifest against a workspace's competitor rows into a flat
  * list of assignments, without touching a database. `lookup` answers "the
- * competitor in this `seriesId` carrying this sail", or null — the script builds
- * it from a `(seriesId, sailNumber)` index of the workspace's competitors.
+ * competitors in this `seriesId` carrying this sail" — the script builds it from
+ * a `(seriesId, sailNumber)` index of the workspace's competitors.
  *
- * Members that don't resolve (unknown series-slug, no such sail, or a sail two
- * entries both claim) are collected rather than dropped: a golden record that
- * silently loses rows isn't reproducible.
+ * A sail isn't always unique within a series (placeholder sails in coached
+ * fleets, two siblings on a shared hull at one event). When a member resolves to
+ * more than one competitor, the claiming identity's name disambiguates — the
+ * candidate with the most shared name tokens wins — so the two sailors each get
+ * their own row instead of one shadowing the other.
+ *
+ * Members that don't resolve (unknown series-slug, no such sail, a sail two
+ * entries both claim, or a name that matches no candidate) are collected rather
+ * than dropped: a golden record that silently loses rows isn't reproducible.
  */
 export function planManifestApply(
   manifest: Manifest,
   workspaceId: string,
-  lookup: (seriesId: string, sailNumber: string) => string | null,
+  lookup: (seriesId: string, sailNumber: string) => CompetitorCandidate[] | undefined,
 ): ManifestPlan {
   const assignments: ManifestAssignment[] = [];
   const unresolvedMembers: UnresolvedMember[] = [];
@@ -143,6 +173,7 @@ export function planManifestApply(
   for (const identity of manifest.identities) {
     slugCounts.set(identity.slug, (slugCounts.get(identity.slug) ?? 0) + 1);
 
+    const want = nameTokens(identity.name);
     const competitorIds: string[] = [];
     let lastSail = '';
     for (const [seriesSlug, sailNumber] of identity.members) {
@@ -151,18 +182,35 @@ export function planManifestApply(
         unresolvedMembers.push({ slug: identity.slug, seriesSlug, sailNumber, reason: 'unknown-series' });
         continue;
       }
-      const competitorId = lookup(seriesId, sailNumber);
-      if (!competitorId) {
+      const candidates = lookup(seriesId, sailNumber) ?? [];
+      if (candidates.length === 0) {
         unresolvedMembers.push({ slug: identity.slug, seriesSlug, sailNumber, reason: 'no-competitor' });
         continue;
       }
-      const claimer = claimedBy.get(competitorId);
+
+      let chosen: CompetitorCandidate | undefined;
+      if (candidates.length === 1) {
+        chosen = candidates[0];
+      } else {
+        // Ambiguous sail — rank by name-token overlap, preferring an unclaimed row.
+        const ranked = candidates
+          .map((c) => ({ c, score: tokenOverlap(want, nameTokens(c.name)) }))
+          .filter((x) => x.score > 0)
+          .sort((a, b) => b.score - a.score);
+        chosen = (ranked.find((x) => !claimedBy.has(x.c.competitorId)) ?? ranked[0])?.c;
+        if (!chosen) {
+          unresolvedMembers.push({ slug: identity.slug, seriesSlug, sailNumber, reason: 'ambiguous' });
+          continue;
+        }
+      }
+
+      const claimer = claimedBy.get(chosen.competitorId);
       if (claimer && claimer !== identity.slug) {
         unresolvedMembers.push({ slug: identity.slug, seriesSlug, sailNumber, reason: 'already-claimed' });
         continue;
       }
-      claimedBy.set(competitorId, identity.slug);
-      competitorIds.push(competitorId);
+      claimedBy.set(chosen.competitorId, identity.slug);
+      competitorIds.push(chosen.competitorId);
       lastSail = sailNumber;
     }
 
