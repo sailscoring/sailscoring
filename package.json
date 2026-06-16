@@ -44,6 +44,7 @@
     "user-stats:test": "DATABASE_URL=postgres://sailscoring:sailscoring@localhost:5432/sailscoring tsx scripts/user-stats.ts",
     "reconcile-identities": "tsx --env-file-if-exists=.env.local scripts/reconcile-identities.ts",
     "reconcile-identities:test": "DATABASE_URL=postgres://sailscoring:sailscoring@localhost:5432/sailscoring tsx scripts/reconcile-identities.ts",
+    "cluster-rows": "tsx scripts/cluster-rows.ts",
     "deploy": "vercel deploy",
     "deploy:prod": "vercel deploy --prod",
     "generate:fixtures": "tsx scripts/render-scoring-fixtures.ts",
