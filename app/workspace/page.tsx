@@ -85,15 +85,15 @@ export default async function WorkspacePage() {
       {features.includes('ftp-upload') && canManageWorkspace && <FtpServersCard />}
       {features.includes('competitor-identity') && canManageSeries && (
         <Link
-          href="/workspace/identities"
+          href="/workspace/competitors"
           className="block bg-card border rounded-lg p-5 hover:bg-accent/40 transition-colors"
         >
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-medium">Competitor identities</h2>
+              <h2 className="text-sm font-medium">Competitors</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Reconcile recurring competitors across series and view their
-                career arcs.
+                timelines.
               </p>
             </div>
             <Users className="h-5 w-5 text-muted-foreground" />

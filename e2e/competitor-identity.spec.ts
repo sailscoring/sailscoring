@@ -47,7 +47,7 @@ test.describe('competitor identity reconcile', () => {
       ],
     });
 
-    await page.goto('/workspace/identities');
+    await page.goto('/workspace/competitors');
 
     // Anchor on a stable entry: the displayed name turns into an input value
     // during rename, so filtering the card by the name itself would stop

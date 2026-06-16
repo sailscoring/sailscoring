@@ -9,8 +9,8 @@ import { parseOrgMetadata } from '@/lib/features';
 
 /**
  * Server-side reads/writes for the cross-series competitor-identity spine
- * (#212), shared by the reconcile surface (`/workspace/identities`) and the
- * public career-arc page (`/p/{ws}/competitor/{id}`). Both need the same shape:
+ * (#212), shared by the reconcile surface (`/workspace/competitors`) and the
+ * public competitor timeline (`/p/{ws}/competitor/{slug}`). Both need the same shape:
  * an identity plus its linked competitor rows, each joined to the series it was
  * entered in, in chronological order. Workspace-scoped throughout.
  */
