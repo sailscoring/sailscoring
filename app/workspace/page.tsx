@@ -1,6 +1,4 @@
-import Link from 'next/link';
 import { eq } from 'drizzle-orm';
-import { Users } from 'lucide-react';
 
 import { getOptionalSession } from '@/lib/auth/require-session';
 import {
@@ -83,23 +81,6 @@ export default async function WorkspacePage() {
       <PublishedCard />
       {features.includes('logo-library') && canManageWorkspace && <LogosCard />}
       {features.includes('ftp-upload') && canManageWorkspace && <FtpServersCard />}
-      {features.includes('competitor-identity') && canManageSeries && (
-        <Link
-          href="/workspace/competitors"
-          className="block bg-card border rounded-lg p-5 hover:bg-accent/40 transition-colors"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-medium">Competitors</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Reconcile recurring competitors across series and view their
-                timelines.
-              </p>
-            </div>
-            <Users className="h-5 w-5 text-muted-foreground" />
-          </div>
-        </Link>
-      )}
     </div>
   );
 }
