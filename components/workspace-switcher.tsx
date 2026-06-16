@@ -21,6 +21,8 @@ import { ChevronDown } from 'lucide-react';
 
 import { authClient } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
+import { hasPermission } from '@/lib/auth/permissions';
+import { useFeatures } from '@/components/features-provider';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,11 +69,19 @@ export function WorkspaceSwitcher({
   activeOrganizationId: string | null;
 }) {
   const [busy, setBusy] = useState(false);
+  const { has } = useFeatures();
 
   if (memberships.length === 0) return null;
 
   const active =
     memberships.find((m) => m.organizationId === activeOrganizationId) ?? null;
+
+  // The competitor reconcile surface lives here (out of Workspace settings),
+  // gated by the same feature + manage-series role that govern the page.
+  const showCompetitors =
+    has('competitor-identity') &&
+    active !== null &&
+    hasPermission(active.role, 'manage-series');
 
   async function switchTo(organizationId: string) {
     if (organizationId === activeOrganizationId) return;
@@ -133,6 +143,11 @@ export function WorkspaceSwitcher({
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
+        {showCompetitors && (
+          <DropdownMenuItem asChild>
+            <Link href="/workspace/competitors">Competitors</Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem asChild>
           <Link href="/workspace">Workspace settings</Link>
         </DropdownMenuItem>

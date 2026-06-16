@@ -47,7 +47,14 @@ test.describe('competitor identity reconcile', () => {
       ],
     });
 
-    await page.goto('/workspace/competitors');
+    // Reach the reconcile surface through its nav home — the workspace
+    // switcher, not Workspace settings. The "Competitors" item only renders
+    // when the competitor-identity feature is on, so this exercises the gate
+    // and the new location together.
+    await page.goto('/');
+    await page.getByTestId('workspace-switcher').click();
+    await page.getByRole('menuitem', { name: 'Competitors' }).click();
+    await expect(page).toHaveURL(/\/workspace\/competitors$/);
 
     // Anchor on a stable entry: the displayed name turns into an input value
     // during rename, so filtering the card by the name itself would stop
