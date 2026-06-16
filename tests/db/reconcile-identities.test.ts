@@ -13,10 +13,17 @@ import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres, { type Sql } from 'postgres';
 
 import { clusterCompetitors } from '@/lib/competitor-identity-cluster';
+import {
+  identityIdForSlug,
+  parseManifest,
+  planManifestApply,
+} from '@/lib/competitor-identity-manifest';
 import * as schema from '@/lib/db/schema';
 import {
   applyClusters,
+  applyManifest,
   collectClusterInputs,
+  collectCompetitorIndex,
   ensureSlugs,
   resetIdentities,
 } from '@/scripts/reconcile-identities';
@@ -198,5 +205,221 @@ describe.skipIf(skip)('reconcile-identities apply path', () => {
     const rebuilt = await reconcile();
     expect(rebuilt.identitiesCreated).toBe(1);
     expect(await identityIdOf(aoife1)).not.toBeNull();
+  });
+});
+
+describe.skipIf(skip)('reconcile-identities manifest apply path (#218)', () => {
+  let sql!: Sql;
+  let db!: PostgresJsDatabase<typeof schema>;
+  let workspaceId!: string;
+  const seriesByYear: Record<number, string> = {};
+  const slugByYear: Record<number, string> = {};
+
+  beforeAll(async () => {
+    sql = postgres(DATABASE_URL!, { max: 1, prepare: false });
+    db = drizzle(sql, { schema });
+    workspaceId = `org_man_${uuid().replace(/-/g, '')}`;
+    await db.insert(schema.organization).values({
+      id: workspaceId,
+      name: 'manifest-test',
+      slug: `man-${workspaceId.slice(8, 16)}`,
+      createdAt: new Date(),
+    });
+    for (const year of [2018, 2020, 2021]) {
+      const id = uuid();
+      seriesByYear[year] = id;
+      slugByYear[year] = `iodai-event-${year}`;
+      await db.insert(schema.series).values({
+        id,
+        workspaceId,
+        name: `Event ${year}`,
+        startDate: `${year}-05-01`,
+        displayOrder: year,
+      });
+    }
+  });
+
+  afterAll(async () => {
+    if (workspaceId) {
+      await db.delete(schema.organization).where(eq(schema.organization.id, workspaceId));
+    }
+    await sql?.end();
+  });
+
+  async function addCompetitor(p: {
+    year: number;
+    name: string;
+    sailNumber: string;
+    club?: string;
+  }): Promise<string> {
+    const id = uuid();
+    await db.insert(schema.competitors).values({
+      id,
+      seriesId: seriesByYear[p.year],
+      workspaceId,
+      fleetIds: [],
+      sailNumber: p.sailNumber,
+      name: p.name,
+      club: p.club ?? '',
+      gender: '',
+      age: null,
+    });
+    return id;
+  }
+
+  async function identityIdOf(competitorId: string): Promise<string | null> {
+    const [row] = await db
+      .select({ identityId: schema.competitors.identityId })
+      .from(schema.competitors)
+      .where(eq(schema.competitors.id, competitorId));
+    return row?.identityId ?? null;
+  }
+
+  /** The series-slug → seriesId map a real manifest would embed. */
+  function seriesMap() {
+    return Object.fromEntries(
+      Object.entries(slugByYear).map(([year, slug]) => [slug, seriesByYear[Number(year)]]),
+    );
+  }
+
+  async function planFor(manifestObj: unknown) {
+    const manifest = parseManifest(JSON.stringify(manifestObj));
+    const { index } = await collectCompetitorIndex(db, workspaceId);
+    return planManifestApply(
+      manifest,
+      workspaceId,
+      (seriesId, sail) => index.get(`${seriesId}|${sail}`) ?? null,
+    );
+  }
+
+  let charlie1!: string;
+  let charlie2!: string;
+
+  test('applies a manifest entry under a deterministic, slug-derived id', async () => {
+    charlie1 = await addCompetitor({ year: 2018, name: 'Charlie Keating', sailNumber: '1423', club: 'HYC' });
+    charlie2 = await addCompetitor({ year: 2020, name: 'Charlie Keating', sailNumber: '1599', club: 'HYC' });
+
+    const plan = await planFor({
+      version: 1,
+      series: seriesMap(),
+      identities: [
+        {
+          slug: 'charlie-keating-x78q',
+          name: 'Charlie Keating',
+          club: 'HYC',
+          nationality: 'IRL',
+          members: [
+            ['iodai-event-2018', '1423'],
+            ['iodai-event-2020', '1599'],
+          ],
+        },
+      ],
+    });
+    expect(plan.unresolvedMembers).toEqual([]);
+
+    const res = await applyManifest(db, workspaceId, plan);
+    expect(res.identitiesWritten).toBe(1);
+    expect(res.competitorsLinked).toBe(2);
+
+    const expectedId = identityIdForSlug(workspaceId, 'charlie-keating-x78q');
+    expect(await identityIdOf(charlie1)).toBe(expectedId);
+    expect(await identityIdOf(charlie2)).toBe(expectedId);
+
+    const [identity] = await db
+      .select()
+      .from(schema.competitorIdentities)
+      .where(eq(schema.competitorIdentities.id, expectedId));
+    expect(identity.slug).toBe('charlie-keating-x78q');
+    expect(identity.label).toBe('Charlie Keating');
+    expect(identity.sailNumber).toBe('1599'); // last member's sail
+    expect(identity.nationality).toBe('IRL');
+  });
+
+  test('re-applying is byte-stable: same id, refreshed in place', async () => {
+    const before = await db
+      .select({ id: schema.competitorIdentities.id })
+      .from(schema.competitorIdentities)
+      .where(eq(schema.competitorIdentities.workspaceId, workspaceId));
+
+    const plan = await planFor({
+      version: 1,
+      series: seriesMap(),
+      identities: [
+        {
+          slug: 'charlie-keating-x78q',
+          name: 'Charlie Keating',
+          members: [
+            ['iodai-event-2018', '1423'],
+            ['iodai-event-2020', '1599'],
+          ],
+        },
+      ],
+    });
+    await applyManifest(db, workspaceId, plan);
+
+    const after = await db
+      .select({ id: schema.competitorIdentities.id })
+      .from(schema.competitorIdentities)
+      .where(eq(schema.competitorIdentities.workspaceId, workspaceId));
+    expect(after.map((r) => r.id).sort()).toEqual(before.map((r) => r.id).sort());
+  });
+
+  test('manifest links are authoritative — they overwrite a prior link', async () => {
+    // The auto-pass only fills `identity_id IS NULL` rows; the manifest, by
+    // contrast, is the golden record, so it must move an already-linked row.
+    const throwaway = uuid();
+    await db.insert(schema.competitorIdentities).values({
+      id: throwaway,
+      workspaceId,
+      label: 'Wrong Identity',
+      slug: 'wrong-identity-zzzz',
+      sailNumber: '1423',
+    });
+    await db
+      .update(schema.competitors)
+      .set({ identityId: throwaway })
+      .where(eq(schema.competitors.id, charlie1));
+    expect(await identityIdOf(charlie1)).toBe(throwaway);
+
+    const plan = await planFor({
+      version: 1,
+      series: seriesMap(),
+      identities: [
+        {
+          slug: 'charlie-keating-x78q',
+          name: 'Charlie Keating',
+          members: [
+            ['iodai-event-2018', '1423'],
+            ['iodai-event-2020', '1599'],
+          ],
+        },
+      ],
+    });
+    await applyManifest(db, workspaceId, plan);
+
+    const expectedId = identityIdForSlug(workspaceId, 'charlie-keating-x78q');
+    expect(await identityIdOf(charlie1)).toBe(expectedId); // moved off the throwaway
+    expect(await identityIdOf(charlie2)).toBe(expectedId);
+  });
+
+  test('reports an unresolved member without dropping the resolved rows', async () => {
+    const plan = await planFor({
+      version: 1,
+      series: seriesMap(),
+      identities: [
+        {
+          slug: 'someone-else-ab12',
+          name: 'Someone Else',
+          members: [
+            ['iodai-event-2018', '1423'], // belongs to Charlie, real row
+            ['iodai-event-2021', '9999'], // no such competitor
+          ],
+        },
+      ],
+    });
+    expect(plan.unresolvedMembers).toEqual([
+      { slug: 'someone-else-ab12', seriesSlug: 'iodai-event-2021', sailNumber: '9999', reason: 'no-competitor' },
+    ]);
+    expect(plan.assignments[0].competitorIds).toHaveLength(1);
   });
 });

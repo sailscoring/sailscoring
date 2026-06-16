@@ -20,9 +20,10 @@
  * <workspace> is an organization slug or id. Reads DATABASE_URL.
  */
 
+import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 
-import { and, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, notInArray, or } from 'drizzle-orm';
 
 import {
   clusterCompetitors,
@@ -32,6 +33,11 @@ import {
   type ClusterResult,
   type IdentityCluster,
 } from '@/lib/competitor-identity-cluster';
+import {
+  parseManifest,
+  planManifestApply,
+  type ManifestPlan,
+} from '@/lib/competitor-identity-manifest';
 import { mintSlug } from '@/lib/competitor-slug';
 import { getDb, getDbClient, type SailScoringDb } from '@/lib/db/client';
 import { organization } from '@/lib/db/schema/auth';
@@ -101,6 +107,109 @@ export async function collectClusterInputs(
       existingIdentityId: r.existingIdentityId ?? null,
     };
   });
+}
+
+/**
+ * Build the `(seriesId, sailNumber)` → competitorId index the manifest planner
+ * resolves member rows against. A sail can repeat within a series (blank-name
+ * rows, placeholder "0"s — see the iodai-archive identity audit); first row
+ * wins and the collision count is returned so the operator knows the index is
+ * lossy for those keys.
+ */
+export async function collectCompetitorIndex(
+  db: SailScoringDb,
+  workspaceId: string,
+): Promise<{ index: Map<string, string>; collisions: number }> {
+  const rows = await db
+    .select({
+      competitorId: competitors.id,
+      seriesId: competitors.seriesId,
+      sailNumber: competitors.sailNumber,
+    })
+    .from(competitors)
+    .where(eq(competitors.workspaceId, workspaceId));
+  const index = new Map<string, string>();
+  let collisions = 0;
+  for (const r of rows) {
+    const key = `${r.seriesId}|${r.sailNumber}`;
+    if (index.has(key)) collisions++;
+    else index.set(key, r.competitorId);
+  }
+  return { index, collisions };
+}
+
+/**
+ * Write the manifest's identities and link their competitors, in one
+ * transaction. Identity ids are deterministic (UUIDv5 of the slug), so this is
+ * re-runnable: an `onConflictDoUpdate` on the id refreshes an existing row in
+ * place. A pre-existing identity squatting on a manifest slug under a *different*
+ * id is removed first so the deterministic insert doesn't trip the
+ * `(workspace, slug)` unique index (the FK clears its links; the manifest
+ * re-links below). Manifest links are authoritative — they overwrite any prior
+ * link on a covered row, unlike the auto-pass which only fills blanks.
+ */
+export async function applyManifest(
+  db: SailScoringDb,
+  workspaceId: string,
+  plan: ManifestPlan,
+): Promise<{ identitiesWritten: number; competitorsLinked: number }> {
+  const writable = plan.assignments.filter((a) => a.competitorIds.length > 0);
+  const targetIds = writable.map((a) => a.identityId);
+  const targetSlugs = writable.map((a) => a.slug);
+  let identitiesWritten = 0;
+  let competitorsLinked = 0;
+
+  await db.transaction(async (tx) => {
+    if (targetSlugs.length) {
+      await tx
+        .delete(competitorIdentities)
+        .where(
+          and(
+            eq(competitorIdentities.workspaceId, workspaceId),
+            inArray(competitorIdentities.slug, targetSlugs),
+            notInArray(competitorIdentities.id, targetIds),
+          ),
+        );
+    }
+
+    for (const a of writable) {
+      await tx
+        .insert(competitorIdentities)
+        .values({
+          id: a.identityId,
+          workspaceId,
+          label: a.label,
+          slug: a.slug,
+          sailNumber: a.sailNumber,
+          club: a.club,
+          nationality: a.nationality,
+        })
+        .onConflictDoUpdate({
+          target: competitorIdentities.id,
+          set: {
+            label: a.label,
+            slug: a.slug,
+            sailNumber: a.sailNumber,
+            club: a.club,
+            nationality: a.nationality,
+          },
+        });
+      identitiesWritten++;
+
+      const res = await tx
+        .update(competitors)
+        .set({ identityId: a.identityId })
+        .where(
+          and(
+            eq(competitors.workspaceId, workspaceId),
+            inArray(competitors.id, a.competitorIds),
+          ),
+        );
+      competitorsLinked += res.count ?? 0;
+    }
+  });
+
+  return { identitiesWritten, competitorsLinked };
 }
 
 interface ApplyResult {
@@ -287,20 +396,51 @@ function renderReport(result: ClusterResult): string {
   return lines.join('\n');
 }
 
+function renderManifestPlan(plan: ManifestPlan, collisions: number): string {
+  const writable = plan.assignments.filter((a) => a.competitorIds.length > 0);
+  const linked = writable.reduce((n, a) => n + a.competitorIds.length, 0);
+  const lines: string[] = [];
+  lines.push('Manifest plan');
+  lines.push('─────────────');
+  lines.push(`identities:         ${plan.assignments.length}`);
+  lines.push(`  with members:     ${writable.length}`);
+  lines.push(`competitors linked: ${linked}`);
+  lines.push(`unresolved members: ${plan.unresolvedMembers.length}`);
+  if (plan.duplicateSlugs.length) {
+    lines.push(`duplicate slugs:    ${plan.duplicateSlugs.length}  (${plan.duplicateSlugs.join(', ')})`);
+  }
+  if (collisions) {
+    lines.push(`index collisions:   ${collisions}  ((series, sail) not unique — first row wins)`);
+  }
+  if (plan.unresolvedMembers.length) {
+    lines.push('');
+    lines.push('Unresolved members (first 20):');
+    plan.unresolvedMembers.slice(0, 20).forEach((m) => {
+      lines.push(`  ${m.reason.padEnd(15)} ${m.slug}  →  (${m.seriesSlug}, ${m.sailNumber})`);
+    });
+  }
+  return lines.join('\n');
+}
+
 // ─── CLI ─────────────────────────────────────────────────────────────────────
 
 function usage(): string {
-  return `reconcile-identities — cluster a workspace's competitors into recurring identities (#212)
+  return `reconcile-identities — cluster a workspace's competitors into recurring identities (#212, #218)
 
-  pnpm reconcile-identities <workspace> [--apply] [--reset] [--json]
+  pnpm reconcile-identities <workspace> [--manifest <file>] [--apply] [--reset] [--json]
 
-  <workspace>   organization slug or id
-  --apply       write competitor_identities rows and stamp competitors.identity_id
-                (default is a dry run that writes nothing)
-  --reset       before applying, delete the workspace's existing identities and
-                rebuild from scratch (requires --apply). Use after a matcher fix
-                to retire bad merges wholesale. Discards manual renames/splits.
-  --json        emit the full clustering result as JSON
+  <workspace>        organization slug or id
+  --manifest <file>  apply a golden-record identity manifest (JSON) before the
+                     fuzzy auto-pass: each entry's members (series-slug, sail) are
+                     resolved to competitors and linked under a deterministic id.
+                     Rows the manifest doesn't cover fall through to the auto-pass.
+                     Without --apply, just reports what the manifest would do.
+  --apply            write competitor_identities rows and stamp competitors.identity_id
+                     (default is a dry run that writes nothing)
+  --reset            before applying, delete the workspace's existing identities and
+                     rebuild from scratch (requires --apply). With --manifest this
+                     gives a byte-stable rebuild. Discards manual renames/splits.
+  --json             emit the full clustering result as JSON
 
 Reads DATABASE_URL.`;
 }
@@ -310,11 +450,20 @@ export async function runCli(argv: string[]): Promise<number> {
   let apply = false;
   let reset = false;
   let json = false;
-  for (const arg of argv) {
+  let manifestPath: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
     if (arg === '--apply') apply = true;
     else if (arg === '--reset') reset = true;
     else if (arg === '--json') json = true;
-    else if (arg === '--help' || arg === '-h') {
+    else if (arg === '--manifest') {
+      manifestPath = argv[++i];
+      if (!manifestPath) {
+        console.error('--manifest needs a file path\n');
+        console.error(usage());
+        return 1;
+      }
+    } else if (arg === '--help' || arg === '-h') {
       console.log(usage());
       return 0;
     } else if (arg.startsWith('-')) {
@@ -347,9 +496,34 @@ export async function runCli(argv: string[]): Promise<number> {
     return 1;
   }
 
+  if (!json) console.log(`Workspace: ${ws.name} (${ws.id})`);
+
   if (reset) {
     const removed = await resetIdentities(db, ws.id);
     console.log(`Reset: removed ${removed} existing identities (links cleared).`);
+  }
+
+  // Manifest stage (#218): apply the golden-record manifest before the fuzzy
+  // auto-pass, so the auto-pass only drafts identities for the uncovered tail
+  // (its applyClusters only touches still-unlinked rows).
+  if (manifestPath) {
+    const manifest = parseManifest(readFileSync(manifestPath, 'utf8'));
+    const { index, collisions } = await collectCompetitorIndex(db, ws.id);
+    const plan = planManifestApply(
+      manifest,
+      ws.id,
+      (seriesId, sail) => index.get(`${seriesId}|${sail}`) ?? null,
+    );
+    if (!json) {
+      console.log(renderManifestPlan(plan, collisions));
+      console.log('');
+    }
+    if (apply) {
+      const r = await applyManifest(db, ws.id, plan);
+      console.log(
+        `Manifest applied: ${r.identitiesWritten} identities written, ${r.competitorsLinked} competitors linked.\n`,
+      );
+    }
   }
 
   const inputs = await collectClusterInputs(db, ws.id);
@@ -360,7 +534,6 @@ export async function runCli(argv: string[]): Promise<number> {
     return 0;
   }
 
-  console.log(`Workspace: ${ws.name} (${ws.id})`);
   console.log(renderReport(result));
 
   if (apply) {
