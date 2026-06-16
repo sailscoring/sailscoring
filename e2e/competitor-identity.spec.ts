@@ -94,7 +94,7 @@ test.describe('competitor identity reconcile', () => {
     await addMemberByEmail(orgId, email, 'owner');
     await enableOrgFeatures(orgId, ['competitor-identity']);
 
-    const identityId = await seedCareerArc(orgId, {
+    const { identityId, slug: competitorSlug } = await seedCareerArc(orgId, {
       label: 'Holly Cantwell',
       club: 'RSGYC',
       entries: [
@@ -105,7 +105,9 @@ test.describe('competitor identity reconcile', () => {
       ],
     });
 
-    const res = await page.goto(`/p/${slug}/competitor/${identityId}`);
+    // The vanity slug is the canonical public URL.
+    expect(competitorSlug).toMatch(/^holly-cantwell-[a-z2-9]{4}$/);
+    const res = await page.goto(`/p/${slug}/competitor/${competitorSlug}`);
     expect(res?.status()).toBe(200);
     await expect(page.getByRole('heading', { name: 'Holly Cantwell' })).toBeVisible();
     await expect(page.getByText('3 series')).toBeVisible();
@@ -115,14 +117,17 @@ test.describe('competitor identity reconcile', () => {
     await expect(page.getByText('1st of 2')).toBeVisible();
     // Participation only — no age / birth year leaks into the public record.
     await expect(page.locator('body')).not.toContainText('age');
+
+    // The raw UUID still resolves (back-compat for pre-slug links).
+    const byId = await page.goto(`/p/${slug}/competitor/${identityId}`);
+    expect(byId?.status()).toBe(200);
+    await expect(page.getByRole('heading', { name: 'Holly Cantwell' })).toBeVisible();
     expect(errors).toEqual([]);
 
-    // A non-existent identity 404s (so does any id when the feature is off).
+    // A non-existent ref 404s (so does any ref when the feature is off).
     // Navigating to it logs an expected resource-load error, so assert after
     // the clean-console check above.
-    const missing = await page.goto(
-      `/p/${slug}/competitor/00000000-0000-0000-0000-000000000000`,
-    );
+    const missing = await page.goto(`/p/${slug}/competitor/nobody-here-9xyz`);
     expect(missing?.status()).toBe(404);
   });
 });

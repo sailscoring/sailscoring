@@ -103,12 +103,12 @@ function IdentityCard({
             </span>
           )}
           <a
-            href={`/p/${workspaceSlug}/competitor/${identity.id}`}
+            href={`/p/${workspaceSlug}/competitor/${identity.slug ?? identity.id}`}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
-            Career arc
+            Timeline
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>

@@ -3,7 +3,10 @@ import type { NextRequest } from 'next/server';
 import { readPublishedHtml } from '@/lib/blob-storage';
 import { getCareerArc } from '@/lib/career-arc';
 import { renderCareerArcHtml } from '@/lib/career-arc-render';
-import { workspaceHasIdentityFeature } from '@/lib/competitor-identity-repository';
+import {
+  findIdentityIdByRef,
+  workspaceHasIdentityFeature,
+} from '@/lib/competitor-identity-repository';
 import { contentHash, humanizeSlug } from '@/lib/publishing';
 import {
   renderSeriesIndexHtml,
@@ -114,18 +117,21 @@ async function workspaceIndex(
   return htmlResponse(html, etag);
 }
 
-/** `/p/{ws}/competitor/{identityId}` — a recurring competitor's career arc
- *  across every series they entered (#212). Gated on the workspace having the
+/** `/p/{ws}/competitor/{ref}` — a recurring competitor's timeline across every
+ *  series they entered (#212/#217). `ref` is the vanity slug (or, for
+ *  back-compat, a raw identity UUID). Gated on the workspace having the
  *  `competitor-identity` feature, so it's invisible where it isn't enabled. */
 async function careerArc(
   req: NextRequest,
   workspaceSlug: string,
-  identityId: string,
+  ref: string,
 ): Promise<Response> {
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
   if (!(await workspaceHasIdentityFeature(workspace.id))) return NOT_FOUND;
 
+  const identityId = await findIdentityIdByRef(workspace.id, ref);
+  if (!identityId) return NOT_FOUND;
   const identity = await getCareerArc(workspace.id, identityId);
   if (!identity) return NOT_FOUND;
 

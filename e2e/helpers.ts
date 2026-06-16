@@ -8,6 +8,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import postgres from 'postgres';
 
 import * as schema from '@/lib/db/schema';
+import { competitorSlugCandidate } from '@/lib/competitor-slug';
 import { fulfilRequest } from '@/scripts/provision-org';
 import { serializeOrgMetadata, type FeatureKey } from '@/lib/features';
 
@@ -145,7 +146,8 @@ function randomId(prefix: string): string {
  * linked competitor per entry, plus the `competitor_identities` row they point
  * at. Bypasses the reconcile clustering (unit/DB-tested separately) to give the
  * UI and the public career-arc page a ready arc to render. Returns the identity
- * id; the most-recent entry's name/sail seed the identity label/sailNumber.
+ * id and its minted vanity slug; the most-recent entry's name/sail seed the
+ * identity label/sailNumber.
  */
 export async function seedCareerArc(
   workspaceId: string,
@@ -163,16 +165,18 @@ export async function seedCareerArc(
       scored?: boolean;
     }>;
   },
-): Promise<string> {
+): Promise<{ identityId: string; slug: string }> {
   const { db, close } = adminDb();
   try {
     const identityId = crypto.randomUUID();
+    const slug = competitorSlugCandidate(opts.label);
     const sorted = [...opts.entries].sort((a, b) => a.year - b.year);
     const latest = sorted[sorted.length - 1];
     await db.insert(schema.competitorIdentities).values({
       id: identityId,
       workspaceId,
       label: opts.label,
+      slug,
       sailNumber: latest?.sailNumber ?? '',
       club: opts.club ?? null,
     });
@@ -240,7 +244,7 @@ export async function seedCareerArc(
         ]);
       }
     }
-    return identityId;
+    return { identityId, slug };
   } finally {
     await close();
   }
