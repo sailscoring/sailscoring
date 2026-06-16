@@ -1,0 +1,2 @@
+ALTER TABLE "competitor_identities" ADD COLUMN "slug" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "competitor_identities_workspace_slug_uidx" ON "competitor_identities" USING btree ("workspace_id","slug") WHERE "competitor_identities"."slug" is not null;

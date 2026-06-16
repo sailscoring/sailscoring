@@ -309,6 +309,13 @@
       "when": 1781549419144,
       "tag": "0043_wooden_gamora",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1781601066170,
+      "tag": "0044_clever_rogue",
+      "breakpoints": true
     }
   ]
 }

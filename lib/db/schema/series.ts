@@ -373,6 +373,12 @@ export const competitorIdentities = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     label: text('label').notNull(),
+    // Vanity slug — the public URL handle and the iodai-archive manifest key
+    // (#217/#218). Minted once from the label + a random suffix, persisted, and
+    // never recomputed on rename, so it's stable. Nullable only to allow a
+    // backfill window; the reconcile pass stamps it on create and fills any
+    // gaps. Unique per workspace (partial index, below).
+    slug: text('slug'),
     sailNumber: text('sail_number').notNull().default(''),
     boatName: text('boat_name'),
     club: text('club'),
@@ -386,6 +392,9 @@ export const competitorIdentities = pgTable(
   },
   (table) => [
     index('competitor_identities_workspace_idx').on(table.workspaceId),
+    uniqueIndex('competitor_identities_workspace_slug_uidx')
+      .on(table.workspaceId, table.slug)
+      .where(sql`${table.slug} is not null`),
   ],
 );
 

@@ -197,6 +197,7 @@ export interface CompetitorIdentity {
   id: string;
   workspaceId: string;
   label: string;           // canonical display name, editable; seeds from first-linked competitor
+  slug?: string;           // vanity slug — public URL handle + manifest key (#217); minted once, stable across rename
   sailNumber: string;      // representative sail number (denormalised display/match snapshot)
   boatName?: string;
   club?: string;
