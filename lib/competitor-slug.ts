@@ -46,3 +46,26 @@ export function randomSlugSuffix(): string {
 export function competitorSlugCandidate(label: string): string {
   return `${slugifyName(label)}-${randomSlugSuffix()}`;
 }
+
+/**
+ * Mint a slug for `label` that isn't in `reserved`, adding it to the set. The
+ * caller seeds `reserved` with the slugs already taken (e.g. a workspace's
+ * existing slugs) so a whole batch can be minted in memory without a
+ * round-trip per candidate. Extends the entropy in the (vanishing) event the
+ * random suffix keeps colliding, so it always returns eventually.
+ */
+export function mintSlug(label: string, reserved: Set<string>): string {
+  for (let i = 0; i < 20; i++) {
+    const candidate = competitorSlugCandidate(label);
+    if (!reserved.has(candidate)) {
+      reserved.add(candidate);
+      return candidate;
+    }
+  }
+  let candidate = `${competitorSlugCandidate(label)}-${randomSlugSuffix()}`;
+  while (reserved.has(candidate)) {
+    candidate = `${competitorSlugCandidate(label)}-${randomSlugSuffix()}`;
+  }
+  reserved.add(candidate);
+  return candidate;
+}

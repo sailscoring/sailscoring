@@ -22,7 +22,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 
 import {
   clusterCompetitors,
@@ -32,6 +32,7 @@ import {
   type ClusterResult,
   type IdentityCluster,
 } from '@/lib/competitor-identity-cluster';
+import { mintSlug } from '@/lib/competitor-slug';
 import { getDb, getDbClient, type SailScoringDb } from '@/lib/db/client';
 import { organization } from '@/lib/db/schema/auth';
 import { competitorIdentities, competitors, series } from '@/lib/db/schema/series';
@@ -108,6 +109,41 @@ interface ApplyResult {
   conflictsSkipped: number;
 }
 
+/**
+ * Backfill slugs for any identities created before the slug column existed
+ * (#217). Idempotent — only touches null-slug rows — so it's safe to run on
+ * every `--apply`. New identities get their slug at insert in `applyClusters`;
+ * this covers the pre-slug ones. Returns how many were filled.
+ */
+export async function ensureSlugs(
+  db: SailScoringDb,
+  workspaceId: string,
+): Promise<number> {
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .select({
+        id: competitorIdentities.id,
+        label: competitorIdentities.label,
+        slug: competitorIdentities.slug,
+      })
+      .from(competitorIdentities)
+      .where(eq(competitorIdentities.workspaceId, workspaceId));
+    const reserved = new Set(
+      rows.filter((r) => r.slug).map((r) => r.slug as string),
+    );
+    let filled = 0;
+    for (const row of rows) {
+      if (row.slug) continue;
+      await tx
+        .update(competitorIdentities)
+        .set({ slug: mintSlug(row.label, reserved) })
+        .where(eq(competitorIdentities.id, row.id));
+      filled++;
+    }
+    return filled;
+  });
+}
+
 /** Write identities + links for the clustering result, in one transaction. */
 export async function applyClusters(
   db: SailScoringDb,
@@ -119,6 +155,22 @@ export async function applyClusters(
   let conflictsSkipped = 0;
 
   await db.transaction(async (tx) => {
+    // Seed the reserved set with the workspace's existing slugs so a whole
+    // batch of new identities can mint unique slugs without a round-trip each.
+    const reserved = new Set(
+      (
+        await tx
+          .select({ slug: competitorIdentities.slug })
+          .from(competitorIdentities)
+          .where(
+            and(
+              eq(competitorIdentities.workspaceId, workspaceId),
+              isNotNull(competitorIdentities.slug),
+            ),
+          )
+      ).map((r) => r.slug as string),
+    );
+
     for (const cluster of result.clusters) {
       const existing = cluster.existingIdentityIds;
       if (existing.length >= 2) {
@@ -136,6 +188,7 @@ export async function applyClusters(
           id: identityId,
           workspaceId,
           label: cluster.label,
+          slug: mintSlug(cluster.label, reserved),
           sailNumber: cluster.sailNumber,
           club: cluster.club,
           nationality: cluster.nationality,
@@ -311,8 +364,12 @@ export async function runCli(argv: string[]): Promise<number> {
   console.log(renderReport(result));
 
   if (apply) {
+    const backfilled = await ensureSlugs(db, ws.id);
     const applied = await applyClusters(db, ws.id, result);
     console.log('Applied:');
+    if (backfilled > 0) {
+      console.log(`  slugs backfilled:   ${backfilled}`);
+    }
     console.log(`  identities created: ${applied.identitiesCreated}`);
     console.log(`  competitors linked: ${applied.competitorsLinked}`);
     if (applied.conflictsSkipped) {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   competitorSlugCandidate,
+  mintSlug,
   randomSlugSuffix,
   slugifyName,
 } from '@/lib/competitor-slug';
@@ -50,5 +51,26 @@ describe('competitorSlugCandidate', () => {
     );
     // Collisions are possible but vanishingly unlikely across 50 draws.
     expect(slugs.size).toBeGreaterThan(45);
+  });
+});
+
+describe('mintSlug', () => {
+  it('returns a slug not already in the reserved set and adds it', () => {
+    const reserved = new Set<string>();
+    const a = mintSlug('John Murphy', reserved);
+    expect(reserved.has(a)).toBe(true);
+    const b = mintSlug('John Murphy', reserved);
+    expect(b).not.toBe(a);
+    expect(reserved.size).toBe(2);
+  });
+
+  it('avoids a pre-seeded collision', () => {
+    // Force the first candidate to be taken by seeding every base form once;
+    // mintSlug must still find a free suffix.
+    const reserved = new Set<string>();
+    for (let i = 0; i < 100; i++) reserved.add(mintSlug('Jane Doe', reserved));
+    const next = mintSlug('Jane Doe', reserved);
+    expect(reserved.has(next)).toBe(true);
+    expect([...reserved].filter((s) => s === next)).toHaveLength(1);
   });
 });

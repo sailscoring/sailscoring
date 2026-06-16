@@ -17,6 +17,7 @@ import * as schema from '@/lib/db/schema';
 import {
   applyClusters,
   collectClusterInputs,
+  ensureSlugs,
   resetIdentities,
 } from '@/scripts/reconcile-identities';
 
@@ -100,6 +101,14 @@ describe.skipIf(skip)('reconcile-identities apply path', () => {
     return rows.length;
   }
 
+  async function slugOf(identityId: string): Promise<string | null> {
+    const [row] = await db
+      .select({ slug: schema.competitorIdentities.slug })
+      .from(schema.competitorIdentities)
+      .where(eq(schema.competitorIdentities.id, identityId));
+    return row?.slug ?? null;
+  }
+
   async function reconcile() {
     const inputs = await collectClusterInputs(db, workspaceId);
     const result = clusterCompetitors(inputs);
@@ -129,6 +138,35 @@ describe.skipIf(skip)('reconcile-identities apply path', () => {
       .where(eq(schema.competitorIdentities.id, id1!));
     expect(identity.label).toBe('Aoife Murphy');
     expect(identity.sailNumber).toBe('IRL1599');
+    // A vanity slug is minted on create, from the label + a random suffix.
+    expect(identity.slug).toMatch(/^aoife-murphy-[a-z2-9]{4}$/);
+  });
+
+  test('slug is stable across a rename', async () => {
+    const id = (await identityIdOf(aoife1))!;
+    const slugBefore = await slugOf(id);
+    await db
+      .update(schema.competitorIdentities)
+      .set({ label: 'Aoife M Murphy' })
+      .where(eq(schema.competitorIdentities.id, id));
+    // ensureSlugs must not re-mint an existing slug, and nothing recomputes it.
+    await ensureSlugs(db, workspaceId);
+    expect(await slugOf(id)).toBe(slugBefore);
+  });
+
+  test('ensureSlugs backfills a pre-slug (null) identity', async () => {
+    const legacyId = uuid();
+    await db.insert(schema.competitorIdentities).values({
+      id: legacyId,
+      workspaceId,
+      label: 'Legacy Sailor',
+      sailNumber: 'IRL1',
+      // slug intentionally omitted (null) — predates the column
+    });
+    expect(await slugOf(legacyId)).toBeNull();
+    const filled = await ensureSlugs(db, workspaceId);
+    expect(filled).toBe(1);
+    expect(await slugOf(legacyId)).toMatch(/^legacy-sailor-[a-z2-9]{4}$/);
   });
 
   test('re-running is idempotent: no new identities, no new links', async () => {
