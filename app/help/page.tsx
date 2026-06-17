@@ -1341,6 +1341,14 @@ export default async function HelpPage() {
           pages. It shows only what&apos;s already public in the results — event,
           year, position, sail number, club — never a sailor&apos;s age.
         </p>
+        <p>
+          The workspace&apos;s public results page links to a{' '}
+          <strong className="text-foreground">competitor index</strong> — a
+          searchable roster of everyone who has raced. Search by name or sail
+          number (&ldquo;who sailed 1605?&rdquo;) or filter by year, and follow
+          a competitor through to their timeline. These public pages are
+          shareable by link but kept out of search engines.
+        </p>
       </Section>
       )}
 

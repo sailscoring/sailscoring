@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
 import { organization } from '@/lib/db/schema/auth';
@@ -247,6 +247,25 @@ export async function unlinkCompetitor(
  * matching the containment model. (The feature is default-off, so a plain
  * membership in `enabledFeatures` is the whole test.)
  */
+/** Whether the workspace has at least one sluggable competitor — i.e. the
+ *  public competitor index would render rather than 404. Cheap existence probe
+ *  for deciding whether to surface the index link on the workspace listing. */
+export async function workspaceHasCompetitors(
+  workspaceId: string,
+): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ id: competitorIdentities.id })
+    .from(competitorIdentities)
+    .where(
+      and(
+        eq(competitorIdentities.workspaceId, workspaceId),
+        isNotNull(competitorIdentities.slug),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
 export async function workspaceHasIdentityFeature(
   workspaceId: string,
 ): Promise<boolean> {

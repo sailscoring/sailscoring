@@ -34,6 +34,16 @@ describe('renderWorkspaceIndexHtml', () => {
     expect(html.indexOf('autumn-26')).toBeLessThan(html.indexOf('spring-26'));
   });
 
+  it('links to the competitor index only when asked', () => {
+    const off = renderWorkspaceIndexHtml('hyc', 'HYC', items);
+    expect(off).not.toContain('/p/hyc/competitors');
+    const on = renderWorkspaceIndexHtml('hyc', 'HYC', items, '', {
+      competitorsLink: true,
+    });
+    expect(on).toContain('href="/p/hyc/competitors"');
+    expect(on).toContain('Browse competitors');
+  });
+
   it('shows the workspace logo in the hero when given, on a white chip', () => {
     const html = renderWorkspaceIndexHtml(
       'hyc',

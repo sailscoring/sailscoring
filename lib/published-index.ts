@@ -121,6 +121,9 @@ body { font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Ari
 p.back { margin: 0 0 16px; font-size: 0.82em; }
 p.back a { color: #073358; text-decoration: none; }
 p.back a:hover { color: #fb3a3b; text-decoration: underline; }
+p.browse { margin: 0 0 18px; font-size: 0.9em; font-weight: 600; }
+p.browse a { color: #073358; text-decoration: none; }
+p.browse a:hover { color: #fb3a3b; text-decoration: underline; }
 ul.listing { list-style: none; padding: 0; margin: 16px 0; }
 ul.listing li { background: #fff; border: 1px solid #e2e6ea; border-left: 4px solid transparent; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(7,51,88,0.06); transition: box-shadow .15s, border-color .15s, transform .1s; }
 ul.listing li:hover { box-shadow: 0 4px 14px rgba(7,51,88,0.13); border-left-color: #fb3a3b; transform: translateY(-1px); }
@@ -249,14 +252,19 @@ export function renderWorkspaceIndexHtml(
   workspaceName: string,
   items: WorkspaceIndexItem[],
   logoUrl = '',
+  opts: { competitorsLink?: boolean } = {},
 ): string {
   const heading = `${esc(workspaceName)} &mdash; published results`;
   const hero = renderPublicHero(heading, logoUrl);
+  // Forward link to the competitor index, when the workspace has one to show.
+  const competitorsLink = opts.competitorsLink
+    ? `<p class="browse"><a href="/p/${esc(workspaceSlug)}/competitors">Browse competitors &rarr;</a></p>`
+    : '';
   if (items.length === 0) {
     return renderPublicShell(
       `${workspaceName} — published results`,
       hero,
-      '<p class="empty">No published results yet.</p>',
+      `${competitorsLink}<p class="empty">No published results yet.</p>`,
     );
   }
 
@@ -297,7 +305,11 @@ export function renderWorkspaceIndexHtml(
     sections = activeHtml + pastHtml;
   }
 
-  return renderPublicShell(`${workspaceName} — published results`, hero, sections);
+  return renderPublicShell(
+    `${workspaceName} — published results`,
+    hero,
+    `${competitorsLink}${sections}`,
+  );
 }
 
 /**

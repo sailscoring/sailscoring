@@ -6,6 +6,7 @@ import { renderCareerArcHtml } from '@/lib/career-arc-render';
 import {
   findIdentityIdByRef,
   listIdentitiesWithArcs,
+  workspaceHasCompetitors,
   workspaceHasIdentityFeature,
 } from '@/lib/competitor-identity-repository';
 import {
@@ -111,11 +112,19 @@ async function workspaceIndex(
   // Don't reveal that a workspace exists if it has published nothing.
   if (items.length === 0) return NOT_FOUND;
 
+  // Surface the competitor index when the feature is on and there's at least
+  // one competitor to browse (so the link never lands on a 404).
+  const competitorsLink =
+    (await workspaceHasIdentityFeature(workspace.id)) &&
+    (await workspaceHasCompetitors(workspace.id));
+
   // ETag from listing metadata so repeat views revalidate without re-rendering.
   // Includes the placement fields (category / archive / order / year) so
-  // re-categorising, archiving, or reordering a series busts the cached page.
+  // re-categorising, archiving, or reordering a series busts the cached page,
+  // plus the competitors-link flag so it appears the first time one is added.
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
+    `competitors:${competitorsLink}`,
     ...items.map(
       (i) =>
         `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.year ?? ''}`,
@@ -123,7 +132,9 @@ async function workspaceIndex(
   ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
-  const html = renderWorkspaceIndexHtml(workspaceSlug, workspace.name, items, workspace.logo);
+  const html = renderWorkspaceIndexHtml(workspaceSlug, workspace.name, items, workspace.logo, {
+    competitorsLink,
+  });
   return htmlResponse(html, etag);
 }
 
