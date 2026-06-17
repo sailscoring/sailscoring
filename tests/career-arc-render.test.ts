@@ -58,4 +58,9 @@ describe('renderCareerArcHtml deep-links', () => {
     // No anchor wrapping the event name.
     expect(html).not.toContain('>IODAI Munsters 2019</a>');
   });
+
+  it('backlinks to the competitor index, not the workspace listing', () => {
+    const html = renderCareerArcHtml('iodai', 'IODAI', arc([arcEntry({})]));
+    expect(html).toContain('href="/p/iodai/competitors"');
+  });
 });

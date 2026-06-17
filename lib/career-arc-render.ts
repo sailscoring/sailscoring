@@ -76,7 +76,9 @@ export function renderCareerArcHtml(
     .filter(Boolean)
     .join(' &middot; ');
 
-  const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)}</a></p>`;
+  // Back up to the competitor index (the roster this timeline belongs to), not
+  // the workspace results listing.
+  const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}/competitors">&larr; ${esc(workspaceName)} competitors</a></p>`;
 
   if (identity.entries.length === 0) {
     return renderPublicShell(
