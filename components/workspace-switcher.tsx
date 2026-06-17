@@ -77,9 +77,11 @@ export function WorkspaceSwitcher({
     memberships.find((m) => m.organizationId === activeOrganizationId) ?? null;
 
   // The competitor reconcile surface lives here (out of Workspace settings),
-  // gated by the same feature + manage-series role that govern the page.
+  // gated by the same `competitor-reconcile` flag + manage-series role that
+  // govern the page. Distinct from the public `competitor-identity` feature, so
+  // the public pages can be live while the in-app reconcile UI stays hidden.
   const showCompetitors =
-    has('competitor-identity') &&
+    has('competitor-reconcile') &&
     active !== null &&
     hasPermission(active.role, 'manage-series');
 

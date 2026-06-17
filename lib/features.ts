@@ -120,14 +120,26 @@ export const FEATURES = {
     helpSectionIds: ['collaboration'],
   },
   'competitor-identity': {
-    // Gates the cross-series competitor-identity spine: the reconcile surface
-    // that collapses a sailor's per-series competitor rows onto one recurring
-    // identity, and the public career-arc page read off that link. Off by
-    // default and introduced for IODAI first (a one-design junior class with a
-    // deep historical corpus) — invisible and inert everywhere else, per the
-    // containment model.
-    label: 'Cross-series competitor identity',
+    // Gates the *public* side of the cross-series competitor-identity spine:
+    // the competitor index (/p/{ws}/competitors), the per-competitor timeline,
+    // and the index link on the public results listing — all read off the
+    // identity link the reconcile pass populates. Off by default and introduced
+    // for IODAI first (a one-design junior class with a deep historical corpus)
+    // — invisible and inert everywhere else, per the containment model. The
+    // in-app reconcile UI is gated separately by `competitor-reconcile`.
+    label: 'Cross-series competitor identity (public)',
     helpSectionIds: ['competitor-identity'],
+  },
+  'competitor-reconcile': {
+    // Gates the *in-app* reconcile surface (/workspace/competitors, its
+    // switcher entry, and the /api/v1/competitor-identities endpoints behind
+    // it) — the rename/split tooling for correcting auto-matched identities.
+    // Held back separately from the public feature: the public pages are
+    // settled, but the reconcile UX isn't, and cleanup currently runs
+    // out-of-band (the iodai-archive manifest, #218), so the UI stays hidden
+    // until we return to it. Off by default.
+    label: 'Cross-series competitor reconcile (in-app)',
+    helpSectionIds: [],
   },
 } as const satisfies Record<string, FeatureDef>;
 

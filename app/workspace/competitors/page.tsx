@@ -6,18 +6,19 @@ import { IdentitiesReconcile } from '@/components/competitor-identities/identiti
 export const dynamic = 'force-dynamic';
 
 /**
- * Cross-series competitor reconcile surface. Gated: the page 404s when the
- * workspace doesn't have the `competitor-identity` feature, so it's invisible
- * everywhere it isn't deliberately enabled. The list, rename, and split
- * actions all run against the gated `/api/v1/competitor-identities` endpoints.
- * (Internals keep the `CompetitorIdentity` framing; the user-facing surface
- * says "Competitors".)
+ * Cross-series competitor reconcile surface. Gated on `competitor-reconcile`
+ * (distinct from the public `competitor-identity` feature): the page 404s
+ * unless the workspace has that flag, so the in-app rename/split tooling stays
+ * hidden while the public competitor pages can still be live. The list, rename,
+ * and split actions run against the `/api/v1/competitor-identities` endpoints,
+ * gated on the same flag. (Internals keep the `CompetitorIdentity` framing; the
+ * user-facing surface says "Competitors".)
  */
 export default async function CompetitorsPage() {
   let workspaceSlug: string;
   try {
     const workspace = await requireWorkspace();
-    if (!workspace.features.includes('competitor-identity')) notFound();
+    if (!workspace.features.includes('competitor-reconcile')) notFound();
     workspaceSlug = workspace.workspaceSlug;
   } catch {
     notFound();

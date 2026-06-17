@@ -1322,17 +1322,23 @@ export default async function HelpPage() {
           name, club, sail number, and — where age is recorded — implied birth
           year. It is deliberately cautious: when a match isn&apos;t
           corroborated it leaves the rows apart rather than risk merging two
-          different sailors. Review the result under{' '}
-          <strong className="text-foreground">Competitors</strong> in the
-          workspace switcher: each card is one recurring competitor with the
-          series they entered. Click the name to{' '}
-          <strong className="text-foreground">rename</strong> it, or the{' '}
-          scissors on an entry to <strong className="text-foreground">split</strong>{' '}
-          off a row that was grouped by mistake. An arc that spans more years
-          than a sailor could plausibly stay in the class is flagged{' '}
-          <strong className="text-foreground">long arc</strong> — usually two
-          namesakes to split apart.
+          different sailors.
         </p>
+        {has('competitor-reconcile') && (
+          <p>
+            Review the result under{' '}
+            <strong className="text-foreground">Competitors</strong> in the
+            workspace switcher: each card is one recurring competitor with the
+            series they entered. Click the name to{' '}
+            <strong className="text-foreground">rename</strong> it, or the{' '}
+            scissors on an entry to{' '}
+            <strong className="text-foreground">split</strong> off a row that was
+            grouped by mistake. An arc that spans more years than a sailor could
+            plausibly stay in the class is flagged{' '}
+            <strong className="text-foreground">long arc</strong> — usually two
+            namesakes to split apart.
+          </p>
+        )}
         <p>
           Each competitor has a public timeline listing every series they
           entered, in order, with their{' '}

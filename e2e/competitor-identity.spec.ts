@@ -1,9 +1,9 @@
 /**
- * Cross-series competitor-identity reconcile surface (#212), gated behind the
- * `competitor-identity` feature. Seeds two ready-made arcs (the clustering
- * itself is unit/DB-tested) and exercises the reconcile UI: the list renders
- * one card per recurring competitor, the over-long arc is flagged, a rename
- * sticks, and splitting an entry drops it from the arc.
+ * Cross-series competitor surfaces (#212/#217). The in-app reconcile UI is
+ * gated behind `competitor-reconcile`; the public index + timeline behind
+ * `competitor-identity`. Seeds ready-made arcs (the clustering itself is
+ * unit/DB-tested) and exercises: the reconcile UI (list, long-arc flag,
+ * rename, split), the public timeline, and the public index (search + filter).
  */
 import { test, expect } from '@playwright/test';
 
@@ -25,7 +25,9 @@ test.describe('competitor identity reconcile', () => {
     const email = await signInFreshUser(page, 'identity');
     const { id: orgId } = await createOrgWorkspace('Identity Club');
     await addMemberByEmail(orgId, email, 'owner');
-    await enableOrgFeatures(orgId, ['competitor-identity']);
+    // The in-app reconcile surface is gated on `competitor-reconcile` (distinct
+    // from the public `competitor-identity` feature).
+    await enableOrgFeatures(orgId, ['competitor-reconcile']);
     await setActiveWorkspace(page, orgId);
 
     // A normal junior arc and an implausibly long one (over-merge to flag).
