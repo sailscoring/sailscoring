@@ -1069,6 +1069,16 @@ honest about its limits:
 Then layer the LLM-drafting step on top once the deterministic core exists: NoR text
 in, a draft predicate + ranking rule out, scorer confirms.
 
+A concrete example of these common cases is the IODAI (Optimist) nationals: "First
+IRL is national champion, and first girl is first girl." The overall series winner
+takes the regatta, but the *national champion* title is restricted to IRL sailors —
+the first boat whose nationality is IRL, which may not be the overall winner if a
+visiting sailor tops the standings. The "first girl" is a separate prize ranked on
+series standing within a gender filter. Both are eligibility-predicate-plus-standing
+rules — nationality-restricted title and gender-restricted prize — so they land
+squarely in the deterministic core, but they show that a single series can carry a
+*restricted title* (national champion ≠ overall winner) alongside ordinary prizes.
+
 **The hard example — multi-series, OA judgement, conditional metric.** The HYC
 Lambay Lady shows how far past a filter builder real rules go:
 
