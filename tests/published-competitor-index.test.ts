@@ -32,28 +32,35 @@ function identity(over: Partial<IdentityWithArc>): IdentityWithArc {
     sailNumber: 'IRL1',
     club: null,
     nationality: null,
-    entries: [],
+    // One published entry by default: the index drops identities with no
+    // published series, so a bare identity needs an entry to survive.
+    entries: [entry({})],
     firstYear: null,
     lastYear: null,
     ...over,
   };
 }
 
+// The default entry helper uses seriesId 's'; published-set for the cases that
+// aren't specifically exercising the published/unpublished split.
+const PUBLISHED = new Set(['s']);
+
 describe('toCompetitorIndexEntries', () => {
   it('collapses distinct sails and years, counts series', () => {
-    const [row] = toCompetitorIndexEntries([
-      identity({
-        label: 'Holly Cantwell',
-        slug: 'holly-cantwell-x78q',
-        firstYear: 2021,
-        lastYear: 2023,
-        entries: [
-          entry({ year: 2021, sailNumber: 'IRL1641' }),
-          entry({ year: 2023, sailNumber: 'IRL1641' }), // dup sail
-          entry({ year: 2022, sailNumber: 'IRL1599' }),
-        ],
-      }),
-    ]);
+    const [row] = toCompetitorIndexEntries(
+      [
+        identity({
+          label: 'Holly Cantwell',
+          slug: 'holly-cantwell-x78q',
+          entries: [
+            entry({ year: 2021, sailNumber: 'IRL1641' }),
+            entry({ year: 2023, sailNumber: 'IRL1641' }), // dup sail
+            entry({ year: 2022, sailNumber: 'IRL1599' }),
+          ],
+        }),
+      ],
+      PUBLISHED,
+    );
     expect(row.sailNumbers).toEqual(['IRL1641', 'IRL1599']);
     expect(row.years).toEqual([2021, 2022, 2023]); // distinct, ascending
     expect(row.seriesCount).toBe(3);
@@ -61,20 +68,56 @@ describe('toCompetitorIndexEntries', () => {
     expect(row.lastYear).toBe(2023);
   });
 
+  it('includes only published series and drops fully-unpublished identities', () => {
+    const rows = toCompetitorIndexEntries(
+      [
+        identity({
+          label: 'Holly Cantwell',
+          slug: 'holly-cantwell-x78q',
+          entries: [
+            entry({ seriesId: 'pub', year: 2021, sailNumber: 'IRL1641' }),
+            // An unpublished series: must not surface a row, sail, or year.
+            entry({ seriesId: 'unpub', year: 2023, sailNumber: 'IRL9999' }),
+          ],
+        }),
+        // Nothing published at all → not public, dropped entirely.
+        identity({
+          label: 'Hidden Sailor',
+          slug: 'hidden-sailor-zz00',
+          entries: [entry({ seriesId: 'unpub', year: 2020, sailNumber: 'IRL5' })],
+        }),
+      ],
+      new Set(['pub']),
+    );
+    expect(rows.map((r) => r.name)).toEqual(['Holly Cantwell']);
+    const [holly] = rows;
+    expect(holly.seriesCount).toBe(1);
+    expect(holly.sailNumbers).toEqual(['IRL1641']); // the unpublished sail is gone
+    expect(holly.years).toEqual([2021]);
+    expect(holly.firstYear).toBe(2021);
+    expect(holly.lastYear).toBe(2021);
+  });
+
   it('drops rows with no slug — they have no public URL', () => {
-    const rows = toCompetitorIndexEntries([
-      identity({ slug: null, label: 'Unslugged' }),
-      identity({ slug: 'real-one-99zz', label: 'Real One' }),
-    ]);
+    const rows = toCompetitorIndexEntries(
+      [
+        identity({ slug: null, label: 'Unslugged' }),
+        identity({ slug: 'real-one-99zz', label: 'Real One' }),
+      ],
+      PUBLISHED,
+    );
     expect(rows.map((r) => r.name)).toEqual(['Real One']);
   });
 
   it('sorts by folded name so accents do not jump the order', () => {
-    const rows = toCompetitorIndexEntries([
-      identity({ label: 'Zoe Walsh', slug: 'z' }),
-      identity({ label: 'Áine Byrne', slug: 'a' }), // folds to "aine"
-      identity({ label: 'Mark Doyle', slug: 'm' }),
-    ]);
+    const rows = toCompetitorIndexEntries(
+      [
+        identity({ label: 'Zoe Walsh', slug: 'z' }),
+        identity({ label: 'Áine Byrne', slug: 'a' }), // folds to "aine"
+        identity({ label: 'Mark Doyle', slug: 'm' }),
+      ],
+      PUBLISHED,
+    );
     expect(rows.map((r) => r.name)).toEqual([
       'Áine Byrne',
       'Mark Doyle',
@@ -83,11 +126,14 @@ describe('toCompetitorIndexEntries', () => {
   });
 
   it('sorts blank-name rows last, not first', () => {
-    const rows = toCompetitorIndexEntries([
-      identity({ label: '', slug: 'blank-1' }),
-      identity({ label: 'Mark Doyle', slug: 'm' }),
-      identity({ label: '   ', slug: 'blank-2' }), // whitespace-only also blank
-    ]);
+    const rows = toCompetitorIndexEntries(
+      [
+        identity({ label: '', slug: 'blank-1' }),
+        identity({ label: 'Mark Doyle', slug: 'm' }),
+        identity({ label: '   ', slug: 'blank-2' }), // whitespace-only also blank
+      ],
+      PUBLISHED,
+    );
     expect(rows.map((r) => r.slug)).toEqual(['m', 'blank-1', 'blank-2']);
   });
 });
@@ -96,18 +142,19 @@ describe('renderCompetitorIndexHtml', () => {
   const html = renderCompetitorIndexHtml(
     'iodai',
     'IODAI',
-    toCompetitorIndexEntries([
-      identity({
-        label: 'Seán Murphy',
-        slug: 'sean-murphy-k4p2',
-        firstYear: 2014,
-        lastYear: 2018,
-        entries: [
-          entry({ year: 2014, sailNumber: 'IRL1200' }),
-          entry({ year: 2018, sailNumber: '1605' }),
-        ],
-      }),
-    ]),
+    toCompetitorIndexEntries(
+      [
+        identity({
+          label: 'Seán Murphy',
+          slug: 'sean-murphy-k4p2',
+          entries: [
+            entry({ year: 2014, sailNumber: 'IRL1200' }),
+            entry({ year: 2018, sailNumber: '1605' }),
+          ],
+        }),
+      ],
+      PUBLISHED,
+    ),
     '',
   );
 
@@ -140,14 +187,17 @@ describe('renderCompetitorIndexHtml', () => {
     const withBlank = renderCompetitorIndexHtml(
       'iodai',
       'IODAI',
-      toCompetitorIndexEntries([
-        identity({ label: 'Real Sailor', slug: 'real-sailor-aa11' }),
-        identity({
-          label: '',
-          slug: 'unknown-bb22',
-          entries: [entry({ year: 2015, sailNumber: 'IRL999' })],
-        }),
-      ]),
+      toCompetitorIndexEntries(
+        [
+          identity({ label: 'Real Sailor', slug: 'real-sailor-aa11' }),
+          identity({
+            label: '',
+            slug: 'unknown-bb22',
+            entries: [entry({ year: 2015, sailNumber: 'IRL999' })],
+          }),
+        ],
+        PUBLISHED,
+      ),
       '',
     );
     // The blank row is tagged + hidden, and shows a placeholder rather than an

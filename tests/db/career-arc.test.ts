@@ -1,11 +1,12 @@
 // @vitest-environment node
 
 /**
- * getCareerArc (#212) enriches an identity's arc with each series' finishing
- * position by loading and scoring the series through the real engine. The part
- * pure tests can't reach is that round-trip: seed a scored mini-series in the
+ * getCareerArc enriches an identity's arc with each series' finishing position
+ * by loading and scoring the series through the real engine, and (public =
+ * public) includes only series with a live publication. The part pure tests
+ * can't reach is that round-trip: seed a scored, published mini-series in the
  * DB, link a competitor to an identity, and assert the computed rank / fleet
- * size — plus the null placement for a series with no races.
+ * size — plus that an unpublished series is dropped from the public arc.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { eq } from 'drizzle-orm';
@@ -146,27 +147,59 @@ describe.skipIf(skip)('getCareerArc placements', () => {
     await sql?.end();
   });
 
-  test('enriches each entry with rank and fleet size', async () => {
+  test('includes only published series, enriched with rank and fleet size', async () => {
     const arc = await getCareerArc(workspaceId, identityId);
     expect(arc).not.toBeNull();
-    expect(arc!.entries).toHaveLength(2);
+    // Only the published "Leinsters 2018" surfaces; the unpublished, race-less
+    // "Munsters 2019" is the club's "not public", so it's dropped entirely.
+    expect(arc!.entries).toHaveLength(1);
 
-    const scored = arc!.entries.find((e) => e.seriesName === 'IODAI Leinsters 2018')!;
+    const scored = arc!.entries[0];
+    expect(scored.seriesName).toBe('IODAI Leinsters 2018');
     expect(scored.rank).toBe(1);
     expect(scored.fleetSize).toBe(2);
     expect(scored.fleetName).toBeNull(); // single-fleet series
-
-    const empty = arc!.entries.find((e) => e.seriesName === 'IODAI Munsters 2019')!;
-    expect(empty.rank).toBeNull();
-    expect(empty.fleetSize).toBeNull();
+    expect(scored.publishedSlug).toBe('leinsters-2018');
+    // The year span reflects only the published entries.
+    expect(arc!.firstYear).toBe(2018);
+    expect(arc!.lastYear).toBe(2018);
   });
 
-  test('deep-links published series, leaves unpublished ones plain', async () => {
-    const arc = await getCareerArc(workspaceId, identityId);
-    const scored = arc!.entries.find((e) => e.seriesName === 'IODAI Leinsters 2018')!;
-    expect(scored.publishedSlug).toBe('leinsters-2018');
-    const empty = arc!.entries.find((e) => e.seriesName === 'IODAI Munsters 2019')!;
-    expect(empty.publishedSlug).toBeNull();
+  test('returns an empty arc when the identity has nothing published', async () => {
+    const id = uuid();
+    await db.insert(schema.competitorIdentities).values({
+      id,
+      workspaceId,
+      label: 'Unpublished Only',
+      sailNumber: 'IRL9000',
+      club: null,
+    });
+    const unpublished = uuid();
+    await db.insert(schema.series).values({
+      id: unpublished,
+      workspaceId,
+      name: 'IODAI Westerns 2020',
+      startDate: '2020-05-01',
+      displayOrder: 9,
+    });
+    await db.insert(schema.competitors).values({
+      id: uuid(),
+      seriesId: unpublished,
+      workspaceId,
+      fleetIds: [],
+      sailNumber: 'IRL9000',
+      name: 'Unpublished Only',
+      club: '',
+      gender: '',
+      age: null,
+      identityId: id,
+    });
+
+    const arc = await getCareerArc(workspaceId, id);
+    expect(arc).not.toBeNull();
+    expect(arc!.entries).toHaveLength(0);
+    expect(arc!.firstYear).toBeNull();
+    expect(arc!.lastYear).toBeNull();
   });
 
   test('returns null for an unknown identity', async () => {

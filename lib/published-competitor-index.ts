@@ -52,19 +52,29 @@ function fold(s: string): string {
  * count, dropping any row without a slug (it has no public URL to link to —
  * only rows still awaiting their backfilled slug, which shouldn't occur in a
  * reconciled workspace). Pure, so the shaping is unit-tested directly.
+ *
+ * Published = public: only entries whose series has a live publication
+ * (`publishedSeriesIds`) contribute, so an unpublished series never surfaces a
+ * row, sail number, or year. An identity with no published series is dropped
+ * entirely — it has nothing the club chose to make public. The year span is
+ * recomputed from the surviving entries rather than read off the identity,
+ * whose `firstYear`/`lastYear` span every entry.
  */
 export function toCompetitorIndexEntries(
   identities: IdentityWithArc[],
+  publishedSeriesIds: ReadonlySet<string>,
 ): CompetitorIndexEntry[] {
   const out: CompetitorIndexEntry[] = [];
   for (const id of identities) {
     if (!id.slug) continue;
+    const entries = id.entries.filter((e) => publishedSeriesIds.has(e.seriesId));
+    if (entries.length === 0) continue;
     const sailNumbers = [
-      ...new Set(id.entries.map((e) => e.sailNumber).filter(Boolean)),
+      ...new Set(entries.map((e) => e.sailNumber).filter(Boolean)),
     ];
     const years = [
       ...new Set(
-        id.entries
+        entries
           .map((e) => e.year)
           .filter((y): y is number => y != null),
       ),
@@ -73,10 +83,10 @@ export function toCompetitorIndexEntries(
       slug: id.slug,
       name: id.label,
       sailNumbers,
-      firstYear: id.firstYear,
-      lastYear: id.lastYear,
+      firstYear: years.length ? years[0] : null,
+      lastYear: years.length ? years[years.length - 1] : null,
       years,
-      seriesCount: id.entries.length,
+      seriesCount: entries.length,
     });
   }
   // Alphabetical by folded name, with blank-name rows (data debris awaiting

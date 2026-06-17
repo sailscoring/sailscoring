@@ -108,8 +108,9 @@ test.describe('competitor identity reconcile', () => {
       club: 'RSGYC',
       entries: [
         // A scored series shows a finishing position; race-less ones don't.
-        { year: 2021, eventName: 'IODAI Connachts 2021', sailNumber: 'IRL1641', scored: true },
-        { year: 2023, eventName: 'IODAI Nationals 2023', sailNumber: 'IRL1641' },
+        { year: 2021, eventName: 'IODAI Connachts 2021', sailNumber: 'IRL1641', scored: true, published: true },
+        { year: 2023, eventName: 'IODAI Nationals 2023', sailNumber: 'IRL1641', published: true },
+        // Unpublished: the club's "not public", so it must not appear (#223).
         { year: 2026, eventName: 'IODAI Leinsters 2026', sailNumber: 'IRL1641' },
       ],
     });
@@ -119,9 +120,11 @@ test.describe('competitor identity reconcile', () => {
     const res = await page.goto(`/p/${slug}/competitor/${competitorSlug}`);
     expect(res?.status()).toBe(200);
     await expect(page.getByRole('heading', { name: 'Holly Cantwell' })).toBeVisible();
-    await expect(page.getByText('3 series')).toBeVisible();
+    // Only the two published series count; the unpublished one is absent.
+    await expect(page.getByText('2 series')).toBeVisible();
     await expect(page.getByText('IODAI Connachts 2021')).toBeVisible();
-    await expect(page.getByText('IODAI Leinsters 2026')).toBeVisible();
+    await expect(page.getByText('IODAI Nationals 2023')).toBeVisible();
+    await expect(page.getByText('IODAI Leinsters 2026')).toBeHidden();
     // The scored series shows the finishing position.
     await expect(page.getByText('1st of 2')).toBeVisible();
     // Participation only — no age / birth year leaks into the public record.
@@ -132,6 +135,16 @@ test.describe('competitor identity reconcile', () => {
     expect(byId?.status()).toBe(200);
     await expect(page.getByRole('heading', { name: 'Holly Cantwell' })).toBeVisible();
     expect(errors).toEqual([]);
+
+    // A competitor with nothing published isn't public — the timeline 404s
+    // rather than revealing them by name (#223). Seeded here so the assertions
+    // above run against the published competitor first.
+    const { slug: privateSlug } = await seedCareerArc(orgId, {
+      label: 'Private Sailor',
+      entries: [{ year: 2022, eventName: 'IODAI Westerns 2022', sailNumber: 'IRL2222' }],
+    });
+    const privateRes = await page.goto(`/p/${slug}/competitor/${privateSlug}`);
+    expect(privateRes?.status()).toBe(404);
 
     // A non-existent ref 404s (so does any ref when the feature is off).
     // Navigating to it logs an expected resource-load error, so assert after
@@ -155,15 +168,16 @@ test.describe('competitor identity reconcile', () => {
     await seedCareerArc(orgId, {
       label: 'Holly Cantwell',
       entries: [
-        { year: 2021, eventName: 'IODAI Connachts 2021', sailNumber: 'IRL1641' },
+        { year: 2021, eventName: 'IODAI Connachts 2021', sailNumber: 'IRL1641', published: true },
+        // Unpublished: this year / series must not contribute to her row (#223).
         { year: 2023, eventName: 'IODAI Nationals 2023', sailNumber: 'IRL1641' },
       ],
     });
     const { slug: seanSlug } = await seedCareerArc(orgId, {
       label: 'Seán Murphy',
       entries: [
-        { year: 2014, eventName: 'IODAI Ulsters 2014', sailNumber: 'IRL1200' },
-        { year: 2018, eventName: 'IODAI Munsters 2018', sailNumber: '1605' },
+        { year: 2014, eventName: 'IODAI Ulsters 2014', sailNumber: 'IRL1200', published: true },
+        { year: 2018, eventName: 'IODAI Munsters 2018', sailNumber: '1605', published: true },
       ],
     });
     // A blank-name competitor (data debris): hidden in the default browse, but
@@ -171,7 +185,14 @@ test.describe('competitor identity reconcile', () => {
     await seedCareerArc(orgId, {
       label: '',
       entries: [
-        { year: 2016, eventName: 'IODAI Connachts 2016', sailNumber: 'IRL777' },
+        { year: 2016, eventName: 'IODAI Connachts 2016', sailNumber: 'IRL777', published: true },
+      ],
+    });
+    // A competitor with nothing published: absent from the public index (#223).
+    await seedCareerArc(orgId, {
+      label: 'Private Sailor',
+      entries: [
+        { year: 2019, eventName: 'IODAI Westerns 2019', sailNumber: 'IRL3333' },
       ],
     });
 
@@ -186,6 +207,19 @@ test.describe('competitor identity reconcile', () => {
     // The blank row is hidden by default and not counted in the headline.
     await expect(blank).toBeHidden();
     await expect(page.getByText('2 competitors')).toBeVisible();
+
+    // The competitor with nothing published never appears (#223).
+    await expect(
+      page.getByRole('link', { name: /Private Sailor/ }),
+    ).toHaveCount(0);
+    // The year filter offers only published years — Holly's unpublished 2023
+    // and Private Sailor's 2019 aren't selectable.
+    const years = await page
+      .getByLabel('Filter by year')
+      .locator('option')
+      .evaluateAll((opts) => opts.map((o) => (o as HTMLOptionElement).value));
+    expect(years).not.toContain('2023');
+    expect(years).not.toContain('2019');
 
     // But a sail search still surfaces it.
     await page.getByLabel('Search by name or sail number').fill('IRL777');

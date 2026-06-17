@@ -69,6 +69,21 @@ export async function getPublishedSlugsBySeries(
   return map;
 }
 
+/** The set of series ids that have a live publication in the workspace. One
+ *  query, used to filter the public competitor index down to published series
+ *  (an unpublished series is the club's explicit "not public"). */
+export async function listPublishedSeriesIds(
+  workspaceId: string,
+): Promise<Set<string>> {
+  const rows = await getDb()
+    .select({ seriesId: schema.publishedSeries.seriesId })
+    .from(schema.publishedSeries)
+    .where(eq(schema.publishedSeries.workspaceId, workspaceId));
+  const ids = new Set<string>();
+  for (const r of rows) if (r.seriesId) ids.add(r.seriesId);
+  return ids;
+}
+
 /** The publication identified by its stable `id`, or null. Drives the
  *  workspace management page's unpublish-by-id path (#164), which addresses a
  *  publication directly — including an orphan whose series is gone. */

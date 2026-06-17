@@ -24,6 +24,7 @@ import {
   getSeriesName,
   getWorkspaceBySlug,
   listPublishedByWorkspace,
+  listPublishedSeriesIds,
 } from '@/lib/published-repository';
 
 export const dynamic = 'force-dynamic';
@@ -155,6 +156,9 @@ async function careerArc(
   if (!identityId) return NOT_FOUND;
   const identity = await getCareerArc(workspace.id, identityId);
   if (!identity) return NOT_FOUND;
+  // The arc only carries published series; a competitor with nothing published
+  // isn't public — don't reveal them by name (matches the index dropping them).
+  if (identity.entries.length === 0) return NOT_FOUND;
 
   // ETag over the arc's content so a rename, split, a new linked series, a
   // re-score (which changes a rank), or (un)publishing a contributing series
@@ -191,8 +195,11 @@ async function competitorIndex(
   if (!workspace) return NOT_FOUND;
   if (!(await workspaceHasIdentityFeature(workspace.id))) return NOT_FOUND;
 
+  // Published = public: the index reflects only series with a live publication,
+  // so an unpublished series never contributes a row, sail number, or year.
   const competitors = toCompetitorIndexEntries(
     await listIdentitiesWithArcs(workspace.id),
+    await listPublishedSeriesIds(workspace.id),
   );
   if (competitors.length === 0) return NOT_FOUND;
 

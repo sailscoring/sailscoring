@@ -163,6 +163,9 @@ export async function seedCareerArc(
        *  ranks (the star wins → "1st of 2"); otherwise the series has no races
        *  and the entry is unplaced. */
       scored?: boolean;
+      /** Seed a live publication for this series so it appears on the public
+       *  timeline / index. Unpublished series stay private (#223). */
+      published?: boolean;
     }>;
   },
 ): Promise<{ identityId: string; slug: string }> {
@@ -242,6 +245,21 @@ export async function seedCareerArc(
           { id: crypto.randomUUID(), raceId, competitorId: starId, sortOrder: 0 },
           { id: crypto.randomUUID(), raceId, competitorId: fillerId, sortOrder: 1 },
         ]);
+      }
+      if (entry.published) {
+        const pubSlug = `${entry.eventName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')}-${seriesId.slice(0, 4)}`;
+        await db.insert(schema.publishedSeries).values({
+          id: crypto.randomUUID(),
+          workspaceId,
+          seriesId,
+          slug: pubSlug,
+          pages: [],
+          contentHash: crypto.randomUUID(),
+          publishedVersion: 1,
+        });
       }
     }
     return { identityId, slug };

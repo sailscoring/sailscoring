@@ -23,7 +23,9 @@ import { loadSeriesSnapshot } from './series-snapshot';
  */
 
 /** An arc entry plus where the competitor finished in that series, and the
- *  public slug its results are published at (null when unpublished). */
+ *  public slug its results are published at. The public arc only includes
+ *  published series, so this is non-null in practice; the type keeps `null` for
+ *  the field's general shape. */
 export interface CareerArcEntry extends ArcEntry, ArcPlacement {
   publishedSlug: string | null;
 }
@@ -86,8 +88,15 @@ export async function getCareerArc(
     identity.entries.map((e) => e.seriesId),
   );
 
+  // Public = published: an unpublished series is the club's explicit "not
+  // public", so it must not surface here at all — not even as a placing-only
+  // row. Drop the unpublished entries before scoring (so we only load and score
+  // the series that will actually appear), and recompute the year span from
+  // what survives, since the identity's first/last year span every entry.
+  const published = identity.entries.filter((e) => publishedSlugs.has(e.seriesId));
+
   const entries: CareerArcEntry[] = [];
-  for (const entry of identity.entries) {
+  for (const entry of published) {
     const scored = await scoreSeries(entry.seriesId);
     const placement = scored
       ? placementInStandings(scored.result, entry.competitorId, {
@@ -102,5 +111,9 @@ export async function getCareerArc(
     });
   }
 
-  return { ...identity, entries };
+  const years = entries.map((e) => e.year).filter((y): y is number => y != null);
+  const firstYear = years.length ? Math.min(...years) : null;
+  const lastYear = years.length ? Math.max(...years) : null;
+
+  return { ...identity, entries, firstYear, lastYear };
 }
