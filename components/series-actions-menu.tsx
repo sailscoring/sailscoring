@@ -16,6 +16,7 @@ import {
   Copy,
   FileDown,
   FileUp,
+  Loader2,
   MoreVertical,
   Trash2,
 } from 'lucide-react';
@@ -176,6 +177,7 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
         const newId = await openSeriesFromFile(file, repos);
         await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
         router.push(`/series/${newId}/races`);
+        setUpdateFlow({ step: 'idle' });
       } else {
         await updateSeriesFromFile(seriesId, file, repos);
         // updateSeriesFromFile bypasses the React Query cache. The series
@@ -194,6 +196,10 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
         queryClient.removeQueries({ queryKey: queryKeys.finishes.all });
         queryClient.removeQueries({ queryKey: queryKeys.raceStarts.all });
         router.push(`/series/${seriesId}/races`);
+        // This menu lives in the series layout, which stays mounted across the
+        // in-place update's same-series navigation — so the working dialog must
+        // be dismissed explicitly rather than relying on an unmount.
+        setUpdateFlow({ step: 'idle' });
       }
     } catch (err) {
       console.error(err);
@@ -353,6 +359,29 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
             </Button>
             <Button onClick={() => handleConfirmUpdate(false)}>Update</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Working — the in-place replace reissues every child UUID and busts the
+          cache before routing, so there's a noticeable beat with nothing else
+          on screen. Keep a non-dismissable spinner up until navigation lands. */}
+      <Dialog open={updateFlow.step === 'working'}>
+        <DialogContent
+          showCloseButton={false}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Updating series…</DialogTitle>
+            <DialogDescription>
+              Replacing your workspace copy with the file contents. This may take a
+              moment for large series.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center py-2">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
         </DialogContent>
       </Dialog>
 

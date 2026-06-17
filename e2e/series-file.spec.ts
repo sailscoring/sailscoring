@@ -251,6 +251,32 @@ test('series file: Update from File replaces the series in place (matched by ser
   await expect(page.getByRole('heading', { name: 'Updated by Co-scorer' })).toBeVisible();
 });
 
+test('series file: Update from File shows a working dialog until navigation lands (#213)', async ({ page }) => {
+  // ── Create series, save to file ───────────────────────────────────────────
+  await createSeriesQuick(page, { name: 'Update Working Dialog' });
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const original = await saveToFile(page);
+
+  const edited: SeriesFile = {
+    ...original,
+    series: { ...original.series, name: 'Update Working Reopened' },
+  };
+
+  // ── Confirm the in-place update ───────────────────────────────────────────
+  await updateFromFile(page, edited);
+  await expect(page.getByRole('dialog', { name: /Update .* from file\?/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Update' }).click();
+
+  // ── Working dialog must appear before navigation completes ────────────────
+  await expect(page.getByRole('dialog', { name: /Updating series/ })).toBeVisible();
+
+  // ── …and disappear once we land back on the Races tab ─────────────────────
+  await expect(page).toHaveURL(/\/series\/[^/]+\/races$/);
+  await expect(page.getByRole('dialog', { name: /Updating series/ })).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Update Working Reopened' })).toBeVisible();
+});
+
 test('series file: Import Series shows working dialog while loading file (#139)', async ({ page }) => {
   // ── Create series and save to file ────────────────────────────────────────
   await createSeriesQuick(page, { name: 'Working Dialog Test' });
