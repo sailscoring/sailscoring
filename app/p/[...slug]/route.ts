@@ -156,14 +156,16 @@ async function careerArc(
   const identity = await getCareerArc(workspace.id, identityId);
   if (!identity) return NOT_FOUND;
 
-  // ETag over the arc's content so a rename, split, a new linked series, or a
-  // re-score of a contributing series (which changes a rank) busts the cache,
-  // while a repeat view revalidates without re-rendering.
+  // ETag over the arc's content so a rename, split, a new linked series, a
+  // re-score (which changes a rank), or (un)publishing a contributing series
+  // (which changes a deep-link) busts the cache, while a repeat view
+  // revalidates without re-rendering.
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     `label:${identity.label}`,
     ...identity.entries.map(
-      (e) => `${e.competitorId}:${e.seriesName}:${e.year}:${e.sailNumber}:${e.rank}/${e.fleetSize}`,
+      (e) =>
+        `${e.competitorId}:${e.seriesName}:${e.year}:${e.sailNumber}:${e.rank}/${e.fleetSize}:${e.publishedSlug ?? ''}`,
     ),
   ])}"`;
   const cached = notModified(req, etag);

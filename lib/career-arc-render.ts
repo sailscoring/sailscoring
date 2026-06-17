@@ -21,6 +21,8 @@ const ARC_CSS = `.arcsub { text-align: center; color: #c7d6e6; font-size: 0.95em
 .arc li { display: flex; align-items: baseline; gap: 14px; background: #fff; border: 1px solid #e2e6ea; border-left: 4px solid #fb3a3b; border-radius: 8px; padding: 12px 18px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(7,51,88,0.06); }
 .arc .yr { font-weight: 700; color: #073358; font-variant-numeric: tabular-nums; min-width: 3.2em; }
 .arc .ev { flex: 1; min-width: 0; color: #1a2b3c; font-weight: 600; }
+.arc .ev a { color: #073358; text-decoration: none; }
+.arc .ev a:hover { color: #fb3a3b; text-decoration: underline; }
 .arc .ev .venue { display: block; font-weight: 400; color: #6b7280; font-size: 0.82em; margin-top: 2px; }
 .arc .right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; }
 .arc .place { color: #073358; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -90,9 +92,12 @@ export function renderCareerArcHtml(
       const venue = e.venue ? `<span class="venue">${esc(e.venue)}</span>` : '';
       const place = placementHtml(e);
       const right = `<span class="right">${place}<span class="sail">${esc(e.sailNumber)}</span></span>`;
-      return `<li><span class="yr">${e.year ?? '&mdash;'}</span><span class="ev">${esc(
-        e.seriesName,
-      )}${venue}</span>${right}</li>`;
+      // Deep-link the event to its published results when there is a page;
+      // unpublished series stay plain text.
+      const name = e.publishedSlug
+        ? `<a href="/p/${esc(workspaceSlug)}/${esc(e.publishedSlug)}">${esc(e.seriesName)}</a>`
+        : esc(e.seriesName);
+      return `<li><span class="yr">${e.year ?? '&mdash;'}</span><span class="ev">${name}${venue}</span>${right}</li>`;
     })
     .join('\n');
 

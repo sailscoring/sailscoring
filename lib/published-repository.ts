@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 
 import { getDb } from './db/client';
 import * as schema from './db/schema';
@@ -42,6 +42,31 @@ export async function getPublishedBySeries(
     .where(eq(schema.publishedSeries.seriesId, seriesId))
     .limit(1);
   return row ? rowToPublished(row) : null;
+}
+
+/** Map each given series id to the public slug it's published at, omitting any
+ *  that aren't published. One query for a whole career arc, so its timeline can
+ *  deep-link the events that have a public results page. Workspace-scoped. */
+export async function getPublishedSlugsBySeries(
+  workspaceId: string,
+  seriesIds: string[],
+): Promise<Map<string, string>> {
+  if (seriesIds.length === 0) return new Map();
+  const rows = await getDb()
+    .select({
+      seriesId: schema.publishedSeries.seriesId,
+      slug: schema.publishedSeries.slug,
+    })
+    .from(schema.publishedSeries)
+    .where(
+      and(
+        eq(schema.publishedSeries.workspaceId, workspaceId),
+        inArray(schema.publishedSeries.seriesId, seriesIds),
+      ),
+    );
+  const map = new Map<string, string>();
+  for (const r of rows) if (r.seriesId) map.set(r.seriesId, r.slug);
+  return map;
 }
 
 /** The publication identified by its stable `id`, or null. Drives the

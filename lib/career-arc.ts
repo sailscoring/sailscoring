@@ -10,6 +10,7 @@ import {
   type IdentityWithArc,
 } from './competitor-identity-repository';
 import { seriesFileReposFor } from './postgres-repository';
+import { getPublishedSlugsBySeries } from './published-repository';
 import { calculateFleetStandings, type FleetStandingsResult } from './scoring';
 import { loadSeriesSnapshot } from './series-snapshot';
 
@@ -21,8 +22,11 @@ import { loadSeriesSnapshot } from './series-snapshot';
  * re-implementation, so the arc shows exactly what the results page would.
  */
 
-/** An arc entry plus where the competitor finished in that series. */
-export interface CareerArcEntry extends ArcEntry, ArcPlacement {}
+/** An arc entry plus where the competitor finished in that series, and the
+ *  public slug its results are published at (null when unpublished). */
+export interface CareerArcEntry extends ArcEntry, ArcPlacement {
+  publishedSlug: string | null;
+}
 
 /** An identity's arc with per-event placements. */
 export interface CareerArc extends Omit<IdentityWithArc, 'entries'> {
@@ -77,6 +81,11 @@ export async function getCareerArc(
     return scored;
   }
 
+  const publishedSlugs = await getPublishedSlugsBySeries(
+    workspaceId,
+    identity.entries.map((e) => e.seriesId),
+  );
+
   const entries: CareerArcEntry[] = [];
   for (const entry of identity.entries) {
     const scored = await scoreSeries(entry.seriesId);
@@ -86,7 +95,11 @@ export async function getCareerArc(
           multiFleet: scored.multiFleet,
         })
       : { rank: null, fleetSize: null, fleetName: null };
-    entries.push({ ...entry, ...placement });
+    entries.push({
+      ...entry,
+      ...placement,
+      publishedSlug: publishedSlugs.get(entry.seriesId) ?? null,
+    });
   }
 
   return { ...identity, entries };

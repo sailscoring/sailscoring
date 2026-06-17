@@ -105,6 +105,17 @@ describe.skipIf(skip)('getCareerArc placements', () => {
       { id: uuid(), raceId, competitorId: filler, sortOrder: 1 },
     ]);
 
+    // Publish the scored series so its timeline entry deep-links to results.
+    await db.insert(schema.publishedSeries).values({
+      id: uuid(),
+      workspaceId,
+      seriesId: scoredSeries,
+      slug: 'leinsters-2018',
+      pages: [],
+      contentHash: 'x',
+      publishedVersion: 1,
+    });
+
     // A second, race-less series the same sailor entered — not yet rankable.
     const emptySeries = uuid();
     await db.insert(schema.series).values({
@@ -148,6 +159,14 @@ describe.skipIf(skip)('getCareerArc placements', () => {
     const empty = arc!.entries.find((e) => e.seriesName === 'IODAI Munsters 2019')!;
     expect(empty.rank).toBeNull();
     expect(empty.fleetSize).toBeNull();
+  });
+
+  test('deep-links published series, leaves unpublished ones plain', async () => {
+    const arc = await getCareerArc(workspaceId, identityId);
+    const scored = arc!.entries.find((e) => e.seriesName === 'IODAI Leinsters 2018')!;
+    expect(scored.publishedSlug).toBe('leinsters-2018');
+    const empty = arc!.entries.find((e) => e.seriesName === 'IODAI Munsters 2019')!;
+    expect(empty.publishedSlug).toBeNull();
   });
 
   test('returns null for an unknown identity', async () => {
