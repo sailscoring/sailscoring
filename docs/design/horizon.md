@@ -989,6 +989,21 @@ something Sail Scoring stores and manages itself. The exciting feature and its
 correct home are different things: the app exposes the identity and the record;
 someone else builds the photo wall on top.
 
+A concrete sighting of exactly this: ITCA (Topper) publishes a per-sailor **"2026
+season stats"** card — name, photo, club, age, sail number, honours, national and
+regional titles, full results, where they've represented Ireland, even the school
+they attend — and it's beautifully presented. It's worth studying because it draws
+the scope line for us precisely. The spine *is* the half a class can't easily
+assemble itself: the identity join key, the per-series results and rankings, and
+the titles and representative honours that fall out of cross-series ranking
+(*Workspace cross-series ranking*, #209). The rest — photo, age, school, the
+layout and art direction — is enrichment a class layers on with data it already
+holds. That split is the argument for the public API: we shouldn't *build* the
+Topper card, we should make it so a class can. The aspiration isn't a feature on
+our roadmap; it's **inspiring people to build cards like this for their own
+classes** on top of our record, and shaping the read API (M6/M8 above) so the join
+key and the rankings are the easy part.
+
 ---
 
 ## Prize allocation
