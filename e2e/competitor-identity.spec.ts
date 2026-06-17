@@ -137,4 +137,68 @@ test.describe('competitor identity reconcile', () => {
     const missing = await page.goto(`/p/${slug}/competitor/nobody-here-9xyz`);
     expect(missing?.status()).toBe(404);
   });
+
+  test('public competitor index: search, year filter, deep-link to timeline', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    const email = await signInFreshUser(page, 'index');
+    const { id: orgId, slug } = await createOrgWorkspace('Index Club');
+    await addMemberByEmail(orgId, email, 'owner');
+    await enableOrgFeatures(orgId, ['competitor-identity']);
+
+    await seedCareerArc(orgId, {
+      label: 'Holly Cantwell',
+      entries: [
+        { year: 2021, eventName: 'IODAI Connachts 2021', sailNumber: 'IRL1641' },
+        { year: 2023, eventName: 'IODAI Nationals 2023', sailNumber: 'IRL1641' },
+      ],
+    });
+    const { slug: seanSlug } = await seedCareerArc(orgId, {
+      label: 'Seán Murphy',
+      entries: [
+        { year: 2014, eventName: 'IODAI Ulsters 2014', sailNumber: 'IRL1200' },
+        { year: 2018, eventName: 'IODAI Munsters 2018', sailNumber: '1605' },
+      ],
+    });
+
+    const res = await page.goto(`/p/${slug}/competitors`);
+    expect(res?.status()).toBe(200);
+
+    const holly = page.getByRole('link', { name: /Holly Cantwell/ });
+    const sean = page.getByRole('link', { name: /Seán Murphy/ });
+    await expect(holly).toBeVisible();
+    await expect(sean).toBeVisible();
+    await expect(page.getByText('2 competitors')).toBeVisible();
+
+    // Sail-number search — "who sailed 1605?" narrows to Seán (folded over the
+    // inline script, no navigation).
+    await page.getByLabel('Search by name or sail number').fill('1605');
+    await expect(sean).toBeVisible();
+    await expect(holly).toBeHidden();
+
+    // Name search folds accents: "sean" finds "Seán".
+    await page.getByLabel('Search by name or sail number').fill('sean');
+    await expect(sean).toBeVisible();
+    await expect(holly).toBeHidden();
+
+    // Year filter narrows to whoever raced that season.
+    await page.getByLabel('Search by name or sail number').fill('');
+    await page.getByLabel('Filter by year').selectOption('2021');
+    await expect(holly).toBeVisible();
+    await expect(sean).toBeHidden();
+
+    // Each row deep-links to that competitor's timeline.
+    await page.getByLabel('Filter by year').selectOption('');
+    await sean.click();
+    await expect(page).toHaveURL(`/p/${slug}/competitor/${seanSlug}`);
+    await expect(
+      page.getByRole('heading', { name: 'Seán Murphy' }),
+    ).toBeVisible();
+
+    expect(errors).toEqual([]);
+  });
 });

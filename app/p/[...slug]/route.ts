@@ -5,8 +5,13 @@ import { getCareerArc } from '@/lib/career-arc';
 import { renderCareerArcHtml } from '@/lib/career-arc-render';
 import {
   findIdentityIdByRef,
+  listIdentitiesWithArcs,
   workspaceHasIdentityFeature,
 } from '@/lib/competitor-identity-repository';
+import {
+  renderCompetitorIndexHtml,
+  toCompetitorIndexEntries,
+} from '@/lib/published-competitor-index';
 import { contentHash, humanizeSlug } from '@/lib/publishing';
 import {
   renderSeriesIndexHtml,
@@ -79,7 +84,12 @@ export async function GET(
   if (segments.length < 1 || segments.length > 4) return NOT_FOUND;
 
   if (segments.length === 1) return workspaceIndex(req, segments[0]);
-  // `/p/{ws}/competitor/{identityId}` — the public career-arc page (#212).
+  // `/p/{ws}/competitors` — the public competitor index (#217). Checked before
+  // the length-2 series branch so the reserved word wins over a same-named slug.
+  if (segments.length === 2 && segments[1] === 'competitors') {
+    return competitorIndex(req, segments[0]);
+  }
+  // `/p/{ws}/competitor/{identityId}` — the public competitor timeline (#212).
   if (segments.length === 3 && segments[1] === 'competitor') {
     return careerArc(req, segments[0], segments[2]);
   }
@@ -152,6 +162,43 @@ async function careerArc(
     workspaceSlug,
     workspace.name,
     identity,
+    workspace.logo,
+  );
+  return htmlResponse(html, etag);
+}
+
+/** `/p/{ws}/competitors` — the browsable, searchable index of every recurring
+ *  competitor in the workspace (#217). Same gate as the timeline; 404s when the
+ *  workspace has no competitors so the page never reveals an empty roster. */
+async function competitorIndex(
+  req: NextRequest,
+  workspaceSlug: string,
+): Promise<Response> {
+  const workspace = await getWorkspaceBySlug(workspaceSlug);
+  if (!workspace) return NOT_FOUND;
+  if (!(await workspaceHasIdentityFeature(workspace.id))) return NOT_FOUND;
+
+  const competitors = toCompetitorIndexEntries(
+    await listIdentitiesWithArcs(workspace.id),
+  );
+  if (competitors.length === 0) return NOT_FOUND;
+
+  // ETag over each row's identity (slug, name, sails, year span, count) so a
+  // rename, split, or newly linked series busts the cached index.
+  const etag = `"${await contentHash([
+    `logo:${workspace.logo}`,
+    ...competitors.map(
+      (c) =>
+        `${c.slug}:${c.name}:${c.sailNumbers.join(',')}:${c.firstYear}-${c.lastYear}:${c.seriesCount}`,
+    ),
+  ])}"`;
+  const cached = notModified(req, etag);
+  if (cached) return cached;
+
+  const html = renderCompetitorIndexHtml(
+    workspaceSlug,
+    workspace.name,
+    competitors,
     workspace.logo,
   );
   return htmlResponse(html, etag);
