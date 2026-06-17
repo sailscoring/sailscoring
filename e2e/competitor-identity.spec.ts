@@ -164,15 +164,33 @@ test.describe('competitor identity reconcile', () => {
         { year: 2018, eventName: 'IODAI Munsters 2018', sailNumber: '1605' },
       ],
     });
+    // A blank-name competitor (data debris): hidden in the default browse, but
+    // still findable by its sail number.
+    await seedCareerArc(orgId, {
+      label: '',
+      entries: [
+        { year: 2016, eventName: 'IODAI Connachts 2016', sailNumber: 'IRL777' },
+      ],
+    });
 
     const res = await page.goto(`/p/${slug}/competitors`);
     expect(res?.status()).toBe(200);
 
     const holly = page.getByRole('link', { name: /Holly Cantwell/ });
     const sean = page.getByRole('link', { name: /Seán Murphy/ });
+    const blank = page.getByText('(no name)');
     await expect(holly).toBeVisible();
     await expect(sean).toBeVisible();
+    // The blank row is hidden by default and not counted in the headline.
+    await expect(blank).toBeHidden();
     await expect(page.getByText('2 competitors')).toBeVisible();
+
+    // But a sail search still surfaces it.
+    await page.getByLabel('Search by name or sail number').fill('IRL777');
+    await expect(blank).toBeVisible();
+    await expect(holly).toBeHidden();
+    await page.getByLabel('Search by name or sail number').fill('');
+    await expect(blank).toBeHidden();
 
     // Sail-number search — "who sailed 1605?" narrows to Seán (folded over the
     // inline script, no navigation).

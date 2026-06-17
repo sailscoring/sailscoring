@@ -79,7 +79,14 @@ export function toCompetitorIndexEntries(
       seriesCount: id.entries.length,
     });
   }
-  return out.sort((a, b) => fold(a.name).localeCompare(fold(b.name)));
+  // Alphabetical by folded name, with blank-name rows (data debris awaiting
+  // cleanup) sorted last so they never lead the list.
+  return out.sort((a, b) => {
+    const fa = fold(a.name);
+    const fb = fold(b.name);
+    if (!fa !== !fb) return fa ? -1 : 1;
+    return fa.localeCompare(fb);
+  });
 }
 
 const INDEX_CSS = `.tools { display: flex; flex-wrap: wrap; gap: 12px; margin: 4px 0 18px; }
@@ -92,29 +99,35 @@ li.crow { background: #fff; border: 1px solid #e2e6ea; border-left: 4px solid tr
 li.crow:hover { box-shadow: 0 4px 14px rgba(7,51,88,0.13); border-left-color: #fb3a3b; transform: translateY(-1px); }
 li.crow a { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 14px 18px; text-decoration: none; }
 li.crow .nm { color: #073358; font-weight: 600; font-size: 1.08em; min-width: 0; }
+li.crow .nm.unnamed { color: #9aa5b1; font-style: italic; font-weight: 400; }
 li.crow .det { color: #6b7280; font-size: 0.8em; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 li.crow .sails { display: block; color: #9aa5b1; }
 p.empty { color: #6b7280; text-align: center; margin: 40px 0; }`;
 
 /** The inline filter: folds the query the same way the row keys were folded,
  *  matches it against name OR sail, AND'd with the year select. Padding the
- *  year list with spaces stops "202" matching inside "2021". */
+ *  year list with spaces stops "202" matching inside "2021". Blank-name rows
+ *  (`data-blank`) stay hidden in the default browse and surface only while a
+ *  search/filter is active and they match — so a sail search still finds them.
+ *  Runs once on load so the initial view matches (blanks already hidden). */
 const INDEX_SCRIPT = `<script>(function(){
 var q=document.getElementById('q'),yr=document.getElementById('yr'),
 count=document.getElementById('count'),empty=document.getElementById('empty'),
 rows=[].slice.call(document.querySelectorAll('li.crow'));
 function fold(s){return s.normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/\\s+/g,' ').trim();}
 function apply(){
-var t=fold(q.value),y=yr.value,n=0;
+var t=fold(q.value),y=yr.value,filtering=!!(t||y),n=0;
 rows.forEach(function(li){
 var okText=!t||li.getAttribute('data-name').indexOf(t)>=0||li.getAttribute('data-sails').indexOf(t)>=0;
 var okYear=!y||(' '+li.getAttribute('data-years')+' ').indexOf(' '+y+' ')>=0;
-var show=okText&&okYear;li.style.display=show?'':'none';if(show)n++;
+var matches=okText&&okYear;
+var show=li.getAttribute('data-blank')==='1'?(filtering&&matches):matches;
+li.style.display=show?'':'none';if(show)n++;
 });
 count.textContent=n+(n===1?' competitor':' competitors');
 empty.style.display=n?'none':'';
 }
-q.addEventListener('input',apply);yr.addEventListener('change',apply);
+q.addEventListener('input',apply);yr.addEventListener('change',apply);apply();
 })();</script>`;
 
 function spanLabel(e: CompetitorIndexEntry): string {
@@ -151,28 +164,43 @@ export function renderCompetitorIndexHtml(
 
   const rows = competitors
     .map((c) => {
+      const blank = !c.name.trim();
       const sails = c.sailNumbers.length
         ? `<span class="sails">${esc(c.sailNumbers.join(', '))}</span>`
         : '';
       const span = spanLabel(c);
       const count = `${c.seriesCount} ${c.seriesCount === 1 ? 'series' : 'series'}`;
       const det = `<span class="det">${span ? `${span} &middot; ` : ''}${count}${sails}</span>`;
-      const dataName = esc(fold(c.name));
-      const dataSails = esc(fold(c.sailNumbers.join(' ')));
-      const dataYears = c.years.join(' ');
-      return `<li class="crow" data-name="${dataName}" data-sails="${dataSails}" data-years="${dataYears}"><a href="/p/${esc(
+      // Blank-name rows: tagged + hidden by default (so they don't lead the
+      // browse), shown a placeholder so a sail search reveals a usable row.
+      const nm = blank
+        ? `<span class="nm unnamed">(no name)</span>`
+        : `<span class="nm">${esc(c.name)}</span>`;
+      const attrs = [
+        `class="crow"`,
+        `data-name="${esc(fold(c.name))}"`,
+        `data-sails="${esc(fold(c.sailNumbers.join(' ')))}"`,
+        `data-years="${c.years.join(' ')}"`,
+        blank ? `data-blank="1" style="display:none"` : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+      return `<li ${attrs}><a href="/p/${esc(
         workspaceSlug,
-      )}/competitor/${esc(c.slug)}"><span class="nm">${esc(c.name)}</span>${det}</a></li>`;
+      )}/competitor/${esc(c.slug)}">${nm}${det}</a></li>`;
     })
     .join('\n');
+
+  // Blanks are hidden in the default browse, so the headline count excludes them.
+  const visibleCount = competitors.filter((c) => c.name.trim()).length;
 
   const tools = `<div class="tools">
 <input id="q" type="search" placeholder="Search name or sail number…" aria-label="Search by name or sail number" autocomplete="off">
 <select id="yr" aria-label="Filter by year">${yearOptions}</select>
 </div>`;
 
-  const countLine = `<p class="count" id="count">${competitors.length} ${
-    competitors.length === 1 ? 'competitor' : 'competitors'
+  const countLine = `<p class="count" id="count">${visibleCount} ${
+    visibleCount === 1 ? 'competitor' : 'competitors'
   }</p>`;
   const emptyLine = `<p class="empty" id="empty" style="display:none">No competitors match.</p>`;
 

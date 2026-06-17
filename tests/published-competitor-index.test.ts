@@ -81,6 +81,15 @@ describe('toCompetitorIndexEntries', () => {
       'Zoe Walsh',
     ]);
   });
+
+  it('sorts blank-name rows last, not first', () => {
+    const rows = toCompetitorIndexEntries([
+      identity({ label: '', slug: 'blank-1' }),
+      identity({ label: 'Mark Doyle', slug: 'm' }),
+      identity({ label: '   ', slug: 'blank-2' }), // whitespace-only also blank
+    ]);
+    expect(rows.map((r) => r.slug)).toEqual(['m', 'blank-1', 'blank-2']);
+  });
 });
 
 describe('renderCompetitorIndexHtml', () => {
@@ -125,5 +134,30 @@ describe('renderCompetitorIndexHtml', () => {
     expect(html).toContain('<script>');
     expect(html).toContain('id="count"');
     expect(html).toContain('1 competitor');
+  });
+
+  it('hides blank-name rows by default but keeps them searchable', () => {
+    const withBlank = renderCompetitorIndexHtml(
+      'iodai',
+      'IODAI',
+      toCompetitorIndexEntries([
+        identity({ label: 'Real Sailor', slug: 'real-sailor-aa11' }),
+        identity({
+          label: '',
+          slug: 'unknown-bb22',
+          entries: [entry({ year: 2015, sailNumber: 'IRL999' })],
+        }),
+      ]),
+      '',
+    );
+    // The blank row is tagged + hidden, and shows a placeholder rather than an
+    // empty name — but still carries its sail key so a sail search finds it.
+    expect(withBlank).toContain('data-blank="1" style="display:none"');
+    expect(withBlank).toContain('(no name)');
+    expect(withBlank).toContain('data-sails="irl999"');
+    // It still links to its timeline.
+    expect(withBlank).toContain('href="/p/iodai/competitor/unknown-bb22"');
+    // The headline count excludes the hidden blank.
+    expect(withBlank).toContain('>1 competitor<');
   });
 });
