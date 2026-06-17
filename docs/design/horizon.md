@@ -422,6 +422,34 @@ renders a PDF). Revisit only if scorers ask for an attach-from-publish artifact 
 than a print-it-yourself one. The print/PDF rendering path here is also where the
 print-only QR code above would live.
 
+### Class-branded, embeddable public results index
+
+Suggested by a class sailor as an adoption lever: a class association is far more likely
+to send its members to Sail Scoring if the published results *feel like the class's own
+page* and slot into the class website rather than reading as a generic third-party site.
+Two related affordances:
+
+- **Colour-match the public index to the class.** Let a workspace (or a class-scoped
+  grouping of series) set a small, constrained palette — header/accent colours keyed to
+  the class's brand — applied to the public results listing and the per-fleet `/p/...`
+  pages. This is the same curated-token approach proposed under
+  [Per-event branding](#per-event-branding) (colours, not arbitrary CSS, to keep the
+  published HTML safe), just driven by the class identity rather than a single regatta.
+  The logo library already supplies the marks; this adds the colour layer.
+- **Embed/link the index from the class's own site.** A way for the class to surface its
+  live Sail Scoring results inside its own web page — at minimum a clean canonical URL
+  and link affordance, ideally an embeddable widget (an `<iframe>`-able results index, or
+  a small script/oEmbed) that renders the current standings in-page. The published pages
+  are static, so an embeddable read-only view is cheap; the work is a chrome-less render
+  mode and the cross-origin/sizing story.
+
+Open questions: the scope unit again (workspace vs. a real class/series grouping — a class
+typically spans multiple series and seasons); how branding here relates to the
+workspace-level and per-event branding layers (this is plausibly the *class* tier of the
+same override stack); and whether embedding is a true widget or just a well-documented
+link + canonical URL to start. The adoption argument is the point: the class's members
+discover the tool through the class's own site, in the class's own colours.
+
 ---
 
 ## Workspaces and sharing
