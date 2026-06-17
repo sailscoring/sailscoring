@@ -933,94 +933,55 @@ restructuring, and series that overlap in time.
 
 ## Cross-series identity and ranking
 
-> **Update (2026-06):** the identity spine and the career-arc page below are now
-> **implemented**, career-arc-first, behind the default-off `competitor-identity`
-> gate (#212). The shipped cut differs from the original sketch: name is the
-> cross-season spine (not sail number), implied birth year is a *transient*
-> reconciliation input rather than schema, identities are populated by a batch
-> reconcile pass (`scripts/reconcile-identities.ts`) rather than lazy per-add
-> linking, and the career-arc page is public. The two entries below are kept for
-> the rationale; the workspace cross-series ranking (#209) remains deferred.
+The cross-series competitor-identity **spine is implemented** (#212, closed): a
+workspace-scoped `CompetitorIdentity` with a `Competitor.identityId` link collapses
+a sailor's per-series rows into one recurring competitor. The shipped cut — **name**
+is the cross-season spine (not sail number), implied birth year is a *transient*
+reconciliation input (never schema, never public), identity is workspace-local
+(excluded from the `.sailscoring` file and public JSON export, re-derived on
+import), and a batch reconcile pass (`scripts/reconcile-identities.ts`) populates
+it. The principle held — a matcher only *suggests*, a human confirms; identity is
+persisted, never re-inferred at compute time — and matching **prefers false-splits
+over false-merges** (a wrong split is one click to fix; a wrong merge silently
+corrupts a ranking). What recurs isn't always a person (a keelboat campaign is a
+boat + crew), so the record mirrors the polymorphism the `Competitor` row carries.
 
-### Cross-series competitor identity spine *(implemented — #212)*
+Built on the spine, the **public product is also implemented** (#217): the
+competitor index, name/sail search and year filter, and the per-competitor
+**timeline** — every series a sailor entered with their results and ranking, the
+whole Optimist junior arc from coached eight-year-old to ageing out. Public but
+`noindex`. The full spine design (data model, lifecycle, matching tiers, backfill,
+privacy) is preserved on #212.
 
-A `Competitor` is series-scoped (`lib/types.ts`, keyed on `seriesId`): the same
-sailor racing eight IODAI series in a season is eight unrelated rows, with nothing
-connecting them. This is the missing primitive under the cross-series ranking
-below — and several other deferred ideas (perpetual trophies, season views,
-lineage) want the same handle. The governing principle: **resolve identity once,
-at the point a competitor enters a series, and persist it** — a matcher exists
-only as a *suggestion feeding a human confirmation step*, never as the source of
-truth at compute time (the "resolve ambiguity by asking" pattern
-`lib/source-handicaps.ts` already uses for rating lists). The brittle alternative —
-inferring identity at ranking time by matching sail numbers or names — fails
-exactly on the close top places that decide a ranking, so it's deliberately ruled
-out.
+### Open work in this area
 
-What recurs is **not always a person**: in single-handed dinghy classes
-(Optimist, ILCA) the ranked identity *is* a person, but in keelboat racing it's a
-**boat + crew/campaign**. So rather than a `Person`, the model is a
-workspace-scoped `CompetitorIdentity` (link field `Competitor.identityId`) that
-mirrors the polymorphism the `Competitor` row already carries (sail number, boat
-name, `name` labelled per `Series.primaryPersonLabel`, owner, helm, crew, club,
-nationality), rendering person- or boat-centric by the same rules. Identity is
-populated lazily, server-side, behind a feature gate, as series are scored —
-high-confidence matches link, everything else creates a new identity, and a
-reconcile UI lets the scorer merge / split / confirm. Matching leans on normalised
-sail number (strong within a season) corroborated by a new person-name normaliser
-(the cross-season signal), and is tuned to **prefer false-splits over
-false-merges** (a wrong split is one click to fix; a wrong merge silently corrupts
-a ranking). `identityId` is workspace-local — excluded from the `.sailscoring`
-file format and public JSON export, re-derived on import. Ships behind a
-default-off `lib/features.ts` gate, IODAI-first.
+- **Workspace cross-series ranking (season ladder)** — **#209**. IODAI's national
+  ranking aggregates a sailor's Nationals place with their two best regional places,
+  reset each season. Sits *above* a series; groups by `identityId` and builds no
+  matcher of its own. Open questions (aggregation rule, reset boundary, eligibility)
+  on the issue. Overlaps season-spanning *views* (*Series lineage and seasons*) and
+  perpetual trophies (*Prize allocation*).
+- **On-demand identity population** — **#222**. Link identities lazily as
+  competitors are added/imported (high-confidence match links, else create), so the
+  spine fills itself rather than needing the batch pass re-run. Prerequisite for the
+  ranking to stay current.
+- **Finish the in-app reconcile UI** — **#221**. The rename/split surface is built
+  but hidden (default-off `competitor-reconcile`) until the UX is settled — merge,
+  cluster-split, a review queue. Cleanup currently runs out-of-band.
+- **IODAI competitor-history cleanup** — **#218**. Methodical, repeatable
+  corrections keyed on vanity slugs (the iodai-archive manifest); fixes
+  blank / mojibake / malformed names at source and re-imports.
 
-External reconciliation against real member databases is the separate horizon
+External reconciliation against real member databases stays the separate horizon
 entry above (*Reconciling competitor identity with external member databases*).
-The full design — data model, lifecycle, matching tiers, reconcile UI, backfill,
-privacy, and build sequencing — is preserved on the issue.
 
-*(Was GitHub issue #212)*
+### Career arc as a scope boundary
 
-### Workspace cross-series sailor ranking (season ladder)
-
-IODAI maintain a national/association ranking that aggregates a sailor's results
-across many series over a season (the Nationals place plus their two best regional
-places), reset each year. Once competitors and series live together in a
-workspace, the app has the data to compute and continuously display such a ranking
-*within the app* — "see that constantly" — rather than maintaining it externally.
-It sits *above* a series, distinct from a single series' standings and from
-sub-series blocks (#203, within one series).
-
-The hard part is **identity across series** — ranking a sailor means collapsing
-their separate competitor rows into one recurring competitor, which is exactly the
-spine above (#212); the ranking groups by `identityId` and builds no matcher of
-its own. Open questions captured on the issue: the aggregation rule (best-N,
-discards across series, points vs. placings — IODAI's actual rule needs
-capturing), the reset boundary and its rollover, and eligibility (which series
-count, members-only filtering). When designed, reconcile with the adjacent horizon
-ideas this overlaps: season-spanning *views* under *Series lineage and seasons*
-and perpetual trophies under *Prize allocation*.
-
-*(Was GitHub issue #209)*
-
-### Competitor career arc — a multi-year record page *(implemented — #212)*
-
-Once the identity spine collapses a sailor's series into one recurring
-competitor, a natural payoff is a **per-competitor record page that spans years** —
-every series they entered, their results, and their ranking over time, read off
-the identity link. This is especially powerful for an Optimist sailor, whose whole
-junior arc lives inside the class: joining as a regatta-coached eight-year-old,
-competing season after season, their ranking climbing through the main-fleet
-years, down to their final races and ranking before they age out. The same page
-works for a keelboat campaign's history, but the dinghy career arc is the vivid
-case.
-
-It's also a clean **scope-boundary test for the project**. Everything above is
-scoring data Sail Scoring owns — entries, results, rankings over time — so the
-record page is squarely in scope. The tempting next step is to make it a *photo*
-retrospective: tag regatta photos with a competitor ID so the career-arc page
-shows the sailor as well as their results. That steps outside scoring data, and it
-belongs **outside** the app — as a third-party integration built on the Sail
+The timeline is also a clean **scope test for the project**. Entries, results, and
+rankings over time are scoring data Sail Scoring owns — squarely in scope. The
+tempting next step is a *photo* retrospective: tag regatta photos with a competitor
+ID so the page shows the sailor as well as their results. That steps outside scoring
+data, and belongs **outside** the app — a third-party integration built on the Sail
 Scoring API (the same "thin client over the API" framing as the mobile
 finish-recorder and clubhouse big-screen display under *Third-party integrations*),
 with the competitor identity as the join key, rather than photos becoming
