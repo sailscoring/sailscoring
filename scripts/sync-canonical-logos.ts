@@ -55,6 +55,9 @@ interface ManifestEntry {
   file: string;
   format: 'svg' | 'png';
   sha256: string;
+  /** The org's official website, when known — the default click-through target
+   *  a series applies when this canonical logo is picked. Added in schema 1.1. */
+  homepageUrl?: string | null;
   quality?: 'ok' | 'provisional';
   derivatives?: { small?: string };
 }
@@ -101,6 +104,7 @@ function renderManifestModule(version: string, entries: ManifestEntry[]): string
       `file: ${jsonStringEscape(basename(e.file))}`,
       `format: ${jsonStringEscape(e.format)}`,
       ...(small ? [`small: ${jsonStringEscape(small)}`] : []),
+      ...(e.homepageUrl ? [`homepageUrl: ${jsonStringEscape(e.homepageUrl)}`] : []),
       `quality: ${jsonStringEscape(e.quality ?? 'ok')}`,
     ];
     lines.push(`  { ${parts.join(', ')} },`);
@@ -146,9 +150,12 @@ async function main() {
   ]);
 
   const manifest: ManifestFile = JSON.parse(manifestBuf.toString('utf8'));
-  if (manifest.schemaVersion !== '1.0') {
+  // Accept any 1.x manifest: minor bumps are additive (e.g. 1.1 added the
+  // optional homepageUrl), so older consumers ignore unknown fields safely. A
+  // major bump signals a breaking schema change and must be handled explicitly.
+  if (!/^1\.\d+$/.test(manifest.schemaVersion)) {
     throw new Error(
-      `unexpected manifest schemaVersion ${manifest.schemaVersion}; expected 1.0`,
+      `unsupported manifest schemaVersion ${manifest.schemaVersion}; expected 1.x`,
     );
   }
 

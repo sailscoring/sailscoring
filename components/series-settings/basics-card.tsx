@@ -56,8 +56,10 @@ export function BasicsCard({
   }, [isWizard, includeName]);
 
   async function update(patch: Partial<BasicsValues>) {
-    const next = { ...draft, ...patch };
-    setDraft(next);
+    // Functional update so two synchronous calls (e.g. picking a canonical logo
+    // sets both the logo URL and defaults the companion website) compose instead
+    // of clobbering each other through a stale `draft` closure.
+    setDraft((prev) => ({ ...prev, ...patch }));
     setChanged(true);
     if ('name' in patch) setNameError(null);
     // In wizard mode, propagate every change so the parent can persist live.
@@ -71,6 +73,14 @@ export function BasicsCard({
         if (err) setNameError(err);
       }
     }
+  }
+
+  // When a canonical logo with an official homepage is picked, default the
+  // companion website slot to it — but only when empty, so a hand-typed URL is
+  // never clobbered. The scorer can still override or clear it afterwards.
+  function defaultCompanionUrl(field: 'venueUrl' | 'eventUrl', homepage: string) {
+    if (draft[field].trim()) return;
+    update({ [field]: homepage });
   }
 
   async function handleSettingsSave(e: React.FormEvent) {
@@ -155,6 +165,7 @@ export function BasicsCard({
             label="Venue logo"
             value={draft.venueLogoUrl}
             onChange={(url) => update({ venueLogoUrl: url })}
+            onPickHomepage={(homepage) => defaultCompanionUrl('venueUrl', homepage)}
           />
           <div className="space-y-1.5">
             <Label htmlFor="venueUrl">Venue website URL</Label>
@@ -172,6 +183,7 @@ export function BasicsCard({
             label="Event logo"
             value={draft.eventLogoUrl}
             onChange={(url) => update({ eventLogoUrl: url })}
+            onPickHomepage={(homepage) => defaultCompanionUrl('eventUrl', homepage)}
           />
           <div className="space-y-1.5">
             <Label htmlFor="eventUrl">Event website URL</Label>

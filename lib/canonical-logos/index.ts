@@ -62,3 +62,12 @@ export function parseCanonicalLogoFile(url: string): string | null {
 export function findCanonicalByFile(file: string): CanonicalLogo | undefined {
   return CANONICAL_LOGOS.find((l) => l.file === file);
 }
+
+/** The official homepage of the canonical logo referenced by `url`, if `url` is
+ *  a canonical reference and the catalogue records one — else undefined. Lets a
+ *  logo slot default its companion website field to the org's site. */
+export function canonicalHomepageForUrl(url: string): string | undefined {
+  const file = parseCanonicalLogoFile(url);
+  if (!file) return undefined;
+  return findCanonicalByFile(file)?.homepageUrl;
+}

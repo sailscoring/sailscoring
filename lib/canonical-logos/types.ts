@@ -29,6 +29,10 @@ export interface CanonicalLogo {
   format: 'svg' | 'png';
   /** Small derivative for the ~100 px header slot, if the dataset ships one. */
   small?: string;
+  /** The org's official website, when the dataset records one. The logo picker
+   *  uses it as the default click-through target for the series venue/event slot
+   *  the logo is chosen for. */
+  homepageUrl?: string;
   /** `provisional` marks a deliberately-kept sub-par best-available asset. */
   quality: 'ok' | 'provisional';
 }

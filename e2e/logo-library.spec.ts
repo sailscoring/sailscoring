@@ -1,8 +1,10 @@
 import { signedInTest as test, expect } from './fixtures';
 import {
+  addCompetitor,
   addMemberByEmail,
   createOrgWorkspace,
   createSeriesQuick,
+  downloadFleetHtml,
   enableFeatures,
   seedLogo,
 } from './helpers';
@@ -168,6 +170,72 @@ test('pick a built-in canonical logo for a series', async ({ page }) => {
   const res = await page.request.get(url);
   expect(res.status()).toBe(200);
   expect(res.headers()['content-type']).toContain('image');
+});
+
+test('picking a canonical logo defaults the website slot and links it on the exported page', async ({ page }) => {
+  // A series with one finisher so the standings/preview have content to render.
+  await createSeriesQuick(page, { name: 'IODAI Nationals 2026', venue: 'Howth' });
+  await addCompetitor(page, { sailNumber: '42', name: 'Alice' });
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('42');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // Pick the IODAI canonical logo for the event slot.
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.locator('h2', { hasText: 'Basic' }).locator('..').getByRole('button', { name: /Edit/ }).click();
+  await page.getByRole('button', { name: 'Choose Event logo from library' }).click();
+  await page.getByRole('dialog').getByLabel('Search logos').fill('IODAI');
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Use Irish Optimist Dinghy Association (IODAI)' })
+    .click();
+
+  // The logo slot holds the canonical reference, and the companion website slot
+  // defaults to the logo's official homepage — no manual entry.
+  await expect(page.getByRole('textbox', { name: 'Event logo' })).toHaveValue(
+    /\/canonical-logos\/iodai\.png$/,
+  );
+  await expect(page.getByRole('textbox', { name: 'Event website URL' })).toHaveValue(
+    'https://iodai.com',
+  );
+
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  // The exported results page makes the event logo + name clickable to iodai.com.
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page).toHaveURL(/\/standings$/);
+  const download = await downloadFleetHtml(page);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  const html = Buffer.concat(chunks).toString('utf-8');
+  expect(html).toContain('href="https://iodai.com"');
+});
+
+test('picking a canonical logo does not overwrite a website URL already typed', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Custom URL Series', venue: 'Howth' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.locator('h2', { hasText: 'Basic' }).locator('..').getByRole('button', { name: /Edit/ }).click();
+
+  // A hand-typed venue website URL must survive a later logo pick.
+  await page
+    .getByRole('textbox', { name: 'Venue website URL' })
+    .fill('https://example.com/my-club');
+
+  await page.getByRole('button', { name: 'Choose Venue logo from library' }).click();
+  await page.getByRole('dialog').getByLabel('Search logos').fill('Howth Yacht');
+  await page.getByRole('dialog').getByRole('button', { name: 'Use Howth Yacht Club' }).click();
+
+  await expect(page.getByRole('textbox', { name: 'Venue logo' })).toHaveValue(
+    /\/canonical-logos\/hyc\.png$/,
+  );
+  // The companion URL is left untouched — defaulting only fills an empty slot.
+  await expect(page.getByRole('textbox', { name: 'Venue website URL' })).toHaveValue(
+    'https://example.com/my-club',
+  );
 });
 
 test('copy a logo from another workspace into this one', async ({ page, signedInEmail }) => {

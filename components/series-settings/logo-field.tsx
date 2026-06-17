@@ -23,6 +23,7 @@ export function LogoField({
   label,
   value,
   onChange,
+  onPickHomepage,
   placeholder = 'https://…',
   helpText,
 }: {
@@ -30,6 +31,9 @@ export function LogoField({
   label: string;
   value: string;
   onChange: (url: string) => void;
+  /** Called with the picked canonical logo's official homepage, when it has one,
+   *  so the caller can default the companion website slot. */
+  onPickHomepage?: (homepageUrl: string) => void;
   placeholder?: string;
   helpText?: string;
 }) {
@@ -76,8 +80,9 @@ export function LogoField({
           open={pickerOpen}
           value={value}
           onClose={() => setPickerOpen(false)}
-          onPick={(url) => {
+          onPick={(url, homepageUrl) => {
             onChange(url ?? '');
+            if (homepageUrl) onPickHomepage?.(homepageUrl);
             setPickerOpen(false);
           }}
         />

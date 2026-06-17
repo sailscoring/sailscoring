@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   canonicalLogoUrl,
+  canonicalHomepageForUrl,
   parseCanonicalLogoFile,
   findCanonicalByFile,
   CANONICAL_LOGOS,
@@ -40,6 +41,21 @@ describe('canonical logo helpers', () => {
     expect(aib).toBeDefined();
     expect(findCanonicalByFile(aib!.file)?.id).toBe('aib');
     expect(findCanonicalByFile('does-not-exist.png')).toBeUndefined();
+  });
+
+  test('canonicalHomepageForUrl resolves a canonical logo to its homepage', () => {
+    const iodai = CANONICAL_LOGOS.find((l) => l.id === 'iodai');
+    expect(iodai?.homepageUrl).toBe('https://iodai.com');
+    expect(canonicalHomepageForUrl(canonicalLogoUrl(iodai!.file))).toBe('https://iodai.com');
+  });
+
+  test('canonicalHomepageForUrl is undefined for non-canonical or homepage-less URLs', () => {
+    // Not a canonical reference at all.
+    expect(canonicalHomepageForUrl('https://hyc.ie/logo.png')).toBeUndefined();
+    expect(canonicalHomepageForUrl('/logos/11111111-2222-3333-4444-555555555555')).toBeUndefined();
+    expect(canonicalHomepageForUrl('')).toBeUndefined();
+    // A canonical file that isn't in the catalogue.
+    expect(canonicalHomepageForUrl(canonicalLogoUrl('does-not-exist.png'))).toBeUndefined();
   });
 });
 

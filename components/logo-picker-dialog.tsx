@@ -63,10 +63,11 @@ function LogoRow({
 /**
  * Searchable logo picker over the workspace's flag locker plus the built-in
  * canonical set. Picking calls `onPick` with the chosen logo's stable URL
- * (workspace indirection or canonical), or `null` to clear. Shared by the
- * series venue/event slots (`LogoField`) and the workspace default-logo
- * controls — both store a URL, so both pick the same way and can reach the
- * canonical tier.
+ * (workspace indirection or canonical), or `null` to clear. When a canonical
+ * logo carries an official homepage, it is passed as the second argument so a
+ * caller can default the logo's companion website slot. Shared by the series
+ * venue/event slots (`LogoField`) and the workspace default-logo controls —
+ * both store a URL, so both pick the same way and can reach the canonical tier.
  */
 export function LogoPickerDialog({
   open,
@@ -77,7 +78,7 @@ export function LogoPickerDialog({
   open: boolean;
   value: string;
   onClose: () => void;
-  onPick: (url: string | null) => void;
+  onPick: (url: string | null, homepageUrl?: string) => void;
 }) {
   const { data: logos } = useLogos(open);
   const [query, setQuery] = useState('');
@@ -150,7 +151,7 @@ export function LogoPickerDialog({
                       sub={CANONICAL_CLASS_LABELS[logo.logoClass]}
                       selected={url === value}
                       ariaLabel={`Use ${logo.displayName}`}
-                      onClick={() => onPick(url)}
+                      onClick={() => onPick(url, logo.homepageUrl)}
                     />
                   );
                 })}
