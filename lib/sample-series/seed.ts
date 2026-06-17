@@ -18,6 +18,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { eq, sql } from 'drizzle-orm';
 
@@ -28,18 +29,19 @@ import { openSeriesFromFile, parseSeriesFile, type SeriesFileRepos } from '@/lib
 import type { Competitor, Fleet, Race, RaceStart, RaceRatingOverride, Finish, Series, SubSeries } from '@/lib/types';
 
 /**
- * URLs of the committed sample data, in the order they appear in the list.
+ * The committed sample data, in the order it appears in the list.
  *
- * These MUST be static `new URL('./literal', import.meta.url)` calls so the
- * bundler traces each file into the serverless function. A dynamic
- * `new URL(`./${name}`, import.meta.url)` is not statically analysable — in
- * production it collapsed both reads onto a single emitted asset (two copies of
- * the regatta, no club series).
+ * Resolved at runtime against `process.cwd()` (the project root in every runtime
+ * that reaches here: the Vercel serverless function, the `tsx` provision-org
+ * CLI, and Vitest) rather than `new URL('./literal', import.meta.url)`. The
+ * module-relative URL form makes Turbopack's file tracer (NFT) walk an `fs` read
+ * in the auth route's import graph and conservatively trace the whole project,
+ * emitting a warning per reachable route. The files reach the serverless bundle
+ * via the explicit `outputFileTracingIncludes` glob in `next.config.ts`, not via
+ * the import-graph trace, so cutting that edge is safe.
  */
-const SAMPLE_FILE_URLS = [
-  new URL('./regatta.sailscoring', import.meta.url),
-  new URL('./club-racing.sailscoring', import.meta.url),
-];
+const SAMPLE_DIR = join(process.cwd(), 'lib', 'sample-series');
+const SAMPLE_FILES = ['regatta.sailscoring', 'club-racing.sailscoring'];
 
 /** New workspaces get the samples grouped under this category rather than
  *  scattered through the "Uncategorized" bucket. */
@@ -259,8 +261,8 @@ export async function seedSampleSeries(
       displayOrder: 0,
     });
     const repos = seedRepos(txDb, workspaceId);
-    for (const url of SAMPLE_FILE_URLS) {
-      const file = parseSeriesFile(readFileSync(url, 'utf8'));
+    for (const name of SAMPLE_FILES) {
+      const file = parseSeriesFile(readFileSync(join(SAMPLE_DIR, name), 'utf8'));
       await openSeriesFromFile(file, repos, { categoryId });
     }
   });

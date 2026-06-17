@@ -9,8 +9,11 @@ if (!process.env.NEXT_PUBLIC_APP_URL) {
 
 const nextConfig: NextConfig = {
   // The sign-up hook (auth route) seeds new workspaces from the committed
-  // sample `.sailscoring` files, read at runtime via fs. Force them into the
-  // route's serverless bundle so the read works on Vercel.
+  // sample `.sailscoring` files, read at runtime via fs from `process.cwd()`
+  // (see lib/sample-series/seed.ts). This glob is the *sole* mechanism shipping
+  // them into the route's serverless bundle — the seed deliberately avoids a
+  // statically-traced module URL so Turbopack's NFT doesn't over-trace — so it
+  // must stay in sync with the files seed.ts reads.
   outputFileTracingIncludes: {
     '/api/auth/[...all]': ['./lib/sample-series/*.sailscoring'],
   },
