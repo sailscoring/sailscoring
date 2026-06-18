@@ -119,9 +119,9 @@ export default async function HelpPage() {
           time.
         </p>
         <p>
-          The first time you sign in we ask for your name. It&apos;s optional — you can skip it —
-          but it&apos;s what co-scorers see on the activity log and member lists in a shared
-          workspace, so it&apos;s worth filling in. You can set or change it any time on your{' '}
+          The first time you sign in we ask for your name. It’s optional — you can skip it —
+          but it’s what co-scorers see on the activity log and member lists in a shared
+          workspace, so it’s worth filling in. You can set or change it any time on your{' '}
           <strong className="text-foreground">Account</strong> page.
         </p>
         <p>
@@ -135,12 +135,12 @@ export default async function HelpPage() {
           <strong className="text-foreground">org workspace</strong>: every panel member can see
           and edit the same series, FTP credentials, and workspace settings. To get one, request a
           shared workspace from your <strong className="text-foreground">Account</strong> page —
-          give it a name and we&apos;ll set it up and make you its owner, ready to invite the rest
+          give it a name and we’ll set it up and make you its owner, ready to invite the rest
           of your panel (see{' '}
           <a href="#collaboration" className="underline">Working with co-scorers</a>).
           Once you belong to a shared workspace, the switcher in the header shows both your personal
           workspace and the shared one; pick the shared one and the rest of the app reorients onto
-          the panel&apos;s data.
+          the panel’s data.
         </p>
         <p>
           To move a series from your personal workspace into a shared one, open the{' '}
@@ -201,12 +201,12 @@ export default async function HelpPage() {
           a category simply moves its series back to Uncategorized — nothing is lost.
         </p>
         <p>
-          Within a category (or the flat list, if you don&apos;t use categories) you can put
+          Within a category (or the flat list, if you don’t use categories) you can put
           series in whatever order you like: drag the{' '}
           <strong className="text-foreground">grip handle</strong> on the left of each row, or
           reorder by keyboard (focus the handle, press Space, use the arrow keys, press Space to
           drop). New series are added to the bottom. Archived series are grouped by year and
-          aren&apos;t reordered manually.
+          aren’t reordered manually.
         </p>
         <p>
           <strong className="text-foreground">Archiving</strong> a series (from its{' '}
@@ -217,21 +217,21 @@ export default async function HelpPage() {
           <strong className="text-foreground">read-only</strong>: a safeguard against a stray edit
           to a finished record months later. To change an archived series, either{' '}
           <strong className="text-foreground">Unarchive</strong> it or copy it to another
-          workspace. You can still publish or re-publish an archived series&apos; results.
+          workspace. You can still publish or re-publish an archived series’ results.
         </p>
         <p>
           Deleting a series requires archiving it first — a deliberate two-step so a finished
-          season can&apos;t be thrown away by accident. Deleting is a{' '}
+          season can’t be thrown away by accident. Deleting is a{' '}
           <strong className="text-foreground">soft delete</strong>: the series moves to a collapsed{' '}
           <strong className="text-foreground">Trash</strong> section at the foot of the list, where
           it stays recoverable for <strong className="text-foreground">30 days</strong> before it
           is removed for good. <strong className="text-foreground">Recover</strong> brings it back
-          (archived, exactly as it was, with its history); a trashed series can&apos;t be opened
+          (archived, exactly as it was, with its history); a trashed series can’t be opened
           until you recover it. To remove one immediately you can{' '}
           <strong className="text-foreground">delete it forever</strong> from the Trash — guarded by
           typing the series name to confirm. If the series had a published results page, that page
-          stays online but disconnected; recovering won&apos;t reconnect it, so unpublish first if
-          you don&apos;t want it to remain public.
+          stays online but disconnected; recovering won’t reconnect it, so unpublish first if
+          you don’t want it to remain public.
         </p>
       </Section>
 
@@ -254,7 +254,7 @@ export default async function HelpPage() {
           are then shown as <em>Helm / Crew</em> in exported results.
         </p>
         <p>
-          Enable <em>Nationality</em> to record each entry&rsquo;s 3-letter
+          Enable <em>Nationality</em> to record each entry’s 3-letter
           country code (RRS Appendix G / IOC, e.g. <em>IRL</em>, <em>GBR</em>,
           <em> FRA</em>). The input suggests codes as you type; common
           Sailwave spellings (<em>BVI</em>, <em>CKI</em>) resolve to their
@@ -267,7 +267,7 @@ export default async function HelpPage() {
           or age categories such as <em>Apprentice Master</em>/<em>Grand Master</em>.
           It does not affect scoring: everyone in a fleet is still ranked
           together, and the subdivision only decides which sub-trophy an entry is
-          eligible for. You can rename the field&rsquo;s label (to{' '}
+          eligible for. You can rename the field’s label (to{' '}
           <em>Category</em>, say) in the <strong className="text-foreground">Competitor fields</strong>{' '}
           card. It then shows as a column in the competitors table, the
           standings, and exported results.
@@ -306,7 +306,7 @@ export default async function HelpPage() {
           selector to switch between them. Each fleet downloads as its own file (e.g.{' '}
           <code className="text-foreground text-sm">my-series-junior.html</code>,{' '}
           <code className="text-foreground text-sm">my-series-senior.html</code>), containing that
-          fleet&apos;s standings and individual race results.
+          fleet’s standings and individual race results.
         </p>
         <p>
           To rename fleets or change their display order, open the{' '}
@@ -379,7 +379,7 @@ export default async function HelpPage() {
         </p>
         <p>
           In <strong className="text-foreground">handicap</strong> mode, the importer infers each
-          fleet&apos;s scoring system from the rating columns it finds. If every boat in a CSV fleet
+          fleet’s scoring system from the rating columns it finds. If every boat in a CSV fleet
           carries one rating system (say IRC), one fleet is created and configured for IRC. If the
           fleet has a mix — IRC for some boats, ECHO for others — the importer splits it into{' '}
           <code className="text-foreground text-sm">CR 0 (IRC)</code> and{' '}
@@ -392,12 +392,12 @@ export default async function HelpPage() {
           When the CSV has no <em>Class</em> column and no existing competitor in the series has
           a class set, the importer falls back to writing the original fleet name into{' '}
           <strong className="text-foreground">Class</strong>. This preserves the practical
-          &ldquo;Cruisers 2&rdquo; grouping when the fleet column is being used as a class label
+          “Cruisers 2” grouping when the fleet column is being used as a class label
           and boats end up split across rating fleets.
         </p>
         <p>
           Clicking <strong className="text-foreground">Import</strong> adds any new competitors and
-          updates existing ones matched by sail number. When an existing competitor&apos;s fields are
+          updates existing ones matched by sail number. When an existing competitor’s fields are
           unchanged by the import, they are counted as{' '}
           <strong className="text-foreground">unchanged</strong> rather than updated. Any rows
           missing a sail number are skipped and listed in the summary.
@@ -408,15 +408,15 @@ export default async function HelpPage() {
         <p>
           For NHC, ECHO, IRC, and PY fleets, the{' '}
           <strong className="text-foreground">Update handicaps</strong> button on the Competitors
-          tab carries each boat&apos;s handicap forward from a prior series in this workspace. For
-          progressive systems (NHC, ECHO) the new starting handicap is the boat&apos;s TCF after
-          the source series&apos; last scored race; for static systems (IRC, PY) it is whatever
+          tab carries each boat’s handicap forward from a prior series in this workspace. For
+          progressive systems (NHC, ECHO) the new starting handicap is the boat’s TCF after
+          the source series’ last scored race; for static systems (IRC, PY) it is whatever
           value the source series currently has on that competitor.
         </p>
         <p>
           The dialog previews every change as{' '}
           <code className="font-mono text-xs">current → new</code> before anything is written.
-          Untick individual rows to keep specific boats unchanged. A boat that doesn&apos;t appear
+          Untick individual rows to keep specific boats unchanged. A boat that doesn’t appear
           in the source series, or that has no value to copy, is left at its current handicap.
         </p>
         <p>
@@ -425,7 +425,7 @@ export default async function HelpPage() {
           <strong className="text-foreground">Keep already-scored races on the old rating</strong>{' '}
           (on by default). Leave it on for a <em>mid-series rating change</em> — a new certificate —
           so races already sailed keep their old rating and only later races use the new value;
-          the boat&apos;s record still carries the new rating forward. Turn it off to{' '}
+          the boat’s record still carries the new rating forward. Turn it off to{' '}
           <em>correct</em> a wrong rating, which re-scores every race on the new value.
         </p>
       </Section>
@@ -453,7 +453,7 @@ export default async function HelpPage() {
           <code className="font-mono text-xs">IRL1431</code>) — though two different boats sharing
           a number are flagged rather than guessed. Turn on{' '}
           <strong className="text-foreground">Also match by boat name</strong> to catch boats whose
-          sail number doesn&apos;t line up. Boats not on the list are left unchanged.
+          sail number doesn’t line up. Boats not on the list are left unchanged.
         </p>
         <p>
           A boat that holds two IRC certificates — a primary and a secondary for a different sail
@@ -475,9 +475,9 @@ export default async function HelpPage() {
       <Section id="update-handicaps-vprs" title="Updating VPRS TCCs from a club list">
         <p>
           The <strong className="text-foreground">Update handicaps</strong> dialog can pull VPRS
-          TCCs from a club&apos;s published rating list, matched by sail number. Choose{' '}
+          TCCs from a club’s published rating list, matched by sail number. Choose{' '}
           <em>VPRS TCC</em> as the source, then pick the club. VPRS publishes a separate list per
-          club — and a boat&apos;s TCC can differ between them — so the club you choose is the one
+          club — and a boat’s TCC can differ between them — so the club you choose is the one
           whose ratings are applied. On an Irish setup the Irish clubs are listed first.
         </p>
         <p>
@@ -488,7 +488,7 @@ export default async function HelpPage() {
           <code className="font-mono text-xs">current → new</code> before anything is written, and
           you can untick individual boats. Sail numbers match ignoring case, spacing, and a missing
           country code; turn on <strong className="text-foreground">Also match by boat name</strong>{' '}
-          to catch boats whose sail number doesn&apos;t line up. Boats not on the club&apos;s list
+          to catch boats whose sail number doesn’t line up. Boats not on the club’s list
           are left unchanged.
         </p>
       </Section>
@@ -516,7 +516,7 @@ export default async function HelpPage() {
           <code className="font-mono text-xs">IRL1431</code>) — though two different boats sharing
           a number are flagged rather than guessed. Turn on{' '}
           <strong className="text-foreground">Also match by boat name</strong> to catch boats whose
-          sail number doesn&apos;t line up. Boats not on the list are left unchanged.
+          sail number doesn’t line up. Boats not on the list are left unchanged.
         </p>
         <p>
           If a boat is in the series but not yet in an ECHO fleet, it appears under{' '}
@@ -533,8 +533,8 @@ export default async function HelpPage() {
       <Section id="update-handicaps-rya-py" title="Updating PY numbers from the RYA list">
         <p>
           For <strong className="text-foreground">Portsmouth Yardstick</strong> fleets, the{' '}
-          <strong className="text-foreground">Update handicaps</strong> dialog can set each boat&apos;s
-          PY number from the RYA&apos;s published list. Choose{' '}
+          <strong className="text-foreground">Update handicaps</strong> dialog can set each boat’s
+          PY number from the RYA’s published list. Choose{' '}
           <em>RYA Portsmouth Yardstick</em> as the source. Unlike the IRC and ECHO sources — which
           match each boat by sail number — PY is a per-class list, so boats are matched by their{' '}
           <strong className="text-foreground">class</strong>. A whole one-design fleet is therefore
@@ -547,10 +547,10 @@ export default async function HelpPage() {
           <strong className="text-foreground">Name</strong> normalises the stored class to the
           register spelling, and <strong className="text-foreground">Number</strong> writes the PY
           number. A class that matches several configurations (for example the two Comet Trio rigs),
-          or that isn&apos;t found, shows a picker so you can choose the right one or skip it.
+          or that isn’t found, shows a picker so you can choose the right one or skip it.
         </p>
         <p>
-          Numbers from the RYA&apos;s experimental and limited-data lists are flagged{' '}
+          Numbers from the RYA’s experimental and limited-data lists are flagged{' '}
           <span className="text-amber-600 dark:text-amber-500">guide only</span> — the RYA publishes
           them as starting points to review locally. The list is bundled with the app and refreshed
           at most once a year, so its version is shown at the foot of the dialog.
@@ -563,13 +563,13 @@ export default async function HelpPage() {
         <p>
           When one series of a season ends and the next begins —{' '}
           <em>Spring Series 1</em> into <em>Spring Series 2</em> — pick{' '}
-          <strong className="text-foreground">Create follow-on series</strong> from the series&apos;
+          <strong className="text-foreground">Create follow-on series</strong> from the series’
           row menu on the home page. The new series starts with the same settings, fleets, and
-          competitors; none of the old series&apos; races or results come along.
+          competitors; none of the old series’ races or results come along.
         </p>
         <p>
-          For progressive-handicap fleets (NHC, ECHO), each boat&apos;s starting handicap in the new
-          series is its handicap after the old series&apos; last scored race, so the ratings pick up
+          For progressive-handicap fleets (NHC, ECHO), each boat’s starting handicap in the new
+          series is its handicap after the old series’ last scored race, so the ratings pick up
           exactly where they left off. Boats that never raced keep the starting handicap they had.
           Static ratings (IRC, PY, VPRS) carry over unchanged. The Competitors tab of the new series
           notes which series it was carried forward from; if handicaps in the old series change
@@ -577,7 +577,7 @@ export default async function HelpPage() {
           <strong className="text-foreground">Update handicaps</strong> to re-pull them.
         </p>
         <p>
-          The new series keeps its predecessor&apos;s category but starts unpublished, with its own
+          The new series keeps its predecessor’s category but starts unpublished, with its own
           name and start date — both asked for when you create it.
         </p>
       </Section>
@@ -609,9 +609,9 @@ export default async function HelpPage() {
             New races are added to the last sub-series.
           </p>
           <p>
-            Each sub-series is scored on its own. The series discard rule applies to each block&apos;s
-            race count separately, and a boat that sits out an entire block simply isn&apos;t in that
-            block&apos;s standings — absences in a block are scored against the boats that took part in
+            Each sub-series is scored on its own. The series discard rule applies to each block’s
+            race count separately, and a boat that sits out an entire block simply isn’t in that
+            block’s standings — absences in a block are scored against the boats that took part in
             it. A one-off feature race can be its own one-race sub-series.
           </p>
           <p>
@@ -685,7 +685,7 @@ export default async function HelpPage() {
         <p>
           <strong className="text-foreground">DNE cannot be discarded.</strong>{' '}
           In the standings table it is shown in red. Even if a DNE is a
-          competitor&apos;s worst score, the discard falls on their next-worst result
+          competitor’s worst score, the discard falls on their next-worst result
           instead. A plain BFD, by contrast, is an ordinary disqualification and{' '}
           <em>can</em> be discarded like any other score.
         </p>
@@ -713,7 +713,7 @@ export default async function HelpPage() {
           </li>
         </ul>
         <p>
-          Per RRS A6.2, additive penalties do not change other competitors&apos; scores —
+          Per RRS A6.2, additive penalties do not change other competitors’ scores —
           two boats may legitimately share the same score. The penalised score is capped at
           the DNF score for that race. Penalty codes are shown in amber in the standings table,
           e.g. <em>4 (ZFP)</em>.
@@ -723,7 +723,7 @@ export default async function HelpPage() {
       {has('csv-finish-import') && (
       <Section id="importing-finish-sheet" title="Importing a finish sheet from CSV">
         <p>
-          On a race&apos;s result entry screen, click{' '}
+          On a race’s result entry screen, click{' '}
           <strong className="text-foreground">Import CSV</strong> (or press{' '}
           <strong className="text-foreground">i</strong>) to import a whole finish
           sheet in one go — useful when results are captured on a tablet or in a
@@ -755,7 +755,7 @@ export default async function HelpPage() {
         </p>
         <p>
           The import is <strong className="text-foreground">replace-all</strong>: confirming
-          replaces the race&apos;s finishing order entirely and clears any penalties, redress,
+          replaces the race’s finishing order entirely and clears any penalties, redress,
           and tied-finish markers — the importer only covers the basic sheet, so re-apply
           those in the editor after import if needed. Existing start check-ins are preserved.
           Click <strong className="text-foreground">Save results</strong> after importing to
@@ -795,7 +795,7 @@ export default async function HelpPage() {
         <ul className="list-disc list-inside space-y-1 pl-2">
           <li>
             <strong className="text-foreground">A9(a) — all races</strong>: average of
-            the competitor&apos;s scores in all other races in the series.
+            the competitor’s scores in all other races in the series.
           </li>
           <li>
             <strong className="text-foreground">A9(b) — races before</strong>: average
@@ -871,7 +871,7 @@ export default async function HelpPage() {
           Sail Scoring uses{' '}
           <strong className="text-foreground">Low Point scoring</strong>: 1st place scores 1 point,
           2nd scores 2, and so on. Lower totals are better. The standings are ordered by net
-          points; ties are broken per RRS A8 — first by each boat&apos;s race scores listed
+          points; ties are broken per RRS A8 — first by each boat’s race scores listed
           best-to-worst excluding discards (A8.1), then, if still tied, by the score in the last
           race, the next-to-last, and so on (A8.2).
         </p>
@@ -880,14 +880,14 @@ export default async function HelpPage() {
         </p>
         <p>
           The <strong className="text-foreground">Rank</strong> column gives the top three overall a
-          gold, silver, or bronze badge. The same badges appear in the race columns on each race&apos;s
+          gold, silver, or bronze badge. The same badges appear in the race columns on each race’s
           top three finishers, so you can spot the podium of every race at a glance. Coded,
           penalised, redress, and discarded scores keep their usual styling and are never badged.
         </p>
         <p>
           When discard rules are configured, a{' '}
           <strong className="text-foreground">Nett</strong> column appears showing each
-          competitor&apos;s series total after their worst score(s) are dropped. Discarded scores
+          competitor’s series total after their worst score(s) are dropped. Discarded scores
           are shown struck through. The standings are ordered by nett total.
         </p>
         <p>
@@ -901,7 +901,7 @@ export default async function HelpPage() {
           <strong className="text-foreground">HTML</strong> or{' '}
           <strong className="text-foreground">PDF</strong>; the published page has a{' '}
           <strong className="text-foreground">Save as PDF</strong> link in its footer. Either opens
-          your browser&apos;s print dialog with a print-tuned layout — handy for a PDF to attach to
+          your browser’s print dialog with a print-tuned layout — handy for a PDF to attach to
           an email or pin to the noticeboard.
           {has('ftp-upload') && (
             <>
@@ -963,7 +963,7 @@ export default async function HelpPage() {
               <>
                 The per-fleet{' '}
                 <strong className="text-foreground">Configure…</strong> button in
-                Settings &rarr; Fleets opens a dialog where the seven blend rates and
+                Settings → Fleets opens a dialog where the seven blend rates and
                 extreme thresholds can be overridden per fleet for parameter-tuning
                 experiments.
               </>
@@ -974,7 +974,7 @@ export default async function HelpPage() {
               <strong className="text-foreground">ECHO</strong> — the Irish Sailing
               progressive handicap. Each boat starts from a published handicap H and
               the rating is adjusted after every race based on a Performance Index
-              measuring the boat&rsquo;s performance relative to the fleet.
+              measuring the boat’s performance relative to the fleet.
             </li>
           )}
         </ul>
@@ -982,8 +982,8 @@ export default async function HelpPage() {
           For NHC and ECHO, every per-race table includes a{' '}
           <strong className="text-foreground">New TCF</strong> (or{' '}
           <strong className="text-foreground">New H</strong>) column showing the rating
-          to apply in the next race — that&rsquo;s usually the most-asked-about output
-          of progressive scoring, so it&rsquo;s always visible. Above the table, a{' '}
+          to apply in the next race — that’s usually the most-asked-about output
+          of progressive scoring, so it’s always visible. Above the table, a{' '}
           <strong className="text-foreground">
             Show NHC/ECHO rating calculations
           </strong>{' '}
@@ -1006,9 +1006,9 @@ export default async function HelpPage() {
         </p>
         <p>
           The summary table on NHC and ECHO fleets includes a seed-rating column (the
-          competitor&rsquo;s starting TCF or H) and prints the applied rating in small
-          text beneath each score from race 2 onwards — race 1&rsquo;s rating is the
-          seed, so it&rsquo;s shown in the dedicated column rather than repeated under
+          competitor’s starting TCF or H) and prints the applied rating in small
+          text beneath each score from race 2 onwards — race 1’s rating is the
+          seed, so it’s shown in the dedicated column rather than repeated under
           each R1 cell. This is independent of the rating-calculations toggle and can
           be switched off via{' '}
           <strong className="text-foreground">
@@ -1021,7 +1021,7 @@ export default async function HelpPage() {
       <Section id="discard-rules" title="Discard rules">
         <p>
           A <strong className="text-foreground">discard</strong> lets a competitor drop their worst
-          race score from the series total — a bad day doesn&apos;t ruin a whole season. Only the
+          race score from the series total — a bad day doesn’t ruin a whole season. Only the
           resulting <em>nett</em> score counts for ranking; the full series total is still displayed
           for reference.
         </p>
@@ -1107,15 +1107,15 @@ export default async function HelpPage() {
         {has('sailwave-import') && (
           <>
             <p>
-              To bring a season&apos;s seedings across from Sailwave, choose{' '}
+              To bring a season’s seedings across from Sailwave, choose{' '}
               <strong className="text-foreground">Sailwave file</strong> from the same dialog and
               pick the <code className="text-foreground text-sm">.blw</code> series file from
               Sailwave. The wizard previews the fleets, competitors, and races, then creates the series
               with ratings and any results Sailwave already had — fill in the per-fleet scoring system
-              if it auto-detects wrongly, and adjust any race dates Sailwave didn&apos;t carry across.
+              if it auto-detects wrongly, and adjust any race dates Sailwave didn’t carry across.
             </p>
             <p>
-              If the file has a prize-giving subdivision — Sailwave&apos;s Division field, or a column
+              If the file has a prize-giving subdivision — Sailwave’s Division field, or a column
               (often the helm age group) you retitled to something like <em>Category</em> — the wizard
               detects it and shows the heading it found. The values are imported exactly as Sailwave
               stored them (e.g. age-band codes like <em>GGM</em>); you can rename the column heading
@@ -1125,13 +1125,13 @@ export default async function HelpPage() {
             </p>
             <p>
               If you keep scoring a series in Sailwave and treat Sail Scoring as the publishing
-              front end, open the series&apos; <strong className="text-foreground">⋯</strong> menu
+              front end, open the series’ <strong className="text-foreground">⋯</strong> menu
               and click <strong className="text-foreground">Update from Sailwave file…</strong>{' '}
               (shown only for series that were imported from Sailwave). Pick a fresh{' '}
               <code className="text-foreground text-sm">.blw</code> export and the wizard replaces the
               competitors, fleets, races and results from the file while keeping the series name,
               venue, competitor-field setup and publishing destination. Your published results
-              don&apos;t change until you publish again.
+              don’t change until you publish again.
             </p>
           </>
         )}
@@ -1147,7 +1147,7 @@ export default async function HelpPage() {
           browser, the home page shows a banner offering to{' '}
           <strong className="text-foreground">Move to my account</strong>. The migration runs
           one series at a time and is safe to re-run — the banner only counts series that
-          haven&apos;t already been moved.
+          haven’t already been moved.
         </p>
       </Section>
 
@@ -1155,7 +1155,7 @@ export default async function HelpPage() {
         <p>
           When a club scoring panel shares a workspace, several scorers work on
           the same series at once — typically split by fleet. Sail Scoring
-          doesn&apos;t lock anything; instead it keeps a clear record of what
+          doesn’t lock anything; instead it keeps a clear record of what
           changed, when, and by whom — see the{' '}
           <strong className="text-foreground">History</strong> tab (below).
         </p>
@@ -1174,7 +1174,7 @@ export default async function HelpPage() {
           <strong className="text-foreground">Members</strong> card to invite
           them by email. They get a link to accept; once they do, they appear in
           the members list and share the workspace. Owners and admins can change
-          a member&apos;s role or remove them there too.
+          a member’s role or remove them there too.
         </p>
         <p>
           What someone can do is set by their{' '}
@@ -1186,22 +1186,22 @@ export default async function HelpPage() {
           see every series, its standings, and its history, but can change
           nothing. That makes member the right role for committee members and
           class captains who want visibility without the risk of an accidental
-          edit, and it&apos;s the default for new invitations: promote people
-          once they&apos;re scoring.
+          edit, and it’s the default for new invitations: promote people
+          once they’re scoring.
           {has('fine-grained-roles') && (
             <>
               {' '}A <strong className="text-foreground">scorer</strong> sits in
               between, scoped to running a race day: they can add races, enter
-              start times and finishes, and publish results, but can&apos;t
+              start times and finishes, and publish results, but can’t
               change competitors, handicaps, series settings, or workspace
               configuration — the role for a rostered duty scorer.
             </>
           )}
         </p>
         <p>
-          Don&apos;t have a shared workspace yet? Request one from your{' '}
+          Don’t have a shared workspace yet? Request one from your{' '}
           <strong className="text-foreground">Account</strong> page — give it a
-          name and we&apos;ll set it up and make you the owner, ready to invite
+          name and we’ll set it up and make you the owner, ready to invite
           the rest of your panel.
         </p>
       </Section>
@@ -1219,7 +1219,7 @@ export default async function HelpPage() {
           The list is newest-first, each version naming the scorer and how long
           ago it was. Expand a version to see the individual changes it covers —
           results entered, races added, competitors imported, settings changed —
-          each grouped under the session that made them. It&apos;s the record
+          each grouped under the session that made them. It’s the record
           behind a scoring inquiry and the audit trail for a protest committee.
         </p>
         <p>
@@ -1281,10 +1281,10 @@ export default async function HelpPage() {
         </p>
         <p>
           Logos are shared with everyone in the workspace, so a logo one scorer cleans up is there
-          for the whole team. When you set a series&apos; <strong className="text-foreground">venue</strong>{' '}
+          for the whole team. When you set a series’ <strong className="text-foreground">venue</strong>{' '}
           or <strong className="text-foreground">event logo</strong> in{' '}
           <strong className="text-foreground">Basic</strong> settings, click{' '}
-          <strong className="text-foreground">Library</strong> to pick one — from your workspace&apos;s
+          <strong className="text-foreground">Library</strong> to pick one — from your workspace’s
           own logos or the <strong className="text-foreground">built-in</strong> set of official
           club, class, governing-body, and sponsor marks — or paste a URL as before.
           Picking from the library links the published results to the logo rather than a copy, so
@@ -1294,13 +1294,13 @@ export default async function HelpPage() {
           You can also set <strong className="text-foreground">defaults for new series</strong> — a
           default venue and event logo the workspace reaches for automatically, chosen from the same
           picker (your own logos or a built-in one). Every new series starts with those logos
-          already in place (you can still change them per series); existing series aren&apos;t
+          already in place (you can still change them per series); existing series aren’t
           touched.
         </p>
         <p>
           If you belong to more than one workspace, <strong className="text-foreground">Copy from
           workspace…</strong> pulls a logo another of your workspaces has already cleaned up into
-          this one. It&apos;s a copy, not a link — the logo keeps working here even if the original
+          this one. It’s a copy, not a link — the logo keeps working here even if the original
           is later changed or removed.
         </p>
       </Section>
@@ -1313,14 +1313,14 @@ export default async function HelpPage() {
           separate row with nothing linking them. The{' '}
           <strong className="text-foreground">competitor-identity</strong> spine
           collapses those rows into one <strong className="text-foreground">recurring
-          competitor</strong>, so the app can show a sailor&apos;s whole history
+          competitor</strong>, so the app can show a sailor’s whole history
           across seasons — the basis of the public{' '}
           <strong className="text-foreground">competitor timeline</strong>.
         </p>
         <p>
           Competitors are built by an automatic reconcile pass that matches on
           name, club, sail number, and — where age is recorded — implied birth
-          year. It is deliberately cautious: when a match isn&apos;t
+          year. It is deliberately cautious: when a match isn’t
           corroborated it leaves the rows apart rather than risk merging two
           different sailors.
         </p>
@@ -1343,15 +1343,15 @@ export default async function HelpPage() {
           Each competitor has a public timeline listing every series they
           entered, in order, with their{' '}
           <strong className="text-foreground">finishing position</strong> in each
-          (&ldquo;3rd of 48&rdquo;), scored by the same engine as the results
-          pages. It shows only what&apos;s already public in the results — event,
-          year, position, sail number, club — never a sailor&apos;s age.
+          (“3rd of 48”), scored by the same engine as the results
+          pages. It shows only what’s already public in the results — event,
+          year, position, sail number, club — never a sailor’s age.
         </p>
         <p>
-          The workspace&apos;s public results page links to a{' '}
+          The workspace’s public results page links to a{' '}
           <strong className="text-foreground">competitor index</strong> — a
           searchable roster of everyone who has raced. Search by name or sail
-          number (&ldquo;who sailed 1605?&rdquo;) or filter by year, and follow
+          number (“who sailed 1605?”) or filter by year, and follow
           a competitor through to their timeline. These public pages are
           shareable by link but kept out of search engines.
         </p>
@@ -1372,7 +1372,7 @@ export default async function HelpPage() {
           standings and hosts them under your workspace at a public URL like{' '}
           <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc/autumn-league-2026/standings</code>.
           The dialog suggests a slug from the series name which you can edit before the first
-          publish; once published it&apos;s fixed, so the URL is stable forever and re-publishing
+          publish; once published it’s fixed, so the URL is stable forever and re-publishing
           updates the page in place. Publishing is an explicit, point-in-time action: editing the
           series afterwards does not change the published page, and the dialog tells you how many
           edits have landed since the last publish so you know when to re-publish. A series scored
@@ -1383,10 +1383,10 @@ export default async function HelpPage() {
         <p>
           <strong className="text-foreground">Choosing fleets and URLs:</strong> the dialog lists
           every fleet with a checkbox — only the ticked fleets are published or updated when you
-          click Publish. Untick a fleet you&apos;re still working on to leave it out this round; if
-          it was already published, its current page stays live and simply isn&apos;t updated until
+          click Publish. Untick a fleet you’re still working on to leave it out this round; if
+          it was already published, its current page stays live and simply isn’t updated until
           you tick it again (to take a page down entirely, use Unpublish). Each fleet also shows the last segment of its URL,
-          which you can edit before it&apos;s published — handy when you want a clean fleet name
+          which you can edit before it’s published — handy when you want a clean fleet name
           like <em>Puppeteers HPH</em> to live at a disambiguated URL such as{' '}
           <code className="text-foreground text-sm">tuesday-puppeteers-hph</code>. Once a fleet is
           published its URL is fixed, like the slug; to change it, unpublish and publish again.
@@ -1396,9 +1396,9 @@ export default async function HelpPage() {
           <code className="text-foreground text-sm">…/autumn-league-2026</code>) linking to every
           fleet, and your workspace has a public index at{' '}
           <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc</code> listing all the
-          series you&apos;ve published. Both update automatically as you publish. Each fleet page
+          series you’ve published. Both update automatically as you publish. Each fleet page
           links back up to its series listing, and that listing links up to the workspace index,
-          so a visitor can climb from one fleet&apos;s results to everything you&apos;ve published.
+          so a visitor can climb from one fleet’s results to everything you’ve published.
         </p>
         <p>
           <strong className="text-foreground">Co-publishing several series to one URL:</strong>{' '}
@@ -1410,7 +1410,7 @@ export default async function HelpPage() {
           existing event, then the listing page lists every series under it, each with its own
           fleets. Each series keeps publishing and unpublishing independently — unpublishing one
           removes only its fleets and leaves the others live. Every fleet URL must be distinct
-          across the series sharing a slug; if two clash, edit one fleet&apos;s URL segment in the
+          across the series sharing a slug; if two clash, edit one fleet’s URL segment in the
           publish dialog.
         </p>
         <p>
@@ -1422,7 +1422,7 @@ export default async function HelpPage() {
           how many edits have landed since, and whether it shares its URL with another series.{' '}
           <strong className="text-foreground">Unpublish</strong> takes a page down: the public URL
           stops working and the slug frees up for reuse (or, if the URL is shared, only that
-          series&apos; fleets are removed and the page stays live for the rest).
+          series’ fleets are removed and the page stays live for the rest).
           You can also unpublish from the <strong className="text-foreground">Publish</strong>{' '}
           dialog on the Standings tab. If you delete a series whose results were published,
           the page stays live as an orphaned snapshot — the Published results page is where
@@ -1479,10 +1479,10 @@ export default async function HelpPage() {
           tell apart.
         </p>
         <p>
-          If you&apos;re signed in and belong to more than one workspace — for example a personal
+          If you’re signed in and belong to more than one workspace — for example a personal
           workspace and a shared panel — the confirmation dialog includes a{' '}
           <strong className="text-foreground">Workspace</strong> picker so you can choose where
-          the series lands. It defaults to the workspace you&apos;re currently in.
+          the series lands. It defaults to the workspace you’re currently in.
         </p>
         <p>
           The footer also embeds a JSON snapshot of the results in the page source, available
@@ -1508,7 +1508,7 @@ export default async function HelpPage() {
         </p>
         <p>
           The form automatically attaches the page you were on, your signed-in
-          email address, and the browser you&apos;re using — they&apos;re shown
+          email address, and the browser you’re using — they’re shown
           in the dialog before you submit. To keep abuse in check, each account
           can send up to five messages per hour.
         </p>
