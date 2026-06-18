@@ -1260,3 +1260,48 @@ snapshotting but is no longer needed for the algorithm itself.
 - **Scoring-inquiry exclusions.** Designed (see "Scoring-inquiry adjustments"
   above) but not implemented. Defer until a real request comes in — the
   data model for `excludeFromHandicapUpdate` is drafted but not wired up.
+
+### Shared progressive chain across overlapping series
+
+A fleet's season is usually run as **one series** holding all its racing — both
+racing days and every mini-series — with the same boats eligible throughout.
+That shared roster and single place to enter finishes is exactly why scorers
+want to keep it as one series rather than many: HYC Puppeteers race Tuesdays and
+Saturdays across Series 1/2/3; the Howth 17s race a combined Tuesday-and-Saturday
+stream across Series 1/2/3; DBSC Cruisers race Thursdays and Saturdays, with
+class-within-class divisions. The question is how a boat's **progressive
+handicap** (NHC/ECHO) evolves through all that.
+
+Inside the one series, races belong to one or more **independent handicap
+chains** — in practice, one chain per racing day. DBSC and the Puppeteers run a
+separate Thursday/Tuesday chain and Saturday chain that never mix; the Howth
+17s, sailed by the same crowd on both days, run a single combined chain. The
+reason is that a progressive handicap rates a boat **against the others that
+actually sailed**, so when a different crowd sails each day the same boat
+genuinely earns different handicaps. DBSC's example: a mid-fleet boat racing
+Olympians on Thursday and beginners on Saturday settles well below 1.000 on
+Thursday and well above on Saturday; one merged chain would land in between —
+wrong for both days, and it would not self-correct. Choosing to score the days
+separately *is* the scorer's statement that the crowds differ. (This is the
+Sailwave/HalSail treatment DBSC adopted deliberately, away from YR3's single
+carried chain.)
+
+Each chain runs **continuously through its own races**. It carries on across the
+season's mini-series — a boat's Thursday handicap continues from Thursday Series
+1 into Thursday Series 2 — and from one year into the next, where a new season's
+Thursday handicaps start where the last season's ended (today via per-competitor
+starting handicaps; see the carry-over note above).
+
+**Sub-series** are the named results tables — "Series 1 Tuesday", "Saturday
+Overall", and so on. Each one selects which races to score for a particular
+prize; it does **not** compute handicaps, it shows the handicap each race
+already carries from its chain. A boat can appear in several sub-series, and
+sub-series can overlap (a season-long "Tuesday Overall" alongside the per-series
+Tuesday tables). Class-within-class divisions are a separate axis — **fleets**.
+
+So, in one sentence: one series gives shared eligibility; each racing day (or a
+single combined day-set) is its own continuous handicap chain; sub-series are
+the result tables drawn from those chains. The chains never share a race, so
+every race has one handicap per fleet. (Realignment, where a scheme has it, only
+ever moves a chain using its own races — ECHO does none; our NHC1 realigns over
+a race's finishers only.)
