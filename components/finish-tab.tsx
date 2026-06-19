@@ -1,7 +1,7 @@
 'use client';
 
-import type { Ref } from 'react';
-import { X, AlertTriangle, Flag, Scale } from 'lucide-react';
+import { useState, type Ref } from 'react';
+import { X, AlertTriangle, Flag, Scale, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -129,12 +129,38 @@ export function FinishTab(props: FinishTabProps) {
   } = rowOps;
   const codeLabels = NON_FINISHER_CODE_LABELS;
 
+  // The non-finishers panel is a narrow triage list, not a peer of the
+  // finishing order. When it's empty the finishing order takes the full width
+  // (no blank half on a completed race); when populated it sits beside the
+  // order but gets the smaller share. A manual collapse lets the scorer
+  // reclaim the width mid-entry while the list is still non-empty.
+  const [nonFinishersCollapsed, setNonFinishersCollapsed] = useState(false);
+  const hasNonFinishers = nonFinishers.length > 0;
+  const showNonFinishersPanel = hasNonFinishers && !nonFinishersCollapsed;
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div
+      className={cn(
+        'grid grid-cols-1 gap-8',
+        showNonFinishersPanel && 'md:grid-cols-[3fr_2fr]',
+      )}
+    >
       {/* Left: finishing order */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h3 className="font-medium">Finishing order</h3>
+          <div className="flex items-center gap-2">
+          {hasNonFinishers && nonFinishersCollapsed && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setNonFinishersCollapsed(false)}
+              title="Show non-finishers"
+            >
+              <PanelRightOpen className="h-4 w-4" />
+              Non-finishers ({nonFinishers.length})
+            </Button>
+          )}
           {has('csv-finish-import') && (
             <FinishSheetImport
               ref={finishSheetImportRef}
@@ -148,6 +174,7 @@ export function FinishTab(props: FinishTabProps) {
               }
             />
           )}
+          </div>
         </div>
 
         <div className="relative">
@@ -477,21 +504,30 @@ export function FinishTab(props: FinishTabProps) {
         </ol>
       </div>
 
-      {/* Right: non-finishers */}
+      {/* Right: non-finishers. Only rendered when there are any and the panel
+          isn't manually collapsed — otherwise the finishing order spans full
+          width (see the adaptive grid above). */}
+      {showNonFinishersPanel && (
       <div className="space-y-4">
-        <h3 className="font-medium">
-          Non-finishers{' '}
-          <span className="text-sm font-normal text-muted-foreground">
-            ({nonFinishers.length})
-          </span>
-        </h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-medium">
+            Non-finishers{' '}
+            <span className="text-sm font-normal text-muted-foreground">
+              ({nonFinishers.length})
+            </span>
+          </h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setNonFinishersCollapsed(true)}
+            aria-label="Collapse non-finishers"
+            title="Collapse non-finishers"
+          >
+            <PanelRightClose className="h-4 w-4" />
+          </Button>
+        </div>
 
-        {nonFinishers.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            All competitors are in the finishing order.
-          </p>
-        ) : (
-          <div className="space-y-1.5">
+        <div className="space-y-1.5">
             {nonFinishers.map(({ competitor, code }) => (
               <div
                 key={competitor.id}
@@ -543,8 +579,8 @@ export function FinishTab(props: FinishTabProps) {
               </div>
             ))}
           </div>
-        )}
       </div>
+      )}
     </div>
   );
 }
