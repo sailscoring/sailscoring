@@ -158,8 +158,10 @@ export function FinishTab(props: FinishTabProps) {
         showNonFinishersPanel && 'md:grid-cols-[3fr_2fr]',
       )}
     >
-      {/* Left: finishing order */}
-      <div className="space-y-4">
+      {/* Left: finishing order. min-w-0 lets the grid track honour its
+          fraction instead of growing to its content's min size (which would
+          push the panel out of the card). */}
+      <div className="space-y-4 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-medium">Finishing order</h3>
           <div className="flex items-center gap-2">
@@ -537,7 +539,7 @@ export function FinishTab(props: FinishTabProps) {
           isn't manually collapsed — otherwise the finishing order spans full
           width (see the adaptive grid above). */}
       {showNonFinishersPanel && (
-      <div className="space-y-4">
+      <div className="space-y-4 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-medium">
             Non-finishers{' '}
