@@ -117,9 +117,9 @@ export interface PublicSeriesExport {
   races: {
     raceNumber: number;
     date: string;
-    /** Sub-series (block) this race belongs to, by name. Either every race
-     *  names one or none does; importers rebuild the blocks from these. */
-    subSeries?: string;
+    /** Sub-series this race belongs to, by name (many-to-many; a race may be
+     *  in several). Importers rebuild the sub-series from these. */
+    subSeries?: string[];
     starts: {
       fleetNames: string[];
       startTime: string;
@@ -298,7 +298,14 @@ export function buildPublicExportFromSnapshot(
     ratingOverrides: allRatingOverrides,
   } = snapshot;
   if (competitors.length === 0 || races.length === 0) return null;
-  const subSeriesNameById = new Map(subSeries.map((ss) => [ss.id, ss.name]));
+  const subSeriesNamesByRaceId = new Map<string, string[]>();
+  for (const ss of subSeries) {
+    for (const rid of ss.raceIds) {
+      const list = subSeriesNamesByRaceId.get(rid) ?? [];
+      list.push(ss.name);
+      subSeriesNamesByRaceId.set(rid, list);
+    }
+  }
 
   const fleetStandings =
     opts?.fleetStandings ??
@@ -459,13 +466,11 @@ export function buildPublicExportFromSnapshot(
     const echoByFleet = echoByFleetMap && echoByFleetMap.size > 0
       ? Object.fromEntries(echoByFleetMap)
       : undefined;
-    const subSeriesName = race.subSeriesId
-      ? subSeriesNameById.get(race.subSeriesId)
-      : undefined;
+    const subSeriesNames = subSeriesNamesByRaceId.get(race.id);
     return {
       raceNumber: race.raceNumber,
       date: race.date,
-      ...(subSeriesName ? { subSeries: subSeriesName } : {}),
+      ...(subSeriesNames?.length ? { subSeries: subSeriesNames } : {}),
       starts,
       finishes,
       ...(nhcByFleet ? { nhcByFleet } : {}),
@@ -613,11 +618,11 @@ export async function importPublicExport(
       }),
     );
 
-  // Rebuild sub-series from the per-race block names, in race order.
+  // Rebuild sub-series from the per-race names, in first-appearance order.
   const subSeriesIdByName = new Map<string, string>();
   for (const race of data.races) {
-    if (race.subSeries && !subSeriesIdByName.has(race.subSeries)) {
-      subSeriesIdByName.set(race.subSeries, crypto.randomUUID());
+    for (const name of race.subSeries ?? []) {
+      if (!subSeriesIdByName.has(name)) subSeriesIdByName.set(name, crypto.randomUUID());
     }
   }
 
@@ -680,16 +685,11 @@ export async function importPublicExport(
     ),
   );
 
-  if (subSeriesIdByName.size > 0) {
-    await repos.subSeriesRepo.saveMany(
-      [...subSeriesIdByName.entries()].map(([name, id], i) => ({
-        id,
-        seriesId: newSeriesId,
-        name,
-        displayOrder: i,
-      })),
-    );
-  }
+  // Sub-series are saved after races (membership FKs to race rows); collect
+  // each one's race ids during the race loop below.
+  const subSeriesRaceIdsByName = new Map<string, string[]>(
+    [...subSeriesIdByName.keys()].map((name) => [name, []]),
+  );
 
   await Promise.all(
     data.competitors.map((c) => {
@@ -732,10 +732,10 @@ export async function importPublicExport(
       raceNumber: race.raceNumber,
       date: race.date,
       createdAt: now,
-      subSeriesId: race.subSeries
-        ? subSeriesIdByName.get(race.subSeries) ?? null
-        : null,
     });
+    for (const name of race.subSeries ?? []) {
+      subSeriesRaceIdsByName.get(name)?.push(raceId);
+    }
 
     await Promise.all(
       race.starts
@@ -797,6 +797,19 @@ export async function importPublicExport(
       // bulk insert could race against.
       await repos.finishRepo.saveMany(finishes);
     }
+  }
+
+  if (subSeriesIdByName.size > 0) {
+    let displayOrder = 0;
+    await repos.subSeriesRepo.saveMany(
+      [...subSeriesIdByName.entries()].map(([name, id]) => ({
+        id,
+        seriesId: newSeriesId,
+        name,
+        displayOrder: displayOrder++,
+        raceIds: subSeriesRaceIdsByName.get(name) ?? [],
+      })),
+    );
   }
 
   return newSeriesId;

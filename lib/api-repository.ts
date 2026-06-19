@@ -484,7 +484,12 @@ export function listSubSeries(seriesId: string): Promise<SubSeries[]> {
  */
 export function createSubSeries(
   seriesId: string,
-  input: { name: string; firstRaceId?: string; initialName?: string },
+  input: {
+    name: string;
+    raceIds?: string[];
+    startingHandicapSource?: 'base' | 'continue';
+    continueFromSubSeriesId?: string | null;
+  },
 ): Promise<SubSeries> {
   return apiFetch<SubSeries>(`/api/v1/series/${seriesId}/sub-series`, {
     method: 'POST',
@@ -492,7 +497,7 @@ export function createSubSeries(
   });
 }
 
-/** Remove a block; its races merge into the neighbouring block. */
+/** Remove a sub-series; its membership rows are dropped, races untouched. */
 export async function deleteSubSeries(seriesId: string, subSeriesId: string): Promise<void> {
   await apiFetch(`/api/v1/series/${seriesId}/sub-series/${subSeriesId}`, {
     method: 'DELETE',

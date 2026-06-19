@@ -1,9 +1,9 @@
 // @vitest-environment node
 
 /**
- * Integration tests for the sub-series handlers (#203): the split/merge
- * gestures, the full-partition invariant, displayOrder following race
- * order, and new races defaulting into the last block.
+ * Integration tests for the sub-series handlers (#203): membership selection
+ * (many-to-many, overlapping), PUT editing, deletion leaving races and other
+ * sub-series intact, and workspace isolation.
  *
  * Skipped when DATABASE_URL is unset.
  */
@@ -13,7 +13,7 @@ import { eq } from 'drizzle-orm';
 import postgres, { type Sql } from 'postgres';
 
 import * as schema from '@/lib/db/schema';
-import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
+import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import * as series from '@/lib/api-handlers/series';
 import * as races from '@/lib/api-handlers/races';
@@ -108,130 +108,91 @@ describe.skipIf(skip)('sub-series handlers', () => {
     return { seriesId, raceList };
   }
 
-  test('first block with no split point takes every race', async () => {
-    const { seriesId } = await makeSeriesWithRaces(3);
-    const winter = await subSeries.createSubSeries(ctxA, seriesId, { name: 'Winter' });
-    expect(winter.name).toBe('Winter');
-
-    const after = await races.listRaces(ctxA, seriesId);
-    expect(after.every((r) => r.subSeriesId === winter.id)).toBe(true);
-  });
-
-  test('first split partitions the whole series and needs initialName', async () => {
-    const { seriesId, raceList } = await makeSeriesWithRaces(4);
-
-    await expect(
-      subSeries.createSubSeries(ctxA, seriesId, { name: 'Spring', firstRaceId: raceList[2].id }),
-    ).rejects.toBeInstanceOf(BadRequestError);
-
-    const spring = await subSeries.createSubSeries(ctxA, seriesId, {
-      name: 'Spring',
-      firstRaceId: raceList[2].id,
-      initialName: 'Winter',
+  test('create selects the given races', async () => {
+    const { seriesId, raceList } = await makeSeriesWithRaces(3);
+    const ss = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'Tuesdays',
+      raceIds: [raceList[0].id, raceList[2].id],
     });
+    expect(ss.name).toBe('Tuesdays');
+    expect(new Set(ss.raceIds)).toEqual(new Set([raceList[0].id, raceList[2].id]));
 
-    const blocks = await subSeries.listSubSeries(ctxA, seriesId);
-    expect(blocks.map((b) => b.name)).toEqual(['Winter', 'Spring']);
-    expect(blocks.map((b) => b.displayOrder)).toEqual([0, 1]);
-
-    const after = await races.listRaces(ctxA, seriesId);
-    expect(after.map((r) => r.subSeriesId)).toEqual([
-      blocks[0].id, blocks[0].id, spring.id, spring.id,
-    ]);
+    const [reloaded] = await subSeries.listSubSeries(ctxA, seriesId);
+    expect(new Set(reloaded.raceIds)).toEqual(new Set([raceList[0].id, raceList[2].id]));
+    // Races themselves are unchanged.
+    expect((await races.listRaces(ctxA, seriesId)).map((r) => r.raceNumber)).toEqual([1, 2, 3]);
   });
 
-  test('splitting an existing block claims its tail; first race of a block rejects', async () => {
-    const { seriesId, raceList } = await makeSeriesWithRaces(4);
-    await subSeries.createSubSeries(ctxA, seriesId, { name: 'Winter' });
+  test('create with no races is allowed and editable via PUT', async () => {
+    const { seriesId, raceList } = await makeSeriesWithRaces(2);
+    const ss = await subSeries.createSubSeries(ctxA, seriesId, { name: 'Empty' });
+    expect(ss.raceIds).toEqual([]);
 
-    await expect(
-      subSeries.createSubSeries(ctxA, seriesId, { name: 'Spring', firstRaceId: raceList[0].id }),
-    ).rejects.toBeInstanceOf(BadRequestError);
-
-    const spring = await subSeries.createSubSeries(ctxA, seriesId, {
-      name: 'Spring',
-      firstRaceId: raceList[3].id,
+    const updated = await subSeries.putSubSeries(ctxA, seriesId, ss.id, {
+      ...ss, raceIds: [raceList[1].id],
     });
-    const after = await races.listRaces(ctxA, seriesId);
-    expect(after[3].subSeriesId).toBe(spring.id);
-    expect(new Set(after.slice(0, 3).map((r) => r.subSeriesId)).size).toBe(1);
-    expect(after[0].subSeriesId).not.toBe(spring.id);
+    expect(updated.raceIds).toEqual([raceList[1].id]);
+    const [reloaded] = await subSeries.listSubSeries(ctxA, seriesId);
+    expect(reloaded.raceIds).toEqual([raceList[1].id]);
   });
 
-  test('rename round-trips via PUT upsert', async () => {
-    const { seriesId } = await makeSeriesWithRaces(1);
-    const block = await subSeries.createSubSeries(ctxA, seriesId, { name: 'Winter' });
+  test('sub-series may overlap — a race belongs to several', async () => {
+    const { seriesId, raceList } = await makeSeriesWithRaces(3);
+    const all = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'Overall', raceIds: raceList.map((r) => r.id),
+    });
+    const opener = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'Opener', raceIds: [raceList[0].id],
+    });
+    expect(all.raceIds).toHaveLength(3);
+    expect(opener.raceIds).toEqual([raceList[0].id]);
+  });
+
+  test('create drops race ids that belong to another series', async () => {
+    const { seriesId, raceList } = await makeSeriesWithRaces(2);
+    const other = await makeSeriesWithRaces(1);
+    const ss = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'Mixed', raceIds: [raceList[0].id, other.raceList[0].id],
+    });
+    expect(ss.raceIds).toEqual([raceList[0].id]);
+  });
+
+  test('rename round-trips via PUT upsert and keeps membership', async () => {
+    const { seriesId, raceList } = await makeSeriesWithRaces(1);
+    const block = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'Winter', raceIds: [raceList[0].id],
+    });
     const renamed = await subSeries.putSubSeries(ctxA, seriesId, block.id, {
       ...block, name: 'Frostbite Winter',
     });
     expect(renamed.name).toBe('Frostbite Winter');
+    expect(renamed.raceIds).toEqual([raceList[0].id]);
+  });
+
+  test('deleting a sub-series leaves races and other sub-series intact', async () => {
+    const { seriesId, raceList } = await makeSeriesWithRaces(3);
+    const a = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'A', raceIds: [raceList[0].id, raceList[1].id],
+    });
+    await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'B', raceIds: [raceList[1].id, raceList[2].id],
+    });
+
+    await subSeries.deleteSubSeries(ctxA, seriesId, a.id);
+
     const blocks = await subSeries.listSubSeries(ctxA, seriesId);
-    expect(blocks[0].name).toBe('Frostbite Winter');
-  });
-
-  test('deleting a block merges its races into the previous block', async () => {
-    const { seriesId, raceList } = await makeSeriesWithRaces(4);
-    const spring = await subSeries.createSubSeries(ctxA, seriesId, {
-      name: 'Spring',
-      firstRaceId: raceList[2].id,
-      initialName: 'Winter',
-    });
-
-    await subSeries.deleteSubSeries(ctxA, seriesId, spring.id);
-    const blocks = await subSeries.listSubSeries(ctxA, seriesId);
-    expect(blocks.map((b) => b.name)).toEqual(['Winter']);
-    const after = await races.listRaces(ctxA, seriesId);
-    expect(after.every((r) => r.subSeriesId === blocks[0].id)).toBe(true);
-  });
-
-  test('deleting the only block returns the series to blockless', async () => {
-    const { seriesId } = await makeSeriesWithRaces(2);
-    const winter = await subSeries.createSubSeries(ctxA, seriesId, { name: 'Winter' });
-    await subSeries.deleteSubSeries(ctxA, seriesId, winter.id);
-
-    expect(await subSeries.listSubSeries(ctxA, seriesId)).toEqual([]);
-    const after = await races.listRaces(ctxA, seriesId);
-    expect(after.every((r) => r.subSeriesId === null)).toBe(true);
-  });
-
-  test('new races default into the last block', async () => {
-    const { seriesId, raceList } = await makeSeriesWithRaces(2);
-    await subSeries.createSubSeries(ctxA, seriesId, { name: 'Winter' });
-    const spring = await subSeries.createSubSeries(ctxA, seriesId, {
-      name: 'Spring',
-      firstRaceId: raceList[1].id,
-    });
-
-    const raceId = uuid();
-    const created = await races.putRace(ctxA, seriesId, raceId, {
-      id: raceId, seriesId, raceNumber: 3, date: '2026-04-15', createdAt: Date.now(),
-    });
-    expect(created.subSeriesId).toBe(spring.id);
-
-    // An update that omits subSeriesId keeps the existing membership.
-    const updated = await races.putRace(ctxA, seriesId, raceId, {
-      id: raceId, seriesId, raceNumber: 3, date: '2026-04-16', createdAt: created.createdAt,
-    });
-    expect(updated.subSeriesId).toBe(spring.id);
-  });
-
-  test('a race cannot name a sub-series of another series', async () => {
-    const { seriesId } = await makeSeriesWithRaces(1);
-    const other = await makeSeriesWithRaces(1);
-    const otherBlock = await subSeries.createSubSeries(ctxA, other.seriesId, { name: 'Elsewhere' });
-
-    const raceId = uuid();
-    await expect(
-      races.putRace(ctxA, seriesId, raceId, {
-        id: raceId, seriesId, raceNumber: 2, date: '2026-04-15', createdAt: Date.now(),
-        subSeriesId: otherBlock.id,
-      }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(blocks.map((b) => b.name)).toEqual(['B']);
+    expect(blocks[0].displayOrder).toBe(0); // compacted
+    expect(new Set(blocks[0].raceIds)).toEqual(new Set([raceList[1].id, raceList[2].id]));
+    // The races (including the shared one) are untouched.
+    expect((await races.listRaces(ctxA, seriesId)).map((r) => r.raceNumber)).toEqual([1, 2, 3]);
   });
 
   test('cross-workspace access 404s', async () => {
-    const { seriesId } = await makeSeriesWithRaces(1);
-    const block = await subSeries.createSubSeries(ctxA, seriesId, { name: 'Winter' });
+    const { seriesId, raceList } = await makeSeriesWithRaces(1);
+    const block = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'Winter', raceIds: [raceList[0].id],
+    });
 
     await expect(subSeries.listSubSeries(ctxB, seriesId)).rejects.toBeInstanceOf(NotFoundError);
     await expect(

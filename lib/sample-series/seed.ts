@@ -150,7 +150,6 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
           raceNumber: r.raceNumber,
           date: r.date,
           createdAt: new Date(r.createdAt),
-          subSeriesId: r.subSeriesId ?? null,
         });
         return r;
       },
@@ -166,8 +165,16 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
             workspaceId,
             name: ss.name,
             displayOrder: ss.displayOrder,
+            startingHandicapSource: ss.startingHandicapSource ?? 'base',
+            continueFromSubSeriesId: ss.continueFromSubSeriesId ?? null,
           })),
         );
+        const membership = list.flatMap((ss) =>
+          ss.raceIds.map((raceId) => ({ subSeriesId: ss.id, raceId, workspaceId })),
+        );
+        if (membership.length > 0) {
+          await db.insert(schema.subSeriesRaces).values(membership);
+        }
       },
     } as unknown as SeriesFileRepos['subSeriesRepo'],
 

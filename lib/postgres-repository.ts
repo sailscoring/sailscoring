@@ -160,17 +160,17 @@ function raceRowToType(row: RaceRow): Race {
     raceNumber: row.raceNumber,
     date: row.date,
     createdAt: row.createdAt.getTime(),
-    subSeriesId: row.subSeriesId,
     version: row.version,
   };
 }
 
-function subSeriesRowToType(row: SubSeriesRow): SubSeries {
+function subSeriesRowToType(row: SubSeriesRow, raceIds: string[]): SubSeries {
   return {
     id: row.id,
     seriesId: row.seriesId,
     name: row.name,
     displayOrder: row.displayOrder,
+    raceIds,
     startingHandicapSource: row.startingHandicapSource as SubSeries['startingHandicapSource'],
     continueFromSubSeriesId: row.continueFromSubSeriesId,
     version: row.version,
@@ -1016,12 +1016,11 @@ function raceToRow(r: Race, workspaceId: string) {
     raceNumber: r.raceNumber,
     date: r.date,
     createdAt: new Date(r.createdAt),
-    subSeriesId: r.subSeriesId ?? null,
   };
 }
 
 const raceUpdateColumns = [
-  'raceNumber', 'date', 'subSeriesId',
+  'raceNumber', 'date',
 ] as const satisfies readonly (keyof ReturnType<typeof raceToRow>)[];
 
 export class PostgresRaceRepository implements RaceRepository {
@@ -1096,43 +1095,6 @@ export class PostgresRaceRepository implements RaceRepository {
         ),
       );
   }
-
-  /**
-   * Bulk sub-series reassignment — one statement, so a split or merge can't
-   * leave the partition half-rewritten. Deliberately not version-bumped:
-   * block membership isn't CAS-protected; concurrent editors converge on
-   * refetch.
-   */
-  async setSubSeries(
-    seriesId: string,
-    raceIds: string[],
-    subSeriesId: string | null,
-  ): Promise<void> {
-    if (raceIds.length === 0) return;
-    await this.db
-      .update(schema.races)
-      .set({ subSeriesId })
-      .where(
-        and(
-          inArray(schema.races.id, raceIds),
-          eq(schema.races.seriesId, seriesId),
-          eq(schema.races.workspaceId, this.workspaceId),
-        ),
-      );
-  }
-
-  /** Drop every race's sub-series membership (series back to blockless). */
-  async clearSubSeries(seriesId: string): Promise<void> {
-    await this.db
-      .update(schema.races)
-      .set({ subSeriesId: null })
-      .where(
-        and(
-          eq(schema.races.seriesId, seriesId),
-          eq(schema.races.workspaceId, this.workspaceId),
-        ),
-      );
-  }
 }
 
 // ─── Sub-series ───────────────────────────────────────────────────────────────
@@ -1162,6 +1124,54 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
     this.workspaceId = ctx.workspaceId;
   }
 
+  /** Member race ids for each given sub-series id (many-to-many). */
+  private async raceIdsBySubSeries(
+    subSeriesIds: string[],
+  ): Promise<Map<string, string[]>> {
+    const byId = new Map<string, string[]>(subSeriesIds.map((id) => [id, []]));
+    if (subSeriesIds.length === 0) return byId;
+    const rows = await this.db
+      .select({
+        subSeriesId: schema.subSeriesRaces.subSeriesId,
+        raceId: schema.subSeriesRaces.raceId,
+        raceNumber: schema.races.raceNumber,
+      })
+      .from(schema.subSeriesRaces)
+      .innerJoin(schema.races, eq(schema.subSeriesRaces.raceId, schema.races.id))
+      .where(
+        and(
+          inArray(schema.subSeriesRaces.subSeriesId, subSeriesIds),
+          eq(schema.subSeriesRaces.workspaceId, this.workspaceId),
+        ),
+      )
+      .orderBy(schema.races.raceNumber);
+    for (const row of rows) {
+      byId.get(row.subSeriesId)?.push(row.raceId);
+    }
+    return byId;
+  }
+
+  /** Replace a sub-series' membership rows from its `raceIds` (workspace-scoped). */
+  private async writeMembership(subSeriesId: string, raceIds: string[]): Promise<void> {
+    await this.db
+      .delete(schema.subSeriesRaces)
+      .where(
+        and(
+          eq(schema.subSeriesRaces.subSeriesId, subSeriesId),
+          eq(schema.subSeriesRaces.workspaceId, this.workspaceId),
+        ),
+      );
+    const valid = await filterRaceIdsByWorkspace(this.db, this.workspaceId, raceIds);
+    if (valid.length === 0) return;
+    await this.db.insert(schema.subSeriesRaces).values(
+      valid.map((raceId) => ({
+        subSeriesId,
+        raceId,
+        workspaceId: this.workspaceId,
+      })),
+    );
+  }
+
   async listBySeries(seriesId: string): Promise<SubSeries[]> {
     const rows = await this.db
       .select()
@@ -1173,7 +1183,8 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
         ),
       )
       .orderBy(schema.subSeries.displayOrder);
-    return rows.map(subSeriesRowToType);
+    const membership = await this.raceIdsBySubSeries(rows.map((r) => r.id));
+    return rows.map((row) => subSeriesRowToType(row, membership.get(row.id) ?? []));
   }
 
   async get(id: string): Promise<SubSeries | undefined> {
@@ -1187,14 +1198,16 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
         ),
       )
       .limit(1);
-    return row ? subSeriesRowToType(row) : undefined;
+    if (!row) return undefined;
+    const membership = await this.raceIdsBySubSeries([id]);
+    return subSeriesRowToType(row, membership.get(id) ?? []);
   }
 
   async save(s: SubSeries, opts?: SaveOpts): Promise<SubSeries> {
-    return versionedSave({
+    const saved = await versionedSave({
       db: this.db,
       table: schema.subSeries,
-      rowToType: subSeriesRowToType,
+      rowToType: (row) => subSeriesRowToType(row, []),
       workspaceId: this.workspaceId,
       id: s.id,
       values: subSeriesToRow(s, this.workspaceId),
@@ -1202,6 +1215,8 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
       tenancy: { kind: 'workspace' },
       opts,
     });
+    await this.writeMembership(s.id, s.raceIds);
+    return { ...saved, raceIds: [...s.raceIds] };
   }
 
   async saveMany(list: SubSeries[], opts?: SaveOpts): Promise<void> {

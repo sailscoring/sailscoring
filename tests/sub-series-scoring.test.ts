@@ -13,12 +13,19 @@ function makeCompetitor(id: string, seriesId = 's1', fleetId = 'f1'): Competitor
   return { id, seriesId, fleetIds: [fleetId], sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0 };
 }
 
-function makeRace(id: string, raceNumber: number, subSeriesId: string | null = null, seriesId = 's1'): Race {
-  return { id, seriesId, raceNumber, date: '2025-01-01', createdAt: 0, subSeriesId };
+function makeRace(id: string, raceNumber: number, seriesId = 's1'): Race {
+  return { id, seriesId, raceNumber, date: '2025-01-01', createdAt: 0 };
 }
 
-function makeSubSeries(id: string, name: string, displayOrder: number, seriesId = 's1'): SubSeries {
-  return { id, seriesId, name, displayOrder };
+function makeSubSeries(
+  id: string,
+  name: string,
+  displayOrder: number,
+  raceIds: string[] = [],
+  extra: Partial<SubSeries> = {},
+  seriesId = 's1',
+): SubSeries {
+  return { id, seriesId, name, displayOrder, raceIds, ...extra };
 }
 
 function makeFinish(
@@ -37,45 +44,37 @@ const scratchFleet: Fleet = { id: 'f1', seriesId: 's1', name: 'Fleet', displayOr
 // ─── groupRacesBySubSeries ───────────────────────────────────────────────────
 
 describe('groupRacesBySubSeries', () => {
-  it('returns blocks in race order, with their races sorted by raceNumber', () => {
-    const winter = makeSubSeries('w', 'Winter', 1);
-    const spring = makeSubSeries('s', 'Spring', 0); // displayOrder deliberately disagrees with race order
-    const races = [
-      makeRace('r3', 3, 's'),
-      makeRace('r1', 1, 'w'),
-      makeRace('r2', 2, 'w'),
-      makeRace('r4', 4, 's'),
-    ];
+  it('returns sub-series in displayOrder, races sorted by raceNumber', () => {
+    const spring = makeSubSeries('s', 'Spring', 0, ['r4', 'r3']);
+    const winter = makeSubSeries('w', 'Winter', 1, ['r2', 'r1']);
+    const races = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3), makeRace('r4', 4)];
     const blocks = groupRacesBySubSeries([winter, spring], races);
-    expect(blocks.map((b) => b.subSeries.id)).toEqual(['w', 's']);
-    expect(blocks[0].races.map((r) => r.id)).toEqual(['r1', 'r2']);
-    expect(blocks[1].races.map((r) => r.id)).toEqual(['r3', 'r4']);
+    expect(blocks.map((b) => b.subSeries.id)).toEqual(['s', 'w']);
+    expect(blocks[0].races.map((r) => r.id)).toEqual(['r3', 'r4']);
+    expect(blocks[1].races.map((r) => r.id)).toEqual(['r1', 'r2']);
   });
 
-  it('appends blocks with no races yet, in displayOrder', () => {
-    const winter = makeSubSeries('w', 'Winter', 0);
-    const spring = makeSubSeries('s', 'Spring', 1);
-    const blocks = groupRacesBySubSeries([spring, winter], [makeRace('r1', 1, 'w')]);
+  it('keeps a sub-series with no races (empty selection)', () => {
+    const winter = makeSubSeries('w', 'Winter', 0, ['r1']);
+    const spring = makeSubSeries('s', 'Spring', 1, []);
+    const blocks = groupRacesBySubSeries([winter, spring], [makeRace('r1', 1)]);
     expect(blocks.map((b) => b.subSeries.id)).toEqual(['w', 's']);
     expect(blocks[1].races).toEqual([]);
   });
 
-  it('omits races whose subSeriesId is null or unknown', () => {
-    const winter = makeSubSeries('w', 'Winter', 0);
-    const blocks = groupRacesBySubSeries([winter], [
-      makeRace('r1', 1, 'w'),
-      makeRace('r2', 2, null),
-      makeRace('r3', 3, 'gone'),
-    ]);
-    expect(blocks).toHaveLength(1);
-    expect(blocks[0].races.map((r) => r.id)).toEqual(['r1']);
+  it('supports overlapping selections and ignores unknown race ids', () => {
+    const all = makeSubSeries('all', 'Overall', 0, ['r1', 'r2', 'gone']);
+    const odd = makeSubSeries('odd', 'Odd', 1, ['r1']);
+    const blocks = groupRacesBySubSeries([all, odd], [makeRace('r1', 1), makeRace('r2', 2)]);
+    expect(blocks[0].races.map((r) => r.id)).toEqual(['r1', 'r2']);
+    expect(blocks[1].races.map((r) => r.id)).toEqual(['r1']);
   });
 });
 
 // ─── subSeriesEntrantIds ─────────────────────────────────────────────────────
 
 describe('subSeriesEntrantIds', () => {
-  const races = [makeRace('r1', 1, 'w'), makeRace('r2', 2, 'w')];
+  const races = [makeRace('r1', 1), makeRace('r2', 2)];
 
   it('counts finishers and coded results, but not explicit DNC rows', () => {
     const finishes = [
@@ -110,12 +109,12 @@ describe('subSeriesEntrantIds', () => {
 
 describe('calculateSubSeriesFleetStandings (scratch)', () => {
   // Winter: r1–r4 (1 discard at 4 races); Spring: r5–r6 (0 discards).
-  const winter = makeSubSeries('w', 'Winter', 0);
-  const spring = makeSubSeries('s', 'Spring', 1);
   const races = [
-    makeRace('r1', 1, 'w'), makeRace('r2', 2, 'w'), makeRace('r3', 3, 'w'), makeRace('r4', 4, 'w'),
-    makeRace('r5', 5, 's'), makeRace('r6', 6, 's'),
+    makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3), makeRace('r4', 4),
+    makeRace('r5', 5), makeRace('r6', 6),
   ];
+  const winter = makeSubSeries('w', 'Winter', 0, ['r1', 'r2', 'r3', 'r4']);
+  const spring = makeSubSeries('s', 'Spring', 1, ['r5', 'r6']);
   const competitors = ['A', 'B', 'C', 'D', 'E'].map((id) => makeCompetitor(id));
   const discardThresholds = [{ minRaces: 4, discardCount: 1 }];
 
@@ -136,7 +135,7 @@ describe('calculateSubSeriesFleetStandings (scratch)', () => {
   const winterStandings = results[0].fleetStandings[0].standings;
   const springStandings = results[1].fleetStandings[0].standings;
 
-  it('scores each block over its own races', () => {
+  it('scores each sub-series over its own races', () => {
     expect(results.map((r) => r.subSeries.id)).toEqual(['w', 's']);
     expect(results[0].races.map((r) => r.id)).toEqual(['r1', 'r2', 'r3', 'r4']);
     for (const s of winterStandings) expect(s.racePoints).toHaveLength(4);
@@ -166,32 +165,36 @@ describe('calculateSubSeriesFleetStandings (scratch)', () => {
   });
 });
 
-// ─── calculateSubSeriesFleetStandings: progressive chain invariant ──────────
+// ─── calculateSubSeriesFleetStandings: progressive carry ─────────────────────
 
-describe('calculateSubSeriesFleetStandings (NHC chain)', () => {
-  // The Sailwave-verified H17 HPH fixture, split after race 2. Grouping races
-  // into sub-series must not change any boat's rating: every (race,
-  // competitor) applied/new TCF must match the whole-series chain exactly.
+describe('calculateSubSeriesFleetStandings (NHC carry)', () => {
+  // The Sailwave-verified H17 HPH fixture, split after race 2 into Early +
+  // Late, with Late set to *continue* Early's chain. The explicit carry must
+  // reproduce the whole-series chain exactly: every (race, competitor)
+  // applied/new TCF matches a single run over all races.
   const loaded = loadFixturesFromDir(join(__dirname, 'fixtures/scoring/nhc'));
   const h17 = loaded.find((l) => l.yamlPath.endsWith('07-h17-hph-multi-race-base-realign.yaml'));
   if (!h17) throw new Error('H17 NHC fixture not found');
   const inputs = buildFixtureInputs(h17.fixture);
+  const raceIds = inputs.races.map((r) => r.id);
 
-  const early = makeSubSeries('blk-1', 'Early', 0);
-  const late = makeSubSeries('blk-2', 'Late', 1);
-  const races = inputs.races.map((r, i) => ({ ...r, subSeriesId: i < 2 ? 'blk-1' : 'blk-2' }));
+  const early = makeSubSeries('blk-1', 'Early', 0, raceIds.slice(0, 2));
+  const late = makeSubSeries('blk-2', 'Late', 1, raceIds.slice(2), {
+    startingHandicapSource: 'continue',
+    continueFromSubSeriesId: 'blk-1',
+  });
 
   const full = calculateFleetStandings(
-    inputs.fleets, inputs.competitors, races, inputs.finishes,
+    inputs.fleets, inputs.competitors, inputs.races, inputs.finishes,
     inputs.discardThresholds, inputs.dnfScoring, inputs.raceStarts,
   ).fleetStandings[0];
 
   const blocks = calculateSubSeriesFleetStandings(
-    [early, late], inputs.fleets, inputs.competitors, races, inputs.finishes,
+    [early, late], inputs.fleets, inputs.competitors, inputs.races, inputs.finishes,
     inputs.discardThresholds, inputs.dnfScoring, inputs.raceStarts,
   );
 
-  it('reproduces the whole-series TCF chain exactly, block by block', () => {
+  it('reproduces the whole-series TCF chain exactly across the carry', () => {
     const fullByKey = new Map(
       (full.tcfHistory ?? []).map((rec) => [`${rec.raceId}:${rec.competitorId}`, rec]),
     );
@@ -208,11 +211,11 @@ describe('calculateSubSeriesFleetStandings (NHC chain)', () => {
     expect(compared).toBeGreaterThan(0);
   });
 
-  it('seeds the second block from the carried end-of-first-block ratings', () => {
+  it('seeds the Late block from the end-of-Early ratings', () => {
     const lateBlock = blocks[1].fleetStandings[0];
-    const r3 = races[2];
+    const r3 = inputs.races[2];
     const fullEndOfR2 = new Map(
-      (full.tcfHistory ?? []).filter((rec) => rec.raceId === races[1].id).map((rec) => [rec.competitorId, rec.newTcf]),
+      (full.tcfHistory ?? []).filter((rec) => rec.raceId === inputs.races[1].id).map((rec) => [rec.competitorId, rec.newTcf]),
     );
     const lateR3Applied = new Map(
       (lateBlock.tcfHistory ?? []).filter((rec) => rec.raceId === r3.id).map((rec) => [rec.competitorId, rec.tcfApplied]),

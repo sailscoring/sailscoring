@@ -160,6 +160,10 @@ export interface Fixture {
     dnfScoring?: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
   };
   fleet?: FixtureFleet;        // present for handicap/NHC; optional for scratch
+  // When true, each sub-series (in race-appearance order) continues the
+  // previous one's progressive chain (startingHandicapSource: 'continue').
+  // Models a single chain spanning contiguous blocks.
+  subSeriesCarryChain?: boolean;
   competitors: FixtureCompetitor[];
   races: FixtureRace[];
   expected: {
@@ -262,12 +266,6 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       subSeriesIdByName.set(r.subSeries, `ss-${subSeriesIdByName.size}`);
     }
   }
-  const subSeriesList: SubSeries[] = [...subSeriesIdByName.entries()].map(([name, id], i) => ({
-    id,
-    seriesId: 's1',
-    name,
-    displayOrder: i,
-  }));
 
   const races: Race[] = fixture.races.map((r, i) => ({
     id: `r-${i}`,
@@ -275,7 +273,23 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     raceNumber: r.number ?? i + 1,
     date: '2025-01-01',
     createdAt: 0,
-    ...(r.subSeries ? { subSeriesId: subSeriesIdByName.get(r.subSeries)! } : {}),
+  }));
+
+  const raceIdsBySubSeries = new Map<string, string[]>(
+    [...subSeriesIdByName.values()].map((id) => [id, []]),
+  );
+  fixture.races.forEach((r, i) => {
+    if (r.subSeries) raceIdsBySubSeries.get(subSeriesIdByName.get(r.subSeries)!)!.push(races[i].id);
+  });
+  const subSeriesList: SubSeries[] = [...subSeriesIdByName.entries()].map(([name, id], i, arr) => ({
+    id,
+    seriesId: 's1',
+    name,
+    displayOrder: i,
+    raceIds: raceIdsBySubSeries.get(id) ?? [],
+    ...(fixture.subSeriesCarryChain && i > 0
+      ? { startingHandicapSource: 'continue' as const, continueFromSubSeriesId: arr[i - 1][1] }
+      : {}),
   }));
 
   const raceStarts: RaceStart[] = [];

@@ -415,19 +415,6 @@ export async function copySeries(
       );
     }
 
-    // Sub-series — inserted before races so the membership FK resolves.
-    if (sourceSubSeries.length > 0) {
-      await tx.insert(schema.subSeries).values(
-        sourceSubSeries.map((ss) => ({
-          id: subSeriesIdMap.get(ss.id)!,
-          seriesId: newSeriesId,
-          workspaceId: targetWorkspaceId,
-          name: ss.name,
-          displayOrder: ss.displayOrder,
-        })),
-      );
-    }
-
     // Races.
     if (sourceRaces.length > 0) {
       await tx.insert(schema.races).values(
@@ -438,10 +425,39 @@ export async function copySeries(
           raceNumber: r.raceNumber,
           date: r.date,
           createdAt: new Date(r.createdAt),
-          subSeriesId:
-            r.subSeriesId != null ? subSeriesIdMap.get(r.subSeriesId) ?? null : null,
         })),
       );
+    }
+
+    // Sub-series — after races so the membership FK resolves.
+    if (sourceSubSeries.length > 0) {
+      await tx.insert(schema.subSeries).values(
+        sourceSubSeries.map((ss) => ({
+          id: subSeriesIdMap.get(ss.id)!,
+          seriesId: newSeriesId,
+          workspaceId: targetWorkspaceId,
+          name: ss.name,
+          displayOrder: ss.displayOrder,
+          startingHandicapSource: ss.startingHandicapSource ?? 'base',
+          continueFromSubSeriesId:
+            ss.continueFromSubSeriesId != null
+              ? subSeriesIdMap.get(ss.continueFromSubSeriesId) ?? null
+              : null,
+        })),
+      );
+      const membership = sourceSubSeries.flatMap((ss) =>
+        ss.raceIds
+          .map((rid) => raceIdMap.get(rid))
+          .filter((rid): rid is string => rid !== undefined)
+          .map((raceId) => ({
+            subSeriesId: subSeriesIdMap.get(ss.id)!,
+            raceId,
+            workspaceId: targetWorkspaceId,
+          })),
+      );
+      if (membership.length > 0) {
+        await tx.insert(schema.subSeriesRaces).values(membership);
+      }
     }
 
     // Race starts — fleet ids and parent race id need remapping.

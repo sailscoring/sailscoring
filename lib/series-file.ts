@@ -201,7 +201,9 @@ interface SeriesFileRace {
   id: string;
   raceNumber: number;
   date: string;
-  subSeriesId?: string;  // v9+; sub-series membership, absent when blockless
+  /** @deprecated pre-reshape v9 partition membership; read for back-compat,
+   *  no longer written (membership now lives in `subSeries[*].raceIds`). */
+  subSeriesId?: string;
   starts: SeriesFileRaceStart[];
   finishes: SeriesFileFinish[];
   ratingOverrides?: SeriesFileRatingOverride[]; // additive; absent in older files
@@ -211,6 +213,11 @@ interface SeriesFileSubSeries {
   id: string;
   name: string;
   displayOrder: number;
+  // Race membership. New shape; absent on pre-reshape v9 files, where it is
+  // derived from `races[*].subSeriesId` on load.
+  raceIds?: string[];
+  startingHandicapSource?: 'base' | 'continue';
+  continueFromSubSeriesId?: string;
 }
 
 interface SeriesFileTcfRecord {
@@ -397,7 +404,6 @@ export async function buildSeriesFile(
       id: r.id,
       raceNumber: r.raceNumber,
       date: r.date,
-      ...(r.subSeriesId ? { subSeriesId: r.subSeriesId } : {}),
       starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
       ...(overridesByRace.get(r.id)?.length ? { ratingOverrides: overridesByRace.get(r.id) } : {}),
@@ -408,6 +414,13 @@ export async function buildSeriesFile(
             id: ss.id,
             name: ss.name,
             displayOrder: ss.displayOrder,
+            raceIds: ss.raceIds,
+            ...(ss.startingHandicapSource && ss.startingHandicapSource !== 'base'
+              ? { startingHandicapSource: ss.startingHandicapSource }
+              : {}),
+            ...(ss.continueFromSubSeriesId
+              ? { continueFromSubSeriesId: ss.continueFromSubSeriesId }
+              : {}),
           })),
         }
       : {}),
@@ -915,20 +928,10 @@ async function writeFleetsCompetitorsRaces(
     }),
   );
 
-  // Sub-series before races: race rows reference their block.
+  // Sub-series id remapping (saved after races: membership FKs to races).
   const subSeriesIdMap = new Map(
     (file.subSeries ?? []).map((ss) => [ss.id, crypto.randomUUID()]),
   );
-  if (file.subSeries?.length) {
-    await repos.subSeriesRepo.saveMany(
-      file.subSeries.map((ss) => ({
-        id: subSeriesIdMap.get(ss.id)!,
-        seriesId,
-        name: ss.name,
-        displayOrder: ss.displayOrder,
-      })),
-    );
-  }
 
   // Races sequentially because their starts and finishes FK back to the
   // race row that has to exist first. Inside each race we batch.
@@ -940,8 +943,6 @@ async function writeFleetsCompetitorsRaces(
       raceNumber: r.raceNumber,
       date: r.date,
       createdAt: now,
-      subSeriesId:
-        r.subSeriesId != null ? subSeriesIdMap.get(r.subSeriesId) ?? null : null,
     });
 
     await repos.raceStartRepo.saveMany(
@@ -1000,6 +1001,47 @@ async function writeFleetsCompetitorsRaces(
         };
       });
       await repos.finishRepo.saveMany(finishes);
+    }
+  }
+
+  // Sub-series after races: membership (raceIds) FKs to the race rows. New
+  // files carry `subSeries[*].raceIds`; pre-reshape v9 files derive membership
+  // from `races[*].subSeriesId`. continueFrom is patched in a second pass so a
+  // 'continue' source is guaranteed to exist when referenced.
+  if (file.subSeries?.length) {
+    const mapRaceIds = (ss: SeriesFileSubSeries): string[] => {
+      const oldIds = ss.raceIds ?? file.races
+        .filter((r) => r.subSeriesId === ss.id)
+        .map((r) => r.id);
+      return oldIds
+        .map((rid) => raceIdMap.get(rid))
+        .filter((rid): rid is string => rid !== undefined);
+    };
+    await repos.subSeriesRepo.saveMany(
+      file.subSeries.map((ss) => ({
+        id: subSeriesIdMap.get(ss.id)!,
+        seriesId,
+        name: ss.name,
+        displayOrder: ss.displayOrder,
+        raceIds: mapRaceIds(ss),
+        startingHandicapSource: ss.startingHandicapSource,
+      })),
+    );
+    const withCarry = file.subSeries.filter(
+      (ss) => ss.startingHandicapSource === 'continue' && ss.continueFromSubSeriesId,
+    );
+    if (withCarry.length > 0) {
+      await repos.subSeriesRepo.saveMany(
+        withCarry.map((ss) => ({
+          id: subSeriesIdMap.get(ss.id)!,
+          seriesId,
+          name: ss.name,
+          displayOrder: ss.displayOrder,
+          raceIds: mapRaceIds(ss),
+          startingHandicapSource: ss.startingHandicapSource,
+          continueFromSubSeriesId: subSeriesIdMap.get(ss.continueFromSubSeriesId!) ?? null,
+        })),
+      );
     }
   }
 

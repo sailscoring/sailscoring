@@ -1724,36 +1724,49 @@ export function subSeriesEntrantIds(blockRaces: Race[], allFinishes: Finish[]): 
 }
 
 /**
- * Group a series' races into its sub-series. Blocks are returned in race
- * order (the order their first race appears in the raceNumber-sorted list),
- * followed by any blocks that have no races yet, in displayOrder. Races with
- * no subSeriesId are omitted — under the full-partition invariant that only
- * happens in a series with no sub-series at all, which callers score via
- * {@link calculateFleetStandings} instead.
+ * Resolve each sub-series' selected races (its `raceIds` membership), sorted by
+ * raceNumber. Sub-series are returned in displayOrder. A sub-series may select
+ * any subset of the series' races and selections may overlap.
  */
 export function groupRacesBySubSeries(
   subSeriesList: SubSeries[],
   races: Race[],
 ): { subSeries: SubSeries; races: Race[] }[] {
+  const byId = new Map(races.map((r) => [r.id, r]));
+  return [...subSeriesList]
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map((subSeries) => ({
+      subSeries,
+      races: subSeries.raceIds
+        .map((id) => byId.get(id))
+        .filter((r): r is Race => r !== undefined)
+        .sort((a, b) => a.raceNumber - b.raceNumber),
+    }));
+}
+
+/**
+ * Order sub-series so any `continue`-from source is computed before the
+ * sub-series that continues it. Falls back to displayOrder and tolerates
+ * cycles (a cyclic edge is simply ignored, the dependent seeding from base).
+ */
+function orderSubSeriesForComputation(subSeriesList: SubSeries[]): SubSeries[] {
   const byId = new Map(subSeriesList.map((s) => [s.id, s]));
-  const sortedRaces = [...races].sort((a, b) => a.raceNumber - b.raceNumber);
-  const grouped = new Map<string, Race[]>();
-  for (const race of sortedRaces) {
-    if (!race.subSeriesId || !byId.has(race.subSeriesId)) continue;
-    const list = grouped.get(race.subSeriesId) ?? [];
-    list.push(race);
-    grouped.set(race.subSeriesId, list);
+  const done = new Set<string>();
+  const out: SubSeries[] = [];
+  const visit = (s: SubSeries, stack: Set<string>): void => {
+    if (done.has(s.id) || stack.has(s.id)) return;
+    stack.add(s.id);
+    const depId = s.startingHandicapSource === 'continue' ? s.continueFromSubSeriesId : null;
+    const dep = depId ? byId.get(depId) : undefined;
+    if (dep) visit(dep, stack);
+    stack.delete(s.id);
+    done.add(s.id);
+    out.push(s);
+  };
+  for (const s of [...subSeriesList].sort((a, b) => a.displayOrder - b.displayOrder)) {
+    visit(s, new Set());
   }
-  const result = [...grouped.entries()].map(([id, blockRaces]) => ({
-    subSeries: byId.get(id)!,
-    races: blockRaces,
-  }));
-  const withRaces = new Set(grouped.keys());
-  const emptyBlocks = subSeriesList
-    .filter((s) => !withRaces.has(s.id))
-    .sort((a, b) => a.displayOrder - b.displayOrder);
-  result.push(...emptyBlocks.map((subSeries) => ({ subSeries, races: [] as Race[] })));
-  return result;
+  return out;
 }
 
 /** Standings for one sub-series: the block's races scored independently. */
@@ -1769,17 +1782,18 @@ export interface SubSeriesStandings {
  * Calculate standings for every sub-series of a series, every fleet within
  * every block.
  *
- * Each block is scored independently: its own discards (the series-level
- * thresholds applied to the block's race count), tie-breaks, and RDG pools,
- * over the block's entrants (see {@link subSeriesEntrantIds}).
+ * Each sub-series is scored independently over its selected races: its own
+ * discards (the series-level thresholds applied to the selection's race count),
+ * tie-breaks, and RDG pools, over the selection's entrants (see
+ * {@link subSeriesEntrantIds}).
  *
- * Progressive (NHC/ECHO) ratings chain across block boundaries: blocks are
- * computed in race order and each block's applied TCFs are seeded from the
- * carried end-of-previous-block values, while realignment stays anchored to
- * the series-initial base ratings. The per-race ratings are therefore
- * identical to what one whole-series chain produces — grouping races into
- * sub-series never changes any boat's rating, only how points are
- * aggregated.
+ * Progressive (NHC/ECHO) ratings are computed independently per sub-series over
+ * its own races — a boat racing a different fleet on a different day genuinely
+ * earns a different handicap. Continuity is explicit: a sub-series whose
+ * `startingHandicapSource` is 'continue' seeds its chain from the end-of-chain
+ * ratings of `continueFromSubSeriesId` (computed first), which is arithmetically
+ * identical to one chain spanning both. See the handicap-scoring design doc,
+ * "Shared progressive chain across overlapping series".
  */
 export function calculateSubSeriesFleetStandings(
   subSeriesList: SubSeries[],
@@ -1792,19 +1806,29 @@ export function calculateSubSeriesFleetStandings(
   raceStarts: RaceStart[] = [],
   ratingOverrides: RaceRatingOverride[] = [],
 ): SubSeriesStandings[] {
-  const blocks = groupRacesBySubSeries(subSeriesList, races);
+  const racesById = new Map(races.map((r) => [r.id, r]));
+  const memberRaces = (ss: SubSeries): Race[] =>
+    ss.raceIds
+      .map((id) => racesById.get(id))
+      .filter((r): r is Race => r !== undefined)
+      .sort((a, b) => a.raceNumber - b.raceNumber);
 
-  // Carried progressive ratings, fleetId → competitorId → TCF. Updated from
-  // each block's TCF history so the next block seeds where this one ended; a
-  // boat that sits out a block keeps its carried rating.
-  const carriedTcfByFleetId = new Map<string, Map<string, number>>();
+  // End-of-chain applied ratings of each computed sub-series, for 'continue'
+  // dependents: subSeriesId → fleetId → competitorId → TCF.
+  const endTcfBySubSeries = new Map<string, Map<string, Map<string, number>>>();
+  const resultBySubSeriesId = new Map<string, SubSeriesStandings>();
 
-  const results: SubSeriesStandings[] = [];
-  for (const { subSeries, races: blockRaces } of blocks) {
+  for (const subSeries of orderSubSeriesForComputation(subSeriesList)) {
+    const blockRaces = memberRaces(subSeries);
     const blockRaceIds = new Set(blockRaces.map((r) => r.id));
     const blockFinishes = allFinishes.filter((f) => blockRaceIds.has(f.raceId));
     const entrantIds = subSeriesEntrantIds(blockRaces, blockFinishes);
     const entrants = competitors.filter((c) => entrantIds.has(c.id));
+
+    const seedTcfs =
+      subSeries.startingHandicapSource === 'continue' && subSeries.continueFromSubSeriesId
+        ? endTcfBySubSeries.get(subSeries.continueFromSubSeriesId)
+        : undefined;
 
     const { fleetStandings, circularRedressRaces } = calculateFleetStandings(
       fleets,
@@ -1815,23 +1839,32 @@ export function calculateSubSeriesFleetStandings(
       dnfScoring,
       raceStarts,
       ratingOverrides,
-      carriedTcfByFleetId,
+      seedTcfs,
     );
 
+    const endByFleet = new Map<string, Map<string, number>>();
     for (const entry of fleetStandings) {
       if (!entry.tcfHistory || entry.tcfHistory.length === 0) continue;
-      const carried = carriedTcfByFleetId.get(entry.fleet.id) ?? new Map<string, number>();
-      // History records are in race order, so sequential writes leave each
-      // competitor's end-of-block rating in the map.
-      for (const record of entry.tcfHistory) {
-        carried.set(record.competitorId, record.newTcf);
-      }
-      carriedTcfByFleetId.set(entry.fleet.id, carried);
+      const ratings = new Map<string, number>();
+      // History records are in race order, so the last write per competitor
+      // leaves its end-of-chain rating.
+      for (const record of entry.tcfHistory) ratings.set(record.competitorId, record.newTcf);
+      endByFleet.set(entry.fleet.id, ratings);
     }
+    endTcfBySubSeries.set(subSeries.id, endByFleet);
 
-    results.push({ subSeries, races: blockRaces, fleetStandings, circularRedressRaces });
+    resultBySubSeriesId.set(subSeries.id, {
+      subSeries,
+      races: blockRaces,
+      fleetStandings,
+      circularRedressRaces,
+    });
   }
-  return results;
+
+  // Return in display order regardless of the computation order above.
+  return groupRacesBySubSeries(subSeriesList, races).map(
+    (g) => resultBySubSeriesId.get(g.subSeries.id)!,
+  );
 }
 
 /**

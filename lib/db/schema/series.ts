@@ -11,6 +11,7 @@ import {
   real,
   index,
   uniqueIndex,
+  primaryKey,
   check,
   customType,
 } from 'drizzle-orm/pg-core';
@@ -446,11 +447,6 @@ export const races = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
-    // Sub-series membership; `set null` is the safety net for raw deletes —
-    // the API merges a deleted block's races into a neighbour first.
-    subSeriesId: uuid('sub_series_id').references(() => subSeries.id, {
-      onDelete: 'set null',
-    }),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,
@@ -458,7 +454,31 @@ export const races = pgTable(
   (table) => [
     uniqueIndex('races_series_number_uidx').on(table.seriesId, table.raceNumber),
     index('races_workspace_idx').on(table.workspaceId),
-    index('races_sub_series_idx').on(table.subSeriesId),
+  ],
+);
+
+/**
+ * Sub-series ↔ race membership (many-to-many): a sub-series is a named
+ * selection of races, and a race may belong to several sub-series. Replaces the
+ * old single `races.sub_series_id` partition FK.
+ */
+export const subSeriesRaces = pgTable(
+  'sub_series_races',
+  {
+    subSeriesId: uuid('sub_series_id')
+      .notNull()
+      .references(() => subSeries.id, { onDelete: 'cascade' }),
+    raceId: uuid('race_id')
+      .notNull()
+      .references(() => races.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.subSeriesId, table.raceId] }),
+    index('sub_series_races_race_idx').on(table.raceId),
+    index('sub_series_races_workspace_idx').on(table.workspaceId),
   ],
 );
 

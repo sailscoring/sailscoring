@@ -11,24 +11,22 @@ export const subSeriesSchema = z.object({
   seriesId: uuidSchema,
   name: subSeriesNameSchema,
   displayOrder: z.number().int(),
+  raceIds: z.array(uuidSchema),
   startingHandicapSource: z.enum(['base', 'continue']).optional(),
   continueFromSubSeriesId: uuidSchema.nullish(),
   version: versionSchema,
 });
 
 /**
- * POST /api/v1/series/:id/sub-series — the "start a new sub-series here"
- * gesture. The new block runs from `firstRaceId` to the end of the block
- * that contained it (or of the whole race list when the series has no
- * sub-series yet). Omitting `firstRaceId` groups every race into the new
- * block when none exist, or appends an empty block when some do.
- * `initialName` names the block created for the races before `firstRaceId`
- * on the first split — required exactly then.
+ * POST /api/v1/series/:id/sub-series — create a sub-series (a named selection
+ * of races). `raceIds` is the initial selection (may be empty and edited later
+ * via PUT). The carry source is optional.
  */
 export const subSeriesCreateInputSchema = z.object({
   name: subSeriesNameSchema,
-  firstRaceId: uuidSchema.optional(),
-  initialName: subSeriesNameSchema.optional(),
+  raceIds: z.array(uuidSchema).optional(),
+  startingHandicapSource: z.enum(['base', 'continue']).optional(),
+  continueFromSubSeriesId: uuidSchema.nullish(),
 });
 
 export const subSeriesInputSchema = subSeriesSchema.extend({

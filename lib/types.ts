@@ -226,6 +226,9 @@ export interface SubSeries {
   seriesId: string;
   name: string;
   displayOrder: number;
+  // The races this sub-series selects (many-to-many; races may belong to
+  // several sub-series). Scoring orders them by raceNumber regardless.
+  raceIds: string[];
   // Seed source for this sub-series' progressive chain (default 'base').
   startingHandicapSource?: StartingHandicapSource;
   continueFromSubSeriesId?: string | null;
@@ -238,9 +241,6 @@ export interface Race {
   raceNumber: number;
   date: string;        // ISO date string
   createdAt: number;
-  // Sub-series membership. Null/absent when the series has no sub-series;
-  // always set when it does (full-partition invariant, enforced server-side).
-  subSeriesId?: string | null;
   version?: number;    // server-side concurrency token (see Series.version)
 }
 

@@ -1,10 +1,9 @@
 import 'server-only';
 
-import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
+import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
 import { trackChange } from '@/lib/revision-log';
-import { groupRacesBySubSeries } from '@/lib/scoring';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
 import {
   subSeriesCreateInputSchema,
@@ -13,11 +12,10 @@ import {
 import type { SubSeries } from '@/lib/types';
 
 /**
- * Sub-series (#203): named blocks of races inside one series, each scored
- * independently. The handlers here maintain the full-partition invariant —
- * a series has either no sub-series (every race's subSeriesId null) or
- * every race assigned to one — and keep displayOrder matching race order,
- * so clients can trust both without re-deriving them.
+ * Sub-series (#203): named selections of races inside one series, each scored
+ * independently over its own races (HalSail "tandem series"). Membership is
+ * many-to-many — a race may belong to several sub-series — and lives on the
+ * sub-series' `raceIds`, not on the race. displayOrder is kept contiguous.
  */
 
 async function assertSeriesInWorkspace(
@@ -38,25 +36,17 @@ export async function listSubSeries(
   return repos.subSeries.listBySeries(seriesId);
 }
 
-/**
- * Rewrite displayOrder to match race order (blocks with no races keep their
- * relative order at the end — groupRacesBySubSeries's contract).
- */
+/** Compact displayOrder to 0..n-1 (sub-series are listed in displayOrder). */
 async function renumberSubSeries(
   workspace: WorkspaceContext,
   seriesId: string,
 ): Promise<void> {
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  const [blocks, races] = await Promise.all([
-    repos.subSeries.listBySeries(seriesId),
-    repos.races.listBySeries(seriesId),
-  ]);
-  const ordered = groupRacesBySubSeries(blocks, races);
-  for (let i = 0; i < ordered.length; i++) {
-    const block = ordered[i].subSeries;
-    if (block.displayOrder !== i) {
+  const blocks = await repos.subSeries.listBySeries(seriesId);
+  for (let i = 0; i < blocks.length; i++) {
+    if (blocks[i].displayOrder !== i) {
       await repos.subSeries.save(
-        { ...block, displayOrder: i },
+        { ...blocks[i], displayOrder: i },
         { updatedBy: workspace.userId },
       );
     }
@@ -64,11 +54,9 @@ async function renumberSubSeries(
 }
 
 /**
- * The "start a new sub-series here" gesture. The new block runs from
- * `firstRaceId` to the end of the block containing it (or of the whole race
- * list when the series has no sub-series yet). The first split of a
- * blockless series partitions every race, so `initialName` must name the
- * block for the races before `firstRaceId` exactly when there are any.
+ * Create a sub-series — a named selection of races. `raceIds` is the initial
+ * selection (filtered to this series' races; may be empty and edited later via
+ * PUT). The new sub-series sorts after any existing ones.
  */
 export async function createSubSeries(
   workspace: WorkspaceContext,
@@ -81,89 +69,35 @@ export async function createSubSeries(
 
   const [blocks, races] = await Promise.all([
     repos.subSeries.listBySeries(seriesId),
-    repos.races.listBySeries(seriesId), // ordered by raceNumber
+    repos.races.listBySeries(seriesId),
   ]);
+  const seriesRaceIds = new Set(races.map((r) => r.id));
 
-  const newBlock: SubSeries = {
-    id: crypto.randomUUID(),
-    seriesId,
-    name: input.name,
-    displayOrder: blocks.length,
-  };
-
-  let claimedRaceIds: string[] = [];
-  let initialBlock: SubSeries | undefined;
-
-  if (input.firstRaceId !== undefined) {
-    const firstRace = races.find((r) => r.id === input.firstRaceId);
-    if (!firstRace) throw new NotFoundError('race');
-
-    if (blocks.length === 0) {
-      const before = races.filter((r) => r.raceNumber < firstRace.raceNumber);
-      claimedRaceIds = races
-        .filter((r) => r.raceNumber >= firstRace.raceNumber)
-        .map((r) => r.id);
-      if (before.length > 0) {
-        if (!input.initialName) {
-          throw new BadRequestError(
-            'initialName is required: the races before the split need a sub-series too',
-          );
-        }
-        initialBlock = {
-          id: crypto.randomUUID(),
-          seriesId,
-          name: input.initialName,
-          displayOrder: 0,
-        };
-      }
-    } else {
-      const containing = blocks.find((b) => b.id === firstRace.subSeriesId);
-      if (!containing) {
-        throw new BadRequestError('race is not in any sub-series');
-      }
-      const containingRaces = races.filter((r) => r.subSeriesId === containing.id);
-      if (containingRaces[0]?.id === firstRace.id) {
-        throw new BadRequestError('race already starts a sub-series');
-      }
-      claimedRaceIds = containingRaces
-        .filter((r) => r.raceNumber >= firstRace.raceNumber)
-        .map((r) => r.id);
-    }
-  } else if (blocks.length === 0) {
-    // No split point: the new block takes every race (possibly none yet).
-    claimedRaceIds = races.map((r) => r.id);
-  }
-  // Blocks exist and no firstRaceId: append an empty block — new races
-  // default into the last block, so this is "create the next block before
-  // its races exist".
-
-  if (initialBlock) {
-    await repos.subSeries.save(initialBlock, { updatedBy: workspace.userId });
-    await repos.races.setSubSeries(
+  const saved = await repos.subSeries.save(
+    {
+      id: crypto.randomUUID(),
       seriesId,
-      races.filter((r) => !claimedRaceIds.includes(r.id)).map((r) => r.id),
-      initialBlock.id,
-    );
-  }
-  const saved = await repos.subSeries.save(newBlock, { updatedBy: workspace.userId });
-  await repos.races.setSubSeries(seriesId, claimedRaceIds, saved.id);
-  await renumberSubSeries(workspace, seriesId);
+      name: input.name,
+      displayOrder: blocks.length,
+      raceIds: (input.raceIds ?? []).filter((id) => seriesRaceIds.has(id)),
+      startingHandicapSource: input.startingHandicapSource,
+      continueFromSubSeriesId: input.continueFromSubSeriesId ?? null,
+    },
+    { updatedBy: workspace.userId },
+  );
 
   await trackChange(workspace, {
     action: 'sub-series.created',
     seriesId,
-    summary: initialBlock
-      ? `Split races into sub-series ${initialBlock.name} and ${saved.name}`
-      : `Added sub-series ${saved.name}`,
+    summary: `Added sub-series ${saved.name}`,
     sessionKey: 'sub-series',
   });
   return saved;
 }
 
 /**
- * Plain upsert (PUT). The interactive rename gesture and the file-import
- * replay both land here; the split gesture with its partition rewriting is
- * the POST (createSubSeries).
+ * Plain upsert (PUT). The interactive rename/edit gestures and the file-import
+ * replay land here; `raceIds` is filtered to this series' races.
  */
 export async function putSubSeries(
   workspace: WorkspaceContext,
@@ -178,9 +112,13 @@ export async function putSubSeries(
   if (id !== pathSubSeriesId) throw new NotFoundError('sub-series id mismatch');
   if (input.seriesId !== seriesId) throw new NotFoundError('sub-series series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  const existing = await repos.subSeries.get(id);
+  const [existing, races] = await Promise.all([
+    repos.subSeries.get(id),
+    repos.races.listBySeries(seriesId),
+  ]);
+  const seriesRaceIds = new Set(races.map((r) => r.id));
   const saved = await repos.subSeries.save(
-    { ...input, id },
+    { ...input, id, raceIds: input.raceIds.filter((rid) => seriesRaceIds.has(rid)) },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
   await trackChange(workspace, {
@@ -196,9 +134,8 @@ export async function putSubSeries(
 }
 
 /**
- * Raw collection delete: drop every block and return the series to
- * blockless. The file-import replace path; the interactive "remove this
- * block" with merge semantics is deleteSubSeries below.
+ * Raw collection delete: drop every sub-series (membership rows cascade). The
+ * file-import replace path.
  */
 export async function bulkDeleteSubSeries(
   workspace: WorkspaceContext,
@@ -206,7 +143,6 @@ export async function bulkDeleteSubSeries(
 ): Promise<void> {
   await assertSeriesWritable(workspace, seriesId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  await repos.races.clearSubSeries(seriesId);
   await repos.subSeries.deleteBySeries(seriesId);
   await trackChange(workspace, {
     action: 'sub-series.cleared',
@@ -217,9 +153,8 @@ export async function bulkDeleteSubSeries(
 }
 
 /**
- * Remove a sub-series. Its races merge into the previous block (the next
- * block when it is first); deleting the only block returns the series to
- * blockless — every race's subSeriesId nulled.
+ * Remove a sub-series. Its membership rows cascade away; the races themselves
+ * are untouched (they may belong to other sub-series, or to none).
  */
 export async function deleteSubSeries(
   workspace: WorkspaceContext,
@@ -231,31 +166,13 @@ export async function deleteSubSeries(
   const existing = await repos.subSeries.get(subSeriesId);
   if (!existing || existing.seriesId !== seriesId) return;
 
-  const [blocks, races] = await Promise.all([
-    repos.subSeries.listBySeries(seriesId),
-    repos.races.listBySeries(seriesId),
-  ]);
-  const ordered = groupRacesBySubSeries(blocks, races);
-  const idx = ordered.findIndex((b) => b.subSeries.id === subSeriesId);
-  const target = ordered[idx - 1]?.subSeries ?? ordered[idx + 1]?.subSeries;
-  const orphanedRaceIds = races
-    .filter((r) => r.subSeriesId === subSeriesId)
-    .map((r) => r.id);
-
-  if (target) {
-    await repos.races.setSubSeries(seriesId, orphanedRaceIds, target.id);
-  } else {
-    await repos.races.clearSubSeries(seriesId);
-  }
   await repos.subSeries.delete(subSeriesId);
   await renumberSubSeries(workspace, seriesId);
 
   await trackChange(workspace, {
     action: 'sub-series.deleted',
     seriesId,
-    summary: target && orphanedRaceIds.length > 0
-      ? `Removed sub-series ${existing.name} (races merged into ${target.name})`
-      : `Removed sub-series ${existing.name}`,
+    summary: `Removed sub-series ${existing.name}`,
     sessionKey: 'sub-series',
   });
 }
