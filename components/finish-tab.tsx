@@ -459,6 +459,21 @@ export function FinishTab(props: FinishTabProps) {
                       saveFinish.mutate(updated);
                       reslotTimedRow(competitorId, normalized);
                     }}
+                    onKeyDown={(e) => {
+                      // Enter commits the edit (blur runs the normalize + save
+                      // path); Escape discards it. Without this, the only way to
+                      // persist was to Tab/click away, which scorers don't expect.
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        // Restore the saved value before blurring so onBlur sees
+                        // no change and skips the save.
+                        e.currentTarget.value = finishTimes.get(entry.competitorId) ?? '';
+                        e.currentTarget.blur();
+                      }
+                    }}
                     placeholder="HH:MM:SS"
                     aria-label={`Finish time for ${competitor.sailNumber}`}
                     data-testid={`finish-time-${competitor.sailNumber}`}

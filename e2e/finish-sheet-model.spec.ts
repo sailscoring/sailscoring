@@ -207,6 +207,85 @@ test('auto-slot: a late timed entry inserts at its correct crossing-order slot',
   await expect(row(2)).toContainText('A3');
 });
 
+test('edit finish time: re-slots to the new position and persists the new time', async ({ page }) => {
+  // Regression: editing a timed row's finish time used to re-slot the row but
+  // write the *old* time back (the re-slot's order-renumber spread a stale
+  // finish snapshot over the just-saved time), so the row moved yet displayed
+  // and published the old time.
+  await createSeriesQuick(page, { name: 'Edit Time Cup' });
+
+  await createFleets(page, ['PY']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'PY' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  for (const c of [
+    { sail: 'A1', name: 'Alice' },
+    { sail: 'A2', name: 'Bob' },
+    { sail: 'A3', name: 'Carol' },
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sail);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sail })).toBeVisible();
+  }
+  for (const sail of ['A1', 'A2', 'A3']) {
+    const r = page.getByRole('row').filter({ hasText: sail });
+    await r.click();
+    await page.getByLabel('PY number', { exact: true }).fill('1000');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: sail })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByRole('checkbox', { name: 'PY' }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('14:00:00')).toBeVisible();
+
+  // Enter A1, A2, A3 in crossing order.
+  for (const [sail, time] of [
+    ['A1', '14:10:00'],
+    ['A2', '14:20:00'],
+    ['A3', '14:30:00'],
+  ] as const) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(time);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+
+  const row = (n: number) => page.getByRole('listitem').nth(n);
+  await expect(row(0)).toContainText('A1');
+  await expect(row(2)).toContainText('A3');
+
+  // Edit A1's time to 14:25:00 (between A2 and A3) and commit with Enter.
+  const a1 = page.getByTestId('finish-time-A1');
+  await a1.fill('14:25:00');
+  await a1.press('Enter');
+
+  // A1 re-slots between A2 and A3 …
+  await expect(row(0)).toContainText('A2');
+  await expect(row(1)).toContainText('A1');
+  await expect(row(2)).toContainText('A3');
+  // … and shows the NEW time (the bug showed 14:10:00 here).
+  await expect(page.getByTestId('finish-time-A1')).toHaveValue('14:25:00');
+
+  // The new time survives a reload (it was actually persisted, not just local).
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.reload();
+  await expect(page.getByTestId('finish-time-A1')).toHaveValue('14:25:00');
+  await expect(row(1)).toContainText('A1');
+});
+
 test('scoring-system change blocked: Scratch → PY with untimed finishes', async ({ page }) => {
   // ── Setup: handicap series with two fleets, one race with one scratch finish ─
   // The Dinghy fleet starts as scratch in a handicap series. After adding an

@@ -56,23 +56,32 @@ export function useFinishRowOps(args: UseFinishRowOpsArgs) {
    * inserts/deletes — this only renumbers + retags existing rows.
    */
   function commitOrderChange(targetOrder: FinishEntry[], targetTies: Set<string>) {
-    const updates: Finish[] = [];
+    // Resolve each entry to its finish id + target slot. We map via the derived
+    // snapshot (entryKey -> finish id is stable across field edits) but spread
+    // the *current* cache row as the base below — never the snapshot. Reslotting
+    // after a finish-time edit patches the new time into the cache first, and
+    // spreading the stale snapshot here would write the old time straight back.
+    const targets = new Map<string, { sortOrder: number; tied: boolean }>();
     for (let i = 0; i < targetOrder.length; i++) {
-      const entry = targetOrder[i];
-      const finish = finishByEntryKey.get(entryKey(entry));
+      const finish = finishByEntryKey.get(entryKey(targetOrder[i]));
       if (!finish) continue;
-      const targetSortOrder = i + 1;
-      const targetTied = i > 0 && targetTies.has(entryKey(entry));
-      if (
-        finish.sortOrder !== targetSortOrder ||
-        finish.tiedWithPrevious !== targetTied
-      ) {
-        updates.push({ ...finish, sortOrder: targetSortOrder, tiedWithPrevious: targetTied });
-      }
+      targets.set(finish.id, {
+        sortOrder: i + 1,
+        tied: i > 0 && targetTies.has(entryKey(targetOrder[i])),
+      });
     }
+    const updates: Finish[] = [];
+    patchCache((rows) =>
+      rows.map((r) => {
+        const target = targets.get(r.id);
+        if (!target) return r;
+        if (r.sortOrder === target.sortOrder && r.tiedWithPrevious === target.tied) return r;
+        const updated: Finish = { ...r, sortOrder: target.sortOrder, tiedWithPrevious: target.tied };
+        updates.push(updated);
+        return updated;
+      }),
+    );
     if (updates.length === 0) return;
-    const updatedById = new Map(updates.map((u) => [u.id, u]));
-    patchCache((rows) => rows.map((r) => updatedById.get(r.id) ?? r));
     // Each row needs its own save (sortOrder + boolean both change). The
     // shared `finishes` mutation scope serializes these writes against
     // the per-row save path, so a follow-on edit waits for the last
