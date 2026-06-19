@@ -410,6 +410,17 @@ export const subSeries = pgTable(
       .references(() => organization.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     displayOrder: integer('display_order').notNull(),
+    // Where the progressive-handicap chain seeds from when this sub-series is
+    // scored: 'base' (class / series-start numbers) or 'continue' (the end-of-
+    // chain handicaps of `continueFromSubSeriesId`). See the handicap-scoring
+    // design doc, "Shared progressive chain across overlapping series".
+    startingHandicapSource: text('starting_handicap_source')
+      .notNull()
+      .default('base'),
+    continueFromSubSeriesId: uuid('continue_from_sub_series_id').references(
+      (): AnyPgColumn => subSeries.id,
+      { onDelete: 'set null' },
+    ),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

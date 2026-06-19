@@ -171,6 +171,8 @@ function subSeriesRowToType(row: SubSeriesRow): SubSeries {
     seriesId: row.seriesId,
     name: row.name,
     displayOrder: row.displayOrder,
+    startingHandicapSource: row.startingHandicapSource as SubSeries['startingHandicapSource'],
+    continueFromSubSeriesId: row.continueFromSubSeriesId,
     version: row.version,
   };
 }
@@ -1142,11 +1144,13 @@ function subSeriesToRow(s: SubSeries, workspaceId: string) {
     workspaceId,
     name: s.name,
     displayOrder: s.displayOrder,
+    startingHandicapSource: s.startingHandicapSource ?? 'base',
+    continueFromSubSeriesId: s.continueFromSubSeriesId ?? null,
   };
 }
 
 const subSeriesUpdateColumns = [
-  'name', 'displayOrder',
+  'name', 'displayOrder', 'startingHandicapSource', 'continueFromSubSeriesId',
 ] as const satisfies readonly (keyof ReturnType<typeof subSeriesToRow>)[];
 
 export class PostgresSubSeriesRepository implements SubSeriesRepository {

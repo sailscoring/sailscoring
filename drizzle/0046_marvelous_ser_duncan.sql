@@ -1,0 +1,3 @@
+ALTER TABLE "sub_series" ADD COLUMN "starting_handicap_source" text DEFAULT 'base' NOT NULL;--> statement-breakpoint
+ALTER TABLE "sub_series" ADD COLUMN "continue_from_sub_series_id" uuid;--> statement-breakpoint
+ALTER TABLE "sub_series" ADD CONSTRAINT "sub_series_continue_from_sub_series_id_sub_series_id_fk" FOREIGN KEY ("continue_from_sub_series_id") REFERENCES "public"."sub_series"("id") ON DELETE set null ON UPDATE no action;

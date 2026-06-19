@@ -207,19 +207,28 @@ export interface CompetitorIdentity {
 }
 
 /**
- * A named block of races inside a series, scored independently: its own
- * standings, discards (the series discard thresholds applied to the block's
- * race count), and published pages. Sub-series partition the race list the
- * way fleets partition the entry list. A series has either no sub-series
- * (every race's subSeriesId is null) or a full partition (every race
- * assigned). Grouping races into sub-series never changes any boat's
- * progressive rating — the NHC/ECHO chain runs across the whole series.
+ * Where a sub-series' progressive-handicap (NHC/ECHO) chain seeds from when it
+ * is scored: 'base' (class / series-start numbers) or 'continue' (the
+ * end-of-chain handicaps of `continueFromSubSeriesId`). See the handicap-scoring
+ * design doc, "Shared progressive chain across overlapping series".
+ */
+export type StartingHandicapSource = 'base' | 'continue';
+
+/**
+ * A named selection of races inside a series, scored independently over those
+ * races: its own standings, discards, and (for NHC/ECHO) its own progressive
+ * handicap chain. It is HalSail's "tandem series". Sub-series may overlap and a
+ * race may belong to several; continuity between them is the explicit
+ * `startingHandicapSource` carry.
  */
 export interface SubSeries {
   id: string;
   seriesId: string;
   name: string;
   displayOrder: number;
+  // Seed source for this sub-series' progressive chain (default 'base').
+  startingHandicapSource?: StartingHandicapSource;
+  continueFromSubSeriesId?: string | null;
   version?: number;    // server-side concurrency token (see Series.version)
 }
 

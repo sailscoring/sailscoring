@@ -11,6 +11,8 @@ export const subSeriesSchema = z.object({
   seriesId: uuidSchema,
   name: subSeriesNameSchema,
   displayOrder: z.number().int(),
+  startingHandicapSource: z.enum(['base', 'continue']).optional(),
+  continueFromSubSeriesId: uuidSchema.nullish(),
   version: versionSchema,
 });
 
