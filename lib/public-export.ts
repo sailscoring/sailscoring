@@ -140,6 +140,8 @@ export interface PublicSeriesExport {
       penaltyCode?: PenaltyCode | null;
       /** SCP %, DPI points, or null to use code default. */
       penaltyOverride?: number | null;
+      /** Per-fleet DPI points (fleetId → points) for multi-fleet boats. */
+      penaltyOverrideByFleet?: Record<string, number>;
       /** Redress (RDG) configuration — all fields together reproduce
        *  the A9 average. Present iff resultCode === 'RDG'. */
       redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before' | 'stated' | null;
@@ -147,6 +149,8 @@ export interface PublicSeriesExport {
       redressIncludeRaces?: number[] | null;
       redressIncludeAllLater?: boolean;
       redressPoints?: number | null;
+      /** Per-fleet stated redress points (fleetId → points) for multi-fleet boats. */
+      redressPointsByFleet?: Record<string, number>;
     }[];
     /** NHC per-fleet scoring intermediates for this race (one entry per NHC
      *  fleet, keyed by fleet name). Carries the fleet-race aggregates used in
@@ -313,6 +317,15 @@ export function buildPublicExportFromSnapshot(
   const fleetNameById = new Map(fleets.map((f) => [f.id, f.name]));
   const sailNumberById = new Map(competitors.map((c) => [c.id, c.sailNumber]));
 
+  // Per-fleet point maps (per-fleet RDG / DPI) are stored internally keyed by
+  // fleetId, but the export's portable identity is the fleet name — so re-key
+  // them to names here. importPublicExport reverses this against freshly-minted
+  // fleet ids.
+  const perFleetByName = (m: Record<string, number>): Record<string, number> =>
+    Object.fromEntries(
+      Object.entries(m).map(([fleetId, v]) => [fleetNameById.get(fleetId) ?? fleetId, v]),
+    );
+
   const isSingleDefault = fleets.length <= 1 && fleets[0]?.name === 'Default';
 
   // For each NHC fleet, index per-race scores + aggregates by raceId for fast lookup below.
@@ -407,12 +420,14 @@ export function buildPublicExportFromSnapshot(
         startPresent: finish?.startPresent ?? null,
         ...(finish?.penaltyCode ? { penaltyCode: finish.penaltyCode } : {}),
         ...(finish?.penaltyOverride != null ? { penaltyOverride: finish.penaltyOverride } : {}),
+        ...(finish?.penaltyOverrideByFleet && Object.keys(finish.penaltyOverrideByFleet).length ? { penaltyOverrideByFleet: perFleetByName(finish.penaltyOverrideByFleet) } : {}),
         ...(finish?.resultCode === 'RDG' ? {
           redressMethod: finish.redressMethod,
           ...(finish.redressExcludeRaces ? { redressExcludeRaces: finish.redressExcludeRaces } : {}),
           ...(finish.redressIncludeRaces ? { redressIncludeRaces: finish.redressIncludeRaces } : {}),
           ...(finish.redressIncludeAllLater ? { redressIncludeAllLater: true } : {}),
           ...(finish.redressPoints != null ? { redressPoints: finish.redressPoints } : {}),
+          ...(finish.redressPointsByFleet && Object.keys(finish.redressPointsByFleet).length ? { redressPointsByFleet: perFleetByName(finish.redressPointsByFleet) } : {}),
         } : {}),
       };
     });
@@ -587,6 +602,17 @@ export async function importPublicExport(
     fleetIdByName.set(f.name, crypto.randomUUID());
   }
 
+  // Re-key a per-fleet point map (exported by fleet name) onto the freshly
+  // minted fleet ids. Entries whose fleet name no longer resolves are dropped
+  // (the scoring engine then treats that fleet as a gap).
+  const perFleetToNewIds = (m: Record<string, number>): Record<string, number> =>
+    Object.fromEntries(
+      Object.entries(m).flatMap(([name, v]) => {
+        const id = fleetIdByName.get(name);
+        return id ? [[id, v] as [string, number]] : [];
+      }),
+    );
+
   // Rebuild sub-series from the per-race block names, in race order.
   const subSeriesIdByName = new Map<string, string>();
   for (const race of data.races) {
@@ -755,11 +781,13 @@ export async function importPublicExport(
         startPresent: finish.startPresent,
         penaltyCode: finish.penaltyCode ?? null,
         penaltyOverride: finish.penaltyOverride ?? null,
+        ...(finish.penaltyOverrideByFleet ? { penaltyOverrideByFleet: perFleetToNewIds(finish.penaltyOverrideByFleet) } : {}),
         redressMethod: finish.redressMethod ?? null,
         redressExcludeRaces: finish.redressExcludeRaces ?? null,
         redressIncludeRaces: finish.redressIncludeRaces ?? null,
         redressIncludeAllLater: finish.redressIncludeAllLater ?? false,
         redressPoints: finish.redressPoints ?? null,
+        ...(finish.redressPointsByFleet ? { redressPointsByFleet: perFleetToNewIds(finish.redressPointsByFleet) } : {}),
       });
     }
     if (finishes.length > 0) {

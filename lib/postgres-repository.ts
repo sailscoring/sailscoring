@@ -213,11 +213,13 @@ function finishRowToType(row: FinishRow): Finish {
     startPresent: row.startPresent,
     penaltyCode: row.penaltyCode as PenaltyCode | null,
     penaltyOverride: row.penaltyOverride,
+    ...(row.penaltyOverrideByFleet != null ? { penaltyOverrideByFleet: row.penaltyOverrideByFleet } : {}),
     redressMethod: row.redressMethod as Finish['redressMethod'],
     redressExcludeRaces: row.redressExcludeRaces,
     redressIncludeRaces: row.redressIncludeRaces,
     redressIncludeAllLater: row.redressIncludeAllLater,
     redressPoints: row.redressPoints,
+    ...(row.redressPointsByFleet != null ? { redressPointsByFleet: row.redressPointsByFleet } : {}),
     version: row.version,
   };
 }
@@ -1531,19 +1533,21 @@ function finishToRow(f: Finish) {
     startPresent: f.startPresent,
     penaltyCode: f.penaltyCode,
     penaltyOverride: f.penaltyOverride,
+    penaltyOverrideByFleet: f.penaltyOverrideByFleet ?? null,
     redressMethod: f.redressMethod,
     redressExcludeRaces: f.redressExcludeRaces,
     redressIncludeRaces: f.redressIncludeRaces,
     redressIncludeAllLater: f.redressIncludeAllLater,
     redressPoints: f.redressPoints,
+    redressPointsByFleet: f.redressPointsByFleet ?? null,
   };
 }
 
 const finishUpdateColumns = [
   'competitorId', 'unknownSailNumber', 'sortOrder', 'tiedWithPrevious',
   'finishTime', 'resultCode', 'startPresent', 'penaltyCode', 'penaltyOverride',
-  'redressMethod', 'redressExcludeRaces', 'redressIncludeRaces',
-  'redressIncludeAllLater', 'redressPoints',
+  'penaltyOverrideByFleet', 'redressMethod', 'redressExcludeRaces', 'redressIncludeRaces',
+  'redressIncludeAllLater', 'redressPoints', 'redressPointsByFleet',
 ] as const satisfies readonly (keyof ReturnType<typeof finishToRow>)[];
 
 export class PostgresFinishRepository implements FinishRepository {

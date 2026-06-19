@@ -17,11 +17,13 @@ export function makeFinish(
     startPresent: overrides.startPresent ?? null,
     penaltyCode: overrides.penaltyCode ?? null,
     penaltyOverride: overrides.penaltyOverride ?? null,
+    ...(overrides.penaltyOverrideByFleet != null ? { penaltyOverrideByFleet: overrides.penaltyOverrideByFleet } : {}),
     redressMethod: overrides.redressMethod ?? null,
     redressExcludeRaces: overrides.redressExcludeRaces ?? null,
     redressIncludeRaces: overrides.redressIncludeRaces ?? null,
     redressIncludeAllLater: overrides.redressIncludeAllLater ?? false,
     redressPoints: overrides.redressPoints ?? null,
+    ...(overrides.redressPointsByFleet != null ? { redressPointsByFleet: overrides.redressPointsByFleet } : {}),
     ...(overrides.version != null ? { version: overrides.version } : {}),
   };
 }

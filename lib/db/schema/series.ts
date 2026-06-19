@@ -517,6 +517,8 @@ export const finishes = pgTable(
     startPresent: boolean('start_present'),
     penaltyCode: text('penalty_code'),
     penaltyOverride: real('penalty_override'),
+    // Per-fleet DPI points (fleetId → added points) for multi-fleet boats.
+    penaltyOverrideByFleet: jsonb('penalty_override_by_fleet').$type<Record<string, number>>(),
     redressMethod: text('redress_method'),
     redressExcludeRaces: jsonb('redress_exclude_races').$type<number[]>(),
     redressIncludeRaces: jsonb('redress_include_races').$type<number[]>(),
@@ -524,6 +526,8 @@ export const finishes = pgTable(
       .notNull()
       .default(false),
     redressPoints: real('redress_points'),
+    // Per-fleet stated redress points (fleetId → points) for multi-fleet boats.
+    redressPointsByFleet: jsonb('redress_points_by_fleet').$type<Record<string, number>>(),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

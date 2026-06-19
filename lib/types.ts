@@ -273,6 +273,12 @@ export interface Finish {
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded
   penaltyCode: PenaltyCode | null;    // additive penalty (ZFP/SCP/DPI); only for finishers
   penaltyOverride: number | null;     // SCP: explicit %; DPI: explicit points; null = use default
+  // Per-fleet DPI points for a boat scored in more than one fleet. When present
+  // (non-empty) the boat is in per-fleet mode: each key is a fleetId → added
+  // points for that fleet, and a fleet absent from the map is a gap (no penalty
+  // applied, surfaced via a scoring rejection). `penaltyOverride` is the uniform
+  // value used when this map is absent (and the SCP percentage either way).
+  penaltyOverrideByFleet?: Record<string, number>;
   // Redress (RDG) — all null unless resultCode === 'RDG'.
   //   all_races          — RRS A9(a): mean of all other races (incl. DNC etc.)
   //   all_races_excl_dnc — mean of all other races, excluding DNC results up to
@@ -284,6 +290,13 @@ export interface Finish {
   redressIncludeRaces: number[] | null; // include-mode: use only these races (overrides method default)
   redressIncludeAllLater: boolean;      // include-mode: also include all races after max(redressIncludeRaces)
   redressPoints: number | null;         // stated-method: scorer-entered points value
+  // Per-fleet stated points for a boat scored in more than one fleet. When
+  // present (non-empty) the boat is in per-fleet mode: each key is a fleetId →
+  // stated points for that fleet, and a fleet absent from the map is a gap
+  // (scored as the A9(a) average pending a value, surfaced via a scoring
+  // rejection). `redressPoints` is the uniform value used when this map is
+  // absent. Only meaningful when redressMethod === 'stated'.
+  redressPointsByFleet?: Record<string, number>;
   version?: number;                     // server-side concurrency token (see Series.version)
 }
 
@@ -580,7 +593,15 @@ export interface Standing {
   raceExcluded: boolean[];               // true = nobody finished this race; it scores 0 and does not count toward discards
 }
 
-export type ScoringRejectionReason = 'no_rating' | 'no_starting_tcf';
+export type ScoringRejectionReason =
+  | 'no_rating'
+  | 'no_starting_tcf'
+  // A multi-fleet boat has per-fleet stated redress points but none set for
+  // this fleet — scored as the A9(a) average until the scorer enters one.
+  | 'rdg_missing_fleet_points'
+  // A multi-fleet boat has a per-fleet DPI penalty but none set for this fleet
+  // — no penalty applied until the scorer enters one.
+  | 'dpi_missing_fleet_points';
 
 export interface ScoringRejection {
   competitorId: string;

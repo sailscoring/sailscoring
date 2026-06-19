@@ -34,11 +34,13 @@ export const finishSchema = z.object({
   startPresent: z.boolean().nullable(),
   penaltyCode: penaltyCodeSchema.nullable(),
   penaltyOverride: z.number().nullable(),
+  penaltyOverrideByFleet: z.record(z.string(), z.number()).optional(),
   redressMethod: redressMethodSchema.nullable(),
   redressExcludeRaces: z.array(z.number().int()).nullable(),
   redressIncludeRaces: z.array(z.number().int()).nullable(),
   redressIncludeAllLater: z.boolean(),
   redressPoints: z.number().nullable(),
+  redressPointsByFleet: z.record(z.string(), z.number()).optional(),
   version: versionSchema,
 });
 

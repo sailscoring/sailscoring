@@ -175,11 +175,13 @@ interface SeriesFileFinish {
   startPresent: boolean | null;
   penaltyCode: PenaltyCode | null;
   penaltyOverride: number | null;
+  penaltyOverrideByFleet?: Record<string, number>;
   redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before' | 'stated';
   redressExcludeRaces?: number[];
   redressIncludeRaces?: number[];
   redressIncludeAllLater?: boolean;
   redressPoints?: number;
+  redressPointsByFleet?: Record<string, number>;
 }
 
 interface SeriesFileRaceStart {
@@ -310,11 +312,13 @@ export async function buildSeriesFile(
       startPresent: f.startPresent,
       penaltyCode: f.penaltyCode ?? null,
       penaltyOverride: f.penaltyOverride ?? null,
+      ...(f.penaltyOverrideByFleet && Object.keys(f.penaltyOverrideByFleet).length ? { penaltyOverrideByFleet: f.penaltyOverrideByFleet } : {}),
       ...(f.redressMethod ? { redressMethod: f.redressMethod } : {}),
       ...(f.redressExcludeRaces?.length ? { redressExcludeRaces: f.redressExcludeRaces } : {}),
       ...(f.redressIncludeRaces?.length ? { redressIncludeRaces: f.redressIncludeRaces } : {}),
       ...(f.redressIncludeAllLater ? { redressIncludeAllLater: f.redressIncludeAllLater } : {}),
       ...(f.redressPoints != null ? { redressPoints: f.redressPoints } : {}),
+      ...(f.redressPointsByFleet && Object.keys(f.redressPointsByFleet).length ? { redressPointsByFleet: f.redressPointsByFleet } : {}),
     });
   }
 
@@ -541,6 +545,23 @@ function remapFtpPaths(
     if (newId) out[newId] = path;
   }
   return out;
+}
+
+/** Rewrite a per-fleet point map (per-fleet RDG / DPI, keyed by fleetId)
+ *  through a fleet-id remap. Like every other fleet reference, the keys must
+ *  follow the freshly minted ids; entries for fleets dropped from the remap
+ *  are removed (the engine then treats that fleet as a gap). */
+function remapPerFleetPoints(
+  byFleet: Record<string, number> | undefined,
+  fleetIdMap: Map<string, string>,
+): Record<string, number> | undefined {
+  if (!byFleet) return undefined;
+  const out: Record<string, number> = {};
+  for (const [oldId, value] of Object.entries(byFleet)) {
+    const newId = fleetIdMap.get(oldId);
+    if (newId) out[newId] = value;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 /** Remap the fleet ids referenced by `defaultStartSequence` through a fleet-id
@@ -963,11 +984,19 @@ async function writeFleetsCompetitorsRaces(
           startPresent: f.startPresent,
           penaltyCode: f.penaltyCode,
           penaltyOverride: f.penaltyOverride,
+          ...(() => {
+            const m = remapPerFleetPoints(f.penaltyOverrideByFleet, fleetIdMap);
+            return m ? { penaltyOverrideByFleet: m } : {};
+          })(),
           redressMethod: f.redressMethod ?? null,
           redressExcludeRaces: f.redressExcludeRaces ?? null,
           redressIncludeRaces: f.redressIncludeRaces ?? null,
           redressIncludeAllLater: f.redressIncludeAllLater ?? false,
           redressPoints: f.redressPoints ?? null,
+          ...(() => {
+            const m = remapPerFleetPoints(f.redressPointsByFleet, fleetIdMap);
+            return m ? { redressPointsByFleet: m } : {};
+          })(),
         };
       });
       await repos.finishRepo.saveMany(finishes);
