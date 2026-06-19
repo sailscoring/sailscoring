@@ -1265,43 +1265,56 @@ snapshotting but is no longer needed for the algorithm itself.
 
 A fleet's season is usually run as **one series** holding all its racing — both
 racing days and every mini-series — with the same boats eligible throughout.
-That shared roster and single place to enter finishes is exactly why scorers
-want to keep it as one series rather than many: HYC Puppeteers race Tuesdays and
-Saturdays across Series 1/2/3; the Howth 17s race a combined Tuesday-and-Saturday
-stream across Series 1/2/3; DBSC Cruisers race Thursdays and Saturdays, with
-class-within-class divisions. The question is how a boat's **progressive
-handicap** (NHC/ECHO) evolves through all that.
+That shared roster and single place to enter finishes is why scorers keep it as
+one series: HYC Puppeteers race Tuesdays and Saturdays across Series 1/2/3; the
+Howth 17s race a combined Tuesday-and-Saturday stream across Series 1/2/3; DBSC
+Cruisers race Thursdays and Saturdays, with class-within-class divisions. The
+question is how a boat's **progressive handicap** (NHC/ECHO) evolves through all
+that.
 
-Inside the one series, races belong to one or more **independent handicap
-chains** — in practice, one chain per racing day. DBSC and the Puppeteers run a
-separate Thursday/Tuesday chain and Saturday chain that never mix; the Howth
-17s, sailed by the same crowd on both days, run a single combined chain. The
-reason is that a progressive handicap rates a boat **against the others that
-actually sailed**, so when a different crowd sails each day the same boat
-genuinely earns different handicaps. DBSC's example: a mid-fleet boat racing
-Olympians on Thursday and beginners on Saturday settles well below 1.000 on
-Thursday and well above on Saturday; one merged chain would land in between —
-wrong for both days, and it would not self-correct. Choosing to score the days
-separately *is* the scorer's statement that the crowds differ. (This is the
-Sailwave/HalSail treatment DBSC adopted deliberately, away from YR3's single
-carried chain.)
+The answer is a single concept — a **sub-series**, which is just HalSail's
+tandem series:
 
-Each chain runs **continuously through its own races**. It carries on across the
-season's mini-series — a boat's Thursday handicap continues from Thursday Series
-1 into Thursday Series 2 — and from one year into the next, where a new season's
-Thursday handicaps start where the last season's ended (today via per-competitor
-starting handicaps; see the carry-over note above).
+> A sub-series is a named selection of races, **scored independently over those
+> races** — its own standings, discards, and (for NHC/ECHO) its own progressive
+> handicaps.
 
-**Sub-series** are the named results tables — "Series 1 Tuesday", "Saturday
-Overall", and so on. Each one selects which races to score for a particular
-prize; it does **not** compute handicaps, it shows the handicap each race
-already carries from its chain. A boat can appear in several sub-series, and
-sub-series can overlap (a season-long "Tuesday Overall" alongside the per-series
-Tuesday tables). Class-within-class divisions are a separate axis — **fleets**.
+There is **no separate "chain" object, no per-series progression setting, and no
+day-of-week rule.** Different handicaps on different days fall out for free: a
+"Thursday" sub-series and a "Saturday" sub-series each compute their own ECHO
+chain over their own races. That is the *correct* behaviour, because a
+progressive handicap rates a boat **against the others that actually sailed** —
+so when a different crowd sails each day the same boat earns different handicaps.
+DBSC's example: a mid-fleet boat racing Olympians on Thursday and beginners on
+Saturday settles well below 1.000 on Thursday and well above on Saturday; one
+merged chain would land in between, wrong for both days, and would not
+self-correct. "Combined" (the Howth 17s) is simply putting both days' races in
+one sub-series. (This is the Sailwave/HalSail treatment DBSC adopted
+deliberately, away from YR3's single carried chain.)
 
-So, in one sentence: one series gives shared eligibility; each racing day (or a
-single combined day-set) is its own continuous handicap chain; sub-series are
-the result tables drawn from those chains. The chains never share a race, so
-every race has one handicap per fleet. (Realignment, where a scheme has it, only
-ever moves a chain using its own races — ECHO does none; our NHC1 realigns over
-a race's finishers only.)
+**Carry between sub-series.** When "Series 2 Tuesday" should *continue* the
+handicaps from "Series 1 Tuesday" — and from one season to the next — each
+sub-series has a **starting-handicap source**: base/class numbers, manual, or
+*continue from another sub-series's end*. This is HalSail's explicit "Save
+handicaps" snapshot as a field rather than a manual step. Computing Series 1 and
+continuing into Series 2 from its end is arithmetically identical to one long
+chain, so the carry is faithful — just explicit and opt-in, not automatic.
+
+The **series** stays the shared hub (one entry list, finishes entered once, all
+the races); a series with no sub-series scores all its races as one view, as
+today. Class-within-class divisions are a separate axis — **fleets**.
+Progressive ratings stay **derived, not stored** (computed on demand, serialized
+into the saved file and public JSON for portability), now scoped per sub-series;
+a race in two sub-series can carry different handicaps in each, and with
+consistent seeding the values coincide. Realignment, where a scheme has it, only
+moves a sub-series's computation using its own races — ECHO does none; NHC1
+realigns over a race's finishers only.
+
+**Fallback — a chain spanning multiple sub-series ("option B").** If a Tuesday
+result should ever need to carry into Saturday even where the above rationale is
+understood, the additive fix is an opt-in **shared rating basis**: a group of
+sub-series whose chain is computed jointly over the union of their races in date
+order, each still scoring only its own subset against the shared ratings. The
+default basis is a sub-series's own races. To keep this a feature-add rather than
+a refactor, the engine must keep rating-computation (over a race set) separable
+from standings-aggregation (over a scored subset) — which it already does.
