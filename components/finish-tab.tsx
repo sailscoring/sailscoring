@@ -364,7 +364,7 @@ export function FinishTab(props: FinishTabProps) {
                   ref={ref}
                   style={style}
                   className={cn(
-                    'flex items-center gap-3 border border-amber-400 rounded-lg px-4 py-2.5 bg-amber-50 dark:bg-amber-950 transition-colors',
+                    'flex items-center gap-3 border border-amber-400 rounded-lg px-4 py-2.5 bg-amber-50 dark:bg-amber-950 transition-colors hover:bg-amber-100 dark:hover:bg-amber-900',
                     isFlashed && 'ring-2 ring-primary',
                   )}
                 >
@@ -407,7 +407,11 @@ export function FinishTab(props: FinishTabProps) {
                 style={style}
                 className={cn(
                   'flex items-center gap-3 border rounded-lg px-4 py-2.5 transition-colors',
-                  hasRedress && 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700',
+                  // Hover highlight anchors the eye across the now-wider row when
+                  // scanning out to the finish time / actions.
+                  hasRedress
+                    ? 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900'
+                    : 'hover:bg-muted/50',
                   isFlashed && 'ring-2 ring-primary',
                 )}
               >
@@ -564,8 +568,10 @@ export function FinishTab(props: FinishTabProps) {
                 key={competitor.id}
                 data-testid={`non-finisher-${competitor.sailNumber}`}
                 className={cn(
-                  'flex items-center gap-3 border rounded-lg px-4 py-2',
-                  code === 'RDG' && 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700',
+                  'flex items-center gap-3 border rounded-lg px-4 py-2 transition-colors',
+                  code === 'RDG'
+                    ? 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900'
+                    : 'hover:bg-muted/50',
                 )}
               >
                 <span className="font-mono font-medium w-16 shrink-0">
