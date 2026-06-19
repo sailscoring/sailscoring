@@ -88,7 +88,7 @@ test('NHC fleet: standings + propagation across two races', async ({ page }) => 
     await settleFinish(page, () => page.getByRole('button', { name: 'Add', exact: true }).click());
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 6. Race 2: same finishes (different TCFs apply this race) ─────────────
@@ -111,7 +111,7 @@ test('NHC fleet: standings + propagation across two races', async ({ page }) => 
     await settleFinish(page, () => page.getByRole('button', { name: 'Add', exact: true }).click());
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 7. Verify standings page shows NHC label ─────────────────────────────
@@ -193,7 +193,7 @@ test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page 
     await settleFinish(page, () => page.getByRole('button', { name: 'Add', exact: true }).click());
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
 
   // Race 2: same finishes — tcfApplied in race 2 = race 1's newTcfs.
   await page.getByText('Race 2').click();

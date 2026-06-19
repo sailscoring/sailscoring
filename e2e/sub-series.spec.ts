@@ -72,7 +72,7 @@ test('sub-series: split, per-block standings, publish per block', async ({ page,
       await page.getByRole('button', { name: 'Add', exact: true }).click();
     }
     await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-    await page.getByTestId('back-to-races').click();
+    await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
     await expect(page).toHaveURL(/\/races$/);
   };
   await enterRace('Race 1', ['1001', '1002', '1003', '1004']);

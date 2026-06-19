@@ -91,7 +91,7 @@ test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
   }
 
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 7. Verify standings: IRC3 first, IRC1 last ────────────────────────────

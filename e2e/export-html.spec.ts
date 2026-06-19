@@ -49,7 +49,7 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
   }
   await page.getByTestId('non-finisher-7').getByRole('combobox').click();
   await settleFinish(page, () => page.getByRole('option', { name: 'DNF' }).click());
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 5. Enter Race 2: Carol 1st, Alice 2nd, Bob=implicit DNC ──────────────
@@ -59,7 +59,7 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
     await settleFinish(page, () => page.getByRole('button', { name: 'Add' }).click());
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 6. Navigate to Standings and download via Preview ─────────────────────
@@ -252,7 +252,7 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   }
 
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 7. Navigate to Standings and export IRC fleet HTML ────────────────────

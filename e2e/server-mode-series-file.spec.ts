@@ -125,7 +125,7 @@ test.describe('series file save / open / update, server mode', () => {
     // Wait for autosave to settle before navigating away — otherwise an in-flight
     // finish save can race saveSeriesFile reading from the DB.
     await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-    await page.getByTestId('back-to-races').click();
+    await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
     await expect(page).toHaveURL(/\/races$/);
 
     // Save to file from the series actions menu — exercises saveSeriesFile

@@ -26,7 +26,6 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
   PRIMARY_PERSON_LABEL_TEXT,
 } from '@/lib/competitor-fields';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   deriveFinishState,
@@ -306,10 +305,7 @@ export default function ResultEntryPage({
       )}
 
       <div className="flex gap-3 items-center border-t pt-4">
-        <Button variant="outline" onClick={leave} data-testid="back-to-races">
-          Done
-        </Button>
-        <div className="ml-auto text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground">
           {finishingOrder.length} finisher{finishingOrder.length === 1 ? '' : 's'}
           {unknownCount > 0 && ` (${unknownCount} unknown)`},{' '}
           {nonFinishers.length} non-finisher{nonFinishers.length === 1 ? '' : 's'}

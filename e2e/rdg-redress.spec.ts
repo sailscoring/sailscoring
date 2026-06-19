@@ -49,7 +49,7 @@ test('RDG non-finisher: A9(a) average replaces score and shows RDG(pts) in stand
     await page.getByRole('button', { name: 'Add' }).click();
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // Race 2: Bob=1st, Carol=2nd; Alice gets RDG
@@ -76,7 +76,7 @@ test('RDG non-finisher: A9(a) average replaces score and shows RDG(pts) in stand
   await expect(page.getByTestId('non-finisher-1')).toContainText('RDG');
 
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // Race 3: Bob=1st, Alice=2nd, Carol=3rd
@@ -86,7 +86,7 @@ test('RDG non-finisher: A9(a) average replaces score and shows RDG(pts) in stand
     await page.getByRole('button', { name: 'Add' }).click();
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   await page.getByRole('link', { name: 'Standings' }).click();
@@ -148,7 +148,7 @@ test('RDG finisher: scales button replaces finish score with A9(a) average', asy
     await page.getByRole('button', { name: 'Add' }).click();
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // Race 2: Alice=1st, Bob=2nd, Carol=3rd
@@ -158,7 +158,7 @@ test('RDG finisher: scales button replaces finish score with A9(a) average', asy
     await page.getByRole('button', { name: 'Add' }).click();
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // Race 3: Bob=1st, Carol=2nd, Alice=3rd — then grant Alice redress
@@ -187,7 +187,7 @@ test('RDG finisher: scales button replaces finish score with A9(a) average', asy
   await expect(aliceFinisherRow).toHaveClass(/border-amber/);
 
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   await page.getByRole('link', { name: 'Standings' }).click();

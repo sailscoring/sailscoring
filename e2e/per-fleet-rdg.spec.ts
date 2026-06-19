@@ -67,7 +67,7 @@ test('per-fleet stated redress: different value scored in each fleet', async ({ 
   await expect(dialog).not.toBeVisible();
 
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
 
   await page.getByRole('link', { name: 'Standings' }).click();
 
@@ -92,10 +92,10 @@ test('per-fleet stated redress: a fleet with no value is averaged and flagged', 
   // Race 1: Tandem 1st (granted RDG below). Race 2: Tandem 1st in both fleets.
   await enterRace(page, 'Race 1', ['T', 'A', 'B']);
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await enterRace(page, 'Race 2', ['T', 'A', 'B']);
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
 
   // RDG stated for IRC only; leave ECHO blank — a deliberate gap.
   await page.getByText('Race 1', { exact: true }).click();
@@ -109,7 +109,7 @@ test('per-fleet stated redress: a fleet with no value is averaged and flagged', 
   await dialog.getByRole('button', { name: 'Apply' }).click();
   await expect(dialog).not.toBeVisible();
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
 
   await page.getByRole('link', { name: 'Standings' }).click();
 

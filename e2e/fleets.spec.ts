@@ -72,7 +72,7 @@ test('two-fleet series shows fleet column, per-fleet standings, and exports two 
   }
 
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 7. Enter Race 2: J2, J3, J1, S2, S1 in order ─────────────────────────
@@ -85,7 +85,7 @@ test('two-fleet series shows fleet column, per-fleet standings, and exports two 
   }
 
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 8. Standings show per-fleet headings ──────────────────────────────────

@@ -85,7 +85,7 @@ test('VPRS fleet: standings ordered by corrected time', async ({ page }) => {
   }
 
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // Standings: Gung-Ho (lowest CT) first, Boomerang (highest CT) last.

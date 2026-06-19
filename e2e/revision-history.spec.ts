@@ -58,7 +58,7 @@ test('history tab: same-context edits coalesce, different contexts split', async
     await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
 
   // History tab.
   await page.getByRole('navigation').getByRole('link', { name: 'History' }).click();

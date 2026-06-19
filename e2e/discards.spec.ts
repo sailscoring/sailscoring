@@ -53,7 +53,7 @@ test('discard rule changes standings and shows Nett column', async ({ page }) =>
     await page.getByRole('button', { name: 'Add' }).click();
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 5. Enter Race 2 results: same order ──────────────────────────────────
@@ -63,7 +63,7 @@ test('discard rule changes standings and shows Nett column', async ({ page }) =>
     await page.getByRole('button', { name: 'Add' }).click();
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 6. Enter Race 3 results: Bob 1st, Carol 2nd, Dave 3rd, Eve 4th
@@ -74,7 +74,7 @@ test('discard rule changes standings and shows Nett column', async ({ page }) =>
     await page.getByRole('button', { name: 'Add' }).click();
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-  await page.getByTestId('back-to-races').click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
   // ── 7. Check standings without discards: Bob should lead ─────────────────
