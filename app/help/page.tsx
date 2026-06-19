@@ -600,25 +600,29 @@ export default async function HelpPage() {
       {has('sub-series') && (
         <Section id="sub-series" title="Sub-series">
           <p>
-            A season often scores as several short series sailed back-to-back — a Winter block and
-            a Spring block, say, each with its own standings, discards, and prizes, but sharing one
-            entry list and fleet structure. Sub-series let you keep that whole season in a single
-            series: on the <strong className="text-foreground">Races</strong> tab, use the scissors
-            on a race to start a new sub-series there, or <strong className="text-foreground">Add
-            sub-series</strong> to name the first block or open the next one before its races exist.
-            New races are added to the last sub-series.
+            A season often scores as several series that share one entry list and fleet structure —
+            a Winter block and a Spring block sailed back-to-back, or a Tuesday series and a
+            Saturday series running in parallel — each with its own standings, discards, and prizes.
+            Sub-series let you keep that whole season in a single series. On the{' '}
+            <strong className="text-foreground">Races</strong> tab, click{' '}
+            <strong className="text-foreground">New sub-series</strong>, give it a name, and tick the
+            races it includes. A race can belong to several sub-series (a season “Tuesday Overall”
+            alongside per-series Tuesday tables), and a one-off feature race can be its own
+            one-race sub-series.
           </p>
           <p>
-            Each sub-series is scored on its own. The series discard rule applies to each block’s
-            race count separately, and a boat that sits out an entire block simply isn’t in that
-            block’s standings — absences in a block are scored against the boats that took part in
-            it. A one-off feature race can be its own one-race sub-series.
+            Each sub-series is scored on its own. The series discard rule applies to its race count
+            separately, and a boat that sits out a sub-series simply isn’t in its standings —
+            absences are scored against the boats that took part. Removing a sub-series leaves the
+            races themselves untouched.
           </p>
           <p>
-            Progressive handicaps (NHC, ECHO) carry straight across sub-series boundaries: ratings
-            flow race to race exactly as they would without the grouping, so there is no
-            end-of-block handicap reseeding to manage. Removing a sub-series merges its races into
-            the neighbouring block; nothing about the races themselves changes.
+            For progressive handicaps (NHC, ECHO), each sub-series computes its own ratings over its
+            own races — the correct behaviour when different boats sail different days, since a
+            handicap rates a boat against whoever actually raced. To continue one sub-series’ ratings
+            into the next (a Series 1 → Series 2 carry, or a single chain across a season), set{' '}
+            <strong className="text-foreground">Continue handicaps from</strong> in the sub-series
+            editor.
           </p>
         </Section>
       )}

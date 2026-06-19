@@ -2,12 +2,12 @@ import { signedInTest as test, expect } from './fixtures';
 import { createSeriesQuick, enableFeatures } from './helpers';
 
 /**
- * Sub-series happy path (#203): split a series into named blocks on the
- * Races tab, score each block independently on the Standings tab (its own
- * discards and entrants, block-local race numbering), and publish one page
- * per block.
+ * Sub-series happy path (#203): on the Races tab create two sub-series as
+ * named race selections, score each independently on the Standings tab (its
+ * own discards and entrants, block-local race numbering), and publish one page
+ * per sub-series.
  *
- * Series: "Frostbite 2026", 4 boats, 3 races split Winter (R1–R2) + Spring (R3).
+ * Series: "Frostbite 2026", 4 boats, 3 races — Winter selects R1–R2, Spring R3.
  *
  *   Winter R1: 1001=1, 1002=2, 1003=3, 1004=4
  *   Winter R2: 1001=1, 1002=2, 1003=3, 1004 absent → DNC = entrants(4)+1 = 5
@@ -23,7 +23,7 @@ const competitors = [
   { sailNumber: '1004', name: 'Dave Walsh' },
 ];
 
-test('sub-series: split, per-block standings, publish per block', async ({ page, signedInEmail }) => {
+test('sub-series: select races, per-block standings, publish per block', async ({ page, signedInEmail }) => {
   await enableFeatures(page, signedInEmail, ['sub-series']);
 
   // ── 1. Series, competitors, races ────────────────────────────────────────
@@ -42,26 +42,25 @@ test('sub-series: split, per-block standings, publish per block', async ({ page,
     await expect(page.getByText(`Race ${n}`)).toBeVisible();
   }
 
-  // ── 2. Split into Winter (R1–R2) + Spring (R3) ───────────────────────────
-  await page.getByRole('button', { name: 'Start a new sub-series at Race 3' }).click();
-  const splitDialog = page.getByRole('dialog', { name: 'Start a new sub-series at Race 3' });
-  await splitDialog.getByLabel('Name', { exact: true }).fill('Spring');
-  // First split of a blockless series: the earlier races need a name too.
-  await splitDialog.getByLabel('Name for Races 1–2').fill('Winter');
-  await splitDialog.getByRole('button', { name: 'Create sub-series' }).click();
+  // ── 2. Create Winter (R1–R2) + Spring (R3) by race selection ─────────────
+  const newSubSeries = async (name: string, raceNumbers: number[]) => {
+    await page.getByRole('button', { name: 'New sub-series' }).click();
+    const dialog = page.getByRole('dialog', { name: 'New sub-series' });
+    await dialog.getByLabel('Name', { exact: true }).fill(name);
+    for (const n of raceNumbers) {
+      await dialog.getByRole('checkbox', { name: new RegExp(`Race ${n}\\b`) }).check();
+    }
+    await dialog.getByRole('button', { name: 'Create sub-series' }).click();
+    await expect(dialog).toBeHidden();
+  };
+  await newSubSeries('Winter', [1, 2]);
+  await newSubSeries('Spring', [3]);
 
-  await expect(page.getByRole('heading', { name: /Winter/ })).toContainText('2 races');
-  await expect(page.getByRole('heading', { name: /Spring/ })).toContainText('1 race');
-
-  // Rename round-trips from the block header.
-  await page.getByRole('button', { name: 'Rename sub-series Winter' }).click();
-  await page.getByLabel('Name', { exact: true }).fill('Deep Winter');
-  await page.getByRole('button', { name: 'Rename', exact: true }).click();
-  await expect(page.getByRole('heading', { name: /Deep Winter/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Rename sub-series Deep Winter' }).click();
-  await page.getByLabel('Name', { exact: true }).fill('Winter');
-  await page.getByRole('button', { name: 'Rename', exact: true }).click();
-  await expect(page.getByRole('heading', { name: /^Winter/ })).toBeVisible();
+  // The Sub-series panel lists both with their race counts. Edit round-trips.
+  const panel = page.getByText('Sub-series', { exact: true }).locator('..');
+  await expect(panel.getByText('Winter')).toBeVisible();
+  await expect(panel.getByText('2 races')).toBeVisible();
+  await expect(panel.getByText('1 race', { exact: false })).toBeVisible();
 
   // ── 3. Finishes either side of the boundary ──────────────────────────────
   const enterRace = async (raceLabel: string, sails: string[]) => {
