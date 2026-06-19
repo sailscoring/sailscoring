@@ -32,7 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Pencil, Scissors, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import type { Race, SubSeries } from '@/lib/types';
 import { log } from '@/lib/debug';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
@@ -42,12 +42,9 @@ import { groupRacesBySubSeries } from '@/lib/scoring';
 function RaceRow({
   race,
   seriesId,
-  onSplitAt,
 }: {
   race: Race;
   seriesId: string;
-  /** Present when this row offers the "start a new sub-series here" gesture. */
-  onSplitAt?: (race: Race) => void;
 }) {
   const router = useRouter();
   const { can } = useWorkspacePermissions();
@@ -94,17 +91,6 @@ function RaceRow({
         )}
       </div>
       <div className="flex items-center gap-1">
-        {onSplitAt && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`Start a new sub-series at Race ${race.raceNumber}`}
-            title="Start a new sub-series at this race"
-            onClick={(e) => { e.stopPropagation(); onSplitAt(race); }}
-          >
-            <Scissors className="h-4 w-4" />
-          </Button>
-        )}
         {!readOnly && (
           <Button
             variant="ghost"
@@ -167,38 +153,26 @@ export default function RacesPage({
   // 500 on the (series_id, race_number) unique index.
   const [addingRace, setAddingRace] = useState(false);
 
-  // Sub-series dialog state. `splitAtRace` set = the per-row gesture;
-  // null with the dialog open = "Add sub-series" (group-all / append).
+  // Sub-series editor dialog. `editingSubSeries` null while open = create;
+  // a SubSeries = edit that one. A sub-series is a named selection of races.
   const [showSubSeriesDialog, setShowSubSeriesDialog] = useState(false);
-  const [splitAtRace, setSplitAtRace] = useState<Race | null>(null);
+  const [editingSubSeries, setEditingSubSeries] = useState<SubSeries | null>(null);
   const [subSeriesName, setSubSeriesName] = useState('');
-  const [initialBlockName, setInitialBlockName] = useState('');
+  const [selectedRaceIds, setSelectedRaceIds] = useState<Set<string>>(new Set());
+  const [carryFromId, setCarryFromId] = useState('');
   const [subSeriesError, setSubSeriesError] = useState('');
-  const [renameTarget, setRenameTarget] = useState<SubSeries | null>(null);
-  const [renameValue, setRenameValue] = useState('');
 
   const isHandicap = series?.scoringMode === 'handicap';
   const startSequence = series?.defaultStartSequence;
   const hasStartSequence = startSequence && startSequence.length > 0;
 
-  // Block sections are data-driven: shown whenever blocks exist, even if the
-  // workspace later switches the feature off. The gate controls creation.
+  // Sub-series (named selections of races), with their resolved race lists for
+  // the count display. Shown whenever any exist, even if the feature is later
+  // switched off; the gate controls creation/editing.
   const blocks =
     subSeriesList && subSeriesList.length > 0 && races
       ? groupRacesBySubSeries(subSeriesList, races)
       : null;
-  const hasBlocks = blocks !== null;
-  const blockFirstRaceIds = new Set(
-    (blocks ?? []).map((b) => b.races[0]?.id).filter((id): id is string => !!id),
-  );
-  // The first split of a blockless series needs a name for the races before
-  // the split point (unless the split is at the first race).
-  const splitNeedsInitialName =
-    splitAtRace !== null &&
-    !hasBlocks &&
-    races !== undefined &&
-    races.length > 0 &&
-    races[0].id !== splitAtRace.id;
 
   // Preview of starts based on the entered first start time
   const previewStarts = (firstStartTime && hasStartSequence)
@@ -314,71 +288,63 @@ export default function RacesPage({
     }
   }
 
-  function openSubSeriesDialog(race: Race | null) {
-    setSplitAtRace(race);
+  function openCreateSubSeries() {
+    setEditingSubSeries(null);
     setSubSeriesName('');
-    setInitialBlockName('');
+    setSelectedRaceIds(new Set());
+    setCarryFromId('');
     setSubSeriesError('');
     setShowSubSeriesDialog(true);
   }
 
-  async function handleCreateSubSeries() {
+  function openEditSubSeries(ss: SubSeries) {
+    setEditingSubSeries(ss);
+    setSubSeriesName(ss.name);
+    setSelectedRaceIds(new Set(ss.raceIds));
+    setCarryFromId(ss.startingHandicapSource === 'continue' ? ss.continueFromSubSeriesId ?? '' : '');
+    setSubSeriesError('');
+    setShowSubSeriesDialog(true);
+  }
+
+  function toggleRaceSelected(raceId: string) {
+    setSelectedRaceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(raceId)) next.delete(raceId);
+      else next.add(raceId);
+      return next;
+    });
+  }
+
+  async function handleSaveSubSeries() {
     const name = subSeriesName.trim();
     if (!name) {
       setSubSeriesError('Enter a name for the sub-series.');
       return;
     }
-    const initialName = initialBlockName.trim();
-    if (splitNeedsInitialName && !initialName) {
-      setSubSeriesError('Name the sub-series for the earlier races too.');
-      return;
-    }
-    await createSubSeries.mutateAsync({
-      seriesId,
-      input: {
+    const raceIds = (races ?? []).filter((r) => selectedRaceIds.has(r.id)).map((r) => r.id);
+    const startingHandicapSource = carryFromId ? ('continue' as const) : ('base' as const);
+    const continueFromSubSeriesId = carryFromId || null;
+    if (editingSubSeries) {
+      await saveSubSeries.mutateAsync({
+        ...editingSubSeries,
         name,
-        ...(splitAtRace ? { firstRaceId: splitAtRace.id } : {}),
-        ...(splitNeedsInitialName ? { initialName } : {}),
-      },
-    });
+        raceIds,
+        startingHandicapSource,
+        continueFromSubSeriesId,
+      });
+    } else {
+      await createSubSeries.mutateAsync({
+        seriesId,
+        input: { name, raceIds, startingHandicapSource, continueFromSubSeriesId },
+      });
+    }
     setShowSubSeriesDialog(false);
   }
 
-  function openRenameDialog(block: SubSeries) {
-    setRenameTarget(block);
-    setRenameValue(block.name);
+  async function handleDeleteSubSeries(ss: SubSeries) {
+    if (!confirm(`Remove sub-series "${ss.name}"? The races themselves are kept.`)) return;
+    await deleteSubSeries.mutateAsync({ seriesId, subSeriesId: ss.id });
   }
-
-  async function handleRename() {
-    if (!renameTarget) return;
-    const name = renameValue.trim();
-    if (!name) return;
-    await saveSubSeries.mutateAsync({ ...renameTarget, name });
-    setRenameTarget(null);
-  }
-
-  async function handleDeleteBlock(block: SubSeries) {
-    const ordered = blocks ?? [];
-    const idx = ordered.findIndex((b) => b.subSeries.id === block.id);
-    const target = ordered[idx - 1]?.subSeries ?? ordered[idx + 1]?.subSeries;
-    const blockRaceCount = ordered[idx]?.races.length ?? 0;
-    const message =
-      target && blockRaceCount > 0
-        ? `Remove sub-series "${block.name}"? Its races move into "${target.name}".`
-        : target
-          ? `Remove sub-series "${block.name}"?`
-          : `Remove sub-series "${block.name}"? Races will no longer be grouped.`;
-    if (!confirm(message)) return;
-    await deleteSubSeries.mutateAsync({ seriesId, subSeriesId: block.id });
-  }
-
-  // The per-row split gesture: offered on every race except one that already
-  // starts a block (splitting there would empty the block above it).
-  const splitHandler =
-    subSeriesEnabled && canManageBlocks
-      ? (race: Race) =>
-          hasBlocks && blockFirstRaceIds.has(race.id) ? undefined : openSubSeriesDialog
-      : () => undefined;
 
   return (
     <div className="space-y-6">
@@ -389,9 +355,9 @@ export default function RacesPage({
             : `${races.length} race${races.length === 1 ? '' : 's'}`}
         </p>
         <div className="flex items-center gap-2">
-          {subSeriesEnabled && canManageBlocks && races !== undefined && (
-            <Button variant="outline" onClick={() => openSubSeriesDialog(null)}>
-              Add sub-series
+          {subSeriesEnabled && canManageBlocks && races !== undefined && races.length > 0 && (
+            <Button variant="outline" onClick={openCreateSubSeries}>
+              New sub-series
             </Button>
           )}
           {!readOnly && (
@@ -402,69 +368,56 @@ export default function RacesPage({
         </div>
       </div>
 
-      {races !== undefined && races.length === 0 && !hasBlocks && (
+      {races !== undefined && races.length === 0 && (
         <p className="text-sm text-muted-foreground">
           No races yet. Add the first race above.
         </p>
       )}
 
-      {races !== undefined && hasBlocks && (
-        <div className="space-y-6" ref={raceListRef}>
+      {/* Sub-series: named selections of races, each scored on its own. */}
+      {blocks && blocks.length > 0 && (
+        <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
+          <h3 className="text-sm font-semibold">Sub-series</h3>
           {blocks.map(({ subSeries: block, races: blockRaces }) => (
-            <div key={block.id} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">
-                  {block.name}
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    {blockRaces.length} race{blockRaces.length === 1 ? '' : 's'}
-                  </span>
-                </h3>
-                {canManageBlocks && (
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Rename sub-series ${block.name}`}
-                      onClick={() => openRenameDialog(block)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Remove sub-series ${block.name}`}
-                      onClick={() => handleDeleteBlock(block)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
+            <div key={block.id} className="flex items-center justify-between gap-2">
+              <div className="text-sm">
+                <span className="font-medium">{block.name}</span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {blockRaces.length} race{blockRaces.length === 1 ? '' : 's'}
+                  {block.startingHandicapSource === 'continue' && block.continueFromSubSeriesId && (
+                    <> · continues {subSeriesList?.find((s) => s.id === block.continueFromSubSeriesId)?.name ?? '—'}</>
+                  )}
+                </span>
               </div>
-              {blockRaces.length === 0 && (
-                <p className="text-sm text-muted-foreground">No races yet.</p>
+              {canManageBlocks && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Edit sub-series ${block.name}`}
+                    onClick={() => openEditSubSeries(block)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Remove sub-series ${block.name}`}
+                    onClick={() => handleDeleteSubSeries(block)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
-              {blockRaces.map((race) => (
-                <RaceRow
-                  key={race.id}
-                  race={race}
-                  seriesId={seriesId}
-                  onSplitAt={splitHandler(race)}
-                />
-              ))}
             </div>
           ))}
         </div>
       )}
 
-      {races !== undefined && races.length > 0 && !hasBlocks && (
+      {races !== undefined && races.length > 0 && (
         <div className="space-y-2" ref={raceListRef}>
           {races.map((race) => (
-            <RaceRow
-              key={race.id}
-              race={race}
-              seriesId={seriesId}
-              onSplitAt={splitHandler(race)}
-            />
+            <RaceRow key={race.id} race={race} seriesId={seriesId} />
           ))}
         </div>
       )}
@@ -512,19 +465,14 @@ export default function RacesPage({
         </DialogContent>
       </Dialog>
 
-      {/* Sub-series creation dialog (split-at-race and add-block forms) */}
+      {/* Sub-series editor: name + race selection + optional handicap carry */}
       <Dialog open={showSubSeriesDialog} onOpenChange={(open) => { if (!open) setShowSubSeriesDialog(false); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {splitAtRace ? `Start a new sub-series at Race ${splitAtRace.raceNumber}` : 'Add sub-series'}
-            </DialogTitle>
+            <DialogTitle>{editingSubSeries ? 'Edit sub-series' : 'New sub-series'}</DialogTitle>
             <DialogDescription>
-              {splitAtRace
-                ? 'The new sub-series runs from this race onwards and is scored on its own — its own standings and discards.'
-                : hasBlocks
-                  ? 'The new sub-series starts empty; new races are added to the last sub-series.'
-                  : 'All races join the new sub-series. Use the scissors on a race to split the series instead.'}
+              A sub-series is a named selection of races, scored on its own — its
+              own standings, discards, and (for NHC/ECHO) its own handicaps.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -534,55 +482,62 @@ export default function RacesPage({
                 id="subSeriesName"
                 value={subSeriesName}
                 onChange={(e) => { setSubSeriesName(e.target.value); setSubSeriesError(''); }}
-                placeholder="e.g. Spring"
+                placeholder="e.g. Spring, Tuesday Series 1"
                 autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateSubSeries(); } }}
               />
             </div>
-            {splitNeedsInitialName && (
-              <div className="space-y-1.5">
-                <Label htmlFor="initialBlockName">
-                  Name for Races 1–{(splitAtRace?.raceNumber ?? 1) - 1}
-                </Label>
-                <Input
-                  id="initialBlockName"
-                  value={initialBlockName}
-                  onChange={(e) => { setInitialBlockName(e.target.value); setSubSeriesError(''); }}
-                  placeholder="e.g. Winter"
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateSubSeries(); } }}
-                />
+            <div className="space-y-1.5">
+              <Label>Races</Label>
+              <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border p-2">
+                {(races ?? []).map((race) => (
+                  <label
+                    key={race.id}
+                    className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedRaceIds.has(race.id)}
+                      onChange={() => toggleRaceSelected(race.id)}
+                    />
+                    <span className="font-medium">Race {race.raceNumber}</span>
+                    {race.date && <span className="text-xs text-muted-foreground">{race.date}</span>}
+                  </label>
+                ))}
               </div>
-            )}
+              <p className="text-xs text-muted-foreground">
+                {selectedRaceIds.size} of {races?.length ?? 0} races selected.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="carryFrom">Continue handicaps from</Label>
+              <select
+                id="carryFrom"
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={carryFromId}
+                onChange={(e) => setCarryFromId(e.target.value)}
+              >
+                <option value="">Start from base ratings</option>
+                {(subSeriesList ?? [])
+                  .filter((s) => s.id !== editingSubSeries?.id)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                For NHC/ECHO: seed this sub-series&apos; progressive handicaps from
+                another&apos;s end, instead of the class base numbers.
+              </p>
+            </div>
             {subSeriesError && <p className="text-sm text-destructive">{subSeriesError}</p>}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowSubSeriesDialog(false)}>Cancel</Button>
-            <Button onClick={handleCreateSubSeries} disabled={createSubSeries.isPending}>
-              Create sub-series
+            <Button
+              onClick={handleSaveSubSeries}
+              disabled={createSubSeries.isPending || saveSubSeries.isPending}
+            >
+              {editingSubSeries ? 'Save' : 'Create sub-series'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Sub-series rename dialog */}
-      <Dialog open={renameTarget !== null} onOpenChange={(open) => { if (!open) setRenameTarget(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rename sub-series</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1.5">
-            <Label htmlFor="renameSubSeries">Name</Label>
-            <Input
-              id="renameSubSeries"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              autoFocus
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleRename(); } }}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setRenameTarget(null)}>Cancel</Button>
-            <Button onClick={handleRename} disabled={saveSubSeries.isPending}>Rename</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

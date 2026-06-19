@@ -28,13 +28,18 @@ async function invalidateSubSeriesScope(qc: QueryClient, seriesId: string) {
   await qc.invalidateQueries({ queryKey: queryKeys.series.all });
 }
 
-/** The "start a new sub-series here" gesture (and the empty/append form). */
+/** Create a sub-series — a named selection of races. */
 export function useCreateSubSeries() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ seriesId, input }: {
       seriesId: string;
-      input: { name: string; firstRaceId?: string; initialName?: string };
+      input: {
+        name: string;
+        raceIds?: string[];
+        startingHandicapSource?: 'base' | 'continue';
+        continueFromSubSeriesId?: string | null;
+      };
     }) => createSubSeries(seriesId, input),
     onSuccess: (_created, { seriesId }) => invalidateSubSeriesScope(qc, seriesId),
   });
@@ -56,7 +61,7 @@ export function useSaveSubSeries() {
   });
 }
 
-/** Remove a block; its races merge into the neighbouring block. */
+/** Remove a sub-series; its membership is dropped, races untouched. */
 export function useDeleteSubSeries() {
   const qc = useQueryClient();
   return useMutation({
