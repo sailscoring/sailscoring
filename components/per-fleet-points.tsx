@@ -102,7 +102,7 @@ export function PerFleetPoints({
           Same for all
         </button>
       </div>
-      <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+      <div className="space-y-1.5 max-h-56 overflow-y-auto p-1">
         {fleets.map((f) => (
           <div key={f.id} className="flex items-center gap-2">
             <span className="flex-1 truncate text-sm" title={f.name}>{f.name}</span>
