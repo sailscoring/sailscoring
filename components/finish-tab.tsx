@@ -138,6 +138,13 @@ export function FinishTab(props: FinishTabProps) {
   const hasNonFinishers = nonFinishers.length > 0;
   const showNonFinishersPanel = hasNonFinishers && !nonFinishersCollapsed;
 
+  // Most club races are position-only — no fleet has a start, so no boat needs
+  // a finish time. In that common case the time cell (input or "—" placeholder)
+  // is pure dead width, so drop it entirely and give the room to the name. This
+  // is race-level (every competitor, not just current finishers) so the column
+  // doesn't flicker in and out as boats are added.
+  const showFinishTimeColumn = competitors.some((c) => needsFinishTime(c.id));
+
   return (
     <div
       className={cn(
@@ -360,7 +367,9 @@ export function FinishTab(props: FinishTabProps) {
                   <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                   <span className="font-mono font-medium">{entry.sailNumber}</span>
                   <span className="text-sm text-muted-foreground flex-1">Unknown — not registered</span>
-                  <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
+                  {showFinishTimeColumn && (
+                    <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"
@@ -414,7 +423,7 @@ export function FinishTab(props: FinishTabProps) {
                   />
                 )}
                 <span className="text-sm truncate flex-1">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
-                {isTimed ? (
+                {showFinishTimeColumn && (isTimed ? (
                   <input
                     type="text"
                     value={editingTimes.get(entry.competitorId) ?? finishTimes.get(entry.competitorId) ?? ''}
@@ -445,7 +454,7 @@ export function FinishTab(props: FinishTabProps) {
                   />
                 ) : (
                   <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
-                )}
+                ))}
                 {!isTimed && index > 0 && !((() => { const prev = finishingOrder[index - 1]; return prev.kind === 'known' && needsFinishTime(prev.competitorId); })()) && (
                   <label
                     className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 cursor-pointer"
