@@ -57,7 +57,8 @@ test.describe('row-scoped conflict dialog', () => {
     // Now drive a UI edit on the same row. The page's cache still has the
     // old version → save 409s → dialog opens. Open the penalty editor and
     // apply ZFP — that fires saveFinish against the stale cached version.
-    await page.getByRole('button', { name: 'Set penalty for C1' }).click();
+    await page.getByRole('button', { name: 'Row actions for C1' }).click();
+    await page.getByRole('menuitem', { name: 'Set scoring penalty' }).click();
     await page.getByRole('combobox').click();
     await page.getByRole('option', { name: /ZFP/ }).click();
     await page.getByRole('button', { name: 'Apply' }).click();
@@ -102,7 +103,8 @@ test.describe('row-scoped conflict dialog', () => {
     );
 
     // UI edit fires with the stale cached version → 409 → dialog.
-    await page.getByRole('button', { name: 'Set penalty for K1' }).click();
+    await page.getByRole('button', { name: 'Row actions for K1' }).click();
+    await page.getByRole('menuitem', { name: 'Set scoring penalty' }).click();
     await page.getByRole('combobox').click();
     await page.getByRole('option', { name: /ZFP/ }).click();
     await page.getByRole('button', { name: 'Apply' }).click();

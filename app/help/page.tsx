@@ -692,8 +692,10 @@ export default async function HelpPage() {
         <p className="font-medium text-sm mt-2">Additive penalty codes (applied to finishers)</p>
         <p>
           A boat that finishes but is penalised by the protest committee may be assigned an
-          additive penalty code using the <strong className="text-foreground">flag icon</strong>{' '}
-          next to their name in the finisher list. Click the flag to open the penalty editor.
+          additive penalty code from the{' '}
+          <strong className="text-foreground">row actions menu</strong> (the{' '}
+          <strong className="text-foreground">⋯</strong> button on its row in the finisher
+          list). Open the menu and choose <em>Set scoring penalty</em>.
         </p>
         <ul className="list-disc list-inside space-y-1 pl-2">
           <li>
@@ -768,9 +770,9 @@ export default async function HelpPage() {
         <p>
           When the protest committee grants a competitor redress under RRS Rule 62,
           their score for a race is replaced by an average calculated from their
-          other scores. Use the{' '}
-          <strong className="text-foreground">scales icon</strong> next to a
-          competitor in the race entry screen to assign redress.
+          other scores. Assign redress from a competitor&rsquo;s controls in the
+          race entry screen — the exact control depends on whether they finished
+          (see below).
         </p>
         <p>
           There are two entry paths depending on whether the competitor finished:
@@ -779,7 +781,8 @@ export default async function HelpPage() {
           <li>
             <strong className="text-foreground">Finisher granted redress</strong> — the
             boat completed the course and recorded a position, but later received redress to
-            improve their score. Click the scales icon in the finishing order list. The
+            improve their score. Open the row actions menu (the <strong className="text-foreground">⋯</strong>{' '}
+            button) on its row in the finishing order list and choose <em>Set redress (RDG)</em>. The
             finish position is preserved in the record but replaced by the redress score
             for standings.
           </li>

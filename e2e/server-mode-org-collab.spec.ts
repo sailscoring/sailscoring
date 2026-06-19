@@ -238,11 +238,12 @@ test.describe('actor attribution on a shared workspace', () => {
 
       // Brian opens the same race so his cache holds the finish at v1.
       await pageB.goto(raceUrl);
-      await expect(pageB.getByRole('button', { name: /Set penalty for SH1/ })).toBeVisible();
+      await expect(pageB.getByRole('button', { name: 'Row actions for SH1' })).toBeVisible();
 
       // Sarah edits the row out from under Brian — apply ZFP via the
       // penalty editor. Same path as the row-conflict spec.
-      await pageA.getByRole('button', { name: 'Set penalty for SH1' }).click();
+      await pageA.getByRole('button', { name: 'Row actions for SH1' }).click();
+      await pageA.getByRole('menuitem', { name: 'Set scoring penalty' }).click();
       await pageA.getByRole('combobox').click();
       await pageA.getByRole('option', { name: /ZFP/ }).click();
       await pageA.getByRole('button', { name: 'Apply' }).click();
@@ -251,7 +252,8 @@ test.describe('actor attribution on a shared workspace', () => {
       );
 
       // Brian tries to apply DPI — his cached version is now stale.
-      await pageB.getByRole('button', { name: 'Set penalty for SH1' }).click();
+      await pageB.getByRole('button', { name: 'Row actions for SH1' }).click();
+      await pageB.getByRole('menuitem', { name: 'Set scoring penalty' }).click();
       await pageB.getByRole('combobox').click();
       await pageB.getByRole('option', { name: /DPI/ }).click();
       await pageB.getByRole('button', { name: 'Apply' }).click();

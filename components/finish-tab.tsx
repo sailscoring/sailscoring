@@ -1,10 +1,16 @@
 'use client';
 
 import { useState, type Ref } from 'react';
-import { X, AlertTriangle, Flag, Scale, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { X, AlertTriangle, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -480,29 +486,43 @@ export function FinishTab(props: FinishTabProps) {
                     {penalty.override != null ? ` (${penalty.override}${penalty.code === 'DPI' ? 'pts' : '%'})` : ''}
                   </Badge>
                 )}
-                <button
-                  onClick={() => setEditingPenaltyEntryId(entry.competitorId)}
-                  aria-label={`Set penalty for ${competitor.sailNumber}`}
-                  title="Set scoring penalty"
-                  className="text-muted-foreground hover:text-foreground shrink-0"
-                >
-                  <Flag className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => openRedressDialog(entry.competitorId, true)}
-                  aria-label={`Set redress for ${competitor.sailNumber}`}
-                  title="Set redress (RDG)"
-                  className={cn(
-                    'shrink-0',
-                    hasRedress ? 'text-amber-600 hover:text-amber-700' : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  <Scale className="h-3.5 w-3.5" />
-                </button>
+                {hasRedress && (
+                  <Badge
+                    variant="outline"
+                    className="text-xs shrink-0 cursor-pointer border-amber-400 text-amber-700 dark:text-amber-400"
+                    onClick={() => openRedressDialog(entry.competitorId, true)}
+                  >
+                    RDG
+                  </Badge>
+                )}
+                {/* Penalty and redress are infrequent — keep them off the row
+                    behind an overflow menu so the boat name keeps the width.
+                    The aria-labels below carry the sail number for addressing. */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      aria-label={`Row actions for ${competitor.sailNumber}`}
+                      title="Penalty, redress…"
+                      className="text-muted-foreground hover:text-foreground shrink-0"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => setEditingPenaltyEntryId(entry.competitorId)}>
+                      <Flag className="h-3.5 w-3.5" />
+                      Set scoring penalty
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => openRedressDialog(entry.competitorId, true)}>
+                      <Scale className="h-3.5 w-3.5" />
+                      {hasRedress ? 'Edit redress (RDG)' : 'Set redress (RDG)'}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <button
                   onClick={() => removeFinisher(eid)}
                   aria-label={`Remove ${competitor.sailNumber}`}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground shrink-0"
                 >
                   <X className="h-4 w-4" />
                 </button>

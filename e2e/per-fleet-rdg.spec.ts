@@ -53,7 +53,8 @@ test('per-fleet stated redress: different value scored in each fleet', async ({ 
   await enterRace(page, 'Race 1', ['T', 'A', 'B']);
 
   // Grant Tandem redress, method A9(c) stated, with different points per fleet.
-  await page.getByRole('button', { name: 'Set redress for T' }).click();
+  await page.getByRole('button', { name: 'Row actions for T' }).click();
+  await page.getByRole('menuitem', { name: /redress \(RDG\)/ }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await dialog.getByText('scorer-stated points').click();
@@ -98,7 +99,8 @@ test('per-fleet stated redress: a fleet with no value is averaged and flagged', 
 
   // RDG stated for IRC only; leave ECHO blank — a deliberate gap.
   await page.getByText('Race 1', { exact: true }).click();
-  await page.getByRole('button', { name: 'Set redress for T' }).click();
+  await page.getByRole('button', { name: 'Row actions for T' }).click();
+  await page.getByRole('menuitem', { name: /redress \(RDG\)/ }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByText('scorer-stated points').click();
   await dialog.getByTestId('per-fleet-expand').click();

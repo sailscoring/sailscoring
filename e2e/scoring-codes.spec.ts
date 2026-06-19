@@ -207,7 +207,8 @@ test('ZFP penalty can be set on a finisher and appears in standings with amber s
   }
 
   // Set ZFP on Alice (first finisher)
-  await page.getByRole('button', { name: 'Set penalty for 501' }).click();
+  await page.getByRole('button', { name: 'Row actions for 501' }).click();
+  await page.getByRole('menuitem', { name: 'Set scoring penalty' }).click();
   await page.getByRole('dialog').getByRole('combobox').click();
   await page.getByRole('option', { name: /ZFP/ }).click();
   await page.getByRole('button', { name: 'Apply' }).click();

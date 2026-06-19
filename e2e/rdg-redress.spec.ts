@@ -168,8 +168,9 @@ test('RDG finisher: scales button replaces finish score with A9(a) average', asy
     await page.getByRole('button', { name: 'Add' }).click();
   }
 
-  // Open redress dialog via the scales button on Alice's finisher row
-  await page.getByRole('button', { name: 'Set redress for 10' }).click();
+  // Open redress dialog via the row actions menu on Alice's finisher row
+  await page.getByRole('button', { name: 'Row actions for 10' }).click();
+  await page.getByRole('menuitem', { name: /redress \(RDG\)/ }).click();
 
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
