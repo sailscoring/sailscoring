@@ -69,16 +69,47 @@ function dnfScoreForRace(fleetFinishes: Finish[], entrantCount: number, dnfScori
   return startingAreaCount + 1;
 }
 
+/**
+ * Resolve a per-fleet scalar (per-fleet RDG points / DPI points) for the fleet
+ * currently being scored. The per-fleet map wins when present and populated:
+ * a fleet present in the map uses that value; a fleet *absent* from a populated
+ * map is a `gap` (the caller decides the fallback). With no per-fleet map — or
+ * no fleet context — the uniform `scalar` applies (and never reads as a gap).
+ */
+function resolvePerFleetScalar(
+  byFleet: Record<string, number> | undefined,
+  scalar: number | null,
+  fleetId: string | undefined,
+): { value: number | null; gap: boolean } {
+  if (byFleet && fleetId !== undefined && Object.keys(byFleet).length > 0) {
+    if (Object.prototype.hasOwnProperty.call(byFleet, fleetId)) {
+      return { value: byFleet[fleetId], gap: false };
+    }
+    return { value: null, gap: true };
+  }
+  return { value: scalar, gap: false };
+}
+
 /** Apply an additive scoring penalty (ZFP/SCP/DPI) to a finisher's points. Per
  *  RRS 44.3(c) a percentage penalty is the stated % (default 20%) of the DNF
  *  score, **rounded to the nearest tenth of a point (0.05 up)** — not the
  *  nearest whole number — and a boat is never scored worse than DNF (`cap`).
  *  No-op when the finish carries no penalty. Caller restricts this to
- *  finishers. */
-function applyAdditivePenalty(basePoints: number, finish: Finish | undefined, cap: number): number {
+ *  finishers. `fleetId` selects the per-fleet DPI points for multi-fleet boats;
+ *  a boat in per-fleet mode with no value for this fleet adds nothing (a
+ *  penalty is never fabricated — the gap is surfaced separately). */
+function applyAdditivePenalty(
+  basePoints: number,
+  finish: Finish | undefined,
+  cap: number,
+  fleetId?: string,
+): number {
   if (!finish?.penaltyCode) return basePoints;
   const method = getCodeDefinition(finish.penaltyCode)?.pointsMethod;
   if (method?.type === 'additive_percentage') {
+    // SCP/ZFP are a percentage of the DNF score, which is already per-fleet —
+    // so a single stored rate yields the correct per-fleet points; no per-fleet
+    // override is needed or read here.
     const pct = finish.penaltyOverride ?? method.defaultPct;
     // pct% of the DNF score, to the nearest 0.1 (0.05 rounded up). pct and cap
     // are whole numbers, so pct*cap/10 is exact before the half-up rounding.
@@ -88,7 +119,8 @@ function applyAdditivePenalty(basePoints: number, finish: Finish | undefined, ca
     return Math.min(roundToTenth(basePoints + penalty), cap);
   }
   if (method?.type === 'additive_stated') {
-    return Math.min(roundToTenth(basePoints + (finish.penaltyOverride ?? 0)), cap);
+    const { value } = resolvePerFleetScalar(finish.penaltyOverrideByFleet, finish.penaltyOverride, fleetId);
+    return Math.min(roundToTenth(basePoints + (value ?? 0)), cap);
   }
   return basePoints;
 }
@@ -97,6 +129,7 @@ export function calculateRaceScores(
   finishes: Finish[],
   competitors: Competitor[],
   dnfScoring: DnfScoring = 'seriesEntries',
+  fleetId?: string,
 ): Map<string, RaceScore> {
   const n = competitors.length;
   const seriesEntryPenalty = n + 1;
@@ -211,7 +244,7 @@ export function calculateRaceScores(
     const score = result.get(competitor.id);
     if (!score || score.place === null) continue; // only apply to finishers
     // Cap at the DNF score (starters base) per A6.2.
-    const penalized = applyAdditivePenalty(score.points, finishMap.get(competitor.id), startingAreaPenalty);
+    const penalized = applyAdditivePenalty(score.points, finishMap.get(competitor.id), startingAreaPenalty, fleetId);
     if (penalized !== score.points) result.set(competitor.id, { ...score, points: penalized });
   }
 
@@ -807,9 +840,14 @@ function resolveRedressScore(
   raceExcluded: boolean[],
   fallbackPoints: number,
   discardAllowance: number,
+  fleetId?: string,
 ): number {
   if (finish.redressMethod === 'stated') {
-    return finish.redressPoints ?? fallbackPoints;
+    const { value, gap } = resolvePerFleetScalar(finish.redressPointsByFleet, finish.redressPoints, fleetId);
+    // Per-fleet gap (boat in per-fleet mode with no value for this fleet): redress
+    // is a benefit the boat is entitled to, so fall through to the A9(a) average
+    // below rather than fabricating or DNF-ing. Uniform mode is unchanged.
+    if (!gap) return value ?? fallbackPoints;
   }
 
   let poolIndices: number[];
@@ -1029,6 +1067,8 @@ function collectAndResolveRdg(args: {
   raceExcluded: boolean[];
   fallbackPoints: number;
   discardAllowance: number;
+  /** The fleet being scored — selects per-fleet stated redress points. */
+  fleetId?: string;
 }): number[] {
   const { races, finishesByRace, eligible, per, raceExcluded } = args;
 
@@ -1067,6 +1107,7 @@ function collectAndResolveRdg(args: {
       raceExcluded,
       args.fallbackPoints,
       args.discardAllowance,
+      args.fleetId,
     );
     per.raceRedressFlags.get(competitorId)![raceIdx] = true;
     // resultCode 'RDG' is already in per.raceCodes from the race loop
@@ -1178,6 +1219,7 @@ export function calculateStandings(
   allFinishes: Finish[],
   discardThresholds: DiscardThreshold[] = [],
   dnfScoring: DnfScoring = 'seriesEntries',
+  fleetId?: string,
 ): { standings: Standing[]; circularRedressRaces: number[] } {
   const competitorIds = new Set(competitors.map((c) => c.id));
 
@@ -1195,7 +1237,7 @@ export function calculateStandings(
     const allRaceFinishes = finishesByRace.get(race.id) ?? [];
     const raceFinishes = allRaceFinishes.filter((f) => f.competitorId !== null && competitorIds.has(f.competitorId));
     const raceFinishMap = new Map(raceFinishes.map((f) => [f.competitorId!, f]));
-    const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
+    const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring, fleetId);
     raceExcluded[raceIdx] = computeRaceExclusion(allRaceFinishes, raceFinishes);
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
@@ -1224,6 +1266,7 @@ export function calculateStandings(
     raceExcluded,
     fallbackPoints: competitors.length + 1,
     discardAllowance: redressDiscardAllowance,
+    fleetId,
   });
 
   const standings = assembleStandings(competitors, per, raceExcluded, discardCount);
@@ -1441,7 +1484,7 @@ function calculateHandicapStandings(
       scores = raceScores;
     } else {
       // No start recorded yet — fall back to scratch scoring
-      const scratchScores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
+      const scratchScores = calculateRaceScores(raceFinishes, competitors, dnfScoring, fleet.id);
       scores = new Map([...scratchScores.entries()].map(([id, s]) => [id, { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode }]));
     }
 
@@ -1461,7 +1504,7 @@ function calculateHandicapStandings(
       const rawPoints = score?.points ?? competitors.length + 1;
       const finish = finishMap.get(competitor.id);
       const isFinisher = score?.place != null;
-      const points = isFinisher ? applyAdditivePenalty(rawPoints, finish, penaltyCap) : rawPoints;
+      const points = isFinisher ? applyAdditivePenalty(rawPoints, finish, penaltyCap, fleet.id) : rawPoints;
       per.racePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : points);
       per.raceRanks.get(competitor.id)!.push(raceExcluded[raceIdx] ? null : (score?.rank ?? null));
       per.raceCodes.get(competitor.id)!.push(score !== undefined ? score.resultCode : 'DNC');
@@ -1488,6 +1531,7 @@ function calculateHandicapStandings(
     raceExcluded,
     fallbackPoints: competitors.length + 1,
     discardAllowance: redressDiscardAllowance,
+    fleetId: fleet.id,
   });
 
   const standings = assembleStandings(ratedCompetitors, per, raceExcluded, discardCount);
@@ -1518,6 +1562,51 @@ export interface FleetStandingsEntry {
 export interface FleetStandingsResult {
   fleetStandings: FleetStandingsEntry[];
   circularRedressRaces: number[];
+}
+
+/**
+ * Detect per-fleet point gaps for one fleet: a multi-fleet boat that is in
+ * per-fleet mode (has a populated `redressPointsByFleet` / `penaltyOverrideByFleet`
+ * map) but has no entry for *this* fleet. Such a boat is still scored — RDG via
+ * the A9(a) average, DPI with no penalty — but the scorer must be told a value
+ * is missing, so each gap becomes a `ScoringRejection` surfaced on the fleet's
+ * standings.
+ *
+ * DPI gaps are only flagged on finisher rows (a DPI on a non-finisher is never
+ * applied). RDG gaps are flagged regardless, since redress applies to
+ * finishers and non-finishers alike.
+ */
+function detectPerFleetGaps(
+  fleet: Fleet,
+  fleetCompetitors: Competitor[],
+  allFinishes: Finish[],
+): ScoringRejection[] {
+  const ids = new Set(fleetCompetitors.map((c) => c.id));
+  const out: ScoringRejection[] = [];
+  for (const f of allFinishes) {
+    if (f.competitorId === null || !ids.has(f.competitorId)) continue;
+    const rdgByFleet = f.redressPointsByFleet;
+    if (
+      f.resultCode === 'RDG' &&
+      f.redressMethod === 'stated' &&
+      rdgByFleet &&
+      Object.keys(rdgByFleet).length > 0 &&
+      !Object.prototype.hasOwnProperty.call(rdgByFleet, fleet.id)
+    ) {
+      out.push({ competitorId: f.competitorId, reason: 'rdg_missing_fleet_points' });
+    }
+    const dpiByFleet = f.penaltyOverrideByFleet;
+    if (
+      f.penaltyCode === 'DPI' &&
+      f.sortOrder !== null &&
+      dpiByFleet &&
+      Object.keys(dpiByFleet).length > 0 &&
+      !Object.prototype.hasOwnProperty.call(dpiByFleet, fleet.id)
+    ) {
+      out.push({ competitorId: f.competitorId, reason: 'dpi_missing_fleet_points' });
+    }
+  }
+  return out;
 }
 
 /**
@@ -1588,7 +1677,7 @@ export function calculateFleetStandings(
         progressiveSeedTcfs?.get(fleet.id),
       );
       allCircular.push(...circularRedressRaces);
-      return { fleet, standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory };
+      return { fleet, standings, rejections: [...rejections, ...detectPerFleetGaps(fleet, fleetCompetitors, allFinishes)], nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory };
     }
     const { standings, circularRedressRaces } = calculateStandings(
       fleetCompetitors,
@@ -1596,9 +1685,10 @@ export function calculateFleetStandings(
       allFinishes,
       discardThresholds,
       dnfScoring,
+      fleet.id,
     );
     allCircular.push(...circularRedressRaces);
-    return { fleet, standings, rejections: [] };
+    return { fleet, standings, rejections: detectPerFleetGaps(fleet, fleetCompetitors, allFinishes) };
   });
 
   if (orphans.length > 0) {

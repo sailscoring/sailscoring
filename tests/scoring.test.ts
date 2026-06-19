@@ -1227,3 +1227,107 @@ describe('calculateFleetStandings — NHC progressive handicap', () => {
     expect(r.standings.find((s) => s.competitor.id === 'A')).toBeDefined();
   });
 });
+
+// ─── Per-fleet stated RDG / DPI points (multi-fleet competitors) ─────────────
+
+describe('per-fleet stated RDG / DPI points', () => {
+  const scratchFleet = (id: string, displayOrder: number): Fleet => ({
+    id, seriesId: 's1', name: id, displayOrder, scoringSystem: 'scratch',
+  });
+  const comp = (id: string, fleetIds: string[]): Competitor => ({
+    id, seriesId: 's1', fleetIds, sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0,
+  });
+  const finish = (raceId: string, competitorId: string, over: Partial<Finish>): Finish => ({
+    ...makeFinish(raceId, competitorId, null), ...over,
+  });
+
+  // Tandem boat T scored in two fleets; fillers keep each fleet non-trivial.
+  const fleets = [scratchFleet('f-irc', 0), scratchFleet('f-echo', 1)];
+  const competitors = [
+    comp('T', ['f-irc', 'f-echo']),
+    comp('A', ['f-irc']), comp('B', ['f-irc']), comp('C', ['f-irc']), comp('D', ['f-irc']),
+    comp('E', ['f-echo']), comp('F', ['f-echo']), comp('G', ['f-echo']), comp('H', ['f-echo']),
+  ];
+
+  function pointsFor(result: ReturnType<typeof calculateFleetStandings>, fleetId: string, compId: string): number {
+    const fs = result.fleetStandings.find((e) => e.fleet.id === fleetId)!;
+    return fs.standings.find((s) => s.competitor.id === compId)!.racePoints[0];
+  }
+  function rejectionsFor(result: ReturnType<typeof calculateFleetStandings>, fleetId: string) {
+    return result.fleetStandings.find((e) => e.fleet.id === fleetId)!.rejections;
+  }
+
+  it('applies a different stated redress value in each fleet', () => {
+    const races = [makeRace('r1', 1)];
+    const finishes = [
+      finish('r1', 'T', { sortOrder: 1, resultCode: 'RDG', redressMethod: 'stated', redressPointsByFleet: { 'f-irc': 8, 'f-echo': 2 } }),
+      makeFinish('r1', 'A', 2), makeFinish('r1', 'B', 3), makeFinish('r1', 'C', 4), makeFinish('r1', 'D', 5),
+      makeFinish('r1', 'E', 2), makeFinish('r1', 'F', 3), makeFinish('r1', 'G', 4), makeFinish('r1', 'H', 5),
+    ];
+    const result = calculateFleetStandings(fleets, competitors, races, finishes);
+    expect(pointsFor(result, 'f-irc', 'T')).toBe(8);
+    expect(pointsFor(result, 'f-echo', 'T')).toBe(2);
+    expect(rejectionsFor(result, 'f-irc')).toHaveLength(0);
+    expect(rejectionsFor(result, 'f-echo')).toHaveLength(0);
+  });
+
+  it('applies a different DPI points value in each fleet', () => {
+    const races = [makeRace('r1', 1)];
+    const finishes = [
+      finish('r1', 'T', { sortOrder: 1, penaltyCode: 'DPI', penaltyOverrideByFleet: { 'f-irc': 3, 'f-echo': 1 } }),
+      makeFinish('r1', 'A', 2), makeFinish('r1', 'B', 3), makeFinish('r1', 'C', 4), makeFinish('r1', 'D', 5),
+      makeFinish('r1', 'E', 2), makeFinish('r1', 'F', 3), makeFinish('r1', 'G', 4), makeFinish('r1', 'H', 5),
+    ];
+    const result = calculateFleetStandings(fleets, competitors, races, finishes);
+    // base 1 point for first place; DPI adds the per-fleet value (cap = DNF = 6).
+    expect(pointsFor(result, 'f-irc', 'T')).toBe(4);
+    expect(pointsFor(result, 'f-echo', 'T')).toBe(2);
+  });
+
+  it('RDG gap (a fleet with no stated value) falls back to the A9 average and flags it', () => {
+    const races = [makeRace('r1', 1), makeRace('r2', 2)];
+    const finishes = [
+      // Race 1: T gets RDG stated, but only IRC has a value — ECHO is a gap.
+      finish('r1', 'T', { sortOrder: 1, resultCode: 'RDG', redressMethod: 'stated', redressPointsByFleet: { 'f-irc': 8 } }),
+      makeFinish('r1', 'A', 2), makeFinish('r1', 'B', 3), makeFinish('r1', 'C', 4), makeFinish('r1', 'D', 5),
+      makeFinish('r1', 'E', 2), makeFinish('r1', 'F', 3), makeFinish('r1', 'G', 4), makeFinish('r1', 'H', 5),
+      // Race 2: T wins both fleets (1 point), so its A9 average over other races is 1.
+      makeFinish('r2', 'T', 1),
+      makeFinish('r2', 'A', 2), makeFinish('r2', 'B', 3), makeFinish('r2', 'C', 4), makeFinish('r2', 'D', 5),
+      makeFinish('r2', 'E', 2), makeFinish('r2', 'F', 3), makeFinish('r2', 'G', 4), makeFinish('r2', 'H', 5),
+    ];
+    const result = calculateFleetStandings(fleets, competitors, races, finishes);
+    expect(pointsFor(result, 'f-irc', 'T')).toBe(8);   // stated value honoured
+    expect(pointsFor(result, 'f-echo', 'T')).toBe(1);  // gap → A9 average of race 2
+    expect(rejectionsFor(result, 'f-irc')).toHaveLength(0);
+    expect(rejectionsFor(result, 'f-echo')).toEqual([{ competitorId: 'T', reason: 'rdg_missing_fleet_points' }]);
+  });
+
+  it('DPI gap (a fleet with no value) applies no penalty and flags it', () => {
+    const races = [makeRace('r1', 1)];
+    const finishes = [
+      finish('r1', 'T', { sortOrder: 1, penaltyCode: 'DPI', penaltyOverrideByFleet: { 'f-irc': 3 } }),
+      makeFinish('r1', 'A', 2), makeFinish('r1', 'B', 3), makeFinish('r1', 'C', 4), makeFinish('r1', 'D', 5),
+      makeFinish('r1', 'E', 2), makeFinish('r1', 'F', 3), makeFinish('r1', 'G', 4), makeFinish('r1', 'H', 5),
+    ];
+    const result = calculateFleetStandings(fleets, competitors, races, finishes);
+    expect(pointsFor(result, 'f-irc', 'T')).toBe(4);   // 1 + 3
+    expect(pointsFor(result, 'f-echo', 'T')).toBe(1);  // gap → no penalty
+    expect(rejectionsFor(result, 'f-irc')).toHaveLength(0);
+    expect(rejectionsFor(result, 'f-echo')).toEqual([{ competitorId: 'T', reason: 'dpi_missing_fleet_points' }]);
+  });
+
+  it('a uniform scalar still applies to every fleet (no per-fleet map)', () => {
+    const races = [makeRace('r1', 1)];
+    const finishes = [
+      finish('r1', 'T', { sortOrder: 1, resultCode: 'RDG', redressMethod: 'stated', redressPoints: 5 }),
+      makeFinish('r1', 'A', 2), makeFinish('r1', 'B', 3), makeFinish('r1', 'C', 4), makeFinish('r1', 'D', 5),
+      makeFinish('r1', 'E', 2), makeFinish('r1', 'F', 3), makeFinish('r1', 'G', 4), makeFinish('r1', 'H', 5),
+    ];
+    const result = calculateFleetStandings(fleets, competitors, races, finishes);
+    expect(pointsFor(result, 'f-irc', 'T')).toBe(5);
+    expect(pointsFor(result, 'f-echo', 'T')).toBe(5);
+    expect(rejectionsFor(result, 'f-irc')).toHaveLength(0);
+    expect(rejectionsFor(result, 'f-echo')).toHaveLength(0);
+  });
+});

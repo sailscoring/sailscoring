@@ -244,7 +244,7 @@ export async function buildFleetHtmlFiles(
           const ratedFleetCompetitors = fleetCompetitors.filter((c) => tcfMap.has(c.id));
           scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap, series.dnfScoring ?? 'seriesEntries').scores;
         } else {
-          scores = calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries');
+          scores = calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries', fleet.id);
         }
         const scoreMap = new Map<string, RaceScoreCellForRender>(
           [...scores.entries()]

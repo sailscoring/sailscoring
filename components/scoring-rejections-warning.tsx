@@ -20,6 +20,8 @@ export function ScoringRejectionsWarning({
 
   const noRating = rejections.filter((r) => r.reason === 'no_rating');
   const noStartingTcf = rejections.filter((r) => r.reason === 'no_starting_tcf');
+  const rdgMissing = rejections.filter((r) => r.reason === 'rdg_missing_fleet_points');
+  const dpiMissing = rejections.filter((r) => r.reason === 'dpi_missing_fleet_points');
 
   const messages: string[] = [];
   if (noRating.length > 0) {
@@ -27,6 +29,12 @@ export function ScoringRejectionsWarning({
   }
   if (noStartingTcf.length > 0) {
     messages.push(`${noStartingTcf.length} competitor${noStartingTcf.length === 1 ? ' lacks' : 's lack'} a starting TCF for NHC scoring: ${noStartingTcf.map(nameOf).join(', ')}`);
+  }
+  if (rdgMissing.length > 0) {
+    messages.push(`${rdgMissing.length === 1 ? 'Redress with' : `${rdgMissing.length} boats have redress with`} per-fleet stated points but none set for this fleet — scored as the A9 average pending a value: ${rdgMissing.map(nameOf).join(', ')}`);
+  }
+  if (dpiMissing.length > 0) {
+    messages.push(`${dpiMissing.length === 1 ? 'A DPI penalty has' : `${dpiMissing.length} DPI penalties have`} per-fleet points but none set for this fleet — no penalty applied pending a value: ${dpiMissing.map(nameOf).join(', ')}`);
   }
   if (messages.length === 0) return null;
 
