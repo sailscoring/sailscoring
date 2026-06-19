@@ -7,7 +7,7 @@ import {
   type PenaltyDraft,
 } from '@/components/penalty-editor-dialog';
 import type { deriveFinishState } from '@/lib/finish-entry';
-import type { Competitor, Finish, PenaltyCode } from '@/lib/types';
+import type { Competitor, Finish, Fleet } from '@/lib/types';
 
 export interface PenaltyEditorHandle {
   /** Open the penalty editor for one finisher. */
@@ -21,12 +21,13 @@ export interface PenaltyEditorHandle {
  */
 export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
   finishByCompetitorId: ReturnType<typeof deriveFinishState>['finishByCompetitorId'];
-  finisherPenalties: Map<string, { code: PenaltyCode; override: number | null }>;
+  finisherPenalties: ReturnType<typeof deriveFinishState>['finisherPenalties'];
   competitorMap: Map<string, Competitor>;
+  fleets: Fleet[];
   patchCache: (updater: (rows: Finish[]) => Finish[]) => void;
   saveFinish: { mutate: (f: Finish) => unknown };
 }>(function PenaltyEditorController(
-  { finishByCompetitorId, finisherPenalties, competitorMap, patchCache, saveFinish },
+  { finishByCompetitorId, finisherPenalties, competitorMap, fleets, patchCache, saveFinish },
   ref,
 ) {
   // competitorId of the row being edited, or null.
@@ -45,6 +46,7 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
       ...finish,
       penaltyCode: draft.code,
       penaltyOverride: draft.override,
+      penaltyOverrideByFleet: draft.overrideByFleet ?? undefined,
     };
     patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
     saveFinish.mutate(next);
@@ -59,6 +61,13 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
           : null
       }
       initialPenalty={editingPenaltyEntryId ? finisherPenalties.get(editingPenaltyEntryId) ?? null : null}
+      competitorFleets={(() => {
+        const c = editingPenaltyEntryId ? competitorMap.get(editingPenaltyEntryId) : undefined;
+        if (!c) return [];
+        return fleets
+          .filter((f) => c.fleetIds.includes(f.id))
+          .map((f) => ({ id: f.id, name: f.name }));
+      })()}
       onApply={applyPenalty}
       onCancel={() => setEditingPenaltyEntryId(null)}
     />

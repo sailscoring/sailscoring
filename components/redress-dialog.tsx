@@ -9,8 +9,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { PerFleetPoints } from '@/components/per-fleet-points';
+import { seedFromFinish, toStorage, type PerFleetPointsValue } from '@/lib/per-fleet-points';
 import type { RedressEntry } from '@/lib/finish-entry';
 
 type RedressMethod = RedressEntry['method'];
@@ -27,6 +28,9 @@ export interface RedressDialogProps {
   currentRaceNumber: number | undefined;
   /** All races in the series, used for the include/exclude pickers. */
   availableRaces: { id: string; raceNumber: number }[];
+  /** The fleets this competitor is entered in. More than one enables
+   *  per-fleet stated points (RRS A9(c)). */
+  competitorFleets: { id: string; name: string }[];
   /** Whether to show the "Remove redress" button. */
   canRemove: boolean;
   onApply: (entry: RedressEntry) => void;
@@ -40,7 +44,8 @@ const EMPTY_ENTRY: RedressEntry = {
   excludeRaces: [],
   includeRaces: [],
   includeAllLater: false,
-  statedPoints: '',
+  statedPoints: null,
+  statedPointsByFleet: null,
 };
 
 export function RedressDialog(props: RedressDialogProps) {
@@ -60,14 +65,24 @@ function RedressDialogInner({
   seedEntry,
   currentRaceNumber,
   availableRaces,
+  competitorFleets,
   canRemove,
   onApply,
   onRemove,
   onCancel,
 }: RedressDialogProps & { competitor: { id: string; sailNumber: string } }) {
   const [entry, setEntry] = useState<RedressEntry>(seedEntry ?? EMPTY_ENTRY);
+  const fleetIds = competitorFleets.map((f) => f.id);
+  const [stated, setStated] = useState<PerFleetPointsValue>(
+    seedFromFinish((seedEntry ?? EMPTY_ENTRY).statedPoints, (seedEntry ?? EMPTY_ENTRY).statedPointsByFleet, fleetIds),
+  );
 
   function apply() {
+    if (entry.method === 'stated') {
+      const { scalar, byFleet } = toStorage(stated, fleetIds);
+      onApply({ ...entry, statedPoints: scalar, statedPointsByFleet: byFleet ?? null });
+      return;
+    }
     onApply(entry);
   }
 
@@ -105,19 +120,15 @@ function RedressDialogInner({
           </div>
 
           {entry.method === 'stated' && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Points</label>
-              <Input
-                type="number"
-                min={0}
-                step="0.1"
-                placeholder="e.g. 3.5"
-                value={entry.statedPoints}
-                onChange={(e) => setEntry((d) => ({ ...d, statedPoints: e.target.value }))}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } }}
-                autoFocus
-              />
-            </div>
+            <PerFleetPoints
+              label="Points"
+              fleets={competitorFleets}
+              value={stated}
+              onChange={setStated}
+              placeholder="e.g. 3.5"
+              autoFocus
+              onSubmit={apply}
+            />
           )}
 
           {entry.method !== 'stated' && (

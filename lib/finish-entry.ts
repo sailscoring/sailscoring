@@ -68,14 +68,18 @@ export function entryKey(e: FinishEntry): string {
   return e.kind === 'known' ? e.competitorId : e.finishId;
 }
 
-/** Redress configuration carried alongside a competitor's Finish row. */
+/** Redress configuration carried alongside a competitor's Finish row.
+ *  For the `stated` method the points may be a single uniform value
+ *  (`statedPoints`) or differ per fleet (`statedPointsByFleet`, keyed by
+ *  fleetId) for a boat scored in more than one fleet. */
 export interface RedressEntry {
   method: 'all_races' | 'races_before' | 'stated';
   poolMode: 'none' | 'exclude' | 'include';
   excludeRaces: number[];
   includeRaces: number[];
   includeAllLater: boolean;
-  statedPoints: string;
+  statedPoints: number | null;
+  statedPointsByFleet: Record<string, number> | null;
 }
 
 /**
@@ -98,7 +102,7 @@ export function deriveFinishState(savedFinishes: Finish[]): {
   nonFinisherCodes: Map<string, ResultCode>;
   finishTimes: Map<string, string>;
   tiedWithPrevious: Set<string>;
-  finisherPenalties: Map<string, { code: PenaltyCode; override: number | null }>;
+  finisherPenalties: Map<string, { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null }>;
   redressEntries: Map<string, RedressEntry>;
   finishByEntryKey: Map<string, Finish>;
   finishByCompetitorId: Map<string, Finish>;
@@ -130,12 +134,13 @@ export function deriveFinishState(savedFinishes: Finish[]): {
     }
   }
 
-  const finisherPenalties = new Map<string, { code: PenaltyCode; override: number | null }>();
+  const finisherPenalties = new Map<string, { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null }>();
   for (const finish of savedFinishes) {
     if (finish.penaltyCode && finish.competitorId && finishedIds.has(finish.competitorId)) {
       finisherPenalties.set(finish.competitorId, {
         code: finish.penaltyCode,
         override: finish.penaltyOverride ?? null,
+        overrideByFleet: finish.penaltyOverrideByFleet ?? null,
       });
     }
   }
@@ -152,7 +157,8 @@ export function deriveFinishState(savedFinishes: Finish[]): {
         excludeRaces: finish.redressExcludeRaces ?? [],
         includeRaces: finish.redressIncludeRaces ?? [],
         includeAllLater: finish.redressIncludeAllLater ?? false,
-        statedPoints: finish.redressPoints != null ? String(finish.redressPoints) : '',
+        statedPoints: finish.redressPoints ?? null,
+        statedPointsByFleet: finish.redressPointsByFleet ?? null,
       });
     }
   }

@@ -8,7 +8,7 @@ import {
   type FinishEntry,
   type RedressEntry,
 } from '@/lib/finish-entry';
-import type { Competitor, Finish, Race, ResultCode } from '@/lib/types';
+import type { Competitor, Finish, Fleet, Race, ResultCode } from '@/lib/types';
 
 export interface RedressControllerHandle {
   /** Open the redress dialog for a finisher or non-finisher. */
@@ -28,13 +28,14 @@ export const RedressController = forwardRef<RedressControllerHandle, {
   finishByCompetitorId: Map<string, Finish>;
   competitorMap: Map<string, Competitor>;
   availableRaces: Race[];
+  fleets: Fleet[];
   patchCache: (updater: (rows: Finish[]) => Finish[]) => void;
   saveFinish: { mutate: (f: Finish) => unknown };
   deleteFinish: { mutate: (input: { id: string; raceId: string }) => unknown };
 }>(function RedressController(
   {
     raceId, raceNumber, finishingOrder, redressEntries, finishByCompetitorId,
-    competitorMap, availableRaces, patchCache, saveFinish, deleteFinish,
+    competitorMap, availableRaces, fleets, patchCache, saveFinish, deleteFinish,
   },
   ref,
 ) {
@@ -52,7 +53,8 @@ export const RedressController = forwardRef<RedressControllerHandle, {
       redressExcludeRaces: entry.poolMode === 'exclude' ? entry.excludeRaces : null,
       redressIncludeRaces: entry.poolMode === 'include' ? entry.includeRaces : null,
       redressIncludeAllLater: entry.poolMode === 'include' ? entry.includeAllLater : false,
-      redressPoints: entry.method === 'stated' ? (Number(entry.statedPoints) || null) : null,
+      redressPoints: entry.method === 'stated' ? entry.statedPoints : null,
+      redressPointsByFleet: entry.method === 'stated' ? (entry.statedPointsByFleet ?? undefined) : undefined,
     };
     const existing = finishByCompetitorId.get(competitorId);
     let next: Finish;
@@ -100,6 +102,7 @@ export const RedressController = forwardRef<RedressControllerHandle, {
         redressIncludeRaces: null,
         redressIncludeAllLater: false,
         redressPoints: null,
+        redressPointsByFleet: undefined,
       };
       patchCache((rows) => rows.map((r) => (r.id === existing.id ? next : r)));
       saveFinish.mutate(next);
@@ -128,6 +131,13 @@ export const RedressController = forwardRef<RedressControllerHandle, {
       seedEntry={redressDialog ? redressEntries.get(redressDialog.competitorId) ?? null : null}
       currentRaceNumber={raceNumber}
       availableRaces={availableRaces}
+      competitorFleets={(() => {
+        const c = redressDialog ? competitorMap.get(redressDialog.competitorId) : undefined;
+        if (!c) return [];
+        return fleets
+          .filter((f) => c.fleetIds.includes(f.id))
+          .map((f) => ({ id: f.id, name: f.name }));
+      })()}
       canRemove={redressDialog ? redressEntries.has(redressDialog.competitorId) : false}
       onApply={applyRedress}
       onRemove={removeRedress}

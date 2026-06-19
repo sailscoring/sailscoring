@@ -337,6 +337,7 @@ export default function ResultEntryPage({
         finishByCompetitorId={finishByCompetitorId}
         finisherPenalties={derived.finisherPenalties}
         competitorMap={competitorMap}
+        fleets={fleets ?? []}
         patchCache={patchCache}
         saveFinish={saveFinish}
       />
@@ -350,6 +351,7 @@ export default function ResultEntryPage({
         finishByCompetitorId={finishByCompetitorId}
         competitorMap={competitorMap}
         availableRaces={allSeriesRaces ?? []}
+        fleets={fleets ?? []}
         patchCache={patchCache}
         saveFinish={saveFinish}
         deleteFinish={deleteFinish}
