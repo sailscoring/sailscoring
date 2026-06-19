@@ -80,7 +80,7 @@ export function PerFleetPoints({
         />
         <p className="text-xs text-muted-foreground">
           Applies to all {fleets.length} fleets ·{' '}
-          <button type="button" className="text-primary hover:underline" onClick={expand}>
+          <button type="button" className="text-primary hover:underline" onClick={expand} data-testid="per-fleet-expand">
             Set points per fleet
           </button>
         </p>
@@ -98,7 +98,7 @@ export function PerFleetPoints({
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium">{label} per fleet</label>
-        <button type="button" className="text-xs text-primary hover:underline" onClick={collapse}>
+        <button type="button" className="text-xs text-primary hover:underline" onClick={collapse} data-testid="per-fleet-collapse">
           Same for all
         </button>
       </div>
@@ -112,6 +112,7 @@ export function PerFleetPoints({
               step="0.1"
               placeholder={placeholder}
               className={cn('w-24')}
+              data-testid={`per-fleet-input-${f.name}`}
               value={value.values[f.id] ?? ''}
               onChange={(e) => onChange({ mode: 'perFleet', values: { ...value.values, [f.id]: e.target.value } })}
             />

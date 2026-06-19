@@ -829,6 +829,23 @@ export default async function HelpPage() {
           Redress scores are shown in amber with a superscript{' '}
           <em>r</em> in the standings table.
         </p>
+        <p className="font-medium text-sm mt-2">Per-fleet stated points (multi-fleet boats)</p>
+        <p>
+          When a boat is scored in more than one fleet (e.g. the same start scored
+          under IRC and ECHO), the redress dialog defaults to one stated value applied
+          to every fleet. If the committee wants a different value per fleet — because
+          the boat’s standing at the time of the incident differs by handicap system —
+          click <strong className="text-foreground">Set points per fleet</strong> and
+          enter each fleet’s value. The averaged methods (A9(a)/(b)) already average
+          each fleet’s own scores, so they need no per-fleet entry.
+        </p>
+        <p>
+          If you later add the boat to a new fleet, that fleet has no stated value yet:
+          it is scored as the A9(a) average for that fleet, and an amber notice on the
+          standings names the boat so you can enter a value. (A per-fleet{' '}
+          <strong className="text-foreground">DPI</strong> penalty works the same way,
+          except a fleet with no value simply has no penalty applied until you set one.)
+        </p>
       </Section>
 
       <Section id="start-check-in" title="Start check-in">
