@@ -20,7 +20,7 @@ DBSC is large (see [the use case](../requirements/dbsc-use-case.md): ~20
 classes, six rating systems, season-long series). We are *not* trying to
 cover all of it at once. We climb in milestones, each adding a slice of
 classes/systems and ending in a demonstrable parity result against
-[HalSail](../notes/halsail/querying-public-results.md). Early milestones
+[HalSail](../../../dbsc-archive/docs/notes/halsail/querying-public-results.md). Early milestones
 prove the existing engine suffices for a real subset; later ones add the
 genuinely-new systems (VPRS/ORC/YTC) and structures (WOW, the Super League).
 
@@ -562,3 +562,66 @@ came+1-not-+2, WOW PY-not-ECHO and same-finish-not-cross-series).
 Presentation-layer items (prize-exclusion awareness, "starred" race exclusion,
 average-points-for-duty overrides) are folded in where the relevant classes
 land, not milestones of their own.
+
+## Phase 2 — whole-season sub-series fidelity (tandem → sub-series)
+
+Milestones 1–5 reproduce DBSC's published *standings* per `(class × day)`. Phase
+2 reproduces DBSC's *model*: a whole season as **one** Sail Scoring series whose
+**fleets × sub-series** mirror HalSail's classes × **tandem series**. The point
+is a structural isomorphism plus parity — showing DBSC their own season modelled
+the way they model it — culminating in an import into a DBSC workspace.
+
+**Out of scope:** cross-series competitor identity (that was the IODAI archive's
+goal, not this one) and race naming (HalSail only numbers races).
+
+### The mapping
+
+| HalSail | Sail Scoring |
+|---|---|
+| class (e.g. *Cruisers 0 IRC*, *Cruisers 1 - J109*) | **Fleet** — same name, same handicap system |
+| tandem series (*Thursday Overall*, *Thursday Series A/B*) | **SubSeries** — same name, same race selection, same discards |
+| one season | **one Series** |
+| published `(class × series)` grid | published `(fleet × sub-series)` grid |
+
+The archive's `catalog.json` class→series join is the spec.
+
+### Why 2025 first
+
+2025 is complete and already carries the full tandem structure: every day has a
+**Series A** and **Series B** alongside the **Overall**, plus *Summer Series*,
+*RAYC Super League 1/2*, and *Thursday & Saturday Combined*. 2026 will gain the
+same A/B split per the NoR, but mid-season the A→B boundary date is not yet
+fixed, so it's a poor demonstrator right now.
+
+### Core reconstruction rules
+
+1. **One Series per season.** Fleets = classes (handicap system from the class).
+2. **Races are keyed by `date + start-time`, never by number.** A tandem's race
+   numbers are local — *Series B* renumbers its races 1–9, but they are the same
+   physical races as *Overall*'s 10–18 (matched by date). The merged `Race[]` is
+   the union over a day's tandems, deduped by date.
+3. **SubSeries = tandems**, each selecting its races by date (A ∪ B = Overall).
+4. **Finishes entered once per race**, scored across the boat's fleets and within
+   every sub-series selecting that race. Competitors dedupe **within the season**
+   via HalSail's shared boat register (no cross-year matching).
+5. **ECHO chains are per sub-series** (`startingHandicapSource`), as HalSail
+   recomputes per series.
+
+### Status
+
+- **M2 first cut — DONE, parity-green.** `Cruisers 1 - J/109` (2025) as one series
+  with sub-series *Thursday Overall / Series A / Series B*: 10 boats, 15 races,
+  reconstructed Net matches HalSail's published summaries for all three. Proves
+  the date-partitioned sub-series mechanic, DBSC's discard table, and the
+  `startingAreaInclDnc` DNC value end-to-end. (Scratch/place-based.)
+- **M1 — archive parser (next).** Extend `lib/halsail/parse-results.ts` to the
+  older archive `_CrsResults` markup (handicap time/rating columns), to unlock
+  the cruiser fleets.
+- **M3** full Thursday cruiser group (IRC + ECHO + VPRS, the meaty demo), then
+  **M4** Saturday + Tuesday into the same series, **M5** the special tandems
+  (*Summer Series*, *Super League*, *Combined*; *Master*/*ORC* fleets), **M6**
+  import + publish into a DBSC workspace.
+
+Phase-2 tooling lives in the **`dbsc-archive`** repo
+(`scripts/halsail-archive-to-sailscoring.ts`, `sources/2025/`), reusing this
+repo's engine across repos as noted at the top.
