@@ -74,6 +74,7 @@ export interface SeriesResultsData {
 export interface RaceData {
   raceNumber: number;
   date: string; // ISO date string
+  name?: string | null; // optional race label, shown in the section heading + column tooltip
   label: string; // column header, e.g. "R1" or "R3 Jul 23"
   anchorId: string; // in-page anchor, e.g. "r1"
   startTime?: string; // "HH:MM:SS" gun time for this fleet (handicap fleets only)
@@ -581,11 +582,12 @@ function renderSummaryTable(
     ...(showAge ? ['<th>Age</th>'] : []),
     ...(showGender ? ['<th>Gender</th>'] : []),
     ...(hasSeedCol ? [`<th>${esc(seedHeader)}</th>`] : []),
-    ...races.map((r) =>
-      r.results.length > 0
-        ? `<th><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a></th>`
-        : `<th>${esc(r.label)}</th>`,
-    ),
+    ...races.map((r) => {
+      const titleAttr = r.name ? ` title="${esc(r.name)}"` : '';
+      return r.results.length > 0
+        ? `<th${titleAttr}><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a></th>`
+        : `<th${titleAttr}>${esc(r.label)}</th>`;
+    }),
     '<th>Total</th>',
     ...(hasDiscards ? ['<th>Nett</th>'] : []),
   ].join('\n');
@@ -785,7 +787,8 @@ function renderRaceTable(
     : '';
 
   const primaryTh = esc(showCrewName ? `${primaryHeader} / Crew` : primaryHeader);
-  return `<h3 class="racetitle" id="${esc(race.anchorId)}">${esc(race.label)}&nbsp;&mdash;&nbsp;${dateStr}${startStr}</h3>
+  const nameStr = race.name ? `${esc(race.name)}&nbsp;&mdash;&nbsp;` : '';
+  return `<h3 class="racetitle" id="${esc(race.anchorId)}">${esc(race.label)}&nbsp;&mdash;&nbsp;${nameStr}${dateStr}${startStr}</h3>
 ${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
 <col class="rank" />
@@ -1066,7 +1069,7 @@ function maybeLink(url: string | undefined, inner: string): string {
  */
 export function assembleSeriesResultsData(
   series: { name: string; venue: string; venueLogoUrl?: string; eventLogoUrl?: string; venueUrl?: string; eventUrl?: string },
-  races: Array<{ id: string; raceNumber: number; date: string }>,
+  races: Array<{ id: string; raceNumber: number; name?: string | null; date: string }>,
   standings: Array<{
     rank: number;
     competitor: { id: string; sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; club?: string; nationality?: string; subdivision?: string; gender?: 'M' | 'F' | ''; age?: number | null };
@@ -1246,6 +1249,7 @@ export function assembleSeriesResultsData(
     return {
       raceNumber: race.raceNumber,
       date: race.date,
+      ...(race.name ? { name: race.name } : {}),
       label: `R${race.raceNumber}`,
       anchorId: `r${race.raceNumber}`,
       ...(startTime ? { startTime } : {}),

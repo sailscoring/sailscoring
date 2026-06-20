@@ -761,6 +761,25 @@ describe('assembleSeriesResultsData', () => {
     expect(data.standings).toHaveLength(2);
   });
 
+  it('carries a race name into the column tooltip and section heading, keeping Rn as the label', () => {
+    const namedRaces = [
+      { id: 'r1', raceNumber: 1, name: 'Round the Island', date: '2025-06-01' },
+      { id: 'r2', raceNumber: 2, name: null, date: '2025-06-08' },
+    ];
+    const data = assembleSeriesResultsData(series, namedRaces, standings, raceScoresByRaceId, competitorsById, ['club'], now);
+    expect(data.races[0].name).toBe('Round the Island');
+    expect(data.races[0].label).toBe('R1');
+    expect(data.races[1].name).toBeUndefined();
+
+    const html = renderSeriesHtml(data);
+    // Compact column header stays "R1" but carries the name as a tooltip.
+    expect(html).toContain('title="Round the Island"');
+    // The race section heading shows the name alongside R1.
+    expect(html).toMatch(/R1[^<]*Round the Island/);
+    // The unnamed race gets no tooltip.
+    expect(html).not.toContain('title="null"');
+  });
+
   it('assigns podiumRank correctly', () => {
     const data = assembleSeriesResultsData(series, races, standings, raceScoresByRaceId, competitorsById, ['club'], now);
     // Alice: R1=1st, R2=2nd
