@@ -51,7 +51,6 @@
     "generate:sample-series": "tsx scripts/generate-sample-series.ts",
     "generate:rya-py": "tsx scripts/generate-rya-py.ts",
     "halsail:fetch": "tsx scripts/halsail-fetch.ts",
-    "halsail:archive:fetch": "tsx scripts/halsail-archive-fetch.ts",
     "halsail:to-sailscoring": "tsx scripts/halsail-to-sailscoring.ts",
     "halsail:compare": "tsx scripts/halsail-compare.ts",
     "nationality:sync": "tsx scripts/sync-national-letters.ts",
