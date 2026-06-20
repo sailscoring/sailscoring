@@ -958,6 +958,14 @@ export function buildSeriesFileFromSailwave(
   // that never populates them just gives the scorer empty columns to clean up.
   const enabledFields = buildEnabledFields(opts.primaryLabel, dataFlagsFor(competitors));
 
+  // Scratch series (every fleet position-scored, e.g. a one-design class) record
+  // no finish times, so the finish sheet needs no start. Only call it handicap
+  // when at least one fleet uses a time-based system — matching how the CSV
+  // import and Scoring mode card keep the series-level fork in sync with fleets.
+  const scoringMode = fleets.some((f) => f.scoringSystem !== 'scratch')
+    ? 'handicap'
+    : 'scratch';
+
   const file: SeriesFile = {
     formatVersion: FORMAT_VERSION,
     seriesId,
@@ -984,7 +992,7 @@ export function buildSeriesFileFromSailwave(
       enabledCompetitorFields: enabledFields,
       primaryPersonLabel: opts.primaryLabel,
       subdivisionLabel,
-      scoringMode: 'handicap',
+      scoringMode,
     },
     fleets: fleets.map((f) => ({
       id: f.id,

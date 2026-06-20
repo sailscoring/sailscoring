@@ -377,6 +377,10 @@ describe('buildSeriesFileFromSailwave: Tues Series 1', () => {
     expect(file.series.dnfScoring).toBe('startingArea');
   });
 
+  it('sets handicap scoring mode when a fleet uses a time-based system (HPH here)', () => {
+    expect(file.series.scoringMode).toBe('handicap');
+  });
+
   it('resolves year-less word-month racedates using the default-date year', () => {
     // Tues file's racedate is word-month with no year ("May 5th", "May 12th");
     // the default date's year (2026) resolves them. Only the two sailed races
@@ -583,6 +587,12 @@ describe('buildSeriesFileFromSailwave: fleetless / pre-event entry list', () => 
     expect(file.fleets[0].name).toBe('Default');
     // No ratings anywhere → scratch (one-design).
     expect(file.fleets[0].scoringSystem).toBe('scratch');
+  });
+
+  it('sets scratch scoring mode when every fleet is position-scored', () => {
+    const file = buildSeriesFileFromSailwave(entryList(), DEFAULT_OPTS);
+    // All fleets scratch → no finish times, so the finish sheet needs no start.
+    expect(file.series.scoringMode).toBe('scratch');
   });
 
   it('imports every fleetless competitor into the Default fleet', () => {
