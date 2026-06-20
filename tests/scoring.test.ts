@@ -1331,3 +1331,52 @@ describe('per-fleet stated RDG / DPI points', () => {
     expect(rejectionsFor(result, 'f-echo')).toHaveLength(0);
   });
 });
+
+// ─── RDG pool is reorder-stable (redress references races by id) ──────────────
+
+describe('RDG pool is reorder-stable', () => {
+  // Mirrors the 10-rdg-pool-restricted fixture: Alice (a) is granted A9(a)
+  // redress in race r3, excluding r1 from the pool. Her average is over r2 and
+  // r4 (1 pt each) = 1.0. Because redress references races by id, renumbering
+  // the races (a reorder/insert) must not disturb the pool.
+  const competitors = ['a', 'b', 'c'].map((id) => makeCompetitor(id));
+  const finishes: Finish[] = [
+    makeFinish('r1', 'a', 3), makeFinish('r1', 'b', 2), makeFinish('r1', 'c', 1),
+    makeFinish('r2', 'a', 1), makeFinish('r2', 'b', 2), makeFinish('r2', 'c', 3),
+    { ...makeFinish('r3', 'a', 3, 'RDG'), redressMethod: 'all_races', redressExcludeRaceIds: ['r1'] },
+    makeFinish('r3', 'b', 1), makeFinish('r3', 'c', 2),
+    makeFinish('r4', 'a', 1), makeFinish('r4', 'b', 2), makeFinish('r4', 'c', 3),
+  ];
+
+  const rdgValue = (races: Race[]): number => {
+    const { standings } = calculateStandings(competitors, races, finishes, []);
+    const alice = standings.find((s) => s.competitor.id === 'a')!;
+    const rdgIdx = alice.raceCodes.findIndex((code) => code === 'RDG');
+    return alice.racePoints[rdgIdx];
+  };
+
+  it('gives the documented 1.0 average in the natural race order', () => {
+    const races = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3), makeRace('r4', 4)];
+    expect(rdgValue(races)).toBe(1.0);
+  });
+
+  it('is unchanged when the races are renumbered into a different order', () => {
+    // Same race ids, different numbers (a full reorder): r4,r3,r2,r1 → 1..4.
+    const reordered = [makeRace('r4', 1), makeRace('r3', 2), makeRace('r2', 3), makeRace('r1', 4)];
+    expect(rdgValue(reordered)).toBe(1.0);
+  });
+
+  it('is unchanged when a new race is inserted ahead of the pool', () => {
+    // Inserting a make-up race at the front pushes every number up by one; the
+    // excluded race (r1) and the pool (r2, r4) are still selected by id.
+    const withInsert = [
+      makeRace('r-new', 1),
+      makeRace('r1', 2), makeRace('r2', 3), makeRace('r3', 4), makeRace('r4', 5),
+    ];
+    const withInsertFinishes = [...finishes, makeFinish('r-new', 'a', 1), makeFinish('r-new', 'b', 2), makeFinish('r-new', 'c', 3)];
+    const { standings } = calculateStandings(competitors, withInsert, withInsertFinishes, []);
+    const alice = standings.find((s) => s.competitor.id === 'a')!;
+    const rdgIdx = alice.raceCodes.findIndex((code) => code === 'RDG');
+    expect(alice.racePoints[rdgIdx]).toBe(1.0);
+  });
+});

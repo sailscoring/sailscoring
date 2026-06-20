@@ -307,6 +307,7 @@ export default function RacesPage({
   useShortcutHelp([
     { key: '↵', description: 'Open focused race', section: 'Races' },
     { key: 'd', description: 'Delete focused race', section: 'Races' },
+    { key: 'Alt+↑ / Alt+↓', description: 'Move focused race earlier / later', section: 'Races' },
   ]);
 
   async function handleAddRaceScratch() {

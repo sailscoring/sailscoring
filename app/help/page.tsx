@@ -625,6 +625,23 @@ export default async function HelpPage() {
           click it to change it (handy after an import that guessed the date, or if a race is
           re-sailed on another day).
         </p>
+        <p>
+          A race can also carry a <strong className="text-foreground">name</strong> alongside its
+          number — “New Year’s Day Race”, “Round the Island”, “Race 3 (re-sail)”. Open the race and
+          click <strong className="text-foreground">Add name</strong> beneath the heading; the name
+          appears on the Races tab and in the published results (the column stays{' '}
+          <em>R1</em>, <em>R2</em>… so tables stay compact). Clear the field to drop the name.
+        </p>
+        <p>
+          Races can be <strong className="text-foreground">reordered</strong> by dragging the{' '}
+          <strong className="text-foreground">grip handle</strong> at the start of each row, or by
+          focusing a row and pressing <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>Alt</kbd>+<kbd>↓</kbd> to
+          move it one place earlier or later. To slot a race in mid-series — a postponed race
+          re-sailed between two others, or a make-up race — use a row’s{' '}
+          <strong className="text-foreground">⇅ menu ▸ Insert race above / below</strong>. Races
+          renumber automatically to stay in order; existing redress (RDG) pools follow their races,
+          so reordering or inserting never disturbs a previously scored redress.
+        </p>
       </Section>
 
       {has('sub-series') && (
