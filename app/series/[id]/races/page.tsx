@@ -33,7 +33,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Pencil, Trash2 } from 'lucide-react';
+import { ChevronsUpDown, Pencil, Trash2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { SortableList, DragHandle } from '@/components/ui/sortable-list';
 import type { CSSProperties, HTMLAttributes } from 'react';
 import type { Race, SubSeries } from '@/lib/types';
@@ -49,6 +55,7 @@ function RaceRow({
   rowStyle,
   dragHandle,
   onNudge,
+  onInsert,
 }: {
   race: Race;
   seriesId: string;
@@ -56,6 +63,7 @@ function RaceRow({
   rowStyle?: CSSProperties;
   dragHandle?: HTMLAttributes<HTMLElement> | null;
   onNudge?: (direction: -1 | 1) => void;
+  onInsert?: (position: 'above' | 'below') => void;
 }) {
   const router = useRouter();
   const { can } = useWorkspacePermissions();
@@ -117,6 +125,28 @@ function RaceRow({
         </div>
       </div>
       <div className="flex items-center gap-1">
+        {!readOnly && onInsert && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Insert a race near Race ${race.raceNumber}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ChevronsUpDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuItem onClick={() => onInsert('above')}>
+                Insert race above
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onInsert('below')}>
+                Insert race below
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         {!readOnly && (
           <Button
             variant="ghost"
@@ -223,6 +253,30 @@ export default function RacesPage({
     const next = [...ids];
     [next[idx], next[target]] = [next[target], next[idx]];
     reorderRaces.mutate(next);
+  }
+
+  // Insert a new (unnamed, today-dated) race at a position: create it appended,
+  // then reorder with its id spliced into place so the tail renumbers. Starts
+  // can be added on the new race's page.
+  async function insertRaceAt(index: number) {
+    if (!races || addingRace) return;
+    setAddingRace(true);
+    try {
+      const newId = crypto.randomUUID();
+      await saveRace.mutateAsync({
+        id: newId,
+        seriesId,
+        raceNumber: races.length + 1,
+        name: null,
+        date: new Date().toISOString().slice(0, 10),
+        createdAt: Date.now(),
+      });
+      const ids = races.map((r) => r.id);
+      ids.splice(index, 0, newId);
+      await reorderRaces.mutateAsync(ids);
+    } finally {
+      setAddingRace(false);
+    }
   }
 
   // Auto-focus first row when list first loads
@@ -464,16 +518,20 @@ export default function RacesPage({
             ))
           ) : (
             <SortableList items={races} onReorder={(orderedIds) => reorderRaces.mutate(orderedIds)}>
-              {(race, { ref, style, handleProps }) => (
-                <RaceRow
-                  race={race}
-                  seriesId={seriesId}
-                  rowRef={ref}
-                  rowStyle={style}
-                  dragHandle={handleProps}
-                  onNudge={(direction) => nudgeRace(race.id, direction)}
-                />
-              )}
+              {(race, { ref, style, handleProps }) => {
+                const index = races.findIndex((r) => r.id === race.id);
+                return (
+                  <RaceRow
+                    race={race}
+                    seriesId={seriesId}
+                    rowRef={ref}
+                    rowStyle={style}
+                    dragHandle={handleProps}
+                    onNudge={(direction) => nudgeRace(race.id, direction)}
+                    onInsert={(position) => insertRaceAt(position === 'above' ? index : index + 1)}
+                  />
+                );
+              }}
             </SortableList>
           )}
         </div>
