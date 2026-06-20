@@ -44,7 +44,7 @@ function load(name: string) {
     id: r.id,
     seriesId: file.seriesId,
     raceNumber: r.raceNumber,
-    name: null,
+    name: r.name ?? null,
     date: r.date,
     createdAt: 0,
   }));

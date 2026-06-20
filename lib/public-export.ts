@@ -116,6 +116,7 @@ export interface PublicSeriesExport {
   }[];
   races: {
     raceNumber: number;
+    name?: string | null; // optional human label, distinct from the number
     date: string;
     /** Sub-series this race belongs to, by name (many-to-many; a race may be
      *  in several). Importers rebuild the sub-series from these. */
@@ -469,6 +470,7 @@ export function buildPublicExportFromSnapshot(
     const subSeriesNames = subSeriesNamesByRaceId.get(race.id);
     return {
       raceNumber: race.raceNumber,
+      ...(race.name ? { name: race.name } : {}),
       date: race.date,
       ...(subSeriesNames?.length ? { subSeries: subSeriesNames } : {}),
       starts,
@@ -730,7 +732,7 @@ export async function importPublicExport(
       id: raceId,
       seriesId: newSeriesId,
       raceNumber: race.raceNumber,
-      name: null,
+      name: race.name ?? null,
       date: race.date,
       createdAt: now,
     });

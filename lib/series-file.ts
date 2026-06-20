@@ -95,9 +95,12 @@ export interface SeriesFileRepos {
  *
  *  v9 adds sub-series: a top-level `subSeries` list (named blocks of races,
  *  each scored independently) and `races[*].subSeriesId` membership.
- *  Additive; older files load blockless. */
-export const FORMAT_VERSION = 9;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+ *  Additive; older files load blockless.
+ *
+ *  v10 adds optional `races[*].name` (a human label distinct from the race
+ *  number). Additive; older files load with the field absent (name null). */
+export const FORMAT_VERSION = 10;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -200,6 +203,7 @@ interface SeriesFileRatingOverride {
 interface SeriesFileRace {
   id: string;
   raceNumber: number;
+  name?: string | null; // optional label; absent in files written before v10
   date: string;
   /** @deprecated pre-reshape v9 partition membership; read for back-compat,
    *  no longer written (membership now lives in `subSeries[*].raceIds`). */
@@ -403,6 +407,7 @@ export async function buildSeriesFile(
     races: races.map((r) => ({
       id: r.id,
       raceNumber: r.raceNumber,
+      ...(r.name ? { name: r.name } : {}),
       date: r.date,
       starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
@@ -941,7 +946,7 @@ async function writeFleetsCompetitorsRaces(
       id: newRaceId,
       seriesId,
       raceNumber: r.raceNumber,
-      name: null,
+      name: r.name ?? null,
       date: r.date,
       createdAt: now,
     });

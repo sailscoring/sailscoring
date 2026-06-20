@@ -183,6 +183,50 @@ describe('.sailscoring v9 sub-series round-trip', () => {
   });
 });
 
+describe('.sailscoring v10 race name round-trip', () => {
+  const named: SeriesSnapshot = {
+    ...snapshot,
+    races: [
+      { id: 'r1', seriesId: 's1', raceNumber: 1, name: "New Year's Day Race", date: '2026-11-01', createdAt: 0 },
+      makeRace('r2', 2),
+      { id: 'r3', seriesId: 's1', raceNumber: 3, name: 'Round the Island', date: '2026-11-01', createdAt: 0 },
+    ],
+  };
+
+  it('buildSeriesFile writes a name only for named races, and parses back without loss', async () => {
+    const { repos } = makeRecordingRepos(named);
+    const file = await buildSeriesFile('s1', repos);
+
+    expect(file.races.map((r) => r.name)).toEqual(["New Year's Day Race", undefined, 'Round the Island']);
+
+    const reparsed = parseSeriesFile(JSON.stringify(file));
+    expect(reparsed.races.map((r) => r.name)).toEqual(["New Year's Day Race", undefined, 'Round the Island']);
+  });
+
+  it('openSeriesFromFile restores race names (and defaults unnamed to null)', async () => {
+    const built = await buildSeriesFile('s1', makeRecordingRepos(named).repos);
+    const { repos, savedRaces } = makeRecordingRepos();
+    await openSeriesFromFile(built, repos);
+
+    const nameByNumber = new Map(savedRaces.map((r) => [r.raceNumber, r.name]));
+    expect(nameByNumber.get(1)).toBe("New Year's Day Race");
+    expect(nameByNumber.get(2)).toBeNull();
+    expect(nameByNumber.get(3)).toBe('Round the Island');
+  });
+
+  it('public JSON export carries the race name and import restores it', async () => {
+    const data = buildPublicExportFromSnapshot(named);
+    expect(data!.races.map((r) => r.name)).toEqual(["New Year's Day Race", undefined, 'Round the Island']);
+
+    const { repos, savedRaces } = makeRecordingRepos();
+    await importPublicExport(data!, repos);
+    const nameByNumber = new Map(savedRaces.map((r) => [r.raceNumber, r.name]));
+    expect(nameByNumber.get(1)).toBe("New Year's Day Race");
+    expect(nameByNumber.get(2)).toBeNull();
+    expect(nameByNumber.get(3)).toBe('Round the Island');
+  });
+});
+
 describe('public JSON export sub-series round-trip', () => {
   it('export names each race\'s sub-series; import rebuilds them with membership', async () => {
     const data = buildPublicExportFromSnapshot(snapshot);
