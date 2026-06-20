@@ -23,6 +23,7 @@ import { authClient } from '@/lib/auth-client';
 import * as repos from '@/lib/api-repository';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
 import { importPublicExport, type PublicSeriesExport } from '@/lib/public-export';
+import { describeOpenSeriesError } from '@/lib/open-series-error';
 
 type State =
   | { step: 'loading' }
@@ -99,7 +100,7 @@ export default function ImportPage() {
       window.location.assign(`/series/${newId}/standings`);
     } catch (err) {
       console.error(err);
-      setState({ step: 'error', message: 'Failed to open series. Please try again.' });
+      setState({ step: 'error', message: describeOpenSeriesError(err) });
     }
   }
 

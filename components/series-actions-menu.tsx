@@ -30,6 +30,7 @@ import {
   type SeriesFile,
 } from '@/lib/series-file';
 import { parseSailwaveBlw, SailwaveImportError } from '@/lib/sailwave-import';
+import { describeOpenSeriesError } from '@/lib/open-series-error';
 import { SAILWAVE_HANDOFF_KEY } from '@/app/series/import-sailwave/page';
 import { queryKeys } from '@/hooks/query-keys';
 import { useArchiveSeries, useDeleteSeriesCascade } from '@/hooks/use-series';
@@ -203,7 +204,7 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
       }
     } catch (err) {
       console.error(err);
-      setUpdateFlow({ step: 'error', message: 'Failed to update series. Please try again.' });
+      setUpdateFlow({ step: 'error', message: describeOpenSeriesError(err) });
     }
   }
 

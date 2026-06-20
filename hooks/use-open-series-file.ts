@@ -13,6 +13,7 @@ import {
   updateSeriesFromFile,
   type SeriesFile,
 } from '@/lib/series-file';
+import { describeOpenSeriesError } from '@/lib/open-series-error';
 import { parseSailwaveBlw, SailwaveImportError } from '@/lib/sailwave-import';
 import { SAILWAVE_HANDOFF_KEY } from '@/app/series/import-sailwave/page';
 import type { Series } from '@/lib/types';
@@ -117,7 +118,7 @@ export function useOpenSeriesFile() {
       setOpenFlow({ step: 'disambiguate', file: parsed, existing });
     } catch (err) {
       console.error(err);
-      setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
+      setOpenFlow({ step: 'error', message: describeOpenSeriesError(err) });
     }
   }
 
@@ -133,7 +134,7 @@ export function useOpenSeriesFile() {
       router.push(`/series/${newId}/races`);
     } catch (err) {
       console.error(err);
-      setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
+      setOpenFlow({ step: 'error', message: describeOpenSeriesError(err) });
     }
   }
 
@@ -148,7 +149,7 @@ export function useOpenSeriesFile() {
         router.push(`/series/${newId}/races`);
       } catch (err) {
         console.error(err);
-        setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
+        setOpenFlow({ step: 'error', message: describeOpenSeriesError(err) });
       }
       return;
     }
@@ -180,7 +181,7 @@ export function useOpenSeriesFile() {
       }
     } catch (err) {
       console.error(err);
-      setOpenFlow({ step: 'error', message: 'Failed to open series. Please try again.' });
+      setOpenFlow({ step: 'error', message: describeOpenSeriesError(err) });
     }
   }
 
