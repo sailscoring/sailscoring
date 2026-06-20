@@ -1387,10 +1387,13 @@ function calculateHandicapStandings(
     };
   }
 
-  // Build raceStart lookup: for each race, find the start that covers this fleet
+  // Build raceStart lookup: for each race, find the timed start that covers
+  // this fleet. A membership-only start (no gun time) only scopes which fleets
+  // are in the race — it carries no elapsed-time basis, so it's skipped here
+  // and the race falls back to scratch scoring (the no-start branch below).
   const startsByRaceId = new Map<string, RaceStart>();
   for (const rs of raceStarts) {
-    if (rs.fleetIds.includes(fleet.id)) {
+    if (rs.fleetIds.includes(fleet.id) && rs.startTime) {
       startsByRaceId.set(rs.raceId, rs);
     }
   }
