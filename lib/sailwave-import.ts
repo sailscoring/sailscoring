@@ -118,6 +118,19 @@ export interface SailwaveRaw {
 
 export type ScoringSystem = Fleet['scoringSystem'];
 
+/** Fleet name used for competitors whose `compfleet` is blank. Sailwave lets a
+ *  scorer enter boats without ever creating a named fleet — the normal shape
+ *  for a single one-design class or a pre-event entry list. Without this they
+ *  resolve to no fleet and get silently dropped on import. Matches the CSV
+ *  importer's no-fleet fallback (`PLAN_DEFAULT_FLEET_NAME`). */
+const DEFAULT_FLEET_NAME = 'Default';
+
+/** A competitor's fleet name, falling back to the default fleet when Sailwave
+ *  left `compfleet` blank. */
+function fleetNameOf(c: SailwaveCompetitorRaw): string {
+  return (c.compfleet ?? '').trim() || DEFAULT_FLEET_NAME;
+}
+
 /** Sailwave appends one of these suffixes to compfleet to encode the scoring
  *  system for that fleet. Bare names (no suffix) default to NHC.
  *
@@ -412,8 +425,8 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
   for (const c of Object.values(comps)) {
     if (c.compexclude === '1') continue;
     if ((c.compalias ?? '0') === '0') competitorCount += 1;
-    const name = c.compfleet;
-    if (name && !fleetNames.includes(name)) fleetNames.push(name);
+    const name = fleetNameOf(c);
+    if (!fleetNames.includes(name)) fleetNames.push(name);
   }
   // Sort so the wizard's proposed fleet list reads naturally and matches the
   // alphabetical order buildFleets() produces for the imported series.
@@ -443,7 +456,12 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
     fleets,
     detectedDnfScoring: detectDnfScoring(raw),
     detectedDiscardThresholds: parseDiscardThresholds(raw),
-    hasResults: Object.keys(results).length > 0,
+    // A `.blw` carries a cell for every competitor×race even when nothing has
+    // been sailed (rrestyp=0), so "any cell exists" overcounts. Only report
+    // results when at least one is actually entered.
+    hasResults: Object.values(results).some(
+      (r) => (r.rrestyp ?? SAILWAVE_RRESTYP_NO_RESULT) !== SAILWAVE_RRESTYP_NO_RESULT,
+    ),
     detectedSubdivisionLabel: subdivision.sourceKey != null ? subdivision.label : null,
   };
 }
@@ -464,8 +482,7 @@ function collectRatingsByFleet(
   const out = new Map<string, (number | null)[]>();
   for (const c of Object.values(comps)) {
     if (c.compexclude === '1') continue;
-    const name = c.compfleet;
-    if (!name) continue;
+    const name = fleetNameOf(c);
     const list = out.get(name) ?? [];
     list.push(parseRating(c.comprating));
     out.set(name, list);
@@ -904,7 +921,7 @@ export function buildSeriesFileFromSailwave(
   const sortedRaces = sortedRaceHandles(rawRaces);
   const resultsByRace = groupResultsByRace(rawResults, opts.includeResults);
 
-  const races: RaceBuild[] = [];
+  const built: RaceBuild[] = [];
   for (let i = 0; i < sortedRaces.length; i++) {
     const [handle, race] = sortedRaces[i];
     const resolvedDate = parseSailwaveRaceDate(race.racedate, datespec, yearHint) ?? defaultDate;
@@ -912,12 +929,7 @@ export function buildSeriesFileFromSailwave(
     const finishes = opts.includeResults
       ? buildRaceFinishes(resultsByRace[handle] ?? [], compIdByHandle)
       : [];
-    // Skip races with no finishers when we're importing results — they'd
-    // score as implicit DNC and pollute the imported series with placeholder
-    // rows for the scheduled-but-unsailed remainder. Keep them under
-    // --no-results so the full schedule survives.
-    if (opts.includeResults && finishes.length === 0) continue;
-    races.push({
+    built.push({
       id: cryptoUuid(),
       raceNumber: parseRaceNumber(race.racerank, i + 1),
       date: resolvedDate,
@@ -925,6 +937,16 @@ export function buildSeriesFileFromSailwave(
       finishes,
     });
   }
+
+  // Drop races with no finishers, but only when some other race was sailed —
+  // they'd score as implicit DNC and pollute a partially-scored series with
+  // placeholder rows for the scheduled-but-unsailed remainder. When the file
+  // has no results at all (a pre-event entry list), keep every race so the
+  // full schedule survives. The --no-results path keeps everything too.
+  const anyFinishes = built.some((r) => r.finishes.length > 0);
+  const races = opts.includeResults && anyFinishes
+    ? built.filter((r) => r.finishes.length > 0)
+    : built;
 
   const seriesId = cryptoUuid();
   const sortedRaceDates = races.map((r) => r.date).filter(Boolean).sort();
@@ -1038,8 +1060,8 @@ function buildFleets(
   const seen: string[] = [];
   for (const c of Object.values(comps)) {
     if (c.compexclude === '1') continue;
-    const name = c.compfleet;
-    if (name && !seen.includes(name)) seen.push(name);
+    const name = fleetNameOf(c);
+    if (!seen.includes(name)) seen.push(name);
   }
 
   const fleets: FleetBuild[] = [];
@@ -1120,7 +1142,7 @@ function buildCompetitors(
     let pyNumber: number | null = null;
 
     for (const [, rec] of records) {
-      const compfleet = rec.compfleet ?? '';
+      const compfleet = fleetNameOf(rec);
       const fid = fleetIdByName.get(compfleet);
       if (!fid) continue;
       fleetIds.push(fid);

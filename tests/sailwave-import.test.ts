@@ -553,6 +553,113 @@ describe('buildSeriesFileFromSailwave: includeResults=false', () => {
   });
 });
 
+describe('buildSeriesFileFromSailwave: fleetless / pre-event entry list', () => {
+  // A single one-design class entered without ever creating a named fleet, and
+  // with no results entered yet — the shape of a pre-event entry list. Every
+  // result cell is rrestyp=0 (no result), the way Sailwave seeds them.
+  const entryList = (): SailwaveRaw => parseSailwaveBlw(blw([
+    ['serversion', '2.38.02', '', ''],
+    ['serevent', 'Melges 15 Northerns', '', ''],
+    ['comphelmname', 'Cormac Farrelly', '53', ''],
+    ['compsailno', '635', '53', ''],
+    ['compexclude', '0', '53', ''],
+    ['compalias', '0', '53', ''],
+    ['comphelmname', 'Kate Lyttle', '54', ''],
+    ['compsailno', '1024', '54', ''],
+    ['compexclude', '0', '54', ''],
+    ['compalias', '0', '54', ''],
+    ['racerank', '1', '', '62'],
+    ['racerank', '2', '', '63'],
+    // Seeded-but-unentered result cells for both boats in both races.
+    ['rrestyp', '0', '53', '62'],
+    ['rrestyp', '0', '54', '62'],
+    ['rrestyp', '0', '53', '63'],
+    ['rrestyp', '0', '54', '63'],
+  ]));
+
+  it('synthesises a single Default fleet for competitors with no compfleet', () => {
+    const file = buildSeriesFileFromSailwave(entryList(), DEFAULT_OPTS);
+    expect(file.fleets).toHaveLength(1);
+    expect(file.fleets[0].name).toBe('Default');
+    // No ratings anywhere → scratch (one-design).
+    expect(file.fleets[0].scoringSystem).toBe('scratch');
+  });
+
+  it('imports every fleetless competitor into the Default fleet', () => {
+    const file = buildSeriesFileFromSailwave(entryList(), DEFAULT_OPTS);
+    expect(file.competitors).toHaveLength(2);
+    const defaultFleetId = file.fleets[0].id;
+    for (const c of file.competitors) {
+      expect(c.fleetIds).toEqual([defaultFleetId]);
+    }
+  });
+
+  it('keeps the full schedule as empty races when no result is entered anywhere', () => {
+    const file = buildSeriesFileFromSailwave(entryList(), DEFAULT_OPTS);
+    expect(file.races).toHaveLength(2);
+    for (const r of file.races) {
+      expect(r.finishes).toHaveLength(0);
+    }
+  });
+
+  it('reports hasResults=false for an all-rrestyp=0 entry list', () => {
+    const preview = inspectSailwave(entryList());
+    expect(preview.competitorCount).toBe(2);
+    expect(preview.raceCount).toBe(2);
+    expect(preview.fleets.map((f) => f.name)).toEqual(['Default']);
+    expect(preview.hasResults).toBe(false);
+  });
+
+  it('still drops the unsailed tail when some races have results', () => {
+    // Same shape, but boat 53 finished race 62. Race 63 stays unsailed and is
+    // dropped (the partial-scoring behaviour), leaving only the sailed race.
+    const raw = parseSailwaveBlw(blw([
+      ['serversion', '2.38.02', '', ''],
+      ['comphelmname', 'Cormac Farrelly', '53', ''],
+      ['compsailno', '635', '53', ''],
+      ['compexclude', '0', '53', ''],
+      ['compalias', '0', '53', ''],
+      ['comphelmname', 'Kate Lyttle', '54', ''],
+      ['compsailno', '1024', '54', ''],
+      ['compexclude', '0', '54', ''],
+      ['compalias', '0', '54', ''],
+      ['racerank', '1', '', '62'],
+      ['racerank', '2', '', '63'],
+      ['rrestyp', '1', '53', '62'],
+      ['rpos', '1', '53', '62'],
+      ['rrestyp', '0', '54', '62'],
+      ['rrestyp', '0', '53', '63'],
+      ['rrestyp', '0', '54', '63'],
+    ]));
+    const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+    expect(file.races).toHaveLength(1);
+    expect(file.races[0].finishes.length).toBeGreaterThan(0);
+  });
+
+  it('buckets only the fleetless competitors into Default, keeping named fleets', () => {
+    const raw = parseSailwaveBlw(blw([
+      ['serversion', '2.38.02', '', ''],
+      ['comphelmname', 'Named', '53', ''],
+      ['compsailno', '635', '53', ''],
+      ['compfleet', 'Fast PY', '53', ''],
+      ['comprating', '1100', '53', ''],
+      ['compexclude', '0', '53', ''],
+      ['compalias', '0', '53', ''],
+      ['comphelmname', 'Fleetless', '54', ''],
+      ['compsailno', '1024', '54', ''],
+      ['compexclude', '0', '54', ''],
+      ['compalias', '0', '54', ''],
+    ]));
+    const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+    expect(file.fleets.map((f) => f.name).sort()).toEqual(['Default', 'Fast PY']);
+    const byName = new Map(file.fleets.map((f) => [f.name, f.id]));
+    const named = file.competitors.find((c) => c.sailNumber === '635');
+    const fleetless = file.competitors.find((c) => c.sailNumber === '1024');
+    expect(named?.fleetIds).toEqual([byName.get('Fast PY')]);
+    expect(fleetless?.fleetIds).toEqual([byName.get('Default')]);
+  });
+});
+
 describe('buildSeriesFileFromSailwave: errors', () => {
   it('throws on unknown rcod values in the source file', () => {
     const raw = loadFile(`${FIXTURES}/py-example/2026 Dinghy F'Bite Spring.blw`);

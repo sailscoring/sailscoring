@@ -20,6 +20,13 @@ const SAILWAVE_FIXTURE = join(
   'tests/fixtures/sailwave/hyc-2026/2026 Tues Series 1.blw',
 );
 
+/** A single one-design class entered without a named fleet, no results yet —
+ *  the pre-event entry-list shape that used to import as an empty series. */
+const FLEETLESS_FIXTURE = join(
+  process.cwd(),
+  'tests/fixtures/sailwave/fleetless-entry-list.blw',
+);
+
 test('import series: Sailwave .blw → wizard → new series, lands on Competitors', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Series' })).toBeVisible();
@@ -53,6 +60,41 @@ test('import series: Sailwave .blw → wizard → new series, lands on Competito
 
   // Confirm at least one imported competitor row renders (anonymised helm name).
   await expect(page.getByText('Garret Barry').first()).toBeVisible();
+});
+
+test('import series: fleetless pre-event entry list → competitors and races, not an empty series', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Series' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Import Series' }).click();
+  const [fileChooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByTestId('import-format-sailwave').click(),
+  ]);
+  await fileChooser.setFiles({
+    name: 'fleetless-entry-list.blw',
+    mimeType: 'application/octet-stream',
+    buffer: readFileSync(FLEETLESS_FIXTURE),
+  });
+
+  // Preview reports the boats, races, and a single synthesised Default fleet —
+  // no results entered yet.
+  await expect(page).toHaveURL(/\/series\/import-sailwave$/);
+  await expect(page.getByText('3 competitors')).toBeVisible();
+  await expect(page.getByText('3 races')).toBeVisible();
+  await expect(page.getByText('1 fleets')).toBeVisible();
+
+  await page.getByTestId('sailwave-import-submit').click();
+
+  // Competitors imported (regression: this used to be empty).
+  await expect(page).toHaveURL(/\/series\/([^/]+)\/competitors$/, { timeout: 15_000 });
+  await expect(page.getByText('Helm One').first()).toBeVisible();
+
+  // Races imported as an empty schedule (regression: these were dropped).
+  const seriesId = page.url().match(/\/series\/([^/]+)\/competitors/)![1];
+  await page.goto(`/series/${seriesId}/races`);
+  await expect(page.getByText('Race 1', { exact: true })).toBeVisible();
+  await expect(page.getByText('Race 3', { exact: true })).toBeVisible();
 });
 
 test('update from Sailwave: re-import in place replaces data and keeps the series', async ({ page }) => {
