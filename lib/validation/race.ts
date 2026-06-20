@@ -8,7 +8,7 @@ export const raceSchema = z.object({
   id: uuidSchema,
   seriesId: uuidSchema,
   raceNumber: z.number().int().positive(),
-  name: z.string().nullable(),
+  name: z.string().nullable().default(null),
   date: isoDateSchema,
   createdAt: epochMsSchema,
   version: versionSchema,
