@@ -17,7 +17,7 @@ test('races can be reordered and the renumbering persists', async ({ page }) => 
     await page.getByRole('button', { name: 'Add race' }).click();
     await expect(page.getByText(`Race ${number}`, { exact: false })).toBeVisible();
     await page.getByText(`Race ${number}`, { exact: false }).first().click();
-    await page.getByRole('button', { name: `Add a name for Race ${number}` }).click();
+    await page.getByRole('button', { name: `Edit name for Race ${number}` }).click();
     const input = page.getByLabel(`Name for Race ${number}`);
     await input.fill(name);
     await input.press('Enter');

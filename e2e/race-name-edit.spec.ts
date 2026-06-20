@@ -18,8 +18,9 @@ test('name a race from the race results page', async ({ page }) => {
   await page.getByText('Race 1').click();
   await expect(page.getByText('Race 1 — results')).toBeVisible();
 
-  // A fresh race is unnamed: the editor shows the "Add name" affordance.
-  await page.getByRole('button', { name: 'Add a name for Race 1' }).click();
+  // A fresh race is unnamed: the editor shows the "Set name" affordance.
+  await expect(page.getByRole('button', { name: 'Edit name for Race 1' })).toContainText('Set name');
+  await page.getByRole('button', { name: 'Edit name for Race 1' }).click();
   const input = page.getByLabel('Name for Race 1');
   await input.fill('Round the Island');
   await input.press('Enter');
@@ -45,5 +46,5 @@ test('name a race from the race results page', async ({ page }) => {
   const editAgain = page.getByLabel('Name for Race 1');
   await editAgain.fill('');
   await editAgain.press('Enter');
-  await expect(page.getByRole('button', { name: 'Add a name for Race 1' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit name for Race 1' })).toContainText('Set name');
 });

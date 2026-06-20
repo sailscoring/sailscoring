@@ -67,10 +67,10 @@ export function RaceNameEditor({
       type="button"
       onClick={() => setDraft(race.name ?? '')}
       className="group flex items-center gap-1 text-base font-medium hover:text-foreground"
-      aria-label={race.name ? `Edit name for Race ${race.raceNumber}` : `Add a name for Race ${race.raceNumber}`}
+      aria-label={`Edit name for Race ${race.raceNumber}`}
     >
       <span className={race.name ? '' : 'text-sm font-normal text-muted-foreground'}>
-        {race.name || 'Add name'}
+        {race.name || 'Set name'}
       </span>
       <Pencil className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
     </button>
