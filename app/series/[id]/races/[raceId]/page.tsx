@@ -82,11 +82,13 @@ export default function ResultEntryPage({
   const { data: raceStartsData } = useRaceStartsByRace(raceId);
   const raceStarts = useMemo(() => raceStartsData ?? [], [raceStartsData]);
 
-  // Scope the screen to the boats actually in this race: those in a fleet with
-  // a start (timed or membership-only). With no starts recorded every fleet is
-  // implied, so this is the full series list. Drives the finish autocomplete,
-  // check-in, ratings, and — crucially — the implicit-DNC derivation, so boats
-  // in fleets that didn't start this race no longer flood the sheet as DNCs.
+  // Scope the browsable surfaces to the boats actually in this race: those in
+  // a fleet with a start (timed or membership-only). With no starts recorded
+  // every fleet is implied, so this is the full series list. Drives the
+  // nonFinishers list (the finish autocomplete suggestions and — crucially —
+  // the implicit-DNC rows), the check-in tab, and the ratings tab, so boats in
+  // fleets that didn't start this race no longer flood the sheet. Exact-sail
+  // entry still resolves against the full list (see useFinishInput below).
   const inRaceCompetitors = useMemo(
     () => competitorsInRace(competitors ?? [], raceStarts),
     [competitors, raceStarts],
@@ -152,7 +154,10 @@ export default function ResultEntryPage({
   const finishInput = useFinishInput({
     raceId,
     isHandicapSeries,
-    competitors: inRaceCompetitors,
+    // Full list: exact-sail resolution still finds any boat, so a scorer can
+    // force-enter one outside the started fleets (and the handicap "no start"
+    // block still fires). Browsable surfaces below are scoped via nonFinishers.
+    competitors: competitors ?? [],
     fleetById,
     raceStarts,
     derived,
@@ -301,7 +306,7 @@ export default function ResultEntryPage({
           finishInput={finishInput}
           rowOps={rowOps}
           nonFinishers={nonFinishers}
-          competitors={inRaceCompetitors}
+          competitors={competitors}
           competitorMap={competitorMap}
           fleetById={fleetById}
           showFleetBadge={showFleetBadge}
