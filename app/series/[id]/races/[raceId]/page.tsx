@@ -254,6 +254,9 @@ export default function ResultEntryPage({
       <RaceEntryHeader
         race={race}
         readOnly={readOnly}
+        onSaveName={async (name) => {
+          await saveRace.mutateAsync({ ...race, name });
+        }}
         onSaveDate={async (date) => {
           await saveRace.mutateAsync({ ...race, date });
         }}

@@ -81,6 +81,7 @@ function RaceRow({
     >
       <div>
         <span className="font-medium">Race {race.raceNumber}</span>
+        {race.name && <span className="ml-2">{race.name}</span>}
         {race.date && (
           <span className="text-sm text-muted-foreground ml-2">{race.date}</span>
         )}
@@ -502,6 +503,7 @@ export default function RacesPage({
                       onChange={() => toggleRaceSelected(race.id)}
                     />
                     <span className="font-medium">Race {race.raceNumber}</span>
+                    {race.name && <span>{race.name}</span>}
                     {race.date && <span className="text-xs text-muted-foreground">{race.date}</span>}
                   </label>
                 ))}

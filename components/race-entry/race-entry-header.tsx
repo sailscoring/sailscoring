@@ -3,17 +3,20 @@
 import { cn } from '@/lib/utils';
 
 import { RaceDateEditor } from './race-date-editor';
+import { RaceNameEditor } from './race-name-editor';
 
-/** The result-entry page header: race title, the inline date editor, and
- *  the autosave status pill. */
+/** The result-entry page header: race title, the inline name + date editors,
+ *  and the autosave status pill. */
 export function RaceEntryHeader({
   race,
   readOnly,
+  onSaveName,
   onSaveDate,
   isSaving,
 }: {
-  race: { date: string; raceNumber: number };
+  race: { name: string | null; date: string; raceNumber: number };
   readOnly: boolean;
+  onSaveName: (name: string | null) => Promise<void>;
   onSaveDate: (date: string) => Promise<void>;
   isSaving: boolean;
 }) {
@@ -27,6 +30,7 @@ export function RaceEntryHeader({
     <div className="flex items-start justify-between gap-3">
       <div>
         <h2 className="text-lg font-semibold">Race {race.raceNumber} — results</h2>
+        <RaceNameEditor race={race} readOnly={readOnly} onSave={onSaveName} />
         <RaceDateEditor race={race} readOnly={readOnly} onSave={onSaveDate} />
       </div>
       <div
