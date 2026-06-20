@@ -1092,7 +1092,7 @@ export function assembleSeriesResultsData(
     /** Display label for the subdivision column. Defaults to "Division". */
     subdivisionLabel?: string;
     /** RaceStart records for all races — used to find the gun time for this fleet */
-    raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime: string }>;
+    raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string }>;
     /** ID of the fleet being rendered */
     fleetId?: string;
     /** Scoring system of the fleet */
@@ -1123,7 +1123,7 @@ export function assembleSeriesResultsData(
   const startTimeByRaceId = new Map<string, string>();
   if (isHandicap && raceStarts && fleetId) {
     for (const rs of raceStarts) {
-      if (rs.raceId && rs.fleetIds.includes(fleetId)) {
+      if (rs.raceId && rs.fleetIds.includes(fleetId) && rs.startTime) {
         startTimeByRaceId.set(rs.raceId, rs.startTime);
       }
     }

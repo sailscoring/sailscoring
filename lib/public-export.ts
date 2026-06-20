@@ -122,7 +122,7 @@ export interface PublicSeriesExport {
     subSeries?: string[];
     starts: {
       fleetNames: string[];
-      startTime: string;
+      startTime?: string;  // absent for a membership-only start (fleets, no gun time)
     }[];
     finishes: {
       sailNumber: string;

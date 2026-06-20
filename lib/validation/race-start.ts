@@ -8,7 +8,8 @@ export const raceStartSchema = z.object({
   id: uuidSchema,
   raceId: uuidSchema,
   fleetIds: z.array(uuidSchema),
-  startTime: wallClockSchema,
+  // Optional: a membership-only start declares fleets with no gun time.
+  startTime: wallClockSchema.optional(),
   version: versionSchema,
 });
 

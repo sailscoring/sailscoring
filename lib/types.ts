@@ -135,7 +135,11 @@ export interface RaceStart {
   id: string;
   raceId: string;
   fleetIds: string[];   // all fleets sharing this gun time
-  startTime: string;    // "HH:MM:SS"
+  // Gun time, "HH:MM:SS". Optional: a start may declare fleet participation
+  // with no time — a membership-only start that scopes which fleets (and thus
+  // competitors) are in the race without providing a gun. Handicap scoring
+  // needs a time, so a timeless start falls back to scratch for that race.
+  startTime?: string;
   version?: number;     // server-side concurrency token (see Series.version)
 }
 

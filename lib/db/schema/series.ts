@@ -490,7 +490,8 @@ export const raceStarts = pgTable(
       .notNull()
       .references(() => races.id, { onDelete: 'cascade' }),
     fleetIds: uuid('fleet_ids').array().notNull(),
-    startTime: text('start_time').notNull(),
+    // Nullable: a membership-only start declares fleets with no gun time.
+    startTime: text('start_time'),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

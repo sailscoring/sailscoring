@@ -182,7 +182,7 @@ function raceStartRowToType(row: RaceStartRow): RaceStart {
     id: row.id,
     raceId: row.raceId,
     fleetIds: row.fleetIds,
-    startTime: row.startTime,
+    startTime: row.startTime ?? undefined,
     version: row.version,
   };
 }
@@ -1312,7 +1312,7 @@ function raceStartToRow(s: RaceStart) {
     id: s.id,
     raceId: s.raceId,
     fleetIds: s.fleetIds,
-    startTime: s.startTime,
+    startTime: s.startTime ?? null,
   };
 }
 

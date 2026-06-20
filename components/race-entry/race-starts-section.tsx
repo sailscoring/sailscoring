@@ -46,6 +46,11 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
 
   useImperativeHandle(ref, () => ({ openAddStart }));
 
+  // Timed starts first (by gun time), then membership-only starts with no time.
+  const sortedStarts = [...raceStarts].sort((a, b) =>
+    (a.startTime ?? '~').localeCompare(b.startTime ?? '~'),
+  );
+
   function openEditStart(s: RaceStart) {
     setStartDialogMode({ kind: 'edit', start: s });
   }
@@ -91,9 +96,11 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
             <p className="text-sm text-muted-foreground">No start times recorded.</p>
           ) : (
             <div className="space-y-1">
-              {[...raceStarts].sort((a, b) => a.startTime.localeCompare(b.startTime)).map((s) => (
+              {sortedStarts.map((s) => (
                 <p key={s.id} className="text-sm text-muted-foreground">
-                  <span className="font-mono">{s.startTime}</span>
+                  <span className={s.startTime ? 'font-mono' : 'italic'}>
+                    {s.startTime ?? 'No gun time'}
+                  </span>
                   {' — '}
                   {s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}
                 </p>
@@ -105,9 +112,11 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
             {raceStarts.length === 0 && (
               <p className="text-sm text-muted-foreground">No start times recorded. Press <kbd className="px-1 py-0.5 text-xs border rounded">s</kbd> or click Add start.</p>
             )}
-            {[...raceStarts].sort((a, b) => a.startTime.localeCompare(b.startTime)).map((s) => (
+            {sortedStarts.map((s) => (
               <div key={s.id} className="flex items-center gap-2 text-sm px-3 py-2 border rounded-md">
-                <span className="font-mono font-medium">{s.startTime}</span>
+                <span className={s.startTime ? 'font-mono font-medium' : 'italic text-muted-foreground'}>
+                  {s.startTime ?? 'No gun time'}
+                </span>
                 <span className="text-muted-foreground">—</span>
                 <span className="flex-1">{s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}</span>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditStart(s)}>
