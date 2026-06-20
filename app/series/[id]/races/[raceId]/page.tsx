@@ -129,6 +129,10 @@ export default function ResultEntryPage({
 
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const isHandicapSeries = series?.scoringMode === 'handicap';
+  // Starts are available to handicap series (for gun times) and to any
+  // multi-fleet series (to declare, via membership-only starts, which fleets
+  // are in a race — the scoping signal #226 relies on).
+  const canManageStarts = isHandicapSeries || (fleets?.length ?? 0) > 1;
 
   const finishedIds = finishedCompetitorIds(finishingOrder);
   const nonFinishers = deriveNonFinishers(
@@ -197,7 +201,7 @@ export default function ResultEntryPage({
     } else if (
       e.key === 's' &&
       !isInputFocused() &&
-      fleets?.some((f) => f.scoringSystem !== 'scratch')
+      canManageStarts
     ) {
       e.preventDefault();
       startsRef.current?.openAddStart();
@@ -220,7 +224,9 @@ export default function ResultEntryPage({
     ...(has('csv-finish-import')
       ? [{ key: 'i', description: 'Import finish sheet from CSV', section: 'Finish entry' }]
       : []),
-    { key: 's', description: 'Add start (handicap series only)', section: 'Finish entry' },
+    ...(canManageStarts
+      ? [{ key: 's', description: 'Add start (gun time, or fleets-only to scope the race)', section: 'Finish entry' }]
+      : []),
   ]);
 
   if (race === undefined || competitors === undefined) {
@@ -286,7 +292,7 @@ export default function ResultEntryPage({
         raceStarts={raceStarts}
         fleets={fleets ?? []}
         fleetById={fleetById}
-        visible={activeTab === 'finish' && isHandicapSeries}
+        visible={activeTab === 'finish' && canManageStarts}
       />
 
       {activeTab === 'finish' && (

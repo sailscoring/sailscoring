@@ -18,7 +18,7 @@ export type RaceStartDialogMode =
 
 export interface RaceStartDraft {
   editingId: string | null;
-  startTime: string;
+  startTime?: string;  // omitted for a membership-only start (fleets, no gun time)
   fleetIds: string[];
 }
 
@@ -56,10 +56,17 @@ function RaceStartDialogInner({
   const [error, setError] = useState('');
 
   function handleSave() {
-    const normalizedStart = normalizeTimeInput(startTimeInput);
-    if (!normalizedStart) {
-      setError('Enter a valid time, e.g. 14:05:00 or 140500.');
-      return;
+    // A blank time is allowed: a membership-only start declares which fleets
+    // are in the race (scoping #226) without a gun time. A non-blank time must
+    // still parse.
+    let normalizedStart: string | undefined;
+    if (startTimeInput.trim()) {
+      const parsed = normalizeTimeInput(startTimeInput);
+      if (!parsed) {
+        setError('Enter a valid time, e.g. 14:05:00 or 140500 — or leave blank for fleets only.');
+        return;
+      }
+      normalizedStart = parsed;
     }
     if (fleetIds.length === 0) {
       setError('Select at least one fleet.');
@@ -82,11 +89,14 @@ function RaceStartDialogInner({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>{mode.kind === 'edit' ? 'Edit start' : 'Add start'}</DialogTitle>
-          <DialogDescription>Record the gun time for a group of fleets.</DialogDescription>
+          <DialogDescription>
+            Record the gun time for a group of fleets, or leave it blank to just
+            declare which fleets are in this race.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Gun time</label>
+            <label className="text-sm font-medium">Gun time <span className="font-normal text-muted-foreground">(optional)</span></label>
             <input
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm font-mono shadow-sm"
               value={startTimeInput}
