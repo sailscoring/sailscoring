@@ -10,6 +10,7 @@ import { useFeatures } from '@/components/features-provider';
 import {
   useDeleteRace,
   useRacesBySeries,
+  useReorderRaces,
   useSaveRace,
 } from '@/hooks/use-races';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
@@ -33,6 +34,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Pencil, Trash2 } from 'lucide-react';
+import { SortableList, DragHandle } from '@/components/ui/sortable-list';
+import type { CSSProperties, HTMLAttributes } from 'react';
 import type { Race, SubSeries } from '@/lib/types';
 import { log } from '@/lib/debug';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
@@ -42,9 +45,17 @@ import { groupRacesBySubSeries } from '@/lib/scoring';
 function RaceRow({
   race,
   seriesId,
+  rowRef,
+  rowStyle,
+  dragHandle,
+  onNudge,
 }: {
   race: Race;
   seriesId: string;
+  rowRef?: (node: HTMLElement | null) => void;
+  rowStyle?: CSSProperties;
+  dragHandle?: HTMLAttributes<HTMLElement> | null;
+  onNudge?: (direction: -1 | 1) => void;
 }) {
   const router = useRouter();
   const { can } = useWorkspacePermissions();
@@ -61,6 +72,9 @@ function RaceRow({
 
   return (
     <div
+      ref={rowRef}
+      style={rowStyle}
+      data-testid="race-row"
       className="flex items-center justify-between bg-card border rounded-lg px-5 py-4 cursor-pointer hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       tabIndex={0}
       onClick={() => router.push(`/series/${seriesId}/races/${race.id}`)}
@@ -70,6 +84,14 @@ function RaceRow({
         } else if ((e.key === 'd' || e.key === 'Delete') && !readOnly) {
           e.preventDefault();
           handleDelete();
+        } else if (e.altKey && e.key === 'ArrowDown' && onNudge) {
+          // Alt+↓/↑ nudges the race one place later/earlier (Sailwave's
+          // "move race right/left"); plain arrows just move focus.
+          e.preventDefault();
+          onNudge(1);
+        } else if (e.altKey && e.key === 'ArrowUp' && onNudge) {
+          e.preventDefault();
+          onNudge(-1);
         } else if (e.key === 'ArrowDown') {
           e.preventDefault();
           (e.currentTarget.nextElementSibling as HTMLElement)?.focus();
@@ -79,17 +101,20 @@ function RaceRow({
         }
       }}
     >
-      <div>
-        <span className="font-medium">Race {race.raceNumber}</span>
-        {race.name && <span className="ml-2">{race.name}</span>}
-        {race.date && (
-          <span className="text-sm text-muted-foreground ml-2">{race.date}</span>
-        )}
-        {finisherCount !== undefined && (
-          <span className="text-sm text-muted-foreground ml-2">
-            {finisherCount} {finisherCount === 1 ? 'finisher' : 'finishers'}
-          </span>
-        )}
+      <div className="flex items-center gap-2">
+        {dragHandle && <DragHandle {...dragHandle} aria-label={`Reorder Race ${race.raceNumber}`} />}
+        <div>
+          <span className="font-medium">Race {race.raceNumber}</span>
+          {race.name && <span className="ml-2">{race.name}</span>}
+          {race.date && (
+            <span className="text-sm text-muted-foreground ml-2">{race.date}</span>
+          )}
+          {finisherCount !== undefined && (
+            <span className="text-sm text-muted-foreground ml-2">
+              {finisherCount} {finisherCount === 1 ? 'finisher' : 'finishers'}
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-1">
         {!readOnly && (
@@ -137,6 +162,7 @@ export default function RacesPage({
   const { data: fleets } = useFleetsBySeries(seriesId);
   const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
   const saveRace = useSaveRace();
+  const reorderRaces = useReorderRaces(seriesId);
   const saveRaceStarts = useSaveRaceStarts();
   const createSubSeries = useCreateSubSeries();
   const saveSubSeries = useSaveSubSeries();
@@ -185,6 +211,19 @@ export default function RacesPage({
     : null;
 
   const fleetNameById = new Map((fleets ?? []).map((f) => [f.id, f.name]));
+
+  // Move a race one place earlier (-1) or later (+1) in the series, renumbering
+  // to match. Backs the Alt+↑/↓ row shortcut and reuses the drag reorder path.
+  function nudgeRace(raceId: string, direction: -1 | 1) {
+    if (!races) return;
+    const ids = races.map((r) => r.id);
+    const idx = ids.indexOf(raceId);
+    const target = idx + direction;
+    if (idx < 0 || target < 0 || target >= ids.length) return;
+    const next = [...ids];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    reorderRaces.mutate(next);
+  }
 
   // Auto-focus first row when list first loads
   useEffect(() => {
@@ -419,9 +458,24 @@ export default function RacesPage({
 
       {races !== undefined && races.length > 0 && (
         <div className="space-y-2" ref={raceListRef}>
-          {races.map((race) => (
-            <RaceRow key={race.id} race={race} seriesId={seriesId} />
-          ))}
+          {readOnly ? (
+            races.map((race) => (
+              <RaceRow key={race.id} race={race} seriesId={seriesId} />
+            ))
+          ) : (
+            <SortableList items={races} onReorder={(orderedIds) => reorderRaces.mutate(orderedIds)}>
+              {(race, { ref, style, handleProps }) => (
+                <RaceRow
+                  race={race}
+                  seriesId={seriesId}
+                  rowRef={ref}
+                  rowStyle={style}
+                  dragHandle={handleProps}
+                  onNudge={(direction) => nudgeRace(race.id, direction)}
+                />
+              )}
+            </SortableList>
+          )}
         </div>
       )}
 
