@@ -91,7 +91,11 @@ export function useFinishInput(args: UseFinishInputArgs) {
     else sailMap.set(key, [c]);
   }
 
-  const fleetIdsWithStartTimes = new Set(raceStarts.flatMap((s) => s.fleetIds));
+  // Only timed starts count here: needsFinishTime / hasStartForRace gate the
+  // handicap elapsed-time entry, which a membership-only start can't satisfy.
+  const fleetIdsWithStartTimes = new Set(
+    raceStarts.filter((s) => s.startTime).flatMap((s) => s.fleetIds),
+  );
   const competitorMap = new Map(competitors.map((c) => [c.id, c]));
 
   // Returns true if this competitor needs a finish time recorded.

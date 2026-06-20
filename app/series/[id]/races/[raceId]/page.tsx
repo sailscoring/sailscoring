@@ -21,6 +21,7 @@ import {
   useSaveFinishes,
 } from '@/hooks/use-finishes';
 import { useRaceStartsByRace } from '@/hooks/use-race-starts';
+import { competitorsInRace } from '@/lib/race-membership';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -79,7 +80,17 @@ export default function ResultEntryPage({
   const { data: fleets } = useFleetsBySeries(seriesId);
   const { data: allSeriesRaces } = useRacesBySeries(seriesId);
   const { data: raceStartsData } = useRaceStartsByRace(raceId);
-  const raceStarts = raceStartsData ?? [];
+  const raceStarts = useMemo(() => raceStartsData ?? [], [raceStartsData]);
+
+  // Scope the screen to the boats actually in this race: those in a fleet with
+  // a start (timed or membership-only). With no starts recorded every fleet is
+  // implied, so this is the full series list. Drives the finish autocomplete,
+  // check-in, ratings, and — crucially — the implicit-DNC derivation, so boats
+  // in fleets that didn't start this race no longer flood the sheet as DNCs.
+  const inRaceCompetitors = useMemo(
+    () => competitorsInRace(competitors ?? [], raceStarts),
+    [competitors, raceStarts],
+  );
 
   const saveFinish = useSaveFinish();
   const saveFinishes = useSaveFinishes();
@@ -121,7 +132,7 @@ export default function ResultEntryPage({
 
   const finishedIds = finishedCompetitorIds(finishingOrder);
   const nonFinishers = deriveNonFinishers(
-    competitors ?? [],
+    inRaceCompetitors,
     finishedIds,
     derived.nonFinisherCodes,
     savedFinishes,
@@ -137,7 +148,7 @@ export default function ResultEntryPage({
   const finishInput = useFinishInput({
     raceId,
     isHandicapSeries,
-    competitors: competitors ?? [],
+    competitors: inRaceCompetitors,
     fleetById,
     raceStarts,
     derived,
@@ -152,7 +163,7 @@ export default function ResultEntryPage({
 
   const { presentCount, effectivelyPresent, toggleStartPresent } = useStartCheckIn({
     raceId,
-    competitors: competitors ?? [],
+    competitors: inRaceCompetitors,
     savedFinishes,
     finishedIds,
     saveFinish,
@@ -248,7 +259,7 @@ export default function ResultEntryPage({
       {activeTab === 'checkin' && (
         <div className="bg-card border rounded-lg p-5">
         <CheckInTab
-          competitors={competitors}
+          competitors={inRaceCompetitors}
           showCrew={showCrew}
           enabledCompetitorFields={enabledCompetitorFields}
           presentCount={presentCount}
@@ -263,7 +274,7 @@ export default function ResultEntryPage({
         <RatingsTab
           seriesId={seriesId}
           raceId={raceId}
-          competitors={competitors}
+          competitors={inRaceCompetitors}
           fleets={fleets ?? []}
         />
         </div>
@@ -284,7 +295,7 @@ export default function ResultEntryPage({
           finishInput={finishInput}
           rowOps={rowOps}
           nonFinishers={nonFinishers}
-          competitors={competitors}
+          competitors={inRaceCompetitors}
           competitorMap={competitorMap}
           fleetById={fleetById}
           showFleetBadge={showFleetBadge}
