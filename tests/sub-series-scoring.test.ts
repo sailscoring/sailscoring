@@ -36,7 +36,7 @@ function makeFinish(
   penaltyCode: PenaltyCode | null = null,
   penaltyOverride: number | null = null,
 ): Finish {
-  return { id: `${raceId}-${competitorId}`, raceId, competitorId, sortOrder, resultCode, startPresent: null, penaltyCode, penaltyOverride, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null };
+  return { id: `${raceId}-${competitorId}`, raceId, competitorId, sortOrder, resultCode, startPresent: null, penaltyCode, penaltyOverride, redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null };
 }
 
 const scratchFleet: Fleet = { id: 'f1', seriesId: 's1', name: 'Fleet', displayOrder: 0, scoringSystem: 'scratch' };

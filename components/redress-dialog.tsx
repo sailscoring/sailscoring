@@ -41,8 +41,8 @@ export interface RedressDialogProps {
 const EMPTY_ENTRY: RedressEntry = {
   method: 'all_races',
   poolMode: 'none',
-  excludeRaces: [],
-  includeRaces: [],
+  excludeRaceIds: [],
+  includeRaceIds: [],
   includeAllLater: false,
   statedPoints: null,
   statedPointsByFleet: null,
@@ -158,16 +158,16 @@ function RedressDialogInner({
                   <p className="text-xs text-muted-foreground">Races to exclude:</p>
                   <div className="flex flex-wrap gap-1">
                     {availableRaces.slice().sort((a, b) => a.raceNumber - b.raceNumber).map((r) => {
-                      const selected = entry.excludeRaces.includes(r.raceNumber);
+                      const selected = entry.excludeRaceIds.includes(r.id);
                       return (
                         <button
                           key={r.id}
                           type="button"
                           onClick={() => setEntry((d) => ({
                             ...d,
-                            excludeRaces: selected
-                              ? d.excludeRaces.filter((n) => n !== r.raceNumber)
-                              : [...d.excludeRaces, r.raceNumber],
+                            excludeRaceIds: selected
+                              ? d.excludeRaceIds.filter((id) => id !== r.id)
+                              : [...d.excludeRaceIds, r.id],
                           }))}
                           className={cn(
                             'text-xs px-2 py-0.5 rounded border transition-colors',
@@ -189,16 +189,16 @@ function RedressDialogInner({
                   <p className="text-xs text-muted-foreground">Races to include:</p>
                   <div className="flex flex-wrap gap-1">
                     {availableRaces.slice().sort((a, b) => a.raceNumber - b.raceNumber).map((r) => {
-                      const selected = entry.includeRaces.includes(r.raceNumber);
+                      const selected = entry.includeRaceIds.includes(r.id);
                       return (
                         <button
                           key={r.id}
                           type="button"
                           onClick={() => setEntry((d) => ({
                             ...d,
-                            includeRaces: selected
-                              ? d.includeRaces.filter((n) => n !== r.raceNumber)
-                              : [...d.includeRaces, r.raceNumber],
+                            includeRaceIds: selected
+                              ? d.includeRaceIds.filter((id) => id !== r.id)
+                              : [...d.includeRaceIds, r.id],
                           }))}
                           className={cn(
                             'text-xs px-2 py-0.5 rounded border transition-colors',

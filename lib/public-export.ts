@@ -414,6 +414,13 @@ export function buildPublicExportFromSnapshot(
     }
   }
 
+  // Redress race references are held internally by race id but exported
+  // positionally (by race number) so the public JSON carries no internal
+  // UUIDs and stays portable. Translate id → number on export.
+  const raceNumberById = new Map(races.map((r) => [r.id, r.raceNumber]));
+  const toRaceNumbers = (ids: string[] | null | undefined): number[] =>
+    (ids ?? []).map((id) => raceNumberById.get(id)).filter((n): n is number => n != null);
+
   const exportedRaces = races.map((race) => {
     const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
     const raceScores = calculateRaceScores(finishesForRace, competitors, series.dnfScoring);
@@ -431,8 +438,8 @@ export function buildPublicExportFromSnapshot(
         ...(finish?.penaltyOverrideByFleet && Object.keys(finish.penaltyOverrideByFleet).length ? { penaltyOverrideByFleet: perFleetByName(finish.penaltyOverrideByFleet) } : {}),
         ...(finish?.resultCode === 'RDG' ? {
           redressMethod: finish.redressMethod,
-          ...(finish.redressExcludeRaces ? { redressExcludeRaces: finish.redressExcludeRaces } : {}),
-          ...(finish.redressIncludeRaces ? { redressIncludeRaces: finish.redressIncludeRaces } : {}),
+          ...(finish.redressExcludeRaceIds?.length ? { redressExcludeRaces: toRaceNumbers(finish.redressExcludeRaceIds) } : {}),
+          ...(finish.redressIncludeRaceIds?.length ? { redressIncludeRaces: toRaceNumbers(finish.redressIncludeRaceIds) } : {}),
           ...(finish.redressIncludeAllLater ? { redressIncludeAllLater: true } : {}),
           ...(finish.redressPoints != null ? { redressPoints: finish.redressPoints } : {}),
           ...(finish.redressPointsByFleet && Object.keys(finish.redressPointsByFleet).length ? { redressPointsByFleet: perFleetByName(finish.redressPointsByFleet) } : {}),
@@ -724,10 +731,21 @@ export async function importPublicExport(
     }),
   );
 
+  // Assign every race its id up front: redress pools reference races by
+  // number and may point forward, so all ids must be known before any
+  // finish is built. Translate the exported positional numbers back to ids.
+  const newRaceIdByNumber = new Map(data.races.map((r) => [r.raceNumber, crypto.randomUUID()]));
+  const toRaceIds = (numbers: number[] | null | undefined): string[] | null => {
+    const ids = (numbers ?? [])
+      .map((n) => newRaceIdByNumber.get(n))
+      .filter((id): id is string => id != null);
+    return ids.length > 0 ? ids : null;
+  };
+
   // Races sequentially because their starts and finishes FK back to the
   // race row that has to exist first. Inside each race we batch.
   for (const race of data.races) {
-    const raceId = crypto.randomUUID();
+    const raceId = newRaceIdByNumber.get(race.raceNumber)!;
     await repos.raceRepo.save({
       id: raceId,
       seriesId: newSeriesId,
@@ -786,8 +804,8 @@ export async function importPublicExport(
         penaltyOverride: finish.penaltyOverride ?? null,
         ...(finish.penaltyOverrideByFleet ? { penaltyOverrideByFleet: perFleetToNewIds(finish.penaltyOverrideByFleet) } : {}),
         redressMethod: finish.redressMethod ?? null,
-        redressExcludeRaces: finish.redressExcludeRaces ?? null,
-        redressIncludeRaces: finish.redressIncludeRaces ?? null,
+        redressExcludeRaceIds: toRaceIds(finish.redressExcludeRaces),
+        redressIncludeRaceIds: toRaceIds(finish.redressIncludeRaces),
         redressIncludeAllLater: finish.redressIncludeAllLater ?? false,
         redressPoints: finish.redressPoints ?? null,
         ...(finish.redressPointsByFleet ? { redressPointsByFleet: perFleetToNewIds(finish.redressPointsByFleet) } : {}),

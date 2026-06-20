@@ -276,6 +276,16 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     createdAt: 0,
   }));
 
+  // Fixtures address redress pools by race number (human-readable in the
+  // YAML); the engine works in race ids. Map number → id for translation.
+  const raceIdByNumber = new Map(races.map((r) => [r.raceNumber, r.id]));
+  const redressToIds = (numbers: number[] | null | undefined): string[] | null => {
+    const ids = (numbers ?? [])
+      .map((n) => raceIdByNumber.get(n))
+      .filter((id): id is string => id != null);
+    return ids.length > 0 ? ids : null;
+  };
+
   const raceIdsBySubSeries = new Map<string, string[]>(
     [...subSeriesIdByName.values()].map((id) => [id, []]),
   );
@@ -331,8 +341,8 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
         penaltyCode: f.penaltyCode ?? null,
         penaltyOverride: f.penaltyOverride ?? null,
         redressMethod: f.redressMethod ?? null,
-        redressExcludeRaces: f.redressExcludeRaces ?? null,
-        redressIncludeRaces: f.redressIncludeRaces ?? null,
+        redressExcludeRaceIds: redressToIds(f.redressExcludeRaces),
+        redressIncludeRaceIds: redressToIds(f.redressIncludeRaces),
         redressIncludeAllLater: f.redressIncludeAllLater ?? false,
         redressPoints: f.redressPoints ?? null,
       });

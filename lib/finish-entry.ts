@@ -19,8 +19,8 @@ export function makeFinish(
     penaltyOverride: overrides.penaltyOverride ?? null,
     ...(overrides.penaltyOverrideByFleet != null ? { penaltyOverrideByFleet: overrides.penaltyOverrideByFleet } : {}),
     redressMethod: overrides.redressMethod ?? null,
-    redressExcludeRaces: overrides.redressExcludeRaces ?? null,
-    redressIncludeRaces: overrides.redressIncludeRaces ?? null,
+    redressExcludeRaceIds: overrides.redressExcludeRaceIds ?? null,
+    redressIncludeRaceIds: overrides.redressIncludeRaceIds ?? null,
     redressIncludeAllLater: overrides.redressIncludeAllLater ?? false,
     redressPoints: overrides.redressPoints ?? null,
     ...(overrides.redressPointsByFleet != null ? { redressPointsByFleet: overrides.redressPointsByFleet } : {}),
@@ -75,8 +75,8 @@ export function entryKey(e: FinishEntry): string {
 export interface RedressEntry {
   method: 'all_races' | 'races_before' | 'stated';
   poolMode: 'none' | 'exclude' | 'include';
-  excludeRaces: number[];
-  includeRaces: number[];
+  excludeRaceIds: string[];
+  includeRaceIds: string[];
   includeAllLater: boolean;
   statedPoints: number | null;
   statedPointsByFleet: Record<string, number> | null;
@@ -148,14 +148,14 @@ export function deriveFinishState(savedFinishes: Finish[]): {
   const redressEntries = new Map<string, RedressEntry>();
   for (const finish of savedFinishes) {
     if (finish.resultCode === 'RDG' && finish.competitorId && finish.redressMethod) {
-      const hasExclude = (finish.redressExcludeRaces?.length ?? 0) > 0;
+      const hasExclude = (finish.redressExcludeRaceIds?.length ?? 0) > 0;
       const hasInclude =
-        (finish.redressIncludeRaces?.length ?? 0) > 0 || finish.redressIncludeAllLater;
+        (finish.redressIncludeRaceIds?.length ?? 0) > 0 || finish.redressIncludeAllLater;
       redressEntries.set(finish.competitorId, {
         method: finish.redressMethod as RedressEntry['method'],
         poolMode: hasExclude ? 'exclude' : hasInclude ? 'include' : 'none',
-        excludeRaces: finish.redressExcludeRaces ?? [],
-        includeRaces: finish.redressIncludeRaces ?? [],
+        excludeRaceIds: finish.redressExcludeRaceIds ?? [],
+        includeRaceIds: finish.redressIncludeRaceIds ?? [],
         includeAllLater: finish.redressIncludeAllLater ?? false,
         statedPoints: finish.redressPoints ?? null,
         statedPointsByFleet: finish.redressPointsByFleet ?? null,

@@ -75,7 +75,7 @@ function sampleFinish(raceId: string, competitorId: string, sortOrder: number) {
   return {
     id: uuid(), raceId, competitorId, sortOrder,
     resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null,
-    redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+    redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null,
     tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
   };
 }

@@ -148,7 +148,7 @@ describe.skipIf(skip)('createFollowOnSeries', () => {
           id: uuid(), raceId, competitorId: compIdBySail.get(b.sail)!,
           sortOrder: i + 1, finishTime: b.finish!, resultCode: null,
           startPresent: null, penaltyCode: null, penaltyOverride: null,
-          redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+          redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null,
           tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
         })),
     });

@@ -295,7 +295,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       sortOrder: 1, finishTime: '12:00:00',
       resultCode: null, startPresent: true,
       penaltyCode: null, penaltyOverride: null,
-      redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+      redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null,
       tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
     };
     await repos.finishes.save(finish);
@@ -312,7 +312,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       sortOrder: 2, finishTime: '12:05:00',
       resultCode: null, startPresent: true,
       penaltyCode: null, penaltyOverride: null,
-      redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+      redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null,
       tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
     };
     await repos.finishes.save(unknown);
@@ -390,7 +390,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       sortOrder: i + 1,
       resultCode: null, startPresent: null,
       penaltyCode: null, penaltyOverride: null,
-      redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+      redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null,
       tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
     }));
 
@@ -431,7 +431,7 @@ describe.skipIf(skip)('postgres repositories', () => {
         id: uuid(), raceId: race.id, competitorId: competitor.id,
         sortOrder: 1, resultCode: null, startPresent: null,
         penaltyCode: null, penaltyOverride: null,
-        redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+        redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null,
         tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
       }),
     ).rejects.toThrow();

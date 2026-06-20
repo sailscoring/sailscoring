@@ -851,27 +851,30 @@ function resolveRedressScore(
   }
 
   let poolIndices: number[];
-  if (finish.redressIncludeRaces && finish.redressIncludeRaces.length > 0) {
-    const includeSet = new Set(finish.redressIncludeRaces);
+  if (finish.redressIncludeRaceIds && finish.redressIncludeRaceIds.length > 0) {
+    const includeSet = new Set(finish.redressIncludeRaceIds);
     poolIndices = races
       .map((r, i) => ({ r, i }))
-      .filter(({ r, i }) => includeSet.has(r.raceNumber) && i !== raceIdx)
+      .filter(({ r, i }) => includeSet.has(r.id) && i !== raceIdx)
       .map(({ i }) => i);
     if (finish.redressIncludeAllLater) {
-      const maxIncluded = Math.max(...finish.redressIncludeRaces);
+      // "all later" is positional: every race sailed after the latest included
+      // one, measured by race number (the order column), not by id.
+      const includedNumbers = races.filter((r) => includeSet.has(r.id)).map((r) => r.raceNumber);
+      const maxIncluded = includedNumbers.length > 0 ? Math.max(...includedNumbers) : -Infinity;
       const laterIndices = races
         .map((r, i) => ({ r, i }))
         .filter(({ r, i }) => r.raceNumber > maxIncluded && i !== raceIdx)
         .map(({ i }) => i);
       poolIndices = [...new Set([...poolIndices, ...laterIndices])].sort((a, b) => a - b);
     }
-  } else if (finish.redressExcludeRaces && finish.redressExcludeRaces.length > 0) {
-    const excludeSet = new Set(finish.redressExcludeRaces);
+  } else if (finish.redressExcludeRaceIds && finish.redressExcludeRaceIds.length > 0) {
+    const excludeSet = new Set(finish.redressExcludeRaceIds);
     poolIndices = races
       .map((_, i) => i)
       .filter((i) =>
         (finish.redressMethod === 'races_before' ? i < raceIdx : i !== raceIdx) &&
-        !excludeSet.has(races[i].raceNumber),
+        !excludeSet.has(races[i].id),
       );
   } else if (finish.redressMethod === 'races_before') {
     poolIndices = races.map((_, i) => i).filter((i) => i < raceIdx);

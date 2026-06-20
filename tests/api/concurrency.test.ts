@@ -242,7 +242,7 @@ describe.skipIf(skip)('optimistic concurrency (CAS via expectedVersion)', () => 
       id: uuid(), raceId: race.id, competitorId: competitor.id,
       sortOrder: 1, finishTime: '12:34:56', resultCode: null,
       startPresent: null, penaltyCode: null, penaltyOverride: null,
-      redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+      redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null,
       tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
     };
     const created = await repos.finishes.save(finish);

@@ -197,8 +197,8 @@ describe('api-repository routing', () => {
       penaltyCode: null,
       penaltyOverride: null,
       redressMethod: null,
-      redressExcludeRaces: null,
-      redressIncludeRaces: null,
+      redressExcludeRaceIds: null,
+      redressIncludeRaceIds: null,
       tiedWithPrevious: false, redressIncludeAllLater: false,
       redressPoints: null,
     };
@@ -216,8 +216,8 @@ describe('api-repository routing', () => {
       id, raceId, competitorId: null, sortOrder: null,
       resultCode: 'DNC', startPresent: null,
       penaltyCode: null, penaltyOverride: null,
-      redressMethod: null, redressExcludeRaces: null,
-      redressIncludeRaces: null,
+      redressMethod: null, redressExcludeRaceIds: null,
+      redressIncludeRaceIds: null,
       tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
     });
     fetchMock.mockImplementation(() => Promise.resolve(jsonResponse(200, { count: 2 })));

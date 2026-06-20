@@ -87,7 +87,7 @@ describe.skipIf(skip)('series standings (ADR-009 M4)', () => {
         id: uuid(), raceId, competitorId, sortOrder: i + 1,
         finishTime: `12:0${i}:00`, resultCode: null, startPresent: null,
         penaltyCode: null, penaltyOverride: null, redressMethod: null,
-        redressExcludeRaces: null, redressIncludeRaces: null,
+        redressExcludeRaceIds: null, redressIncludeRaceIds: null,
         tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null,
       })),
     });

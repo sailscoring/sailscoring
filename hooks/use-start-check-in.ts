@@ -68,8 +68,8 @@ export function useStartCheckIn(args: UseStartCheckInArgs) {
           penaltyCode: null,
           penaltyOverride: null,
           redressMethod: null,
-          redressExcludeRaces: null,
-          redressIncludeRaces: null,
+          redressExcludeRaceIds: null,
+          redressIncludeRaceIds: null,
           redressIncludeAllLater: false,
           redressPoints: null,
         });
@@ -90,8 +90,8 @@ export function useStartCheckIn(args: UseStartCheckInArgs) {
           penaltyCode: null,
           penaltyOverride: null,
           redressMethod: null,
-          redressExcludeRaces: null,
-          redressIncludeRaces: null,
+          redressExcludeRaceIds: null,
+          redressIncludeRaceIds: null,
           redressIncludeAllLater: false,
           redressPoints: null,
         });

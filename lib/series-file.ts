@@ -309,9 +309,18 @@ export async function buildSeriesFile(
     (fr) => fr.tcfHistory ?? [],
   );
 
+  // Redress race references are stored internally by race id but written to
+  // the file positionally (by race number), so files stay portable and
+  // human-readable. Translate id → number on the way out.
+  const raceNumberById = new Map(races.map((r) => [r.id, r.raceNumber]));
+  const toRaceNumbers = (ids: string[] | null | undefined): number[] =>
+    (ids ?? []).map((id) => raceNumberById.get(id)).filter((n): n is number => n != null);
+
   const finishesByRace = new Map<string, SeriesFileFinish[]>();
   for (const f of allFinishes) {
     if (!finishesByRace.has(f.raceId)) finishesByRace.set(f.raceId, []);
+    const excludeNumbers = toRaceNumbers(f.redressExcludeRaceIds);
+    const includeNumbers = toRaceNumbers(f.redressIncludeRaceIds);
     finishesByRace.get(f.raceId)!.push({
       id: f.id,
       competitorId: f.competitorId,
@@ -325,8 +334,8 @@ export async function buildSeriesFile(
       penaltyOverride: f.penaltyOverride ?? null,
       ...(f.penaltyOverrideByFleet && Object.keys(f.penaltyOverrideByFleet).length ? { penaltyOverrideByFleet: f.penaltyOverrideByFleet } : {}),
       ...(f.redressMethod ? { redressMethod: f.redressMethod } : {}),
-      ...(f.redressExcludeRaces?.length ? { redressExcludeRaces: f.redressExcludeRaces } : {}),
-      ...(f.redressIncludeRaces?.length ? { redressIncludeRaces: f.redressIncludeRaces } : {}),
+      ...(excludeNumbers.length ? { redressExcludeRaces: excludeNumbers } : {}),
+      ...(includeNumbers.length ? { redressIncludeRaces: includeNumbers } : {}),
       ...(f.redressIncludeAllLater ? { redressIncludeAllLater: f.redressIncludeAllLater } : {}),
       ...(f.redressPoints != null ? { redressPoints: f.redressPoints } : {}),
       ...(f.redressPointsByFleet && Object.keys(f.redressPointsByFleet).length ? { redressPointsByFleet: f.redressPointsByFleet } : {}),
@@ -887,6 +896,19 @@ async function writeFleetsCompetitorsRaces(
   competitorIdMap: Map<string, string>,
   raceIdMap: Map<string, string>,
 ): Promise<void> {
+  // Redress race references are stored in the file positionally (by race
+  // number) but held internally by id. Map each file race number to its
+  // freshly-minted race id so redress pools survive the import.
+  const newRaceIdByNumber = new Map(
+    file.races.map((r) => [r.raceNumber, raceIdMap.get(r.id)!]),
+  );
+  const toRaceIds = (numbers: number[] | null | undefined): string[] | null => {
+    const ids = (numbers ?? [])
+      .map((n) => newRaceIdByNumber.get(n))
+      .filter((id): id is string => id != null);
+    return ids.length > 0 ? ids : null;
+  };
+
   // Phase 7 audit: every `saveMany`/`save` below is authoritative-by-
   // construction. Either we just minted `seriesId` (open-as-new) or
   // `deleteSeriesChildren` cleared the prior child rows (update-from-
@@ -996,8 +1018,8 @@ async function writeFleetsCompetitorsRaces(
             return m ? { penaltyOverrideByFleet: m } : {};
           })(),
           redressMethod: f.redressMethod ?? null,
-          redressExcludeRaces: f.redressExcludeRaces ?? null,
-          redressIncludeRaces: f.redressIncludeRaces ?? null,
+          redressExcludeRaceIds: toRaceIds(f.redressExcludeRaces),
+          redressIncludeRaceIds: toRaceIds(f.redressIncludeRaces),
           redressIncludeAllLater: f.redressIncludeAllLater ?? false,
           redressPoints: f.redressPoints ?? null,
           ...(() => {

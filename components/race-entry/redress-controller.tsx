@@ -50,8 +50,8 @@ export const RedressController = forwardRef<RedressControllerHandle, {
     const { competitorId } = redressDialog;
     const redressFields: Partial<Finish> = {
       redressMethod: entry.method,
-      redressExcludeRaces: entry.poolMode === 'exclude' ? entry.excludeRaces : null,
-      redressIncludeRaces: entry.poolMode === 'include' ? entry.includeRaces : null,
+      redressExcludeRaceIds: entry.poolMode === 'exclude' ? entry.excludeRaceIds : null,
+      redressIncludeRaceIds: entry.poolMode === 'include' ? entry.includeRaceIds : null,
       redressIncludeAllLater: entry.poolMode === 'include' ? entry.includeAllLater : false,
       redressPoints: entry.method === 'stated' ? entry.statedPoints : null,
       redressPointsByFleet: entry.method === 'stated' ? (entry.statedPointsByFleet ?? undefined) : undefined,
@@ -98,8 +98,8 @@ export const RedressController = forwardRef<RedressControllerHandle, {
         ...existing,
         resultCode: null,
         redressMethod: null,
-        redressExcludeRaces: null,
-        redressIncludeRaces: null,
+        redressExcludeRaceIds: null,
+        redressIncludeRaceIds: null,
         redressIncludeAllLater: false,
         redressPoints: null,
         redressPointsByFleet: undefined,

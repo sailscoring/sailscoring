@@ -78,8 +78,8 @@ function blankFinish(): Omit<Finish, 'id' | 'raceId' | 'competitorId' | 'sortOrd
     penaltyCode: null,
     penaltyOverride: null,
     redressMethod: null,
-    redressExcludeRaces: null,
-    redressIncludeRaces: null,
+    redressExcludeRaceIds: null,
+    redressIncludeRaceIds: null,
     redressIncludeAllLater: false,
     redressPoints: null,
   };

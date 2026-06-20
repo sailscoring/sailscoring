@@ -300,9 +300,9 @@ export interface Finish {
   //   races_before       — mean of races before this one
   //   stated             — scorer-entered points
   redressMethod: 'all_races' | 'all_races_excl_dnc' | 'races_before' | 'stated' | null;
-  redressExcludeRaces: number[] | null; // exclude-mode: remove these races from method-default pool
-  redressIncludeRaces: number[] | null; // include-mode: use only these races (overrides method default)
-  redressIncludeAllLater: boolean;      // include-mode: also include all races after max(redressIncludeRaces)
+  redressExcludeRaceIds: string[] | null; // exclude-mode: remove these races (by id) from method-default pool
+  redressIncludeRaceIds: string[] | null; // include-mode: use only these races (by id; overrides method default)
+  redressIncludeAllLater: boolean;      // include-mode: also include all races sailed after the latest included race
   redressPoints: number | null;         // stated-method: scorer-entered points value
   // Per-fleet stated points for a boat scored in more than one fleet. When
   // present (non-empty) the boat is in per-fleet mode: each key is a fleetId →

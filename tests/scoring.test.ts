@@ -19,7 +19,7 @@ function makeFinish(
   penaltyCode: PenaltyCode | null = null,
   penaltyOverride: number | null = null,
 ): Finish {
-  return { id: `${raceId}-${competitorId}`, raceId, competitorId, sortOrder, resultCode, startPresent: null, penaltyCode, penaltyOverride, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null };
+  return { id: `${raceId}-${competitorId}`, raceId, competitorId, sortOrder, resultCode, startPresent: null, penaltyCode, penaltyOverride, redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null };
 }
 
 // ─── calculateRaceScores ─────────────────────────────────────────────────────
@@ -699,7 +699,7 @@ describe('calculateRaceScores — unknown finishes (null competitorId)', () => {
 
   it('ignores a finish with null competitorId and does not affect competitor scores', () => {
     const finishes: Finish[] = [
-      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', sortOrder: 1, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null },
+      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', sortOrder: 1, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null },
       makeFinish('r1', 'A', 2),
       makeFinish('r1', 'B', 3),
     ];
@@ -715,7 +715,7 @@ describe('calculateRaceScores — unknown finishes (null competitorId)', () => {
 
   it('does not crash when all finishes have null competitorId', () => {
     const finishes: Finish[] = [
-      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', sortOrder: 1, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null },
+      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', sortOrder: 1, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null },
     ];
     const scores = calculateRaceScores(finishes, competitors);
     // All three competitors score as implicit DNC
@@ -870,7 +870,7 @@ describe('calculateStandings — unknown finishes (null competitorId)', () => {
   it('ignores unknown finishes and scores registered competitors correctly', () => {
     const finishes: Finish[] = [
       makeFinish('r1', 'A', 1),
-      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', sortOrder: 2, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null },
+      { id: 'u1', raceId: 'r1', competitorId: null, unknownSailNumber: '9999', sortOrder: 2, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null },
     ];
     const { standings } = calculateStandings(competitors, races, finishes);
     // A wins with 1 point; B has no finish → implicit DNC (3 pts)
@@ -897,7 +897,7 @@ describe('calculateHandicapAdjustment — NHC1 edge cases', () => {
     return { id: 'rs-0', raceId: 'r-0', fleetIds: ['fl-0'], startTime: '14:00:00' };
   }
   function fin(competitorId: string, finishTime?: string, code: Finish['resultCode'] = null): Finish {
-    return { id: `f-${competitorId}`, raceId: 'r-0', competitorId, sortOrder: null, ...(finishTime ? { finishTime } : {}), resultCode: code, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null };
+    return { id: `f-${competitorId}`, raceId: 'r-0', competitorId, sortOrder: null, ...(finishTime ? { finishTime } : {}), resultCode: code, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null };
   }
 
   // Drives both phases in sequence the same way the orchestrator does, so the
@@ -1041,8 +1041,8 @@ describe('calculateHandicapRaceScores — penalty points', () => {
       penaltyCode: null,
       penaltyOverride: null,
       redressMethod: null,
-      redressExcludeRaces: null,
-      redressIncludeRaces: null,
+      redressExcludeRaceIds: null,
+      redressIncludeRaceIds: null,
       tiedWithPrevious: false, redressIncludeAllLater: false,
       redressPoints: null,
     };
@@ -1145,7 +1145,7 @@ describe('calculateFleetStandings — NHC progressive handicap', () => {
     return { id: `rs-${raceId}`, raceId, fleetIds: ['fl-0'], startTime: '14:00:00' };
   }
   function fin(raceId: string, competitorId: string, finishTime: string): Finish {
-    return { id: `f-${raceId}-${competitorId}`, raceId, competitorId, sortOrder: null, finishTime, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null };
+    return { id: `f-${raceId}-${competitorId}`, raceId, competitorId, sortOrder: null, finishTime, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null, tiedWithPrevious: false, redressIncludeAllLater: false, redressPoints: null };
   }
 
   it('threads newTcf from race N into race N+1 as tcfApplied', () => {

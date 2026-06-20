@@ -20,8 +20,8 @@ const FINISH_BASE: Finish = {
   penaltyCode: null,
   penaltyOverride: null,
   redressMethod: null,
-  redressExcludeRaces: null,
-  redressIncludeRaces: null,
+  redressExcludeRaceIds: null,
+  redressIncludeRaceIds: null,
   tiedWithPrevious: false, redressIncludeAllLater: false,
   redressPoints: null,
 };
@@ -58,8 +58,8 @@ describe('finishSchema', () => {
         ...FINISH_BASE,
         resultCode: 'RDG',
         redressMethod: 'races_before',
-        redressExcludeRaces: [2],
-        redressIncludeRaces: [1, 3],
+        redressExcludeRaceIds: [crypto.randomUUID()],
+        redressIncludeRaceIds: [crypto.randomUUID(), crypto.randomUUID()],
         redressIncludeAllLater: true,
         redressPoints: 4,
       }),
@@ -90,9 +90,9 @@ describe('finishSchema', () => {
     ).toThrow();
   });
 
-  test('rejects non-integer redressExcludeRaces entries', () => {
+  test('rejects non-uuid redressExcludeRaceIds entries', () => {
     expect(() =>
-      finishSchema.parse({ ...FINISH_BASE, redressExcludeRaces: [1.5] }),
+      finishSchema.parse({ ...FINISH_BASE, redressExcludeRaceIds: ['not-a-uuid'] }),
     ).toThrow();
   });
 });

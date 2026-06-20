@@ -21,7 +21,7 @@ const races: Race[] = [{ id: 'r1', seriesId: 's1', raceNumber: 1, name: null, da
 const finish = (competitorId: string, sortOrder: number, finishTime: string): Finish => ({
   id: `r1-${competitorId}`, raceId: 'r1', competitorId, sortOrder, finishTime, resultCode: null,
   startPresent: true, penaltyCode: null, penaltyOverride: null, tiedWithPrevious: false,
-  redressMethod: null, redressExcludeRaces: null, redressIncludeRaces: null,
+  redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null,
   redressIncludeAllLater: false, redressPoints: null,
 });
 // A crosses first, B second.

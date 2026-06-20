@@ -238,8 +238,8 @@ describe.skipIf(skip)('schema round-trip', () => {
       penaltyCode: 'SCP',
       penaltyOverride: 30,
       redressMethod: 'races_before',
-      redressExcludeRaces: [2, 4],
-      redressIncludeRaces: [1, 3, 5],
+      redressExcludeRaceIds: [uuid(), uuid()],
+      redressIncludeRaceIds: [uuid(), uuid(), uuid()],
       redressIncludeAllLater: true,
       redressPoints: 4.5,
     };
@@ -255,8 +255,8 @@ describe.skipIf(skip)('schema round-trip', () => {
       penaltyCode: finish.penaltyCode,
       penaltyOverride: finish.penaltyOverride,
       redressMethod: finish.redressMethod,
-      redressExcludeRaces: finish.redressExcludeRaces,
-      redressIncludeRaces: finish.redressIncludeRaces,
+      redressExcludeRaceIds: finish.redressExcludeRaceIds,
+      redressIncludeRaceIds: finish.redressIncludeRaceIds,
       redressIncludeAllLater: finish.redressIncludeAllLater,
       redressPoints: finish.redressPoints,
     });
@@ -368,8 +368,8 @@ describe.skipIf(skip)('schema round-trip', () => {
       penaltyCode: finish.penaltyCode,
       penaltyOverride: finish.penaltyOverride,
       redressMethod: finish.redressMethod,
-      redressExcludeRaces: finish.redressExcludeRaces,
-      redressIncludeRaces: finish.redressIncludeRaces,
+      redressExcludeRaceIds: finish.redressExcludeRaceIds,
+      redressIncludeRaceIds: finish.redressIncludeRaceIds,
       redressIncludeAllLater: finish.redressIncludeAllLater,
       redressPoints: finish.redressPoints,
     });
