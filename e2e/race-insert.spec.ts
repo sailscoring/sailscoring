@@ -21,6 +21,9 @@ test('insert a race mid-series renumbers the tail', async ({ page }) => {
     const input = page.getByLabel(`Name for Race ${number}`);
     await input.fill(name);
     await input.press('Enter');
+    // Wait for the save to land (editor collapses to the named button) before
+    // navigating away — otherwise the navigation can abort the in-flight save.
+    await expect(page.getByRole('button', { name: `Edit name for Race ${number}` })).toContainText(name);
     await page.getByRole('link', { name: 'Races' }).click();
   }
 
