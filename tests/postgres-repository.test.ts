@@ -267,6 +267,30 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('RaceRepository: reorder renumbers 1..n without tripping the unique index', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+    const r1: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
+    const r2: Race = { id: uuid(), seriesId: s.id, raceNumber: 2, name: null, date: '2026-04-08', createdAt: Date.now() };
+    const r3: Race = { id: uuid(), seriesId: s.id, raceNumber: 3, name: null, date: '2026-04-15', createdAt: Date.now() };
+    await repos.races.save(r1);
+    await repos.races.save(r2);
+    await repos.races.save(r3);
+
+    // Move the last race to the front: [r3, r1, r2] → numbers 1, 2, 3.
+    await repos.races.reorder(s.id, [r3.id, r1.id, r2.id]);
+
+    const list = await repos.races.listBySeries(s.id);
+    expect(list.map((r) => [r.id, r.raceNumber])).toEqual([
+      [r3.id, 1],
+      [r1.id, 2],
+      [r2.id, 3],
+    ]);
+
+    await repos.series.delete(s.id);
+  });
+
   // ─── RaceStartRepository / FinishRepository ────────────────────────────────
 
   test('RaceStart and Finish round-trip via parent-race tenancy check', async () => {

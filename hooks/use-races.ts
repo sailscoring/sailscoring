@@ -47,6 +47,40 @@ export function useSaveRace() {
   });
 }
 
+/**
+ * Renumber a series' races to a new order. `orderedIds` is the full set of
+ * race ids in their new sequence. Optimistic: the cached list is reordered and
+ * renumbered 1..n immediately so rows settle into place, then the server
+ * response is refetched on settle.
+ */
+export function useReorderRaces(seriesId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (orderedIds: string[]) => raceRepo.reorder(seriesId, orderedIds),
+    onMutate: async (orderedIds: string[]) => {
+      const listKey = queryKeys.races.bySeries(seriesId);
+      await qc.cancelQueries({ queryKey: listKey });
+      const prev = qc.getQueryData<Race[]>(listKey);
+      if (prev) {
+        const byId = new Map(prev.map((r) => [r.id, r]));
+        const reordered = orderedIds
+          .map((id) => byId.get(id))
+          .filter((r): r is Race => r !== undefined)
+          .map((r, i) => ({ ...r, raceNumber: i + 1 }));
+        qc.setQueryData(listKey, reordered);
+      }
+      return { prev };
+    },
+    onError: (_e, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKeys.races.bySeries(seriesId), ctx.prev);
+    },
+    onSettled: async () => {
+      qc.invalidateQueries({ queryKey: queryKeys.races.bySeries(seriesId) });
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
+    },
+  });
+}
+
 export function useDeleteRace() {
   const qc = useQueryClient();
   return useMutation({

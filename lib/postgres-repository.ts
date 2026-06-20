@@ -1076,6 +1076,40 @@ export class PostgresRaceRepository implements RaceRepository {
     });
   }
 
+  /**
+   * Renumber the series' races 1..n in the given order. Two-phase so the
+   * `(series_id, race_number)` unique index is never transiently violated:
+   * first park every race at the negative of its current number (distinct, and
+   * disjoint from the positive targets), then assign each its final number.
+   * Reordering is a list-organisation gesture, so — like series reorder — it
+   * doesn't bump `version`. `orderedIds` is expected to be the full set.
+   */
+  async reorder(seriesId: string, orderedIds: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(schema.races)
+        .set({ raceNumber: sql`-${schema.races.raceNumber}` })
+        .where(
+          and(
+            eq(schema.races.seriesId, seriesId),
+            eq(schema.races.workspaceId, this.workspaceId),
+          ),
+        );
+      for (let i = 0; i < orderedIds.length; i++) {
+        await tx
+          .update(schema.races)
+          .set({ raceNumber: i + 1 })
+          .where(
+            and(
+              eq(schema.races.id, orderedIds[i]),
+              eq(schema.races.seriesId, seriesId),
+              eq(schema.races.workspaceId, this.workspaceId),
+            ),
+          );
+      }
+    });
+  }
+
   async delete(id: string): Promise<void> {
     await this.db
       .delete(schema.races)

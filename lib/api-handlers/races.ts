@@ -8,7 +8,7 @@ import {
   assertRaceDeletable,
   assertSeriesWritable,
 } from '@/lib/api-handlers/series-access';
-import { raceInputSchema } from '@/lib/validation/race';
+import { raceInputSchema, racesReorderSchema } from '@/lib/validation/race';
 import type { Race } from '@/lib/types';
 
 async function assertSeriesInWorkspace(
@@ -72,6 +72,30 @@ export async function putRace(
     dedupeKey: existing ? `race:${id}` : undefined,
   });
   return saved;
+}
+
+/**
+ * Renumber a series' races to match the given order (the full set of race ids
+ * in their new sequence). Like the series-list reorder, this is a
+ * list-organisation gesture: it doesn't bump per-race versions. Returns the
+ * freshly-ordered list.
+ */
+export async function reorderRaces(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<Race[]> {
+  await assertSeriesWritable(workspace, seriesId);
+  const { orderedIds } = racesReorderSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await repos.races.reorder(seriesId, orderedIds);
+  await trackChange(workspace, {
+    action: 'races.reordered',
+    seriesId,
+    summary: 'Reordered races',
+    sessionKey: 'races',
+  });
+  return repos.races.listBySeries(seriesId);
 }
 
 export async function deleteRace(

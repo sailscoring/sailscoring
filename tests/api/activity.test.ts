@@ -175,4 +175,23 @@ describe.skipIf(skip)('activity log wiring (#153)', () => {
     await series.setSeriesArchived(ctx, seriesId, { archived: true });
     await series.deleteSeries(ctx, seriesId);
   });
+
+  test('reordering races renumbers them and logs races.reordered', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctx, seriesId, sampleSeries(seriesId));
+    const r1 = uuid();
+    const r2 = uuid();
+    for (const [id, n, date] of [[r1, 1, '2026-04-01'], [r2, 2, '2026-04-08']] as const) {
+      await races.putRace(ctx, seriesId, id, { id, seriesId, raceNumber: n, date, createdAt: Date.now() });
+    }
+
+    const reordered = await races.reorderRaces(ctx, seriesId, { orderedIds: [r2, r1] });
+    expect(reordered.map((r) => [r.id, r.raceNumber])).toEqual([[r2, 1], [r1, 2]]);
+
+    const { items } = await feed(ctx, seriesId);
+    expect(items.some((i) => i.action === 'races.reordered')).toBe(true);
+
+    await series.setSeriesArchived(ctx, seriesId, { archived: true });
+    await series.deleteSeries(ctx, seriesId);
+  });
 });

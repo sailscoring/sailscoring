@@ -98,6 +98,9 @@ export interface RaceRepository {
   listBySeries(seriesId: string): Promise<Race[]>;
   get(id: string): Promise<Race | undefined>;
   save(race: Race, opts?: SaveOpts): Promise<Race>;
+  /** Renumber the series' races 1..n to match `orderedIds` (the full set in
+   *  its new order). */
+  reorder(seriesId: string, orderedIds: string[]): Promise<void>;
   delete(id: string): Promise<void>;
   deleteBySeries(seriesId: string): Promise<void>;
 }

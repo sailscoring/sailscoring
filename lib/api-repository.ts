@@ -177,6 +177,13 @@ class ApiRaceRepository implements RaceRepository {
     });
   }
 
+  async reorder(seriesId: string, orderedIds: string[]): Promise<void> {
+    await apiFetch(`/api/v1/series/${seriesId}/races/reorder`, {
+      method: 'POST',
+      body: { orderedIds },
+    });
+  }
+
   async delete(id: string): Promise<void> {
     await apiFetch(`/api/v1/races/${id}`, { method: 'DELETE' });
   }
