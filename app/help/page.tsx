@@ -45,6 +45,7 @@ export default async function HelpPage() {
             ['#adding-competitors', 'Adding competitors'],
             ['#fleets', 'Fleets'],
             ['#start-sequences', 'Start sequences'],
+            ['#race-fleets', 'Which fleets are in a race'],
             ['#importing-competitors', 'Importing competitors from CSV'],
             ['#updating-handicaps', 'Updating handicaps from another series'],
             // Gated: only listed when irc-rating is enabled (on by default, #168 follow-up).
@@ -349,6 +350,35 @@ export default async function HelpPage() {
         <p>
           With a first start of 14:05, that resolves to 14:05 / 14:10 / 14:15. The new-race
           dialog shows the resolved times as a preview before you confirm.
+        </p>
+      </Section>
+
+      <Section id="race-fleets" title="Which fleets are in a race">
+        <p>
+          Not every fleet sails every race — a big series can carry several
+          sub-series, each made up of a different handful of boats. When you
+          open a race for result entry, Sail Scoring scopes the boat list (the
+          finish autocomplete, the start check-in, and the automatic{' '}
+          <em>DNC</em> entries) to the boats actually in that race, so you are
+          not wading through the whole entry list or clearing phantom DNCs for
+          fleets that never started.
+        </p>
+        <p>
+          The signal is the race&rsquo;s starts. A boat is in the race when one
+          of its fleets has a start there. <strong className="text-foreground">If
+          a race has no starts recorded, every fleet is implied</strong> — the
+          full series sails, exactly as before — so nothing changes for a simple
+          single-fleet series.
+        </p>
+        <p>
+          For scratch racing you usually have no gun time to record. In the{' '}
+          <strong className="text-foreground">Race starts</strong> card (press{' '}
+          <strong className="text-foreground">s</strong> or click{' '}
+          <strong className="text-foreground">Add start</strong>), pick the
+          fleets and <em>leave the gun time blank</em>. That fleets-only start
+          declares which fleets are racing without affecting scoring — a race
+          with no gun time is still scored on finishing order. Add a gun time
+          later if the race turns out to need one.
         </p>
       </Section>
 
