@@ -35,7 +35,7 @@ function fleet(id: string, system: Fleet['scoringSystem'], name = id): Fleet {
 }
 
 function race(id: string, raceNumber: number, date: string): Race {
-  return { id, seriesId: 's-source', raceNumber, date, createdAt: 0 };
+  return { id, seriesId: 's-source', raceNumber, name: null, date, createdAt: 0 };
 }
 
 function tcf(raceId: string, competitorId: string, fleetId: string, newTcf: number): TcfRecord {

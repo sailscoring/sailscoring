@@ -43,7 +43,7 @@ function makeFleet(seriesId: string): Fleet {
   return { id: uuid(), seriesId, name: 'Fleet A', displayOrder: 0, scoringSystem: 'scratch' };
 }
 function makeRace(seriesId: string, n: number): Race {
-  return { id: uuid(), seriesId, raceNumber: n, date: '2026-06-02', createdAt: Date.now() };
+  return { id: uuid(), seriesId, raceNumber: n, name: null, date: '2026-06-02', createdAt: Date.now() };
 }
 function makeCompetitor(seriesId: string, sail: string): Competitor {
   return {

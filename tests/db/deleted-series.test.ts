@@ -63,7 +63,7 @@ function makeFleet(seriesId: string): Fleet {
 }
 
 function makeRace(seriesId: string, n: number): Race {
-  return { id: uuid(), seriesId, raceNumber: n, date: '2026-06-02', createdAt: Date.now() };
+  return { id: uuid(), seriesId, raceNumber: n, name: null, date: '2026-06-02', createdAt: Date.now() };
 }
 
 function makeCompetitor(seriesId: string, fleetIds: string[], sailNumber: string): Competitor {

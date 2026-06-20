@@ -199,7 +199,7 @@ describe.skipIf(skip)('optimistic concurrency (CAS via expectedVersion)', () => 
     const repos = createRepos({ db, workspaceId: workspace });
     const s = await repos.series.save(makeSeries());
     const r: Race = {
-      id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now(),
+      id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now(),
     };
     const created = await repos.races.save(r);
     expect(created.version).toBe(1);
@@ -234,7 +234,7 @@ describe.skipIf(skip)('optimistic concurrency (CAS via expectedVersion)', () => 
     };
     await repos.competitors.save(competitor);
     const race: Race = {
-      id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now(),
+      id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now(),
     };
     await repos.races.save(race);
 

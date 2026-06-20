@@ -199,6 +199,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       id: uuid(),
       seriesId,
       raceNumber: 1,
+      name: null,
       date: '2026-04-05',
       createdAt: now.getTime(),
     };

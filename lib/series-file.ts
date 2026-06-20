@@ -941,6 +941,7 @@ async function writeFleetsCompetitorsRaces(
       id: newRaceId,
       seriesId,
       raceNumber: r.raceNumber,
+      name: null,
       date: r.date,
       createdAt: now,
     });

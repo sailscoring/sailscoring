@@ -16,7 +16,7 @@ const compB: Competitor = {
   gender: '', age: null, createdAt: 0, ircTcc: 0.900,
 };
 const competitors = [compA, compB];
-const races: Race[] = [{ id: 'r1', seriesId: 's1', raceNumber: 1, date: '2025-01-01', createdAt: 0 }];
+const races: Race[] = [{ id: 'r1', seriesId: 's1', raceNumber: 1, name: null, date: '2025-01-01', createdAt: 0 }];
 
 const finish = (competitorId: string, sortOrder: number, finishTime: string): Finish => ({
   id: `r1-${competitorId}`, raceId: 'r1', competitorId, sortOrder, finishTime, resultCode: null,

@@ -730,6 +730,7 @@ export async function importPublicExport(
       id: raceId,
       seriesId: newSeriesId,
       raceNumber: race.raceNumber,
+      name: null,
       date: race.date,
       createdAt: now,
     });

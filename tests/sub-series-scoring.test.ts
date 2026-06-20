@@ -14,7 +14,7 @@ function makeCompetitor(id: string, seriesId = 's1', fleetId = 'f1'): Competitor
 }
 
 function makeRace(id: string, raceNumber: number, seriesId = 's1'): Race {
-  return { id, seriesId, raceNumber, date: '2025-01-01', createdAt: 0 };
+  return { id, seriesId, raceNumber, name: null, date: '2025-01-01', createdAt: 0 };
 }
 
 function makeSubSeries(

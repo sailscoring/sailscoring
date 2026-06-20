@@ -256,8 +256,8 @@ describe.skipIf(skip)('postgres repositories', () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     const s = makeSeries();
     await repos.series.save(s);
-    const r2: Race = { id: uuid(), seriesId: s.id, raceNumber: 2, date: '2026-04-08', createdAt: Date.now() };
-    const r1: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    const r2: Race = { id: uuid(), seriesId: s.id, raceNumber: 2, name: null, date: '2026-04-08', createdAt: Date.now() };
+    const r1: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
     await repos.races.save(r2);
     await repos.races.save(r1);
 
@@ -281,7 +281,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       club: '', gender: '', age: null, createdAt: Date.now(),
     };
     await repos.competitors.save(competitor);
-    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
     await repos.races.save(race);
 
     const start: RaceStart = { id: uuid(), raceId: race.id, fleetIds: [fleet], startTime: '11:00:00' };
@@ -349,7 +349,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       sailNumber: '1', name: 'Boat', club: '', gender: '', age: null, createdAt: Date.now(),
     };
     await repos.competitors.save(competitor);
-    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
     await repos.races.save(race);
 
     const override: RaceRatingOverride = {
@@ -382,7 +382,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       competitors.push(c);
       await repos.competitors.save(c);
     }
-    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
     await repos.races.save(race);
 
     const finishes: Finish[] = competitors.map((c, i) => ({
@@ -423,7 +423,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       createdAt: Date.now(),
     };
     await reposA.competitors.save(competitor);
-    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
     await reposA.races.save(race);
 
     await expect(
@@ -449,8 +449,8 @@ describe.skipIf(skip)('postgres repositories', () => {
     const sB = makeSeries();
     await reposA.series.save(sA);
     await reposB.series.save(sB);
-    const raceA: Race = { id: uuid(), seriesId: sA.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
-    const raceB: Race = { id: uuid(), seriesId: sB.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    const raceA: Race = { id: uuid(), seriesId: sA.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
+    const raceB: Race = { id: uuid(), seriesId: sB.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
     await reposA.races.save(raceA);
     await reposB.races.save(raceB);
 
@@ -475,7 +475,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.save(s);
     const fleet = uuid();
     await repos.fleets.save({ id: fleet, seriesId: s.id, name: 'F', displayOrder: 0, scoringSystem: 'irc' });
-    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
     await repos.races.save(race);
 
     const starts: RaceStart[] = Array.from({ length: 4 }, (_, i) => ({
@@ -502,7 +502,7 @@ describe.skipIf(skip)('postgres repositories', () => {
 
     const s = makeSeries();
     await reposA.series.save(s);
-    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() };
+    const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
     await reposA.races.save(race);
 
     await expect(

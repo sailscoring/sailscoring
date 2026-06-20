@@ -225,6 +225,7 @@ export default function RacesPage({
         id: crypto.randomUUID(),
         seriesId,
         raceNumber: nextNumber,
+        name: null,
         date: new Date().toISOString().slice(0, 10),
         createdAt: Date.now(),
       };
@@ -255,6 +256,7 @@ export default function RacesPage({
         id: crypto.randomUUID(),
         seriesId,
         raceNumber: nextNumber,
+        name: null,
         date: new Date().toISOString().slice(0, 10),
         createdAt: Date.now(),
       };

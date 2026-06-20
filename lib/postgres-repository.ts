@@ -158,6 +158,7 @@ function raceRowToType(row: RaceRow): Race {
     id: row.id,
     seriesId: row.seriesId,
     raceNumber: row.raceNumber,
+    name: row.name,
     date: row.date,
     createdAt: row.createdAt.getTime(),
     version: row.version,
@@ -1014,13 +1015,14 @@ function raceToRow(r: Race, workspaceId: string) {
     seriesId: r.seriesId,
     workspaceId,
     raceNumber: r.raceNumber,
+    name: r.name,
     date: r.date,
     createdAt: new Date(r.createdAt),
   };
 }
 
 const raceUpdateColumns = [
-  'raceNumber', 'date',
+  'raceNumber', 'name', 'date',
 ] as const satisfies readonly (keyof ReturnType<typeof raceToRow>)[];
 
 export class PostgresRaceRepository implements RaceRepository {

@@ -34,6 +34,7 @@ const RACE: Race = {
   id: UUID_A,
   seriesId: UUID_B,
   raceNumber: 3,
+  name: null,
   date: '2026-04-12',
   createdAt: 1,
 };

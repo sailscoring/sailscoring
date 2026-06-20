@@ -271,6 +271,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     id: `r-${i}`,
     seriesId: 's1',
     raceNumber: r.number ?? i + 1,
+    name: null,
     date: '2025-01-01',
     createdAt: 0,
   }));

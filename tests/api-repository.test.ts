@@ -140,6 +140,7 @@ describe('api-repository routing', () => {
       id: '11111111-1111-4222-8333-aaaaaaaaaaaa',
       seriesId: '22222222-1111-4222-8333-bbbbbbbbbbbb',
       raceNumber: 1,
+      name: null,
       date: '',
       createdAt: 0,
     };
@@ -359,7 +360,7 @@ describe('api-repository routing', () => {
 
   test('raceRepo.get hits the flat /api/v1/races/:id route', async () => {
     const id = 'a3a3a3a3-1111-4222-8333-aaaaaaaaaaaa';
-    const race: Race = { id, seriesId: 'b3b3b3b3-1111-4222-8333-bbbbbbbbbbbb', raceNumber: 1, date: '', createdAt: 0 };
+    const race: Race = { id, seriesId: 'b3b3b3b3-1111-4222-8333-bbbbbbbbbbbb', raceNumber: 1, name: null, date: '', createdAt: 0 };
     fetchMock.mockResolvedValueOnce(jsonResponse(200, race));
     const got = await raceRepo.get(id);
     expect(got).toEqual(race);

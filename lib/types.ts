@@ -243,6 +243,7 @@ export interface Race {
   id: string;
   seriesId: string;
   raceNumber: number;
+  name: string | null; // optional human label distinct from the number ("Round the Island")
   date: string;        // ISO date string
   createdAt: number;
   version?: number;    // server-side concurrency token (see Series.version)

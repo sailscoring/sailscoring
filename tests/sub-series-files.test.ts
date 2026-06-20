@@ -61,7 +61,7 @@ function makeCompetitor(id: string, sail: string): Competitor {
 }
 
 function makeRace(id: string, n: number): Race {
-  return { id, seriesId: 's1', raceNumber: n, date: '2026-11-01', createdAt: 0 };
+  return { id, seriesId: 's1', raceNumber: n, name: null, date: '2026-11-01', createdAt: 0 };
 }
 
 function makeFinish(raceId: string, competitorId: string, sortOrder: number): Finish {

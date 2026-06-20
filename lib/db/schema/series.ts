@@ -443,6 +443,7 @@ export const races = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
     raceNumber: integer('race_number').notNull(),
+    name: text('name'),
     date: text('date').notNull().default(''),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()

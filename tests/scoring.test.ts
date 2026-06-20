@@ -8,7 +8,7 @@ function makeCompetitor(id: string, seriesId = 's1', fleetId = 'f1'): Competitor
 }
 
 function makeRace(id: string, raceNumber: number, seriesId = 's1'): Race {
-  return { id, seriesId, raceNumber, date: '2025-01-01', createdAt: 0 };
+  return { id, seriesId, raceNumber, name: null, date: '2025-01-01', createdAt: 0 };
 }
 
 function makeFinish(
@@ -1152,8 +1152,8 @@ describe('calculateFleetStandings — NHC progressive handicap', () => {
     const fleet = nhcFleet(0.15);
     const comps = [nhcComp('A', 0.95), nhcComp('B', 1.00), nhcComp('C', 1.05), nhcComp('D', 1.10)];
     const races: Race[] = [
-      { id: 'r1', seriesId: 's1', raceNumber: 1, date: '2025-01-01', createdAt: 0 },
-      { id: 'r2', seriesId: 's1', raceNumber: 2, date: '2025-01-02', createdAt: 0 },
+      { id: 'r1', seriesId: 's1', raceNumber: 1, name: null, date: '2025-01-01', createdAt: 0 },
+      { id: 'r2', seriesId: 's1', raceNumber: 2, name: null, date: '2025-01-02', createdAt: 0 },
     ];
     const finishes: Finish[] = [
       fin('r1', 'A', '14:50:00'), fin('r1', 'B', '15:00:00'),
@@ -1175,8 +1175,8 @@ describe('calculateFleetStandings — NHC progressive handicap', () => {
     const fleet = nhcFleet();
     const comps = [nhcComp('A', 1.0), nhcComp('B', 1.0)];
     const races: Race[] = [
-      { id: 'r1', seriesId: 's1', raceNumber: 1, date: '2025-01-01', createdAt: 0 },
-      { id: 'r2', seriesId: 's1', raceNumber: 2, date: '2025-01-02', createdAt: 0 },
+      { id: 'r1', seriesId: 's1', raceNumber: 1, name: null, date: '2025-01-01', createdAt: 0 },
+      { id: 'r2', seriesId: 's1', raceNumber: 2, name: null, date: '2025-01-02', createdAt: 0 },
     ];
     const finishes: Finish[] = [
       fin('r1', 'A', '14:50:00'), fin('r1', 'B', '15:00:00'),
@@ -1195,8 +1195,8 @@ describe('calculateFleetStandings — NHC progressive handicap', () => {
     const fleet = nhcFleet();
     const comps = [nhcComp('A', 1.0), nhcComp('B', 1.0), nhcComp('C', 1.0)];
     const races: Race[] = [
-      { id: 'r1', seriesId: 's1', raceNumber: 1, date: '2025-01-01', createdAt: 0 },
-      { id: 'r2', seriesId: 's1', raceNumber: 2, date: '2025-01-02', createdAt: 0 },
+      { id: 'r1', seriesId: 's1', raceNumber: 1, name: null, date: '2025-01-01', createdAt: 0 },
+      { id: 'r2', seriesId: 's1', raceNumber: 2, name: null, date: '2025-01-02', createdAt: 0 },
     ];
     const finishesV1: Finish[] = [
       fin('r1', 'A', '14:50:00'), fin('r1', 'B', '15:00:00'), fin('r1', 'C', '15:10:00'),
