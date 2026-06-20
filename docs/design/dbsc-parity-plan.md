@@ -1,5 +1,13 @@
 # DBSC Parity Plan
 
+> **Note (tooling moved):** the parity tooling and data described here now live
+> in the sibling **`dbsc-archive`** repo. Commands shown as `pnpm halsail:<x>`
+> run there as `pnpm <x>` (e.g. `pnpm compare <day>`), `lib/halsail/` is
+> `../dbsc-archive/lib/halsail/`, and the fragments / generated `.sailscoring`
+> are under `../dbsc-archive/sources/2026-live/`. The engine they re-score with
+> (`lib/scoring.ts`) stays here and is imported across repos. This doc remains
+> the design/status record.
+
 ## Goal
 
 Demonstrate that Sail Scoring can reproduce Dublin Bay Sailing Club's

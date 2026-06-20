@@ -676,7 +676,7 @@ Sailwave's behaviour here is worth checking before designing.
 The engine supports redress as an average (RRS A9(a) `all_races`, the
 DNC-excluding `all_races_excl_dnc`, and `races_before`) plus a single `stated`
 points value. One HalSail method remains unreproduced (see
-`docs/notes/halsail/querying-public-results.md`):
+`../dbsc-archive/docs/notes/halsail/querying-public-results.md`):
 
 - **RDG type 4 — points for a given place.** The boat is scored as if it
   finished in a stated place (and ties with any boat actually in that place).
