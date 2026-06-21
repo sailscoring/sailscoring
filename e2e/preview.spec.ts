@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick } from './helpers';
+import { createFleets, createSeriesQuick, enableFeatures } from './helpers';
 
 /**
  * E2E tests for the in-app Preview modal (#163) — the behaviour unique to the
@@ -136,6 +136,93 @@ test('Preview fleet selector switches the rendered fleet', async ({ page }) => {
   // Switch to Senior via the selector.
   await dialog.getByRole('combobox').click();
   await page.getByRole('option', { name: 'Senior' }).click();
+  await expect(frame.getByText('Senior Sam').first()).toBeVisible();
+  await expect(frame.getByText('Junior Jane')).toHaveCount(0);
+});
+
+test('Preview sub-series: separate sub-series and fleet dropdowns (#231)', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['sub-series']);
+  await createSeriesQuick(page, { name: 'Split Preview', venue: 'HYC' });
+  await createFleets(page, ['Junior', 'Senior']);
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  for (const c of [
+    { sail: 'J1', name: 'Junior Jane', fleet: 'Junior' },
+    { sail: 'S1', name: 'Senior Sam', fleet: 'Senior' },
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sail);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('checkbox', { name: c.fleet }).check();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sail })).toBeVisible();
+  }
+
+  // Two races, one sub-series each, so both fleets appear in both sub-series.
+  await page.getByRole('link', { name: 'Races' }).click();
+  for (let n = 1; n <= 2; n++) {
+    await page.getByRole('button', { name: 'Add race' }).click();
+    await expect(page.getByText(`Race ${n}`)).toBeVisible();
+  }
+  const newSubSeries = async (name: string, raceNumber: number) => {
+    await page.getByRole('button', { name: 'New sub-series' }).click();
+    const subDialog = page.getByRole('dialog', { name: 'New sub-series' });
+    await subDialog.getByLabel('Name', { exact: true }).fill(name);
+    await subDialog.getByRole('checkbox', { name: new RegExp(`Race ${raceNumber}\\b`) }).check();
+    await subDialog.getByRole('button', { name: 'Create sub-series' }).click();
+    await expect(subDialog).toBeHidden();
+  };
+  await newSubSeries('Early', 1);
+  await newSubSeries('Late', 2);
+
+  const enterRace = async (raceLabel: string) => {
+    await page.getByText(raceLabel, { exact: false }).first().click();
+    await expect(page.getByText(`${raceLabel} — results`)).toBeVisible();
+    for (const sail of ['J1', 'S1']) {
+      await page.getByLabel('Sail number').fill(sail);
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
+    }
+    await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+    await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+    await expect(page).toHaveURL(/\/races$/);
+  };
+  await enterRace('Race 1');
+  await enterRace('Race 2');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+
+  const dialog = page.getByRole('dialog');
+  const frame = page.frameLocator('iframe[title="Results preview"]');
+
+  // Two dropdowns, not one product-length list: sub-series then fleet. Each
+  // option is a bare name, not a joined `Early — Junior` label.
+  const subSelect = dialog.getByRole('combobox').nth(0);
+  const fleetSelect = dialog.getByRole('combobox').nth(1);
+  await expect(dialog.getByRole('combobox')).toHaveCount(2);
+
+  await subSelect.click();
+  await expect(page.getByRole('option', { name: 'Early', exact: true })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'Late', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await fleetSelect.click();
+  await expect(page.getByRole('option', { name: 'Junior', exact: true })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'Senior', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // Defaults to the first block's first fleet — Early / Junior.
+  await expect(frame.getByText('Split Preview — Early').first()).toBeVisible();
+  await expect(frame.getByText('Junior Jane').first()).toBeVisible();
+
+  // Pick the Senior fleet, then switch the sub-series: the fleet choice is kept
+  // across the switch (it exists in the Late block too).
+  await fleetSelect.click();
+  await page.getByRole('option', { name: 'Senior', exact: true }).click();
+  await expect(frame.getByText('Senior Sam').first()).toBeVisible();
+
+  await subSelect.click();
+  await page.getByRole('option', { name: 'Late', exact: true }).click();
+  await expect(frame.getByText('Split Preview — Late').first()).toBeVisible();
   await expect(frame.getByText('Senior Sam').first()).toBeVisible();
   await expect(frame.getByText('Junior Jane')).toHaveCount(0);
 });

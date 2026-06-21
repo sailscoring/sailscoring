@@ -77,6 +77,41 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
   const current = files?.[selected] ?? null;
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Two-axis picker (#231): with sub-series, `files` is the sparse product of
+  // sub-series × fleets. Rather than a single product-length dropdown of joined
+  // `subSeries — fleet` labels, derive the two axes from the flat list and offer
+  // one dropdown each. The grid is sparse (blocks with no races are skipped, and
+  // a fleet may have no results in a given sub-series), so the fleet options come
+  // from the *selected* sub-series' group, not a fixed series-wide list.
+  const subSeriesNames = files
+    ? files.reduce<string[]>((acc, f) => {
+        const name = f.subSeriesName ?? '';
+        if (!acc.includes(name)) acc.push(name);
+        return acc;
+      }, [])
+    : [];
+  const currentSubSeries = current?.subSeriesName ?? '';
+  const fleetsInCurrentSubSeries = files
+    ? files.filter((f) => (f.subSeriesName ?? '') === currentSubSeries)
+    : [];
+
+  const selectSubSeries = (name: string) => {
+    if (!files) return;
+    const group = files.filter((f) => (f.subSeriesName ?? '') === name);
+    // Keep the same fleet across the switch when it exists in the target
+    // sub-series; otherwise fall back to that sub-series' first fleet.
+    const target = group.find((f) => f.fleetName === current?.fleetName) ?? group[0];
+    if (target) setSelected(files.indexOf(target));
+  };
+
+  const selectFleet = (fleetName: string) => {
+    if (!files) return;
+    const target = files.find(
+      (f) => (f.subSeriesName ?? '') === currentSubSeries && f.fleetName === fleetName,
+    );
+    if (target) setSelected(files.indexOf(target));
+  };
+
   // "Save as PDF" prints the preview iframe — the same self-contained document
   // the public page carries, whose @media print stylesheet is tuned for it — so
   // the viewer gets a PDF from the browser's print dialog. Printing the frame
@@ -130,15 +165,29 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
         </DialogHeader>
 
         <div className="flex flex-wrap items-center gap-2">
-          {files && files.length > 1 && (
-            <Select value={String(selected)} onValueChange={(v) => setSelected(Number(v))}>
+          {files && subSeriesNames.length > 1 && (
+            <Select value={currentSubSeries} onValueChange={selectSubSeries}>
               <SelectTrigger size="sm" className="w-44">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {files.map((f, i) => (
-                  <SelectItem key={`${f.subSeriesName ?? ''}/${f.fleetName}`} value={String(i)}>
-                    {f.subSeriesName ? `${f.subSeriesName} — ${f.fleetName}` : f.fleetName}
+                {subSeriesNames.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {files && fleetsInCurrentSubSeries.length > 1 && (
+            <Select value={current?.fleetName ?? ''} onValueChange={selectFleet}>
+              <SelectTrigger size="sm" className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {fleetsInCurrentSubSeries.map((f) => (
+                  <SelectItem key={f.fleetName} value={f.fleetName}>
+                    {f.fleetName}
                   </SelectItem>
                 ))}
               </SelectContent>
