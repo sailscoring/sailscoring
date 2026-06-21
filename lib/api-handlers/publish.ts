@@ -3,6 +3,7 @@ import 'server-only';
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { deletePublishedHtml, putPublishedHtml } from '@/lib/blob-storage';
+import { mapWithConcurrency } from '@/lib/concurrency';
 import { createRepos } from '@/lib/postgres-repository';
 import { captureRevision, sealOpenRevisions } from '@/lib/revision-log';
 import {
@@ -33,6 +34,14 @@ import type {
 import type { PublishInput } from '@/lib/validation/publish';
 
 const MAX_SLUG_LENGTH = 60;
+
+// Pages upload (and superseded blobs delete) concurrently rather than one
+// round-trip at a time — a 40+ page season otherwise takes tens of seconds.
+// Capped well under Vercel Blob's per-second advanced-operation budget (Pro:
+// 75/s) so several scorers publishing at once share the limit comfortably; on
+// the Hobby plan (15/s) a large or concurrent publish can still 429, which is
+// why production publishing assumes Pro (see DEPLOY.md).
+const PUBLISH_BLOB_CONCURRENCY = 16;
 
 /** A slug or sub-path: lowercase alphanumerics in hyphen-separated runs, no
  *  leading/trailing/double hyphens, capped length. Shared by the series slug
@@ -274,18 +283,23 @@ export async function publishSeries(
     subPaths.set(pageKey(file), subPath);
   }
 
-  const builtByKey = new Map<string, PublishedSeriesPage>();
-  for (const file of toBuild) {
-    const subPath = subPaths.get(pageKey(file))!;
-    const key = publishedBlobKey(workspace.workspaceSlug, slug, subPath, hash);
-    const blobUrl = await putPublishedHtml(key, file.html);
-    builtByKey.set(pageKey(file), {
-      fleetName: file.fleetName,
-      ...(file.subSeriesName ? { subSeriesName: file.subSeriesName } : {}),
-      subPath,
-      blobUrl,
-    });
-  }
+  const built = await mapWithConcurrency(
+    toBuild,
+    PUBLISH_BLOB_CONCURRENCY,
+    async (file) => {
+      const subPath = subPaths.get(pageKey(file))!;
+      const key = publishedBlobKey(workspace.workspaceSlug, slug, subPath, hash);
+      const blobUrl = await putPublishedHtml(key, file.html);
+      const page: PublishedSeriesPage = {
+        fleetName: file.fleetName,
+        ...(file.subSeriesName ? { subSeriesName: file.subSeriesName } : {}),
+        subPath,
+        blobUrl,
+      };
+      return [pageKey(file), page] as const;
+    },
+  );
+  const builtByKey = new Map(built);
 
   // Merge built and carried pages, ordered as built (block order, then the
   // series' fleet order); any carried page whose (block, fleet) no longer
@@ -317,9 +331,9 @@ export async function publishSeries(
   // Now that the row resolves to the fresh blobs, drop the superseded ones.
   // Content-addressed keys differ by hash, so none of these are still in use.
   // Best-effort: a failed delete leaks a blob but never serves stale results.
-  for (const page of supersededPages) {
-    await deletePublishedHtml(page.blobUrl);
-  }
+  await mapWithConcurrency(supersededPages, PUBLISH_BLOB_CONCURRENCY, (page) =>
+    deletePublishedHtml(page.blobUrl),
+  );
 
   // Revision milestone (#166): seal the open session and pin a `publish`
   // revision capturing exactly what went public — a clean "restore to what I

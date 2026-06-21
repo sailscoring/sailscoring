@@ -21,8 +21,9 @@ section.
 
 ## Prerequisites
 
-- A [Vercel account](https://vercel.com) with the project repo connected
-  (Pro tier required for private repos)
+- A [Vercel account](https://vercel.com), **Pro tier**, with the project repo
+  connected (Pro is required for private repos, and — see [section 4](#4-provision-vercel-blob)
+  — for the Blob rate limits that production publishing needs)
 - [Vercel CLI](https://vercel.com/docs/cli): `pnpm add -g vercel`
 - Node 24.x, pnpm 10
 - Optional but recommended for local DB work: a container runtime
@@ -140,6 +141,13 @@ In the Vercel dashboard, open the **app** project (`sailscoring`):
    preview deploys to publish to Blob too). Vercel then sets
    `BLOB_READ_WRITE_TOKEN` automatically for those environments; you don't
    copy it anywhere.
+
+**Pro tier matters here, not just for the private repo.** Publishing a series
+uploads one blob per fleet page, concurrently (up to 16 in flight). Each upload
+is a Blob *advanced operation*, and the per-second budget is plan-dependent:
+Hobby allows 15/s, Pro 75/s, Enterprise 125/s. A large whole-season publish
+(dozens of pages) — or two scorers publishing at once — will exceed the Hobby
+ceiling and start getting 429s. Production publishing assumes **Pro**.
 
 **Development and CI need no Blob.** When `BLOB_READ_WRITE_TOKEN` is unset,
 `lib/blob-storage.ts` stores the rendered HTML in the `published_blobs`
