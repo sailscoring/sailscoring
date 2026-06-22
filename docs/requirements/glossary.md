@@ -14,6 +14,9 @@ be defined are collected at the bottom.
 | Event | A sailing competition, which may comprise one or more series. The terms series, event, and regatta are often used interchangeably, though an event can span multiple series (e.g. qualifying and final). |
 | Venue | The location where an event takes place, typically a sailing club or waterfront facility. The venue name and burgee are stored separately from the event name. |
 | Burgee | A graphic emblem (typically a club flag or event logo) displayed in published results. Both the event and venue may have separate burgees. |
+| Follow-on series | A new series created by rolling a completed series into the next: its competitors are carried forward and each boat's progressive starting handicap is seeded from its end-of-series rating. Used so that HYC-style Club Numbers carry between successive series. |
+| Tandem series | HalSail's term for a named scoring grouping of races within a class's season. A single class may be scored under several tandem series at once (e.g. Overall, Series A, Series B), each carrying its own subset of that class's races and its own standings. Sail Scoring's nearest analogue is a sub-series, but a HalSail tandem controls race membership per class/fleet, whereas a Sail Scoring sub-series shares one race set across fleets. See the `sailscoring/dbsc-archive` repo. |
+| Logo library | A per-workspace collection of reusable logos and burgees (club, class, event, sponsor) plus a built-in canonical tier, selected when configuring a series for published results. |
 
 ### Competitors and Entries
 
@@ -32,6 +35,8 @@ be defined are collected at the bottom.
 | Crew | Any person on board other than the helm. Crew names are typically stored as a single string field. |
 | Nationality | The country a competitor represents, stored as a World Sailing three-letter country code (e.g. GBR, AUS). Used for flag display in published results. |
 | Club | The sailing club a competitor belongs to. A competitor attribute used for grouping and publishing. |
+| Multi-fleet competitor | A boat entered in more than one fleet within the same series, scored separately in each. A single finish produces a rank in every fleet the boat belongs to, and penalty (DPI) or redress (RDG) points may differ per fleet. |
+| Competitor identity | A workspace-scoped record of a recurring competitor that links their separate per-series Competitor entries. Enables a cross-series timeline and season-long ranking for the same boat or sailor across many series. |
 
 ### Grouping
 
@@ -48,9 +53,27 @@ be defined are collected at the bottom.
 |------|------------|
 | Rating | A numeric value assigned to a boat that represents its expected speed potential. Used as the normalization coefficient to convert elapsed time to corrected time. Also called a handicap number. |
 | Handicap | A system for adjusting race results so boats of different types can compete fairly. The handicap value (rating) is applied to elapsed times to produce corrected times. Used interchangeably with "rating" when referring to the numeric value. |
-| Time Correction Factor | A multiplier applied to elapsed time to produce corrected time. Expressed as a decimal (e.g. 0.965 for IRC) or as its reciprocal scaled by 1000 (e.g. 1050 for PY). Also called Time Correction Coefficient (TCC). The formula is: corrected time = elapsed time x TCF. |
+| Time Correction Factor (TCF) | A multiplier applied to elapsed time to produce corrected time: corrected time = elapsed time × TCF. Expressed as a decimal (e.g. 0.965 for IRC) or as its reciprocal scaled by 1000 (e.g. 1050 for PY). Also called Time Correction Coefficient (TCC); TCC is the primary term in IRC source data and in much of the design documentation, but TCF is the canonical term in this glossary. |
 | Scratch | Racing without any handicap adjustment. A scratch boat is the fastest-rated boat in a fleet, to which all time allowances are relative. Scratch results are the uncorrected finishing order. |
-| One-design | A class where all boats are built to identical specifications, making handicap adjustment unnecessary. Boats race scratch and are scored on finishing order alone. |
+| One-design | A class where all boats are built to identical specifications, so handicap adjustment is optional rather than necessary. One-design fleets are usually scored scratch on finishing order alone, but may additionally be scored under a handicap system (e.g. HYC scores its Squib and Howth 17 fleets on both scratch and HPH). |
+| Time on Time (ToT) | A handicap method that corrects elapsed time by a multiplier (TCF/TCC): corrected time = elapsed time × TCF. Independent of course length. Used by IRC's time-on-time option, ECHO, NHC, and PY. |
+| Time on Distance (ToD) | A handicap method that allows each boat a time allowance per unit of course distance, subtracted from elapsed time. Requires a measured course length, unlike Time on Time. |
+| Progressive handicap | A handicap system in which a boat's rating (TCF) is recalculated after each race based on performance, rather than staying fixed for the series. NHC, ECHO, and HPH are progressive; IRC, PY, and VPRS are static. Informally a "golf handicap". |
+| Starting TCF | The initial rating that seeds a competitor in a progressive handicap system before any race is sailed. Taken from a base list (see Base Number) or carried forward from a prior series (see Club Number, Follow-on series). |
+| Base Number | The starting rating a boat is seeded with in a progressive handicap system when it has no prior history, taken from a published base list (e.g. the RYA NHC base list). The seed for a boat's first series. |
+| Club Number | In HYC's progressive handicap, the rating a boat carries at the end of a series, which becomes its starting handicap for the next series. The accumulated, club-maintained handicap, as distinct from the published Base Number. |
+| Spinnaker / non-spinnaker TCC | IRC and VPRS certificates carry two time-correction coefficients — a standard (spinnaker) value and a lower non-spinnaker value for boats racing without a spinnaker. The scorer selects which applies to a fleet. |
+| Line honours | First across the finishing line on elapsed (uncorrected) time, regardless of handicap. Sail Scoring can create a scratch "line honours" fleet alongside a handicap fleet so both the corrected result and the on-the-water order are published. |
+
+### Handicap and Rating Systems
+
+| Term | Definition |
+|------|------------|
+| IRC | A measurement-based handicap rating system for keelboats and yachts, administered by the RORC and UNCL. Boats hold an IRC certificate carrying a Time Correction Coefficient (TCC), applied time-on-time. A static (non-progressive) system. |
+| NHC | National Handicap for Cruisers — the RYA's progressive handicap system for cruiser fleets. Boats start from a published base number, and ratings adjust after each race based on performance. Sail Scoring implements the Sailwave SWNHC2015 variant. |
+| ECHO | A progressive, performance-based handicap system administered by Irish Sailing, widely used for cruiser racing in Ireland. Like NHC, ratings adjust race-by-race; often scored alongside IRC (see Dual scoring). |
+| VPRS | Velocity Performance Rating System (Stoneways) — a measurement-based handicap rating system for cruisers. Like IRC it is static, and certificates carry spinnaker and non-spinnaker coefficients; ratings are sourced from per-club listings. |
+| HPH | Howth Performance Handicap — Howth Yacht Club's progressive, performance-based handicap system applied to its keelboat and one-design fleets. An HYC-specific cousin of NHC. |
 
 ### Race
 
@@ -58,6 +81,9 @@ be defined are collected at the bottom.
 |------|------------|
 | Race | A single competitive contest within a series, from the starting signal to the last boat finishing (or retiring). Each race produces a set of results (places or times) for the competitors who participated. |
 | Sailed race | A race that has actually taken place. Per RRS 90.3(a), a race shall be scored if it is not abandoned and at least one boat sails the course within the time limit. |
+| Valid race | A race that counts toward the series — it was sailed (at least one boat completed the course within the time limit) and has not been excluded. An invalid race (e.g. one in which nobody finished, or one removed under the sailing instructions) does not contribute to standings or the discard count. See Star (a race) and Flick (a race). |
+| Time limit | The maximum time, set in the sailing instructions, within which boats must start, sail the course, or finish for a race to count. Boats outside the limit are typically scored DNF or TLE. Per RRS 90.3(a), a race is valid if at least one boat sails the course within the time limit. |
+| TLE | Time Limit Expired — a result code for a boat that was still racing when the time limit ran out. Unlike DNF, TLE is often scored more leniently (e.g. finishers plus a fixed number of points, or finishers + 1), as set by the event's scoring rules. |
 | Lap | One complete circuit of the course. Some races consist of multiple laps. Results are typically recorded for the whole race rather than per lap, though lap times can be combined. |
 | Start | The moment a boat begins racing, defined in the RRS as when her hull has been entirely on the pre-start side and then crosses the starting line after the starting signal. Each race has one or more starts, each with its own start time and set of competitors. |
 | Start time | The time of day (clock time) at which the starting signal is given for a particular start. Used together with finish time to calculate elapsed time. |
@@ -84,6 +110,11 @@ be defined are collected at the bottom.
 | Total | The sum of a competitor's points across all races in a series, before any discards are applied. Also called gross points. |
 | Net | The competitor's series score after discards are subtracted from the total. Net points determine the final series ranking. Also called nett points. |
 | Discard | The exclusion of a competitor's worst race score(s) from their series total. The number of discards allowed depends on the discard profile and the number of races completed. Also called a drop or exclusion. |
+| Discard profile | The schedule that determines how many of a competitor's worst race scores are discarded as the number of completed races grows — a list of (races-completed threshold, number of discards) steps. Configured per series. |
+| Non-discardable race | A race whose score cannot be excluded by the discard rules. Applies to non-excludable codes (DNE, and the restart-after-black-flag BFD case) and to any race the sailing instructions designate as a must-count. |
+| Dual scoring | Producing two or more independent sets of standings from a single set of finishes, by scoring the same races under more than one handicap system or fleet (e.g. scratch and HPH, or IRC and ECHO). Each scoring runs on its own ratings, ranks, and discards; the scorer enters finishes once. Central to the HYC and DBSC use cases. |
+| Average points | A score assigned by averaging a competitor's other race results rather than from a finishing position — used for redress (RDG, per RRS A9) and for some race-day allowances. The averaging method varies (all other races, races before the incident, etc.). |
+| Provisional results | Published results carrying a generation timestamp and marked as not yet final, pending corrections or protest outcomes. In practice results rarely move to a formal "final" state — and since errors are corrected whenever they are found, "final" is better read as "ready for prize-giving" than as immutable. |
 | Penalty | Additional points or a scoring code applied to a competitor's result, either as a post-race sanction (e.g. SCP, ZFP, DPI) or as directed by the protest committee. May be percentage-based or fixed. |
 | Rank (series) | A competitor's position in the series standings, determined by net points (lowest is best in low point scoring). Distinct from per-race rank, which is the within-fleet finishing position for a single race. |
 | Retirement | A boat voluntarily withdrawing from a race after starting. Recorded with the code RET and scored per the scoring system (typically as entries/starters + 1). |
@@ -151,26 +182,21 @@ changes (per RRS A6.2, other boats' scores are not recalculated).
 | 1 | Low Point scoring | Appendix A scoring |
 | 2 | High Point scoring | |
 | 3 | Bonus Point scoring | |
-| 4 | Time on Time (ToT) | |
-| 5 | Time on Distance (ToD) | |
-| 6 | Polar Curve Scoring (PCS) | |
-| 7 | Weather Routing Scoring (WRS) | |
+| 4 | Polar Curve Scoring (PCS) | |
+| 5 | Weather Routing Scoring (WRS) | |
 
 ### Handicap and Rating Systems
 
 | # | Term | Also known as |
 |---|------|---------------|
 | 1 | Portsmouth Yardstick (PY) | |
-| 2 | IRC | |
-| 3 | PHRF | |
-| 4 | ORC | |
-| 5 | NHC | National Handicap for Cruisers |
-| 6 | ECHO | |
-| 7 | CYCA | |
-| 8 | YTC | |
-| 9 | ASY | Australian Sailing Yardstick |
-| 10 | SCHRS | Small Craft Handicap Rating System |
-| 11 | Texel Rating | |
+| 2 | PHRF | |
+| 3 | ORC | |
+| 4 | CYCA | |
+| 5 | YTC | |
+| 6 | ASY | Australian Sailing Yardstick |
+| 7 | SCHRS | Small Craft Handicap Rating System |
+| 8 | Texel Rating | |
 
 ### Rating Concepts
 
@@ -181,37 +207,25 @@ changes (per RRS A6.2, other boats' scores are not recalculated).
 | 3 | Class Division Length (CDL) | |
 | 4 | Performance curve | speed polar |
 | 5 | Velocity Prediction Program (VPP) | |
-| 6 | Progressive handicap | golf handicap |
-| 7 | Time allowance | |
-| 8 | Dynamic Allowance (DA) | |
-| 9 | Rating file | |
+| 6 | Time allowance | |
+| 7 | Dynamic Allowance (DA) | |
+| 8 | Rating file | |
 
 ### Time and Finishing
 
 | # | Term | Also known as |
 |---|------|---------------|
-| 1 | Time limit | |
-| 2 | Finishing window | |
-| 3 | Sailed time | |
-| 4 | Scoring Wind | |
-| 5 | True Wind Speed (TWS) | |
-| 6 | True Wind Angle (TWA) | |
-
-### Result Codes
-
-| # | Term | Notes |
-|---|------|-------|
-| 1 | TLE | Time Limit Expired — used in some systems; scoring treatment varies by event rules |
+| 1 | Finishing window | |
+| 2 | Sailed time | |
+| 3 | Scoring Wind | |
+| 4 | True Wind Speed (TWS) | |
+| 5 | True Wind Angle (TWA) | |
 
 ### Series Scoring
 
 | # | Term | Also known as |
 |---|------|---------------|
-| 1 | Discard profile | |
-| 2 | Non-discardable race | |
-| 3 | Valid race | |
-| 4 | Average points | |
-| 5 | Scoring penalty | |
+| 1 | Scoring penalty | |
 
 ### Race Formats
 
