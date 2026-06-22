@@ -1,139 +1,81 @@
 /**
- * One-shot: thread HYC's "SC TESTING" FTP paths from
- * `reference/data/2026-hyc-club-racing/2016_club.csv` onto the matching
- * series rows in the HYC workspace.
+ * Thread per-fleet FTP upload paths onto series rows in a workspace.
+ *
+ * Generic over workspace and club: it takes the paths as input rather than
+ * knowing where they come from. A caller (e.g. `../hyc-archive/scripts/
+ * ftp-paths.ts`) resolves its own catalogue into the JSON payload below and
+ * hands it here; this script owns the DB layer and does the threading.
  *
  * Workflow:
- *   1. pnpm hyc-ftp-paths inspect      # readonly: list HYC series + fleets
- *   2. confirm SERIES_MAPPING below matches the series names from step 1
- *   3. pnpm hyc-ftp-paths plan         # readonly: show proposed diff
- *   4. pnpm hyc-ftp-paths apply        # writes (only fills empty slots)
+ *   1. pnpm update-ftp-paths inspect --workspace <slug>   # readonly: list series + fleets
+ *   2. build the payload (see shape below) from your catalogue
+ *   3. pnpm update-ftp-paths plan  --input paths.json     # readonly: show proposed diff
+ *   4. pnpm update-ftp-paths apply --input paths.json     # writes (only fills empty slots)
  *
- * Default policy is "fill empty slots only" — fleets with an existing
- * ftpPaths entry are left alone and logged. Pass `--overwrite` (works
- * with both `plan` and `apply`) to replace existing entries that differ
- * from the CSV; entries that already match the CSV are still no-ops.
+ * Default policy is "fill empty slots only" — fleets with an existing ftpPaths
+ * entry are left alone and logged. Pass `--overwrite` (works with both `plan`
+ * and `apply`) to replace existing entries that differ from the payload;
+ * entries that already match are still no-ops.
  *
- * Replaces the old `update-ftp-paths.py` (removed), which did the same
- * threading against the local .sailscoring files before the app became
- * server-of-record.
+ * Payload shape (`--input` JSON):
+ *   {
+ *     "workspace": "hyc",
+ *     "series": [
+ *       { "name": "Tuesdays - One Designs - Series 1",
+ *         "fleetPaths": { "Puppeteer HPH": "/reshyc/...", "Puppeteer Scr": "..." } }
+ *     ]
+ *   }
+ * Series are matched by name within the workspace; fleets by name within the
+ * series. Names must match exactly — confirm against an `inspect` run.
  */
 import { eq, sql } from 'drizzle-orm';
 import fs from 'node:fs';
-import path from 'node:path';
 
 import { getDb, getDbClient } from '@/lib/db/client';
 import { organization } from '@/lib/db/schema/auth';
 import { fleets, series } from '@/lib/db/schema/series';
 
-const HYC_SLUG = 'hyc';
-
-const CSV_PATH = path.resolve(
-  __dirname,
-  '../reference/data/2026-hyc-club-racing/2016_club.csv',
-);
-
-/**
- * Per-series mapping of fleet name → CSV row ID. Series are matched by name
- * within the HYC workspace: Sailwave re-imports mint a fresh
- * series UUID each time, so the name is the only stable handle. `seriesName`
- * must match `series.name` exactly — confirm against an `inspect` run.
- *
- * CSV row 2212 (Saturday Cruisers IRC) currently points at the HPH path —
- * looks like a typo in the source CSV. Pass through unchanged; fix in the
- * CSV if/when HYC corrects it.
- */
-interface SeriesMapping {
-  seriesName: string;     // matched against `series.name`
-  fleetCsvIds: Record<string, number>; // fleet name → CSV row id
+interface SeriesPaths {
+  name: string; // matched against `series.name`
+  fleetPaths: Record<string, string>; // fleet name → FTP path
 }
 
-const SERIES_MAPPING: SeriesMapping[] = [
-  {
-    seriesName: "Tuesdays & Saturdays - Howth 17's - Series 1",
-    fleetCsvIds: {
-      'Howth 17 HPH': 2202,
-      'Howth 17 Scr': 2203,
-    },
-  },
-  {
-    seriesName: 'Tuesdays - One Designs - Series 1',
-    fleetCsvIds: {
-      'Puppeteer HPH': 2198,
-      'Puppeteer Scr': 2199,
-      'Squib HPH': 2200,
-      'Squib Scr': 2201,
-    },
-  },
-  {
-    seriesName: 'Wednesdays - Cruisers - Series 1',
-    fleetCsvIds: {
-      'Division A HPH': 2205,
-      'Division A IRC': 2206,
-      'Division B HPH': 2207,
-      'Division B IRC': 2208,
-      'Division C HPH': 2209,
-      'Division C IRC': 2210,
-    },
-  },
-  {
-    seriesName: 'Thursdays - Dinghies - Series 1',
-    fleetCsvIds: {
-      PY: 2213,
-      Optimist: 2214,
-    },
-  },
-  {
-    seriesName: 'Saturday - Cruisers - Series 1',
-    fleetCsvIds: {
-      'Division B HPH': 2211,
-      'Division B IRC': 2212,
-      'Division C HPH': 2219,
-      'Division C IRC': 2220,
-    },
-  },
-  {
-    seriesName: 'Saturdays - One Designs - Series 1',
-    fleetCsvIds: {
-      'Puppeteer HPH': 2215,
-      'Puppeteer Scr': 2216,
-      'Squib HPH': 2217,
-      'Squib Scr': 2218,
-    },
-  },
-];
+interface Payload {
+  workspace: string; // organization slug
+  series: SeriesPaths[];
+}
 
-function loadPathsByCsvId(csvPath: string): Map<number, string> {
-  const text = fs.readFileSync(csvPath, 'utf-8');
-  const out = new Map<number, string>();
-  for (const line of text.split(/\r?\n/)) {
-    const row = line.split(',');
-    const idCell = row[0]?.trim();
-    if (!idCell || !/^\d+$/.test(idCell)) continue;
-    const id = Number.parseInt(idCell, 10);
-    const ftpPath = row[row.length - 1]?.trim();
-    if (!ftpPath) continue;
-    out.set(id, ftpPath);
+function loadPayload(inputPath: string): Payload {
+  const raw = JSON.parse(fs.readFileSync(inputPath, 'utf-8')) as unknown;
+  if (
+    !raw ||
+    typeof raw !== 'object' ||
+    typeof (raw as Payload).workspace !== 'string' ||
+    !Array.isArray((raw as Payload).series)
+  ) {
+    throw new Error(
+      `${inputPath}: expected { workspace: string, series: SeriesPaths[] }`,
+    );
   }
-  return out;
+  return raw as Payload;
 }
 
-async function findHycWorkspace(): Promise<{ id: string; name: string }> {
+async function findWorkspace(slug: string): Promise<{ id: string; name: string }> {
   const db = getDb();
   const [org] = await db
     .select({ id: organization.id, name: organization.name })
     .from(organization)
-    .where(eq(organization.slug, HYC_SLUG))
+    .where(eq(organization.slug, slug))
     .limit(1);
   if (!org) {
-    throw new Error(`workspace with slug="${HYC_SLUG}" not found`);
+    throw new Error(`workspace with slug="${slug}" not found`);
   }
   return org;
 }
 
-async function inspect(): Promise<void> {
+async function inspect(slug: string): Promise<void> {
   const db = getDb();
-  const workspace = await findHycWorkspace();
+  const workspace = await findWorkspace(slug);
   console.log(`workspace ${workspace.name} (${workspace.id})`);
 
   const seriesRows = await db
@@ -185,15 +127,15 @@ interface PlannedUpdate {
   warnings: string[];
 }
 
-async function buildPlan(overwrite: boolean): Promise<PlannedUpdate[]> {
-  if (SERIES_MAPPING.length === 0) {
-    throw new Error(
-      'SERIES_MAPPING is empty — run `inspect` first and fill it in.',
-    );
+async function buildPlan(
+  payload: Payload,
+  overwrite: boolean,
+): Promise<PlannedUpdate[]> {
+  if (payload.series.length === 0) {
+    throw new Error('payload has no series');
   }
   const db = getDb();
-  const workspace = await findHycWorkspace();
-  const pathsByCsvId = loadPathsByCsvId(CSV_PATH);
+  const workspace = await findWorkspace(payload.workspace);
 
   // Resolve series by name within the workspace. Sailwave re-imports mint a
   // fresh UUID each time, so name is the only stable handle. Flag duplicate
@@ -210,17 +152,17 @@ async function buildPlan(overwrite: boolean): Promise<PlannedUpdate[]> {
   }
 
   const plans: PlannedUpdate[] = [];
-  for (const m of SERIES_MAPPING) {
-    if (duplicateNames.has(m.seriesName)) {
+  for (const m of payload.series) {
+    if (duplicateNames.has(m.name)) {
       throw new Error(
-        `multiple series named "${m.seriesName}" in HYC workspace — ` +
+        `multiple series named "${m.name}" in workspace — ` +
           'cannot resolve by name; remove the stale duplicate(s) first',
       );
     }
-    const s = seriesByName.get(m.seriesName);
+    const s = seriesByName.get(m.name);
     if (!s) {
       throw new Error(
-        `series "${m.seriesName}" not found in HYC workspace ` +
+        `series "${m.name}" not found in workspace ` +
           `(known: ${[...seriesByName.keys()].join(', ')})`,
       );
     }
@@ -236,23 +178,22 @@ async function buildPlan(overwrite: boolean): Promise<PlannedUpdate[]> {
     const skipped: PlannedUpdate['skipped'] = [];
     const warnings: string[] = [];
 
-    for (const [fleetName, csvId] of Object.entries(m.fleetCsvIds)) {
+    for (const [fleetName, wanted] of Object.entries(m.fleetPaths)) {
       const fleetId = fleetIdByName.get(fleetName);
       if (!fleetId) {
         warnings.push(
-          `fleet "${fleetName}" not found in series ${m.seriesName} ` +
+          `fleet "${fleetName}" not found in series ${m.name} ` +
             `(known: ${[...fleetIdByName.keys()].join(', ')})`,
         );
         continue;
       }
-      const wanted = pathsByCsvId.get(csvId);
       if (!wanted) {
-        warnings.push(`CSV row ${csvId} (fleet "${fleetName}") has no path`);
+        warnings.push(`fleet "${fleetName}" has an empty path`);
         continue;
       }
       const existing = before[fleetId];
       if (existing === wanted) {
-        // Already matches CSV; no-op regardless of --overwrite.
+        // Already matches payload; no-op regardless of --overwrite.
         skipped.push({ fleetId, fleetName, existing, wanted });
         continue;
       }
@@ -266,7 +207,7 @@ async function buildPlan(overwrite: boolean): Promise<PlannedUpdate[]> {
 
     plans.push({
       seriesId: s.id,
-      seriesName: m.seriesName,
+      seriesName: m.name,
       before,
       after,
       changes,
@@ -299,12 +240,12 @@ function printPlan(plans: PlannedUpdate[]): void {
     for (const s of p.skipped) {
       if (s.existing === s.wanted) {
         console.log(
-          `  ~ ${s.fleetName} (${s.fleetId}) already has ${s.existing} (matches CSV)`,
+          `  ~ ${s.fleetName} (${s.fleetId}) already has ${s.existing} (matches payload)`,
         );
       } else {
         console.log(
           `  ~ ${s.fleetName} (${s.fleetId}) already has ${s.existing}, ` +
-            `CSV wants ${s.wanted} (pass --overwrite to replace)`,
+            `payload wants ${s.wanted} (pass --overwrite to replace)`,
         );
       }
     }
@@ -342,29 +283,43 @@ async function apply(plans: PlannedUpdate[]): Promise<void> {
   console.log(`done — updated ${updated} series row(s)`);
 }
 
+function flagValue(args: string[], flag: string): string | undefined {
+  const idx = args.indexOf(flag);
+  return idx >= 0 ? args[idx + 1] : undefined;
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const overwrite = args.includes('--overwrite');
   const cmd = args.find((a) => !a.startsWith('--'));
   try {
     if (cmd === 'inspect') {
-      await inspect();
-    } else if (cmd === 'plan') {
-      const plans = await buildPlan(overwrite);
-      printPlan(plans);
-    } else if (cmd === 'apply') {
-      const plans = await buildPlan(overwrite);
-      printPlan(plans);
-      const hasWarnings = plans.some((p) => p.warnings.length > 0);
-      if (hasWarnings) {
-        throw new Error('warnings present — resolve before applying');
+      const slug = flagValue(args, '--workspace');
+      if (!slug) {
+        throw new Error('inspect requires --workspace <slug>');
       }
-      console.log('');
-      console.log(overwrite ? 'applying (with --overwrite)...' : 'applying...');
-      await apply(plans);
+      await inspect(slug);
+    } else if (cmd === 'plan' || cmd === 'apply') {
+      const input = flagValue(args, '--input');
+      if (!input) {
+        throw new Error(`${cmd} requires --input <file>`);
+      }
+      const payload = loadPayload(input);
+      const plans = await buildPlan(payload, overwrite);
+      printPlan(plans);
+      if (cmd === 'apply') {
+        const hasWarnings = plans.some((p) => p.warnings.length > 0);
+        if (hasWarnings) {
+          throw new Error('warnings present — resolve before applying');
+        }
+        console.log('');
+        console.log(overwrite ? 'applying (with --overwrite)...' : 'applying...');
+        await apply(plans);
+      }
     } else {
       console.error(
-        'usage: pnpm hyc-ftp-paths <inspect|plan|apply> [--overwrite]',
+        'usage: pnpm update-ftp-paths <inspect --workspace <slug> | ' +
+          'plan --input <file> | apply --input <file>> [--overwrite]',
       );
       process.exitCode = 2;
     }

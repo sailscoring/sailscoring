@@ -52,7 +52,7 @@
     "generate:rya-py": "tsx scripts/generate-rya-py.ts",
     "nationality:sync": "tsx scripts/sync-national-letters.ts",
     "canonical:sync": "tsx scripts/sync-canonical-logos.ts",
-    "hyc-ftp-paths": "tsx --env-file-if-exists=.env.tmp scripts/hyc-ftp-paths.ts",
+    "update-ftp-paths": "tsx --env-file-if-exists=.env.tmp scripts/update-ftp-paths.ts",
     "screenshots": "tsx scripts/screenshots.ts"
   },
   "dependencies": {
