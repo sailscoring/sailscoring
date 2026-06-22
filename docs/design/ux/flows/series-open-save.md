@@ -143,8 +143,8 @@ because the file didn't come from this app.
 
 `lib/sailwave-import.ts` is the source of truth for the conversion rules
 (alias collapse, scoring-suffix detection, start-gun fan-out across companion
-fleets, DNF inference); the sibling README at
-`reference/data/2026-hyc-club-racing/README.md` documents them in depth.
+fleets, DNF inference); the note at
+`docs/notes/sailwave/import-behaviour.md` documents them in depth.
 
 ---
 

@@ -7,9 +7,9 @@ export const ECHO_REGATTA_ALPHA = 0.50;  // Irish Sailing 2022 ECHO Guide: 50/50
 
 // Stock SWNHC2015 spreadsheet constants (Jon Eskdale, version 2014-01-05-0).
 // Reverse-engineered to match Sailwave NHC1 output to 3 dp across all
-// finishers of all five HYC test fleets. See:
-//   - docs/notes/sailwave/nhc1-reverse-engineering.md §10
-//   - reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py
+// finishers of all five HYC test fleets. See
+// docs/notes/sailwave/nhc1-reverse-engineering.md §10 for the algorithm and
+// the reference Python implementation it transcribes.
 //
 // Used as the fallback when a fleet has no `nhcProfile` override. Scorers
 // who want to experiment with non-stock parameters (e.g. the HYC aggressive-
@@ -518,10 +518,8 @@ export function calculateHandicapAdjustment(
  * Sailwave's published NewRating; matches every published value to 3 dp
  * across the five HYC test fleets (n=34 finishers).
  *
- * See:
- *   - docs/notes/sailwave/nhc1-reverse-engineering.md §10 (algorithm)
- *   - reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py
- *     (the Python reference `nr_swnhc2015_full` this transcribes)
+ * See docs/notes/sailwave/nhc1-reverse-engineering.md §10 for the algorithm
+ * and the reference Python `nr_swnhc2015_full` this transcribes.
  */
 function swnhc2015Adjustment(
   scores: Map<string, HandicapRaceScore>,

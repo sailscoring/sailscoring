@@ -1222,7 +1222,7 @@ All steps implemented. Key commits and issues for reference:
 
 The NHC1 algorithm was reverse-engineered from a copy of the SWNHC2015
 spreadsheet that produced a real race
-(`reference/data/2026-hyc-club-racing/2026 Tues Series 1- Pup HPH R1.xls`)
+(`../hyc-archive/2026-club-racing/2026 Tues Series 1- Pup HPH R1.xls`)
 and is now implemented (commit `e232d31`).
 See [`docs/notes/sailwave/nhc1-reverse-engineering.md`](../notes/sailwave/nhc1-reverse-engineering.md)
 for the algorithm, the verification across five HYC race-fleets at zero

@@ -4,8 +4,8 @@
  * Source of truth for the Sailwave conversion. (It was originally ported from a
  * standalone Python converter, since removed.) It's been used in anger on real
  * HYC Sailwave 2.38 files, and the choices here (alias collapse, scoring-suffix
- * detection, start fan-out, DNF inference, etc.) are documented in the sibling
- * README at `reference/data/2026-hyc-club-racing/README.md`.
+ * detection, start fan-out, DNF inference, etc.) are documented in
+ * `docs/notes/sailwave/import-behaviour.md`.
  *
  * A Sailwave `.blw` file is the native series document — a flat, four-column
  * CSV of `key,value,compHandle,raceHandle` records. `parseSailwaveBlw` pivots

@@ -6,7 +6,7 @@
 > across all five test fleets and all 34 finishers.
 >
 > The discovery was made by parsing Howth's working calculation file
-> `reference/data/2026-hyc-club-racing/2026 Tues Series 1- Pup HPH R1.xls` —
+> `../hyc-archive/2026-club-racing/2026 Tues Series 1- Pup HPH R1.xls` —
 > a copy of Eskdale's `SWNHC2015.xls` workbook (version `2014-01-05-0`) into
 > which the Sailwave race output had been pasted. The cell formulas there are
 > the algorithm.
@@ -21,8 +21,8 @@ rating-adjustment formulas, laid out example data, and identified the formula
 empirically. The report is structured to be extended as more
 Sailwave-output examples become available.
 
-The companion analysis script is
-[`reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py`](../../../reference/data/2026-hyc-club-racing/sailwave-nhc1-reverse.py).
+The companion analysis script is `sailwave-nhc1-reverse.py` in the
+`hyc-archive` sibling repo (`../hyc-archive/2026-club-racing/`).
 
 ---
 
@@ -86,7 +86,7 @@ and Wednesday 6 May 2026). Sailwave's race-summary HTML labels every fleet
 | Division B HPH (6 May)|  3 | 0.905 – 0.942 |  2.787 |  2.787 |  0.000 |
 | Division C HPH (6 May)|  8 | 0.832 – 1.046 |  7.408 |  7.409 | +0.001 |
 
-Sources: see `reference/data/2026-hyc-club-racing/`. The script defines each
+Sources: see `../hyc-archive/2026-club-racing/`. The script defines each
 race inline so it is self-contained.
 
 These five fleets vary in size from n = 3 to n = 14 and in TCF spread from
@@ -606,7 +606,7 @@ predicted NewRating off by 0.014, the largest residual in §9.
 To verify the algorithm against new Sailwave outputs:
 
 1. Place a new Sailwave-output `.htm` race table next to the existing files
-   in `reference/data/2026-hyc-club-racing/`.
+   in `../hyc-archive/2026-club-racing/`.
 2. Append a new `RACE_FOO` tuple to `RACES` in
    `sailwave-nhc1-reverse.py`. Each race is `(label, start_time,
    competitors)` where each competitor is `(sail, boat, owner, tcf,

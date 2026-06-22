@@ -53,6 +53,7 @@ Sail Scoring is spread across several repos under the `sailscoring` org, all pri
 | `sailscoring/national-letters` | `../national-letters` | A versioned, public-domain **dataset of three-letter national codes** (with country names + flag images) for entry-list dropdowns and results. The app vendors it into `lib/nationality/generated/` via `scripts/sync-national-letters.ts` (`pnpm nationality:sync`). |
 | `sailscoring/canonical-logos` | `../canonical-logos` | The maintained, versioned **canonical sailing-logo set** (governing bodies, clubs, class associations, sponsors, venues) served from `logos.sailscoring.ie` as the built-in tier of the workspace logo library (the `logo-library` feature). |
 | `sailscoring/scupper` | `../scupper` | **scupper** — the temporary FTP upload relay for the local-first MVP (`lib/scupper.ts` talks to it). Slated for shutdown; do not build anything new on it. |
+| `sailscoring/hyc-archive` | `../hyc-archive` | **HYC club-racing reference data** and a verbatim capture of Howth Yacht Club's published results site (vendored from `markmc/reshyc`), for reconstructing HYC race history into `.sailscoring`. Counterpart of `dbsc-archive` / `iodai-archive`. Holds the FTP-paths caller (`scripts/ftp-paths.ts`) that feeds the app's `update-ftp-paths`. |
 
 ## Issues Workflow
 
