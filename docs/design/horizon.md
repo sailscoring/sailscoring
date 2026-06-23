@@ -82,6 +82,13 @@ exposed: the API needs to serve current standings cheaply and frequently.
 A clubhouse display is immediately tangible to sailors and clubs — a good example to
 lead with in developer-facing documentation.
 
+HalSail has an equivalent in its "web page sequencer" (`halsail.com/Sequence/Preview`):
+show a sequence of web pages, each visible for a configurable number of seconds, then
+auto-advance and recycle indefinitely until stopped. It's completely generic — any URL,
+not tied to its own results pages — so it's effectively a kiosk rotator rather than a
+purpose-built standings display. Worth noting only as prior art that the feature is
+wanted in the wild.
+
 *(Was GitHub issue #16)*
 
 ### Submit results to Irish Sailing and RYA
