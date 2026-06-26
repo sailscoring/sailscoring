@@ -330,7 +330,7 @@ export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercen
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="description" content="sail scoring results">
-<meta name="viewport" content="width=device-width">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Results for ${esc(series.name)}${series.venue ? ' at ' + esc(series.venue) : ''}${titleSuffix}</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="205 205 840 840"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>')}">
 <style type="text/css">
@@ -358,6 +358,8 @@ th a:hover {color: #cfe0f0;}
 .even {background-color: #dde7f0;}
 table.headertable {border: 0px;}
 table.headertable td{border: 0px;}
+.headerlogo {display: block; height: 100px; width: auto; max-width: 100%; object-fit: contain;}
+.headerlogo-right {margin-left: auto; margin-right: 0;}
 td.rank1 { background: #d4a72c; }
 td.rank2 { background: #aab0b6; }
 td.rank3 { background: #c98a5e; }
@@ -384,18 +386,24 @@ td.nat .nattext { font-size: 0.8em; }
   table { break-inside: auto; }
   .tablewrap { overflow-x: visible; }
 }
+@media (max-width: 640px) {
+  table.headertable, table.headertable tbody, table.headertable tr, table.headertable td { display: block; width: auto; }
+  table.headertable td { text-align: center; }
+  .headerlogo { height: 64px; margin: 0 auto 10px auto; }
+  .headerlogo-right { margin: 0 auto 10px auto; }
+}
 ${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.nhc-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.nhc-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.nhc-explainer p:last-child { margin-bottom: 0; }\ndiv.nhc-explainer .formula { font-family: monospace; }\ndiv.nhc-explainer dl { margin: 4px 0 0 0; }\ndiv.nhc-explainer dt { font-weight: bold; display: inline; }\ndiv.nhc-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.nhc-explainer dd:after { content: ""; display: block; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.echo-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.echo-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.echo-explainer p:last-child { margin-bottom: 0; }\ndiv.echo-explainer .formula { font-family: monospace; }\ndiv.echo-explainer dl { margin: 4px 0 0 0; }\ndiv.echo-explainer dt { font-weight: bold; display: inline; }\ndiv.echo-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.echo-explainer dd:after { content: ""; display: block; }\n' : ''}</style>
 </head>
 <body${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).length > 0 ? ` class="${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).join(' ')}"` : ''}>
 ${seriesIndexUrl ? `<p class="breadcrumb"><a href="${esc(seriesIndexUrl)}" target="_top" rel="noopener">&larr; ${esc(series.name)}</a></p>\n` : ''}<table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
 <tbody>
 <tr>
-<td width="30%">${leftLogoUrl ? maybeLink(leftUrl, `<img style="display:block; height:100px;" src="${esc(leftLogoUrl)}" alt="venue logo" />`) : ''}</td>
+<td width="30%">${leftLogoUrl ? maybeLink(leftUrl, `<img class="headerlogo" src="${esc(leftLogoUrl)}" alt="venue logo" />`) : ''}</td>
 <td width="40%" align="center">
 <h1>${esc(series.name)}</h1>
 ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 </td>
-<td width="30%">${rightLogoUrl ? maybeLink(rightUrl, `<img style="display:block; height:100px;" src="${esc(rightLogoUrl)}" alt="event logo" align="right" />`) : ''}</td>
+<td width="30%">${rightLogoUrl ? maybeLink(rightUrl, `<img class="headerlogo headerlogo-right" src="${esc(rightLogoUrl)}" alt="event logo" />`) : ''}</td>
 </tr>
 </tbody>
 </table>
