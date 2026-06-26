@@ -359,6 +359,48 @@ original alongside the compressed copy or treat the normalised image as the reco
 truth (lean: normalised *is* the record — the whole point is to not hoard full-colour
 originals).
 
+### Race / results status (Provisional vs Final)
+
+Results carry a lifecycle status, surfaced on the series and on published pages. HalSail
+models this as a five-state machine — `NoResults` → `Provisional` →
+`Validated` / `Cancelled` / `Abandoned` — which is probably more than Sail Scoring needs.
+The distinction that genuinely matters to competitors and scorers is the standard
+**Provisional vs Final**: provisional results are still open to correction; final results
+are settled. A status field (per race, or per race day, or per series — granularity is an
+open question) drives a clear badge on the standings and the published `/p/...` page, so a
+competitor can tell at a glance whether a result can still move.
+
+The hard part is making "Final" mean something specific rather than a button a scorer
+clicks when they feel done. The anchor is **RRS 90.3**, which governs scoring; **90.3(e)**
+in particular covers the time limits for requesting changes to a race score and when such
+requests may be initiated. So "Final" should be defined against the actual mechanism by
+which a score can still change:
+
+- The protest / request-for-redress time limit has passed (RRS 62.2 / the SI's stated
+  limit).
+- There are no open scoring inquiries or protest-committee decisions pending.
+- The results team is not aware of any other issue outstanding.
+
+The subtlety is that the *time limit* itself is event-specific. The RRS are written with
+World Sailing / Olympic / international-championship events in mind and include hurdles
+that smaller events often ignore. Some classes close the window explicitly in the NoR — a
+short period (sometimes an hour or so) after results are *published* — which matters most
+where results decide selection to another event or advancement to the next round of a
+match-racing ladder. Many events impose no NoR limit at all; there, late change requests
+are handled by a protest committee whose decision simply arrives, and for a small fleet by
+the next day no issue has arisen and the results are presumed final.
+
+So a credible design can't just hard-code a global clock. It needs to express, per
+series/event, *which* regime applies — a configured time limit (absolute, or relative to
+publication time, per the NoR), or "no stated limit, finalised by scorer judgement once the
+PC is silent." The status then becomes the visible output of that rule rather than a free
+-floating flag, and the "Final" badge carries real meaning: it asserts a specific,
+RRS-grounded condition has been met, not merely that someone pressed a button. Worth
+designing the status field and its transitions so that meaning is enforced (or at least
+prompted for) rather than assumed. Relates to per-race lock granularity above — finalising
+and locking are adjacent but distinct (a result can be locked-for-editing without being
+formally Final, and vice versa).
+
 ---
 
 ## Publishing
