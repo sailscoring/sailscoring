@@ -401,6 +401,28 @@ prompted for) rather than assumed. Relates to per-race lock granularity above �
 and locking are adjacent but distinct (a result can be locked-for-editing without being
 formally Final, and vice versa).
 
+### Surface the last finisher's finish time for protest time limits
+
+A close relative of the status work above: the **protest and request-for-redress time
+limit is itself often defined relative to the last boat's finish**. Many SIs set it as a
+fixed period after the last boat finishes (or after the race committee signals the end of
+racing), so the protest committee — and any competitor deciding whether they still have
+time to lodge — needs one specific number from the results: **the finish time of the last
+finisher** in the relevant race. Today that number is buried in the finish sheet (and only
+exists at all when finishes were timed); a PC member ends up scanning the timesheet for the
+last row.
+
+The note is just to surface it deliberately. The results already hold the finish times, so
+the data is there when the race was timed — the work is presenting the last-finisher time
+where the people computing the limit will look for it: on the race view for the scorer, and
+plausibly on the published page. From there it's a short step to *deriving* the limit when
+the SI's rule is configured (e.g. "90 minutes after the last finisher" → a concrete clock
+time), which feeds directly into the "has the protest time limit passed?" condition that
+gates a Final status above. Open questions mirror that entry: where the rule lives (NoR/SI
+config per series), the untimed-finish case (no last-finisher *time* exists, so the limit
+falls back to "after the RC signals end of racing" — which Sail Scoring doesn't capture
+today), and whether the derived limit is competitor-facing or scorer-only.
+
 ---
 
 ## Publishing
