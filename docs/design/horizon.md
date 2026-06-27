@@ -218,6 +218,21 @@ its reconciliation are explicitly *not* this issue's concern (that's #212 below)
 
 ---
 
+## Import / export
+
+### Excel (.xlsx) import and export alongside CSV
+
+Competitor import today is CSV; exports are JSON / HTML. HalSail does everything in Excel
+(with a pre-2007 `.xls` toggle), and many scorers live in spreadsheets. Adding `.xlsx`
+read/write alongside CSV would let scorers round-trip boats, races, and results without
+CSV's footguns — notably **quoting/comma fragility** (a HalSail CSV boat import silently
+dropped a boat whose entrant contained a comma; see the `hyc-archive` Puppeteer build).
+Shape of the change: an xlsx reader/writer behind the existing import/export seams (a small
+MIT/Apache-licensed dependency, per our licensing constraint); CSV stays as the
+lowest-common-denominator format. A format-breadth feature, not new data.
+
+---
+
 ## Finish entry UX
 
 ### Elapsed time recording in finish entry
@@ -228,6 +243,32 @@ would save the scorer a step. Unclear how common this practice actually is in th
 worth asking real recorders before building anything.
 
 *(Was GitHub issue #21)*
+
+### Per-race metadata — race officer, conditions, course
+
+Capture the per-race context that has nowhere to live today: the race officer's name,
+wind speed and direction, and a course note. HalSail records these at result entry.
+Two of them are more than provenance — **wind speed and the course are required inputs
+for ORC scoring** (performance-curve scoring selects a boat's rating from the wind
+condition on the course sailed), so this is a prerequisite for the ORC advanced methods
+below. The rest is audit and presentation value: who ran the race, what the conditions
+were, surfaced on the race view and plausibly the published page. Shape of the change: a
+small metadata bag on `Race` (RO, wind speed, wind direction, course/notes), entered in
+the finish-sheet header / race settings, carried in the series file + JSON export.
+Relates to the committee-boat-photo entry (same race-record enrichment) and to ORC Club / PCS.
+
+### Printable starters checklist (spotter sheet)
+
+A printed sheet the recording team takes on the committee boat — HYC calls it a
+**starters checklist** — pre-filled with the expected entrants so a scribe can tick boats
+off as they start and finish, record lap counts, and pencil in conditions. HalSail's
+equivalent ("round" / "spotter" sheet) also leaves room for wind, the number of starters,
+and the **time of the last finisher** (the protest-time-limit anchor — see the
+last-finisher entry below). It's the paper counterpart to the mobile finish-recording app,
+and the realistic fallback when there's no device on the water. Shape of the change: a
+print/PDF rendering of a race's entry list with tick / lap / time columns and a conditions
+header, generated per race (parameterised by fleet/start) — mostly a rendering-path
+feature, tying into server-side PDF generation.
 
 ---
 
@@ -793,6 +834,30 @@ changes: A5.1/A5.2 (so a redress or scoring-penalty boat is excluded from the
 TLE set, per the SI proviso) and A10 (tie resolution). Worth scoring a fixture
 against a real DBSC race once the code lands.
 
+### High-point and bonus-point scoring systems
+
+The engine scores low-point (RRS Appendix A). Other published systems — **high-point**
+(score a percentage of the fleet; common in US college/team racing) and **bonus-point**
+(descending awards, e.g. 0 / 3 / 5.7 / 8 …) — are offered by Sailwave and HalSail. We
+don't have them and won't build them speculatively. **Demand-driven: wait to hear from a
+user running a real series on one before designing.** Shape, when it comes: a per-series
+scoring-method selector that branches the points assignment and the A8 tie-break, with a
+fixture per method.
+
+### Configurable minimum-competitors-per-race rule
+
+A NoR sometimes voids a race for a fleet that didn't muster a minimum turnout — e.g. "a
+heat with fewer than 3 competitors does not count." DBSC do exactly this by hand (striking
+single-competitor heats), and we deliberately did **not** auto-encode their specific
+behaviour (#232, closed not-planned — it was manual SI enforcement, with misses, not a
+rule). The horizon version is the *configurable, opt-in* form: a per-series threshold
+("at least N competitors in a race, per fleet, or the race is excluded for that fleet")
+that a scorer turns on knowingly, producing an explicit, auditable exclusion rather than
+an inferred one. Shape of the change: a per-series minimum-starters setting, evaluated per
+(race × fleet), feeding the same exclusion path as the per-fleet race exclusion in #203;
+the excluded race carries a visible reason. Keep it strictly opt-in — most series don't
+want it, and it must never silently reshape results.
+
 ---
 
 ## Deferred handicap-system work
@@ -1199,6 +1264,19 @@ years and where their history lives; whether prize winners belong in the series 
 / JSON export as part of the authoritative record; how prize lists render into the
 published `/p/...` pages; and where the boundary sits between fully-deterministic
 prizes and ones that always end in an OA decision.
+
+### Arbitrary competitor selectors (flags / tags)
+
+Beyond the structured competitor fields we already hold, HalSail lets a club attach
+free-form **selectors** (a.k.a. selection flags) to a boat — short tags like "youth",
+"gold fleet", "lady helm" — to slice the fleet. We never pinned down exactly what DBSC
+drive with them, so this is speculative — but worth capturing. The clear use in our model
+is **prize eligibility** (the "a flag is set (junior, lady helm)" cases in Allocating
+prizes above) and ad-hoc filtering / views. Shape of the change: an open tag set on the
+competitor, editable in the competitor list and usable as a predicate wherever we filter
+competitors (prizes, and any future selection-based grouping). Caveat: prefer a real
+structured field when the concept is known (class, division, club) — selectors are the
+escape hatch for the long tail a club invents, not a substitute for modelling.
 
 ---
 
