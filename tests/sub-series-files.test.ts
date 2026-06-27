@@ -335,4 +335,33 @@ describe('buildFleetHtmlFiles with sub-series', () => {
     expect(files).toHaveLength(1);
     expect(files![0].subSeriesName).toBeUndefined();
   });
+
+  it('a fleet-scoped block publishes a page only for its scoped fleets', async () => {
+    const { buildFleetHtmlFiles } = await import('@/lib/results-export');
+    const fleetA: Fleet = { id: 'fl-1', seriesId: 's1', name: 'Cruisers', displayOrder: 0, scoringSystem: 'scratch' };
+    const fleetB: Fleet = { id: 'fl-2', seriesId: 's1', name: 'Whitesails', displayOrder: 1, scoringSystem: 'scratch' };
+    const inA = (id: string, sail: string): Competitor => ({ ...makeCompetitor(id, sail), fleetIds: ['fl-1'] });
+    const inB = (id: string, sail: string): Competitor => ({ ...makeCompetitor(id, sail), fleetIds: ['fl-2'] });
+    const scopedSnap: SeriesSnapshot = {
+      series: makeSeries('s1'),
+      fleets: [fleetA, fleetB],
+      competitors: [inA('a1', '1'), inA('a2', '2'), inB('b1', '11'), inB('b2', '12')],
+      races: [makeRace('r1', 1), makeRace('r2', 2)],
+      subSeries: [
+        { id: 'all', seriesId: 's1', name: 'Overall', displayOrder: 0, raceIds: ['r1', 'r2'] },
+        { id: 'champ', seriesId: 's1', name: 'Cruiser Champ', displayOrder: 1, raceIds: ['r1', 'r2'], fleetIds: ['fl-1'] },
+      ],
+      finishes: [
+        makeFinish('r1', 'a1', 1), makeFinish('r1', 'a2', 2), makeFinish('r1', 'b1', 3), makeFinish('r1', 'b2', 4),
+        makeFinish('r2', 'a1', 1), makeFinish('r2', 'a2', 2), makeFinish('r2', 'b1', 3), makeFinish('r2', 'b2', 4),
+      ],
+      raceStarts: [],
+      ratingOverrides: [],
+    };
+    const { repos } = makeRecordingRepos(scopedSnap);
+    const files = await buildFleetHtmlFiles(repos, 's1');
+    const pages = files!.map((f) => `${f.subSeriesName}/${f.fleetName}`);
+    // Overall publishes both fleets; the scoped block only its one fleet.
+    expect(pages).toEqual(['Overall/Cruisers', 'Overall/Whitesails', 'Cruiser Champ/Cruisers']);
+  });
 });

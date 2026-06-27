@@ -9,12 +9,11 @@ notes: |
   a full turnout, so race 2 counts for them normally.
 
   Modelled as a per-fleet exclusion of race 2 for Class A in the "Overall"
-  sub-series. The effect:
-    - Class A scores two races (1 and 3). Race 2 vanishes from the fleet —
-      301's win there doesn't count, and 302 (which sat it out) takes no
-      penalty for it.
-    - Class B scores all three races.
-  The race stays in the sub-series; only Class A is excluded from it.
+  sub-series. Like an abandoned heat, race 2 stays a column for Class A but
+  scores 0 and earns no discard credit:
+    - 301's win there scores 0, and 302 (which sat it out) takes no penalty.
+    - Class B scores all three races normally.
+  The race stays in the sub-series; only Class A is struck from it.
 
 series:
   discardThresholds: []
@@ -73,17 +72,19 @@ expected:
         - rank: 1
           sailor: "301"
           fleet: "Class A"
-          racePoints: [1, 1]
-          raceCodes: [null, null]
-          raceDiscards: [false, false]
+          racePoints: [1, 0, 1]
+          raceCodes: [null, null, null]
+          raceDiscards: [false, false, false]
+          raceExcluded: [false, true, false]
           totalPoints: 2
           netPoints: 2
         - rank: 2
           sailor: "302"
           fleet: "Class A"
-          racePoints: [2, 2]
-          raceCodes: [null, null]
-          raceDiscards: [false, false]
+          racePoints: [2, 0, 2]
+          raceCodes: [null, "DNC", null]
+          raceDiscards: [false, false, false]
+          raceExcluded: [false, true, false]
           totalPoints: 4
           netPoints: 4
         - rank: 1

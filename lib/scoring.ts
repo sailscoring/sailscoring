@@ -1221,6 +1221,7 @@ export function calculateStandings(
   discardThresholds: DiscardThreshold[] = [],
   dnfScoring: DnfScoring = 'seriesEntries',
   fleetId?: string,
+  excludedRaceIds?: Set<string>,
 ): { standings: Standing[]; circularRedressRaces: number[] } {
   const competitorIds = new Set(competitors.map((c) => c.id));
 
@@ -1239,7 +1240,8 @@ export function calculateStandings(
     const raceFinishes = allRaceFinishes.filter((f) => f.competitorId !== null && competitorIds.has(f.competitorId));
     const raceFinishMap = new Map(raceFinishes.map((f) => [f.competitorId!, f]));
     const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring, fleetId);
-    raceExcluded[raceIdx] = computeRaceExclusion(allRaceFinishes, raceFinishes);
+    raceExcluded[raceIdx] =
+      computeRaceExclusion(allRaceFinishes, raceFinishes) || (excludedRaceIds?.has(race.id) ?? false);
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
       const rawPoints = score?.points ?? competitors.length + 1;
@@ -1303,6 +1305,7 @@ function calculateHandicapStandings(
   dnfScoring: DnfScoring = 'seriesEntries',
   ratingOverrides: RaceRatingOverride[] = [],
   startingTcfOverrides?: Map<string, number>,
+  excludedRaceIds?: Set<string>,
 ): {
   standings: Standing[];
   rejections: ScoringRejection[];
@@ -1420,6 +1423,10 @@ function calculateHandicapStandings(
     const race = races[raceIdx];
     const raceFinishes = finishesByRace.get(race.id) ?? [];
     const raceStart = startsByRaceId.get(race.id);
+    // A race struck for this fleet scores 0 and — crucially — must not advance
+    // the progressive chain, so Phase B is skipped below (the handicap holds
+    // across the struck race, as if it weren't sailed for this fleet).
+    const forcedExcluded = excludedRaceIds?.has(race.id) ?? false;
 
     let scores: Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null }>;
     if (raceStart) {
@@ -1437,8 +1444,9 @@ function calculateHandicapStandings(
       const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, effectiveTcfMap, dnfScoring);
       let raceScores = phaseA.scores;
 
-      // Phase B — handicap adjustment (progressive fleets only)
-      if (config) {
+      // Phase B — handicap adjustment (progressive fleets only). Skipped for a
+      // struck race so its results never update the chain.
+      if (config && !forcedExcluded) {
         const phaseB = calculateHandicapAdjustment(raceScores, config, baseTcfByCompetitorId);
 
         // Merge phase-B outputs back into the per-boat scores: newTcf for
@@ -1495,7 +1503,7 @@ function calculateHandicapStandings(
     // `raceFinishes` here is the whole sheet; `fleetRaceFinishes` is this
     // fleet (issue #129 — see computeRaceExclusion).
     const fleetRaceFinishes = raceFinishes.filter((f) => f.competitorId !== null && fleetCompetitorIds.has(f.competitorId));
-    raceExcluded[raceIdx] = computeRaceExclusion(raceFinishes, fleetRaceFinishes);
+    raceExcluded[raceIdx] = computeRaceExclusion(raceFinishes, fleetRaceFinishes) || forcedExcluded;
 
     // Additive scoring penalties (ZFP/SCP/DPI) apply to finishers in handicap
     // fleets too, capped at this race's DNF score.
@@ -1673,17 +1681,15 @@ export function calculateFleetStandings(
   const allCircular: number[] = [];
   const fleetStandings = sorted.map((fleet) => {
     const fleetCompetitors = competitorsByFleet.get(fleet.id) ?? [];
-    // A race excluded for this fleet vanishes from its scoring entirely: it
-    // doesn't appear in the fleet's race set, so it never contributes points,
-    // never counts toward discards, and (for progressive fleets) is skipped by
-    // the chain. Other fleets still score it.
+    // A race excluded for this fleet is struck like an abandoned heat: it stays
+    // a column in the block (so the per-race arrays line up with the other
+    // fleets) but scores 0, earns no discard credit, and — for progressive
+    // fleets — does not advance the handicap chain. Other fleets still score it.
     const excluded = excludedRaceIdsByFleet?.get(fleet.id);
-    const fleetRaces =
-      excluded && excluded.size > 0 ? races.filter((r) => !excluded.has(r.id)) : races;
     if (fleet.scoringSystem !== 'scratch') {
       const { standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory, circularRedressRaces } = calculateHandicapStandings(
         fleetCompetitors,
-        fleetRaces,
+        races,
         allFinishes,
         raceStarts,
         fleet,
@@ -1691,17 +1697,19 @@ export function calculateFleetStandings(
         dnfScoring,
         ratingOverrides,
         progressiveSeedTcfs?.get(fleet.id),
+        excluded,
       );
       allCircular.push(...circularRedressRaces);
       return { fleet, standings, rejections: [...rejections, ...detectPerFleetGaps(fleet, fleetCompetitors, allFinishes)], nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory };
     }
     const { standings, circularRedressRaces } = calculateStandings(
       fleetCompetitors,
-      fleetRaces,
+      races,
       allFinishes,
       discardThresholds,
       dnfScoring,
       fleet.id,
+      excluded,
     );
     allCircular.push(...circularRedressRaces);
     return { fleet, standings, rejections: detectPerFleetGaps(fleet, fleetCompetitors, allFinishes) };

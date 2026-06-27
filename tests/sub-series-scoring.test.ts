@@ -230,14 +230,20 @@ describe('calculateSubSeriesFleetStandings (per-fleet exclusion)', () => {
   const f1 = block.fleetStandings.find((fs) => fs.fleet.id === 'f1')!;
   const f2 = block.fleetStandings.find((fs) => fs.fleet.id === 'f2')!;
 
-  it('strikes the excluded race from the affected fleet only', () => {
-    // f1 scores 2 races (r2 struck); f2 scores all 3.
-    for (const s of f1.standings) expect(s.racePoints).toHaveLength(2);
-    for (const s of f2.standings) expect(s.racePoints).toHaveLength(3);
+  it('strikes the excluded race for the affected fleet (kept as a 0 column)', () => {
+    // The block keeps all three race columns for every fleet; r2 is flagged
+    // excluded for f1 and scores 0, so it earns no discard credit and never
+    // shifts the standings.
+    for (const s of f1.standings) {
+      expect(s.racePoints).toHaveLength(3);
+      expect(s.raceExcluded).toEqual([false, true, false]);
+      expect(s.racePoints[1]).toBe(0);
+    }
   });
 
   it('leaves the race intact for every other fleet', () => {
     expect(block.races.map((r) => r.id)).toEqual(['r1', 'r2', 'r3']);
+    for (const s of f2.standings) expect(s.raceExcluded).toEqual([false, false, false]);
     const c = f2.standings.find((s) => s.competitor.id === 'C')!;
     expect(c.racePoints).toEqual([1, 1, 1]); // C wins f2 in all three races
   });
