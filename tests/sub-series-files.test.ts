@@ -251,6 +251,62 @@ describe('public JSON export sub-series round-trip', () => {
   });
 });
 
+describe('sub-series fleet-scoping + per-fleet exclusion round-trip', () => {
+  const fleet2: Fleet = { id: 'fl-2', seriesId: 's1', name: 'Whitesails', displayOrder: 1, scoringSystem: 'scratch' };
+  // 'Champ' is scoped to fleet 1 and strikes race 2 for fleet 1.
+  const champ: SubSeries = {
+    id: 'ss-champ', seriesId: 's1', name: 'Champ', displayOrder: 2,
+    raceIds: ['r1', 'r2', 'r3'],
+    fleetIds: ['fl-1'],
+    raceFleetExclusions: [{ raceId: 'r2', fleetId: 'fl-1' }],
+  };
+  const scopedSnapshot: SeriesSnapshot = {
+    ...snapshot,
+    fleets: [fleet, fleet2],
+    subSeries: [winter, spring, champ],
+  };
+
+  it('.sailscoring carries fleetIds + exclusions and parses back without loss', async () => {
+    const { repos } = makeRecordingRepos(scopedSnapshot);
+    const file = await buildSeriesFile('s1', repos);
+    const champFile = file.subSeries!.find((s) => s.name === 'Champ')!;
+    expect(champFile.fleetIds).toEqual(['fl-1']);
+    expect(champFile.raceFleetExclusions).toEqual([{ raceId: 'r2', fleetId: 'fl-1' }]);
+
+    const reparsed = parseSeriesFile(JSON.stringify(file));
+    expect(reparsed.subSeries).toEqual(file.subSeries);
+  });
+
+  it('.sailscoring import remaps fleetIds + exclusions consistently', async () => {
+    const built = await buildSeriesFile('s1', makeRecordingRepos(scopedSnapshot).repos);
+    const { repos, savedSubSeries, savedRaces } = makeRecordingRepos();
+    await openSeriesFromFile(built, repos);
+
+    const champ = savedSubSeries.find((ss) => ss.name === 'Champ')!;
+    const race2Id = savedRaces.find((r) => r.raceNumber === 2)!.id;
+    expect(champ.fleetIds).toHaveLength(1);
+    expect(champ.raceFleetExclusions).toHaveLength(1);
+    // The remapped exclusion points at the same (remapped) fleet the block is
+    // scoped to, and at the freshly-minted race-2 id.
+    expect(champ.raceFleetExclusions![0].fleetId).toBe(champ.fleetIds![0]);
+    expect(champ.raceFleetExclusions![0].raceId).toBe(race2Id);
+  });
+
+  it('public JSON export carries scoping by name; import rebuilds it', async () => {
+    const data = buildPublicExportFromSnapshot(scopedSnapshot);
+    expect(data!.subSeries).toEqual([
+      { name: 'Champ', fleetNames: ['Default'], raceExclusions: [{ raceNumber: 2, fleetName: 'Default' }] },
+    ]);
+
+    const { repos, savedSubSeries, savedRaces } = makeRecordingRepos();
+    await importPublicExport(data!, repos);
+    const champ = savedSubSeries.find((ss) => ss.name === 'Champ')!;
+    const race2Id = savedRaces.find((r) => r.raceNumber === 2)!.id;
+    expect(champ.fleetIds).toHaveLength(1);
+    expect(champ.raceFleetExclusions).toEqual([{ raceId: race2Id, fleetId: champ.fleetIds![0] }]);
+  });
+});
+
 describe('buildFleetHtmlFiles with sub-series', () => {
   it('renders one page per (block, fleet) with block-local race numbers', async () => {
     const { buildFleetHtmlFiles } = await import('@/lib/results-export');

@@ -182,6 +182,16 @@ export interface PublicSeriesExport {
       netPoints: number;
     }[];
   }[];
+  /** Sub-series scoping metadata. Membership stays on `races[*].subSeries`
+   *  (by name); this carries the extra per-sub-series scoping for the blocks
+   *  that have it — a fleet subset (by name) and per-fleet race exclusions
+   *  (race number + fleet name). Sub-series with neither are omitted; absent
+   *  entirely on exports from older builds. */
+  subSeries?: {
+    name: string;
+    fleetNames?: string[];
+    raceExclusions?: { raceNumber: number; fleetName: string }[];
+  }[];
 }
 
 /** Per-(race, fleet) NHC scoring details for the public export.
@@ -571,6 +581,30 @@ export function buildPublicExportFromSnapshot(
     })),
     races: exportedRaces,
     standings: exportedStandings,
+    ...(() => {
+      // Sub-series scoping (fleet subset + per-fleet exclusions), by name.
+      const scoped = subSeries
+        .map((ss) => {
+          const fleetNames = ss.fleetIds
+            ?.map((id) => fleetNameById.get(id))
+            .filter((n): n is string => n != null);
+          const raceExclusions = (ss.raceFleetExclusions ?? [])
+            .map((ex) => ({
+              raceNumber: raceNumberById.get(ex.raceId),
+              fleetName: fleetNameById.get(ex.fleetId),
+            }))
+            .filter((ex): ex is { raceNumber: number; fleetName: string } =>
+              ex.raceNumber != null && ex.fleetName != null,
+            );
+          return {
+            name: ss.name,
+            ...(fleetNames && fleetNames.length > 0 ? { fleetNames } : {}),
+            ...(raceExclusions.length > 0 ? { raceExclusions } : {}),
+          };
+        })
+        .filter((s) => s.fleetNames || s.raceExclusions);
+      return scoped.length > 0 ? { subSeries: scoped } : {};
+    })(),
   };
 }
 
@@ -821,15 +855,39 @@ export async function importPublicExport(
   }
 
   if (subSeriesIdByName.size > 0) {
+    // Resolve the by-name scoping metadata back to fresh fleet/race ids.
+    const scopeByName = new Map(
+      (data.subSeries ?? []).map((s) => {
+        const fleetIds = s.fleetNames
+          ?.map((n) => fleetIdByName.get(n))
+          .filter((id): id is string => id != null);
+        const raceFleetExclusions = (s.raceExclusions ?? [])
+          .map((ex) => ({
+            raceId: newRaceIdByNumber.get(ex.raceNumber),
+            fleetId: fleetIdByName.get(ex.fleetName),
+          }))
+          .filter((ex): ex is { raceId: string; fleetId: string } =>
+            ex.raceId != null && ex.fleetId != null,
+          );
+        return [s.name, { fleetIds, raceFleetExclusions }] as const;
+      }),
+    );
     let displayOrder = 0;
     await repos.subSeriesRepo.saveMany(
-      [...subSeriesIdByName.entries()].map(([name, id]) => ({
-        id,
-        seriesId: newSeriesId,
-        name,
-        displayOrder: displayOrder++,
-        raceIds: subSeriesRaceIdsByName.get(name) ?? [],
-      })),
+      [...subSeriesIdByName.entries()].map(([name, id]) => {
+        const scope = scopeByName.get(name);
+        return {
+          id,
+          seriesId: newSeriesId,
+          name,
+          displayOrder: displayOrder++,
+          raceIds: subSeriesRaceIdsByName.get(name) ?? [],
+          ...(scope?.fleetIds && scope.fleetIds.length > 0 ? { fleetIds: scope.fleetIds } : {}),
+          ...(scope?.raceFleetExclusions && scope.raceFleetExclusions.length > 0
+            ? { raceFleetExclusions: scope.raceFleetExclusions }
+            : {}),
+        };
+      }),
     );
   }
 

@@ -98,9 +98,14 @@ export interface SeriesFileRepos {
  *  Additive; older files load blockless.
  *
  *  v10 adds optional `races[*].name` (a human label distinct from the race
- *  number). Additive; older files load with the field absent (name null). */
-export const FORMAT_VERSION = 10;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+ *  number). Additive; older files load with the field absent (name null).
+ *
+ *  v11 generalises sub-series: optional `subSeries[*].fleetIds` (scope a block
+ *  to a fleet subset; absent = all fleets) and `subSeries[*].raceFleetExclusions`
+ *  (a member race struck for one fleet). Additive; older files load with both
+ *  absent (all fleets, no exclusions). */
+export const FORMAT_VERSION = 11;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -220,6 +225,9 @@ interface SeriesFileSubSeries {
   // Race membership. New shape; absent on pre-reshape v9 files, where it is
   // derived from `races[*].subSeriesId` on load.
   raceIds?: string[];
+  // v11: fleet scoping (absent = all fleets) and per-fleet race exclusions.
+  fleetIds?: string[];
+  raceFleetExclusions?: { raceId: string; fleetId: string }[];
   startingHandicapSource?: 'base' | 'continue';
   continueFromSubSeriesId?: string;
 }
@@ -429,6 +437,10 @@ export async function buildSeriesFile(
             name: ss.name,
             displayOrder: ss.displayOrder,
             raceIds: ss.raceIds,
+            ...(ss.fleetIds ? { fleetIds: ss.fleetIds } : {}),
+            ...(ss.raceFleetExclusions && ss.raceFleetExclusions.length > 0
+              ? { raceFleetExclusions: ss.raceFleetExclusions }
+              : {}),
             ...(ss.startingHandicapSource && ss.startingHandicapSource !== 'base'
               ? { startingHandicapSource: ss.startingHandicapSource }
               : {}),
@@ -1045,28 +1057,45 @@ async function writeFleetsCompetitorsRaces(
         .map((rid) => raceIdMap.get(rid))
         .filter((rid): rid is string => rid !== undefined);
     };
-    await repos.subSeriesRepo.saveMany(
-      file.subSeries.map((ss) => ({
+    // Remap scoping FKs to the freshly-minted fleet/race ids; drop any that
+    // didn't survive the import.
+    const mapFleetIds = (ss: SeriesFileSubSeries): string[] | undefined => {
+      if (!ss.fleetIds) return undefined;
+      return ss.fleetIds
+        .map((fid) => fleetIdMap.get(fid))
+        .filter((fid): fid is string => fid !== undefined);
+    };
+    const mapExclusions = (ss: SeriesFileSubSeries) =>
+      (ss.raceFleetExclusions ?? [])
+        .map((ex) => ({
+          raceId: raceIdMap.get(ex.raceId),
+          fleetId: fleetIdMap.get(ex.fleetId),
+        }))
+        .filter((ex): ex is { raceId: string; fleetId: string } =>
+          ex.raceId !== undefined && ex.fleetId !== undefined,
+        );
+    const toRow = (ss: SeriesFileSubSeries) => {
+      const exclusions = mapExclusions(ss);
+      const fleetIds = mapFleetIds(ss);
+      return {
         id: subSeriesIdMap.get(ss.id)!,
         seriesId,
         name: ss.name,
         displayOrder: ss.displayOrder,
         raceIds: mapRaceIds(ss),
+        ...(fleetIds ? { fleetIds } : {}),
+        ...(exclusions.length > 0 ? { raceFleetExclusions: exclusions } : {}),
         startingHandicapSource: ss.startingHandicapSource,
-      })),
-    );
+      };
+    };
+    await repos.subSeriesRepo.saveMany(file.subSeries.map(toRow));
     const withCarry = file.subSeries.filter(
       (ss) => ss.startingHandicapSource === 'continue' && ss.continueFromSubSeriesId,
     );
     if (withCarry.length > 0) {
       await repos.subSeriesRepo.saveMany(
         withCarry.map((ss) => ({
-          id: subSeriesIdMap.get(ss.id)!,
-          seriesId,
-          name: ss.name,
-          displayOrder: ss.displayOrder,
-          raceIds: mapRaceIds(ss),
-          startingHandicapSource: ss.startingHandicapSource,
+          ...toRow(ss),
           continueFromSubSeriesId: subSeriesIdMap.get(ss.continueFromSubSeriesId!) ?? null,
         })),
       );
