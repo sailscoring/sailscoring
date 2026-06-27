@@ -1227,8 +1227,7 @@ and is now implemented (commit `e232d31`).
 See [`docs/notes/sailwave/nhc1-reverse-engineering.md`](../notes/sailwave/nhc1-reverse-engineering.md)
 for the algorithm, the verification across five HYC race-fleets at zero
 error, and a side-by-side comparison with RYA NHC 2015. The earlier
-Puppeteer 22 Championships data
-(`reference/data/nhc-example/`) helped triangulate persistence and TCF
+Puppeteer 22 Championships data helped triangulate persistence and TCF
 snapshotting but is no longer needed for the algorithm itself.
 
 **Resolved in the first pass:**
@@ -1318,3 +1317,79 @@ order, each still scoring only its own subset against the shared ratings. The
 default basis is a sub-series's own races. To keep this a feature-add rather than
 a refactor, the engine must keep rating-computation (over a race set) separable
 from standings-aggregation (over a scored subset) — which it already does.
+
+## Rating data sources and provenance
+
+Where each handicap's numbers come from, and how we obtain them. Distilled from
+reference material that previously lived under `reference/data/`; the third-party
+PDFs themselves now live out-of-band in the `reference-docs` sibling repo.
+
+### IRC TCC — international (`lib/irc-rating.ts`)
+
+The IRC Rating Office's official "online TCC listings"
+(`ircrating.org/irc-racing/online-tcc-listings/`) is an embedded view of a
+TopYacht-hosted listing, and the CSV download link on that page is:
+
+```
+https://www.topyacht.com.au/rorc/data/ClubListing.csv
+```
+
+The file is hosted by TopYacht on the rating authority's behalf, but it *is* the
+authority's data — RORC publishes IRC TCCs nowhere else (its separate boat-data
+PDFs deliberately omit the rating). It is the whole worldwide list (~3,200
+boats), one GET, no access gate, regenerated nightly (UK time); the HTTP
+`Last-Modified` header gives provenance. Columns:
+
+```
+Boat Name, Sail No, Cert No, Issue Date, Cert Year, TCC, Endorsed, Secondary,
+Non Spi TCC, Crew, DLR, LH, Beam, Draft, Single Furling Headsail, Headsails,
+Flying Headsails, Spinnakers, Series Date, Age Date, Racing Area,
+SSS Base Value, STIX, AVS, Category, ValidCode
+```
+
+Used by the parser: `Sail No` (match key), `TCC` → spin IRC TCC, `Non Spi TCC`
+→ non-spin IRC TCC, `Cert No`, `Cert Year`, `Issue Date`, `Endorsed` (`E`),
+`Secondary` (`SEC` marks an alternative sail configuration), filtered to
+`ValidCode = Yes`. We deliberately **do not** commit a snapshot of this
+worldwide file — it is fetched transiently (cached ~6h) to seed series being
+scored. A small parser fixture lives at `tests/fixtures/irc-club-listing.csv`.
+
+### Irish Sailing — IRC + ECHO (`lib/irish-sailing-ratings.ts`)
+
+The Irish national IRC/ECHO list at
+`sailing.ie/Racing/Racing-Services/Echo-IRC-Ratings` is a DotNetNuke page that
+server-renders the *entire* national list into a single HTML table
+(`<table id="dt">`); DataTables.js adds client-side search/sort/paginate/export
+on top, but there is no API or JSON endpoint — one GET returns the complete
+dataset, which we fetch and parse. This is the source the app uses for Irish
+boats' ECHO ratings; a one-off snapshot of it is the frozen seed for the
+club-racing sample series (`scripts/data/irc-echo-ratings.csv`).
+
+### HalSail public results — ECHO worked examples
+
+HalSail's public results pages were the worked input for verifying ECHO and IRC
+scoring end-to-end against an externally-computed result set (the 2025 Volvo Dún
+Laoghaire Regatta cruiser fleets, captured under `reference/data/echo-example/`
+and retained in git history). The relevant URL patterns:
+
+- `/Result/_Boat/{seriesId}` — race-by-race results (HTML fragment, AJAX target)
+- `/Result/Overall/{seriesId}` — overall standings
+- `/Result/EchoAnalysis/{seriesId}` — series-wide ECHO handicap matrix
+- `/Result/EchoAnalysisRace/{raceId}` — per-race ECHO breakdown
+- `/Analysis/HandicapResultsOneRace/{raceId}` — single-race elapsed/corrected
+  view with "% fast/slow" deltas
+
+ECHO field semantics observed in those captures:
+
+- **IRC TCC** is constant across the series; an ECHO-only boat has none, an
+  IRC-only boat has no ECHO rating.
+- **initial ECHO** is the rating going into Race 1 (HalSail's "Before Race 1"
+  column of its series-wide ECHO analysis).
+- **hcap achieved** (per boat, per race) — the handicap a boat would have needed
+  to corrected-tie the elapsed-to-win time.
+- **change** — the signed adjustment HalSail applied to that boat's handicap as a
+  result of the race.
+- **time delta** — the gap from the elapsed-to-win time on corrected (`NF` = did
+  not finish that race).
+- **composite hcap** — the series-end composite ECHO rating HalSail shows next to
+  the "change over series" cell.
