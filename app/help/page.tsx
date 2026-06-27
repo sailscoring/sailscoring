@@ -671,6 +671,20 @@ export default async function HelpPage() {
             <strong className="text-foreground">Continue handicaps from</strong> in the sub-series
             editor.
           </p>
+          <p>
+            By default a sub-series scores every fleet. In a multi-fleet series you can narrow it
+            under <strong className="text-foreground">Fleets</strong> in the editor — a
+            Cruisers-only championship that leaves the Whitesails fleet out of its tables, for
+            instance. Only the chosen fleets are scored and published for that view.
+          </p>
+          <p>
+            To strike a single race for one fleet only — a single-competitor heat that doesn’t
+            count, or a race abandoned for one class but not another — open{' '}
+            <strong className="text-foreground">Per-fleet race exclusions</strong> in the editor and
+            tick the fleet to exclude for that race. The race still counts for the other fleets; for
+            the excluded one it scores nothing, earns no discard, and (for NHC/ECHO) doesn’t move
+            the handicap.
+          </p>
         </Section>
       )}
 

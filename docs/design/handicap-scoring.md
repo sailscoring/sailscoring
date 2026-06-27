@@ -1309,6 +1309,35 @@ consistent seeding the values coincide. Realignment, where a scheme has it, only
 moves a sub-series's computation using its own races — ECHO does none; NHC1
 realigns over a race's finishers only.
 
+**Fleet scoping and per-fleet exclusions (#235).** A sub-series carries two more
+orthogonal controls, both defaulting to "no effect" so ordinary blocks stay
+one-gesture:
+
+- A sub-series scores **every fleet** by default, but may be **scoped to a fleet
+  subset** (`SubSeries.fleetIds`; absent = all). Only the scoped fleets are
+  scored and get a published `(sub-series × fleet)` page. This is how a
+  Cruisers-only championship coexists with an all-fleet Overall over the same
+  races, and how DBSC's "shared start, Series A for one class and Series B for
+  another" (CLARIFICATIONS Q4) is expressed — two sub-series with different
+  fleet scoping over an overlapping race set. Note that *per-stream* progressive
+  fleets (`Puppeteer HPH – Tuesday` / `– Saturday`) are still ordinary fleets:
+  the fleet carries the chain state, and a Tuesday sub-series scopes to the
+  Tuesday fleet. "Combined" is one sub-series holding both streams' fleets.
+
+- A member race may be **struck for one fleet** (`SubSeries.raceFleetExclusions`,
+  a sparse list of `{raceId, fleetId}`) — a single-competitor heat that doesn't
+  count, or a heat abandoned for one class's Overall but not another's (Q1/Q3/Q5).
+  Engine-wise this reuses the existing abandoned-race path: the struck race stays
+  a **column** in the block (so every fleet's per-race arrays line up) but scores
+  0, earns no discard credit, and **does not advance** the progressive chain
+  (Phase B is skipped for it). Single-competitor exclusion is therefore *manual*,
+  modelled as an explicit exclusion rather than inferred — closing #232.
+
+The per-stream end-of-series handicap a **follow-on** (#201) seeds from is read
+per sub-series, not from one whole-series chain: `listTcfHistory` computes the
+chains per sub-series when any exist, so each per-stream fleet rolls over from
+its own last block.
+
 **Fallback — a chain spanning multiple sub-series ("option B").** If a Tuesday
 result should ever need to carry into Saturday even where the above rationale is
 understood, the additive fix is an opt-in **shared rating basis**: a group of

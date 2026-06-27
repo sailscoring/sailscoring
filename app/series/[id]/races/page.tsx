@@ -642,7 +642,7 @@ export default function RacesPage({
               own standings, discards, and (for NHC/ECHO) its own handicaps.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
             <div className="space-y-1.5">
               <Label htmlFor="subSeriesName">Name</Label>
               <Input
