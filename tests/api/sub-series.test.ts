@@ -17,6 +17,7 @@ import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import * as series from '@/lib/api-handlers/series';
 import * as races from '@/lib/api-handlers/races';
+import * as fleetsApi from '@/lib/api-handlers/fleets';
 import * as subSeries from '@/lib/api-handlers/sub-series';
 import type { Race } from '@/lib/types';
 
@@ -186,6 +187,70 @@ describe.skipIf(skip)('sub-series handlers', () => {
     expect(new Set(blocks[0].raceIds)).toEqual(new Set([raceList[1].id, raceList[2].id]));
     // The races (including the shared one) are untouched.
     expect((await races.listRaces(ctxA, seriesId)).map((r) => r.raceNumber)).toEqual([1, 2, 3]);
+  });
+
+  async function addFleet(seriesId: string, name: string, displayOrder: number): Promise<string> {
+    const id = uuid();
+    await fleetsApi.putFleet(ctxA, seriesId, id, {
+      id, seriesId, name, displayOrder, scoringSystem: 'scratch' as const,
+    });
+    return id;
+  }
+
+  test('create persists fleet scoping and per-fleet exclusions', async () => {
+    const { seriesId, raceList } = await makeSeriesWithRaces(3);
+    const f1 = await addFleet(seriesId, 'Cruisers', 0);
+    const f2 = await addFleet(seriesId, 'Whitesails', 1);
+
+    const ss = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'Cruisers Champ',
+      raceIds: raceList.map((r) => r.id),
+      fleetIds: [f1],
+      raceFleetExclusions: [{ raceId: raceList[1].id, fleetId: f1 }],
+    });
+    expect(ss.fleetIds).toEqual([f1]);
+    expect(ss.raceFleetExclusions).toEqual([{ raceId: raceList[1].id, fleetId: f1 }]);
+
+    const [reloaded] = await subSeries.listSubSeries(ctxA, seriesId);
+    expect(reloaded.fleetIds).toEqual([f1]);
+    expect(reloaded.raceFleetExclusions).toEqual([{ raceId: raceList[1].id, fleetId: f1 }]);
+    void f2;
+  });
+
+  test('drops out-of-series fleets and exclusions outside the scope', async () => {
+    const { seriesId, raceList } = await makeSeriesWithRaces(2);
+    const f1 = await addFleet(seriesId, 'A', 0);
+    const otherFleet = uuid(); // not a fleet of this series
+
+    const ss = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'Scoped',
+      raceIds: [raceList[0].id],
+      fleetIds: [f1, otherFleet],
+      raceFleetExclusions: [
+        { raceId: raceList[0].id, fleetId: f1 },        // kept
+        { raceId: raceList[1].id, fleetId: f1 },        // race not a member → dropped
+        { raceId: raceList[0].id, fleetId: otherFleet }, // out-of-scope fleet → dropped
+      ],
+    });
+    expect(ss.fleetIds).toEqual([f1]);
+    expect(ss.raceFleetExclusions).toEqual([{ raceId: raceList[0].id, fleetId: f1 }]);
+  });
+
+  test('PUT can clear fleet scoping back to all fleets', async () => {
+    const { seriesId, raceList } = await makeSeriesWithRaces(1);
+    const f1 = await addFleet(seriesId, 'A', 0);
+    const ss = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'Scoped', raceIds: [raceList[0].id], fleetIds: [f1],
+    });
+    expect(ss.fleetIds).toEqual([f1]);
+
+    const cleared = await subSeries.putSubSeries(ctxA, seriesId, ss.id, {
+      ...ss, fleetIds: undefined, raceFleetExclusions: undefined,
+    });
+    expect(cleared.fleetIds).toBeUndefined();
+
+    const [reloaded] = await subSeries.listSubSeries(ctxA, seriesId);
+    expect(reloaded.fleetIds).toBeUndefined();
   });
 
   test('cross-workspace access 404s', async () => {

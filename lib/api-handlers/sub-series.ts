@@ -9,7 +9,30 @@ import {
   subSeriesCreateInputSchema,
   subSeriesInputSchema,
 } from '@/lib/validation/sub-series';
-import type { SubSeries } from '@/lib/types';
+import type { SubSeries, SubSeriesRaceExclusion } from '@/lib/types';
+
+/**
+ * Constrain a sub-series' fleet scoping and per-fleet exclusions to the series'
+ * own fleets and the sub-series' member races. An all-invalid `fleetIds`
+ * collapses to undefined (= all fleets); exclusions referencing a non-member
+ * race or an out-of-scope fleet are dropped.
+ */
+function sanitizeScope(
+  fleetIds: string[] | undefined,
+  raceFleetExclusions: SubSeriesRaceExclusion[] | undefined,
+  seriesFleetIds: Set<string>,
+  memberRaceIds: Set<string>,
+): { fleetIds?: string[]; raceFleetExclusions?: SubSeriesRaceExclusion[] } {
+  const scoped = fleetIds?.filter((id) => seriesFleetIds.has(id));
+  const effectiveFleetIds = scoped && scoped.length > 0 ? new Set(scoped) : seriesFleetIds;
+  const exclusions = (raceFleetExclusions ?? []).filter(
+    (ex) => memberRaceIds.has(ex.raceId) && effectiveFleetIds.has(ex.fleetId),
+  );
+  return {
+    ...(scoped && scoped.length > 0 ? { fleetIds: scoped } : {}),
+    ...(exclusions.length > 0 ? { raceFleetExclusions: exclusions } : {}),
+  };
+}
 
 /**
  * Sub-series (#203): named selections of races inside one series, each scored
@@ -67,11 +90,20 @@ export async function createSubSeries(
   const input = subSeriesCreateInputSchema.parse(body);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
 
-  const [blocks, races] = await Promise.all([
+  const [blocks, races, fleets] = await Promise.all([
     repos.subSeries.listBySeries(seriesId),
     repos.races.listBySeries(seriesId),
+    repos.fleets.listBySeries(seriesId),
   ]);
   const seriesRaceIds = new Set(races.map((r) => r.id));
+  const seriesFleetIds = new Set(fleets.map((f) => f.id));
+  const raceIds = (input.raceIds ?? []).filter((id) => seriesRaceIds.has(id));
+  const scope = sanitizeScope(
+    input.fleetIds,
+    input.raceFleetExclusions,
+    seriesFleetIds,
+    new Set(raceIds),
+  );
 
   const saved = await repos.subSeries.save(
     {
@@ -79,7 +111,8 @@ export async function createSubSeries(
       seriesId,
       name: input.name,
       displayOrder: blocks.length,
-      raceIds: (input.raceIds ?? []).filter((id) => seriesRaceIds.has(id)),
+      raceIds,
+      ...scope,
       startingHandicapSource: input.startingHandicapSource,
       continueFromSubSeriesId: input.continueFromSubSeriesId ?? null,
     },
@@ -112,13 +145,28 @@ export async function putSubSeries(
   if (id !== pathSubSeriesId) throw new NotFoundError('sub-series id mismatch');
   if (input.seriesId !== seriesId) throw new NotFoundError('sub-series series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  const [existing, races] = await Promise.all([
+  const [existing, races, fleets] = await Promise.all([
     repos.subSeries.get(id),
     repos.races.listBySeries(seriesId),
+    repos.fleets.listBySeries(seriesId),
   ]);
   const seriesRaceIds = new Set(races.map((r) => r.id));
+  const seriesFleetIds = new Set(fleets.map((f) => f.id));
+  const raceIds = input.raceIds.filter((rid) => seriesRaceIds.has(rid));
+  const scope = sanitizeScope(
+    input.fleetIds,
+    input.raceFleetExclusions,
+    seriesFleetIds,
+    new Set(raceIds),
+  );
   const saved = await repos.subSeries.save(
-    { ...input, id, raceIds: input.raceIds.filter((rid) => seriesRaceIds.has(rid)) },
+    {
+      ...input,
+      id,
+      raceIds,
+      fleetIds: scope.fleetIds,
+      raceFleetExclusions: scope.raceFleetExclusions,
+    },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
   await trackChange(workspace, {

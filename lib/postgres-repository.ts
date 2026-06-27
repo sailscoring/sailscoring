@@ -38,6 +38,7 @@ import type {
   ResultCode,
   Series,
   SubSeries,
+  SubSeriesRaceExclusion,
 } from './types';
 
 /**
@@ -165,13 +166,19 @@ function raceRowToType(row: RaceRow): Race {
   };
 }
 
-function subSeriesRowToType(row: SubSeriesRow, raceIds: string[]): SubSeries {
+function subSeriesRowToType(
+  row: SubSeriesRow,
+  raceIds: string[],
+  raceFleetExclusions: SubSeriesRaceExclusion[] = [],
+): SubSeries {
   return {
     id: row.id,
     seriesId: row.seriesId,
     name: row.name,
     displayOrder: row.displayOrder,
     raceIds,
+    ...(row.fleetIds ? { fleetIds: row.fleetIds } : {}),
+    ...(raceFleetExclusions.length > 0 ? { raceFleetExclusions } : {}),
     startingHandicapSource: row.startingHandicapSource as SubSeries['startingHandicapSource'],
     continueFromSubSeriesId: row.continueFromSubSeriesId,
     version: row.version,
@@ -1142,13 +1149,14 @@ function subSeriesToRow(s: SubSeries, workspaceId: string) {
     workspaceId,
     name: s.name,
     displayOrder: s.displayOrder,
+    fleetIds: s.fleetIds ?? null,
     startingHandicapSource: s.startingHandicapSource ?? 'base',
     continueFromSubSeriesId: s.continueFromSubSeriesId ?? null,
   };
 }
 
 const subSeriesUpdateColumns = [
-  'name', 'displayOrder', 'startingHandicapSource', 'continueFromSubSeriesId',
+  'name', 'displayOrder', 'fleetIds', 'startingHandicapSource', 'continueFromSubSeriesId',
 ] as const satisfies readonly (keyof ReturnType<typeof subSeriesToRow>)[];
 
 export class PostgresSubSeriesRepository implements SubSeriesRepository {
@@ -1160,16 +1168,22 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
     this.workspaceId = ctx.workspaceId;
   }
 
-  /** Member race ids for each given sub-series id (many-to-many). */
-  private async raceIdsBySubSeries(
+  /**
+   * Member race ids and per-fleet exclusions for each given sub-series id
+   * (many-to-many). Exclusions live on the join row's `excludedFleetIds`.
+   */
+  private async membershipBySubSeries(
     subSeriesIds: string[],
-  ): Promise<Map<string, string[]>> {
-    const byId = new Map<string, string[]>(subSeriesIds.map((id) => [id, []]));
+  ): Promise<Map<string, { raceIds: string[]; exclusions: SubSeriesRaceExclusion[] }>> {
+    const byId = new Map<string, { raceIds: string[]; exclusions: SubSeriesRaceExclusion[] }>(
+      subSeriesIds.map((id) => [id, { raceIds: [], exclusions: [] }]),
+    );
     if (subSeriesIds.length === 0) return byId;
     const rows = await this.db
       .select({
         subSeriesId: schema.subSeriesRaces.subSeriesId,
         raceId: schema.subSeriesRaces.raceId,
+        excludedFleetIds: schema.subSeriesRaces.excludedFleetIds,
         raceNumber: schema.races.raceNumber,
       })
       .from(schema.subSeriesRaces)
@@ -1182,13 +1196,25 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
       )
       .orderBy(schema.races.raceNumber);
     for (const row of rows) {
-      byId.get(row.subSeriesId)?.push(row.raceId);
+      const entry = byId.get(row.subSeriesId);
+      if (!entry) continue;
+      entry.raceIds.push(row.raceId);
+      for (const fleetId of row.excludedFleetIds ?? []) {
+        entry.exclusions.push({ raceId: row.raceId, fleetId });
+      }
     }
     return byId;
   }
 
-  /** Replace a sub-series' membership rows from its `raceIds` (workspace-scoped). */
-  private async writeMembership(subSeriesId: string, raceIds: string[]): Promise<void> {
+  /**
+   * Replace a sub-series' membership rows from its `raceIds`, carrying each
+   * race's per-fleet exclusions (workspace-scoped).
+   */
+  private async writeMembership(
+    subSeriesId: string,
+    raceIds: string[],
+    raceFleetExclusions: SubSeriesRaceExclusion[] = [],
+  ): Promise<void> {
     await this.db
       .delete(schema.subSeriesRaces)
       .where(
@@ -1199,11 +1225,18 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
       );
     const valid = await filterRaceIdsByWorkspace(this.db, this.workspaceId, raceIds);
     if (valid.length === 0) return;
+    const excludedByRace = new Map<string, string[]>();
+    for (const ex of raceFleetExclusions) {
+      const list = excludedByRace.get(ex.raceId) ?? [];
+      list.push(ex.fleetId);
+      excludedByRace.set(ex.raceId, list);
+    }
     await this.db.insert(schema.subSeriesRaces).values(
       valid.map((raceId) => ({
         subSeriesId,
         raceId,
         workspaceId: this.workspaceId,
+        excludedFleetIds: excludedByRace.get(raceId) ?? [],
       })),
     );
   }
@@ -1219,8 +1252,11 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
         ),
       )
       .orderBy(schema.subSeries.displayOrder);
-    const membership = await this.raceIdsBySubSeries(rows.map((r) => r.id));
-    return rows.map((row) => subSeriesRowToType(row, membership.get(row.id) ?? []));
+    const membership = await this.membershipBySubSeries(rows.map((r) => r.id));
+    return rows.map((row) => {
+      const m = membership.get(row.id);
+      return subSeriesRowToType(row, m?.raceIds ?? [], m?.exclusions ?? []);
+    });
   }
 
   async get(id: string): Promise<SubSeries | undefined> {
@@ -1235,8 +1271,9 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
       )
       .limit(1);
     if (!row) return undefined;
-    const membership = await this.raceIdsBySubSeries([id]);
-    return subSeriesRowToType(row, membership.get(id) ?? []);
+    const membership = await this.membershipBySubSeries([id]);
+    const m = membership.get(id);
+    return subSeriesRowToType(row, m?.raceIds ?? [], m?.exclusions ?? []);
   }
 
   async save(s: SubSeries, opts?: SaveOpts): Promise<SubSeries> {
@@ -1251,8 +1288,14 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
       tenancy: { kind: 'workspace' },
       opts,
     });
-    await this.writeMembership(s.id, s.raceIds);
-    return { ...saved, raceIds: [...s.raceIds] };
+    await this.writeMembership(s.id, s.raceIds, s.raceFleetExclusions ?? []);
+    return {
+      ...saved,
+      raceIds: [...s.raceIds],
+      ...(s.raceFleetExclusions && s.raceFleetExclusions.length > 0
+        ? { raceFleetExclusions: [...s.raceFleetExclusions] }
+        : {}),
+    };
   }
 
   async saveMany(list: SubSeries[], opts?: SaveOpts): Promise<void> {

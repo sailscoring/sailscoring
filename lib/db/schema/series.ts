@@ -411,6 +411,9 @@ export const subSeries = pgTable(
       .references(() => organization.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     displayOrder: integer('display_order').notNull(),
+    // The fleets this sub-series scores. Null (the common case) means all the
+    // series' fleets; a non-null list scopes it to those fleets only.
+    fleetIds: uuid('fleet_ids').array(),
     // Where the progressive-handicap chain seeds from when this sub-series is
     // scored: 'base' (class / series-start numbers) or 'continue' (the end-of-
     // chain handicaps of `continueFromSubSeriesId`). See the handicap-scoring
@@ -475,6 +478,14 @@ export const subSeriesRaces = pgTable(
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
+    // Fleets for which this race doesn't count *in this sub-series* — a heat
+    // struck for one fleet only. Empty (the common case) means it counts for
+    // every scored fleet. The exclusion is a property of membership, so it
+    // lives on the join row.
+    excludedFleetIds: uuid('excluded_fleet_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
   },
   (table) => [
     primaryKey({ columns: [table.subSeriesId, table.raceId] }),
