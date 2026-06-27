@@ -1,5 +1,11 @@
 # RYA Portsmouth Yardstick source data
 
+> ⚠ **Refresh annually.** These are live build inputs — the RYA republishes the
+> PY lists about once a year. When they do, replace the files here and
+> regenerate (see [Refreshing](#refreshing-annually) below). Unlike IRC and
+> Irish Sailing, there is no live fetch: the bundled dataset is only ever as
+> current as these committed sources.
+
 External source material for the bundled PY dataset (`lib/rya-py/generated/py-list.ts`),
 read by the "RYA Portsmouth Yardstick" source in the Update-handicaps dialog. The
 PY numbers change at most once a year, so the dataset is generated at build time

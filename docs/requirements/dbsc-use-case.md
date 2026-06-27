@@ -179,7 +179,7 @@ the engine (from the HYC use case); **ORC Club, VPRS, YTC and PY are new**.
 | **ORC Club** | Time-on-time/distance, wind-band | C0–3 *if class requests* | RC selects a wind band per race by VHF; uses a custom scoring option from cert page 2 (A15.7–15.9) |
 | **VPRS** | Rating | Mixed Sportsboats, C4A+5A, C4B+5B | New to the engine |
 | **YTC** | Rating | Optional substitute for IRC or VPRS | New; "Yacht Time Correction" (RYA keelboat scheme) |
-| **PY (Portsmouth Yardstick)** | Yardstick | Mermaid+Glen combined (if < 3 Mermaids) | RYA PY data imported under `reference/data/rya-py/` |
+| **PY (Portsmouth Yardstick)** | Yardstick | Mermaid+Glen combined (if < 3 Mermaids) | RYA PY data imported under `scripts/data/rya-py/` |
 
 ### ECHO (Progressive) — the central system
 

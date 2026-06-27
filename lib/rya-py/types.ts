@@ -6,7 +6,7 @@
  * build (regenerated at most once a year from the RYA's published lists — see
  * `scripts/generate-rya-py.ts`), so there is no fetch/cache seam the way IRC and
  * Irish Sailing have. The RYA Class ID is the join key between the PY number
- * lists and the official class register (`reference/data/rya-py/rya-classes.csv`).
+ * lists and the official class register (`scripts/data/rya-py/rya-classes.csv`).
  */
 
 /** Which RYA list an entry came from, lowest-confidence last. The base list is

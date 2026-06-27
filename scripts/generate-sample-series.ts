@@ -11,7 +11,7 @@
  * choices and all IDs are stable strings, so re-running produces a byte-identical
  * file (no churn). The data is entirely synthetic for the regatta; the club
  * series draws *real* boats (names, owners, IRC TCC, ECHO rating) from the Irish
- * Sailing listing in `reference/data/irc-echo-ratings/irc-echo-ratings.csv`.
+ * Sailing listing in `scripts/data/irc-echo-ratings.csv`.
  *
  * Pure data generation — no DB, no scoring engine. The engine recomputes
  * standings when the file is opened. Run via `pnpm generate:sample-series`.
@@ -460,7 +460,7 @@ function natFromSail(sail: string): string {
 
 function loadDualRatedBoats(): BoatRow[] {
   const csv = readFileSync(
-    join(ROOT, 'reference', 'data', 'irc-echo-ratings', 'irc-echo-ratings.csv'),
+    join(ROOT, 'scripts', 'data', 'irc-echo-ratings.csv'),
     'utf8',
   );
   const lines = csv.split(/\r?\n/).filter((l) => l.trim() !== '');

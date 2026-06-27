@@ -10,10 +10,8 @@
  * the complete dataset. So we fetch the page and parse that table.
  *
  * This module is pure (no `server-only`, no network) apart from
- * {@link fetchIrishSailingRatings}, which is the single I/O seam. The parser
- * is a direct TS port of the committed reference scraper
- * (`reference/data/irc-echo-ratings/fetch_irc_echo_ratings.py`) and is unit
- * tested against a saved HTML fixture.
+ * {@link fetchIrishSailingRatings}, which is the single I/O seam fetching the
+ * live page above. The parser is unit tested against a saved HTML fixture.
  */
 
 export const IRISH_SAILING_RATINGS_URL =
