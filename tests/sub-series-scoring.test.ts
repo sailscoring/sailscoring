@@ -40,6 +40,11 @@ function makeFinish(
 }
 
 const scratchFleet: Fleet = { id: 'f1', seriesId: 's1', name: 'Fleet', displayOrder: 0, scoringSystem: 'scratch' };
+const fleetTwo: Fleet = { id: 'f2', seriesId: 's1', name: 'Fleet Two', displayOrder: 1, scoringSystem: 'scratch' };
+
+function makeMultiFleetCompetitor(id: string, fleetIds: string[]): Competitor {
+  return { id, seriesId: 's1', fleetIds, sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0 };
+}
 
 // ─── groupRacesBySubSeries ───────────────────────────────────────────────────
 
@@ -162,6 +167,78 @@ describe('calculateSubSeriesFleetStandings (scratch)', () => {
     const springB = springStandings.find((s) => s.competitor.id === 'B')!;
     expect(springB.raceCodes[0]).toBe('DNC');
     expect(springB.racePoints[0]).toBe(5);
+  });
+});
+
+// ─── calculateSubSeriesFleetStandings: fleet-scoping ─────────────────────────
+
+describe('calculateSubSeriesFleetStandings (fleet-scoping)', () => {
+  // Three boats in f1, two in f2; A is in both fleets.
+  const competitors = [
+    makeMultiFleetCompetitor('A', ['f1', 'f2']),
+    makeMultiFleetCompetitor('B', ['f1']),
+    makeMultiFleetCompetitor('C', ['f1']),
+    makeMultiFleetCompetitor('D', ['f2']),
+  ];
+  const races = [makeRace('r1', 1), makeRace('r2', 2)];
+  const finishes = ['r1', 'r2'].flatMap((r) => [
+    makeFinish(r, 'A', 1), makeFinish(r, 'B', 2), makeFinish(r, 'C', 3), makeFinish(r, 'D', 4),
+  ]);
+
+  it('absent fleetIds scores every fleet (unchanged default)', () => {
+    const all = makeSubSeries('all', 'Overall', 0, ['r1', 'r2']);
+    const [block] = calculateSubSeriesFleetStandings(
+      [all], [scratchFleet, fleetTwo], competitors, races, finishes,
+    );
+    expect(block.fleetStandings.map((fs) => fs.fleet.id)).toEqual(['f1', 'f2']);
+  });
+
+  it('scopes standings to the named fleets and drops out-of-scope entrants', () => {
+    const f1Only = makeSubSeries('one', 'F1 only', 0, ['r1', 'r2'], { fleetIds: ['f1'] });
+    const [block] = calculateSubSeriesFleetStandings(
+      [f1Only], [scratchFleet, fleetTwo], competitors, races, finishes,
+    );
+    // Only f1 is scored; D (f2-only) doesn't fall through to an Unknown bucket.
+    expect(block.fleetStandings.map((fs) => fs.fleet.id)).toEqual(['f1']);
+    const ids = block.fleetStandings[0].standings.map((s) => s.competitor.id).sort();
+    expect(ids).toEqual(['A', 'B', 'C']);
+  });
+});
+
+// ─── calculateSubSeriesFleetStandings: per-fleet exclusion ───────────────────
+
+describe('calculateSubSeriesFleetStandings (per-fleet exclusion)', () => {
+  // Two fleets share r1–r3. r2 is struck for f1 only.
+  const competitors = [
+    makeMultiFleetCompetitor('A', ['f1']),
+    makeMultiFleetCompetitor('B', ['f1']),
+    makeMultiFleetCompetitor('C', ['f2']),
+    makeMultiFleetCompetitor('D', ['f2']),
+  ];
+  const races = [makeRace('r1', 1), makeRace('r2', 2), makeRace('r3', 3)];
+  const finishes = ['r1', 'r2', 'r3'].flatMap((r) => [
+    makeFinish(r, 'A', 1), makeFinish(r, 'B', 2), makeFinish(r, 'C', 3), makeFinish(r, 'D', 4),
+  ]);
+
+  const overall = makeSubSeries('all', 'Overall', 0, ['r1', 'r2', 'r3'], {
+    raceFleetExclusions: [{ raceId: 'r2', fleetId: 'f1' }],
+  });
+  const [block] = calculateSubSeriesFleetStandings(
+    [overall], [scratchFleet, fleetTwo], competitors, races, finishes,
+  );
+  const f1 = block.fleetStandings.find((fs) => fs.fleet.id === 'f1')!;
+  const f2 = block.fleetStandings.find((fs) => fs.fleet.id === 'f2')!;
+
+  it('strikes the excluded race from the affected fleet only', () => {
+    // f1 scores 2 races (r2 struck); f2 scores all 3.
+    for (const s of f1.standings) expect(s.racePoints).toHaveLength(2);
+    for (const s of f2.standings) expect(s.racePoints).toHaveLength(3);
+  });
+
+  it('leaves the race intact for every other fleet', () => {
+    expect(block.races.map((r) => r.id)).toEqual(['r1', 'r2', 'r3']);
+    const c = f2.standings.find((s) => s.competitor.id === 'C')!;
+    expect(c.racePoints).toEqual([1, 1, 1]); // C wins f2 in all three races
   });
 });
 

@@ -1,0 +1,112 @@
+description: "Sub-series — a race struck for one fleet only (single-competitor heat)"
+rrs_notes: "Per-fleet race exclusion; the heat is dropped from the affected fleet's points, race count, and discards"
+notes: |
+  Two fleets share one three-race series: Class A (301, 302) and Class B
+  (401, 402, 403). They race together, scored separately.
+
+  Race 2 drew only one Class A boat (301), so under the SIs the heat is
+  struck for Class A — it doesn't count for that fleet at all. Class B had
+  a full turnout, so race 2 counts for them normally.
+
+  Modelled as a per-fleet exclusion of race 2 for Class A in the "Overall"
+  sub-series. The effect:
+    - Class A scores two races (1 and 3). Race 2 vanishes from the fleet —
+      301's win there doesn't count, and 302 (which sat it out) takes no
+      penalty for it.
+    - Class B scores all three races.
+  The race stays in the sub-series; only Class A is excluded from it.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - sailNumber: "301"
+    name: "Alpha One"
+    fleet: "Class A"
+  - sailNumber: "302"
+    name: "Alpha Two"
+    fleet: "Class A"
+  - sailNumber: "401"
+    name: "Bravo One"
+    fleet: "Class B"
+  - sailNumber: "402"
+    name: "Bravo Two"
+    fleet: "Class B"
+  - sailNumber: "403"
+    name: "Bravo Three"
+    fleet: "Class B"
+
+subSeriesConfig:
+  - name: "Overall"
+    exclude:
+      - { race: 2, fleet: "Class A" }
+
+races:
+  - number: 1
+    subSeries: "Overall"
+    finishes:
+      - { sailor: "301", position: 1 }
+      - { sailor: "401", position: 2 }
+      - { sailor: "302", position: 3 }
+      - { sailor: "402", position: 4 }
+      - { sailor: "403", position: 5 }
+  - number: 2
+    subSeries: "Overall"
+    finishes:
+      - { sailor: "301", position: 1 }
+      - { sailor: "401", position: 2 }
+      - { sailor: "402", position: 3 }
+      - { sailor: "403", position: 4 }
+  - number: 3
+    subSeries: "Overall"
+    finishes:
+      - { sailor: "301", position: 1 }
+      - { sailor: "402", position: 2 }
+      - { sailor: "302", position: 3 }
+      - { sailor: "401", position: 4 }
+      - { sailor: "403", position: 5 }
+
+expected:
+  subSeries:
+    - name: "Overall"
+      standings:
+        - rank: 1
+          sailor: "301"
+          fleet: "Class A"
+          racePoints: [1, 1]
+          raceCodes: [null, null]
+          raceDiscards: [false, false]
+          totalPoints: 2
+          netPoints: 2
+        - rank: 2
+          sailor: "302"
+          fleet: "Class A"
+          racePoints: [2, 2]
+          raceCodes: [null, null]
+          raceDiscards: [false, false]
+          totalPoints: 4
+          netPoints: 4
+        - rank: 1
+          sailor: "401"
+          fleet: "Class B"
+          racePoints: [1, 1, 2]
+          raceCodes: [null, null, null]
+          raceDiscards: [false, false, false]
+          totalPoints: 4
+          netPoints: 4
+        - rank: 2
+          sailor: "402"
+          fleet: "Class B"
+          racePoints: [2, 2, 1]
+          raceCodes: [null, null, null]
+          raceDiscards: [false, false, false]
+          totalPoints: 5
+          netPoints: 5
+        - rank: 3
+          sailor: "403"
+          fleet: "Class B"
+          racePoints: [3, 3, 3]
+          raceCodes: [null, null, null]
+          raceDiscards: [false, false, false]
+          totalPoints: 9
+          netPoints: 9

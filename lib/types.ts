@@ -219,6 +219,18 @@ export interface CompetitorIdentity {
 export type StartingHandicapSource = 'base' | 'continue';
 
 /**
+ * One race excluded from one fleet's scoring *within a sub-series* — "race R
+ * doesn't count for fleet F here". The race stays a member for every other
+ * fleet, and counts normally in any other sub-series it belongs to. Models a
+ * single-competitor heat struck for one fleet, or an abandoned heat dropped
+ * from one fleet's Overall (DBSC CLARIFICATIONS Q1/Q3/Q5).
+ */
+export interface SubSeriesRaceExclusion {
+  raceId: string;
+  fleetId: string;
+}
+
+/**
  * A named selection of races inside a series, scored independently over those
  * races: its own standings, discards, and (for NHC/ECHO) its own progressive
  * handicap chain. It is HalSail's "tandem series". Sub-series may overlap and a
@@ -233,6 +245,14 @@ export interface SubSeries {
   // The races this sub-series selects (many-to-many; races may belong to
   // several sub-series). Scoring orders them by raceNumber regardless.
   raceIds: string[];
+  // The fleets this sub-series scores. Absent (the common case) means all the
+  // series' fleets — ordinary blocks stay fleet-agnostic and one-gesture. When
+  // present, only these fleets get standings and a published page for this
+  // sub-series; competitors outside them are not scored here.
+  fleetIds?: string[];
+  // Per-fleet race exclusions (see SubSeriesRaceExclusion). Sparse — present
+  // only for the rare struck/abandoned heats.
+  raceFleetExclusions?: SubSeriesRaceExclusion[];
   // Seed source for this sub-series' progressive chain (default 'base').
   startingHandicapSource?: StartingHandicapSource;
   continueFromSubSeriesId?: string | null;

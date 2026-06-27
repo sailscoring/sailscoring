@@ -1633,6 +1633,10 @@ function detectPerFleetGaps(
  * @param progressiveSeedTcfs  Per-fleet applied-TCF seeds (fleetId →
  *   competitorId → TCF) for scoring a block of races mid-chain; see
  *   calculateSubSeriesFleetStandings
+ * @param excludedRaceIdsByFleet  Per-fleet race exclusions (fleetId → set of
+ *   raceIds that don't count for that fleet). Used by sub-series scoring to
+ *   strike a race for one fleet only; the race vanishes from that fleet's
+ *   points, discards, race count, and chain. See calculateSubSeriesFleetStandings.
  */
 export function calculateFleetStandings(
   fleets: Fleet[],
@@ -1644,6 +1648,7 @@ export function calculateFleetStandings(
   raceStarts: RaceStart[] = [],
   ratingOverrides: RaceRatingOverride[] = [],
   progressiveSeedTcfs?: Map<string, Map<string, number>>,
+  excludedRaceIdsByFleet?: Map<string, Set<string>>,
 ): FleetStandingsResult {
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
   const knownFleetIds = new Set(fleets.map((f) => f.id));
@@ -1668,10 +1673,17 @@ export function calculateFleetStandings(
   const allCircular: number[] = [];
   const fleetStandings = sorted.map((fleet) => {
     const fleetCompetitors = competitorsByFleet.get(fleet.id) ?? [];
+    // A race excluded for this fleet vanishes from its scoring entirely: it
+    // doesn't appear in the fleet's race set, so it never contributes points,
+    // never counts toward discards, and (for progressive fleets) is skipped by
+    // the chain. Other fleets still score it.
+    const excluded = excludedRaceIdsByFleet?.get(fleet.id);
+    const fleetRaces =
+      excluded && excluded.size > 0 ? races.filter((r) => !excluded.has(r.id)) : races;
     if (fleet.scoringSystem !== 'scratch') {
       const { standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory, circularRedressRaces } = calculateHandicapStandings(
         fleetCompetitors,
-        races,
+        fleetRaces,
         allFinishes,
         raceStarts,
         fleet,
@@ -1685,7 +1697,7 @@ export function calculateFleetStandings(
     }
     const { standings, circularRedressRaces } = calculateStandings(
       fleetCompetitors,
-      races,
+      fleetRaces,
       allFinishes,
       discardThresholds,
       dnfScoring,
@@ -1798,6 +1810,12 @@ export interface SubSeriesStandings {
  * ratings of `continueFromSubSeriesId` (computed first), which is arithmetically
  * identical to one chain spanning both. See the handicap-scoring design doc,
  * "Shared progressive chain across overlapping series".
+ *
+ * A sub-series may be **fleet-scoped** (`fleetIds`): only those fleets are
+ * scored and get a published page (absent means all the series' fleets). It may
+ * also carry **per-fleet race exclusions** (`raceFleetExclusions`): a member
+ * race that doesn't count for one fleet — struck for that fleet's points,
+ * discards, race count, and chain, while still scoring for the others.
  */
 export function calculateSubSeriesFleetStandings(
   subSeriesList: SubSeries[],
@@ -1826,8 +1844,27 @@ export function calculateSubSeriesFleetStandings(
     const blockRaces = memberRaces(subSeries);
     const blockRaceIds = new Set(blockRaces.map((r) => r.id));
     const blockFinishes = allFinishes.filter((f) => blockRaceIds.has(f.raceId));
+
+    // Fleet-scoping: absent fleetIds means every fleet (the common case). When
+    // scoped, only the named fleets are scored, and entrants outside them are
+    // dropped so they don't fall through to the "Unknown" fleet bucket.
+    const scopedFleetIds = subSeries.fleetIds ? new Set(subSeries.fleetIds) : null;
+    const blockFleets = scopedFleetIds ? fleets.filter((f) => scopedFleetIds.has(f.id)) : fleets;
+
     const entrantIds = subSeriesEntrantIds(blockRaces, blockFinishes);
-    const entrants = competitors.filter((c) => entrantIds.has(c.id));
+    const entrants = competitors.filter(
+      (c) =>
+        entrantIds.has(c.id) &&
+        (scopedFleetIds === null || c.fleetIds.some((fid) => scopedFleetIds.has(fid))),
+    );
+
+    // Per-fleet race exclusions → fleetId → set of struck raceIds.
+    const excludedByFleet = new Map<string, Set<string>>();
+    for (const ex of subSeries.raceFleetExclusions ?? []) {
+      const set = excludedByFleet.get(ex.fleetId) ?? new Set<string>();
+      set.add(ex.raceId);
+      excludedByFleet.set(ex.fleetId, set);
+    }
 
     const seedTcfs =
       subSeries.startingHandicapSource === 'continue' && subSeries.continueFromSubSeriesId
@@ -1835,7 +1872,7 @@ export function calculateSubSeriesFleetStandings(
         : undefined;
 
     const { fleetStandings, circularRedressRaces } = calculateFleetStandings(
-      fleets,
+      blockFleets,
       entrants,
       blockRaces,
       blockFinishes,
@@ -1844,6 +1881,7 @@ export function calculateSubSeriesFleetStandings(
       raceStarts,
       ratingOverrides,
       seedTcfs,
+      excludedByFleet.size > 0 ? excludedByFleet : undefined,
     );
 
     const endByFleet = new Map<string, Map<string, number>>();

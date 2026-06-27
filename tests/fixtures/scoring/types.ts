@@ -100,9 +100,10 @@ export interface FixtureRejection {
 export interface FixtureRace {
   number?: number;
   startTime?: string;
-  /** Sub-series (block) this race belongs to, by name. Either every race
-   *  names a block or none does. */
-  subSeries?: string;
+  /** Sub-series this race belongs to, by name. A single name or a list (a
+   *  race may belong to several — the many-to-many membership). Either every
+   *  race names at least one or none does. */
+  subSeries?: string | string[];
   finishes: FixtureFinish[];
   expected?: FixtureRaceExpected[];
   aggregates?: FixtureAggregates;
@@ -151,6 +152,17 @@ export interface FixtureSubSeriesExpected {
   standings: FixtureStanding[];
 }
 
+/**
+ * Optional per-sub-series scoping, matched to a block by name. `fleets` scopes
+ * the sub-series to a fleet subset (absent = all). `exclude` strikes a race for
+ * one fleet within this sub-series (race by number, fleet by name).
+ */
+export interface FixtureSubSeriesConfig {
+  name: string;
+  fleets?: string[];
+  exclude?: { race: number; fleet: string }[];
+}
+
 export interface Fixture {
   description: string;
   rrs_notes?: string;
@@ -164,6 +176,8 @@ export interface Fixture {
   // previous one's progressive chain (startingHandicapSource: 'continue').
   // Models a single chain spanning contiguous blocks.
   subSeriesCarryChain?: boolean;
+  // Optional per-sub-series scoping (fleet subset, per-fleet race exclusions).
+  subSeriesConfig?: FixtureSubSeriesConfig[];
   competitors: FixtureCompetitor[];
   races: FixtureRace[];
   expected: {
@@ -260,11 +274,19 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     };
   });
 
+  const raceSubSeriesNames = (r: FixtureRace): string[] =>
+    r.subSeries == null ? [] : Array.isArray(r.subSeries) ? r.subSeries : [r.subSeries];
+
   const subSeriesIdByName = new Map<string, string>();
+  // Config-declared sub-series register even if no race tags them by name,
+  // so a fleet-scoped block can be defined purely in subSeriesConfig.
   for (const r of fixture.races) {
-    if (r.subSeries && !subSeriesIdByName.has(r.subSeries)) {
-      subSeriesIdByName.set(r.subSeries, `ss-${subSeriesIdByName.size}`);
+    for (const name of raceSubSeriesNames(r)) {
+      if (!subSeriesIdByName.has(name)) subSeriesIdByName.set(name, `ss-${subSeriesIdByName.size}`);
     }
+  }
+  for (const c of fixture.subSeriesConfig ?? []) {
+    if (!subSeriesIdByName.has(c.name)) subSeriesIdByName.set(c.name, `ss-${subSeriesIdByName.size}`);
   }
 
   const races: Race[] = fixture.races.map((r, i) => ({
@@ -290,18 +312,44 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     [...subSeriesIdByName.values()].map((id) => [id, []]),
   );
   fixture.races.forEach((r, i) => {
-    if (r.subSeries) raceIdsBySubSeries.get(subSeriesIdByName.get(r.subSeries)!)!.push(races[i].id);
+    for (const name of raceSubSeriesNames(r)) {
+      raceIdsBySubSeries.get(subSeriesIdByName.get(name)!)!.push(races[i].id);
+    }
   });
-  const subSeriesList: SubSeries[] = [...subSeriesIdByName.entries()].map(([name, id], i, arr) => ({
-    id,
-    seriesId: 's1',
-    name,
-    displayOrder: i,
-    raceIds: raceIdsBySubSeries.get(id) ?? [],
-    ...(fixture.subSeriesCarryChain && i > 0
-      ? { startingHandicapSource: 'continue' as const, continueFromSubSeriesId: arr[i - 1][1] }
-      : {}),
-  }));
+  const configByName = new Map((fixture.subSeriesConfig ?? []).map((c) => [c.name, c]));
+  const subSeriesList: SubSeries[] = [...subSeriesIdByName.entries()].map(([name, id], i, arr) => {
+    const cfg = configByName.get(name);
+    return {
+      id,
+      seriesId: 's1',
+      name,
+      displayOrder: i,
+      raceIds: raceIdsBySubSeries.get(id) ?? [],
+      ...(fixture.subSeriesCarryChain && i > 0
+        ? { startingHandicapSource: 'continue' as const, continueFromSubSeriesId: arr[i - 1][1] }
+        : {}),
+      ...(cfg?.fleets
+        ? {
+            fleetIds: cfg.fleets.map((fn) => {
+              const fid = fleetIdByName.get(fn);
+              if (!fid) throw new Error(`Fixture sub-series "${name}" references unknown fleet "${fn}"`);
+              return fid;
+            }),
+          }
+        : {}),
+      ...(cfg?.exclude
+        ? {
+            raceFleetExclusions: cfg.exclude.map((ex) => {
+              const raceId = raceIdByNumber.get(ex.race);
+              const fleetId = fleetIdByName.get(ex.fleet);
+              if (!raceId) throw new Error(`Fixture sub-series "${name}" excludes unknown race ${ex.race}`);
+              if (!fleetId) throw new Error(`Fixture sub-series "${name}" excludes unknown fleet "${ex.fleet}"`);
+              return { raceId, fleetId };
+            }),
+          }
+        : {}),
+    };
+  });
 
   const raceStarts: RaceStart[] = [];
   const finishes: Finish[] = [];
