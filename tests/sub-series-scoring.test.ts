@@ -6,6 +6,7 @@ import {
   groupRacesBySubSeries,
   subSeriesEntrantIds,
 } from '@/lib/scoring';
+import { endOfSeriesTcfKey, endOfSeriesTcfs } from '@/lib/source-handicaps';
 import type { Competitor, Finish, Fleet, PenaltyCode, Race, SubSeries } from '@/lib/types';
 import { buildFixtureInputs, loadFixturesFromDir } from './fixtures/scoring/types';
 
@@ -314,5 +315,63 @@ describe('calculateSubSeriesFleetStandings (NHC carry)', () => {
         expect(agg.finisherCount).toBe(fullAgg!.finisherCount);
       }
     }
+  });
+});
+
+// ─── Per-stream end-of-series TCF (the listTcfHistory composition) ───────────
+
+describe('end-of-series TCF over independent sub-series blocks', () => {
+  // The same H17 fixture, but split into two *independent* blocks (both seed
+  // from base — no carry). This is the per-stream case: Late re-runs the chain
+  // from base over its own races, so its end-of-chain ratings differ from a
+  // single whole-series chain. This is exactly what listTcfHistory now flattens
+  // and feeds to endOfSeriesTcfs for follow-on seeding.
+  const loaded = loadFixturesFromDir(join(__dirname, 'fixtures/scoring/nhc'));
+  const h17 = loaded.find((l) => l.yamlPath.endsWith('07-h17-hph-multi-race-base-realign.yaml'));
+  if (!h17) throw new Error('H17 NHC fixture not found');
+  const inputs = buildFixtureInputs(h17.fixture);
+  const raceIds = inputs.races.map((r) => r.id);
+
+  const early = makeSubSeries('blk-1', 'Early', 0, raceIds.slice(0, 2));
+  const lateIndependent = makeSubSeries('blk-2', 'Late', 1, raceIds.slice(2)); // no continue → base
+
+  const blocks = calculateSubSeriesFleetStandings(
+    [early, lateIndependent], inputs.fleets, inputs.competitors, inputs.races, inputs.finishes,
+    inputs.discardThresholds, inputs.dnfScoring, inputs.raceStarts,
+  );
+  const subSeriesHistory = blocks.flatMap((b) => b.fleetStandings.flatMap((fr) => fr.tcfHistory ?? []));
+
+  const wholeSeries = calculateFleetStandings(
+    inputs.fleets, inputs.competitors, inputs.races, inputs.finishes,
+    inputs.discardThresholds, inputs.dnfScoring, inputs.raceStarts,
+  ).fleetStandings[0];
+  const wholeHistory = wholeSeries.tcfHistory ?? [];
+
+  it('resolves each boat to its last block end, not the whole-series chain end', () => {
+    const fleetId = inputs.fleets[0].id;
+    const blockEnds = endOfSeriesTcfs(inputs.competitors, inputs.fleets, inputs.races, subSeriesHistory);
+    const wholeEnds = endOfSeriesTcfs(inputs.competitors, inputs.fleets, inputs.races, wholeHistory);
+
+    // The latest race is in the Late block; its independent (from-base) newTcf
+    // is what the per-stream resolution returns.
+    const lastRaceId = raceIds[raceIds.length - 1];
+    const lateNewTcf = new Map(
+      subSeriesHistory.filter((r) => r.raceId === lastRaceId).map((r) => [r.competitorId, r.newTcf]),
+    );
+    expect(lateNewTcf.size).toBeGreaterThan(0);
+
+    let diverged = 0;
+    for (const c of inputs.competitors) {
+      const block = blockEnds.get(endOfSeriesTcfKey(c.id, fleetId));
+      const expected = lateNewTcf.get(c.id);
+      if (expected !== undefined) {
+        expect(block?.endTcf).toBe(expected);
+      }
+      const whole = wholeEnds.get(endOfSeriesTcfKey(c.id, fleetId));
+      if (block && whole && block.endTcf !== whole.endTcf) diverged++;
+    }
+    // The independent re-seed genuinely moves at least one boat's end rating —
+    // otherwise the test would pass vacuously against the whole-series chain.
+    expect(diverged).toBeGreaterThan(0);
   });
 });
