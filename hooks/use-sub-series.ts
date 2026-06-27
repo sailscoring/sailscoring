@@ -37,6 +37,8 @@ export function useCreateSubSeries() {
       input: {
         name: string;
         raceIds?: string[];
+        fleetIds?: string[];
+        raceFleetExclusions?: { raceId: string; fleetId: string }[];
         startingHandicapSource?: 'base' | 'continue';
         continueFromSubSeriesId?: string | null;
       };

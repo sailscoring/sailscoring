@@ -216,6 +216,10 @@ export default function RacesPage({
   const [editingSubSeries, setEditingSubSeries] = useState<SubSeries | null>(null);
   const [subSeriesName, setSubSeriesName] = useState('');
   const [selectedRaceIds, setSelectedRaceIds] = useState<Set<string>>(new Set());
+  // Fleet scoping (default: all fleets). Per-fleet exclusions are keyed
+  // `${raceId}::${fleetId}` — a race struck for one fleet within this block.
+  const [selectedFleetIds, setSelectedFleetIds] = useState<Set<string>>(new Set());
+  const [excludedPairs, setExcludedPairs] = useState<Set<string>>(new Set());
   const [carryFromId, setCarryFromId] = useState('');
   const [subSeriesError, setSubSeriesError] = useState('');
 
@@ -385,10 +389,14 @@ export default function RacesPage({
     }
   }
 
+  const allFleetIds = (fleets ?? []).map((f) => f.id);
+
   function openCreateSubSeries() {
     setEditingSubSeries(null);
     setSubSeriesName('');
     setSelectedRaceIds(new Set());
+    setSelectedFleetIds(new Set(allFleetIds));
+    setExcludedPairs(new Set());
     setCarryFromId('');
     setSubSeriesError('');
     setShowSubSeriesDialog(true);
@@ -398,6 +406,10 @@ export default function RacesPage({
     setEditingSubSeries(ss);
     setSubSeriesName(ss.name);
     setSelectedRaceIds(new Set(ss.raceIds));
+    setSelectedFleetIds(new Set(ss.fleetIds ?? allFleetIds));
+    setExcludedPairs(
+      new Set((ss.raceFleetExclusions ?? []).map((ex) => `${ex.raceId}::${ex.fleetId}`)),
+    );
     setCarryFromId(ss.startingHandicapSource === 'continue' ? ss.continueFromSubSeriesId ?? '' : '');
     setSubSeriesError('');
     setShowSubSeriesDialog(true);
@@ -412,6 +424,25 @@ export default function RacesPage({
     });
   }
 
+  function toggleFleetSelected(fleetId: string) {
+    setSelectedFleetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(fleetId)) next.delete(fleetId);
+      else next.add(fleetId);
+      return next;
+    });
+  }
+
+  function toggleExcluded(raceId: string, fleetId: string) {
+    setExcludedPairs((prev) => {
+      const key = `${raceId}::${fleetId}`;
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   async function handleSaveSubSeries() {
     const name = subSeriesName.trim();
     if (!name) {
@@ -421,18 +452,38 @@ export default function RacesPage({
     const raceIds = (races ?? []).filter((r) => selectedRaceIds.has(r.id)).map((r) => r.id);
     const startingHandicapSource = carryFromId ? ('continue' as const) : ('base' as const);
     const continueFromSubSeriesId = carryFromId || null;
+
+    // Scope to a fleet subset only when fewer than all are picked; all selected
+    // means "all fleets" (the server stores that as absent).
+    const scopedFleetIds = allFleetIds.filter((id) => selectedFleetIds.has(id));
+    const fleetIds =
+      scopedFleetIds.length > 0 && scopedFleetIds.length < allFleetIds.length
+        ? scopedFleetIds
+        : undefined;
+    // Exclusions only matter for selected races and scoped fleets.
+    const effectiveFleetIds = new Set(fleetIds ?? allFleetIds);
+    const selectedRaceIdList = new Set(raceIds);
+    const raceFleetExclusions = [...excludedPairs]
+      .map((key) => {
+        const [raceId, fleetId] = key.split('::');
+        return { raceId, fleetId };
+      })
+      .filter((ex) => selectedRaceIdList.has(ex.raceId) && effectiveFleetIds.has(ex.fleetId));
+
     if (editingSubSeries) {
       await saveSubSeries.mutateAsync({
         ...editingSubSeries,
         name,
         raceIds,
+        fleetIds,
+        raceFleetExclusions,
         startingHandicapSource,
         continueFromSubSeriesId,
       });
     } else {
       await createSubSeries.mutateAsync({
         seriesId,
-        input: { name, raceIds, startingHandicapSource, continueFromSubSeriesId },
+        input: { name, raceIds, fleetIds, raceFleetExclusions, startingHandicapSource, continueFromSubSeriesId },
       });
     }
     setShowSubSeriesDialog(false);
@@ -625,6 +676,65 @@ export default function RacesPage({
                 {selectedRaceIds.size} of {races?.length ?? 0} races selected.
               </p>
             </div>
+            {(fleets?.length ?? 0) > 1 && (
+              <div className="space-y-1.5">
+                <Label>Fleets</Label>
+                <div className="space-y-1 rounded-md border p-2">
+                  {(fleets ?? []).map((fleet) => (
+                    <label
+                      key={fleet.id}
+                      className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedFleetIds.has(fleet.id)}
+                        onChange={() => toggleFleetSelected(fleet.id)}
+                      />
+                      <span className="font-medium">{fleet.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  All fleets are scored unless you narrow this. Scoping to one
+                  fleet keeps the others out of this sub-series&apos; standings.
+                </p>
+              </div>
+            )}
+            {(fleets?.length ?? 0) > 1 && selectedRaceIds.size > 0 && selectedFleetIds.size > 0 && (
+              <details className="rounded-md border p-2">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Per-fleet race exclusions
+                </summary>
+                <p className="mb-2 mt-1 text-xs text-muted-foreground">
+                  Strike a race for one fleet only (e.g. a single-competitor
+                  heat). It still counts for the other fleets.
+                </p>
+                <div className="max-h-48 space-y-2 overflow-y-auto">
+                  {(races ?? [])
+                    .filter((r) => selectedRaceIds.has(r.id))
+                    .map((race) => (
+                      <div key={race.id} className="text-sm">
+                        <span className="font-medium">Race {race.raceNumber}</span>
+                        {race.name && <span className="ml-1 text-muted-foreground">{race.name}</span>}
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                          {(fleets ?? [])
+                            .filter((f) => selectedFleetIds.has(f.id))
+                            .map((fleet) => (
+                              <label key={fleet.id} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={excludedPairs.has(`${race.id}::${fleet.id}`)}
+                                  onChange={() => toggleExcluded(race.id, fleet.id)}
+                                />
+                                <span>Exclude {fleet.name}</span>
+                              </label>
+                            ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </details>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="carryFrom">Continue handicaps from</Label>
               <select

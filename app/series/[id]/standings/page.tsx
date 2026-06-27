@@ -132,8 +132,12 @@ export default function StandingsPage({
     circularRedressRaces = selected.circularRedressRaces;
     const blockDiscards = getDiscardCount(selected.races.length, discardThresholds);
     const entrantCount = subSeriesEntrantIds(selected.races, allFinishes).size;
+    // A fleet-scoped block scores fewer fleets than the series; reflect the
+    // block's own count, not the series-wide one.
+    const blockFleetCount = selected.fleetStandings.filter((fs) => fs.fleet.id !== '__unknown__').length;
+    const blockFleetCountLabel = blockFleetCount > 1 ? ` · ${blockFleetCount} fleets` : '';
     summary =
-      `${selected.races.length} race${selected.races.length === 1 ? '' : 's'}${fleetCountLabel} · Low Point · ` +
+      `${selected.races.length} race${selected.races.length === 1 ? '' : 's'}${blockFleetCountLabel} · Low Point · ` +
       (blockDiscards > 0
         ? `${blockDiscards} discard${blockDiscards > 1 ? 's' : ''}`
         : 'No discards') +
