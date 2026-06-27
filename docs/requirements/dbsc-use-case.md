@@ -7,7 +7,7 @@ Sourced from the 2026 Notice of Race (Keelboats & Water Wags, incl.
 Amendment 1), Sailing Instructions A – General, the DBSC Keelboat Race
 Times 2026 (committee vessels, start sequences, fleet make-up) and the DBSC
 Racing Programme 2026 (calendar and series structure) — all under
-`reference/`. The remaining unseen documents (SI Supplements B/C/D/G/H, the
+`reference-docs:events/dbsc-2026/`. The remaining unseen documents (SI Supplements B/C/D/G/H, the
 RAYC Super League NoR) only affect courses and the deferred Super League;
 items that depend on them are flagged at the end.
 
@@ -202,8 +202,9 @@ Corrected time is `elapsed × ECHO_number`, ranked within the class, with
 the rating re-adjusted after each race — the same shape as HYC's HPH/NHC.
 
 > **Open question.** The DBSC ECHO progressive-adjustment algorithm.
-> `reference/Irish Sailing ECHO guide for clubs 2022.pdf` and
-> `reference/ECHO Rules.pdf` define ECHO generally; we need to confirm
+> `reference-docs:handicap-systems/echo/Irish-Sailing-ECHO-guide-for-clubs-2022.pdf`
+> and `reference-docs:handicap-systems/echo/ECHO-Rules.pdf` define ECHO
+> generally; we need to confirm
 > DBSC follows the standard Irish Sailing progressive method (and that the
 > engine's existing ECHO matches it).
 

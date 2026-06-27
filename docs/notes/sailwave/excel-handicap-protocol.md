@@ -1,7 +1,8 @@
 # Sailwave External Handicap Spreadsheet Protocol — ECHO and NHC
 
-Analysis of the `.xls` files in `reference/sailwave/` (converted to `.xlsx` for
-inspection via openpyxl). Five NHC variants and one ECHO variant were examined.
+Analysis of the Sailwave external-handicap `.xls` spreadsheets (converted to
+`.xlsx` for inspection via openpyxl). Five NHC variants and one ECHO variant
+were examined.
 
 ---
 

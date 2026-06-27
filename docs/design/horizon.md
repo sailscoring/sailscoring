@@ -940,10 +940,10 @@ ECHO pass): certificate-layer features").
 ### VPRS and YTC (DBSC 2026)
 
 The **DBSC 2026 Summer Series** NoR
-(`reference/NoR_Keelboats_Wag_Summer_2026_Amended1.pdf`) adds two rating
-systems Sail Scoring doesn't yet model, both driven by this one real-world
-series. DBSC's general SI
-(`reference/SI-A_Sailing_Instructions_General_2026_v2.pdf`, A15.1) lists the
+(`reference-docs:events/dbsc-2026/NoR-Keelboats-Wag-Summer-amended1.pdf`) adds
+two rating systems Sail Scoring doesn't yet model, both driven by this one
+real-world series. DBSC's general SI
+(`reference-docs:events/dbsc-2026/SI-A-General-v2.pdf`, A15.1) lists the
 full 2026 handicap set — ECHO (Progressive), IRC, VPRS, ORC Club, YTC and PY —
 so with IRC, ECHO and PY in production and ORC Club captured as Phase 3 below,
 VPRS and YTC are the two missing pieces for full DBSC coverage.

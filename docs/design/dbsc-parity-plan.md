@@ -315,7 +315,7 @@ classifies it alongside IRC, not progressive), so if it is time-on-time —
 `corrected = elapsed × rating` — it reuses the existing static-handicap path
 almost verbatim, with a new `vprsRating` competitor field and a fleet
 `scoringSystem: 'vprs'`. The **open unknown is the VPRS corrected-time formula**:
-the rule isn't in `reference/` and we haven't read a VPRS result yet. Two
+the rule isn't in our reference docs and we haven't read a VPRS result yet. Two
 shapes to distinguish:
 
 - **time-on-time** (like IRC/ECHO) — a per-boat coefficient; trivial to add.

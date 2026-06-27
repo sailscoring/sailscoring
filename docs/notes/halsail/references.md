@@ -5,8 +5,9 @@ operation (#235, Output 2). Annotated with what each is good for and its current
 extraction status, so we know what's been mined and what still needs a manual
 pass. Companion to [`data-model.md`](data-model.md).
 
-These are **external sources**, catalogued here (not copied into `reference/`,
-which is for files we vendor). Where a source has been mined, the findings live in
+These are **external sources**, catalogued here (live links and capture status,
+not vendored copies — third-party PDFs we keep live in the `reference-docs`
+sibling repo). Where a source has been mined, the findings live in
 `data-model.md`, not here.
 
 ## Official HalSail (live site)

@@ -273,7 +273,8 @@ core to the HPH system -- every boat's rating changes after every race,
 and the scorer expects this to happen automatically. Implementing this
 requires either obtaining the RYA NHC specification or reverse-engineering
 the algorithm from the Sailwave/SWHelper implementation. The RYA NHC
-Rules and Guidance document is available in `reference/`.
+Rules and Guidance document is available in
+`reference-docs:handicap-systems/rya-nhc/`.
 
 ### Per-Race Ratings
 

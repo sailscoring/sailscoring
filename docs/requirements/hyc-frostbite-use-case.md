@@ -140,8 +140,8 @@ classes use time-based recording).
 
 ## Competitor Data
 
-The competitors CSV (`reference/data/py-example/`) shows the data model
-for this event:
+The competitors CSV captured from this event's Sailwave file shows the data
+model for this event:
 
 | Field | Example | Notes |
 |-------|---------|-------|
@@ -243,8 +243,8 @@ They use the same fleet structure but need separate results.
 
 ## Sailwave Implementation (Reference)
 
-The existing Sailwave file for this event (see `reference/data/py-example/`)
-shows how the current scorer handles the dual fleet structure:
+The existing Sailwave file for this event shows how the current scorer handles
+the dual fleet structure:
 
 - 5 fleets defined: ILCA 4, ILCA 6, ILCA 7, M15, PY
 - ILCA fleets: scored by position (no rating system)
