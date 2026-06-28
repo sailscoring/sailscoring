@@ -581,6 +581,50 @@ UI to assign a scorer to specific series. Not worth the machinery until a real
 panel asks for it; the activity log already records what was done, so the
 workspace-wide scorer role bounds the blast radius well enough for now.
 
+### Cross-workspace series for guest-scored events
+
+A common pattern: the host club scores an event for a visiting class — say HYC's
+scorers run an ILCA regional on HYC's workspace. It works, but it puts the series
+in the wrong place. The class owns the competitor identities that span its events
+(see *Cross-series identity and ranking*), so an ILCA regional scored inside a
+club workspace is cut off from the class's own competitor history and published
+under the club's namespace rather than the class's. The instinct is right that
+the series belongs in the *class's* workspace and is published there — but the
+people doing the scoring belong to the *club*.
+
+Today a workspace is a closed unit: membership, roles, series, and the published
+`/p/{workspace}/...` namespace all live together, and a scorer in one workspace
+has no standing in another. Supporting this cleanly is two hard problems at once:
+
+- **Cross-workspace roles.** A club scorer needs `score` permission on one series
+  in a workspace they aren't a member of, without becoming a member of (and
+  seeing the rest of) that workspace. This is the *per-series scope* idea above
+  turned inside out — the grant has to cross the workspace boundary, so the
+  series-access table would key on (foreign user → this series) and the
+  `workspaceRoute` seam, which today resolves a single membership row, would have
+  to consult a second, cross-workspace grant table. The activity log already
+  stamps who did what, so attribution survives; the hard part is bounding what an
+  invited foreign scorer can see and do to *just* the loaned series.
+- **Cross-workspace series linkage / ownership.** Which workspace "owns" the
+  series for billing, publishing namespace, deletion, and competitor-identity
+  resolution? The clean model is single ownership (the class workspace owns it)
+  with a scoped guest grant to the club's scorers — rather than a series that
+  genuinely lives in two workspaces, which multiplies every "whose is it"
+  question. A lighter alternative that sidesteps roles entirely: score in the
+  club workspace as today, then *transfer* the finished series to the class
+  workspace (a one-shot ownership move that re-homes its published namespace and
+  re-resolves competitor identities). Transfer is far simpler and may cover most
+  of the real need; full live cross-workspace scoring is only worth it if classes
+  and clubs genuinely need to collaborate on the same series *during* an event.
+
+Open questions: whether the first useful version is a guest-scorer grant or a
+post-hoc series transfer; how publishing namespace and "Open in Sail Scoring"
+links behave when a series changes hands; and how competitor-identity resolution
+(class roster vs. club roster) is chosen for a guest-scored series. Not worth
+building until a class and a club actually ask to run an event this way — but
+worth recording, because the "score it on the host's workspace" workaround
+quietly accretes class series in the wrong home.
+
 ### Light/dark colourway logo variants
 
 The canonical-logos manifest schema carries `variants` + `background`, but every
