@@ -1206,6 +1206,13 @@ key and the rankings are the easy part.
 
 ## Prize allocation
 
+> **First stab in flight:** the deterministic core (predicate + recipient count,
+> ranked by series standing) is scoped in #240, with the 2026 ILCA Leinsters
+> Sailwave prize config as the baseline target. The ambitious parts below
+> (NL/LLM drafting, event/day scope, the Lambay Lady derived-metric/OA case,
+> prize exclusion, perpetual trophies, free-form selectors) stay deferred here.
+> Prereq: #239 (the importer drops helm gender, which the "Lady" prizes need).
+
 ### Allocating prizes
 
 A scored series produces standings; an event produces *prizes*, and the mapping
