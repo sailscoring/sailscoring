@@ -256,6 +256,12 @@ export interface SubSeries {
   // Seed source for this sub-series' progressive chain (default 'base').
   startingHandicapSource?: StartingHandicapSource;
   continueFromSubSeriesId?: string | null;
+  // Whether to drop competitors that are all-DNC across this sub-series (and
+  // exclude them from the entry count its DNC penalty is based on). Overrides
+  // the series-level default passed to scoring. A whole-season "Overall" tandem
+  // lists the full entry list (false); a race-subset block typically ranks only
+  // boats that took part (true). See calculateSubSeriesFleetStandings.
+  excludeDncOnlyCompetitors?: boolean;
   version?: number;    // server-side concurrency token (see Series.version)
 }
 

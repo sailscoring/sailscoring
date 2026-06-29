@@ -1865,11 +1865,15 @@ export function calculateSubSeriesFleetStandings(
     // `excludeDncOnlyCompetitors` is set, a boat that is all-DNC across the whole
     // sub-series is dropped instead (HalSail's "exclude boats with only DNC"
     // toggle; the prize sub-divisions that rank only boats that actually sailed).
+    // Per-sub-series override of the series-level default: an "Overall" tandem
+    // lists the full entry list (false), a block typically ranks only its
+    // participants (true).
+    const excludeDnc = subSeries.excludeDncOnlyCompetitors ?? excludeDncOnlyCompetitors;
     const entrantIds = subSeriesEntrantIds(blockRaces, blockFinishes);
     const entrants = competitors.filter(
       (c) =>
         (scopedFleetIds === null || c.fleetIds.some((fid) => scopedFleetIds.has(fid))) &&
-        (!excludeDncOnlyCompetitors || entrantIds.has(c.id)),
+        (!excludeDnc || entrantIds.has(c.id)),
     );
 
     // Per-fleet race exclusions → fleetId → set of struck raceIds.
