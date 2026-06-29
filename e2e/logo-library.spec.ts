@@ -215,6 +215,56 @@ test('picking a canonical logo defaults the website slot and links it on the exp
   expect(html).toContain('href="https://iodai.com"');
 });
 
+test('a series with empty logo slots inherits the workspace default logos when exported', async ({ page }) => {
+  // Repro for the publish-time fallback (#243): the series is created *before*
+  // any workspace defaults exist, so copy-at-creation leaves its venue/event
+  // slots empty. Setting the defaults afterward must still surface them at
+  // export — the same code path publishing uses.
+  await createSeriesQuick(page, { name: 'Frostbite Cup 2026', venue: 'Howth' });
+  const seriesUrl = new URL(page.url()).pathname.replace(/\/[^/]*$/, '');
+  await addCompetitor(page, { sailNumber: '42', name: 'Alice' });
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('42');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // The series' own venue/event logo slots are empty.
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.locator('h2', { hasText: 'Basic' }).locator('..').getByRole('button', { name: /Edit/ }).click();
+  await expect(page.getByRole('textbox', { name: 'Venue logo' })).toHaveValue('');
+  await expect(page.getByRole('textbox', { name: 'Event logo' })).toHaveValue('');
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+
+  // Now set the workspace default venue + event logos (after the series exists).
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Choose Default venue logo' }).click();
+  await page.getByRole('dialog').getByLabel('Search logos').fill('Howth');
+  await page.getByRole('dialog').getByRole('button', { name: 'Use Howth Yacht Club' }).click();
+  await page.getByRole('button', { name: 'Choose Default event logo' }).click();
+  await page.getByRole('dialog').getByLabel('Search logos').fill('AIB');
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes('/api/v1/logos/defaults') &&
+        r.request().method() === 'PUT' &&
+        r.ok(),
+    ),
+    page.getByRole('dialog').getByRole('button', { name: 'Use AIB' }).click(),
+  ]);
+
+  // Export the (unchanged) series: the empty slots fall back to the defaults.
+  await page.goto(`${seriesUrl}/standings`);
+  const download = await downloadFleetHtml(page);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  const html = Buffer.concat(chunks).toString('utf-8');
+  expect(html).toContain('/canonical-logos/hyc.png');
+  expect(html).toContain('/canonical-logos/aib.png');
+});
+
 test('picking a canonical logo does not overwrite a website URL already typed', async ({ page }) => {
   await createSeriesQuick(page, { name: 'Custom URL Series', venue: 'Howth' });
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();

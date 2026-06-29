@@ -156,7 +156,9 @@ function DefaultsSection() {
         </div>
       ))}
       <p className="text-xs text-muted-foreground">
-        A new series starts with these logos; you can change them per series. Existing series aren&apos;t affected.
+        A new series starts with these logos; you can change them per series.
+        Existing series keep their own logos, but ones that leave a slot empty
+        fall back to these when published.
       </p>
 
       <LogoPickerDialog

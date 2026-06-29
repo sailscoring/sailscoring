@@ -7,6 +7,8 @@ import type {
   PrimaryPersonLabel,
   Finish,
   SubdivisionAxis,
+  LogoDefaults,
+  Series,
 } from './types';
 import type {
   CompetitorRepository,
@@ -259,6 +261,12 @@ export interface EchoRaceFleetExport {
 // ---- Builder ----
 
 /** Repository surface needed to read a series for export. */
+/** The slice of a logo repository that publishing needs: the workspace's
+ *  default venue/event logo URLs. */
+export interface LogoDefaultsReader {
+  getDefaults(): Promise<LogoDefaults>;
+}
+
 export interface ExportRepos {
   seriesRepo: SeriesRepository;
   competitorRepo: CompetitorRepository;
@@ -268,6 +276,58 @@ export interface ExportRepos {
   finishRepo: FinishRepository;
   raceStartRepo: RaceStartRepository;
   raceRatingOverrideRepo: RaceRatingOverrideRepository;
+  /** Optional workspace logo-defaults reader. When present, the publish/export
+   *  builders fill a series' empty venue/event logo slots from the workspace
+   *  defaults (see `applyWorkspaceLogoDefaults`). Absent on the `.sailscoring`
+   *  file path, which must serialise the series exactly as stored. */
+  logoRepo?: LogoDefaultsReader;
+}
+
+/**
+ * Publish-time fallback for workspace default logos. A series whose venue or
+ * event logo slot is empty inherits the workspace default for that slot.
+ *
+ * Copy-at-creation (`lib/api-handlers/series.ts`) only catches series created
+ * *after* the defaults were set (and after `logo-library` was enabled), so the
+ * defaults are resolved again here — every publish/export then reflects the
+ * current workspace defaults rather than whatever happened to be baked in at
+ * creation. The companion website URLs (`venueUrl`/`eventUrl`) have no
+ * workspace default, so they're left untouched. Returns the same series object
+ * when nothing changes.
+ */
+export function applyWorkspaceLogoDefaults(
+  series: Series,
+  defaults: LogoDefaults,
+): Series {
+  const venueLogoUrl = series.venueLogoUrl || defaults.venueLogoUrl;
+  const eventLogoUrl = series.eventLogoUrl || defaults.eventLogoUrl;
+  if (
+    venueLogoUrl === series.venueLogoUrl &&
+    eventLogoUrl === series.eventLogoUrl
+  ) {
+    return series;
+  }
+  return { ...series, venueLogoUrl, eventLogoUrl };
+}
+
+/** Resolve workspace logo defaults into a series via a repo reader, a no-op
+ *  when no reader is supplied (e.g. the file-serialisation path). A failed
+ *  read is treated as "no defaults" rather than aborting the export: defaults
+ *  are an optional enhancement, and the client reader hits a `logo-library`
+ *  feature-gated endpoint that 403s when the feature is off (where there are no
+ *  defaults to apply anyway). */
+export async function resolveSeriesLogoDefaults(
+  series: Series,
+  logoRepo: LogoDefaultsReader | undefined,
+): Promise<Series> {
+  if (!logoRepo) return series;
+  let defaults: LogoDefaults;
+  try {
+    defaults = await logoRepo.getDefaults();
+  } catch {
+    return series;
+  }
+  return applyWorkspaceLogoDefaults(series, defaults);
 }
 
 /**
@@ -284,6 +344,7 @@ export async function buildPublicExport(
 ): Promise<PublicSeriesExport | null> {
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
   if (!snapshot) return null;
+  snapshot.series = await resolveSeriesLogoDefaults(snapshot.series, repos.logoRepo);
   return buildPublicExportFromSnapshot(snapshot);
 }
 

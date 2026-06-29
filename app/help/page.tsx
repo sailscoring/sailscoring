@@ -1384,8 +1384,9 @@ export default async function HelpPage() {
           You can also set <strong className="text-foreground">defaults for new series</strong> — a
           default venue and event logo the workspace reaches for automatically, chosen from the same
           picker (your own logos or a built-in one). Every new series starts with those logos
-          already in place (you can still change them per series); existing series aren’t
-          touched.
+          already in place (you can still change them per series). Existing series keep their own
+          logos, but any that leave the venue or event slot empty fall back to these defaults when
+          published.
         </p>
         <p>
           If you belong to more than one workspace, <strong className="text-foreground">Copy from

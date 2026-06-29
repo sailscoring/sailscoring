@@ -94,6 +94,7 @@ function exportReposFor(workspaceId: string): ExportRepos {
     finishRepo: repos.finishes,
     raceStartRepo: repos.raceStarts,
     raceRatingOverrideRepo: repos.raceRatingOverrides,
+    logoRepo: repos.logos,
   };
 }
 

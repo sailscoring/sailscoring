@@ -21,6 +21,7 @@ import {
 import { calculateFleetStandings } from './scoring';
 import { loadSeriesSnapshot } from './series-snapshot';
 import { disambiguateSeriesName, seriesSlug } from './series-name';
+import type { LogoDefaultsReader } from './public-export';
 import type {
   CompetitorRepository,
   FinishRepository,
@@ -47,6 +48,10 @@ export interface SeriesFileRepos {
   finishRepo: FinishRepository;
   listSeriesNames(opts?: { excludeId?: string }): Promise<string[]>;
   deleteSeriesChildren(seriesId: string): Promise<void>;
+  /** Optional workspace logo-defaults reader. Structurally satisfies the
+   *  `ExportRepos.logoRepo` slot so this same bundle drives the public-export
+   *  publish path (`buildPublicExport`); the file builder itself ignores it. */
+  logoRepo?: LogoDefaultsReader;
   /** Embedded revision history (#166). Optional: implementations that don't
    *  support it (seed, tests) simply omit them, and the file is saved without
    *  a history block / imported without restoring history. Compression lives

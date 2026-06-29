@@ -5,7 +5,11 @@ import {
   calculateSubSeriesFleetStandings,
 } from './scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from './results-renderer';
-import { buildPublicExportFromSnapshot, type ExportRepos } from './public-export';
+import {
+  buildPublicExportFromSnapshot,
+  resolveSeriesLogoDefaults,
+  type ExportRepos,
+} from './public-export';
 import { loadSeriesSnapshot } from './series-snapshot';
 import {
   defaultEnabledCompetitorFields,
@@ -66,6 +70,9 @@ export async function buildFleetHtmlFiles(
   if (!snapshot || snapshot.competitors.length === 0 || snapshot.races.length === 0) {
     return null;
   }
+  // Publish-time fallback: empty venue/event logo slots inherit the workspace
+  // defaults, so the rendered header and the embedded JSON both carry them.
+  snapshot.series = await resolveSeriesLogoDefaults(snapshot.series, repos.logoRepo);
   const {
     series,
     competitors,

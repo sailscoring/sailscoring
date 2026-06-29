@@ -2194,6 +2194,7 @@ export function seriesFileReposFor(ctx: RepoCtx): SeriesFileRepos {
     raceStartRepo: repos.raceStarts,
     raceRatingOverrideRepo: repos.raceRatingOverrides,
     finishRepo: repos.finishes,
+    logoRepo: repos.logos,
     async listSeriesNames(opts) {
       const all = await repos.series.list();
       return all
