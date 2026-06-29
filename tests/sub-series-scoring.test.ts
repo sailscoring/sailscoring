@@ -157,15 +157,37 @@ describe('calculateSubSeriesFleetStandings (scratch)', () => {
     }
   });
 
-  it('leaves a boat that sat out a block off that block standings', () => {
-    expect(winterStandings.map((s) => s.competitor.id)).toContain('E');
-    expect(springStandings.map((s) => s.competitor.id)).not.toContain('E');
+  // With excludeDncOnlyCompetitors set, a sub-series reverts to the #203
+  // behaviour: a boat that is all-DNC across the block is dropped from its
+  // standings and from the entry count its DNC penalty is based on.
+  const excluded = calculateSubSeriesFleetStandings(
+    [winter, spring], [scratchFleet], competitors, races, finishes, discardThresholds,
+    'seriesEntries', [], [], true,
+  );
+  const springStandingsExcl = excluded[1].fleetStandings[0].standings;
+
+  it('scores a boat that sat out a block as DNC by default (like a plain series)', () => {
+    expect(springStandings.map((s) => s.competitor.id)).toContain('E');
+    const springE = springStandings.find((s) => s.competitor.id === 'E')!;
+    expect(springE.raceCodes).toEqual(['DNC', 'DNC']);
   });
 
-  it('bases DNC penalties on the block entrants, not the series entry list', () => {
+  it('excludeDncOnlyCompetitors leaves a boat that sat out a block off that block standings', () => {
+    expect(springStandingsExcl.map((s) => s.competitor.id)).not.toContain('E');
+  });
+
+  it('bases DNC penalties on the full entry list by default (entries + 1)', () => {
+    // Default: E is an entrant in Spring too, so the 5-boat entry list gives
+    // B's missed r5 a DNC of 5 + 1 = 6.
+    const springB = springStandings.find((s) => s.competitor.id === 'B')!;
+    expect(springB.raceCodes[0]).toBe('DNC');
+    expect(springB.racePoints[0]).toBe(6);
+  });
+
+  it('excludeDncOnlyCompetitors bases DNC penalties on the block entrants', () => {
     // Spring entrants: A, B, C, D (E sat the block out). B missed r5, so DNC
     // scores entrants + 1 = 5 — not 6 from the 5-boat series entry list.
-    const springB = springStandings.find((s) => s.competitor.id === 'B')!;
+    const springB = springStandingsExcl.find((s) => s.competitor.id === 'B')!;
     expect(springB.raceCodes[0]).toBe('DNC');
     expect(springB.racePoints[0]).toBe(5);
   });

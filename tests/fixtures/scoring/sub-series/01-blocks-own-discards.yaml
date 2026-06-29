@@ -6,15 +6,19 @@ notes: |
   discard rule — 1 discard from 4 races sailed — applied to the block's own
   race count: Winter gets one discard, Spring (2 races) gets none.
 
-  Entrants are per block. Emma sails only Winter, so she simply isn't in the
-  Spring standings. Brian enters Spring (he sails race 6) but misses race 5;
-  his race-5 DNC scores Spring entrants + 1 = 5, based on the four boats that
-  took part in the block — not the five-boat series entry list.
+  Entrants are per block, because excludeDncOnlyCompetitors is set. Emma sails
+  only Winter, so she is all-DNC across Spring and is dropped from the Spring
+  standings. Brian enters Spring (he sails race 6) but misses race 5; his
+  race-5 DNC scores Spring entrants + 1 = 5, based on the four boats that took
+  part in the block — not the five-boat series entry list. (Without the flag a
+  sub-series scores all-DNC boats like a plain series: Emma would appear in
+  Spring as DNC and Brian's race-5 DNC would be 6.)
 
 series:
   discardThresholds:
     - minRaces: 4
       discardCount: 1
+  excludeDncOnlyCompetitors: true
 
 competitors:
   - sailNumber: "1"

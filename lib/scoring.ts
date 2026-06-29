@@ -1835,6 +1835,7 @@ export function calculateSubSeriesFleetStandings(
   dnfScoring: DnfScoring = 'seriesEntries',
   raceStarts: RaceStart[] = [],
   ratingOverrides: RaceRatingOverride[] = [],
+  excludeDncOnlyCompetitors = false,
 ): SubSeriesStandings[] {
   const racesById = new Map(races.map((r) => [r.id, r]));
   const memberRaces = (ss: SubSeries): Race[] =>
@@ -1859,11 +1860,16 @@ export function calculateSubSeriesFleetStandings(
     const scopedFleetIds = subSeries.fleetIds ? new Set(subSeries.fleetIds) : null;
     const blockFleets = scopedFleetIds ? fleets.filter((f) => scopedFleetIds.has(f.id)) : fleets;
 
+    // By default a sub-series scores every competitor in its scoped fleets, just
+    // like a plain series — a boat with no finish is scored DNC each race. When
+    // `excludeDncOnlyCompetitors` is set, a boat that is all-DNC across the whole
+    // sub-series is dropped instead (HalSail's "exclude boats with only DNC"
+    // toggle; the prize sub-divisions that rank only boats that actually sailed).
     const entrantIds = subSeriesEntrantIds(blockRaces, blockFinishes);
     const entrants = competitors.filter(
       (c) =>
-        entrantIds.has(c.id) &&
-        (scopedFleetIds === null || c.fleetIds.some((fid) => scopedFleetIds.has(fid))),
+        (scopedFleetIds === null || c.fleetIds.some((fid) => scopedFleetIds.has(fid))) &&
+        (!excludeDncOnlyCompetitors || entrantIds.has(c.id)),
     );
 
     // Per-fleet race exclusions → fleetId → set of struck raceIds.

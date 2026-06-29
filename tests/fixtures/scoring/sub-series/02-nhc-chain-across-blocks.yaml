@@ -12,14 +12,17 @@ notes: |
   (the per-race arithmetic is on the nhc/07 page). Only the points
   aggregation is per block.
 
-  Entrants are per block. Gladys (14) is DNC throughout and appears in
-  neither block. Leila (3) starts race 1 but retires (DNF), which makes her
-  an Early entrant — her race-1 DNF and race-2 DNC score Early entrants + 1
-  = 10, from the nine boats that took part in the block, not the ten-boat
-  series entry list. In Late, only the seven race-3 finishers are entrants.
+  Entrants are per block, because excludeDncOnlyCompetitors is set. Gladys (14)
+  is DNC throughout and appears in neither block. Leila (3) starts race 1 but
+  retires (DNF), which makes her an Early entrant — her race-1 DNF and race-2
+  DNC score Early entrants + 1 = 10, from the nine boats that took part in the
+  block, not the ten-boat series entry list. In Late, only the seven race-3
+  finishers are entrants. (Without the flag, Gladys would appear in both blocks
+  as DNC, as she would in a plain series.)
 
 series:
   discardThresholds: []
+  excludeDncOnlyCompetitors: true
 
 # Late continues Early's chain (explicit per-sub-series carry).
 subSeriesCarryChain: true

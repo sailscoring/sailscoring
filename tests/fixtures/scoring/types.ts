@@ -170,6 +170,11 @@ export interface Fixture {
   series: {
     discardThresholds: DiscardThreshold[];
     dnfScoring?: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
+    // When true, a sub-series drops competitors that are all-DNC across the
+    // block (and from the entry count its DNC penalty is based on) — the #203
+    // "entrants per block" behaviour, now opt-in. Default false: a sub-series
+    // scores all-DNC competitors like a plain series.
+    excludeDncOnlyCompetitors?: boolean;
   };
   fleet?: FixtureFleet;        // present for handicap/NHC; optional for scratch
   // When true, each sub-series (in race-appearance order) continues the
@@ -199,6 +204,7 @@ export interface FixtureInputs {
   ratingOverrides: RaceRatingOverride[];
   discardThresholds: DiscardThreshold[];
   dnfScoring: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
+  excludeDncOnlyCompetitors: boolean;
   sailToId: Map<string, string>;
   /** Sub-series named by races' `subSeries:` fields, in race order; empty
    *  when the fixture has none. */
@@ -406,6 +412,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     ratingOverrides,
     discardThresholds: fixture.series.discardThresholds,
     dnfScoring: fixture.series.dnfScoring ?? 'seriesEntries',
+    excludeDncOnlyCompetitors: fixture.series.excludeDncOnlyCompetitors ?? false,
     sailToId,
     subSeriesList,
   };
