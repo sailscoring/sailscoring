@@ -57,7 +57,9 @@ import {
   ALL_COMPETITOR_FIELDS,
   isFieldDisabledByPrimary,
   sameFleetIdSet,
-  subdivisionFieldLabel,
+  subdivisionAxes,
+  subdivisionAxisLabel,
+  cleanSubdivisions,
 } from '@/lib/competitor-fields';
 import { log } from '@/lib/debug';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
@@ -109,9 +111,7 @@ export default function CompetitorsPage({
   const primaryLabel: PrimaryPersonLabel =
     series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
   const primaryFieldLabel = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
-  const subdivisionLabel = subdivisionFieldLabel({
-    subdivisionLabel: series?.subdivisionLabel ?? '',
-  });
+  const axes = series ? subdivisionAxes(series) : [];
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const multipleFleets = (fleets ?? []).length > 1;
   const ratingSystems = configuredRatingSystems(fleets ?? []);
@@ -197,7 +197,10 @@ export default function CompetitorsPage({
       ...(data.nationality.trim() ? { nationality: data.nationality.trim() } : {}),
       gender: data.gender,
       age: data.age ? parseInt(data.age, 10) : null,
-      ...(data.subdivision.trim() ? { subdivision: data.subdivision.trim() } : {}),
+      ...((): { subdivisions?: Record<string, string> } => {
+        const subs = cleanSubdivisions(data.subdivisions);
+        return subs ? { subdivisions: subs } : {};
+      })(),
       createdAt: Date.now(),
       ...ratingFieldsFromForm(data),
     };
@@ -228,7 +231,10 @@ export default function CompetitorsPage({
       ...(data.nationality.trim() ? { nationality: data.nationality.trim() } : {}),
       gender: data.gender,
       age: data.age ? parseInt(data.age, 10) : null,
-      ...(data.subdivision.trim() ? { subdivision: data.subdivision.trim() } : {}),
+      ...((): { subdivisions?: Record<string, string> } => {
+        const subs = cleanSubdivisions(data.subdivisions);
+        return subs ? { subdivisions: subs } : {};
+      })(),
       ...ratingFieldsFromForm(data),
     };
     // Clear ratings no longer relevant
@@ -243,7 +249,7 @@ export default function CompetitorsPage({
     if (!data.helm.trim()) delete updated.helm;
     if (!data.crewName.trim()) delete updated.crewName;
     if (!data.nationality.trim()) delete updated.nationality;
-    if (!data.subdivision.trim()) delete updated.subdivision;
+    if (!cleanSubdivisions(data.subdivisions)) delete updated.subdivisions;
     log('competitors', 'updating', updated);
     await saveCompetitor.mutateAsync(updated);
     setEditingCompetitor(null);
@@ -273,7 +279,7 @@ export default function CompetitorsPage({
   const showNationality = enabledFields.includes('nationality');
   const showGender = enabledFields.includes('gender');
   const showAge = enabledFields.includes('age');
-  const showSubdivision = enabledFields.includes('subdivision');
+  const visibleAxes = enabledFields.includes('subdivision') ? axes : [];
 
   return (
     <div className="space-y-6">
@@ -318,7 +324,7 @@ export default function CompetitorsPage({
             availableFleets={fleets ?? []}
             enabledFields={enabledFields}
             primaryLabel={primaryLabel}
-            subdivisionLabel={subdivisionLabel}
+            subdivisionAxes={axes}
           />
         </div>
       )}
@@ -341,7 +347,9 @@ export default function CompetitorsPage({
               {showRating && <TableHead>Rating</TableHead>}
               {showGender && <TableHead>Gender</TableHead>}
               {showAge && <TableHead>Age</TableHead>}
-              {showSubdivision && <TableHead className="whitespace-normal break-words">{subdivisionLabel}</TableHead>}
+              {visibleAxes.map((axis) => (
+                <TableHead key={axis.id} className="whitespace-normal break-words">{subdivisionAxisLabel(axis)}</TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody ref={tbodyRef}>
@@ -395,7 +403,9 @@ export default function CompetitorsPage({
                 )}
                 {showGender && <TableCell>{c.gender}</TableCell>}
                 {showAge && <TableCell>{c.age ?? ''}</TableCell>}
-                {showSubdivision && <TableCell className="whitespace-normal break-words">{c.subdivision ?? ''}</TableCell>}
+                {visibleAxes.map((axis) => (
+                  <TableCell key={axis.id} className="whitespace-normal break-words">{c.subdivisions?.[axis.id] ?? ''}</TableCell>
+                ))}
               </TableRow>
             ))}
           </TableBody>
@@ -432,7 +442,7 @@ export default function CompetitorsPage({
                 nationality: editingCompetitor.nationality ?? '',
                 gender: editingCompetitor.gender,
                 age: editingCompetitor.age?.toString() ?? '',
-                subdivision: editingCompetitor.subdivision ?? '',
+                subdivisions: editingCompetitor.subdivisions ?? {},
                 fleetIds: editingCompetitor.fleetIds,
                 ircTcc: editingCompetitor.ircTcc?.toString() ?? '',
                 vprsTcc: editingCompetitor.vprsTcc?.toString() ?? '',
@@ -447,7 +457,7 @@ export default function CompetitorsPage({
               availableFleets={fleets ?? []}
               enabledFields={enabledFields}
               primaryLabel={primaryLabel}
-              subdivisionLabel={subdivisionLabel}
+              subdivisionAxes={axes}
             />
           )}
         </DialogContent>

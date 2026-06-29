@@ -6,13 +6,16 @@ import {
   DEFAULT_SUBDIVISION_LABEL,
   PRIMARY_PERSON_LABELS,
   PRIMARY_PERSON_LABEL_TEXT,
-  SUBDIVISION_LABEL_PRESETS,
   competitorFleetNames,
   defaultEnabledCompetitorFields,
   displayCompetitorLabel,
   isFieldDisabledByPrimary,
   primaryPersonFieldKey,
-  subdivisionFieldLabel,
+  subdivisionAxisLabel,
+  subdivisionAxes,
+  cleanSubdivisions,
+  subdivisionsEqual,
+  upgradeSubdivisionAxes,
 } from '@/lib/competitor-fields';
 
 describe('defaultEnabledCompetitorFields', () => {
@@ -155,23 +158,80 @@ describe('competitorFleetNames', () => {
   });
 });
 
-describe('subdivisionFieldLabel', () => {
-  it('defaults to "Division"', () => {
+describe('subdivisionAxisLabel', () => {
+  it('defaults to "Division" for a blank label', () => {
     expect(DEFAULT_SUBDIVISION_LABEL).toBe('Division');
-    expect(subdivisionFieldLabel({ subdivisionLabel: '' })).toBe('Division');
+    expect(subdivisionAxisLabel({ label: '' })).toBe('Division');
   });
 
   it('uses the configured label when set', () => {
-    expect(subdivisionFieldLabel({ subdivisionLabel: 'Category' })).toBe('Category');
+    expect(subdivisionAxisLabel({ label: 'Category' })).toBe('Category');
   });
 
   it('trims and falls back to the default for whitespace-only labels', () => {
-    expect(subdivisionFieldLabel({ subdivisionLabel: '  Flight  ' })).toBe('Flight');
-    expect(subdivisionFieldLabel({ subdivisionLabel: '   ' })).toBe('Division');
+    expect(subdivisionAxisLabel({ label: '  Flight  ' })).toBe('Flight');
+    expect(subdivisionAxisLabel({ label: '   ' })).toBe('Division');
+  });
+});
+
+describe('subdivisionAxes', () => {
+  it('returns the configured axes', () => {
+    const axes = [{ id: 'a', label: 'Division' }];
+    expect(subdivisionAxes({ subdivisionAxes: axes })).toBe(axes);
   });
 
-  it('offers "Division" and "Category" among the presets', () => {
-    expect(SUBDIVISION_LABEL_PRESETS).toContain('Division');
-    expect(SUBDIVISION_LABEL_PRESETS).toContain('Category');
+  it('tolerates a missing array', () => {
+    expect(subdivisionAxes({ subdivisionAxes: undefined as never })).toEqual([]);
+  });
+});
+
+describe('cleanSubdivisions', () => {
+  it('trims values and drops empties', () => {
+    expect(cleanSubdivisions({ a: '  Silver ', b: '   ', c: 'Master' })).toEqual({
+      a: 'Silver',
+      c: 'Master',
+    });
+  });
+
+  it('returns undefined when nothing remains', () => {
+    expect(cleanSubdivisions({ a: '', b: '  ' })).toBeUndefined();
+    expect(cleanSubdivisions(undefined)).toBeUndefined();
+  });
+});
+
+describe('subdivisionsEqual', () => {
+  it('is order-insensitive and ignores empty values', () => {
+    expect(subdivisionsEqual({ a: 'Gold', b: 'Master' }, { b: 'Master', a: 'Gold' })).toBe(true);
+    expect(subdivisionsEqual({ a: 'Gold', b: '' }, { a: 'Gold' })).toBe(true);
+    expect(subdivisionsEqual({ a: 'Gold' }, { a: 'Silver' })).toBe(false);
+    expect(subdivisionsEqual(undefined, {})).toBe(true);
+  });
+});
+
+describe('upgradeSubdivisionAxes', () => {
+  it('synthesises one axis when the legacy field was enabled', () => {
+    const { axes, axisId } = upgradeSubdivisionAxes({
+      legacyLabel: 'Category',
+      fieldEnabled: true,
+      hasAnyValue: false,
+    });
+    expect(axes).toHaveLength(1);
+    expect(axes[0].label).toBe('Category');
+    expect(axisId).toBe(axes[0].id);
+  });
+
+  it('synthesises an axis when a competitor holds a value even if disabled', () => {
+    const { axes } = upgradeSubdivisionAxes({
+      fieldEnabled: false,
+      hasAnyValue: true,
+    });
+    expect(axes).toHaveLength(1);
+    expect(axes[0].label).toBe('Division');
+  });
+
+  it('produces no axis when the field is unused and the label is default', () => {
+    expect(
+      upgradeSubdivisionAxes({ legacyLabel: 'Division', fieldEnabled: false, hasAnyValue: false }),
+    ).toEqual({ axes: [], axisId: null });
   });
 });

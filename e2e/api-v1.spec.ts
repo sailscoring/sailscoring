@@ -46,7 +46,7 @@ test.describe('/api/v1', () => {
       showPerRaceRatingsInSummary: true,
       enabledCompetitorFields: ['boatName', 'club'],
       primaryPersonLabel: 'competitor',
-      subdivisionLabel: 'Division',
+      subdivisionAxes: [],
     };
 
     const put = await request.put(`/api/v1/series/${seriesId}`, {

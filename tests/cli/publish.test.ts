@@ -124,7 +124,7 @@ describe.skipIf(skip)('CLI publish (ADR-009 M3.1)', () => {
       dnfScoring: 'startingArea' as const,
       ftpHost: '', ftpPath: '', ftpPaths: {}, includeJsonExport: true,
       publishRatingCalculations: true, enabledCompetitorFields: ['boatName'],
-      primaryPersonLabel: 'helm' as const, subdivisionLabel: 'Division',
+      primaryPersonLabel: 'helm' as const, subdivisionAxes: [],
     });
     let n = 0;
     for (const fleetName of fleetNames) {

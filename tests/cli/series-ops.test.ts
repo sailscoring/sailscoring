@@ -100,7 +100,7 @@ describe.skipIf(skip)('CLI categorise + archive (ADR-009 M3.2)', () => {
       dnfScoring: 'startingArea' as const,
       ftpHost: '', ftpPath: '', ftpPaths: {}, includeJsonExport: true,
       publishRatingCalculations: true, enabledCompetitorFields: ['boatName'],
-      primaryPersonLabel: 'helm' as const, subdivisionLabel: 'Division',
+      primaryPersonLabel: 'helm' as const, subdivisionAxes: [],
     });
     return id;
   }

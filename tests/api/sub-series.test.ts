@@ -62,7 +62,7 @@ function sampleSeries(id: string) {
     includeJsonExport: true,
     enabledCompetitorFields: ['boatName', 'club'],
     primaryPersonLabel: 'helm' as const,
-    subdivisionLabel: 'Division',
+    subdivisionAxes: [],
   };
 }
 

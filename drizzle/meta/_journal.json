@@ -372,6 +372,13 @@
       "when": 1782755518851,
       "tag": "0052_rainy_sabra",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1782757989408,
+      "tag": "0053_motionless_blade",
+      "breakpoints": true
     }
   ]
 }

@@ -13,7 +13,6 @@ import type { SeriesRepository } from '@/lib/repository';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
-  DEFAULT_SUBDIVISION_LABEL,
 } from '@/lib/competitor-fields';
 import { generateUniquePlaceholderName } from '@/lib/placeholder-names';
 import { isDuplicateSeriesName } from '@/lib/series-name';
@@ -48,7 +47,7 @@ async function doCreateSeries(
     includeJsonExport: true,
     enabledCompetitorFields: defaultEnabledCompetitorFields(),
     primaryPersonLabel: DEFAULT_PRIMARY_PERSON_LABEL,
-    subdivisionLabel: DEFAULT_SUBDIVISION_LABEL,
+    subdivisionAxes: [],
   };
   log('series', 'creating', series);
   await repo.save(series);

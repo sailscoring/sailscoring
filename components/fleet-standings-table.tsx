@@ -11,11 +11,13 @@ import { cn } from '@/lib/utils';
 import {
   PRIMARY_PERSON_LABEL_TEXT,
   isFieldDisabledByPrimary,
+  subdivisionAxisLabel,
 } from '@/lib/competitor-fields';
 import type {
   CompetitorFieldKey,
   PrimaryPersonLabel,
   Standing,
+  SubdivisionAxis,
 } from '@/lib/types';
 
 export interface FleetStandingsTableProps {
@@ -24,8 +26,8 @@ export interface FleetStandingsTableProps {
   hasDiscards: boolean;
   enabledFields: CompetitorFieldKey[];
   primaryLabel: PrimaryPersonLabel;
-  /** Configured heading for the subdivision column (e.g. "Division"). */
-  subdivisionLabel: string;
+  /** Configured subdivision axes; one prize-giving column each. */
+  subdivisionAxes: SubdivisionAxis[];
 }
 
 export function FleetStandingsTable({
@@ -34,7 +36,7 @@ export function FleetStandingsTable({
   hasDiscards,
   enabledFields,
   primaryLabel,
-  subdivisionLabel,
+  subdivisionAxes,
 }: FleetStandingsTableProps) {
   const showBoat = enabledFields.includes('boatName');
   const showClass = enabledFields.includes('boatClass');
@@ -45,7 +47,7 @@ export function FleetStandingsTable({
   // Code-only in the live UI — flags are reserved for HTML exports so the
   // standings page doesn't pull the ~2.5 MB flag dataset into its bundle.
   const showNationality = enabledFields.includes('nationality');
-  const showSubdivision = enabledFields.includes('subdivision');
+  const visibleAxes = enabledFields.includes('subdivision') ? subdivisionAxes : [];
   const showAge = enabledFields.includes('age');
   const showGender = enabledFields.includes('gender');
   return (
@@ -63,7 +65,9 @@ export function FleetStandingsTable({
           {showCrew && <TableHead>Crew</TableHead>}
           {showClub && <TableHead>Club</TableHead>}
           {showNationality && <TableHead>Nat</TableHead>}
-          {showSubdivision && <TableHead>{subdivisionLabel}</TableHead>}
+          {visibleAxes.map((axis) => (
+            <TableHead key={axis.id}>{subdivisionAxisLabel(axis)}</TableHead>
+          ))}
           {showAge && <TableHead>Age</TableHead>}
           {showGender && <TableHead>Gender</TableHead>}
           {races.map((race) => (
@@ -91,7 +95,7 @@ export function FleetStandingsTable({
             showCrew={showCrew}
             showClub={showClub}
             showNationality={showNationality}
-            showSubdivision={showSubdivision}
+            subdivisionAxes={visibleAxes}
             showAge={showAge}
             showGender={showGender}
           />
@@ -113,7 +117,7 @@ interface StandingRowProps {
   showCrew: boolean;
   showClub: boolean;
   showNationality: boolean;
-  showSubdivision: boolean;
+  subdivisionAxes: SubdivisionAxis[];
   showAge: boolean;
   showGender: boolean;
 }
@@ -129,7 +133,7 @@ function StandingRow({
   showCrew,
   showClub,
   showNationality,
-  showSubdivision,
+  subdivisionAxes,
   showAge,
   showGender,
 }: StandingRowProps) {
@@ -155,7 +159,9 @@ function StandingRow({
       {showCrew && <TableCell>{competitor.crewName ?? ''}</TableCell>}
       {showClub && <TableCell className="text-muted-foreground">{competitor.club}</TableCell>}
       {showNationality && <TableCell className="font-mono">{competitor.nationality ?? ''}</TableCell>}
-      {showSubdivision && <TableCell>{competitor.subdivision ?? ''}</TableCell>}
+      {subdivisionAxes.map((axis) => (
+        <TableCell key={axis.id}>{competitor.subdivisions?.[axis.id] ?? ''}</TableCell>
+      ))}
       {showAge && <TableCell className="tabular-nums">{competitor.age ?? ''}</TableCell>}
       {showGender && <TableCell>{competitor.gender}</TableCell>}
       {racePoints.map((points, i) => {

@@ -153,8 +153,10 @@ describe('sample series files', () => {
     // Exactly one NZL sailor, plus a foreign smattering.
     expect(competitors.filter((c) => c.nationality === 'NZL')).toHaveLength(1);
     expect(competitors.filter((c) => c.nationality && c.nationality !== 'IRL').length).toBeGreaterThan(5);
-    // Every competitor carries a Gold/Silver/Bronze division.
-    expect(competitors.every((c) => ['Gold', 'Silver', 'Bronze'].includes(c.subdivision ?? ''))).toBe(true);
+    // Every competitor carries a Gold/Silver/Bronze division. The v8 sample file
+    // still stores the legacy single `subdivision` value (upgraded to an axis on
+    // a real load); assert against the raw file competitors here.
+    expect(file.competitors.every((c) => ['Gold', 'Silver', 'Bronze'].includes(c.subdivision ?? ''))).toBe(true);
 
     const { fleetStandings } = calculateFleetStandings(
       fleets, competitors, races, finishes, file.series.discardThresholds, file.series.dnfScoring, raceStarts,

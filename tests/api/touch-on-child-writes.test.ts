@@ -67,7 +67,7 @@ function sampleSeries(id: string) {
     publishRatingCalculations: true,
     enabledCompetitorFields: ['boatName', 'club'],
     primaryPersonLabel: 'helm' as const,
-    subdivisionLabel: 'Division',
+    subdivisionAxes: [],
   };
 }
 

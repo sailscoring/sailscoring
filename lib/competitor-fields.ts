@@ -1,4 +1,11 @@
-import type { Competitor, CompetitorFieldKey, Fleet, PrimaryPersonLabel, Series } from './types';
+import type {
+  Competitor,
+  CompetitorFieldKey,
+  Fleet,
+  PrimaryPersonLabel,
+  Series,
+  SubdivisionAxis,
+} from './types';
 
 /** Render "Helm / Crew" when the series has crew names enabled and a crew is
  *  set; otherwise just the helm. Used in autocomplete rows and finish lists. */
@@ -61,9 +68,8 @@ export const ALL_COMPETITOR_FIELDS: readonly CompetitorFieldKey[] = [
 ] as const;
 
 /** Human-readable labels for each configurable field. For `subdivision` this is
- *  only a fallback: the effective label is per-series and comes from
- *  `subdivisionFieldLabel()`. Use that resolver, not this map, for any
- *  subdivision header. */
+ *  only a fallback used when no axis is configured: the effective headers are
+ *  per-series and come from `Series.subdivisionAxes` (see `subdivisionAxisLabel`). */
 export const COMPETITOR_FIELD_LABELS: Record<CompetitorFieldKey, string> = {
   boatName: 'Boat name',
   boatClass: 'Class',
@@ -138,29 +144,87 @@ export function isFieldDisabledByPrimary(
  *  label; age-category regattas (e.g. ILCA Masters) rename it to "Category". */
 export const DEFAULT_SUBDIVISION_LABEL = 'Division';
 
-/** Suggested quick-pick labels for the subdivision field. The setting is a
- *  freeform string — these are conveniences, not an exhaustive set, so a
- *  regatta can type "Flight", "Band", or anything else that fits. */
-export const SUBDIVISION_LABEL_PRESETS: readonly string[] = [
-  'Division',
-  'Category',
-  'Class',
-  'Group',
-  'Section',
-] as const;
-
 /** Maximum length of a subdivision label. Long enough for any sensible header
  *  word; short enough to keep table columns and form labels tidy. */
 export const SUBDIVISION_LABEL_MAX_LENGTH = 24;
 
-/** Authoritative label for the subdivision field. Series config wins over the
- *  static fallback in `COMPETITOR_FIELD_LABELS`; an empty/whitespace label
- *  falls back to the default. Same dynamic-label pattern as helm/owner under
- *  `primaryPersonLabel`. */
-export function subdivisionFieldLabel(
-  series: Pick<Series, 'subdivisionLabel'>,
+/** The configured subdivision axes for a series, in display order. Empty when
+ *  no axis has been added. Tolerates a missing array (file-built Series objects
+ *  predating multi-axis), returning []. */
+export function subdivisionAxes(
+  series: Pick<Series, 'subdivisionAxes'>,
+): SubdivisionAxis[] {
+  return series.subdivisionAxes ?? [];
+}
+
+/** Display label for one axis, falling back to the default for an empty value.
+ *  Same dynamic-label pattern as helm/owner under `primaryPersonLabel`. */
+export function subdivisionAxisLabel(axis: Pick<SubdivisionAxis, 'label'>): string {
+  return axis.label?.trim() || DEFAULT_SUBDIVISION_LABEL;
+}
+
+/** A competitor's value on a given axis, or '' when unset. */
+export function competitorSubdivision(
+  competitor: Pick<Competitor, 'subdivisions'>,
+  axisId: string,
 ): string {
-  return series.subdivisionLabel?.trim() || DEFAULT_SUBDIVISION_LABEL;
+  return competitor.subdivisions?.[axisId] ?? '';
+}
+
+/** Build a fresh axis with a stable id and the given label. */
+export function newSubdivisionAxis(label: string): SubdivisionAxis {
+  return { id: crypto.randomUUID(), label };
+}
+
+/** Trim values and drop empty entries from a subdivisions map, returning
+ *  undefined when nothing remains (sparse storage — a competitor with no axis
+ *  values carries no `subdivisions`). */
+export function cleanSubdivisions(
+  subs: Record<string, string> | undefined,
+): Record<string, string> | undefined {
+  if (!subs) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(subs)) {
+    const t = v?.trim();
+    if (t) out[k] = t;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** Order-insensitive equality of two subdivisions maps, ignoring empty values.
+ *  Used to detect "no change" on CSV re-import. */
+export function subdivisionsEqual(
+  a: Record<string, string> | undefined,
+  b: Record<string, string> | undefined,
+): boolean {
+  const norm = (m: Record<string, string> | undefined) =>
+    JSON.stringify(
+      Object.entries(m ?? {})
+        .filter(([, v]) => v?.trim())
+        .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)),
+    );
+  return norm(a) === norm(b);
+}
+
+/** Upgrade a legacy single-axis representation (`subdivisionLabel` + per-competitor
+ *  `subdivision`, file formats v6–v12 / pre-multi-axis DB rows) to the multi-axis shape.
+ *  Returns the axes to set on the series and the id of the synthesised axis (or
+ *  null when none is warranted, so callers skip writing competitor values). The
+ *  "is it in use" rule mirrors the DB backfill in `drizzle/0053_*`: the field was
+ *  enabled, carried a non-default label, or any competitor held a value. */
+export function upgradeSubdivisionAxes(opts: {
+  legacyLabel?: string;
+  fieldEnabled: boolean;
+  hasAnyValue: boolean;
+}): { axes: SubdivisionAxis[]; axisId: string | null } {
+  const label = opts.legacyLabel?.trim();
+  const want =
+    opts.fieldEnabled ||
+    opts.hasAnyValue ||
+    (label != null && label !== '' && label !== DEFAULT_SUBDIVISION_LABEL);
+  if (!want) return { axes: [], axisId: null };
+  const axis = newSubdivisionAxis(label || DEFAULT_SUBDIVISION_LABEL);
+  return { axes: [axis], axisId: axis.id };
 }
 
 /** Whether two fleet-membership lists contain the same ids (order-insensitive). */

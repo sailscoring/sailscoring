@@ -21,7 +21,7 @@ export const competitorSchema = z.object({
   nationality: z.string().regex(/^[A-Z]{3}$/, 'must be a 3-letter uppercase code').optional(),
   gender: genderSchema,
   age: z.number().int().nullable(),
-  subdivision: z.string().optional(),
+  subdivisions: z.record(z.string(), z.string()).optional(),
   createdAt: epochMsSchema,
   ircTcc: z.number().optional(),
   vprsTcc: z.number().optional(),

@@ -9,7 +9,7 @@ import {
   calculateSubSeriesFleetStandings,
   subSeriesEntrantIds,
 } from '@/lib/scoring';
-import { subdivisionFieldLabel } from '@/lib/competitor-fields';
+import { subdivisionAxes } from '@/lib/competitor-fields';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -80,7 +80,7 @@ export default function StandingsPage({
 
   const discardThresholds: DiscardThreshold[] = series.discardThresholds ?? [];
   const enabledFields = data.enabledFields;
-  const subdivisionLabel = subdivisionFieldLabel(series);
+  const axes = subdivisionAxes(series);
   const isSingleFleet = fleets.length <= 1;
   const fleetCountLabel = fleets.length > 1 ? ` · ${fleets.length} fleets` : '';
 
@@ -228,7 +228,7 @@ export default function StandingsPage({
               hasDiscards={hasDiscards}
               enabledFields={enabledFields}
               primaryLabel={data.primaryLabel}
-              subdivisionLabel={subdivisionLabel}
+              subdivisionAxes={axes}
             />
           </div>
         );

@@ -73,7 +73,7 @@ function sampleSeries(id: string) {
     publishRatingCalculations: true,
     enabledCompetitorFields: ['boatName', 'club'],
     primaryPersonLabel: 'helm' as const,
-    subdivisionLabel: 'Division',
+    subdivisionAxes: [],
   };
 }
 
@@ -155,7 +155,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       showPerRaceRatingsInSummary: false,
       enabledCompetitorFields: ['boatName', 'club', 'crewName'],
       primaryPersonLabel: 'owner' as const,
-      subdivisionLabel: 'Class',
+      subdivisionAxes: [{ id: 'ax-class', label: 'Class' }],
       source: 'sailwave' as const,
     };
     await series.putSeries(ctxA, id, input);
@@ -183,7 +183,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       showPerRaceRatingsInSummary: false,
       enabledCompetitorFields: ['boatName', 'club', 'crewName'],
       primaryPersonLabel: 'owner',
-      subdivisionLabel: 'Class',
+      subdivisionAxes: [{ id: 'ax-class', label: 'Class' }],
       source: 'sailwave',
       categoryId: null,
       archived: false,

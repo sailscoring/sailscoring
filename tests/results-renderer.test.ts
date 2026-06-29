@@ -512,56 +512,74 @@ describe('renderSeriesHtml', () => {
     });
   });
 
-  describe('subdivision column', () => {
-    // Subdivision shows in both the summary and per-race tables, so set it on
-    // standings and race results alike.
+  describe('subdivision columns', () => {
+    // Subdivisions show in both the summary and per-race tables, so set them on
+    // standings and race results alike. One "Category" axis here.
+    const AX = 'ax-cat';
     const withSubdivision: SeriesResultsData = {
       ...MINIMAL,
       enabledCompetitorFields: ['subdivision'],
+      subdivisionAxes: [{ id: AX, label: 'Category' }],
       standings: [
-        { ...MINIMAL.standings[0], subdivision: 'Gold' },
-        { ...MINIMAL.standings[1], subdivision: 'Silver' },
+        { ...MINIMAL.standings[0], subdivisions: { [AX]: 'Gold' } },
+        { ...MINIMAL.standings[1], subdivisions: { [AX]: 'Silver' } },
       ],
       races: MINIMAL.races.map((r) => ({
         ...r,
         results: r.results.map((res) => ({
           ...res,
-          subdivision: res.sailNumber === '42' ? 'Gold' : 'Silver',
+          subdivisions: { [AX]: res.sailNumber === '42' ? 'Gold' : 'Silver' },
         })),
       })),
     };
 
-    it('renders the column under the configured label with each value', () => {
-      const html = renderSeriesHtml({ ...withSubdivision, subdivisionLabel: 'Category' });
+    it('renders the column under the axis label with each value', () => {
+      const html = renderSeriesHtml(withSubdivision);
       expect(html).toContain('<th>Category</th>');
       expect(html).toContain('>Gold<');
       expect(html).toContain('>Silver<');
     });
 
-    it('defaults the header to "Division" when no label is set', () => {
-      const html = renderSeriesHtml(withSubdivision);
+    it('defaults the header to "Division" when the axis label is blank', () => {
+      const html = renderSeriesHtml({ ...withSubdivision, subdivisionAxes: [{ id: AX, label: '' }] });
       expect(html).toContain('<th>Division</th>');
     });
 
     it('renders the column in the per-race tables too', () => {
-      const html = renderSeriesHtml({ ...withSubdivision, subdivisionLabel: 'Category' });
+      const html = renderSeriesHtml(withSubdivision);
       // Summary table + two race tables each carry the header.
       const headerCount = html.split('<th>Category</th>').length - 1;
       expect(headerCount).toBe(3);
     });
 
-    it('suppresses the column when enabled but no competitor has a value', () => {
+    it('renders one column per axis', () => {
+      const DIV = 'ax-div';
+      const html = renderSeriesHtml({
+        ...withSubdivision,
+        subdivisionAxes: [{ id: AX, label: 'Category' }, { id: DIV, label: 'Division' }],
+        standings: [
+          { ...MINIMAL.standings[0], subdivisions: { [AX]: 'Master', [DIV]: 'Gold' } },
+          { ...MINIMAL.standings[1], subdivisions: { [AX]: 'Youth', [DIV]: 'Silver' } },
+        ],
+      });
+      expect(html).toContain('<th>Category</th>');
+      expect(html).toContain('<th>Division</th>');
+      expect(html).toContain('>Master<');
+      expect(html).toContain('>Gold<');
+    });
+
+    it('suppresses an axis with no values', () => {
       const html = renderSeriesHtml({
         ...withSubdivision,
         standings: MINIMAL.standings, // no subdivision values
         races: MINIMAL.races,
       });
-      expect(html).not.toContain('<th>Division</th>');
+      expect(html).not.toContain('<th>Category</th>');
     });
 
-    it('omits the column entirely when the field is not enabled', () => {
+    it('omits the columns entirely when the field is not enabled', () => {
       const html = renderSeriesHtml({ ...withSubdivision, enabledCompetitorFields: [] });
-      expect(html).not.toContain('<th>Division</th>');
+      expect(html).not.toContain('<th>Category</th>');
     });
   });
 

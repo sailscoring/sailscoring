@@ -113,7 +113,7 @@ function makeSeries(over: Partial<Series>): Series {
     showPerRaceRatingsInSummary: false,
     enabledCompetitorFields: ['boatName', 'club', 'nationality'],
     primaryPersonLabel: 'owner',
-    subdivisionLabel: 'Class',
+    subdivisionAxes: [{ id: 'ax-class', label: 'Class' }],
     categoryId: 'cat-1',
     archived: false,
     source: 'sailwave',
@@ -221,7 +221,7 @@ describe('updateSeriesFromSailwave', () => {
     expect(saved.showPerRaceRatingsInSummary).toBe(false);
     expect(saved.enabledCompetitorFields).toEqual(['boatName', 'club', 'nationality']);
     expect(saved.primaryPersonLabel).toBe('owner');
-    expect(saved.subdivisionLabel).toBe('Class');
+    expect(saved.subdivisionAxes).toEqual([{ id: 'ax-class', label: 'Class' }]);
     expect(saved.categoryId).toBe('cat-1');
     expect(saved.source).toBe('sailwave');
   });

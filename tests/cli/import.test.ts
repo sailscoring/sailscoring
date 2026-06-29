@@ -114,7 +114,7 @@ describe.skipIf(skip)('CLI bulk import (ADR-009 M3)', () => {
       dnfScoring: 'startingArea' as const,
       ftpHost: '', ftpPath: '', ftpPaths: {}, includeJsonExport: true,
       publishRatingCalculations: true, enabledCompetitorFields: ['boatName'],
-      primaryPersonLabel: 'helm' as const, subdivisionLabel: 'Division',
+      primaryPersonLabel: 'helm' as const, subdivisionAxes: [],
     });
     const fleetId = uuid();
     await fleets.putFleet(ctx, srcId, fleetId, {

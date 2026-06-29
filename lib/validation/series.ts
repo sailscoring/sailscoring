@@ -67,10 +67,13 @@ export const seriesSchema = z.object({
   showPerRaceRatingsInSummary: z.boolean().optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
   primaryPersonLabel: primaryPersonLabelSchema,
-  // Freeform label for the subdivision field (e.g. "Division", "Category").
-  // Empty is tolerated on the wire; the read-side resolver falls back to the
-  // default, so we don't reject it with a brittle 400.
-  subdivisionLabel: z.string().max(SUBDIVISION_LABEL_MAX_LENGTH),
+  // Independent subdivision axes, e.g. a "Division" and an "Age category"
+  // axis. Each freeform label is bounded; empty is tolerated on the wire (the
+  // read-side resolver falls back to the default) so we don't reject with a
+  // brittle 400.
+  subdivisionAxes: z.array(
+    z.object({ id: z.string(), label: z.string().max(SUBDIVISION_LABEL_MAX_LENGTH) }),
+  ),
   // Series-list organisation (#154). Workspace-local; optional on the wire so
   // sparse new-series creation and older clients round-trip cleanly.
   categoryId: uuidSchema.nullable().optional(),

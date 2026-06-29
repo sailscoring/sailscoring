@@ -15,11 +15,18 @@ import {
   PRIMARY_PERSON_LABEL_HINTS,
   PRIMARY_PERSON_LABEL_TEXT,
   SUBDIVISION_LABEL_MAX_LENGTH,
-  SUBDIVISION_LABEL_PRESETS,
   defaultEnabledCompetitorFields,
   isFieldDisabledByPrimary,
+  newSubdivisionAxis,
+  subdivisionAxes,
+  subdivisionAxisLabel,
 } from '@/lib/competitor-fields';
-import type { CompetitorFieldKey, PrimaryPersonLabel, Series } from '@/lib/types';
+import type {
+  CompetitorFieldKey,
+  PrimaryPersonLabel,
+  Series,
+  SubdivisionAxis,
+} from '@/lib/types';
 
 export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: Series }) {
   const updateSeries = useUpdateSeries();
@@ -41,15 +48,54 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
   }
   const enabledSet = new Set<CompetitorFieldKey>(localEnabled);
 
-  // Subdivision label, mirrored locally so the text input stays responsive
+  // Subdivision axes, mirrored locally so the text inputs stay responsive
   // while the controlled value catches up to the async save (same pattern as
   // the enabled-fields array above).
-  const persistedSubdivisionLabel = series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL;
-  const [localSubdivisionLabel, setLocalSubdivisionLabel] = useState(persistedSubdivisionLabel);
-  const [prevSubdivisionLabel, setPrevSubdivisionLabel] = useState(persistedSubdivisionLabel);
-  if (prevSubdivisionLabel !== persistedSubdivisionLabel) {
-    setPrevSubdivisionLabel(persistedSubdivisionLabel);
-    setLocalSubdivisionLabel(persistedSubdivisionLabel);
+  const persistedAxes = subdivisionAxes(series);
+  const [localAxes, setLocalAxes] = useState<SubdivisionAxis[]>(persistedAxes);
+  // Re-sync only when the *set of axes* changes (add/remove), keyed on ids — not
+  // on labels. Keying on labels would let the refetch after an add clobber a
+  // rename the scorer is mid-typing on a sibling axis.
+  const axesKey = persistedAxes.map((a) => a.id).join(',');
+  const [prevAxesKey, setPrevAxesKey] = useState(axesKey);
+  if (prevAxesKey !== axesKey) {
+    setPrevAxesKey(axesKey);
+    setLocalAxes(persistedAxes);
+  }
+
+  async function persistAxes(next: SubdivisionAxis[]) {
+    setLocalAxes(next);
+    await updateSeries.mutateAsync({
+      id: seriesId,
+      patch: {
+        subdivisionAxes: next,
+        // eslint-disable-next-line react-hooks/purity -- Date.now() runs inside an async event handler, not render.
+        lastModifiedAt: Date.now(),
+      },
+    });
+  }
+
+  async function addAxis() {
+    await persistAxes([...localAxes, newSubdivisionAxis(DEFAULT_SUBDIVISION_LABEL)]);
+  }
+
+  async function removeAxis(id: string) {
+    await persistAxes(localAxes.filter((a) => a.id !== id));
+  }
+
+  // Commit an axis label. Empty/whitespace falls back to the default so the
+  // column always has a usable heading. Compares against the *persisted* label
+  // (not local, which the controlled input has already updated) so a real edit
+  // isn't mistaken for a no-op; an unchanged label just normalises locally.
+  async function commitAxisLabel(id: string, raw: string) {
+    const trimmed = raw.trim().slice(0, SUBDIVISION_LABEL_MAX_LENGTH) || DEFAULT_SUBDIVISION_LABEL;
+    const next = localAxes.map((a) => (a.id === id ? { ...a, label: trimmed } : a));
+    const persisted = persistedAxes.find((a) => a.id === id);
+    if (persisted && trimmed === persisted.label) {
+      setLocalAxes(next);
+      return;
+    }
+    await persistAxes(next);
   }
 
   async function toggle(field: CompetitorFieldKey, checked: boolean) {
@@ -70,6 +116,11 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
         };
       },
     });
+    // Enabling the subdivision field with no axes yet seeds a first axis so the
+    // column is immediately usable.
+    if (checked && field === 'subdivision' && localAxes.length === 0) {
+      await addAxis();
+    }
   }
 
   async function changePrimary(label: PrimaryPersonLabel) {
@@ -83,26 +134,18 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
     });
   }
 
-  // Commit a subdivision label. Empty/whitespace falls back to the default so
-  // the field always has a usable heading. No-op when nothing changed.
-  async function commitSubdivisionLabel(raw: string) {
-    const trimmed = raw.trim().slice(0, SUBDIVISION_LABEL_MAX_LENGTH) || DEFAULT_SUBDIVISION_LABEL;
-    setLocalSubdivisionLabel(trimmed);
-    if (trimmed === persistedSubdivisionLabel) return;
-    await updateSeries.mutateAsync({
-      id: seriesId,
-      patch: {
-        subdivisionLabel: trimmed,
-        lastModifiedAt: Date.now(),
-      },
-    });
-  }
-
   const primaryFieldLabel = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
-  // The subdivision field's heading is the scorer-chosen label; every other
-  // field uses its static label.
+  // The subdivision field heads its own axes editor below. In the field list it
+  // shows the single axis label when there's exactly one, the static default
+  // ("Division") when none is configured yet, and a generic plural for several.
+  const subdivisionListLabel =
+    localAxes.length === 1
+      ? subdivisionAxisLabel(localAxes[0])
+      : localAxes.length === 0
+        ? COMPETITOR_FIELD_LABELS.subdivision
+        : 'Subdivisions';
   const fieldDisplayLabel = (f: CompetitorFieldKey) =>
-    f === 'subdivision' ? localSubdivisionLabel : COMPETITOR_FIELD_LABELS[f];
+    f === 'subdivision' ? subdivisionListLabel : COMPETITOR_FIELD_LABELS[f];
   const shownLabels = ALL_COMPETITOR_FIELDS
     .filter((f) => enabledSet.has(f) && !isFieldDisabledByPrimary(f, primaryLabel))
     .map((f) => fieldDisplayLabel(f));
@@ -196,35 +239,47 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
               );
             })}
             {enabledSet.has('subdivision') && (
-              <div className="ml-6 mt-1 space-y-1.5 border-l pl-3">
-                <Label htmlFor="subdivision-label" className="text-sm font-medium">
-                  Subdivision label
-                </Label>
+              <div className="ml-6 mt-1 space-y-2 border-l pl-3">
+                <Label className="text-sm font-medium">Subdivision axes</Label>
                 <p className="text-xs text-muted-foreground">
-                  What to call this field in the competitor list, standings, and results.
+                  Each axis is an independent prize-giving grouping (e.g. a Division of
+                  Gold/Silver and an age Category of Youth/Master). Each becomes a column in
+                  the competitor list, standings, and results.
                 </p>
-                <Input
-                  id="subdivision-label"
-                  value={localSubdivisionLabel}
-                  maxLength={SUBDIVISION_LABEL_MAX_LENGTH}
-                  onChange={(e) => setLocalSubdivisionLabel(e.target.value)}
-                  onBlur={(e) => commitSubdivisionLabel(e.target.value)}
-                  className="max-w-xs"
-                />
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {SUBDIVISION_LABEL_PRESETS.map((preset) => (
+                {localAxes.map((axis, i) => (
+                  <div key={axis.id} className="flex items-center gap-2">
+                    {/* Uncontrolled (defaultValue + key): a re-sync from the
+                        refetch after add/remove can't clobber a label the scorer
+                        is mid-typing on a sibling axis. */}
+                    <Input
+                      key={axis.id}
+                      aria-label={`Axis ${i + 1} label`}
+                      defaultValue={axis.label}
+                      maxLength={SUBDIVISION_LABEL_MAX_LENGTH}
+                      onBlur={(e) => commitAxisLabel(axis.id, e.target.value)}
+                      placeholder="e.g. Division"
+                      className="max-w-xs"
+                    />
                     <Button
-                      key={preset}
                       type="button"
-                      variant={localSubdivisionLabel === preset ? 'secondary' : 'outline'}
+                      variant="ghost"
                       size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => commitSubdivisionLabel(preset)}
+                      className="h-8 px-2 text-xs text-muted-foreground"
+                      onClick={() => removeAxis(axis.id)}
                     >
-                      {preset}
+                      Remove
                     </Button>
-                  ))}
-                </div>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={addAxis}
+                >
+                  Add axis
+                </Button>
               </div>
             )}
           </div>

@@ -50,7 +50,7 @@ function makeSeries(id: string): Series {
     includeJsonExport: true,
     enabledCompetitorFields: ['club'],
     primaryPersonLabel: 'helm',
-    subdivisionLabel: 'Division',
+    subdivisionAxes: [],
   };
 }
 

@@ -6,6 +6,7 @@ import type {
   CompetitorFieldKey,
   PrimaryPersonLabel,
   Finish,
+  SubdivisionAxis,
 } from './types';
 import type {
   CompetitorRepository,
@@ -22,7 +23,6 @@ import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
-  DEFAULT_SUBDIVISION_LABEL,
 } from './competitor-fields';
 import { disambiguateSeriesName } from './series-name';
 
@@ -65,10 +65,10 @@ export interface PublicSeriesExport {
      *  "competitor" / "entrant" / "helm" / "owner". Absent in exports produced
      *  by older builds; importers default to "competitor". */
     primaryPersonLabel?: PrimaryPersonLabel;
-    /** Label for the subdivision field (e.g. "Division", "Category"). Display
-     *  hint; absent in exports from older builds, importers default to
-     *  "Division". */
-    subdivisionLabel?: string;
+    /** Named subdivision axes, e.g. a "Division" and an "Age category"
+     *  axis. Each `competitors[].subdivisions` entry is keyed by an axis id here.
+     *  Absent in exports from older builds (importers default to none). */
+    subdivisionAxes?: SubdivisionAxis[];
     scoringMode: 'scratch' | 'handicap';
     /** NHC publish-rating-calculations toggle (display hint). */
     publishRatingCalculations?: boolean;
@@ -101,9 +101,9 @@ export interface PublicSeriesExport {
     nationality?: string;
     gender: 'M' | 'F' | '';
     age: number | null;
-    /** Subdivision within a fleet (e.g. "Gold", "Grand Master"). Labelled per
-     *  `series.subdivisionLabel`. */
-    subdivision?: string;
+    /** Per-axis subdivision values (e.g. {<divisionAxisId>: "Silver"}), keyed by
+     *  `series.subdivisionAxes[].id`. */
+    subdivisions?: Record<string, string>;
     fleetNames: string[];
     ircTcc?: number;
     /** VPRS Time Correction Coefficient. */
@@ -544,7 +544,7 @@ export function buildPublicExportFromSnapshot(
       dnfScoring: series.dnfScoring,
       displayFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-      subdivisionLabel: series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+      ...(series.subdivisionAxes?.length ? { subdivisionAxes: series.subdivisionAxes } : {}),
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
       ...(series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: series.showPerRaceRatingsInSummary } : {}),
@@ -572,7 +572,9 @@ export function buildPublicExportFromSnapshot(
       ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
       age: c.age,
-      ...(c.subdivision ? { subdivision: c.subdivision } : {}),
+      ...(c.subdivisions && Object.keys(c.subdivisions).length > 0
+        ? { subdivisions: c.subdivisions }
+        : {}),
       fleetNames: c.fleetIds.map((id) => fleetNameById.get(id) ?? id),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
@@ -713,7 +715,9 @@ export async function importPublicExport(
     ...(data.series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: data.series.showPerRaceRatingsInSummary } : {}),
     enabledCompetitorFields: data.series.displayFields ?? defaultEnabledCompetitorFields(),
     primaryPersonLabel: data.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-    subdivisionLabel: data.series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+    // Axis ids are series-local opaque keys; carried verbatim so the imported
+    // competitors' `subdivisions` maps still resolve.
+    subdivisionAxes: data.series.subdivisionAxes ?? [],
   });
 
   await Promise.all(
@@ -756,7 +760,9 @@ export async function importPublicExport(
         ...(c.nationality ? { nationality: c.nationality } : {}),
         gender: c.gender,
         age: c.age,
-        ...(c.subdivision ? { subdivision: c.subdivision } : {}),
+        ...(c.subdivisions && Object.keys(c.subdivisions).length > 0
+          ? { subdivisions: c.subdivisions }
+          : {}),
         createdAt: now,
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
         ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),

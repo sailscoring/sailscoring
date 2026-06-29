@@ -24,7 +24,6 @@ import { eq, sql } from 'drizzle-orm';
 
 import { getDb, type SailScoringDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
-import { DEFAULT_SUBDIVISION_LABEL } from '@/lib/competitor-fields';
 import { openSeriesFromFile, parseSeriesFile, type SeriesFileRepos } from '@/lib/series-file';
 import type { Competitor, Fleet, Race, RaceStart, RaceRatingOverride, Finish, Series, SubSeries } from '@/lib/types';
 
@@ -82,7 +81,7 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
           showPerRaceRatingsInSummary: s.showPerRaceRatingsInSummary ?? true,
           enabledCompetitorFields: s.enabledCompetitorFields,
           primaryPersonLabel: s.primaryPersonLabel,
-          subdivisionLabel: s.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+          subdivisionAxes: s.subdivisionAxes ?? [],
           categoryId: s.categoryId ?? null,
           archived: s.archived ?? false,
           source: s.source ?? null,
@@ -130,7 +129,7 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
             nationality: c.nationality ?? null,
             gender: c.gender,
             age: c.age,
-            subdivision: c.subdivision ?? null,
+            subdivisions: c.subdivisions ?? null,
             createdAt: new Date(c.createdAt),
             ircTcc: c.ircTcc ?? null,
             pyNumber: c.pyNumber ?? null,

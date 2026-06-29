@@ -325,3 +325,57 @@ describe('parseSeriesFile — v6 subdivision', () => {
     expect(v5.competitors[0].subdivision).toBeUndefined();
   });
 });
+
+describe('parseSeriesFile — v13 multi-axis subdivisions', () => {
+  function fileV13(): string {
+    return JSON.stringify({
+      formatVersion: 13,
+      seriesId: 's1',
+      exportedAt: '2026-08-24T00:00:00.000Z',
+      series: {
+        id: 's1',
+        name: 'ILCA Leinsters',
+        venue: 'HYC',
+        startDate: '2026-08-01',
+        endDate: '2026-08-03',
+        venueLogoUrl: '',
+        eventLogoUrl: '',
+        discardThresholds: [],
+        dnfScoring: 'seriesEntries',
+        ftpHost: '',
+        ftpPath: '',
+        includeJsonExport: true,
+        enabledCompetitorFields: ['subdivision'],
+        primaryPersonLabel: 'helm',
+        subdivisionAxes: [
+          { id: 'ax-div', label: 'Division' },
+          { id: 'ax-cat', label: 'Age category' },
+        ],
+        scoringMode: 'scratch',
+      },
+      fleets: [],
+      competitors: [
+        {
+          id: 'c1',
+          fleetIds: [],
+          sailNumber: 'IRL-7',
+          name: 'Skipper',
+          club: 'HYC',
+          gender: '',
+          age: null,
+          subdivisions: { 'ax-div': 'Silver', 'ax-cat': 'Master' },
+        },
+      ],
+      races: [],
+    });
+  }
+
+  it('round-trips the axes and per-competitor values', () => {
+    const file = parseSeriesFile(fileV13());
+    expect(file.series.subdivisionAxes).toEqual([
+      { id: 'ax-div', label: 'Division' },
+      { id: 'ax-cat', label: 'Age category' },
+    ]);
+    expect(file.competitors[0].subdivisions).toEqual({ 'ax-div': 'Silver', 'ax-cat': 'Master' });
+  });
+});

@@ -34,6 +34,19 @@ export interface StartGroup {
 }
 
 /**
+ * A named subdivision axis: one independent way of sub-grouping competitors for
+ * prize-giving/filtering (not scoring), e.g. a "Division" axis (Gold/Silver) and
+ * an "Age category" axis (Youth/Master) coexisting on the same series. A
+ * competitor carries at most one value per axis, keyed by `id` in
+ * `Competitor.subdivisions`. Array position in `Series.subdivisionAxes` is the
+ * display order. `id` is stable so renaming `label` never orphans values.
+ */
+export interface SubdivisionAxis {
+  id: string;
+  label: string;  // display, e.g. "Division", "Age category"; bounded by SUBDIVISION_LABEL_MAX_LENGTH
+}
+
+/**
  * Scorer-defined series category (#154). Per-workspace, scorer-editable.
  * Workspace scope is implicit in the API surface, so it isn't carried here.
  * The synthetic "Uncategorized" bucket is *not* a Category — it's
@@ -87,7 +100,7 @@ export interface Series {
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)
-  subdivisionLabel: string;  // label for the Competitor.subdivision field, e.g. "Division", "Category" (display only); defaults to "Division"
+  subdivisionAxes: SubdivisionAxis[];  // independent subdivision/category axes; each labels a Competitor.subdivisions entry. Empty = no axes configured. Shown only when 'subdivision' is in enabledCompetitorFields.
   // Series-list organisation (#154). Workspace-local: excluded from the
   // .sailscoring file format and public JSON export, and reset by copySeries.
   categoryId?: string | null;  // category assignment; null/absent = synthetic "Uncategorized" bucket
@@ -178,7 +191,7 @@ export interface Competitor {
   nationality?: string;  // 3-letter national-letters code (RRS Appendix G / IOC), e.g. "IRL"
   gender: 'M' | 'F' | '';
   age: number | null;
-  subdivision?: string;  // subdivision within a Fleet for prize-giving/filtering, not scoring (e.g. "Gold"/"Silver"/"Bronze", or age categories like "Grand Master"). Labelled per Series.subdivisionLabel
+  subdivisions?: Record<string, string>;  // subdivision/category values for prize-giving/filtering, not scoring (e.g. {<divisionAxisId>: "Silver", <categoryAxisId>: "Master"}). Keyed by Series.subdivisionAxes[].id; sparse
   createdAt: number;
   ircTcc?: number;    // IRC Time Correction Coefficient, e.g. 0.972
   vprsTcc?: number;   // VPRS Time Correction Coefficient, e.g. 0.992 (single applied value; the spin/non-spin pair lives in the rating-source layer, like IRC)

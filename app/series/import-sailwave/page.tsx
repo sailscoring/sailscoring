@@ -151,7 +151,7 @@ function Wizard({
   const [name, setName] = useState(preview?.name ?? '');
   const [venue, setVenue] = useState(preview?.venue ?? '');
   const [primaryLabel, setPrimaryLabel] = useState<PrimaryPersonLabel>('helm');
-  const [subdivisionLabel, setSubdivisionLabel] = useState(preview?.detectedSubdivisionLabel ?? '');
+  const [subdivisionLabel, setSubdivisionLabel] = useState(preview?.detectedSubdivisionLabels[0] ?? '');
   const [dnfScoring, setDnfScoring] = useState<'auto' | 'seriesEntries' | 'startingArea'>('auto');
   const [fleetOverrides, setFleetOverrides] = useState<Map<string, ScoringSystem>>(() => {
     const m = new Map<string, ScoringSystem>();
@@ -319,9 +319,9 @@ function Wizard({
                   .join(', ')}
               </Badge>
             )}
-            {preview.detectedSubdivisionLabel !== null && (
+            {preview.detectedSubdivisionLabels.length > 0 && (
               <Badge variant="outline">
-                Subdivision: {preview.detectedSubdivisionLabel}
+                {preview.detectedSubdivisionLabels.length > 1 ? 'Subdivisions' : 'Subdivision'}: {preview.detectedSubdivisionLabels.join(', ')}
               </Badge>
             )}
           </div>
@@ -471,9 +471,11 @@ function Wizard({
                 </p>
               </div>
             )}
-            {!isUpdate && preview.detectedSubdivisionLabel !== null && (
+            {!isUpdate && preview.detectedSubdivisionLabels.length > 0 && (
               <div className="space-y-1.5">
-                <Label htmlFor="subdivision-label">Subdivision column label</Label>
+                <Label htmlFor="subdivision-label">
+                  {preview.detectedSubdivisionLabels.length > 1 ? 'First subdivision column label' : 'Subdivision column label'}
+                </Label>
                 <Input
                   id="subdivision-label"
                   value={subdivisionLabel}
@@ -481,9 +483,9 @@ function Wizard({
                   className="w-48"
                 />
                 <p className="text-xs text-muted-foreground">
-                  This file has a prize-giving subdivision column (Gold/Silver/Bronze, age
-                  categories, …). Values are imported as-is; this only sets the column heading.
-                  You can rename or disable it later in Settings.
+                  {preview.detectedSubdivisionLabels.length > 1
+                    ? `This file has prize-giving subdivision columns (${preview.detectedSubdivisionLabels.join(', ')}). Values are imported as-is; this sets the first column's heading. You can rename or disable any of them later in Settings.`
+                    : 'This file has a prize-giving subdivision column (Gold/Silver/Bronze, age categories, …). Values are imported as-is; this only sets the column heading. You can rename or disable it later in Settings.'}
                 </p>
               </div>
             )}

@@ -355,7 +355,9 @@ export async function copySeries(
       showPerRaceRatingsInSummary: source.showPerRaceRatingsInSummary ?? true,
       enabledCompetitorFields: source.enabledCompetitorFields,
       primaryPersonLabel: source.primaryPersonLabel,
-      subdivisionLabel: source.subdivisionLabel,
+      // Axis ids are series-local — carried verbatim so competitor
+      // `subdivisions` keys still resolve in the copy.
+      subdivisionAxes: source.subdivisionAxes,
       // Series-list organisation (#154) is workspace-local: a copy lands
       // active and uncategorised in the target workspace. The source category
       // id wouldn't exist there anyway.
@@ -404,7 +406,7 @@ export async function copySeries(
           nationality: c.nationality ?? null,
           gender: c.gender,
           age: c.age,
-          subdivision: c.subdivision ?? null,
+          subdivisions: c.subdivisions ?? null,
           createdAt: new Date(c.createdAt),
           ircTcc: c.ircTcc ?? null,
           vprsTcc: c.vprsTcc ?? null,
@@ -645,7 +647,7 @@ export async function createFollowOnSeries(
       nationality: c.nationality ?? null,
       gender: c.gender,
       age: c.age,
-      subdivision: c.subdivision ?? null,
+      subdivisions: c.subdivisions ?? null,
       createdAt: new Date(c.createdAt),
       ircTcc: c.ircTcc ?? null,
       vprsTcc: c.vprsTcc ?? null,
@@ -691,7 +693,7 @@ export async function createFollowOnSeries(
       showPerRaceRatingsInSummary: source.showPerRaceRatingsInSummary ?? true,
       enabledCompetitorFields: source.enabledCompetitorFields,
       primaryPersonLabel: source.primaryPersonLabel,
-      subdivisionLabel: source.subdivisionLabel,
+      subdivisionAxes: source.subdivisionAxes,
       categoryId: source.categoryId ?? null,
       archived: false,
       source: null,

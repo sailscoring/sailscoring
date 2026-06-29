@@ -49,7 +49,7 @@ const baseSeries: Series = {
   publishRatingCalculations: true,
   enabledCompetitorFields: [],
   primaryPersonLabel: 'competitor',
-  subdivisionLabel: 'Division',
+  subdivisionAxes: [],
   version: 0,
 };
 

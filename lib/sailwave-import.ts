@@ -24,6 +24,7 @@ import type {
   Fleet,
   PrimaryPersonLabel,
   ResultCode,
+  SubdivisionAxis,
 } from './types';
 import {
   FORMAT_VERSION,
@@ -33,6 +34,7 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
   DEFAULT_SUBDIVISION_LABEL,
   defaultEnabledCompetitorFields,
+  newSubdivisionAxis,
 } from './competitor-fields';
 import { lookupAlias } from './nationality';
 
@@ -355,23 +357,23 @@ export function parseSailwaveColumns(raw: SailwaveRaw): Map<string, SailwaveColu
   return out;
 }
 
-/** Which raw competitor key feeds our subdivision field, and what to label it.
- *  `sourceKey: null` means the file carries no subdivision data. */
-export interface SubdivisionResolution {
-  sourceKey: 'compdivision' | 'comphelmagegroup' | null;
+/** One detected subdivision axis: the raw competitor key feeding it and the
+ *  label to head it. */
+export interface SubdivisionAxisSource {
+  sourceKey: 'compdivision' | 'comphelmagegroup';
   label: string;
 }
 
-/** Decide the subdivision source and label for a Sailwave file.
- *
- *  Priority: Sailwave's native Division field, then the helm age-group field
- *  (commonly repurposed as a prize category and retitled, e.g. "Category").
- *  The label comes from the column's custom title when the scorer set one,
- *  else a sensible per-source default. */
-export function resolveSubdivision(
+/** Detect the subdivision axes a Sailwave file carries — both Sailwave's native
+ *  Division field and the helm age-group field (commonly repurposed as a prize
+ *  category and retitled, e.g. "Category"), each as an independent axis when
+ *  populated. Each label comes from the column's custom title when the scorer
+ *  set one, else a sensible per-source default. Empty when the file carries no
+ *  subdivision data. */
+export function resolveSubdivisionAxes(
   comps: Record<string, SailwaveCompetitorRaw>,
   columns: Map<string, SailwaveColumn>,
-): SubdivisionResolution {
+): SubdivisionAxisSource[] {
   const anyPopulated = (key: keyof SailwaveCompetitorRaw): boolean =>
     Object.values(comps).some(
       (c) => c.compexclude !== '1' && !!(c[key] ?? '').trim(),
@@ -379,13 +381,14 @@ export function resolveSubdivision(
   const titleFor = (field: string, fallback: string): string =>
     columns.get(field)?.title || fallback;
 
+  const axes: SubdivisionAxisSource[] = [];
   if (anyPopulated('compdivision')) {
-    return { sourceKey: 'compdivision', label: titleFor('Division', DEFAULT_SUBDIVISION_LABEL) };
+    axes.push({ sourceKey: 'compdivision', label: titleFor('Division', DEFAULT_SUBDIVISION_LABEL) });
   }
   if (anyPopulated('comphelmagegroup')) {
-    return { sourceKey: 'comphelmagegroup', label: titleFor('HelmAgeGroup', 'Category') };
+    axes.push({ sourceKey: 'comphelmagegroup', label: titleFor('HelmAgeGroup', 'Category') });
   }
-  return { sourceKey: null, label: DEFAULT_SUBDIVISION_LABEL };
+  return axes;
 }
 
 // ---- Preview (drives the wizard form) ----
@@ -408,10 +411,10 @@ export interface SailwavePreview {
    *  detected default the scorer can override in Settings after import. */
   detectedDiscardThresholds: DiscardThreshold[];
   hasResults: boolean;
-  /** Label for a detected subdivision column (custom title, else a per-source
-   *  default), or null when the file carries no subdivision data. Prefills the
-   *  wizard's editable label field. */
-  detectedSubdivisionLabel: string | null;
+  /** Labels of the detected subdivision axes (custom column title, else a
+   *  per-source default), in order. Empty when the file carries no subdivision
+   *  data. Shown in the wizard as the columns that will be imported. */
+  detectedSubdivisionLabels: string[];
 }
 
 export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
@@ -446,7 +449,7 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
     };
   });
 
-  const subdivision = resolveSubdivision(comps, parseSailwaveColumns(raw));
+  const subdivisionAxisSources = resolveSubdivisionAxes(comps, parseSailwaveColumns(raw));
 
   return {
     name: (globals.serevent ?? '').trim(),
@@ -462,7 +465,7 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
     hasResults: Object.values(results).some(
       (r) => (r.rrestyp ?? SAILWAVE_RRESTYP_NO_RESULT) !== SAILWAVE_RRESTYP_NO_RESULT,
     ),
-    detectedSubdivisionLabel: subdivision.sourceKey != null ? subdivision.label : null,
+    detectedSubdivisionLabels: subdivisionAxisSources.map((a) => a.label),
   };
 }
 
@@ -854,7 +857,7 @@ interface CompetitorBuild {
   crewName?: string;
   club: string;
   nationality?: string;
-  subdivision?: string;
+  subdivisions?: Record<string, string>;
   gender: '';
   age: null;
   ircTcc?: number;
@@ -908,14 +911,20 @@ export function buildSeriesFileFromSailwave(
     rawComps, opts.fleetScoringOverrides, opts.includeScratchCompanions,
   );
 
-  const subdivision = resolveSubdivision(rawComps, parseSailwaveColumns(raw));
-  const subdivisionLabel =
-    subdivision.sourceKey != null
-      ? (opts.subdivisionLabel?.trim() || subdivision.label)
-      : DEFAULT_SUBDIVISION_LABEL;
+  // Each detected source becomes one axis with a stable id. The optional label
+  // override from the wizard applies to the first axis (the others keep their
+  // detected labels, renameable in-app).
+  const axisSources = resolveSubdivisionAxes(rawComps, parseSailwaveColumns(raw));
+  const builtAxes: Array<{ axis: SubdivisionAxis; sourceKey: SubdivisionAxisSource['sourceKey'] }> =
+    axisSources.map((src, i) => ({
+      axis: newSubdivisionAxis(
+        i === 0 ? (opts.subdivisionLabel?.trim() || src.label) : src.label,
+      ),
+      sourceKey: src.sourceKey,
+    }));
 
   const { competitors, compIdByHandle } = buildCompetitors(
-    rawComps, fleetIdByName, fleetSystemByName, subdivision.sourceKey,
+    rawComps, fleetIdByName, fleetSystemByName, builtAxes,
   );
 
   const sortedRaces = sortedRaceHandles(rawRaces);
@@ -991,7 +1000,7 @@ export function buildSeriesFileFromSailwave(
       includeJsonExport: true,
       enabledCompetitorFields: enabledFields,
       primaryPersonLabel: opts.primaryLabel,
-      subdivisionLabel,
+      subdivisionAxes: builtAxes.map((b) => b.axis),
       scoringMode,
     },
     fleets: fleets.map((f) => ({
@@ -1012,7 +1021,9 @@ export function buildSeriesFileFromSailwave(
       ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
       age: c.age,
-      ...(c.subdivision ? { subdivision: c.subdivision } : {}),
+      ...(c.subdivisions && Object.keys(c.subdivisions).length > 0
+        ? { subdivisions: c.subdivisions }
+        : {}),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
@@ -1120,7 +1131,7 @@ function buildCompetitors(
   comps: Record<string, SailwaveCompetitorRaw>,
   fleetIdByName: Map<string, string>,
   fleetSystemByName: Map<string, ScoringSystem>,
-  subdivisionSourceKey: SubdivisionResolution['sourceKey'],
+  axes: Array<{ axis: SubdivisionAxis; sourceKey: SubdivisionAxisSource['sourceKey'] }>,
 ): { competitors: CompetitorBuild[]; compIdByHandle: Map<string, string> } {
   const aliasesOf = new Map<string, string[]>();
   for (const [k, v] of Object.entries(comps)) {
@@ -1187,12 +1198,15 @@ function buildCompetitors(
       const canonical = lookupAlias(rawNat)?.canonical ?? rawNat;
       if (/^[A-Z]{3}$/.test(canonical)) built.nationality = canonical;
     }
-    // Subdivision: imported verbatim from the resolved source field (the codes
-    // Sailwave stores, e.g. "GGM"). The scorer can rename the values in-app.
-    if (subdivisionSourceKey) {
-      const sub = (v[subdivisionSourceKey] ?? '').trim();
-      if (sub) built.subdivision = sub;
+    // Subdivisions: each axis imported verbatim from its source field (the
+    // codes Sailwave stores, e.g. "GGM"), keyed by the axis id. The scorer can
+    // rename the values in-app.
+    const subdivisions: Record<string, string> = {};
+    for (const { axis, sourceKey } of axes) {
+      const sub = (v[sourceKey] ?? '').trim();
+      if (sub) subdivisions[axis.id] = sub;
     }
+    if (Object.keys(subdivisions).length > 0) built.subdivisions = subdivisions;
     if (ircTcc != null) built.ircTcc = ircTcc;
     if (nhcTcf != null) built.nhcStartingTcf = nhcTcf;
     if (pyNumber != null) built.pyNumber = pyNumber;
@@ -1408,7 +1422,7 @@ function dataFlagsFor(competitors: ReadonlyArray<CompetitorBuild>): CompetitorDa
     hasCrewName: competitors.some((c) => !!c.crewName),
     hasClub: competitors.some((c) => !!c.club),
     hasNationality: competitors.some((c) => !!c.nationality),
-    hasSubdivision: competitors.some((c) => !!c.subdivision),
+    hasSubdivision: competitors.some((c) => c.subdivisions && Object.keys(c.subdivisions).length > 0),
   };
 }
 

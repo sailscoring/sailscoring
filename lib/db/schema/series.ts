@@ -31,6 +31,7 @@ import type {
   PrimaryPersonLabel,
   SeriesSource,
   StartGroup,
+  SubdivisionAxis,
   PublishedSeriesPage,
 } from '@/lib/types';
 import type { SeriesFile } from '@/lib/series-file';
@@ -160,9 +161,13 @@ export const series = pgTable(
       .$type<PrimaryPersonLabel>()
       .notNull()
       .default('competitor'),
-    // Freeform label for the subdivision competitor field. No CHECK constraint
-    // — the value is arbitrary text (length is bounded at the Zod layer).
-    subdivisionLabel: text('subdivision_label').notNull().default('Division'),
+    // Independent subdivision/category axes, e.g. a "Division" and an
+    // "Age category" axis. Each `Competitor.subdivisions` entry is keyed by an
+    // axis id here. Labels are arbitrary text (length bounded at the Zod layer).
+    subdivisionAxes: jsonb('subdivision_axes')
+      .$type<SubdivisionAxis[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     // Series-list organisation (#154). Both are workspace-local: deliberately
     // excluded from the .sailscoring file format and public JSON export, and
     // reset by copySeries (a copy lands active and uncategorised in its target
@@ -315,7 +320,9 @@ export const competitors = pgTable(
     nationality: text('nationality'),
     gender: text('gender').notNull().default(''),
     age: integer('age'),
-    subdivision: text('subdivision'),
+    // Per-axis subdivision values, keyed by Series.subdivisionAxes[].id.
+    // Nullable/sparse: absent for competitors with no axis values.
+    subdivisions: jsonb('subdivisions').$type<Record<string, string>>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

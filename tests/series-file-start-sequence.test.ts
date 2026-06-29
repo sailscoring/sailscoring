@@ -148,7 +148,7 @@ describe('defaultStartSequence fleet remap on import', () => {
       includeJsonExport: true,
       enabledCompetitorFields: ['boatName'],
       primaryPersonLabel: 'helm',
-      subdivisionLabel: 'Class',
+      subdivisionAxes: [],
       categoryId: null,
       archived: false,
       version: 1,

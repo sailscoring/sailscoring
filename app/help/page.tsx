@@ -263,14 +263,16 @@ export default async function HelpPage() {
           alongside a small country flag.
         </p>
         <p>
-          Enable <em>Division</em> to record a prize-giving subdivision within a
+          Enable <em>Division</em> to record prize-giving subdivisions within a
           fleet — skill tiers like <em>Gold</em>/<em>Silver</em>/<em>Bronze</em>,
           or age categories such as <em>Apprentice Master</em>/<em>Grand Master</em>.
-          It does not affect scoring: everyone in a fleet is still ranked
-          together, and the subdivision only decides which sub-trophy an entry is
-          eligible for. You can rename the field’s label (to{' '}
-          <em>Category</em>, say) in the <strong className="text-foreground">Competitor fields</strong>{' '}
-          card. It then shows as a column in the competitors table, the
+          A subdivision does not affect scoring: everyone in a fleet is still
+          ranked together, and it only decides which sub-trophy an entry is
+          eligible for. You can add more than one independent <em>axis</em> — a{' '}
+          <em>Division</em> (Gold/Silver) and an <em>Age category</em>{' '}
+          (Youth/Master), say — and rename each in the{' '}
+          <strong className="text-foreground">Competitor fields</strong> card.
+          Each axis shows as its own column in the competitors table, the
           standings, and exported results.
         </p>
         <p>
@@ -1203,11 +1205,11 @@ export default async function HelpPage() {
               if it auto-detects wrongly, and adjust any race dates Sailwave didn’t carry across.
             </p>
             <p>
-              If the file has a prize-giving subdivision — Sailwave’s Division field, or a column
-              (often the helm age group) you retitled to something like <em>Category</em> — the wizard
-              detects it and shows the heading it found. The values are imported exactly as Sailwave
-              stored them (e.g. age-band codes like <em>GGM</em>); you can rename the column heading
-              before importing, and edit the field or its values afterwards from{' '}
+              If the file has prize-giving subdivisions — Sailwave’s Division field, and/or the helm
+              age group (often retitled to something like <em>Category</em>) — the wizard detects each
+              as its own column and shows the headings it found. The values are imported exactly as
+              Sailwave stored them (e.g. age-band codes like <em>GGM</em>); you can rename the first
+              column heading before importing, and rename, add, or remove columns afterwards from{' '}
               <strong className="text-foreground">Settings</strong> and the{' '}
               <strong className="text-foreground">Competitors</strong> tab.
             </p>

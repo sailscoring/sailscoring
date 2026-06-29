@@ -2,7 +2,6 @@ import 'server-only';
 import { and, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
 import type { PgInsertValue, PgUpdateSetSource } from 'drizzle-orm/pg-core';
 
-import { DEFAULT_SUBDIVISION_LABEL } from './competitor-fields';
 import { decryptCredential, encryptCredential } from './crypto';
 import { getDb, type SailScoringDb } from './db/client';
 import * as schema from './db/schema';
@@ -104,7 +103,7 @@ function seriesRowToType(row: SeriesRow): Series {
     showPerRaceRatingsInSummary: row.showPerRaceRatingsInSummary,
     enabledCompetitorFields: row.enabledCompetitorFields,
     primaryPersonLabel: row.primaryPersonLabel,
-    subdivisionLabel: row.subdivisionLabel,
+    subdivisionAxes: row.subdivisionAxes,
     categoryId: row.categoryId,
     archived: row.archived,
     source: row.source ?? undefined,
@@ -143,7 +142,9 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     ...(row.nationality ? { nationality: row.nationality } : {}),
     gender: row.gender as Competitor['gender'],
     age: row.age,
-    ...(row.subdivision ? { subdivision: row.subdivision } : {}),
+    ...(row.subdivisions && Object.keys(row.subdivisions).length > 0
+      ? { subdivisions: row.subdivisions }
+      : {}),
     createdAt: row.createdAt.getTime(),
     ...(row.ircTcc != null ? { ircTcc: row.ircTcc } : {}),
     ...(row.vprsTcc != null ? { vprsTcc: row.vprsTcc } : {}),
@@ -555,7 +556,7 @@ function seriesToRow(s: Series, workspaceId: string) {
     showPerRaceRatingsInSummary: s.showPerRaceRatingsInSummary ?? true,
     enabledCompetitorFields: s.enabledCompetitorFields,
     primaryPersonLabel: s.primaryPersonLabel,
-    subdivisionLabel: s.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+    subdivisionAxes: s.subdivisionAxes ?? [],
     categoryId: s.categoryId ?? null,
     archived: s.archived ?? false,
     source: s.source ?? null,
@@ -573,7 +574,7 @@ const seriesUpdateColumns = [
   'scoringMode', 'defaultStartSequence', 'discardThresholds', 'dnfScoring',
   'ftpHost', 'ftpPath', 'ftpPaths', 'includeJsonExport',
   'publishRatingCalculations', 'showPerRaceRatingsInSummary',
-  'enabledCompetitorFields', 'primaryPersonLabel', 'subdivisionLabel',
+  'enabledCompetitorFields', 'primaryPersonLabel', 'subdivisionAxes',
   'categoryId', 'archived', 'source',
 ] as const satisfies readonly (keyof ReturnType<typeof seriesToRow>)[];
 
@@ -902,7 +903,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     nationality: c.nationality ?? null,
     gender: c.gender,
     age: c.age,
-    subdivision: c.subdivision ?? null,
+    subdivisions: c.subdivisions ?? null,
     createdAt: new Date(c.createdAt),
     ircTcc: c.ircTcc ?? null,
     vprsTcc: c.vprsTcc ?? null,
@@ -915,7 +916,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
 const competitorUpdateColumns = [
   'fleetIds', 'sailNumber', 'boatName', 'boatClass', 'name',
   'owner', 'helm', 'crewName', 'club', 'nationality',
-  'gender', 'age', 'subdivision',
+  'gender', 'age', 'subdivisions',
   'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf',
 ] as const satisfies readonly (keyof ReturnType<typeof competitorToRow>)[];
 

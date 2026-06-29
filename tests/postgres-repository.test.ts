@@ -58,7 +58,7 @@ function makeSeries(id: string = uuid()): Series {
     publishRatingCalculations: true,
     enabledCompetitorFields: ['boatName', 'club'],
     primaryPersonLabel: 'helm',
-    subdivisionLabel: 'Division',
+    subdivisionAxes: [],
   };
 }
 

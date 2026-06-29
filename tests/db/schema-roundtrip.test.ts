@@ -97,7 +97,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       showPerRaceRatingsInSummary: false,
       enabledCompetitorFields: ['boatName', 'boatClass', 'helm', 'crewName', 'club'],
       primaryPersonLabel: 'helm',
-      subdivisionLabel: 'Division',
+      subdivisionAxes: [],
     };
 
     await db.insert(schema.series).values({
@@ -164,7 +164,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       club: 'HYC',
       gender: 'M',
       age: 42,
-      subdivision: 'Gold',
+      subdivisions: { 'axis-div': 'Gold' },
       createdAt: now.getTime(),
       ircTcc: 0.972,
       pyNumber: 1034,
@@ -186,7 +186,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       club: competitor.club,
       gender: competitor.gender,
       age: competitor.age,
-      subdivision: competitor.subdivision,
+      subdivisions: competitor.subdivisions,
       createdAt: new Date(competitor.createdAt),
       ircTcc: competitor.ircTcc,
       pyNumber: competitor.pyNumber,
@@ -335,7 +335,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       club: competitor.club,
       gender: competitor.gender,
       age: competitor.age,
-      subdivision: competitor.subdivision,
+      subdivisions: competitor.subdivisions,
       ircTcc: competitor.ircTcc,
       pyNumber: competitor.pyNumber,
       nhcStartingTcf: competitor.nhcStartingTcf,

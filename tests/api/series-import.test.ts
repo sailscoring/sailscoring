@@ -104,7 +104,7 @@ describe.skipIf(skip)('series import (ADR-009 M2)', () => {
       publishRatingCalculations: true,
       enabledCompetitorFields: ['boatName', 'club'],
       primaryPersonLabel: 'helm' as const,
-      subdivisionLabel: 'Division',
+      subdivisionAxes: [],
     });
     const fleetId = uuid();
     await fleets.putFleet(ctx, srcId, fleetId, {

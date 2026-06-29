@@ -53,7 +53,7 @@ function makeSeries(id: string, archived = true): Series {
     includeJsonExport: true,
     enabledCompetitorFields: [],
     primaryPersonLabel: 'helm',
-    subdivisionLabel: 'Division',
+    subdivisionAxes: [],
     archived,
   };
 }

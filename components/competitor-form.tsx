@@ -18,10 +18,11 @@ import {
   COMPETITOR_FIELD_LABELS,
   PRIMARY_PERSON_LABEL_TEXT,
   isFieldDisabledByPrimary,
+  subdivisionAxisLabel,
 } from '@/lib/competitor-fields';
 import { requiredForFleetsHint } from '@/lib/competitor-ratings';
 import { formatRelativeTime } from '@/lib/relative-time';
-import type { CompetitorFieldKey, Fleet, PrimaryPersonLabel } from '@/lib/types';
+import type { CompetitorFieldKey, Fleet, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
 
 export interface CompetitorFormData {
   sailNumber: string;
@@ -35,7 +36,7 @@ export interface CompetitorFormData {
   nationality: string;
   gender: '' | 'M' | 'F';
   age: string;
-  subdivision: string;
+  subdivisions: Record<string, string>;  // per-axis values keyed by SubdivisionAxis.id
   fleetIds: string[];   // IDs of existing fleets to assign the competitor to
   ircTcc: string;       // decimal string, e.g. "0.972"; empty if not set
   vprsTcc: string;      // decimal string, e.g. "0.992"; empty if not set
@@ -56,7 +57,7 @@ export const emptyCompetitorForm: CompetitorFormData = {
   nationality: '',
   gender: '',
   age: '',
-  subdivision: '',
+  subdivisions: {},
   fleetIds: [],
   ircTcc: '',
   vprsTcc: '',
@@ -86,7 +87,7 @@ export function CompetitorForm({
   availableFleets,
   enabledFields,
   primaryLabel,
-  subdivisionLabel,
+  subdivisionAxes,
 }: {
   initial: CompetitorFormData;
   onSave: (data: CompetitorFormData) => Promise<void>;
@@ -96,7 +97,7 @@ export function CompetitorForm({
   availableFleets: Fleet[];
   enabledFields: CompetitorFieldKey[];
   primaryLabel: PrimaryPersonLabel;
-  subdivisionLabel: string;
+  subdivisionAxes: SubdivisionAxis[];
 }) {
   const [data, setData] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -355,17 +356,20 @@ export function CompetitorForm({
             />
           </div>
         )}
-        {enabledFields.includes('subdivision') && (
-          <div className="space-y-1.5">
-            <Label htmlFor="subdivision">{subdivisionLabel}</Label>
-            <Input
-              id="subdivision"
-              value={data.subdivision}
-              onChange={(e) => set('subdivision', e.target.value)}
-              placeholder="e.g. Gold"
-            />
-          </div>
-        )}
+        {enabledFields.includes('subdivision') &&
+          subdivisionAxes.map((axis) => (
+            <div className="space-y-1.5" key={axis.id}>
+              <Label htmlFor={`subdivision-${axis.id}`}>{subdivisionAxisLabel(axis)}</Label>
+              <Input
+                id={`subdivision-${axis.id}`}
+                value={data.subdivisions[axis.id] ?? ''}
+                onChange={(e) =>
+                  set('subdivisions', { ...data.subdivisions, [axis.id]: e.target.value })
+                }
+                placeholder="e.g. Gold"
+              />
+            </div>
+          ))}
         {availableFleets.length > 1 && (
           <div className="space-y-1.5 col-span-2">
             <Label>Fleet</Label>

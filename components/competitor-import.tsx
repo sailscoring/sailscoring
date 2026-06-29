@@ -44,7 +44,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Upload } from 'lucide-react';
-import type { Competitor, Fleet, CompetitorFieldKey, PrimaryPersonLabel } from '@/lib/types';
+import type { Competitor, Fleet, CompetitorFieldKey, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
 import {
   ALL_COMPETITOR_FIELDS,
   COMPETITOR_FIELD_LABELS,
@@ -55,6 +55,10 @@ import {
   defaultEnabledCompetitorFields,
   isFieldDisabledByPrimary,
   sameFleetIdSet,
+  subdivisionAxes,
+  newSubdivisionAxis,
+  cleanSubdivisions,
+  subdivisionsEqual,
 } from '@/lib/competitor-fields';
 import { log } from '@/lib/debug';
 
@@ -701,7 +705,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
           proposedPrimary,
           currentFields,
           proposedFields,
-          subdivisionLabel: series?.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+          subdivisionLabel: (series ? subdivisionAxes(series)[0]?.label : undefined) ?? DEFAULT_SUBDIVISION_LABEL,
           seriesScoringMode,
           existingHasBoatClass,
           alsoCreateScratch: {},
@@ -716,6 +720,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     const { rows, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, alsoCreateScratch } = importFlow;
 
     const existing = await competitorRepo.listBySeries(seriesId);
+    const series = await seriesRepo.get(seriesId);
     const bysail = new Map<string, Competitor[]>();
     for (const c of existing) {
       const key = c.sailNumber.toUpperCase();
@@ -741,12 +746,24 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     // fields, and — if the plan produced handicap fleets — flipping the
     // series to handicap mode) before touching competitors so downstream
     // UI reads the correct config.
+    // CSV import targets a single subdivision axis: the series' first
+    // existing axis, or a freshly-seeded one when the import maps/enables the
+    // subdivision field but the series has none yet. Multi-axis CSV column
+    // mapping is a future enhancement; one column maps to one axis.
+    const csvHasSubdivision = Object.values(columnMap).includes('subdivision');
+    const existingAxes = series ? subdivisionAxes(series) : [];
+    let targetAxis: SubdivisionAxis | null = existingAxes[0] ?? null;
+    const needNewAxis = csvHasSubdivision && !targetAxis;
+    if (needNewAxis) targetAxis = newSubdivisionAxis(DEFAULT_SUBDIVISION_LABEL);
+
     const seriesPatch: {
       primaryPersonLabel?: PrimaryPersonLabel;
       scoringMode?: 'scratch' | 'handicap';
+      subdivisionAxes?: SubdivisionAxis[];
       lastModifiedAt?: number;
     } = {};
     if (proposedPrimary !== currentPrimary) seriesPatch.primaryPersonLabel = proposedPrimary;
+    if (needNewAxis && targetAxis) seriesPatch.subdivisionAxes = [...existingAxes, targetAxis];
     // The wizard's field intent is the delta against the snapshot it opened
     // with; re-apply that delta to the row the save lands on, so a field
     // toggled elsewhere while the wizard was open isn't silently reverted.
@@ -916,7 +933,12 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const resolvedCrewName = crewName || existingCompetitor?.crewName || '';
       const resolvedHelm = helmRole || existingCompetitor?.helm || '';
       const resolvedOwner = ownerRole || existingCompetitor?.owner || '';
-      const resolvedSubdivision = subdivision || existingCompetitor?.subdivision || '';
+      // Merge the mapped column onto the target axis, preserving any other axis
+      // values the existing competitor already holds.
+      const resolvedSubdivisions = cleanSubdivisions({
+        ...(existingCompetitor?.subdivisions ?? {}),
+        ...(targetAxis && subdivision ? { [targetAxis.id]: subdivision } : {}),
+      });
       const competitor: Competitor = {
         id: existingCompetitor?.id ?? crypto.randomUUID(),
         seriesId,
@@ -932,7 +954,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(cleanNationality ? { nationality: cleanNationality } : {}),
         gender: (normGender === 'M' || normGender === 'F') ? normGender : (existingCompetitor?.gender ?? ''),
         age: parsedAge !== null && !isNaN(parsedAge) ? parsedAge : (existingCompetitor?.age ?? null),
-        ...(resolvedSubdivision ? { subdivision: resolvedSubdivision } : {}),
+        ...(resolvedSubdivisions ? { subdivisions: resolvedSubdivisions } : {}),
         createdAt: existingCompetitor?.createdAt ?? Date.now(),
         ...(ircTcc != null ? { ircTcc } : {}),
         ...(vprsTcc != null ? { vprsTcc } : {}),
@@ -954,7 +976,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         (existingCompetitor.nationality ?? '') === (competitor.nationality ?? '') &&
         existingCompetitor.gender === competitor.gender &&
         existingCompetitor.age === competitor.age &&
-        (existingCompetitor.subdivision ?? '') === (competitor.subdivision ?? '') &&
+        subdivisionsEqual(existingCompetitor.subdivisions, competitor.subdivisions) &&
         existingCompetitor.ircTcc === competitor.ircTcc &&
         existingCompetitor.vprsTcc === competitor.vprsTcc &&
         existingCompetitor.pyNumber === competitor.pyNumber &&

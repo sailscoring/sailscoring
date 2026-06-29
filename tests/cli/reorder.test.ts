@@ -75,7 +75,7 @@ describe.skipIf(skip)('series reorder (ADR-009)', () => {
         scoringMode: 'scratch' as const, discardThresholds: [], dnfScoring: 'startingArea' as const,
         ftpHost: '', ftpPath: '', ftpPaths: {}, includeJsonExport: true,
         publishRatingCalculations: true, enabledCompetitorFields: ['boatName'],
-        primaryPersonLabel: 'helm' as const, subdivisionLabel: 'Division',
+        primaryPersonLabel: 'helm' as const, subdivisionAxes: [],
       });
     }
   });

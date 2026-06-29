@@ -36,7 +36,7 @@ function makeSeries(id: string): Series {
     venueLogoUrl: '', eventLogoUrl: '', venueUrl: '', eventUrl: '', createdAt: now,
     lastSavedAt: null, lastModifiedAt: now, scoringMode: 'scratch', discardThresholds: [],
     dnfScoring: 'seriesEntries', ftpHost: '', ftpPath: '', ftpPaths: {}, includeJsonExport: true,
-    enabledCompetitorFields: [], primaryPersonLabel: 'helm', subdivisionLabel: 'Division',
+    enabledCompetitorFields: [], primaryPersonLabel: 'helm', subdivisionAxes: [],
   };
 }
 function makeFleet(seriesId: string): Fleet {

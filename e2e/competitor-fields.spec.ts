@@ -116,35 +116,42 @@ test('class field shows Class column and exports in results', async ({ page }) =
   expect(html).toContain('>Laser<');
 });
 
-test('subdivision: rename label, standings column, export column (#158)', async ({ page }) => {
+test('subdivisions: two axes through the form, standings, and export', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
-  await createSeriesQuick(page, { name: 'ILCA Masters' });
+  await createSeriesQuick(page, { name: 'ILCA Leinsters' });
 
-  // ── 2. Enable the subdivision field and rename its label to "Category" ────
+  // ── 2. Enable the subdivision field (seeds one "Division" axis), rename it,
+  //     and add a second "Age category" axis ──────────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('checkbox', { name: 'Division' }).check();
-  // The label picker appears; pick the "Category" preset.
-  await page.getByRole('button', { name: 'Category', exact: true }).click();
-  // The optional-field checkbox label re-renders under the new name.
-  await expect(page.getByRole('checkbox', { name: 'Category' })).toBeVisible();
+  // First axis seeded with the default "Division" label; leave it. Add a second.
+  await expect(page.getByLabel('Axis 1 label')).toHaveValue('Division');
+  await page.getByRole('button', { name: 'Add axis' }).click();
+  await page.getByLabel('Axis 2 label').fill('Age category');
+  await page.getByLabel('Axis 2 label').blur();
   await page.getByRole('button', { name: 'Done' }).click();
 
-  // ── 3. Add two competitors in different categories ───────────────────────
+  // ── 3. Add two competitors with values on both axes ──────────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('1');
   await page.getByLabel('Competitor name').fill('Alice');
-  await page.getByLabel('Category', { exact: true }).fill('Grand Master');
+  await page.getByLabel('Division', { exact: true }).fill('Gold');
+  await page.getByLabel('Age category', { exact: true }).fill('Grand Master');
   await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByRole('columnheader', { name: 'Category' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Division' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Age category' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Gold', exact: true })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Grand Master' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('2');
   await page.getByLabel('Competitor name').fill('Bob');
-  await page.getByLabel('Category', { exact: true }).fill('Apprentice Master');
+  await page.getByLabel('Division', { exact: true }).fill('Silver');
+  await page.getByLabel('Age category', { exact: true }).fill('Apprentice Master');
   await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'Silver', exact: true })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Apprentice Master' })).toBeVisible();
 
   // ── 4. Add a race both boats finish ──────────────────────────────────────
@@ -157,18 +164,21 @@ test('subdivision: rename label, standings column, export column (#158)', async 
   await page.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
-  // ── 5. Standings: the Category column shows both competitors ─────────────
+  // ── 5. Standings: both axis columns show ─────────────────────────────────
   await page.getByRole('link', { name: 'Standings' }).click();
-  await expect(page.getByRole('columnheader', { name: 'Category' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Division' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Age category' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Alice' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Bob' })).toBeVisible();
 
-  // ── 6. Preview → Download carries the renamed column and the values ──────
+  // ── 6. Preview → Download carries both columns and the values ────────────
   const download = await downloadFleetHtml(page);
   const path = await download.path();
   const fs = await import('node:fs');
   const html = fs.readFileSync(path, 'utf-8');
-  expect(html).toContain('<th>Category</th>');
+  expect(html).toContain('<th>Division</th>');
+  expect(html).toContain('<th>Age category</th>');
+  expect(html).toContain('>Gold<');
   expect(html).toContain('>Grand Master<');
   expect(html).toContain('>Apprentice Master<');
 });

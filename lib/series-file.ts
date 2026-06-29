@@ -11,11 +11,12 @@ import type {
   StartGroup,
   NhcProfile,
   TcfRecord,
+  SubdivisionAxis,
 } from './types';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
-  DEFAULT_SUBDIVISION_LABEL,
+  upgradeSubdivisionAxes,
 } from './competitor-fields';
 import { calculateFleetStandings } from './scoring';
 import { loadSeriesSnapshot } from './series-snapshot';
@@ -107,9 +108,14 @@ export interface SeriesFileRepos {
  *
  *  v12 adds optional `subSeries[*].excludeDncOnlyCompetitors` (rank only boats
  *  that took part in the sub-series). Additive; older files load with it absent
- *  (false — all-DNC competitors scored, like a plain series). */
-export const FORMAT_VERSION = 12;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+ *  (false — all-DNC competitors scored, like a plain series).
+ *
+ *  v13 generalises subdivisions to multiple named axes: `Series.subdivisionAxes`
+ *  (replacing the single `subdivisionLabel`) and `Competitor.subdivisions` (a map keyed
+ *  by axis id, replacing the single `subdivision`). v6–v12 files upgrade on load — the
+ *  old label becomes one axis and each competitor's value is keyed onto it. */
+export const FORMAT_VERSION = 13;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -146,7 +152,8 @@ interface SeriesFileSeries {
   includeJsonExport: boolean;
   enabledCompetitorFields: CompetitorFieldKey[];
   primaryPersonLabel?: PrimaryPersonLabel;  // v2+; absent in v1 files, defaults to 'competitor'
-  subdivisionLabel?: string;  // v6+; absent in older files, defaults to 'Division'
+  subdivisionAxes?: SubdivisionAxis[];  // v13+; named subdivision axes
+  subdivisionLabel?: string;  // v6–v12 (read-only legacy): single axis label, upgraded to subdivisionAxes on load
   scoringMode: 'scratch' | 'handicap';
   defaultStartSequence?: StartGroup[];
   publishRatingCalculations?: boolean;
@@ -167,7 +174,8 @@ interface SeriesFileCompetitor {
   nationality?: string;  // v5+
   gender: 'M' | 'F' | '';
   age: number | null;
-  subdivision?: string;  // v6+
+  subdivisions?: Record<string, string>;  // v13+; per-axis values keyed by SubdivisionAxis.id
+  subdivision?: string;  // v6–v12 (read-only legacy): single subdivision value, upgraded into subdivisions on load
   ircTcc?: number;
   vprsTcc?: number;
   pyNumber?: number;
@@ -400,7 +408,7 @@ export async function buildSeriesFile(
       includeJsonExport: series.includeJsonExport ?? true,
       enabledCompetitorFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-      subdivisionLabel: series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+      subdivisionAxes: series.subdivisionAxes ?? [],
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.defaultStartSequence?.length ? { defaultStartSequence: series.defaultStartSequence } : {}),
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
@@ -420,7 +428,9 @@ export async function buildSeriesFile(
       ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
       age: c.age,
-      ...(c.subdivision ? { subdivision: c.subdivision } : {}),
+      ...(c.subdivisions && Object.keys(c.subdivisions).length > 0
+        ? { subdivisions: c.subdivisions }
+        : {}),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
@@ -630,6 +640,43 @@ function remapStartSequence(
     .filter((g) => g.fleetIds.length > 0);
 }
 
+/**
+ * Resolve the subdivision axes for a file on read, upgrading legacy single-axis
+ * files (v6–v12) to the multi-axis shape. v13+ files carry
+ * `subdivisionAxes` directly; older files synthesise one axis from
+ * `subdivisionLabel` and report its id so each competitor's legacy `subdivision`
+ * value can be keyed onto it. `legacyAxisId` is null for v13+ files (their
+ * competitors already carry `subdivisions`).
+ */
+function resolveFileSubdivisions(file: SeriesFile): {
+  axes: SubdivisionAxis[];
+  legacyAxisId: string | null;
+} {
+  if (file.series.subdivisionAxes !== undefined) {
+    return { axes: file.series.subdivisionAxes, legacyAxisId: null };
+  }
+  const hasAnyValue = file.competitors.some((c) => c.subdivision?.trim());
+  const fieldEnabled = file.series.enabledCompetitorFields?.includes('subdivision') ?? false;
+  const { axes, axisId } = upgradeSubdivisionAxes({
+    legacyLabel: file.series.subdivisionLabel,
+    fieldEnabled,
+    hasAnyValue,
+  });
+  return { axes, legacyAxisId: axisId };
+}
+
+/** A competitor's `subdivisions` map for the write path: the v13 map verbatim,
+ *  or a legacy value keyed onto the synthesised axis. Empty (undefined) when the
+ *  competitor carries no value. */
+function competitorSubdivisionsForWrite(
+  c: SeriesFileCompetitor,
+  legacyAxisId: string | null,
+): Record<string, string> | undefined {
+  if (c.subdivisions && Object.keys(c.subdivisions).length > 0) return c.subdivisions;
+  if (legacyAxisId && c.subdivision?.trim()) return { [legacyAxisId]: c.subdivision };
+  return undefined;
+}
+
 // ---- Open as new series ----
 
 export async function openSeriesFromFile(
@@ -678,7 +725,7 @@ export async function openSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-    subdivisionLabel: file.series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+    subdivisionAxes: resolveFileSubdivisions(file).axes,
     categoryId: opts?.categoryId ?? null,
     // Provenance is caller-supplied, not carried in the file: the Sailwave
     // wizard passes 'sailwave'; a .sailscoring open leaves it unset.
@@ -751,7 +798,7 @@ export async function restoreSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-    subdivisionLabel: file.series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+    subdivisionAxes: resolveFileSubdivisions(file).axes,
     categoryId: null,
     archived: true,
   });
@@ -815,7 +862,7 @@ export async function updateSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-    subdivisionLabel: file.series.subdivisionLabel ?? DEFAULT_SUBDIVISION_LABEL,
+    subdivisionAxes: resolveFileSubdivisions(file).axes,
   });
 
   await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
@@ -859,7 +906,7 @@ function remapFtpPathsByFleetName(
  *
  * Retained from the existing series (`...current`): name, venue, logos/links,
  * FTP destination + per-fleet paths, publish toggles, competitor-field config,
- * primary/subdivision labels, category, archived, and `source` itself.
+ * primary-person label, subdivision axes, category, archived, and `source` itself.
  *
  * Replaced from the file: fleets, competitors, races, starts, finishes — and
  * the scoring rules derived from them (`discardThresholds`, `dnfScoring`).
@@ -930,6 +977,10 @@ async function writeFleetsCompetitorsRaces(
     return ids.length > 0 ? ids : null;
   };
 
+  // Legacy single-axis files (v6–v12) synthesise one axis on load; key each
+  // competitor's old `subdivision` value onto it.
+  const { legacyAxisId } = resolveFileSubdivisions(file);
+
   // Phase 7 audit: every `saveMany`/`save` below is authoritative-by-
   // construction. Either we just minted `seriesId` (open-as-new) or
   // `deleteSeriesChildren` cleared the prior child rows (update-from-
@@ -965,7 +1016,10 @@ async function writeFleetsCompetitorsRaces(
         ...(c.nationality ? { nationality: c.nationality } : {}),
         gender: c.gender,
         age: c.age,
-        ...(c.subdivision ? { subdivision: c.subdivision } : {}),
+        ...((): { subdivisions?: Record<string, string> } => {
+          const subs = competitorSubdivisionsForWrite(c, legacyAxisId);
+          return subs ? { subdivisions: subs } : {};
+        })(),
         createdAt: now,
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
         ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
