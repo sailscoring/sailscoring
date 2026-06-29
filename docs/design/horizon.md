@@ -1329,6 +1329,11 @@ competitors (prizes, and any future selection-based grouping). Caveat: prefer a 
 structured field when the concept is known (class, division, club) — selectors are the
 escape hatch for the long tail a club invents, not a substitute for modelling.
 
+> The structured counterpart — letting a competitor carry more than one
+> subdivision/category axis at once (e.g. a Gold/Silver division *and* a
+> Youth/Master age category) — is tracked in #241; keep that distinct from these
+> free-form tags.
+
 ---
 
 ## Results analytics
