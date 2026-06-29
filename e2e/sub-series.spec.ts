@@ -12,8 +12,8 @@ import { createSeriesQuick, enableFeatures } from './helpers';
  *   Winter R1: 1001=1, 1002=2, 1003=3, 1004=4
  *   Winter R2: 1001=1, 1002=2, 1003=3, 1004 absent → DNC = entrants(4)+1 = 5
  *     Winter totals: A=2, B=4, C=6, D=9
- *   Spring R3: 1003=1, 1001=2 — only two boats enter the block, so Bob (1002)
- *     and Dave (1004) are not in the Spring standings at all.
+ *   Spring R3: 1003=1, 1001=2 — Spring has "rank only boats that took part" set,
+ *     so Bob (1002) and Dave (1004), who never sailed it, are not in its standings.
  */
 
 const competitors = [
@@ -43,18 +43,21 @@ test('sub-series: select races, per-block standings, publish per block', async (
   }
 
   // ── 2. Create Winter (R1–R2) + Spring (R3) by race selection ─────────────
-  const newSubSeries = async (name: string, raceNumbers: number[]) => {
+  const newSubSeries = async (name: string, raceNumbers: number[], excludeDnc = false) => {
     await page.getByRole('button', { name: 'New sub-series' }).click();
     const dialog = page.getByRole('dialog', { name: 'New sub-series' });
     await dialog.getByLabel('Name', { exact: true }).fill(name);
     for (const n of raceNumbers) {
       await dialog.getByRole('checkbox', { name: new RegExp(`Race ${n}\\b`) }).check();
     }
+    if (excludeDnc) await dialog.getByRole('checkbox', { name: /Rank only boats that took part/ }).check();
     await dialog.getByRole('button', { name: 'Create sub-series' }).click();
     await expect(dialog).toBeHidden();
   };
   await newSubSeries('Winter', [1, 2]);
-  await newSubSeries('Spring', [3]);
+  // Spring ranks only its participants (the opt-in), so Bob and Dave — who never
+  // sailed it — stay off the Spring table rather than scoring DNC.
+  await newSubSeries('Spring', [3], true);
 
   // The Sub-series panel lists both with their race counts. Edit round-trips.
   const panel = page.getByText('Sub-series', { exact: true }).locator('..');
@@ -134,4 +137,29 @@ test('sub-series: select races, per-block standings, publish per block', async (
   await expect(page.getByText('Frostbite 2026 — Spring').first()).toBeVisible();
   await expect(page.getByText('Carol Ryan').first()).toBeVisible();
   await expect(page.getByText('Bob Kelly')).toHaveCount(0);
+});
+
+test('sub-series: "rank only boats that took part" toggle persists', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['sub-series']);
+  await createSeriesQuick(page, { name: 'DNC Toggle 2026', venue: 'HYC' });
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  for (let n = 1; n <= 2; n++) {
+    await page.getByRole('button', { name: 'Add race' }).click();
+    await expect(page.getByText(`Race ${n}`)).toBeVisible();
+  }
+
+  // Create a sub-series with the toggle on.
+  await page.getByRole('button', { name: 'New sub-series' }).click();
+  let dialog = page.getByRole('dialog', { name: 'New sub-series' });
+  await dialog.getByLabel('Name', { exact: true }).fill('Series A');
+  await dialog.getByRole('checkbox', { name: /Race 1\b/ }).check();
+  await dialog.getByRole('checkbox', { name: /Rank only boats that took part/ }).check();
+  await dialog.getByRole('button', { name: 'Create sub-series' }).click();
+  await expect(dialog).toBeHidden();
+
+  // Reopen the editor; the toggle survived the round-trip through the API.
+  await page.getByRole('button', { name: 'Edit sub-series Series A' }).click();
+  dialog = page.getByRole('dialog', { name: 'Edit sub-series' });
+  await expect(dialog.getByRole('checkbox', { name: /Rank only boats that took part/ })).toBeChecked();
 });
