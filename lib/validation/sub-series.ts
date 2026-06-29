@@ -22,6 +22,7 @@ export const subSeriesSchema = z.object({
   raceFleetExclusions: z.array(raceFleetExclusionSchema).optional(),
   startingHandicapSource: z.enum(['base', 'continue']).optional(),
   continueFromSubSeriesId: uuidSchema.nullish(),
+  excludeDncOnlyCompetitors: z.boolean().optional(),
   version: versionSchema,
 });
 
@@ -37,6 +38,7 @@ export const subSeriesCreateInputSchema = z.object({
   raceFleetExclusions: z.array(raceFleetExclusionSchema).optional(),
   startingHandicapSource: z.enum(['base', 'continue']).optional(),
   continueFromSubSeriesId: uuidSchema.nullish(),
+  excludeDncOnlyCompetitors: z.boolean().optional(),
 });
 
 export const subSeriesInputSchema = subSeriesSchema.extend({

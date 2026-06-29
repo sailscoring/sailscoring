@@ -181,6 +181,7 @@ function subSeriesRowToType(
     ...(raceFleetExclusions.length > 0 ? { raceFleetExclusions } : {}),
     startingHandicapSource: row.startingHandicapSource as SubSeries['startingHandicapSource'],
     continueFromSubSeriesId: row.continueFromSubSeriesId,
+    excludeDncOnlyCompetitors: row.excludeDncOnlyCompetitors,
     version: row.version,
   };
 }
@@ -1152,11 +1153,13 @@ function subSeriesToRow(s: SubSeries, workspaceId: string) {
     fleetIds: s.fleetIds ?? null,
     startingHandicapSource: s.startingHandicapSource ?? 'base',
     continueFromSubSeriesId: s.continueFromSubSeriesId ?? null,
+    excludeDncOnlyCompetitors: s.excludeDncOnlyCompetitors ?? false,
   };
 }
 
 const subSeriesUpdateColumns = [
   'name', 'displayOrder', 'fleetIds', 'startingHandicapSource', 'continueFromSubSeriesId',
+  'excludeDncOnlyCompetitors',
 ] as const satisfies readonly (keyof ReturnType<typeof subSeriesToRow>)[];
 
 export class PostgresSubSeriesRepository implements SubSeriesRepository {

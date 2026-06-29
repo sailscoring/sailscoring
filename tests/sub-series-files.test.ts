@@ -259,6 +259,7 @@ describe('sub-series fleet-scoping + per-fleet exclusion round-trip', () => {
     raceIds: ['r1', 'r2', 'r3'],
     fleetIds: ['fl-1'],
     raceFleetExclusions: [{ raceId: 'r2', fleetId: 'fl-1' }],
+    excludeDncOnlyCompetitors: true,
   };
   const scopedSnapshot: SeriesSnapshot = {
     ...snapshot,
@@ -272,6 +273,7 @@ describe('sub-series fleet-scoping + per-fleet exclusion round-trip', () => {
     const champFile = file.subSeries!.find((s) => s.name === 'Champ')!;
     expect(champFile.fleetIds).toEqual(['fl-1']);
     expect(champFile.raceFleetExclusions).toEqual([{ raceId: 'r2', fleetId: 'fl-1' }]);
+    expect(champFile.excludeDncOnlyCompetitors).toBe(true);
 
     const reparsed = parseSeriesFile(JSON.stringify(file));
     expect(reparsed.subSeries).toEqual(file.subSeries);
@@ -286,6 +288,7 @@ describe('sub-series fleet-scoping + per-fleet exclusion round-trip', () => {
     const race2Id = savedRaces.find((r) => r.raceNumber === 2)!.id;
     expect(champ.fleetIds).toHaveLength(1);
     expect(champ.raceFleetExclusions).toHaveLength(1);
+    expect(champ.excludeDncOnlyCompetitors).toBe(true);
     // The remapped exclusion points at the same (remapped) fleet the block is
     // scoped to, and at the freshly-minted race-2 id.
     expect(champ.raceFleetExclusions![0].fleetId).toBe(champ.fleetIds![0]);
@@ -295,7 +298,7 @@ describe('sub-series fleet-scoping + per-fleet exclusion round-trip', () => {
   it('public JSON export carries scoping by name; import rebuilds it', async () => {
     const data = buildPublicExportFromSnapshot(scopedSnapshot);
     expect(data!.subSeries).toEqual([
-      { name: 'Champ', fleetNames: ['Default'], raceExclusions: [{ raceNumber: 2, fleetName: 'Default' }] },
+      { name: 'Champ', fleetNames: ['Default'], raceExclusions: [{ raceNumber: 2, fleetName: 'Default' }], excludeDncOnlyCompetitors: true },
     ]);
 
     const { repos, savedSubSeries, savedRaces } = makeRecordingRepos();
@@ -304,6 +307,7 @@ describe('sub-series fleet-scoping + per-fleet exclusion round-trip', () => {
     const race2Id = savedRaces.find((r) => r.raceNumber === 2)!.id;
     expect(champ.fleetIds).toHaveLength(1);
     expect(champ.raceFleetExclusions).toEqual([{ raceId: race2Id, fleetId: champ.fleetIds![0] }]);
+    expect(champ.excludeDncOnlyCompetitors).toBe(true);
   });
 });
 

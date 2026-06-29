@@ -115,6 +115,7 @@ export async function createSubSeries(
       ...scope,
       startingHandicapSource: input.startingHandicapSource,
       continueFromSubSeriesId: input.continueFromSubSeriesId ?? null,
+      excludeDncOnlyCompetitors: input.excludeDncOnlyCompetitors,
     },
     { updatedBy: workspace.userId },
   );

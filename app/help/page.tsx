@@ -659,9 +659,12 @@ export default async function HelpPage() {
           </p>
           <p>
             Each sub-series is scored on its own. The series discard rule applies to its race count
-            separately, and a boat that sits out a sub-series simply isn’t in its standings —
-            absences are scored against the boats that took part. Removing a sub-series leaves the
-            races themselves untouched.
+            separately. By default a boat that entered the series but never started this sub-series
+            is still scored DNC in it, just like a plain series. To rank only the boats that actually
+            took part — leaving the no-shows off this sub-series’ table and out of its DNC entry
+            count — tick{' '}
+            <strong className="text-foreground">Rank only boats that took part</strong> in the
+            editor. Removing a sub-series leaves the races themselves untouched.
           </p>
           <p>
             For progressive handicaps (NHC, ECHO), each sub-series computes its own ratings over its

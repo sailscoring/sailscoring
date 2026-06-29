@@ -41,6 +41,7 @@ export function useCreateSubSeries() {
         raceFleetExclusions?: { raceId: string; fleetId: string }[];
         startingHandicapSource?: 'base' | 'continue';
         continueFromSubSeriesId?: string | null;
+        excludeDncOnlyCompetitors?: boolean;
       };
     }) => createSubSeries(seriesId, input),
     onSuccess: (_created, { seriesId }) => invalidateSubSeriesScope(qc, seriesId),

@@ -103,9 +103,13 @@ export interface SeriesFileRepos {
  *  v11 generalises sub-series: optional `subSeries[*].fleetIds` (scope a block
  *  to a fleet subset; absent = all fleets) and `subSeries[*].raceFleetExclusions`
  *  (a member race struck for one fleet). Additive; older files load with both
- *  absent (all fleets, no exclusions). */
-export const FORMAT_VERSION = 11;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+ *  absent (all fleets, no exclusions).
+ *
+ *  v12 adds optional `subSeries[*].excludeDncOnlyCompetitors` (rank only boats
+ *  that took part in the sub-series). Additive; older files load with it absent
+ *  (false — all-DNC competitors scored, like a plain series). */
+export const FORMAT_VERSION = 12;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -230,6 +234,8 @@ interface SeriesFileSubSeries {
   raceFleetExclusions?: { raceId: string; fleetId: string }[];
   startingHandicapSource?: 'base' | 'continue';
   continueFromSubSeriesId?: string;
+  // v12: rank only boats that took part in the sub-series (absent = false).
+  excludeDncOnlyCompetitors?: boolean;
 }
 
 interface SeriesFileTcfRecord {
@@ -446,6 +452,9 @@ export async function buildSeriesFile(
               : {}),
             ...(ss.continueFromSubSeriesId
               ? { continueFromSubSeriesId: ss.continueFromSubSeriesId }
+              : {}),
+            ...(ss.excludeDncOnlyCompetitors
+              ? { excludeDncOnlyCompetitors: true }
               : {}),
           })),
         }
@@ -1086,6 +1095,7 @@ async function writeFleetsCompetitorsRaces(
         ...(fleetIds ? { fleetIds } : {}),
         ...(exclusions.length > 0 ? { raceFleetExclusions: exclusions } : {}),
         startingHandicapSource: ss.startingHandicapSource,
+        excludeDncOnlyCompetitors: ss.excludeDncOnlyCompetitors ?? false,
       };
     };
     await repos.subSeriesRepo.saveMany(file.subSeries.map(toRow));

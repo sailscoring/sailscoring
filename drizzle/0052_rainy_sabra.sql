@@ -1,0 +1,1 @@
+ALTER TABLE "sub_series" ADD COLUMN "exclude_dnc_only_competitors" boolean DEFAULT false NOT NULL;

@@ -191,6 +191,7 @@ export interface PublicSeriesExport {
     name: string;
     fleetNames?: string[];
     raceExclusions?: { raceNumber: number; fleetName: string }[];
+    excludeDncOnlyCompetitors?: boolean;
   }[];
 }
 
@@ -600,9 +601,10 @@ export function buildPublicExportFromSnapshot(
             name: ss.name,
             ...(fleetNames && fleetNames.length > 0 ? { fleetNames } : {}),
             ...(raceExclusions.length > 0 ? { raceExclusions } : {}),
+            ...(ss.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
           };
         })
-        .filter((s) => s.fleetNames || s.raceExclusions);
+        .filter((s) => s.fleetNames || s.raceExclusions || s.excludeDncOnlyCompetitors);
       return scoped.length > 0 ? { subSeries: scoped } : {};
     })(),
   };
@@ -869,7 +871,7 @@ export async function importPublicExport(
           .filter((ex): ex is { raceId: string; fleetId: string } =>
             ex.raceId != null && ex.fleetId != null,
           );
-        return [s.name, { fleetIds, raceFleetExclusions }] as const;
+        return [s.name, { fleetIds, raceFleetExclusions, excludeDncOnlyCompetitors: s.excludeDncOnlyCompetitors }] as const;
       }),
     );
     let displayOrder = 0;
@@ -886,6 +888,7 @@ export async function importPublicExport(
           ...(scope?.raceFleetExclusions && scope.raceFleetExclusions.length > 0
             ? { raceFleetExclusions: scope.raceFleetExclusions }
             : {}),
+          ...(scope?.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
         };
       }),
     );

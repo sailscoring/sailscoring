@@ -221,6 +221,7 @@ export default function RacesPage({
   const [selectedFleetIds, setSelectedFleetIds] = useState<Set<string>>(new Set());
   const [excludedPairs, setExcludedPairs] = useState<Set<string>>(new Set());
   const [carryFromId, setCarryFromId] = useState('');
+  const [excludeDncOnly, setExcludeDncOnly] = useState(false);
   const [subSeriesError, setSubSeriesError] = useState('');
 
   const isHandicap = series?.scoringMode === 'handicap';
@@ -398,6 +399,7 @@ export default function RacesPage({
     setSelectedFleetIds(new Set(allFleetIds));
     setExcludedPairs(new Set());
     setCarryFromId('');
+    setExcludeDncOnly(false);
     setSubSeriesError('');
     setShowSubSeriesDialog(true);
   }
@@ -411,6 +413,7 @@ export default function RacesPage({
       new Set((ss.raceFleetExclusions ?? []).map((ex) => `${ex.raceId}::${ex.fleetId}`)),
     );
     setCarryFromId(ss.startingHandicapSource === 'continue' ? ss.continueFromSubSeriesId ?? '' : '');
+    setExcludeDncOnly(ss.excludeDncOnlyCompetitors ?? false);
     setSubSeriesError('');
     setShowSubSeriesDialog(true);
   }
@@ -479,11 +482,12 @@ export default function RacesPage({
         raceFleetExclusions,
         startingHandicapSource,
         continueFromSubSeriesId,
+        excludeDncOnlyCompetitors: excludeDncOnly,
       });
     } else {
       await createSubSeries.mutateAsync({
         seriesId,
-        input: { name, raceIds, fleetIds, raceFleetExclusions, startingHandicapSource, continueFromSubSeriesId },
+        input: { name, raceIds, fleetIds, raceFleetExclusions, startingHandicapSource, continueFromSubSeriesId, excludeDncOnlyCompetitors: excludeDncOnly },
       });
     }
     setShowSubSeriesDialog(false);
@@ -754,6 +758,24 @@ export default function RacesPage({
                 For NHC/ECHO: seed this sub-series&apos; progressive handicaps from
                 another&apos;s end, instead of the class base numbers.
               </p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="flex cursor-pointer items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={excludeDncOnly}
+                  onChange={(e) => setExcludeDncOnly(e.target.checked)}
+                />
+                <span>
+                  <span className="font-medium">Rank only boats that took part</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Leave a boat that never started this sub-series off its
+                    standings (and out of the DNC entry count). Off by default —
+                    entered boats are scored DNC, as in a plain series.
+                  </span>
+                </span>
+              </label>
             </div>
             {subSeriesError && <p className="text-sm text-destructive">{subSeriesError}</p>}
           </div>

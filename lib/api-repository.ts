@@ -498,6 +498,7 @@ export function createSubSeries(
     raceFleetExclusions?: { raceId: string; fleetId: string }[];
     startingHandicapSource?: 'base' | 'continue';
     continueFromSubSeriesId?: string | null;
+    excludeDncOnlyCompetitors?: boolean;
   },
 ): Promise<SubSeries> {
   return apiFetch<SubSeries>(`/api/v1/series/${seriesId}/sub-series`, {

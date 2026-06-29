@@ -425,6 +425,12 @@ export const subSeries = pgTable(
       (): AnyPgColumn => subSeries.id,
       { onDelete: 'set null' },
     ),
+    // When true, drop competitors that are all-DNC across this sub-series (and
+    // from the entry count its DNC penalty is based on) — rank only the boats
+    // that took part. Default false: score them, like a plain series.
+    excludeDncOnlyCompetitors: boolean('exclude_dnc_only_competitors')
+      .notNull()
+      .default(false),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,
