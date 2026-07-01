@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ChevronDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -7,6 +8,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import {
   PRIMARY_PERSON_LABEL_TEXT,
@@ -28,6 +37,14 @@ export interface FleetStandingsTableProps {
   primaryLabel: PrimaryPersonLabel;
   /** Configured subdivision axes; one prize-giving column each. */
   subdivisionAxes: SubdivisionAxis[];
+  /** Fleet display name, used in the race-column exclusion menu. */
+  fleetName?: string;
+  /** Races struck from this fleet's scoring — their columns render struck. */
+  excludedRaceIds?: Set<string>;
+  /** Editor-only. When present, each race column header becomes a menu to
+   *  strike/restore that race for this fleet. Omitted on read-only and export
+   *  renders, so the affordance never appears there. */
+  onToggleExclude?: (raceId: string) => void;
 }
 
 export function FleetStandingsTable({
@@ -37,6 +54,9 @@ export function FleetStandingsTable({
   enabledFields,
   primaryLabel,
   subdivisionAxes,
+  fleetName,
+  excludedRaceIds,
+  onToggleExclude,
 }: FleetStandingsTableProps) {
   const showBoat = enabledFields.includes('boatName');
   const showClass = enabledFields.includes('boatClass');
@@ -70,11 +90,40 @@ export function FleetStandingsTable({
           ))}
           {showAge && <TableHead>Age</TableHead>}
           {showGender && <TableHead>Gender</TableHead>}
-          {races.map((race) => (
-            <TableHead key={race.id} className="w-16 text-center">
-              R{race.raceNumber}
-            </TableHead>
-          ))}
+          {races.map((race) => {
+            const isExcluded = excludedRaceIds?.has(race.id) ?? false;
+            const label = `R${race.raceNumber}`;
+            return (
+              <TableHead
+                key={race.id}
+                className={cn('w-16 text-center', isExcluded && 'line-through opacity-70')}
+                title={isExcluded ? 'Excluded from this fleet — does not count' : undefined}
+              >
+                {onToggleExclude ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="mx-auto inline-flex items-center gap-0.5 outline-none hover:underline focus-visible:underline">
+                      {label}
+                      <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center">
+                      <DropdownMenuLabel>
+                        {label}
+                        {fleetName ? ` · ${fleetName}` : ''}
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => onToggleExclude(race.id)}>
+                        {isExcluded
+                          ? `Include ${label} for this fleet`
+                          : `Exclude ${label} from this fleet`}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  label
+                )}
+              </TableHead>
+            );
+          })}
           <TableHead className="w-20 text-center font-semibold">Total</TableHead>
           {hasDiscards && (
             <TableHead className="w-20 text-center font-semibold">Nett</TableHead>

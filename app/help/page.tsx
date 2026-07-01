@@ -983,6 +983,16 @@ export default async function HelpPage() {
           are shown struck through. The standings are ordered by nett total.
         </p>
         <p>
+          In a multi-fleet series you can strike a single race from one fleet’s scoring right
+          from the standings — the usual case is a heat only one boat sailed. Click a race
+          column header (<em>R3</em>) and choose{' '}
+          <strong className="text-foreground">Exclude R3 from this fleet</strong>. The race still
+          counts for every other fleet; for the excluded one it scores nothing, earns no discard,
+          and (for NHC/ECHO) doesn’t move the handicap. The struck column header is shown for
+          everyone; click it again to <strong className="text-foreground">Include</strong> the
+          race. Sub-series keep their own exclusions in the sub-series editor on the Races tab.
+        </p>
+        <p>
           To share results, click{' '}
           <strong className="text-foreground">Preview</strong> (or press{' '}
           <strong className="text-foreground">x</strong>) to see the rendered results page in-app —

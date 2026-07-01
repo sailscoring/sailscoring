@@ -2,6 +2,7 @@
 
 import { use, useState } from 'react';
 import { useSeriesData } from '@/hooks/use-series-data';
+import { useUpdateSeries } from '@/hooks/use-series';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import {
   getDiscardCount,
@@ -37,7 +38,9 @@ export default function StandingsPage({
   // Publishing is a race-day (score) operation; the FTP dialog reads the
   // credential-bearing server list, which demands manage-workspace.
   const canPublish = can('score');
+  const canScore = can('score');
   const canFtp = has('ftp-upload') && can('manage-workspace');
+  const updateSeries = useUpdateSeries();
   const [showFtpDialog, setShowFtpDialog] = useState(false);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
@@ -88,6 +91,29 @@ export default function StandingsPage({
   // Sub-series replace the whole-series standings: each block is scored
   // independently, and the tab strip selects which one is shown.
   const hasBlocks = subSeriesList.length > 0;
+
+  // Whole-series per-fleet race exclusions. The column-header action strikes or
+  // restores a race for one fleet directly from its standings — the moment a
+  // scorer actually decides it. Multi-fleet only (a single-fleet series would
+  // just be excluding the race outright) and only where sub-series don't take
+  // over the standings; sub-series carry their own exclusions on the Races tab.
+  const seriesExclusions = series.raceFleetExclusions ?? [];
+  const canExclude = canScore && !hasBlocks && !isSingleFleet;
+  function toggleExclusion(fleetId: string, raceId: string) {
+    updateSeries.mutate({
+      id: seriesId,
+      patch: (s) => {
+        const current = s.raceFleetExclusions ?? [];
+        const matches = (ex: { raceId: string; fleetId: string }) =>
+          ex.raceId === raceId && ex.fleetId === fleetId;
+        return {
+          raceFleetExclusions: current.some(matches)
+            ? current.filter((ex) => !matches(ex))
+            : [...current, { raceId, fleetId }],
+        };
+      },
+    });
+  }
 
   let raceLabels: { id: string; raceNumber: number }[];
   let fleetResults: ReturnType<typeof calculateFleetStandings>['fleetStandings'];
@@ -208,6 +234,12 @@ export default function StandingsPage({
 
       {fleetResults.map(({ fleet, standings, rejections }) => {
         const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
+        // Struck races for this fleet (whole-series only). Shown to every viewer
+        // so the strike isn't invisible; the toggle affordance is editor-only.
+        const excludedRaceIds = hasBlocks
+          ? undefined
+          : new Set(seriesExclusions.filter((ex) => ex.fleetId === fleet.id).map((ex) => ex.raceId));
+        const isRealFleet = fleet.id !== '__unknown__';
         return (
           <div key={fleet.id} className="space-y-2">
             {!isSingleFleet && (
@@ -233,6 +265,13 @@ export default function StandingsPage({
               enabledFields={enabledFields}
               primaryLabel={data.primaryLabel}
               subdivisionAxes={axes}
+              fleetName={fleet.name}
+              excludedRaceIds={excludedRaceIds}
+              onToggleExclude={
+                canExclude && isRealFleet
+                  ? (raceId) => toggleExclusion(fleet.id, raceId)
+                  : undefined
+              }
             />
           </div>
         );
