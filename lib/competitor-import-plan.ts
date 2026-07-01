@@ -30,7 +30,10 @@
  * Existing fleets are reused by case-insensitive name match. The plan
  * never proposes mutating an existing fleet's scoringSystem; if the bare
  * name is taken by a different system, the new fleet is created with the
- * suffixed name instead.
+ * suffixed name instead. The one exception is the implicit default group
+ * (rows with no fleet column): when no fleet is literally named "Default"
+ * it reuses the series' sole scratch fleet, so a renamed default fleet is
+ * reused rather than duplicated.
  *
  * boatClass auto-fill: when the CSV has no Class column AND no existing
  * competitor in the series carries a boatClass, the wizard will fall back
@@ -112,21 +115,27 @@ type Group = {
   canonicalName: string;
   rowIndices: number[];
   presentSystems: Set<RatingSystem>;
+  /** True when at least one row landed here because it had no fleet column
+   *  value at all (the implicit default), as opposed to literally naming a
+   *  "Default" fleet. Only the implicit default is reused by identity. */
+  isImplicitDefault: boolean;
 };
 
 function groupRows(rows: PlanRow[]): Map<string, Group> {
   const groups = new Map<string, Group>();
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const fleetNames = row.csvFleetNames.length > 0 ? row.csvFleetNames : [PLAN_DEFAULT_FLEET_NAME];
+    const isImplicit = row.csvFleetNames.length === 0;
+    const fleetNames = isImplicit ? [PLAN_DEFAULT_FLEET_NAME] : row.csvFleetNames;
     for (const fn of fleetNames) {
       const canonical = fn.trim() || PLAN_DEFAULT_FLEET_NAME;
       const key = canonical.toLowerCase();
       let g = groups.get(key);
       if (!g) {
-        g = { canonicalName: canonical, rowIndices: [], presentSystems: new Set() };
+        g = { canonicalName: canonical, rowIndices: [], presentSystems: new Set(), isImplicitDefault: false };
         groups.set(key, g);
       }
+      if (isImplicit) g.isImplicitDefault = true;
       g.rowIndices.push(i);
       for (const sys of row.ratings) g.presentSystems.add(sys);
     }
@@ -174,7 +183,15 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
 
     if (systems.length === 0) {
       // No ratings (or scratch-mode series) → one scratch fleet, bare name.
-      const existing = findByName(existingFleets, group.canonicalName);
+      let existing = findByName(existingFleets, group.canonicalName);
+      if (!existing && group.isImplicitDefault) {
+        // Rows with no fleet column belong to the series' implicit default
+        // fleet. Identify it as the sole scratch fleet rather than by the
+        // literal name "Default", so a default fleet the user has renamed
+        // (e.g. to "Scratch") is reused instead of duplicated.
+        const scratchFleets = existingFleets.filter((f) => f.scoringSystem === 'scratch');
+        if (scratchFleets.length === 1) existing = scratchFleets[0];
+      }
       proposed.push({
         key: nextKey(),
         name: existing?.name ?? group.canonicalName,

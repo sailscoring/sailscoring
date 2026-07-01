@@ -167,6 +167,50 @@ test('import competitors assigned to multiple fleets', async ({ page }) => {
   await expect(page.getByRole('row', { name: /635/ })).not.toContainText('M15');
 });
 
+test('re-importing after renaming the default fleet reuses it instead of duplicating', async ({ page }) => {
+  // Reported flow: import a fleet-less list → a "Default" fleet is minted →
+  // the user renames it to "Scratch" → re-importing the same list must reuse
+  // that fleet, not create a second "Default" and move the competitors onto it.
+  await createSeriesQuick(page, { name: 'Rename Default Reimport' });
+
+  const csv = ['Sail,Helm,Club', 'IRL1,Alice,HYC', 'IRL2,Bob,RCYC'].join('\n');
+
+  // ── 1. First import creates the "Default" fleet with both competitors ─────
+  await uploadCsv(page, csv);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 2. Rename the auto-created "Default" fleet to "Scratch" ───────────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const fleetsHeading = page.locator('h2', { hasText: 'Fleets' });
+  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
+  const fleetRows = page.getByTestId('fleet-row');
+  await expect(fleetRows).toHaveCount(1);
+  await expect(fleetRows.nth(0)).toContainText('Default');
+  await fleetRows.nth(0).getByRole('button', { name: 'Rename' }).click();
+  const renameInput = fleetRows.nth(0).locator('input');
+  await renameInput.fill('Scratch');
+  await renameInput.press('Enter');
+  await expect(fleetRows.nth(0)).toContainText('Scratch');
+  await expect(fleetRows.nth(0)).not.toContainText('Default');
+
+  // ── 3. Re-import the same list — competitors are unchanged, not moved ─────
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await uploadCsv(page, csv);
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/2 unchanged/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 4. Still exactly one fleet, "Scratch" — no duplicate "Default" ────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
+  await expect(fleetRows).toHaveCount(1);
+  await expect(fleetRows.nth(0)).toContainText('Scratch');
+  await expect(fleetRows.nth(0)).not.toContainText('Default');
+});
+
 test('CSV import maps two columns to distinct subdivision axes', async ({ page }) => {
   // ── 1. Create a series (no subdivision axes configured yet) ───────────────
   await createSeriesQuick(page, { name: 'Two-Axis Import' });

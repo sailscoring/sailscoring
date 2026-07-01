@@ -89,6 +89,73 @@ describe('planFleetCreation — no ratings present', () => {
       scoringSystem: 'scratch',
     });
   });
+
+  it('reuses a renamed default (sole scratch) fleet for rows with no fleet column', () => {
+    // A first import created a "Default" fleet; the user renamed it to
+    // "Scratch". Re-importing the same list (no fleet column) must reuse
+    // that fleet by identity, not mint a fresh "Default".
+    const plan = callPlan({
+      rows: [row([]), row([])],
+      existingFleets: [existingFleet('Scratch', 'scratch', 'fleet-scratch')],
+    });
+    expect(plan.proposed).toHaveLength(1);
+    expect(plan.proposed[0]).toMatchObject({
+      name: 'Scratch',
+      scoringSystem: 'scratch',
+      source: 'no-ratings',
+      isExisting: true,
+      existingFleetId: 'fleet-scratch',
+    });
+  });
+
+  it('reuses the sole scratch fleet even alongside a handicap fleet', () => {
+    const plan = callPlan({
+      rows: [row([])],
+      existingFleets: [
+        existingFleet('Scratch', 'scratch', 'fleet-scratch'),
+        existingFleet('IRC Div', 'irc', 'fleet-irc'),
+      ],
+    });
+    expect(plan.proposed[0]).toMatchObject({
+      name: 'Scratch',
+      isExisting: true,
+      existingFleetId: 'fleet-scratch',
+    });
+  });
+
+  it('does not reuse by identity when the reuse target is ambiguous (two scratch fleets)', () => {
+    const plan = callPlan({
+      rows: [row([])],
+      existingFleets: [
+        existingFleet('Scratch', 'scratch', 'fleet-a'),
+        existingFleet('Overall', 'scratch', 'fleet-b'),
+      ],
+    });
+    expect(plan.proposed[0]).toMatchObject({ name: 'Default', isExisting: false });
+  });
+
+  it('still prefers an exact "Default" name match over the sole-scratch fallback', () => {
+    const plan = callPlan({
+      rows: [row([])],
+      existingFleets: [existingFleet('Default', 'scratch', 'fleet-default')],
+    });
+    expect(plan.proposed[0]).toMatchObject({
+      name: 'Default',
+      isExisting: true,
+      existingFleetId: 'fleet-default',
+    });
+  });
+
+  it('does not apply the sole-scratch fallback to an explicitly named "Default" group', () => {
+    // The CSV literally names a "Default" fleet — that is an explicit choice,
+    // not the implicit no-column default, so it should not silently fold into
+    // a differently-named sole scratch fleet.
+    const plan = callPlan({
+      rows: [row(['Default'])],
+      existingFleets: [existingFleet('Scratch', 'scratch', 'fleet-scratch')],
+    });
+    expect(plan.proposed[0]).toMatchObject({ name: 'Default', isExisting: false });
+  });
 });
 
 describe('planFleetCreation — single-system case', () => {
