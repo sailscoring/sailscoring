@@ -10,7 +10,17 @@ import {
 import { useUpdateSeries } from '@/hooks/use-series';
 import { useSaveFleets } from '@/hooks/use-fleets';
 import { useSaveCompetitors } from '@/hooks/use-competitors';
-import { parseFleetCell, autoDetectField, type CompetitorField } from '@/lib/csv-import';
+import {
+  parseFleetCell,
+  autoDetectField,
+  matchSubdivisionAxis,
+  axisColumnTarget,
+  subdivisionAxisIdOf,
+  isSubdivisionTarget,
+  NEW_AXIS_TARGET,
+  type CompetitorField,
+  type ColumnTarget,
+} from '@/lib/csv-import';
 import { lookupAlias, normalizeCodeInput } from '@/lib/nationality';
 import {
   planFleetCreation,
@@ -64,7 +74,7 @@ import { log } from '@/lib/debug';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-type ColumnMap = Record<number, CompetitorField>;
+type ColumnMap = Record<number, ColumnTarget>;
 
 type ImportFlow =
   | { step: 'idle' }
@@ -86,9 +96,9 @@ type ImportFlow =
       currentFields: CompetitorFieldKey[];
       /** Proposed enabled optional fields (includes currentFields ∪ additions). */
       proposedFields: CompetitorFieldKey[];
-      /** Series label for the subdivision field ("Division", "Category", …),
-       *  shown as the dropdown option for a subdivision column. */
-      subdivisionLabel: string;
+      /** The series' configured subdivision axes, each offered as a distinct
+       *  dropdown target for a subdivision column. */
+      subdivisionAxes: SubdivisionAxis[];
       /** Series scoring mode at upload time. The planner doesn't take this
        *  as input — column mappings drive system choice. We track it here
        *  only so the importer knows whether to flip the series to
@@ -133,15 +143,18 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   ignore: '(ignore)',
 };
 
-/** Build the dropdown list for the current primary label. The primary slot
- *  and role slots are emitted in a shared order; the role that matches the
- *  primary is hidden (it's already covered by `primary`). */
+/** Build the ordered dropdown options for the current primary label and the
+ *  series' subdivision axes. The primary slot and role slots are emitted in a
+ *  shared order; the role that matches the primary is hidden (it's already
+ *  covered by `primary`). Each configured axis is its own target, plus a
+ *  "New subdivision axis" option that creates one from the column header.
+ *  Keyed by `ColumnTarget` string; insertion order is the display order. */
 function buildFieldLabels(
   primary: PrimaryPersonLabel,
-  subdivisionLabel: string,
-): Partial<Record<CompetitorField, string>> {
+  axes: SubdivisionAxis[],
+): Record<string, string> {
   const primaryText = PRIMARY_PERSON_LABEL_TEXT[primary];
-  const labels: Partial<Record<CompetitorField, string>> = {
+  const labels: Record<string, string> = {
     sailNumber: STATIC_FIELD_LABELS.sailNumber,
     boatName: STATIC_FIELD_LABELS.boatName,
     boatClass: STATIC_FIELD_LABELS.boatClass,
@@ -155,7 +168,12 @@ function buildFieldLabels(
     nationality: STATIC_FIELD_LABELS.nationality,
     gender: STATIC_FIELD_LABELS.gender,
     age: STATIC_FIELD_LABELS.age,
-    subdivision: subdivisionLabel,
+  });
+  for (const axis of axes) {
+    labels[axisColumnTarget(axis.id)] = axis.label.trim() || DEFAULT_SUBDIVISION_LABEL;
+  }
+  labels[NEW_AXIS_TARGET] = 'New subdivision axis';
+  Object.assign(labels, {
     fleet: STATIC_FIELD_LABELS.fleet,
     tcc: STATIC_FIELD_LABELS.tcc,
     vprsTcc: STATIC_FIELD_LABELS.vprsTcc,
@@ -222,7 +240,7 @@ function extractPlanRows(rows: string[][], columnMap: ColumnMap): PlanRow[] {
   for (const [colStr, field] of Object.entries(columnMap)) {
     const col = parseInt(colStr, 10);
     if (field === 'fleet') fleetCol = col;
-    const system = RATING_FIELD_TO_SYSTEM[field];
+    const system = RATING_FIELD_TO_SYSTEM[field as CompetitorField];
     if (system) ratingCols.push({ col, system });
   }
   return rows.map((row) => {
@@ -275,10 +293,10 @@ const MappingRow = memo(function MappingRow({
 }: {
   header: string;
   colIndex: number;
-  columnValue: CompetitorField;
+  columnValue: ColumnTarget;
   sampleText: string;
-  fieldLabels: Partial<Record<CompetitorField, string>>;
-  onChange: (index: number, value: CompetitorField) => void;
+  fieldLabels: Record<string, string>;
+  onChange: (index: number, value: ColumnTarget) => void;
 }) {
   return (
     <TableRow>
@@ -286,13 +304,13 @@ const MappingRow = memo(function MappingRow({
       <TableCell>
         <Select
           value={columnValue}
-          onValueChange={(v) => onChange(colIndex, v as CompetitorField)}
+          onValueChange={(v) => onChange(colIndex, v as ColumnTarget)}
         >
           <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {(Object.keys(fieldLabels) as CompetitorField[]).map((field) => (
+            {(Object.keys(fieldLabels) as ColumnTarget[]).map((field) => (
               <SelectItem key={field} value={field}>
                 {fieldLabels[field]}
               </SelectItem>
@@ -321,8 +339,8 @@ const MappingTable = memo(function MappingTable({
   headers: string[];
   columnMap: ColumnMap;
   sampleTexts: string[];
-  fieldLabels: Partial<Record<CompetitorField, string>>;
-  onChange: (index: number, value: CompetitorField) => void;
+  fieldLabels: Record<string, string>;
+  onChange: (index: number, value: ColumnTarget) => void;
 }) {
   return (
     <Table className="table-fixed">
@@ -364,8 +382,8 @@ function MappingDialogBody({
   fleets: Fleet[];
 }) {
   const fieldLabels = useMemo(
-    () => buildFieldLabels(flow.proposedPrimary, flow.subdivisionLabel),
-    [flow.proposedPrimary, flow.subdivisionLabel],
+    () => buildFieldLabels(flow.proposedPrimary, flow.subdivisionAxes),
+    [flow.proposedPrimary, flow.subdivisionAxes],
   );
   const targets = Object.values(flow.columnMap);
   const primaryCount = targets.filter((t) => t === 'primary').length;
@@ -375,7 +393,7 @@ function MappingDialogBody({
   const tooManyPrimaries = primaryCount > 1;
   const tooManySails = sailCount > 1;
 
-  const updateColumn = useCallback((index: number, value: CompetitorField) => {
+  const updateColumn = useCallback((index: number, value: ColumnTarget) => {
     setFlow((f) =>
       f.step === 'mapping'
         ? { ...f, columnMap: { ...f.columnMap, [index]: value } }
@@ -649,10 +667,23 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         const headers = allRows[0];
         const dataRows = allRows.slice(1);
         const sampleRows = dataRows.slice(0, 3);
-        const initialMap: ColumnMap = {};
-        headers.forEach((h, i) => { initialMap[i] = autoDetectField(h); });
 
         const series = await seriesRepo.get(seriesId);
+        const axes = series ? subdivisionAxes(series) : [];
+        const axisLabels = axes.map((a) => a.label);
+        // Translate a detected subdivision column onto a concrete axis target:
+        // the best-matching configured axis, else a new axis from the header.
+        const initialMap: ColumnMap = {};
+        headers.forEach((h, i) => {
+          const detected = autoDetectField(h);
+          if (detected === 'subdivision') {
+            const matchIdx = matchSubdivisionAxis(h, axisLabels);
+            initialMap[i] = matchIdx != null ? axisColumnTarget(axes[matchIdx].id) : NEW_AXIS_TARGET;
+          } else {
+            initialMap[i] = detected;
+          }
+        });
+
         const existingCompetitors = await competitorRepo.listBySeries(seriesId);
         const firstImport = existingCompetitors.length === 0;
         const currentPrimary = series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
@@ -673,24 +704,15 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
 
         // Propose additive enable for any optional field a CSV column targets.
         const targets = new Set(Object.values(columnMap));
+        const hasSubdivisionColumn = Object.values(columnMap).some(isSubdivisionTarget);
         const optionalAdditions: CompetitorFieldKey[] = [];
         for (const field of ALL_COMPETITOR_FIELDS) {
           if (isFieldDisabledByPrimary(field, proposedPrimary)) continue;
           if (currentFields.includes(field)) continue;
-          // Map CompetitorField dropdown values to CompetitorFieldKey where they overlap
-          const dropdownField: CompetitorField | null =
-            field === 'boatName' ? 'boatName' :
-            field === 'boatClass' ? 'boatClass' :
-            field === 'helm' ? 'helm' :
-            field === 'owner' ? 'owner' :
-            field === 'crewName' ? 'crewName' :
-            field === 'club' ? 'club' :
-            field === 'nationality' ? 'nationality' :
-            field === 'gender' ? 'gender' :
-            field === 'age' ? 'age' :
-            field === 'subdivision' ? 'subdivision' :
-            null;
-          if (dropdownField && targets.has(dropdownField)) optionalAdditions.push(field);
+          // The subdivision field is driven by axis-target columns; every other
+          // optional field maps 1:1 to a dropdown value of the same name.
+          const enabled = field === 'subdivision' ? hasSubdivisionColumn : targets.has(field);
+          if (enabled) optionalAdditions.push(field);
         }
         const proposedFields = [...currentFields, ...optionalAdditions];
 
@@ -705,7 +727,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
           proposedPrimary,
           currentFields,
           proposedFields,
-          subdivisionLabel: (series ? subdivisionAxes(series)[0]?.label : undefined) ?? DEFAULT_SUBDIVISION_LABEL,
+          subdivisionAxes: axes,
           seriesScoringMode,
           existingHasBoatClass,
           alsoCreateScratch: {},
@@ -717,7 +739,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
 
   async function handleImport() {
     if (importFlow.step !== 'mapping') return;
-    const { rows, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, alsoCreateScratch } = importFlow;
+    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, alsoCreateScratch } = importFlow;
 
     const existing = await competitorRepo.listBySeries(seriesId);
     const series = await seriesRepo.get(seriesId);
@@ -746,15 +768,24 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     // fields, and — if the plan produced handicap fleets — flipping the
     // series to handicap mode) before touching competitors so downstream
     // UI reads the correct config.
-    // CSV import targets a single subdivision axis: the series' first
-    // existing axis, or a freshly-seeded one when the import maps/enables the
-    // subdivision field but the series has none yet. Multi-axis CSV column
-    // mapping is a future enhancement; one column maps to one axis.
-    const csvHasSubdivision = Object.values(columnMap).includes('subdivision');
+    // Resolve each subdivision-mapped column to a concrete axis id: an existing
+    // axis, or a fresh one minted (once) from the column header for a `newaxis`
+    // target. `axisIdByColumn` then routes each row's cell into the right axis.
     const existingAxes = series ? subdivisionAxes(series) : [];
-    let targetAxis: SubdivisionAxis | null = existingAxes[0] ?? null;
-    const needNewAxis = csvHasSubdivision && !targetAxis;
-    if (needNewAxis) targetAxis = newSubdivisionAxis(DEFAULT_SUBDIVISION_LABEL);
+    const newAxes: SubdivisionAxis[] = [];
+    const axisIdByColumn = new Map<number, string>();
+    for (const [colStr, target] of Object.entries(columnMap)) {
+      const col = Number(colStr);
+      const existingId = subdivisionAxisIdOf(target);
+      if (existingId) {
+        axisIdByColumn.set(col, existingId);
+      } else if (target === NEW_AXIS_TARGET) {
+        const label = (headers[col] ?? '').trim() || DEFAULT_SUBDIVISION_LABEL;
+        const axis = newSubdivisionAxis(label);
+        newAxes.push(axis);
+        axisIdByColumn.set(col, axis.id);
+      }
+    }
 
     const seriesPatch: {
       primaryPersonLabel?: PrimaryPersonLabel;
@@ -763,7 +794,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       lastModifiedAt?: number;
     } = {};
     if (proposedPrimary !== currentPrimary) seriesPatch.primaryPersonLabel = proposedPrimary;
-    if (needNewAxis && targetAxis) seriesPatch.subdivisionAxes = [...existingAxes, targetAxis];
+    if (newAxes.length > 0) seriesPatch.subdivisionAxes = [...existingAxes, ...newAxes];
     // The wizard's field intent is the delta against the snapshot it opened
     // with; re-apply that delta to the row the save lands on, so a field
     // toggled elsewhere while the wizard was open isn't silently reverted.
@@ -852,7 +883,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let nationality = '';
       let gender = '';
       let age = '';
-      let subdivision = '';
+      const subdivisionCells: Record<string, string> = {};
       let fleet = '';
       let tcc = '';
       let vprsTccStr = '';
@@ -873,13 +904,16 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'nationality') nationality = val;
         else if (field === 'gender') gender = val;
         else if (field === 'age') age = val;
-        else if (field === 'subdivision') subdivision = val;
         else if (field === 'fleet') fleet = val;
         else if (field === 'tcc') tcc = val;
         else if (field === 'vprsTcc') vprsTccStr = val;
         else if (field === 'py') py = val;
         else if (field === 'nhcStartingTcf') nhcStartingTcfStr = val;
         else if (field === 'echoStartingTcf') echoStartingTcfStr = val;
+        else {
+          const axisId = axisIdByColumn.get(col);
+          if (axisId && val) subdivisionCells[axisId] = val;
+        }
       });
 
       if (!sailNumber) {
@@ -933,11 +967,11 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const resolvedCrewName = crewName || existingCompetitor?.crewName || '';
       const resolvedHelm = helmRole || existingCompetitor?.helm || '';
       const resolvedOwner = ownerRole || existingCompetitor?.owner || '';
-      // Merge the mapped column onto the target axis, preserving any other axis
+      // Merge the mapped columns onto their axes, preserving any other axis
       // values the existing competitor already holds.
       const resolvedSubdivisions = cleanSubdivisions({
         ...(existingCompetitor?.subdivisions ?? {}),
-        ...(targetAxis && subdivision ? { [targetAxis.id]: subdivision } : {}),
+        ...subdivisionCells,
       });
       const competitor: Competitor = {
         id: existingCompetitor?.id ?? crypto.randomUUID(),

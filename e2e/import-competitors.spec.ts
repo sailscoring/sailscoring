@@ -166,3 +166,49 @@ test('import competitors assigned to multiple fleets', async ({ page }) => {
   // The competitor is no longer in M15 — their row should show only PY.
   await expect(page.getByRole('row', { name: /635/ })).not.toContainText('M15');
 });
+
+test('CSV import maps two columns to distinct subdivision axes', async ({ page }) => {
+  // ── 1. Create a series (no subdivision axes configured yet) ───────────────
+  await createSeriesQuick(page, { name: 'Two-Axis Import' });
+
+  // ── 2. Upload a CSV with both a Division and an Age Category column ───────
+  const csv = [
+    'Sail,Helm,Division,Age Category',
+    'IRL1,Alice,Gold,Master',
+    'IRL2,Bob,Silver,Youth',
+  ].join('\n');
+  await uploadCsv(page, csv);
+
+  // ── 3. Both subdivision columns default to a new axis (no axes exist yet).
+  //     The dropdown offers the "New subdivision axis" option. ──────────────
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('New subdivision axis').first()).toBeVisible();
+
+  // ── 4. Run the import — one axis is minted per column, named from its header
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 5. Both axis columns appear in the Competitors table with their values
+  await expect(page.getByRole('columnheader', { name: 'Division' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Age Category' })).toBeVisible();
+  const aliceRow = page.getByRole('row', { name: /IRL1/ });
+  await expect(aliceRow).toContainText('Gold');
+  await expect(aliceRow).toContainText('Master');
+  const bobRow = page.getByRole('row', { name: /IRL2/ });
+  await expect(bobRow).toContainText('Silver');
+  await expect(bobRow).toContainText('Youth');
+
+  // ── 6. Re-importing the same CSV now matches the existing axes by name and
+  //     reports every row unchanged (no duplicate axes, values land again). ─
+  await uploadCsv(page, csv);
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/0 competitor.* added/i)).toBeVisible();
+  await expect(page.getByText(/2 unchanged/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Still exactly one Division and one Age Category column (no dupes).
+  await expect(page.getByRole('columnheader', { name: 'Division' })).toHaveCount(1);
+  await expect(page.getByRole('columnheader', { name: 'Age Category' })).toHaveCount(1);
+});

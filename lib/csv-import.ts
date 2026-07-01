@@ -28,6 +28,65 @@ export type CompetitorField =
   | 'ignore';
 
 /**
+ * A column-mapping target. Beyond the plain field roles, a column may target a
+ * specific subdivision axis: an existing one (by id, `axis:<id>`) or a new axis
+ * to be created from the column header (`newaxis`). Encoded as strings so they
+ * flow through the `<Select>` dropdown and the column map unchanged; the plain
+ * field switches (planner, reconcile) never match an axis target.
+ */
+export type ColumnTarget = CompetitorField | `axis:${string}` | typeof NEW_AXIS_TARGET;
+
+/** Sentinel target: create a fresh subdivision axis from this column's header. */
+export const NEW_AXIS_TARGET = 'newaxis';
+
+/** The dropdown value for an existing subdivision axis. */
+export function axisColumnTarget(axisId: string): ColumnTarget {
+  return `axis:${axisId}`;
+}
+
+/** The axis id a target points at, or null if it isn't an existing-axis target. */
+export function subdivisionAxisIdOf(target: ColumnTarget): string | null {
+  return target.startsWith('axis:') ? target.slice('axis:'.length) : null;
+}
+
+/** Whether a target routes a column into a subdivision axis (existing or new). */
+export function isSubdivisionTarget(target: ColumnTarget): boolean {
+  return target === NEW_AXIS_TARGET || subdivisionAxisIdOf(target) !== null;
+}
+
+/**
+ * Pick the configured axis a subdivision-column header best matches, by index,
+ * or null to create a new axis. Prefers an exact label match, then falls back to
+ * token overlap (so a "Age Category" header lands on an "Age category" axis and
+ * a "Division" header on "Division"). Case- and punctuation-insensitive.
+ */
+export function matchSubdivisionAxis(header: string, axisLabels: string[]): number | null {
+  const tokenize = (s: string) =>
+    s.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').split(' ').filter(Boolean);
+  const headerTokens = new Set(tokenize(header));
+  if (headerTokens.size === 0) return null;
+  const normHeader = [...headerTokens].join(' ');
+
+  let best = -1;
+  let bestScore = 0;
+  axisLabels.forEach((label, i) => {
+    const labelTokens = tokenize(label);
+    if (labelTokens.join(' ') === normHeader) {
+      best = i;
+      bestScore = Infinity; // exact match wins outright
+      return;
+    }
+    if (bestScore === Infinity) return;
+    const score = labelTokens.filter((t) => headerTokens.has(t)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = i;
+    }
+  });
+  return bestScore > 0 ? best : null;
+}
+
+/**
  * Auto-detect the most-likely field role for a CSV column header.
  *
  * The CSV may use either spaced ("Sail Number"), snake_case, or camelCase
@@ -53,7 +112,11 @@ export function autoDetectField(header: string): CompetitorField {
   if (/name/.test(h)) return 'primary';
   if (/club/.test(h)) return 'club';
   if (/gender|sex/.test(h)) return 'gender';
-  if (/age/.test(h)) return 'age';
+  // "Age category / group / band / division" is a prize subdivision, not the
+  // numeric age field — check that before the bare `/age/` rule claims it.
+  if (/age/.test(h)) {
+    return /category|division|group|band|subdivision/.test(h) ? 'subdivision' : 'age';
+  }
   // Subdivision (Gold/Silver/Bronze, age categories) is a distinct field from
   // fleet. "division" used to fall through to `fleet`; it is now its own role.
   // "class" is intentionally left to `boatClass` above — a CSV "Class" column

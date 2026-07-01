@@ -395,12 +395,14 @@ export default async function HelpPage() {
         <p>
           The importer shows each column in the file alongside a sample of its values. Use the
           dropdown next to each column to map it to a competitor field — sail number, helm name,
-          boat name, class, crew name, club, gender, age, division, or fleet. Columns you do not need can be
-          left as <strong className="text-foreground">(ignore)</strong>. Sail number is the only
-          required mapping; all other fields are optional. A column named{' '}
-          <em>Fleet</em> is detected as the fleet; <em>Division</em> or{' '}
-          <em>Category</em> map to the subdivision field; <em>Class</em> maps to
-          boat class, and <em>Crew</em> to the crew name.
+          boat name, class, crew name, club, gender, age, a subdivision axis, or fleet. Columns you
+          do not need can be left as <strong className="text-foreground">(ignore)</strong>. Sail
+          number is the only required mapping; all other fields are optional. A column named{' '}
+          <em>Fleet</em> is detected as the fleet; <em>Class</em> maps to boat class, and{' '}
+          <em>Crew</em> to the crew name. A <em>Division</em> or <em>Category</em> column maps to a
+          subdivision axis: it lands on the matching axis if you already have one, or you can pick{' '}
+          <strong className="text-foreground">New subdivision axis</strong> to create one from the
+          column heading (so a sheet with both a Division and an Age-category column brings in both).
         </p>
         <p>
           A competitor can be assigned to more than one fleet by separating fleet names with a

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFleetCell, autoDetectField } from '@/lib/csv-import';
+import { parseFleetCell, autoDetectField, matchSubdivisionAxis } from '@/lib/csv-import';
 
 describe('parseFleetCell', () => {
   it('returns a single name for a plain cell', () => {
@@ -63,6 +63,16 @@ describe('autoDetectField', () => {
     expect(autoDetectField('Fleet')).toBe('fleet');
   });
 
+  it('reads age-band headers as a subdivision, not the numeric age field', () => {
+    // "Age Category"/"Age Group"/"Age Band" are prize subdivisions; only a bare
+    // age-ish header is the numeric age field.
+    expect(autoDetectField('Age Category')).toBe('subdivision');
+    expect(autoDetectField('age group')).toBe('subdivision');
+    expect(autoDetectField('Age Band')).toBe('subdivision');
+    expect(autoDetectField('Age')).toBe('age');
+    expect(autoDetectField('Age (years)')).toBe('age');
+  });
+
   it('keeps a bare "Class" column as boat class, not subdivision', () => {
     // "Class" is a valid subdivision label, but a CSV "Class" column is far
     // more often the boat class — auto-detect favours that; the scorer can
@@ -115,5 +125,38 @@ describe('autoDetectField', () => {
     // Sanity: "name" still maps to primary even though it shares letters
     // with "nat"; the rule is anchored on \bnat\b.
     expect(autoDetectField('Name')).toBe('primary');
+  });
+});
+
+describe('matchSubdivisionAxis', () => {
+  const axes = ['Division', 'Age category'];
+
+  it('matches a header to the axis with the same label (case/punctuation-insensitive)', () => {
+    expect(matchSubdivisionAxis('Division', axes)).toBe(0);
+    expect(matchSubdivisionAxis('division', axes)).toBe(0);
+    expect(matchSubdivisionAxis('Age Category', axes)).toBe(1);
+    expect(matchSubdivisionAxis('age-category', axes)).toBe(1);
+  });
+
+  it('falls back to token overlap when there is no exact match', () => {
+    // "Age band" shares the "age" token with "Age category".
+    expect(matchSubdivisionAxis('Age band', axes)).toBe(1);
+    // "Skill Division" shares "division" with "Division".
+    expect(matchSubdivisionAxis('Skill Division', axes)).toBe(0);
+  });
+
+  it('returns null when nothing matches, so the caller makes a new axis', () => {
+    expect(matchSubdivisionAxis('Category', ['Division'])).toBeNull();
+    expect(matchSubdivisionAxis('Gender', axes)).toBeNull();
+  });
+
+  it('returns null with no configured axes or an empty header', () => {
+    expect(matchSubdivisionAxis('Division', [])).toBeNull();
+    expect(matchSubdivisionAxis('   ', axes)).toBeNull();
+  });
+
+  it('prefers an exact match over a mere token overlap', () => {
+    // "Category" exactly matches axis 1 even though axis 0 shares no token.
+    expect(matchSubdivisionAxis('Category', ['Division', 'Category'])).toBe(1);
   });
 });
