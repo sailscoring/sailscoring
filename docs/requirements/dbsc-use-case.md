@@ -15,9 +15,15 @@ A note on terminology, because two senses of "series" collide here. DBSC's
 season splits each fleet's racing into sequential calendar series — **Series
 A / B / C** (the discard count resets at each). Orthogonally, each race day
 runs one or more concurrent fleet groups, each on its own committee vessel.
-Throughout this document a **Sail Scoring Series** maps to a single
-*(fleet group × calendar series)* — i.e. one committee vessel's finish sheet
-over one calendar block — which is the unit a scorer enters and publishes.
+A **Sail Scoring Series** maps to one **fleet group's finish sheet for a day**
+(one committee vessel's day of racing — the unit a scorer enters and publishes),
+and the calendar series (*Overall / Series A / B / C*) are **sub-series** within
+it: named race selections scored independently, each with its own discards and
+progressive chain. (This reflects the `sailscoring`#203 sub-series feature, which
+postdates the original framing of this doc as one Series *per calendar block*.)
+Whether an entered-but-never-started boat is listed in a given calendar series is
+HalSail's per-tandem entry-list choice, modelled by a per-sub-series
+`excludeDncOnlyCompetitors` flag.
 
 ## Why DBSC?
 

@@ -580,7 +580,7 @@ goal, not this one) and race naming (HalSail only numbers races).
 |---|---|
 | class (e.g. *Cruisers 0 IRC*, *Cruisers 1 - J109*) | **Fleet** — same name, same handicap system |
 | tandem series (*Thursday Overall*, *Thursday Series A/B*) | **SubSeries** — same name, same race selection, same discards |
-| one season | **one Series** |
+| one season | **one Series per finish-sheet day-group** (see Status — refined from the original "one Series per season") |
 | published `(class × series)` grid | published `(fleet × sub-series)` grid |
 
 The archive's `catalog.json` class→series join is the spec.
@@ -595,7 +595,8 @@ fixed, so it's a poor demonstrator right now.
 
 ### Core reconstruction rules
 
-1. **One Series per season.** Fleets = classes (handicap system from the class).
+1. **One Series per finish-sheet day-group** (refined from "one Series per season"
+   — see Status). Fleets = classes (handicap system from the class).
 2. **Races are keyed by `date + start-time`, never by number.** A tandem's race
    numbers are local — *Series B* renumbers its races 1–9, but they are the same
    physical races as *Overall*'s 10–18 (matched by date). The merged `Race[]` is
@@ -607,21 +608,55 @@ fixed, so it's a poor demonstrator right now.
 5. **ECHO chains are per sub-series** (`startingHandicapSource`), as HalSail
    recomputes per series.
 
-### Status
+### Status — COMPLETE (2022–2026 reconstructed, imported, published)
 
-- **M2 first cut — DONE, parity-green.** `Cruisers 1 - J/109` (2025) as one series
-  with sub-series *Thursday Overall / Series A / Series B*: 10 boats, 15 races,
-  reconstructed Net matches HalSail's published summaries for all three. Proves
-  the date-partitioned sub-series mechanic, DBSC's discard table, and the
-  `startingAreaInclDnc` DNC value end-to-end. (Scratch/place-based.)
-- **M1 — archive parser (next).** Extend `lib/halsail/parse-results.ts` to the
-  older archive `_CrsResults` markup (handicap time/rating columns), to unlock
-  the cruiser fleets.
-- **M3** full Thursday cruiser group (IRC + ECHO + VPRS, the meaty demo), then
-  **M4** Saturday + Tuesday into the same series, **M5** the special tandems
-  (*Summer Series*, *Super League*, *Combined*; *Master*/*ORC* fleets), **M6**
-  import + publish into a DBSC workspace.
+Phase 2 is done, and further than first scoped: **all four archived seasons
+(2022–2025) are reconstructed and the live 2026 season is refreshed** off the
+same tooling, all **imported into the DBSC workspace and published** at
+`app.sailscoring.ie/p/dbsc/{year}`.
 
-Phase-2 tooling lives in the **`dbsc-archive`** repo
-(`scripts/halsail-archive-to-sailscoring.ts`, `sources/2025/`), reusing this
-repo's engine across repos as noted at the top.
+**Model refinement — per-day-group, not one-series-per-season.** The mapping above
+holds, but the *unit* is a finish-sheet **day-group**, not the whole season: each
+year is **seven Sail Scoring series** (Thursday/Saturday/Tuesday × cruisers/
+one-designs, plus Water Wags), and the calendar series (*Overall / Series A / B /
+C*) are **sub-series** within each. This matches the unit a scorer actually enters
+and publishes — one committee vessel's sheet over a day — and lines the archive up
+with the 2026 live loop, which is already per-day-group. A whole-season single
+Series was the aspirational isomorphism; per-day-group-with-sub-series is the
+faithful, workable form.
+
+**The sub-series feature that unlocked it** (`sailscoring`#203, extended here): a
+sub-series is a named race selection, may be **fleet-scoped** (`fleetIds`) and
+carry **per-fleet race exclusions** (`raceFleetExclusions`), continues a
+progressive chain (`startingHandicapSource`), and — added for DBSC — can
+**exclude all-DNC competitors** (`excludeDncOnlyCompetitors`, default off; wired
+through the whole stack incl. the sub-series editor UI, file v12, DB). The builder
+reproduces HalSail's per-class tandem membership by striking, per fleet, the union
+heats a fleet was scored in but not in its own published tandem (covers the
+single-competitor flicks, Sigma wind-up, per-class A/B boundaries, and the
+abandoned-heat inconsistencies — CLARIFICATIONS Q1–Q5).
+
+**Parity (honest, two-directional validation — flags both missing and extra
+boats).** 2026 live: **75 / 0**, fully green. Archive: **749 OK / 88 FAIL** across
+2022–2025 (2022 182/22, 2023 166/41, 2024 203/8, 2025 198/17). The 88 are *not* a
+model gap — they split into:
+
+1. **DBSC's own manual roster slips.** Whether an entered-but-never-started boat is
+   *listed* in a tandem is HalSail's per-(class, tandem) entry-list toggle — not
+   derivable from finishes, and applied by hand with drift. We model DBSC's
+   discernible **intent** (2022 lists the full entry list everywhere; one-design
+   blocks start excluding non-starters in 2023; 2024–25 blocks exclude, Overalls
+   still list) per sub-series, so the residual cells are exactly where DBSC's
+   config deviates from its own intent — left as deltas by design.
+2. **A multi-race-day discard offset** — one-design fleets that sail several heats
+   per day at high race counts (Flying Fifteen, PY Class, ILCA, Laser, Squib) come
+   out a few points off, a `date#slot` builder limitation. Plus a handful of
+   ECHO/VPRS ±1 progressive-chain ripples.
+
+So the engine reproduces DBSC's *scoring* faithfully; the remaining diffs are
+DBSC's manual roster noise (intentionally not reproduced) and one narrow builder
+limitation. **A very strong parity result across five seasons.**
+
+Phase-2 tooling lives in **`dbsc-archive`**: per-year `scripts/halsail-archive-<year>.ts`
+over the shared `lib/halsail/archive-build.ts`, and the 2026 live loop
+(`fetch → to-sailscoring → compare`), reusing this repo's engine across repos.
