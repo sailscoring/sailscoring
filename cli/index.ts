@@ -11,6 +11,7 @@
 import { loginCommand } from './commands/login';
 import { importCommand } from './commands/import';
 import { publishCommand } from './commands/publish';
+import { unpublishCommand } from './commands/unpublish';
 import { categoriseCommand } from './commands/categorise';
 import { archiveCommand } from './commands/archive';
 import { reorderCommand } from './commands/reorder';
@@ -73,6 +74,8 @@ Series
                  [--publish | --publish-slug <slug>] [--subpath f=p,…]
                  [--category <name>] [--archive]
   series publish [--slug <slug>] [--subpath f=p,…] [--fleets a,b] <seriesId…>
+  series unpublish <seriesId…>
+      Remove a series' published pages (all fleets/sub-series).
   series categorise <seriesId…> --category <name>
   series archive <seriesId…> [--unarchive]
   series reorder <seriesId…>
@@ -119,6 +122,8 @@ function seriesDispatch(rest: string[]): Promise<number> {
       return importCommand(positional, flags);
     case 'publish':
       return publishCommand(positional, flags);
+    case 'unpublish':
+      return unpublishCommand(positional, flags);
     case 'categorise':
     case 'categorize':
       return categoriseCommand(positional, flags);

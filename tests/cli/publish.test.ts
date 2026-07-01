@@ -36,7 +36,7 @@ import { seriesFileReposFor } from '@/lib/postgres-repository';
 import { getPublishedGroupByWorkspaceSlug } from '@/lib/published-repository';
 import { requireWorkspace } from '@/lib/auth/require-workspace';
 import { POST as importRoute } from '@/app/api/v1/series/import/route';
-import { POST as publishRoute } from '@/app/api/v1/series/[id]/publish/route';
+import { POST as publishRoute, DELETE as unpublishRoute } from '@/app/api/v1/series/[id]/publish/route';
 import { SailscoringClient, type FetchLike } from '@/cli/client';
 import { runImport } from '@/cli/import-runner';
 import { runPublish } from '@/cli/publish-runner';
@@ -64,6 +64,13 @@ describe.skipIf(skip)('CLI publish (ADR-009 M3.1)', () => {
     if (init.method === 'POST' && pub) {
       const req = new Request(url, { method: 'POST', headers: init.headers, body: init.body });
       const res = await publishRoute(req as Parameters<typeof publishRoute>[0], {
+        params: Promise.resolve({ id: pub[1] }),
+      });
+      return { status: res.status, text: () => res.text() };
+    }
+    if (init.method === 'DELETE' && pub) {
+      const req = new Request(url, { method: 'DELETE', headers: init.headers });
+      const res = await unpublishRoute(req as Parameters<typeof unpublishRoute>[0], {
         params: Promise.resolve({ id: pub[1] }),
       });
       return { status: res.status, text: () => res.text() };
@@ -169,6 +176,18 @@ describe.skipIf(skip)('CLI publish (ADR-009 M3.1)', () => {
     expect(group.length).toBe(3); // three contributing series
     const totalPages = group.reduce((sum, p) => sum + p.pages.length, 0);
     expect(totalPages).toBe(4); // Gold, Silver, U17, Optimist
+  });
+
+  test('unpublish removes a series\' pages', async () => {
+    const s = await seedSeries('Frostbite Unpub', ['Cruisers', 'Whitesails']);
+    await runPublish({ seriesIds: [s], client, slug: 'unpub-slug' });
+    expect((await getPublishedGroupByWorkspaceSlug(workspaceId, 'unpub-slug')).length).toBe(1);
+
+    await client.unpublishSeries(s);
+    expect((await getPublishedGroupByWorkspaceSlug(workspaceId, 'unpub-slug')).length).toBe(0);
+
+    // A series with no publication is a no-op, not an error.
+    await expect(client.unpublishSeries(s)).resolves.toBeUndefined();
   });
 
   test('resume-on-failure: a bad series id fails but the rest publish', async () => {

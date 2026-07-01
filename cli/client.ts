@@ -99,6 +99,11 @@ export class SailscoringClient {
     })) as PublishResponse;
   }
 
+  /** Remove a series' published pages. A series with no publication is a no-op. */
+  async unpublishSeries(seriesId: string): Promise<void> {
+    await this.request('DELETE', `/api/v1/series/${seriesId}/publish`);
+  }
+
   /** Workspace categories (series-list organisation). */
   async listCategories(): Promise<{ items: Category[] }> {
     return (await this.request('GET', '/api/v1/categories')) as { items: Category[] };
