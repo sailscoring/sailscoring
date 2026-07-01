@@ -40,6 +40,7 @@ export const ACTIVITY_ACTIONS = [
   'races.reordered',
   'sub-series.created',
   'sub-series.renamed',
+  'sub-series.updated',
   'sub-series.deleted',
   'sub-series.cleared',
   'finishes.recorded',

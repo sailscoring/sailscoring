@@ -170,16 +170,60 @@ export async function putSubSeries(
     },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
+  const change = describeSubSeriesChange(existing, saved);
   await trackChange(workspace, {
-    action: existing ? 'sub-series.renamed' : 'sub-series.created',
+    action: change.action,
     seriesId,
-    summary: existing
-      ? `Renamed sub-series ${existing.name} to ${saved.name}`
-      : `Added sub-series ${saved.name}`,
+    summary: change.summary,
     sessionKey: 'sub-series',
     dedupeKey: existing ? `sub-series:${id}` : undefined,
   });
   return saved;
+}
+
+/**
+ * Pick the activity action + summary for a sub-series upsert from what actually
+ * changed — the update path handles every edit gesture, so it must not label a
+ * race-exclusion toggle or a membership change as a "rename". A rename wins when
+ * the name changed; otherwise the first differing facet names the edit.
+ */
+function describeSubSeriesChange(
+  existing: SubSeries | undefined,
+  saved: SubSeries,
+): { action: 'sub-series.created' | 'sub-series.renamed' | 'sub-series.updated'; summary: string } {
+  if (!existing) {
+    return { action: 'sub-series.created', summary: `Added sub-series ${saved.name}` };
+  }
+  if (existing.name !== saved.name) {
+    return {
+      action: 'sub-series.renamed',
+      summary: `Renamed sub-series ${existing.name} to ${saved.name}`,
+    };
+  }
+  const exclusionKey = (list: SubSeries['raceFleetExclusions']) =>
+    (list ?? []).map((ex) => `${ex.raceId}::${ex.fleetId}`).sort().join(',');
+  const idSetKey = (list: string[] | undefined) => [...(list ?? [])].sort().join(',');
+
+  let detail = 'Updated';
+  if (exclusionKey(existing.raceFleetExclusions) !== exclusionKey(saved.raceFleetExclusions)) {
+    detail = 'Updated race exclusions for';
+  } else if (idSetKey(existing.raceIds) !== idSetKey(saved.raceIds)) {
+    detail = 'Updated races in';
+  } else if (idSetKey(existing.fleetIds) !== idSetKey(saved.fleetIds)) {
+    detail = 'Updated fleets in';
+  } else if (
+    (existing.excludeDncOnlyCompetitors ?? false) !== (saved.excludeDncOnlyCompetitors ?? false)
+  ) {
+    detail = 'Updated DNC scoring for';
+  } else if (
+    (existing.startingHandicapSource ?? 'base') !== (saved.startingHandicapSource ?? 'base') ||
+    (existing.continueFromSubSeriesId ?? null) !== (saved.continueFromSubSeriesId ?? null)
+  ) {
+    detail = 'Updated handicap carry for';
+  } else {
+    detail = 'Updated';
+  }
+  return { action: 'sub-series.updated', summary: `${detail} sub-series ${saved.name}` };
 }
 
 /**

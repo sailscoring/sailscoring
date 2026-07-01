@@ -19,6 +19,7 @@ import * as series from '@/lib/api-handlers/series';
 import * as races from '@/lib/api-handlers/races';
 import * as fleetsApi from '@/lib/api-handlers/fleets';
 import * as subSeries from '@/lib/api-handlers/sub-series';
+import { getActivityFeed } from '@/lib/api-handlers/activity';
 import type { Race } from '@/lib/types';
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -168,6 +169,26 @@ describe.skipIf(skip)('sub-series handlers', () => {
     });
     expect(renamed.name).toBe('Frostbite Winter');
     expect(renamed.raceIds).toEqual([raceList[0].id]);
+  });
+
+  test('a non-rename edit logs sub-series.updated, not a rename', async () => {
+    const { seriesId, raceList } = await makeSeriesWithRaces(2);
+    const f1 = await addFleet(seriesId, 'A', 0);
+    const block = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'Series A', raceIds: raceList.map((r) => r.id), fleetIds: [f1],
+    });
+    // Toggle a per-fleet race exclusion — the name is unchanged.
+    await subSeries.putSubSeries(ctxA, seriesId, block.id, {
+      ...block,
+      raceFleetExclusions: [{ raceId: raceList[0].id, fleetId: f1 }],
+    });
+
+    const params = new URLSearchParams();
+    params.set('seriesId', seriesId);
+    const { items } = await getActivityFeed(ctxA, params);
+    const updated = items.find((i) => i.action === 'sub-series.updated');
+    expect(updated?.summary).toBe('Updated race exclusions for sub-series Series A');
+    expect(items.some((i) => i.action === 'sub-series.renamed')).toBe(false);
   });
 
   test('deleting a sub-series leaves races and other sub-series intact', async () => {
