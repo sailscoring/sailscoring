@@ -12,6 +12,7 @@ import type {
   NhcProfile,
   TcfRecord,
   SubdivisionAxis,
+  RaceFleetExclusion,
 } from './types';
 import {
   defaultEnabledCompetitorFields,
@@ -118,9 +119,14 @@ export interface SeriesFileRepos {
  *  v13 generalises subdivisions to multiple named axes: `Series.subdivisionAxes`
  *  (replacing the single `subdivisionLabel`) and `Competitor.subdivisions` (a map keyed
  *  by axis id, replacing the single `subdivision`). v6–v12 files upgrade on load — the
- *  old label becomes one axis and each competitor's value is keyed onto it. */
-export const FORMAT_VERSION = 13;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+ *  old label becomes one axis and each competitor's value is keyed onto it.
+ *
+ *  v14 adds optional `series.raceFleetExclusions` (a race struck for one fleet
+ *  across the whole-series standings — the series-scoped counterpart of the
+ *  sub-series field). Additive and sparse (written only when non-empty); older
+ *  files load with it absent (no exclusions). */
+export const FORMAT_VERSION = 14;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -149,6 +155,7 @@ interface SeriesFileSeries {
   eventUrl?: string;
   discardThresholds: DiscardThreshold[];
   dnfScoring: DnfScoring;
+  raceFleetExclusions?: RaceFleetExclusion[];  // v14+; whole-series per-fleet race strikes
   ftpHost: string;
   ftpPath: string;
   ftpPaths?: Record<string, string>;  // v4+; absent in older files
@@ -407,6 +414,9 @@ export async function buildSeriesFile(
       eventUrl: series.eventUrl,
       discardThresholds: series.discardThresholds,
       dnfScoring: series.dnfScoring,
+      ...(series.raceFleetExclusions && series.raceFleetExclusions.length > 0
+        ? { raceFleetExclusions: series.raceFleetExclusions }
+        : {}),
       ftpHost: series.ftpHost ?? '',
       ftpPath: series.ftpPath ?? '',
       ...(series.ftpPaths && Object.keys(series.ftpPaths).length > 0
@@ -647,6 +657,22 @@ function remapStartSequence(
     .filter((g) => g.fleetIds.length > 0);
 }
 
+/** Rewrite whole-series per-fleet race exclusions through the id remaps applied
+ *  on import. Both the race and the fleet get fresh ids, so an unmapped
+ *  reference (a race or fleet dropped from the file) means the strike no longer
+ *  applies and the entry is dropped — the same drop-on-missing rule the start
+ *  sequence and ftpPaths remaps follow. */
+function remapRaceFleetExclusions(
+  exclusions: RaceFleetExclusion[] | undefined,
+  raceIdMap: Map<string, string>,
+  fleetIdMap: Map<string, string>,
+): RaceFleetExclusion[] {
+  if (!exclusions) return [];
+  return exclusions
+    .map((ex) => ({ raceId: raceIdMap.get(ex.raceId), fleetId: fleetIdMap.get(ex.fleetId) }))
+    .filter((ex): ex is RaceFleetExclusion => !!ex.raceId && !!ex.fleetId);
+}
+
 /**
  * Resolve the subdivision axes for a file on read, upgrading legacy single-axis
  * files (v6–v12) to the multi-axis shape. v13+ files carry
@@ -728,6 +754,7 @@ export async function openSeriesFromFile(
     defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
     dnfScoring: file.series.dnfScoring,
+    raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
@@ -805,6 +832,7 @@ export async function restoreSeriesFromFile(
     defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
     dnfScoring: file.series.dnfScoring,
+    raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
@@ -873,6 +901,7 @@ export async function updateSeriesFromFile(
     defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
     dnfScoring: file.series.dnfScoring,
+    raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
@@ -964,6 +993,7 @@ export async function updateSeriesFromSailwave(
     ...current,
     discardThresholds: file.series.discardThresholds,
     dnfScoring: file.series.dnfScoring,
+    raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     defaultStartSequence: undefined,
     ftpPaths,
     lastModifiedAt: now,

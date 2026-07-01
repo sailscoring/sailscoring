@@ -90,15 +90,25 @@ const snapshot: SeriesSnapshot = {
 function makeRecordingRepos(read?: SeriesSnapshot) {
   const savedSubSeries: SubSeries[] = [];
   const savedRaces: Race[] = [];
+  const savedSeries: Series[] = [];
+  const savedFleets: Fleet[] = [];
   const repos = {
     seriesRepo: {
       get: async (id: string) => (read && id === read.series.id ? read.series : undefined),
-      save: async (s: Series) => s,
+      save: async (s: Series) => {
+        savedSeries.push(s);
+        return s;
+      },
     },
     fleetRepo: {
       listBySeries: async () => read?.fleets ?? [],
-      save: async (f: Fleet) => f,
-      saveMany: async () => {},
+      save: async (f: Fleet) => {
+        savedFleets.push(f);
+        return f;
+      },
+      saveMany: async (list: Fleet[]) => {
+        savedFleets.push(...list);
+      },
     },
     competitorRepo: {
       listBySeries: async () => read?.competitors ?? [],
@@ -135,7 +145,7 @@ function makeRecordingRepos(read?: SeriesSnapshot) {
     listSeriesNames: async () => [],
     deleteSeriesChildren: async () => {},
   } as unknown as SeriesFileRepos & ImportRepos;
-  return { repos, savedSubSeries, savedRaces };
+  return { repos, savedSubSeries, savedRaces, savedSeries, savedFleets };
 }
 
 describe('.sailscoring v9 sub-series round-trip', () => {
@@ -308,6 +318,56 @@ describe('sub-series fleet-scoping + per-fleet exclusion round-trip', () => {
     expect(champ.fleetIds).toHaveLength(1);
     expect(champ.raceFleetExclusions).toEqual([{ raceId: race2Id, fleetId: champ.fleetIds![0] }]);
     expect(champ.excludeDncOnlyCompetitors).toBe(true);
+  });
+});
+
+describe('series-scoped per-fleet exclusion round-trip', () => {
+  const fleet2: Fleet = { id: 'fl-2', seriesId: 's1', name: 'Whitesails', displayOrder: 1, scoringSystem: 'scratch' };
+  // Whole-series (no sub-series): race 2 struck for the Whitesails fleet.
+  const exclSnapshot: SeriesSnapshot = {
+    ...snapshot,
+    fleets: [fleet, fleet2],
+    subSeries: [],
+    series: { ...makeSeries('s1'), raceFleetExclusions: [{ raceId: 'r2', fleetId: 'fl-2' }] },
+  };
+
+  it('.sailscoring (v14) carries series.raceFleetExclusions and parses back without loss', async () => {
+    const { repos } = makeRecordingRepos(exclSnapshot);
+    const file = await buildSeriesFile('s1', repos);
+    expect(file.formatVersion).toBe(FORMAT_VERSION);
+    expect(file.series.raceFleetExclusions).toEqual([{ raceId: 'r2', fleetId: 'fl-2' }]);
+
+    const reparsed = parseSeriesFile(JSON.stringify(file));
+    expect(reparsed.series.raceFleetExclusions).toEqual([{ raceId: 'r2', fleetId: 'fl-2' }]);
+  });
+
+  it('a series with no exclusions writes no raceFleetExclusions key', async () => {
+    const { repos } = makeRecordingRepos({ ...snapshot, subSeries: [] });
+    const file = await buildSeriesFile('s1', repos);
+    expect(file.series.raceFleetExclusions).toBeUndefined();
+  });
+
+  it('.sailscoring import remaps the exclusion onto the fresh race + fleet ids', async () => {
+    const built = await buildSeriesFile('s1', makeRecordingRepos(exclSnapshot).repos);
+    const { repos, savedSeries, savedRaces, savedFleets } = makeRecordingRepos();
+    await openSeriesFromFile(built, repos);
+
+    const saved = savedSeries.at(-1)!;
+    const race2Id = savedRaces.find((r) => r.raceNumber === 2)!.id;
+    const whitesailsId = savedFleets.find((f) => f.name === 'Whitesails')!.id;
+    expect(saved.raceFleetExclusions).toEqual([{ raceId: race2Id, fleetId: whitesailsId }]);
+  });
+
+  it('public JSON export carries the exclusion by name; import rebuilds it', async () => {
+    const data = buildPublicExportFromSnapshot(exclSnapshot);
+    expect(data!.series.raceFleetExclusions).toEqual([{ raceNumber: 2, fleetName: 'Whitesails' }]);
+
+    const { repos, savedSeries, savedRaces, savedFleets } = makeRecordingRepos();
+    await importPublicExport(data!, repos);
+    const saved = savedSeries.at(-1)!;
+    const race2Id = savedRaces.find((r) => r.raceNumber === 2)!.id;
+    const whitesailsId = savedFleets.find((f) => f.name === 'Whitesails')!.id;
+    expect(saved.raceFleetExclusions).toEqual([{ raceId: race2Id, fleetId: whitesailsId }]);
   });
 });
 

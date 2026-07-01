@@ -59,6 +59,11 @@ export interface PublicSeriesExport {
     eventUrl?: string;
     discardThresholds: DiscardThreshold[];
     dnfScoring: DnfScoring;
+    /** Whole-series per-fleet race exclusions — a race struck from one fleet's
+     *  scoring. Keyed by the export's portable identity (race number + fleet
+     *  name), like the sub-series `raceExclusions`. Sparse — omitted when empty.
+     *  Carried so a re-import re-scores identically. */
+    raceFleetExclusions?: { raceNumber: number; fleetName: string }[];
     /** Which optional competitor fields the scorer has chosen to show.
      *  Display hint for re-renderers; competitor data is still exported in
      *  full regardless of this setting. */
@@ -605,6 +610,19 @@ export function buildPublicExportFromSnapshot(
       ...(series.eventUrl ? { eventUrl: series.eventUrl } : {}),
       discardThresholds: series.discardThresholds,
       dnfScoring: series.dnfScoring,
+      ...(() => {
+        // Whole-series exclusions, re-keyed to the export's portable identity
+        // (race number + fleet name), like the sub-series `raceExclusions`.
+        const raceFleetExclusions = (series.raceFleetExclusions ?? [])
+          .map((ex) => ({
+            raceNumber: raceNumberById.get(ex.raceId),
+            fleetName: fleetNameById.get(ex.fleetId),
+          }))
+          .filter((ex): ex is { raceNumber: number; fleetName: string } =>
+            ex.raceNumber != null && ex.fleetName != null,
+          );
+        return raceFleetExclusions.length > 0 ? { raceFleetExclusions } : {};
+      })(),
       displayFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
       ...(series.subdivisionAxes?.length ? { subdivisionAxes: series.subdivisionAxes } : {}),
@@ -717,6 +735,20 @@ export async function importPublicExport(
     fleetIdByName.set(f.name, crypto.randomUUID());
   }
 
+  // Race number → new race ID map. Races are written further below, but the map
+  // is built up-front so series-level references (whole-series exclusions)
+  // resolve at save time.
+  const newRaceIdByNumber = new Map(data.races.map((r) => [r.raceNumber, crypto.randomUUID()]));
+
+  // Resolve whole-series per-fleet exclusions (race number + fleet name) back to
+  // the freshly minted ids; drop any whose race or fleet no longer resolves.
+  const importedRaceFleetExclusions = (data.series.raceFleetExclusions ?? [])
+    .map((ex) => ({
+      raceId: newRaceIdByNumber.get(ex.raceNumber),
+      fleetId: fleetIdByName.get(ex.fleetName),
+    }))
+    .filter((ex): ex is { raceId: string; fleetId: string } => !!ex.raceId && !!ex.fleetId);
+
   // Re-key a per-fleet point map (exported by fleet name) onto the freshly
   // minted fleet ids. Entries whose fleet name no longer resolves are dropped
   // (the scoring engine then treats that fleet as a gap).
@@ -770,6 +802,7 @@ export async function importPublicExport(
     ...(importedDefaultStartSequence?.length ? { defaultStartSequence: importedDefaultStartSequence } : {}),
     discardThresholds: data.series.discardThresholds,
     dnfScoring: data.series.dnfScoring,
+    ...(importedRaceFleetExclusions.length ? { raceFleetExclusions: importedRaceFleetExclusions } : {}),
     ftpHost: '',
     ftpPath: '',
     ftpPaths: {},
@@ -836,10 +869,9 @@ export async function importPublicExport(
     }),
   );
 
-  // Assign every race its id up front: redress pools reference races by
-  // number and may point forward, so all ids must be known before any
-  // finish is built. Translate the exported positional numbers back to ids.
-  const newRaceIdByNumber = new Map(data.races.map((r) => [r.raceNumber, crypto.randomUUID()]));
+  // Race ids were assigned up front (redress pools reference races by number
+  // and may point forward, so all ids must be known before any finish is
+  // built). Translate the exported positional numbers back to ids.
   const toRaceIds = (numbers: number[] | null | undefined): string[] | null => {
     const ids = (numbers ?? [])
       .map((n) => newRaceIdByNumber.get(n))
