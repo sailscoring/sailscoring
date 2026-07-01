@@ -90,6 +90,12 @@ export interface Series {
   // Scoring rules
   discardThresholds: DiscardThreshold[];
   dnfScoring: DnfScoring;  // A5.2, A5.3, or A5.3-with-DNC-from-starting-area
+  // Per-fleet race exclusions applied to the whole-series standings (see
+  // RaceFleetExclusion). Sparse — present only for the rare heat struck for one
+  // fleet (e.g. a single-boat race). A struck race scores nothing for that
+  // fleet and earns no discard credit, exactly as within a sub-series, but
+  // still counts for every other fleet. Absent/empty is the common case.
+  raceFleetExclusions?: RaceFleetExclusion[];
   // Publishing
   ftpHost: string;   // saved FTP server host for this series (empty if not yet published)
   ftpPath: string;   // legacy single path; falls back here when ftpPaths has no entry for a fleet (series uploaded before per-fleet paths landed)
@@ -232,13 +238,15 @@ export interface CompetitorIdentity {
 export type StartingHandicapSource = 'base' | 'continue';
 
 /**
- * One race excluded from one fleet's scoring *within a sub-series* — "race R
- * doesn't count for fleet F here". The race stays a member for every other
- * fleet, and counts normally in any other sub-series it belongs to. Models a
- * single-competitor heat struck for one fleet, or an abandoned heat dropped
- * from one fleet's Overall (DBSC CLARIFICATIONS Q1/Q3/Q5).
+ * One race struck from one fleet's scoring within a scope — "race R doesn't
+ * count for fleet F here". Scope-neutral: the same shape strikes a race for a
+ * fleet across a whole series (`Series.raceFleetExclusions`) or within one
+ * sub-series (`SubSeries.raceFleetExclusions`), where the race stays a member
+ * for every other fleet and counts normally in any other sub-series it belongs
+ * to. Models a single-competitor heat struck for one fleet, or an abandoned
+ * heat dropped from one fleet's Overall (DBSC CLARIFICATIONS Q1/Q3/Q5).
  */
-export interface SubSeriesRaceExclusion {
+export interface RaceFleetExclusion {
   raceId: string;
   fleetId: string;
 }
@@ -263,9 +271,9 @@ export interface SubSeries {
   // present, only these fleets get standings and a published page for this
   // sub-series; competitors outside them are not scored here.
   fleetIds?: string[];
-  // Per-fleet race exclusions (see SubSeriesRaceExclusion). Sparse — present
+  // Per-fleet race exclusions (see RaceFleetExclusion). Sparse — present
   // only for the rare struck/abandoned heats.
-  raceFleetExclusions?: SubSeriesRaceExclusion[];
+  raceFleetExclusions?: RaceFleetExclusion[];
   // Seed source for this sub-series' progressive chain (default 'base').
   startingHandicapSource?: StartingHandicapSource;
   continueFromSubSeriesId?: string | null;

@@ -11,7 +11,7 @@ import {
 } from './competitor-identity-repository';
 import { seriesFileReposFor } from './postgres-repository';
 import { getPublishedSlugsBySeries } from './published-repository';
-import { calculateFleetStandings, type FleetStandingsResult } from './scoring';
+import { calculateFleetStandings, buildRaceFleetExclusionMap, type FleetStandingsResult } from './scoring';
 import { loadSeriesSnapshot } from './series-snapshot';
 
 /**
@@ -73,6 +73,8 @@ export async function getCareerArc(
       snap.series.dnfScoring ?? 'seriesEntries',
       snap.raceStarts,
       snap.ratingOverrides,
+      undefined,
+      buildRaceFleetExclusionMap(snap.series.raceFleetExclusions),
     );
     const scored: ScoredSeries = {
       result: { fleetStandings, circularRedressRaces: [] },

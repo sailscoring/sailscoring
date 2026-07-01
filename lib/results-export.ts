@@ -3,6 +3,7 @@ import {
   calculateRaceScores,
   calculateHandicapRaceScores,
   calculateSubSeriesFleetStandings,
+  buildRaceFleetExclusionMap,
 } from './scoring';
 import { renderSeriesHtml, assembleSeriesResultsData } from './results-renderer';
 import {
@@ -92,6 +93,8 @@ export async function buildFleetHtmlFiles(
     series.dnfScoring ?? 'seriesEntries',
     allRaceStarts,
     allRatingOverrides,
+    undefined,
+    buildRaceFleetExclusionMap(series.raceFleetExclusions),
   );
 
   const isSingleDefault = fleets.length <= 1;

@@ -3,7 +3,7 @@ import 'server-only';
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { seriesFileReposFor } from '@/lib/postgres-repository';
-import { calculateFleetStandings, calculateSubSeriesFleetStandings } from '@/lib/scoring';
+import { calculateFleetStandings, calculateSubSeriesFleetStandings, buildRaceFleetExclusionMap } from '@/lib/scoring';
 import { loadSeriesSnapshot } from '@/lib/series-snapshot';
 import type { TcfRecord } from '@/lib/types';
 
@@ -64,6 +64,8 @@ export async function listTcfHistory(
     dnfScoring,
     raceStarts,
     ratingOverrides,
+    undefined,
+    buildRaceFleetExclusionMap(series.raceFleetExclusions),
   );
   return fleetStandings.flatMap((fr) => fr.tcfHistory ?? []);
 }

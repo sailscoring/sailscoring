@@ -18,7 +18,7 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
   upgradeSubdivisionAxes,
 } from './competitor-fields';
-import { calculateFleetStandings } from './scoring';
+import { calculateFleetStandings, buildRaceFleetExclusionMap } from './scoring';
 import { loadSeriesSnapshot } from './series-snapshot';
 import { disambiguateSeriesName, seriesSlug } from './series-name';
 import type { LogoDefaultsReader } from './public-export';
@@ -331,6 +331,8 @@ export async function buildSeriesFile(
     series.dnfScoring ?? 'seriesEntries',
     allRaceStarts,
     allRatingOverrides,
+    undefined,
+    buildRaceFleetExclusionMap(series.raceFleetExclusions),
   );
   const allTcfHistory: TcfRecord[] = fleetStandings.flatMap(
     (fr) => fr.tcfHistory ?? [],

@@ -20,7 +20,7 @@ import type {
   SeriesRepository,
   SubSeriesRepository,
 } from './repository';
-import { calculateFleetStandings, calculateRaceScores } from './scoring';
+import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap } from './scoring';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import {
   defaultEnabledCompetitorFields,
@@ -391,6 +391,8 @@ export function buildPublicExportFromSnapshot(
       series.dnfScoring,
       allRaceStarts,
       allRatingOverrides,
+      undefined,
+      buildRaceFleetExclusionMap(series.raceFleetExclusions),
     ).fleetStandings;
 
   // Build fleet name lookup

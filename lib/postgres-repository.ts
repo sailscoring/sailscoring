@@ -37,7 +37,7 @@ import type {
   ResultCode,
   Series,
   SubSeries,
-  SubSeriesRaceExclusion,
+  RaceFleetExclusion,
 } from './types';
 
 /**
@@ -170,7 +170,7 @@ function raceRowToType(row: RaceRow): Race {
 function subSeriesRowToType(
   row: SubSeriesRow,
   raceIds: string[],
-  raceFleetExclusions: SubSeriesRaceExclusion[] = [],
+  raceFleetExclusions: RaceFleetExclusion[] = [],
 ): SubSeries {
   return {
     id: row.id,
@@ -1178,8 +1178,8 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
    */
   private async membershipBySubSeries(
     subSeriesIds: string[],
-  ): Promise<Map<string, { raceIds: string[]; exclusions: SubSeriesRaceExclusion[] }>> {
-    const byId = new Map<string, { raceIds: string[]; exclusions: SubSeriesRaceExclusion[] }>(
+  ): Promise<Map<string, { raceIds: string[]; exclusions: RaceFleetExclusion[] }>> {
+    const byId = new Map<string, { raceIds: string[]; exclusions: RaceFleetExclusion[] }>(
       subSeriesIds.map((id) => [id, { raceIds: [], exclusions: [] }]),
     );
     if (subSeriesIds.length === 0) return byId;
@@ -1217,7 +1217,7 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
   private async writeMembership(
     subSeriesId: string,
     raceIds: string[],
-    raceFleetExclusions: SubSeriesRaceExclusion[] = [],
+    raceFleetExclusions: RaceFleetExclusion[] = [],
   ): Promise<void> {
     await this.db
       .delete(schema.subSeriesRaces)

@@ -9,7 +9,7 @@ import {
   subSeriesCreateInputSchema,
   subSeriesInputSchema,
 } from '@/lib/validation/sub-series';
-import type { SubSeries, SubSeriesRaceExclusion } from '@/lib/types';
+import type { SubSeries, RaceFleetExclusion } from '@/lib/types';
 
 /**
  * Constrain a sub-series' fleet scoping and per-fleet exclusions to the series'
@@ -19,10 +19,10 @@ import type { SubSeries, SubSeriesRaceExclusion } from '@/lib/types';
  */
 function sanitizeScope(
   fleetIds: string[] | undefined,
-  raceFleetExclusions: SubSeriesRaceExclusion[] | undefined,
+  raceFleetExclusions: RaceFleetExclusion[] | undefined,
   seriesFleetIds: Set<string>,
   memberRaceIds: Set<string>,
-): { fleetIds?: string[]; raceFleetExclusions?: SubSeriesRaceExclusion[] } {
+): { fleetIds?: string[]; raceFleetExclusions?: RaceFleetExclusion[] } {
   const scoped = fleetIds?.filter((id) => seriesFleetIds.has(id));
   const effectiveFleetIds = scoped && scoped.length > 0 ? new Set(scoped) : seriesFleetIds;
   const exclusions = (raceFleetExclusions ?? []).filter(

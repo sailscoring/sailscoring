@@ -8,6 +8,7 @@ import {
   calculateFleetStandings,
   calculateSubSeriesFleetStandings,
   subSeriesEntrantIds,
+  buildRaceFleetExclusionMap,
 } from '@/lib/scoring';
 import { subdivisionAxes } from '@/lib/competitor-fields';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
@@ -151,6 +152,9 @@ export default function StandingsPage({
       discardThresholds,
       series.dnfScoring ?? 'seriesEntries',
       allRaceStarts,
+      undefined,
+      undefined,
+      buildRaceFleetExclusionMap(series.raceFleetExclusions),
     );
     raceLabels = races;
     fleetResults = whole.fleetStandings;
