@@ -217,10 +217,12 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
 
   async function handleDeleteFleet(fleet: Fleet) {
     const competitorsInFleet = await competitorRepo.listBySeries(seriesId);
-    // Skip competitors whose only fleet is this one — keep them on the original
-    // fleet list rather than leaving them unassigned (matches prior behaviour).
+    // Strip the deleted fleet from every competitor that referenced it.
+    // Competitors whose only fleet was this one become cleanly unassigned
+    // (empty fleetIds) rather than retaining a dangling id pointing at a
+    // fleet that no longer exists — matching the delete dialog's promise.
     const patched = competitorsInFleet
-      .filter((c) => c.fleetIds.includes(fleet.id) && c.fleetIds.length > 1)
+      .filter((c) => c.fleetIds.includes(fleet.id))
       .map((c) => ({ ...c, fleetIds: c.fleetIds.filter((id) => id !== fleet.id) }));
     if (patched.length > 0) {
       await saveCompetitors.mutateAsync(patched);
