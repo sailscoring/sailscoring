@@ -319,6 +319,43 @@ describe('analyzeSailwaveScoring', () => {
     expect(analyzeSailwaveScoring(raw).warnings).toEqual([]);
   });
 
+  // Real Sailwave 2.38 files carrying only a scoring config (no PII), one per
+  // representability outcome. These are the ground truth the synthetic cases
+  // above are modelled on.
+  const CONFIG = `${FIXTURES}/scoring-config`;
+
+  it('reads a real A5.2 file as seriesEntries with no warnings', () => {
+    const analysis = analyzeSailwaveScoring(loadFile(`${CONFIG}/a52.blw`));
+    expect(analysis).toEqual({ dnfScoring: 'seriesEntries', warnings: [] });
+  });
+
+  it('reads a real A5.3 file as startingArea with no warnings', () => {
+    const analysis = analyzeSailwaveScoring(loadFile(`${CONFIG}/a53.blw`));
+    expect(analysis).toEqual({ dnfScoring: 'startingArea', warnings: [] });
+  });
+
+  it('warns on a real per-fleet override (A5.2 root, A5.3 child)', () => {
+    const analysis = analyzeSailwaveScoring(loadFile(`${CONFIG}/a52-with-a53-fleet-override.blw`));
+    // The root is a clean A5.2; the child fleet diverges to A5.3.
+    expect(analysis.dnfScoring).toBe('seriesEntries');
+    expect(analysis.warnings).toEqual([
+      expect.objectContaining({ kind: 'perFleet', fleet: 'TestFleet' }),
+    ]);
+  });
+
+  it('warns on the real 2026 ILCA Leinsters finishers-based config', () => {
+    // The published .blw configures DNF = finishers + 1, DNC = finishers + 2,
+    // with per-fleet children that follow the root (so no per-fleet warning).
+    const analysis = analyzeSailwaveScoring(loadFile(`${FIXTURES}/2026 ILCA Leinsters results.blw`));
+    expect(analysis.dnfScoring).toBeNull();
+    expect(analysis.warnings.every((w) => w.kind === 'unrepresentable')).toBe(true);
+    expect(analysis.warnings.some((w) => w.code === 'DNC' && /race finishers \+ 2/.test(w.detail))).toBe(true);
+    expect(analysis.warnings.some((w) => /DNF/.test(w.detail) && /race finishers \+ 1/.test(w.detail))).toBe(true);
+    // Children follow the root — the per-fleet mechanism is exercised without a
+    // genuine divergence, so no per-fleet warning fires.
+    expect(analysis.warnings.some((w) => w.kind === 'perFleet')).toBe(false);
+  });
+
   it('produces no scoring warnings for the real HYC / NHC / PY fixtures', () => {
     for (const path of [
       `${HYC}/2026 Tues Series 1.blw`,

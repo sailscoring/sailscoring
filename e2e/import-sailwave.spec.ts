@@ -27,11 +27,12 @@ const FLEETLESS_FIXTURE = join(
   'tests/fixtures/sailwave/fleetless-entry-list.blw',
 );
 
-/** A config using a "finishers + N" penalty base our engine can't represent —
- *  the wizard must warn and still import (with the closest mode). */
+/** The real 2026 ILCA Leinsters file (helm names anonymised): DNF/DNC use a
+ *  "finishers + N" penalty base our engine can't represent, so the wizard must
+ *  warn and still import (with the closest mode). */
 const FINISHERS_FIXTURE = join(
   process.cwd(),
-  'tests/fixtures/sailwave/finishers-base-scoring.blw',
+  'tests/fixtures/sailwave/2026 ILCA Leinsters results.blw',
 );
 
 test('import series: Sailwave .blw → wizard → new series, lands on Competitors', async ({ page }) => {
@@ -114,13 +115,14 @@ test('import series: unrepresentable scoring config warns but still imports', as
     page.getByTestId('import-format-sailwave').click(),
   ]);
   await fileChooser.setFiles({
-    name: 'finishers-base-scoring.blw',
+    name: '2026 ILCA Leinsters results.blw',
     mimeType: 'application/octet-stream',
     buffer: readFileSync(FINISHERS_FIXTURE),
   });
 
   // The Detected card surfaces a warning about the finishers-based codes.
   await expect(page).toHaveURL(/\/series\/import-sailwave$/);
+  await expect(page.getByText('73 competitors')).toBeVisible();
   const warnings = page.getByTestId('sailwave-scoring-warnings');
   await expect(warnings).toBeVisible();
   await expect(warnings).toContainText('race finishers');
@@ -128,7 +130,6 @@ test('import series: unrepresentable scoring config warns but still imports', as
   // The import is not blocked — it proceeds with the closest mode.
   await page.getByTestId('sailwave-import-submit').click();
   await expect(page).toHaveURL(/\/series\/[^/]+\/competitors$/, { timeout: 15_000 });
-  await expect(page.getByText('Helm One').first()).toBeVisible();
 });
 
 test('update from Sailwave: re-import in place replaces data and keeps the series', async ({ page }) => {
