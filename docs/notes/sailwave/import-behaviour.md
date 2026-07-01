@@ -30,6 +30,19 @@ same nested shape Sailwave's own JSON export produced and works off that.
   `scrfollowdiscards: "1"` and inherit the root, so reading
   `globals.serscoringhandle` is complete. Detected, not authoritative — edit it
   in **Settings** after import.
+- **DNF / DNS scoring base (A5.2 vs A5.3) and representability** —
+  `analyzeSailwaveScoring` inspects the whole scoring-code config (the root
+  system plus any per-fleet child systems) and picks the closest base our engine
+  can represent: `Boats in series + 1` → A5.2 (`seriesEntries`), `Boats in race
+  + 1` → A5.3 (`startingArea`). DNF drives the series-wide choice; codes that
+  `Score like DNF` follow it. Each code's expected base is read from the engine's
+  own `scoring-codes` registry (so e.g. BFD is treated as a starters-base code,
+  not entries). Anything it *can't* reproduce — a `Finishers + N` base, a `+ N`
+  with N≠1, a config where codes disagree on A5.2 vs A5.3, an unrecognised
+  method, or a per-fleet child system whose codes diverge from the root — is
+  reported as a `SailwaveScoringWarning` on the preview and shown in the wizard's
+  Detected card. The import is **never blocked**: it proceeds with the closest
+  base (A5.2 when nothing is representable), and the scorer adjusts in Settings.
 - **Race cadence** — the wizard's race-days option walks forward from the start
   date placing each race on the next matching weekday; Tue/Sat alternates the
   two. Leave it empty to stamp every race with the start date and let the scorer

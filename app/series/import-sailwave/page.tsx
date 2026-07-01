@@ -325,6 +325,26 @@ function Wizard({
               </Badge>
             )}
           </div>
+          {preview.scoringWarnings.length > 0 && (
+            <div
+              className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+              data-testid="sailwave-scoring-warnings"
+            >
+              <p className="font-medium">
+                Sail Scoring can&apos;t exactly reproduce this file&apos;s scoring codes
+              </p>
+              <ul className="mt-1.5 list-disc space-y-1 pl-5">
+                {preview.scoringWarnings.map((w, i) => (
+                  <li key={i}>{w.detail}</li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs">
+                The import will still proceed using the closest scoring rule
+                {preview.detectedDnfScoring ? '' : ' (A5.2 — series entries + 1)'}. Check
+                the affected standings and adjust in Settings if needed.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
