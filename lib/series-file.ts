@@ -698,6 +698,10 @@ export async function openSeriesFromFile(
   const competitorIdMap = new Map(file.competitors.map((c) => [c.id, crypto.randomUUID()]));
   const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
 
+  // Resolve subdivision axes once: legacy files synthesise an axis with a fresh
+  // random id, so the series and the competitors must share this single result.
+  const subdivisions = resolveFileSubdivisions(file);
+
   // Series first (FK target for everything below). No expectedVersion —
   // fresh row, authoritative write per `SaveOpts` doc-comment.
   // `categoryId` isn't carried in the file format (it's workspace-local), so it
@@ -730,14 +734,14 @@ export async function openSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-    subdivisionAxes: resolveFileSubdivisions(file).axes,
+    subdivisionAxes: subdivisions.axes,
     categoryId: opts?.categoryId ?? null,
     // Provenance is caller-supplied, not carried in the file: the Sailwave
     // wizard passes 'sailwave'; a .sailscoring open leaves it unset.
     source: opts?.source,
   });
 
-  await writeFleetsCompetitorsRaces(repos, file, newSeriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
+  await writeFleetsCompetitorsRaces(repos, file, newSeriesId, now, fleetIdMap, competitorIdMap, raceIdMap, subdivisions.legacyAxisId);
 
   // Restore embedded revision history (#166) into the fresh series, if the file
   // carries it and the backend supports it. Only on a brand-new open: an
@@ -778,6 +782,10 @@ export async function restoreSeriesFromFile(
   const competitorIdMap = new Map(file.competitors.map((c) => [c.id, crypto.randomUUID()]));
   const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
 
+  // Resolve subdivision axes once so the series and its competitors share the
+  // same (possibly synthesised) axis id — see openSeriesFromFile.
+  const subdivisions = resolveFileSubdivisions(file);
+
   await repos.seriesRepo.save({
     id: seriesId,
     name: file.series.name,
@@ -803,12 +811,12 @@ export async function restoreSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-    subdivisionAxes: resolveFileSubdivisions(file).axes,
+    subdivisionAxes: subdivisions.axes,
     categoryId: null,
     archived: true,
   });
 
-  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
+  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap, subdivisions.legacyAxisId);
 
   // Bring the revision history back with the series, if the snapshot carries it.
   if (file.revisions?.length && file.revisionSnapshots && repos.importRevisions) {
@@ -834,6 +842,10 @@ export async function updateSeriesFromFile(
   const fleetIdMap = new Map(file.fleets.map((f) => [f.id, crypto.randomUUID()]));
   const competitorIdMap = new Map(file.competitors.map((c) => [c.id, crypto.randomUUID()]));
   const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
+
+  // Resolve subdivision axes once so the series and its competitors share the
+  // same (possibly synthesised) axis id — see openSeriesFromFile.
+  const subdivisions = resolveFileSubdivisions(file);
 
   // Children first; the series row stays so its createdAt and any
   // workspace-side bookkeeping survive the replay.
@@ -867,10 +879,10 @@ export async function updateSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-    subdivisionAxes: resolveFileSubdivisions(file).axes,
+    subdivisionAxes: subdivisions.axes,
   });
 
-  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
+  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap, subdivisions.legacyAxisId);
 }
 
 // ---- Update existing series from a re-imported Sailwave file ----
@@ -955,7 +967,10 @@ export async function updateSeriesFromSailwave(
     lastModifiedAt: now,
   });
 
-  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap);
+  // Subdivision axes are retained from `current` (not taken from the file), so
+  // the competitors key onto whatever the file resolves to — matching the
+  // behaviour before `legacyAxisId` was threaded through.
+  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap, resolveFileSubdivisions(file).legacyAxisId);
 }
 
 // ---- Internal: shared body for open and update ----
@@ -968,6 +983,7 @@ async function writeFleetsCompetitorsRaces(
   fleetIdMap: Map<string, string>,
   competitorIdMap: Map<string, string>,
   raceIdMap: Map<string, string>,
+  legacyAxisId: string | null,
 ): Promise<void> {
   // Redress race references are stored in the file positionally (by race
   // number) but held internally by id. Map each file race number to its
@@ -982,9 +998,10 @@ async function writeFleetsCompetitorsRaces(
     return ids.length > 0 ? ids : null;
   };
 
-  // Legacy single-axis files (v6–v12) synthesise one axis on load; key each
-  // competitor's old `subdivision` value onto it.
-  const { legacyAxisId } = resolveFileSubdivisions(file);
+  // `legacyAxisId` is the id of the axis synthesised for a legacy (v6–v12)
+  // single-axis file, passed in by the caller so it's the *same* id the caller
+  // used for the series' `subdivisionAxes`. Resolving it here independently
+  // would mint a fresh id and silently orphan every competitor's value.
 
   // Phase 7 audit: every `saveMany`/`save` below is authoritative-by-
   // construction. Either we just minted `seriesId` (open-as-new) or
