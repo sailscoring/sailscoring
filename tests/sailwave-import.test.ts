@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import {
   parseSailwaveBlw,
   inspectSailwave,
+  analyzeSailwaveScoring,
   buildSeriesFileFromSailwave,
   parseSailwaveColumns,
   resolveSubdivisionAxes,
@@ -167,6 +168,167 @@ describe('inspectSailwave', () => {
       'Division C HPH',
       'Division C IRC',
     ]);
+  });
+});
+
+describe('analyzeSailwaveScoring', () => {
+  // A scrcode row: `code|method|value|…|systemHandle(idx 14)|…`. Only method,
+  // value, and the handle matter to the analyzer.
+  function scrcode(code: string, method: string, value: string, handle: string): string[] {
+    const parts = Array<string>(17).fill('');
+    parts[0] = code; parts[1] = method; parts[2] = value; parts[14] = handle;
+    return ['scrcode', parts.join('|'), '', ''];
+  }
+
+  interface SystemSpec {
+    handle: string;
+    parent?: string;
+    followcodes?: '0' | '1';
+    value?: string;      // scrvalue (fleet the child scopes to)
+    codes: Record<string, [method: string, value: string]>;
+  }
+
+  /** Build a raw file whose scoring config is exactly the given systems, with
+   *  `serscoringhandle` pointing at the first (the root). */
+  function scoringRaw(...systems: SystemSpec[]): SailwaveRaw {
+    const rows: string[][] = [
+      ['serversion', '2.38.02', '', ''],
+      ['serevent', 'Config Test', '', ''],
+      ['serscoringhandle', systems[0].handle, '', ''],
+    ];
+    for (const sys of systems) {
+      rows.push(['scrname', `System ${sys.handle}`, sys.handle, '']);
+      rows.push(['scrparent', sys.parent ?? '0', sys.handle, '']);
+      if (sys.followcodes !== undefined) rows.push(['scrfollowcodes', sys.followcodes, sys.handle, '']);
+      if (sys.value !== undefined) rows.push(['scrvalue', sys.value, sys.handle, '']);
+      for (const [code, [method, value]] of Object.entries(sys.codes)) {
+        rows.push(scrcode(code, method, value, sys.handle));
+      }
+    }
+    return parseSailwaveBlw(blw(rows));
+  }
+
+  /** Standard A5.3 code set (as real HYC 2.38 files write it): DNF off the
+   *  starting area, DNC off series entries, everything else `Score like DNF`. */
+  const A53_CODES: SystemSpec['codes'] = {
+    DNF: ['Boats in race +', '1'],
+    DNC: ['Boats in series +', '1'],
+    DNS: ['Score like', 'DNF'],
+    OCS: ['Score like', 'DNF'],
+    NSC: ['Score like', 'DNF'],
+    RET: ['Score like', 'DNF'],
+    DSQ: ['Score like', 'DNF'],
+    UFD: ['Score like', 'DNF'],
+    BFD: ['Score like', 'DNF'],
+  };
+
+  it('reports no warnings for a clean A5.2 config', () => {
+    const raw = scoringRaw({
+      handle: '1',
+      codes: { ...A53_CODES, DNF: ['Boats in series +', '1'], DNS: ['Boats in series +', '1'] },
+    });
+    const analysis = analyzeSailwaveScoring(raw);
+    expect(analysis.dnfScoring).toBe('seriesEntries');
+    expect(analysis.warnings).toEqual([]);
+  });
+
+  it('reports no warnings for a clean A5.3 config', () => {
+    const analysis = analyzeSailwaveScoring(scoringRaw({ handle: '1', codes: A53_CODES }));
+    expect(analysis.dnfScoring).toBe('startingArea');
+    expect(analysis.warnings).toEqual([]);
+  });
+
+  it('warns on a Finishers-based config and falls back to A5.2', () => {
+    const raw = scoringRaw({
+      handle: '1',
+      codes: {
+        ...A53_CODES,
+        DNF: ['Finishers +', '1'],   // starters codes follow DNF via Score like
+        DNC: ['Finishers +', '2'],
+      },
+    });
+    const analysis = analyzeSailwaveScoring(raw);
+    // No representable choice — the closest base is null (caller defaults A5.2).
+    expect(analysis.dnfScoring).toBeNull();
+    // Two groups: the DNF-and-followers at finishers+1, and DNC at finishers+2.
+    const finishersWarnings = analysis.warnings.filter((w) => w.kind === 'unrepresentable');
+    expect(finishersWarnings.length).toBe(2);
+    expect(finishersWarnings.some((w) => /race finishers \+ 1/.test(w.detail))).toBe(true);
+    expect(finishersWarnings.some((w) => /DNC/.test(w.detail) && /race finishers \+ 2/.test(w.detail))).toBe(true);
+    // The import still proceeds, with the A5.2 default.
+    const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+    expect(file.series.dnfScoring).toBe('seriesEntries');
+  });
+
+  it('warns when codes disagree on the A5.2 vs A5.3 base, keeping DNF as the choice', () => {
+    const raw = scoringRaw({
+      handle: '1',
+      codes: {
+        DNF: ['Boats in series +', '1'],   // A5.2
+        DNS: ['Boats in race +', '1'],      // A5.3 — independent, not Score like
+      },
+    });
+    const analysis = analyzeSailwaveScoring(raw);
+    expect(analysis.dnfScoring).toBe('seriesEntries');
+    expect(analysis.warnings.some((w) => /disagree on the penalty base/.test(w.detail))).toBe(true);
+  });
+
+  it('warns on a +N penalty our engine can only represent as +1', () => {
+    const raw = scoringRaw({ handle: '1', codes: { DNF: ['Boats in race +', '2'] } });
+    const analysis = analyzeSailwaveScoring(raw);
+    expect(analysis.dnfScoring).toBeNull();
+    expect(analysis.warnings.some((w) => w.kind === 'unrepresentable' && /boats in the race \+ 2/.test(w.detail))).toBe(true);
+  });
+
+  it('warns on an unrecognised scoring method', () => {
+    const raw = scoringRaw({ handle: '1', codes: { DNF: ['Bring your own points', ''] } });
+    const analysis = analyzeSailwaveScoring(raw);
+    expect(analysis.warnings.some((w) => w.kind === 'unrecognised')).toBe(true);
+  });
+
+  it('warns when DNC deviates from series entries + 1', () => {
+    const raw = scoringRaw({
+      handle: '1',
+      codes: { ...A53_CODES, DNC: ['Boats in race +', '1'] },
+    });
+    const analysis = analyzeSailwaveScoring(raw);
+    // The starters codes are still a clean A5.3; only DNC is off-base.
+    expect(analysis.dnfScoring).toBe('startingArea');
+    expect(analysis.warnings).toEqual([
+      expect.objectContaining({ kind: 'unrepresentable', code: 'DNC' }),
+    ]);
+  });
+
+  it('warns on a per-fleet child that defines diverging codes', () => {
+    const raw = scoringRaw(
+      { handle: '1', codes: A53_CODES },
+      { handle: '2', parent: '1', followcodes: '0', value: 'ILCA 4',
+        codes: { ...A53_CODES, DNF: ['Boats in series +', '1'] } },
+    );
+    const analysis = analyzeSailwaveScoring(raw);
+    expect(analysis.warnings).toEqual([
+      expect.objectContaining({ kind: 'perFleet', fleet: 'ILCA 4' }),
+    ]);
+  });
+
+  it('does not warn for a per-fleet child that follows the root', () => {
+    const raw = scoringRaw(
+      { handle: '1', codes: A53_CODES },
+      { handle: '2', parent: '1', followcodes: '1', value: 'Radial', codes: {} },
+    );
+    expect(analyzeSailwaveScoring(raw).warnings).toEqual([]);
+  });
+
+  it('produces no scoring warnings for the real HYC / NHC / PY fixtures', () => {
+    for (const path of [
+      `${HYC}/2026 Tues Series 1.blw`,
+      `${HYC}/2026 Dinghies Series 1.blw`,
+      `${HYC}/2026 Wed Series 1.blw`,
+      `${FIXTURES}/nhc-example/2025 Puppeteer 22 Championships.blw`,
+      `${FIXTURES}/py-example/2026 Dinghy F'Bite Spring.blw`,
+    ]) {
+      expect(inspectSailwave(loadFile(path)).scoringWarnings, path).toEqual([]);
+    }
   });
 });
 

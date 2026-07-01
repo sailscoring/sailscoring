@@ -36,6 +36,7 @@ import {
   defaultEnabledCompetitorFields,
   newSubdivisionAxis,
 } from './competitor-fields';
+import { getCodeDefinition } from './scoring-codes';
 import { lookupAlias } from './nationality';
 
 // ---- Raw Sailwave shape ----
@@ -99,6 +100,13 @@ export interface SailwaveScoringSystemRaw {
   scrparent?: string;
   /** `"1"` when a child system inherits the parent's discard profile. */
   scrfollowdiscards?: string;
+  /** `"1"` when a child system inherits the parent's scoring codes. When `"0"`
+   *  the child defines its own codes, which may diverge from the root — not
+   *  representable, since our `dnfScoring` is a single series-wide setting. */
+  scrfollowcodes?: string;
+  /** For a per-fleet child system, the fleet value it scopes to (e.g. the class
+   *  name). Used to name the fleet in per-fleet divergence warnings. */
+  scrvalue?: string;
   scrname?: string;
 }
 
@@ -154,15 +162,8 @@ const VALID_SCORING_SYSTEMS: ReadonlySet<ScoringSystem> = new Set([
 
 const SAILWAVE_METHOD_SERIES_PLUS = 'Boats in series +';
 const SAILWAVE_METHOD_RACE_PLUS = 'Boats in race +';
+const SAILWAVE_METHOD_FINISHERS_PLUS = 'Finishers +';
 const SAILWAVE_METHOD_SCORE_LIKE = 'Score like';
-
-/** Sailscoring's 'starters'-base codes — the ones toggled by series-level
- *  dnfScoring. 'entries'-base codes (DNC, BFD) are always series-entries+1 in
- *  both A5.2 and A5.3, so we don't consult them when inferring the series-level
- *  setting. */
-const SAILWAVE_STARTERS_BASE_CODES = [
-  'DNF', 'DNS', 'OCS', 'NSC', 'RET', 'DSQ', 'DNE', 'UFD',
-] as const;
 
 /** Sailwave rrestyp values we recognise:
  *    "0" = no result entered                  → skip
@@ -415,6 +416,11 @@ export interface SailwavePreview {
    *  per-source default), in order. Empty when the file carries no subdivision
    *  data. Shown in the wizard as the columns that will be imported. */
   detectedSubdivisionLabels: string[];
+  /** Warnings for scoring-code configuration our engine can't faithfully
+   *  reproduce (finishers base, mixed A5.2/A5.3, per-fleet overrides, …).
+   *  Empty when the config is fully representable. The import still proceeds
+   *  with the closest mode; the wizard surfaces these so the scorer knows. */
+  scoringWarnings: SailwaveScoringWarning[];
 }
 
 export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
@@ -450,6 +456,7 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
   });
 
   const subdivisionAxisSources = resolveSubdivisionAxes(comps, parseSailwaveColumns(raw));
+  const scoring = analyzeSailwaveScoring(raw);
 
   return {
     name: (globals.serevent ?? '').trim(),
@@ -457,7 +464,7 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
     competitorCount,
     raceCount: Object.keys(races).length,
     fleets,
-    detectedDnfScoring: detectDnfScoring(raw),
+    detectedDnfScoring: scoring.dnfScoring,
     detectedDiscardThresholds: parseDiscardThresholds(raw),
     // A `.blw` carries a cell for every competitor×race even when nothing has
     // been sailed (rrestyp=0), so "any cell exists" overcounts. Only report
@@ -466,6 +473,7 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
       (r) => (r.rrestyp ?? SAILWAVE_RRESTYP_NO_RESULT) !== SAILWAVE_RRESTYP_NO_RESULT,
     ),
     detectedSubdivisionLabels: subdivisionAxisSources.map((a) => a.label),
+    scoringWarnings: scoring.warnings,
   };
 }
 
@@ -515,8 +523,11 @@ function fleetBaseName(name: string): string {
   return name;
 }
 
-// ---- DNF scoring inference (A5.2 vs A5.3) ----
+// ---- Scoring-code configuration analysis (A5.2 / A5.3 & representability) ----
 
+/** Resolve a Sailwave scoring code to the entry that actually defines its
+ *  method, following `Score like` redirects (DNS → DNF → …). Returns null when
+ *  the code is undefined or the chain loops. */
 function resolveSailwaveCode(
   codes: Record<string, { method?: string; value?: string }>,
   code: string,
@@ -532,59 +543,234 @@ function resolveSailwaveCode(
   return entry;
 }
 
-function detectDnfScoring(
-  raw: SailwaveRaw,
-): 'seriesEntries' | 'startingArea' | null {
-  const globals = raw.globals ?? {};
-  const handle = globals.serscoringhandle;
-  const systems = raw['scoring-systems'] ?? {};
-  if (!handle || !(handle in systems)) return null;
-  const codes = systems[handle]?.['scoring-codes'] ?? {};
+/** The scoring base a Sailwave method resolves to. `series`/`race`/`finishers`
+ *  are the count the `+ N` places is added to; `nonpositional` is a recognised
+ *  penalty/average/manual method (how RRS penalty and redress codes are set,
+ *  which our engine models separately); `unknown` is a method string we can't
+ *  read. */
+type SailwaveCodeBase =
+  | { kind: 'series' | 'race' | 'finishers'; n: number }
+  | { kind: 'nonpositional' }
+  | { kind: 'unknown'; method: string };
 
-  const dnf = resolveSailwaveCode(codes, 'DNF');
-  if (!dnf) return null;
-  const choice = methodToDnfScoring(dnf.method, dnf.value);
-  if (!choice) return null;
-
-  // Verify peers resolve the same way — anything else is a mixed config we
-  // can't represent. We surface this via inspectSailwave returning the
-  // canonical choice; buildSeriesFileFromSailwave throws if the caller didn't
-  // pick an explicit override and a peer disagrees.
-  return choice;
+/** Recognised Sailwave methods that don't score from a fleet-count base —
+ *  penalties, averages, and manual points. These configure RRS penalty/redress
+ *  codes (SCP, ZFP, DPI, RDG, OOD), which our engine handles on their own terms,
+ *  so they need no A5.2/A5.3 base. Matched by prefix — `Percentage penalty DNF`,
+ *  `Average (all)`, `Average (before)`. */
+function isRecognisedNonPositionalMethod(method: string): boolean {
+  return method === 'Fixed penalty'
+    || method === 'Set points by hand'
+    || method.startsWith('Percentage penalty')
+    || method.startsWith('Average');
 }
 
-function methodToDnfScoring(
-  method: string | undefined,
-  value: string | undefined,
-): 'seriesEntries' | 'startingArea' | null {
-  if (method === SAILWAVE_METHOD_RACE_PLUS && value === '1') return 'startingArea';
-  if (method === SAILWAVE_METHOD_SERIES_PLUS && value === '1') return 'seriesEntries';
+function classifySailwaveMethod(entry: { method?: string; value?: string }): SailwaveCodeBase {
+  const method = (entry.method ?? '').trim();
+  const value = (entry.value ?? '').trim();
+  const n = Number.parseInt(value, 10);
+  const positional = (kind: 'series' | 'race' | 'finishers'): SailwaveCodeBase =>
+    Number.isFinite(n) ? { kind, n } : { kind: 'unknown', method: `${method} ${value}`.trim() };
+  if (method === SAILWAVE_METHOD_SERIES_PLUS) return positional('series');
+  if (method === SAILWAVE_METHOD_RACE_PLUS) return positional('race');
+  if (method === SAILWAVE_METHOD_FINISHERS_PLUS) return positional('finishers');
+  if (isRecognisedNonPositionalMethod(method)) return { kind: 'nonpositional' };
+  return { kind: 'unknown', method: method || '(none)' };
+}
+
+/** A stable key identifying a base, for grouping and cross-system comparison. */
+function baseSignature(base: SailwaveCodeBase): string {
+  switch (base.kind) {
+    case 'series':
+    case 'race':
+    case 'finishers':
+      return `${base.kind}:${base.n}`;
+    case 'nonpositional':
+      return 'nonpositional';
+    case 'unknown':
+      return `unknown:${base.method}`;
+  }
+}
+
+/** Scorer-facing description of a base, e.g. "race finishers + 2". */
+function describeBase(base: SailwaveCodeBase): string {
+  switch (base.kind) {
+    case 'series': return `series entries + ${base.n}`;
+    case 'race': return `boats in the race + ${base.n}`;
+    case 'finishers': return `race finishers + ${base.n}`;
+    case 'nonpositional': return 'a penalty/average method';
+    case 'unknown': return `an unrecognised method (${base.method})`;
+  }
+}
+
+/** The series-wide `dnfScoring` a starters-base code implies, or null when the
+ *  code's base isn't one our engine can represent. */
+function baseToDnfChoice(base: SailwaveCodeBase): 'seriesEntries' | 'startingArea' | null {
+  if (base.kind === 'series' && base.n === 1) return 'seriesEntries';
+  if (base.kind === 'race' && base.n === 1) return 'startingArea';
   return null;
 }
 
-function assertDnfScoringConsistent(
-  raw: SailwaveRaw,
-  inferred: 'seriesEntries' | 'startingArea',
-): void {
-  const globals = raw.globals ?? {};
-  const handle = globals.serscoringhandle;
-  const systems = raw['scoring-systems'] ?? {};
-  if (!handle || !(handle in systems)) return;
-  const codes = systems[handle]?.['scoring-codes'] ?? {};
+function describeDnfChoice(choice: 'seriesEntries' | 'startingArea' | null): string {
+  if (choice === 'seriesEntries') return 'A5.2 — series entries + 1';
+  if (choice === 'startingArea') return 'A5.3 — boats that came to the start + 1';
+  return 'A5.2 — series entries + 1';
+}
 
-  for (const peer of SAILWAVE_STARTERS_BASE_CODES) {
-    if (peer === 'DNF') continue;
-    const resolved = resolveSailwaveCode(codes, peer);
+/** The Sailwave codes we map to a Sail Scoring code scored by a fleet-count base
+ *  (`fixed_penalty`), paired with that code's engine base. These are the codes
+ *  whose Sailwave configuration must line up with one of our A5.2/A5.3 modes.
+ *  Codes our engine scores as additive penalties or redress (SCP/ZFP/DPI/RDG)
+ *  are excluded — their Sailwave method is recognised but handled separately.
+ *  Read from the engine's own registry so the bases can't drift out of sync
+ *  (e.g. BFD is a starters-base code, not entries). */
+const SAILWAVE_FIXED_PENALTY_CODES: ReadonlyArray<{ sailwave: string; base: 'entries' | 'starters' }> =
+  Object.entries(SAILWAVE_TO_SAILSCORING_CODE).flatMap(([sailwave, sc]) => {
+    const method = getCodeDefinition(sc)?.pointsMethod;
+    return method?.type === 'fixed_penalty' ? [{ sailwave, base: method.penaltyBase }] : [];
+  });
+
+/** A warning that the Sailwave scoring-code configuration can't be faithfully
+ *  reproduced by our engine. Surfaced in the import wizard; never blocks the
+ *  import (the closest representable mode is applied). */
+export interface SailwaveScoringWarning {
+  /** `unrepresentable` — a recognised method with no engine equivalent (a
+   *  finishers base, a `+ N` with N≠1, a mixed A5.2/A5.3 config).
+   *  `unrecognised` — a scoring method string we don't know how to read.
+   *  `perFleet` — a per-fleet scoring system whose codes diverge from the root;
+   *  we apply one series-wide setting. */
+  kind: 'unrepresentable' | 'unrecognised' | 'perFleet';
+  /** The Sailwave code the warning concerns, when it's about a single code. */
+  code?: string;
+  /** The fleet whose scoring system diverges, for `perFleet` warnings. */
+  fleet?: string;
+  /** Scorer-facing explanation. */
+  detail: string;
+}
+
+export interface SailwaveScoringAnalysis {
+  /** The closest representable series-wide DNF base, or null when Sailwave's
+   *  config is missing/unrecognised (the caller then defaults to seriesEntries). */
+  dnfScoring: 'seriesEntries' | 'startingArea' | null;
+  warnings: SailwaveScoringWarning[];
+}
+
+/** Analyse one system's scoring codes: which A5.2/A5.3 choices its
+ *  starters-base codes imply, and warnings for any code whose base our engine
+ *  can't reproduce. Warnings are grouped by base so a set of `Score like DNF`
+ *  codes collapse into one line rather than nine near-identical ones. */
+function analyzeSystemCodes(
+  codes: Record<string, { method?: string; value?: string }>,
+): { choices: Set<'seriesEntries' | 'startingArea'>; warnings: SailwaveScoringWarning[] } {
+  const choices = new Set<'seriesEntries' | 'startingArea'>();
+  const groups = new Map<
+    string,
+    { kind: 'unrepresentable' | 'unrecognised'; base: SailwaveCodeBase; engineBase: 'entries' | 'starters'; codes: string[] }
+  >();
+
+  for (const { sailwave, base: engineBase } of SAILWAVE_FIXED_PENALTY_CODES) {
+    const resolved = resolveSailwaveCode(codes, sailwave);
     if (!resolved) continue;
-    const peerChoice = methodToDnfScoring(resolved.method, resolved.value);
-    if (peerChoice && peerChoice !== inferred) {
-      throw new SailwaveImportError(
-        `Sailwave code ${peer} resolves to ${peerChoice} but DNF resolves to ${inferred}; ` +
-        `Sailscoring can only represent a single A5.2 / A5.3 choice per series. ` +
-        `Override with the DNF scoring picker in the wizard.`,
-      );
+    const base = classifySailwaveMethod(resolved);
+
+    const representable = engineBase === 'entries'
+      ? base.kind === 'series' && base.n === 1
+      : baseToDnfChoice(base) !== null;
+    if (representable) {
+      if (engineBase === 'starters') choices.add(baseToDnfChoice(base)!);
+      continue;
     }
+
+    const sig = `${engineBase}|${baseSignature(base)}`;
+    const group = groups.get(sig)
+      ?? { kind: base.kind === 'unknown' ? 'unrecognised' as const : 'unrepresentable' as const, base, engineBase, codes: [] };
+    group.codes.push(sailwave);
+    groups.set(sig, group);
   }
+
+  const warnings = [...groups.values()].map((g): SailwaveScoringWarning => {
+    const list = [...g.codes].sort();
+    const codeList = list.join(', ');
+    const subject = list.length === 1 ? list[0] : `Codes ${codeList}`;
+    const verb = list.length === 1 ? 'is' : 'are';
+    let detail: string;
+    if (g.kind === 'unrecognised') {
+      detail = `${subject} ${verb} configured with a scoring method Sail Scoring doesn't recognise (${g.base.kind === 'unknown' ? g.base.method : describeBase(g.base)}).`;
+    } else if (g.engineBase === 'entries') {
+      detail = `${subject} ${verb} scored as ${describeBase(g.base)}; Sail Scoring always scores ${list.length === 1 ? 'it' : 'them'} as series entries + 1.`;
+    } else {
+      detail = `${subject} ${verb} scored as ${describeBase(g.base)}, which Sail Scoring can't reproduce — it scores ${list.length === 1 ? 'it' : 'them'} as either series entries + 1 (A5.2) or boats that came to the start + 1 (A5.3).`;
+    }
+    return { kind: g.kind, ...(list.length === 1 ? { code: list[0] } : {}), detail };
+  });
+
+  return { choices, warnings };
+}
+
+/** Whether a child system's codes resolve any representable-base code
+ *  differently from the root — including a code defined in one but not the
+ *  other. */
+function codesDifferFromRoot(
+  childCodes: Record<string, { method?: string; value?: string }>,
+  rootCodes: Record<string, { method?: string; value?: string }>,
+): boolean {
+  const sigOf = (codes: Record<string, { method?: string; value?: string }>, code: string): string => {
+    const resolved = resolveSailwaveCode(codes, code);
+    return resolved ? baseSignature(classifySailwaveMethod(resolved)) : 'absent';
+  };
+  return SAILWAVE_FIXED_PENALTY_CODES.some(
+    ({ sailwave }) => sigOf(childCodes, sailwave) !== sigOf(rootCodes, sailwave),
+  );
+}
+
+/** Inspect a Sailwave file's full scoring-code configuration — the root system
+ *  and any per-fleet child systems — reporting the closest representable
+ *  series-wide DNF base plus warnings for anything our engine can't reproduce.
+ *  Pure inspection: it never runs the scoring engine or blocks the import. */
+export function analyzeSailwaveScoring(raw: SailwaveRaw): SailwaveScoringAnalysis {
+  const globals = raw.globals ?? {};
+  const rootHandle = globals.serscoringhandle;
+  const systems = raw['scoring-systems'] ?? {};
+  if (!rootHandle || !(rootHandle in systems)) {
+    return { dnfScoring: null, warnings: [] };
+  }
+  const rootCodes = systems[rootHandle]?.['scoring-codes'] ?? {};
+  const warnings: SailwaveScoringWarning[] = [];
+
+  // DNF drives the series-wide choice — it's the code scorers read A5.2/A5.3
+  // off. Codes that `Score like DNF` follow it; independent codes are checked
+  // for agreement below.
+  const dnfResolved = resolveSailwaveCode(rootCodes, 'DNF');
+  const dnfChoice = dnfResolved ? baseToDnfChoice(classifySailwaveMethod(dnfResolved)) : null;
+
+  const { choices, warnings: codeWarnings } = analyzeSystemCodes(rootCodes);
+  warnings.push(...codeWarnings);
+
+  const chosen = dnfChoice ?? [...choices][0] ?? null;
+  if (choices.size > 1) {
+    warnings.push({
+      kind: 'unrepresentable',
+      detail: `Scoring codes disagree on the penalty base — some use series entries + 1 (A5.2), others boats in the race + 1 (A5.3). Sail Scoring applies one setting series-wide (${describeDnfChoice(chosen)}).`,
+    });
+  }
+
+  // Per-fleet child systems that define their own codes differing from the root.
+  // A child that follows the root (`scrfollowcodes: "1"`) inherits it — fine.
+  for (const [handle, sys] of Object.entries(systems)) {
+    if (handle === rootHandle) continue;
+    if (sys.scrparent !== rootHandle) continue;
+    if (sys.scrfollowcodes === '1') continue;
+    const childCodes = sys['scoring-codes'];
+    if (!childCodes || !codesDifferFromRoot(childCodes, rootCodes)) continue;
+    const fleet = (sys.scrvalue ?? sys.scrname ?? '').trim() || handle;
+    warnings.push({
+      kind: 'perFleet',
+      fleet,
+      detail: `Fleet "${fleet}" uses its own scoring-code configuration that differs from the rest of the series. Sail Scoring applies one series-wide setting, so this fleet may score differently.`,
+    });
+  }
+
+  return { dnfScoring: chosen, warnings };
 }
 
 // ---- Discard profile detection ----
@@ -904,7 +1090,6 @@ export function buildSeriesFileFromSailwave(
   // default date's year, which is the scorer-provided series year (or today).
   const yearHint = Number.parseInt(defaultDate.slice(0, 4), 10) || undefined;
 
-  // Resolve DNF scoring early so we can fail fast on mixed configs.
   const dnfScoring = resolveDnfScoring(raw, opts);
 
   const { fleets, fleetIdByName, fleetSystemByName, baseToFleetIds } = buildFleets(
@@ -1053,17 +1238,17 @@ export function buildSeriesFileFromSailwave(
   return file;
 }
 
+/** The series-wide DNF base to import with: the scorer's explicit override, else
+ *  the closest representable base the analyzer inferred, else A5.2 (the RRS
+ *  default). Any config the analyzer can't represent is surfaced as a wizard
+ *  warning (see `analyzeSailwaveScoring`), not an error — the import proceeds
+ *  with this closest mode. */
 function resolveDnfScoring(
   raw: SailwaveRaw,
   opts: SailwaveImportOptions,
 ): 'seriesEntries' | 'startingArea' {
   if (opts.dnfScoring) return opts.dnfScoring;
-  const inferred = detectDnfScoring(raw);
-  if (inferred) {
-    assertDnfScoringConsistent(raw, inferred);
-    return inferred;
-  }
-  return 'seriesEntries';
+  return analyzeSailwaveScoring(raw).dnfScoring ?? 'seriesEntries';
 }
 
 function buildFleets(
