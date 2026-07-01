@@ -43,12 +43,21 @@ export function BasicsCard({
   // series, or an external update). Tracked via a derived key rather than
   // `value` identity, so unrelated series writes (e.g. FleetsCard saving) do
   // not reset an in-progress draft. See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  //
+  // Skip the draft reset in wizard mode: there the draft is authoritative and
+  // every keystroke is persisted, so `value` echoes each edit back — but the
+  // echoes arrive late and serialized (see useUpdateSeries' `scope`), so a
+  // stale echo would reset the draft backward mid-typing and eat characters.
+  // The card remounts (initializing draft from the loaded series) on each step,
+  // so it needs no in-place reconciliation here.
   const persistedKey = `${value.name}|${value.venue}|${value.startDate}|${value.endDate}|${value.venueLogoUrl}|${value.eventLogoUrl}|${value.venueUrl}|${value.eventUrl}`;
   const [prevPersistedKey, setPrevPersistedKey] = useState(persistedKey);
   if (prevPersistedKey !== persistedKey) {
     setPrevPersistedKey(persistedKey);
-    setDraft(value);
-    setChanged(false);
+    if (!isWizard) {
+      setDraft(value);
+      setChanged(false);
+    }
   }
 
   useEffect(() => {
