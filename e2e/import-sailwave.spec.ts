@@ -27,6 +27,13 @@ const FLEETLESS_FIXTURE = join(
   'tests/fixtures/sailwave/fleetless-entry-list.blw',
 );
 
+/** A config using a "finishers + N" penalty base our engine can't represent —
+ *  the wizard must warn and still import (with the closest mode). */
+const FINISHERS_FIXTURE = join(
+  process.cwd(),
+  'tests/fixtures/sailwave/finishers-base-scoring.blw',
+);
+
 test('import series: Sailwave .blw → wizard → new series, lands on Competitors', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Series' })).toBeVisible();
@@ -95,6 +102,33 @@ test('import series: fleetless pre-event entry list → competitors and races, n
   await page.goto(`/series/${seriesId}/races`);
   await expect(page.getByText('Race 1', { exact: true })).toBeVisible();
   await expect(page.getByText('Race 3', { exact: true })).toBeVisible();
+});
+
+test('import series: unrepresentable scoring config warns but still imports', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Series' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Import Series' }).click();
+  const [fileChooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByTestId('import-format-sailwave').click(),
+  ]);
+  await fileChooser.setFiles({
+    name: 'finishers-base-scoring.blw',
+    mimeType: 'application/octet-stream',
+    buffer: readFileSync(FINISHERS_FIXTURE),
+  });
+
+  // The Detected card surfaces a warning about the finishers-based codes.
+  await expect(page).toHaveURL(/\/series\/import-sailwave$/);
+  const warnings = page.getByTestId('sailwave-scoring-warnings');
+  await expect(warnings).toBeVisible();
+  await expect(warnings).toContainText('race finishers');
+
+  // The import is not blocked — it proceeds with the closest mode.
+  await page.getByTestId('sailwave-import-submit').click();
+  await expect(page).toHaveURL(/\/series\/[^/]+\/competitors$/, { timeout: 15_000 });
+  await expect(page.getByText('Helm One').first()).toBeVisible();
 });
 
 test('update from Sailwave: re-import in place replaces data and keeps the series', async ({ page }) => {
