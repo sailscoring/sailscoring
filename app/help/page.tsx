@@ -985,14 +985,17 @@ export default async function HelpPage() {
         <p>
           In a multi-fleet series you can strike a single race from one fleet’s scoring right
           from the standings — the usual case is a heat only one boat sailed. Click a race
-          column header (<em>R3</em>) and choose{' '}
-          <strong className="text-foreground">Exclude R3 from this fleet</strong>. The race still
+          column header and choose{' '}
+          <strong className="text-foreground">Exclude from this fleet</strong>. The menu names the
+          underlying race (its series-wide number and date), so inside a sub-series you can tell
+          that the block’s <em>R6</em> is really <em>Race 13</em> before you act. The race still
           counts for every other fleet; for the excluded one it scores nothing, earns no discard,
-          and (for NHC/ECHO) doesn’t move the handicap. The struck column header is shown for
-          everyone; click it again to <strong className="text-foreground">Include</strong> the
-          race. When you’re viewing a sub-series, the same header action strikes the race just for
-          that sub-series (the block-local race number is shown in the menu) — the same exclusions
-          you can also set as a grid in the sub-series editor on the Races tab.
+          and (for NHC/ECHO) doesn’t move the handicap. The struck column is shown for everyone;
+          open the menu again to <strong className="text-foreground">Include</strong> it. A race
+          that <em>no boat in the fleet sailed</em> is already excluded automatically — its column
+          is struck and the menu says so, with nothing to toggle. When you’re viewing a sub-series
+          the action strikes the race just for that block; the same exclusions can also be set as a
+          grid in the sub-series editor on the Races tab.
         </p>
         <p>
           To share results, click{' '}

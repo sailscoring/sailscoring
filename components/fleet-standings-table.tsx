@@ -31,7 +31,11 @@ import type {
 
 export interface FleetStandingsTableProps {
   standings: Standing[];
-  races: { id: string; raceNumber: number }[];
+  // Column headers show `raceNumber` (block-local within a sub-series). The
+  // exclusion menu/tooltip name the underlying race by `overallNumber` (its
+  // series-wide number; defaults to raceNumber) plus `date`/`name`, so a scorer
+  // knows "Series B R6" is really "Race 13" before acting on it.
+  races: { id: string; raceNumber: number; overallNumber?: number; date?: string; name?: string | null }[];
   hasDiscards: boolean;
   enabledFields: CompetitorFieldKey[];
   primaryLabel: PrimaryPersonLabel;
@@ -39,12 +43,24 @@ export interface FleetStandingsTableProps {
   subdivisionAxes: SubdivisionAxis[];
   /** Fleet display name, used in the race-column exclusion menu. */
   fleetName?: string;
-  /** Races struck from this fleet's scoring — their columns render struck. */
+  /** Races *manually* struck from this fleet's scoring (`raceFleetExclusions`).
+   *  Distinct from the automatic "no entrants" exclusion, which is derived from
+   *  the standings themselves. */
   excludedRaceIds?: Set<string>;
   /** Editor-only. When present, each race column header becomes a menu to
    *  strike/restore that race for this fleet. Omitted on read-only and export
    *  renders, so the affordance never appears there. */
   onToggleExclude?: (raceId: string) => void;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** ISO "YYYY-MM-DD" → "24 Jul 2025" without timezone drift. */
+function formatRaceDate(iso?: string): string | null {
+  if (!iso) return null;
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d || m < 1 || m > 12) return null;
+  return `${d} ${MONTHS[m - 1]} ${y}`;
 }
 
 export function FleetStandingsTable({
@@ -90,14 +106,28 @@ export function FleetStandingsTable({
           ))}
           {showAge && <TableHead>Age</TableHead>}
           {showGender && <TableHead>Gender</TableHead>}
-          {races.map((race) => {
-            const isExcluded = excludedRaceIds?.has(race.id) ?? false;
+          {races.map((race, i) => {
             const label = `R${race.raceNumber}`;
+            // Manual strike (raceFleetExclusions) vs the automatic "no entrants"
+            // exclusion, which shows up in every standing's raceExcluded flag.
+            const isManual = excludedRaceIds?.has(race.id) ?? false;
+            const isColumnExcluded = isManual || standings.some((s) => s.raceExcluded?.[i]);
+            const isAuto = isColumnExcluded && !isManual;
+            // Series-wide identity: within a sub-series R6 might be Race 13.
+            const overallNumber = race.overallNumber ?? race.raceNumber;
+            const raceTitle = race.name ? `${race.name} (Race ${overallNumber})` : `Race ${overallNumber}`;
+            const dateLabel = formatRaceDate(race.date);
+            const reason = isManual
+              ? 'excluded from this fleet'
+              : isAuto
+                ? 'no entrants — excluded automatically'
+                : null;
+            const headTitle = `${raceTitle}${dateLabel ? ` · ${dateLabel}` : ''}${reason ? ` — ${reason}` : ''}`;
             return (
               <TableHead
                 key={race.id}
-                className={cn('w-16 text-center', isExcluded && 'line-through opacity-70')}
-                title={isExcluded ? 'Excluded from this fleet — does not count' : undefined}
+                className={cn('w-16 text-center', isColumnExcluded && 'line-through opacity-70')}
+                title={onToggleExclude ? undefined : headTitle}
               >
                 {onToggleExclude ? (
                   <DropdownMenu>
@@ -106,16 +136,23 @@ export function FleetStandingsTable({
                       <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="center">
-                      <DropdownMenuLabel>
-                        {label}
-                        {fleetName ? ` · ${fleetName}` : ''}
+                      <DropdownMenuLabel className="font-normal">
+                        <span className="font-semibold">{raceTitle}</span>
+                        {dateLabel && (
+                          <span className="block text-xs text-muted-foreground">{dateLabel}</span>
+                        )}
+                        {fleetName && (
+                          <span className="block text-xs text-muted-foreground">{fleetName}</span>
+                        )}
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={() => onToggleExclude(race.id)}>
-                        {isExcluded
-                          ? `Include ${label} for this fleet`
-                          : `Exclude ${label} from this fleet`}
-                      </DropdownMenuItem>
+                      {isAuto ? (
+                        <DropdownMenuItem disabled>No entrants — excluded automatically</DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem onSelect={() => onToggleExclude(race.id)}>
+                          {isManual ? 'Include in this fleet' : 'Exclude from this fleet'}
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : (

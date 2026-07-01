@@ -131,8 +131,15 @@ export default function StandingsPage({
     effectiveBlockId = selected.subSeries.id;
 
     // Race columns are numbered within the block — "Spring Race 3", not the
-    // series-wide race number.
-    raceLabels = selected.races.map((r, i) => ({ id: r.id, raceNumber: i + 1 }));
+    // series-wide race number. Carry the overall number/date/name so the
+    // exclusion menu can name the underlying race (block R6 might be Race 13).
+    raceLabels = selected.races.map((r, i) => ({
+      id: r.id,
+      raceNumber: i + 1,
+      overallNumber: r.raceNumber,
+      date: r.date,
+      name: r.name,
+    }));
     fleetResults = selected.fleetStandings;
     circularRedressRaces = selected.circularRedressRaces;
     const blockDiscards = getDiscardCount(selected.races.length, discardThresholds);
