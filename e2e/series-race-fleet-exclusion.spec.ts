@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { addCompetitor, createFleets, createSeriesQuick } from './helpers';
+import { addCompetitor, createFleets, createSeriesQuick, enableFeatures } from './helpers';
 
 /**
  * E2E for series-scoped per-fleet race exclusions (#246): a scorer strikes a
@@ -75,6 +75,64 @@ test('exclude a race for one fleet from the standings column header', async ({ p
 
   // The exclusion persists across a reload.
   await page.reload();
+  await expect(blu2Total()).toHaveText('2');
+  await expect(red2Total()).toHaveText('4');
+  await expect(blueTable.getByRole('columnheader').filter({ hasText: 'R2' })).toHaveClass(/line-through/);
+});
+
+test('exclude a race for one fleet from a sub-series standings header', async ({ page, signedInEmail }) => {
+  // The motivating case: a DBSC-style series always views its standings inside a
+  // sub-series, so the header action must target the block's own exclusions.
+  await enableFeatures(page, signedInEmail, ['sub-series']);
+  await createSeriesQuick(page, { name: 'Block Exclusion Cup' });
+  await createFleets(page, ['Blue', 'Red']);
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  for (const c of [...blue, ...red]) await addCompetitor(page, c);
+
+  // Two races, then a single "Overall" sub-series covering both (all fleets).
+  await page.getByRole('link', { name: 'Races' }).click();
+  for (let n = 1; n <= 2; n++) {
+    await page.getByRole('button', { name: 'Add race' }).click();
+    await expect(page.getByText(`Race ${n}`)).toBeVisible();
+  }
+  await page.getByRole('button', { name: 'New sub-series' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New sub-series' });
+  await dialog.getByLabel('Name', { exact: true }).fill('Overall');
+  for (const n of [1, 2]) {
+    await dialog.getByRole('checkbox', { name: new RegExp(`Race ${n}\\b`) }).check();
+  }
+  await dialog.getByRole('button', { name: 'Create sub-series' }).click();
+  await expect(dialog).toBeHidden();
+
+  await addRaceResults(page, 'Race 1', ['BLU1', 'BLU2', 'RED1', 'RED2']);
+  await addRaceResults(page, 'Race 2', ['BLU1', 'BLU2', 'RED1', 'RED2']);
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page).toHaveURL(/\/standings$/);
+  // The Overall block is auto-selected (its tab is shown).
+  await expect(page.getByRole('tab', { name: 'Overall' })).toBeVisible();
+
+  const blueTable = page.getByRole('table').filter({ has: page.getByText('BLU1') });
+  const redTable = page.getByRole('table').filter({ has: page.getByText('RED1') });
+  const blu2Total = () => blueTable.getByRole('row').filter({ hasText: 'BLU2' }).getByRole('cell').last();
+  const red2Total = () => redTable.getByRole('row').filter({ hasText: 'RED2' }).getByRole('cell').last();
+
+  await expect(blu2Total()).toHaveText('4');
+
+  // Strike R2 for Blue within the sub-series.
+  await blueTable.getByRole('button', { name: 'R2', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Exclude R2 from this fleet' }).click();
+
+  await expect(blu2Total()).toHaveText('2');
+  await expect(red2Total()).toHaveText('4');
+  await expect(blueTable.getByRole('columnheader').filter({ hasText: 'R2' })).toHaveClass(/line-through/);
+
+  // Persists across a reload — and because the block standings read the
+  // sub-series' own exclusions (not the series-level field), this also proves
+  // the strike was written to the sub-series scope, not the whole series.
+  await page.reload();
+  await expect(page.getByRole('tab', { name: 'Overall' })).toBeVisible();
   await expect(blu2Total()).toHaveText('2');
   await expect(red2Total()).toHaveText('4');
   await expect(blueTable.getByRole('columnheader').filter({ hasText: 'R2' })).toHaveClass(/line-through/);

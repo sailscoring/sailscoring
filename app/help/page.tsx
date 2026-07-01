@@ -990,7 +990,9 @@ export default async function HelpPage() {
           counts for every other fleet; for the excluded one it scores nothing, earns no discard,
           and (for NHC/ECHO) doesn’t move the handicap. The struck column header is shown for
           everyone; click it again to <strong className="text-foreground">Include</strong> the
-          race. Sub-series keep their own exclusions in the sub-series editor on the Races tab.
+          race. When you’re viewing a sub-series, the same header action strikes the race just for
+          that sub-series (the block-local race number is shown in the menu) — the same exclusions
+          you can also set as a grid in the sub-series editor on the Races tab.
         </p>
         <p>
           To share results, click{' '}
