@@ -114,6 +114,24 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('SeriesRepository.save round-trips raceFleetExclusions through insert and update', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const raceId = uuid();
+    const fleetId = uuid();
+    const s = { ...makeSeries(), raceFleetExclusions: [{ raceId, fleetId }] };
+
+    await repos.series.save(s);
+    const inserted = await repos.series.get(s.id);
+    expect(inserted?.raceFleetExclusions).toEqual([{ raceId, fleetId }]);
+
+    // The update path (seriesUpdateColumns) carries a changed exclusion list.
+    await repos.series.save({ ...s, raceFleetExclusions: [] });
+    const updated = await repos.series.get(s.id);
+    expect(updated?.raceFleetExclusions).toEqual([]);
+
+    await repos.series.delete(s.id);
+  });
+
   test('SeriesRepository.list orders by manual display_order; new series append last', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     // Save order determines display_order: each new series seeds max+1, so it

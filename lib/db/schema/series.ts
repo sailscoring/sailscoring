@@ -29,6 +29,7 @@ import type {
   DiscardThreshold,
   NhcProfile,
   PrimaryPersonLabel,
+  RaceFleetExclusion,
   SeriesSource,
   StartGroup,
   SubdivisionAxis,
@@ -138,6 +139,15 @@ export const series = pgTable(
       .notNull()
       .default(sql`'[]'::jsonb`),
     dnfScoring: text('dnf_scoring').notNull().default('seriesEntries'),
+    // Per-fleet race exclusions for the whole-series standings: {raceId,
+    // fleetId} pairs, each striking one race from one fleet's scoring (a
+    // single-boat heat). JSONB — sparse and never queried by content, like
+    // discard_thresholds. Sub-series carry their own exclusions on the
+    // sub_series_races join row.
+    raceFleetExclusions: jsonb('race_fleet_exclusions')
+      .$type<RaceFleetExclusion[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     // Publishing.
     ftpHost: text('ftp_host').notNull().default(''),
     ftpPath: text('ftp_path').notNull().default(''),

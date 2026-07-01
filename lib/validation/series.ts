@@ -42,6 +42,11 @@ export const startGroupSchema = z.object({
   intervalMinutes: z.number().nonnegative(),
 });
 
+export const raceFleetExclusionSchema = z.object({
+  raceId: uuidSchema,
+  fleetId: uuidSchema,
+});
+
 export const seriesSchema = z.object({
   id: uuidSchema,
   name: z.string(),
@@ -59,6 +64,9 @@ export const seriesSchema = z.object({
   defaultStartSequence: z.array(startGroupSchema).optional(),
   discardThresholds: z.array(discardThresholdSchema),
   dnfScoring: z.enum(['seriesEntries', 'startingArea', 'startingAreaInclDnc']),
+  // Whole-series per-fleet race exclusions. Optional on the wire so sparse
+  // creation and older clients round-trip cleanly.
+  raceFleetExclusions: z.array(raceFleetExclusionSchema).optional(),
   ftpHost: z.string(),
   ftpPath: z.string(),
   ftpPaths: z.record(z.string(), z.string()),

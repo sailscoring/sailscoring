@@ -1,0 +1,1 @@
+ALTER TABLE "series" ADD COLUMN "race_fleet_exclusions" jsonb DEFAULT '[]'::jsonb NOT NULL;

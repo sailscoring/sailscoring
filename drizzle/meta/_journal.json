@@ -379,6 +379,13 @@
       "when": 1782757989408,
       "tag": "0053_motionless_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1782941902484,
+      "tag": "0054_opposite_jack_murdock",
+      "breakpoints": true
     }
   ]
 }
