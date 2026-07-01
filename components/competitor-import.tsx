@@ -280,6 +280,14 @@ const SCORING_SYSTEM_LABEL: Record<ProposedFleet['scoringSystem'], string> = {
 
 // ── Mapping table ───────────────────────────────────────────────────────────
 
+/** Label for the "create a new subdivision axis" option, naming the axis after
+ *  the column header so it reads "New axis: 'Age Category'" rather than a
+ *  generic string (falls back to generic when the header is blank). */
+function newAxisOptionLabel(header: string): string {
+  const trimmed = header.trim();
+  return trimmed ? `New axis: '${trimmed}'` : 'New subdivision axis';
+}
+
 /** One column-mapping row. Memoized so it re-renders only when its own
  *  column value, the sample text, or the (primary-dependent) field labels
  *  change — not for every unrelated wizard state change. */
@@ -312,7 +320,7 @@ const MappingRow = memo(function MappingRow({
           <SelectContent>
             {(Object.keys(fieldLabels) as ColumnTarget[]).map((field) => (
               <SelectItem key={field} value={field}>
-                {fieldLabels[field]}
+                {field === NEW_AXIS_TARGET ? newAxisOptionLabel(header) : fieldLabels[field]}
               </SelectItem>
             ))}
           </SelectContent>

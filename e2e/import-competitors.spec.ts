@@ -179,11 +179,12 @@ test('CSV import maps two columns to distinct subdivision axes', async ({ page }
   ].join('\n');
   await uploadCsv(page, csv);
 
-  // ── 3. Both subdivision columns default to a new axis (no axes exist yet).
-  //     The dropdown offers the "New subdivision axis" option. ──────────────
+  // ── 3. Both subdivision columns default to a new axis (no axes exist yet),
+  //     each named after its column header. ─────────────────────────────────
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText('New subdivision axis').first()).toBeVisible();
+  await expect(dialog.getByText("New axis: 'Division'")).toBeVisible();
+  await expect(dialog.getByText("New axis: 'Age Category'")).toBeVisible();
 
   // ── 4. Run the import — one axis is minted per column, named from its header
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
