@@ -758,6 +758,158 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await removeSeries(ctxA, seriesId);
   });
 
+  // ─── Bulk field set ────────────────────────────────────────────────────────
+
+  test('updateCompetitors sets one field on the requested ids only', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'F', displayOrder: 0, scoringSystem: 'irc' as const,
+    });
+    const ids = Array.from({ length: 4 }, () => uuid());
+    await competitors.bulkPutCompetitors(ctxA, seriesId, {
+      competitors: ids.map((id, i) => ({
+        id, seriesId, fleetIds: [fleetId],
+        sailNumber: String(5000 + i), name: `Helm ${i}`,
+        club: 'Old YC', gender: '' as const, age: null, createdAt: Date.now(),
+      })),
+    });
+
+    // Cross-workspace: the whole call 404s before anything is written.
+    await expect(
+      competitors.updateCompetitors(ctxB, seriesId, { ids: [ids[0]], set: { club: 'HYC' } }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    // Two real ids plus one unknown: the unknown is ignored, not an error.
+    const result = await competitors.updateCompetitors(ctxA, seriesId, {
+      ids: [ids[0], ids[2], uuid()],
+      set: { club: ' HYC ' },
+    });
+    expect(result.count).toBe(2);
+    const after = new Map(
+      (await competitors.listCompetitors(ctxA, seriesId)).map((c) => [c.id, c]),
+    );
+    expect(after.get(ids[0])!.club).toBe('HYC'); // trimmed
+    expect(after.get(ids[1])!.club).toBe('Old YC');
+    expect(after.get(ids[2])!.club).toBe('HYC');
+    expect(after.get(ids[3])!.club).toBe('Old YC');
+    // Only the targeted rows get a version bump; other fields are untouched.
+    expect(after.get(ids[0])!.version).toBe(2);
+    expect(after.get(ids[1])!.version).toBe(1);
+    expect(after.get(ids[0])!.name).toBe('Helm 0');
+    expect(after.get(ids[0])!.sailNumber).toBe('5000');
+
+    // Nothing matching → count 0.
+    const noop = await competitors.updateCompetitors(ctxA, seriesId, {
+      ids: [uuid()],
+      set: { club: 'X' },
+    });
+    expect(noop.count).toBe(0);
+
+    // Exactly one field per request; ids must be non-empty.
+    await expect(
+      competitors.updateCompetitors(ctxA, seriesId, { ids: [ids[0]], set: {} }),
+    ).rejects.toThrow();
+    await expect(
+      competitors.updateCompetitors(ctxA, seriesId, {
+        ids: [ids[0]], set: { club: 'X', boatClass: 'Y' },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      competitors.updateCompetitors(ctxA, seriesId, { ids: [], set: { club: 'X' } }),
+    ).rejects.toThrow();
+
+    await removeSeries(ctxA, seriesId);
+  });
+
+  test('updateCompetitors clears optional fields; empty club stays empty-string', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'F', displayOrder: 0, scoringSystem: 'py' as const,
+    });
+    const id = uuid();
+    await competitors.putCompetitor(ctxA, seriesId, id, {
+      id, seriesId, fleetIds: [fleetId],
+      sailNumber: '6000', name: 'Helm', boatClass: 'Laser',
+      club: 'HYC', nationality: 'IRL', gender: 'M' as const,
+      age: null, createdAt: Date.now(),
+    });
+
+    await competitors.updateCompetitors(ctxA, seriesId, { ids: [id], set: { boatClass: '  ' } });
+    await competitors.updateCompetitors(ctxA, seriesId, { ids: [id], set: { nationality: '' } });
+    await competitors.updateCompetitors(ctxA, seriesId, { ids: [id], set: { club: '' } });
+    await competitors.updateCompetitors(ctxA, seriesId, { ids: [id], set: { gender: 'F' } });
+    const [after] = await competitors.listCompetitors(ctxA, seriesId);
+    expect(after.boatClass).toBeUndefined();
+    expect(after.nationality).toBeUndefined();
+    expect(after.club).toBe('');
+    expect(after.gender).toBe('F');
+
+    // Nationality must be a 3-letter uppercase code (or empty to clear).
+    await expect(
+      competitors.updateCompetitors(ctxA, seriesId, { ids: [id], set: { nationality: 'Irl' } }),
+    ).rejects.toThrow();
+
+    await removeSeries(ctxA, seriesId);
+  });
+
+  test('updateCompetitors merges subdivision values per axis', async () => {
+    const seriesId = uuid();
+    const axisA = uuid();
+    const axisB = uuid();
+    await series.putSeries(ctxA, seriesId, {
+      ...sampleSeries(seriesId),
+      subdivisionAxes: [
+        { id: axisA, label: 'Division' },
+        { id: axisB, label: 'Category' },
+      ],
+    });
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'F', displayOrder: 0, scoringSystem: 'scratch' as const,
+    });
+    const id = uuid();
+    await competitors.putCompetitor(ctxA, seriesId, id, {
+      id, seriesId, fleetIds: [fleetId],
+      sailNumber: '7000', name: 'Helm', club: '', gender: '' as const,
+      age: null, createdAt: Date.now(),
+      subdivisions: { [axisB]: 'Master' },
+    });
+
+    // Setting one axis leaves the other axis's value alone.
+    await competitors.updateCompetitors(ctxA, seriesId, {
+      ids: [id], set: { subdivision: { axisId: axisA, value: 'Silver' } },
+    });
+    let [after] = await competitors.listCompetitors(ctxA, seriesId);
+    expect(after.subdivisions).toEqual({ [axisA]: 'Silver', [axisB]: 'Master' });
+
+    // Clearing removes just that key…
+    await competitors.updateCompetitors(ctxA, seriesId, {
+      ids: [id], set: { subdivision: { axisId: axisA, value: '' } },
+    });
+    [after] = await competitors.listCompetitors(ctxA, seriesId);
+    expect(after.subdivisions).toEqual({ [axisB]: 'Master' });
+
+    // …and clearing the last key drops the map entirely.
+    await competitors.updateCompetitors(ctxA, seriesId, {
+      ids: [id], set: { subdivision: { axisId: axisB, value: '' } },
+    });
+    [after] = await competitors.listCompetitors(ctxA, seriesId);
+    expect(after.subdivisions).toBeUndefined();
+
+    // An axis id the series doesn't have is rejected.
+    await expect(
+      competitors.updateCompetitors(ctxA, seriesId, {
+        ids: [id], set: { subdivision: { axisId: uuid(), value: 'X' } },
+      }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+
+    await removeSeries(ctxA, seriesId);
+  });
+
   test('bulkDeleteRaces drops every race and cascades to starts/finishes', async () => {
     const seriesId = uuid();
     await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));

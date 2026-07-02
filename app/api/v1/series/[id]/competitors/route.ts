@@ -3,6 +3,7 @@ import {
   bulkPutCompetitors,
   deleteCompetitors,
   listCompetitors,
+  updateCompetitors,
 } from '@/lib/api-handlers/competitors';
 import { BadRequestError, workspaceRoute } from '../../../_lib/handler';
 
@@ -18,6 +19,12 @@ export const GET = workspaceRoute<Params, unknown>(async (_req, { workspace, par
 export const POST = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
   const body = await req.json();
   return bulkPutCompetitors(workspace, params.id, body);
+});
+
+/** Bulk field set: write one field to one value across an `{ ids }` selection. */
+export const PATCH = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
+  const body = await req.json();
+  return updateCompetitors(workspace, params.id, body);
 });
 
 /**

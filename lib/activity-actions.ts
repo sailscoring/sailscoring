@@ -29,6 +29,7 @@ export const ACTIVITY_ACTIONS = [
   'competitors.handicaps_updated',
   'competitors.cleared',
   'competitors.deleted',
+  'competitors.updated',
   'competitor.updated',
   'competitor.deleted',
   'fleet.updated',

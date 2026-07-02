@@ -8,6 +8,7 @@ import * as schema from './db/schema';
 import { ECHO_DEFAULT_ALPHA } from './scoring';
 import {
   ConflictError,
+  type CompetitorFieldPatch,
   type CompetitorRepository,
   type FinishRepository,
   type FleetRepository,
@@ -994,6 +995,53 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
       tenancy: 'workspace',
       opts,
     });
+  }
+
+  async updateMany(
+    seriesId: string,
+    ids: string[],
+    patch: CompetitorFieldPatch,
+    opts?: SaveOpts,
+  ): Promise<void> {
+    if (ids.length === 0) return;
+    const set: Record<string, unknown> = {
+      version: sql`${schema.competitors.version} + 1`,
+      updatedAt: sql`now()`,
+      updatedBy: opts?.updatedBy ?? null,
+    };
+    switch (patch.field) {
+      case 'club':
+        set.club = patch.value;
+        break;
+      case 'boatClass':
+        set.boatClass = patch.value || null;
+        break;
+      case 'nationality':
+        set.nationality = patch.value || null;
+        break;
+      case 'gender':
+        set.gender = patch.value;
+        break;
+      case 'subdivision': {
+        // Preserves the sparse-storage invariant (`cleanSubdivisions`): no
+        // empty values in the map, and an emptied map stores as NULL, not '{}'.
+        const col = schema.competitors.subdivisions;
+        set.subdivisions = patch.value
+          ? sql`coalesce(${col}, '{}'::jsonb) || jsonb_build_object(${patch.axisId}::text, ${patch.value}::text)`
+          : sql`nullif(coalesce(${col}, '{}'::jsonb) - ${patch.axisId}::text, '{}'::jsonb)`;
+        break;
+      }
+    }
+    await this.db
+      .update(schema.competitors)
+      .set(set as PgUpdateSetSource<typeof schema.competitors>)
+      .where(
+        and(
+          inArray(schema.competitors.id, ids),
+          eq(schema.competitors.seriesId, seriesId),
+          eq(schema.competitors.workspaceId, this.workspaceId),
+        ),
+      );
   }
 
   async delete(id: string): Promise<void> {

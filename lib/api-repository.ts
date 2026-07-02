@@ -9,6 +9,7 @@ import type { IrishSailingRatings } from './irish-sailing-ratings';
 import type { IrcRatings } from './irc-rating';
 import type { VprsClub, VprsRatings } from './vprs-rating';
 import type {
+  CompetitorFieldPatch,
   CompetitorRepository,
   FinishRepository,
   FleetRepository,
@@ -148,6 +149,22 @@ class ApiCompetitorRepository implements CompetitorRepository {
     await apiFetch(`/api/v1/series/${seriesId}/competitors`, {
       method: 'POST',
       body: { competitors },
+    });
+  }
+
+  async updateMany(
+    seriesId: string,
+    ids: string[],
+    patch: CompetitorFieldPatch,
+  ): Promise<void> {
+    if (ids.length === 0) return;
+    const set =
+      patch.field === 'subdivision'
+        ? { subdivision: { axisId: patch.axisId, value: patch.value } }
+        : { [patch.field]: patch.value };
+    await apiFetch(`/api/v1/series/${seriesId}/competitors`, {
+      method: 'PATCH',
+      body: { ids, set },
     });
   }
 

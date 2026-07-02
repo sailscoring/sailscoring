@@ -50,6 +50,34 @@ export const competitorsDeleteInputSchema = z.object({
 });
 
 /**
+ * Bulk field-set payload: write one descriptive field to one value across a
+ * set of competitors. `set` carries exactly one member — the Set field dialog
+ * edits a single field at a time, and one field per request keeps the
+ * activity summary meaningful. An empty-string value clears the field.
+ * As with the batch delete, ids outside the series are ignored.
+ */
+export const competitorsBulkSetSchema = z.object({
+  ids: z.array(uuidSchema).min(1),
+  set: z
+    .object({
+      club: z.string().optional(),
+      boatClass: z.string().optional(),
+      nationality: z
+        .string()
+        .regex(/^$|^[A-Z]{3}$/, 'must be a 3-letter uppercase code')
+        .optional(),
+      gender: genderSchema.optional(),
+      subdivision: z
+        .object({ axisId: z.string().min(1), value: z.string() })
+        .optional(),
+    })
+    .refine(
+      (s) => Object.values(s).filter((v) => v !== undefined).length === 1,
+      'set must contain exactly one field',
+    ),
+});
+
+/**
  * Targeted bulk update for the Update Handicaps dialog (#144). Each row
  * carries an `expectedVersion` for optimistic concurrency; the four
  * handicap fields are independently optional, and only the listed fields

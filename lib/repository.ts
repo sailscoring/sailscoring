@@ -85,11 +85,25 @@ export interface SeriesRepository {
   reorder(orderedIds: string[]): Promise<void>;
 }
 
+/**
+ * One-field write for the bulk "Set field…" action: the named field is set
+ * to the given value on every targeted competitor; all other fields are
+ * untouched. An empty value clears the field — optional columns go to null,
+ * `club` (required) stays '', and a subdivision entry is removed from the
+ * map rather than stored empty.
+ */
+export type CompetitorFieldPatch =
+  | { field: 'club' | 'boatClass' | 'nationality'; value: string }
+  | { field: 'gender'; value: Competitor['gender'] }
+  | { field: 'subdivision'; axisId: string; value: string };
+
 export interface CompetitorRepository {
   listBySeries(seriesId: string): Promise<Competitor[]>;
   get(id: string): Promise<Competitor | undefined>;
   save(competitor: Competitor, opts?: SaveOpts): Promise<Competitor>;
   saveMany(competitors: Competitor[], opts?: SaveOpts): Promise<void>;
+  /** Set one field to one value on a specific set of competitors in one call. */
+  updateMany(seriesId: string, ids: string[], patch: CompetitorFieldPatch, opts?: SaveOpts): Promise<void>;
   delete(id: string): Promise<void>;
   /** Delete a specific set of competitors within one series in one call. */
   deleteMany(seriesId: string, ids: string[]): Promise<void>;

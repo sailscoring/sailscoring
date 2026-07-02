@@ -15,9 +15,15 @@ import {
 import {
   competitorInputSchema,
   competitorsBulkInputSchema,
+  competitorsBulkSetSchema,
   competitorsDeleteInputSchema,
   handicapBulkUpdateSchema,
 } from '@/lib/validation/competitor';
+import {
+  COMPETITOR_FIELD_LABELS,
+  subdivisionAxisLabel,
+} from '@/lib/competitor-fields';
+import type { CompetitorFieldPatch } from '@/lib/repository';
 import type { AuditStamp, Competitor, RaceRatingOverride } from '@/lib/types';
 
 async function assertSeriesInWorkspace(
@@ -256,6 +262,66 @@ export async function bulkUpdateHandicaps(
     sessionKey: 'competitors',
   });
   return { updated };
+}
+
+/**
+ * Bulk field set: PATCH with `{ ids, set }` writes one descriptive field to
+ * one value across the selection — the "Set field…" action behind the
+ * multi-select toolbar. Ids not belonging to the series (or workspace) are
+ * ignored rather than erroring, so a stale selection can't block the rest of
+ * the batch. The whole batch records a single activity entry.
+ */
+export async function updateCompetitors(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<{ count: number }> {
+  await assertSeriesWritable(workspace, seriesId);
+  const input = competitorsBulkSetSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+
+  const { set } = input;
+  let patch: CompetitorFieldPatch;
+  let fieldLabel: string;
+  if (set.subdivision !== undefined) {
+    const series = await repos.series.get(seriesId);
+    const axis = (series?.subdivisionAxes ?? []).find(
+      (a) => a.id === set.subdivision!.axisId,
+    );
+    if (!axis) throw new BadRequestError('unknown subdivision axis');
+    patch = { field: 'subdivision', axisId: axis.id, value: set.subdivision.value.trim() };
+    fieldLabel = subdivisionAxisLabel(axis);
+  } else if (set.gender !== undefined) {
+    patch = { field: 'gender', value: set.gender };
+    fieldLabel = COMPETITOR_FIELD_LABELS.gender;
+  } else {
+    const field =
+      set.club !== undefined ? 'club' : set.boatClass !== undefined ? 'boatClass' : 'nationality';
+    patch = { field, value: (set[field] ?? '').trim() };
+    fieldLabel = COMPETITOR_FIELD_LABELS[field];
+  }
+
+  const existing = await repos.competitors.listBySeries(seriesId);
+  const wanted = new Set(input.ids);
+  const targets = existing.filter((c) => wanted.has(c.id));
+  if (targets.length === 0) return { count: 0 };
+  await repos.competitors.updateMany(
+    seriesId,
+    targets.map((c) => c.id),
+    patch,
+    { updatedBy: workspace.userId },
+  );
+  const n = targets.length;
+  const noun = `${n} competitor${n === 1 ? '' : 's'}`;
+  await trackChange(workspace, {
+    action: 'competitors.updated',
+    seriesId,
+    summary: patch.value
+      ? `Set ${fieldLabel.toLowerCase()} to "${patch.value}" for ${noun}`
+      : `Cleared ${fieldLabel.toLowerCase()} for ${noun}`,
+    sessionKey: 'competitors',
+  });
+  return { count: n };
 }
 
 /**
