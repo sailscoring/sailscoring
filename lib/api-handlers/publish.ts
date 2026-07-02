@@ -180,6 +180,11 @@ export async function publishSeries(
     ? (existing?.pages ?? []).filter((p) => !ticked.has(p.fleetName))
     : [];
 
+  // Pages are identified by (sub-series, fleet) — a series with blocks
+  // publishes one page per block per fleet; a blockless one per fleet.
+  const pageKey = (p: { fleetName: string; subSeriesName?: string }): string =>
+    `${p.subSeriesName ?? ''}\u0000${p.fleetName}`;
+
   // Fleets suppressed by combined-page config ("don't publish members
   // individually", #255) publish only through their group page. The build
   // above emits no standalone file for them; here, a *previously published*
@@ -189,20 +194,25 @@ export async function publishSeries(
   // happens once the replacing group's page is live after this publish (built
   // now, or carried from a previous one) — a suppressed page is never taken
   // down before its replacement exists, e.g. when a freshly-defined group is
-  // left unticked. Sub-series pages are untouched (groups don't apply there).
+  // left unticked. On a block series both sides carry the block: a (block,
+  // fleet) page retracts only when the (same block, group) page is live —
+  // groups apply within each block, never across them.
   const fleetRows = await repos.fleets.listBySeries(seriesId);
-  const liveNames = new Set([
-    ...toBuild.map((f) => f.fleetName),
-    ...carriedAll.map((p) => p.fleetName),
-  ]);
-  const retractedNames = new Set<string>();
-  for (const r of resolvePublishingGroups(series.publishingGroups, fleetRows)) {
-    if (r.group.publishMembersIndividually || !producesPage(r)) continue;
-    if (!liveNames.has(r.group.name.trim())) continue;
-    for (const f of r.fleets) retractedNames.add(f.name);
-  }
-  const retracted = (existing?.pages ?? []).filter(
-    (p) => !p.subSeriesName && retractedNames.has(p.fleetName),
+  const liveKeys = new Set([...toBuild.map(pageKey), ...carriedAll.map(pageKey)]);
+  const replaceGroups = resolvePublishingGroups(series.publishingGroups, fleetRows).filter(
+    (r) => !r.group.publishMembersIndividually && producesPage(r),
+  );
+  const retracted = (existing?.pages ?? []).filter((p) =>
+    replaceGroups.some(
+      (r) =>
+        r.fleets.some((f) => f.name === p.fleetName) &&
+        liveKeys.has(
+          pageKey({
+            fleetName: r.group.name.trim(),
+            ...(p.subSeriesName ? { subSeriesName: p.subSeriesName } : {}),
+          }),
+        ),
+    ),
   );
 
   // Pages for fleets we're not rebuilding carry over verbatim — same sub-path,
@@ -253,11 +263,6 @@ export async function publishSeries(
       sharedWith: await contributorNames(others),
     });
   }
-
-  // Pages are identified by (sub-series, fleet) — a series with blocks
-  // publishes one page per block per fleet; a blockless one per fleet.
-  const pageKey = (p: { fleetName: string; subSeriesName?: string }): string =>
-    `${p.subSeriesName ?? ''}\u0000${p.fleetName}`;
 
   // Sub-paths are frozen per page: a fleet that was already published keeps its
   // existing path, so a publication's URLs never shift when another series later

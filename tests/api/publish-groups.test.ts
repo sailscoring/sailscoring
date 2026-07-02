@@ -20,6 +20,7 @@ import * as series from '@/lib/api-handlers/series';
 import * as fleets from '@/lib/api-handlers/fleets';
 import * as competitors from '@/lib/api-handlers/competitors';
 import * as races from '@/lib/api-handlers/races';
+import * as subSeriesApi from '@/lib/api-handlers/sub-series';
 import { publishSeries } from '@/lib/api-handlers/publish';
 import { getPublishedBySeries } from '@/lib/published-repository';
 import { readPublishedHtml } from '@/lib/blob-storage';
@@ -152,5 +153,114 @@ describe.skipIf(skip)('publish handler — combined pages (#255)', () => {
     // Publish only the group page; the suppressed fleets must not resurface.
     const result = await publishSeries(ctx, seriesId, { fleets: ['Overall'] });
     expect(result.pages.map((p) => p.fleetName)).toEqual(['Overall']);
+  });
+});
+
+describe.skipIf(skip)('publish handler — combined pages on a block series (#255)', () => {
+  let sql!: Sql;
+  let db!: PostgresJsDatabase<typeof schema>;
+  let workspaceId: string;
+  let ctx: WorkspaceContext;
+  let seriesId: string;
+
+  beforeAll(async () => {
+    sql = postgres(DATABASE_URL!, { max: 1, prepare: false });
+    db = drizzle(sql, { schema });
+    workspaceId = `org_blk_${uuid().replace(/-/g, '')}`;
+    await db.insert(schema.organization).values({
+      id: workspaceId,
+      name: 'Blocks',
+      slug: `blk-${workspaceId.slice(8, 18)}`,
+      createdAt: new Date(),
+    });
+    ctx = {
+      userId: 'blk-user',
+      email: 'blk@sailscoring.test',
+      workspaceId,
+      workspaceSlug: `blk-${workspaceId.slice(8, 18)}`,
+      role: 'owner',
+      features: [],
+    };
+
+    // Two fleets, one competitor each, two races split into two blocks.
+    seriesId = uuid();
+    await series.putSeries(ctx, seriesId, {
+      id: seriesId, name: 'Block League', venue: 'HYC',
+      startDate: '2026-07-01', endDate: '2026-07-31',
+      venueLogoUrl: '', eventLogoUrl: '', venueUrl: '', eventUrl: '',
+      createdAt: Date.now(), lastSavedAt: null, lastModifiedAt: Date.now(),
+      scoringMode: 'scratch' as const,
+      discardThresholds: [], dnfScoring: 'seriesEntries' as const,
+      ftpHost: '', ftpPath: '', ftpPaths: {}, includeJsonExport: false,
+      enabledCompetitorFields: ['boatName'],
+      primaryPersonLabel: 'helm' as const, subdivisionAxes: [],
+    });
+    let n = 0;
+    for (const fleetName of ['Cruisers', 'Whitesails']) {
+      const fleetId = uuid();
+      await fleets.putFleet(ctx, seriesId, fleetId, {
+        id: fleetId, seriesId, name: fleetName, displayOrder: n++,
+        scoringSystem: 'scratch' as const,
+      });
+      const compId = uuid();
+      await competitors.putCompetitor(ctx, seriesId, compId, {
+        id: compId, seriesId, fleetIds: [fleetId], sailNumber: `${n}`,
+        name: `${fleetName} boat`, club: 'HYC', gender: '' as const, age: null,
+        createdAt: Date.now(),
+      });
+    }
+    const raceIds: string[] = [];
+    for (let i = 1; i <= 2; i++) {
+      const raceId = uuid();
+      raceIds.push(raceId);
+      await races.putRace(ctx, seriesId, raceId, {
+        id: raceId, seriesId, raceNumber: i, date: `2026-07-0${i + 3}`, createdAt: Date.now(),
+      });
+    }
+    await subSeriesApi.createSubSeries(ctx, seriesId, { name: 'Winter', raceIds: [raceIds[0]] });
+    await subSeriesApi.createSubSeries(ctx, seriesId, { name: 'Spring', raceIds: [raceIds[1]] });
+  });
+
+  afterAll(async () => {
+    if (workspaceId) {
+      await db.delete(schema.organization).where(eq(schema.organization.id, workspaceId));
+    }
+    await sql?.end();
+  });
+
+  async function setGroups(groups: PublishingGroup[]) {
+    const repos = createRepos({ workspaceId });
+    const current = (await repos.series.get(seriesId))!;
+    await repos.series.save({ ...current, publishingGroups: groups });
+  }
+
+  test('an Overall group publishes one combined page per block, at {block}/overall', async () => {
+    await setGroups([{
+      id: uuid(), name: 'Overall', fleetMode: 'all', fleetIds: [],
+      detail: 'standings', publishMembersIndividually: true,
+    }]);
+    const result = await publishSeries(ctx, seriesId, {});
+    const keys = result.pages.map((p) => `${p.subSeriesName}/${p.fleetName}`);
+    expect(keys).toEqual([
+      'Winter/Overall', 'Winter/Cruisers', 'Winter/Whitesails',
+      'Spring/Overall', 'Spring/Cruisers', 'Spring/Whitesails',
+    ]);
+    const winterOverall = result.pages[0];
+    expect(winterOverall.url.endsWith('/winter/overall')).toBe(true);
+  });
+
+  test('suppression retracts per block, only where the block group page is live', async () => {
+    await setGroups([{
+      id: uuid(), name: 'Overall', fleetMode: 'all', fleetIds: [],
+      detail: 'standings', publishMembersIndividually: false,
+    }]);
+    const result = await publishSeries(ctx, seriesId, {});
+    expect(result.pages.map((p) => `${p.subSeriesName}/${p.fleetName}`)).toEqual([
+      'Winter/Overall', 'Spring/Overall',
+    ]);
+
+    // The retracted block pages' blobs are gone (db-backed storage in tests).
+    const stored = (await getPublishedBySeries(seriesId))!;
+    expect(stored.pages).toHaveLength(2);
   });
 });
