@@ -79,6 +79,8 @@ export default async function HelpPage() {
             // Gated: only listed when competitor-identity is enabled.
             ['#competitor-identity', 'Competitors and timelines', 'competitor-identity'],
             ['#publishing-results', 'Publishing results'],
+            // Gated: only listed when combined-pages is enabled (#255).
+            ['#combined-pages', 'Combined pages', 'combined-pages'],
             ['#json-export', 'JSON data export and Open in Sail Scoring'],
             ['#sending-feedback', 'Sending feedback'],
             ['#keyboard-shortcuts', 'Keyboard shortcuts'],
@@ -1605,6 +1607,41 @@ export default async function HelpPage() {
           </>
         )}
       </Section>
+
+      {has('combined-pages') && (
+        <Section id="combined-pages" title="Combined pages">
+          <p>
+            A combined page publishes several fleets&rsquo; results together as sections of one
+            page. Two common uses: an <strong className="text-foreground">Overall</strong> page
+            carrying every fleet&rsquo;s standings, so a multi-class event has a single link to
+            hand out; and a single class page covering all the ways that class is scored — say
+            one <em>Puppeteer</em> page with its Scratch and HPH fleets — instead of separate
+            per-fleet pages.
+          </p>
+          <p>
+            Define combined pages on the series&rsquo;{' '}
+            <strong className="text-foreground">Settings</strong> tab under{' '}
+            <strong className="text-foreground">Combined pages</strong>. Each has a name (which
+            becomes the page title and its URL segment), a fleet selection —{' '}
+            <strong className="text-foreground">All fleets</strong> keeps up with fleets you add
+            later, or <strong className="text-foreground">Choose fleets</strong> picks a subset —
+            and a detail level: <strong className="text-foreground">Standings only</strong> shows
+            each fleet&rsquo;s summary table without the per-race tables (the usual choice for an
+            Overall page), while <strong className="text-foreground">Full per-race detail</strong>{' '}
+            keeps everything a standalone fleet page shows.
+          </p>
+          <p>
+            By default the member fleets still publish their own pages and the combined page is
+            an extra. Untick{' '}
+            <strong className="text-foreground">Also publish each fleet as its own page</strong>{' '}
+            to publish those fleets <em>only</em> through the combined page — their standalone
+            pages are taken down on the next publish, and the Publish dialog shows each such
+            fleet with a note pointing at the combined page it now lives on. Combined pages
+            appear in the Publish dialog, the series listing page, and Preview alongside the
+            fleet pages, and don&rsquo;t apply to series with sub-series.
+          </p>
+        </Section>
+      )}
 
       <Section id="json-export" title="JSON data export and Open in Sail Scoring">
         <p>
