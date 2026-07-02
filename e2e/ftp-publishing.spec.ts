@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures } from './helpers';
+import { addCompetitor, createFleets, createSeriesQuick, enableFeatures } from './helpers';
 
 /**
  * E2E tests for FTP publishing (issue #54).
@@ -117,4 +117,69 @@ test('FTP upload dialog: shows configured server; shows no-servers message after
   // Upload button disabled until server and path are both filled
   await expect(page.getByRole('button', { name: 'Upload' })).toBeDisabled();
   await page.getByRole('button', { name: 'Cancel' }).click();
+});
+
+test('FTP upload dialog: per-fleet selection lets you upload a subset', async ({ page }) => {
+  // ── Configure a server ────────────────────────────────────────────────────
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Add server' }).click();
+  await page.getByLabel('Host').fill('ftp.example.com');
+  await page.getByLabel('Username').fill('scorer');
+  await page.locator('#ftp-password').fill('s3cret');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('ftp://ftp.example.com:21')).toBeVisible();
+
+  // ── Series with two fleets, a competitor in each, and one race so the
+  //    Standings tab renders (and with it the Upload via FTP button) ─────────
+  await createSeriesQuick(page, { name: 'Multi Fleet FTP' });
+  await createFleets(page, ['Fast', 'Slow']);
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await addCompetitor(page, { sailNumber: '1', name: 'Alice', fleet: 'Fast' });
+  await addCompetitor(page, { sailNumber: '2', name: 'Bob', fleet: 'Slow' });
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('1');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await page.getByLabel('Sail number').fill('2');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Upload via FTP' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Upload via FTP' });
+  await expect(dialog).toBeVisible();
+
+  // Pick the server (a fresh series has no saved host to auto-select).
+  await page.getByRole('combobox').click();
+  await page.getByRole('option', { name: /ftp\.example\.com/ }).click();
+
+  const fastPath = page.getByLabel('Fast path');
+  const slowPath = page.getByLabel('Slow path');
+  await expect(fastPath).toBeVisible();
+  await expect(slowPath).toBeVisible();
+
+  // All fleets ticked by default → both inputs enabled, Upload gated on paths.
+  await expect(page.getByRole('button', { name: 'Upload' })).toBeDisabled();
+  await fastPath.fill('/public_html/fast.html');
+  await slowPath.fill('/public_html/slow.html');
+  await expect(page.getByRole('button', { name: 'Upload' })).toBeEnabled();
+
+  // Untick Slow: its input disables, but Fast is still selected + has a path,
+  // so a partial upload is allowed.
+  await page.getByRole('checkbox', { name: 'Upload Slow' }).uncheck();
+  await expect(slowPath).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Upload' })).toBeEnabled();
+
+  // Untick Fast too: nothing selected → Upload disabled.
+  await page.getByRole('checkbox', { name: 'Upload Fast' }).uncheck();
+  await expect(page.getByRole('button', { name: 'Upload' })).toBeDisabled();
+
+  // The master "All fleets" toggle re-selects everything.
+  await page.getByRole('checkbox', { name: 'All fleets' }).check();
+  await expect(fastPath).toBeEnabled();
+  await expect(slowPath).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Upload' })).toBeEnabled();
 });

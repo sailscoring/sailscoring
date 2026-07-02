@@ -54,6 +54,7 @@ export function FtpUploadDialog({
   const { data: ftpServers } = useFtpServers();
   const [selectedServerId, setSelectedServerId] = useState('');
   const [fleetPaths, setFleetPaths] = useState<string[]>(['']);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [uploadState, setUploadState] = useState<UploadState>('idle');
 
   const isSingleDefault = fleets.length <= 1;
@@ -68,6 +69,9 @@ export function FtpUploadDialog({
     setFleetPaths(
       derivePrefillPaths(fleets, series.ftpPaths, series.ftpPath ?? '', isSingleDefault),
     );
+    // Every fleet ticked by default — the common case is republishing all of
+    // them; unticking is how a scorer skips a fleet that isn't ready.
+    setSelected(new Set(fleets.map((f) => f.id)));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -88,9 +92,36 @@ export function FtpUploadDialog({
     setFleetPaths((prev) => prev.map((p, i) => (i === index ? value : p)));
   }
 
+  const allSelected = fleets.length > 0 && fleets.every((f) => selected.has(f.id));
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(fleets.map((f) => f.id)));
+  }
+
   async function handleUpload() {
     const server = ftpServers?.find((s) => s.id === selectedServerId);
-    if (!server || fleetPaths.some((p) => !p.trim())) return;
+    if (!server) return;
+    // A selected fleet must have a path; unticked fleets are skipped and don't
+    // block the upload. Single-fleet series have no selection UI — the lone
+    // path standing in for the whole thing.
+    if (isSingleDefault) {
+      if (!(fleetPaths[0] ?? '').trim()) return;
+    } else {
+      const anySelected = fleets.some((f) => selected.has(f.id));
+      const selectedHavePaths = fleets.every(
+        (f, i) => !selected.has(f.id) || (fleetPaths[i] ?? '').trim(),
+      );
+      if (!anySelected || !selectedHavePaths) return;
+    }
 
     setUploadState('uploading');
 
@@ -112,6 +143,12 @@ export function FtpUploadDialog({
 
     const uploadedPaths: Record<string, string> = {};
     for (const file of fleetFiles) {
+      // Skip fleets the scorer unticked — they keep their prior published page
+      // and their saved path (persistence below merges, never overwrites).
+      if (!isSingleDefault) {
+        const fleet = fleetByName.get(file.fleetName);
+        if (!fleet || !selected.has(fleet.id)) continue;
+      }
       const basePath =
         pathByFleetName.get(file.fleetName) ?? (fleetPaths[0] ?? '').trim();
       if (!basePath) continue;
@@ -153,7 +190,13 @@ export function FtpUploadDialog({
   const noServers = ftpServers !== undefined && ftpServers.length === 0;
   const uploading = uploadState === 'uploading';
   const succeeded = typeof uploadState === 'object' && uploadState.success;
-  const canUpload = !!selectedServerId && fleetPaths.every((p) => p.trim()) && !uploading;
+  const canUpload =
+    !!selectedServerId &&
+    !uploading &&
+    (isSingleDefault
+      ? !!(fleetPaths[0] ?? '').trim()
+      : fleets.some((f) => selected.has(f.id)) &&
+        fleets.every((f, i) => !selected.has(f.id) || !!(fleetPaths[i] ?? '').trim()));
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -198,18 +241,45 @@ export function FtpUploadDialog({
                 />
               </div>
             ) : (
-              fleets.map((fleet, i) => (
-                <div key={fleet.id} className="space-y-1.5">
-                  <Label htmlFor={`ftp-path-${i}`}>{fleet.name} path</Label>
-                  <Input
-                    id={`ftp-path-${i}`}
-                    value={fleetPaths[i] ?? ''}
-                    onChange={(e) => setPath(i, e.target.value)}
-                    placeholder={`/public_html/results/series-${seriesSlug(fleet.name)}.html`}
-                    autoFocus={i === 0}
+              <>
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    className="h-4 w-4 shrink-0"
                   />
-                </div>
-              ))
+                  All fleets
+                </label>
+                {fleets.map((fleet, i) => {
+                  const checked = selected.has(fleet.id);
+                  return (
+                    <div
+                      key={fleet.id}
+                      className={`space-y-1.5 ${checked ? '' : 'opacity-50'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggle(fleet.id)}
+                          className="h-4 w-4 shrink-0"
+                          aria-label={`Upload ${fleet.name}`}
+                        />
+                        <Label htmlFor={`ftp-path-${i}`}>{fleet.name} path</Label>
+                      </div>
+                      <Input
+                        id={`ftp-path-${i}`}
+                        value={fleetPaths[i] ?? ''}
+                        onChange={(e) => setPath(i, e.target.value)}
+                        placeholder={`/public_html/results/series-${seriesSlug(fleet.name)}.html`}
+                        autoFocus={i === 0}
+                        disabled={!checked}
+                      />
+                    </div>
+                  );
+                })}
+              </>
             )}
             {typeof uploadState === 'object' && uploadState.success && (
               <p className="text-sm text-green-600 dark:text-green-400">Uploaded successfully.</p>
