@@ -1040,6 +1040,14 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
           : sql`nullif(coalesce(${col}, '{}'::jsonb) - ${patch.axisId}::text, '{}'::jsonb)`;
         break;
       }
+      case 'fleet': {
+        const col = schema.competitors.fleetIds;
+        set.fleetIds =
+          patch.op === 'add'
+            ? sql`case when ${patch.fleetId}::uuid = any(${col}) then ${col} else array_append(${col}, ${patch.fleetId}::uuid) end`
+            : sql`array_remove(${col}, ${patch.fleetId}::uuid)`;
+        break;
+      }
     }
     await this.db
       .update(schema.competitors)

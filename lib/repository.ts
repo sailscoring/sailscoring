@@ -90,12 +90,15 @@ export interface SeriesRepository {
  * to the given value on every targeted competitor; all other fields are
  * untouched. An empty value clears the field — optional columns go to null,
  * `club` (required) stays '', and a subdivision entry is removed from the
- * map rather than stored empty.
+ * map rather than stored empty. Fleet membership is a set, not a scalar, so
+ * its patch is an add/remove op against one fleet; both directions are
+ * idempotent per row.
  */
 export type CompetitorFieldPatch =
   | { field: 'club' | 'boatClass' | 'nationality'; value: string }
   | { field: 'gender'; value: Competitor['gender'] }
-  | { field: 'subdivision'; axisId: string; value: string };
+  | { field: 'subdivision'; axisId: string; value: string }
+  | { field: 'fleet'; fleetId: string; op: 'add' | 'remove' };
 
 export interface CompetitorRepository {
   listBySeries(seriesId: string): Promise<Competitor[]>;

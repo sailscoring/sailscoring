@@ -55,6 +55,9 @@ export const competitorsDeleteInputSchema = z.object({
  * edits a single field at a time, and one field per request keeps the
  * activity summary meaningful. An empty-string value clears the field.
  * As with the batch delete, ids outside the series are ignored.
+ *
+ * `fleet` is the odd one out: membership is a set, so instead of a value it
+ * carries an add/remove op against one fleet of the series.
  */
 export const competitorsBulkSetSchema = z.object({
   ids: z.array(uuidSchema).min(1),
@@ -69,6 +72,9 @@ export const competitorsBulkSetSchema = z.object({
       gender: genderSchema.optional(),
       subdivision: z
         .object({ axisId: z.string().min(1), value: z.string() })
+        .optional(),
+      fleet: z
+        .object({ fleetId: uuidSchema, op: z.enum(['add', 'remove']) })
         .optional(),
     })
     .refine(

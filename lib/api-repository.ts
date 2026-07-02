@@ -161,7 +161,9 @@ class ApiCompetitorRepository implements CompetitorRepository {
     const set =
       patch.field === 'subdivision'
         ? { subdivision: { axisId: patch.axisId, value: patch.value } }
-        : { [patch.field]: patch.value };
+        : patch.field === 'fleet'
+          ? { fleet: { fleetId: patch.fleetId, op: patch.op } }
+          : { [patch.field]: patch.value };
     await apiFetch(`/api/v1/series/${seriesId}/competitors`, {
       method: 'PATCH',
       body: { ids, set },

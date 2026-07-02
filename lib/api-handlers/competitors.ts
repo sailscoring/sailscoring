@@ -270,15 +270,27 @@ export async function bulkUpdateHandicaps(
  * multi-select toolbar. Ids not belonging to the series (or workspace) are
  * ignored rather than erroring, so a stale selection can't block the rest of
  * the batch. The whole batch records a single activity entry.
+ *
+ * `set.fleet` is an add/remove of fleet membership rather than a value
+ * write. The targets are narrowed to rows the op actually changes (no
+ * version bumps for boats already in — or not in — the fleet); on remove,
+ * boats whose only fleet is the target are skipped and counted, since a
+ * competitor must belong to at least one fleet; on add, the batch is
+ * rejected if it would duplicate a sail number within the fleet, mirroring
+ * the competitor form's rule.
  */
 export async function updateCompetitors(
   workspace: WorkspaceContext,
   seriesId: string,
   body: unknown,
-): Promise<{ count: number }> {
+): Promise<{ count: number; skipped?: number }> {
   await assertSeriesWritable(workspace, seriesId);
   const input = competitorsBulkSetSchema.parse(body);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+
+  if (input.set.fleet !== undefined) {
+    return updateCompetitorsFleet(workspace, seriesId, input.ids, input.set.fleet);
+  }
 
   const { set } = input;
   let patch: CompetitorFieldPatch;
@@ -322,6 +334,69 @@ export async function updateCompetitors(
     sessionKey: 'competitors',
   });
   return { count: n };
+}
+
+async function updateCompetitorsFleet(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  ids: string[],
+  { fleetId, op }: { fleetId: string; op: 'add' | 'remove' },
+): Promise<{ count: number; skipped: number }> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const fleet = (await repos.fleets.listBySeries(seriesId)).find((f) => f.id === fleetId);
+  if (!fleet) throw new BadRequestError('unknown fleet');
+
+  const existing = await repos.competitors.listBySeries(seriesId);
+  const wanted = new Set(ids);
+  const requested = existing.filter((c) => wanted.has(c.id));
+  let targets: Competitor[];
+  let skipped = 0;
+  if (op === 'add') {
+    targets = requested.filter((c) => !c.fleetIds.includes(fleetId));
+    // Reject the batch if the add would put two boats with the same sail
+    // number in the fleet — either against boats already there or between
+    // two boats being added together.
+    const inFleet = new Set(
+      existing
+        .filter((c) => c.fleetIds.includes(fleetId))
+        .map((c) => c.sailNumber.trim().toUpperCase()),
+    );
+    const collisions = new Set<string>();
+    for (const c of targets) {
+      const sail = c.sailNumber.trim().toUpperCase();
+      if (inFleet.has(sail)) collisions.add(sail);
+      inFleet.add(sail);
+    }
+    if (collisions.size > 0) {
+      throw new BadRequestError(
+        `would duplicate sail number${collisions.size === 1 ? '' : 's'} in fleet ${fleet.name}: ${[...collisions].sort().join(', ')}`,
+      );
+    }
+  } else {
+    const members = requested.filter((c) => c.fleetIds.includes(fleetId));
+    targets = members.filter((c) => c.fleetIds.length > 1);
+    skipped = members.length - targets.length;
+  }
+  if (targets.length === 0) return { count: 0, skipped };
+
+  await repos.competitors.updateMany(
+    seriesId,
+    targets.map((c) => c.id),
+    { field: 'fleet', fleetId, op },
+    { updatedBy: workspace.userId },
+  );
+  const n = targets.length;
+  const noun = `${n} competitor${n === 1 ? '' : 's'}`;
+  await trackChange(workspace, {
+    action: 'competitors.updated',
+    seriesId,
+    summary:
+      op === 'add'
+        ? `Added ${noun} to fleet "${fleet.name}"`
+        : `Removed ${noun} from fleet "${fleet.name}"`,
+    sessionKey: 'competitors',
+  });
+  return { count: n, skipped };
 }
 
 /**

@@ -910,6 +910,98 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await removeSeries(ctxA, seriesId);
   });
 
+  test('updateCompetitors adds and removes fleet membership', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetA = uuid();
+    const fleetB = uuid();
+    await fleets.bulkPutFleets(ctxA, seriesId, {
+      fleets: [
+        { id: fleetA, seriesId, name: 'White Sail', displayOrder: 0, scoringSystem: 'scratch' as const },
+        { id: fleetB, seriesId, name: 'Spinnaker', displayOrder: 1, scoringSystem: 'scratch' as const },
+      ],
+    });
+    const ids = Array.from({ length: 3 }, () => uuid());
+    await competitors.bulkPutCompetitors(ctxA, seriesId, {
+      competitors: ids.map((id, i) => ({
+        id, seriesId, fleetIds: i === 2 ? [fleetA, fleetB] : [fleetA],
+        sailNumber: String(8000 + i), name: `Helm ${i}`,
+        club: '', gender: '' as const, age: null, createdAt: Date.now(),
+      })),
+    });
+
+    // An id that isn't a fleet of this series is rejected.
+    await expect(
+      competitors.updateCompetitors(ctxA, seriesId, {
+        ids, set: { fleet: { fleetId: uuid(), op: 'add' } },
+      }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+
+    // Add narrows to boats not already in the fleet: the boat already in
+    // Spinnaker keeps its version; the others gain the fleet.
+    const added = await competitors.updateCompetitors(ctxA, seriesId, {
+      ids, set: { fleet: { fleetId: fleetB, op: 'add' } },
+    });
+    expect(added).toEqual({ count: 2, skipped: 0 });
+    let after = new Map(
+      (await competitors.listCompetitors(ctxA, seriesId)).map((c) => [c.id, c]),
+    );
+    expect(after.get(ids[0])!.fleetIds.slice().sort()).toEqual([fleetA, fleetB].sort());
+    expect(after.get(ids[1])!.fleetIds.slice().sort()).toEqual([fleetA, fleetB].sort());
+    expect(after.get(ids[0])!.version).toBe(2);
+    expect(after.get(ids[2])!.version).toBe(1);
+
+    // Adding a boat whose sail number is already in the target fleet — or
+    // two boats sharing one — rejects the whole batch.
+    const dupe = uuid();
+    const pair = [uuid(), uuid()];
+    await competitors.bulkPutCompetitors(ctxA, seriesId, {
+      competitors: [dupe, ...pair].map((id, i) => ({
+        id, seriesId, fleetIds: [fleetA],
+        sailNumber: i === 0 ? '8000' : '9000', name: `Late entry ${i}`,
+        club: '', gender: '' as const, age: null, createdAt: Date.now(),
+      })),
+    });
+    await expect(
+      competitors.updateCompetitors(ctxA, seriesId, {
+        ids: [dupe], set: { fleet: { fleetId: fleetB, op: 'add' } },
+      }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+    await expect(
+      competitors.updateCompetitors(ctxA, seriesId, {
+        ids: pair, set: { fleet: { fleetId: fleetB, op: 'add' } },
+      }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+
+    // Remove narrows to members of the fleet, and keeps (skips) a boat whose
+    // only fleet is the target — a competitor must belong to at least one.
+    const removed = await competitors.updateCompetitors(ctxA, seriesId, {
+      ids: [ids[0], dupe], set: { fleet: { fleetId: fleetA, op: 'remove' } },
+    });
+    expect(removed).toEqual({ count: 1, skipped: 1 });
+    after = new Map(
+      (await competitors.listCompetitors(ctxA, seriesId)).map((c) => [c.id, c]),
+    );
+    expect(after.get(ids[0])!.fleetIds).toEqual([fleetB]);
+    expect(after.get(dupe)!.fleetIds).toEqual([fleetA]);
+    expect(after.get(dupe)!.version).toBe(1);
+
+    // Removing from a fleet none of the requested boats are in is a no-op.
+    const noop = await competitors.updateCompetitors(ctxA, seriesId, {
+      ids: [dupe], set: { fleet: { fleetId: fleetB, op: 'remove' } },
+    });
+    expect(noop).toEqual({ count: 0, skipped: 0 });
+
+    // The exactly-one-field rule covers fleet like any other member.
+    await expect(
+      competitors.updateCompetitors(ctxA, seriesId, {
+        ids: [ids[0]], set: { club: 'X', fleet: { fleetId: fleetB, op: 'add' } },
+      }),
+    ).rejects.toThrow();
+
+    await removeSeries(ctxA, seriesId);
+  });
+
   test('bulkDeleteRaces drops every race and cascades to starts/finishes', async () => {
     const seriesId = uuid();
     await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
