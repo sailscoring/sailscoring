@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   renderSeriesHtml,
+  renderCombinedSeriesHtml,
   assembleSeriesResultsData,
   type SeriesResultsData,
   type RaceData,
@@ -1306,5 +1307,125 @@ describe('renderSeriesHtml — nationality', () => {
     // Codes still render as text in the cell.
     expect(html).toContain('<td class="nat"><span class="nattext">IRL</span></td>');
     expect(html).toContain('<td class="nat"><span class="nattext">GBR</span></td>');
+  });
+});
+
+// ---- renderCombinedSeriesHtml ----
+
+describe('renderCombinedSeriesHtml', () => {
+  const fleetA: SeriesResultsData = { ...MINIMAL, fleetName: 'IRC 1' };
+  const fleetB: SeriesResultsData = {
+    ...MINIMAL,
+    fleetName: 'IRC 2',
+    races: [makeRace(1, [['7', 'Carol', 1, null]])],
+    standings: [makeStanding(1, '7', 'Carol', [{ points: 1, podiumRank: 1 }])],
+  };
+
+  it('renders one document with a section per fleet, headed by the page name', () => {
+    const html = renderCombinedSeriesHtml([fleetA, fleetB], { pageName: 'Overall' });
+    expect(html).toContain('<!doctype html>');
+    // One document: a single <html> open/close pair.
+    expect(html.match(/<\/html>/g)).toHaveLength(1);
+    // Page heading is the combined page's name; each section keeps its fleet heading.
+    expect(html).toContain('<title>Results for Test Series at Test Venue — Overall</title>');
+    expect(html).toContain('<h2>Overall</h2>');
+    expect(html).toContain('<h2>IRC 1</h2>');
+    expect(html).toContain('<h2>IRC 2</h2>');
+    // Both fleets' standings tables are present, in section order.
+    expect(html.match(/class="summarytable"/g)).toHaveLength(2);
+    expect(html.indexOf('<h2>IRC 1</h2>')).toBeLessThan(html.indexOf('<h2>IRC 2</h2>'));
+    expect(html).toContain('Alice');
+    expect(html).toContain('Carol');
+  });
+
+  it('full detail keeps every section race tables and linked race headers', () => {
+    const html = renderCombinedSeriesHtml([fleetA, fleetB], { pageName: 'Overall' });
+    // 2 races from IRC 1 + 1 race from IRC 2.
+    expect(html.match(/class="racetable"/g)).toHaveLength(3);
+    expect(html).toContain('class="racelink"');
+  });
+
+  it('standingsOnly drops the race tables and unlinks the race headers', () => {
+    const html = renderCombinedSeriesHtml([fleetA, fleetB], {
+      pageName: 'Overall',
+      standingsOnly: true,
+    });
+    expect(html).not.toContain('class="racetable"');
+    expect(html).not.toContain('class="racelink"');
+    // The per-race score columns stay in the summary tables.
+    expect(html.match(/class="summarytable"/g)).toHaveLength(2);
+  });
+
+  it('standingsOnly keeps the per-race summary columns', () => {
+    const html = renderCombinedSeriesHtml([fleetA], { pageName: 'Overall', standingsOnly: true });
+    // R1/R2 column headers still present as plain text.
+    expect(html).toContain('<th>R1</th>');
+    expect(html).toContain('<th>R2</th>');
+  });
+
+  it('chrome comes from the sections: breadcrumb and provisional stamp render once', () => {
+    const stamped: SeriesResultsData = {
+      ...fleetA,
+      generatedAt: new Date('2026-07-01T12:00:00Z'),
+      seriesIndexUrl: '/p/hyc/test-series',
+    };
+    const html = renderCombinedSeriesHtml([stamped, { ...fleetB, generatedAt: stamped.generatedAt, seriesIndexUrl: stamped.seriesIndexUrl }], { pageName: 'Overall' });
+    expect(html.match(/class="breadcrumb"/g)).toHaveLength(1);
+    expect(html.match(/Results are provisional/g)).toHaveLength(1);
+  });
+
+  it('throws on an empty section list', () => {
+    expect(() => renderCombinedSeriesHtml([], { pageName: 'Overall' })).toThrow();
+  });
+});
+
+describe('assembleSeriesResultsData — anchorPrefix', () => {
+  const races = [{ id: 'race-1', raceNumber: 1, date: '2025-06-01' }];
+  const scores = new Map([
+    ['race-1', new Map([['c1', { points: 1, place: 1, rank: 1, resultCode: null }]])],
+  ]);
+  const competitors = new Map([[
+    'c1',
+    { sailNumber: '42', name: 'Alice' },
+  ]]);
+  const standings = [
+    {
+      rank: 1,
+      competitor: { id: 'c1', sailNumber: '42', name: 'Alice' },
+      racePoints: [1],
+      raceCodes: [null],
+      totalPoints: 1,
+      netPoints: 1,
+      raceDiscards: [false],
+    },
+  ];
+
+  it('prefixes race anchors when set', () => {
+    const data = assembleSeriesResultsData(
+      { name: 'S', venue: '' },
+      races,
+      standings,
+      scores,
+      competitors,
+      ['club'],
+      new Date(),
+      'IRC 1',
+      { anchorPrefix: 'irc-1-' },
+    );
+    expect(data.races[0].anchorId).toBe('irc-1-r1');
+    expect(data.races[0].label).toBe('R1');
+  });
+
+  it('keeps bare anchors when unset', () => {
+    const data = assembleSeriesResultsData(
+      { name: 'S', venue: '' },
+      races,
+      standings,
+      scores,
+      competitors,
+      ['club'],
+      new Date(),
+    );
+    expect(data.races[0].anchorId).toBe('r1');
   });
 });

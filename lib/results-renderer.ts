@@ -277,9 +277,29 @@ export interface RaceScoreData {
 
 // ---- Renderer ----
 
-export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercent?: number }): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, enabledCompetitorFields, primaryPersonLabel, races, standings, openInAppUrl, seriesIndexUrl, progressiveScoringSystem, showPerRaceRatings } = data;
-  const fontPercent = options?.fontPercent ?? 72;
+/** Per-section display state derived from one fleet's SeriesResultsData:
+ *  which optional columns are visible, the primary-name column header, and
+ *  whether the summary carries a seed-rating column. Computed once per
+ *  section and shared by the summary and race tables; a combined document
+ *  computes one per fleet section, so each fleet keeps its own column set. */
+interface SectionView {
+  hasDiscards: boolean;
+  showBoatName: boolean;
+  showBoatClass: boolean;
+  showHelm: boolean;
+  showOwner: boolean;
+  showCrewName: boolean;
+  showClub: boolean;
+  showNationality: boolean;
+  visibleSubdivisionAxes: SubdivisionAxis[];
+  showAge: boolean;
+  showGender: boolean;
+  primaryHeader: string;
+  summaryRatingSystem: 'nhc' | 'echo' | null;
+}
+
+function computeSectionView(data: SeriesResultsData): SectionView {
+  const { enabledCompetitorFields, primaryPersonLabel, races, standings, progressiveScoringSystem, showPerRaceRatings } = data;
   const summaryRatingSystem = showPerRaceRatings && progressiveScoringSystem ? progressiveScoringSystem : null;
 
   const primaryLabel = primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
@@ -316,20 +336,157 @@ export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercen
   const showGender =
     enabledCompetitorFields.includes('gender') &&
     (standings.some((s) => !!s.gender) || races.some((r) => r.results.some((x) => !!x.gender)));
-  const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
-  const hasNhcDetail = races.some((r) => r.nhcHeader != null);
-  const hasEchoDetail = races.some((r) => r.echoHeader != null);
 
-  // Collect every nationality referenced in this document. Codes the caller
-  // supplied a flag for get a single `<symbol>` definition; codes without
-  // flags fall back to text rendering. Sort for deterministic output.
-  const referencedCodes: string[] = (() => {
-    const set = new Set<string>();
-    for (const s of standings) if (s.nationality) set.add(s.nationality);
-    for (const r of races) for (const x of r.results) if (x.nationality) set.add(x.nationality);
-    return [...set].sort();
-  })();
-  const flagDefs = renderFlagDefs(referencedCodes, data.flagSvgByCode);
+  return {
+    hasDiscards,
+    showBoatName,
+    showBoatClass,
+    showHelm,
+    showOwner,
+    showCrewName,
+    showClub,
+    showNationality,
+    visibleSubdivisionAxes,
+    showAge,
+    showGender,
+    primaryHeader,
+    summaryRatingSystem,
+  };
+}
+
+/** Every nationality code referenced across the given sections, sorted for
+ *  deterministic output. Codes the caller supplied a flag for get a single
+ *  `<symbol>` definition; codes without flags fall back to text rendering. */
+function collectReferencedCodes(sections: SeriesResultsData[]): string[] {
+  const set = new Set<string>();
+  for (const data of sections) {
+    for (const s of data.standings) if (s.nationality) set.add(s.nationality);
+    for (const r of data.races) for (const x of r.results) if (x.nationality) set.add(x.nationality);
+  }
+  return [...set].sort();
+}
+
+/** One fleet section's tables: the summary standings table, followed by the
+ *  per-race detail tables unless `standingsOnly`. `linkRaceLabels` controls
+ *  whether the summary's race column headers link to the per-race anchors;
+ *  off when the detail tables (the link targets) aren't being rendered. */
+function renderSectionTables(
+  data: SeriesResultsData,
+  view: SectionView,
+  opts: { standingsOnly: boolean; linkRaceLabels: boolean },
+): string {
+  const summary = renderSummaryTable(data.standings, data.races, view, opts.linkRaceLabels, data.flagSvgByCode);
+  if (opts.standingsOnly) return summary;
+  const raceTables = data.races
+    .filter((race) => race.results.length > 0)
+    .map((race) => renderRaceTable(race, view, data.flagSvgByCode))
+    .join('\n');
+  return `${summary}\n${raceTables}`;
+}
+
+/** Document-level fields shared by the single-fleet and combined renders:
+ *  the page chrome (header logos, title, breadcrumb, footer links) around
+ *  whatever section content the caller assembled. */
+interface DocumentChrome {
+  series: { name: string; venue: string };
+  /** Page heading under the series title: the fleet name for a per-fleet
+   *  page, the combined page's name for a multi-fleet one. */
+  fleetName?: string;
+  leftLogoUrl?: string;
+  rightLogoUrl?: string;
+  leftUrl?: string;
+  rightUrl?: string;
+  generatedAt?: Date;
+  seriesIndexUrl?: string;
+  openInAppUrl?: string;
+}
+
+export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercent?: number }): string {
+  const fontPercent = options?.fontPercent ?? 72;
+  const view = computeSectionView(data);
+  const hasNhcDetail = data.races.some((r) => r.nhcHeader != null);
+  const hasEchoDetail = data.races.some((r) => r.echoHeader != null);
+  const flagDefs = renderFlagDefs(collectReferencedCodes([data]), data.flagSvgByCode);
+
+  const content = [
+    hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : '',
+    hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
+    renderSectionTables(data, view, { standingsOnly: false, linkRaceLabels: true }),
+  ].join('\n');
+
+  return renderHtmlDocument(data, content, { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs });
+}
+
+/**
+ * Render several fleets' results as one document: a combined page. Each
+ * section keeps its own column set and (for full detail) its own race
+ * tables; the chrome (header, provisional stamp, breadcrumb, footer) comes
+ * from the first section, whose fields are identical across sections since
+ * they're assembled from the same series. `pageName` is the combined page's
+ * title/heading, taking the slot a fleet name occupies on a per-fleet page;
+ * each section is headed by its own fleet name. With `standingsOnly`, the
+ * per-race detail tables are dropped and each summary's race columns stop
+ * linking (their targets aren't rendered); the NHC/ECHO calculation toggles
+ * go with them, since the explainability columns live on the detail tables
+ * and there is nothing left to toggle.
+ */
+export function renderCombinedSeriesHtml(
+  sections: SeriesResultsData[],
+  options: { pageName: string; standingsOnly?: boolean; fontPercent?: number },
+): string {
+  if (sections.length === 0) {
+    throw new Error('renderCombinedSeriesHtml requires at least one section');
+  }
+  const standingsOnly = options.standingsOnly ?? false;
+  const fontPercent = options.fontPercent ?? 72;
+  const first = sections[0];
+  const hasNhcDetail = !standingsOnly && sections.some((s) => s.races.some((r) => r.nhcHeader != null));
+  const hasEchoDetail = !standingsOnly && sections.some((s) => s.races.some((r) => r.echoHeader != null));
+  // One deduped flag-symbol block for the whole document; the assembly path
+  // sets the same payload on every section.
+  const flagSvgByCode = sections.find((s) => s.flagSvgByCode)?.flagSvgByCode;
+  const flagDefs = renderFlagDefs(collectReferencedCodes(sections), flagSvgByCode);
+
+  const sectionHtml = sections
+    .map((data) => {
+      const view = computeSectionView(data);
+      const heading = data.fleetName ? `<h2>${esc(data.fleetName)}</h2>\n` : '';
+      return heading + renderSectionTables(data, view, { standingsOnly, linkRaceLabels: !standingsOnly });
+    })
+    .join('\n');
+
+  const content = [
+    hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : '',
+    hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
+    sectionHtml,
+  ].join('\n');
+
+  const chrome: DocumentChrome = {
+    series: first.series,
+    fleetName: options.pageName,
+    leftLogoUrl: first.leftLogoUrl,
+    rightLogoUrl: first.rightLogoUrl,
+    leftUrl: first.leftUrl,
+    rightUrl: first.rightUrl,
+    generatedAt: first.generatedAt,
+    seriesIndexUrl: first.seriesIndexUrl,
+    openInAppUrl: first.openInAppUrl,
+  };
+  return renderHtmlDocument(chrome, content, { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs });
+}
+
+/** The full HTML document around already-rendered section content: styles,
+ *  header logos + series title, the provisional stamp, the page heading, the
+ *  footer credit line, and the NHC/ECHO toggle scripts when the content
+ *  carries their columns. */
+function renderHtmlDocument(
+  chrome: DocumentChrome,
+  content: string,
+  flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string },
+): string {
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, seriesIndexUrl, openInAppUrl } = chrome;
+  const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs } = flags;
+  const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -420,13 +577,7 @@ ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 ${generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
 ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${flagDefs}
-${hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : ''}
-${hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : ''}
-${renderSummaryTable(standings, races, hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, visibleSubdivisionAxes, showAge, showGender, primaryHeader, summaryRatingSystem, data.flagSvgByCode)}
-${races
-  .filter((race) => race.results.length > 0)
-  .map((race) => renderRaceTable(race, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, visibleSubdivisionAxes, showAge, showGender, primaryHeader, data.flagSvgByCode))
-  .join('\n')}
+${content}
 <p class="hardleft">${leftUrl ? `<a href="${esc(externalHref(leftUrl))}" target="_top" rel="noopener">${esc(series.venue || leftUrl)}</a>` : ''}</p>
 <p class="hardright">${rightUrl ? `<a href="${esc(externalHref(rightUrl))}" target="_top" rel="noopener">${esc(series.name)}</a>` : ''}</p>
 <div style="clear:both;"></div>
@@ -543,21 +694,11 @@ function renderEchoExplainer(): string {
 function renderSummaryTable(
   standings: StandingRowData[],
   races: RaceData[],
-  hasDiscards: boolean,
-  showBoatName: boolean,
-  showBoatClass: boolean,
-  showHelm: boolean,
-  showOwner: boolean,
-  showCrewName: boolean,
-  showClub: boolean,
-  showNationality: boolean,
-  subdivisionAxes: SubdivisionAxis[],
-  showAge: boolean,
-  showGender: boolean,
-  primaryHeader: string,
-  ratingSystem: 'nhc' | 'echo' | null,
+  view: SectionView,
+  linkRaceLabels: boolean,
   flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
 ): string {
+  const { hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, summaryRatingSystem: ratingSystem } = view;
   const hasSeedCol = ratingSystem !== null;
   const seedHeader = ratingSystem === 'nhc' ? 'NHC1' : (ratingSystem === 'echo' ? 'ECHO' : '');
   const extraCols = (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
@@ -599,7 +740,7 @@ function renderSummaryTable(
     ...(hasSeedCol ? [`<th>${esc(seedHeader)}</th>`] : []),
     ...races.map((r) => {
       const titleAttr = r.name ? ` title="${esc(r.name)}"` : '';
-      return r.results.length > 0
+      return linkRaceLabels && r.results.length > 0
         ? `<th${titleAttr}><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a></th>`
         : `<th${titleAttr}>${esc(r.label)}</th>`;
     }),
@@ -675,19 +816,10 @@ ${rows}
 
 function renderRaceTable(
   race: RaceData,
-  showBoatName: boolean,
-  showBoatClass: boolean,
-  showHelm: boolean,
-  showOwner: boolean,
-  showCrewName: boolean,
-  showClub: boolean,
-  showNationality: boolean,
-  subdivisionAxes: SubdivisionAxis[],
-  showAge: boolean,
-  showGender: boolean,
-  primaryHeader: string,
+  view: SectionView,
   flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
 ): string {
+  const { showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader } = view;
   const dateStr = formatIsoDate(race.date);
   const startStr = race.startTime ? ` &mdash; Start: ${esc(race.startTime)}` : '';
   const isNhc = race.isNhc === true || race.nhcHeader != null;
@@ -1129,9 +1261,13 @@ export function assembleSeriesResultsData(
     /** Seed rating (initial NHC TCF / ECHO H) per competitor id; used to
      *  populate the seed-rating column in the summary table. */
     seedRatingByCompetitorId?: Map<string, number>;
+    /** Prefix for the per-race in-page anchors (`#r1` → `#{prefix}r1`). Set
+     *  per section on combined pages, where several fleets' race tables share
+     *  one document and bare race numbers would collide. */
+    anchorPrefix?: string;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId } = options ?? {};
+  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix } = options ?? {};
   const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
@@ -1267,7 +1403,7 @@ export function assembleSeriesResultsData(
       date: race.date,
       ...(race.name ? { name: race.name } : {}),
       label: `R${race.raceNumber}`,
-      anchorId: `r${race.raceNumber}`,
+      anchorId: `${anchorPrefix ?? ''}r${race.raceNumber}`,
       ...(startTime ? { startTime } : {}),
       ...(scoringSystem === 'nhc' ? { isNhc: true } : {}),
       ...(scoringSystem === 'echo' ? { isEcho: true } : {}),
