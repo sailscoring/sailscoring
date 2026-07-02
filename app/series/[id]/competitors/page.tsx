@@ -9,9 +9,12 @@ import { useFleetsBySeries } from '@/hooks/use-fleets';
 import {
   useCompetitorsBySeries,
   useDeleteCompetitor,
+  useDeleteCompetitors,
   useSaveCompetitor,
 } from '@/hooks/use-competitors';
+import { useFinishesBySeries } from '@/hooks/use-finishes';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -61,6 +64,7 @@ import {
   subdivisionAxisLabel,
   cleanSubdivisions,
 } from '@/lib/competitor-fields';
+import { competitorMatchesFilter } from '@/lib/competitor-filter';
 import { log } from '@/lib/debug';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 
@@ -106,6 +110,7 @@ export default function CompetitorsPage({
   const { data: series } = useSeries(seriesId);
   const saveCompetitor = useSaveCompetitor();
   const deleteCompetitor = useDeleteCompetitor();
+  const deleteCompetitors = useDeleteCompetitors();
   const enabledFields: CompetitorFieldKey[] =
     series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
   const primaryLabel: PrimaryPersonLabel =
@@ -121,11 +126,67 @@ export default function CompetitorsPage({
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCompetitor, setEditingCompetitor] = useState<Competitor | null>(null);
+  const [filter, setFilter] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
   const editingRowRef = useRef<HTMLTableRowElement | null>(null);
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const importRef = useRef<CompetitorImportHandle>(null);
   const updateHandicapsRef = useRef<UpdateHandicapsHandle>(null);
+  const filterInputRef = useRef<HTMLInputElement>(null);
+  const headerCheckboxRef = useRef<HTMLInputElement>(null);
   const didAutoFocus = useRef(false);
+
+  const filteredCompetitors = (competitors ?? []).filter((c) =>
+    competitorMatchesFilter(c, filter),
+  );
+  // The selection is kept as raw ids so it survives filter changes; count and
+  // delete against the ids that still exist, so a row removed elsewhere can't
+  // linger in the tally.
+  const selectedCompetitors = (competitors ?? []).filter((c) => selectedIds.has(c.id));
+  const selectedCount = selectedCompetitors.length;
+  const visibleSelectedCount = filteredCompetitors.filter((c) => selectedIds.has(c.id)).length;
+  const allVisibleSelected =
+    filteredCompetitors.length > 0 && visibleSelectedCount === filteredCompetitors.length;
+
+  // `indeterminate` is a DOM property, not an attribute, so it needs a ref.
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate =
+        visibleSelectedCount > 0 && !allVisibleSelected;
+    }
+  });
+
+  // Fetch finishes once a selection exists so the bulk-delete confirm can
+  // warn about competitors whose race results would cascade away.
+  const { data: finishes } = useFinishesBySeries(seriesId, {
+    enabled: !readOnly && selectedIds.size > 0,
+  });
+  const competitorIdsWithFinishes = new Set((finishes ?? []).map((f) => f.competitorId));
+  const selectedWithResults = selectedCompetitors.filter((c) =>
+    competitorIdsWithFinishes.has(c.id),
+  ).length;
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        for (const c of filteredCompetitors) next.delete(c.id);
+      } else {
+        for (const c of filteredCompetitors) next.add(c.id);
+      }
+      return next;
+    });
+  }
 
   // Auto-focus first row when list first loads
   useEffect(() => {
@@ -154,11 +215,21 @@ export default function CompetitorsPage({
       when: () => hasHandicapFleet,
       handler: () => updateHandicapsRef.current?.open(),
     },
+    { key: '/', description: 'Filter competitors', section: 'Competitors', handler: () => filterInputRef.current?.focus() },
+    {
+      key: 'D',
+      displayKeys: ['⇧D'],
+      description: 'Delete selected competitors',
+      section: 'Competitors',
+      when: () => !readOnly && selectedCount > 0,
+      handler: () => setConfirmingBulkDelete(true),
+    },
   ]);
   // Row-level keys bound on the focused table row itself.
   useShortcutHelp([
     { key: 'e', description: 'Edit focused row', section: 'Competitors' },
     { key: 'd', description: 'Delete focused row', section: 'Competitors' },
+    { key: 'x', description: 'Select/deselect focused row', section: 'Competitors' },
   ]);
 
   function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'vprsTcc' | 'pyNumber' | 'nhcStartingTcf' | 'echoStartingTcf'> {
@@ -265,6 +336,14 @@ export default function CompetitorsPage({
     setEditingCompetitor(null);
   }
 
+  async function handleBulkDelete() {
+    const ids = selectedCompetitors.map((c) => c.id);
+    if (ids.length === 0) return;
+    log('competitors', 'bulk deleting', ids);
+    await deleteCompetitors.mutateAsync({ ids, seriesId });
+    setSelectedIds(new Set());
+    setConfirmingBulkDelete(false);
+  }
 
   const existingCompetitors = (competitors ?? []).map((c) => ({ sailNumber: c.sailNumber.toUpperCase(), fleetIds: c.fleetIds }));
   const editingExcluded = editingCompetitor
@@ -290,7 +369,9 @@ export default function CompetitorsPage({
         <p className="text-sm text-muted-foreground">
           {competitors === undefined
             ? 'Loading…'
-            : `${competitors.length} competitor${competitors.length === 1 ? '' : 's'}`}
+            : filter.trim()
+              ? `${filteredCompetitors.length} of ${competitors.length} competitors`
+              : `${competitors.length} competitor${competitors.length === 1 ? '' : 's'}`}
         </p>
         {!showAddForm && !readOnly && (
           <div className="flex gap-2">
@@ -330,10 +411,67 @@ export default function CompetitorsPage({
       )}
 
       {competitors !== undefined && competitors.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
+            ref={filterInputRef}
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setFilter('');
+                e.currentTarget.blur();
+              }
+            }}
+            placeholder="Filter competitors…"
+            aria-label="Filter competitors"
+            className="max-w-sm"
+          />
+          {selectedCount > 0 && (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {selectedCount} selected
+              </p>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setConfirmingBulkDelete(true)}
+              >
+                Delete selected
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Clear selection
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
+      {competitors !== undefined && competitors.length > 0 && filteredCompetitors.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No competitors match the filter.
+        </p>
+      )}
+
+      {competitors !== undefined && filteredCompetitors.length > 0 && (
         <div className="overflow-hidden rounded-lg border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
+              {!readOnly && (
+                <TableHead className="w-8">
+                  <input
+                    ref={headerCheckboxRef}
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={toggleAllVisible}
+                    aria-label="Select all shown competitors"
+                  />
+                </TableHead>
+              )}
               <TableHead>Sail no.</TableHead>
               {showBoat && <TableHead>Boat</TableHead>}
               {showClass && <TableHead>Class</TableHead>}
@@ -353,7 +491,7 @@ export default function CompetitorsPage({
             </TableRow>
           </TableHeader>
           <TableBody ref={tbodyRef}>
-            {competitors.map((c) => (
+            {filteredCompetitors.map((c) => (
               <TableRow
                 key={c.id}
                 tabIndex={0}
@@ -368,6 +506,9 @@ export default function CompetitorsPage({
                     e.preventDefault();
                     editingRowRef.current = e.currentTarget;
                     setEditingCompetitor(c);
+                  } else if (e.key === 'x' && !readOnly) {
+                    e.preventDefault();
+                    toggleSelected(c.id);
                   } else if (e.key === 'ArrowDown') {
                     e.preventDefault();
                     (e.currentTarget.nextElementSibling as HTMLElement)?.focus();
@@ -377,6 +518,20 @@ export default function CompetitorsPage({
                   }
                 }}
               >
+                {!readOnly && (
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {/* Generic label on purpose: a sail number here would leak
+                        into the cell's accessible name and collide with the
+                        sail-number cell locators used throughout the e2e
+                        suite. The row itself provides the context. */}
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(c.id)}
+                      onChange={() => toggleSelected(c.id)}
+                      aria-label="Select row"
+                    />
+                  </TableCell>
+                )}
                 <TableCell className="font-mono">
                   <MissingRatingIcon missing={missingRatings(c, fleetById)} />
                   {c.sailNumber}
@@ -418,6 +573,42 @@ export default function CompetitorsPage({
           No competitors yet. Add the first one above.
         </p>
       )}
+
+      {/* Bulk delete confirm */}
+      <Dialog open={confirmingBulkDelete} onOpenChange={(open) => { if (!open) setConfirmingBulkDelete(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Delete {selectedCount} competitor{selectedCount === 1 ? '' : 's'}?
+            </DialogTitle>
+            <DialogDescription>
+              This removes {selectedCount === 1 ? 'the selected competitor' : 'the selected competitors'} from the series.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedWithResults > 0 && (
+            <p className="flex items-start gap-2 text-sm text-amber-600 dark:text-amber-500">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                {selectedWithResults === 1
+                  ? '1 of these has recorded race results, which will also be deleted.'
+                  : `${selectedWithResults} of these have recorded race results, which will also be deleted.`}
+              </span>
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmingBulkDelete(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={deleteCompetitors.isPending}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit dialog */}
       <Dialog open={editingCompetitor !== null} onOpenChange={(open) => { if (!open) setEditingCompetitor(null); }}>

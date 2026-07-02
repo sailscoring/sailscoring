@@ -279,6 +279,16 @@ export default async function HelpPage() {
           Competitors are sorted by sail number. You can edit or delete a competitor at any time,
           though deleting one after races have been entered will also remove their finishes.
         </p>
+        <p>
+          To clean up several entries at once — say after a mis-import — use the{' '}
+          <strong className="text-foreground">filter box</strong> above the table to narrow the
+          list, then tick the competitors to remove (the header checkbox selects everything
+          currently shown). The selection survives filter changes, so you can build it up across
+          several filters before clicking{' '}
+          <strong className="text-foreground">Delete selected</strong>. The confirmation warns you
+          if any selected competitor has recorded race results, since those results are deleted
+          with the entry.
+        </p>
       </Section>
 
       <Section id="fleets" title="Fleets">
