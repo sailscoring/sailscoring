@@ -128,6 +128,54 @@ describe('planRyaPyUpdates', () => {
     });
     expect(out[0].matchStatus).toBe('none');
     expect(out[0].resolved).toBeNull();
+    expect(out[0].manualNumber).toBeNull();
     expect(out[0].candidates).toEqual([]);
+  });
+
+  it('resolves an unmatched class via a typed-in local PY number', () => {
+    const out = planRyaPyUpdates({
+      targetCompetitors: [comp('A', ['f-py'], { boatClass: 'IDRA 14' })],
+      targetFleets: [pyFleet],
+      matcher,
+      manualNumberByClass: { idra14: 1234 },
+    });
+    expect(out[0].matchStatus).toBe('none');
+    expect(out[0].resolved).toBeNull();
+    expect(out[0].manualNumber).toBe(1234);
+  });
+
+  it('lets a picked class win over a stale local number', () => {
+    const out = planRyaPyUpdates({
+      targetCompetitors: [comp('A', ['f-py'], { boatClass: 'Comet Trio' })],
+      targetFleets: [pyFleet],
+      matcher,
+      chosenByClass: { comettrio: classKey(classes[3]) }, // MK 2
+      manualNumberByClass: { comettrio: 1234 },
+    });
+    expect(out[0].resolved?.classId).toBe(70);
+    expect(out[0].manualNumber).toBeNull();
+  });
+
+  it('ignores a local number for an explicitly skipped class', () => {
+    const out = planRyaPyUpdates({
+      targetCompetitors: [comp('A', ['f-py'], { boatClass: 'IDRA 14' })],
+      targetFleets: [pyFleet],
+      matcher,
+      chosenByClass: { idra14: '__skip__' },
+      manualNumberByClass: { idra14: 1234 },
+    });
+    expect(out[0].resolved).toBeNull();
+    expect(out[0].manualNumber).toBeNull();
+  });
+
+  it('ignores a local number on an auto-matched class', () => {
+    const out = planRyaPyUpdates({
+      targetCompetitors: [comp('A', ['f-py'], { boatClass: 'Firefly' })],
+      targetFleets: [pyFleet],
+      matcher,
+      manualNumberByClass: { firefly: 1234 },
+    });
+    expect(out[0].resolved?.classId).toBe(135);
+    expect(out[0].manualNumber).toBeNull();
   });
 });

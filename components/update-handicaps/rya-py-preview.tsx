@@ -45,7 +45,23 @@ export function buildRyaPyUpdates(
   const rows: HandicapUpdateRow[] = [];
   for (const p of proposals) {
     const r = p.resolved;
-    if (!r) continue;
+    if (!r) {
+      // No register class — but the scorer may have typed a local PY number.
+      // Apply it as a number-only change (no rename), skipping boats already
+      // on that number.
+      if (p.manualNumber === null) continue;
+      for (const a of p.affected) {
+        const comp = competitorById.get(a.competitorId);
+        if (!comp || comp.version === undefined) continue;
+        if (a.currentNumber === p.manualNumber) continue;
+        rows.push({
+          competitorId: comp.id,
+          expectedVersion: comp.version,
+          pyNumber: p.manualNumber,
+        });
+      }
+      continue;
+    }
     const { canRename, canSetNumber } = ryaPyChanges(p, competitorById);
     const renameApplied = canRename && !renameOff.has(p.enteredKey);
     const numberApplied = canSetNumber && !numberOff.has(p.enteredKey);
@@ -85,6 +101,7 @@ export function RyaPyPreview({
   onToggleRename,
   onToggleNumber,
   onChoose,
+  onManualNumber,
 }: {
   proposals: PyClassProposal[];
   targetCompetitorById: Map<string, Competitor>;
@@ -95,6 +112,8 @@ export function RyaPyPreview({
   onToggleNumber: (key: string, on: boolean) => void;
   /** Resolve an ambiguous/unmatched class: value is a class key, or `'__skip__'`. */
   onChoose: (key: string, value: string) => void;
+  /** Set a local PY number for an unmatched class (`null` clears it). */
+  onManualNumber: (key: string, value: number | null) => void;
 }) {
   if (proposals.length === 0) {
     return (
@@ -104,7 +123,7 @@ export function RyaPyPreview({
     );
   }
 
-  const resolvedCount = proposals.filter((p) => p.resolved).length;
+  const resolvedCount = proposals.filter((p) => p.resolved || p.manualNumber !== null).length;
   const unresolved = proposals.length - resolvedCount;
   const summary = `${proposals.length} class${proposals.length === 1 ? '' : 'es'} in PY fleets${
     unresolved > 0 ? `, ${unresolved} needing a match` : ''
@@ -141,23 +160,42 @@ export function RyaPyPreview({
                 </TableCell>
                 <TableCell>
                   {showPicker ? (
-                    <select
-                      aria-label={`RYA class for ${p.enteredClass}`}
-                      value={r ? classKey(r) : ''}
-                      onChange={(e) => onChoose(p.enteredKey, e.target.value)}
-                      className="block max-w-[16rem] rounded border bg-background px-1 py-0.5 text-xs"
-                    >
-                      <option value="">
-                        {p.matchStatus === 'ambiguous' ? 'Pick a class…' : 'No match — pick…'}
-                      </option>
-                      {options.map((c) => (
-                        <option key={classKey(c)} value={classKey(c)}>
-                          {c.name} ({c.number})
-                          {TIER_LABEL[c.tier] ? ` · ${TIER_LABEL[c.tier]}` : ''}
+                    <div className="space-y-1">
+                      <select
+                        aria-label={`RYA class for ${p.enteredClass}`}
+                        value={r ? classKey(r) : ''}
+                        onChange={(e) => onChoose(p.enteredKey, e.target.value)}
+                        className="block max-w-[16rem] rounded border bg-background px-1 py-0.5 text-xs"
+                      >
+                        <option value="">
+                          {p.matchStatus === 'ambiguous' ? 'Pick a class…' : 'No match — pick…'}
                         </option>
-                      ))}
-                      <option value="__skip__">— skip —</option>
-                    </select>
+                        {options.map((c) => (
+                          <option key={classKey(c)} value={classKey(c)}>
+                            {c.name} ({c.number})
+                            {TIER_LABEL[c.tier] ? ` · ${TIER_LABEL[c.tier]}` : ''}
+                          </option>
+                        ))}
+                        <option value="__skip__">— skip —</option>
+                      </select>
+                      {/* Local number for a class the register doesn't cover.
+                          Typing one clears any picked class (and vice versa). */}
+                      <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                        or PY&nbsp;#
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={1}
+                          aria-label={`Local PY number for ${p.enteredClass}`}
+                          value={p.manualNumber ?? ''}
+                          onChange={(e) => {
+                            const n = e.target.valueAsNumber;
+                            onManualNumber(p.enteredKey, Number.isFinite(n) ? n : null);
+                          }}
+                          className="w-20 rounded border bg-background px-1 py-0.5 text-xs tabular-nums"
+                        />
+                      </label>
+                    </div>
                   ) : (
                     <span>{r?.name}</span>
                   )}
@@ -174,10 +212,16 @@ export function RyaPyPreview({
                   )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {r ? `${currentNumberDisplay(p)} → ${r.number}` : '—'}
+                  {r
+                    ? `${currentNumberDisplay(p)} → ${r.number}`
+                    : p.manualNumber !== null
+                      ? `${currentNumberDisplay(p)} → ${p.manualNumber}`
+                      : '—'}
                 </TableCell>
                 <TableCell>
-                  {r && (canRename || canSetNumber) ? (
+                  {!r && p.manualNumber !== null ? (
+                    <span className="text-xs text-muted-foreground">local number</span>
+                  ) : r && (canRename || canSetNumber) ? (
                     <div className="flex flex-col gap-0.5 text-xs">
                       <label className="flex items-center gap-1">
                         <input

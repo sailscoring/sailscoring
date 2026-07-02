@@ -62,3 +62,47 @@ test('Update handicaps from the RYA PY list sets numbers and normalises classes'
   await expect(page.getByLabel('PY number', { exact: true })).toHaveValue('1103');
   await expect(page.getByLabel('Class', { exact: true })).toHaveValue('ILCA 7 / Laser');
 });
+
+test('a class the RYA list does not cover takes a typed-in local PY number', async ({
+  page,
+}) => {
+  await createSeriesQuick(page, { name: 'Local PY Test 2026' });
+
+  await createFleets(page, ['Handicap']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'PY', exact: true }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.locator('h2', { hasText: 'Competitor fields' }).locator('..').getByRole('button').click();
+  await page.locator('#field-boatClass').check();
+
+  // A locally-handicapped one-design that has no RYA PY entry.
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('K14');
+  await page.getByLabel('Competitor name').fill('Wanderer');
+  await page.getByLabel('Class', { exact: true }).fill('IDRA 14');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'K14' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('RYA Portsmouth Yardstick').click();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  // No register match — but the scorer types the club's local number.
+  const localNumber = page.getByLabel('Local PY number for IDRA 14');
+  await expect(localNumber).toBeVisible();
+  await localNumber.fill('1234');
+  await expect(page.getByRole('cell', { name: '— → 1234' })).toBeVisible();
+
+  await page.getByRole('button', { name: /^Apply/ }).click();
+  await expect(page.getByText('Handicaps updated')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Persisted: the local number is set, and the class name is left untouched.
+  await page.getByRole('row').filter({ hasText: 'K14' }).click();
+  await expect(page.getByLabel('PY number', { exact: true })).toHaveValue('1234');
+  await expect(page.getByLabel('Class', { exact: true })).toHaveValue('IDRA 14');
+});

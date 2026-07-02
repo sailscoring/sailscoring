@@ -29,6 +29,7 @@ export function RyaPySourceStep({
   // Manual class resolution (enteredKey → classKey | '__skip__'), and
   // per-class opt-outs of the rename / set-number halves of a proposal.
   const [chosenByClass, setChosenByClass] = useState<Record<string, string>>({});
+  const [manualNumberByClass, setManualNumberByClass] = useState<Record<string, number>>({});
   const [renameOff, setRenameOff] = useState<Set<string>>(new Set());
   const [numberOff, setNumberOff] = useState<Set<string>>(new Set());
 
@@ -40,8 +41,9 @@ export function RyaPySourceStep({
       targetCompetitors: competitors,
       targetFleets: fleets,
       chosenByClass,
+      manualNumberByClass,
     });
-  }, [competitors, fleets, chosenByClass]);
+  }, [competitors, fleets, chosenByClass, manualNumberByClass]);
 
   const targetCompetitorById = useMemo(
     () => new Map((competitors ?? []).map((c) => [c.id, c])),
@@ -57,7 +59,9 @@ export function RyaPySourceStep({
     const renamed = updateRows.filter((r) => r.boatClass !== undefined).length;
     const numberChanged = updateRows.filter((r) => r.pyNumber !== undefined).length;
     const resolvedKeys = new Set(
-      proposals.filter((p) => p.resolved).map((p) => p.enteredKey),
+      proposals
+        .filter((p) => p.resolved || p.manualNumber !== null)
+        .map((p) => p.enteredKey),
     );
     const notFound = proposals
       .filter((p) => !resolvedKeys.has(p.enteredKey))
@@ -103,9 +107,33 @@ export function RyaPySourceStep({
               return next;
             })
           }
-          onChoose={(key, value) =>
-            setChosenByClass((prev) => ({ ...prev, [key]: value }))
-          }
+          onChoose={(key, value) => {
+            setChosenByClass((prev) => ({ ...prev, [key]: value }));
+            // Picking (or skipping) a class clears any typed local number.
+            setManualNumberByClass((prev) => {
+              if (!(key in prev)) return prev;
+              const next = { ...prev };
+              delete next[key];
+              return next;
+            });
+          }}
+          onManualNumber={(key, value) => {
+            setManualNumberByClass((prev) => {
+              const next = { ...prev };
+              if (value === null) delete next[key];
+              else next[key] = value;
+              return next;
+            });
+            // Typing a local number clears any picked class.
+            if (value !== null) {
+              setChosenByClass((prev) => {
+                if (!(key in prev)) return prev;
+                const next = { ...prev };
+                delete next[key];
+                return next;
+              });
+            }
+          }}
         />
 
         <p className="text-xs text-muted-foreground">

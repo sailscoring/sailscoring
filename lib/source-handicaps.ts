@@ -953,6 +953,11 @@ export interface RyaPyPlanInput {
    *  `'__skip__'` to leave the group's boats untouched. A unique auto-match can
    *  also be overridden here. */
   chosenByClass?: Readonly<Record<string, string>>;
+  /** A locally-assigned PY number for a class the register doesn't cover (e.g. a
+   *  club one-design), keyed by a group's `enteredKey`. Applied — as a
+   *  number-only change, with no rename — when the class has no matched or
+   *  picked RYA class and wasn't explicitly skipped. */
+  manualNumberByClass?: Readonly<Record<string, number>>;
 }
 
 /** One distinct boat class found across the series' PY fleets, with its
@@ -970,6 +975,10 @@ export interface PyClassProposal {
   /** The resolved class — a unique match, or the scorer's manual pick; `null`
    *  when ambiguous/unmatched and not yet resolved, or explicitly skipped. */
   resolved: RyaPyClass | null;
+  /** A locally-assigned PY number for a class the register doesn't cover, when
+   *  the scorer typed one instead of picking a class. Only ever set when
+   *  `resolved` is `null`; applied as a number-only change (no rename). */
+  manualNumber: number | null;
   /** Candidates when ambiguous (empty otherwise — the dialog offers the full list). */
   candidates: RyaPyClass[];
   /** The boats in PY fleets carrying this class, with their current PY number. */
@@ -987,6 +996,7 @@ export interface PyClassProposal {
 export function planRyaPyUpdates(input: RyaPyPlanInput): PyClassProposal[] {
   const matcher = input.matcher ?? ryaPyMatcher;
   const chosen = input.chosenByClass ?? {};
+  const manualNumbers = input.manualNumberByClass ?? {};
   const byClassKey = new Map(matcher.all().map((c) => [classKey(c), c] as const));
 
   const pyFleetIds = new Set(
@@ -1027,8 +1037,17 @@ export function planRyaPyUpdates(input: RyaPyPlanInput): PyClassProposal[] {
     // unique auto-match, or null when ambiguous/unmatched.
     let resolved: RyaPyClass | null = m.kind === 'matched' ? m.cls : null;
     const override = chosen[enteredKey];
-    if (override === '__skip__') resolved = null;
+    const skipped = override === '__skip__';
+    if (skipped) resolved = null;
     else if (override) resolved = byClassKey.get(override) ?? resolved;
+
+    // A typed-in local number applies only when no class resolved and the class
+    // wasn't explicitly skipped — a picked class always wins over it.
+    const manual = manualNumbers[enteredKey];
+    const manualNumber =
+      resolved === null && !skipped && typeof manual === 'number' && Number.isFinite(manual)
+        ? manual
+        : null;
 
     proposals.push({
       enteredClass: g.enteredClass,
@@ -1036,6 +1055,7 @@ export function planRyaPyUpdates(input: RyaPyPlanInput): PyClassProposal[] {
       matchStatus,
       via,
       resolved,
+      manualNumber,
       candidates,
       affected: g.affected,
     });
