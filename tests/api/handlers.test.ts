@@ -715,6 +715,49 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await removeSeries(ctxA, seriesId);
   });
 
+  test('deleteCompetitors drops only the requested ids; foreign ids ignored', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'F', displayOrder: 0, scoringSystem: 'irc' as const,
+    });
+    const ids = Array.from({ length: 4 }, () => uuid());
+    await competitors.bulkPutCompetitors(ctxA, seriesId, {
+      competitors: ids.map((id, i) => ({
+        id, seriesId, fleetIds: [fleetId],
+        sailNumber: String(4000 + i), name: `Helm ${i}`,
+        club: '', gender: '' as const, age: null, createdAt: Date.now(),
+      })),
+    });
+
+    // Cross-workspace: the whole call 404s before anything is deleted.
+    await expect(
+      competitors.deleteCompetitors(ctxB, seriesId, { ids: [ids[0]] }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(await competitors.listCompetitors(ctxA, seriesId)).toHaveLength(4);
+
+    // Two real ids plus one unknown: the unknown is ignored, not an error.
+    const result = await competitors.deleteCompetitors(ctxA, seriesId, {
+      ids: [ids[0], ids[2], uuid()],
+    });
+    expect(result.count).toBe(2);
+    const remaining = await competitors.listCompetitors(ctxA, seriesId);
+    expect(remaining.map((c) => c.id).sort()).toEqual([ids[1], ids[3]].sort());
+
+    // Nothing matching → count 0, list untouched.
+    const noop = await competitors.deleteCompetitors(ctxA, seriesId, { ids: [uuid()] });
+    expect(noop.count).toBe(0);
+    expect(await competitors.listCompetitors(ctxA, seriesId)).toHaveLength(2);
+
+    // An empty ids array is a validation error, not a clear-all.
+    await expect(
+      competitors.deleteCompetitors(ctxA, seriesId, { ids: [] }),
+    ).rejects.toThrow();
+
+    await removeSeries(ctxA, seriesId);
+  });
+
   test('bulkDeleteRaces drops every race and cascades to starts/finishes', async () => {
     const seriesId = uuid();
     await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));

@@ -110,3 +110,24 @@ export function useDeleteCompetitor() {
     },
   });
 }
+
+/**
+ * Batch delete for the multi-select bulk action: one round-trip and one
+ * activity entry for the whole selection, rather than N of each.
+ */
+export function useDeleteCompetitors() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, seriesId }: { ids: string[]; seriesId: string }) =>
+      competitorRepo.deleteMany(seriesId, ids),
+    onSuccess: async (_void, { seriesId }) => {
+      qc.invalidateQueries({
+        queryKey: queryKeys.competitors.bySeries(seriesId),
+      });
+      // Finishes reference competitorId; cached lists may need a refresh.
+      qc.invalidateQueries({ queryKey: queryKeys.finishes.all });
+      // See useSaveCompetitor — keep the cached series row's version fresh.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
+    },
+  });
+}

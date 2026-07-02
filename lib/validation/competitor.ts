@@ -41,6 +41,15 @@ export const competitorsBulkInputSchema = z.object({
 });
 
 /**
+ * Selective batch-delete payload. Mirrors `CompetitorRepository.deleteMany`;
+ * ids outside the series are ignored rather than rejected, so a stale
+ * selection can't block the rest of the batch.
+ */
+export const competitorsDeleteInputSchema = z.object({
+  ids: z.array(uuidSchema).min(1),
+});
+
+/**
  * Targeted bulk update for the Update Handicaps dialog (#144). Each row
  * carries an `expectedVersion` for optimistic concurrency; the four
  * handicap fields are independently optional, and only the listed fields

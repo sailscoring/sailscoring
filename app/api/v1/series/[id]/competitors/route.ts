@@ -1,9 +1,10 @@
 import {
   bulkDeleteCompetitors,
   bulkPutCompetitors,
+  deleteCompetitors,
   listCompetitors,
 } from '@/lib/api-handlers/competitors';
-import { workspaceRoute } from '../../../_lib/handler';
+import { BadRequestError, workspaceRoute } from '../../../_lib/handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,18 @@ export const POST = workspaceRoute<Params, unknown>(async (req, { workspace, par
   return bulkPutCompetitors(workspace, params.id, body);
 });
 
-/** Collection delete: drop every competitor in the series. */
-export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
-  return bulkDeleteCompetitors(workspace, params.id);
+/**
+ * Collection delete. Without a body, drop every competitor in the series;
+ * with an `{ ids }` body, drop just those.
+ */
+export const DELETE = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
+  const text = await req.text();
+  if (!text) return bulkDeleteCompetitors(workspace, params.id);
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    throw new BadRequestError('invalid json body');
+  }
+  return deleteCompetitors(workspace, params.id, body);
 });

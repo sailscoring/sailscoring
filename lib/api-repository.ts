@@ -155,6 +155,14 @@ class ApiCompetitorRepository implements CompetitorRepository {
     await apiFetch(`/api/v1/competitors/${id}`, { method: 'DELETE' });
   }
 
+  async deleteMany(seriesId: string, ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await apiFetch(`/api/v1/series/${seriesId}/competitors`, {
+      method: 'DELETE',
+      body: { ids },
+    });
+  }
+
   async deleteBySeries(seriesId: string): Promise<void> {
     await apiFetch(`/api/v1/series/${seriesId}/competitors`, { method: 'DELETE' });
   }

@@ -15,6 +15,7 @@ import {
 import {
   competitorInputSchema,
   competitorsBulkInputSchema,
+  competitorsDeleteInputSchema,
   handicapBulkUpdateSchema,
 } from '@/lib/validation/competitor';
 import type { AuditStamp, Competitor, RaceRatingOverride } from '@/lib/types';
@@ -262,6 +263,38 @@ export async function bulkUpdateHandicaps(
  * competitor in the series in one round-trip. The repo method is
  * workspace-scoped, so `assertSeriesInWorkspace` is the tenancy check.
  */
+/**
+ * Selective batch delete: DELETE with an `{ ids }` body. Ids not belonging
+ * to the series (or workspace) are ignored rather than erroring, so a stale
+ * selection can't block the rest of the batch. Each deleted competitor's
+ * finishes cascade away with the row. The whole batch records a single
+ * activity entry, not one per competitor.
+ */
+export async function deleteCompetitors(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<{ count: number }> {
+  await assertSeriesWritable(workspace, seriesId);
+  const input = competitorsDeleteInputSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const existing = await repos.competitors.listBySeries(seriesId);
+  const wanted = new Set(input.ids);
+  const targets = existing.filter((c) => wanted.has(c.id));
+  if (targets.length === 0) return { count: 0 };
+  await repos.competitors.deleteMany(seriesId, targets.map((c) => c.id));
+  await trackChange(workspace, {
+    action: 'competitors.deleted',
+    seriesId,
+    summary:
+      targets.length === 1
+        ? `Removed competitor ${targets[0].sailNumber}`
+        : `Removed ${targets.length} competitors`,
+    sessionKey: 'competitors',
+  });
+  return { count: targets.length };
+}
+
 export async function bulkDeleteCompetitors(
   workspace: WorkspaceContext,
   seriesId: string,

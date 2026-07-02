@@ -91,6 +91,8 @@ export interface CompetitorRepository {
   save(competitor: Competitor, opts?: SaveOpts): Promise<Competitor>;
   saveMany(competitors: Competitor[], opts?: SaveOpts): Promise<void>;
   delete(id: string): Promise<void>;
+  /** Delete a specific set of competitors within one series in one call. */
+  deleteMany(seriesId: string, ids: string[]): Promise<void>;
   deleteBySeries(seriesId: string): Promise<void>;
 }
 

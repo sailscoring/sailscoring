@@ -1007,6 +1007,19 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
       );
   }
 
+  async deleteMany(seriesId: string, ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await this.db
+      .delete(schema.competitors)
+      .where(
+        and(
+          inArray(schema.competitors.id, ids),
+          eq(schema.competitors.seriesId, seriesId),
+          eq(schema.competitors.workspaceId, this.workspaceId),
+        ),
+      );
+  }
+
   async deleteBySeries(seriesId: string): Promise<void> {
     await this.db
       .delete(schema.competitors)
