@@ -384,15 +384,32 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
         <DialogHeader>
           <DialogTitle>Publish results</DialogTitle>
           {canFtp && (
-            <button
-              type="button"
-              onClick={() => switchMode(mode === 'ftp' ? 'sailscoring' : 'ftp')}
-              className="self-start text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            <div
+              role="group"
+              aria-label="Publish destination"
+              className="mt-1 inline-flex self-start rounded-md bg-muted p-0.5 text-sm"
             >
-              {mode === 'ftp'
-                ? '← Publish to Sail Scoring pages instead'
-                : 'Upload to your own website via FTP instead →'}
-            </button>
+              {(
+                [
+                  ['sailscoring', 'Sail Scoring pages'],
+                  ['ftp', 'Your website (FTP)'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={mode === value}
+                  onClick={() => switchMode(value)}
+                  className={`rounded px-3 py-1 font-medium transition-colors ${
+                    mode === value
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           )}
         </DialogHeader>
 

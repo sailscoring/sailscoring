@@ -1589,8 +1589,8 @@ export default async function HelpPage() {
               <strong className="text-foreground">Standings</strong> tab, click{' '}
               <strong className="text-foreground">Publish</strong> (or press{' '}
               <strong className="text-foreground">p</strong>) and choose{' '}
-              <strong className="text-foreground">Upload to your own website via FTP</strong> at the
-              top of the dialog. Select the server, enter the remote path for the results file (e.g.{' '}
+              <strong className="text-foreground">Your website (FTP)</strong> at the top of the
+              dialog. Select the server, enter the remote path for the results file (e.g.{' '}
               <code className="text-foreground text-sm">/public_html/results/fleet-a.html</code>),
               and click <strong className="text-foreground">Upload</strong>. The series remembers
               this choice and reopens in FTP mode next time — switch back to{' '}

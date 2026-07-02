@@ -89,7 +89,7 @@ test('Publish dialog · FTP mode: no-servers message, then remembered across reo
   // ── Publish opens in Sail Scoring mode; switch to the FTP destination ─────
   await page.getByRole('button', { name: 'Publish' }).click();
   await expect(page.getByRole('dialog', { name: 'Publish results' })).toBeVisible();
-  await page.getByRole('button', { name: /Upload to your own website via FTP/ }).click();
+  await page.getByRole('button', { name: 'Your website (FTP)' }).click();
 
   // No servers yet: the FTP pane shows the workspace link and hides Upload.
   await expect(page.getByText('No FTP servers configured.')).toBeVisible();
@@ -117,10 +117,11 @@ test('Publish dialog · FTP mode: no-servers message, then remembered across reo
   await expect(page.getByLabel('Path')).toBeVisible(); // single-fleet FTP path input
   await expect(page.getByRole('button', { name: 'Upload' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Upload' })).toBeDisabled();
-  // The switch now offers the way back to Sail Scoring pages.
+  // The destination toggle shows FTP as the active mode, with the way back.
   await expect(
-    page.getByRole('button', { name: /Publish to Sail Scoring pages/ }),
-  ).toBeVisible();
+    page.getByRole('button', { name: 'Your website (FTP)' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Sail Scoring pages' })).toBeVisible();
 });
 
 test('Publish dialog · FTP mode: per-fleet selection lets you upload a subset', async ({ page }) => {
@@ -155,7 +156,7 @@ test('Publish dialog · FTP mode: per-fleet selection lets you upload a subset',
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
   await expect(dialog).toBeVisible();
-  await page.getByRole('button', { name: /Upload to your own website via FTP/ }).click();
+  await page.getByRole('button', { name: 'Your website (FTP)' }).click();
   await expect(page.getByLabel('Fast path')).toBeVisible();
 
   // Pick the server (a fresh series has no saved host to auto-select).
