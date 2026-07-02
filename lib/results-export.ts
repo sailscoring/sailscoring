@@ -5,7 +5,13 @@ import {
   calculateSubSeriesFleetStandings,
   buildRaceFleetExclusionMap,
 } from './scoring';
-import { renderSeriesHtml, assembleSeriesResultsData } from './results-renderer';
+import {
+  renderSeriesHtml,
+  renderCombinedSeriesHtml,
+  assembleSeriesResultsData,
+  type SeriesResultsData,
+} from './results-renderer';
+import { resolvePublishingGroups, suppressedFleetIds } from './publishing-groups';
 import {
   buildPublicExportFromSnapshot,
   resolveSeriesLogoDefaults,
@@ -53,7 +59,23 @@ export function derivePrefillPaths(
   );
 }
 
-/** Build one HTML string per fleet. Returns [{fleetName, html}]. */
+/** One entry of `buildFleetHtmlFiles`' output: a fleet's page, a (sub-series,
+ *  fleet) page, or — `isCombined` — a combined page carrying several fleets'
+ *  results under a publishing group's name. */
+export interface FleetHtmlFile {
+  fleetName: string;
+  isDefault: boolean;
+  subSeriesName?: string;
+  /** Set on a publishing group's combined page; `fleetName` is then the
+   *  group name (pages are name-keyed alongside fleet pages). */
+  isCombined?: boolean;
+  html: string;
+}
+
+/** Build one HTML string per page: per fleet (or per (sub-series, fleet) when
+ *  the series has blocks) — plus, for a blockless multi-fleet series, one
+ *  combined page per publishing group, listed first. Fleets suppressed by a
+ *  group ("don't publish members individually") get no standalone entry. */
 export async function buildFleetHtmlFiles(
   // Only the six read repos are needed (same surface as `buildPublicExport`),
   // so this accepts the narrower `ExportRepos` — that lets the server publish
@@ -66,7 +88,7 @@ export async function buildFleetHtmlFiles(
   // undefined for downloads, FTP uploads, and previews, which have no `/p/`
   // parent — see `SeriesResultsData.seriesIndexUrl`.
   seriesIndexUrl?: string,
-): Promise<{ fleetName: string; isDefault: boolean; subSeriesName?: string; html: string }[] | null> {
+): Promise<FleetHtmlFile[] | null> {
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
   if (!snapshot || snapshot.competitors.length === 0 || snapshot.races.length === 0) {
     return null;
@@ -118,17 +140,40 @@ export async function buildFleetHtmlFiles(
 
   const seriesInfo = { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl, venueUrl: series.venueUrl, eventUrl: series.eventUrl };
 
-  const results: { fleetName: string; isDefault: boolean; subSeriesName?: string; html: string }[] = [];
+  // The "Open in Sail Scoring" import URL is series-wide (the embedded JSON
+  // covers every fleet), so derive it once for all pages.
+  let openInAppUrl: string | undefined;
+  if (publicExport) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (appUrl) {
+      const json = JSON.stringify(publicExport);
+      const bytes = new TextEncoder().encode(json);
+      let binary = '';
+      bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+      const b64 = btoa(binary)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+      openInAppUrl = `${appUrl}/import#data=${b64}`;
+    }
+  }
+
+  const results: FleetHtmlFile[] = [];
 
   // Render one HTML page per fleet of a view: the whole series, or one
   // sub-series scored independently. Block pages renumber their races 1..n
   // within the block ("Spring Race 3", not the series-wide race number) and
-  // carry the block name in the page title.
+  // carry the block name in the page title. Fleets in `skipFleetIds` get no
+  // standalone page (they publish through a combined page instead). Returns
+  // each fleet's data assembler so the caller can render combined pages from
+  // the same scored inputs.
   const renderView = (
     viewFleetResults: typeof fleetResults,
     viewRaces: typeof races,
     subSeriesName?: string,
-  ) => {
+    skipFleetIds?: Set<string>,
+  ): Map<string, (anchorPrefix?: string) => SeriesResultsData> => {
+  const assemblerByFleetId = new Map<string, (anchorPrefix?: string) => SeriesResultsData>();
   const viewSeriesInfo = subSeriesName
     ? { ...seriesInfo, name: `${seriesInfo.name} — ${subSeriesName}` }
     : seriesInfo;
@@ -319,52 +364,46 @@ export async function buildFleetHtmlFiles(
         }]))
       : undefined;
 
-    const data = assembleSeriesResultsData(
-      viewSeriesInfo,
-      viewRaces,
-      standings,
-      raceScoresByRaceId,
-      competitorsById,
-      series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
-      new Date(),
-      fleetName,
-      {
-        raceStarts: allRaceStarts,
-        fleetId: fleet.id,
-        scoringSystem: fleet.scoringSystem,
-        primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-        subdivisionAxes: series.subdivisionAxes ?? [],
-        ...(nhcAggregatesForRender ? { nhcAggregatesByRaceId: nhcAggregatesForRender } : {}),
-        ...(echoAggregatesForRender ? { echoAggregatesByRaceId: echoAggregatesForRender } : {}),
-        showPerRaceRatings,
-        ...(seedRatingByCompetitorId ? { seedRatingByCompetitorId } : {}),
-      },
-    );
+    const assemble = (anchorPrefix?: string): SeriesResultsData => {
+      const data = assembleSeriesResultsData(
+        viewSeriesInfo,
+        viewRaces,
+        standings,
+        raceScoresByRaceId,
+        competitorsById,
+        series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
+        new Date(),
+        fleetName,
+        {
+          raceStarts: allRaceStarts,
+          fleetId: fleet.id,
+          scoringSystem: fleet.scoringSystem,
+          primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+          subdivisionAxes: series.subdivisionAxes ?? [],
+          ...(nhcAggregatesForRender ? { nhcAggregatesByRaceId: nhcAggregatesForRender } : {}),
+          ...(echoAggregatesForRender ? { echoAggregatesByRaceId: echoAggregatesForRender } : {}),
+          showPerRaceRatings,
+          ...(seedRatingByCompetitorId ? { seedRatingByCompetitorId } : {}),
+          ...(anchorPrefix ? { anchorPrefix } : {}),
+        },
+      );
+      if (openInAppUrl) data.openInAppUrl = openInAppUrl;
+      if (flagSvgByCode) data.flagSvgByCode = flagSvgByCode;
+      if (seriesIndexUrl) data.seriesIndexUrl = seriesIndexUrl;
+      return data;
+    };
+    assemblerByFleetId.set(fleet.id, assemble);
 
-    if (publicExport) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-      if (appUrl) {
-        const json = JSON.stringify(publicExport);
-        const bytes = new TextEncoder().encode(json);
-        let binary = '';
-        bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-        const b64 = btoa(binary)
-          .replace(/\+/g, '-')
-          .replace(/\//g, '_')
-          .replace(/=+$/, '');
-        data.openInAppUrl = `${appUrl}/import#data=${b64}`;
-      }
+    if (!skipFleetIds?.has(fleet.id)) {
+      results.push({
+        fleetName: fleet.name,
+        isDefault: isSingleDefault,
+        ...(subSeriesName ? { subSeriesName } : {}),
+        html: renderSeriesHtml(assemble()),
+      });
     }
-    if (flagSvgByCode) data.flagSvgByCode = flagSvgByCode;
-    if (seriesIndexUrl) data.seriesIndexUrl = seriesIndexUrl;
-
-    results.push({
-      fleetName: fleet.name,
-      isDefault: isSingleDefault,
-      ...(subSeriesName ? { subSeriesName } : {}),
-      html: renderSeriesHtml(data),
-    });
   }
+  return assemblerByFleetId;
   };
 
   if (subSeries.length > 0) {
@@ -385,7 +424,40 @@ export async function buildFleetHtmlFiles(
       renderView(block.fleetStandings, renumbered, block.subSeries.name);
     }
   } else {
-    renderView(fleetResults, races);
+    // Combined pages (#255) apply only to a blockless multi-fleet series: a
+    // single fleet has nothing to combine, and a series with sub-series
+    // publishes its own (block × fleet) page grid.
+    const groupsApply = !isSingleDefault;
+    const resolvedGroups = groupsApply
+      ? resolvePublishingGroups(series.publishingGroups, fleets).filter(
+          (r) => r.fleets.length > 0,
+        )
+      : [];
+    const suppressed = groupsApply
+      ? suppressedFleetIds(series.publishingGroups, fleets)
+      : undefined;
+
+    const assemblerByFleetId = renderView(fleetResults, races, undefined, suppressed);
+
+    // Combined pages lead the list — the series index and preview show them
+    // first, ahead of the per-fleet pages they aggregate.
+    const combined: FleetHtmlFile[] = resolvedGroups.map(({ group, fleets: members }) => {
+      const sections = members.map((f) =>
+        // Per-section anchor prefix so `#r1` links stay unambiguous when
+        // several fleets' race tables share the document.
+        assemblerByFleetId.get(f.id)!(`${seriesSlug(f.name)}-`),
+      );
+      return {
+        fleetName: group.name,
+        isDefault: false,
+        isCombined: true,
+        html: renderCombinedSeriesHtml(sections, {
+          pageName: group.name,
+          standingsOnly: group.detail === 'standings',
+        }),
+      };
+    });
+    results.unshift(...combined);
   }
 
   return results.length > 0 ? results : null;

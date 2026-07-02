@@ -22,6 +22,7 @@ import {
   listPublishedForWorkspace,
   savePublished,
 } from '@/lib/published-repository';
+import { suppressedFleetIds } from '@/lib/publishing-groups';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
 import type {
@@ -165,21 +166,39 @@ export async function publishSeries(
   );
   if (!allFiles) throw new NotFoundError('series has no publishable results');
 
+  // Fleets suppressed by combined-page config ("don't publish members
+  // individually", #255) publish only through their group page. The build
+  // above emits no standalone file for them; below, any *previously
+  // published* standalone page of theirs is retracted rather than carried —
+  // the scorer explicitly configured the replacement, and a carried page
+  // would otherwise go permanently stale with no per-page unpublish to
+  // remove it. Sub-series pages are untouched (groups don't apply there).
+  const fleetRows = await repos.fleets.listBySeries(seriesId);
+  const suppressedIds = suppressedFleetIds(series.publishingGroups, fleetRows);
+  const suppressedNames = new Set(
+    fleetRows.filter((f) => suppressedIds.has(f.id)).map((f) => f.name),
+  );
+  const retracted = (existing?.pages ?? []).filter(
+    (p) => !p.subSeriesName && suppressedNames.has(p.fleetName),
+  );
+
   // Selective publishing: `fleets` is the set to publish/update *now* (omit for
   // all). It is not "the publication is exactly this set" — a fleet left out is
   // simply skipped this round, so an already-published one keeps its current
   // live page untouched (work-in-progress on one fleet shouldn't disturb the
-  // others, or quietly retract them). Removing a page is what Unpublish is for.
+  // others, or quietly retract them). Removing a page is what Unpublish is for
+  // — with the one exception of pages retracted by suppression above.
   const ticked = input.fleets ? new Set(input.fleets) : null;
   const toBuild = ticked
     ? allFiles.filter((f) => ticked.has(f.fleetName))
     : allFiles;
 
   // Pages for fleets we're not rebuilding carry over verbatim — same sub-path,
-  // same (content-addressed) blob.
-  const carried = ticked
-    ? (existing?.pages ?? []).filter((p) => !ticked.has(p.fleetName))
-    : [];
+  // same (content-addressed) blob. Retracted pages never carry.
+  const retractedUrls = new Set(retracted.map((p) => p.blobUrl));
+  const carried = (
+    ticked ? (existing?.pages ?? []).filter((p) => !ticked.has(p.fleetName)) : []
+  ).filter((p) => !retractedUrls.has(p.blobUrl));
 
   if (toBuild.length === 0 && carried.length === 0) {
     throw new BadRequestError('no fleets selected to publish', {
@@ -197,13 +216,16 @@ export async function publishSeries(
 
   // Blobs the previous publication held that we're about to replace; deleted
   // after the row points at the new (content-addressed) objects. Carried pages
-  // keep their blob, so only the rebuilt fleets' old blobs are superseded.
+  // keep their blob, so only the rebuilt fleets' old blobs are superseded —
+  // plus any page retracted by suppression, whose blob has no successor.
   let supersededPages: PublishedSeriesPage[] = [];
   if (existing) {
     if (existing.contentHash === hash) return toResult(workspace.workspaceSlug, existing);
     supersededPages = ticked
       ? existing.pages.filter((p) => ticked.has(p.fleetName))
       : existing.pages;
+    const supersededUrls = new Set(supersededPages.map((p) => p.blobUrl));
+    supersededPages.push(...retracted.filter((p) => !supersededUrls.has(p.blobUrl)));
   }
 
   // Other publications sharing this slug (the slug is a shared namespace), with
