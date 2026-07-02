@@ -596,6 +596,49 @@ same override stack); and whether embedding is a true widget or just a well-docu
 link + canonical URL to start. The adoption argument is the point: the class's members
 discover the tool through the class's own site, in the class's own colours.
 
+### Splitting `Fleet` into a boat-group and a scoring view
+
+Today `Fleet` conflates two things: a **group of boats** (the Puppeteer one-design class,
+the "Cruisers" division) and a **scoring lens** (`scoringSystem` — one of
+`scratch|irc|py|nhc|echo|vprs`). One fleet = one method. So a class scored two ways —
+Puppeteer on scratch *and* on HPH, a common HYC layout — is modelled as **two fleets**
+sharing the same competitors and finishes (a `scratch` fleet plus a `py` fleet carrying
+each boat's HPH number). That works correctly today — `lib/competitor-ratings.ts` already
+handles a competitor sitting in several fleets with different systems — and the
+publishing-groups feature (compose several fleet-result sections onto one published page)
+is enough to *present* those two fleets as a single "Puppeteer" page with full per-race
+detail. Publishing groups are the near-term answer; this note is the deeper model that
+publishing groups would otherwise paper over.
+
+The cost of the two-fleets-per-class encoding is **authoring bloat, not incorrect
+scoring**: every class × N methods multiplies the fleet list, the Standings tabs, the
+publish dialog, and each competitor's `fleetIds`. For a panel scoring several classes each
+on scratch + HPH, the fleet count balloons and the duplicate membership is tedious to keep
+in sync. If that friction proves real, the principled fix is to split the concept:
+
+- **Fleet** (rename candidate: *class* / *division*) becomes purely a group of boats —
+  membership and identity, no `scoringSystem`.
+- **ScoringView** = (fleet × method + params) — the unit that actually produces a standings
+  table. One fleet yields several views (Puppeteer → scratch view + HPH view) without
+  duplicating membership. A published page composes views, and the existing per-fleet page
+  is just the single-view case.
+
+This keeps the *scoring engine* unchanged in spirit — a view scores exactly as a
+single-method fleet does now — while removing the membership duplication. The blast radius
+is the reason it's deferred: `scoringSystem` currently lives on `Fleet` and is read across
+scoring assembly (`lib/results-export.ts`), competitor ratings, race-fleet exclusions,
+per-fleet points, the `.sailscoring` file format, public JSON export, and publish
+sub-paths. All of those assume one system per fleet and would need to move to the view.
+The migration is mechanical but wide, and it's only worth it once publishing groups have
+shown that scorers genuinely want the multi-method layout at enough scale to make the
+duplicate-fleet authoring painful.
+
+The line to hold either way: a fleet/view composes **existing scored units**, never an
+arbitrary competitor *filter* ("just Club X across all fleets", "top 10 overall"). That
+selector model is Sailwave's, and it's the infinite-configurability trap this split is
+specifically *not* trying to open — see
+[Arbitrary competitor selectors](#arbitrary-competitor-selectors-flags--tags).
+
 ---
 
 ## Workspaces and sharing
