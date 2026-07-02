@@ -100,6 +100,7 @@ export interface Series {
   ftpHost: string;   // saved FTP server host for this series (empty if not yet published)
   ftpPath: string;   // legacy single path; falls back here when ftpPaths has no entry for a fleet (series uploaded before per-fleet paths landed)
   ftpPaths: Record<string, string>;  // last-uploaded remote path per fleet, keyed by fleetId
+  publishMode?: 'sailscoring' | 'ftp';  // which destination the Publish dialog opens in (default 'sailscoring'); 'ftp' only takes effect when the ftp-upload feature is enabled
   includeJsonExport: boolean;  // embed public JSON export in exported HTML (default true)
   publishRatingCalculations?: boolean;  // NHC/ECHO progressive rating-calculation explainability columns/header (default true)
   showPerRaceRatingsInSummary?: boolean;  // NHC/ECHO: render applied rating beneath each score in the summary table and add a seed-rating column (default true)

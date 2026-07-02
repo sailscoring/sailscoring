@@ -155,6 +155,10 @@ export const series = pgTable(
       .$type<Record<string, string>>()
       .notNull()
       .default(sql`'{}'::jsonb`),
+    publishMode: text('publish_mode')
+      .$type<'sailscoring' | 'ftp'>()
+      .notNull()
+      .default('sailscoring'),
     includeJsonExport: boolean('include_json_export').notNull().default(true),
     publishRatingCalculations: boolean('publish_rating_calculations')
       .notNull()

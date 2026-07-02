@@ -70,6 +70,9 @@ export const seriesSchema = z.object({
   ftpHost: z.string(),
   ftpPath: z.string(),
   ftpPaths: z.record(z.string(), z.string()),
+  // Which destination the Publish dialog opens in. Optional on the wire so
+  // sparse creation and older clients round-trip cleanly.
+  publishMode: z.enum(['sailscoring', 'ftp']).optional(),
   includeJsonExport: z.boolean(),
   publishRatingCalculations: z.boolean().optional(),
   showPerRaceRatingsInSummary: z.boolean().optional(),

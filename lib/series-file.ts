@@ -159,6 +159,7 @@ interface SeriesFileSeries {
   ftpHost: string;
   ftpPath: string;
   ftpPaths?: Record<string, string>;  // v4+; absent in older files
+  publishMode?: 'sailscoring' | 'ftp';  // additive; which Publish destination this series last used (absent = 'sailscoring')
   // Bilge publishing state was removed in ADR-008 Phase 9. The field is no
   // longer written; older files that still carry it are simply ignored on read.
   includeJsonExport: boolean;
@@ -422,6 +423,7 @@ export async function buildSeriesFile(
       ...(series.ftpPaths && Object.keys(series.ftpPaths).length > 0
         ? { ftpPaths: series.ftpPaths }
         : {}),
+      ...(series.publishMode ? { publishMode: series.publishMode } : {}),
       includeJsonExport: series.includeJsonExport ?? true,
       enabledCompetitorFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -758,6 +760,7 @@ export async function openSeriesFromFile(
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
+    publishMode: file.series.publishMode,
     includeJsonExport: file.series.includeJsonExport,
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
@@ -836,6 +839,7 @@ export async function restoreSeriesFromFile(
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
+    publishMode: file.series.publishMode,
     includeJsonExport: file.series.includeJsonExport,
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
@@ -905,6 +909,7 @@ export async function updateSeriesFromFile(
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
+    publishMode: file.series.publishMode,
     includeJsonExport: file.series.includeJsonExport,
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
