@@ -101,6 +101,8 @@ export interface Series {
   ftpPath: string;   // legacy single path; falls back here when ftpPaths has no entry for a fleet (series uploaded before per-fleet paths landed)
   ftpPaths: Record<string, string>;  // last-uploaded remote path per fleet, keyed by fleetId
   publishMode?: 'sailscoring' | 'ftp';  // which destination the Publish dialog opens in (default 'sailscoring'); 'ftp' only takes effect when the ftp-upload feature is enabled
+  ftpLastUploadedAt?: number;   // epoch ms of the last successful FTP upload (absent = never uploaded)
+  ftpUploadedVersion?: number;  // series version reflected by that upload; drives the "N edits since" indicator, mirroring the in-app publishedVersion
   includeJsonExport: boolean;  // embed public JSON export in exported HTML (default true)
   publishRatingCalculations?: boolean;  // NHC/ECHO progressive rating-calculation explainability columns/header (default true)
   showPerRaceRatingsInSummary?: boolean;  // NHC/ECHO: render applied rating beneath each score in the summary table and add a seed-rating column (default true)

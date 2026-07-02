@@ -162,16 +162,28 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
     // exactly what the user typed (#131). Merge into existing ftpPaths so
     // fleets that weren't uploaded this round retain their prior entry —
     // merging into the freshest row, not the prop, so an in-flight save's
-    // entries survive.
+    // entries survive. Stamp the upload provenance too: this write bumps the
+    // series version by one, so `current.version + 1` is the version this
+    // upload reflects — comparing the live version against it later yields the
+    // "N edits since" count, exactly like the in-app publishedVersion.
     await updateSeries.mutateAsync({
       id: series.id,
       patch: (current) => ({
         ftpHost: server.host,
         ftpPaths: { ...(current.ftpPaths ?? {}), ...uploadedPaths },
+        ftpLastUploadedAt: Date.now(),
+        ftpUploadedVersion: (current.version ?? 1) + 1,
       }),
     });
     setUploadState({ success: true });
   }
+
+  // Edits landed since the last successful upload — mirrors the in-app
+  // publish indicator (series.version − the version that upload reflected).
+  const pendingEdits =
+    series.ftpLastUploadedAt != null
+      ? Math.max(0, (series.version ?? 1) - (series.ftpUploadedVersion ?? (series.version ?? 1)))
+      : 0;
 
   const noServers = ftpServers !== undefined && ftpServers.length === 0;
   const uploading = uploadState === 'uploading';
@@ -186,6 +198,17 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
 
   return (
     <>
+      {series.ftpLastUploadedAt != null && (
+        <p className="text-xs text-muted-foreground">
+          Last uploaded {new Date(series.ftpLastUploadedAt).toLocaleString()}
+          {pendingEdits > 0 && (
+            <span className="text-amber-600 dark:text-amber-400">
+              {' · '}
+              {pendingEdits} edit{pendingEdits === 1 ? '' : 's'} since — re-upload to update
+            </span>
+          )}
+        </p>
+      )}
       {noServers ? (
         <p className="text-sm text-muted-foreground">
           No FTP servers configured.{' '}

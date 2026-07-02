@@ -159,6 +159,8 @@ export const series = pgTable(
       .$type<'sailscoring' | 'ftp'>()
       .notNull()
       .default('sailscoring'),
+    ftpLastUploadedAt: timestamp('ftp_last_uploaded_at', { withTimezone: true }),
+    ftpUploadedVersion: integer('ftp_uploaded_version'),
     includeJsonExport: boolean('include_json_export').notNull().default(true),
     publishRatingCalculations: boolean('publish_rating_calculations')
       .notNull()

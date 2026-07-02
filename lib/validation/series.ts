@@ -73,6 +73,9 @@ export const seriesSchema = z.object({
   // Which destination the Publish dialog opens in. Optional on the wire so
   // sparse creation and older clients round-trip cleanly.
   publishMode: z.enum(['sailscoring', 'ftp']).optional(),
+  // FTP upload provenance for the "last uploaded · N edits since" indicator.
+  ftpLastUploadedAt: epochMsSchema.optional(),
+  ftpUploadedVersion: z.number().int().optional(),
   includeJsonExport: z.boolean(),
   publishRatingCalculations: z.boolean().optional(),
   showPerRaceRatingsInSummary: z.boolean().optional(),
