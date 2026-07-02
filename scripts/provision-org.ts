@@ -617,7 +617,7 @@ function parseArgs(argv: string[]): ParsedFlags {
 function usage(): string {
   return `provision-org — ADR-008 Phase 7 manual org administration
 
-  create-org <name> [--slug <slug>] [--enable-feature <key[,key...]>]
+  create-org <name> [--slug <slug>] [--enable-feature <key[,key...]>] [--owner <email>]
   delete-org <org-slug-or-id> [--force]
   pre-create-user <email> --name <full-name>
   seed-samples <email>
@@ -672,6 +672,15 @@ export async function runCli(argv: string[]): Promise<number> {
         console.log(`created org "${result.name}" (slug: ${result.slug}, id: ${result.id})`);
         if (enabledFeatures.length > 0) {
           console.log(`  features: ${enabledFeatures.join(', ')}`);
+        }
+        const owner = flags.owner;
+        if (owner && owner !== 'true') {
+          const membership = await addMember(db, {
+            orgSlugOrId: result.id,
+            email: owner,
+            role: 'owner',
+          });
+          console.log(`  owner: ${owner} (role: ${membership.role})`);
         }
         return 0;
       }

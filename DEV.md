@@ -36,6 +36,19 @@ want when validating a large new feature.
 - **No user or workspace exists.** Sign up through the app's normal
   flow, or seed one with `pnpm provision-org:test` (creates an org, adds
   members) if the feature needs an existing workspace.
+- **To create a workspace with gated features on (e.g. `sub-series`,
+  `combined-pages`) and yourself as owner**, do it in one command — the
+  owner must already exist (sign in once first):
+
+  ```bash
+  pnpm provision-org:test create-org test \
+    --enable-feature sub-series,combined-pages \
+    --owner you@example.com
+  ```
+
+  Feature keys come from `lib/features.ts`; see
+  `docs/workspace-provisioning.md` for `enable-feature` /
+  `disable-feature` on an existing workspace.
 - **Inspect state** with `pnpm db:psql:test -c "..."` for one-shot SQL,
   or `pnpm db:studio` for a GUI (note: `db:studio` reads `.env.local`'s
   `DATABASE_URL`).
