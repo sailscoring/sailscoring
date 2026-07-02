@@ -253,8 +253,9 @@ export default function CompetitorsPage({
     },
     { key: '/', description: 'Filter competitors', section: 'Competitors', handler: () => filterInputRef.current?.focus() },
     {
-      key: 'D',
-      displayKeys: ['⇧D'],
+      // Not Shift+D — that's the global dark-mode toggle.
+      key: 'Delete',
+      displayKeys: ['Del'],
       description: 'Delete selected competitors',
       section: 'Competitors',
       when: () => !readOnly && selectedCount > 0,
