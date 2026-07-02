@@ -245,24 +245,28 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
               />
             </div>
           ) : (
-            <>
-              <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+            <div className="space-y-1">
+              {/* One line per fleet — checkbox · name · path — mirroring the
+                  Sail Scoring destination's fleet list. */}
+              <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground pb-1 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={toggleAll}
                   className="h-4 w-4 shrink-0"
+                  aria-label="All fleets"
                 />
-                All fleets
+                <span className="flex-1">Fleet</span>
+                <span>Path</span>
               </label>
-              {fleets.map((fleet, i) => {
-                const checked = selected.has(fleet.id);
-                return (
-                  <div
-                    key={fleet.id}
-                    className={`space-y-1.5 ${checked ? '' : 'opacity-50'}`}
-                  >
-                    <div className="flex items-center gap-2">
+              <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+                {fleets.map((fleet, i) => {
+                  const checked = selected.has(fleet.id);
+                  return (
+                    <div
+                      key={fleet.id}
+                      className={`flex items-center gap-2 ${checked ? '' : 'opacity-50'}`}
+                    >
                       <input
                         type="checkbox"
                         checked={checked}
@@ -270,20 +274,26 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
                         className="h-4 w-4 shrink-0"
                         aria-label={`Upload ${fleet.name}`}
                       />
-                      <Label htmlFor={`ftp-path-${i}`}>{fleet.name} path</Label>
+                      <span
+                        className="w-36 shrink-0 truncate text-sm"
+                        title={fleet.name}
+                      >
+                        {fleet.name}
+                      </span>
+                      <Input
+                        id={`ftp-path-${i}`}
+                        value={fleetPaths[i] ?? ''}
+                        onChange={(e) => setPath(i, e.target.value)}
+                        placeholder={`/public_html/results/series-${seriesSlug(fleet.name)}.html`}
+                        disabled={!checked}
+                        aria-label={`${fleet.name} path`}
+                        className="flex-1 min-w-0 h-7 text-xs font-mono"
+                      />
                     </div>
-                    <Input
-                      id={`ftp-path-${i}`}
-                      value={fleetPaths[i] ?? ''}
-                      onChange={(e) => setPath(i, e.target.value)}
-                      placeholder={`/public_html/results/series-${seriesSlug(fleet.name)}.html`}
-                      autoFocus={i === 0}
-                      disabled={!checked}
-                    />
-                  </div>
-                );
-              })}
-            </>
+                  );
+                })}
+              </div>
+            </div>
           )}
           {typeof uploadState === 'object' && uploadState.success && (
             <p className="text-sm text-green-600 dark:text-green-400">Uploaded successfully.</p>
