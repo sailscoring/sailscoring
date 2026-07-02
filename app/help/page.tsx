@@ -290,6 +290,17 @@ export default async function HelpPage() {
           with the entry.
         </p>
         <p>
+          The same selection also drives{' '}
+          <strong className="text-foreground">Set field…</strong>, which writes one value to
+          every selected competitor — say, setting the Club of thirty entries to{' '}
+          <em>HYC</em> in one go. The value box suggests the values already in use, so
+          near-misses like <em>HYC</em> vs <em>Howth YC</em> are easy to spot and unify.
+          Leaving the value empty clears the field instead. Only descriptive fields are
+          offered (club, class, nationality, gender, and any division axes); handicap
+          ratings have their own <strong className="text-foreground">Update handicaps</strong>{' '}
+          dialog with rules for already-scored races.
+        </p>
+        <p>
           <strong className="text-foreground">Find duplicates</strong> automates the common case:
           it groups entries with the same sail number and fleet, keeps the copy with recorded
           results (or the most complete, oldest one) and selects the extras for you to review and

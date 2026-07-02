@@ -42,6 +42,10 @@ import {
 import { AlertTriangle } from 'lucide-react';
 import { CompetitorImport, type CompetitorImportHandle } from '@/components/competitor-import';
 import {
+  bulkEditFieldOptions,
+  CompetitorBulkEditDialog,
+} from '@/components/competitor-bulk-edit-dialog';
+import {
   CompetitorAuditLine,
   CompetitorForm,
   emptyCompetitorForm,
@@ -137,7 +141,9 @@ export default function CompetitorsPage({
   const [filter, setFilter] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
-  const [dupeMessage, setDupeMessage] = useState<string | null>(null);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  // Result line for the bulk actions (duplicate scan, field set).
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const editingRowRef = useRef<HTMLTableRowElement | null>(null);
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const importRef = useRef<CompetitorImportHandle>(null);
@@ -181,7 +187,7 @@ export default function CompetitorsPage({
   // keeper heuristic, so fetch them here rather than waiting on the
   // selection-gated query above.
   async function handleFindDuplicates() {
-    setDupeMessage(null);
+    setStatusMessage(null);
     const seriesFinishes = await queryClient.fetchQuery({
       queryKey: queryKeys.finishes.bySeries(seriesId),
       queryFn: () => finishRepo.listBySeries(seriesId),
@@ -194,11 +200,11 @@ export default function CompetitorsPage({
     const groups = findDuplicateGroups(competitors ?? [], counts);
     const ids = duplicateDeletionIds(groups);
     if (ids.length === 0) {
-      setDupeMessage('No duplicates found.');
+      setStatusMessage('No duplicates found.');
       return;
     }
     setSelectedIds((prev) => new Set([...prev, ...ids]));
-    setDupeMessage(
+    setStatusMessage(
       `${groups.length} duplicate group${groups.length === 1 ? '' : 's'} found — the extra copies are selected. Review, then delete.`,
     );
   }
@@ -240,6 +246,7 @@ export default function CompetitorsPage({
   }, [editingCompetitor]);
 
   const hasHandicapFleet = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
+  const bulkFieldOptions = bulkEditFieldOptions(enabledFields, axes);
 
   useShortcuts([
     { key: 'n', description: 'Add competitor', section: 'Competitors', handler: () => setShowAddForm(true) },
@@ -252,6 +259,13 @@ export default function CompetitorsPage({
       handler: () => updateHandicapsRef.current?.open(),
     },
     { key: '/', description: 'Filter competitors', section: 'Competitors', handler: () => filterInputRef.current?.focus() },
+    {
+      key: 's',
+      description: 'Set a field on selected competitors',
+      section: 'Competitors',
+      when: () => !readOnly && selectedCount > 0 && bulkFieldOptions.length > 0,
+      handler: () => setBulkEditOpen(true),
+    },
     {
       // Not Shift+D — that's the global dark-mode toggle.
       key: 'Delete',
@@ -380,7 +394,7 @@ export default function CompetitorsPage({
     await deleteCompetitors.mutateAsync({ ids, seriesId });
     setSelectedIds(new Set());
     setConfirmingBulkDelete(false);
-    setDupeMessage(null);
+    setStatusMessage(null);
   }
 
   const existingCompetitors = (competitors ?? []).map((c) => ({ sailNumber: c.sailNumber.toUpperCase(), fleetIds: c.fleetIds }));
@@ -474,6 +488,15 @@ export default function CompetitorsPage({
               <p className="text-sm text-muted-foreground">
                 {selectedCount} selected
               </p>
+              {bulkFieldOptions.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBulkEditOpen(true)}
+                >
+                  Set field…
+                </Button>
+              )}
               <Button
                 variant="destructive"
                 size="sm"
@@ -486,16 +509,16 @@ export default function CompetitorsPage({
                 size="sm"
                 onClick={() => {
                   setSelectedIds(new Set());
-                  setDupeMessage(null);
+                  setStatusMessage(null);
                 }}
               >
                 Clear selection
               </Button>
             </>
           )}
-          {dupeMessage && (
+          {statusMessage && (
             <p className="text-sm text-muted-foreground" role="status">
-              {dupeMessage}
+              {statusMessage}
             </p>
           )}
         </div>
@@ -660,6 +683,18 @@ export default function CompetitorsPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {!readOnly && (
+        <CompetitorBulkEditDialog
+          open={bulkEditOpen}
+          onOpenChange={setBulkEditOpen}
+          seriesId={seriesId}
+          selected={selectedCompetitors}
+          allCompetitors={competitors ?? []}
+          options={bulkFieldOptions}
+          onApplied={setStatusMessage}
+        />
+      )}
 
       {/* Edit dialog */}
       <Dialog open={editingCompetitor !== null} onOpenChange={(open) => { if (!open) setEditingCompetitor(null); }}>

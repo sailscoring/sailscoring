@@ -8,6 +8,7 @@ import {
   updateHandicaps,
   type HandicapUpdateRow,
 } from '@/lib/api-repository';
+import type { CompetitorFieldPatch } from '@/lib/repository';
 import type { AuditStamp, Competitor } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
@@ -87,6 +88,26 @@ export function useUpdateHandicaps(seriesId: string) {
       updateHandicaps(seriesId, updates, { freezeScoredRaces }),
     onSuccess: async () => {
       qc.invalidateQueries({ queryKey: queryKeys.competitors.bySeries(seriesId) });
+      // See useSaveCompetitor — keep the cached series row's version fresh.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
+    },
+    scope: { id: 'competitors' },
+  });
+}
+
+/**
+ * Bulk one-field write for the multi-select "Set field…" action: one
+ * round-trip and one activity entry for the whole selection.
+ */
+export function useUpdateCompetitorsField() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, seriesId, patch }: { ids: string[]; seriesId: string; patch: CompetitorFieldPatch }) =>
+      competitorRepo.updateMany(seriesId, ids, patch),
+    onSuccess: async (_void, { seriesId }) => {
+      qc.invalidateQueries({
+        queryKey: queryKeys.competitors.bySeries(seriesId),
+      });
       // See useSaveCompetitor — keep the cached series row's version fresh.
       await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
