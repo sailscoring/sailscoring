@@ -167,3 +167,75 @@ describe('buildFleetHtmlFiles — combined pages', () => {
     ]);
   });
 });
+
+describe('buildFleetHtmlFiles — combined pages on a block series (#255)', () => {
+  // Two blocks over the same race; Spring is fleet-scoped so it scores only
+  // the two Puppeteer fleets, exercising the membership ∩ block-fleets rule.
+  const SUB_SERIES = [
+    { id: 'ss-w', seriesId: 's1', name: 'Winter', displayOrder: 0, raceIds: ['r1'] },
+    { id: 'ss-s', seriesId: 's1', name: 'Spring', displayOrder: 1, raceIds: ['r1'], fleetIds: ['f-scratch', 'f-hph'] },
+  ];
+
+  function makeBlockRepos(series: Series): ExportRepos {
+    return {
+      ...makeRepos(series),
+      subSeriesRepo: { listBySeries: async () => SUB_SERIES },
+    } as unknown as ExportRepos;
+  }
+
+  it('an Overall group renders one combined page per block, leading each cluster', async () => {
+    const files = await buildFleetHtmlFiles(makeBlockRepos(makeSeries([OVERALL])), 's1');
+    expect(files!.map((f) => `${f.subSeriesName}/${f.fleetName}`)).toEqual([
+      'Winter/Overall',
+      'Winter/Puppeteer Scratch',
+      'Winter/Puppeteer HPH',
+      'Winter/IRC 1',
+      'Spring/Overall',
+      'Spring/Puppeteer Scratch',
+      'Spring/Puppeteer HPH',
+    ]);
+    const winterOverall = files![0];
+    expect(winterOverall.isCombined).toBe(true);
+    // The Winter Overall carries all three fleets scored in Winter…
+    expect(winterOverall.html.match(/class="summarytable"/g)).toHaveLength(3);
+    expect(winterOverall.html).toContain('Winter');
+    // …while the Spring Overall covers only the block's scoped fleets.
+    const springOverall = files!.find(
+      (f) => f.subSeriesName === 'Spring' && f.isCombined,
+    )!;
+    expect(springOverall.html.match(/class="summarytable"/g)).toHaveLength(2);
+    expect(springOverall.html).not.toContain('<h2>IRC 1</h2>');
+  });
+
+  it('a replace-members group suppresses standalone pages per block', async () => {
+    const files = await buildFleetHtmlFiles(makeBlockRepos(makeSeries([PUPPETEER])), 's1');
+    expect(files!.map((f) => `${f.subSeriesName}/${f.fleetName}`)).toEqual([
+      'Winter/Puppeteer',
+      'Winter/IRC 1',
+      'Spring/Puppeteer',
+    ]);
+    // Full detail: each block's combined page carries its members' race tables.
+    for (const f of files!.filter((x) => x.isCombined)) {
+      expect(f.html.match(/class="racetable"/g)).toHaveLength(2);
+    }
+  });
+
+  it('a chosen group with no members in a block renders no page there and suppresses nothing', async () => {
+    const ircOnly: PublishingGroup = {
+      ...PUPPETEER,
+      name: 'IRC Combined',
+      fleetIds: ['f-irc'],
+    };
+    const files = await buildFleetHtmlFiles(makeBlockRepos(makeSeries([ircOnly])), 's1');
+    // Winter: IRC 1 publishes only through the combined page. Spring's block
+    // scoping excludes IRC 1 entirely, so Spring has no combined page and its
+    // fleets are untouched.
+    expect(files!.map((f) => `${f.subSeriesName}/${f.fleetName}`)).toEqual([
+      'Winter/IRC Combined',
+      'Winter/Puppeteer Scratch',
+      'Winter/Puppeteer HPH',
+      'Spring/Puppeteer Scratch',
+      'Spring/Puppeteer HPH',
+    ]);
+  });
+});

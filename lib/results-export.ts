@@ -73,9 +73,11 @@ export interface FleetHtmlFile {
 }
 
 /** Build one HTML string per page: per fleet (or per (sub-series, fleet) when
- *  the series has blocks) — plus, for a blockless multi-fleet series, one
- *  combined page per publishing group, listed first. Fleets suppressed by a
- *  group ("don't publish members individually") get no standalone entry. */
+ *  the series has blocks) — plus, for a multi-fleet series, one combined page
+ *  per publishing group, leading its view's cluster. On a block series a
+ *  group applies within each block (one combined page per (block, group)).
+ *  Fleets suppressed by a group ("don't publish members individually") get no
+ *  standalone entry in the views where the group covers them. */
 export async function buildFleetHtmlFiles(
   // Only the six read repos are needed (same surface as `buildPublicExport`),
   // so this accepts the narrower `ExportRepos` — that lets the server publish
@@ -406,6 +408,51 @@ export async function buildFleetHtmlFiles(
   return assemblerByFleetId;
   };
 
+  // Render one view — the whole series, or one block — with its combined
+  // pages (#255) leading the view's page cluster. Groups compose sections
+  // over ONE race set, so on a block series a group applies *within each
+  // block*: membership and suppression both resolve against the fleets the
+  // view actually scores (block fleet-scoping bounds both), and each block
+  // gets its own combined page. Single-fleet series have nothing to combine.
+  const renderViewWithGroups = (
+    viewFleetResults: typeof fleetResults,
+    viewRaces: typeof races,
+    subSeriesName?: string,
+  ) => {
+    const viewFleets = viewFleetResults.map((fr) => fr.fleet);
+    const groupsApply = !isSingleDefault;
+    const resolvedGroups = groupsApply
+      ? resolvePublishingGroups(series.publishingGroups, viewFleets).filter(producesPage)
+      : [];
+    const suppressed = groupsApply
+      ? suppressedFleetIds(series.publishingGroups, viewFleets)
+      : undefined;
+
+    const clusterStart = results.length;
+    const assemblerByFleetId = renderView(viewFleetResults, viewRaces, subSeriesName, suppressed);
+
+    // Combined pages lead the cluster — the series index and preview show
+    // them first, ahead of the per-fleet pages they aggregate.
+    const combined: FleetHtmlFile[] = resolvedGroups.map(({ group, fleets: members }) => {
+      const sections = members.map((f) =>
+        // Per-section anchor prefix so `#r1` links stay unambiguous when
+        // several fleets' race tables share the document.
+        assemblerByFleetId.get(f.id)!(`${seriesSlug(f.name)}-`),
+      );
+      return {
+        fleetName: group.name,
+        isDefault: false,
+        isCombined: true,
+        ...(subSeriesName ? { subSeriesName } : {}),
+        html: renderCombinedSeriesHtml(sections, {
+          pageName: group.name,
+          standingsOnly: group.detail === 'standings',
+        }),
+      };
+    });
+    results.splice(clusterStart, 0, ...combined);
+  };
+
   if (subSeries.length > 0) {
     const blockResults = calculateSubSeriesFleetStandings(
       subSeries,
@@ -421,41 +468,10 @@ export async function buildFleetHtmlFiles(
     for (const block of blockResults) {
       if (block.races.length === 0) continue;
       const renumbered = block.races.map((r, i) => ({ ...r, raceNumber: i + 1 }));
-      renderView(block.fleetStandings, renumbered, block.subSeries.name);
+      renderViewWithGroups(block.fleetStandings, renumbered, block.subSeries.name);
     }
   } else {
-    // Combined pages (#255) apply only to a blockless multi-fleet series: a
-    // single fleet has nothing to combine, and a series with sub-series
-    // publishes its own (block × fleet) page grid.
-    const groupsApply = !isSingleDefault;
-    const resolvedGroups = groupsApply
-      ? resolvePublishingGroups(series.publishingGroups, fleets).filter(producesPage)
-      : [];
-    const suppressed = groupsApply
-      ? suppressedFleetIds(series.publishingGroups, fleets)
-      : undefined;
-
-    const assemblerByFleetId = renderView(fleetResults, races, undefined, suppressed);
-
-    // Combined pages lead the list — the series index and preview show them
-    // first, ahead of the per-fleet pages they aggregate.
-    const combined: FleetHtmlFile[] = resolvedGroups.map(({ group, fleets: members }) => {
-      const sections = members.map((f) =>
-        // Per-section anchor prefix so `#r1` links stay unambiguous when
-        // several fleets' race tables share the document.
-        assemblerByFleetId.get(f.id)!(`${seriesSlug(f.name)}-`),
-      );
-      return {
-        fleetName: group.name,
-        isDefault: false,
-        isCombined: true,
-        html: renderCombinedSeriesHtml(sections, {
-          pageName: group.name,
-          standingsOnly: group.detail === 'standings',
-        }),
-      };
-    });
-    results.unshift(...combined);
+    renderViewWithGroups(fleetResults, races);
   }
 
   return results.length > 0 ? results : null;
