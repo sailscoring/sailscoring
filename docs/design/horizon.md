@@ -111,10 +111,21 @@ upload (repeatable — re-uploading syncs changes). See
 `https://www.racingrulesofsailing.org/pages/help/sailwave_import`.
 
 Sail Scoring could offer the same: the scorer pastes an RRS event UUID into a series and
-pushes its competitors to RRS.org, re-pushing on change. The fields RRS.org accepts map
-cleanly onto our competitor model — Class, Division, Boat Name, SailNo, NAT, HelmName
-(→ First/Last Name), Email, Phone, MNA No., Club Name — so this is mostly a transport
-question, not a data-model one.
+pushes its competitors to RRS.org, re-pushing on change. Most of the fields RRS.org
+accepts already map cleanly onto our competitor model — Class, Division, Boat Name,
+SailNo, NAT, HelmName (→ First/Last Name), MNA No., Club Name — so for those it is a
+transport question, not a data-model one.
+
+Two fields RRS.org wants, though — **Email** and **Phone** — Sail Scoring deliberately
+does *not* store. Contact details belong to the event-management / entry system, not the
+scoring engine (they are never needed to compute or publish a result), and holding them
+purely to relay them onward to RRS.org is not a trade worth making. So rather than push
+them from stored data, the cleaner design is to do the RRS.org hand-off **at CSV-import
+time**: the "import competitors from CSV" dialog gains an "also push to RRS.org" option,
+reads the email / phone columns straight out of the uploaded CSV, sends them to RRS.org
+alongside the rest, and discards them — they never land in the Sail Scoring data model.
+The entry system already owns that data; Sail Scoring becomes a convenient relay point
+for it without becoming a store of record for private info.
 
 Open questions: RRS.org publishes the Sailwave plugin's behaviour but not a documented
 public API or its terms for third-party clients — the integration contract (endpoint,
@@ -154,6 +165,29 @@ authoritative for "this has been actioned" so a decision isn't double-applied or
 dropped. Pairs naturally with the changelog/snapshot-history work under *Scoring records and
 audit trail* — a resolution sourced from an RRS.org decision is exactly the kind of change
 that wants an attributed, linkable audit entry.
+
+### Calculate age divisions from date of birth at import
+
+Age divisions — Masters, Juniors, U21, and the like — genuinely affect scoring and
+prize-giving, so a competitor's *age* is a legitimate scoring field (it already exists,
+added for IODAI). Its **date of birth** is not: it is far more sensitive, and there is no
+single "age" formula anyway — classes and events reckon it differently (age on the first
+day of the event, age as of the preceding 1 January, whole crew under a limit vs. helm
+only, and different bands per event: Optimists 8–15, ILCA 30 to 75+, ICRA under-25).
+
+So Sail Scoring should never store DOB, but it could still *calculate from* one. The
+"import competitors from CSV" dialog could accept a DOB column and, under a rule the
+scorer selects for that event, compute each competitor's age at import time — keeping the
+age and discarding the DOB. That gives events entering DOB (as an ILCA event might) their
+age prizes without Sail Scoring becoming a store of dates of birth. Same "compute at
+import, discard the sensitive input" shape as the email/phone relay in the RRS.org push
+above; DOB, email, and phone are all event-management data with their own GDPR weight,
+kept out of the scoring store by design.
+
+Open question is mostly the rule catalogue: enumerate the age-reckoning conventions worth
+supporting (and how the band definitions themselves are configured per event) versus
+leaving age categorisation to be finished upstream, in the entry system, before the CSV
+reaches Sail Scoring — which several scorers consider the safest place for it.
 
 ### Reconciling competitor identity with external member databases
 
