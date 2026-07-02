@@ -300,7 +300,12 @@ export default async function HelpPage() {
           Leaving the value empty clears the field instead. Only descriptive fields are
           offered (club, class, nationality, gender, and any division axes); handicap
           ratings have their own <strong className="text-foreground">Update handicaps</strong>{' '}
-          dialog with rules for already-scored races.
+          dialog with rules for already-scored races. In a multi-fleet series the field
+          list also offers <strong className="text-foreground">Fleet</strong>, which adds
+          the selection to a fleet or removes it from one rather than writing a value.
+          Boats a removal would leave with no fleet are kept, and removing a boat from a
+          fleet drops it from that fleet&apos;s standings and entry counts — its recorded
+          finishes stay on the races.
         </p>
         <p>
           <strong className="text-foreground">Find duplicates</strong> automates the common case:

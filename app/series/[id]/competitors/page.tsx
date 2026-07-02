@@ -246,7 +246,7 @@ export default function CompetitorsPage({
   }, [editingCompetitor]);
 
   const hasHandicapFleet = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
-  const bulkFieldOptions = bulkEditFieldOptions(enabledFields, axes);
+  const bulkFieldOptions = bulkEditFieldOptions(enabledFields, axes, fleets ?? []);
 
   useShortcuts([
     { key: 'n', description: 'Add competitor', section: 'Competitors', handler: () => setShowAddForm(true) },

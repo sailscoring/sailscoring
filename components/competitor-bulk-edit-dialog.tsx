@@ -27,30 +27,37 @@ import {
   subdivisionAxisLabel,
 } from '@/lib/competitor-fields';
 import type { CompetitorFieldPatch } from '@/lib/repository';
-import type { Competitor, CompetitorFieldKey, SubdivisionAxis } from '@/lib/types';
+import type { Competitor, CompetitorFieldKey, Fleet, SubdivisionAxis } from '@/lib/types';
 
 /** One choice in the field dropdown. Subdivision axes contribute one entry
- *  each, so "Division" and "Age category" are picked directly by name. */
-export interface BulkEditFieldOption {
-  key: string;
-  label: string;
-  input: 'text' | 'nationality' | 'gender';
-  patchFor: (value: string) => CompetitorFieldPatch;
-  /** Reads the field off a competitor, feeding the datalist of existing
-   *  values — inconsistencies ("HYC" vs "Howth YC") show up right where the
-   *  scorer is about to fix them. */
-  suggestionFrom?: (c: Competitor) => string | undefined;
-}
+ *  each, so "Division" and "Age category" are picked directly by name.
+ *  Fleet is its own kind: membership is a set, so instead of a value box it
+ *  offers a fleet picker with an add/remove choice. */
+export type BulkEditFieldOption =
+  | {
+      key: string;
+      label: string;
+      input: 'text' | 'nationality' | 'gender';
+      patchFor: (value: string) => CompetitorFieldPatch;
+      /** Reads the field off a competitor, feeding the datalist of existing
+       *  values — inconsistencies ("HYC" vs "Howth YC") show up right where
+       *  the scorer is about to fix them. */
+      suggestionFrom?: (c: Competitor) => string | undefined;
+    }
+  | { key: 'fleet'; label: string; input: 'fleet'; fleets: Fleet[] };
 
 /**
  * The fields the bulk editor offers: descriptive/grouping fields only,
  * honouring the series' enabled-fields settings. Identity fields (sail
  * number, names) and handicap ratings (served by Update Handicaps, which
- * has freeze-past semantics) are deliberately excluded.
+ * has freeze-past semantics) are deliberately excluded. Fleet appears only
+ * when the series has more than one fleet — single-fleet series never show
+ * fleets anywhere.
  */
 export function bulkEditFieldOptions(
   enabledFields: readonly CompetitorFieldKey[],
   axes: readonly SubdivisionAxis[],
+  fleets: readonly Fleet[],
 ): BulkEditFieldOption[] {
   const options: BulkEditFieldOption[] = [];
   if (enabledFields.includes('club')) {
@@ -98,6 +105,9 @@ export function bulkEditFieldOptions(
       });
     }
   }
+  if (fleets.length > 1) {
+    options.push({ key: 'fleet', label: 'Fleet', input: 'fleet', fleets: [...fleets] });
+  }
   return options;
 }
 
@@ -130,6 +140,8 @@ export function CompetitorBulkEditDialog({
 }: Props) {
   const [fieldKey, setFieldKey] = useState<string | null>(null);
   const [value, setValue] = useState('');
+  const [fleetId, setFleetId] = useState('');
+  const [fleetOp, setFleetOp] = useState<'add' | 'remove'>('add');
   const update = useUpdateCompetitorsField();
   const listId = useId();
 
@@ -138,7 +150,7 @@ export function CompetitorBulkEditDialog({
   const option = options.find((o) => o.key === fieldKey) ?? options[0];
 
   const suggestions = useMemo(() => {
-    if (!option?.suggestionFrom) return [];
+    if (option?.input === 'fleet' || !option?.suggestionFrom) return [];
     const values = new Set<string>();
     for (const c of allCompetitors) {
       const v = option.suggestionFrom(c)?.trim();
@@ -147,17 +159,74 @@ export function CompetitorBulkEditDialog({
     return [...values].sort((a, b) => a.localeCompare(b));
   }, [allCompetitors, option]);
 
+  // Fleet mode: work out, from the rows in front of the scorer, what the op
+  // would actually change — boats already in (or not in) the fleet don't
+  // count, a remove keeps boats whose only fleet is the target, and an add
+  // that would duplicate a sail number within the fleet is blocked. The
+  // server re-derives all of this; the client's copy powers the button
+  // label, the hint line, and the status message.
+  const fleetPlan = useMemo(() => {
+    if (option?.input !== 'fleet') return null;
+    const fleet = option.fleets.find((f) => f.id === fleetId) ?? option.fleets[0];
+    if (!fleet) return null;
+    if (fleetOp === 'add') {
+      const eligible = selected.filter((c) => !c.fleetIds.includes(fleet.id));
+      const sailsInFleet = new Set(
+        allCompetitors
+          .filter((c) => c.fleetIds.includes(fleet.id))
+          .map((c) => c.sailNumber.trim().toUpperCase()),
+      );
+      const collisions = new Set<string>();
+      for (const c of eligible) {
+        const sail = c.sailNumber.trim().toUpperCase();
+        if (sailsInFleet.has(sail)) collisions.add(sail);
+        sailsInFleet.add(sail);
+      }
+      return { fleet, count: eligible.length, kept: 0, collisions: [...collisions].sort() };
+    }
+    const members = selected.filter((c) => c.fleetIds.includes(fleet.id));
+    const eligible = members.filter((c) => c.fleetIds.length > 1);
+    return {
+      fleet,
+      count: eligible.length,
+      kept: members.length - eligible.length,
+      collisions: [] as string[],
+    };
+  }, [option, fleetId, fleetOp, selected, allCompetitors]);
+
   const n = selected.length;
   const noun = `${n} competitor${n === 1 ? '' : 's'}`;
   const trimmed = value.trim();
 
   function handleOpenChange(next: boolean) {
-    if (!next) setValue('');
+    if (!next) {
+      setValue('');
+      setFleetOp('add');
+    }
     onOpenChange(next);
   }
 
   async function handleApply() {
     if (!option || n === 0) return;
+    if (option.input === 'fleet') {
+      if (!fleetPlan || fleetPlan.count === 0 || fleetPlan.collisions.length > 0) return;
+      await update.mutateAsync({
+        seriesId,
+        ids: selected.map((c) => c.id),
+        patch: { field: 'fleet', fleetId: fleetPlan.fleet.id, op: fleetOp },
+      });
+      const changedNoun = `${fleetPlan.count} competitor${fleetPlan.count === 1 ? '' : 's'}`;
+      onApplied(
+        fleetOp === 'add'
+          ? `Added ${changedNoun} to ${fleetPlan.fleet.name}.`
+          : `Removed ${changedNoun} from ${fleetPlan.fleet.name}.` +
+              (fleetPlan.kept > 0
+                ? ` ${fleetPlan.kept} kept — a competitor must belong to at least one fleet.`
+                : ''),
+      );
+      handleOpenChange(false);
+      return;
+    }
     await update.mutateAsync({
       seriesId,
       ids: selected.map((c) => c.id),
@@ -179,8 +248,9 @@ export function CompetitorBulkEditDialog({
         <DialogHeader>
           <DialogTitle>Set a field on {noun}</DialogTitle>
           <DialogDescription>
-            Writes one value to every selected competitor. Leave the value
-            empty to clear the field instead.
+            {option.input === 'fleet'
+              ? 'Adds or removes every selected competitor from a fleet.'
+              : 'Writes one value to every selected competitor. Leave the value empty to clear the field instead.'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -205,6 +275,70 @@ export function CompetitorBulkEditDialog({
               </SelectContent>
             </Select>
           </div>
+          {option.input === 'fleet' && fleetPlan && (
+            <>
+              <div className="space-y-1.5">
+                <Label>Action</Label>
+                <Select
+                  value={fleetOp}
+                  onValueChange={(v) => setFleetOp(v as 'add' | 'remove')}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="add">Add to fleet</SelectItem>
+                    <SelectItem value="remove">Remove from fleet</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="bulk-edit-value">Fleet</Label>
+                <Select value={fleetPlan.fleet.id} onValueChange={setFleetId}>
+                  <SelectTrigger id="bulk-edit-value">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {option.fleets.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {fleetPlan.collisions.length > 0 && (
+                <p className="text-sm text-destructive">
+                  Adding would duplicate sail number
+                  {fleetPlan.collisions.length === 1 ? '' : 's'} in{' '}
+                  {fleetPlan.fleet.name}: {fleetPlan.collisions.join(', ')}.
+                </p>
+              )}
+              {fleetOp === 'add' &&
+                fleetPlan.collisions.length === 0 &&
+                fleetPlan.count < n && (
+                  <p className="text-sm text-muted-foreground">
+                    {fleetPlan.count === 0
+                      ? `All selected competitors are already in ${fleetPlan.fleet.name}.`
+                      : `${n - fleetPlan.count} of the selection ${n - fleetPlan.count === 1 ? 'is' : 'are'} already in ${fleetPlan.fleet.name}.`}
+                  </p>
+                )}
+              {fleetOp === 'remove' && fleetPlan.kept > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {fleetPlan.kept} of the selection will be kept — a competitor
+                  must belong to at least one fleet.
+                </p>
+              )}
+              {fleetOp === 'remove' &&
+                fleetPlan.count === 0 &&
+                fleetPlan.kept === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    None of the selected competitors are in {fleetPlan.fleet.name}.
+                  </p>
+                )}
+            </>
+          )}
+          {option.input !== 'fleet' && (
           <div className="space-y-1.5">
             <Label htmlFor="bulk-edit-value">Value</Label>
             {option.input === 'text' && (
@@ -244,14 +378,34 @@ export function CompetitorBulkEditDialog({
               </Select>
             )}
           </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleApply} disabled={update.isPending || n === 0}>
-            {trimmed ? `Apply to ${noun}` : `Clear for ${noun}`}
-          </Button>
+          {option.input === 'fleet' ? (
+            <Button
+              onClick={handleApply}
+              disabled={
+                update.isPending ||
+                n === 0 ||
+                !fleetPlan ||
+                fleetPlan.count === 0 ||
+                fleetPlan.collisions.length > 0
+              }
+            >
+              {fleetPlan
+                ? fleetOp === 'add'
+                  ? `Add to ${fleetPlan.fleet.name}`
+                  : `Remove from ${fleetPlan.fleet.name}`
+                : 'Apply'}
+            </Button>
+          ) : (
+            <Button onClick={handleApply} disabled={update.isPending || n === 0}>
+              {trimmed ? `Apply to ${noun}` : `Clear for ${noun}`}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
