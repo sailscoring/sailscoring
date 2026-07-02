@@ -255,7 +255,7 @@ export function CompetitorBulkEditDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Field</Label>
+            <Label htmlFor="bulk-edit-field">Field</Label>
             <Select
               value={option.key}
               onValueChange={(k) => {
@@ -263,7 +263,7 @@ export function CompetitorBulkEditDialog({
                 setValue('');
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger id="bulk-edit-field">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -278,12 +278,12 @@ export function CompetitorBulkEditDialog({
           {option.input === 'fleet' && fleetPlan && (
             <>
               <div className="space-y-1.5">
-                <Label>Action</Label>
+                <Label htmlFor="bulk-edit-op">Action</Label>
                 <Select
                   value={fleetOp}
                   onValueChange={(v) => setFleetOp(v as 'add' | 'remove')}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="bulk-edit-op">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
