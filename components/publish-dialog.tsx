@@ -18,6 +18,12 @@ import {
   unpublishSeries,
 } from '@/lib/api-repository';
 import { fleetSubPath } from '@/lib/publishing';
+import {
+  describeGroupMembers,
+  producesPage,
+  resolvePublishingGroups,
+  suppressedFleetIds,
+} from '@/lib/publishing-groups';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { FtpPublishPane } from '@/components/ftp-publish-pane';
@@ -52,14 +58,28 @@ function formatNameList(names: string[]): string {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
-/** One fleet's row state in the dialog. A fleet already published is *frozen*:
- *  its sub-path is fixed (like the slug) and shown read-only. A not-yet-published
- *  fleet is editable, seeded with the derived default sub-path. */
+/** One page row's state in the dialog — a fleet, or a combined page (its
+ *  name-keyed publishing group). A page already published is *frozen*: its
+ *  sub-path is fixed (like the slug) and shown read-only. A not-yet-published
+ *  page is editable, seeded with the derived default sub-path. */
 interface FleetRow {
   name: string;
   frozen: boolean;
-  /** Frozen fleets only: the live page URL, for the link + Copy. */
+  /** Frozen pages only: the live page URL, for the link + Copy. */
   publishedUrl: string | null;
+  /** Combined pages only: membership + detail summary, e.g.
+   *  `all fleets · standings only`. */
+  caption?: string;
+}
+
+/** A fleet whose standalone page a combined page replaces — listed so the
+ *  scorer sees where the fleet went, but not selectable or path-editable. */
+interface SuppressedRow {
+  name: string;
+  /** Combined page(s) the fleet publishes through. */
+  groupNames: string[];
+  /** The standalone page is currently live and will be taken down. */
+  retracts: boolean;
 }
 
 /**
@@ -84,6 +104,33 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // `{block}/{leaf}` paths, so the per-fleet URL editors don't apply.
   const { data: subSeriesList } = useSubSeriesBySeries(series.id);
   const hasBlocks = (subSeriesList?.length ?? 0) > 0;
+  // Combined pages (#255): defined on the Settings tab, *reflected* here.
+  // Shown whenever config exists — the feature gate hides only the editor.
+  // Groups don't apply to block or single-fleet series (mirrors the build).
+  const resolvedGroups = useMemo(
+    () =>
+      !hasBlocks && fleets.length > 1
+        ? resolvePublishingGroups(series.publishingGroups, fleets).filter(producesPage)
+        : [],
+    [series.publishingGroups, fleets, hasBlocks],
+  );
+  const suppressed = useMemo(
+    () =>
+      resolvedGroups.length > 0
+        ? suppressedFleetIds(series.publishingGroups, fleets)
+        : new Set<string>(),
+    [series.publishingGroups, fleets, resolvedGroups.length],
+  );
+  // The names that publish as pages this round: combined pages first, then
+  // the fleets that keep a standalone page — mirroring the build order. Pages
+  // are name-keyed, so groups ride the same selection/sub-path machinery.
+  const pageNames = useMemo(
+    () => [
+      ...resolvedGroups.map((r) => r.group.name.trim()),
+      ...fleets.filter((f) => !suppressed.has(f.id)).map((f) => f.name),
+    ],
+    [resolvedGroups, fleets, suppressed],
+  );
   const [status, setStatus] = useState<PublicationStatus | null>(null);
   const [slug, setSlug] = useState('');
   // Selected fleet names (the set to publish) and per-fleet editable sub-paths.
@@ -129,13 +176,13 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
         );
         const initSelected = new Set<string>();
         const initSubPaths: Record<string, string> = {};
-        for (const f of fleets) {
-          const isPub = publishedByName.has(f.name);
+        for (const name of pageNames) {
+          const isPub = publishedByName.has(name);
           // First publish: everything ticked. Re-publish: only what's already
-          // live, so re-publishing never silently adds a newly-created fleet.
-          if (!pub || isPub) initSelected.add(f.name);
-          // Editable sub-path only for not-yet-published fleets.
-          if (!isPub) initSubPaths[f.name] = defaultSubPath(f.name);
+          // live, so re-publishing never silently adds a newly-created page.
+          if (!pub || isPub) initSelected.add(name);
+          // Editable sub-path only for not-yet-published pages.
+          if (!isPub) initSubPaths[name] = defaultSubPath(name);
         }
         setStatus(s);
         setSlug(pub?.slug ?? s.suggestedSlug);
@@ -178,12 +225,40 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     const publishedByName = new Map(
       (published?.pages ?? []).map((p) => [p.fleetName, p.url]),
     );
-    return fleets.map((f) => ({
-      name: f.name,
-      frozen: publishedByName.has(f.name),
-      publishedUrl: publishedByName.get(f.name) ?? null,
+    const captionByGroupName = new Map(
+      resolvedGroups.map((r) => [
+        r.group.name.trim(),
+        `${describeGroupMembers(r)} · ${r.group.detail === 'standings' ? 'standings only' : 'full detail'}`,
+      ]),
+    );
+    return pageNames.map((name) => ({
+      name,
+      frozen: publishedByName.has(name),
+      publishedUrl: publishedByName.get(name) ?? null,
+      ...(captionByGroupName.has(name) ? { caption: captionByGroupName.get(name)! } : {}),
     }));
-  }, [fleets, published]);
+  }, [pageNames, resolvedGroups, published]);
+
+  // Fleets a combined page replaces: listed dimmed so the scorer sees where
+  // each fleet went, with a note when a currently-live standalone page will
+  // be taken down by this publish.
+  const suppressedRows = useMemo<SuppressedRow[]>(() => {
+    if (suppressed.size === 0) return [];
+    const publishedNames = new Set((published?.pages ?? []).map((p) => p.fleetName));
+    return fleets
+      .filter((f) => suppressed.has(f.id))
+      .map((f) => ({
+        name: f.name,
+        groupNames: resolvedGroups
+          .filter(
+            (r) =>
+              !r.group.publishMembersIndividually &&
+              r.fleets.some((m) => m.id === f.id),
+          )
+          .map((r) => r.group.name.trim()),
+        retracts: publishedNames.has(f.name),
+      }));
+  }, [fleets, suppressed, resolvedGroups, published]);
 
   // The sub-path each row resolves to (frozen path, or the editable value).
   const segmentFor = (row: FleetRow): string =>
@@ -359,12 +434,12 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     try {
       await unpublishSeries(series.id);
       // Back to the first-publish state: the slug input returns, pre-filled
-      // with the suggestion, and every fleet ticked again.
+      // with the suggestion, and every page ticked again.
       setStatus((s) => (s ? { ...s, published: null } : s));
       setSlug(status?.suggestedSlug ?? '');
-      setSelected(new Set(fleets.map((f) => f.name)));
+      setSelected(new Set(pageNames));
       setSubPaths(
-        Object.fromEntries(fleets.map((f) => [f.name, defaultSubPath(f.name)])),
+        Object.fromEntries(pageNames.map((name) => [name, defaultSubPath(name)])),
       );
       setSinglePath('standings');
       setPhase('idle');
@@ -471,7 +546,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                       onChange={toggleAll}
                       className="h-4 w-4 shrink-0"
                     />
-                    <span className="flex-1">Fleet</span>
+                    <span className="flex-1">{resolvedGroups.length > 0 ? 'Page' : 'Fleet'}</span>
                     <span>URL</span>
                   </label>
                   <div className="space-y-1 max-h-[50vh] overflow-y-auto">
@@ -502,6 +577,14 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                           >
                             {row.name}
                           </span>
+                          {row.caption && (
+                            <span
+                              className="shrink-0 max-w-44 truncate text-xs text-muted-foreground"
+                              title={row.caption}
+                            >
+                              {row.caption}
+                            </span>
+                          )}
                           {hasBlocks ? (
                             <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground">
                               one page per sub-series
@@ -541,6 +624,35 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                               Copy
                             </Button>
                           )}
+                        </div>
+                      );
+                    })}
+                    {/* Fleets a combined page replaces: visible so nothing
+                        reads as vanished, but not selectable — they publish
+                        through their group's page. */}
+                    {suppressedRows.map((row) => {
+                      const note = `→ in ${row.groupNames.join(', ')}${
+                        row.retracts ? ' · standalone page comes down on publish' : ''
+                      }`;
+                      return (
+                        <div
+                          key={`suppressed-${row.name}`}
+                          className="flex items-center gap-2 opacity-50"
+                          data-testid={`suppressed-fleet-${row.name}`}
+                        >
+                          <span className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span
+                            className="w-36 shrink-0 truncate text-sm"
+                            title={row.name}
+                          >
+                            {row.name}
+                          </span>
+                          <span
+                            className="flex-1 min-w-0 truncate text-xs text-muted-foreground"
+                            title={note}
+                          >
+                            {note}
+                          </span>
                         </div>
                       );
                     })}
