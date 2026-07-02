@@ -11,8 +11,10 @@ import { FleetsCard } from '@/components/series-settings/fleets-card';
 import { ScoringModeCard } from '@/components/series-settings/scoring-mode-card';
 import { CompetitorFieldsCard } from '@/components/series-settings/competitor-fields-card';
 import { PublishingCard } from '@/components/series-settings/publishing-card';
+import { CombinedPagesCard } from '@/components/series-settings/combined-pages-card';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
+import { useFeatures } from '@/components/features-provider';
 
 export default function SettingsPage({
   params,
@@ -21,6 +23,7 @@ export default function SettingsPage({
 }) {
   const { id: seriesId } = use(params);
   const { can } = useWorkspacePermissions();
+  const { has } = useFeatures();
   const { listSeriesNames } = repos;
   const { data: series, isLoading } = useSeries(seriesId);
   const { data: fleetsData } = useFleetsBySeries(seriesId);
@@ -92,6 +95,9 @@ export default function SettingsPage({
       />
       <CompetitorFieldsCard seriesId={seriesId} series={series} />
       <PublishingCard seriesId={seriesId} series={series} anyProgressiveFleet={anyProgressiveFleet} />
+      {/* Combined pages are gated (#155): only the authoring UI hides when
+          the feature is off — existing group config keeps publishing. */}
+      {has('combined-pages') && <CombinedPagesCard seriesId={seriesId} series={series} />}
     </div>
   );
 }

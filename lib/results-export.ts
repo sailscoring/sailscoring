@@ -11,7 +11,7 @@ import {
   assembleSeriesResultsData,
   type SeriesResultsData,
 } from './results-renderer';
-import { resolvePublishingGroups, suppressedFleetIds } from './publishing-groups';
+import { resolvePublishingGroups, suppressedFleetIds, producesPage } from './publishing-groups';
 import {
   buildPublicExportFromSnapshot,
   resolveSeriesLogoDefaults,
@@ -429,9 +429,7 @@ export async function buildFleetHtmlFiles(
     // publishes its own (block × fleet) page grid.
     const groupsApply = !isSingleDefault;
     const resolvedGroups = groupsApply
-      ? resolvePublishingGroups(series.publishingGroups, fleets).filter(
-          (r) => r.fleets.length > 0,
-        )
+      ? resolvePublishingGroups(series.publishingGroups, fleets).filter(producesPage)
       : [];
     const suppressed = groupsApply
       ? suppressedFleetIds(series.publishingGroups, fleets)

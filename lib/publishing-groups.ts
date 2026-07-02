@@ -63,10 +63,20 @@ export function suppressedFleetIds(
 ): Set<string> {
   const suppressed = new Set<string>();
   for (const { group, fleets: members } of resolvePublishingGroups(groups, fleets)) {
-    if (group.publishMembersIndividually || members.length === 0) continue;
+    // A group that renders no page (nameless while being set up, or with no
+    // surviving members) must not suppress anything — the members' standalone
+    // pages are all there is.
+    if (group.publishMembersIndividually || members.length === 0 || !group.name.trim()) continue;
     for (const f of members) suppressed.add(f.id);
   }
   return suppressed;
+}
+
+/** Whether a resolved group produces a page: it has a name and at least one
+ *  member. The build path and the publish dialog both filter on this, so a
+ *  half-configured group is inert everywhere until it's completed. */
+export function producesPage(resolved: ResolvedPublishingGroup): boolean {
+  return resolved.group.name.trim().length > 0 && resolved.fleets.length > 0;
 }
 
 /** Human summary of a group's membership for the settings card and publish
