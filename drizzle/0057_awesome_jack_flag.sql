@@ -1,0 +1,1 @@
+ALTER TABLE "series" ADD COLUMN "publishing_groups" jsonb DEFAULT '[]'::jsonb NOT NULL;

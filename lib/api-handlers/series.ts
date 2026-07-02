@@ -353,6 +353,11 @@ export async function copySeries(
       includeJsonExport: source.includeJsonExport,
       publishRatingCalculations: source.publishRatingCalculations ?? true,
       showPerRaceRatingsInSummary: source.showPerRaceRatingsInSummary ?? true,
+      // Combined pages follow their member fleets through the remap.
+      publishingGroups: (source.publishingGroups ?? []).map((g) => ({
+        ...g,
+        fleetIds: g.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
+      })),
       enabledCompetitorFields: source.enabledCompetitorFields,
       primaryPersonLabel: source.primaryPersonLabel,
       // Axis ids are series-local — carried verbatim so competitor
@@ -691,6 +696,11 @@ export async function createFollowOnSeries(
       includeJsonExport: source.includeJsonExport,
       publishRatingCalculations: source.publishRatingCalculations ?? true,
       showPerRaceRatingsInSummary: source.showPerRaceRatingsInSummary ?? true,
+      // Combined pages follow their member fleets through the remap.
+      publishingGroups: (source.publishingGroups ?? []).map((g) => ({
+        ...g,
+        fleetIds: g.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
+      })),
       enabledCompetitorFields: source.enabledCompetitorFields,
       primaryPersonLabel: source.primaryPersonLabel,
       subdivisionAxes: source.subdivisionAxes,

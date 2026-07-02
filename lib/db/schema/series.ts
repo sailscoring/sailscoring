@@ -29,6 +29,7 @@ import type {
   DiscardThreshold,
   NhcProfile,
   PrimaryPersonLabel,
+  PublishingGroup,
   RaceFleetExclusion,
   SeriesSource,
   StartGroup,
@@ -168,6 +169,13 @@ export const series = pgTable(
     showPerRaceRatingsInSummary: boolean('show_per_race_ratings_in_summary')
       .notNull()
       .default(true),
+    // Combined published pages (#255): several fleets rendered as sections of
+    // one page. JSONB — a small, ordered config list never queried by
+    // content, like subdivision_axes.
+    publishingGroups: jsonb('publishing_groups')
+      .$type<PublishingGroup[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     // Display.
     enabledCompetitorFields: jsonb('enabled_competitor_fields')
       .$type<CompetitorFieldKey[]>()

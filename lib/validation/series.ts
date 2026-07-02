@@ -6,9 +6,11 @@ import type {
   StartGroup,
   CompetitorFieldKey,
   PrimaryPersonLabel,
+  PublishingGroup,
 } from '@/lib/types';
 
 import { SUBDIVISION_LABEL_MAX_LENGTH } from '@/lib/competitor-fields';
+import { PUBLISHING_GROUP_NAME_MAX_LENGTH } from '@/lib/publishing-groups';
 
 import { epochMsSchema, isoDateSchema, uuidSchema, versionSchema } from './common';
 
@@ -47,6 +49,18 @@ export const raceFleetExclusionSchema = z.object({
   fleetId: uuidSchema,
 });
 
+/** Combined published page (#255). Name length is bounded here; the richer
+ *  rules (uniqueness, no clash with a fleet name, chosen mode needs members)
+ *  live in `lib/publishing-groups.ts` and are enforced by the editor. */
+export const publishingGroupSchema = z.object({
+  id: uuidSchema,
+  name: z.string().max(PUBLISHING_GROUP_NAME_MAX_LENGTH),
+  fleetMode: z.enum(['all', 'chosen']),
+  fleetIds: z.array(uuidSchema),
+  detail: z.enum(['standings', 'full']),
+  publishMembersIndividually: z.boolean(),
+});
+
 export const seriesSchema = z.object({
   id: uuidSchema,
   name: z.string(),
@@ -79,6 +93,9 @@ export const seriesSchema = z.object({
   includeJsonExport: z.boolean(),
   publishRatingCalculations: z.boolean().optional(),
   showPerRaceRatingsInSummary: z.boolean().optional(),
+  // Combined published pages (#255). Optional on the wire so sparse creation
+  // and older clients round-trip cleanly.
+  publishingGroups: z.array(publishingGroupSchema).optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
   primaryPersonLabel: primaryPersonLabelSchema,
   // Independent subdivision axes, e.g. a "Division" and an "Age category"
@@ -162,3 +179,8 @@ const _primaryFromZod: PrimaryPersonLabel = undefined as unknown as z.infer<type
 const _primaryFromTs: z.infer<typeof primaryPersonLabelSchema> = undefined as unknown as PrimaryPersonLabel;
 void _primaryFromZod;
 void _primaryFromTs;
+
+const _groupFromZod: PublishingGroup = undefined as unknown as z.infer<typeof publishingGroupSchema>;
+const _groupFromTs: z.infer<typeof publishingGroupSchema> = undefined as unknown as PublishingGroup;
+void _groupFromZod;
+void _groupFromTs;

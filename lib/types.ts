@@ -62,6 +62,34 @@ export interface Category {
  *  tagged; `.sailscoring` opens and hand-built series leave `source` unset. */
 export type SeriesSource = 'sailwave';
 
+/**
+ * A combined published page: several fleets' results rendered as sections of
+ * one page instead of (or as well as) their standalone per-fleet pages. Covers
+ * both the "Overall" page (every fleet's standings on one page, typically
+ * without the per-race detail) and the multi-method class page (e.g. one
+ * "Puppeteer" page carrying the Scratch and HPH fleets in full, with no
+ * individual pages). Composes fleets only — never ad-hoc competitor filters.
+ */
+export interface PublishingGroup {
+  id: string;
+  /** Page title and the published sub-path seed (`kebab(name)`). Pages are
+   *  keyed by name alongside fleet pages, so a group name may not equal a
+   *  fleet name (enforced in the editor). */
+  name: string;
+  /** 'all' includes every fleet — a live mode, not a snapshot, so a fleet
+   *  added later joins the page automatically. 'chosen' uses `fleetIds`. */
+  fleetMode: 'all' | 'chosen';
+  /** Member fleets when `fleetMode === 'chosen'`; ignored (and kept empty)
+   *  for 'all'. Sections render in fleet displayOrder either way. */
+  fleetIds: string[];
+  /** 'full' keeps each section's per-race detail tables; 'standings' renders
+   *  only the summary standings tables. */
+  detail: 'standings' | 'full';
+  /** When false, the member fleets publish only through this page — their
+   *  standalone pages are skipped (and retracted on the next publish). */
+  publishMembersIndividually: boolean;
+}
+
 /** How boats that did not finish are scored (RRS Appendix A5).
  *  - `seriesEntries` — A5.2: penalty = series entries + 1.
  *  - `startingArea` — A5.3: came-but-didn't-finish codes (DNF/RET/OCS/…) =
@@ -106,6 +134,10 @@ export interface Series {
   includeJsonExport: boolean;  // embed public JSON export in exported HTML (default true)
   publishRatingCalculations?: boolean;  // NHC/ECHO progressive rating-calculation explainability columns/header (default true)
   showPerRaceRatingsInSummary?: boolean;  // NHC/ECHO: render applied rating beneath each score in the summary table and add a seed-rating column (default true)
+  // Combined published pages (#255). Sparse — absent/empty is the common
+  // case. Ignored while the series has sub-series (blocks publish their own
+  // page grid). Gated by the `combined-pages` feature.
+  publishingGroups?: PublishingGroup[];
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)

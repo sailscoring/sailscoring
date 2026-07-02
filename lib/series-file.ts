@@ -13,6 +13,7 @@ import type {
   TcfRecord,
   SubdivisionAxis,
   RaceFleetExclusion,
+  PublishingGroup,
 } from './types';
 import {
   defaultEnabledCompetitorFields,
@@ -124,9 +125,14 @@ export interface SeriesFileRepos {
  *  v14 adds optional `series.raceFleetExclusions` (a race struck for one fleet
  *  across the whole-series standings — the series-scoped counterpart of the
  *  sub-series field). Additive and sparse (written only when non-empty); older
- *  files load with it absent (no exclusions). */
-export const FORMAT_VERSION = 14;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+ *  files load with it absent (no exclusions).
+ *
+ *  v15 adds optional `series.publishingGroups` (combined published pages —
+ *  several fleets rendered as sections of one page). Additive and sparse
+ *  (written only when non-empty); older files load with it absent (no
+ *  combined pages). */
+export const FORMAT_VERSION = 15;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -173,6 +179,7 @@ interface SeriesFileSeries {
   defaultStartSequence?: StartGroup[];
   publishRatingCalculations?: boolean;
   showPerRaceRatingsInSummary?: boolean;
+  publishingGroups?: PublishingGroup[];  // v15+; combined published pages
 }
 
 interface SeriesFileCompetitor {
@@ -436,6 +443,9 @@ export async function buildSeriesFile(
       ...(series.defaultStartSequence?.length ? { defaultStartSequence: series.defaultStartSequence } : {}),
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
       ...(series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: series.showPerRaceRatingsInSummary } : {}),
+      ...(series.publishingGroups && series.publishingGroups.length > 0
+        ? { publishingGroups: series.publishingGroups }
+        : {}),
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -663,6 +673,24 @@ function remapStartSequence(
     .filter((g) => g.fleetIds.length > 0);
 }
 
+/** Rewrite publishing groups' member-fleet ids through a fleet-id remap.
+ *  Unmapped ids are dropped; the group itself is kept even when a 'chosen'
+ *  group loses every member — the scorer's configured page stays visible in
+ *  the editor to fix, rather than silently disappearing. Group ids are
+ *  embedded config (like subdivision-axis ids) and carry over verbatim. */
+function remapPublishingGroups(
+  groups: PublishingGroup[] | undefined,
+  fleetIdMap: Map<string, string>,
+): PublishingGroup[] {
+  if (!groups) return [];
+  return groups.map((g) => ({
+    ...g,
+    fleetIds: g.fleetIds
+      .map((id) => fleetIdMap.get(id))
+      .filter((id): id is string => !!id),
+  }));
+}
+
 /** Rewrite whole-series per-fleet race exclusions through the id remaps applied
  *  on import. Both the race and the fleet get fresh ids, so an unmapped
  *  reference (a race or fleet dropped from the file) means the strike no longer
@@ -770,6 +798,7 @@ export async function openSeriesFromFile(
     includeJsonExport: file.series.includeJsonExport,
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
+    publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -851,6 +880,7 @@ export async function restoreSeriesFromFile(
     includeJsonExport: file.series.includeJsonExport,
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
+    publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -923,6 +953,7 @@ export async function updateSeriesFromFile(
     includeJsonExport: file.series.includeJsonExport,
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
+    publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -962,6 +993,35 @@ function remapFtpPathsByFleetName(
   return out;
 }
 
+/** Re-key the saved publishing groups' member fleets onto the freshly-imported
+ *  fleets, over the same name bridge as {@link remapFtpPathsByFleetName}:
+ *  current id → name → new id. A member fleet renamed in Sailwave between
+ *  exports drops out of its group (the scorer re-adds it in the editor);
+ *  'all'-mode groups carry no ids and are untouched. */
+function remapPublishingGroupsByFleetName(
+  groups: PublishingGroup[] | undefined,
+  currentFleets: Fleet[],
+  file: SeriesFile,
+  fleetIdMap: Map<string, string>,
+): PublishingGroup[] {
+  if (!groups) return [];
+  const nameByCurrentId = new Map(currentFleets.map((f) => [f.id, f.name]));
+  const newIdByName = new Map<string, string>();
+  for (const f of file.fleets) {
+    const newId = fleetIdMap.get(f.id);
+    if (newId) newIdByName.set(f.name, newId);
+  }
+  return groups.map((g) => ({
+    ...g,
+    fleetIds: g.fleetIds
+      .map((oldId) => {
+        const name = nameByCurrentId.get(oldId);
+        return name != null ? newIdByName.get(name) : undefined;
+      })
+      .filter((id): id is string => !!id),
+  }));
+}
+
 /**
  * Replace a Sailwave-born series' competition data in place from a freshly
  * re-imported Sailwave file, **preserving the scorer's series identity and
@@ -999,6 +1059,7 @@ export async function updateSeriesFromSailwave(
   const raceIdMap = new Map(file.races.map((r) => [r.id, crypto.randomUUID()]));
 
   const ftpPaths = remapFtpPathsByFleetName(current.ftpPaths, currentFleets, file, fleetIdMap);
+  const publishingGroups = remapPublishingGroupsByFleetName(current.publishingGroups, currentFleets, file, fleetIdMap);
 
   await repos.deleteSeriesChildren(seriesId);
 
@@ -1011,6 +1072,7 @@ export async function updateSeriesFromSailwave(
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     defaultStartSequence: undefined,
     ftpPaths,
+    publishingGroups,
     lastModifiedAt: now,
   });
 
