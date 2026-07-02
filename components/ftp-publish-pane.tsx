@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,47 +31,39 @@ type UploadState =
   | { success: true }
   | { success: false; error: string };
 
-export interface FtpUploadDialogProps {
+export interface FtpPublishPaneProps {
   series: Series;
   fleets: Fleet[];
-  open: boolean;
   onClose: () => void;
 }
 
-export function FtpUploadDialog({
-  series,
-  fleets,
-  open,
-  onClose,
-}: FtpUploadDialogProps) {
+/**
+ * The FTP destination of the Publish dialog: upload the rendered results HTML
+ * to a club's own web server (via the scupper relay). Rendered inside the
+ * shared Publish dialog shell when the series is in `ftp` publish mode, so it
+ * owns its own body + footer but no Dialog wrapper. Since it mounts only while
+ * FTP mode is active, it seeds its per-fleet paths on mount rather than on an
+ * external open signal.
+ */
+export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps) {
   const updateSeries = useUpdateSeries();
   const { data: ftpServers } = useFtpServers();
   const [selectedServerId, setSelectedServerId] = useState('');
-  const [fleetPaths, setFleetPaths] = useState<string[]>(['']);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [fleetPaths, setFleetPaths] = useState<string[]>(() =>
+    derivePrefillPaths(fleets, series.ftpPaths, series.ftpPath ?? '', fleets.length <= 1),
+  );
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(fleets.map((f) => f.id)),
+  );
   const [uploadState, setUploadState] = useState<UploadState>('idle');
 
   const isSingleDefault = fleets.length <= 1;
 
-  // Reset state and pre-fill paths from series when dialog opens. Syncs with
-  // an external signal (parent-controlled `open`), so setState-in-effect is
-  // expected.
+  // Auto-select the server whose host matches the series' saved ftpHost, once
+  // the server list resolves.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!open) return;
-    setUploadState('idle');
-    setFleetPaths(
-      derivePrefillPaths(fleets, series.ftpPaths, series.ftpPath ?? '', isSingleDefault),
-    );
-    // Every fleet ticked by default — the common case is republishing all of
-    // them; unticking is how a scorer skips a fleet that isn't ready.
-    setSelected(new Set(fleets.map((f) => f.id)));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  // Auto-select the server whose host matches the series' saved ftpHost.
-  useEffect(() => {
-    if (!open || !ftpServers) return;
+    if (!ftpServers) return;
     if (series.ftpHost) {
       const match = ftpServers.find((s) => s.host === series.ftpHost);
       setSelectedServerId(match?.id ?? '');
@@ -85,7 +71,7 @@ export function FtpUploadDialog({
       setSelectedServerId('');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, ftpServers]);
+  }, [ftpServers]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   function setPath(index: number, value: string) {
@@ -199,112 +185,106 @@ export function FtpUploadDialog({
         fleets.every((f, i) => !selected.has(f.id) || !!(fleetPaths[i] ?? '').trim()));
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent aria-describedby={undefined}>
-        <DialogHeader>
-          <DialogTitle>Upload via FTP</DialogTitle>
-        </DialogHeader>
-
-        {noServers ? (
-          <p className="text-sm text-muted-foreground">
-            No FTP servers configured.{' '}
-            <Link href="/workspace" className="underline" onClick={onClose}>
-              Add one in Workspace Settings.
-            </Link>
-          </p>
-        ) : (
-          <form id="ftp-upload-form" onSubmit={(e) => { e.preventDefault(); handleUpload(); }} className="space-y-3">
+    <>
+      {noServers ? (
+        <p className="text-sm text-muted-foreground">
+          No FTP servers configured.{' '}
+          <Link href="/workspace" className="underline" onClick={onClose}>
+            Add one in Workspace Settings.
+          </Link>
+        </p>
+      ) : (
+        <form id="ftp-upload-form" onSubmit={(e) => { e.preventDefault(); handleUpload(); }} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Server</Label>
+            <Select value={selectedServerId} onValueChange={setSelectedServerId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a server…" />
+              </SelectTrigger>
+              <SelectContent>
+                {ftpServers?.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.ftps ? 'ftps' : 'ftp'}://{s.host}:{s.port}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {isSingleDefault ? (
             <div className="space-y-1.5">
-              <Label>Server</Label>
-              <Select value={selectedServerId} onValueChange={setSelectedServerId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a server…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ftpServers?.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.ftps ? 'ftps' : 'ftp'}://{s.host}:{s.port}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="ftp-path-0">Path</Label>
+              <Input
+                id="ftp-path-0"
+                value={fleetPaths[0] ?? ''}
+                onChange={(e) => setPath(0, e.target.value)}
+                placeholder="/public_html/results/series.html"
+                autoFocus
+              />
             </div>
-            {isSingleDefault ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="ftp-path-0">Path</Label>
-                <Input
-                  id="ftp-path-0"
-                  value={fleetPaths[0] ?? ''}
-                  onChange={(e) => setPath(0, e.target.value)}
-                  placeholder="/public_html/results/series.html"
-                  autoFocus
+          ) : (
+            <>
+              <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  className="h-4 w-4 shrink-0"
                 />
-              </div>
-            ) : (
-              <>
-                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleAll}
-                    className="h-4 w-4 shrink-0"
-                  />
-                  All fleets
-                </label>
-                {fleets.map((fleet, i) => {
-                  const checked = selected.has(fleet.id);
-                  return (
-                    <div
-                      key={fleet.id}
-                      className={`space-y-1.5 ${checked ? '' : 'opacity-50'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggle(fleet.id)}
-                          className="h-4 w-4 shrink-0"
-                          aria-label={`Upload ${fleet.name}`}
-                        />
-                        <Label htmlFor={`ftp-path-${i}`}>{fleet.name} path</Label>
-                      </div>
-                      <Input
-                        id={`ftp-path-${i}`}
-                        value={fleetPaths[i] ?? ''}
-                        onChange={(e) => setPath(i, e.target.value)}
-                        placeholder={`/public_html/results/series-${seriesSlug(fleet.name)}.html`}
-                        autoFocus={i === 0}
-                        disabled={!checked}
+                All fleets
+              </label>
+              {fleets.map((fleet, i) => {
+                const checked = selected.has(fleet.id);
+                return (
+                  <div
+                    key={fleet.id}
+                    className={`space-y-1.5 ${checked ? '' : 'opacity-50'}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggle(fleet.id)}
+                        className="h-4 w-4 shrink-0"
+                        aria-label={`Upload ${fleet.name}`}
                       />
+                      <Label htmlFor={`ftp-path-${i}`}>{fleet.name} path</Label>
                     </div>
-                  );
-                })}
-              </>
-            )}
-            {typeof uploadState === 'object' && uploadState.success && (
-              <p className="text-sm text-green-600 dark:text-green-400">Uploaded successfully.</p>
-            )}
-            {typeof uploadState === 'object' && !uploadState.success && (
-              <p className="text-sm text-destructive">{uploadState.error}</p>
-            )}
-          </form>
-        )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            {succeeded ? 'Close' : 'Cancel'}
-          </Button>
-          {!noServers && (
-            <Button
-              type="submit"
-              form="ftp-upload-form"
-              disabled={!canUpload}
-            >
-              {uploading ? 'Uploading…' : 'Upload'}
-            </Button>
+                    <Input
+                      id={`ftp-path-${i}`}
+                      value={fleetPaths[i] ?? ''}
+                      onChange={(e) => setPath(i, e.target.value)}
+                      placeholder={`/public_html/results/series-${seriesSlug(fleet.name)}.html`}
+                      autoFocus={i === 0}
+                      disabled={!checked}
+                    />
+                  </div>
+                );
+              })}
+            </>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          {typeof uploadState === 'object' && uploadState.success && (
+            <p className="text-sm text-green-600 dark:text-green-400">Uploaded successfully.</p>
+          )}
+          {typeof uploadState === 'object' && !uploadState.success && (
+            <p className="text-sm text-destructive">{uploadState.error}</p>
+          )}
+        </form>
+      )}
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>
+          {succeeded ? 'Close' : 'Cancel'}
+        </Button>
+        {!noServers && (
+          <Button
+            type="submit"
+            form="ftp-upload-form"
+            disabled={!canUpload}
+          >
+            {uploading ? 'Uploading…' : 'Upload'}
+          </Button>
+        )}
+      </DialogFooter>
+    </>
   );
 }

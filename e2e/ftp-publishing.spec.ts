@@ -68,7 +68,7 @@ test('FTP server settings: password visibility toggle', async ({ page }) => {
   await expect(passwordInput).toHaveAttribute('type', 'password');
 });
 
-test('FTP upload dialog: shows configured server; shows no-servers message after delete', async ({ page }) => {
+test('Publish dialog · FTP mode: no-servers message, then remembered across reopen', async ({ page }) => {
   // ── Set up a series with one race so Standings tab is reachable ───────────
   await createSeriesQuick(page, { name: 'FTP Test Series' });
 
@@ -86,12 +86,14 @@ test('FTP upload dialog: shows configured server; shows no-servers message after
 
   await page.getByRole('link', { name: 'Standings' }).click();
 
-  // ── No servers configured: dialog shows the link to Workspace ────────────
-  await page.getByRole('button', { name: 'Upload via FTP' }).click();
-  await expect(page.getByRole('dialog', { name: 'Upload via FTP' })).toBeVisible();
+  // ── Publish opens in Sail Scoring mode; switch to the FTP destination ─────
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await expect(page.getByRole('dialog', { name: 'Publish results' })).toBeVisible();
+  await page.getByRole('button', { name: /Upload to your own website via FTP/ }).click();
+
+  // No servers yet: the FTP pane shows the workspace link and hides Upload.
   await expect(page.getByText('No FTP servers configured.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Add one in Workspace Settings.' })).toBeVisible();
-  // Upload button should not be present when there are no servers
   await expect(page.getByRole('button', { name: 'Upload' })).not.toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
 
@@ -102,24 +104,26 @@ test('FTP upload dialog: shows configured server; shows no-servers message after
   await page.getByLabel('Username').fill('scorer');
   await page.locator('#ftp-password').fill('s3cret');
   await page.getByRole('button', { name: 'Save' }).click();
-  // Wait for save to complete before navigating away — the async IndexedDB write
-  // must finish or page.goto() will interrupt it.
   await expect(page.getByText('ftp://ftp.example.com:21')).toBeVisible();
 
-  // ── Return to Standings: dialog now shows the server dropdown ─────────────
+  // ── Reopen Publish: the series remembers FTP mode (persisted on the switch),
+  //    so it lands in the FTP pane directly — no second switch needed ────────
   await page.goto('/');
   await page.getByText('FTP Test Series').click();
   await page.getByRole('link', { name: 'Standings' }).click();
-  await page.getByRole('button', { name: 'Upload via FTP' }).click();
-  await expect(page.getByRole('dialog', { name: 'Upload via FTP' })).toBeVisible();
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await expect(page.getByRole('dialog', { name: 'Publish results' })).toBeVisible();
   await expect(page.getByText('No FTP servers configured.')).not.toBeVisible();
+  await expect(page.getByLabel('Path')).toBeVisible(); // single-fleet FTP path input
   await expect(page.getByRole('button', { name: 'Upload' })).toBeVisible();
-  // Upload button disabled until server and path are both filled
   await expect(page.getByRole('button', { name: 'Upload' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  // The switch now offers the way back to Sail Scoring pages.
+  await expect(
+    page.getByRole('button', { name: /Publish to Sail Scoring pages/ }),
+  ).toBeVisible();
 });
 
-test('FTP upload dialog: per-fleet selection lets you upload a subset', async ({ page }) => {
+test('Publish dialog · FTP mode: per-fleet selection lets you upload a subset', async ({ page }) => {
   // ── Configure a server ────────────────────────────────────────────────────
   await page.goto('/workspace');
   await page.getByRole('button', { name: 'Add server' }).click();
@@ -130,7 +134,7 @@ test('FTP upload dialog: per-fleet selection lets you upload a subset', async ({
   await expect(page.getByText('ftp://ftp.example.com:21')).toBeVisible();
 
   // ── Series with two fleets, a competitor in each, and one race so the
-  //    Standings tab renders (and with it the Upload via FTP button) ─────────
+  //    Standings tab (and the Publish button) render ────────────────────────
   await createSeriesQuick(page, { name: 'Multi Fleet FTP' });
   await createFleets(page, ['Fast', 'Slow']);
 
@@ -148,9 +152,11 @@ test('FTP upload dialog: per-fleet selection lets you upload a subset', async ({
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   await page.getByRole('link', { name: 'Standings' }).click();
-  await page.getByRole('button', { name: 'Upload via FTP' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Upload via FTP' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
   await expect(dialog).toBeVisible();
+  await page.getByRole('button', { name: /Upload to your own website via FTP/ }).click();
+  await expect(page.getByLabel('Fast path')).toBeVisible();
 
   // Pick the server (a fresh series has no saved host to auto-select).
   await page.getByRole('combobox').click();

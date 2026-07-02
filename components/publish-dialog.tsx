@@ -19,6 +19,8 @@ import {
 } from '@/lib/api-repository';
 import { fleetSubPath } from '@/lib/publishing';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
+import { useUpdateSeries } from '@/hooks/use-series';
+import { FtpPublishPane } from '@/components/ftp-publish-pane';
 import type { Fleet, PublicationStatus, Series } from '@/lib/types';
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
@@ -28,6 +30,9 @@ export interface PublishDialogProps {
   fleets: Fleet[];
   open: boolean;
   onClose: () => void;
+  /** Whether FTP upload is available (feature-gated + manage-workspace). When
+   *  true the dialog offers a persistent switch to the FTP destination. */
+  canFtp: boolean;
 }
 
 /** Sanitise free-typed slug / sub-path input to the allowed character set. */
@@ -69,7 +74,12 @@ interface FleetRow {
  * fleet name ("Puppeteers HPH") point at a disambiguated URL segment
  * ("tuesday-puppeteers-hph") when several series share one slug.
  */
-export function PublishDialog({ series, fleets, open, onClose }: PublishDialogProps) {
+export function PublishDialog({ series, fleets, open, onClose, canFtp }: PublishDialogProps) {
+  const updateSeries = useUpdateSeries();
+  // Destination mode. Persisted per-series (`series.publishMode`) so the dialog
+  // reopens where the scorer left it; clamped to Sail Scoring when FTP isn't
+  // available so a workspace that loses the feature isn't stranded in FTP mode.
+  const [mode, setMode] = useState<'sailscoring' | 'ftp'>('sailscoring');
   // Sub-series publish one page per (block, fleet) with server-derived
   // `{block}/{leaf}` paths, so the per-fleet URL editors don't apply.
   const { data: subSeriesList } = useSubSeriesBySeries(series.id);
@@ -145,7 +155,24 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
     // parent re-render that hands us a fresh array identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, series.id]);
+
+  // Seed the destination mode from the series each time the dialog opens.
+  useEffect(() => {
+    if (!open) return;
+    const stored = series.publishMode ?? 'sailscoring';
+    setMode(stored === 'ftp' && canFtp ? 'ftp' : 'sailscoring');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Flip destination and persist the choice so it sticks for next time. Fire
+  // and forget — a preference write shouldn't block the UI, and a failure just
+  // means the dialog reopens in the previous mode.
+  function switchMode(next: 'sailscoring' | 'ftp') {
+    if (next === mode || (next === 'ftp' && !canFtp)) return;
+    setMode(next);
+    updateSeries.mutate({ id: series.id, patch: () => ({ publishMode: next }) });
+  }
 
   const rows = useMemo<FleetRow[]>(() => {
     const publishedByName = new Map(
@@ -356,8 +383,23 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
       <DialogContent aria-describedby={undefined} className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Publish results</DialogTitle>
+          {canFtp && (
+            <button
+              type="button"
+              onClick={() => switchMode(mode === 'ftp' ? 'sailscoring' : 'ftp')}
+              className="self-start text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              {mode === 'ftp'
+                ? '← Publish to Sail Scoring pages instead'
+                : 'Upload to your own website via FTP instead →'}
+            </button>
+          )}
         </DialogHeader>
 
+        {mode === 'ftp' ? (
+          <FtpPublishPane series={series} fleets={fleets} onClose={onClose} />
+        ) : (
+        <>
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : (
@@ -572,6 +614,8 @@ export function PublishDialog({ series, fleets, open, onClose }: PublishDialogPr
             </Button>
           )}
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -20,7 +20,6 @@ import { useFeatures } from '@/components/features-provider';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
-import { FtpUploadDialog } from '@/components/ftp-upload-dialog';
 import { FleetStandingsTable } from '@/components/fleet-standings-table';
 import { ScoringRejectionsWarning } from '@/components/scoring-rejections-warning';
 import type { DiscardThreshold } from '@/lib/types';
@@ -35,14 +34,14 @@ export default function StandingsPage({
   const { id: seriesId } = use(params);
   const { has } = useFeatures();
   const { can } = useWorkspacePermissions();
-  // Publishing is a race-day (score) operation; the FTP dialog reads the
-  // credential-bearing server list, which demands manage-workspace.
+  // Publishing is a race-day (score) operation. FTP is a destination within the
+  // Publish dialog; its server list is credential-bearing, so it demands
+  // manage-workspace (a subset of scorers). The dialog opens under `p`.
   const canPublish = can('score');
   const canScore = can('score');
   const canFtp = has('ftp-upload') && can('manage-workspace');
   const updateSeries = useUpdateSeries();
   const saveSubSeries = useSaveSubSeries();
-  const [showFtpDialog, setShowFtpDialog] = useState(false);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -55,9 +54,6 @@ export default function StandingsPage({
       ? [{ key: 'p', description: 'Publish results', section: 'Standings', handler: () => setShowPublishDialog(true) }]
       : []),
     { key: 'x', description: 'Preview results', section: 'Standings', handler: () => setShowPreviewDialog(true) },
-    ...(canFtp
-      ? [{ key: 'f', description: 'Upload via FTP', section: 'Standings', handler: () => setShowFtpDialog(true) }]
-      : []),
   ]);
 
   if (data.status !== 'ready' || subSeriesList === undefined) {
@@ -240,11 +236,6 @@ export default function StandingsPage({
               Publish
             </Button>
           )}
-          {canFtp && (
-            <Button size="sm" variant="outline" onClick={() => setShowFtpDialog(true)} title="Upload via FTP (f)">
-              Upload via FTP
-            </Button>
-          )}
           <Button size="sm" onClick={() => setShowPreviewDialog(true)} title="Preview results (x)">
             Preview
           </Button>
@@ -316,12 +307,7 @@ export default function StandingsPage({
         fleets={fleets}
         open={showPublishDialog}
         onClose={() => setShowPublishDialog(false)}
-      />
-      <FtpUploadDialog
-        series={series}
-        fleets={fleets}
-        open={showFtpDialog}
-        onClose={() => setShowFtpDialog(false)}
+        canFtp={canFtp}
       />
     </div>
   );

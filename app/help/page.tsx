@@ -1496,10 +1496,11 @@ export default async function HelpPage() {
 
       <Section id="publishing-results" title="Publishing results">
         <p>
+          Publish results to a public URL from the{' '}
+          <strong className="text-foreground">Standings</strong> tab
           {has('ftp-upload')
-            ? 'Sail Scoring offers two ways to push results to a public URL from the '
-            : 'Publish results to a public URL from the '}
-          <strong className="text-foreground">Standings</strong> tab.
+            ? '. The Publish dialog can host them on Sail Scoring’s pages or, if your club runs its own website, upload them there via FTP — pick a destination and the series remembers it.'
+            : '.'}
         </p>
         <p>
           <strong className="text-foreground">Publish:</strong> click{' '}
@@ -1586,13 +1587,16 @@ export default async function HelpPage() {
             <p>
               <strong className="text-foreground">Uploading:</strong> on the{' '}
               <strong className="text-foreground">Standings</strong> tab, click{' '}
-              <strong className="text-foreground">Upload via FTP</strong> (or press{' '}
-              <strong className="text-foreground">f</strong>). Select the server, enter the remote
-              path for the results file (e.g.{' '}
+              <strong className="text-foreground">Publish</strong> (or press{' '}
+              <strong className="text-foreground">p</strong>) and choose{' '}
+              <strong className="text-foreground">Upload to your own website via FTP</strong> at the
+              top of the dialog. Select the server, enter the remote path for the results file (e.g.{' '}
               <code className="text-foreground text-sm">/public_html/results/fleet-a.html</code>),
-              and click <strong className="text-foreground">Upload</strong>. The path is entered
-              each time, so you can vary it per race day or fleet without changing the server
-              configuration.
+              and click <strong className="text-foreground">Upload</strong>. The series remembers
+              this choice and reopens in FTP mode next time — switch back to{' '}
+              <strong className="text-foreground">Sail Scoring pages</strong> whenever you like. A
+              multi-fleet series shows one path per fleet, each with a checkbox, so you can upload
+              just the fleets you tick.
             </p>
             <p>
               If the upload fails, the raw FTP error from the server is shown — this is usually
