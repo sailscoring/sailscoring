@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SortableList, DragHandle } from '@/components/ui/sortable-list';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useUpdateSeries } from '@/hooks/use-series';
@@ -108,6 +109,22 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
     patchGroup(group.id, { fleetIds: next });
   }
 
+  // Stored array order is display order everywhere downstream — the publish
+  // dialog rows, the built page list, and the public series index.
+  function reorderGroups(orderedIds: string[]) {
+    patchGroups((current) => {
+      const byId = new Map(current.map((g) => [g.id, g]));
+      const next = orderedIds
+        .map((id) => byId.get(id))
+        .filter((g): g is PublishingGroup => !!g);
+      // Keep any group the drag didn't know about (a concurrent add).
+      for (const g of current) {
+        if (!orderedIds.includes(g.id)) next.push(g);
+      }
+      return next;
+    });
+  }
+
   const summary =
     groups.length === 0
       ? 'No combined pages.'
@@ -144,17 +161,26 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
             and handicap fleets.
           </p>
 
-          {resolved.map(({ group }) => {
+          <SortableList
+            items={resolved.map((r) => ({ id: r.group.id, group: r.group }))}
+            onReorder={reorderGroups}
+          >
+            {({ group }, { ref, style, handleProps }) => {
             const nameValue = nameDrafts[group.id] ?? group.name;
             const nameError = nameErrors[group.id];
             const chosen = group.fleetMode === 'chosen';
             return (
               <div
-                key={group.id}
+                ref={ref}
+                style={style}
                 className="border rounded-md p-3 space-y-3"
                 data-testid="combined-page-row"
               >
                 <div className="flex items-center gap-2">
+                  <DragHandle
+                    {...handleProps}
+                    data-testid={`combined-page-drag-${group.id}`}
+                  />
                   <Input
                     value={nameValue}
                     maxLength={PUBLISHING_GROUP_NAME_MAX_LENGTH}
@@ -276,7 +302,8 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
                 </label>
               </div>
             );
-          })}
+            }}
+          </SortableList>
 
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={addGroup}>
