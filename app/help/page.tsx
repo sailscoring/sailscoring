@@ -1643,7 +1643,9 @@ export default async function HelpPage() {
             pages are taken down on the next publish, and the Publish dialog shows each such
             fleet with a note pointing at the combined page it now lives on. Combined pages
             appear in the Publish dialog, the series listing page, and Preview alongside the
-            fleet pages, and don&rsquo;t apply to series with sub-series.
+            fleet pages. On a series with sub-series, each sub-series gets its own combined
+            page (e.g. <code className="text-foreground text-sm">…/winter/overall</code>)
+            covering the fleets it scores — a combined page always shows one set of races.
           </p>
         </Section>
       )}
