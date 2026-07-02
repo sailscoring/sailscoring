@@ -130,6 +130,18 @@ export const FEATURES = {
     label: 'Cross-series competitor identity (public)',
     helpSectionIds: ['competitor-identity'],
   },
+  'combined-pages': {
+    // Combined published pages (#255): publish several fleets' results as
+    // sections of one page — an all-fleets "Overall" page, or a multi-method
+    // class page replacing its members' standalone pages. Gates the
+    // series-settings editor and the publish dialog's group rows; a series
+    // that already carries group config keeps rendering it (like sub-series,
+    // the gate contains the authoring surface, not existing data). Opt-in
+    // (default off) while the page composition proves out with HYC's panel,
+    // per the containment model.
+    label: 'Combined published pages',
+    helpSectionIds: ['combined-pages'],
+  },
   'competitor-reconcile': {
     // Gates the *in-app* reconcile surface (/workspace/competitors, its
     // switcher entry, and the /api/v1/competitor-identities endpoints behind
