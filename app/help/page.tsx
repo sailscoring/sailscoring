@@ -289,6 +289,13 @@ export default async function HelpPage() {
           if any selected competitor has recorded race results, since those results are deleted
           with the entry.
         </p>
+        <p>
+          <strong className="text-foreground">Find duplicates</strong> automates the common case:
+          it groups entries with the same sail number and fleet, keeps the copy with recorded
+          results (or the most complete, oldest one) and selects the extras for you to review and
+          delete. It never deletes anything itself — the same sail number in two different fleets
+          is left alone, since class-scoped numbering can make those genuinely different boats.
+        </p>
       </Section>
 
       <Section id="fleets" title="Fleets">

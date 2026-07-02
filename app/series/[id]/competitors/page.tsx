@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useState, useRef, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSeries } from '@/hooks/use-series';
 import { FollowOnProvenanceNote } from '@/components/follow-on-provenance-note';
 import { useSeriesReadOnly } from '@/components/series-read-only';
@@ -13,6 +14,8 @@ import {
   useSaveCompetitor,
 } from '@/hooks/use-competitors';
 import { useFinishesBySeries } from '@/hooks/use-finishes';
+import { queryKeys } from '@/hooks/query-keys';
+import { finishRepo } from '@/lib/api-repository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -64,6 +67,10 @@ import {
   subdivisionAxisLabel,
   cleanSubdivisions,
 } from '@/lib/competitor-fields';
+import {
+  duplicateDeletionIds,
+  findDuplicateGroups,
+} from '@/lib/competitor-duplicates';
 import { competitorMatchesFilter } from '@/lib/competitor-filter';
 import { log } from '@/lib/debug';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
@@ -111,6 +118,7 @@ export default function CompetitorsPage({
   const saveCompetitor = useSaveCompetitor();
   const deleteCompetitor = useDeleteCompetitor();
   const deleteCompetitors = useDeleteCompetitors();
+  const queryClient = useQueryClient();
   const enabledFields: CompetitorFieldKey[] =
     series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
   const primaryLabel: PrimaryPersonLabel =
@@ -129,6 +137,7 @@ export default function CompetitorsPage({
   const [filter, setFilter] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
+  const [dupeMessage, setDupeMessage] = useState<string | null>(null);
   const editingRowRef = useRef<HTMLTableRowElement | null>(null);
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const importRef = useRef<CompetitorImportHandle>(null);
@@ -166,6 +175,33 @@ export default function CompetitorsPage({
   const selectedWithResults = selectedCompetitors.filter((c) =>
     competitorIdsWithFinishes.has(c.id),
   ).length;
+
+  // Groups exact duplicates (same sail number + fleet set) and pre-selects
+  // everything except each group's keeper for review. Finishes feed the
+  // keeper heuristic, so fetch them here rather than waiting on the
+  // selection-gated query above.
+  async function handleFindDuplicates() {
+    setDupeMessage(null);
+    const seriesFinishes = await queryClient.fetchQuery({
+      queryKey: queryKeys.finishes.bySeries(seriesId),
+      queryFn: () => finishRepo.listBySeries(seriesId),
+    });
+    const counts = new Map<string, number>();
+    for (const f of seriesFinishes) {
+      if (f.competitorId === null) continue;
+      counts.set(f.competitorId, (counts.get(f.competitorId) ?? 0) + 1);
+    }
+    const groups = findDuplicateGroups(competitors ?? [], counts);
+    const ids = duplicateDeletionIds(groups);
+    if (ids.length === 0) {
+      setDupeMessage('No duplicates found.');
+      return;
+    }
+    setSelectedIds((prev) => new Set([...prev, ...ids]));
+    setDupeMessage(
+      `${groups.length} duplicate group${groups.length === 1 ? '' : 's'} found — the extra copies are selected. Review, then delete.`,
+    );
+  }
 
   function toggleSelected(id: string) {
     setSelectedIds((prev) => {
@@ -343,6 +379,7 @@ export default function CompetitorsPage({
     await deleteCompetitors.mutateAsync({ ids, seriesId });
     setSelectedIds(new Set());
     setConfirmingBulkDelete(false);
+    setDupeMessage(null);
   }
 
   const existingCompetitors = (competitors ?? []).map((c) => ({ sailNumber: c.sailNumber.toUpperCase(), fleetIds: c.fleetIds }));
@@ -426,6 +463,11 @@ export default function CompetitorsPage({
             aria-label="Filter competitors"
             className="max-w-sm"
           />
+          {!readOnly && competitors.length > 1 && (
+            <Button variant="outline" size="sm" onClick={handleFindDuplicates}>
+              Find duplicates
+            </Button>
+          )}
           {selectedCount > 0 && (
             <>
               <p className="text-sm text-muted-foreground">
@@ -441,11 +483,19 @@ export default function CompetitorsPage({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setSelectedIds(new Set())}
+                onClick={() => {
+                  setSelectedIds(new Set());
+                  setDupeMessage(null);
+                }}
               >
                 Clear selection
               </Button>
             </>
+          )}
+          {dupeMessage && (
+            <p className="text-sm text-muted-foreground" role="status">
+              {dupeMessage}
+            </p>
           )}
         </div>
       )}
