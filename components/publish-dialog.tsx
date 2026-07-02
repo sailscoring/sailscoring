@@ -241,24 +241,31 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
 
   // Fleets a combined page replaces: listed dimmed so the scorer sees where
   // each fleet went, with a note when a currently-live standalone page will
-  // be taken down by this publish.
+  // be taken down by this publish. Mirrors the server rule: retraction only
+  // happens once the replacing group's page is live (already published, or
+  // ticked to publish now).
   const suppressedRows = useMemo<SuppressedRow[]>(() => {
     if (suppressed.size === 0) return [];
     const publishedNames = new Set((published?.pages ?? []).map((p) => p.fleetName));
     return fleets
       .filter((f) => suppressed.has(f.id))
-      .map((f) => ({
-        name: f.name,
-        groupNames: resolvedGroups
+      .map((f) => {
+        const groupNames = resolvedGroups
           .filter(
             (r) =>
               !r.group.publishMembersIndividually &&
               r.fleets.some((m) => m.id === f.id),
           )
-          .map((r) => r.group.name.trim()),
-        retracts: publishedNames.has(f.name),
-      }));
-  }, [fleets, suppressed, resolvedGroups, published]);
+          .map((r) => r.group.name.trim());
+        return {
+          name: f.name,
+          groupNames,
+          retracts:
+            publishedNames.has(f.name) &&
+            groupNames.some((g) => publishedNames.has(g) || selected.has(g)),
+        };
+      });
+  }, [fleets, suppressed, resolvedGroups, published, selected]);
 
   // The sub-path each row resolves to (frozen path, or the editable value).
   const segmentFor = (row: FleetRow): string =>

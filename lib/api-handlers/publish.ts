@@ -22,7 +22,7 @@ import {
   listPublishedForWorkspace,
   savePublished,
 } from '@/lib/published-repository';
-import { suppressedFleetIds } from '@/lib/publishing-groups';
+import { producesPage, resolvePublishingGroups } from '@/lib/publishing-groups';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
 import type {
@@ -166,39 +166,49 @@ export async function publishSeries(
   );
   if (!allFiles) throw new NotFoundError('series has no publishable results');
 
-  // Fleets suppressed by combined-page config ("don't publish members
-  // individually", #255) publish only through their group page. The build
-  // above emits no standalone file for them; below, any *previously
-  // published* standalone page of theirs is retracted rather than carried —
-  // the scorer explicitly configured the replacement, and a carried page
-  // would otherwise go permanently stale with no per-page unpublish to
-  // remove it. Sub-series pages are untouched (groups don't apply there).
-  const fleetRows = await repos.fleets.listBySeries(seriesId);
-  const suppressedIds = suppressedFleetIds(series.publishingGroups, fleetRows);
-  const suppressedNames = new Set(
-    fleetRows.filter((f) => suppressedIds.has(f.id)).map((f) => f.name),
-  );
-  const retracted = (existing?.pages ?? []).filter(
-    (p) => !p.subSeriesName && suppressedNames.has(p.fleetName),
-  );
-
   // Selective publishing: `fleets` is the set to publish/update *now* (omit for
   // all). It is not "the publication is exactly this set" — a fleet left out is
   // simply skipped this round, so an already-published one keeps its current
   // live page untouched (work-in-progress on one fleet shouldn't disturb the
   // others, or quietly retract them). Removing a page is what Unpublish is for
-  // — with the one exception of pages retracted by suppression above.
+  // — with the one exception of pages retracted by suppression below.
   const ticked = input.fleets ? new Set(input.fleets) : null;
   const toBuild = ticked
     ? allFiles.filter((f) => ticked.has(f.fleetName))
     : allFiles;
+  const carriedAll = ticked
+    ? (existing?.pages ?? []).filter((p) => !ticked.has(p.fleetName))
+    : [];
+
+  // Fleets suppressed by combined-page config ("don't publish members
+  // individually", #255) publish only through their group page. The build
+  // above emits no standalone file for them; here, a *previously published*
+  // standalone page of theirs is retracted — removed from the publication and
+  // its blob deleted — rather than carried, which would leave it permanently
+  // stale with no per-page unpublish to remove it. The guard: retraction only
+  // happens once the replacing group's page is live after this publish (built
+  // now, or carried from a previous one) — a suppressed page is never taken
+  // down before its replacement exists, e.g. when a freshly-defined group is
+  // left unticked. Sub-series pages are untouched (groups don't apply there).
+  const fleetRows = await repos.fleets.listBySeries(seriesId);
+  const liveNames = new Set([
+    ...toBuild.map((f) => f.fleetName),
+    ...carriedAll.map((p) => p.fleetName),
+  ]);
+  const retractedNames = new Set<string>();
+  for (const r of resolvePublishingGroups(series.publishingGroups, fleetRows)) {
+    if (r.group.publishMembersIndividually || !producesPage(r)) continue;
+    if (!liveNames.has(r.group.name.trim())) continue;
+    for (const f of r.fleets) retractedNames.add(f.name);
+  }
+  const retracted = (existing?.pages ?? []).filter(
+    (p) => !p.subSeriesName && retractedNames.has(p.fleetName),
+  );
 
   // Pages for fleets we're not rebuilding carry over verbatim — same sub-path,
   // same (content-addressed) blob. Retracted pages never carry.
   const retractedUrls = new Set(retracted.map((p) => p.blobUrl));
-  const carried = (
-    ticked ? (existing?.pages ?? []).filter((p) => !ticked.has(p.fleetName)) : []
-  ).filter((p) => !retractedUrls.has(p.blobUrl));
+  const carried = carriedAll.filter((p) => !retractedUrls.has(p.blobUrl));
 
   if (toBuild.length === 0 && carried.length === 0) {
     throw new BadRequestError('no fleets selected to publish', {
