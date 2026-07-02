@@ -138,19 +138,14 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
     <div className="bg-card border rounded-lg p-5 space-y-4" data-testid="combined-pages-card">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">Combined pages</h2>
-        {!expanded && !hasBlocks && (
+        {!expanded && (
           <Button variant="ghost" size="sm" onClick={() => setExpanded(true)}>
             Edit ▸
           </Button>
         )}
       </div>
 
-      {hasBlocks ? (
-        <p className="text-sm text-muted-foreground">
-          This series has sub-series, which publish their own page per
-          sub-series and fleet — combined pages don&apos;t apply.
-        </p>
-      ) : !expanded ? (
+      {!expanded ? (
         <p className="text-sm text-muted-foreground">{summary}</p>
       ) : (
         <div className="space-y-4">
@@ -159,6 +154,12 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
             one page — for example an &ldquo;Overall&rdquo; page with every
             fleet&apos;s standings, or a single class page covering its scratch
             and handicap fleets.
+            {hasBlocks && (
+              <>
+                {' '}This series has sub-series, so each sub-series gets its
+                own combined page covering these fleets within it.
+              </>
+            )}
           </p>
 
           <SortableList

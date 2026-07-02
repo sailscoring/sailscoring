@@ -106,13 +106,14 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   const hasBlocks = (subSeriesList?.length ?? 0) > 0;
   // Combined pages (#255): defined on the Settings tab, *reflected* here.
   // Shown whenever config exists — the feature gate hides only the editor.
-  // Groups don't apply to block or single-fleet series (mirrors the build).
+  // Single-fleet series have nothing to combine (mirrors the build); on a
+  // block series a group publishes one page per sub-series, like a fleet.
   const resolvedGroups = useMemo(
     () =>
-      !hasBlocks && fleets.length > 1
+      fleets.length > 1
         ? resolvePublishingGroups(series.publishingGroups, fleets).filter(producesPage)
         : [],
-    [series.publishingGroups, fleets, hasBlocks],
+    [series.publishingGroups, fleets],
   );
   const suppressed = useMemo(
     () =>
