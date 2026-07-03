@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useIsMutating } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useUpdateSeries } from '@/hooks/use-series';
+import { seriesRowMutationKey, useUpdateSeries } from '@/hooks/use-series';
 import {
   ALL_COMPETITOR_FIELDS,
   COMPETITOR_FIELD_LABELS,
@@ -37,12 +38,19 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
   const persisted = series.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
   const primaryLabel: PrimaryPersonLabel = series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
   const [localEnabled, setLocalEnabled] = useState<CompetitorFieldKey[]>(persisted);
+  // While a series-row save is pending or queued, the cached row can lag the
+  // local edits — an earlier save's onSuccess lands a row that predates a
+  // later toggle, and re-syncing from it would visibly revert the toggle
+  // until its own save lands. Defer the re-sync until the queue drains;
+  // useIsMutating re-renders this card when the count changes, so the
+  // deferred compare below fires against the final row.
+  const savesInFlight = useIsMutating({ mutationKey: seriesRowMutationKey }) > 0;
   // Re-sync when the persisted fields actually change. Render-time compare
   // (not an effect) so this works cleanly with the React Compiler. See
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
   const persistedKey = persisted.join(',');
   const [prevPersistedKey, setPrevPersistedKey] = useState(persistedKey);
-  if (prevPersistedKey !== persistedKey) {
+  if (prevPersistedKey !== persistedKey && !savesInFlight) {
     setPrevPersistedKey(persistedKey);
     setLocalEnabled(persisted);
   }
@@ -58,7 +66,7 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
   // rename the scorer is mid-typing on a sibling axis.
   const axesKey = persistedAxes.map((a) => a.id).join(',');
   const [prevAxesKey, setPrevAxesKey] = useState(axesKey);
-  if (prevAxesKey !== axesKey) {
+  if (prevAxesKey !== axesKey && !savesInFlight) {
     setPrevAxesKey(axesKey);
     setLocalAxes(persistedAxes);
   }

@@ -3,6 +3,7 @@
 import {
   useMutation,
   useQueryClient,
+  type MutationKey,
   type QueryClient,
   type QueryKey,
   type UseMutationResult,
@@ -23,6 +24,8 @@ import {
  * save reads it.
  */
 export function useVersionedSave<T extends { id: string; version?: number }>(cfg: {
+  /** Optional mutation key, for `useIsMutating`-style observers. */
+  mutationKey?: MutationKey;
   /** Query key of the cached collection holding the entity's current version. */
   listKey: (entity: T) => QueryKey;
   /**
@@ -43,6 +46,7 @@ export function useVersionedSave<T extends { id: string; version?: number }>(cfg
 }): UseMutationResult<T, Error, T> {
   const qc = useQueryClient();
   return useMutation<T, Error, T>({
+    ...(cfg.mutationKey ? { mutationKey: cfg.mutationKey } : {}),
     mutationFn: (entity) => {
       const expectedVersion = cfg.readCachedVersion
         ? cfg.readCachedVersion(qc, entity)

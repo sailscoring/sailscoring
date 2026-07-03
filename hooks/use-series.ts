@@ -76,8 +76,18 @@ export function useSeries(
   });
 }
 
+/**
+ * Mutation key shared by the series-row writers (`useSaveSeries`,
+ * `useUpdateSeries`). UI that mirrors the row into local state can watch it
+ * via `useIsMutating` and hold off re-syncing while saves are pending or
+ * queued — an earlier save's onSuccess lands a row that predates a later
+ * edit, and re-syncing from it would visibly revert the edit.
+ */
+export const seriesRowMutationKey = ['series-row'] as const;
+
 export function useSaveSeries() {
   return useVersionedSave<Series>({
+    mutationKey: seriesRowMutationKey,
     listKey: (series) => queryKeys.series.detail(series.id),
     // The detail cache holds a single row, not a list.
     readCachedVersion: (qc, series) =>
@@ -113,6 +123,7 @@ export function updateSeriesMutationOptions(
   repo: Pick<typeof seriesRepo, 'get' | 'save'> = seriesRepo,
 ) {
   return {
+    mutationKey: seriesRowMutationKey,
     mutationFn: async ({ id, patch }: { id: string; patch: SeriesPatch }) => {
       // A detail refetch already in flight predates this save; abort it so
       // its response can't land after onSuccess and overwrite the fresh row.
