@@ -7,11 +7,15 @@ import { useVersionedSave } from './use-versioned-save';
 import type { Fleet } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+import { keepNewerVersionedRows } from './query-version-guard';
 
 export function useFleetsBySeries(seriesId: string) {
   return useQuery<Fleet[]>({
     queryKey: queryKeys.fleets.bySeries(seriesId),
     queryFn: () => fleetRepo.listBySeries(seriesId),
+    // A stale refetch resolving after a save must not roll cached rows back
+    // to pre-save snapshots (dialogs read their fleet data from this cache).
+    structuralSharing: keepNewerVersionedRows,
   });
 }
 

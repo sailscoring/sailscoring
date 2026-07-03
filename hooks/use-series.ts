@@ -20,6 +20,7 @@ import { ConflictApiError } from '@/lib/api-client';
 import type { Series } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+import { keepNewerVersionedRow, keepNewerVersionedRows } from './query-version-guard';
 import { useVersionedSave } from './use-versioned-save';
 
 /**
@@ -55,6 +56,7 @@ export function useSeriesList(
   return useQuery<Series[]>({
     queryKey: queryKeys.series.list(),
     queryFn: () => seriesRepo.list(),
+    structuralSharing: keepNewerVersionedRows,
     ...options,
   });
 }
@@ -66,6 +68,10 @@ export function useSeries(
   return useQuery<Series | null>({
     queryKey: queryKeys.series.detail(id),
     queryFn: async () => (await seriesRepo.get(id)) ?? null,
+    // A stale refetch resolving after a save's onSuccess must not overwrite
+    // the fresh row — settings cards mirror this row into local state and
+    // would visibly revert.
+    structuralSharing: keepNewerVersionedRow,
     ...options,
   });
 }
@@ -108,6 +114,11 @@ export function updateSeriesMutationOptions(
 ) {
   return {
     mutationFn: async ({ id, patch }: { id: string; patch: SeriesPatch }) => {
+      // A detail refetch already in flight predates this save; abort it so
+      // its response can't land after onSuccess and overwrite the fresh row.
+      // (The version guard on the detail query is the backstop for responses
+      // past the point of cancellation.)
+      await qc.cancelQueries({ queryKey: queryKeys.series.detail(id) });
       const cached = qc.getQueryData<Series | null>(queryKeys.series.detail(id));
       const current = cached ?? (await repo.get(id)) ?? null;
       if (!current) throw new Error(`series ${id} not found`);
