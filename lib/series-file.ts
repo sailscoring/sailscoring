@@ -14,6 +14,7 @@ import type {
   SubdivisionAxis,
   RaceFleetExclusion,
   PublishingGroup,
+  RrsOrgPushConfig,
 } from './types';
 import {
   defaultEnabledCompetitorFields,
@@ -132,9 +133,16 @@ export interface SeriesFileRepos {
  *  `series.publishIndividualFleetPages` (whether fleets also publish
  *  standalone pages alongside them; written only when false). Both are
  *  additive and sparse; older files load with them absent (no combined
- *  pages, fleet pages published). */
-export const FORMAT_VERSION = 15;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+ *  pages, fleet pages published).
+ *
+ *  v16 adds optional `series.rrsOrgPush` (the rrs.org competitor-push event
+ *  UUID + division source remembered from the last push). Additive and sparse
+ *  (written only when set); older files load with it absent. The UUID is a
+ *  write-credential for the rrs.org event — carried here so the config
+ *  follows the series between workspaces, but excluded from the public JSON
+ *  export. */
+export const FORMAT_VERSION = 16;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -183,6 +191,7 @@ interface SeriesFileSeries {
   showPerRaceRatingsInSummary?: boolean;
   publishingGroups?: PublishingGroup[];  // v15+; combined published pages
   publishIndividualFleetPages?: boolean;  // v15+; absent = true
+  rrsOrgPush?: RrsOrgPushConfig;  // v16+; rrs.org competitor-push settings
 }
 
 interface SeriesFileCompetitor {
@@ -452,6 +461,7 @@ export async function buildSeriesFile(
       ...(series.publishIndividualFleetPages === false
         ? { publishIndividualFleetPages: false }
         : {}),
+      ...(series.rrsOrgPush ? { rrsOrgPush: series.rrsOrgPush } : {}),
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -806,6 +816,7 @@ export async function openSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
     publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
+    rrsOrgPush: file.series.rrsOrgPush,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -889,6 +900,7 @@ export async function restoreSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
     publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
+    rrsOrgPush: file.series.rrsOrgPush,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -963,6 +975,7 @@ export async function updateSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
     publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
+    rrsOrgPush: file.series.rrsOrgPush,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,

@@ -1,0 +1,1 @@
+ALTER TABLE "series" ADD COLUMN "rrs_org_push" jsonb;

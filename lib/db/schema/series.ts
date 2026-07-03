@@ -31,6 +31,7 @@ import type {
   PrimaryPersonLabel,
   PublishingGroup,
   RaceFleetExclusion,
+  RrsOrgPushConfig,
   SeriesSource,
   StartGroup,
   SubdivisionAxis,
@@ -181,6 +182,10 @@ export const series = pgTable(
     publishIndividualFleetPages: boolean('publish_individual_fleet_pages')
       .notNull()
       .default(true),
+    // rrs.org competitor-push settings remembered from the last push (event
+    // UUID + division source). Nullable JSONB — absent until first pushed,
+    // never queried by content.
+    rrsOrgPush: jsonb('rrs_org_push').$type<RrsOrgPushConfig>(),
     // Display.
     enabledCompetitorFields: jsonb('enabled_competitor_fields')
       .$type<CompetitorFieldKey[]>()

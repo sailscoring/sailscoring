@@ -7,6 +7,7 @@ import type {
   CompetitorFieldKey,
   PrimaryPersonLabel,
   PublishingGroup,
+  RrsOrgPushConfig,
 } from '@/lib/types';
 
 import { SUBDIVISION_LABEL_MAX_LENGTH } from '@/lib/competitor-fields';
@@ -60,6 +61,14 @@ export const publishingGroupSchema = z.object({
   detail: z.enum(['standings', 'full']),
 });
 
+/** rrs.org competitor-push settings remembered on the series. The event UUID
+ *  is rrs.org's, not one of ours, but it is UUID-shaped all the same. */
+export const rrsOrgPushConfigSchema = z.object({
+  eventUuid: uuidSchema,
+  divisionSource: z.enum(['none', 'fleet', 'axis']),
+  divisionAxisId: z.string().optional(),
+});
+
 export const seriesSchema = z.object({
   id: uuidSchema,
   name: z.string(),
@@ -96,6 +105,9 @@ export const seriesSchema = z.object({
   // and older clients round-trip cleanly.
   publishingGroups: z.array(publishingGroupSchema).optional(),
   publishIndividualFleetPages: z.boolean().optional(),
+  // rrs.org competitor-push settings. Optional on the wire so sparse creation
+  // and older clients round-trip cleanly.
+  rrsOrgPush: rrsOrgPushConfigSchema.optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
   primaryPersonLabel: primaryPersonLabelSchema,
   // Independent subdivision axes, e.g. a "Division" and an "Age category"
@@ -184,3 +196,8 @@ const _groupFromZod: PublishingGroup = undefined as unknown as z.infer<typeof pu
 const _groupFromTs: z.infer<typeof publishingGroupSchema> = undefined as unknown as PublishingGroup;
 void _groupFromZod;
 void _groupFromTs;
+
+const _rrsPushFromZod: RrsOrgPushConfig = undefined as unknown as z.infer<typeof rrsOrgPushConfigSchema>;
+const _rrsPushFromTs: z.infer<typeof rrsOrgPushConfigSchema> = undefined as unknown as RrsOrgPushConfig;
+void _rrsPushFromZod;
+void _rrsPushFromTs;

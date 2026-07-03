@@ -88,6 +88,25 @@ export interface PublishingGroup {
   detail: 'standings' | 'full';
 }
 
+/**
+ * Pushing the competitor list to a racingrulesofsailing.org event via its
+ * competitor-import API: the settings remembered from the last push so a
+ * re-push needs no re-configuration. The event UUID doubles as the write
+ * credential for the rrs.org event, so this is carried in the `.sailscoring`
+ * file but excluded from the public JSON export.
+ */
+export interface RrsOrgPushConfig {
+  /** The rrs.org event UUID, from the Event Panel. */
+  eventUuid: string;
+  /** What feeds rrs.org's single `division` slot: nothing, the competitor's
+   *  fleet name, or one subdivision axis's value. */
+  divisionSource: 'none' | 'fleet' | 'axis';
+  /** The subdivision axis feeding `division`; set iff divisionSource is
+   *  'axis'. Axis ids are stable across file round-trips (unlike fleet ids),
+   *  so no remap is needed on import. */
+  divisionAxisId?: string;
+}
+
 /** How boats that did not finish are scored (RRS Appendix A5).
  *  - `seriesEntries` — A5.2: penalty = series entries + 1.
  *  - `startingArea` — A5.3: came-but-didn't-finish codes (DNF/RET/OCS/…) =
@@ -143,6 +162,11 @@ export interface Series {
   // least one combined page is configured — with none, fleet pages always
   // publish (a page-less publication is never constructed).
   publishIndividualFleetPages?: boolean;
+  // rrs.org competitor push: remembered from the last push. Sparse — absent
+  // until the series is first pushed. Carried in the .sailscoring file (the
+  // config should follow the series between workspaces) but excluded from the
+  // public JSON export (the UUID is a write-credential).
+  rrsOrgPush?: RrsOrgPushConfig;
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)
