@@ -47,6 +47,8 @@ export default async function HelpPage() {
             ['#start-sequences', 'Start sequences'],
             ['#race-fleets', 'Which fleets are in a race'],
             ['#importing-competitors', 'Importing competitors from CSV'],
+            // Gated: only listed when rrs-import is enabled (#260).
+            ['#rrs-org-push', 'Pushing the competitor list to rrs.org', 'rrs-import'],
             ['#updating-handicaps', 'Updating handicaps from another series'],
             // Gated: only listed when irc-rating is enabled (on by default, #168 follow-up).
             ['#update-handicaps-irc-rating', 'Updating IRC TCCs from the rating list', 'irc-rating'],
@@ -472,6 +474,50 @@ export default async function HelpPage() {
           missing a sail number are skipped and listed in the summary.
         </p>
       </Section>
+
+      {has('rrs-import') && (
+      <Section id="rrs-org-push" title="Pushing the competitor list to rrs.org">
+        <p>
+          racingrulesofsailing.org (RRS.org) runs the protest and jury side of many
+          events — protest filing, hearing schedules, the online notice board — and
+          needs the same competitor list you score. The{' '}
+          <strong className="text-foreground">Import</strong> button on the
+          Competitors tab can push your list to an rrs.org event: tick{' '}
+          <strong className="text-foreground">Import to rrs.org</strong> and paste the
+          event&rsquo;s <strong className="text-foreground">UUID</strong>, found in the
+          event details at the top of the rrs.org Event Panel. Sail Scoring remembers
+          the UUID for the series, so a re-push after the entry list changes is just a
+          couple of clicks.
+        </p>
+        <p>
+          You can push on its own, or combine it with a CSV import in one step by
+          ticking both options. Combining is how contact details reach rrs.org: Sail
+          Scoring deliberately does not store emails, phone numbers, or MNA membership
+          numbers, but when your CSV has those columns the importer relays them to
+          rrs.org alongside the import and then discards them. Phone numbers are
+          converted to international format (e.g.{' '}
+          <code className="text-foreground text-sm">+353861234567</code>) using each
+          competitor&rsquo;s nationality; numbers that can&rsquo;t be converted are sent
+          blank and listed in the summary. A push without a CSV sends those fields
+          blank.
+        </p>
+        <p>
+          Most fields map automatically — sail number, nationality (also used as the
+          World Sailing MNA code), names, boat name, class, and club. rrs.org has a
+          single <em>division</em> slot; choose whether it gets the fleet name, one of
+          your subdivision axes, or nothing. Owner and crew names are not sent —
+          rrs.org has no fields for them.
+        </p>
+        <p>
+          Each push <strong className="text-foreground">replaces</strong> all
+          competitors previously imported into the rrs.org event via its API,
+          including any edits made to them on rrs.org since — so push the full,
+          corrected list rather than editing on both sides. Competitors entered
+          manually on rrs.org are never affected. After a push, rrs.org records any
+          per-record problems on its Event Panel; review the imported entries there.
+        </p>
+      </Section>
+      )}
 
       <Section id="updating-handicaps" title="Updating handicaps from another series">
         <p>
