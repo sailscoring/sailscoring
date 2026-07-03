@@ -170,6 +170,7 @@ changes (per RRS A6.2, other boats' scores are not recalculated).
 | RRS | Racing Rules of Sailing. The rule book published by World Sailing every four years (current edition: 2025-2028) that governs the conduct and scoring of sailing races. |
 | Appendix A | The section of the RRS that defines scoring rules for fleet racing. Covers race scoring, series scoring, scoring codes, and tie-breaking. Most scoring software defaults to Appendix A compliance. |
 | WS | World Sailing. The international governing body for the sport of sailing (formerly ISAF). Publishes the RRS and associated regulations. |
+| MNA | Member National Authority. A national governing body for sailing affiliated to World Sailing (e.g. Irish Sailing, the RYA). In international contexts an MNA is identified by the same three-letter national letters (RRS Appendix G) that Sail Scoring stores as a competitor's Nationality. |
 
 ---
 
