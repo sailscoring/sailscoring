@@ -64,7 +64,9 @@ test.describe('competitor identity reconcile', () => {
     const aoife = page
       .getByTestId('identity-card')
       .filter({ hasText: 'IODAI Leinsters 2018' });
-    await expect(aoife).toBeVisible();
+    // First paint after navigation: under full-suite load the page load plus
+    // the arc-list roundtrip can exceed the default 5s expect timeout.
+    await expect(aoife).toBeVisible({ timeout: 15_000 });
     await expect(aoife).toContainText('Aoife Murphy');
     await expect(aoife).toContainText('3 series');
 
