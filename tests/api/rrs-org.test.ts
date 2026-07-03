@@ -146,7 +146,7 @@ describe.skipIf(skip)('pushCompetitorsToRrsOrg', () => {
     const lines = await readLogLines();
     expect(lines).toHaveLength(1);
     expect(lines[0].payload.uuid).toBe(EVENT_UUID);
-    expect(lines[0].payload.source).toBe('sailscoring');
+    expect(lines[0].payload.source).toBe('rrs-ai-import');
     expect(lines[0].payload.competitors.map((c) => c.sail_number)).toEqual(['14302', '14241']);
 
     const saved = await createRepos({ workspaceId }).series.get(seriesId);

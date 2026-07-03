@@ -66,10 +66,11 @@ Payload rules (from RRS.org's documentation, confirmed in practice):
   so expect tolerance, but IOC-style codes are the safe choice.
 - `last_name` doubles as the full-name field: if a name can't be split, put
   the whole thing in `last_name` and leave `first_name` empty.
-- `source` presumably identifies the client; `"rrs-ai-import"` is what the
-  documented prompt uses. An in-app integration should pick its own value
-  (e.g. `"sailscoring"`) — worth confirming with RRS.org that arbitrary
-  values are accepted.
+- `source` identifies the client and is **validated against a whitelist**:
+  a first in-app push with `"source": "sailscoring"` was rejected with
+  HTTP 422 `{"errors":["unrecognized_source"]}` (July 2026). Stick to the
+  documented `"rrs-ai-import"` unless/until RRS.org registers a Sail
+  Scoring-specific value.
 
 ## Response and error semantics
 
