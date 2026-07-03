@@ -149,7 +149,7 @@ function IdentityCard({
 }
 
 export function IdentitiesReconcile({ workspaceSlug }: { workspaceSlug: string }) {
-  const { data: identities } = useCompetitorIdentities();
+  const { data: identities, isError, refetch } = useCompetitorIdentities();
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -160,6 +160,20 @@ export function IdentitiesReconcile({ workspaceSlug }: { workspaceSlug: string }
   }, [identities, query]);
 
   if (identities === undefined) {
+    // Without this branch a failed load would sit on "Loading…" forever —
+    // focus refetches are off, so nothing retries until a navigation.
+    if (isError) {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Couldn&rsquo;t load competitors. Check your connection and try again.
+          </p>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>
+            Try again
+          </Button>
+        </div>
+      );
+    }
     return <p className="text-sm text-muted-foreground">Loading…</p>;
   }
 

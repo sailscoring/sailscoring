@@ -93,6 +93,40 @@ test.describe('competitor identity reconcile', () => {
     expect(errors).toEqual([]);
   });
 
+  test('a failed arc-list load shows an error state, and retry recovers', async ({ page }) => {
+    // No console-error assertions here: the aborted requests below log
+    // resource-load errors by design.
+    const email = await signInFreshUser(page, 'identity-err');
+    const { id: orgId } = await createOrgWorkspace('Identity Err Club');
+    await addMemberByEmail(orgId, email, 'owner');
+    await enableOrgFeatures(orgId, ['competitor-reconcile']);
+    await setActiveWorkspace(page, orgId);
+    await seedCareerArc(orgId, {
+      label: 'Aoife Murphy',
+      entries: [
+        { year: 2020, eventName: 'IODAI Nationals 2020', sailNumber: 'IRL1200' },
+      ],
+    });
+
+    let failListRequests = true;
+    await page.route('**/api/v1/competitor-identities', async (route) => {
+      if (failListRequests) return route.abort();
+      return route.fallback();
+    });
+
+    await page.goto('/workspace/competitors');
+    // React Query retries three times with backoff before surfacing the error.
+    await expect(page.getByText(/couldn.t load competitors/i)).toBeVisible({
+      timeout: 15_000,
+    });
+
+    failListRequests = false;
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(
+      page.getByTestId('identity-card').filter({ hasText: 'IODAI Nationals 2020' }),
+    ).toBeVisible();
+  });
+
   test('renders a public career-arc page, gated and age-free', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
