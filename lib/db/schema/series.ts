@@ -176,6 +176,11 @@ export const series = pgTable(
       .$type<PublishingGroup[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    // Whether fleets also publish standalone pages alongside the combined
+    // pages (default true); inert while no combined page is configured.
+    publishIndividualFleetPages: boolean('publish_individual_fleet_pages')
+      .notNull()
+      .default(true),
     // Display.
     enabledCompetitorFields: jsonb('enabled_competitor_fields')
       .$type<CompetitorFieldKey[]>()

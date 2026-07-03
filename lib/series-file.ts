@@ -128,9 +128,11 @@ export interface SeriesFileRepos {
  *  files load with it absent (no exclusions).
  *
  *  v15 adds optional `series.publishingGroups` (combined published pages —
- *  several fleets rendered as sections of one page). Additive and sparse
- *  (written only when non-empty); older files load with it absent (no
- *  combined pages). */
+ *  several fleets rendered as sections of one page) and optional
+ *  `series.publishIndividualFleetPages` (whether fleets also publish
+ *  standalone pages alongside them; written only when false). Both are
+ *  additive and sparse; older files load with them absent (no combined
+ *  pages, fleet pages published). */
 export const FORMAT_VERSION = 15;
 export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 export const FILE_EXTENSION = '.sailscoring';
@@ -180,6 +182,7 @@ interface SeriesFileSeries {
   publishRatingCalculations?: boolean;
   showPerRaceRatingsInSummary?: boolean;
   publishingGroups?: PublishingGroup[];  // v15+; combined published pages
+  publishIndividualFleetPages?: boolean;  // v15+; absent = true
 }
 
 interface SeriesFileCompetitor {
@@ -445,6 +448,9 @@ export async function buildSeriesFile(
       ...(series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: series.showPerRaceRatingsInSummary } : {}),
       ...(series.publishingGroups && series.publishingGroups.length > 0
         ? { publishingGroups: series.publishingGroups }
+        : {}),
+      ...(series.publishIndividualFleetPages === false
+        ? { publishIndividualFleetPages: false }
         : {}),
     },
     competitors: competitors.map((c) => ({
@@ -799,6 +805,7 @@ export async function openSeriesFromFile(
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
+    publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -881,6 +888,7 @@ export async function restoreSeriesFromFile(
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
+    publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -954,6 +962,7 @@ export async function updateSeriesFromFile(
     publishRatingCalculations: file.series.publishRatingCalculations ?? true,
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
+    publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,

@@ -1,0 +1,1 @@
+ALTER TABLE "series" ADD COLUMN "publish_individual_fleet_pages" boolean DEFAULT true NOT NULL;

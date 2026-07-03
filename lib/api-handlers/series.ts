@@ -358,6 +358,7 @@ export async function copySeries(
         ...g,
         fleetIds: g.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
       })),
+      publishIndividualFleetPages: source.publishIndividualFleetPages ?? true,
       enabledCompetitorFields: source.enabledCompetitorFields,
       primaryPersonLabel: source.primaryPersonLabel,
       // Axis ids are series-local — carried verbatim so competitor
@@ -701,6 +702,7 @@ export async function createFollowOnSeries(
         ...g,
         fleetIds: g.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
       })),
+      publishIndividualFleetPages: source.publishIndividualFleetPages ?? true,
       enabledCompetitorFields: source.enabledCompetitorFields,
       primaryPersonLabel: source.primaryPersonLabel,
       subdivisionAxes: source.subdivisionAxes,

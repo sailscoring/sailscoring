@@ -11,7 +11,7 @@ import {
   assembleSeriesResultsData,
   type SeriesResultsData,
 } from './results-renderer';
-import { resolvePublishingGroups, suppressedFleetIds, producesPage } from './publishing-groups';
+import { resolvePublishingGroups, fleetPagesSuppressed, producesPage } from './publishing-groups';
 import {
   buildPublicExportFromSnapshot,
   resolveSeriesLogoDefaults,
@@ -76,8 +76,9 @@ export interface FleetHtmlFile {
  *  the series has blocks) — plus, for a multi-fleet series, one combined page
  *  per publishing group, leading its view's cluster. On a block series a
  *  group applies within each block (one combined page per (block, group)).
- *  Fleets suppressed by a group ("don't publish members individually") get no
- *  standalone entry in the views where the group covers them. */
+ *  With `series.publishIndividualFleetPages` off, a view that has a combined
+ *  page emits no standalone fleet entries — its output is exactly its
+ *  combined pages. */
 export async function buildFleetHtmlFiles(
   // Only the six read repos are needed (same surface as `buildPublicExport`),
   // so this accepts the narrower `ExportRepos` — that lets the server publish
@@ -424,8 +425,10 @@ export async function buildFleetHtmlFiles(
     const resolvedGroups = groupsApply
       ? resolvePublishingGroups(series.publishingGroups, viewFleets).filter(producesPage)
       : [];
-    const suppressed = groupsApply
-      ? suppressedFleetIds(series.publishingGroups, viewFleets)
+    // With individual fleet pages off, this view's output is exactly its
+    // combined pages (inert while the view has none — see fleetPagesSuppressed).
+    const suppressed = fleetPagesSuppressed(series.publishIndividualFleetPages, resolvedGroups)
+      ? new Set(viewFleets.map((f) => f.id))
       : undefined;
 
     const clusterStart = results.length;

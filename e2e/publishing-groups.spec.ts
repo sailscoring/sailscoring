@@ -119,25 +119,24 @@ test('replace-members page: full detail, standalone fleet pages retracted', asyn
   await expect(row.getByRole('checkbox', { name: 'Cruiser' })).toBeChecked();
   await row.getByRole('radio', { name: 'Full per-race detail' }).click();
   await expect(row.getByRole('radio', { name: 'Full per-race detail' })).toBeChecked();
-  await row.getByRole('checkbox', { name: 'Also publish each fleet as its own page' }).click();
+  // The single series-level toggle: publish only the combined pages.
+  await card.getByRole('checkbox', { name: 'Publish individual per-fleet pages' }).click();
   await expect(
-    row.getByRole('checkbox', { name: 'Also publish each fleet as its own page' }),
+    card.getByRole('checkbox', { name: 'Publish individual per-fleet pages' }),
   ).not.toBeChecked();
   await card.getByRole('button', { name: 'Done' }).click();
   await expect(card.getByText('Both Fleets (IRC + Cruiser)')).toBeVisible();
 
-  // The dialog shows where each fleet went. A newly-defined group is unticked
-  // on re-publish (nothing publishes silently), and until it's ticked the
-  // suppressed pages don't come down — retraction waits for the replacement.
+  // The dialog shows where each fleet went; the fleets are no longer
+  // selectable rows. A newly-defined group is unticked on re-publish
+  // (nothing publishes silently) — server-side, the old fleet pages only
+  // come down once the combined page is live.
   await page.goto(seriesUrl);
   await page.getByRole('button', { name: 'Publish' }).click();
   dialog = page.getByRole('dialog', { name: 'Publish results' });
   await expect(dialog.getByTestId('suppressed-fleet-IRC')).toContainText('→ in Both Fleets');
-  await expect(dialog.getByTestId('suppressed-fleet-IRC')).not.toContainText('comes down');
   await expect(dialog.getByTestId('suppressed-fleet-Cruiser')).toBeVisible();
-  // Tick the group: now the notes flip to "comes down on publish".
   await dialog.getByRole('checkbox', { name: 'Publish Both Fleets' }).check();
-  await expect(dialog.getByTestId('suppressed-fleet-IRC')).toContainText('comes down on publish');
   await dialog.getByRole('button', { name: 'Re-publish', exact: true }).click();
 
   const bothLink = dialog.getByRole('link', { name: /\/both-fleets$/ });

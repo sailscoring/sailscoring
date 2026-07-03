@@ -73,7 +73,6 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
         fleetMode: 'all',
         fleetIds: [],
         detail: 'standings',
-        publishMembersIndividually: true,
       },
     ]);
     setExpanded(true);
@@ -130,7 +129,10 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
       ? 'No combined pages.'
       : resolved
           .map((r) => `${r.group.name.trim() || '(unnamed)'} (${describeGroupMembers(r)})`)
-          .join(' · ');
+          .join(' · ') +
+        (series.publishIndividualFleetPages === false
+          ? ' · individual fleet pages off'
+          : '');
 
   const sortedFleets = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
 
@@ -283,28 +285,37 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
                   ))}
                 </div>
 
-                <label className="flex items-start gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={group.publishMembersIndividually}
-                    onChange={(e) =>
-                      patchGroup(group.id, { publishMembersIndividually: e.target.checked })
-                    }
-                    className="mt-0.5 h-4 w-4"
-                  />
-                  <span>
-                    Also publish each fleet as its own page
-                    <span className="block text-xs text-muted-foreground">
-                      Untick to publish these fleets only through this combined
-                      page — their standalone pages are taken down on the next
-                      publish.
-                    </span>
-                  </span>
-                </label>
               </div>
             );
             }}
           </SortableList>
+
+          {resolved.length > 0 && (
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={series.publishIndividualFleetPages ?? true}
+                onChange={(e) =>
+                  updateSeries.mutate({
+                    id: seriesId,
+                    patch: {
+                      publishIndividualFleetPages: e.target.checked,
+                      lastModifiedAt: Date.now(),
+                    },
+                  })
+                }
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>
+                Publish individual per-fleet pages
+                <span className="block text-xs text-muted-foreground">
+                  Untick to publish only the combined pages above. A fleet
+                  that isn&apos;t on any combined page isn&apos;t published
+                  at all.
+                </span>
+              </span>
+            </label>
+          )}
 
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={addGroup}>

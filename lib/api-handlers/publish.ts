@@ -185,35 +185,39 @@ export async function publishSeries(
   const pageKey = (p: { fleetName: string; subSeriesName?: string }): string =>
     `${p.subSeriesName ?? ''}\u0000${p.fleetName}`;
 
-  // Fleets suppressed by combined-page config ("don't publish members
-  // individually", #255) publish only through their group page. The build
-  // above emits no standalone file for them; here, a *previously published*
-  // standalone page of theirs is retracted — removed from the publication and
-  // its blob deleted — rather than carried, which would leave it permanently
-  // stale with no per-page unpublish to remove it. The guard: retraction only
-  // happens once the replacing group's page is live after this publish (built
-  // now, or carried from a previous one) — a suppressed page is never taken
-  // down before its replacement exists, e.g. when a freshly-defined group is
-  // left unticked. On a block series both sides carry the block: a (block,
-  // fleet) page retracts only when the (same block, group) page is live —
-  // groups apply within each block, never across them.
+  // With individual fleet pages switched off (#255), the published output is
+  // exactly the combined pages. The build above emits no standalone fleet
+  // files; here, a *previously published* fleet page is retracted — removed
+  // from the publication and its blob deleted — rather than carried, which
+  // would leave it permanently stale with no per-page unpublish to remove
+  // it. The guard: a view's fleet pages only retract once a combined page is
+  // live in that view after this publish (built now, or carried from a
+  // previous one) — pages never come down before something replaces the
+  // view's output, e.g. when a freshly-defined group is still unticked. On a
+  // block series both sides carry the block: a (block, fleet) page retracts
+  // only when a (same block, group) page is live — groups apply within each
+  // block, never across them.
   const fleetRows = await repos.fleets.listBySeries(seriesId);
-  const liveKeys = new Set([...toBuild.map(pageKey), ...carriedAll.map(pageKey)]);
-  const replaceGroups = resolvePublishingGroups(series.publishingGroups, fleetRows).filter(
-    (r) => !r.group.publishMembersIndividually && producesPage(r),
-  );
-  const retracted = (existing?.pages ?? []).filter((p) =>
-    replaceGroups.some(
-      (r) =>
-        r.fleets.some((f) => f.name === p.fleetName) &&
-        liveKeys.has(
-          pageKey({
-            fleetName: r.group.name.trim(),
-            ...(p.subSeriesName ? { subSeriesName: p.subSeriesName } : {}),
-          }),
+  let retracted: PublishedSeriesPage[] = [];
+  if (series.publishIndividualFleetPages === false) {
+    const liveKeys = new Set([...toBuild.map(pageKey), ...carriedAll.map(pageKey)]);
+    const groupNames = resolvePublishingGroups(series.publishingGroups, fleetRows)
+      .filter(producesPage)
+      .map((r) => r.group.name.trim());
+    const fleetNames = new Set(fleetRows.map((f) => f.name));
+    retracted = (existing?.pages ?? []).filter(
+      (p) =>
+        fleetNames.has(p.fleetName) &&
+        groupNames.some((g) =>
+          liveKeys.has(
+            pageKey({
+              fleetName: g,
+              ...(p.subSeriesName ? { subSeriesName: p.subSeriesName } : {}),
+            }),
+          ),
         ),
-    ),
-  );
+    );
+  }
 
   // Pages for fleets we're not rebuilding carry over verbatim — same sub-path,
   // same (content-addressed) blob. Retracted pages never carry.

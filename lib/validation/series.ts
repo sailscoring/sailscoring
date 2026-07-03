@@ -58,7 +58,6 @@ export const publishingGroupSchema = z.object({
   fleetMode: z.enum(['all', 'chosen']),
   fleetIds: z.array(uuidSchema),
   detail: z.enum(['standings', 'full']),
-  publishMembersIndividually: z.boolean(),
 });
 
 export const seriesSchema = z.object({
@@ -96,6 +95,7 @@ export const seriesSchema = z.object({
   // Combined published pages (#255). Optional on the wire so sparse creation
   // and older clients round-trip cleanly.
   publishingGroups: z.array(publishingGroupSchema).optional(),
+  publishIndividualFleetPages: z.boolean().optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
   primaryPersonLabel: primaryPersonLabelSchema,
   // Independent subdivision axes, e.g. a "Division" and an "Age category"

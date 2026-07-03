@@ -68,7 +68,8 @@ export type SeriesSource = 'sailwave';
  * both the "Overall" page (every fleet's standings on one page, typically
  * without the per-race detail) and the multi-method class page (e.g. one
  * "Puppeteer" page carrying the Scratch and HPH fleets in full, with no
- * individual pages). Composes fleets only — never ad-hoc competitor filters.
+ * individual pages — see `Series.publishIndividualFleetPages`). Composes
+ * fleets only — never ad-hoc competitor filters.
  */
 export interface PublishingGroup {
   id: string;
@@ -85,9 +86,6 @@ export interface PublishingGroup {
   /** 'full' keeps each section's per-race detail tables; 'standings' renders
    *  only the summary standings tables. */
   detail: 'standings' | 'full';
-  /** When false, the member fleets publish only through this page — their
-   *  standalone pages are skipped (and retracted on the next publish). */
-  publishMembersIndividually: boolean;
 }
 
 /** How boats that did not finish are scored (RRS Appendix A5).
@@ -135,9 +133,16 @@ export interface Series {
   publishRatingCalculations?: boolean;  // NHC/ECHO progressive rating-calculation explainability columns/header (default true)
   showPerRaceRatingsInSummary?: boolean;  // NHC/ECHO: render applied rating beneath each score in the summary table and add a seed-rating column (default true)
   // Combined published pages (#255). Sparse — absent/empty is the common
-  // case. Ignored while the series has sub-series (blocks publish their own
-  // page grid). Gated by the `combined-pages` feature.
+  // case. On a block series each sub-series gets its own combined page per
+  // group. Gated by the `combined-pages` feature.
   publishingGroups?: PublishingGroup[];
+  // Whether fleets also publish their own standalone pages (default true).
+  // When false, the published output is exactly the combined pages: no
+  // per-fleet pages are built, and previously-published ones are retracted
+  // once a combined page is live in their view. Only meaningful while at
+  // least one combined page is configured — with none, fleet pages always
+  // publish (a page-less publication is never constructed).
+  publishIndividualFleetPages?: boolean;
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)

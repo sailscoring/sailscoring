@@ -1,9 +1,9 @@
 /**
- * Combined published pages (#255) in the shared page builder: a blockless
- * multi-fleet series with publishing groups emits one combined page per
- * group (listed first), renders standings-only or full detail per the
- * group's setting, and drops the standalone page of any fleet whose group
- * replaces it.
+ * Combined published pages (#255) in the shared page builder: a multi-fleet
+ * series with publishing groups emits one combined page per group (leading
+ * its view's cluster), renders standings-only or full detail per the group's
+ * setting, and — with `publishIndividualFleetPages` off — emits exactly the
+ * combined pages, no standalone fleet entries.
  */
 import { describe, it, expect } from 'vitest';
 
@@ -18,7 +18,10 @@ import type {
   Series,
 } from '@/lib/types';
 
-function makeSeries(publishingGroups: PublishingGroup[]): Series {
+function makeSeries(
+  publishingGroups: PublishingGroup[],
+  publishIndividualFleetPages = true,
+): Series {
   return {
     id: 's1',
     name: 'Autumn League',
@@ -43,6 +46,7 @@ function makeSeries(publishingGroups: PublishingGroup[]): Series {
     primaryPersonLabel: 'helm',
     subdivisionAxes: [],
     publishingGroups,
+    publishIndividualFleetPages,
   };
 }
 
@@ -91,7 +95,6 @@ const OVERALL: PublishingGroup = {
   fleetMode: 'all',
   fleetIds: [],
   detail: 'standings',
-  publishMembersIndividually: true,
 };
 
 const PUPPETEER: PublishingGroup = {
@@ -100,7 +103,6 @@ const PUPPETEER: PublishingGroup = {
   fleetMode: 'chosen',
   fleetIds: ['f-scratch', 'f-hph'],
   detail: 'full',
-  publishMembersIndividually: false,
 };
 
 describe('buildFleetHtmlFiles — combined pages', () => {
@@ -134,32 +136,36 @@ describe('buildFleetHtmlFiles — combined pages', () => {
     expect(overall.html).not.toContain('class="racetable"');
   });
 
-  it('a replace-members group renders full detail and drops the standalone pages', async () => {
+  it('a full-detail group keeps per-section race tables with unambiguous anchors', async () => {
     const files = await buildFleetHtmlFiles(makeRepos(makeSeries([PUPPETEER])), 's1');
-    expect(files!.map((f) => f.fleetName)).toEqual(['Puppeteer', 'IRC 1']);
+    expect(files!.map((f) => f.fleetName)).toEqual([
+      'Puppeteer',
+      'Puppeteer Scratch',
+      'Puppeteer HPH',
+      'IRC 1',
+    ]);
     const pups = files![0];
     expect(pups.isCombined).toBe(true);
-    // Both member fleets' sections carry their race tables, with per-section
-    // anchors so the race links stay unambiguous.
     expect(pups.html.match(/class="racetable"/g)).toHaveLength(2);
     expect(pups.html).toContain('id="puppeteer-scratch-r1"');
     expect(pups.html).toContain('id="puppeteer-hph-r1"');
-    // The non-member fleet is untouched and un-suppressed.
-    expect(files![1].isCombined).toBeUndefined();
   });
 
-  it('both groups compose: combined pages lead in group order', async () => {
+  it('individual fleet pages off: the output is exactly the combined pages', async () => {
     const files = await buildFleetHtmlFiles(
-      makeRepos(makeSeries([OVERALL, PUPPETEER])),
+      makeRepos(makeSeries([OVERALL, PUPPETEER], false)),
       's1',
     );
-    expect(files!.map((f) => f.fleetName)).toEqual(['Overall', 'Puppeteer', 'IRC 1']);
+    // IRC 1 is on the Overall page; nothing publishes standalone — including
+    // any fleet a combined page happens not to cover.
+    expect(files!.map((f) => f.fleetName)).toEqual(['Overall', 'Puppeteer']);
   });
 
-  it('a chosen group whose fleets were all deleted renders no page', async () => {
+  it('the toggle is inert without a page-producing combined page', async () => {
     const ghost: PublishingGroup = { ...PUPPETEER, fleetIds: ['f-gone'] };
-    const files = await buildFleetHtmlFiles(makeRepos(makeSeries([ghost])), 's1');
-    // No combined page, and nothing suppressed (an empty group replaces nothing).
+    const files = await buildFleetHtmlFiles(makeRepos(makeSeries([ghost], false)), 's1');
+    // No combined page survives, so fleet pages publish regardless of the
+    // toggle — a page-less publication is never constructed.
     expect(files!.map((f) => f.fleetName)).toEqual([
       'Puppeteer Scratch',
       'Puppeteer HPH',
@@ -207,33 +213,36 @@ describe('buildFleetHtmlFiles — combined pages on a block series (#255)', () =
     expect(springOverall.html).not.toContain('<h2>IRC 1</h2>');
   });
 
-  it('a replace-members group suppresses standalone pages per block', async () => {
-    const files = await buildFleetHtmlFiles(makeBlockRepos(makeSeries([PUPPETEER])), 's1');
+  it('individual fleet pages off: each block publishes exactly its combined pages', async () => {
+    const files = await buildFleetHtmlFiles(
+      makeBlockRepos(makeSeries([PUPPETEER], false)),
+      's1',
+    );
     expect(files!.map((f) => `${f.subSeriesName}/${f.fleetName}`)).toEqual([
       'Winter/Puppeteer',
-      'Winter/IRC 1',
       'Spring/Puppeteer',
     ]);
     // Full detail: each block's combined page carries its members' race tables.
-    for (const f of files!.filter((x) => x.isCombined)) {
+    for (const f of files!) {
       expect(f.html.match(/class="racetable"/g)).toHaveLength(2);
     }
   });
 
-  it('a chosen group with no members in a block renders no page there and suppresses nothing', async () => {
+  it('the toggle is inert per block: a block with no combined page keeps its fleet pages', async () => {
     const ircOnly: PublishingGroup = {
       ...PUPPETEER,
       name: 'IRC Combined',
       fleetIds: ['f-irc'],
     };
-    const files = await buildFleetHtmlFiles(makeBlockRepos(makeSeries([ircOnly])), 's1');
-    // Winter: IRC 1 publishes only through the combined page. Spring's block
-    // scoping excludes IRC 1 entirely, so Spring has no combined page and its
-    // fleets are untouched.
+    const files = await buildFleetHtmlFiles(
+      makeBlockRepos(makeSeries([ircOnly], false)),
+      's1',
+    );
+    // Winter has a combined page, so only it publishes there. Spring's block
+    // scoping excludes IRC 1, so Spring has no combined page — its fleet
+    // pages publish despite the toggle.
     expect(files!.map((f) => `${f.subSeriesName}/${f.fleetName}`)).toEqual([
       'Winter/IRC Combined',
-      'Winter/Puppeteer Scratch',
-      'Winter/Puppeteer HPH',
       'Spring/Puppeteer Scratch',
       'Spring/Puppeteer HPH',
     ]);

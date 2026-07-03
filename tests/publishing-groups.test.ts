@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
   resolvePublishingGroups,
-  suppressedFleetIds,
+  fleetPagesSuppressed,
   describeGroupMembers,
   publishingGroupError,
 } from '@/lib/publishing-groups';
@@ -26,7 +26,6 @@ function makeGroup(overrides: Partial<PublishingGroup> = {}): PublishingGroup {
     fleetMode: 'all',
     fleetIds: [],
     detail: 'standings',
-    publishMembersIndividually: true,
     ...overrides,
   };
 }
@@ -65,29 +64,26 @@ describe('resolvePublishingGroups', () => {
   });
 });
 
-describe('suppressedFleetIds', () => {
-  it('is empty when every group also publishes members individually', () => {
-    expect(suppressedFleetIds([makeGroup()], FLEETS).size).toBe(0);
+describe('fleetPagesSuppressed', () => {
+  it('is false while individual fleet pages are on (the default)', () => {
+    const groups = resolvePublishingGroups([makeGroup()], FLEETS);
+    expect(fleetPagesSuppressed(undefined, groups)).toBe(false);
+    expect(fleetPagesSuppressed(true, groups)).toBe(false);
   });
 
-  it('collects members of a group that replaces its standalone pages', () => {
-    const group = makeGroup({
-      fleetMode: 'chosen',
-      fleetIds: ['f-scratch', 'f-hph'],
-      publishMembersIndividually: false,
-    });
-    const suppressed = suppressedFleetIds([group], FLEETS);
-    expect([...suppressed].sort()).toEqual(['f-hph', 'f-scratch']);
-    expect(suppressed.has('f-irc')).toBe(false);
+  it('is true when switched off with a page-producing combined page', () => {
+    const groups = resolvePublishingGroups([makeGroup()], FLEETS);
+    expect(fleetPagesSuppressed(false, groups)).toBe(true);
   });
 
-  it('an empty (all members deleted) group suppresses nothing', () => {
-    const group = makeGroup({
-      fleetMode: 'chosen',
-      fleetIds: ['f-deleted'],
-      publishMembersIndividually: false,
-    });
-    expect(suppressedFleetIds([group], FLEETS).size).toBe(0);
+  it('is inert with no producing combined page — fleet pages always publish', () => {
+    expect(fleetPagesSuppressed(false, [])).toBe(false);
+    // A group with no surviving members produces no page and counts for nothing.
+    const ghost = resolvePublishingGroups(
+      [makeGroup({ fleetMode: 'chosen', fleetIds: ['f-deleted'] })],
+      FLEETS,
+    ).filter((r) => r.fleets.length > 0);
+    expect(fleetPagesSuppressed(false, ghost)).toBe(false);
   });
 });
 

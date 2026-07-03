@@ -102,10 +102,10 @@ describe.skipIf(skip)('publish handler — combined pages (#255)', () => {
     await sql?.end();
   });
 
-  async function setGroups(groups: PublishingGroup[]) {
+  async function setGroups(groups: PublishingGroup[], publishIndividualFleetPages = true) {
     const repos = createRepos({ workspaceId });
     const current = (await repos.series.get(seriesId))!;
-    await repos.series.save({ ...current, publishingGroups: groups });
+    await repos.series.save({ ...current, publishingGroups: groups, publishIndividualFleetPages });
   }
 
   test('publishes fleet pages, then a group page alongside them', async () => {
@@ -114,7 +114,7 @@ describe.skipIf(skip)('publish handler — combined pages (#255)', () => {
 
     await setGroups([{
       id: uuid(), name: 'Overall', fleetMode: 'all', fleetIds: [],
-      detail: 'standings', publishMembersIndividually: true,
+      detail: 'standings',
     }]);
     const second = await publishSeries(ctx, seriesId, {});
     expect(second.pages.map((p) => p.fleetName)).toEqual([
@@ -131,15 +131,15 @@ describe.skipIf(skip)('publish handler — combined pages (#255)', () => {
     expect(html).toContain('<h2>Whitesails</h2>');
   });
 
-  test('suppressing members retracts their published standalone pages', async () => {
+  test('switching individual fleet pages off retracts the published standalone pages', async () => {
     const before = (await getPublishedBySeries(seriesId))!;
     const standalone = before.pages.filter((p) => p.fleetName !== 'Overall');
     expect(standalone).toHaveLength(2);
 
     await setGroups([{
       id: uuid(), name: 'Overall', fleetMode: 'all', fleetIds: [],
-      detail: 'standings', publishMembersIndividually: false,
-    }]);
+      detail: 'standings',
+    }], false);
     const result = await publishSeries(ctx, seriesId, {});
     expect(result.pages.map((p) => p.fleetName)).toEqual(['Overall']);
 
@@ -228,16 +228,16 @@ describe.skipIf(skip)('publish handler — combined pages on a block series (#25
     await sql?.end();
   });
 
-  async function setGroups(groups: PublishingGroup[]) {
+  async function setGroups(groups: PublishingGroup[], publishIndividualFleetPages = true) {
     const repos = createRepos({ workspaceId });
     const current = (await repos.series.get(seriesId))!;
-    await repos.series.save({ ...current, publishingGroups: groups });
+    await repos.series.save({ ...current, publishingGroups: groups, publishIndividualFleetPages });
   }
 
   test('an Overall group publishes one combined page per block, at {block}/overall', async () => {
     await setGroups([{
       id: uuid(), name: 'Overall', fleetMode: 'all', fleetIds: [],
-      detail: 'standings', publishMembersIndividually: true,
+      detail: 'standings',
     }]);
     const result = await publishSeries(ctx, seriesId, {});
     const keys = result.pages.map((p) => `${p.subSeriesName}/${p.fleetName}`);
@@ -249,11 +249,11 @@ describe.skipIf(skip)('publish handler — combined pages on a block series (#25
     expect(winterOverall.url.endsWith('/winter/overall')).toBe(true);
   });
 
-  test('suppression retracts per block, only where the block group page is live', async () => {
+  test('toggle off retracts per block, only where the block group page is live', async () => {
     await setGroups([{
       id: uuid(), name: 'Overall', fleetMode: 'all', fleetIds: [],
-      detail: 'standings', publishMembersIndividually: false,
-    }]);
+      detail: 'standings',
+    }], false);
     const result = await publishSeries(ctx, seriesId, {});
     expect(result.pages.map((p) => `${p.subSeriesName}/${p.fleetName}`)).toEqual([
       'Winter/Overall', 'Spring/Overall',

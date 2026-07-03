@@ -90,6 +90,7 @@ function makeFile(): SeriesFile {
       primaryPersonLabel: 'helm',
       scoringMode: 'handicap',
       subdivisionAxes: [],
+      publishIndividualFleetPages: false,
       publishingGroups: [
         {
           id: 'group-overall',
@@ -97,7 +98,6 @@ function makeFile(): SeriesFile {
           fleetMode: 'all',
           fleetIds: [],
           detail: 'standings',
-          publishMembersIndividually: true,
         },
         {
           id: 'group-pups',
@@ -105,7 +105,6 @@ function makeFile(): SeriesFile {
           fleetMode: 'chosen',
           fleetIds: ['file-fleet-a', 'file-fleet-b', 'file-fleet-gone'],
           detail: 'full',
-          publishMembersIndividually: false,
         },
       ],
     },
@@ -139,12 +138,13 @@ describe('publishingGroups fleet remap on import (v15)', () => {
       idByName.get('Puppeteer HPH'),
     ]);
     expect(pups.fleetIds).not.toContain('file-fleet-a');
+    // The series-level toggle rides along.
+    expect(saved.publishIndividualFleetPages).toBe(false);
     expect(pups.fleetIds).not.toContain('file-fleet-gone');
     // The rest of the group config round-trips verbatim.
     expect(pups).toMatchObject({
       name: 'Puppeteer',
       detail: 'full',
-      publishMembersIndividually: false,
     });
   });
 
@@ -152,8 +152,10 @@ describe('publishingGroups fleet remap on import (v15)', () => {
     const file = makeFile();
     file.formatVersion = 14;
     delete file.series.publishingGroups;
+    delete file.series.publishIndividualFleetPages;
     const repos = makeRepos();
     await openSeriesFromFile(file, repos);
     expect(repos.savedSeries.at(-1)!.publishingGroups).toEqual([]);
+    expect(repos.savedSeries.at(-1)!.publishIndividualFleetPages).toBe(true);
   });
 });

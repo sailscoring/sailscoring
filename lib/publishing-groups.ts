@@ -5,7 +5,8 @@
  * group config against the series' live fleets, in one place, so the build
  * path (`buildFleetHtmlFiles`), the publish handler's retraction of
  * suppressed pages, and the publish dialog's reflection all agree on which
- * fleets a group covers and which fleets lose their standalone page.
+ * fleets a group covers and when standalone fleet pages are skipped
+ * (`Series.publishIndividualFleetPages`).
  *
  * Groups apply only to blockless multi-fleet series: sub-series publish
  * their own (block × fleet) page grid, and a single-fleet series has nothing
@@ -52,31 +53,26 @@ export function resolvePublishingGroups(
   }));
 }
 
-/**
- * Ids of fleets whose standalone page is suppressed: members of at least one
- * non-empty group with `publishMembersIndividually === false`. Such a fleet
- * publishes only through its group page(s).
- */
-export function suppressedFleetIds(
-  groups: PublishingGroup[] | undefined,
-  fleets: Fleet[],
-): Set<string> {
-  const suppressed = new Set<string>();
-  for (const { group, fleets: members } of resolvePublishingGroups(groups, fleets)) {
-    // A group that renders no page (nameless while being set up, or with no
-    // surviving members) must not suppress anything — the members' standalone
-    // pages are all there is.
-    if (group.publishMembersIndividually || members.length === 0 || !group.name.trim()) continue;
-    for (const f of members) suppressed.add(f.id);
-  }
-  return suppressed;
-}
-
 /** Whether a resolved group produces a page: it has a name and at least one
  *  member. The build path and the publish dialog both filter on this, so a
  *  half-configured group is inert everywhere until it's completed. */
 export function producesPage(resolved: ResolvedPublishingGroup): boolean {
   return resolved.group.name.trim().length > 0 && resolved.fleets.length > 0;
+}
+
+/**
+ * Whether a view's standalone fleet pages are skipped: the scorer turned
+ * `Series.publishIndividualFleetPages` off AND the view has at least one
+ * page-producing combined page. With no combined page in the view, the
+ * toggle is inert — fleet pages always publish, so a page-less publication
+ * is never constructed. One rule for the build path, the publish handler's
+ * retraction, and the dialog's reflection.
+ */
+export function fleetPagesSuppressed(
+  publishIndividualFleetPages: boolean | undefined,
+  producingGroups: ResolvedPublishingGroup[],
+): boolean {
+  return (publishIndividualFleetPages ?? true) === false && producingGroups.length > 0;
 }
 
 /** Human summary of a group's membership for the settings card and publish

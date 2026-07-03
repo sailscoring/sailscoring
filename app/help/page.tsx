@@ -1636,12 +1636,13 @@ export default async function HelpPage() {
             keeps everything a standalone fleet page shows.
           </p>
           <p>
-            By default the member fleets still publish their own pages and the combined page is
-            an extra. Untick{' '}
-            <strong className="text-foreground">Also publish each fleet as its own page</strong>{' '}
-            to publish those fleets <em>only</em> through the combined page — their standalone
-            pages are taken down on the next publish, and the Publish dialog shows each such
-            fleet with a note pointing at the combined page it now lives on. Combined pages
+            By default every fleet still publishes its own page and the combined pages are
+            extras. Untick{' '}
+            <strong className="text-foreground">Publish individual per-fleet pages</strong>{' '}
+            to publish <em>only</em> the combined pages — the standalone fleet pages are taken
+            down on the next publish, and the Publish dialog shows each fleet with a note
+            pointing at the combined page(s) it appears on. A fleet on no combined page
+            isn&rsquo;t published at all while the toggle is off. Combined pages
             appear in the Publish dialog, the series listing page, and Preview alongside the
             fleet pages. On a series with sub-series, each sub-series gets its own combined
             page (e.g. <code className="text-foreground text-sm">…/winter/overall</code>)

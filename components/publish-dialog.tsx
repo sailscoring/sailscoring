@@ -20,9 +20,9 @@ import {
 import { fleetSubPath } from '@/lib/publishing';
 import {
   describeGroupMembers,
+  fleetPagesSuppressed,
   producesPage,
   resolvePublishingGroups,
-  suppressedFleetIds,
 } from '@/lib/publishing-groups';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useUpdateSeries } from '@/hooks/use-series';
@@ -72,14 +72,12 @@ interface FleetRow {
   caption?: string;
 }
 
-/** A fleet whose standalone page a combined page replaces — listed so the
- *  scorer sees where the fleet went, but not selectable or path-editable. */
+/** A fleet listed while individual fleet pages are switched off — shown so
+ *  nothing reads as vanished, but not selectable or path-editable. */
 interface SuppressedRow {
   name: string;
-  /** Combined page(s) the fleet publishes through. */
+  /** Combined page(s) the fleet appears on; empty = on none (not published). */
   groupNames: string[];
-  /** The standalone page is currently live and will be taken down. */
-  retracts: boolean;
 }
 
 /**
@@ -115,12 +113,14 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
         : [],
     [series.publishingGroups, fleets],
   );
+  // With individual fleet pages off, every fleet publishes only through the
+  // combined pages (inert while none are configured).
   const suppressed = useMemo(
     () =>
-      resolvedGroups.length > 0
-        ? suppressedFleetIds(series.publishingGroups, fleets)
+      fleetPagesSuppressed(series.publishIndividualFleetPages, resolvedGroups)
+        ? new Set(fleets.map((f) => f.id))
         : new Set<string>(),
-    [series.publishingGroups, fleets, resolvedGroups.length],
+    [series.publishIndividualFleetPages, fleets, resolvedGroups],
   );
   // The names that publish as pages this round: combined pages first, then
   // the fleets that keep a standalone page — mirroring the build order. Pages
@@ -240,33 +240,20 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     }));
   }, [pageNames, resolvedGroups, published]);
 
-  // Fleets a combined page replaces: listed dimmed so the scorer sees where
-  // each fleet went, with a note when a currently-live standalone page will
-  // be taken down by this publish. Mirrors the server rule: retraction only
-  // happens once the replacing group's page is live (already published, or
-  // ticked to publish now).
+  // Fleets while individual pages are off: listed dimmed so the scorer sees
+  // where each fleet went — its combined page(s), or a warning when no
+  // combined page covers it (it isn't published at all).
   const suppressedRows = useMemo<SuppressedRow[]>(() => {
     if (suppressed.size === 0) return [];
-    const publishedNames = new Set((published?.pages ?? []).map((p) => p.fleetName));
     return fleets
       .filter((f) => suppressed.has(f.id))
-      .map((f) => {
-        const groupNames = resolvedGroups
-          .filter(
-            (r) =>
-              !r.group.publishMembersIndividually &&
-              r.fleets.some((m) => m.id === f.id),
-          )
-          .map((r) => r.group.name.trim());
-        return {
-          name: f.name,
-          groupNames,
-          retracts:
-            publishedNames.has(f.name) &&
-            groupNames.some((g) => publishedNames.has(g) || selected.has(g)),
-        };
-      });
-  }, [fleets, suppressed, resolvedGroups, published, selected]);
+      .map((f) => ({
+        name: f.name,
+        groupNames: resolvedGroups
+          .filter((r) => r.fleets.some((m) => m.id === f.id))
+          .map((r) => r.group.name.trim()),
+      }));
+  }, [fleets, suppressed, resolvedGroups]);
 
   // The sub-path each row resolves to (frozen path, or the editable value).
   const segmentFor = (row: FleetRow): string =>
@@ -635,13 +622,14 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                         </div>
                       );
                     })}
-                    {/* Fleets a combined page replaces: visible so nothing
-                        reads as vanished, but not selectable — they publish
-                        through their group's page. */}
+                    {/* Fleets while individual pages are off: visible so
+                        nothing reads as vanished, but not selectable — they
+                        publish through the combined pages (or, uncovered,
+                        not at all). */}
                     {suppressedRows.map((row) => {
-                      const note = `→ in ${row.groupNames.join(', ')}${
-                        row.retracts ? ' · standalone page comes down on publish' : ''
-                      }`;
+                      const note = row.groupNames.length > 0
+                        ? `→ in ${row.groupNames.join(', ')}`
+                        : 'not on any combined page — not published';
                       return (
                         <div
                           key={`suppressed-${row.name}`}
