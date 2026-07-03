@@ -142,6 +142,15 @@ export const FEATURES = {
     label: 'Combined published pages',
     helpSectionIds: ['combined-pages'],
   },
+  'rrs-import': {
+    // Pushing the competitor list to a racingrulesofsailing.org event via its
+    // competitor-import API: the Import dialog's "Import to rrs.org" option
+    // (both alongside a CSV import and push-only from the competitor listing).
+    // Opt-in (default off) while the integration proves out against real
+    // events, per the containment model.
+    label: 'RRS.org competitor push',
+    helpSectionIds: ['rrs-org-push'],
+  },
   'competitor-reconcile': {
     // Gates the *in-app* reconcile surface (/workspace/competitors, its
     // switcher entry, and the /api/v1/competitor-identities endpoints behind
