@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSeries } from '@/hooks/use-series';
 import { FollowOnProvenanceNote } from '@/components/follow-on-provenance-note';
 import { useSeriesReadOnly } from '@/components/series-read-only';
+import { useFeatures } from '@/components/features-provider';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import {
@@ -246,11 +247,12 @@ export default function CompetitorsPage({
   }, [editingCompetitor]);
 
   const hasHandicapFleet = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
+  const hasRrsImport = useFeatures().has('rrs-import');
   const bulkFieldOptions = bulkEditFieldOptions(enabledFields, axes, fleets ?? []);
 
   useShortcuts([
     { key: 'n', description: 'Add competitor', section: 'Competitors', handler: () => setShowAddForm(true) },
-    { key: 'i', description: 'Import CSV', section: 'Competitors', handler: () => importRef.current?.trigger() },
+    { key: 'i', description: hasRrsImport ? 'Import (CSV / rrs.org)' : 'Import CSV', section: 'Competitors', handler: () => importRef.current?.trigger() },
     {
       key: 'u',
       description: 'Update handicaps (handicap fleets only)',

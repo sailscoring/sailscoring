@@ -30,14 +30,54 @@ export type CompetitorField =
 /**
  * A column-mapping target. Beyond the plain field roles, a column may target a
  * specific subdivision axis: an existing one (by id, `axis:<id>`) or a new axis
- * to be created from the column header (`newaxis`). Encoded as strings so they
- * flow through the `<Select>` dropdown and the column map unchanged; the plain
- * field switches (planner, reconcile) never match an axis target.
+ * to be created from the column header (`newaxis`), or — when the import also
+ * pushes to rrs.org — a relay-only field (`relay:<field>`) that is sent to
+ * rrs.org and never stored. Encoded as strings so they flow through the
+ * `<Select>` dropdown and the column map unchanged; the plain field switches
+ * (planner, reconcile) never match an axis or relay target.
  */
-export type ColumnTarget = CompetitorField | `axis:${string}` | typeof NEW_AXIS_TARGET;
+export type ColumnTarget =
+  | CompetitorField
+  | `axis:${string}`
+  | typeof NEW_AXIS_TARGET
+  | `relay:${RelayField}`;
 
 /** Sentinel target: create a fresh subdivision axis from this column's header. */
 export const NEW_AXIS_TARGET = 'newaxis';
+
+/** Contact / membership fields relayed to rrs.org at import time and
+ *  deliberately never stored (they belong to the entry system, not the
+ *  scoring engine). Keys match `RrsOrgRelayFields` in `lib/rrs-org.ts`. */
+export type RelayField = 'email' | 'phone' | 'mnaCode' | 'mnaNumber';
+
+export const RELAY_FIELDS: readonly RelayField[] = ['email', 'phone', 'mnaCode', 'mnaNumber'];
+
+/** The dropdown value for a relay-only field. */
+export function relayColumnTarget(field: RelayField): ColumnTarget {
+  return `relay:${field}`;
+}
+
+/** The relay field a target points at, or null if it isn't a relay target. */
+export function relayFieldOf(target: ColumnTarget): RelayField | null {
+  return target.startsWith('relay:') ? (target.slice('relay:'.length) as RelayField) : null;
+}
+
+/**
+ * Auto-detect a relay-only field from a column header. Consulted only when
+ * the import will also push to rrs.org — without a push these columns stay on
+ * whatever `autoDetectField` says (normally `ignore`), keeping the plain CSV
+ * flow byte-for-byte unchanged.
+ */
+export function autoDetectRelayField(header: string): RelayField | null {
+  const h = header.trim().replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  if (/e-?mail/.test(h)) return 'email';
+  if (/phone|mobile|\bcell\b|\btel\b/.test(h)) return 'phone';
+  // "MNA no." / "MNA number" / "membership number" is the member id; a bare
+  // "MNA" column is the authority code itself.
+  if (/\bmna\b.*(no|num)|member(ship)?\s*(no|num)/.test(h)) return 'mnaNumber';
+  if (/\bmna\b/.test(h)) return 'mnaCode';
+  return null;
+}
 
 /** The dropdown value for an existing subdivision axis. */
 export function axisColumnTarget(axisId: string): ColumnTarget {

@@ -4,22 +4,37 @@ import { useState, useRef, useImperativeHandle, forwardRef, useMemo, useCallback
 import Papa from 'papaparse';
 import {
   seriesRepo,
+  fleetRepo,
   competitorRepo,
+  pushCompetitorsToRrsOrg,
   DEFAULT_FLEET_NAME,
 } from '@/lib/api-repository';
+import { useFeatures } from '@/components/features-provider';
+import {
+  buildRrsOrgCompetitors,
+  type RrsOrgBuildWarning,
+  type RrsOrgCompetitor,
+  type RrsOrgPushResult,
+  type RrsOrgRelayFields,
+} from '@/lib/rrs-org';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { useSaveFleets } from '@/hooks/use-fleets';
 import { useSaveCompetitors } from '@/hooks/use-competitors';
 import {
   parseFleetCell,
   autoDetectField,
+  autoDetectRelayField,
   matchSubdivisionAxis,
   axisColumnTarget,
   subdivisionAxisIdOf,
   isSubdivisionTarget,
+  relayColumnTarget,
+  relayFieldOf,
   NEW_AXIS_TARGET,
+  RELAY_FIELDS,
   type CompetitorField,
   type ColumnTarget,
+  type RelayField,
 } from '@/lib/csv-import';
 import { lookupAlias, normalizeCodeInput } from '@/lib/nationality';
 import {
@@ -53,6 +68,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Upload } from 'lucide-react';
 import type { Competitor, Fleet, CompetitorFieldKey, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
 import {
@@ -76,8 +92,46 @@ import { log } from '@/lib/debug';
 
 type ColumnMap = Record<number, ColumnTarget>;
 
+/** The rrs.org side of an import, threaded through the flow when the scorer
+ *  ticked "Import to rrs.org" (gated by the `rrs-import` feature). */
+interface RrsImportConfig {
+  eventUuid: string;
+  divisionSource: 'none' | 'fleet' | 'axis';
+  divisionAxisId?: string;
+}
+
+/** Everything the done dialog needs to report a push — and to retry it
+ *  without re-running the CSV import (the rows are kept as sent). */
+interface PushOutcome {
+  config: RrsImportConfig;
+  rows: RrsOrgCompetitor[];
+  warnings: RrsOrgBuildWarning[];
+  relayCount: number;
+  result: RrsOrgPushResult;
+}
+
 type ImportFlow =
   | { step: 'idle' }
+  | {
+      /** The flag-on entry dialog: pick the source (CSV) and/or the
+       *  destination (rrs.org) before any work happens. */
+      step: 'choose';
+      csvChecked: boolean;
+      rrsChecked: boolean;
+      eventUuid: string;
+      file: File | null;
+      /** Saved push settings, for pre-filling the division source later. */
+      savedConfig: RrsImportConfig | null;
+    }
+  | {
+      /** The push-only confirm: no CSV, no column table — the division
+       *  choice, a preview of what stored data becomes, and the warning. */
+      step: 'pushConfirm';
+      config: RrsImportConfig;
+      competitors: Competitor[];
+      fleets: Fleet[];
+      axes: SubdivisionAxis[];
+    }
   | {
       step: 'mapping';
       headers: string[];
@@ -110,8 +164,16 @@ type ImportFlow =
       /** User toggle per CSV-fleet-name canonical group: should an extra
        *  scratch sibling be created (for line honours)? */
       alsoCreateScratch: Record<string, boolean>;
+      /** Present when the import also pushes to rrs.org. */
+      rrs: RrsImportConfig | null;
     }
-  | { step: 'done'; added: number; updated: number; unchanged: number; fleetsCreated: string[]; errors: { rowIndex: number; reason: string }[] };
+  | {
+      step: 'done';
+      /** CSV import counts; null for a push-only flow. */
+      csv: { added: number; updated: number; unchanged: number; fleetsCreated: string[]; errors: { rowIndex: number; reason: string }[] } | null;
+      /** rrs.org push outcome; null for a plain CSV import. */
+      push: PushOutcome | null;
+    };
 
 type MappingFlow = Extract<ImportFlow, { step: 'mapping' }>;
 
@@ -149,9 +211,19 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
  *  covered by `primary`). Each configured axis is its own target, plus a
  *  "New subdivision axis" option that creates one from the column header.
  *  Keyed by `ColumnTarget` string; insertion order is the display order. */
+/** Dropdown labels for the relay-only targets, shown only when the import
+ *  also pushes to rrs.org. The suffix carries the not-stored contract. */
+const RELAY_FIELD_LABELS: Record<RelayField, string> = {
+  email: 'Email (rrs.org only)',
+  phone: 'Phone (rrs.org only)',
+  mnaCode: 'MNA code (rrs.org only)',
+  mnaNumber: 'MNA number (rrs.org only)',
+};
+
 function buildFieldLabels(
   primary: PrimaryPersonLabel,
   axes: SubdivisionAxis[],
+  includeRelay = false,
 ): Record<string, string> {
   const primaryText = PRIMARY_PERSON_LABEL_TEXT[primary];
   const labels: Record<string, string> = {
@@ -180,8 +252,13 @@ function buildFieldLabels(
     py: STATIC_FIELD_LABELS.py,
     nhcStartingTcf: STATIC_FIELD_LABELS.nhcStartingTcf,
     echoStartingTcf: STATIC_FIELD_LABELS.echoStartingTcf,
-    ignore: STATIC_FIELD_LABELS.ignore,
   });
+  if (includeRelay) {
+    for (const field of RELAY_FIELDS) {
+      labels[relayColumnTarget(field)] = RELAY_FIELD_LABELS[field];
+    }
+  }
+  labels.ignore = STATIC_FIELD_LABELS.ignore;
   return labels;
 }
 
@@ -219,6 +296,31 @@ function reconcileColumnMap(columnMap: ColumnMap, proposed: PrimaryPersonLabel):
     if (v === primaryRole) out[Number(k)] = 'primary';
   }
   return out;
+}
+
+/** Shape check for the rrs.org event UUID pasted into the choice dialog —
+ *  enough to catch a stray name or URL; rrs.org validates the real thing. */
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The push config a flow starts from: the saved settings when still valid
+ *  (a remembered axis may have been deleted since), else a sensible default —
+ *  a lone subdivision axis, then fleet names when there are several fleets,
+ *  then nothing. */
+function defaultRrsConfig(
+  eventUuid: string,
+  saved: RrsImportConfig | null,
+  axes: SubdivisionAxis[],
+  fleetCount: number,
+): RrsImportConfig {
+  if (saved) {
+    if (saved.divisionSource !== 'axis') return { eventUuid, divisionSource: saved.divisionSource };
+    if (saved.divisionAxisId && axes.some((a) => a.id === saved.divisionAxisId)) {
+      return { eventUuid, divisionSource: 'axis', divisionAxisId: saved.divisionAxisId };
+    }
+  }
+  if (axes.length === 1) return { eventUuid, divisionSource: 'axis', divisionAxisId: axes[0].id };
+  if (fleetCount > 1) return { eventUuid, divisionSource: 'fleet' };
+  return { eventUuid, divisionSource: 'none' };
 }
 
 /** Map from the CSV import dropdown's rating-field values to the four
@@ -376,6 +478,48 @@ const MappingTable = memo(function MappingTable({
   );
 });
 
+/** What feeds rrs.org's single `division` slot — the one real push-mapping
+ *  choice. Encoded flat for the Select ('none' | 'fleet' | 'axis:<id>'). */
+function DivisionSourceSelect({
+  divisionSource,
+  divisionAxisId,
+  axes,
+  onChange,
+}: {
+  divisionSource: RrsImportConfig['divisionSource'];
+  divisionAxisId?: string;
+  axes: SubdivisionAxis[];
+  onChange: (source: RrsImportConfig['divisionSource'], axisId?: string) => void;
+}) {
+  const value = divisionSource === 'axis' && divisionAxisId ? `axis:${divisionAxisId}` : divisionSource;
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      Division on rrs.org:
+      <Select
+        value={value}
+        onValueChange={(v) => {
+          const axisId = subdivisionAxisIdOf(v as ColumnTarget);
+          if (axisId) onChange('axis', axisId);
+          else onChange(v as 'none' | 'fleet');
+        }}
+      >
+        <SelectTrigger className="w-56">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">(none)</SelectItem>
+          <SelectItem value="fleet">Fleet name</SelectItem>
+          {axes.map((a) => (
+            <SelectItem key={a.id} value={axisColumnTarget(a.id)}>
+              {a.label.trim() || DEFAULT_SUBDIVISION_LABEL}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </label>
+  );
+}
+
 /** The mapping dialog's body: series-level proposals, the fleet plan
  *  summary, and the column-mapping table. Lifted out of the inline IIFE
  *  it used to live in so it can host the hooks that stabilize the props
@@ -390,8 +534,8 @@ function MappingDialogBody({
   fleets: Fleet[];
 }) {
   const fieldLabels = useMemo(
-    () => buildFieldLabels(flow.proposedPrimary, flow.subdivisionAxes),
-    [flow.proposedPrimary, flow.subdivisionAxes],
+    () => buildFieldLabels(flow.proposedPrimary, flow.subdivisionAxes, flow.rrs !== null),
+    [flow.proposedPrimary, flow.subdivisionAxes, flow.rrs],
   );
   const targets = Object.values(flow.columnMap);
   const primaryCount = targets.filter((t) => t === 'primary').length;
@@ -606,6 +750,33 @@ function MappingDialogBody({
         fieldLabels={fieldLabels}
         onChange={updateColumn}
       />
+
+      {/* The rrs.org side of a combined import: the one push-mapping choice
+          (division source) plus the relay contract, stated where the relay
+          columns are mapped. */}
+      {flow.rrs && (
+        <div className="rounded-md border p-3 space-y-2 bg-muted/30">
+          <p className="text-sm font-medium">Push to rrs.org</p>
+          <DivisionSourceSelect
+            divisionSource={flow.rrs.divisionSource}
+            divisionAxisId={flow.rrs.divisionAxisId}
+            axes={flow.subdivisionAxes}
+            onChange={(source, axisId) =>
+              setFlow((f) =>
+                f.step === 'mapping' && f.rrs
+                  ? { ...f, rrs: { ...f.rrs, divisionSource: source, divisionAxisId: axisId } }
+                  : f,
+              )
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            Email, phone and MNA columns are sent to rrs.org only — Sail
+            Scoring does not store them. Owner and crew names are not sent;
+            rrs.org has no fields for them.
+          </p>
+        </div>
+      )}
+
       {(!hasSail || !hasPrimary || tooManyPrimaries || tooManySails) && (
         <div className="text-xs text-destructive space-y-0.5">
           {!hasSail && <p>Map one column to Sail number.</p>}
@@ -618,45 +789,155 @@ function MappingDialogBody({
   );
 }
 
+/** The push-only confirm body: the one mapping choice (division source), the
+ *  fixed field mapping stated rather than asked, and a preview of the first
+ *  rows exactly as they will be sent — where a wrong division choice or an
+ *  unexpected blank is caught before pushing. */
+function PushConfirmBody({
+  flow,
+  setFlow,
+}: {
+  flow: Extract<ImportFlow, { step: 'pushConfirm' }>;
+  setFlow: React.Dispatch<React.SetStateAction<ImportFlow>>;
+}) {
+  const preview = useMemo(
+    () => buildRrsOrgCompetitors(flow.competitors.slice(0, 3), flow.fleets, flow.config).competitors,
+    [flow.competitors, flow.fleets, flow.config],
+  );
+  return (
+    <div className="space-y-4 overflow-y-auto max-h-[60vh]">
+      <p className="text-sm">
+        Event UUID <code className="text-xs">{flow.config.eventUuid}</code>
+      </p>
+      <DivisionSourceSelect
+        divisionSource={flow.config.divisionSource}
+        divisionAxisId={flow.config.divisionAxisId}
+        axes={flow.axes}
+        onChange={(source, axisId) =>
+          setFlow((f) =>
+            f.step === 'pushConfirm'
+              ? { ...f, config: { ...f.config, divisionSource: source, divisionAxisId: axisId } }
+              : f,
+          )
+        }
+      />
+      {flow.competitors.length > 0 && (
+        <div className="rounded-md border p-3 space-y-1 bg-muted/30">
+          <p className="text-sm font-medium">
+            Preview (first {preview.length} of {flow.competitors.length})
+          </p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Sail no.</TableHead>
+                <TableHead>Nat</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Boat</TableHead>
+                <TableHead>Division</TableHead>
+                <TableHead>Club</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {preview.map((row) => (
+                <TableRow key={row.competitor_id}>
+                  <TableCell className="text-sm">{row.sail_number}</TableCell>
+                  <TableCell className="text-sm">{row.country_code || '—'}</TableCell>
+                  <TableCell className="text-sm">{[row.first_name, row.last_name].filter(Boolean).join(' ') || '—'}</TableCell>
+                  <TableCell className="text-sm">{row.boat_name || '—'}</TableCell>
+                  <TableCell className="text-sm">{row.division || '—'}</TableCell>
+                  <TableCell className="text-sm">{row.club_name || '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      {flow.competitors.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          This series has no competitors to push yet.
+        </p>
+      )}
+      <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+        <li>
+          Email, phone and MNA membership numbers will be blank — Sail Scoring
+          does not store contact details. To include them, import from a CSV
+          that has them and tick both options in the Import dialog.
+        </li>
+        <li>Owner and crew names are not sent; rrs.org has no fields for them.</li>
+        <li>
+          Pushing replaces <span className="font-medium">all</span> competitors
+          previously imported into the rrs.org event via its API. Competitors
+          entered manually on rrs.org are kept.
+        </li>
+      </ul>
+    </div>
+  );
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export interface CompetitorImportHandle {
-  /** Programmatically open the file picker. */
+  /** Programmatically open the import — the choice dialog when the rrs-import
+   *  feature applies, otherwise the file picker directly. */
   trigger: () => void;
 }
 
 /**
- * Reusable competitor import component. Shows a file input trigger,
- * a column-mapping dialog, and a completion dialog.
+ * Reusable competitor import component. Shows a trigger, a column-mapping
+ * dialog, and a completion dialog. With the `rrs-import` feature on (and not
+ * `csvOnly`), the trigger opens a choice dialog first — import from CSV
+ * and/or push to rrs.org, independently combinable — instead of jumping
+ * straight to the file picker.
  *
  * @param seriesId - The series to import into
  * @param fleets - Current fleets (for tracking new fleet creation)
  * @param onComplete - Called after import completes (with results) or is dismissed
- * @param trigger - Optional custom trigger element. If omitted, renders a default "Import CSV" button.
+ * @param trigger - Optional custom trigger element. If omitted, renders a default button.
+ * @param csvOnly - Keep the plain CSV flow even when rrs-import is on (the new-series setup wizard).
  */
 export const CompetitorImport = forwardRef<CompetitorImportHandle, {
   seriesId: string;
   fleets: Fleet[];
   onComplete?: (result: ImportResult | null) => void;
   trigger?: React.ReactNode;
-}>(function CompetitorImport({ seriesId, fleets, onComplete, trigger }, ref) {
+  csvOnly?: boolean;
+}>(function CompetitorImport({ seriesId, fleets, onComplete, trigger, csvOnly }, ref) {
   const updateSeries = useUpdateSeries();
   const saveFleets = useSaveFleets();
   const saveCompetitors = useSaveCompetitors();
+  const { has } = useFeatures();
+  const rrsEnabled = has('rrs-import') && !csvOnly;
   const [importFlow, setImportFlow] = useState<ImportFlow>({ step: 'idle' });
   const csvInputRef = useRef<HTMLInputElement>(null);
 
+  async function openImport() {
+    if (!rrsEnabled) {
+      csvInputRef.current?.click();
+      return;
+    }
+    const series = await seriesRepo.get(seriesId);
+    const saved = series?.rrsOrgPush ?? null;
+    setImportFlow({
+      step: 'choose',
+      csvChecked: true,
+      rrsChecked: false,
+      eventUuid: saved?.eventUuid ?? '',
+      file: null,
+      savedConfig: saved,
+    });
+  }
+
   useImperativeHandle(ref, () => ({
-    trigger: () => csvInputRef.current?.click(),
+    trigger: () => void openImport(),
   }));
 
   function resetImport() {
-    const result = importFlow.step === 'done' ? {
-      added: importFlow.added,
-      updated: importFlow.updated,
-      unchanged: importFlow.unchanged,
-      fleetsCreated: importFlow.fleetsCreated,
-      errors: importFlow.errors,
+    const result = importFlow.step === 'done' && importFlow.csv ? {
+      added: importFlow.csv.added,
+      updated: importFlow.csv.updated,
+      unchanged: importFlow.csv.unchanged,
+      fleetsCreated: importFlow.csv.fleetsCreated,
+      errors: importFlow.csv.errors,
     } : null;
     setImportFlow({ step: 'idle' });
     if (csvInputRef.current) csvInputRef.current.value = '';
@@ -666,6 +947,21 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
   function handleCsvFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    // From the choice dialog, just hold the file — parsing waits for
+    // Continue, when we know whether an rrs.org push rides along.
+    if (importFlow.step === 'choose') {
+      setImportFlow({ ...importFlow, csvChecked: true, file });
+      e.target.value = '';
+      return;
+    }
+    parseCsvFile(file, null);
+    e.target.value = '';
+  }
+
+  /** Parse the chosen CSV and open the mapping step. `rrs` is set when the
+   *  import also pushes to rrs.org; the division source defaults from the
+   *  saved settings once the series' axes are known. */
+  function parseCsvFile(file: File, rrs: { eventUuid: string; saved: RrsImportConfig | null } | null) {
     Papa.parse<string[]>(file, {
       header: false,
       skipEmptyLines: true,
@@ -683,6 +979,16 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         // the best-matching configured axis, else a new axis from the header.
         const initialMap: ColumnMap = {};
         headers.forEach((h, i) => {
+          // Relay-only columns (email/phone/MNA) exist only when the import
+          // also pushes to rrs.org; without a push those headers keep their
+          // plain detection (normally ignore) and the flow is unchanged.
+          if (rrs) {
+            const relayField = autoDetectRelayField(h);
+            if (relayField) {
+              initialMap[i] = relayColumnTarget(relayField);
+              return;
+            }
+          }
           const detected = autoDetectField(h);
           if (detected === 'subdivision') {
             const matchIdx = matchSubdivisionAxis(h, axisLabels);
@@ -739,15 +1045,17 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
           seriesScoringMode,
           existingHasBoatClass,
           alsoCreateScratch: {},
+          rrs: rrs
+            ? defaultRrsConfig(rrs.eventUuid, rrs.saved, axes, fleets.length)
+            : null,
         });
       },
     });
-    e.target.value = '';
   }
 
   async function handleImport() {
     if (importFlow.step !== 'mapping') return;
-    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, alsoCreateScratch } = importFlow;
+    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, alsoCreateScratch, rrs } = importFlow;
 
     const existing = await competitorRepo.listBySeries(seriesId);
     const series = await seriesRepo.get(seriesId);
@@ -875,6 +1183,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     let unchanged = 0;
     const errors: { rowIndex: number; reason: string }[] = [];
     const competitorsToSave: Competitor[] = [];
+    // Relay-only contact/membership cells, keyed by the competitor id each
+    // row lands on — handed to the rrs.org push and then dropped, never saved.
+    const relayByCompetitorId = new Map<string, RrsOrgRelayFields>();
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -898,6 +1209,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let py = '';
       let nhcStartingTcfStr = '';
       let echoStartingTcfStr = '';
+      const relay: RrsOrgRelayFields = {};
       Object.entries(columnMap).forEach(([colStr, field]) => {
         const col = parseInt(colStr, 10);
         const val = row[col]?.trim() ?? '';
@@ -919,8 +1231,13 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'nhcStartingTcf') nhcStartingTcfStr = val;
         else if (field === 'echoStartingTcf') echoStartingTcfStr = val;
         else {
-          const axisId = axisIdByColumn.get(col);
-          if (axisId && val) subdivisionCells[axisId] = val;
+          const relayField = relayFieldOf(field);
+          if (relayField) {
+            if (val) relay[relayField] = val;
+          } else {
+            const axisId = axisIdByColumn.get(col);
+            if (axisId && val) subdivisionCells[axisId] = val;
+          }
         }
       });
 
@@ -1005,6 +1322,10 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(echoStartingTcf != null ? { echoStartingTcf } : {}),
       };
 
+      // Keyed on the row's competitor id whether it ends up added, updated or
+      // unchanged — an unchanged boat still gets its contact details relayed.
+      if (Object.keys(relay).length > 0) relayByCompetitorId.set(competitor.id, relay);
+
       if (
         existingCompetitor &&
         sameFleetIdSet(existingCompetitor.fleetIds, competitor.fleetIds) &&
@@ -1047,17 +1368,95 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       // Phase 7 audit note in lib/repository.ts SaveOpts doc-comment.
       await saveCompetitors.mutateAsync(competitorsToSave);
     }
-    setImportFlow({ step: 'done', added, updated, unchanged, fleetsCreated: newFleetNames, errors });
+    const csvResult = { added, updated, unchanged, fleetsCreated: newFleetNames, errors };
+    if (!rrs) {
+      setImportFlow({ step: 'done', csv: csvResult, push: null });
+      return;
+    }
+    // The local import has committed; now push the FULL post-import list —
+    // rrs.org replaces its API-imported competitors wholesale, so a partial
+    // list would delete boats from the event. Contact fields exist only for
+    // rows in this CSV; other boats' go blank (stated in the dialog).
+    const [allCompetitors, freshFleets] = await Promise.all([
+      competitorRepo.listBySeries(seriesId),
+      fleetRepo.listBySeries(seriesId),
+    ]);
+    const built = buildRrsOrgCompetitors(allCompetitors, freshFleets, rrs, relayByCompetitorId);
+    const result = await doPush(rrs, built.competitors);
+    setImportFlow({
+      step: 'done',
+      csv: csvResult,
+      push: { config: rrs, rows: built.competitors, warnings: built.warnings, relayCount: built.relayCount, result },
+    });
+  }
+
+  /** POST the built rows to our push endpoint. Failures — ours or
+   *  rrs.org's — come back as a result for the done dialog, never a throw:
+   *  any accompanying CSV import has already committed. */
+  async function doPush(config: RrsImportConfig, rows: RrsOrgCompetitor[]): Promise<RrsOrgPushResult> {
+    try {
+      return await pushCompetitorsToRrsOrg(seriesId, {
+        eventUuid: config.eventUuid,
+        divisionSource: config.divisionSource,
+        ...(config.divisionSource === 'axis' && config.divisionAxisId
+          ? { divisionAxisId: config.divisionAxisId }
+          : {}),
+        competitors: rows,
+      });
+    } catch (err) {
+      return {
+        ok: false,
+        pushed: rows.length,
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  /** Re-run a failed push with the rows exactly as first built. */
+  async function retryPush() {
+    if (importFlow.step !== 'done' || !importFlow.push) return;
+    const { push } = importFlow;
+    const result = await doPush(push.config, push.rows);
+    setImportFlow({ ...importFlow, push: { ...push, result } });
+  }
+
+  /** The push-only path: no CSV — confirm what stored data becomes and push. */
+  async function continueToPushConfirm(eventUuid: string, saved: RrsImportConfig | null) {
+    const [series, competitors, freshFleets] = await Promise.all([
+      seriesRepo.get(seriesId),
+      competitorRepo.listBySeries(seriesId),
+      fleetRepo.listBySeries(seriesId),
+    ]);
+    const axes = series ? subdivisionAxes(series) : [];
+    setImportFlow({
+      step: 'pushConfirm',
+      config: defaultRrsConfig(eventUuid, saved, axes, freshFleets.length),
+      competitors,
+      fleets: freshFleets,
+      axes,
+    });
+  }
+
+  async function handlePushOnly() {
+    if (importFlow.step !== 'pushConfirm') return;
+    const { config, competitors, fleets: pushFleets } = importFlow;
+    const built = buildRrsOrgCompetitors(competitors, pushFleets, config);
+    const result = await doPush(config, built.competitors);
+    setImportFlow({
+      step: 'done',
+      csv: null,
+      push: { config, rows: built.competitors, warnings: built.warnings, relayCount: built.relayCount, result },
+    });
   }
 
   return (
     <>
       {/* Trigger */}
-      <span onClick={() => csvInputRef.current?.click()} className="contents">
+      <span onClick={() => void openImport()} className="contents">
         {trigger ?? (
           <Button variant="outline">
             <Upload className="h-4 w-4 mr-2" />
-            Import CSV
+            {rrsEnabled ? 'Import' : 'Import CSV'}
           </Button>
         )}
       </span>
@@ -1068,6 +1467,121 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         onChange={handleCsvFileSelected}
         className="hidden"
       />
+
+      {/* Choice dialog (rrs-import only): source and/or destination */}
+      <Dialog open={importFlow.step === 'choose'} onOpenChange={(open) => { if (!open) resetImport(); }}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Import competitors</DialogTitle>
+          </DialogHeader>
+          {importFlow.step === 'choose' && (
+            <div className="space-y-4">
+              <div className="rounded-md border p-3 space-y-2">
+                <p className="text-sm font-medium">Import from</p>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={importFlow.csvChecked}
+                    onChange={(e) => setImportFlow({ ...importFlow, csvChecked: e.target.checked })}
+                    className="h-3.5 w-3.5"
+                  />
+                  CSV file
+                </label>
+                {importFlow.csvChecked && (
+                  <div className="flex items-center gap-2 pl-5">
+                    <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()}>
+                      Choose file…
+                    </Button>
+                    <span className="text-sm text-muted-foreground truncate">
+                      {importFlow.file?.name ?? 'No file chosen'}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="rounded-md border p-3 space-y-2">
+                <p className="text-sm font-medium">Import to</p>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={importFlow.rrsChecked}
+                    onChange={(e) => setImportFlow({ ...importFlow, rrsChecked: e.target.checked })}
+                    className="h-3.5 w-3.5"
+                  />
+                  rrs.org
+                </label>
+                {importFlow.rrsChecked && (
+                  <div className="pl-5 space-y-2">
+                    <label className="flex items-center gap-2 text-sm">
+                      Event UUID
+                      <Input
+                        value={importFlow.eventUuid}
+                        onChange={(e) => setImportFlow({ ...importFlow, eventUuid: e.target.value.trim() })}
+                        placeholder="from the rrs.org Event Panel"
+                        className="h-8 font-mono text-xs"
+                      />
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Pushing replaces <span className="font-medium">all</span>{' '}
+                      competitors previously imported into the rrs.org event via
+                      its API — including any edits made to them on rrs.org.
+                      Competitors entered manually on rrs.org are kept.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={resetImport}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (importFlow.step !== 'choose') return;
+                const saved = importFlow.savedConfig;
+                if (importFlow.csvChecked && importFlow.file) {
+                  parseCsvFile(
+                    importFlow.file,
+                    importFlow.rrsChecked ? { eventUuid: importFlow.eventUuid, saved } : null,
+                  );
+                } else {
+                  void continueToPushConfirm(importFlow.eventUuid, saved);
+                }
+              }}
+              disabled={(() => {
+                if (importFlow.step !== 'choose') return true;
+                if (!importFlow.csvChecked && !importFlow.rrsChecked) return true;
+                if (importFlow.csvChecked && !importFlow.file) return true;
+                if (importFlow.rrsChecked && !UUID_SHAPE.test(importFlow.eventUuid)) return true;
+                return false;
+              })()}
+            >
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Push-only confirm dialog */}
+      <Dialog open={importFlow.step === 'pushConfirm'} onOpenChange={(open) => { if (!open) resetImport(); }}>
+        <DialogContent className="w-[90vw] max-w-2xl sm:max-w-2xl" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Push competitors to rrs.org</DialogTitle>
+          </DialogHeader>
+          {importFlow.step === 'pushConfirm' && (
+            <PushConfirmBody flow={importFlow} setFlow={setImportFlow} />
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={resetImport}>Cancel</Button>
+            <Button
+              onClick={() => void handlePushOnly()}
+              disabled={importFlow.step !== 'pushConfirm' || importFlow.competitors.length === 0}
+            >
+              {importFlow.step === 'pushConfirm'
+                ? `Push ${importFlow.competitors.length} competitor${importFlow.competitors.length === 1 ? '' : 's'}`
+                : 'Push'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Mapping dialog */}
       <Dialog open={importFlow.step === 'mapping'} onOpenChange={(open) => { if (!open) resetImport(); }}>
@@ -1096,7 +1610,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
               })()}
             >
               {importFlow.step === 'mapping'
-                ? `Import ${importFlow.rows.length} row${importFlow.rows.length === 1 ? '' : 's'}`
+                ? `Import ${importFlow.rows.length} row${importFlow.rows.length === 1 ? '' : 's'}${importFlow.rrs ? ' & push' : ''}`
                 : 'Import'}
             </Button>
           </DialogFooter>
@@ -1107,31 +1621,83 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       <Dialog open={importFlow.step === 'done'} onOpenChange={(open) => { if (!open) resetImport(); }}>
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>Import complete</DialogTitle>
+            <DialogTitle>
+              {importFlow.step === 'done' && !importFlow.csv
+                ? importFlow.push?.result.ok ? 'Push complete' : 'Push failed'
+                : 'Import complete'}
+            </DialogTitle>
           </DialogHeader>
           {importFlow.step === 'done' && (
             <div className="space-y-3">
-              <p className="text-sm">
-                {importFlow.added} competitor{importFlow.added === 1 ? '' : 's'} added,{' '}
-                {importFlow.updated} updated,{' '}
-                {importFlow.unchanged} unchanged.
-              </p>
-              {importFlow.fleetsCreated.length > 0 && (
-                <p className="text-sm">
-                  {importFlow.fleetsCreated.length} new fleet{importFlow.fleetsCreated.length === 1 ? '' : 's'} created:{' '}
-                  {importFlow.fleetsCreated.join(', ')}.
-                </p>
-              )}
-              {importFlow.errors.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium mb-1">
-                    {importFlow.errors.length} row{importFlow.errors.length === 1 ? '' : 's'} skipped:
+              {importFlow.csv && (
+                <>
+                  <p className="text-sm">
+                    {importFlow.csv.added} competitor{importFlow.csv.added === 1 ? '' : 's'} added,{' '}
+                    {importFlow.csv.updated} updated,{' '}
+                    {importFlow.csv.unchanged} unchanged.
                   </p>
-                  <ul className="text-sm text-muted-foreground space-y-0.5 max-h-40 overflow-auto">
-                    {importFlow.errors.map((err) => (
-                      <li key={err.rowIndex}>Row {err.rowIndex}: {err.reason}</li>
-                    ))}
-                  </ul>
+                  {importFlow.csv.fleetsCreated.length > 0 && (
+                    <p className="text-sm">
+                      {importFlow.csv.fleetsCreated.length} new fleet{importFlow.csv.fleetsCreated.length === 1 ? '' : 's'} created:{' '}
+                      {importFlow.csv.fleetsCreated.join(', ')}.
+                    </p>
+                  )}
+                  {importFlow.csv.errors.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium mb-1">
+                        {importFlow.csv.errors.length} row{importFlow.csv.errors.length === 1 ? '' : 's'} skipped:
+                      </p>
+                      <ul className="text-sm text-muted-foreground space-y-0.5 max-h-40 overflow-auto">
+                        {importFlow.csv.errors.map((err) => (
+                          <li key={err.rowIndex}>Row {err.rowIndex}: {err.reason}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+              {importFlow.push && (
+                <div className={importFlow.csv ? 'border-t pt-3 space-y-2' : 'space-y-2'}>
+                  {importFlow.push.result.ok ? (
+                    <>
+                      <p className="text-sm">
+                        Pushed {importFlow.push.result.pushed} competitor{importFlow.push.result.pushed === 1 ? '' : 's'} to rrs.org.
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        rrs.org records any per-record problems (e.g. phone
+                        numbers it could not use) on its Event Panel — review
+                        the imported entries there.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm">
+                        The push to rrs.org failed
+                        {importFlow.push.result.status ? ` (HTTP ${importFlow.push.result.status})` : ''}.
+                        {importFlow.csv ? ' The CSV import above has still been applied.' : ''}
+                      </p>
+                      {importFlow.push.result.message && (
+                        <p className="text-xs text-muted-foreground font-mono max-h-24 overflow-auto whitespace-pre-wrap">
+                          {importFlow.push.result.message}
+                        </p>
+                      )}
+                      <Button variant="outline" size="sm" onClick={() => void retryPush()}>
+                        Retry push
+                      </Button>
+                    </>
+                  )}
+                  {importFlow.push.warnings.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium mb-1">
+                        Sent with a blank phone number:
+                      </p>
+                      <ul className="text-sm text-muted-foreground space-y-0.5 max-h-40 overflow-auto">
+                        {importFlow.push.warnings.map((w) => (
+                          <li key={w.competitorId}>{w.sailNumber}: {w.message}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

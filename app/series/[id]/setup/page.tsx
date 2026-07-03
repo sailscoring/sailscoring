@@ -132,6 +132,7 @@ function Step2({
       <CompetitorImport
         seriesId={seriesId}
         fleets={fleets ?? []}
+        csvOnly
         onComplete={(result) => {
           if (result && result.added > 0) {
             setLastImportResult({ added: result.added, fleetsCreated: result.fleetsCreated });
