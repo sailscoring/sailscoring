@@ -15,6 +15,7 @@
 /playwright/.cache
 tests/.magic-links.log
 tests/.feedback.log
+tests/.rrs-org.log
 
 # next.js
 /.next/

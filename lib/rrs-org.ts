@@ -53,6 +53,24 @@ export interface RrsOrgBuildWarning {
   message: string;
 }
 
+/**
+ * The outcome of a push, as returned by POST /api/v1/series/:id/rrs-org-push.
+ * An rrs.org rejection is an expected result the dialog renders (with a
+ * retry), not a thrown error: by the time the push runs, any accompanying CSV
+ * import has already committed locally, so the caller needs the failure as
+ * data. Defined here (not in the server-only handler) so the client can
+ * import the type.
+ */
+export interface RrsOrgPushResult {
+  ok: boolean;
+  /** Rows sent (ok) or attempted (!ok). */
+  pushed: number;
+  /** Upstream HTTP status when !ok. */
+  status?: number;
+  /** Upstream response body (truncated) when !ok. */
+  message?: string;
+}
+
 export interface RrsOrgBuildResult {
   competitors: RrsOrgCompetitor[];
   warnings: RrsOrgBuildWarning[];

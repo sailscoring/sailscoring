@@ -8,6 +8,7 @@ import type { SeriesFileRevision } from './series-file';
 import type { IrishSailingRatings } from './irish-sailing-ratings';
 import type { IrcRatings } from './irc-rating';
 import type { VprsClub, VprsRatings } from './vprs-rating';
+import type { RrsOrgCompetitor, RrsOrgPushResult } from './rrs-org';
 import type {
   CompetitorFieldPatch,
   CompetitorRepository,
@@ -655,6 +656,28 @@ export function publishSeries(
   } = {},
 ): Promise<PublishResult> {
   return apiFetch<PublishResult>(`/api/v1/series/${seriesId}/publish`, {
+    method: 'POST',
+    body: input,
+  });
+}
+
+/**
+ * Push a competitor list to a racingrulesofsailing.org event. The rows are
+ * built client-side (`buildRrsOrgCompetitors`) so the dialog previews exactly
+ * what is sent; the server forwards them to rrs.org and, on success, remembers
+ * the settings as `Series.rrsOrgPush`. An rrs.org rejection comes back as
+ * `{ ok: false, … }`, not a thrown error — the dialog renders it with a retry.
+ */
+export function pushCompetitorsToRrsOrg(
+  seriesId: string,
+  input: {
+    eventUuid: string;
+    divisionSource: 'none' | 'fleet' | 'axis';
+    divisionAxisId?: string;
+    competitors: RrsOrgCompetitor[];
+  },
+): Promise<RrsOrgPushResult> {
+  return apiFetch<RrsOrgPushResult>(`/api/v1/series/${seriesId}/rrs-org-push`, {
     method: 'POST',
     body: input,
   });

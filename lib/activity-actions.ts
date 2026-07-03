@@ -26,6 +26,7 @@ export const ACTIVITY_ACTIONS = [
   'series.created-follow-on',
   'series.reverted',
   'competitors.imported',
+  'competitors.rrs_pushed',
   'competitors.handicaps_updated',
   'competitors.cleared',
   'competitors.deleted',
