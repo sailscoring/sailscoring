@@ -127,12 +127,17 @@ alongside the rest, and discards them — they never land in the Sail Scoring da
 The entry system already owns that data; Sail Scoring becomes a convenient relay point
 for it without becoming a store of record for private info.
 
-Open questions: RRS.org publishes the Sailwave plugin's behaviour but not a documented
-public API or its terms for third-party clients — the integration contract (endpoint,
-auth, payload shape) would need to be confirmed with them rather than reverse-engineered
-from the plugin. Maps to the same "thin write client over the Sail Scoring API" framing
-as the mobile finish-recorder above, except here Sail Scoring is the *source* pushing to
-an external sink rather than the API being consumed.
+The integration contract is no longer an open question: RRS.org now publishes an
+"AI import" help page that documents the endpoint (`POST
+https://www.racingrulesofsailing.org/api/competitors`), the payload shape, and the
+replace-not-merge semantics — the event UUID in the body is the only credential. One
+consequence of those semantics must be made clear to users in the UI: every import
+deletes and re-creates *all* competitors previously imported via the API for that event,
+so any edits made to them inside RRS.org since the last push are overwritten (competitors
+entered manually in RRS.org are untouched). The contract, a worked import, and a sketch
+of the dialog integration are captured in `docs/notes/rrs-org/competitor-import-api.md`. Maps to the same "thin write client over
+the Sail Scoring API" framing as the mobile finish-recorder above, except here Sail
+Scoring is the *source* pushing to an external sink rather than the API being consumed.
 
 ---
 
