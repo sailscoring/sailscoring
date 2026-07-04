@@ -70,6 +70,8 @@ export default async function HelpPage() {
             ['#redress', 'Redress (RDG)'],
             ['#start-check-in', 'Start check-in'],
             ['#reading-the-standings', 'Reading the standings'],
+            // Gated: only listed when prizes is enabled (#240).
+            ['#prizes', 'Prizes', 'prizes'],
             ['#rating-systems', 'Rating systems'],
             ['#discard-rules', 'Discard rules'],
             ['#a53-scoring', 'A5.3 starting-area scoring'],
@@ -1108,6 +1110,34 @@ export default async function HelpPage() {
           add venue and event links to the page footer. All four are optional.
         </p>
       </Section>
+
+      {has('prizes') && (
+        <Section id="prizes" title="Prizes">
+          <p>
+            The <strong className="text-foreground">Prizes</strong> tab turns the Notice of Race’s
+            prize list into named awards allocated live from the series standings. A prize is a
+            name (“Gold Fleet 1st, 2nd, 3rd”), the number of places it covers, and{' '}
+            <strong className="text-foreground">conditions</strong> on who is eligible — a
+            subdivision value (a Division or age category recorded on the competitors), a fleet, or
+            a maximum series rank for “Overall” podiums. The top-ranked eligible competitors are
+            the recipients, updating as results come in. Press{' '}
+            <strong className="text-foreground">a</strong> to add a prize; drag to reorder the
+            prize-giving sheet.
+          </p>
+          <p>
+            The tab warns when something needs attention — a condition on a field no competitor
+            carries a value for, fewer eligible boats than places, or an unbroken scoring tie
+            straddling the last awarded place (the tie-break between those boats is yours to make,
+            per the sailing instructions).
+          </p>
+          <p>
+            When you publish, the prize sheet appears as its own{' '}
+            <strong className="text-foreground">Prizes</strong> page alongside the fleet pages —
+            tick or untick it in the Publish dialog, and edit its URL before first publish. It’s
+            linked from the series’ published index, ready for the prize-giving.
+          </p>
+        </Section>
+      )}
 
       <Section id="rating-systems" title="Rating systems">
         <p>
