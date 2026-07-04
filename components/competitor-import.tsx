@@ -1571,7 +1571,10 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
             <DialogTitle>Import competitors</DialogTitle>
           </DialogHeader>
           {importFlow.step === 'choose' && (
-            <div className="space-y-4">
+            /* DialogContent is a grid; without min-w-0 this grid item's
+               min-width:auto lets a long nowrap file name widen the whole
+               dialog track instead of truncating. */
+            <div className="space-y-4 min-w-0">
               <div className="rounded-md border p-3 space-y-2">
                 <p className="text-sm font-medium">Import from</p>
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -1584,11 +1587,13 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
                   CSV file
                 </label>
                 {importFlow.csvChecked && (
-                  <div className="flex items-center gap-2 pl-5">
-                    <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()}>
+                  <div className="flex items-center gap-2 pl-5 min-w-0">
+                    <Button variant="outline" size="sm" className="shrink-0" onClick={() => csvInputRef.current?.click()}>
                       Choose file…
                     </Button>
-                    <span className="text-sm text-muted-foreground truncate">
+                    {/* min-w-0 lets the flex child shrink so a long file name
+                        truncates instead of stretching the dialog. */}
+                    <span className="text-sm text-muted-foreground truncate min-w-0">
                       {importFlow.file?.name ?? 'No file chosen'}
                     </span>
                   </div>
@@ -1608,12 +1613,15 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
                 {importFlow.rrsChecked && (
                   <div className="pl-5 space-y-2">
                     <label className="flex items-center gap-2 text-sm">
-                      Event UUID
+                      <span className="shrink-0">Event UUID</span>
+                      {/* flex-1 overrides the input's default w-full, which
+                          would otherwise overflow the row by the label width
+                          and stretch the dialog. */}
                       <Input
                         value={importFlow.eventUuid}
                         onChange={(e) => setImportFlow({ ...importFlow, eventUuid: e.target.value.trim() })}
                         placeholder="from the rrs.org Event Panel"
-                        className="h-8 font-mono text-xs"
+                        className="h-8 font-mono text-xs flex-1 min-w-0"
                       />
                     </label>
                     <p className="text-xs text-muted-foreground">
