@@ -38,6 +38,13 @@ test('name a race from the race results page', async ({ page }) => {
 
   // And it shows on the Races list beside the number.
   await page.getByRole('link', { name: 'Races' }).click();
+  // Wait for the list to actually render before touching it. The race page we
+  // came from stays mounted through the client transition, and its heading
+  // ("Race 1 — results") and name button ("Round the Island") both satisfy the
+  // locators below — so acting too early clicks the old page's heading (a
+  // no-op) while the delayed transition later unmounts everything mid-test.
+  await expect(page).toHaveURL(/\/races$/);
+  await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
   await expect(page.getByText('Round the Island')).toBeVisible();
 
   // Clearing the name reverts the race to unnamed.
