@@ -230,3 +230,57 @@ test('ZFP penalty can be set on a finisher and appears in standings with amber s
   await expect(aliceR1Cell).toContainText('ZFP');
   await expect(aliceR1Cell.locator('span').first()).toHaveAttribute('title', 'ZFP penalty applied');
 });
+
+// ── Test 4: DNC is selectable on a boat with a retained check-in record ──────
+
+test('DNC sticks on a non-finisher whose row retained a check-in flag', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'DNC Stick Test' });
+
+  for (const c of [
+    { sailNumber: '101', name: 'Alice' },
+    { sailNumber: '202', name: 'Bob' },
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sailNumber);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+
+  // Bob finishes; Alice is added by mistake and removed again. The removal
+  // retains her row as a check-in-only record (startPresent stays true), so
+  // she shows as DNF among the non-finishers rather than DNC (absent).
+  await page.getByLabel('Sail number').fill('202');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await page.getByLabel('Sail number').fill('101');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await page.getByRole('button', { name: 'Remove 101' }).click();
+  // Let the remove's saves settle: in-flight mutations re-render the
+  // non-finisher rows, which would close the select menu under the click.
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  const aliceSelect = page.getByTestId('non-finisher-101').getByRole('combobox');
+  await expect(aliceSelect).toHaveText('DNF');
+
+  // "DNC (absent)" must stick: it deletes the retained record outright.
+  await aliceSelect.click();
+  await page.getByRole('option', { name: 'DNC (absent)' }).click();
+  await expect(aliceSelect).toHaveText('DNC (absent)');
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // Explicit DNC must stick too (and not redisplay as DNF or collapse to
+  // the implicit label).
+  await aliceSelect.click();
+  await page.getByRole('option', { name: 'DNC', exact: true }).click();
+  await expect(aliceSelect).toHaveText('DNC', { useInnerText: true });
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // Standings agree with the finish sheet: Alice is scored DNC.
+  await page.getByRole('link', { name: 'Standings' }).click();
+  const aliceRow = page.getByRole('row').filter({ hasText: 'Alice' });
+  await expect(aliceRow).toContainText('DNC');
+  await expect(aliceRow).not.toContainText('DNF');
+});

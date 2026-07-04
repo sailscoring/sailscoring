@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { reorderFinisher, reorderWithTies, computePositions } from '@/lib/finish-entry';
+import {
+  reorderFinisher,
+  reorderWithTies,
+  computePositions,
+  deriveFinishState,
+  deriveNonFinishers,
+  finishedCompetitorIds,
+  makeFinish,
+} from '@/lib/finish-entry';
+import type { Competitor } from '@/lib/types';
 
 describe('reorderFinisher', () => {
   const base = ['A', 'B', 'C', 'D'];
@@ -119,5 +128,69 @@ describe('computePositions', () => {
 
   it('returns [1] for a single boat', () => {
     expect(computePositions(['A'], new Set())).toEqual([1]);
+  });
+});
+
+describe('non-finisher code derivation', () => {
+  const competitor = (id: string, sailNumber: string): Competitor => ({
+    id,
+    seriesId: 's1',
+    fleetIds: ['f1'],
+    sailNumber,
+    name: `Helm ${sailNumber}`,
+    club: 'HYC',
+    gender: '',
+    age: null,
+    createdAt: 0,
+  });
+  const boats = [competitor('c1', '101'), competitor('c2', '202')];
+
+  function nonFinisherCode(finishes: ReturnType<typeof makeFinish>[], competitorId: string) {
+    const derived = deriveFinishState(finishes);
+    const views = deriveNonFinishers(
+      boats,
+      finishedCompetitorIds(derived.finishingOrder),
+      derived.nonFinisherCodes,
+      finishes,
+    );
+    return views.find((v) => v.competitor.id === competitorId)?.code;
+  }
+
+  it('shows implicit DNC for a boat with no finish row', () => {
+    expect(nonFinisherCode([], 'c1')).toBe('implicit-dnc');
+  });
+
+  it('shows the explicit code for a coded row', () => {
+    const finishes = [makeFinish('r1', { id: 'x1', competitorId: 'c1', resultCode: 'RET' })];
+    expect(nonFinisherCode(finishes, 'c1')).toBe('RET');
+  });
+
+  it('defaults a check-in-only row to DNF', () => {
+    const finishes = [makeFinish('r1', { id: 'x1', competitorId: 'c1', startPresent: true })];
+    expect(nonFinisherCode(finishes, 'c1')).toBe('DNF');
+  });
+
+  it('shows explicit DNC as DNC, not implicit absence', () => {
+    const finishes = [makeFinish('r1', { id: 'x1', competitorId: 'c1', resultCode: 'DNC' })];
+    expect(nonFinisherCode(finishes, 'c1')).toBe('DNC');
+  });
+
+  it('shows explicit DNC on a checked-in boat as DNC, not the check-in DNF default', () => {
+    const finishes = [
+      makeFinish('r1', { id: 'x1', competitorId: 'c1', resultCode: 'DNC', startPresent: true }),
+    ];
+    expect(nonFinisherCode(finishes, 'c1')).toBe('DNC');
+  });
+
+  it('excludes boats in the finishing order', () => {
+    const finishes = [makeFinish('r1', { id: 'x1', competitorId: 'c1', sortOrder: 1, startPresent: true })];
+    const derived = deriveFinishState(finishes);
+    const views = deriveNonFinishers(
+      boats,
+      finishedCompetitorIds(derived.finishingOrder),
+      derived.nonFinisherCodes,
+      finishes,
+    );
+    expect(views.map((v) => v.competitor.id)).toEqual(['c2']);
   });
 });

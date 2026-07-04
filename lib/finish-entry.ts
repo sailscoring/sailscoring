@@ -126,7 +126,6 @@ export function deriveFinishState(savedFinishes: Finish[]): {
     if (
       finish.sortOrder === null &&
       finish.resultCode &&
-      finish.resultCode !== 'DNC' &&
       finish.competitorId &&
       !finishedIds.has(finish.competitorId)
     ) {

@@ -190,17 +190,14 @@ export function useFinishRowOps(args: UseFinishRowOpsArgs) {
   function setNonFinisherCode(competitorId: string, code: NonFinisherCode) {
     const existing = finishByCompetitorId.get(competitorId);
     if (code === 'implicit-dnc') {
-      // Clear the explicit code. If the row holds nothing else (no
-      // startPresent), drop it entirely; otherwise just null the code.
+      // "DNC (absent)" asserts the boat never came to the start: drop the
+      // row entirely, check-in record included. A retained startPresent
+      // would redisplay (and score) the boat as DNF, and a boat declared
+      // absent must not count toward a starting-area penalty base. The
+      // explicit DNC code below is the alternative that keeps the check-in.
       if (!existing) return;
-      if (existing.startPresent === null) {
-        patchCache((rows) => rows.filter((r) => r.id !== existing.id));
-        deleteFinish.mutate({ id: existing.id, raceId });
-      } else {
-        const next: Finish = { ...existing, resultCode: null };
-        patchCache((rows) => rows.map((r) => (r.id === existing.id ? next : r)));
-        saveFinish.mutate(next);
-      }
+      patchCache((rows) => rows.filter((r) => r.id !== existing.id));
+      deleteFinish.mutate({ id: existing.id, raceId });
     } else if (existing) {
       // Clear redress fields when switching away from RDG to another code.
       const next: Finish = {
