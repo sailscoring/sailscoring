@@ -117,6 +117,10 @@ test('an automatically-excluded race (no entrants) offers no manual toggle', asy
 test('exclude a race for one fleet from a sub-series standings header', async ({ page, signedInEmail }) => {
   // The motivating case: a DBSC-style series always views its standings inside a
   // sub-series, so the header action must target the block's own exclusions.
+  // Long by nature: four boats, three races each fully scored across two fleets,
+  // and a sub-series before standings even render — under full-suite DB load the
+  // setup can eat most of the 30s default, so give it the tripled budget.
+  test.slow();
   await enableFeatures(page, signedInEmail, ['sub-series']);
   await createSeriesQuick(page, { name: 'Block Exclusion Cup' });
   await createFleets(page, ['Blue', 'Red']);
@@ -147,8 +151,11 @@ test('exclude a race for one fleet from a sub-series standings header', async ({
 
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page).toHaveURL(/\/standings$/);
-  // The Late block is auto-selected (its tab is shown).
-  await expect(page.getByRole('tab', { name: 'Late' })).toBeVisible();
+  // The Late block is auto-selected (its tab is shown). Allow a generous
+  // window: rendering the standings runs the scoring engine over every race,
+  // fleet, and sub-series, which under full-suite CPU load can outrun the
+  // default expect timeout before the block tabs paint.
+  await expect(page.getByRole('tab', { name: 'Late' })).toBeVisible({ timeout: 15_000 });
 
   const blueTable = page.getByRole('table').filter({ has: page.getByText('BLU1') });
   const redTable = page.getByRole('table').filter({ has: page.getByText('RED1') });
@@ -171,7 +178,7 @@ test('exclude a race for one fleet from a sub-series standings header', async ({
   // sub-series' own exclusions (not the series-level field), this also proves
   // the strike was written to the sub-series scope, not the whole series.
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Late' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Late' })).toBeVisible({ timeout: 15_000 });
   await expect(blu2Total()).toHaveText('2');
   await expect(red2Total()).toHaveText('4');
   await expect(blueTable.getByRole('columnheader').filter({ hasText: 'R2' })).toHaveClass(/line-through/);
