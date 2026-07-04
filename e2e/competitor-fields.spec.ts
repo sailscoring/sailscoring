@@ -245,6 +245,11 @@ test('a toggle made while a prior save is in flight does not revert it', async (
   //       pre-A state (Boat name checked again). Check Crew name — save B
   //       queues behind A. ─────────────────────────────────────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();
+  // The transition must commit (competitors page mounted) before heading
+  // back: a quick second click can cancel it, leaving the settings page —
+  // and the card's expanded state — mounted throughout, so the card never
+  // re-renders from the stale cache this step exists to exercise.
+  await expect(page.getByRole('button', { name: 'Add competitor' })).toBeVisible();
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByLabel('Crew name').check();
