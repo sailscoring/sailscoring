@@ -24,6 +24,7 @@ import {
 import { ChevronDown } from 'lucide-react';
 import * as repos from '@/lib/api-repository';
 import { buildFleetHtmlFiles, fleetHtmlFilename, fleetPdfTitle, triggerDownload } from '@/lib/results-export';
+import { useFeatures } from '@/components/features-provider';
 import type { Fleet, Series } from '@/lib/types';
 
 type FleetHtmlFile = { fleetName: string; isDefault: boolean; subSeriesName?: string; html: string };
@@ -46,6 +47,8 @@ export interface PreviewDialogProps {
  * Publish hands off to the PublishDialog.
  */
 export function PreviewDialog({ series, fleets, open, onClose, onPublish }: PreviewDialogProps) {
+  const { has } = useFeatures();
+  const includePrizes = has('prizes');
   const [files, setFiles] = useState<FleetHtmlFile[] | null>(null);
   const [selected, setSelected] = useState(0);
   const [phase, setPhase] = useState<'loading' | 'idle' | 'error'>('loading');
@@ -59,7 +62,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
     setPhase('loading');
     setFiles(null);
     setSelected(0);
-    buildFleetHtmlFiles(repos, series.id)
+    buildFleetHtmlFiles(repos, series.id, undefined, { includePrizes })
       .then((built) => {
         if (cancelled) return;
         setFiles(built);
@@ -71,7 +74,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
     return () => {
       cancelled = true;
     };
-  }, [open, series.id]);
+  }, [open, series.id, includePrizes]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const current = files?.[selected] ?? null;

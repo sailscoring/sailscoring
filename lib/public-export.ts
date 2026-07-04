@@ -9,6 +9,7 @@ import type {
   SubdivisionAxis,
   LogoDefaults,
   Series,
+  Prize,
 } from './types';
 import type {
   CompetitorRepository,
@@ -43,6 +44,23 @@ import { disambiguateSeriesName } from './series-name';
 export interface ExportStartGroup {
   fleetNames: string[];
   offsetMinutes: number;
+}
+
+/** A prize clause as it appears in the public export (#240). Fleet clauses
+ *  refer to the fleet by name (fleet UUIDs are not carried in the export);
+ *  axis ids are series-local opaque keys carried verbatim, like
+ *  `subdivisionAxes`. */
+export type ExportPrizeClause =
+  | { kind: 'fleet'; fleetName: string }
+  | { kind: 'axis'; axisId: string; value: string }
+  | { kind: 'rank'; max: number };
+
+/** A prize as it appears in the public export (#240). No id — prize ids are
+ *  series-local; importers mint fresh ones. */
+export interface ExportPrize {
+  name: string;
+  recipientCount: number;
+  clauses: ExportPrizeClause[];
 }
 
 export interface PublicSeriesExport {
@@ -83,6 +101,9 @@ export interface PublicSeriesExport {
     showPerRaceRatingsInSummary?: boolean;
     /** Default start sequence used when new races are created. */
     defaultStartSequence?: ExportStartGroup[];
+    /** Prize list (#240). Absent in exports from older builds and when the
+     *  series has no prizes. */
+    prizes?: ExportPrize[];
   };
   fleets: {
     name: string;
@@ -630,6 +651,26 @@ export function buildPublicExportFromSnapshot(
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
       ...(series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: series.showPerRaceRatingsInSummary } : {}),
       ...(exportedDefaultStartSequence ? { defaultStartSequence: exportedDefaultStartSequence } : {}),
+      ...(() => {
+        // Prizes (#240): fleet clauses go out by fleet name; a prize whose
+        // fleet can't resolve is dropped whole rather than silently widened.
+        const prizes = (series.prizes ?? [])
+          .map((p): ExportPrize | null => {
+            const clauses: ExportPrizeClause[] = [];
+            for (const c of p.clauses) {
+              if (c.kind !== 'fleet') {
+                clauses.push(c);
+                continue;
+              }
+              const fleetName = fleetNameById.get(c.fleetId);
+              if (fleetName == null) return null;
+              clauses.push({ kind: 'fleet', fleetName });
+            }
+            return { name: p.name, recipientCount: p.recipientCount, clauses };
+          })
+          .filter((p): p is ExportPrize => p !== null);
+        return prizes.length > 0 ? { prizes } : {};
+      })(),
       // NB: `categoryId`/`archived` (#154) and `previousSeriesId` are
       // deliberately not exported — workspace-local organisation and
       // lineage, not series data.
@@ -814,6 +855,28 @@ export async function importPublicExport(
     // Axis ids are series-local opaque keys; carried verbatim so the imported
     // competitors' `subdivisions` maps still resolve.
     subdivisionAxes: data.series.subdivisionAxes ?? [],
+    // Prizes (#240): fleet clauses come back over the name bridge, with fresh
+    // prize ids; a prize whose fleet name is unknown is dropped whole.
+    prizes: (data.series.prizes ?? [])
+      .map((p): Prize | null => {
+        const clauses: Prize['clauses'] = [];
+        for (const c of p.clauses) {
+          if (c.kind !== 'fleet') {
+            clauses.push(c);
+            continue;
+          }
+          const fleetId = fleetIdByName.get(c.fleetName);
+          if (fleetId == null) return null;
+          clauses.push({ kind: 'fleet', fleetId });
+        }
+        return {
+          id: crypto.randomUUID(),
+          name: p.name,
+          recipientCount: p.recipientCount,
+          clauses,
+        };
+      })
+      .filter((p): p is Prize => p !== null),
   });
 
   await Promise.all(

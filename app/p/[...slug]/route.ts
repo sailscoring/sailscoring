@@ -255,6 +255,7 @@ async function seriesIndex(
       pages: p.pages.map((pg) => ({
         fleetName: pg.fleetName,
         ...(pg.subSeriesName ? { subSeriesName: pg.subSeriesName } : {}),
+        ...(pg.isPrizes ? { isPrizes: true } : {}),
         subPath: pg.subPath,
       })),
     })),

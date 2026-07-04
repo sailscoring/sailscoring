@@ -8,9 +8,11 @@ import {
 import {
   renderSeriesHtml,
   renderCombinedSeriesHtml,
+  renderPrizesHtml,
   assembleSeriesResultsData,
   type SeriesResultsData,
 } from './results-renderer';
+import { allocatePrizes } from './prizes';
 import { resolvePublishingGroups, fleetPagesSuppressed, producesPage } from './publishing-groups';
 import {
   buildPublicExportFromSnapshot,
@@ -69,6 +71,9 @@ export interface FleetHtmlFile {
   /** Set on a publishing group's combined page; `fleetName` is then the
    *  group name (pages are name-keyed alongside fleet pages). */
   isCombined?: boolean;
+  /** Set on the prize-sheet page (#240); `fleetName` is then "Prizes". The
+   *  publish handler special-cases its default sub-path. */
+  isPrizes?: boolean;
   html: string;
 }
 
@@ -91,6 +96,11 @@ export async function buildFleetHtmlFiles(
   // undefined for downloads, FTP uploads, and previews, which have no `/p/`
   // parent — see `SeriesResultsData.seriesIndexUrl`.
   seriesIndexUrl?: string,
+  // Append the prize-sheet page (#240) when the series has prizes. Opt-in:
+  // the publish path and preview pass the workspace's `prizes` feature state;
+  // the FTP path never asks (its per-fleet path mapping has no slot for a
+  // non-fleet page).
+  opts?: { includePrizes?: boolean },
 ): Promise<FleetHtmlFile[] | null> {
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
   if (!snapshot || snapshot.competitors.length === 0 || snapshot.races.length === 0) {
@@ -475,6 +485,37 @@ export async function buildFleetHtmlFiles(
     }
   } else {
     renderViewWithGroups(fleetResults, races);
+  }
+
+  // The prize sheet (#240) closes the page list: one series-wide page,
+  // allocated from the whole-series standings (also on a block series).
+  if (opts?.includePrizes && (series.prizes?.length ?? 0) > 0) {
+    const axes = series.subdivisionAxes ?? [];
+    const allocations = allocatePrizes(series.prizes!, fleetResults, axes);
+    results.push({
+      fleetName: 'Prizes',
+      isDefault: false,
+      isPrizes: true,
+      html: renderPrizesHtml(
+        {
+          series: seriesInfo,
+          leftLogoUrl: series.venueLogoUrl || undefined,
+          rightLogoUrl: series.eventLogoUrl || undefined,
+          leftUrl: series.venueUrl || undefined,
+          rightUrl: series.eventUrl || undefined,
+          generatedAt: new Date(),
+          ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
+          ...(openInAppUrl ? { openInAppUrl } : {}),
+        },
+        allocations,
+        {
+          fleets,
+          axes,
+          multiFleet: !isSingleDefault,
+          primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+        },
+      ),
+    });
   }
 
   return results.length > 0 ? results : null;

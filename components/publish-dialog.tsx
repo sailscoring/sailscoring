@@ -26,6 +26,7 @@ import {
 } from '@/lib/publishing-groups';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useUpdateSeries } from '@/hooks/use-series';
+import { useFeatures } from '@/components/features-provider';
 import { FtpPublishPane } from '@/components/ftp-publish-pane';
 import type { Fleet, PublicationStatus, Series } from '@/lib/types';
 
@@ -94,6 +95,9 @@ interface SuppressedRow {
  */
 export function PublishDialog({ series, fleets, open, onClose, canFtp }: PublishDialogProps) {
   const updateSeries = useUpdateSeries();
+  const { has } = useFeatures();
+  // The prize sheet (#240) publishes as one more name-keyed page, "Prizes".
+  const hasPrizes = has('prizes') && (series.prizes?.length ?? 0) > 0;
   // Destination mode. Persisted per-series (`series.publishMode`) so the dialog
   // reopens where the scorer left it; clamped to Sail Scoring when FTP isn't
   // available so a workspace that loses the feature isn't stranded in FTP mode.
@@ -123,14 +127,16 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     [series.publishIndividualFleetPages, fleets, resolvedGroups],
   );
   // The names that publish as pages this round: combined pages first, then
-  // the fleets that keep a standalone page — mirroring the build order. Pages
-  // are name-keyed, so groups ride the same selection/sub-path machinery.
+  // the fleets that keep a standalone page, then the prize sheet — mirroring
+  // the build order. Pages are name-keyed, so groups and the prize sheet ride
+  // the same selection/sub-path machinery.
   const pageNames = useMemo(
     () => [
       ...resolvedGroups.map((r) => r.group.name.trim()),
       ...fleets.filter((f) => !suppressed.has(f.id)).map((f) => f.name),
+      ...(hasPrizes ? ['Prizes'] : []),
     ],
-    [resolvedGroups, fleets, suppressed],
+    [resolvedGroups, fleets, suppressed, hasPrizes],
   );
   const [status, setStatus] = useState<PublicationStatus | null>(null);
   const [slug, setSlug] = useState('');
@@ -152,10 +158,13 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   const workspaceSlug = status?.workspaceSlug ?? '';
 
   // Derived default sub-path for an unpublished fleet: `standings` for a lone
-  // (default) fleet, otherwise the kebab-cased name — mirrors the server.
+  // (default) fleet, otherwise the kebab-cased name — mirrors the server. The
+  // prize sheet defaults to `prizes` regardless of the fleet count (when
+  // co-publishing the server disambiguates to `{series-slug}-prizes`).
   const defaultSubPath = useMemo(() => {
     const single = fleets.length <= 1;
-    return (name: string) => (single ? 'standings' : fleetSubPath(name, false));
+    return (name: string) =>
+      name === 'Prizes' ? 'prizes' : single ? 'standings' : fleetSubPath(name, false);
   }, [fleets.length]);
 
   // Load publication state each time the dialog opens, and seed the per-fleet
@@ -232,13 +241,18 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
         `${describeGroupMembers(r)} · ${r.group.detail === 'standings' ? 'standings only' : 'full detail'}`,
       ]),
     );
+    const prizeCount = series.prizes?.length ?? 0;
     return pageNames.map((name) => ({
       name,
       frozen: publishedByName.has(name),
       publishedUrl: publishedByName.get(name) ?? null,
-      ...(captionByGroupName.has(name) ? { caption: captionByGroupName.get(name)! } : {}),
+      ...(captionByGroupName.has(name)
+        ? { caption: captionByGroupName.get(name)! }
+        : hasPrizes && name === 'Prizes'
+          ? { caption: `prize list · ${prizeCount} prize${prizeCount === 1 ? '' : 's'}` }
+          : {}),
     }));
-  }, [pageNames, resolvedGroups, published]);
+  }, [pageNames, resolvedGroups, published, hasPrizes, series.prizes]);
 
   // Fleets while individual pages are off: listed dimmed so the scorer sees
   // where each fleet went — its combined page(s), or a warning when no
@@ -286,10 +300,20 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // multi-fleet UI, the pages that will be live afterwards are the ticked ones
   // plus any already-published fleet (which stays live even when unticked) — we
   // need at least one, with distinct sub-paths.
+  const prizesFrozen = (published?.pages ?? []).some((p) => p.fleetName === 'Prizes');
+
   const validation = useMemo(() => {
     if (!multiFleet) {
+      // The prize sheet makes even a single-fleet series multi-page: its own
+      // (editable) sub-path must be present and distinct from the results page.
+      const prizesTicked = hasPrizes && selected.has('Prizes') && !prizesFrozen;
+      if (prizesTicked && !(subPaths['Prizes'] ?? '')) return 'Give the prize list a URL.';
       if (isPublished || hasBlocks) return null;
-      return singlePath ? null : 'Give the page a URL.';
+      if (!singlePath) return 'Give the page a URL.';
+      if (prizesTicked && subPaths['Prizes'] === singlePath) {
+        return 'The prize list and the results page share a URL. Make them unique.';
+      }
+      return null;
     }
     const live = rows.filter((r) => r.frozen || selected.has(r.name));
     if (live.length === 0) return 'Select at least one fleet to publish.';
@@ -350,6 +374,22 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
           }
         }
         selection = { fleets: fleetNames, subPaths: overrides };
+      } else if (hasPrizes) {
+        // The prize sheet makes a single-fleet series multi-page: send the
+        // explicit selection so unticking it works, plus its sub-path when
+        // edited (and the default page's on first publish, as below).
+        const names = [fleets[0]?.name ?? 'Default'];
+        const overrides: Record<string, string> = {};
+        if (selected.has('Prizes')) {
+          names.push('Prizes');
+          const seg = subPaths['Prizes'] ?? '';
+          if (!prizesFrozen && seg !== defaultSubPath('Prizes')) overrides['Prizes'] = seg;
+        }
+        selection = {
+          fleets: names,
+          subPaths: overrides,
+          ...(!isPublished && !hasBlocks ? { defaultSubPath: singlePath } : {}),
+        };
       } else if (!isPublished && !hasBlocks) {
         selection = { defaultSubPath: singlePath };
       }
@@ -702,6 +742,62 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                 />
               </div>
             )}
+
+            {/* The prize sheet on a single-fleet series: one extra optional
+                page below the lone results page (multi-fleet series list it
+                as an ordinary row above). */}
+            {!multiFleet && hasPrizes && (() => {
+              const prizesUrl =
+                (published?.pages ?? []).find((p) => p.fleetName === 'Prizes')?.url ??
+                `${urlPrefix}/${subPaths['Prizes'] || 'prizes'}`;
+              const checked = selected.has('Prizes');
+              return (
+                <div className={`flex items-center gap-2 ${!checked && !prizesFrozen ? 'opacity-50' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle('Prizes')}
+                    className="h-4 w-4 shrink-0"
+                    aria-label="Publish Prizes"
+                  />
+                  <span className="w-36 shrink-0 truncate text-sm">Prizes</span>
+                  {prizesFrozen ? (
+                    <a
+                      href={prizesUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={prizesUrl}
+                      className="flex-1 min-w-0 truncate text-xs font-mono hover:underline"
+                    >
+                      {lastSegment(prizesUrl)}
+                    </a>
+                  ) : (
+                    <Input
+                      value={subPaths['Prizes'] ?? ''}
+                      onChange={(e) => {
+                        const v = sanitizeSlug(e.target.value);
+                        setSubPaths((p) => ({ ...p, Prizes: v }));
+                        setError(null);
+                      }}
+                      disabled={!checked}
+                      placeholder="prizes"
+                      aria-label="URL for Prizes"
+                      className="flex-1 min-w-0 h-7 text-xs font-mono"
+                    />
+                  )}
+                  {prizesFrozen && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={() => navigator.clipboard.writeText(prizesUrl)}
+                    >
+                      Copy
+                    </Button>
+                  )}
+                </div>
+              );
+            })()}
 
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>

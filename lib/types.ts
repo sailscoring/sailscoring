@@ -630,6 +630,9 @@ export interface PublishedSeriesPage {
   // Sub-series (block) the page covers, by name. Absent for whole-series
   // pages; a series with sub-series publishes one page per (block, fleet).
   subSeriesName?: string;
+  // The prize sheet (#240) — `fleetName` is then "Prizes". Lets the listing
+  // label the page as prizes rather than as a fleet's standings.
+  isPrizes?: boolean;
   // Sub-path under the slug: `standings` for a single (default) fleet, or
   // `kebab(fleetName)` for a named fleet — prefixed `kebab(block)/` for a
   // sub-series page. Never empty (the bare slug is the listing). The full

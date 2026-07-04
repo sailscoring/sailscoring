@@ -11,8 +11,13 @@ import {
   type SeriesFile,
   type SeriesFileRepos,
 } from '@/lib/series-file';
+import {
+  buildPublicExportFromSnapshot,
+  importPublicExport,
+} from '@/lib/public-export';
 import type {
   Competitor,
+  Finish,
   Fleet,
   Prize,
   Race,
@@ -74,19 +79,24 @@ function makeCompetitor(id: string, sail: string): Competitor {
   return { id, seriesId: 's1', fleetIds: ['fl-1'], sailNumber: sail, name: sail, club: '', gender: '', age: null, createdAt: 0 };
 }
 
+function makeFinish(raceId: string, competitorId: string, sortOrder: number): Finish {
+  return { id: `${raceId}-${competitorId}`, raceId, competitorId, sortOrder, tiedWithPrevious: false, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null, redressIncludeAllLater: false, redressPoints: null };
+}
+
 const snapshot: SeriesSnapshot = {
   series: makeSeries('s1'),
-  competitors: [makeCompetitor('c1', '218401')],
+  competitors: [makeCompetitor('c1', '218401'), makeCompetitor('c2', '218402')],
   fleets: [fleet],
-  races: [],
+  races: [{ id: 'r1', seriesId: 's1', raceNumber: 1, name: null, date: '2026-07-04', createdAt: 0 }],
   subSeries: [],
-  finishes: [],
+  finishes: [makeFinish('r1', 'c1', 1), makeFinish('r1', 'c2', 2)],
   raceStarts: [],
   ratingOverrides: [],
 };
 
 function makeRecordingRepos(read?: SeriesSnapshot) {
   const savedSeries: Series[] = [];
+  const savedFleets: Fleet[] = [];
   const repos = {
     seriesRepo: {
       get: async (id: string) => (read && id === read.series.id ? read.series : undefined),
@@ -97,10 +107,15 @@ function makeRecordingRepos(read?: SeriesSnapshot) {
     },
     fleetRepo: {
       listBySeries: async () => read?.fleets ?? [],
+      save: async (f: Fleet) => {
+        savedFleets.push(f);
+        return f;
+      },
       saveMany: async () => {},
     },
     competitorRepo: {
       listBySeries: async () => read?.competitors ?? [],
+      save: async (c: Competitor) => c,
       saveMany: async () => {},
     },
     raceRepo: {
@@ -113,10 +128,12 @@ function makeRecordingRepos(read?: SeriesSnapshot) {
     },
     finishRepo: {
       listBySeries: async () => read?.finishes ?? [],
+      save: async (f: Finish) => f,
       saveMany: async () => {},
     },
     raceStartRepo: {
       listBySeries: async () => read?.raceStarts ?? [],
+      save: async (rs: RaceStart) => rs,
       saveMany: async (_: RaceStart[]) => {},
     },
     raceRatingOverrideRepo: {
@@ -127,7 +144,7 @@ function makeRecordingRepos(read?: SeriesSnapshot) {
     listSeriesNames: async () => [],
     deleteSeriesChildren: async () => {},
   } as unknown as SeriesFileRepos;
-  return { repos, savedSeries };
+  return { repos, savedSeries, savedFleets };
 }
 
 describe('.sailscoring v17 prizes round-trip', () => {
@@ -165,6 +182,9 @@ describe('.sailscoring v17 prizes round-trip', () => {
   it('a prize whose fleet clause cannot resolve is dropped whole, not widened', async () => {
     const { repos: buildRepos } = makeRecordingRepos(snapshot);
     const file: SeriesFile = await buildSeriesFile('s1', buildRepos);
+    // The built file aliases the series' own prizes array — clone before
+    // mutating so the shared fixture stays intact for the other tests.
+    file.series.prizes = structuredClone(file.series.prizes);
     const clause = file.series.prizes![1].clauses[0];
     if (clause.kind === 'fleet') clause.fleetId = 'fl-unknown';
     const { repos, savedSeries } = makeRecordingRepos();
@@ -181,5 +201,47 @@ describe('.sailscoring v17 prizes round-trip', () => {
     const { repos, savedSeries } = makeRecordingRepos();
     await openSeriesFromFile(file, repos);
     expect(savedSeries.at(-1)!.prizes).toEqual([]);
+  });
+});
+
+describe('public JSON export prizes round-trip', () => {
+  it('exports fleet clauses by name, no prize ids; import re-keys onto fresh fleets', async () => {
+    const data = buildPublicExportFromSnapshot(snapshot);
+    expect(data).not.toBeNull();
+    expect(data!.series.prizes).toEqual([
+      {
+        name: 'Gold Fleet 1st, 2nd, 3rd',
+        recipientCount: 3,
+        clauses: [{ kind: 'axis', axisId: 'axis-div', value: 'Gold' }],
+      },
+      {
+        name: 'Overall 1st',
+        recipientCount: 1,
+        clauses: [
+          { kind: 'fleet', fleetName: 'ILCA 6' },
+          { kind: 'rank', max: 1 },
+        ],
+      },
+    ]);
+    expect(JSON.stringify(data)).not.toContain('p-gold');
+
+    const { repos, savedSeries, savedFleets } = makeRecordingRepos();
+    await importPublicExport(data!, repos);
+    const saved = savedSeries.at(-1)!;
+    expect(saved.prizes).toHaveLength(2);
+    const fleetClause = saved.prizes![1].clauses.find((c) => c.kind === 'fleet');
+    const importedFleet = savedFleets.find((f) => f.name === 'ILCA 6');
+    expect(importedFleet).toBeDefined();
+    if (fleetClause?.kind === 'fleet') {
+      expect(fleetClause.fleetId).toBe(importedFleet!.id);
+    } else {
+      expect.unreachable('fleet clause missing after import');
+    }
+  });
+
+  it('a series with no prizes exports no prizes key', () => {
+    const bare: SeriesSnapshot = { ...snapshot, series: { ...snapshot.series, prizes: [] } };
+    const data = buildPublicExportFromSnapshot(bare);
+    expect('prizes' in data!.series).toBe(false);
   });
 });

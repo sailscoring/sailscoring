@@ -1,4 +1,4 @@
-import type { ResultCode, PenaltyCode, CompetitorFieldKey, PrimaryPersonLabel, SubdivisionAxis } from './types';
+import type { Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, PrimaryPersonLabel, SubdivisionAxis } from './types';
 import { escapeHtml as esc } from './html';
 import { parseHmsToSeconds } from './time-parse';
 import {
@@ -8,6 +8,7 @@ import {
   isFieldDisabledByPrimary,
 } from './competitor-fields';
 import { roundCorrectedSecs } from './scoring';
+import { describePrizeClauses, ordinal, type PrizeAllocation } from './prizes';
 
 /** Column heading for a subdivision axis, falling back to the default label when
  *  the axis label is blank. */
@@ -473,6 +474,72 @@ export function renderCombinedSeriesHtml(
     openInAppUrl: first.openInAppUrl,
   };
   return renderHtmlDocument(chrome, content, { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs });
+}
+
+/** Chrome for the prize-sheet page (#240): the shared document fields without
+ *  any per-fleet results data behind them. */
+export type PrizesPageChrome = DocumentChrome;
+
+/**
+ * Render the prize sheet as one document (#240): each prize is a section —
+ * name, eligibility summary, and its recipients table. Follows the SWPrize
+ * precedent of a standalone prizes page rather than a table at the foot of
+ * the results. Allocation warnings are deliberately NOT rendered: they are
+ * authoring concerns (the Prizes tab shows them); the published sheet just
+ * shows the places that could be awarded.
+ */
+export function renderPrizesHtml(
+  chrome: PrizesPageChrome,
+  allocations: PrizeAllocation[],
+  context: {
+    fleets: Pick<Fleet, 'id' | 'name'>[];
+    axes: SubdivisionAxis[];
+    /** Show a Fleet column on recipient rows (multi-fleet series). */
+    multiFleet: boolean;
+    primaryPersonLabel?: PrimaryPersonLabel;
+  },
+  options?: { fontPercent?: number },
+): string {
+  const fontPercent = options?.fontPercent ?? 72;
+  const nameHeader = PRIMARY_PERSON_LABEL_TEXT[context.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL];
+
+  const sections = allocations.map(({ prize, recipients }) => {
+    const rows = recipients.map((r, i) => {
+      const cells = [
+        `<td class="${r.position <= 3 ? `rank${r.position}` : ''}">${esc(ordinal(r.position))}</td>`,
+        `<td>${esc(r.standing.competitor.sailNumber)}</td>`,
+        `<td>${esc(r.standing.competitor.name)}</td>`,
+        ...(context.multiFleet ? [`<td>${esc(r.fleet.name)}</td>`] : []),
+        `<td>${r.standing.rank}</td>`,
+      ].join('');
+      return `<tr class="${i % 2 === 0 ? 'odd' : 'even'}">${cells}</tr>`;
+    });
+    const header = [
+      '<th>Place</th>',
+      '<th>SailNo</th>',
+      `<th>${esc(nameHeader)}</th>`,
+      ...(context.multiFleet ? ['<th>Fleet</th>'] : []),
+      '<th>Series rank</th>',
+    ].join('');
+    const table = recipients.length > 0
+      ? `<div class="tablewrap"><table class="summarytable">
+<thead><tr>${header}</tr></thead>
+<tbody>
+${rows.join('\n')}
+</tbody>
+</table></div>`
+      : '<p>Not yet awarded.</p>';
+    return `<h3>${esc(prize.name)}</h3>
+<p class="prize-eligibility">${esc(describePrizeClauses(prize.clauses, context.fleets, context.axes))}</p>
+${table}`;
+  });
+
+  const content = sections.join('\n');
+  return renderHtmlDocument(
+    { ...chrome, fleetName: 'Prizes' },
+    `<style>.prize-eligibility { color: #555; margin: -4px 0 10px 0; }</style>\n${content}`,
+    { fontPercent, hasNhcDetail: false, hasEchoDetail: false, flagDefs: '' },
+  );
 }
 
 /** The full HTML document around already-rendered section content: styles,
@@ -1119,12 +1186,6 @@ function renderScoreText(
     text = formatPoints(points);
   }
   return isDiscard ? `(${text})` : text;
-}
-
-function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
 }
 
 /**

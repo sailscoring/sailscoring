@@ -65,6 +65,8 @@ export interface SeriesIndexPage {
   fleetName: string;
   /** Sub-series (block) the page covers; whole-series pages omit it. */
   subSeriesName?: string;
+  /** The prize sheet (#240) — labelled by its own name, never "Standings". */
+  isPrizes?: boolean;
   subPath: string; // `standings` for a single fleet, else `kebab(fleetName)`
 }
 
@@ -335,11 +337,14 @@ export function renderSeriesIndexHtml(
   logoUrl = '',
 ): string {
   const renderFlatList = (pages: SeriesIndexPage[]): string => {
-    const single = pages.length === 1;
+    // A lone results page reads better as "Standings" than as its (possibly
+    // synthetic "Default") fleet name; the prize sheet always keeps its own
+    // name, and doesn't stop a lone sibling fleet page reading as standings.
+    const single = pages.filter((p) => !p.isPrizes).length === 1;
     return `<ul class="listing">
 ${pages
   .map((p) => {
-    const label = single ? 'Standings' : p.fleetName;
+    const label = !p.isPrizes && single ? 'Standings' : p.fleetName;
     return `<li><a href="/p/${esc(workspaceSlug)}/${esc(slug)}/${esc(p.subPath)}">${esc(label)}</a></li>`;
   })
   .join('\n')}

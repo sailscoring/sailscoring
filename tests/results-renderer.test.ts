@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   renderSeriesHtml,
   renderCombinedSeriesHtml,
+  renderPrizesHtml,
   assembleSeriesResultsData,
   type SeriesResultsData,
   type RaceData,
@@ -1427,5 +1428,76 @@ describe('assembleSeriesResultsData — anchorPrefix', () => {
       new Date(),
     );
     expect(data.races[0].anchorId).toBe('r1');
+  });
+});
+
+describe('renderPrizesHtml', () => {
+  const fleet = { id: 'fl-1', name: 'ILCA 6' };
+  const axes = [{ id: 'axis-div', label: 'Division' }];
+
+  function recipient(position: number, rank: number, sailNumber: string, name: string) {
+    return {
+      position,
+      fleet: { id: 'fl-1', seriesId: 's1', name: 'ILCA 6', displayOrder: 0, scoringSystem: 'scratch' as const },
+      standing: {
+        rank,
+        competitor: {
+          id: `c-${sailNumber}`, seriesId: 's1', fleetIds: ['fl-1'], sailNumber,
+          name, club: '', gender: '' as const, age: null, createdAt: 0,
+        },
+        racePoints: [], raceRanks: [], raceCodes: [], racePenaltyCodes: [],
+        racePenaltyOverrides: [], raceRedressFlags: [], totalPoints: rank,
+        netPoints: rank, raceDiscards: [], raceNonDiscardable: [], raceExcluded: [],
+      },
+    };
+  }
+
+  const allocation = {
+    prize: {
+      id: 'p1',
+      name: 'Gold Fleet 1st, 2nd & 3rd',
+      recipientCount: 3,
+      clauses: [{ kind: 'axis' as const, axisId: 'axis-div', value: 'Gold' }],
+    },
+    recipients: [
+      recipient(1, 1, '218401', 'Alice <A>'),
+      recipient(2, 4, '218402', 'Bob'),
+      recipient(3, 7, '218403', 'Carol'),
+    ],
+    eligibleCount: 3,
+    warnings: [],
+  };
+
+  it('renders each prize with its eligibility line and ordinal places', () => {
+    const html = renderPrizesHtml(
+      { series: { name: 'ILCA Leinsters', venue: 'Sligo YC' }, generatedAt: new Date() },
+      [allocation],
+      { fleets: [fleet], axes, multiFleet: false, primaryPersonLabel: 'helm' },
+    );
+    expect(html).toContain('Gold Fleet 1st, 2nd &amp; 3rd');
+    expect(html).toContain('Division is Gold');
+    expect(html).toContain('<td class="rank1">1st</td>');
+    expect(html).toContain('<td class="rank2">2nd</td>');
+    expect(html).toContain('<td class="rank3">3rd</td>');
+    expect(html).toContain('Alice &lt;A&gt;'); // competitor names are escaped
+    expect(html).toContain('<th>Helm</th>');
+    expect(html).not.toContain('<th>Fleet</th>'); // single-fleet: no fleet column
+    expect(html).toContain('<h2>Prizes</h2>'); // page heading slot
+  });
+
+  it('shows a fleet column when the series has several fleets, and a not-awarded note for an empty prize', () => {
+    const html = renderPrizesHtml(
+      { series: { name: 'ILCA Leinsters', venue: '' } },
+      [{ ...allocation, recipients: [], eligibleCount: 0 }],
+      { fleets: [fleet], axes, multiFleet: true },
+    );
+    expect(html).toContain('Not yet awarded.');
+    const multi = renderPrizesHtml(
+      { series: { name: 'ILCA Leinsters', venue: '' } },
+      [allocation],
+      { fleets: [fleet], axes, multiFleet: true },
+    );
+    expect(multi).toContain('<th>Fleet</th>');
+    expect(multi).toContain('<td>ILCA 6</td>');
   });
 });

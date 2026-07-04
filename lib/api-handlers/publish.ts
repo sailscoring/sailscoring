@@ -163,6 +163,9 @@ export async function publishSeries(
     exportReposFor(workspace.workspaceId),
     seriesId,
     `${appBase()}/p/${workspace.workspaceSlug}/${slug}`,
+    // The prize sheet (#240) publishes only for workspaces with the feature
+    // on; a prize list imported into an ungated workspace stays unpublished.
+    { includePrizes: workspace.features.includes('prizes') },
   );
   if (!allFiles) throw new NotFoundError('series has no publishable results');
 
@@ -286,7 +289,7 @@ export async function publishSeries(
   // `isDefault`), since its fleet name can be synthetic and unknown to the
   // client; named fleets use `subPaths[fleetName]`.
   const defaultOverride = input.defaultSubPath?.trim();
-  const subPathFor = (file: { fleetName: string; isDefault: boolean; subSeriesName?: string }): string => {
+  const subPathFor = (file: { fleetName: string; isDefault: boolean; subSeriesName?: string; isPrizes?: boolean }): string => {
     const existingPath = frozen.get(pageKey(file));
     if (existingPath !== undefined) return existingPath;
     const override = file.isDefault ? defaultOverride : overrides[file.fleetName]?.trim();
@@ -299,6 +302,11 @@ export async function publishSeries(
         });
       }
       leaf = override;
+    } else if (file.isPrizes) {
+      // The prize sheet mirrors the default fleet's convention: the clean
+      // `prizes` path for a sole contributor, disambiguated by the series'
+      // own slug when co-publishing so two prize sheets never both claim it.
+      leaf = shared ? `${seriesSlug}-prizes` : 'prizes';
     } else {
       leaf = publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared);
     }
@@ -335,6 +343,7 @@ export async function publishSeries(
       const page: PublishedSeriesPage = {
         fleetName: file.fleetName,
         ...(file.subSeriesName ? { subSeriesName: file.subSeriesName } : {}),
+        ...(file.isPrizes ? { isPrizes: true } : {}),
         subPath,
         blobUrl,
       };
