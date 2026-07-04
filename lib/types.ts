@@ -89,6 +89,32 @@ export interface PublishingGroup {
 }
 
 /**
+ * One conjunct of a prize's eligibility predicate: prizes AND together a small
+ * set of typed clauses rather than a string DSL. `fleet` and `axis` are
+ * equality tests; `rank` is the one ordering test the NoR shapes need
+ * ("Overall 1st, 2nd, 3rd" = rank ≤ 3). Fleet ids are remapped on file import
+ * like every other fleet reference; axis ids are stable and travel verbatim.
+ */
+export type PrizeClause =
+  | { kind: 'fleet'; fleetId: string }
+  | { kind: 'axis'; axisId: string; value: string }
+  | { kind: 'rank'; max: number };
+
+/**
+ * A named award: the top `recipientCount` eligible competitors ranked by
+ * series standing (the only ranking rule so far — a `ranking` field can join
+ * additively if a derived-metric rule ever lands). Eligibility is the AND of
+ * `clauses`; an empty list means every scored competitor is eligible.
+ * Array position in `Series.prizes` is the prize-list display order.
+ */
+export interface Prize {
+  id: string;
+  name: string;           // display, e.g. "Gold Fleet 1st, 2nd, 3rd"; bounded by PRIZE_NAME_MAX_LENGTH
+  recipientCount: number; // how many places this award covers (1 = winner only)
+  clauses: PrizeClause[];
+}
+
+/**
  * Pushing the competitor list to a racingrulesofsailing.org event via its
  * competitor-import API: the settings remembered from the last push so a
  * re-push needs no re-configuration. The event UUID doubles as the write
@@ -167,6 +193,9 @@ export interface Series {
   // config should follow the series between workspaces) but excluded from the
   // public JSON export (the UUID is a write-credential).
   rrsOrgPush?: RrsOrgPushConfig;
+  // Prize list (#240). Sparse — absent/empty is the common case. Array order
+  // is the prize-sheet display order. Gated by the `prizes` feature.
+  prizes?: Prize[];
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)

@@ -15,6 +15,7 @@ import type {
   RaceFleetExclusion,
   PublishingGroup,
   RrsOrgPushConfig,
+  Prize,
 } from './types';
 import {
   defaultEnabledCompetitorFields,
@@ -140,9 +141,15 @@ export interface SeriesFileRepos {
  *  (written only when set); older files load with it absent. The UUID is a
  *  write-credential for the rrs.org event — carried here so the config
  *  follows the series between workspaces, but excluded from the public JSON
- *  export. */
-export const FORMAT_VERSION = 16;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+ *  export.
+ *
+ *  v17 adds optional `series.prizes` (the prize list — named awards with an
+ *  eligibility predicate and recipient count, #240). Additive and sparse
+ *  (written only when non-empty); older files load with it absent. Fleet ids
+ *  inside prize clauses are remapped on import like every other fleet
+ *  reference; subdivision-axis ids are stable and travel verbatim. */
+export const FORMAT_VERSION = 17;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -192,6 +199,7 @@ interface SeriesFileSeries {
   publishingGroups?: PublishingGroup[];  // v15+; combined published pages
   publishIndividualFleetPages?: boolean;  // v15+; absent = true
   rrsOrgPush?: RrsOrgPushConfig;  // v16+; rrs.org competitor-push settings
+  prizes?: Prize[];  // v17+; prize list (#240)
 }
 
 interface SeriesFileCompetitor {
@@ -462,6 +470,7 @@ export async function buildSeriesFile(
         ? { publishIndividualFleetPages: false }
         : {}),
       ...(series.rrsOrgPush ? { rrsOrgPush: series.rrsOrgPush } : {}),
+      ...(series.prizes && series.prizes.length > 0 ? { prizes: series.prizes } : {}),
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -707,6 +716,37 @@ function remapPublishingGroups(
   }));
 }
 
+/** Re-key fleet references inside prize clauses onto the freshly-minted fleet
+ *  ids. A prize whose fleet clause can't resolve is dropped whole — silently
+ *  removing the clause would *widen* its eligibility, which is worse than
+ *  losing the prize (the scorer re-adds it in the editor). Axis ids are stable
+ *  across round-trips, so axis clauses travel verbatim. */
+function remapPrizes(
+  prizes: Prize[] | undefined,
+  fleetIdMap: Map<string, string>,
+): Prize[] {
+  if (!prizes) return [];
+  const out: Prize[] = [];
+  for (const prize of prizes) {
+    const clauses: Prize['clauses'] = [];
+    let dropped = false;
+    for (const clause of prize.clauses) {
+      if (clause.kind !== 'fleet') {
+        clauses.push(clause);
+        continue;
+      }
+      const newId = fleetIdMap.get(clause.fleetId);
+      if (!newId) {
+        dropped = true;
+        break;
+      }
+      clauses.push({ ...clause, fleetId: newId });
+    }
+    if (!dropped) out.push({ ...prize, clauses });
+  }
+  return out;
+}
+
 /** Rewrite whole-series per-fleet race exclusions through the id remaps applied
  *  on import. Both the race and the fleet get fresh ids, so an unmapped
  *  reference (a race or fleet dropped from the file) means the strike no longer
@@ -817,6 +857,7 @@ export async function openSeriesFromFile(
     publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
     publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
     rrsOrgPush: file.series.rrsOrgPush,
+    prizes: remapPrizes(file.series.prizes, fleetIdMap),
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -901,6 +942,7 @@ export async function restoreSeriesFromFile(
     publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
     publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
     rrsOrgPush: file.series.rrsOrgPush,
+    prizes: remapPrizes(file.series.prizes, fleetIdMap),
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -976,6 +1018,7 @@ export async function updateSeriesFromFile(
     publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
     publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
     rrsOrgPush: file.series.rrsOrgPush,
+    prizes: remapPrizes(file.series.prizes, fleetIdMap),
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -1044,14 +1087,40 @@ function remapPublishingGroupsByFleetName(
   }));
 }
 
+/** Re-key the saved prizes' fleet clauses onto the freshly-imported fleets,
+ *  over the same name bridge as {@link remapPublishingGroupsByFleetName}. A
+ *  prize whose fleet was renamed in Sailwave between exports is dropped whole
+ *  — see {@link remapPrizes} for why a widened predicate would be worse. */
+function remapPrizesByFleetName(
+  prizes: Prize[] | undefined,
+  currentFleets: Fleet[],
+  file: SeriesFile,
+  fleetIdMap: Map<string, string>,
+): Prize[] {
+  if (!prizes) return [];
+  const nameByCurrentId = new Map(currentFleets.map((f) => [f.id, f.name]));
+  const newIdByName = new Map<string, string>();
+  for (const f of file.fleets) {
+    const newId = fleetIdMap.get(f.id);
+    if (newId) newIdByName.set(f.name, newId);
+  }
+  const bridge = new Map<string, string>();
+  for (const [oldId, name] of nameByCurrentId) {
+    const newId = newIdByName.get(name);
+    if (newId) bridge.set(oldId, newId);
+  }
+  return remapPrizes(prizes, bridge);
+}
+
 /**
  * Replace a Sailwave-born series' competition data in place from a freshly
  * re-imported Sailwave file, **preserving the scorer's series identity and
  * publishing setup**. Only offered for series with `source === 'sailwave'`.
  *
  * Retained from the existing series (`...current`): name, venue, logos/links,
- * FTP destination + per-fleet paths, publish toggles, competitor-field config,
- * primary-person label, subdivision axes, category, archived, and `source` itself.
+ * FTP destination + per-fleet paths, publish toggles, prizes, competitor-field
+ * config, primary-person label, subdivision axes, category, archived, and
+ * `source` itself.
  *
  * Replaced from the file: fleets, competitors, races, starts, finishes — and
  * the scoring rules derived from them (`discardThresholds`, `dnfScoring`).
@@ -1082,6 +1151,7 @@ export async function updateSeriesFromSailwave(
 
   const ftpPaths = remapFtpPathsByFleetName(current.ftpPaths, currentFleets, file, fleetIdMap);
   const publishingGroups = remapPublishingGroupsByFleetName(current.publishingGroups, currentFleets, file, fleetIdMap);
+  const prizes = remapPrizesByFleetName(current.prizes, currentFleets, file, fleetIdMap);
 
   await repos.deleteSeriesChildren(seriesId);
 
@@ -1095,6 +1165,7 @@ export async function updateSeriesFromSailwave(
     defaultStartSequence: undefined,
     ftpPaths,
     publishingGroups,
+    prizes,
     lastModifiedAt: now,
   });
 
