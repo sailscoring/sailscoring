@@ -255,10 +255,13 @@ test('a toggle made while a prior save is in flight does not revert it', async (
   await page.getByLabel('Crew name').check();
 
   // ── 3. Release A; once both saves land the card re-syncs to the
-  //       persisted row — Boat name must stay unchecked. ───────────────────
+  //       persisted row — Boat name must stay unchecked. The re-sync waits on
+  //       two sequential round-trips (A drains, then the queued B), so allow a
+  //       generous window: under full-suite CPU load the settle can outrun the
+  //       default expect timeout even though the final state is deterministic.
   releaseHold();
-  await expect(page.getByLabel('Boat name')).not.toBeChecked();
-  await expect(page.getByLabel('Crew name')).toBeChecked();
+  await expect(page.getByLabel('Boat name')).not.toBeChecked({ timeout: 15_000 });
+  await expect(page.getByLabel('Crew name')).toBeChecked({ timeout: 15_000 });
 
   // ── 4. The persisted state agrees after a full reload ────────────────────
   await page.reload();
