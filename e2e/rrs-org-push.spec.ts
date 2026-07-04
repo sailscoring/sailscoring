@@ -54,9 +54,9 @@ test('CSV import + push in one step, then a push-only re-push', async ({ page, s
   await page.getByLabel('Event UUID').fill(EVENT_UUID);
 
   const csv = [
-    'Sail,Helm,Club,Nat,Email,Mobile',
-    'IRL14302,Kevin Donnelly,Sutton DC,IRL,kd@example.com,086 123 4567',
-    'GBR14271,Brian Morrison,Lough Erne YC,GBR,bm@example.com,',
+    'Sail,Helm,Club,Nat,Division,Email,Mobile',
+    'IRL14302,Kevin Donnelly,Sutton DC,IRL,Gold,kd@example.com,086 123 4567',
+    'GBR14271,Brian Morrison,Lough Erne YC,GBR,Silver,bm@example.com,',
   ].join('\n');
   await page.locator('input[type=file][accept=".csv,text/csv"]').setInputFiles({
     name: 'entries.csv', mimeType: 'text/csv', buffer: Buffer.from(csv),
@@ -69,6 +69,11 @@ test('CSV import + push in one step, then a push-only re-push', async ({ page, s
   await expect(page.getByText('Email (rrs.org only)')).toBeVisible();
   await expect(page.getByText('Phone (rrs.org only)')).toBeVisible();
   await expect(page.getByText('Push to rrs.org')).toBeVisible();
+  // The Division column is bound for a new subdivision axis, and rrs.org's
+  // division defaults to it even though the axis doesn't exist yet.
+  await expect(
+    page.getByText('Division on rrs.org:').getByRole('combobox'),
+  ).toContainText("New axis: 'Division'");
   await page.getByRole('button', { name: 'Import 2 rows & push' }).click();
 
   // ── Completion: local counts plus the push result ────────────────────────
@@ -94,6 +99,7 @@ test('CSV import + push in one step, then a push-only re-push', async ({ page, s
     mna_code: 'IRL',                 // derived from nationality
     email: 'kd@example.com',         // relayed from the CSV, never stored
     phone: '+353861234567',          // normalised via the IRL dialing code
+    division: 'Gold',                // the new Division axis, resolved at import
   });
 
   // Relay fields must not have landed in the competitor model.
@@ -122,4 +128,6 @@ test('CSV import + push in one step, then a push-only re-push', async ({ page, s
   const repushed = afterRepush[1].payload.competitors.find((c) => c.sail_number === 'IRL14302')!;
   expect(repushed.email).toBe('');   // not stored, so a push-only send is blank
   expect(repushed.mna_code).toBe('IRL');
+  // The remembered division source is the axis the import minted.
+  expect(repushed.division).toBe('Gold');
 });

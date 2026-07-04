@@ -100,6 +100,18 @@ interface RrsImportConfig {
   divisionAxisId?: string;
 }
 
+/** The mapping dialog's wider division choice: rrs.org's division can also
+ *  come from a column mapped to a NEW subdivision axis, which has no axis id
+ *  until the import mints it — so the dialog holds the column index and
+ *  `handleImport` resolves it to the fresh axis id before pushing. Never
+ *  leaves the client; the API only sees the resolved RrsImportConfig. */
+interface MappingRrsConfig {
+  eventUuid: string;
+  divisionSource: 'none' | 'fleet' | 'axis' | 'newAxisColumn';
+  divisionAxisId?: string;
+  divisionColumnIndex?: number;
+}
+
 /** Everything the done dialog needs to report a push — and to retry it
  *  without re-running the CSV import (the rows are kept as sent). */
 interface PushOutcome {
@@ -165,7 +177,7 @@ type ImportFlow =
        *  scratch sibling be created (for line honours)? */
       alsoCreateScratch: Record<string, boolean>;
       /** Present when the import also pushes to rrs.org. */
-      rrs: RrsImportConfig | null;
+      rrs: MappingRrsConfig | null;
     }
   | {
       step: 'done';
@@ -303,9 +315,10 @@ function reconcileColumnMap(columnMap: ColumnMap, proposed: PrimaryPersonLabel):
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The push config a flow starts from: the saved settings when still valid
- *  (a remembered axis may have been deleted since), else a sensible default —
- *  a lone subdivision axis, then fleet names when there are several fleets,
- *  then nothing. */
+ *  (a remembered axis may have been deleted since), else a sensible default.
+ *  Subdivision axes are the natural rrs.org division candidates — one
+ *  labelled "Division" wins outright, a lone axis is next — then fleet names
+ *  when there are several fleets, then nothing. */
 function defaultRrsConfig(
   eventUuid: string,
   saved: RrsImportConfig | null,
@@ -318,9 +331,41 @@ function defaultRrsConfig(
       return { eventUuid, divisionSource: 'axis', divisionAxisId: saved.divisionAxisId };
     }
   }
+  const divisionAxis = axes.find((a) => /division/i.test(a.label));
+  if (divisionAxis) return { eventUuid, divisionSource: 'axis', divisionAxisId: divisionAxis.id };
   if (axes.length === 1) return { eventUuid, divisionSource: 'axis', divisionAxisId: axes[0].id };
   if (fleetCount > 1) return { eventUuid, divisionSource: 'fleet' };
   return { eventUuid, divisionSource: 'none' };
+}
+
+/** The mapping dialog's counterpart of {@link defaultRrsConfig}: the CSV's
+ *  own subdivision columns take precedence, since the sheet being imported is
+ *  the best signal for what rrs.org's division should be. A column headed
+ *  "Division" wins, then a lone subdivision column; a column bound for a NEW
+ *  axis is held by column index until the import mints the axis. */
+function defaultMappingRrsConfig(
+  eventUuid: string,
+  saved: RrsImportConfig | null,
+  axes: SubdivisionAxis[],
+  fleetCount: number,
+  columnMap: ColumnMap,
+  headers: string[],
+): MappingRrsConfig {
+  // An explicit prior choice still wins — re-imports shouldn't flip it.
+  if (saved) return defaultRrsConfig(eventUuid, saved, axes, fleetCount);
+  const subColumns = Object.entries(columnMap)
+    .map(([col, target]) => ({ col: Number(col), target }))
+    .filter(({ target }) => isSubdivisionTarget(target));
+  const pick =
+    subColumns.find(({ col }) => /division/i.test(headers[col] ?? '')) ??
+    (subColumns.length === 1 ? subColumns[0] : undefined);
+  if (pick) {
+    const axisId = subdivisionAxisIdOf(pick.target);
+    return axisId
+      ? { eventUuid, divisionSource: 'axis', divisionAxisId: axisId }
+      : { eventUuid, divisionSource: 'newAxisColumn', divisionColumnIndex: pick.col };
+  }
+  return defaultRrsConfig(eventUuid, null, axes, fleetCount);
 }
 
 /** Map from the CSV import dropdown's rating-field values to the four
@@ -479,28 +524,42 @@ const MappingTable = memo(function MappingTable({
 });
 
 /** What feeds rrs.org's single `division` slot — the one real push-mapping
- *  choice. Encoded flat for the Select ('none' | 'fleet' | 'axis:<id>'). */
+ *  choice. Encoded flat for the Select ('none' | 'fleet' | 'axis:<id>' |
+ *  'newcol:<index>'). `newAxisColumns` lists CSV columns currently bound for
+ *  a new subdivision axis (mapping dialog only) — choosable by column since
+ *  their axis ids don't exist until the import runs. */
 function DivisionSourceSelect({
   divisionSource,
   divisionAxisId,
+  divisionColumnIndex,
   axes,
+  newAxisColumns,
   onChange,
 }: {
-  divisionSource: RrsImportConfig['divisionSource'];
+  divisionSource: MappingRrsConfig['divisionSource'];
   divisionAxisId?: string;
+  divisionColumnIndex?: number;
   axes: SubdivisionAxis[];
-  onChange: (source: RrsImportConfig['divisionSource'], axisId?: string) => void;
+  newAxisColumns?: { col: number; header: string }[];
+  onChange: (choice: Pick<MappingRrsConfig, 'divisionSource' | 'divisionAxisId' | 'divisionColumnIndex'>) => void;
 }) {
-  const value = divisionSource === 'axis' && divisionAxisId ? `axis:${divisionAxisId}` : divisionSource;
+  const value =
+    divisionSource === 'axis' && divisionAxisId ? `axis:${divisionAxisId}`
+    : divisionSource === 'newAxisColumn' && divisionColumnIndex != null ? `newcol:${divisionColumnIndex}`
+    : divisionSource;
   return (
     <label className="flex items-center gap-2 text-sm">
       Division on rrs.org:
       <Select
         value={value}
         onValueChange={(v) => {
+          if (v.startsWith('newcol:')) {
+            onChange({ divisionSource: 'newAxisColumn', divisionColumnIndex: Number(v.slice('newcol:'.length)) });
+            return;
+          }
           const axisId = subdivisionAxisIdOf(v as ColumnTarget);
-          if (axisId) onChange('axis', axisId);
-          else onChange(v as 'none' | 'fleet');
+          if (axisId) onChange({ divisionSource: 'axis', divisionAxisId: axisId });
+          else onChange({ divisionSource: v as 'none' | 'fleet' });
         }}
       >
         <SelectTrigger className="w-56">
@@ -512,6 +571,11 @@ function DivisionSourceSelect({
           {axes.map((a) => (
             <SelectItem key={a.id} value={axisColumnTarget(a.id)}>
               {a.label.trim() || DEFAULT_SUBDIVISION_LABEL}
+            </SelectItem>
+          ))}
+          {(newAxisColumns ?? []).map(({ col, header }) => (
+            <SelectItem key={col} value={`newcol:${col}`}>
+              {newAxisOptionLabel(header)}
             </SelectItem>
           ))}
         </SelectContent>
@@ -546,11 +610,19 @@ function MappingDialogBody({
   const tooManySails = sailCount > 1;
 
   const updateColumn = useCallback((index: number, value: ColumnTarget) => {
-    setFlow((f) =>
-      f.step === 'mapping'
-        ? { ...f, columnMap: { ...f.columnMap, [index]: value } }
-        : f,
-    );
+    setFlow((f) => {
+      if (f.step !== 'mapping') return f;
+      // If this column was feeding rrs.org's division as a new axis and is
+      // remapped to anything else, the choice dangles — reset it rather than
+      // silently resolve to nothing at import time.
+      const rrs =
+        f.rrs?.divisionSource === 'newAxisColumn' &&
+        f.rrs.divisionColumnIndex === index &&
+        value !== NEW_AXIS_TARGET
+          ? { eventUuid: f.rrs.eventUuid, divisionSource: 'none' as const }
+          : f.rrs;
+      return { ...f, columnMap: { ...f.columnMap, [index]: value }, rrs };
+    });
   }, [setFlow]);
 
   const updatePrimary = useCallback((label: PrimaryPersonLabel) => {
@@ -760,11 +832,15 @@ function MappingDialogBody({
           <DivisionSourceSelect
             divisionSource={flow.rrs.divisionSource}
             divisionAxisId={flow.rrs.divisionAxisId}
+            divisionColumnIndex={flow.rrs.divisionColumnIndex}
             axes={flow.subdivisionAxes}
-            onChange={(source, axisId) =>
+            newAxisColumns={flow.headers
+              .map((header, col) => ({ col, header }))
+              .filter(({ col }) => flow.columnMap[col] === NEW_AXIS_TARGET)}
+            onChange={(choice) =>
               setFlow((f) =>
                 f.step === 'mapping' && f.rrs
-                  ? { ...f, rrs: { ...f.rrs, divisionSource: source, divisionAxisId: axisId } }
+                  ? { ...f, rrs: { eventUuid: f.rrs.eventUuid, ...choice } }
                   : f,
               )
             }
@@ -813,10 +889,17 @@ function PushConfirmBody({
         divisionSource={flow.config.divisionSource}
         divisionAxisId={flow.config.divisionAxisId}
         axes={flow.axes}
-        onChange={(source, axisId) =>
+        onChange={(choice) =>
           setFlow((f) =>
-            f.step === 'pushConfirm'
-              ? { ...f, config: { ...f.config, divisionSource: source, divisionAxisId: axisId } }
+            f.step === 'pushConfirm' && choice.divisionSource !== 'newAxisColumn'
+              ? {
+                  ...f,
+                  config: {
+                    eventUuid: f.config.eventUuid,
+                    divisionSource: choice.divisionSource,
+                    divisionAxisId: choice.divisionAxisId,
+                  },
+                }
               : f,
           )
         }
@@ -1046,7 +1129,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
           existingHasBoatClass,
           alsoCreateScratch: {},
           rrs: rrs
-            ? defaultRrsConfig(rrs.eventUuid, rrs.saved, axes, fleets.length)
+            ? defaultMappingRrsConfig(rrs.eventUuid, rrs.saved, axes, fleets.length, columnMap, headers)
             : null,
         });
       },
@@ -1373,6 +1456,19 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       setImportFlow({ step: 'done', csv: csvResult, push: null });
       return;
     }
+    // A division choice held by column index (a new subdivision axis) can
+    // only resolve now, once the import has minted the axis: the same
+    // `axisIdByColumn` entry that keyed the competitors' subdivision values
+    // is the axis id the push reads them back from.
+    let resolvedRrs: RrsImportConfig;
+    if (rrs.divisionSource === 'newAxisColumn') {
+      const axisId = rrs.divisionColumnIndex != null ? axisIdByColumn.get(rrs.divisionColumnIndex) : undefined;
+      resolvedRrs = axisId
+        ? { eventUuid: rrs.eventUuid, divisionSource: 'axis', divisionAxisId: axisId }
+        : { eventUuid: rrs.eventUuid, divisionSource: 'none' };
+    } else {
+      resolvedRrs = { eventUuid: rrs.eventUuid, divisionSource: rrs.divisionSource, divisionAxisId: rrs.divisionAxisId };
+    }
     // The local import has committed; now push the FULL post-import list —
     // rrs.org replaces its API-imported competitors wholesale, so a partial
     // list would delete boats from the event. Contact fields exist only for
@@ -1381,12 +1477,12 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       competitorRepo.listBySeries(seriesId),
       fleetRepo.listBySeries(seriesId),
     ]);
-    const built = buildRrsOrgCompetitors(allCompetitors, freshFleets, rrs, relayByCompetitorId);
-    const result = await doPush(rrs, built.competitors);
+    const built = buildRrsOrgCompetitors(allCompetitors, freshFleets, resolvedRrs, relayByCompetitorId);
+    const result = await doPush(resolvedRrs, built.competitors);
     setImportFlow({
       step: 'done',
       csv: csvResult,
-      push: { config: rrs, rows: built.competitors, warnings: built.warnings, relayCount: built.relayCount, result },
+      push: { config: resolvedRrs, rows: built.competitors, warnings: built.warnings, relayCount: built.relayCount, result },
     });
   }
 
