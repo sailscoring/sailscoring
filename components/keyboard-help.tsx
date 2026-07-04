@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useActiveShortcuts } from '@/hooks/use-keyboard-shortcut';
+import { useFeatures } from '@/components/features-provider';
 
 function Shortcut({ keys }: { keys: string[] }) {
   return (
@@ -71,6 +72,7 @@ export function KeyboardHelp({
   onClose: () => void;
 }) {
   const active = useActiveShortcuts();
+  const { has } = useFeatures();
 
   // Group registered entries by section, preserving first-seen section order
   // and per-section registration order.
@@ -103,6 +105,7 @@ export function KeyboardHelp({
               { keys: ['g', 'c'], action: 'Go to Competitors' },
               { keys: ['g', 'r'], action: 'Go to Races' },
               { keys: ['g', 's'], action: 'Go to Standings' },
+              ...(has('prizes') ? [{ keys: ['g', 'p'], action: 'Go to Prizes' }] : []),
               { keys: ['g', 't'], action: 'Go to Settings' },
               { keys: ['g', 'h'], action: 'Go to History' },
             ]}

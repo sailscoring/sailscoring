@@ -151,6 +151,15 @@ export const FEATURES = {
     label: 'RRS.org competitor push',
     helpSectionIds: ['rrs-org-push'],
   },
+  'prizes': {
+    // Prize allocation (#240): the Prizes tab (named awards with an
+    // eligibility predicate over fleet / subdivision axes / rank, top-N by
+    // series standing) and the published prize-sheet page. Opt-in (default
+    // off) while the predicate model proves out against real NoRs, per the
+    // containment model.
+    label: 'Prizes',
+    helpSectionIds: ['prizes'],
+  },
   'competitor-reconcile': {
     // Gates the *in-app* reconcile surface (/workspace/competitors, its
     // switcher entry, and the /api/v1/competitor-identities endpoints behind

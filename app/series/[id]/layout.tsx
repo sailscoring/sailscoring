@@ -11,16 +11,19 @@ import { KeyboardHelp } from '@/components/keyboard-help';
 import { SeriesActionsMenu } from '@/components/series-actions-menu';
 import { SeriesReadOnlyProvider } from '@/components/series-read-only';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
+import { useFeatures } from '@/components/features-provider';
 import { Button } from '@/components/ui/button';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
-const tabs = [
+const baseTabs = [
   { label: 'Competitors', href: (id: string) => `/series/${id}/competitors` },
   { label: 'Races', href: (id: string) => `/series/${id}/races` },
   { label: 'Standings', href: (id: string) => `/series/${id}/standings` },
   { label: 'Settings', href: (id: string) => `/series/${id}/settings` },
   { label: 'History', href: (id: string) => `/series/${id}/history` },
 ];
+
+const prizesTab = { label: 'Prizes', href: (id: string) => `/series/${id}/prizes` };
 
 export default function SeriesLayout({
   children,
@@ -35,14 +38,23 @@ export default function SeriesLayout({
   const { data: series, isLoading } = useSeries(id);
   const archiveSeries = useArchiveSeries();
   const { can } = useWorkspacePermissions();
+  const { has } = useFeatures();
   const [showHelp, setShowHelp] = useState(false);
 
+  const showPrizes = has('prizes');
+  // Prizes slots in after Standings — allocation reads the standings, so the
+  // tabs follow the scorer's flow.
+  const tabs = showPrizes
+    ? [...baseTabs.slice(0, 3), prizesTab, ...baseTabs.slice(3)]
+    : baseTabs;
+
   useChordShortcut({
-    c: () => router.push(tabs[0].href(id)),
-    r: () => router.push(tabs[1].href(id)),
-    s: () => router.push(tabs[2].href(id)),
-    t: () => router.push(tabs[3].href(id)),
-    h: () => router.push(tabs[4].href(id)),
+    c: () => router.push(`/series/${id}/competitors`),
+    r: () => router.push(`/series/${id}/races`),
+    s: () => router.push(`/series/${id}/standings`),
+    t: () => router.push(`/series/${id}/settings`),
+    h: () => router.push(`/series/${id}/history`),
+    ...(showPrizes ? { p: () => router.push(`/series/${id}/prizes`) } : {}),
   });
 
   // No description: the dialog's static Global section documents `?` itself.
