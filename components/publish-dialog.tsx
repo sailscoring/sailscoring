@@ -285,7 +285,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // The single default page once published — the server's actual live page, used
   // for the frozen read-only link + Copy.
   const singlePreview = useMemo(() => {
-    const page = published?.pages[0];
+    // The prizes page has its own row below — the preview is the results page.
+    const page =
+      published?.pages.find((p) => p.fleetName !== 'Prizes') ?? published?.pages[0];
     return {
       fleetName: page?.fleetName ?? fleets[0]?.name ?? 'Standings',
       // With sub-series there are several pages; link the series index that
@@ -375,19 +377,18 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
         }
         selection = { fleets: fleetNames, subPaths: overrides };
       } else if (hasPrizes) {
-        // The prize sheet makes a single-fleet series multi-page: send the
-        // explicit selection so unticking it works, plus its sub-path when
-        // edited (and the default page's on first publish, as below).
-        const names = [fleets[0]?.name ?? 'Default'];
+        // The prize sheet makes a single-fleet series multi-page. The lone
+        // fleet page's name can be synthetic and unknown here, so it can't go
+        // in `fleets` — untick prizes via the dedicated `prizes: false` flag
+        // instead, and pass the prizes sub-path override when edited.
         const overrides: Record<string, string> = {};
         if (selected.has('Prizes')) {
-          names.push('Prizes');
           const seg = subPaths['Prizes'] ?? '';
           if (!prizesFrozen && seg !== defaultSubPath('Prizes')) overrides['Prizes'] = seg;
         }
         selection = {
-          fleets: names,
-          subPaths: overrides,
+          ...(selected.has('Prizes') ? {} : { prizes: false }),
+          ...(Object.keys(overrides).length > 0 ? { subPaths: overrides } : {}),
           ...(!isPublished && !hasBlocks ? { defaultSubPath: singlePath } : {}),
         };
       } else if (!isPublished && !hasBlocks) {

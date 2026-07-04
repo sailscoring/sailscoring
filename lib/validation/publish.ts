@@ -24,6 +24,11 @@ import { z } from 'zod';
  *     name, because that page's fleet name can be synthetic ("Unknown" for an
  *     implicit default fleet) and isn't known to the client. Same lifecycle as a
  *     `subPaths` override: honoured only while unpublished.
+ *   - `prizes` — `false` skips the prize sheet (#240) this round without
+ *     naming any fleet, for the single-page dialog whose lone fleet page has
+ *     no client-known name to put in `fleets`. Like an unticked fleet, a live
+ *     prizes page carries over untouched. Multi-fleet selections instead
+ *     tick/untick the name-keyed "Prizes" row via `fleets`.
  */
 export const publishInputSchema = z.object({
   slug: z.string().optional(),
@@ -31,6 +36,7 @@ export const publishInputSchema = z.object({
   fleets: z.array(z.string()).optional(),
   subPaths: z.record(z.string(), z.string()).optional(),
   defaultSubPath: z.string().optional(),
+  prizes: z.boolean().optional(),
 });
 
 export type PublishInput = z.infer<typeof publishInputSchema>;

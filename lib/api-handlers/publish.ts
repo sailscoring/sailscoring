@@ -176,12 +176,18 @@ export async function publishSeries(
   // others, or quietly retract them). Removing a page is what Unpublish is for
   // — with the one exception of pages retracted by suppression below.
   const ticked = input.fleets ? new Set(input.fleets) : null;
-  const toBuild = ticked
-    ? allFiles.filter((f) => ticked.has(f.fleetName))
-    : allFiles;
-  const carriedAll = ticked
-    ? (existing?.pages ?? []).filter((p) => !ticked.has(p.fleetName))
-    : [];
+  // `input.prizes === false` skips the prize sheet without naming any fleet —
+  // the single-page dialog's escape hatch (its lone fleet page has no
+  // client-known name). Same semantics as an unticked fleet: not rebuilt this
+  // round, and a live prizes page carries over untouched.
+  const skipPrizes = input.prizes === false;
+  const tickedHas = (name: string): boolean => !ticked || ticked.has(name);
+  const toBuild = allFiles.filter(
+    (f) => tickedHas(f.fleetName) && !(skipPrizes && f.isPrizes),
+  );
+  const carriedAll = (existing?.pages ?? []).filter(
+    (p) => !tickedHas(p.fleetName) || (skipPrizes && p.isPrizes),
+  );
 
   // Pages are identified by (sub-series, fleet) — a series with blocks
   // publishes one page per block per fleet; a blockless one per fleet.
@@ -248,9 +254,11 @@ export async function publishSeries(
   let supersededPages: PublishedSeriesPage[] = [];
   if (existing) {
     if (existing.contentHash === hash) return toResult(workspace.workspaceSlug, existing);
-    supersededPages = ticked
-      ? existing.pages.filter((p) => ticked.has(p.fleetName))
-      : existing.pages;
+    // Superseded = the pages being rebuilt this round; a page that carries
+    // (unticked fleet, or the prizes page under `prizes: false`) keeps its blob.
+    supersededPages = existing.pages.filter(
+      (p) => tickedHas(p.fleetName) && !(skipPrizes && p.isPrizes),
+    );
     const supersededUrls = new Set(supersededPages.map((p) => p.blobUrl));
     supersededPages.push(...retracted.filter((p) => !supersededUrls.has(p.blobUrl)));
   }
