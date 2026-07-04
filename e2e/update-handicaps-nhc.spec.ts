@@ -38,11 +38,18 @@ async function addBoatWithNhcStartingTcf(
   await page.getByLabel('Competitor name').fill(name);
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: sailNumber })).toBeVisible();
+  // The starting-TCF field only renders in the edit dialog for a saved boat,
+  // so reopen the row to set it.
   const row = page.getByRole('row').filter({ hasText: sailNumber });
   await row.click();
-  await expect(page.getByLabel('NHC starting TCF', { exact: true })).toBeVisible();
-  await page.getByLabel('NHC starting TCF', { exact: true }).fill(startingTcf);
-  await page.getByRole('button', { name: 'Save' }).click();
+  const editDialog = page.getByRole('dialog', { name: 'Edit competitor' });
+  await editDialog.getByLabel('NHC starting TCF', { exact: true }).fill(startingTcf);
+  await editDialog.getByRole('button', { name: 'Save' }).click();
+  // Sync on the dialog actually closing before reading the row back: an open
+  // dialog aria-hides the table behind it, so the cell drops out of the
+  // accessibility tree until the (under load, laggy) save settles. Waiting on
+  // the cell alone raced that — allow the settle a generous window.
+  await expect(editDialog).toBeHidden({ timeout: 15_000 });
   await expect(page.getByRole('cell', { name: sailNumber })).toBeVisible();
 }
 
@@ -74,6 +81,11 @@ async function scoreOneNhcRace(page: Page): Promise<void> {
 }
 
 test('Update Handicaps dialog: carry NHC TCFs from a scored source series', async ({ page }) => {
+  // Long by nature: six boats each set up in two steps (add, then reopen to set
+  // the starting TCF), a scored race, and the full update-handicaps flow. Under
+  // full-suite DB contention the setup alone approached the 30s default and
+  // occasionally tipped over it. Triple the budget rather than race the cap.
+  test.slow();
   // ── 1. Source series, NHC fleet, scored race ──────────────────────────────
   await createSeriesQuick(page, { name: 'NHC Source 2026' });
   await configureNhcFleet(page, 'NHC');
