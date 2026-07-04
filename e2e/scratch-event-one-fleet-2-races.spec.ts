@@ -192,6 +192,10 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   // With Eve gone, N drops to 4 so the penalty (N+1) falls to 5.
   // Dave's DNF should now score 5, not 6.
   await page.getByRole('link', { name: 'Competitors' }).click();
+  // Wait for the competitors page to mount before clicking the row: until the
+  // transition commits, the standings table is still on screen and its own
+  // "1005" row would swallow the click without opening the edit dialog.
+  await expect(page.getByRole('button', { name: 'Add competitor' })).toBeVisible();
   // Delete now lives inside the edit dialog: click the row to open it, then
   // the destructive Delete button (a confirm() guards it).
   await page.getByRole('row').filter({ hasText: '1005' }).click();
