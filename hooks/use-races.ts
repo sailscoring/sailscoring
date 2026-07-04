@@ -6,12 +6,17 @@ import { raceRepo } from '@/lib/api-repository';
 import type { Race } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+import { keepNewerVersionedRow, keepNewerVersionedRows } from './query-version-guard';
 import { useVersionedSave } from './use-versioned-save';
 
 export function useRacesBySeries(seriesId: string) {
   return useQuery<Race[]>({
     queryKey: queryKeys.races.bySeries(seriesId),
     queryFn: () => raceRepo.listBySeries(seriesId),
+    // A refetch dispatched before a save can resolve after the save's
+    // onSuccess and overwrite the fresh row with a pre-save one — the race
+    // list backs the Races page, so a cleared or renamed race would revert.
+    structuralSharing: keepNewerVersionedRows,
   });
 }
 
@@ -19,6 +24,9 @@ export function useRace(raceId: string) {
   return useQuery<Race | null>({
     queryKey: queryKeys.races.detail(raceId),
     queryFn: async () => (await raceRepo.get(raceId)) ?? null,
+    // The name editor mirrors this row into local state; a stale refetch
+    // landing after a save would visibly revert the name.
+    structuralSharing: keepNewerVersionedRow,
   });
 }
 
