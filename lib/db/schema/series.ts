@@ -32,6 +32,7 @@ import type {
   PublishingGroup,
   RaceFleetExclusion,
   RrsOrgPushConfig,
+  Prize,
   SeriesSource,
   StartGroup,
   SubdivisionAxis,
@@ -186,6 +187,13 @@ export const series = pgTable(
     // UUID + division source). Nullable JSONB — absent until first pushed,
     // never queried by content.
     rrsOrgPush: jsonb('rrs_org_push').$type<RrsOrgPushConfig>(),
+    // Prize list (#240): named awards, each an eligibility predicate plus a
+    // recipient count, in display order. JSONB — a small, ordered config list
+    // never queried by content, like publishing_groups.
+    prizes: jsonb('prizes')
+      .$type<Prize[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     // Display.
     enabledCompetitorFields: jsonb('enabled_competitor_fields')
       .$type<CompetitorFieldKey[]>()

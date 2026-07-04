@@ -72,6 +72,35 @@ describe('seriesSchema', () => {
       }),
     ).toThrow();
   });
+
+  test('accepts a prize list with every clause kind', () => {
+    const prizes = [
+      {
+        id: 'p1',
+        name: 'Gold Fleet 1st, 2nd, 3rd',
+        recipientCount: 3,
+        clauses: [
+          { kind: 'axis', axisId: 'axis-div', value: 'Gold' },
+          { kind: 'fleet', fleetId: crypto.randomUUID() },
+          { kind: 'rank', max: 3 },
+        ],
+      },
+    ];
+    expect(() => seriesSchema.parse({ ...VALID_SERIES, prizes })).not.toThrow();
+  });
+
+  test('rejects a prize with an unknown clause kind or zero recipients', () => {
+    const base = { id: 'p1', name: 'X', recipientCount: 1, clauses: [] };
+    expect(() =>
+      seriesSchema.parse({
+        ...VALID_SERIES,
+        prizes: [{ ...base, clauses: [{ kind: 'club', value: 'HYC' }] }],
+      }),
+    ).toThrow();
+    expect(() =>
+      seriesSchema.parse({ ...VALID_SERIES, prizes: [{ ...base, recipientCount: 0 }] }),
+    ).toThrow();
+  });
 });
 
 describe('seriesInputSchema', () => {

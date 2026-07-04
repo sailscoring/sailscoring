@@ -100,6 +100,19 @@ describe.skipIf(skip)('schema round-trip', () => {
       enabledCompetitorFields: ['boatName', 'boatClass', 'helm', 'crewName', 'club'],
       primaryPersonLabel: 'helm',
       subdivisionAxes: [],
+      // JSONB, no FK — arbitrary uuids exercise the column round-trip.
+      prizes: [
+        {
+          id: uuid(),
+          name: 'Gold Fleet 1st, 2nd, 3rd',
+          recipientCount: 3,
+          clauses: [
+            { kind: 'axis', axisId: 'axis-div', value: 'Gold' },
+            { kind: 'fleet', fleetId: uuid() },
+            { kind: 'rank', max: 3 },
+          ],
+        },
+      ],
     };
 
     await db.insert(schema.series).values({
@@ -129,6 +142,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       showPerRaceRatingsInSummary: seriesRow.showPerRaceRatingsInSummary,
       enabledCompetitorFields: seriesRow.enabledCompetitorFields,
       primaryPersonLabel: seriesRow.primaryPersonLabel,
+      prizes: seriesRow.prizes,
       displayOrder: 0,
     });
 
@@ -295,6 +309,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       showPerRaceRatingsInSummary: seriesRow.showPerRaceRatingsInSummary,
       enabledCompetitorFields: seriesRow.enabledCompetitorFields,
       primaryPersonLabel: seriesRow.primaryPersonLabel,
+      prizes: seriesRow.prizes,
       version: 1,
     });
     // Timestamps survive the round-trip with millisecond precision.

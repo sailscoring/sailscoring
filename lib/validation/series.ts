@@ -12,6 +12,11 @@ import type {
 
 import { SUBDIVISION_LABEL_MAX_LENGTH } from '@/lib/competitor-fields';
 import { PUBLISHING_GROUP_NAME_MAX_LENGTH } from '@/lib/publishing-groups';
+import {
+  PRIZE_CLAUSES_MAX,
+  PRIZE_NAME_MAX_LENGTH,
+  PRIZE_RECIPIENT_COUNT_MAX,
+} from '@/lib/prizes';
 
 import { epochMsSchema, isoDateSchema, uuidSchema, versionSchema } from './common';
 
@@ -69,6 +74,24 @@ export const rrsOrgPushConfigSchema = z.object({
   divisionAxisId: z.string().optional(),
 });
 
+/** One conjunct of a prize's eligibility predicate (#240). Fleet ids are ours
+ *  (UUID); axis ids are plain strings like `subdivisionAxes[].id`. */
+export const prizeClauseSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('fleet'), fleetId: uuidSchema }),
+  z.object({ kind: z.literal('axis'), axisId: z.string(), value: z.string() }),
+  z.object({ kind: z.literal('rank'), max: z.number().int().positive() }),
+]);
+
+/** A prize (#240): bounds are structural only — allocation-level conditions
+ *  (a clause referencing a deleted fleet, not enough eligible boats) are
+ *  warnings in `lib/prizes.ts`, not rejections here. */
+export const prizeSchema = z.object({
+  id: z.string(),
+  name: z.string().max(PRIZE_NAME_MAX_LENGTH),
+  recipientCount: z.number().int().min(1).max(PRIZE_RECIPIENT_COUNT_MAX),
+  clauses: z.array(prizeClauseSchema).max(PRIZE_CLAUSES_MAX),
+});
+
 export const seriesSchema = z.object({
   id: uuidSchema,
   name: z.string(),
@@ -108,6 +131,9 @@ export const seriesSchema = z.object({
   // rrs.org competitor-push settings. Optional on the wire so sparse creation
   // and older clients round-trip cleanly.
   rrsOrgPush: rrsOrgPushConfigSchema.optional(),
+  // Prize list (#240). Optional on the wire so sparse creation and older
+  // clients round-trip cleanly.
+  prizes: z.array(prizeSchema).optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
   primaryPersonLabel: primaryPersonLabelSchema,
   // Independent subdivision axes, e.g. a "Division" and an "Age category"
