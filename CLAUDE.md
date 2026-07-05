@@ -68,9 +68,12 @@ The `idea` GitHub label is deprecated — use `docs/design/horizon.md` instead.
 
 ## MANDATORY: Run Tests Before Every Push
 
-**ALWAYS run `pnpm lint`, `pnpm test:unit`, and `pnpm test:e2e` before `git push`.** Do not push unless all three pass.
+**ALWAYS run `pnpm lint`, `pnpm test:unit`, and the e2e suite before `git push`.** Do not push unless all pass.
 `pnpm test:e2e` needs the local Postgres container up; run `pnpm db:up` first if it isn't already (see `docs/local-dev-scripts.md`). The `pretest:e2e` hook applies migrations but does not start the container.
-If a test or lint check fails due to a code change you made, fix it before pushing — do not defer fixes to a follow-up commit.
+
+The e2e suite runs with `retries: 2` (locally too — see `playwright.config.ts`), so a test that fails then passes on a retry is reported **flaky** and the run still exits 0. **A flaky-but-passed run is good enough to push.** For the pre-push run, use **`pnpm test:e2e:triage`** instead of `pnpm test:e2e`: it runs the suite, then files each flaky test as a `flake`-labelled GitHub issue (dedup'd; recurrences get a dated comment) so the flake is tracked rather than silently absorbed by the retry. A **hard failure** (fails all attempts) still exits non-zero and blocks the push.
+
+If a test or lint check hard-fails due to a code change you made, fix it before pushing — do not defer fixes to a follow-up commit. A *new* flake your change introduced counts as a failure to fix, not to file.
 If a check was already failing before your change, note it explicitly and confirm with the user before pushing.
 
 This rule has no exceptions. Forgetting it has caused broken commits in the past.

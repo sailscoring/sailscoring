@@ -14,10 +14,21 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  reporter: 'list',
+  // Retries everywhere, including locally: a test that fails then passes is
+  // reported "flaky" and the run still exits 0 (good enough to push). The
+  // flaky ones are triaged into `flake`-labelled issues by `pnpm
+  // test:e2e:triage` (scripts/flake-triage.ts) so they're tracked, not hidden.
+  // When actively debugging a test and you want the fast honest failure,
+  // override per-run with `--retries=0`.
+  retries: 2,
+  // `list` for humans; `json` so the triage step can read per-test flaky status
+  // (test-results/ is gitignored). A raw trace file appears on any retried
+  // attempt — flaky *and* hard-failed — so the JSON status is the real signal.
+  reporter: [['list'], ['json', { outputFile: 'test-results/report.json' }]],
   use: {
     baseURL: 'http://localhost:3000',
+    // Now fires locally too (retries > 0): every flaky test leaves a trace on
+    // its retry, and the repro command in each filed issue captures a fresh one.
     trace: 'on-first-retry',
   },
   projects: [
