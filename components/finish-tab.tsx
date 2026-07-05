@@ -111,9 +111,15 @@ export function FinishTab(props: FinishTabProps) {
   // Alias-destructure the two hooks back to the local names the JSX below
   // has always used — the markup is unchanged from the single-hook days.
   const {
-    suggestions, needsFinishTime,
-    addFinisher, commitCompetitor, recordAsUnknown,
+    suggestions, canRecordUnknown, needsFinishTime,
+    addFinisher, commitCompetitor, recordAsUnknown, recordCurrentAsUnknown,
   } = finishInput;
+  // The suggestions dropdown gains a trailing "record as unknown" row when the
+  // typed text isn't an exact sail; it sits at index === suggestions.length for
+  // keyboard navigation. Only offered alongside real suggestions — a fully
+  // unmatched number still goes through the not-found confirmation panel below.
+  const showUnknownRow = suggestions.length > 0 && canRecordUnknown;
+  const maxHighlightIndex = suggestions.length - 1 + (showUnknownRow ? 1 : 0);
   const {
     value: sailInput, setValue: setSailInput,
     error: inputError, setError: setInputError,
@@ -240,7 +246,7 @@ export function FinishTab(props: FinishTabProps) {
                 onKeyDown={(e) => {
                   if (e.key === 'ArrowDown') {
                     e.preventDefault();
-                    setHighlightedIndex((i) => Math.min(i + 1, suggestions.length - 1));
+                    setHighlightedIndex((i) => Math.min(i + 1, maxHighlightIndex));
                   } else if (e.key === 'ArrowUp') {
                     e.preventDefault();
                     setHighlightedIndex((i) => Math.max(i - 1, -1));
@@ -256,10 +262,21 @@ export function FinishTab(props: FinishTabProps) {
                     }
                   } else if (e.key === 'Tab' && suggestions.length > 0) {
                     e.preventDefault();
-                    commitCompetitor(suggestions[Math.max(highlightedIndex, 0)].competitor);
+                    if (highlightedIndex === suggestions.length && showUnknownRow) {
+                      recordCurrentAsUnknown();
+                    } else {
+                      const idx = highlightedIndex >= 0 && highlightedIndex < suggestions.length
+                        ? highlightedIndex : 0;
+                      commitCompetitor(suggestions[idx].competitor);
+                    }
                   } else if (e.key === 'Enter') {
                     e.preventDefault();
-                    if (pendingUnknownSail) {
+                    // Shift+Enter files the typed text as unknown directly — the
+                    // escape hatch when Enter would otherwise prefix-complete to
+                    // a registered boat.
+                    if (e.shiftKey) {
+                      recordCurrentAsUnknown();
+                    } else if (pendingUnknownSail) {
                       recordAsUnknown(pendingUnknownSail);
                     } else {
                       addFinisher();
@@ -305,6 +322,26 @@ export function FinishTab(props: FinishTabProps) {
                   <span className="flex-1 truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
                 </li>
               ))}
+              {showUnknownRow && (
+                <li
+                  role="option"
+                  aria-selected={highlightedIndex === suggestions.length}
+                  data-testid="record-unknown-option"
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-2 cursor-pointer text-sm border-t text-muted-foreground',
+                    highlightedIndex === suggestions.length ? 'bg-accent' : 'hover:bg-accent',
+                  )}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    recordCurrentAsUnknown();
+                  }}
+                >
+                  <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                  <span>
+                    Record <span className="font-mono font-medium text-foreground">{sailInput.trim()}</span> as unknown
+                  </span>
+                </li>
+              )}
             </ul>
           )}
         </div>

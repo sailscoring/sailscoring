@@ -221,8 +221,9 @@ export default function ResultEntryPage({
     }
   });
   useShortcutHelp([
-    { key: '↑', displayKeys: ['↑', '↓'], description: 'Navigate autocomplete', section: 'Finish entry' },
-    { key: '↵', description: 'Confirm / add finisher (or record as unknown)', section: 'Finish entry' },
+    { key: '↑', displayKeys: ['↑', '↓'], description: 'Navigate autocomplete (incl. record-as-unknown)', section: 'Finish entry' },
+    { key: '↵', description: 'Add finisher — a full or unambiguous partial sail number', section: 'Finish entry' },
+    { key: '⇧↵', description: 'Record the typed number as an unknown boat', section: 'Finish entry' },
     { key: 'Esc', description: 'Clear input or go back', section: 'Finish entry' },
     { key: 'Tab', description: 'Move between fields', section: 'Finish entry' },
     { key: 'c', description: 'Toggle start check-in tab', section: 'Finish entry' },

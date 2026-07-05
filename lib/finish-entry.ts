@@ -325,3 +325,52 @@ export function deriveNonFinishers(
       };
     });
 }
+
+// ─── Sail-number entry resolution ────────────────────────────────────────────
+
+/** What a plain Enter in the sail-number box should do with the typed text. */
+export type SailEntryResolution =
+  | { kind: 'empty' }
+  /** Add this competitor — an exact sail match, or the sole unfinished boat
+   *  whose sail number the input is a prefix of. */
+  | { kind: 'commit'; competitor: Competitor }
+  /** Exact sail match, but every boat carrying it is already in the order. */
+  | { kind: 'already-finished' }
+  /** Exact sail match shared by more than one unfinished boat. */
+  | { kind: 'duplicate-sail' }
+  /** No exact match, and the input is a prefix of two or more unfinished
+   *  boats — no single target, so Enter should defer to the dropdown. */
+  | { kind: 'ambiguous-prefix' }
+  /** No exact match and no prefix match — offer to record it as unknown. */
+  | { kind: 'unknown' };
+
+/**
+ * Decide what a plain Enter commits, given the typed text and the roster.
+ * Exact sail matches take precedence over prefixes, so `7` wins over `72`;
+ * a unique prefix commits the one boat it can only mean; anything ambiguous
+ * or unmatched hands off to the dropdown / record-as-unknown path. Pure and
+ * order-preserving (mirrors the prefix filter behind the suggestions list).
+ */
+export function resolveSailEntry(
+  rawInput: string,
+  competitors: Competitor[],
+  finishedIds: Set<string>,
+): SailEntryResolution {
+  const sail = rawInput.trim().toUpperCase();
+  if (!sail) return { kind: 'empty' };
+
+  const exact = competitors.filter((c) => c.sailNumber.toUpperCase() === sail);
+  if (exact.length > 0) {
+    const unfinished = exact.filter((c) => !finishedIds.has(c.id));
+    if (unfinished.length === 0) return { kind: 'already-finished' };
+    if (unfinished.length > 1) return { kind: 'duplicate-sail' };
+    return { kind: 'commit', competitor: unfinished[0] };
+  }
+
+  const prefix = competitors.filter(
+    (c) => !finishedIds.has(c.id) && c.sailNumber.toUpperCase().startsWith(sail),
+  );
+  if (prefix.length === 1) return { kind: 'commit', competitor: prefix[0] };
+  if (prefix.length > 1) return { kind: 'ambiguous-prefix' };
+  return { kind: 'unknown' };
+}

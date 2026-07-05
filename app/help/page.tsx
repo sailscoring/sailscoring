@@ -783,15 +783,22 @@ export default async function HelpPage() {
           The result entry screen is a digital transcription of the handwritten finish sheet.
           Each row is a crossing of the finish line; row order is crossing order. Search for
           a competitor by sail number using the input at the top and they are added to the
-          next slot in the list. For boats in a fleet with a recorded start, the app prompts
+          next slot in the list. Pressing <strong className="text-foreground">Enter</strong>{' '}
+          adds the boat as soon as what you have typed can only mean one boat — you need not
+          finish the whole number. For boats in a fleet with a recorded start, the app prompts
           for a finish time before adding the row.
         </p>
         <p>
           If a sail number is not yet registered in the series, the app will offer to{' '}
-          <strong className="text-foreground">Record as unknown</strong>. The row is kept in
-          crossing order; click <strong className="text-foreground">Resolve</strong> next to
-          the entry to link it to a registered competitor once you know who it was. Unresolved
-          unknown finishes are excluded from standings until resolved.
+          <strong className="text-foreground">Record as unknown</strong>. When the number you
+          have typed is also the start of a registered boat&rsquo;s sail number — an unknown{' '}
+          <span className="font-mono">12</span> while <span className="font-mono">12345</span>{' '}
+          is registered — press <strong className="text-foreground">Shift+Enter</strong> (or
+          pick <strong className="text-foreground">Record as unknown</strong> from the
+          suggestions) to file it as unknown rather than completing to the registered boat. The
+          row is kept in crossing order; click <strong className="text-foreground">Resolve</strong>{' '}
+          next to the entry to link it to a registered competitor once you know who it was.
+          Unresolved unknown finishes are excluded from standings until resolved.
         </p>
         <p>
           Rows for fleets without a start time (scratch scoring) show a{' '}

@@ -7,6 +7,7 @@ import {
   deriveFinishState,
   entryKey,
   makeFinish,
+  resolveSailEntry,
   type FinishEntry,
   type NonFinisherView,
 } from '@/lib/finish-entry';
@@ -246,32 +247,55 @@ export function useFinishInput(args: UseFinishInputArgs) {
     log('result-entry', 'recorded unknown finisher', { sail });
   }
 
+  // Whether the current input could be recorded as an unknown boat: non-empty
+  // and not an exact registered sail. Drives the "Record as unknown" dropdown
+  // row and the Shift+Enter fast path — the record-as-unknown intent no longer
+  // depends on the input being unmatched, so a short number that is a prefix
+  // of a registered boat (unknown "12" while "12345" is registered) stays
+  // recordable even though Enter would prefix-complete it.
+  const trimmedSail = sailInput.trim().toUpperCase();
+  const canRecordUnknown = trimmedSail !== '' && !sailMap.has(trimmedSail);
+
+  /** File the current input as an unknown boat, if it qualifies. Shared by the
+   *  Shift+Enter fast path, the dropdown row, and the highlighted-row Enter. */
+  function recordCurrentAsUnknown() {
+    if (canRecordUnknown) recordAsUnknown(trimmedSail);
+  }
+
   function addFinisher() {
-    if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
-      commitCompetitor(suggestions[highlightedIndex].competitor);
+    // An explicitly highlighted row wins: either a suggested boat, or the
+    // trailing "record as unknown" row (index === suggestions.length).
+    if (highlightedIndex >= 0) {
+      if (highlightedIndex < suggestions.length) {
+        commitCompetitor(suggestions[highlightedIndex].competitor);
+      } else {
+        recordCurrentAsUnknown();
+      }
       return;
     }
 
-    const sail = sailInput.trim().toUpperCase();
-    if (!sail) return;
-
-    const candidates = sailMap.get(sail);
-    if (!candidates || candidates.length === 0) {
-      setPendingUnknownSail(sail);
-      setInputError(`Sail number "${sail}" not found in this series.`);
-      return;
+    const resolution = resolveSailEntry(sailInput, competitors, finishedIds);
+    switch (resolution.kind) {
+      case 'empty':
+        return;
+      case 'commit':
+        commitCompetitor(resolution.competitor);
+        return;
+      case 'already-finished':
+        setInputError(`${trimmedSail} is already in the finishing order.`);
+        return;
+      case 'duplicate-sail':
+        setInputError(`Multiple boats with sail ${trimmedSail} — select from the list.`);
+        return;
+      case 'ambiguous-prefix':
+        // Real boats match this prefix — keep the dropdown open so the scorer
+        // picks or types more, rather than treating it as an unknown sail.
+        return;
+      case 'unknown':
+        setPendingUnknownSail(trimmedSail);
+        setInputError(`Sail number "${trimmedSail}" not found in this series.`);
+        return;
     }
-    const unfinished = candidates.filter((c) => !finishedIds.has(c.id));
-    if (unfinished.length === 0) {
-      setInputError(`${sail} is already in the finishing order.`);
-      return;
-    }
-    if (unfinished.length > 1) {
-      setInputError(`Multiple boats with sail ${sail} — select from the list.`);
-      return;
-    }
-
-    commitCompetitor(unfinished[0]);
   }
 
   /** Clear every in-progress entry state (used after a CSV import replaces
@@ -311,10 +335,14 @@ export function useFinishInput(args: UseFinishInputArgs) {
       cancel: cancelPendingTime,
     },
     suggestions,
+    /** True when the typed text can be filed as an unknown boat (non-empty,
+     *  no exact sail match) — gates the dropdown row and Shift+Enter path. */
+    canRecordUnknown,
     needsFinishTime,
     addFinisher,
     commitCompetitor,
     recordAsUnknown,
+    recordCurrentAsUnknown,
     reset,
   };
 }

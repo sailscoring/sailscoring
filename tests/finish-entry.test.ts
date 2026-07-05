@@ -7,6 +7,7 @@ import {
   deriveNonFinishers,
   finishedCompetitorIds,
   makeFinish,
+  resolveSailEntry,
 } from '@/lib/finish-entry';
 import type { Competitor } from '@/lib/types';
 
@@ -192,5 +193,81 @@ describe('non-finisher code derivation', () => {
       finishes,
     );
     expect(views.map((v) => v.competitor.id)).toEqual(['c2']);
+  });
+});
+
+describe('resolveSailEntry', () => {
+  const competitor = (id: string, sailNumber: string): Competitor => ({
+    id,
+    seriesId: 's1',
+    fleetIds: ['f1'],
+    sailNumber,
+    name: `Helm ${sailNumber}`,
+    club: 'HYC',
+    gender: '',
+    age: null,
+    createdAt: 0,
+  });
+
+  it('returns empty for blank input', () => {
+    expect(resolveSailEntry('  ', [competitor('a', '101')], new Set()).kind).toBe('empty');
+  });
+
+  it('commits an exact, unfinished match', () => {
+    const boats = [competitor('a', '101'), competitor('b', '202')];
+    const res = resolveSailEntry('101', boats, new Set());
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0] });
+  });
+
+  it('matches case-insensitively and ignores surrounding space', () => {
+    const boats = [competitor('a', 'IRL101')];
+    const res = resolveSailEntry(' irl101 ', boats, new Set());
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0] });
+  });
+
+  it('reports an exact match already in the finishing order', () => {
+    const boats = [competitor('a', '101')];
+    expect(resolveSailEntry('101', boats, new Set(['a'])).kind).toBe('already-finished');
+  });
+
+  it('reports duplicate sail numbers among unfinished boats', () => {
+    const boats = [competitor('a', '101'), competitor('b', '101')];
+    expect(resolveSailEntry('101', boats, new Set()).kind).toBe('duplicate-sail');
+  });
+
+  it('commits a unique prefix match', () => {
+    const boats = [competitor('a', '218456'), competitor('b', '331')];
+    const res = resolveSailEntry('218', boats, new Set());
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0] });
+  });
+
+  it('lets an exact match win over a longer boat it is a prefix of', () => {
+    const boats = [competitor('a', '7'), competitor('b', '72')];
+    const res = resolveSailEntry('7', boats, new Set());
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0] });
+  });
+
+  it('prefix-completes to a registered boat even when the input could be a standalone unknown', () => {
+    // The collision the decoupled record-as-unknown path exists for: typing
+    // "12" commits 12345, so recording unknown "12" needs its own trigger.
+    const boats = [competitor('a', '12345')];
+    const res = resolveSailEntry('12', boats, new Set());
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0] });
+  });
+
+  it('defers an ambiguous prefix to the dropdown', () => {
+    const boats = [competitor('a', '218456'), competitor('b', '219789')];
+    expect(resolveSailEntry('21', boats, new Set()).kind).toBe('ambiguous-prefix');
+  });
+
+  it('reports unknown when nothing matches', () => {
+    const boats = [competitor('a', '101')];
+    expect(resolveSailEntry('999', boats, new Set()).kind).toBe('unknown');
+  });
+
+  it('ignores finished boats when prefix matching', () => {
+    // 12345 already finished → "12" is no longer a live prefix → unknown.
+    const boats = [competitor('a', '12345')];
+    expect(resolveSailEntry('12', boats, new Set(['a'])).kind).toBe('unknown');
   });
 });
