@@ -11,6 +11,9 @@ import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
  */
 
 test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing order', async ({ page }) => {
+  // Heavy: two fleets, several boats, and an interleaved finish sheet to score —
+  // enough setup to brush the 30s cap under full-suite load.
+  test.slow();
   // ── 1. Create series with two fleets ──────────────────────────────────────
   await createSeriesQuick(page, { name: 'Frostbite Mixed' });
 

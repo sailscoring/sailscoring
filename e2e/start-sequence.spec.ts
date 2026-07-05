@@ -69,6 +69,9 @@ test('three-start sequence at 5-minute intervals resolves to distinct start time
 });
 
 test('deleting a fleet strips it from the default start sequence and existing race starts', async ({ page }) => {
+  // Heavy: three fleets, a multi-group start sequence, a materialised race, then
+  // a fleet deletion — the setup can brush the 30s cap under full-suite load.
+  test.slow();
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
   await createSeriesQuick(page, { name: 'Fleet Delete Sequence Cleanup' });

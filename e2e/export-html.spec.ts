@@ -169,6 +169,9 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
  * per-race starts, finish times, and per-fleet standings.
  */
 test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fleet standings', async ({ page }) => {
+  // Heavy: five boats across two fleets, per-boat TCC edits, scored races, then
+  // an HTML export — the setup alone can approach the 30s cap under load.
+  test.slow();
   // ── 1. Create series ──────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'Multi-Fleet Export Test' });
 

@@ -65,6 +65,9 @@ async function scoreOneNhcRace(page: Page): Promise<void> {
 }
 
 test('roll a scored NHC series into a follow-on with seeded handicaps', async ({ page, signedInEmail }) => {
+  // Heavy: a full NHC series (three boats set up two-step, a scored race) is
+  // built before the follow-on is even created — headroom for the 30s cap.
+  test.slow();
   await enableFeatures(page, signedInEmail, ['follow-on-series']);
 
   // ── 1. Source series: NHC fleet, three boats at 1.000, one scored race ────

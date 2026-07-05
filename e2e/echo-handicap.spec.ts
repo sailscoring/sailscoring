@@ -29,6 +29,9 @@ async function downloadStandingsHtml(page: import('@playwright/test').Page): Pro
 }
 
 test('ECHO fleet: standings + propagation across two races', async ({ page }) => {
+  // Heavy setup (three boats added then reopened to set starting handicaps, two
+  // scored races) — same shape as the NHC/IRC/VPRS tests; headroom for the cap.
+  test.slow();
   // ── 1. Create series ──────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'ECHO Test 2026' });
 

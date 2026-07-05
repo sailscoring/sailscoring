@@ -27,6 +27,9 @@ async function downloadStandingsHtml(page: import('@playwright/test').Page): Pro
 }
 
 test('NHC fleet: standings + propagation across two races', async ({ page }) => {
+  // Heavy setup (three boats added then reopened to set starting TCFs, two
+  // scored races) that can approach the 30s cap under full-suite DB load.
+  test.slow();
   // ── 1. Create series ──────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'NHC Test 2026' });
 
@@ -141,6 +144,8 @@ test('NHC fleet: standings + propagation across two races', async ({ page }) => 
 test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page }) => {
   // Setup identical to the test above through race 2; then edit race 1 and check race 2.
   // Three boats: MinFin=3 is met, so the rating update actually runs.
+  // Heavy setup like the sibling above — give it headroom under full-suite load.
+  test.slow();
   await createSeriesQuick(page, { name: 'NHC Retroactive 2026' });
   await createFleets(page, ['NHC']);
   await setScoringMode(page, 'handicap');

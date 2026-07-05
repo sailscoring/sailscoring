@@ -21,6 +21,9 @@ test.beforeEach(async ({ page, signedInEmail }) => {
 });
 
 test('VPRS fleet: standings ordered by corrected time', async ({ page }) => {
+  // Heavy setup (three boats added then reopened to set TCC, a scored race) —
+  // same shape as the IRC/NHC handicap tests; give it headroom under load.
+  test.slow();
   await createSeriesQuick(page, { name: 'VPRS Test 2026' });
 
   // VPRS fleet in handicap mode.

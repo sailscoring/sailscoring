@@ -15,6 +15,9 @@ import { FORMAT_VERSION } from '@/lib/series-file';
  */
 
 test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
+  // Heavy setup (three boats added then reopened to set TCC, a scored race)
+  // that can approach the 30s cap under full-suite DB load — give it headroom.
+  test.slow();
   // ── 1. Create series ──────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'IRC Test 2025' });
 
