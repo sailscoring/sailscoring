@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronLeft, ChevronRight, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -21,10 +21,12 @@ function raceLabel(race: Race): string {
 
 /**
  * Lateral navigation between the races of a series without going back to the
- * Races tab: prev/next arrows flanking a dropdown of every race. Rendered in
- * the race-entry header; hidden when the series has only one race. Each choice
- * calls `onSelect` with a race id (the page routes to that race's URL). On a
- * multi-day series the dropdown groups races under their date.
+ * Races tab: prev/next arrows flanking a dropdown of every race. Doubles as the
+ * race-entry heading — the trigger shows the current race, so there is no
+ * separate "Race N — results" title above it. Hidden when the series has only
+ * one race (the header renders a plain heading instead). Each choice calls
+ * `onSelect` with a race id (the page routes to that race's URL). On a multi-day
+ * series the dropdown groups races under their date.
  */
 export function RaceSwitcher({
   races,
@@ -75,9 +77,14 @@ export function RaceSwitcher({
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 gap-1.5" aria-label="Switch race">
-            <span className="truncate max-w-[16rem]">{raceLabel(current)}</span>
-            <ChevronsUpDown className="h-3.5 w-3.5 opacity-60" />
+          <Button
+            variant="ghost"
+            data-testid="race-switcher"
+            aria-label="Switch race"
+            className="h-auto gap-1.5 px-2 py-0.5 text-lg font-semibold"
+          >
+            <span className="truncate max-w-[16rem]">Race {current.raceNumber}</span>
+            <ChevronDown className="h-4 w-4 opacity-60" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="max-h-[60vh] overflow-y-auto">

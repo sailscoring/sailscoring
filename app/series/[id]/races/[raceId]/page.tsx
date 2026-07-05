@@ -278,7 +278,9 @@ export default function ResultEntryPage({
         }}
         isSaving={isSaving}
         switcher={
-          <RaceSwitcher races={orderedRaces} currentRaceId={raceId} onSelect={goToRace} />
+          orderedRaces.length > 1 ? (
+            <RaceSwitcher races={orderedRaces} currentRaceId={raceId} onSelect={goToRace} />
+          ) : undefined
         }
       />
 

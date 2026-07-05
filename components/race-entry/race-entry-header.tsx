@@ -35,8 +35,11 @@ export function RaceEntryHeader({
   return (
     <div className="flex items-start justify-between gap-3">
       <div>
-        {switcher && <div className="mb-2">{switcher}</div>}
-        <h2 className="text-lg font-semibold">Race {race.raceNumber} — results</h2>
+        {/* Multi-race series get the switcher as their heading; a single-race
+            series falls back to a plain title. */}
+        {switcher ?? (
+          <h2 className="text-lg font-semibold">Race {race.raceNumber} — results</h2>
+        )}
         <RaceNameEditor race={race} readOnly={readOnly} onSave={onSaveName} />
         <RaceDateEditor race={race} readOnly={readOnly} onSave={onSaveDate} />
       </div>

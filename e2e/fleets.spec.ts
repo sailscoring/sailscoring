@@ -64,7 +64,7 @@ test('two-fleet series shows fleet column, per-fleet standings, and exports two 
 
   // ── 6. Enter Race 1: J1, J2, J3, S1, S2 in order ────────────────────────
   await page.getByText('Race 1').click();
-  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await expect(page.getByTestId('race-switcher')).toHaveText(/Race 1/);
 
   for (const sail of ['J1', 'J2', 'J3', 'S1', 'S2']) {
     await page.getByLabel('Sail number').fill(sail);
@@ -77,7 +77,7 @@ test('two-fleet series shows fleet column, per-fleet standings, and exports two 
 
   // ── 7. Enter Race 2: J2, J3, J1, S2, S1 in order ─────────────────────────
   await page.getByText('Race 2').click();
-  await expect(page.getByText('Race 2 — results')).toBeVisible();
+  await expect(page.getByTestId('race-switcher')).toHaveText(/Race 2/);
 
   for (const sail of ['J2', 'J3', 'J1', 'S2', 'S1']) {
     await page.getByLabel('Sail number').fill(sail);

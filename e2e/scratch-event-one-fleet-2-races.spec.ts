@@ -73,7 +73,7 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   // ── 4. Enter Race 1 results ───────────────────────────────────────────────
   // Race 1: 1001, 1002, 1003 finish; 1004=DNF; 1005=implicit DNC
   await page.getByText('Race 1').click();
-  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await expect(page.getByTestId('race-switcher')).toHaveText(/Race 1/);
 
   for (const sail of ['1001', '1002', '1003']) {
     await page.getByLabel('Sail number').fill(sail);
@@ -99,7 +99,7 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   // ── 5. Enter Race 2 results ───────────────────────────────────────────────
   // Race 2: 1003, 1001, 1005 finish; 1002=OCS; 1004=implicit DNC
   await page.getByText('Race 2').click();
-  await expect(page.getByText('Race 2 — results')).toBeVisible();
+  await expect(page.getByTestId('race-switcher')).toHaveText(/Race 2/);
 
   for (const sail of ['1003', '1001', '1005']) {
     await page.getByLabel('Sail number').fill(sail);
