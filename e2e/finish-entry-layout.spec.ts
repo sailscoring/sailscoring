@@ -67,3 +67,42 @@ test('finish entry: adaptive non-finishers panel + collapse toggle', async ({ pa
   await expect(nonFinishersHeading).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Non-finishers/ })).toHaveCount(0);
 });
+
+test('non-finishers: did-not-compete boats sink below recorded results', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Non-finisher Split 2026', venue: 'HYC' });
+
+  for (const b of boats) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(b.sailNumber);
+    await page.getByLabel('Competitor name').fill(b.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: b.sailNumber })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  // Finish A1 → B2 and C3 are non-finishers, both auto-DNC. No divider yet.
+  await page.getByLabel('Sail number').fill('A1');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByRole('listitem').filter({ hasText: 'A1' })).toBeVisible();
+  await expect(page.getByTestId('non-finisher-B2')).toBeVisible();
+  await expect(page.getByTestId('non-finisher-C3')).toBeVisible();
+  const divider = page.getByText(/^Did not compete \(/);
+  await expect(divider).toHaveCount(0);
+
+  // Code B2 as RET → it becomes a recorded result and the two groups split,
+  // with C3 alone under the "Did not compete" divider.
+  await page.getByTestId('non-finisher-B2').getByRole('combobox').click();
+  await page.getByRole('option', { name: 'RET' }).click();
+  await expect(page.getByText('Did not compete (1)')).toBeVisible();
+
+  // B2 (recorded) sits above the divider; C3 (auto-DNC) below it.
+  const b2Box = await page.getByTestId('non-finisher-B2').boundingBox();
+  const dividerBox = await page.getByText('Did not compete (1)').boundingBox();
+  const c3Box = await page.getByTestId('non-finisher-C3').boundingBox();
+  expect(b2Box!.y).toBeLessThan(dividerBox!.y);
+  expect(dividerBox!.y).toBeLessThan(c3Box!.y);
+});

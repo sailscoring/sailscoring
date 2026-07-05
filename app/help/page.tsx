@@ -815,7 +815,11 @@ export default async function HelpPage() {
         </p>
         <p>
           For competitors who did not finish normally, use the result code dropdown next to their
-          name. Codes are grouped by how they arise:
+          name. Boats that simply did not compete (an automatic{' '}
+          <strong className="text-foreground">DNC</strong>) sink to a{' '}
+          <strong className="text-foreground">Did not compete</strong> group at the foot of the
+          panel, so the boats you have actually recorded a result for stay together at the top and
+          it is easy to see who is still to account for. Codes are grouped by how they arise:
         </p>
         <p className="font-medium text-sm mt-2">Operational codes (assigned during or after the race)</p>
         <ul className="list-disc list-inside space-y-1 pl-2">

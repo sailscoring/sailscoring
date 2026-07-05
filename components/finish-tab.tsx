@@ -60,6 +60,7 @@ function FleetBadges({
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 import {
   NON_FINISHER_CODE_LABELS,
+  partitionNonFinishers,
   type NonFinisherCode,
   type NonFinisherView,
 } from '@/lib/finish-entry';
@@ -149,6 +150,64 @@ export function FinishTab(props: FinishTabProps) {
   const [nonFinishersCollapsed, setNonFinishersCollapsed] = useState(false);
   const hasNonFinishers = nonFinishers.length > 0;
   const showNonFinishersPanel = hasNonFinishers && !nonFinishersCollapsed;
+  const { recorded: recordedNonFinishers, didNotCompete: didNotCompeteNonFinishers } =
+    partitionNonFinishers(nonFinishers);
+
+  // One non-finisher row: sail, fleet, name, a redress shortcut for RDG, and
+  // the result-code dropdown. Shared by both the recorded and did-not-compete
+  // groups so the two lists render identically.
+  const renderNonFinisherRow = ({ competitor, code }: NonFinisherView) => (
+    <div
+      key={competitor.id}
+      data-testid={`non-finisher-${competitor.sailNumber}`}
+      className={cn(
+        'flex items-center gap-3 border rounded-lg px-4 py-2 transition-colors',
+        code === 'RDG'
+          ? 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900'
+          : 'hover:bg-muted/50',
+      )}
+    >
+      <span className="font-mono font-medium w-16 shrink-0">
+        {competitor.sailNumber}
+      </span>
+      {showFleetBadge && (
+        <FleetBadges fleetIds={competitor.fleetIds} fleetById={fleetById} variant="outline" />
+      )}
+      <span className="text-sm flex-1 truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
+      {code === 'RDG' && (
+        <button
+          type="button"
+          onClick={() => openRedressDialog(competitor.id, false)}
+          aria-label={`Edit redress for ${competitor.sailNumber}`}
+          title="Edit redress"
+          className="text-amber-600 hover:text-amber-700 shrink-0"
+        >
+          <Scale className="h-3.5 w-3.5" />
+        </button>
+      )}
+      <Select
+        value={code}
+        onValueChange={(v) => {
+          if (v === 'RDG') {
+            openRedressDialog(competitor.id, false);
+          } else {
+            setNonFinisherCode(competitor.id, v as NonFinisherCode);
+          }
+        }}
+      >
+        <SelectTrigger className="w-36 h-8 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {(Object.keys(codeLabels) as NonFinisherCode[]).map((c) => (
+            <SelectItem key={c} value={c}>
+              {codeLabels[c]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 
   // Most club races are position-only — no fleet has a start, so no boat needs
   // a finish time. In that common case the time cell (input or "—" placeholder)
@@ -615,58 +674,19 @@ export function FinishTab(props: FinishTabProps) {
         </div>
 
         <div className="space-y-1.5">
-            {nonFinishers.map(({ competitor, code }) => (
-              <div
-                key={competitor.id}
-                data-testid={`non-finisher-${competitor.sailNumber}`}
-                className={cn(
-                  'flex items-center gap-3 border rounded-lg px-4 py-2 transition-colors',
-                  code === 'RDG'
-                    ? 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900'
-                    : 'hover:bg-muted/50',
-                )}
-              >
-                <span className="font-mono font-medium w-16 shrink-0">
-                  {competitor.sailNumber}
-                </span>
-                {showFleetBadge && (
-                  <FleetBadges fleetIds={competitor.fleetIds} fleetById={fleetById} variant="outline" />
-                )}
-                <span className="text-sm flex-1 truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
-                {code === 'RDG' && (
-                  <button
-                    type="button"
-                    onClick={() => openRedressDialog(competitor.id, false)}
-                    aria-label={`Edit redress for ${competitor.sailNumber}`}
-                    title="Edit redress"
-                    className="text-amber-600 hover:text-amber-700 shrink-0"
-                  >
-                    <Scale className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                <Select
-                  value={code}
-                  onValueChange={(v) => {
-                    if (v === 'RDG') {
-                      openRedressDialog(competitor.id, false);
-                    } else {
-                      setNonFinisherCode(competitor.id, v as NonFinisherCode);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-36 h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(codeLabels) as NonFinisherCode[]).map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {codeLabels[c]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {recordedNonFinishers.map(renderNonFinisherRow)}
+            {/* Auto-DNC / did-not-compete boats sink below the ones with a
+                recorded result — usually most of the fleet, needing no action.
+                The divider is only drawn when both groups are present, so a
+                race with only one kind reads as a plain list. */}
+            {recordedNonFinishers.length > 0 && didNotCompeteNonFinishers.length > 0 && (
+              <div className="flex items-center gap-2 pt-2 text-xs font-medium text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
+                Did not compete ({didNotCompeteNonFinishers.length})
+                <span className="h-px flex-1 bg-border" />
               </div>
-            ))}
+            )}
+            {didNotCompeteNonFinishers.map(renderNonFinisherRow)}
           </div>
       </div>
       )}

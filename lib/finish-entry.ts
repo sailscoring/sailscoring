@@ -326,6 +326,29 @@ export function deriveNonFinishers(
     });
 }
 
+/**
+ * Split non-finishers into boats with a recorded result and boats that did not
+ * compete (auto DNC, or an explicit DNC). Lets the panel sink the did-not-
+ * compete boats — usually most of the fleet, and needing no attention — below
+ * the ones the scorer has actually recorded a result for. Order within each
+ * group is preserved.
+ */
+export function partitionNonFinishers(views: NonFinisherView[]): {
+  recorded: NonFinisherView[];
+  didNotCompete: NonFinisherView[];
+} {
+  const recorded: NonFinisherView[] = [];
+  const didNotCompete: NonFinisherView[] = [];
+  for (const view of views) {
+    if (view.code === 'implicit-dnc' || view.code === 'DNC') {
+      didNotCompete.push(view);
+    } else {
+      recorded.push(view);
+    }
+  }
+  return { recorded, didNotCompete };
+}
+
 // ─── Sail-number entry resolution ────────────────────────────────────────────
 
 /** What a plain Enter in the sail-number box should do with the typed text. */

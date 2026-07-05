@@ -7,9 +7,11 @@ import {
   deriveNonFinishers,
   finishedCompetitorIds,
   makeFinish,
+  partitionNonFinishers,
   resolveSailEntry,
 } from '@/lib/finish-entry';
 import type { Competitor } from '@/lib/types';
+import type { NonFinisherCode, NonFinisherView } from '@/lib/finish-entry';
 
 describe('reorderFinisher', () => {
   const base = ['A', 'B', 'C', 'D'];
@@ -269,5 +271,55 @@ describe('resolveSailEntry', () => {
     // 12345 already finished → "12" is no longer a live prefix → unknown.
     const boats = [competitor('a', '12345')];
     expect(resolveSailEntry('12', boats, new Set(['a'])).kind).toBe('unknown');
+  });
+});
+
+describe('partitionNonFinishers', () => {
+  const view = (id: string, code: NonFinisherCode): NonFinisherView => ({
+    competitor: {
+      id,
+      seriesId: 's1',
+      fleetIds: ['f1'],
+      sailNumber: id,
+      name: `Helm ${id}`,
+      club: 'HYC',
+      gender: '',
+      age: null,
+      createdAt: 0,
+    },
+    code,
+  });
+
+  it('sinks auto-DNC and explicit DNC into did-not-compete', () => {
+    const { recorded, didNotCompete } = partitionNonFinishers([
+      view('a', 'implicit-dnc'),
+      view('b', 'DNC'),
+    ]);
+    expect(recorded).toEqual([]);
+    expect(didNotCompete.map((v) => v.competitor.id)).toEqual(['a', 'b']);
+  });
+
+  it('keeps real result codes in recorded', () => {
+    const codes: NonFinisherCode[] = ['DNF', 'DNS', 'RET', 'OCS', 'DSQ', 'RDG'];
+    const { recorded, didNotCompete } = partitionNonFinishers(codes.map((c) => view(c, c)));
+    expect(recorded.map((v) => v.code)).toEqual(codes);
+    expect(didNotCompete).toEqual([]);
+  });
+
+  it('treats a checked-in default DNF as recorded, not did-not-compete', () => {
+    const { recorded, didNotCompete } = partitionNonFinishers([view('a', 'DNF')]);
+    expect(recorded.map((v) => v.competitor.id)).toEqual(['a']);
+    expect(didNotCompete).toEqual([]);
+  });
+
+  it('preserves input order within each group', () => {
+    const { recorded, didNotCompete } = partitionNonFinishers([
+      view('a', 'RET'),
+      view('b', 'implicit-dnc'),
+      view('c', 'OCS'),
+      view('d', 'DNC'),
+    ]);
+    expect(recorded.map((v) => v.competitor.id)).toEqual(['a', 'c']);
+    expect(didNotCompete.map((v) => v.competitor.id)).toEqual(['b', 'd']);
   });
 });
