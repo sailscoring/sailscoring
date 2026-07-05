@@ -106,3 +106,55 @@ test('non-finishers: did-not-compete boats sink below recorded results', async (
   expect(b2Box!.y).toBeLessThan(dividerBox!.y);
   expect(dividerBox!.y).toBeLessThan(c3Box!.y);
 });
+
+test('non-finishers: filter narrows the panel to assign a code', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Non-finisher Filter 2026', venue: 'HYC' });
+
+  for (const b of boats) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(b.sailNumber);
+    await page.getByLabel('Competitor name').fill(b.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: b.sailNumber })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  // No finishers yet — every boat is a non-finisher, so the panel is up.
+  const filterInput = page.getByLabel('Filter non-finishers');
+  await expect(filterInput).toBeVisible();
+
+  // `/` focuses the filter (pressed with focus outside any input).
+  await page.getByRole('heading', { name: /Non-finishers/ }).click();
+  await page.keyboard.press('/');
+  await expect(filterInput).toBeFocused();
+
+  // Filter by helm name → only Bob's boat remains, heading shows "1 of 3".
+  await filterInput.fill('bob');
+  await expect(page.getByTestId('non-finisher-B2')).toBeVisible();
+  await expect(page.getByTestId('non-finisher-A1')).toHaveCount(0);
+  await expect(page.getByTestId('non-finisher-C3')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: /Non-finishers/ })).toContainText('1 of 3');
+
+  // Assign RET to the surviving row — the filter stays, the row stays visible
+  // with its new code.
+  await page.getByTestId('non-finisher-B2').getByRole('combobox').click();
+  await page.getByRole('option', { name: 'RET' }).click();
+  await expect(page.getByTestId('non-finisher-B2').getByRole('combobox')).toContainText('RET');
+  await expect(filterInput).toHaveValue('bob');
+
+  // A filter that matches nothing shows the empty state, not a bare panel.
+  await filterInput.fill('zzz');
+  await expect(page.getByText('No non-finishers match “zzz”.')).toBeVisible();
+
+  // Escape clears the filter — all boats return, and the page-level
+  // Escape-to-leave must NOT fire (we stay on the race).
+  await filterInput.press('Escape');
+  await expect(page.getByTestId('non-finisher-A1')).toBeVisible();
+  await expect(page.getByTestId('non-finisher-C3')).toBeVisible();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await expect(page.getByTestId('non-finisher-B2').getByRole('combobox')).toContainText('RET');
+});

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type Ref } from 'react';
+import { useRef, useState, type Ref } from 'react';
 import { X, AlertTriangle, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,8 @@ import { SortableList, DragHandle } from '@/components/ui/sortable-list';
 import { useFeatures } from '@/components/features-provider';
 import { cn } from '@/lib/utils';
 import { competitorFleetNames, displayCompetitorLabel } from '@/lib/competitor-fields';
+import { competitorMatchesFilter } from '@/lib/competitor-filter';
+import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import {
   deriveFinishState,
@@ -150,8 +152,28 @@ export function FinishTab(props: FinishTabProps) {
   const [nonFinishersCollapsed, setNonFinishersCollapsed] = useState(false);
   const hasNonFinishers = nonFinishers.length > 0;
   const showNonFinishersPanel = hasNonFinishers && !nonFinishersCollapsed;
+
+  // Free-text filter over the panel — early in entry it holds the whole
+  // started field, and picking one boat out to assign a code means scrolling
+  // otherwise. Same predicate as the competitors-page filter. Assigning a
+  // code deliberately leaves the filter in place: the row stays visible with
+  // its new code, so the scorer can see the assignment took.
+  const [nonFinisherFilter, setNonFinisherFilter] = useState('');
+  const nonFinisherFilterRef = useRef<HTMLInputElement>(null);
+  const nonFinisherFilterActive = nonFinisherFilter.trim().length > 0;
+  const filteredNonFinishers = nonFinishers.filter(({ competitor }) =>
+    competitorMatchesFilter(competitor, nonFinisherFilter));
   const { recorded: recordedNonFinishers, didNotCompete: didNotCompeteNonFinishers } =
-    partitionNonFinishers(nonFinishers);
+    partitionNonFinishers(filteredNonFinishers);
+  useShortcuts([
+    {
+      key: '/',
+      description: 'Filter non-finishers',
+      section: 'Finish entry',
+      when: () => showNonFinishersPanel,
+      handler: () => nonFinisherFilterRef.current?.focus(),
+    },
+  ]);
 
   // One non-finisher row: sail, fleet, name, a redress shortcut for RDG, and
   // the result-code dropdown. Shared by both the recorded and did-not-compete
@@ -659,7 +681,9 @@ export function FinishTab(props: FinishTabProps) {
           <h3 className="font-medium">
             Non-finishers{' '}
             <span className="text-sm font-normal text-muted-foreground">
-              ({nonFinishers.length})
+              ({nonFinisherFilterActive
+                ? `${filteredNonFinishers.length} of ${nonFinishers.length}`
+                : nonFinishers.length})
             </span>
           </h3>
           <Button
@@ -673,7 +697,30 @@ export function FinishTab(props: FinishTabProps) {
           </Button>
         </div>
 
+        <Input
+          ref={nonFinisherFilterRef}
+          value={nonFinisherFilter}
+          onChange={(e) => setNonFinisherFilter(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              // stopPropagation keeps the page-level Escape (leave the race)
+              // from also firing: this input blurs, and by the time the
+              // window listener runs the focus guard no longer protects us.
+              e.stopPropagation();
+              setNonFinisherFilter('');
+              e.currentTarget.blur();
+            }
+          }}
+          placeholder="Filter non-finishers…"
+          aria-label="Filter non-finishers"
+        />
+
         <div className="space-y-1.5">
+            {filteredNonFinishers.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No non-finishers match &ldquo;{nonFinisherFilter.trim()}&rdquo;.
+              </p>
+            )}
             {recordedNonFinishers.map(renderNonFinisherRow)}
             {/* Auto-DNC / did-not-compete boats sink below the ones with a
                 recorded result — usually most of the fleet, needing no action.
