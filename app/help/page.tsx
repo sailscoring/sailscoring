@@ -789,6 +789,13 @@ export default async function HelpPage() {
           for a finish time before adding the row.
         </p>
         <p>
+          When a series has more than one race, a switcher at the top of the entry screen moves
+          you straight to another race without going back to the Races tab — the arrows step to
+          the previous or next race (or press <strong className="text-foreground">[</strong> and{' '}
+          <strong className="text-foreground">]</strong>), and the dropdown jumps to any race in
+          the series.
+        </p>
+        <p>
           If a sail number is not yet registered in the series, the app will offer to{' '}
           <strong className="text-foreground">Record as unknown</strong>. When the number you
           have typed is also the start of a registered boat&rsquo;s sail number — an unknown{' '}

@@ -1,24 +1,30 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import { cn } from '@/lib/utils';
 
 import { RaceDateEditor } from './race-date-editor';
 import { RaceNameEditor } from './race-name-editor';
 
-/** The result-entry page header: race title, the inline name + date editors,
- *  and the autosave status pill. */
+/** The result-entry page header: the race switcher, race title, the inline
+ *  name + date editors, and the autosave status pill. */
 export function RaceEntryHeader({
   race,
   readOnly,
   onSaveName,
   onSaveDate,
   isSaving,
+  switcher,
 }: {
   race: { name: string | null; date: string; raceNumber: number };
   readOnly: boolean;
   onSaveName: (name: string | null) => Promise<void>;
   onSaveDate: (date: string) => Promise<void>;
   isSaving: boolean;
+  /** The race-to-race switcher (prev/next + dropdown); omitted for a
+   *  single-race series. Rendered above the title. */
+  switcher?: ReactNode;
 }) {
   // Status pill: any in-flight save / delete / reorder reads "Saving…",
   // otherwise "All changes saved." Phase 7 will swap the otherwise-static
@@ -29,6 +35,7 @@ export function RaceEntryHeader({
   return (
     <div className="flex items-start justify-between gap-3">
       <div>
+        {switcher && <div className="mb-2">{switcher}</div>}
         <h2 className="text-lg font-semibold">Race {race.raceNumber} — results</h2>
         <RaceNameEditor race={race} readOnly={readOnly} onSave={onSaveName} />
         <RaceDateEditor race={race} readOnly={readOnly} onSave={onSaveDate} />

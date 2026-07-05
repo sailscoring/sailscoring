@@ -38,7 +38,9 @@ import { isInputFocused, useGlobalKeyDown, useShortcutHelp } from '@/hooks/use-k
 import { useFeatures } from '@/components/features-provider';
 import { type FinishSheetImportHandle } from '@/components/finish-sheet-import';
 import { RaceEntryHeader } from '@/components/race-entry/race-entry-header';
+import { RaceSwitcher } from '@/components/race-entry/race-switcher';
 import { RaceEntryTabs } from '@/components/race-entry/race-entry-tabs';
+import { adjacentRaces } from '@/lib/race-navigation';
 import {
   RaceStartsSection,
   type RaceStartsSectionHandle,
@@ -193,6 +195,12 @@ export default function ResultEntryPage({
     router.push(`/series/${seriesId}/races`);
   }
 
+  const orderedRaces = allSeriesRaces ?? [];
+  const { prev: prevRace, next: nextRace } = adjacentRaces(orderedRaces, raceId);
+  function goToRace(id: string) {
+    router.push(`/series/${seriesId}/races/${id}`);
+  }
+
   // Esc to leave; c to toggle check-in tab; s to add a start; i to import.
   // A raw handler rather than useShortcuts: the conditions mix tab state,
   // fleet shape, and feature gates per key. The help rows register below.
@@ -218,6 +226,12 @@ export default function ResultEntryPage({
     ) {
       e.preventDefault();
       finishSheetImportRef.current?.trigger();
+    } else if (e.key === '[' && !isInputFocused() && prevRace) {
+      e.preventDefault();
+      goToRace(prevRace.id);
+    } else if (e.key === ']' && !isInputFocused() && nextRace) {
+      e.preventDefault();
+      goToRace(nextRace.id);
     }
   });
   useShortcutHelp([
@@ -226,6 +240,7 @@ export default function ResultEntryPage({
     { key: '⇧↵', description: 'Record the typed number as an unknown boat', section: 'Finish entry' },
     { key: 'Esc', description: 'Clear input or go back', section: 'Finish entry' },
     { key: 'Tab', description: 'Move between fields', section: 'Finish entry' },
+    { key: '[', displayKeys: ['[', ']'], description: 'Previous / next race', section: 'Finish entry' },
     { key: 'c', description: 'Toggle start check-in tab', section: 'Finish entry' },
     ...(has('csv-finish-import')
       ? [{ key: 'i', description: 'Import finish sheet from CSV', section: 'Finish entry' }]
@@ -262,6 +277,9 @@ export default function ResultEntryPage({
           await saveRace.mutateAsync({ ...race, date });
         }}
         isSaving={isSaving}
+        switcher={
+          <RaceSwitcher races={orderedRaces} currentRaceId={raceId} onSelect={goToRace} />
+        }
       />
 
       <RaceEntryTabs
