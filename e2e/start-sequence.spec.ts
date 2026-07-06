@@ -106,6 +106,10 @@ test('deleting a fleet strips it from the default start sequence and existing ra
   // Delete Class B from Settings. The trigger is the destructive × on its row;
   // the dialog confirms with a "Delete fleet" button.
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  // Anchor on the target page before acting: App Router keeps the previous
+  // page mounted until the new route's data resolves, and under full-suite
+  // load an action fired too early can wait against the stale page.
+  await expect(page).toHaveURL(/\/settings$/);
   await fleetsRow.getByRole('button', { name: /Edit/ }).click();
   const classBRow = page.locator('[data-testid="fleet-row"]').filter({ hasText: 'Class B' });
   await classBRow.getByTitle('Delete fleet').click();
@@ -119,6 +123,7 @@ test('deleting a fleet strips it from the default start sequence and existing ra
 
   // Race detail: the second start now reads "Class C" only — no orphan UUID.
   await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page).toHaveURL(/\/races$/);
   await page.getByText('Race 1').click();
   await expect(page.getByText(/14:05:00.*Class A/)).toBeVisible();
   await expect(page.getByText(/14:10:00.*Class C/)).toBeVisible();

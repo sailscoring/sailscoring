@@ -124,9 +124,11 @@ test.describe('competitor identity reconcile', () => {
 
     failListRequests = false;
     await page.getByRole('button', { name: 'Try again' }).click();
+    // Recovery refetch: like the first paint above, the roundtrip plus render
+    // can exceed the default 5s expect timeout under full-suite load.
     await expect(
       page.getByTestId('identity-card').filter({ hasText: 'IODAI Nationals 2020' }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test('renders a public career-arc page, gated and age-free', async ({ page }) => {
