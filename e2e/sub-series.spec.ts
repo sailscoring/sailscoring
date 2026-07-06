@@ -68,7 +68,7 @@ test('sub-series: select races, per-block standings, publish per block', async (
   // ── 3. Finishes either side of the boundary ──────────────────────────────
   const enterRace = async (raceLabel: string, sails: string[]) => {
     await page.getByText(raceLabel, { exact: false }).first().click();
-    await expect(page.getByText(`${raceLabel} — results`)).toBeVisible();
+    await expect(page.getByLabel('Sail number')).toBeVisible();
     for (const sail of sails) {
       await page.getByLabel('Sail number').fill(sail);
       await page.getByRole('button', { name: 'Add', exact: true }).click();

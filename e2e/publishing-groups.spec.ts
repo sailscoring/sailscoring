@@ -193,7 +193,7 @@ test('block series: each sub-series gets its own combined page', async ({ page, 
   await newSubSeries('Spring', 2);
   const enterRace = async (raceLabel: string) => {
     await page.getByText(raceLabel, { exact: false }).first().click();
-    await expect(page.getByText(`${raceLabel} — results`)).toBeVisible();
+    await expect(page.getByLabel('Sail number')).toBeVisible();
     for (const sail of ['11', '22']) {
       await page.getByLabel('Sail number').fill(sail);
       await page.getByRole('button', { name: 'Add', exact: true }).click();

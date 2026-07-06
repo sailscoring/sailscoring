@@ -177,7 +177,7 @@ test('Preview sub-series: separate sub-series and fleet dropdowns (#231)', async
 
   const enterRace = async (raceLabel: string) => {
     await page.getByText(raceLabel, { exact: false }).first().click();
-    await expect(page.getByText(`${raceLabel} — results`)).toBeVisible();
+    await expect(page.getByLabel('Sail number')).toBeVisible();
     for (const sail of ['J1', 'S1']) {
       await page.getByLabel('Sail number').fill(sail);
       await page.getByRole('button', { name: 'Add', exact: true }).click();

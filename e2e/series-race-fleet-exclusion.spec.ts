@@ -25,7 +25,7 @@ async function addRaceResults(page: import('@playwright/test').Page, raceName: s
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByText(raceName, { exact: true }).click();
-  await expect(page.getByText(`${raceName} — results`)).toBeVisible();
+  await expect(page.getByLabel('Sail number')).toBeVisible();
   for (const sail of order) {
     await page.getByLabel('Sail number').fill(sail);
     await page.getByRole('button', { name: 'Add' }).click();

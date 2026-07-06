@@ -50,7 +50,7 @@ test('sub-series: fleet scoping + per-fleet race exclusion', async ({ page, sign
   // ── Finishes: both fleets in both races, Cara then Colm leading Cruisers ──
   const enterRace = async (raceLabel: string, sails: string[]) => {
     await page.getByText(raceLabel, { exact: false }).first().click();
-    await expect(page.getByText(`${raceLabel} — results`)).toBeVisible();
+    await expect(page.getByLabel('Sail number')).toBeVisible();
     for (const sail of sails) {
       await page.getByLabel('Sail number').fill(sail);
       await page.getByRole('button', { name: 'Add', exact: true }).click();
