@@ -46,6 +46,10 @@ async function addBoatWithTcc(page: Page, sailNumber: string, name: string, tcc:
 }
 
 test('Update Handicaps dialog: carry IRC TCCs from source series to target', async ({ page }) => {
+  // Two full series built dialog by dialog (fleet config + six add/edit boat
+  // cycles) before the handicap-carry flow even starts; the cumulative step
+  // count runs 20-30s and brushes the 30s default under full-suite load.
+  test.slow();
   // ── 1. Source series: IRC, three boats with stable TCCs ───────────────────
   await createSeriesQuick(page, { name: 'IRC Source 2026' });
   await configureIrcFleet(page, 'IRC');
@@ -100,6 +104,9 @@ test('Update Handicaps dialog: carry IRC TCCs from source series to target', asy
 });
 
 test('Update Handicaps dialog stays within the viewport when the preview is tall (#161)', async ({ page }) => {
+  // Same two-series, six-boat setup as the carry test above — 20-30s of dialog
+  // work before the assertions, which brushes the 30s default under load.
+  test.slow();
   // Repro for #161: with enough competitors the preview made the dialog
   // taller than the page; because it's vertically centred with no height
   // cap, the title and the Apply footer spilled off-screen with no way to
