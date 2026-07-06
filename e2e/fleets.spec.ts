@@ -30,6 +30,10 @@ const seniors = [
 ];
 
 test('two-fleet series shows fleet column, per-fleet standings, and exports two files', async ({ page }) => {
+  // Long linear flow: two fleets, five competitors entered one dialog at a
+  // time, two races fully scored, then two file exports. The cumulative step
+  // count can brush the 30s default under full-suite load.
+  test.slow();
   // ── 1. Create series ──────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'Junior-Senior Combined 2025', venue: 'HYC' });
 

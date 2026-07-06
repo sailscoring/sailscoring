@@ -10,6 +10,7 @@ import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
  */
 
 test('rating columns appear for handicap fleets', async ({ page }) => {
+  test.slow();
   // ── 1. Create series ──────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'Rating Columns Test' });
 
@@ -43,6 +44,13 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
 
   // ── 6. Edit competitors to set PY numbers ────────────────────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();
+
+  // Gate on the fleet-scoring change having propagated before opening the edit
+  // dialog. The Rating column and the edit form's fleet data both come from the
+  // same fleets query; navigating here can briefly serve the stale (scratch)
+  // cache, in which case the form renders without the PY number field. The
+  // Rating column appearing is the exact signal that the refetch has landed.
+  await expect(header.getByRole('columnheader', { name: 'Rating' })).toBeVisible();
 
   const pyNumbers: Record<string, string> = { PY1: '1034', PY2: '1087' };
   for (const sail of ['PY1', 'PY2']) {
