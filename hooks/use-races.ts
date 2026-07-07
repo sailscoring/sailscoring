@@ -46,6 +46,14 @@ export function useSaveRace() {
     scopeId: 'races',
     onSaved: async (qc, saved) => {
       qc.setQueryData(queryKeys.races.detail(saved.id), saved);
+      // Patch the saved row into the series list too, not just the detail
+      // cache. Otherwise a navigation back to the Races list renders the
+      // pre-save row (e.g. an unnamed race) until the invalidation's
+      // background refetch lands — a visible flash under load, and a stale
+      // read for anything that samples the list before the refetch settles.
+      qc.setQueryData<Race[]>(queryKeys.races.bySeries(saved.seriesId), (prev) =>
+        prev?.map((r) => (r.id === saved.id ? saved : r)),
+      );
       qc.invalidateQueries({ queryKey: queryKeys.races.bySeries(saved.seriesId) });
       // Every child write bumps the series row's lastModifiedAt + version
       // server-side. Await the series refetch so a caller that proceeds to a
