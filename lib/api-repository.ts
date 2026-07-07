@@ -3,6 +3,7 @@
  * `/api/v1`. UI callers wrap these in TanStack Query (see hooks/use-*.ts).
  */
 import { apiFetch } from './api-client';
+import type { FeatureKey } from './features';
 import type { IdentityWithArc } from './competitor-identity-repository';
 import type { SeriesFileRevision } from './series-file';
 import type { IrishSailingRatings } from './irish-sailing-ratings';
@@ -501,6 +502,22 @@ export const raceRatingOverrideRepo: RaceRatingOverrideRepository = new ApiRaceR
 export const finishRepo: FinishRepository = new ApiFinishRepository();
 export const ftpServerRepo: FtpServerRepository = new ApiFtpServerRepository();
 export const logoRepo = new ApiLogoRepository();
+
+/**
+ * Toggle a self-service feature for the active workspace (#278). The server
+ * enforces `manage-workspace` and rejects operator-managed keys; callers
+ * refresh the effective set (a router refresh re-runs the server layout that
+ * feeds `FeaturesProvider`) rather than trusting the returned arrays.
+ */
+export function setWorkspaceFeature(
+  feature: FeatureKey,
+  enabled: boolean,
+): Promise<{ enabledFeatures: FeatureKey[]; disabledFeatures: FeatureKey[] }> {
+  return apiFetch('/api/v1/workspace', {
+    method: 'PATCH',
+    body: { feature, enabled },
+  });
+}
 
 // ─── Sub-series (#203) ───────────────────────────────────────────────────────
 
