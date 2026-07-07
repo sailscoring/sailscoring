@@ -41,7 +41,7 @@ import { member, organization, orgRequest, user } from '@/lib/db/schema/auth';
 import { competitors, fleets, races, series } from '@/lib/db/schema/series';
 import {
   ALL_FEATURE_KEYS,
-  DEFAULT_ON_FEATURES,
+  applyFeatureToggle,
   isFeatureKey,
   parseOrgMetadata,
   serializeOrgMetadata,
@@ -262,13 +262,10 @@ export async function createOrg(
 
 /**
  * Turn an experimental feature (#155) on or off for an existing club
- * workspace. Reads the current metadata, mutates the enabled/disabled sets,
- * and writes it back. Returns the resulting enabled-feature list.
- *
- * Enabling adds to `enabledFeatures` and clears any opt-out. Disabling removes
- * from `enabledFeatures`; for a default-on feature it also records an explicit
- * opt-out in `disabledFeatures` (for opt-in features, dropping the enable is
- * enough). Both directions are idempotent.
+ * workspace. Reads the current metadata, applies the shared toggle policy
+ * (`applyFeatureToggle`), and writes it back. Returns the resulting
+ * enabled-feature list. The CLI ignores the `selfService` flag — it is the
+ * operator seam, so it can flip any key, including operator-managed ones.
  */
 export async function setOrgFeature(
   db: SailScoringDb,
@@ -282,27 +279,12 @@ export async function setOrgFeature(
     .where(eq(organization.id, org.id))
     .limit(1);
   const meta = parseOrgMetadata(row?.metadata ?? null, org.slug);
-  const enabled = new Set(meta.enabledFeatures);
-  const disabled = new Set(meta.disabledFeatures);
-  if (args.enabled) {
-    enabled.add(args.feature);
-    disabled.delete(args.feature);
-  } else {
-    enabled.delete(args.feature);
-    if (DEFAULT_ON_FEATURES.includes(args.feature)) disabled.add(args.feature);
-  }
-  const enabledFeatures = [...enabled];
+  const next = applyFeatureToggle(meta, args.feature, args.enabled);
   await db
     .update(organization)
-    .set({
-      metadata: serializeOrgMetadata({
-        kind: meta.kind,
-        enabledFeatures,
-        disabledFeatures: [...disabled],
-      }),
-    })
+    .set({ metadata: serializeOrgMetadata(next) })
     .where(eq(organization.id, org.id));
-  return { org, enabledFeatures };
+  return { org, enabledFeatures: next.enabledFeatures };
 }
 
 /**

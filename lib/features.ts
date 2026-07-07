@@ -28,6 +28,15 @@ export interface FeatureDef {
    *  one we're confident enough in to ship broadly while keeping the gate so
    *  a workspace can switch it back off. */
   defaultOn?: boolean;
+  /** When false, the feature is operator-managed: it never appears in the
+   *  self-service Workspace-settings features card, and can only be toggled
+   *  through the `provision-org` CLI. Defaults to true — owners/admins turn it
+   *  on and off themselves. Kept deliberately small: reserved for features
+   *  whose audience we manage centrally (cross-series competitor identity) or
+   *  that are slated for removal (FTP upload). Orthogonal to `defaultOn` and to
+   *  resolution — `computeEffectiveFeatures` honours the metadata regardless;
+   *  this only governs the settings UI and its API guard. */
+  selfService?: boolean;
 }
 
 /**
@@ -46,8 +55,12 @@ export const FEATURES = {
     helpSectionIds: ['importing-finish-sheet'],
   },
   'ftp-upload': {
+    // Operator-managed (not self-service): HYC is the only workspace that needs
+    // it, and it's slated for removal with scupper — so we keep it off the
+    // self-service card and toggle it by hand.
     label: 'FTP upload',
     helpSectionIds: [],
+    selfService: false,
   },
   'sub-series': {
     // Named blocks of races inside one series, each scored independently
@@ -127,8 +140,11 @@ export const FEATURES = {
     // for IODAI first (a one-design junior class with a deep historical corpus)
     // — invisible and inert everywhere else, per the containment model. The
     // in-app reconcile UI is gated separately by `competitor-reconcile`.
+    // Operator-managed (not self-service): we control the adoption of the
+    // cross-series identity spine workspace by workspace for now.
     label: 'Cross-series competitor identity (public)',
     helpSectionIds: ['competitor-identity'],
+    selfService: false,
   },
   'combined-pages': {
     // Combined published pages (#255): publish several fleets' results as
@@ -168,8 +184,12 @@ export const FEATURES = {
     // settled, but the reconcile UX isn't, and cleanup currently runs
     // out-of-band (the iodai-archive manifest, #218), so the UI stays hidden
     // until we return to it. Off by default.
+    // Operator-managed (not self-service): the counterpart of
+    // `competitor-identity`; adoption stays centrally controlled while the
+    // reconcile UX beds in.
     label: 'Cross-series competitor reconcile (in-app)',
     helpSectionIds: [],
+    selfService: false,
   },
 } as const satisfies Record<string, FeatureDef>;
 
@@ -182,8 +202,21 @@ export const DEFAULT_ON_FEATURES = ALL_FEATURE_KEYS.filter(
   (k) => (FEATURES[k] as FeatureDef).defaultOn,
 );
 
+/** Features owners/admins may toggle themselves from Workspace settings. The
+ *  complement (`selfService: false`) is operator-managed via the CLI and never
+ *  rendered in the self-service card. */
+export const SELF_SERVICE_FEATURES = ALL_FEATURE_KEYS.filter(
+  (k) => (FEATURES[k] as FeatureDef).selfService !== false,
+);
+
 export function isFeatureKey(s: string): s is FeatureKey {
   return Object.prototype.hasOwnProperty.call(FEATURES, s);
+}
+
+/** Whether owners/admins may toggle `key` from the self-service settings card.
+ *  The server API guard and the card both defer to this. */
+export function isSelfServiceFeature(key: FeatureKey): boolean {
+  return (FEATURES[key] as FeatureDef).selfService !== false;
 }
 
 export type WorkspaceKind = 'personal' | 'club';
@@ -259,6 +292,43 @@ export function serializeOrgMetadata(meta: OrgMetadata): string {
     enabledFeatures: dedupe(meta.enabledFeatures),
     disabledFeatures: dedupe(meta.disabledFeatures),
   });
+}
+
+/**
+ * Apply a single feature toggle to a workspace's metadata — the shared policy
+ * behind both the self-service settings card and the `provision-org` CLI, so
+ * the two can never diverge.
+ *
+ *   - enable:  add to `enabledFeatures`, clear any opt-out.
+ *   - disable: drop from `enabledFeatures` **and** record the opt-out in
+ *              `disabledFeatures`.
+ *
+ * Recording the opt-out unconditionally — not only for default-on features — is
+ * what lets a workspace switch off a feature it would otherwise still see: a
+ * default-on one, or one inherited from a club under Model B, since
+ * `computeEffectiveFeatures` subtracts `disabledFeatures` last. For a plain
+ * opt-in feature with no inheritance the opt-out is a harmless no-op (it removes
+ * a key that isn't otherwise present). Both directions are idempotent.
+ */
+export function applyFeatureToggle(
+  meta: OrgMetadata,
+  key: FeatureKey,
+  enabled: boolean,
+): OrgMetadata {
+  const enabledSet = new Set(meta.enabledFeatures);
+  const disabledSet = new Set(meta.disabledFeatures);
+  if (enabled) {
+    enabledSet.add(key);
+    disabledSet.delete(key);
+  } else {
+    enabledSet.delete(key);
+    disabledSet.add(key);
+  }
+  return {
+    kind: meta.kind,
+    enabledFeatures: [...enabledSet],
+    disabledFeatures: [...disabledSet],
+  };
 }
 
 export interface FeatureMembership {

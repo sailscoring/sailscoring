@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ALL_FEATURE_KEYS,
+  applyFeatureToggle,
   computeEffectiveFeatures,
   isFeatureKey,
   isPersonalWorkspaceSlug,
+  isSelfServiceFeature,
   parseOrgMetadata,
+  SELF_SERVICE_FEATURES,
   serializeOrgMetadata,
   type FeatureMembership,
+  type OrgMetadata,
 } from '@/lib/features';
 
 describe('isFeatureKey', () => {
@@ -239,5 +243,98 @@ describe('registry invariants', () => {
     for (const k of ALL_FEATURE_KEYS) {
       expect(isFeatureKey(k)).toBe(true);
     }
+  });
+});
+
+describe('self-service classification', () => {
+  it('operator-managed keys are excluded from the self-service set', () => {
+    // The deliberately small operator-only set (issue #278): identity adoption
+    // stays centrally managed, and ftp-upload is on its way out with scupper.
+    for (const k of [
+      'ftp-upload',
+      'competitor-identity',
+      'competitor-reconcile',
+    ] as const) {
+      expect(isSelfServiceFeature(k)).toBe(false);
+      expect(SELF_SERVICE_FEATURES).not.toContain(k);
+    }
+  });
+
+  it('every other key is self-service by default', () => {
+    for (const k of ALL_FEATURE_KEYS) {
+      const operatorOnly = !isSelfServiceFeature(k);
+      expect(SELF_SERVICE_FEATURES.includes(k)).toBe(!operatorOnly);
+    }
+    // e.g. vprs is opt-in but still self-service.
+    expect(isSelfServiceFeature('vprs')).toBe(true);
+    expect(isSelfServiceFeature('prizes')).toBe(true);
+  });
+});
+
+describe('applyFeatureToggle', () => {
+  const base = (
+    enabledFeatures: string[] = [],
+    disabledFeatures: string[] = [],
+    kind: 'personal' | 'club' = 'club',
+  ): OrgMetadata =>
+    parseOrgMetadata(
+      JSON.stringify({ kind, enabledFeatures, disabledFeatures }),
+    );
+
+  it('enable adds to enabledFeatures and clears any opt-out', () => {
+    const next = applyFeatureToggle(base([], ['prizes']), 'prizes', true);
+    expect(next.enabledFeatures).toContain('prizes');
+    expect(next.disabledFeatures).not.toContain('prizes');
+  });
+
+  it('disable drops the enable and records the opt-out', () => {
+    const next = applyFeatureToggle(base(['prizes']), 'prizes', false);
+    expect(next.enabledFeatures).not.toContain('prizes');
+    expect(next.disabledFeatures).toContain('prizes');
+  });
+
+  it('disabling a default-on feature records an opt-out that wins in resolution', () => {
+    const next = applyFeatureToggle(base(), 'echo', false);
+    expect(next.disabledFeatures).toContain('echo');
+    expect(
+      computeEffectiveFeatures('hyc', [
+        { slug: 'hyc', metadata: serializeOrgMetadata(next) },
+      ]),
+    ).not.toContain('echo');
+  });
+
+  it('a personal-workspace opt-out overrides a club-inherited feature', () => {
+    // Personal workspace inherits sailwave-import from a club it belongs to;
+    // toggling it off must record an opt-out (there is nothing in its own
+    // enabledFeatures to remove).
+    const personal = applyFeatureToggle(
+      base([], [], 'personal'),
+      'sailwave-import',
+      false,
+    );
+    expect(personal.disabledFeatures).toContain('sailwave-import');
+    const memberships = [
+      { slug: 'hyc', metadata: serializeOrgMetadata(base(['sailwave-import'])) },
+      { slug: 'u-alice', metadata: serializeOrgMetadata(personal) },
+    ];
+    expect(computeEffectiveFeatures('u-alice', memberships)).not.toContain(
+      'sailwave-import',
+    );
+  });
+
+  it('is idempotent in both directions', () => {
+    const on1 = applyFeatureToggle(base(), 'prizes', true);
+    const on2 = applyFeatureToggle(on1, 'prizes', true);
+    expect(on2.enabledFeatures.filter((k) => k === 'prizes')).toHaveLength(1);
+    const off1 = applyFeatureToggle(on2, 'prizes', false);
+    const off2 = applyFeatureToggle(off1, 'prizes', false);
+    expect(off2.disabledFeatures.filter((k) => k === 'prizes')).toHaveLength(1);
+    expect(off2.enabledFeatures).not.toContain('prizes');
+  });
+
+  it('preserves kind', () => {
+    expect(applyFeatureToggle(base([], [], 'personal'), 'prizes', true).kind).toBe(
+      'personal',
+    );
   });
 });
