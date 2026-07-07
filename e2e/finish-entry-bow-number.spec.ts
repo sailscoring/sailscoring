@@ -13,6 +13,10 @@ import { createSeriesQuick } from './helpers';
  */
 
 test('finish entry matches on bow number and flags the committed row', async ({ page }) => {
+  // Heavy: enable a field, add two competitors, materialise a race, then commit
+  // a finish whose autosave + list refetch settle before the row re-renders —
+  // the setup can brush the 30s cap under full-suite load.
+  test.slow();
   await createSeriesQuick(page, { name: 'Borrowed Hull 2026', venue: 'HYC' });
 
   // ── Enable the Bow number competitor field ────────────────────────────────
@@ -66,7 +70,7 @@ test('finish entry matches on bow number and flags the committed row', async ({ 
   //    post-commit anchor before the non-finishers panel, which briefly
   //    re-renders as the commit's autosave + refetch settle ─────────────────
   const bowBadge = page.getByTestId('bow-match-567');
-  await expect(bowBadge).toBeVisible();
+  await expect(bowBadge).toBeVisible({ timeout: 15_000 });
   await expect(bowBadge).toHaveText('entered by bow 1234');
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
@@ -81,6 +85,10 @@ test('finish entry matches on bow number and flags the committed row', async ({ 
 });
 
 test('a sail number wins over another boat’s bow number', async ({ page }) => {
+  // Heavy: enable a field, add two competitors, materialise a race, then commit
+  // a finish whose autosave + list refetch settle before the row re-renders —
+  // the setup can brush the 30s cap under full-suite load.
+  test.slow();
   await createSeriesQuick(page, { name: 'Bow Precedence 2026', venue: 'HYC' });
 
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
@@ -118,7 +126,7 @@ test('a sail number wins over another boat’s bow number', async ({ page }) => 
   // Anchor on the committed boat's row before asserting the panel state — the
   // commit triggers an autosave + list refetch that can momentarily re-render
   // the non-finishers panel.
-  await expect(page.getByTestId('drag-handle-1234')).toBeVisible();
+  await expect(page.getByTestId('drag-handle-1234')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
   await expect(page.getByTestId('non-finisher-1234')).toHaveCount(0);
   await expect(page.getByTestId('non-finisher-567')).toBeVisible();
