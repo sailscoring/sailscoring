@@ -364,13 +364,31 @@ export function parseSailwaveColumns(raw: SailwaveRaw): Map<string, SailwaveColu
 /** One detected subdivision axis: the raw competitor key feeding it and the
  *  label to head it. */
 export interface SubdivisionAxisSource {
-  sourceKey: 'compdivision' | 'comphelmagegroup';
+  sourceKey: 'compdivision' | 'comphelmagegroup' | 'compclass';
   label: string;
 }
 
-/** Detect the subdivision axes a Sailwave file carries — both Sailwave's native
- *  Division field and the helm age-group field (commonly repurposed as a prize
- *  category and retitled, e.g. "Category"), each as an independent axis when
+/** Custom `Class` titles that signal the column holds a prize category, not a
+ *  boat class. Deliberately a narrow vocabulary: a cosmetic rename that keeps
+ *  the boat-class meaning (HYC retitles it "Model" for Puppeteer 22 / J/24
+ *  keelboats) must stay `boatClass`, and an unrecognised title falls back to
+ *  the same — no worse than before, and visible in the wizard either way. */
+const CATEGORY_CLASS_TITLES = new Set(['cat', 'category', 'division', 'div', 'group', 'grade', 'band']);
+
+/** True when the scorer retitled the `Class` column with category vocabulary —
+ *  the signal that the field has been repurposed (the 2026 ILCA Leinsters
+ *  retitles it "Cat" and stores the prize age category there). A repurposed
+ *  Class imports as a subdivision axis labelled by that title, not as
+ *  `boatClass`. */
+export function classColumnRepurposed(columns: Map<string, SailwaveColumn>): boolean {
+  const title = (columns.get('Class')?.title ?? '').trim();
+  return CATEGORY_CLASS_TITLES.has(title.toLowerCase());
+}
+
+/** Detect the subdivision axes a Sailwave file carries — Sailwave's native
+ *  Division field, the helm age-group field (commonly repurposed as a prize
+ *  category and retitled, e.g. "Category"), and a retitled Class column (see
+ *  {@link classColumnRepurposed}) — each as an independent axis when
  *  populated. Each label comes from the column's custom title when the scorer
  *  set one, else a sensible per-source default. Empty when the file carries no
  *  subdivision data. */
@@ -391,6 +409,9 @@ export function resolveSubdivisionAxes(
   }
   if (anyPopulated('comphelmagegroup')) {
     axes.push({ sourceKey: 'comphelmagegroup', label: titleFor('HelmAgeGroup', 'Category') });
+  }
+  if (classColumnRepurposed(columns) && anyPopulated('compclass')) {
+    axes.push({ sourceKey: 'compclass', label: columns.get('Class')!.title });
   }
   return axes;
 }
@@ -1385,7 +1406,10 @@ function buildCompetitors(
       age: null,
     };
     if (v.compboat?.trim()) built.boatName = v.compboat.trim();
-    if (v.compclass?.trim()) built.boatClass = v.compclass.trim();
+    // A repurposed Class column feeds its subdivision axis (below), not
+    // boatClass — the values are prize categories, not boat classes.
+    const classIsAxis = axes.some((a) => a.sourceKey === 'compclass');
+    if (!classIsAxis && v.compclass?.trim()) built.boatClass = v.compclass.trim();
     if (v.compcrewname?.trim()) built.crewName = v.compcrewname.trim();
     // Nationality: uppercase, fold Sailwave aliases (BVI → IVB), keep only
     // well-formed 3-letter values. Unknown but well-formed codes pass

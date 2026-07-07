@@ -1161,3 +1161,44 @@ describe('helm gender import (comphelmsex)', () => {
     expect(byName.get('Chris')).toBe('');
   });
 });
+
+describe('repurposed Class column → subdivision axis', () => {
+  it('the Leinsters "Cat" column imports as an axis, not boatClass', () => {
+    const raw = loadFile(`${FIXTURES}/2026 ILCA Leinsters results.blw`);
+    const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+
+    const catAxis = file.series.subdivisionAxes?.find((a) => a.label === 'Cat');
+    expect(catAxis).toBeDefined();
+    // The age category lands on the axis for every competitor that carries
+    // one, and boatClass stays clear (the real class is the Fleet, ILCA 4/6/7).
+    expect(file.competitors.every((c) => c.boatClass === undefined)).toBe(true);
+    const values = new Set(
+      file.competitors.map((c) => c.subdivisions?.[catAxis!.id]).filter(Boolean),
+    );
+    expect(values.has('Master')).toBe(true);
+    expect(values.has('Youth')).toBe(true);
+    expect(file.series.enabledCompetitorFields).not.toContain('boatClass');
+    expect(file.series.enabledCompetitorFields).toContain('subdivision');
+  });
+
+  it('default-titled and cosmetically renamed Class columns keep mapping to boatClass', () => {
+    // "Model" is HYC's keelboat rename — still a boat class, not a category.
+    for (const columnDef of ['1|Class|7|Yes|Yes|55||', '1|Class|7|Yes|Yes|55|Model|']) {
+      const raw = parseSailwaveBlw(blw([
+        ['sercompcount', '1', '', ''],
+        ['compsailno', '207112', '1', ''],
+        ['comphelmname', 'Jane', '1', ''],
+        ['compclass', 'Laser', '1', ''],
+        ['column', columnDef, '', ''],
+      ]));
+      const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+      expect(file.competitors[0].boatClass, columnDef).toBe('Laser');
+      expect(file.series.subdivisionAxes ?? [], columnDef).toEqual([]);
+    }
+  });
+
+  it('inspectSailwave lists the repurposed column among the subdivision labels', () => {
+    const raw = loadFile(`${FIXTURES}/2026 ILCA Leinsters results.blw`);
+    expect(inspectSailwave(raw).detectedSubdivisionLabels).toContain('Cat');
+  });
+});
