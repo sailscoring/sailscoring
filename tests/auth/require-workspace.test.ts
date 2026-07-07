@@ -317,6 +317,56 @@ describe.skipIf(skip)('resolveWorkspace', () => {
     await db.delete(schema.session).where(eq(schema.session.id, sessionId));
   });
 
+  test('bootstrap-persist does not clobber a session whose activeOrganizationId changed since the read', async () => {
+    // Lost-update guard: a concurrent `set-active` writes the switcher's choice
+    // between our read (which saw null) and our persist. The bootstrap-persist
+    // must not revert it — the compare-and-set WHERE clause makes the write a
+    // no-op once the row no longer matches the value we read.
+    const { resolveWorkspace, personalWorkspaceSlug } = await import(
+      '@/lib/auth/require-workspace'
+    );
+    const userId = await makeUser(`race-${Date.now()}@sailscoring.test`);
+    const personalOrg = await makeOrg(
+      'My Workspace',
+      personalWorkspaceSlug(userId),
+    );
+    const sharedOrg = await makeOrg('Switched');
+    await makeMember(personalOrg, userId, 'owner', new Date());
+    await makeMember(sharedOrg, userId, 'member', new Date());
+
+    // The session row already carries the switcher's just-set choice — the
+    // state a concurrent set-active would have left behind.
+    const sessionId = `ses_${uuid().replace(/-/g, '')}`;
+    await db.insert(schema.session).values({
+      id: sessionId,
+      userId,
+      token: sessionId,
+      activeOrganizationId: sharedOrg,
+      expiresAt: new Date(Date.now() + 60_000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // This resolve read a *stale* null (as the racing request would have),
+    // so it bootstrap-picks the personal workspace for its own response…
+    const ctx = await resolveWorkspace({
+      userId,
+      email: 'a@b',
+      activeOrganizationId: null,
+      sessionId,
+    });
+    expect(ctx).toMatchObject({ workspaceId: personalOrg });
+
+    // …but it must leave the session's set-active choice intact.
+    const [row] = await db
+      .select({ activeOrganizationId: schema.session.activeOrganizationId })
+      .from(schema.session)
+      .where(eq(schema.session.id, sessionId));
+    expect(row.activeOrganizationId).toBe(sharedOrg);
+
+    await db.delete(schema.session).where(eq(schema.session.id, sessionId));
+  });
+
   test('falls back to the only membership when activeOrganizationId is stale', async () => {
     const { resolveWorkspace } = await import('@/lib/auth/require-workspace');
     const userId = await makeUser(`stale-${Date.now()}@sailscoring.test`);

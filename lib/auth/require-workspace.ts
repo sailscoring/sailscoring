@@ -1,6 +1,6 @@
 import 'server-only';
 import { headers } from 'next/headers';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/db/client';
@@ -258,10 +258,27 @@ export async function resolveWorkspace(input: {
 
   if (bootstrap) {
     if (input.sessionId) {
+      // Compare-and-set: only claim the session for the bootstrap pick if its
+      // activeOrganizationId is still what we read above. A concurrent writer —
+      // the workspace switcher's `set-active` — can land its choice between our
+      // read and this write; an unconditional UPDATE here would revert it (a
+      // lost update, seen as the active workspace silently snapping back to the
+      // personal one). Guarding on the read value makes a raced-past write a
+      // no-op and preserves the switcher's choice.
       await getDb()
         .update(sessionTable)
         .set({ activeOrganizationId: bootstrap.organizationId })
-        .where(eq(sessionTable.id, input.sessionId));
+        .where(
+          and(
+            eq(sessionTable.id, input.sessionId),
+            input.activeOrganizationId === null
+              ? isNull(sessionTable.activeOrganizationId)
+              : eq(
+                  sessionTable.activeOrganizationId,
+                  input.activeOrganizationId,
+                ),
+          ),
+        );
     }
     return toContext(bootstrap);
   }
