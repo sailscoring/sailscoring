@@ -26,6 +26,7 @@ import type { CompetitorFieldKey, Fleet, PrimaryPersonLabel, SubdivisionAxis } f
 
 export interface CompetitorFormData {
   sailNumber: string;
+  bowNumber: string;
   boatName: string;
   boatClass: string;
   name: string;
@@ -47,6 +48,7 @@ export interface CompetitorFormData {
 
 export const emptyCompetitorForm: CompetitorFormData = {
   sailNumber: '',
+  bowNumber: '',
   boatName: '',
   boatClass: '',
   name: '',
@@ -230,6 +232,17 @@ export function CompetitorForm({
             placeholder="e.g. Jane Doe"
           />
         </div>
+        {enabledFields.includes('bowNumber') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="bowNumber">Bow number</Label>
+            <Input
+              id="bowNumber"
+              value={data.bowNumber}
+              onChange={(e) => set('bowNumber', e.target.value)}
+              placeholder="e.g. 42"
+            />
+          </div>
+        )}
         {enabledFields.includes('boatName') && (
           <div className="space-y-1.5">
             <Label htmlFor="boatName">Boat name</Label>

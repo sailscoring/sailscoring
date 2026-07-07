@@ -428,6 +428,13 @@
       "when": 1783182728685,
       "tag": "0060_known_vengeance",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1783438111829,
+      "tag": "0061_absurd_prowler",
+      "breakpoints": true
     }
   ]
 }

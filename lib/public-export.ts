@@ -119,6 +119,8 @@ export interface PublicSeriesExport {
   }[];
   competitors: {
     sailNumber: string;
+    /** Bow number, when it differs from the registered sail number. */
+    bowNumber?: string;
     boatName?: string;
     boatClass?: string;
     name: string;
@@ -161,6 +163,8 @@ export interface PublicSeriesExport {
       /** Set when the finish is unresolved (scorer recorded a crossing
        *  but no matching competitor). When present, `sailNumber` is empty. */
       unknownSailNumber?: string;
+      /** Marks a row entered by typing the competitor's bow number. */
+      matchedOnBowNumber?: boolean;
       sortOrder: number | null;
       /** Marks the finisher as tied with the prior row (RRS A8.1). Optional
        *  in the export; older exports default to false on import. */
@@ -531,6 +535,7 @@ export function buildPublicExportFromSnapshot(
       const finish = finishesForRace.find((f) => f.competitorId === competitorId);
       return {
         sailNumber: sailNumberById.get(competitorId) ?? competitorId,
+        ...(finish?.matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
         sortOrder: finish?.sortOrder ?? null,
         ...(finish?.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
         ...(finish?.finishTime ? { finishTime: finish.finishTime } : {}),
@@ -687,6 +692,7 @@ export function buildPublicExportFromSnapshot(
     })),
     competitors: competitors.map((c) => ({
       sailNumber: c.sailNumber,
+      ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       name: c.name,
@@ -912,6 +918,7 @@ export async function importPublicExport(
         seriesId: newSeriesId,
         fleetIds,
         sailNumber: c.sailNumber,
+        ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
         ...(c.boatName ? { boatName: c.boatName } : {}),
         ...(c.boatClass ? { boatClass: c.boatClass } : {}),
         name: c.name,
@@ -998,6 +1005,7 @@ export async function importPublicExport(
         raceId,
         competitorId: competitorId ?? null,
         ...(!competitorId && exportedUnknownSail ? { unknownSailNumber: exportedUnknownSail } : {}),
+        ...(competitorId && finish.matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
         sortOrder: finish.sortOrder,
         tiedWithPrevious: finish.tiedWithPrevious ?? false,
         ...(finish.finishTime ? { finishTime: finish.finishTime } : {}),

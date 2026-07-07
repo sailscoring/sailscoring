@@ -153,9 +153,14 @@ export interface SeriesFileRepos {
  *  `gender` ("Lady 1st, 2nd, 3rd"), `nationality` (restricted titles) and
  *  `club`. The bump exists so a file carrying the new kinds fails loudly in
  *  a build that predates them instead of importing prizes that silently
- *  award nobody. v17 files load unchanged. */
-export const FORMAT_VERSION = 18;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+ *  award nobody. v17 files load unchanged.
+ *
+ *  v19 adds optional `competitor.bowNumber` (a bow number that differs from the
+ *  registered sail number, for finish-entry matching) and `finish.matchedOnBowNumber`
+ *  (marks a row entered by bow number rather than sail number). Both additive and
+ *  sparse (written only when set); older files load with them absent. */
+export const FORMAT_VERSION = 19;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -212,6 +217,7 @@ interface SeriesFileCompetitor {
   id: string;
   fleetIds: string[];
   sailNumber: string;
+  bowNumber?: string;  // v19+
   boatName?: string;
   boatClass?: string;
   name: string;
@@ -235,6 +241,7 @@ interface SeriesFileFinish {
   id: string;
   competitorId: string | null;
   unknownSailNumber?: string;
+  matchedOnBowNumber?: boolean;  // v19+
   sortOrder: number | null;
   /** Optional in the file format — older files default to `false` on import. */
   tiedWithPrevious?: boolean;
@@ -397,6 +404,7 @@ export async function buildSeriesFile(
       id: f.id,
       competitorId: f.competitorId,
       unknownSailNumber: f.unknownSailNumber,
+      ...(f.matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
       sortOrder: f.sortOrder,
       ...(f.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
       ...(f.finishTime ? { finishTime: f.finishTime } : {}),
@@ -482,6 +490,7 @@ export async function buildSeriesFile(
       id: c.id,
       fleetIds: c.fleetIds,
       sailNumber: c.sailNumber,
+      ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       name: c.name,
@@ -1241,6 +1250,7 @@ async function writeFleetsCompetitorsRaces(
         seriesId,
         fleetIds,
         sailNumber: c.sailNumber,
+        ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
         ...(c.boatName ? { boatName: c.boatName } : {}),
         ...(c.boatClass ? { boatClass: c.boatClass } : {}),
         name: c.name,
@@ -1316,6 +1326,7 @@ async function writeFleetsCompetitorsRaces(
           raceId: newRaceId,
           competitorId: mappedCompetitorId,
           unknownSailNumber: f.unknownSailNumber,
+          ...(f.matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
           sortOrder: f.sortOrder,
           tiedWithPrevious: f.tiedWithPrevious ?? false,
           ...(f.finishTime ? { finishTime: f.finishTime } : {}),

@@ -352,6 +352,7 @@ export const competitors = pgTable(
       .references(() => organization.id, { onDelete: 'cascade' }),
     fleetIds: uuid('fleet_ids').array().notNull(),
     sailNumber: text('sail_number').notNull(),
+    bowNumber: text('bow_number'),
     boatName: text('boat_name'),
     boatClass: text('boat_class'),
     name: text('name').notNull(),
@@ -607,6 +608,10 @@ export const finishes = pgTable(
       onDelete: 'cascade',
     }),
     unknownSailNumber: text('unknown_sail_number'),
+    // True when this row was entered by typing the competitor's bow number
+    // rather than their sail number (display hint for the "entered by bow
+    // number" badge). Nullable; absent/false for the common sail-entry path.
+    matchedOnBowNumber: boolean('matched_on_bow_number'),
     sortOrder: integer('sort_order'),
     // Tied with the immediately-prior row at the same display position.
     // Engine averages ranks per RRS A8.1; display sortOrder stays distinct.

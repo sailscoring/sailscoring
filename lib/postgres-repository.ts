@@ -141,6 +141,7 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     seriesId: row.seriesId,
     fleetIds: row.fleetIds,
     sailNumber: row.sailNumber,
+    ...(row.bowNumber ? { bowNumber: row.bowNumber } : {}),
     ...(row.boatName ? { boatName: row.boatName } : {}),
     ...(row.boatClass ? { boatClass: row.boatClass } : {}),
     name: row.name,
@@ -227,6 +228,7 @@ function finishRowToType(row: FinishRow): Finish {
     ...(row.unknownSailNumber != null
       ? { unknownSailNumber: row.unknownSailNumber }
       : {}),
+    ...(row.matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
     sortOrder: row.sortOrder,
     tiedWithPrevious: row.tiedWithPrevious,
     ...(row.finishTime != null ? { finishTime: row.finishTime } : {}),
@@ -913,6 +915,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     workspaceId,
     fleetIds: c.fleetIds,
     sailNumber: c.sailNumber,
+    bowNumber: c.bowNumber ?? null,
     boatName: c.boatName ?? null,
     boatClass: c.boatClass ?? null,
     name: c.name,
@@ -934,7 +937,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
 }
 
 const competitorUpdateColumns = [
-  'fleetIds', 'sailNumber', 'boatName', 'boatClass', 'name',
+  'fleetIds', 'sailNumber', 'bowNumber', 'boatName', 'boatClass', 'name',
   'owner', 'helm', 'crewName', 'club', 'nationality',
   'gender', 'age', 'subdivisions',
   'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf',
@@ -1716,6 +1719,7 @@ function finishToRow(f: Finish) {
     raceId: f.raceId,
     competitorId: f.competitorId,
     unknownSailNumber: f.unknownSailNumber ?? null,
+    matchedOnBowNumber: f.matchedOnBowNumber ?? null,
     sortOrder: f.sortOrder,
     tiedWithPrevious: f.tiedWithPrevious,
     finishTime: f.finishTime ?? null,
@@ -1734,7 +1738,7 @@ function finishToRow(f: Finish) {
 }
 
 const finishUpdateColumns = [
-  'competitorId', 'unknownSailNumber', 'sortOrder', 'tiedWithPrevious',
+  'competitorId', 'unknownSailNumber', 'matchedOnBowNumber', 'sortOrder', 'tiedWithPrevious',
   'finishTime', 'resultCode', 'startPresent', 'penaltyCode', 'penaltyOverride',
   'penaltyOverrideByFleet', 'redressMethod', 'redressExcludeRaceIds', 'redressIncludeRaceIds',
   'redressIncludeAllLater', 'redressPoints', 'redressPointsByFleet',

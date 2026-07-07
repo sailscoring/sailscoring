@@ -9,6 +9,7 @@ export interface DiscardThreshold {
  *  `helm` and `owner` are optional *role* fields: when the primary label is a
  *  role, the matching key is disabled to avoid duplication with the primary. */
 export type CompetitorFieldKey =
+  | 'bowNumber'
   | 'boatName'
   | 'boatClass'
   | 'helm'
@@ -286,6 +287,7 @@ export interface Competitor {
   seriesId: string;
   fleetIds: string[];
   sailNumber: string;
+  bowNumber?: string; // bow number, when it differs from the registered sail number (e.g. a borrowed hull); optional, used for finish-entry matching
   boatName?: string;  // name of the vessel, e.g. "The Big Picture"
   boatClass?: string; // boat class, e.g. "Laser", "Firefly" — relevant for PY fleets
   name: string;       // primary identifying person (labelled per Series.primaryPersonLabel)
@@ -421,6 +423,7 @@ export interface Finish {
   raceId: string;
   competitorId: string | null;    // null for unresolved unknown finishes
   unknownSailNumber?: string;     // set when competitorId is null
+  matchedOnBowNumber?: boolean;   // true when this row was entered by typing the competitor's bow number rather than sail number; display hint for the "entered by bow number" badge (records how the row was entered, not a current fact — may go stale if numbers are later edited)
   sortOrder: number | null;       // crossing-order index in the unified finish sheet; null for coded finishes (except RDG: may be set alongside RDG)
   // Per ADR-008 Phase 6 (#111): explicit tie marker. The scoring engine
   // treats a finisher with `tiedWithPrevious === true` as sharing the

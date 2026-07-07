@@ -8,6 +8,7 @@
  *  values used when both are present in the same CSV. */
 export type CompetitorField =
   | 'sailNumber'
+  | 'bowNumber'
   | 'boatName'
   | 'boatClass'
   | 'primary'
@@ -139,6 +140,7 @@ export function matchSubdivisionAxis(header: string, axisLabels: string[]): numb
 export function autoDetectField(header: string): CompetitorField {
   const h = header.trim().replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
   if (/sail/.test(h)) return 'sailNumber';
+  if (/\bbow\b/.test(h)) return 'bowNumber';
   if (/\bboat\b/.test(h)) return 'boatName';
   if (/\bclass\b/.test(h)) return 'boatClass';
   if (/crew/.test(h)) return 'crewName';

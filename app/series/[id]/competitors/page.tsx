@@ -372,6 +372,7 @@ export default function CompetitorsPage({
       seriesId,
       fleetIds,
       sailNumber: data.sailNumber,
+      ...(data.bowNumber.trim() ? { bowNumber: data.bowNumber.trim() } : {}),
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
       name: data.name,
@@ -405,6 +406,7 @@ export default function CompetitorsPage({
       ...editingCompetitor,
       fleetIds: newFleetIds,
       sailNumber: data.sailNumber,
+      ...(data.bowNumber.trim() ? { bowNumber: data.bowNumber.trim() } : {}),
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
       name: data.name,
@@ -427,6 +429,7 @@ export default function CompetitorsPage({
     if (!updated.pyNumber) delete updated.pyNumber;
     if (!updated.nhcStartingTcf) delete updated.nhcStartingTcf;
     if (!updated.echoStartingTcf) delete updated.echoStartingTcf;
+    if (!data.bowNumber.trim()) delete updated.bowNumber;
     if (!data.boatName.trim()) delete updated.boatName;
     if (!data.boatClass.trim()) delete updated.boatClass;
     if (!data.owner.trim()) delete updated.owner;
@@ -463,6 +466,7 @@ export default function CompetitorsPage({
   const editingExcluded = editingCompetitor
     ? existingCompetitors.filter((c) => c.sailNumber !== editingCompetitor.sailNumber.toUpperCase() || !sameFleetIdSet(c.fleetIds, editingCompetitor.fleetIds))
     : existingCompetitors;
+  const showBow = enabledFields.includes('bowNumber');
   const showBoat = enabledFields.includes('boatName');
   const showClass = enabledFields.includes('boatClass');
   const showOwner = enabledFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel);
@@ -609,6 +613,7 @@ export default function CompetitorsPage({
                 </TableHead>
               )}
               <TableHead>Sail no.</TableHead>
+              {showBow && <TableHead>Bow no.</TableHead>}
               {showBoat && <TableHead>Boat</TableHead>}
               {showClass && <TableHead>Class</TableHead>}
               <TableHead className="whitespace-normal break-words">{primaryFieldLabel}</TableHead>
@@ -672,6 +677,7 @@ export default function CompetitorsPage({
                   <MissingRatingIcon missing={missingRatings(c, fleetById)} />
                   {c.sailNumber}
                 </TableCell>
+                {showBow && <TableCell className="font-mono">{c.bowNumber ?? ''}</TableCell>}
                 {showBoat && <TruncatedCell value={c.boatName} />}
                 {showClass && <TruncatedCell value={c.boatClass} />}
                 <TableCell className="whitespace-normal break-words">{c.name}</TableCell>
@@ -838,6 +844,7 @@ export default function CompetitorsPage({
             <CompetitorForm
               initial={{
                 sailNumber: editingCompetitor.sailNumber,
+                bowNumber: editingCompetitor.bowNumber ?? '',
                 boatName: editingCompetitor.boatName ?? '',
                 boatClass: editingCompetitor.boatClass ?? '',
                 name: editingCompetitor.name,

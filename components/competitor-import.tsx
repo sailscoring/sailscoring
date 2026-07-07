@@ -224,6 +224,7 @@ export interface ImportResult {
 /** Labels that don't depend on the primary role. */
 const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 'owner'>, string> = {
   sailNumber: 'Sail number',
+  bowNumber: 'Bow number',
   boatName: 'Boat name',
   boatClass: 'Class',
   crewName: 'Crew name',
@@ -264,6 +265,7 @@ function buildFieldLabels(
   const primaryText = PRIMARY_PERSON_LABEL_TEXT[primary];
   const labels: Record<string, string> = {
     sailNumber: STATIC_FIELD_LABELS.sailNumber,
+    bowNumber: STATIC_FIELD_LABELS.bowNumber,
     boatName: STATIC_FIELD_LABELS.boatName,
     boatClass: STATIC_FIELD_LABELS.boatClass,
     primary: `${primaryText} name (primary)`,
@@ -1429,6 +1431,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const rowNumber = i + 2;
 
       let sailNumber = '';
+      let bowNumber = '';
       let boatName = '';
       let boatClass = '';
       let primaryName = '';
@@ -1451,6 +1454,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         const col = parseInt(colStr, 10);
         const val = row[col]?.trim() ?? '';
         if (field === 'sailNumber') sailNumber = val;
+        else if (field === 'bowNumber') bowNumber = val;
         else if (field === 'boatName') boatName = val;
         else if (field === 'boatClass') boatClass = val;
         else if (field === 'primary') primaryName = val;
@@ -1524,6 +1528,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ? resolvedNationality
         : (existingCompetitor?.nationality ?? '');
 
+      const resolvedBowNumber = bowNumber || existingCompetitor?.bowNumber || '';
       const resolvedBoatName = boatName || existingCompetitor?.boatName || '';
       // boatClass fallback: when neither the CSV nor any existing competitor
       // provides a boatClass, fall back to the original CSV fleet name so
@@ -1546,6 +1551,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         seriesId,
         fleetIds,
         sailNumber: normSail,
+        ...(resolvedBowNumber ? { bowNumber: resolvedBowNumber } : {}),
         ...(resolvedBoatName ? { boatName: resolvedBoatName } : {}),
         ...(resolvedBoatClass ? { boatClass: resolvedBoatClass } : {}),
         name: primaryName || existingCompetitor?.name || '',
@@ -1575,6 +1581,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         // sail-number change — that must count as an update.
         existingCompetitor.sailNumber.toUpperCase() === competitor.sailNumber &&
         sameFleetIdSet(existingCompetitor.fleetIds, competitor.fleetIds) &&
+        (existingCompetitor.bowNumber ?? '') === (competitor.bowNumber ?? '') &&
         (existingCompetitor.boatName ?? '') === (competitor.boatName ?? '') &&
         (existingCompetitor.boatClass ?? '') === (competitor.boatClass ?? '') &&
         existingCompetitor.name === competitor.name &&
