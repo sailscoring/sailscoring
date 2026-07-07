@@ -474,19 +474,13 @@ function PrizeEditorDialog({
                 {clause.kind === 'axis' && (
                   <>
                     <span className="text-sm text-muted-foreground">is</span>
-                    <Input
-                      className="flex-1"
+                    <ValuePicker
+                      key={clauseField(clause)}
                       value={clause.value}
-                      placeholder={axisValues.get(clause.axisId)?.length ? undefined : 'No values recorded yet'}
-                      list={`prize-axis-values-${clause.axisId}`}
-                      aria-label="Axis value"
-                      onChange={(e) => setClause(i, { ...clause, value: e.target.value })}
+                      options={axisValues.get(clause.axisId) ?? []}
+                      ariaLabel="Axis value"
+                      onChange={(v) => setClause(i, { ...clause, value: v })}
                     />
-                    <datalist id={`prize-axis-values-${clause.axisId}`}>
-                      {(axisValues.get(clause.axisId) ?? []).map((v) => (
-                        <option key={v} value={v} />
-                      ))}
-                    </datalist>
                   </>
                 )}
 
@@ -525,18 +519,13 @@ function PrizeEditorDialog({
                 {(clause.kind === 'nationality' || clause.kind === 'club') && (
                   <>
                     <span className="text-sm text-muted-foreground">is</span>
-                    <Input
-                      className="flex-1"
+                    <ValuePicker
+                      key={clauseField(clause)}
                       value={clause.value}
-                      list={`prize-${clause.kind}-values`}
-                      aria-label={clause.kind === 'nationality' ? 'Nationality' : 'Club'}
-                      onChange={(e) => setClause(i, { ...clause, value: e.target.value })}
+                      options={clause.kind === 'nationality' ? nationalities : clubs}
+                      ariaLabel={clause.kind === 'nationality' ? 'Nationality' : 'Club'}
+                      onChange={(v) => setClause(i, { ...clause, value: v })}
                     />
-                    <datalist id={`prize-${clause.kind}-values`}>
-                      {(clause.kind === 'nationality' ? nationalities : clubs).map((v) => (
-                        <option key={v} value={v} />
-                      ))}
-                    </datalist>
                   </>
                 )}
 
@@ -591,5 +580,65 @@ function PrizeEditorDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Value control for an equality condition: a dropdown of the values the
+ * series' competitors actually carry, with an "Other…" escape into free text
+ * for a value nobody carries yet — the Leinsters shape, where the NoR's
+ * Silver prizes reference a Division no competitor has recorded (the
+ * allocator then surfaces "field has no data"). Free text from the start
+ * when there are no recorded values at all.
+ */
+function ValuePicker({
+  value,
+  options,
+  ariaLabel,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  ariaLabel: string;
+  onChange: (value: string) => void;
+}) {
+  const [freeEntry, setFreeEntry] = useState(
+    options.length === 0 || (value !== '' && !options.includes(value)),
+  );
+
+  if (freeEntry) {
+    return (
+      <Input
+        className="flex-1"
+        value={value}
+        placeholder={options.length === 0 ? 'No values recorded yet' : undefined}
+        aria-label={ariaLabel}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    );
+  }
+
+  return (
+    <Select
+      value={options.includes(value) ? value : ''}
+      onValueChange={(v) => {
+        if (v === '__other__') {
+          setFreeEntry(true);
+          onChange('');
+        } else {
+          onChange(v);
+        }
+      }}
+    >
+      <SelectTrigger className="flex-1" aria-label={ariaLabel}>
+        <SelectValue placeholder="Choose a value" />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((v) => (
+          <SelectItem key={v} value={v}>{v}</SelectItem>
+        ))}
+        <SelectItem value="__other__">Other…</SelectItem>
+      </SelectContent>
+    </Select>
   );
 }

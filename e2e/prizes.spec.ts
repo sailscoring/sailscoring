@@ -58,7 +58,7 @@ test('prizes: division podiums allocate live and publish as a prize sheet', asyn
   await page.getByRole('navigation').getByRole('link', { name: 'Prizes' }).click();
   await expect(page).toHaveURL(/\/prizes$/);
 
-  const addPrize = async (name: string, divisionValue: string) => {
+  const addPrize = async (name: string, divisionValue: string, viaOther = false) => {
     await page.getByRole('button', { name: /Add (prize|the first prize)/ }).first().click();
     const dialog = page.getByRole('dialog', { name: 'Add prize' });
     await dialog.getByLabel('Name').fill(name);
@@ -67,7 +67,16 @@ test('prizes: division podiums allocate live and publish as a prize sheet', asyn
     await dialog.getByRole('button', { name: 'Add condition' }).click();
     // The condition field defaults to the first subdivision axis (Division).
     await expect(dialog.getByLabel('Condition field')).toContainText('Division');
-    await dialog.getByLabel('Axis value').fill(divisionValue);
+    if (viaOther) {
+      // The free-entry escape, for a value no competitor carries yet (#275).
+      await dialog.getByLabel('Axis value').click();
+      await page.getByRole('option', { name: 'Other…' }).click();
+      await dialog.getByLabel('Axis value').fill(divisionValue);
+    } else {
+      // Recorded values are a dropdown (#275).
+      await dialog.getByLabel('Axis value').click();
+      await page.getByRole('option', { name: divisionValue }).click();
+    }
     await dialog.getByRole('button', { name: 'Add prize' }).click();
     await expect(dialog).toBeHidden();
   };
@@ -82,7 +91,7 @@ test('prizes: division podiums allocate live and publish as a prize sheet', asyn
   // Silver boats aren't in the Gold prize.
   await expect(goldRows.filter({ hasText: 'Brian Doyle' })).toHaveCount(0);
 
-  await addPrize('Silver Fleet 1st, 2nd, 3rd', 'Silver');
+  await addPrize('Silver Fleet 1st, 2nd, 3rd', 'Silver', true);
   await expect(page.getByRole('heading', { name: 'Silver Fleet 1st, 2nd, 3rd' })).toBeVisible();
   const silverRows = page.getByRole('row').filter({ hasText: 'Brian Doyle' });
   await expect(silverRows).toContainText('1st');
