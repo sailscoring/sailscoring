@@ -327,7 +327,30 @@ function Wizard({
             {preview.hasHelmGender && (
               <Badge variant="outline">Helm gender</Badge>
             )}
+            {preview.detectedPrizeCount > 0 && (
+              <Badge variant="outline">
+                {preview.detectedPrizeCount} prize{preview.detectedPrizeCount === 1 ? '' : 's'}
+              </Badge>
+            )}
           </div>
+          {preview.prizeWarnings.length > 0 && (
+            <div
+              className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+              data-testid="sailwave-prize-warnings"
+            >
+              <p className="text-sm font-medium">
+                Some of this file&apos;s prizes can&apos;t be imported — recreate them on the
+                Prizes tab after import:
+              </p>
+              <ul className="mt-1 list-disc pl-5 text-sm">
+                {preview.prizeWarnings.map((w, i) => (
+                  <li key={i}>
+                    <span className="font-medium">{w.label}</span> — {w.detail}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {preview.scoringWarnings.length > 0 && (
             <div
               className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"

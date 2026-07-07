@@ -1124,9 +1124,10 @@ function remapPrizesByFleetName(
  * publishing setup**. Only offered for series with `source === 'sailwave'`.
  *
  * Retained from the existing series (`...current`): name, venue, logos/links,
- * FTP destination + per-fleet paths, publish toggles, prizes, competitor-field
+ * FTP destination + per-fleet paths, publish toggles, competitor-field
  * config, primary-person label, subdivision axes, category, archived, and
- * `source` itself.
+ * `source` itself. Prizes are retained too when the series has any; a series
+ * with none adopts the file's.
  *
  * Replaced from the file: fleets, competitors, races, starts, finishes — and
  * the scoring rules derived from them (`discardThresholds`, `dnfScoring`).
@@ -1157,7 +1158,11 @@ export async function updateSeriesFromSailwave(
 
   const ftpPaths = remapFtpPathsByFleetName(current.ftpPaths, currentFleets, file, fleetIdMap);
   const publishingGroups = remapPublishingGroupsByFleetName(current.publishingGroups, currentFleets, file, fleetIdMap);
-  const prizes = remapPrizesByFleetName(current.prizes, currentFleets, file, fleetIdMap);
+  // In-app-edited prizes win on a re-import; a series that has none yet adopts
+  // the file's (first re-import of a prize-carrying .blw).
+  const prizes = current.prizes?.length
+    ? remapPrizesByFleetName(current.prizes, currentFleets, file, fleetIdMap)
+    : remapPrizes(file.series.prizes, fleetIdMap);
 
   await repos.deleteSeriesChildren(seriesId);
 

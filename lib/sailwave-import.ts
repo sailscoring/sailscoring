@@ -23,6 +23,8 @@ import type {
   DiscardThreshold,
   Fleet,
   PrimaryPersonLabel,
+  Prize,
+  PrizeClause,
   ResultCode,
   SubdivisionAxis,
 } from './types';
@@ -125,6 +127,10 @@ export interface SailwaveRaw {
    *  We read it only to recover a scorer's custom column titles (e.g. a
    *  `HelmAgeGroup` column retitled "Category"). */
   columns?: Record<string, string>;
+  /** Prize definitions, one raw row each: `count|label|expr` where `expr` is
+   *  six caret-separated field/value pairs followed by six per-clause
+   *  operators. In file order (Sailwave freezes prize order at entry). */
+  prizes?: string[];
 }
 
 // ---- Constants (mirror Python) ----
@@ -234,6 +240,7 @@ export function parseSailwaveBlw(bytes: ArrayBuffer): SailwaveRaw {
 
   const globals: Record<string, string> = {};
   const columns: Record<string, string> = {};
+  const prizeRows: string[] = [];
   const competitors: Record<string, Record<string, string>> = {};
   const races: Record<string, Record<string, string>> = {};
   const raceStarts: Record<string, string[]> = {};
@@ -253,6 +260,10 @@ export function parseSailwaveBlw(bytes: ArrayBuffer): SailwaveRaw {
 
     if (key === 'column') {
       columns[String(++columnSeq)] = value;
+      continue;
+    }
+    if (key === 'prize') {
+      prizeRows.push(value);
       continue;
     }
     if (key === 'scrcode') {
@@ -328,6 +339,7 @@ export function parseSailwaveBlw(bytes: ArrayBuffer): SailwaveRaw {
     results,
     'scoring-systems': scoringSystems,
     columns,
+    ...(prizeRows.length > 0 ? { prizes: prizeRows } : {}),
   };
 }
 
@@ -416,6 +428,126 @@ export function resolveSubdivisionAxes(
   return axes;
 }
 
+// ---- Prize definitions (#240) ----
+
+/** A prize resolved from a Sailwave `prize` row, id-free: fleet clauses by
+ *  name and axis clauses by source field, so the same resolution drives both
+ *  the wizard preview and the builder (which mints the actual ids). */
+export interface SailwavePrizeSpec {
+  label: string;
+  count: number;
+  clauses: Array<
+    | { kind: 'fleet'; fleetName: string }
+    | { kind: 'axis'; sourceKey: SubdivisionAxisSource['sourceKey']; label: string; value: string }
+    | { kind: 'rank'; max: number }
+    | { kind: 'gender'; value: 'M' | 'F' }
+    | { kind: 'nationality'; value: string }
+    | { kind: 'club'; value: string }
+  >;
+}
+
+/** A prize row our predicate can't faithfully express. The import proceeds
+ *  without the prize (never with a widened predicate); the wizard surfaces
+ *  these so the scorer knows to recreate it in-app. */
+export interface SailwavePrizeWarning {
+  label: string;
+  detail: string;
+}
+
+/**
+ * Resolve Sailwave's prize rows (`count|label|expr`, expr = six field^value
+ * pairs then six per-clause operators) into id-free prize specs. Field
+ * mapping: `Fleet` (by name), `Rank` (`<=`, or `=` against 1), `Division` /
+ * `HelmAgeGroup` → their subdivision axes, `Class` → its axis only when the
+ * column is category-retitled (see {@link classColumnRepurposed}), `HelmSex`
+ * → gender, `Nat` → nationality, `Club` → club. A row with any unmappable
+ * clause is skipped whole with a warning.
+ */
+export function resolveSailwavePrizes(
+  prizeRows: string[],
+  columns: Map<string, SailwaveColumn>,
+  fleetNames: ReadonlySet<string>,
+): { specs: SailwavePrizeSpec[]; warnings: SailwavePrizeWarning[] } {
+  const specs: SailwavePrizeSpec[] = [];
+  const warnings: SailwavePrizeWarning[] = [];
+  const titleFor = (field: string, fallback: string): string =>
+    columns.get(field)?.title || fallback;
+
+  for (const row of prizeRows) {
+    const [countRaw, labelRaw, expr = ''] = row.split('|');
+    const label = (labelRaw ?? '').trim();
+    const count = Number.parseInt((countRaw ?? '').trim(), 10);
+    if (!label || !Number.isInteger(count) || count < 1) {
+      warnings.push({ label: label || row, detail: 'malformed prize row' });
+      continue;
+    }
+
+    const slots = expr.split('^');
+    const clauses: SailwavePrizeSpec['clauses'] = [];
+    let skip: string | null = null;
+    for (let i = 0; i < 6 && skip === null; i++) {
+      const field = (slots[i * 2] ?? '').trim();
+      const value = (slots[i * 2 + 1] ?? '').trim();
+      const op = (slots[12 + i] ?? '=').trim();
+      if (!field) continue;
+
+      if (field === 'Rank') {
+        const max = Number.parseInt(value, 10);
+        if (!Number.isInteger(max) || max < 1) skip = `rank condition against "${value}"`;
+        else if (op === '<=' || (op === '=' && max === 1)) clauses.push({ kind: 'rank', max });
+        else skip = `rank operator "${op}"`;
+        continue;
+      }
+      // Everything below is an equality test.
+      if (op !== '=') {
+        skip = `operator "${op}" on ${field}`;
+        continue;
+      }
+      switch (field) {
+        case 'Fleet':
+          if (fleetNames.has(value)) clauses.push({ kind: 'fleet', fleetName: value });
+          else skip = `unknown fleet "${value}"`;
+          break;
+        case 'Division':
+          clauses.push({ kind: 'axis', sourceKey: 'compdivision', label: titleFor('Division', DEFAULT_SUBDIVISION_LABEL), value });
+          break;
+        case 'HelmAgeGroup':
+          clauses.push({ kind: 'axis', sourceKey: 'comphelmagegroup', label: titleFor('HelmAgeGroup', 'Category'), value });
+          break;
+        case 'Class':
+          if (classColumnRepurposed(columns)) {
+            clauses.push({ kind: 'axis', sourceKey: 'compclass', label: columns.get('Class')!.title, value });
+          } else {
+            skip = `condition on the Class column (a boat class here, not a category)`;
+          }
+          break;
+        case 'HelmSex': {
+          const gender = genderFromHelmSex(value);
+          if (gender === '') skip = `helm gender "${value}"`;
+          else clauses.push({ kind: 'gender', value: gender });
+          break;
+        }
+        case 'Nat':
+          clauses.push({ kind: 'nationality', value });
+          break;
+        case 'Club':
+          clauses.push({ kind: 'club', value });
+          break;
+        default:
+          skip = `condition on the ${field} field`;
+      }
+    }
+
+    if (skip !== null) {
+      warnings.push({ label, detail: `not imported — ${skip} can't be expressed` });
+      continue;
+    }
+    specs.push({ label, count, clauses });
+  }
+
+  return { specs, warnings };
+}
+
 // ---- Preview (drives the wizard form) ----
 
 export interface SailwavePreviewFleet {
@@ -443,6 +575,11 @@ export interface SailwavePreview {
   /** True when at least one competitor carries a recognisable `comphelmsex`
    *  value — the wizard notes that helm gender will be imported. */
   hasHelmGender: boolean;
+  /** Prizes that will import (#240) — the expressible rows of Sailwave's
+   *  prize table. */
+  detectedPrizeCount: number;
+  /** Prize rows our predicate can't express, skipped with a reason. */
+  prizeWarnings: SailwavePrizeWarning[];
   /** Warnings for scoring-code configuration our engine can't faithfully
    *  reproduce (finishers base, mixed A5.2/A5.3, per-fleet overrides, …).
    *  Empty when the config is fully representable. The import still proceeds
@@ -484,6 +621,11 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
 
   const subdivisionAxisSources = resolveSubdivisionAxes(comps, parseSailwaveColumns(raw));
   const scoring = analyzeSailwaveScoring(raw);
+  const prizeResolution = resolveSailwavePrizes(
+    raw.prizes ?? [],
+    parseSailwaveColumns(raw),
+    new Set(fleetNames),
+  );
 
   return {
     name: (globals.serevent ?? '').trim(),
@@ -503,6 +645,8 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
     hasHelmGender: Object.values(comps).some(
       (c) => c.compexclude !== '1' && genderFromHelmSex(c.comphelmsex) !== '',
     ),
+    detectedPrizeCount: prizeResolution.specs.length,
+    prizeWarnings: prizeResolution.warnings,
     scoringWarnings: scoring.warnings,
   };
 }
@@ -1185,6 +1329,40 @@ export function buildSeriesFileFromSailwave(
   // that never populates them just gives the scorer empty columns to clean up.
   const enabledFields = buildEnabledFields(opts.primaryLabel, dataFlagsFor(competitors));
 
+  // Prizes (#240): materialise the expressible prize rows onto the series.
+  // An axis clause may reference a source field no competitor populates (the
+  // 2026 ILCA Leinsters' Silver prizes filter on a Division nobody carries) —
+  // synthesise the axis so the predicate stays faithful and the Prizes tab's
+  // "field has no data" warning surfaces it, rather than dropping or widening.
+  const { specs: prizeSpecs } = resolveSailwavePrizes(
+    raw.prizes ?? [],
+    parseSailwaveColumns(raw),
+    new Set(fleets.map((f) => f.name)),
+  );
+  const fleetIdByBuiltName = new Map(fleets.map((f) => [f.name, f.id]));
+  const axisBySource = new Map(builtAxes.map((b) => [b.sourceKey, b.axis]));
+  const prizes: Prize[] = prizeSpecs.map((spec) => ({
+    id: cryptoUuid(),
+    name: spec.label,
+    recipientCount: spec.count,
+    clauses: spec.clauses.map((c): PrizeClause => {
+      if (c.kind === 'fleet') {
+        // resolveSailwavePrizes only emits fleets it verified against this set.
+        return { kind: 'fleet', fleetId: fleetIdByBuiltName.get(c.fleetName)! };
+      }
+      if (c.kind === 'axis') {
+        let axis = axisBySource.get(c.sourceKey);
+        if (!axis) {
+          axis = newSubdivisionAxis(c.label);
+          axisBySource.set(c.sourceKey, axis);
+          builtAxes.push({ axis, sourceKey: c.sourceKey });
+        }
+        return { kind: 'axis', axisId: axis.id, value: c.value };
+      }
+      return c;
+    }),
+  }));
+
   // Scratch series (every fleet position-scored, e.g. a one-design class) record
   // no finish times, so the finish sheet needs no start. Only call it handicap
   // when at least one fleet uses a time-based system — matching how the CSV
@@ -1220,6 +1398,7 @@ export function buildSeriesFileFromSailwave(
       primaryPersonLabel: opts.primaryLabel,
       subdivisionAxes: builtAxes.map((b) => b.axis),
       scoringMode,
+      ...(prizes.length > 0 ? { prizes } : {}),
     },
     fleets: fleets.map((f) => ({
       id: f.id,

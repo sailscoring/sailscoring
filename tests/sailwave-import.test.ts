@@ -8,6 +8,7 @@ import {
   buildSeriesFileFromSailwave,
   parseSailwaveColumns,
   resolveSubdivisionAxes,
+  resolveSailwavePrizes,
   parseStartString,
   parseSailwaveRaceDate,
   parseDiscardThresholds,
@@ -1200,5 +1201,78 @@ describe('repurposed Class column → subdivision axis', () => {
   it('inspectSailwave lists the repurposed column among the subdivision labels', () => {
     const raw = loadFile(`${FIXTURES}/2026 ILCA Leinsters results.blw`);
     expect(inspectSailwave(raw).detectedSubdivisionLabels).toContain('Cat');
+  });
+});
+
+describe('Sailwave prize table import (#240)', () => {
+  const COLUMNS = new Map([
+    ['Class', { fieldName: 'Class', title: 'Cat', visible: true, publish: true }],
+  ]);
+  const FLEETS = new Set(['ILCA 7', 'ILCA 6', 'ILCA 4']);
+
+  it('resolves the four clause shapes the Leinsters uses', () => {
+    const { specs, warnings } = resolveSailwavePrizes(
+      [
+        '3|ILCA 7: Overall 1st, 2nd, 3rd|Fleet^ILCA 7^Rank^3^^^^^^^^^=^<=^=^=^=^=',
+        '3|ILCA 6: Silver 1st, 2nd, 3rd|Fleet^ILCA 6^Division^Silver^^^^^^^^^=^=^=^=^=^=',
+        '3|ILCA 6: Lady 1st, 2nd, 3rd|Fleet^ILCA 6^HelmSex^Female^^^^^^^^^=^=^=^=^=^=',
+        '3|ILCA 7: Master 1st, 2nd, 3rd|Fleet^ILCA 7^Class^Master^^^^^^^^^=^=^=^=^=^=',
+      ],
+      COLUMNS,
+      FLEETS,
+    );
+    expect(warnings).toEqual([]);
+    expect(specs.map((s) => s.clauses)).toEqual([
+      [{ kind: 'fleet', fleetName: 'ILCA 7' }, { kind: 'rank', max: 3 }],
+      [{ kind: 'fleet', fleetName: 'ILCA 6' }, { kind: 'axis', sourceKey: 'compdivision', label: 'Division', value: 'Silver' }],
+      [{ kind: 'fleet', fleetName: 'ILCA 6' }, { kind: 'gender', value: 'F' }],
+      [{ kind: 'fleet', fleetName: 'ILCA 7' }, { kind: 'axis', sourceKey: 'compclass', label: 'Cat', value: 'Master' }],
+    ]);
+    expect(specs.map((s) => s.count)).toEqual([3, 3, 3, 3]);
+  });
+
+  it('skips inexpressible rows whole, with a reason', () => {
+    const { specs, warnings } = resolveSailwavePrizes(
+      [
+        '1|Unknown fleet|Fleet^ILCA 5^^^^^^^^^^^=^=^=^=^=^=',
+        '1|Weird op|Rank^3^^^^^^^^^^^>=^=^=^=^=^=',
+        // Class holds real boat classes when the column is not category-retitled.
+        '1|Class prize|Class^Laser^^^^^^^^^^^=^=^=^=^=^=',
+      ],
+      new Map(),
+      FLEETS,
+    );
+    expect(specs).toEqual([]);
+    expect(warnings).toHaveLength(3);
+    expect(warnings[0].detail).toContain('unknown fleet');
+    expect(warnings[1].detail).toContain('operator');
+    expect(warnings[2].detail).toContain('Class column');
+  });
+
+  it('imports all ten Leinsters prizes, synthesising the empty Division axis', () => {
+    const raw = loadFile(`${FIXTURES}/2026 ILCA Leinsters results.blw`);
+    expect(inspectSailwave(raw).detectedPrizeCount).toBe(10);
+    expect(inspectSailwave(raw).prizeWarnings).toEqual([]);
+
+    const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+    expect(file.series.prizes).toHaveLength(10);
+    expect(file.series.prizes!.map((p) => p.name)[0]).toBe('ILCA 7: Overall 1st, 2nd, 3rd');
+
+    // The Silver prizes reference a Division no competitor carries — the axis
+    // is synthesised so the predicate stays faithful ("field has no data"
+    // surfaces on the Prizes tab, rather than the prize being dropped).
+    const axes = file.series.subdivisionAxes ?? [];
+    const division = axes.find((a) => a.label === 'Division');
+    expect(division).toBeDefined();
+    expect(file.competitors.every((c) => !c.subdivisions?.[division!.id])).toBe(true);
+
+    // Every fleet clause resolves to a real imported fleet id.
+    const fleetIds = new Set(file.fleets.map((f) => f.id));
+    for (const p of file.series.prizes!) {
+      for (const c of p.clauses) {
+        if (c.kind === 'fleet') expect(fleetIds.has(c.fleetId)).toBe(true);
+        if (c.kind === 'axis') expect(axes.some((a) => a.id === c.axisId)).toBe(true);
+      }
+    }
   });
 });
