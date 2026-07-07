@@ -475,6 +475,15 @@ export default async function HelpPage() {
           <strong className="text-foreground">unchanged</strong> rather than updated. Any rows
           missing a sail number are skipped and listed in the summary.
         </p>
+        <p>
+          Because matching is by sail number, a boat that changed its number between imports
+          would normally come in as a duplicate. The importer watches for this: when a row&apos;s
+          sail number is new to the series, the old number is missing from the CSV, and the boat
+          or person matches an existing competitor in the same fleet, it pauses to ask{' '}
+          <strong className="text-foreground">Sail number changes?</strong> before importing.
+          Accepted rows update the existing competitor under the new number — keeping its
+          recorded results — instead of creating a second entry.
+        </p>
       </Section>
 
       {has('rrs-import') && (

@@ -37,6 +37,7 @@ import {
   type RelayField,
 } from '@/lib/csv-import';
 import { lookupAlias, normalizeCodeInput } from '@/lib/nationality';
+import { matchLikelySameBoat, type MatchEntry } from '@/lib/competitor-matching';
 import {
   planFleetCreation,
   type PlanRow,
@@ -180,6 +181,17 @@ type ImportFlow =
       rrs: MappingRrsConfig | null;
     }
   | {
+      /** Review step between mapping and the actual import: CSV rows that
+       *  look like sail-number changes of existing competitors. Accepted
+       *  rows update the existing competitor in place (same id, results
+       *  kept); rejected rows are imported as new competitors. */
+      step: 'renames';
+      mapping: Extract<ImportFlow, { step: 'mapping' }>;
+      candidates: RenameCandidate[];
+      /** Parallel to `candidates`; all true initially. */
+      accepted: boolean[];
+    }
+  | {
       step: 'done';
       /** CSV import counts; null for a push-only flow. */
       csv: { added: number; updated: number; unchanged: number; fleetsCreated: string[]; errors: { rowIndex: number; reason: string }[] } | null;
@@ -188,6 +200,18 @@ type ImportFlow =
     };
 
 type MappingFlow = Extract<ImportFlow, { step: 'mapping' }>;
+
+/** One suspected sail-number change, for the review step. */
+interface RenameCandidate {
+  rowIndex: number;
+  newSailNumber: string;
+  existingId: string;
+  oldSailNumber: string;
+  /** Display fields — CSV value, falling back to the existing record. */
+  boatName: string;
+  personName: string;
+  matchedOn: 'boat name' | 'name';
+}
 
 export interface ImportResult {
   added: number;
@@ -402,6 +426,98 @@ function extractPlanRows(rows: string[][], columnMap: ColumnMap): PlanRow[] {
     }
     return { csvFleetNames, ratings };
   });
+}
+
+/**
+ * Detect CSV rows that look like sail-number changes of existing
+ * competitors, before anything is written. A candidate pairs a row whose
+ * sail number matches no existing competitor with a competitor whose sail
+ * number appears nowhere in the CSV — the same fleet set and a matching
+ * boat or person name (see lib/competitor-matching) make them one boat.
+ *
+ * Fleet identity comes from the fleet plan: reused fleets contribute their
+ * real id, fleets the import would create contribute their plan key. An
+ * existing competitor can never be in a not-yet-created fleet, so rows
+ * destined only for new fleets simply don't pair — correct, and free.
+ */
+function detectSailNumberChanges(
+  rows: string[][],
+  columnMap: ColumnMap,
+  existing: Competitor[],
+  existingFleets: Fleet[],
+  alsoCreateScratch: Record<string, boolean>,
+): RenameCandidate[] {
+  let sailCol = -1;
+  let boatNameCol = -1;
+  let primaryCol = -1;
+  let helmCol = -1;
+  for (const [colStr, field] of Object.entries(columnMap)) {
+    const col = parseInt(colStr, 10);
+    if (field === 'sailNumber') sailCol = col;
+    else if (field === 'boatName') boatNameCol = col;
+    else if (field === 'primary') primaryCol = col;
+    else if (field === 'helm') helmCol = col;
+  }
+  if (sailCol < 0) return [];
+
+  const planRows = extractPlanRows(rows, columnMap);
+  const plan = planFleetCreation({
+    rows: planRows,
+    existingFleets,
+    existingCompetitors: existing,
+    csvHasClassColumn: Object.values(columnMap).includes('boatClass'),
+    alsoCreateScratch,
+  });
+  const fleetIdsByRow: string[][] = rows.map(() => []);
+  for (const p of plan.proposed) {
+    const fid = p.isExisting && p.existingFleetId ? p.existingFleetId : `new:${p.key}`;
+    for (const i of p.rowIndices) {
+      if (!fleetIdsByRow[i].includes(fid)) fleetIdsByRow[i].push(fid);
+    }
+  }
+  const fleetKeyOf = (ids: string[]) => [...new Set(ids)].sort().join(',');
+
+  const existingSails = new Set(existing.map((c) => c.sailNumber.toUpperCase()));
+  const csvSails = new Set<string>();
+  for (const row of rows) {
+    const sail = row[sailCol]?.trim().toUpperCase();
+    if (sail) csvSails.add(sail);
+  }
+
+  const cell = (row: string[], col: number) => (col >= 0 ? (row[col]?.trim() ?? '') : '');
+  const newRows: MatchEntry<number>[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const sail = cell(rows[i], sailCol).toUpperCase();
+    if (!sail || existingSails.has(sail)) continue;
+    newRows.push({
+      item: i,
+      fleetKey: fleetKeyOf(fleetIdsByRow[i]),
+      boatName: cell(rows[i], boatNameCol),
+      name: cell(rows[i], primaryCol),
+      helm: cell(rows[i], helmCol),
+    });
+  }
+  const disappeared: MatchEntry<Competitor>[] = existing
+    .filter((c) => !csvSails.has(c.sailNumber.toUpperCase()))
+    .map((c) => ({
+      item: c,
+      fleetKey: fleetKeyOf(c.fleetIds),
+      boatName: c.boatName ?? '',
+      name: c.name,
+      helm: c.helm ?? '',
+    }));
+
+  return matchLikelySameBoat(newRows, disappeared)
+    .map(({ a: rowIndex, b: competitor, matchedOn }) => ({
+      rowIndex,
+      newSailNumber: cell(rows[rowIndex], sailCol).toUpperCase(),
+      existingId: competitor.id,
+      oldSailNumber: competitor.sailNumber,
+      boatName: cell(rows[rowIndex], boatNameCol) || competitor.boatName || '',
+      personName: cell(rows[rowIndex], primaryCol) || competitor.name,
+      matchedOn,
+    }))
+    .sort((a, b) => a.rowIndex - b.rowIndex);
 }
 
 /** Group ProposedFleet entries by their originating CSV fleet name (insertion order). */
@@ -1136,11 +1252,49 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     });
   }
 
+  /** Mapping-dialog confirm: look for suspected sail-number changes first.
+   *  Any found → the review step; none → straight into the import. */
   async function handleImport() {
     if (importFlow.step !== 'mapping') return;
-    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, alsoCreateScratch, rrs } = importFlow;
+    const existing = await competitorRepo.listBySeries(seriesId);
+    const candidates = detectSailNumberChanges(
+      importFlow.rows,
+      importFlow.columnMap,
+      existing,
+      fleets,
+      importFlow.alsoCreateScratch,
+    );
+    if (candidates.length > 0) {
+      setImportFlow({
+        step: 'renames',
+        mapping: importFlow,
+        candidates,
+        accepted: candidates.map(() => true),
+      });
+      return;
+    }
+    await executeImport(importFlow, new Map());
+  }
+
+  /** Renames-dialog confirm: run the import with the accepted pairs. */
+  async function confirmRenames() {
+    if (importFlow.step !== 'renames') return;
+    const renames = new Map<number, string>();
+    importFlow.candidates.forEach((c, i) => {
+      if (importFlow.accepted[i]) renames.set(c.rowIndex, c.existingId);
+    });
+    await executeImport(importFlow.mapping, renames);
+  }
+
+  /** The import proper. `renameByRowIndex` maps a CSV row index to the id
+   *  of the existing competitor it renames — consulted only for rows whose
+   *  sail number matched nothing, so an accepted rename updates that
+   *  competitor in place (keeping its id, and with it its results). */
+  async function executeImport(flow: MappingFlow, renameByRowIndex: Map<number, string>) {
+    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, alsoCreateScratch, rrs } = flow;
 
     const existing = await competitorRepo.listBySeries(seriesId);
+    const existingById = new Map(existing.map((c) => [c.id, c]));
     const series = await seriesRepo.get(seriesId);
     const bysail = new Map<string, Competitor[]>();
     for (const c of existing) {
@@ -1336,9 +1490,15 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const fleetIds = fleetIdsByRow[i];
 
       const sailCandidates = bysail.get(normSail) ?? [];
-      const existingCompetitor = sailCandidates.length <= 1
+      let existingCompetitor: Competitor | null = sailCandidates.length <= 1
         ? sailCandidates[0] ?? null
         : sailCandidates.find((c) => sameFleetIdSet(c.fleetIds, fleetIds)) ?? sailCandidates[0];
+      if (!existingCompetitor) {
+        // No sail-number match — an accepted sail-number change claims the
+        // row for its existing competitor instead of minting a new one.
+        const renameId = renameByRowIndex.get(i);
+        existingCompetitor = renameId ? existingById.get(renameId) ?? null : null;
+      }
 
       const parsedTcc = tcc ? parseFloat(tcc) : null;
       const parsedVprs = vprsTccStr ? parseFloat(vprsTccStr) : null;
@@ -1411,6 +1571,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
 
       if (
         existingCompetitor &&
+        // Sail numbers can differ when the row landed via an accepted
+        // sail-number change — that must count as an update.
+        existingCompetitor.sailNumber.toUpperCase() === competitor.sailNumber &&
         sameFleetIdSet(existingCompetitor.fleetIds, competitor.fleetIds) &&
         (existingCompetitor.boatName ?? '') === (competitor.boatName ?? '') &&
         (existingCompetitor.boatClass ?? '') === (competitor.boatClass ?? '') &&
@@ -1715,6 +1878,73 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
             >
               {importFlow.step === 'mapping'
                 ? `Import ${importFlow.rows.length} row${importFlow.rows.length === 1 ? '' : 's'}${importFlow.rrs ? ' & push' : ''}`
+                : 'Import'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sail-number-change review dialog */}
+      <Dialog open={importFlow.step === 'renames'} onOpenChange={(open) => { if (!open) resetImport(); }}>
+        <DialogContent className="w-[90vw] max-w-2xl sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Sail number changes?</DialogTitle>
+            <DialogDescription>
+              These rows look like sail-number changes: the new number matches
+              no competitor in the series, the old number is missing from the
+              CSV, and the boat or person matches. Ticked rows update the
+              existing competitor — keeping its recorded results — under the
+              new number. Unticked rows are imported as new competitors.
+            </DialogDescription>
+          </DialogHeader>
+          {importFlow.step === 'renames' && (
+            <div className="max-h-[50vh] overflow-y-auto space-y-1">
+              {importFlow.candidates.map((c, i) => (
+                <label
+                  key={c.rowIndex}
+                  className="flex items-center gap-3 rounded-md border p-2 text-sm cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={importFlow.accepted[i]}
+                    onChange={() =>
+                      setImportFlow({
+                        ...importFlow,
+                        accepted: importFlow.accepted.map((v, idx) => (idx === i ? !v : v)),
+                      })
+                    }
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="font-mono whitespace-nowrap">
+                    {c.oldSailNumber} → {c.newSailNumber}
+                  </span>
+                  <span className="truncate min-w-0">
+                    {[c.boatName, c.personName].filter(Boolean).join(' — ')}
+                  </span>
+                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                    matched on {c.matchedOn}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (importFlow.step === 'renames') setImportFlow(importFlow.mapping);
+              }}
+            >
+              Back
+            </Button>
+            <Button onClick={() => void confirmRenames()}>
+              {importFlow.step === 'renames'
+                ? (() => {
+                    const n = importFlow.accepted.filter(Boolean).length;
+                    return n > 0
+                      ? `Apply ${n} change${n === 1 ? '' : 's'} & import`
+                      : 'Import as new competitors';
+                  })()
                 : 'Import'}
             </Button>
           </DialogFooter>

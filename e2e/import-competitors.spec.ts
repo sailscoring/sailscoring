@@ -211,6 +211,72 @@ test('re-importing after renaming the default fleet reuses it instead of duplica
   await expect(fleetRows.nth(0)).not.toContainText('Default');
 });
 
+test('re-import detects sail number changes and updates in place', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Sail Number Change' });
+
+  // ── 1. Initial entry list ─────────────────────────────────────────────────
+  const initial = [
+    'Sail,Boat,Helm,Club',
+    'IRL100,White Mischief,J. Bloggs,HYC',
+    'IRL200,Sea Biscuit,A. Nother,RCYC',
+  ].join('\n');
+  await uploadCsv(page, initial);
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 2. Re-import with one boat renumbered (IRL100 → IRL150) ──────────────
+  const renumbered = [
+    'Sail,Boat,Helm,Club',
+    'IRL150,White Mischief,J. Bloggs,HYC',
+    'IRL200,Sea Biscuit,A. Nother,RCYC',
+  ].join('\n');
+  await uploadCsv(page, renumbered);
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+
+  // ── 3. The review step lists the suspected change ─────────────────────────
+  await expect(page.getByRole('heading', { name: /sail number changes/i })).toBeVisible();
+  await expect(page.getByText('IRL100 → IRL150')).toBeVisible();
+  await expect(page.getByText('White Mischief — J. Bloggs')).toBeVisible();
+  await expect(page.getByText('matched on boat name')).toBeVisible();
+
+  // Back returns to the mapping dialog with nothing imported.
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('heading', { name: /map columns/i })).toBeVisible();
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByRole('heading', { name: /sail number changes/i })).toBeVisible();
+
+  // ── 4. Accept — the existing competitor is updated, not duplicated ────────
+  await page.getByRole('button', { name: /Apply 1 change & import/i }).click();
+  await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
+  await expect(page.getByText(/0 competitor.* added/i)).toBeVisible();
+  await expect(page.getByText(/1 updated/i)).toBeVisible();
+  await expect(page.getByText(/1 unchanged/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await expect(page.getByRole('cell', { name: 'IRL150', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'IRL100', exact: true })).not.toBeVisible();
+  await expect(page.getByRole('row', { name: /IRL150/ })).toContainText('White Mischief');
+
+  // ── 5. Reject path: unticking imports the row as a new competitor ─────────
+  const renumberedAgain = [
+    'Sail,Boat,Helm,Club',
+    'IRL175,White Mischief,J. Bloggs,HYC',
+    'IRL200,Sea Biscuit,A. Nother,RCYC',
+  ].join('\n');
+  await uploadCsv(page, renumberedAgain);
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText('IRL150 → IRL175')).toBeVisible();
+  await page.getByRole('checkbox').uncheck();
+  await page.getByRole('button', { name: /Import as new competitors/i }).click();
+  await expect(page.getByText(/1 competitor.* added/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Both the old and the new number exist now — two separate boats.
+  await expect(page.getByRole('cell', { name: 'IRL150', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'IRL175', exact: true })).toBeVisible();
+});
+
 test('CSV import maps two columns to distinct subdivision axes', async ({ page }) => {
   // ── 1. Create a series (no subdivision axes configured yet) ───────────────
   await createSeriesQuick(page, { name: 'Two-Axis Import' });
