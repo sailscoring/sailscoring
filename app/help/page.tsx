@@ -1159,11 +1159,19 @@ export default async function HelpPage() {
             prize list into named awards allocated live from the series standings. A prize is a
             name (“Gold Fleet 1st, 2nd, 3rd”), the number of places it covers, and{' '}
             <strong className="text-foreground">conditions</strong> on who is eligible — a
-            subdivision value (a Division or age category recorded on the competitors), a fleet, or
-            a maximum series rank for “Overall” podiums. The top-ranked eligible competitors are
-            the recipients, updating as results come in. Press{' '}
+            subdivision value (a Division or age category recorded on the competitors), a fleet, a
+            maximum series rank for “Overall” podiums, helm gender (“Lady 1st, 2nd, 3rd”),
+            nationality (“first IRL boat”), or club. The condition picker offers the fields your
+            competitors actually carry values for. The top-ranked eligible competitors are the
+            recipients, updating as results come in. Press{' '}
             <strong className="text-foreground">a</strong> to add a prize; drag to reorder the
             prize-giving sheet.
+          </p>
+          <p>
+            Importing a Sailwave file that defines prizes brings them in automatically — fleet,
+            rank, Division/category, and helm-gender conditions map onto the fields above. A prize
+            the model can’t express is skipped, and the import wizard lists it with the reason so
+            you can recreate it here.
           </p>
           <p>
             The tab warns when something needs attention — a condition on a field no competitor
