@@ -16,7 +16,7 @@ import {
 } from '@/hooks/use-competitors';
 import { useFinishesBySeries } from '@/hooks/use-finishes';
 import { queryKeys } from '@/hooks/query-keys';
-import { finishRepo } from '@/lib/api-repository';
+import { finishRepo, raceRatingOverrideRepo } from '@/lib/api-repository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -53,7 +53,7 @@ import {
   type CompetitorFormData,
 } from '@/components/competitor-form';
 import { UpdateHandicaps, type UpdateHandicapsHandle } from '@/components/update-handicaps';
-import type { Competitor, Fleet, CompetitorFieldKey, PrimaryPersonLabel } from '@/lib/types';
+import type { Competitor, Fleet, CompetitorFieldKey, Finish, PrimaryPersonLabel, RaceRatingOverride } from '@/lib/types';
 import {
   missingRatings,
   formatMissingRatings,
@@ -75,6 +75,9 @@ import {
 import {
   duplicateDeletionIds,
   findDuplicateGroups,
+  findPossibleDuplicateGroups,
+  planDuplicateMerge,
+  type PossibleDuplicateGroup,
 } from '@/lib/competitor-duplicates';
 import { competitorMatchesFilter } from '@/lib/competitor-filter';
 import { log } from '@/lib/debug';
@@ -142,6 +145,14 @@ export default function CompetitorsPage({
   const [filter, setFilter] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
+  // Possible-duplicates review (same boat under two sail numbers). Finishes
+  // and rating overrides are captured at scan time to plan each merge.
+  const [possibleDuplicates, setPossibleDuplicates] = useState<{
+    groups: PossibleDuplicateGroup[];
+    finishes: Finish[];
+    overrides: RaceRatingOverride[];
+  } | null>(null);
+  const [merging, setMerging] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   // Result line for the bulk actions (duplicate scan, field set).
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -183,10 +194,12 @@ export default function CompetitorsPage({
     competitorIdsWithFinishes.has(c.id),
   ).length;
 
-  // Groups exact duplicates (same sail number + fleet set) and pre-selects
-  // everything except each group's keeper for review. Finishes feed the
-  // keeper heuristic, so fetch them here rather than waiting on the
-  // selection-gated query above.
+  // Two tiers: exact duplicates (same sail number + fleet set) pre-select
+  // everything except each group's keeper for the bulk-delete flow;
+  // possible duplicates (same boat/person under two sail numbers) open a
+  // review dialog with a per-group merge. Finishes feed the keeper
+  // heuristic and the merge plans, so fetch them here rather than waiting
+  // on the selection-gated query above.
   async function handleFindDuplicates() {
     setStatusMessage(null);
     const seriesFinishes = await queryClient.fetchQuery({
@@ -200,14 +213,61 @@ export default function CompetitorsPage({
     }
     const groups = findDuplicateGroups(competitors ?? [], counts);
     const ids = duplicateDeletionIds(groups);
-    if (ids.length === 0) {
+    const possible = findPossibleDuplicateGroups(competitors ?? [], counts);
+    if (ids.length === 0 && possible.length === 0) {
       setStatusMessage('No duplicates found.');
       return;
     }
-    setSelectedIds((prev) => new Set([...prev, ...ids]));
-    setStatusMessage(
-      `${groups.length} duplicate group${groups.length === 1 ? '' : 's'} found — the extra copies are selected. Review, then delete.`,
-    );
+    if (ids.length > 0) {
+      setSelectedIds((prev) => new Set([...prev, ...ids]));
+      setStatusMessage(
+        `${groups.length} duplicate group${groups.length === 1 ? '' : 's'} found — the extra copies are selected. Review, then delete.`,
+      );
+    }
+    if (possible.length > 0) {
+      const overrides = await raceRatingOverrideRepo.listBySeries(seriesId);
+      setPossibleDuplicates({ groups: possible, finishes: seriesFinishes, overrides });
+    }
+  }
+
+  /** Merge one possible-duplicate group: repoint the other rows' finishes
+   *  and rating overrides at the keeper (before their deletes cascade),
+   *  save the merged survivor, then delete the leftovers. */
+  async function handleMergeGroup(group: PossibleDuplicateGroup) {
+    if (!possibleDuplicates || merging) return;
+    const plan = planDuplicateMerge(group, possibleDuplicates.finishes, possibleDuplicates.overrides);
+    if (!plan.ok) return;
+    setMerging(true);
+    try {
+      const finishById = new Map(possibleDuplicates.finishes.map((f) => [f.id, f]));
+      const reassignedFinishes = plan.reassignFinishIds
+        .map((id) => finishById.get(id))
+        .filter((f): f is Finish => !!f)
+        .map((f) => ({ ...f, competitorId: plan.survivor.id }));
+      if (reassignedFinishes.length > 0) await finishRepo.saveMany(reassignedFinishes);
+      const overrideById = new Map(possibleDuplicates.overrides.map((o) => [o.id, o]));
+      const reassignedOverrides = plan.reassignOverrideIds
+        .map((id) => overrideById.get(id))
+        .filter((o): o is RaceRatingOverride => !!o)
+        .map((o) => ({ ...o, competitorId: plan.survivor.id }));
+      if (reassignedOverrides.length > 0) await raceRatingOverrideRepo.saveMany(reassignedOverrides);
+      await saveCompetitor.mutateAsync(plan.survivor);
+      await deleteCompetitors.mutateAsync({ ids: plan.deleteIds, seriesId });
+      queryClient.invalidateQueries({ queryKey: queryKeys.finishes.all });
+      // Merged rows can't stay in the possible list (or the selection).
+      const goneIds = new Set(group.competitors.map((c) => c.id));
+      setSelectedIds((prev) => new Set([...prev].filter((id) => !goneIds.has(id))));
+      setPossibleDuplicates((prev) => {
+        if (!prev) return prev;
+        const remaining = prev.groups.filter((g) => g !== group);
+        return remaining.length > 0 ? { ...prev, groups: remaining } : null;
+      });
+      setStatusMessage(
+        `Merged ${group.competitors.length} entries into ${plan.survivor.sailNumber}.`,
+      );
+    } finally {
+      setMerging(false);
+    }
   }
 
   function toggleSelected(id: string) {
@@ -651,6 +711,73 @@ export default function CompetitorsPage({
       )}
 
       {/* Bulk delete confirm */}
+      {/* Possible-duplicates review: one boat under two sail numbers, merge per group */}
+      <Dialog open={possibleDuplicates !== null} onOpenChange={(open) => { if (!open) setPossibleDuplicates(null); }}>
+        <DialogContent className="w-[90vw] max-w-2xl sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Possible duplicates</DialogTitle>
+            <DialogDescription>
+              These entries share a fleet and a boat or person name but carry
+              different sail numbers — usually one boat whose number changed
+              between imports. Merging keeps a single entry with all the
+              recorded results and the newest details, including the newest
+              sail number.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[55vh] overflow-y-auto space-y-3">
+            {possibleDuplicates?.groups.map((group) => {
+              const plan = planDuplicateMerge(group, possibleDuplicates.finishes, possibleDuplicates.overrides);
+              return (
+                <div key={group.keeperId} className="rounded-md border p-3 space-y-2">
+                  {group.competitors.map((c) => {
+                    const resultCount = possibleDuplicates.finishes.filter(
+                      (f) => f.competitorId === c.id,
+                    ).length;
+                    return (
+                      <div key={c.id} className="flex items-center gap-3 text-sm">
+                        <span className="font-mono whitespace-nowrap">{c.sailNumber}</span>
+                        <span className="truncate min-w-0">
+                          {[c.boatName, c.name].filter(Boolean).join(' — ')}
+                        </span>
+                        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                          {resultCount} result{resultCount === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-xs text-muted-foreground">
+                      matched on {group.matchedOn.join(' and ')}
+                    </span>
+                    {plan.ok ? (
+                      <Button
+                        size="sm"
+                        className="ml-auto"
+                        disabled={merging}
+                        onClick={() => void handleMergeGroup(group)}
+                      >
+                        Merge into {plan.survivor.sailNumber}
+                      </Button>
+                    ) : (
+                      <span className="ml-auto flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-500">
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        These entries both have a finish in the same race —
+                        resolve that by hand before merging.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPossibleDuplicates(null)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={confirmingBulkDelete} onOpenChange={(open) => { if (!open) setConfirmingBulkDelete(false); }}>
         <DialogContent>
           <DialogHeader>

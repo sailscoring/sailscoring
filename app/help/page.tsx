@@ -318,6 +318,16 @@ export default async function HelpPage() {
           delete. It never deletes anything itself — the same sail number in two different fleets
           is left alone, since class-scoped numbering can make those genuinely different boats.
         </p>
+        <p>
+          It also looks for <strong className="text-foreground">possible duplicates</strong>: the
+          same boat or person in the same fleet under two different sail numbers, which is what a
+          sail-number change between CSV imports leaves behind. Those open in a review dialog
+          with a <strong className="text-foreground">Merge</strong> button per group. Merging
+          keeps a single entry holding all the recorded results and the newest details — including
+          the newest sail number. When two of the entries both hold a finish in the same race the
+          group is flagged instead of merged, since both results can&apos;t stand; fix the finish
+          sheet, then merge.
+        </p>
       </Section>
 
       <Section id="fleets" title="Fleets">
