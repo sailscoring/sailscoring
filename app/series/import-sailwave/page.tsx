@@ -324,6 +324,9 @@ function Wizard({
                 {preview.detectedSubdivisionLabels.length > 1 ? 'Subdivisions' : 'Subdivision'}: {preview.detectedSubdivisionLabels.join(', ')}
               </Badge>
             )}
+            {preview.hasHelmGender && (
+              <Badge variant="outline">Helm gender</Badge>
+            )}
           </div>
           {preview.scoringWarnings.length > 0 && (
             <div

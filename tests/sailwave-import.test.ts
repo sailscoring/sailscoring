@@ -1121,3 +1121,43 @@ describe('inferBareNameSystem', () => {
     expect(inferBareNameSystem([1156, 1.35])).toBe('nhc');
   });
 });
+
+describe('helm gender import (comphelmsex)', () => {
+  const raw = loadFile(`${FIXTURES}/2026 ILCA Leinsters results.blw`);
+  const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+
+  it('carries every Leinsters competitor gender: 14 F, 59 M', () => {
+    const counts = { F: 0, M: 0, '': 0 };
+    for (const c of file.competitors) counts[c.gender] += 1;
+    expect(counts).toEqual({ F: 14, M: 59, '': 0 });
+  });
+
+  it('enables the gender competitor field when populated', () => {
+    expect(file.series.enabledCompetitorFields).toContain('gender');
+  });
+
+  it('inspectSailwave reports helm gender for the wizard', () => {
+    expect(inspectSailwave(raw).hasHelmGender).toBe(true);
+    expect(inspectSailwave(loadFile(`${HYC}/2026 Tues Series 1.blw`)).hasHelmGender).toBe(false);
+  });
+
+  it('normalises mixed and unrecognised values, dropping the latter to ""', () => {
+    const raw = parseSailwaveBlw(blw([
+      ['sercompcount', '3', '', ''],
+      ['compsailno', '1', '1', ''],
+      ['comphelmname', 'Alice', '1', ''],
+      ['comphelmsex', 'female', '1', ''],
+      ['compsailno', '2', '2', ''],
+      ['comphelmname', 'Bob', '2', ''],
+      ['comphelmsex', 'M', '2', ''],
+      ['compsailno', '3', '3', ''],
+      ['comphelmname', 'Chris', '3', ''],
+      ['comphelmsex', 'Prefer not to say', '3', ''],
+    ]));
+    const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+    const byName = new Map(file.competitors.map((c) => [c.name, c.gender]));
+    expect(byName.get('Alice')).toBe('F');
+    expect(byName.get('Bob')).toBe('M');
+    expect(byName.get('Chris')).toBe('');
+  });
+});

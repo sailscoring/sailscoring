@@ -57,6 +57,9 @@ export interface SailwaveCompetitorRaw {
   /** Helm age band (e.g. "GGM"/"GM"/"M"). Scorers frequently repurpose this as
    *  a prize category and retitle the column (e.g. "Category"). */
   comphelmagegroup?: string;
+  /** Helm gender, "Female"/"Male" in the wild. Feeds `Competitor.gender` —
+   *  the field gendered prizes ("Lady 1st, 2nd, 3rd") filter on. */
+  comphelmsex?: string;
   comprating?: string;
   compnewrating?: string;
   compalias?: string;
@@ -416,6 +419,9 @@ export interface SailwavePreview {
    *  per-source default), in order. Empty when the file carries no subdivision
    *  data. Shown in the wizard as the columns that will be imported. */
   detectedSubdivisionLabels: string[];
+  /** True when at least one competitor carries a recognisable `comphelmsex`
+   *  value — the wizard notes that helm gender will be imported. */
+  hasHelmGender: boolean;
   /** Warnings for scoring-code configuration our engine can't faithfully
    *  reproduce (finishers base, mixed A5.2/A5.3, per-fleet overrides, …).
    *  Empty when the config is fully representable. The import still proceeds
@@ -473,6 +479,9 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
       (r) => (r.rrestyp ?? SAILWAVE_RRESTYP_NO_RESULT) !== SAILWAVE_RRESTYP_NO_RESULT,
     ),
     detectedSubdivisionLabels: subdivisionAxisSources.map((a) => a.label),
+    hasHelmGender: Object.values(comps).some(
+      (c) => c.compexclude !== '1' && genderFromHelmSex(c.comphelmsex) !== '',
+    ),
     scoringWarnings: scoring.warnings,
   };
 }
@@ -1044,7 +1053,10 @@ interface CompetitorBuild {
   club: string;
   nationality?: string;
   subdivisions?: Record<string, string>;
-  gender: '';
+  gender: 'M' | 'F' | '';
+  // Sailwave has no numeric helm-age column — ages live as categorisations
+  // (comphelmagegroup, imported as a subdivision axis), so there is nothing
+  // to feed `Competitor.age` from.
   age: null;
   ircTcc?: number;
   pyNumber?: number;
@@ -1369,7 +1381,7 @@ function buildCompetitors(
       sailNumber: (v.compsailno ?? '').trim(),
       name: (v.comphelmname ?? '').trim(),
       club: (v.compclub ?? '').trim(),
-      gender: '',
+      gender: genderFromHelmSex(v.comphelmsex),
       age: null,
     };
     if (v.compboat?.trim()) built.boatName = v.compboat.trim();
@@ -1399,6 +1411,16 @@ function buildCompetitors(
   }
 
   return { competitors: out, compIdByHandle };
+}
+
+/** Normalise Sailwave's `comphelmsex` to our typed gender. Sailwave stores
+ *  free text; "Female"/"Male" (and bare "F"/"M") are the forms seen in real
+ *  files — anything else is deliberately dropped to '' rather than guessed. */
+function genderFromHelmSex(raw: string | undefined): 'M' | 'F' | '' {
+  const v = (raw ?? '').trim().toUpperCase();
+  if (v === 'F' || v === 'FEMALE') return 'F';
+  if (v === 'M' || v === 'MALE') return 'M';
+  return '';
 }
 
 function buildRaceStarts(
@@ -1594,6 +1616,7 @@ interface CompetitorDataFlags {
   hasCrewName: boolean;
   hasClub: boolean;
   hasNationality: boolean;
+  hasGender: boolean;
   hasSubdivision: boolean;
 }
 
@@ -1607,6 +1630,7 @@ function dataFlagsFor(competitors: ReadonlyArray<CompetitorBuild>): CompetitorDa
     hasCrewName: competitors.some((c) => !!c.crewName),
     hasClub: competitors.some((c) => !!c.club),
     hasNationality: competitors.some((c) => !!c.nationality),
+    hasGender: competitors.some((c) => !!c.gender),
     hasSubdivision: competitors.some((c) => c.subdivisions && Object.keys(c.subdivisions).length > 0),
   };
 }
@@ -1626,6 +1650,7 @@ function buildEnabledFields(
   if (flags.hasCrewName) fields.push('crewName');
   if (flags.hasClub) fields.push('club');
   if (flags.hasNationality) fields.push('nationality');
+  if (flags.hasGender) fields.push('gender');
   if (flags.hasSubdivision) fields.push('subdivision');
   // Fall back to project defaults only if Sailwave gave us nothing — keeps
   // newly-imported series consistent with manually-created ones.
