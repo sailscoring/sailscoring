@@ -168,6 +168,13 @@ export default async function HelpPage() {
           <strong className="text-foreground">Sail Scoring</strong> logo — click the workspace
           name and choose <strong className="text-foreground">Workspace settings</strong>.
         </p>
+        <p>
+          Workspace settings also has a <strong className="text-foreground">Features</strong>{' '}
+          card (owners and admins only). Optional features are switched on and off there for
+          everyone in the workspace — turn off anything your club doesn&apos;t use to keep the
+          interface uncluttered. Switching a feature off only hides its controls; any data you
+          already entered is kept, and you can switch it back on at any time.
+        </p>
       </Section>
 
       <Section id="creating-a-series" title="Creating a series">

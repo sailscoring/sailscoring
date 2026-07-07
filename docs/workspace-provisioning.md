@@ -122,6 +122,27 @@ wins, even over a feature inherited from a club (Model B).
 `lib/features.ts` is the source of truth for the key list and which are
 default-on; `pnpm provision-org --help` prints the current keys too.
 
+**Self-service.** Owners and admins now turn most features on and off
+themselves from **Workspace settings → Features** (`/workspace`), so routine
+"hide the Prizes tab for this club" requests no longer need an operator. The
+CLI remains for enabling a feature on someone's behalf, for the audience
+query, and for the **operator-managed** keys — those with `selfService: false`
+in `lib/features.ts`, which never appear on the self-service card and can only
+be flipped here. The operator-managed set is deliberately small:
+
+| key | why operator-managed |
+|-----|----------------------|
+| `ftp-upload` | HYC-only, slated for removal with scupper |
+| `competitor-identity` | cross-series identity adoption stays centrally controlled |
+| `competitor-reconcile` | counterpart of the above; reconcile UX still bedding in |
+
+Every other key is self-service — including opt-in ones like `vprs` and
+`prizes`: a workspace it's been enabled for can hide it again itself. Because
+the self-service card lists effective features, a workspace can also switch off
+a default-on feature (records the opt-out) directly. `selfService` is
+orthogonal to `defaultOn` and to resolution — the CLI can still flip any key,
+and `computeEffectiveFeatures` honours the metadata regardless.
+
 **Turn a feature on / off for a workspace:**
 
 ```bash
