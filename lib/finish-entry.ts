@@ -10,6 +10,7 @@ export function makeFinish(
     raceId,
     competitorId: overrides.competitorId ?? null,
     ...(overrides.unknownSailNumber != null ? { unknownSailNumber: overrides.unknownSailNumber } : {}),
+    ...(overrides.matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
     sortOrder: overrides.sortOrder ?? null,
     tiedWithPrevious: overrides.tiedWithPrevious ?? false,
     ...(overrides.finishTime != null ? { finishTime: overrides.finishTime } : {}),
@@ -354,9 +355,11 @@ export function partitionNonFinishers(views: NonFinisherView[]): {
 /** What a plain Enter in the sail-number box should do with the typed text. */
 export type SailEntryResolution =
   | { kind: 'empty' }
-  /** Add this competitor — an exact sail match, or the sole unfinished boat
-   *  whose sail number the input is a prefix of. */
-  | { kind: 'commit'; competitor: Competitor }
+  /** Add this competitor — an exact sail/bow match, or the sole unfinished boat
+   *  whose sail/bow number the input is a prefix of. `matchedOn` records which
+   *  identifier the typed text resolved against, so the UI can flag a bow match
+   *  (the committed row shows the registered sail number, not what was typed). */
+  | { kind: 'commit'; competitor: Competitor; matchedOn: 'sail' | 'bow' }
   /** Exact sail match, but every boat carrying it is already in the order. */
   | { kind: 'already-finished' }
   /** Exact sail match shared by more than one unfinished boat. */
@@ -373,6 +376,13 @@ export type SailEntryResolution =
  * a unique prefix commits the one boat it can only mean; anything ambiguous
  * or unmatched hands off to the dropdown / record-as-unknown path. Pure and
  * order-preserving (mirrors the prefix filter behind the suggestions list).
+ *
+ * Bow-number matching layers strictly *underneath* sail matching: the sail
+ * logic runs unchanged, and only when it finds nothing (no exact sail, no sail
+ * prefix) do we fall through to matching on `bowNumber` — exact first, then a
+ * unique unfinished bow prefix. So a typed value that is one boat's sail number
+ * always resolves to that boat, even if it happens to be another boat's bow
+ * number; the bow path only ever rescues an otherwise-unknown entry (#234).
  */
 export function resolveSailEntry(
   rawInput: string,
@@ -387,13 +397,30 @@ export function resolveSailEntry(
     const unfinished = exact.filter((c) => !finishedIds.has(c.id));
     if (unfinished.length === 0) return { kind: 'already-finished' };
     if (unfinished.length > 1) return { kind: 'duplicate-sail' };
-    return { kind: 'commit', competitor: unfinished[0] };
+    return { kind: 'commit', competitor: unfinished[0], matchedOn: 'sail' };
   }
 
   const prefix = competitors.filter(
     (c) => !finishedIds.has(c.id) && c.sailNumber.toUpperCase().startsWith(sail),
   );
-  if (prefix.length === 1) return { kind: 'commit', competitor: prefix[0] };
+  if (prefix.length === 1) return { kind: 'commit', competitor: prefix[0], matchedOn: 'sail' };
   if (prefix.length > 1) return { kind: 'ambiguous-prefix' };
+
+  // No sail match at all — fall through to bow-number matching. Exact bow
+  // match wins over a bow prefix, mirroring the sail rules above. A bow number
+  // shared by more than one unfinished boat is ambiguous, same as a duplicate
+  // sail: defer to the dropdown rather than guessing.
+  const bowExact = competitors.filter(
+    (c) => !finishedIds.has(c.id) && (c.bowNumber ?? '').toUpperCase() === sail,
+  );
+  if (bowExact.length === 1) return { kind: 'commit', competitor: bowExact[0], matchedOn: 'bow' };
+  if (bowExact.length > 1) return { kind: 'ambiguous-prefix' };
+
+  const bowPrefix = competitors.filter(
+    (c) => !finishedIds.has(c.id) && (c.bowNumber ?? '') !== '' && (c.bowNumber ?? '').toUpperCase().startsWith(sail),
+  );
+  if (bowPrefix.length === 1) return { kind: 'commit', competitor: bowPrefix[0], matchedOn: 'bow' };
+  if (bowPrefix.length > 1) return { kind: 'ambiguous-prefix' };
+
   return { kind: 'unknown' };
 }

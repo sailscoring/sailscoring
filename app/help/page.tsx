@@ -261,6 +261,14 @@ export default async function HelpPage() {
           are then shown as <em>Helm / Crew</em> in exported results.
         </p>
         <p>
+          Enable <em>Bow number</em> when boats carry a bow number that can
+          differ from the sail number they’re registered under — a competitor
+          sailing a borrowed hull, say, whose bow number the finish recorders
+          write down instead of the registered sail number. It’s an optional
+          free-text field; when set, finish entry will also match on it (see{' '}
+          <em>Entering results</em> below).
+        </p>
+        <p>
           Enable <em>Nationality</em> to record each entry’s 3-letter
           country code (RRS Appendix G / IOC, e.g. <em>IRL</em>, <em>GBR</em>,
           <em> FRA</em>). The input suggests codes as you type; common
@@ -825,6 +833,20 @@ export default async function HelpPage() {
           row is kept in crossing order; click <strong className="text-foreground">Resolve</strong>{' '}
           next to the entry to link it to a registered competitor once you know who it was.
           Unresolved unknown finishes are excluded from standings until resolved.
+        </p>
+        <p>
+          If you’ve enabled the <em>Bow number</em> competitor field, finish
+          entry matches on the bow number as well as the sail number. This helps
+          when a boat’s bow number differs from its registered sail number and
+          the recorders wrote the bow number on the sheet. Sail numbers take
+          precedence: a typed value that is one boat’s sail number always
+          resolves to that boat, and only falls through to bow-number matching
+          when no sail number matches. Because the row then shows the boat’s
+          registered <em>sail</em> number — not the bow number you typed — a{' '}
+          <strong className="text-foreground">matched on bow</strong> marker
+          appears in the suggestion list, and the committed row is tagged{' '}
+          <strong className="text-foreground">entered by bow</strong> so it’s
+          clear why the displayed sail number differs from what was keyed.
         </p>
         <p>
           Rows for fleets without a start time (scratch scoring) show a{' '}

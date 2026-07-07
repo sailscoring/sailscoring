@@ -348,7 +348,7 @@ export function FinishTab(props: FinishTabProps) {
                     } else {
                       const idx = highlightedIndex >= 0 && highlightedIndex < suggestions.length
                         ? highlightedIndex : 0;
-                      commitCompetitor(suggestions[idx].competitor);
+                      commitCompetitor(suggestions[idx].competitor, suggestions[idx].matchedOn);
                     }
                   } else if (e.key === 'Enter') {
                     e.preventDefault();
@@ -382,7 +382,7 @@ export function FinishTab(props: FinishTabProps) {
               role="listbox"
               className="absolute z-10 top-full mt-1 w-full rounded-md border bg-popover shadow-md"
             >
-              {suggestions.map(({ competitor }, i) => (
+              {suggestions.map(({ competitor, matchedOn }, i) => (
                 <li
                   key={competitor.id}
                   role="option"
@@ -393,10 +393,15 @@ export function FinishTab(props: FinishTabProps) {
                   )}
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    commitCompetitor(competitor);
+                    commitCompetitor(competitor, matchedOn);
                   }}
                 >
                   <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
+                  {matchedOn === 'bow' && (
+                    <Badge variant="outline" className="shrink-0">
+                      matched on bow {competitor.bowNumber}
+                    </Badge>
+                  )}
                   {showFleetBadge && (
                     <FleetBadges fleetIds={competitor.fleetIds} fleetById={fleetById} variant="secondary" />
                   )}
@@ -544,6 +549,15 @@ export function FinishTab(props: FinishTabProps) {
                   <DragHandle {...handleProps} data-testid={`drag-handle-${competitor.sailNumber}`} />
                 )}
                 <span className="font-mono font-medium">{competitor.sailNumber}</span>
+                {finishByCompetitorId.get(entry.competitorId)?.matchedOnBowNumber && (
+                  <Badge
+                    variant="outline"
+                    className="shrink-0"
+                    data-testid={`bow-match-${competitor.sailNumber}`}
+                  >
+                    entered by bow {competitor.bowNumber}
+                  </Badge>
+                )}
                 {showFleetBadge && (
                   <FleetBadges
                     fleetIds={competitor.fleetIds}

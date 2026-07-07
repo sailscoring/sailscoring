@@ -56,8 +56,10 @@ export function useFinishInput(args: UseFinishInputArgs) {
   const [inputError, setInputError] = useState('');
   const [pendingUnknownSail, setPendingUnknownSail] = useState<string | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  // Pending time entry: competitor confirmed, waiting for finish time
-  const [pendingTimeEntry, setPendingTimeEntry] = useState<{ competitor: Competitor } | null>(null);
+  // Pending time entry: competitor confirmed, waiting for finish time.
+  // `matchedOn` is carried through so a bow-number match is still recorded on
+  // the finish after the time step, not just on the immediate-commit path.
+  const [pendingTimeEntry, setPendingTimeEntry] = useState<{ competitor: Competitor; matchedOn: 'sail' | 'bow' } | null>(null);
   const [pendingTimeValue, setPendingTimeValue] = useState('');
   const [pendingTimeError, setPendingTimeError] = useState('');
 
@@ -119,16 +121,28 @@ export function useFinishInput(args: UseFinishInputArgs) {
     return c.fleetIds.some((id) => fleetIdsWithStartTimes.has(id));
   };
 
-  const suggestions = sailInput.trim()
-    ? nonFinishers.filter(({ competitor }) =>
-        competitor.sailNumber.toUpperCase().startsWith(sailInput.trim().toUpperCase()),
-      )
+  // Suggestions match on sail number first, then bow number (#234). Each row
+  // carries which identifier it matched on, so a bow match can be flagged —
+  // the row displays the registered sail number, not what the scorer typed.
+  const suggestionQuery = sailInput.trim().toUpperCase();
+  type MatchedSuggestion = NonFinisherView & { matchedOn: 'sail' | 'bow' };
+  const suggestions: MatchedSuggestion[] = suggestionQuery
+    ? nonFinishers.flatMap((view): MatchedSuggestion[] => {
+        if (view.competitor.sailNumber.toUpperCase().startsWith(suggestionQuery)) {
+          return [{ ...view, matchedOn: 'sail' }];
+        }
+        const bow = (view.competitor.bowNumber ?? '').toUpperCase();
+        if (bow !== '' && bow.startsWith(suggestionQuery)) {
+          return [{ ...view, matchedOn: 'bow' }];
+        }
+        return [];
+      })
     : [];
 
   // Core "add this competitor to the finishing order" — optionally with a pre-known finish time.
   // Timed entries are auto-slotted immediately before the next later-timed row, preserving
   // the relative order of scratch rows (time-order invariant, ADR-007).
-  function addKnownFinisher(competitor: Competitor, finishTime?: string) {
+  function addKnownFinisher(competitor: Competitor, finishTime?: string, matchedOn: 'sail' | 'bow' = 'sail') {
     let insertAt = finishingOrder.length;
     if (finishTime) {
       for (let i = 0; i < finishingOrder.length; i++) {
@@ -140,6 +154,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
       }
     }
 
+    const matchedOnBowNumber = matchedOn === 'bow';
     const existing = finishByCompetitorId.get(competitor.id);
     const finishId = existing?.id ?? crypto.randomUUID();
     const newRow: Finish = existing
@@ -147,6 +162,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
           ...existing,
           sortOrder: insertAt + 1,
           tiedWithPrevious: false,
+          matchedOnBowNumber,
           ...(finishTime ? { finishTime } : {}),
         }
       : makeFinish(raceId, {
@@ -154,6 +170,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
           competitorId: competitor.id,
           sortOrder: insertAt + 1,
           startPresent: true,
+          ...(matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
           ...(finishTime ? { finishTime } : {}),
         });
 
@@ -177,12 +194,12 @@ export function useFinishInput(args: UseFinishInputArgs) {
     setPendingUnknownSail(null);
     setHighlightedIndex(-1);
     inputRef.current?.focus();
-    log('result-entry', 'added finisher', { sail: competitor.sailNumber, competitorId: competitor.id });
+    log('result-entry', 'added finisher', { sail: competitor.sailNumber, competitorId: competitor.id, matchedOn });
   }
 
   // Route a resolved competitor through time-entry if their fleet has a start time.
   // In a handicap series, block competitors whose fleet has no start configured.
-  function commitCompetitor(competitor: Competitor) {
+  function commitCompetitor(competitor: Competitor, matchedOn: 'sail' | 'bow' = 'sail') {
     if (isHandicapSeries && !hasStartForRace(competitor.id)) {
       const fleetNames = competitor.fleetIds
         .map((id) => fleetById.get(id)?.name)
@@ -198,11 +215,11 @@ export function useFinishInput(args: UseFinishInputArgs) {
       setSailInput('');
       setInputError('');
       setHighlightedIndex(-1);
-      setPendingTimeEntry({ competitor });
+      setPendingTimeEntry({ competitor, matchedOn });
       setPendingTimeValue('');
       setPendingTimeError('');
     } else {
-      addKnownFinisher(competitor);
+      addKnownFinisher(competitor, undefined, matchedOn);
     }
   }
 
@@ -217,7 +234,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
       setPendingTimeError('Enter a valid time, e.g. 14:32:10 or 143210.');
       return;
     }
-    addKnownFinisher(pendingTimeEntry.competitor, time);
+    addKnownFinisher(pendingTimeEntry.competitor, time, pendingTimeEntry.matchedOn);
     setPendingTimeEntry(null);
     setPendingTimeValue('');
     setPendingTimeError('');
@@ -267,7 +284,8 @@ export function useFinishInput(args: UseFinishInputArgs) {
     // trailing "record as unknown" row (index === suggestions.length).
     if (highlightedIndex >= 0) {
       if (highlightedIndex < suggestions.length) {
-        commitCompetitor(suggestions[highlightedIndex].competitor);
+        const s = suggestions[highlightedIndex];
+        commitCompetitor(s.competitor, s.matchedOn);
       } else {
         recordCurrentAsUnknown();
       }
@@ -279,7 +297,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
       case 'empty':
         return;
       case 'commit':
-        commitCompetitor(resolution.competitor);
+        commitCompetitor(resolution.competitor, resolution.matchedOn);
         return;
       case 'already-finished':
         setInputError(`${trimmedSail} is already in the finishing order.`);
