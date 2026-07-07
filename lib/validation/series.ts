@@ -80,6 +80,9 @@ export const prizeClauseSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('fleet'), fleetId: uuidSchema }),
   z.object({ kind: z.literal('axis'), axisId: z.string(), value: z.string() }),
   z.object({ kind: z.literal('rank'), max: z.number().int().positive() }),
+  z.object({ kind: z.literal('gender'), value: z.enum(['M', 'F']) }),
+  z.object({ kind: z.literal('nationality'), value: z.string() }),
+  z.object({ kind: z.literal('club'), value: z.string() }),
 ]);
 
 /** A prize (#240): bounds are structural only — allocation-level conditions

@@ -54,9 +54,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-/** The clause-field picker's value: 'fleet', 'rank', or an axis id prefixed
- *  so it can't collide with the two fixed kinds. */
-type ClauseField = 'fleet' | 'rank' | `axis:${string}`;
+/** The clause-field picker's value: a fixed clause kind, or an axis id
+ *  prefixed so it can't collide with the fixed kinds. */
+type ClauseField = 'fleet' | 'rank' | 'gender' | 'nationality' | 'club' | `axis:${string}`;
 
 function clauseField(c: PrizeClause): ClauseField {
   return c.kind === 'axis' ? `axis:${c.axisId}` : c.kind;
@@ -320,7 +320,12 @@ function PrizeEditorDialog({
   prize: Prize | null;
   fleets: { id: string; name: string }[];
   axes: { id: string; label: string }[];
-  competitors: { subdivisions?: Record<string, string> }[];
+  competitors: {
+    subdivisions?: Record<string, string>;
+    gender?: string;
+    nationality?: string;
+    club?: string;
+  }[];
   onClose: () => void;
   onSave: (prize: Prize) => Promise<void>;
 }) {
@@ -341,9 +346,22 @@ function PrizeEditorDialog({
     ]),
   );
 
+  // Intrinsic competitor fields: the picker offers only fields the series has
+  // data for (a condition on an empty field can never match — the allocator
+  // warns about exactly that on prizes that already carry one).
+  const distinct = (read: (c: (typeof competitors)[number]) => string | undefined): string[] =>
+    [...new Set(competitors.map((c) => read(c)?.trim()).filter((v): v is string => !!v))].sort();
+  const nationalities = distinct((c) => c.nationality);
+  const clubs = distinct((c) => c.club);
+  const hasGender = competitors.some((c) => c.gender === 'M' || c.gender === 'F');
+
   function defaultClauseFor(field: ClauseField): PrizeClause {
     if (field === 'fleet') return { kind: 'fleet', fleetId: fleets[0]?.id ?? '' };
     if (field === 'rank') return { kind: 'rank', max: 3 };
+    // "Lady 1st, 2nd, 3rd" is the common gendered prize, so female is the seed.
+    if (field === 'gender') return { kind: 'gender', value: 'F' };
+    if (field === 'nationality') return { kind: 'nationality', value: nationalities[0] ?? '' };
+    if (field === 'club') return { kind: 'club', value: clubs[0] ?? '' };
     const axisId = field.slice('axis:'.length);
     return { kind: 'axis', axisId, value: axisValues.get(axisId)?.[0] ?? '' };
   }
@@ -360,7 +378,9 @@ function PrizeEditorDialog({
       (c) =>
         (c.kind === 'fleet' && c.fleetId) ||
         (c.kind === 'axis' && c.axisId && c.value.trim()) ||
-        (c.kind === 'rank' && c.max >= 1),
+        (c.kind === 'rank' && c.max >= 1) ||
+        c.kind === 'gender' ||
+        ((c.kind === 'nationality' || c.kind === 'club') && c.value.trim()),
     );
 
   return (
@@ -423,6 +443,15 @@ function PrizeEditorDialog({
                     ))}
                     <SelectItem value="fleet">Fleet</SelectItem>
                     <SelectItem value="rank">Series rank</SelectItem>
+                    {(hasGender || clause.kind === 'gender') && (
+                      <SelectItem value="gender">Helm gender</SelectItem>
+                    )}
+                    {(nationalities.length > 0 || clause.kind === 'nationality') && (
+                      <SelectItem value="nationality">Nationality</SelectItem>
+                    )}
+                    {(clubs.length > 0 || clause.kind === 'club') && (
+                      <SelectItem value="club">Club</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
 
@@ -472,6 +501,42 @@ function PrizeEditorDialog({
                       aria-label="Maximum rank"
                       onChange={(e) => setClause(i, { kind: 'rank', max: Math.floor(Number(e.target.value)) })}
                     />
+                  </>
+                )}
+
+                {clause.kind === 'gender' && (
+                  <>
+                    <span className="text-sm text-muted-foreground">is</span>
+                    <Select
+                      value={clause.value}
+                      onValueChange={(v) => setClause(i, { kind: 'gender', value: v as 'M' | 'F' })}
+                    >
+                      <SelectTrigger className="flex-1" aria-label="Gender">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="F">Female</SelectItem>
+                        <SelectItem value="M">Male</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </>
+                )}
+
+                {(clause.kind === 'nationality' || clause.kind === 'club') && (
+                  <>
+                    <span className="text-sm text-muted-foreground">is</span>
+                    <Input
+                      className="flex-1"
+                      value={clause.value}
+                      list={`prize-${clause.kind}-values`}
+                      aria-label={clause.kind === 'nationality' ? 'Nationality' : 'Club'}
+                      onChange={(e) => setClause(i, { ...clause, value: e.target.value })}
+                    />
+                    <datalist id={`prize-${clause.kind}-values`}>
+                      {(clause.kind === 'nationality' ? nationalities : clubs).map((v) => (
+                        <option key={v} value={v} />
+                      ))}
+                    </datalist>
                   </>
                 )}
 

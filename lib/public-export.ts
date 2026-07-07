@@ -53,7 +53,10 @@ export interface ExportStartGroup {
 export type ExportPrizeClause =
   | { kind: 'fleet'; fleetName: string }
   | { kind: 'axis'; axisId: string; value: string }
-  | { kind: 'rank'; max: number };
+  | { kind: 'rank'; max: number }
+  | { kind: 'gender'; value: 'M' | 'F' }
+  | { kind: 'nationality'; value: string }
+  | { kind: 'club'; value: string };
 
 /** A prize as it appears in the public export (#240). No id — prize ids are
  *  series-local; importers mint fresh ones. */

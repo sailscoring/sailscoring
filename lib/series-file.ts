@@ -147,9 +147,15 @@ export interface SeriesFileRepos {
  *  eligibility predicate and recipient count, #240). Additive and sparse
  *  (written only when non-empty); older files load with it absent. Fleet ids
  *  inside prize clauses are remapped on import like every other fleet
- *  reference; subdivision-axis ids are stable and travel verbatim. */
-export const FORMAT_VERSION = 17;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+ *  reference; subdivision-axis ids are stable and travel verbatim.
+ *
+ *  v18 widens the prize-clause union with intrinsic competitor-field tests:
+ *  `gender` ("Lady 1st, 2nd, 3rd"), `nationality` (restricted titles) and
+ *  `club`. The bump exists so a file carrying the new kinds fails loudly in
+ *  a build that predates them instead of importing prizes that silently
+ *  award nobody. v17 files load unchanged. */
+export const FORMAT_VERSION = 18;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----

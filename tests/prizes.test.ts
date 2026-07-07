@@ -6,7 +6,7 @@
  * Prizes tab surfaces.
  */
 import { describe, it, expect } from 'vitest';
-import { allocatePrize, allocatePrizes, prizeWarningMessage } from '@/lib/prizes';
+import { allocatePrize, allocatePrizes, describePrizeClauses, prizeWarningMessage } from '@/lib/prizes';
 import type { PrizeAllocationWarning, PrizeStandingsInput } from '@/lib/prizes';
 import type { Competitor, Fleet, Prize, Standing, SubdivisionAxis } from '@/lib/types';
 
@@ -262,5 +262,86 @@ describe('allocatePrize — warnings', () => {
     for (const w of warnings) {
       expect(prizeWarningMessage(w).length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('allocatePrize — intrinsic competitor-field clauses (v18)', () => {
+  function intrinsicStandings(): PrizeStandingsInput[] {
+    const fleet = makeFleet('fl-1', 'ILCA 6');
+    const specs: Array<[string, 'M' | 'F' | '', string | undefined, string]> = [
+      ['c1', 'M', 'IRL', 'HYC'],
+      ['c2', 'F', 'GBR', 'RStGYC'],
+      ['c3', 'F', 'IRL', 'HYC'],
+      ['c4', 'M', undefined, ''],
+    ];
+    const standings = specs.map(([id, gender, nationality, club], i) => {
+      const c = makeCompetitor(id, ['fl-1']);
+      c.gender = gender;
+      if (nationality) c.nationality = nationality;
+      c.club = club;
+      return makeStanding(c, i + 1);
+    });
+    return [{ fleet, standings }];
+  }
+
+  it('gender clause: the Lady prize takes the top female helms by standing', () => {
+    const prize: Prize = {
+      id: 'p1',
+      name: 'Lady 1st, 2nd',
+      recipientCount: 2,
+      clauses: [{ kind: 'gender', value: 'F' }],
+    };
+    const a = allocatePrize(prize, intrinsicStandings(), []);
+    expect(a.recipients.map((r) => r.standing.competitor.id)).toEqual(['c2', 'c3']);
+    expect(a.warnings).toEqual([]);
+  });
+
+  it('nationality clause matches case-insensitively (restricted title)', () => {
+    const prize: Prize = {
+      id: 'p1',
+      name: 'First Irish boat',
+      recipientCount: 1,
+      clauses: [{ kind: 'nationality', value: 'irl' }],
+    };
+    const a = allocatePrize(prize, intrinsicStandings(), []);
+    expect(a.recipients.map((r) => r.standing.competitor.id)).toEqual(['c1']);
+  });
+
+  it('club clause matches trimmed-exact', () => {
+    const prize: Prize = {
+      id: 'p1',
+      name: 'First HYC boat',
+      recipientCount: 1,
+      clauses: [{ kind: 'club', value: ' HYC ' }],
+    };
+    const a = allocatePrize(prize, intrinsicStandings(), []);
+    expect(a.recipients.map((r) => r.standing.competitor.id)).toEqual(['c1']);
+  });
+
+  it('warns when the referenced intrinsic field has no data at all', () => {
+    // weekendStandings competitors carry no gender/nationality and empty clubs.
+    const prize: Prize = {
+      id: 'p1',
+      name: 'Lady 1st',
+      recipientCount: 1,
+      clauses: [{ kind: 'gender', value: 'F' }],
+    };
+    const a = allocatePrize(prize, weekendStandings(), [DIVISION_AXIS]);
+    expect(a.recipients).toEqual([]);
+    expect(a.warnings).toContainEqual({ kind: 'field-no-data', field: 'gender' });
+    expect(prizeWarningMessage({ kind: 'field-no-data', field: 'gender' })).toContain('gender');
+  });
+
+  it('describes the new clause kinds in plain words', () => {
+    const text = describePrizeClauses(
+      [
+        { kind: 'gender', value: 'F' },
+        { kind: 'nationality', value: 'irl' },
+        { kind: 'club', value: 'HYC' },
+      ],
+      [],
+      [],
+    );
+    expect(text).toBe('Helm is female · Nationality is IRL · Club is HYC');
   });
 });

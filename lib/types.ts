@@ -90,15 +90,21 @@ export interface PublishingGroup {
 
 /**
  * One conjunct of a prize's eligibility predicate: prizes AND together a small
- * set of typed clauses rather than a string DSL. `fleet` and `axis` are
- * equality tests; `rank` is the one ordering test the NoR shapes need
- * ("Overall 1st, 2nd, 3rd" = rank ≤ 3). Fleet ids are remapped on file import
- * like every other fleet reference; axis ids are stable and travel verbatim.
+ * set of typed clauses rather than a string DSL. All but `rank` are equality
+ * tests; `rank` is the one ordering test the NoR shapes need ("Overall 1st,
+ * 2nd, 3rd" = rank ≤ 3). Fleet ids are remapped on file import like every
+ * other fleet reference; axis ids are stable and travel verbatim; the
+ * remaining kinds compare intrinsic competitor fields — gender for "Lady 1st,
+ * 2nd, 3rd", nationality for restricted titles ("first IRL is national
+ * champion"), club for the local-boat variant.
  */
 export type PrizeClause =
   | { kind: 'fleet'; fleetId: string }
   | { kind: 'axis'; axisId: string; value: string }
-  | { kind: 'rank'; max: number };
+  | { kind: 'rank'; max: number }
+  | { kind: 'gender'; value: 'M' | 'F' }
+  | { kind: 'nationality'; value: string }
+  | { kind: 'club'; value: string };
 
 /**
  * A named award: the top `recipientCount` eligible competitors ranked by

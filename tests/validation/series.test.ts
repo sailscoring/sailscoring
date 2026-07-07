@@ -83,18 +83,27 @@ describe('seriesSchema', () => {
           { kind: 'axis', axisId: 'axis-div', value: 'Gold' },
           { kind: 'fleet', fleetId: crypto.randomUUID() },
           { kind: 'rank', max: 3 },
+          { kind: 'gender', value: 'F' },
+          { kind: 'nationality', value: 'IRL' },
+          { kind: 'club', value: 'HYC' },
         ],
       },
     ];
     expect(() => seriesSchema.parse({ ...VALID_SERIES, prizes })).not.toThrow();
   });
 
-  test('rejects a prize with an unknown clause kind or zero recipients', () => {
+  test('rejects a prize with an unknown clause kind, bad gender, or zero recipients', () => {
     const base = { id: 'p1', name: 'X', recipientCount: 1, clauses: [] };
     expect(() =>
       seriesSchema.parse({
         ...VALID_SERIES,
-        prizes: [{ ...base, clauses: [{ kind: 'club', value: 'HYC' }] }],
+        prizes: [{ ...base, clauses: [{ kind: 'boat-colour', value: 'red' }] }],
+      }),
+    ).toThrow();
+    expect(() =>
+      seriesSchema.parse({
+        ...VALID_SERIES,
+        prizes: [{ ...base, clauses: [{ kind: 'gender', value: 'Female' }] }],
       }),
     ).toThrow();
     expect(() =>

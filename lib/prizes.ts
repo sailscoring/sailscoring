@@ -42,6 +42,10 @@ export type PrizeAllocationWarning =
   /** A clause references an axis for which no scored competitor carries any
    *  value at all — the predicate can never match ("field has no data"). */
   | { kind: 'axis-no-data'; axisId: string; axisLabel: string }
+  /** A clause references an intrinsic competitor field (gender / nationality /
+   *  club) no scored competitor has a value for — the same "field has no
+   *  data" condition as an empty axis. */
+  | { kind: 'field-no-data'; field: 'gender' | 'nationality' | 'club' }
   /** A clause references a fleet that no longer exists. */
   | { kind: 'unknown-fleet'; fleetId: string }
   /** Fewer eligible competitors than the prize wants recipients. */
@@ -66,16 +70,34 @@ function clauseMatches(
   standing: Standing,
   fleet: Fleet,
 ): boolean {
+  const competitor = standing.competitor;
   switch (clause.kind) {
     case 'fleet':
       return fleet.id === clause.fleetId;
     case 'axis': {
-      const value = standing.competitor.subdivisions?.[clause.axisId];
+      const value = competitor.subdivisions?.[clause.axisId];
       return value != null && value.trim() === clause.value.trim();
     }
     case 'rank':
       return standing.rank <= clause.max;
+    case 'gender':
+      return competitor.gender === clause.value;
+    case 'nationality':
+      // National-letters codes are uppercase by convention; compare
+      // case-insensitively so a hand-typed "irl" still matches.
+      return (competitor.nationality ?? '').trim().toUpperCase() === clause.value.trim().toUpperCase();
+    case 'club':
+      return competitor.club.trim() === clause.value.trim();
   }
+}
+
+/** The competitor field an intrinsic clause reads, for the no-data check. */
+function intrinsicValue(
+  field: 'gender' | 'nationality' | 'club',
+  standing: Standing,
+): string {
+  const c = standing.competitor;
+  return (field === 'gender' ? c.gender : field === 'nationality' ? c.nationality ?? '' : c.club).trim();
 }
 
 /** Allocate one prize against the standings. Eligible rows keep standings
@@ -112,6 +134,15 @@ export function allocatePrize(
       }
     } else if (clause.kind === 'fleet' && !fleetIds.has(clause.fleetId)) {
       warnings.push({ kind: 'unknown-fleet', fleetId: clause.fleetId });
+    } else if (
+      clause.kind === 'gender' ||
+      clause.kind === 'nationality' ||
+      clause.kind === 'club'
+    ) {
+      const anyValue = fleetStandings.some((fs) =>
+        fs.standings.some((s) => intrinsicValue(clause.kind, s) !== ''),
+      );
+      if (!anyValue) warnings.push({ kind: 'field-no-data', field: clause.kind });
     }
   }
 
@@ -216,6 +247,12 @@ export function describePrizeClauses(
           return `${axisLabel.get(c.axisId) ?? 'A removed axis'} is ${c.value}`;
         case 'rank':
           return `Series rank ${c.max === 1 ? 'is 1' : `≤ ${c.max}`}`;
+        case 'gender':
+          return `Helm is ${c.value === 'F' ? 'female' : 'male'}`;
+        case 'nationality':
+          return `Nationality is ${c.value.toUpperCase()}`;
+        case 'club':
+          return `Club is ${c.value}`;
       }
     })
     .join(' · ');
@@ -229,6 +266,8 @@ export function prizeWarningMessage(w: PrizeAllocationWarning): string {
       return 'A condition references a subdivision axis that no longer exists on this series.';
     case 'axis-no-data':
       return `No competitor has a ${w.axisLabel} value, so this condition can never match.`;
+    case 'field-no-data':
+      return `No competitor has a ${w.field} value, so this condition can never match.`;
     case 'unknown-fleet':
       return 'A condition references a fleet that no longer exists on this series.';
     case 'short':

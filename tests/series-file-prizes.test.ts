@@ -151,7 +151,7 @@ describe('.sailscoring v17 prizes round-trip', () => {
   it('buildSeriesFile carries the prize list when non-empty', async () => {
     const { repos } = makeRecordingRepos(snapshot);
     const file = await buildSeriesFile('s1', repos);
-    expect(file.formatVersion).toBe(17);
+    expect(file.formatVersion).toBe(18);
     expect(file.series.prizes).toEqual(PRIZES);
   });
 
