@@ -9,6 +9,7 @@ import { hasPermission } from '@/lib/auth/permissions';
 import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
 import { CategoriesCard } from '@/components/workspace-settings/categories-card';
+import { FeaturesCard } from '@/components/workspace-settings/features-card';
 import { FtpServersCard } from '@/components/workspace-settings/ftp-servers-card';
 import { LogosCard } from '@/components/workspace-settings/logos-card';
 import { MembersCard } from '@/components/workspace-settings/members-card';
@@ -79,6 +80,7 @@ export default async function WorkspacePage() {
       />
       {canManageSeries && <CategoriesCard />}
       <PublishedCard />
+      {canManageWorkspace && <FeaturesCard />}
       {features.includes('logo-library') && canManageWorkspace && <LogosCard />}
       {features.includes('ftp-upload') && canManageWorkspace && <FtpServersCard />}
     </div>

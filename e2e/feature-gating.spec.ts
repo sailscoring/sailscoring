@@ -74,4 +74,33 @@ test.describe('experimental feature gating (#155)', () => {
     await page.getByRole('option', { name: 'NHC' }).click();
     await expect(page.getByRole('button', { name: 'Configure…' })).toBeVisible();
   });
+
+  test('owner can self-disable a feature from the Features card (#278)', async ({
+    page,
+  }) => {
+    // The signed-in user owns their personal workspace, so the Features card is
+    // present. logo-library is default-on, so the Logos library card renders —
+    // that heading is the observable proxy for the feature being effective.
+    await page.goto('/workspace');
+    await expect(page.getByRole('heading', { name: 'Features' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Logo library' }),
+    ).toBeVisible();
+
+    // Turn logo-library off; after the metadata write + refresh the Logos card
+    // is gone. Operator-managed features (ftp-upload) never appear as a toggle.
+    await expect(
+      page.getByTestId('feature-toggle-ftp-upload'),
+    ).toHaveCount(0);
+    await page.getByTestId('feature-toggle-logo-library').click();
+    await expect(
+      page.getByRole('heading', { name: 'Logo library' }),
+    ).toHaveCount(0);
+
+    // And back on again.
+    await page.getByTestId('feature-toggle-logo-library').click();
+    await expect(
+      page.getByRole('heading', { name: 'Logo library' }),
+    ).toBeVisible();
+  });
 });
