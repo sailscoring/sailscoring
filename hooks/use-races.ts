@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { raceRepo } from '@/lib/api-repository';
-import type { Race } from '@/lib/types';
+import type { Race, RaceStart } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
 import { keepNewerVersionedRow, keepNewerVersionedRows } from './query-version-guard';
@@ -58,6 +58,26 @@ export function useSaveRace() {
       // Every child write bumps the series row's lastModifiedAt + version
       // server-side. Await the series refetch so a caller that proceeds to a
       // series settings save reads a fresh expectedVersion, not a stale 409.
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
+    },
+  });
+}
+
+/**
+ * Bulk-create appended races (the "Add multiple races" generator). The server
+ * assigns the race numbers, so this doesn't optimistically patch the list — it
+ * just invalidates so the freshly-numbered races refetch.
+ */
+export function useGenerateRaces(seriesId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ races, starts }: { races: Race[]; starts: RaceStart[] }) =>
+      raceRepo.generateMany(seriesId, races, starts),
+    onSuccess: async () => {
+      qc.invalidateQueries({ queryKey: queryKeys.races.bySeries(seriesId) });
+      // A generated race carries its starts; refetch those too. See
+      // useSaveRace — keep the cached series row's version fresh.
+      qc.invalidateQueries({ queryKey: queryKeys.raceStarts.bySeries(seriesId) });
       await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
   });

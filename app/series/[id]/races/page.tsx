@@ -9,6 +9,7 @@ import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useFeatures } from '@/components/features-provider';
 import {
   useDeleteRace,
+  useGenerateRaces,
   useRacesBySeries,
   useReorderRaces,
   useSaveRace,
@@ -33,7 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ChevronsUpDown, Pencil, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronsUpDown, Pencil, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +47,7 @@ import type { Race, SubSeries } from '@/lib/types';
 import { log } from '@/lib/debug';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { generateStarts } from '@/lib/start-sequence';
+import { generateRaceDates, MAX_GENERATED_RACES } from '@/lib/race-schedule';
 import { groupRacesBySubSeries } from '@/lib/scoring';
 
 function RaceRow({
@@ -173,6 +175,51 @@ function normalizeTimeInput(input: string): string | null {
   return null;
 }
 
+/** Plural weekday label for an ISO date, e.g. "2026-05-05" → "Tuesdays".
+ *  Interprets the date as UTC so the weekday doesn't drift by timezone. */
+function weekdayLabel(isoDate: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })}s`;
+}
+
+/** Split "Add race" button: the primary segment adds one race; the chevron
+ *  opens a menu whose one item launches the multiple-race generator. */
+function AddRaceMenu({
+  onAddRace,
+  onGenerate,
+  disabled,
+}: {
+  onAddRace: () => void;
+  onGenerate: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="inline-flex">
+      <Button onClick={onAddRace} disabled={disabled} className="rounded-r-none">
+        Add race
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            disabled={disabled}
+            aria-label="More add-race options"
+            className="rounded-l-none border-l border-primary-foreground/20 px-2"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onGenerate}>
+            Add multiple races…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 export default function RacesPage({
   params,
 }: {
@@ -192,6 +239,7 @@ export default function RacesPage({
   const { data: fleets } = useFleetsBySeries(seriesId);
   const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
   const saveRace = useSaveRace();
+  const generateRaces = useGenerateRaces(seriesId);
   const reorderRaces = useReorderRaces(seriesId);
   const saveRaceStarts = useSaveRaceStarts();
   const createSubSeries = useCreateSubSeries();
@@ -209,6 +257,17 @@ export default function RacesPage({
   // false but a second click would compute the same raceNumber and
   // 500 on the (series_id, race_number) unique index.
   const [addingRace, setAddingRace] = useState(false);
+
+  // Recurring race generator ("Add multiple races") dialog state.
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+  const [genStartDate, setGenStartDate] = useState('');
+  const [genInterval, setGenInterval] = useState<'weekly' | 'fortnightly'>('weekly');
+  const [genMode, setGenMode] = useState<'count' | 'until'>('count');
+  const [genCount, setGenCount] = useState('8');
+  const [genUntilDate, setGenUntilDate] = useState('');
+  const [genName, setGenName] = useState('');
+  const [genStartTime, setGenStartTime] = useState('');
+  const [genError, setGenError] = useState('');
 
   // Sub-series editor dialog. `editingSubSeries` null while open = create;
   // a SubSeries = edit that one. A sub-series is a named selection of races.
@@ -244,6 +303,21 @@ export default function RacesPage({
         return generateStarts(startSequence!, normalized);
       })()
     : null;
+
+  // Generator: whether the first-start-time field applies, and the live
+  // preview of the dates the current inputs would create.
+  const genUsesStartTime = Boolean(isHandicap && hasStartSequence);
+  const genIntervalDays = genInterval === 'fortnightly' ? 14 : 7;
+  const genPreviewDates = genStartDate
+    ? generateRaceDates({
+        startDate: genStartDate,
+        intervalDays: genIntervalDays,
+        count: genMode === 'count' ? Number(genCount) : undefined,
+        untilDate: genMode === 'until' ? genUntilDate || undefined : undefined,
+      })
+    : [];
+  const genWeekday = weekdayLabel(genStartDate);
+  const existingCount = races?.length ?? 0;
 
   const fleetNameById = new Map((fleets ?? []).map((f) => [f.id, f.name]));
 
@@ -306,6 +380,13 @@ export default function RacesPage({
           handleAddRaceScratch();
         }
       },
+    },
+    {
+      key: 'g',
+      description: 'Add multiple races',
+      section: 'Races',
+      when: () => !readOnly,
+      handler: openGenerateDialog,
     },
   ]);
   // Row-level keys bound on the focused race row itself.
@@ -388,6 +469,74 @@ export default function RacesPage({
     } else {
       handleAddRaceScratch();
     }
+  }
+
+  function openGenerateDialog() {
+    setGenStartDate('');
+    setGenInterval('weekly');
+    setGenMode('count');
+    setGenCount('8');
+    setGenUntilDate('');
+    setGenName('');
+    setGenStartTime('');
+    setGenError('');
+    setShowGenerateDialog(true);
+  }
+
+  async function handleGenerateRaces() {
+    if (generateRaces.isPending) return;
+    if (!genStartDate) {
+      setGenError('Pick the date of the first race.');
+      return;
+    }
+    let startTime: string | null = null;
+    if (genUsesStartTime) {
+      startTime = normalizeTimeInput(genStartTime);
+      if (!startTime) {
+        setGenError('Enter a valid first start time, e.g. 14:05:00 or 140500.');
+        return;
+      }
+    }
+    const dates = generateRaceDates({
+      startDate: genStartDate,
+      intervalDays: genIntervalDays,
+      count: genMode === 'count' ? Number(genCount) : undefined,
+      untilDate: genMode === 'until' ? genUntilDate || undefined : undefined,
+    });
+    if (dates.length === 0) {
+      setGenError(
+        genMode === 'until'
+          ? 'That range produces no races — check the dates.'
+          : 'Enter how many races to create.',
+      );
+      return;
+    }
+
+    const name = genName.trim() || null;
+    const newRaces: Race[] = dates.map((date, i) => ({
+      id: crypto.randomUUID(),
+      seriesId,
+      // Server assigns authoritative numbers; this is only an ordering hint.
+      raceNumber: existingCount + i + 1,
+      name,
+      date,
+      createdAt: Date.now(),
+    }));
+    const starts =
+      genUsesStartTime && startTime
+        ? newRaces.flatMap((race) =>
+            generateStarts(startSequence!, startTime!).map((start) => ({
+              id: crypto.randomUUID(),
+              raceId: race.id,
+              fleetIds: start.fleetIds,
+              startTime: start.startTime,
+            })),
+          )
+        : [];
+
+    log('races', 'generating', { count: newRaces.length, starts: starts.length });
+    await generateRaces.mutateAsync({ races: newRaces, starts });
+    setShowGenerateDialog(false);
   }
 
   const allFleetIds = (fleets ?? []).map((f) => f.id);
@@ -513,9 +662,11 @@ export default function RacesPage({
             </Button>
           )}
           {!readOnly && (
-            <Button onClick={handleAddRaceClick} disabled={addingRace}>
-              Add race
-            </Button>
+            <AddRaceMenu
+              onAddRace={handleAddRaceClick}
+              onGenerate={openGenerateDialog}
+              disabled={addingRace}
+            />
           )}
         </div>
       </div>
@@ -632,6 +783,139 @@ export default function RacesPage({
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowNewRaceDialog(false)}>Cancel</Button>
             <Button onClick={handleAddRaceHandicap}>Create race</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recurring race generator ("Add multiple races") */}
+      <Dialog open={showGenerateDialog} onOpenChange={(open) => { if (!open) setShowGenerateDialog(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add multiple races</DialogTitle>
+            <DialogDescription>
+              Generate a run of races on a fixed weekday and cadence. Postpone,
+              rename, or drop any single date afterwards like an ordinary race.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="genStartDate">First race date</Label>
+              <Input
+                id="genStartDate"
+                type="date"
+                value={genStartDate}
+                onChange={(e) => { setGenStartDate(e.target.value); setGenError(''); }}
+                autoFocus
+              />
+              {genWeekday && (
+                <p className="text-xs text-muted-foreground">Races fall on {genWeekday}.</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="genInterval">Repeat</Label>
+              <select
+                id="genInterval"
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={genInterval}
+                onChange={(e) => setGenInterval(e.target.value as 'weekly' | 'fortnightly')}
+              >
+                <option value="weekly">Weekly</option>
+                <option value="fortnightly">Fortnightly</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>How many</Label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="genMode"
+                    checked={genMode === 'count'}
+                    onChange={() => { setGenMode('count'); setGenError(''); }}
+                  />
+                  <span>Number of races</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={MAX_GENERATED_RACES}
+                    className="h-8 w-24"
+                    value={genCount}
+                    onChange={(e) => { setGenCount(e.target.value); setGenError(''); }}
+                    onFocus={() => setGenMode('count')}
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="genMode"
+                    checked={genMode === 'until'}
+                    onChange={() => { setGenMode('until'); setGenError(''); }}
+                  />
+                  <span>Until date</span>
+                  <Input
+                    type="date"
+                    className="h-8 w-44"
+                    value={genUntilDate}
+                    onChange={(e) => { setGenUntilDate(e.target.value); setGenError(''); }}
+                    onFocus={() => setGenMode('until')}
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="genName">Name (optional)</Label>
+              <Input
+                id="genName"
+                value={genName}
+                onChange={(e) => setGenName(e.target.value)}
+                placeholder="e.g. Tuesday Race"
+              />
+              <p className="text-xs text-muted-foreground">
+                Applied to every generated race. Leave blank to number them only.
+              </p>
+            </div>
+            {genUsesStartTime && (
+              <div className="space-y-1.5">
+                <Label htmlFor="genStartTime">First start time</Label>
+                <Input
+                  id="genStartTime"
+                  value={genStartTime}
+                  onChange={(e) => { setGenStartTime(e.target.value); setGenError(''); }}
+                  placeholder="e.g. 14:05:00"
+                />
+                <p className="text-xs text-muted-foreground">
+                  The default start sequence runs from this time in every race.
+                </p>
+              </div>
+            )}
+            {genPreviewDates.length > 0 && (
+              <div className="space-y-1 rounded-md border p-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {genPreviewDates.length} race{genPreviewDates.length === 1 ? '' : 's'} will be created:
+                </p>
+                <div className="max-h-40 space-y-0.5 overflow-y-auto text-sm">
+                  {genPreviewDates.map((date, i) => (
+                    <p key={date} className="font-mono text-xs">
+                      {existingCount + i + 1}. {date}
+                    </p>
+                  ))}
+                </div>
+                {genMode === 'count' && Number(genCount) > genPreviewDates.length && (
+                  <p className="text-xs text-muted-foreground">
+                    Capped at {MAX_GENERATED_RACES} races per generation.
+                  </p>
+                )}
+              </div>
+            )}
+            {genError && <p className="text-sm text-destructive">{genError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowGenerateDialog(false)}>Cancel</Button>
+            <Button onClick={handleGenerateRaces} disabled={generateRaces.isPending}>
+              {genPreviewDates.length > 0
+                ? `Create ${genPreviewDates.length} race${genPreviewDates.length === 1 ? '' : 's'}`
+                : 'Create races'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
