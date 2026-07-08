@@ -1,6 +1,6 @@
 # OSS Health Report: Lock-in Risks in Your Next.js / Vercel / Postgres Stack
 
-*Compiled April 2026. Focus: the projects you'd find hardest to migrate away from.*
+*Compiled April 2026; updated July 8, 2026 for the Vercel/Better Auth acquisition. Focus: the projects you'd find hardest to migrate away from.*
 
 ## Scope and method
 
@@ -12,7 +12,7 @@ The seven things that actually pin you in are:
 2. **React** — substrate; every component depends on it.
 3. **Tailwind CSS** — pervades every piece of markup; removing it is a full re-skin.
 4. **Drizzle ORM** — defines schema and every query; touching the data layer means rewriting these.
-5. **Auth.js v5** — auth flows, session model, adapter contract, and all callbacks.
+5. **Better Auth** — auth flows, session model, adapter contract, and all callbacks.
 6. **TanStack Query** — wraps every fetch, defines cache and revalidation semantics.
 7. **PostgreSQL on Neon** — Postgres itself is highly portable; *Neon* is a vendor commitment.
 
@@ -89,24 +89,17 @@ This isn't bad — PlanetScale is a healthy, well-led company with a solid OSS r
 
 **Migration risk if Drizzle stalled.** Moderate. The schema definition syntax and query API are Drizzle-specific, so a migration to e.g. Kysely, Prisma, or hand-written SQL would mean rewriting both. However, because Drizzle is "a thin typed layer on top of SQL" (in the maintainers' own words) with no Rust binaries, no proxy, and direct driver use, the actual SQL it generates is portable. You're locked into the *schema/query DSL*, not the *runtime data path*.
 
-## 5. Auth.js — the highest-priority concern in your stack
+## 5. Better Auth — future-proof by the maintainers' own logic, now acquired by Vercel
 
-**This is the project I'd ask you to look at most carefully.** Your ADR-008 calls out Auth.js v5 with the Drizzle adapter. As of September 2025, the situation has changed materially:
+**Some history, because it explains why you're here.** Auth.js (formerly NextAuth.js) was handed to the Better Auth team in September 2025, and the new maintainers were candid that they "strongly recommend new projects to start with Better Auth unless there are some very specific feature gaps (most notably stateless session management without a database)." Your ADR-008 followed that advice: this codebase runs **Better Auth** (`lib/auth.ts`) with database-backed sessions against Neon/Drizzle, not Auth.js v5. So this section is about the library you're actually on, not a choice still ahead of you.
 
-> "Auth.js, formerly known as NextAuth.js, is now being maintained and overseen by Better Auth team."
-> — Auth.js / Better Auth joint announcement, 22 Sep 2025
+**The material development: Vercel acquired Better Auth, announced 7 July 2026.** Founder Bereket Engida and the core team are joining Vercel "to continue their work on Better Auth and agent identity." Per the announcement, the project "retains its name, and the team continues to lead development with the same open contribution model, community governance, and framework support," and "remains free and open source under MIT." Beyond conventional auth, the team's stated focus is advancing *agent identity*, integrated into Vercel Connect and eve (Vercel's agentic platforms).
 
-The original NextAuth.js maintainers handed the project to the Better Auth team. The handoff post is unusually candid: the Auth.js team had "big ideas for the future, but for various reasons couldn't execute them as fully as they hoped." The new maintainers explicitly state:
+Read this the way the rest of this report reads the Neon/Databricks and Drizzle/PlanetScale deals: **the reassuring parts are real, and so is the shift in who sets the roadmap.** MIT + 4.7M weekly downloads + 850 contributors means the library survives and stays forkable regardless of Vercel. But direction now flows from a hosting company whose commercial priority for auth is agent identity on its own agentic platforms — not necessarily what an independent auth library would prioritise. The irony worth naming plainly: Better Auth was, until three months ago, the *independent* alternative to the Vercel-governed corner of your stack. It is no longer independent of Vercel. Whatever comfort you took from "at least the auth layer isn't Vercel's" is gone; auth now belongs on the concentration list in §8.
 
-> "We strongly recommend new projects to start with Better Auth unless there are some very specific feature gaps (most notably stateless session management without a database)."
+**What this does and doesn't change for you.** Nothing breaks: your Drizzle adapter, session model, and magic-link-via-Resend flow are untouched, and MIT means no rug-pull on licensing. What changes is the *watch list* — specifically whether agent-identity/Vercel-platform priorities start shaping the OSS core, and whether a free-vs-paid boundary emerges around the hosted/agent pieces (the same "the boundary exists and could shift" caveat this report raises for Drizzle Studio).
 
-In other words: **the maintainers of the library you've selected are publicly directing new projects to a different library.** The current footer of authjs.dev reads "© Better Auth Inc. – 2026."
-
-This places Auth.js into what LogRocket's 2026 review calls **"security-patch mode"** — it will continue to receive critical fixes, but new feature work is converging into Better Auth. For an existing codebase, this is fine: nothing breaks, the Drizzle adapter still works, magic-link via Resend still works. For a *new* codebase committing to a multi-year horizon, choosing Auth.js v5 means betting on a library whose own maintainers are steering greenfield users elsewhere.
-
-**Additional context:** the March 2025 Next.js middleware bypass (CVE-2025-29927) hit middleware-only auth patterns particularly hard, and Auth.js was one of the libraries that had to publicly clarify its session-validation semantics in response. Your ADR-008 retains middleware-gated routes, so make sure the auth checks are *not* middleware-only — defence in depth at the route handler level is the lesson.
-
-**My recommendation:** before locking in Auth.js v5, read the Better Auth migration story for projects similar to yours. The session model, adapter contract, and conceptual mental model are different enough that you don't want to switch a year in. If your product can tolerate database-backed sessions (which yours seemingly can — you have Neon and Drizzle), Better Auth is a more future-proof default by the maintainers' own recommendation. If you go with Auth.js anyway (e.g. for stateless JWT sessions), do it knowingly and pin the dependency.
+**A standing security note that survives the acquisition:** the March 2025 Next.js middleware bypass (CVE-2025-29927) hit middleware-only auth patterns particularly hard. Your ADR-008 retains middleware-gated routes, so make sure the auth checks are *not* middleware-only — enforce at the route handler level too. Defence in depth here is independent of who owns the library.
 
 ## 6. TanStack Query — the healthiest sustainability story in your stack
 
@@ -144,7 +137,7 @@ This is actually the most important point of the whole report: of the seven thin
 
 Brief, since it's not strictly an OSS project, but it's relevant context.
 
-- **Concentration risk.** Vercel governs Next.js, employs the maintainer of shadcn/ui, employs five members of the React Core team, runs the v0 generative-UI product, and is a founding board member of the React Foundation. This is the most concentrated single-vendor influence in the modern frontend stack.
+- **Concentration risk.** Vercel governs Next.js, employs the maintainer of shadcn/ui, employs five members of the React Core team, runs the v0 generative-UI product, is a founding board member of the React Foundation, and — as of July 2026 — now owns Better Auth (§5), the auth layer this stack runs on. This is the most concentrated single-vendor influence in the modern frontend stack, and your stack sits inside it at the framework, component, and auth layers simultaneously.
 - **April 2026 security incident.** A Vercel employee installed a third-party AI tool (Context.ai) and granted it broad Google Workspace OAuth access. Context.ai had been compromised in February 2026 via Lumma Stealer infostealer infection of one of its own employees. The attacker chained the OAuth trust into the Vercel employee's Google account, then into Vercel internal systems. Non-sensitive environment variables stored in plaintext were exfiltrated; "sensitive" environment variables (a separate encryption-at-rest tier) were not. ShinyHunters claimed credit and listed data for sale on BreachForums for $2M; Vercel says Next.js and Turbopack source were unaffected. CEO Guillermo Rauch confirmed the attack chain publicly on April 19. Investigation is ongoing as of late April 2026.
 - **The lesson** isn't that Vercel is uniquely insecure — supply-chain-via-OAuth-app is a category problem affecting every SaaS vendor — but it does reinforce that running on Vercel means depending on Vercel's operational security posture, and that environment variables marked merely "non-sensitive" should be treated as potentially readable in a worst case.
 - **Lock-in management.** The Next.js 16.2 stable Adapter API (March 2026) is the single most useful development for portability of the framework. Familiarize yourself with it now, even if you stay on Vercel. It is the seam along which OpenNext, sst, and a few self-host paths now operate.
@@ -153,7 +146,7 @@ Brief, since it's not strictly an OSS project, but it's relevant context.
 
 ## Cross-cutting observations
 
-**Concentration around Vercel and Meta.** Five of the seven projects above are influenced, employ-funded, or governed-from companies that overlap heavily: Meta (React, indirectly via Foundation), Vercel (Next.js direct, React via Core team seats and Foundation board, shadcn/ui via employment, broad influence on RSC direction). Tailwind, Drizzle and TanStack are the only meaningfully independent projects in your list, and Drizzle is now PlanetScale-backed. This is not unusual for modern JavaScript stacks — it is structural to that ecosystem — but it's worth being clear-eyed about.
+**Concentration around Vercel and Meta.** Vercel's footprint in your stack widened in July 2026: on top of Next.js (direct), React (Core team seats and Foundation board), and shadcn/ui (via employment), it now owns Better Auth — so the *auth* layer joined the *framework* and *component* layers under a single vendor. Better Auth had been one of the independent choices in this list; that's no longer true. Tailwind and TanStack are now the only meaningfully independent projects here, with Drizzle PlanetScale-backed. This is not unusual for modern JavaScript stacks — it is structural to that ecosystem — but the asymmetry is worth being clear-eyed about: the pieces you'd have called "independent" keep getting acquired.
 
 **Recent security pattern.** Two CVSS 9+ vulnerabilities in Next.js / React in 13 months (CVE-2025-29927, CVE-2025-55182), plus a hosting-provider supply-chain breach (April 2026), plus a maintainer transition in your auth library (Sept 2025). The stack itself is technically excellent; the *operational security posture* of running it requires more active vigilance than, say, a Rails or Django stack with a lower release velocity.
 
@@ -166,7 +159,7 @@ Brief, since it's not strictly an OSS project, but it's relevant context.
 
 ## Concrete recommendations
 
-1. **Re-evaluate Auth.js v5 vs Better Auth before commit.** This is the single highest-risk choice in your stack relative to its difficulty to migrate later. You have time to make the right call now; you won't a year from now.
+1. **Keep the Better Auth escape hatch warm now that it's Vercel-owned.** You're already committed to Better Auth (the right call at the time, and still fine — MIT, forkable, healthy). But the July 2026 Vercel acquisition means auth is no longer a hedge against Vercel concentration. Keep your session/adapter usage close to the documented core and out of anything agent-identity- or Vercel-platform-specific, so that if the OSS core diverges toward Vercel's commercial priorities you could migrate (to Auth.js's successor, Lucia-style hand-rolled sessions, or another Drizzle-adapter library) without a session-model rewrite. This is cheap insurance, not an alarm.
 
 2. **Treat Vercel hosting and Next.js framework as separable.** Set up your project today so it can build with `next build` and run with `next start` on a plain Node host (or via the OpenNext adapter). Even if you never exercise that capability, knowing that your `next.config` doesn't depend on Vercel-only features is the cheapest insurance you can buy against governance shifts.
 
@@ -182,8 +175,8 @@ Brief, since it's not strictly an OSS project, but it's relevant context.
    - Tailwind Labs' sponsorship/runway updates — second consecutive year of layoffs would be a red flag.
    - React Foundation's first independent technical decisions — does the TSC actually disagree with Meta/Vercel on anything visible?
    - PlanetScale's treatment of Drizzle — does it remain genuinely vendor-neutral, or does Drizzle's MySQL dialect quietly start outpacing its Postgres one?
-   - Better Auth's trajectory — if it continues consolidating mindshare, the migration question for Auth.js becomes a "when," not an "if."
+   - Better Auth under Vercel — now that Vercel owns it (July 2026), watch whether agent-identity / Vercel-platform priorities start shaping the OSS core, and whether a free-vs-paid boundary emerges around the hosted or agent-identity pieces. The "same open governance, still MIT" promises are worth holding them to.
 
 ---
 
-*Sources and dates checked April 26, 2026. The fast-moving ones in this report — Vercel breach scope, React Foundation TSC formation, Tailwind Labs financial recovery — will continue to develop; this report reflects a single point in time.*
+*Sources and dates checked April 26, 2026. **Updated July 8, 2026** to reflect Vercel's acquisition of Better Auth (announced 7 July 2026) — see §5, §8, the concentration note, and recommendations 1 and 7; the rest of the report still reflects the April snapshot. The fast-moving ones — Vercel breach scope, React Foundation TSC formation, Tailwind Labs financial recovery, and now Better Auth's direction under Vercel — will continue to develop; this report reflects two points in time, not a live view.*
