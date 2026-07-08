@@ -741,6 +741,16 @@ export default async function HelpPage() {
           all races upfront or add them one at a time as the series progresses.
         </p>
         <p>
+          For a season of races on a fixed weekday — a weekly Tuesday series, a fortnightly
+          league — use the chevron beside{' '}
+          <strong className="text-foreground">Add race ▸ Add multiple races…</strong> (or press{' '}
+          <kbd>g</kbd>). Pick the first race’s date, choose weekly or fortnightly, and set either a
+          number of races or an end date; the dialog previews the dates before you commit. An
+          optional name is applied to every race, and for handicap series with a start sequence the
+          first start time runs that sequence in each one. The races are appended after any existing
+          ones — postpone, rename, or drop any single date afterwards exactly like a hand-added race.
+        </p>
+        <p>
           Each race card shows how many finishes have been recorded. Click a race card to open the
           result entry screen for that race. The race date is shown beneath the heading there —
           click it to change it (handy after an import that guessed the date, or if a race is
