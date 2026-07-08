@@ -26,7 +26,7 @@ import {
   collectCompetitorIndex,
   ensureSlugs,
   resetIdentities,
-} from '@/scripts/reconcile-identities';
+} from '@/lib/competitor-identity-reconcile';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const skip = !DATABASE_URL;

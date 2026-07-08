@@ -1,5 +1,5 @@
 /**
- * Cross-series competitor-identity reconcile pass (#212).
+ * Cross-series competitor-identity reconcile pass (#212) — the batch CLI.
  *
  * Loads every competitor row in a workspace, clusters them into recurring
  * identities with the pure core in `lib/competitor-identity-cluster.ts`, and —
@@ -7,6 +7,10 @@
  * `competitors.identity_id`. This is the batch backfill for the IODAI corpus
  * (≈180 series back to 2009): you don't hand-link ~15k rows, you cluster them,
  * eyeball the stats and suggestions, then confirm in the reconcile UI.
+ *
+ * The DB operations live in `lib/competitor-identity-reconcile.ts`, shared
+ * with the lazy on-demand hook (#222) that runs the same pass after competitor
+ * writes — this script is the CLI and reporting around them.
  *
  * Re-runnable and idempotent: rows already linked seed their cluster, a
  * second pass with no new competitors is a no-op, and a cluster that would span
@@ -21,46 +25,31 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
 
-import { and, eq, inArray, isNotNull, isNull, notInArray, or } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 
 import {
   clusterCompetitors,
   isLongArc,
   LONG_ARC_YEARS,
-  type ClusterInput,
   type ClusterResult,
   type IdentityCluster,
 } from '@/lib/competitor-identity-cluster';
 import {
   parseManifest,
   planManifestApply,
-  type CompetitorCandidate,
   type ManifestPlan,
 } from '@/lib/competitor-identity-manifest';
-import { mintSlug } from '@/lib/competitor-slug';
+import {
+  applyClusters,
+  applyManifest,
+  collectClusterInputs,
+  collectCompetitorIndex,
+  ensureSlugs,
+  resetIdentities,
+} from '@/lib/competitor-identity-reconcile';
 import { getDb, getDbClient, type SailScoringDb } from '@/lib/db/client';
 import { organization } from '@/lib/db/schema/auth';
-import { competitorIdentities, competitors, series } from '@/lib/db/schema/series';
-
-/**
- * Delete every identity in the workspace (the FK's ON DELETE SET NULL clears
- * `competitors.identity_id` for us), so the next pass rebuilds from scratch.
- * Identities are derived data, so a rebuild is the clean way to retire a whole
- * class of bad merge after a matcher fix — but it also discards any manual
- * renames/splits, hence the `--reset` guard. Returns how many were removed.
- */
-export async function resetIdentities(
-  db: SailScoringDb,
-  workspaceId: string,
-): Promise<number> {
-  const removed = await db
-    .delete(competitorIdentities)
-    .where(eq(competitorIdentities.workspaceId, workspaceId))
-    .returning({ id: competitorIdentities.id });
-  return removed.length;
-}
 
 /** Resolve a slug or id to a workspace (organization) id + display name. */
 async function resolveWorkspace(
@@ -73,263 +62,6 @@ async function resolveWorkspace(
     .where(or(eq(organization.id, ref), eq(organization.slug, ref)))
     .limit(1);
   return rows[0] ?? null;
-}
-
-/** Load the flattened competitor rows the clusterer needs. */
-export async function collectClusterInputs(
-  db: SailScoringDb,
-  workspaceId: string,
-): Promise<ClusterInput[]> {
-  const rows = await db
-    .select({
-      competitorId: competitors.id,
-      name: competitors.name,
-      sailNumber: competitors.sailNumber,
-      club: competitors.club,
-      nationality: competitors.nationality,
-      age: competitors.age,
-      startDate: series.startDate,
-      existingIdentityId: competitors.identityId,
-    })
-    .from(competitors)
-    .innerJoin(series, eq(competitors.seriesId, series.id))
-    .where(eq(competitors.workspaceId, workspaceId));
-
-  return rows.map((r) => {
-    const year = Number.parseInt((r.startDate ?? '').slice(0, 4), 10);
-    return {
-      competitorId: r.competitorId,
-      name: r.name,
-      sailNumber: r.sailNumber,
-      club: r.club ?? undefined,
-      nationality: r.nationality ?? undefined,
-      age: r.age,
-      raceYear: Number.isFinite(year) ? year : null,
-      existingIdentityId: r.existingIdentityId ?? null,
-    };
-  });
-}
-
-/**
- * Build the `(seriesId, sailNumber)` → competitors index the manifest planner
- * resolves member rows against. A sail can repeat within a series (placeholder
- * sails in coached fleets, two siblings on a shared hull at one event — see the
- * iodai-archive identity audit), so each key maps to *all* its candidates and
- * the planner disambiguates by name. The collision count (keys with >1 row) is
- * returned for the operator's report.
- */
-export async function collectCompetitorIndex(
-  db: SailScoringDb,
-  workspaceId: string,
-): Promise<{ index: Map<string, CompetitorCandidate[]>; collisions: number }> {
-  const rows = await db
-    .select({
-      competitorId: competitors.id,
-      seriesId: competitors.seriesId,
-      sailNumber: competitors.sailNumber,
-      name: competitors.name,
-    })
-    .from(competitors)
-    .where(eq(competitors.workspaceId, workspaceId));
-  const index = new Map<string, CompetitorCandidate[]>();
-  let collisions = 0;
-  for (const r of rows) {
-    const key = `${r.seriesId}|${r.sailNumber}`;
-    const arr = index.get(key);
-    if (arr) {
-      arr.push({ competitorId: r.competitorId, name: r.name });
-      collisions++;
-    } else {
-      index.set(key, [{ competitorId: r.competitorId, name: r.name }]);
-    }
-  }
-  return { index, collisions };
-}
-
-/**
- * Write the manifest's identities and link their competitors, in one
- * transaction. Identity ids are deterministic (UUIDv5 of the slug), so this is
- * re-runnable: an `onConflictDoUpdate` on the id refreshes an existing row in
- * place. A pre-existing identity squatting on a manifest slug under a *different*
- * id is removed first so the deterministic insert doesn't trip the
- * `(workspace, slug)` unique index (the FK clears its links; the manifest
- * re-links below). Manifest links are authoritative — they overwrite any prior
- * link on a covered row, unlike the auto-pass which only fills blanks.
- */
-export async function applyManifest(
-  db: SailScoringDb,
-  workspaceId: string,
-  plan: ManifestPlan,
-): Promise<{ identitiesWritten: number; competitorsLinked: number }> {
-  const writable = plan.assignments.filter((a) => a.competitorIds.length > 0);
-  const targetIds = writable.map((a) => a.identityId);
-  const targetSlugs = writable.map((a) => a.slug);
-  let identitiesWritten = 0;
-  let competitorsLinked = 0;
-
-  await db.transaction(async (tx) => {
-    if (targetSlugs.length) {
-      await tx
-        .delete(competitorIdentities)
-        .where(
-          and(
-            eq(competitorIdentities.workspaceId, workspaceId),
-            inArray(competitorIdentities.slug, targetSlugs),
-            notInArray(competitorIdentities.id, targetIds),
-          ),
-        );
-    }
-
-    for (const a of writable) {
-      await tx
-        .insert(competitorIdentities)
-        .values({
-          id: a.identityId,
-          workspaceId,
-          label: a.label,
-          slug: a.slug,
-          sailNumber: a.sailNumber,
-          club: a.club,
-          nationality: a.nationality,
-        })
-        .onConflictDoUpdate({
-          target: competitorIdentities.id,
-          set: {
-            label: a.label,
-            slug: a.slug,
-            sailNumber: a.sailNumber,
-            club: a.club,
-            nationality: a.nationality,
-          },
-        });
-      identitiesWritten++;
-
-      const res = await tx
-        .update(competitors)
-        .set({ identityId: a.identityId })
-        .where(
-          and(
-            eq(competitors.workspaceId, workspaceId),
-            inArray(competitors.id, a.competitorIds),
-          ),
-        );
-      competitorsLinked += res.count ?? 0;
-    }
-  });
-
-  return { identitiesWritten, competitorsLinked };
-}
-
-interface ApplyResult {
-  identitiesCreated: number;
-  competitorsLinked: number;
-  conflictsSkipped: number;
-}
-
-/**
- * Backfill slugs for any identities created before the slug column existed
- * (#217). Idempotent — only touches null-slug rows — so it's safe to run on
- * every `--apply`. New identities get their slug at insert in `applyClusters`;
- * this covers the pre-slug ones. Returns how many were filled.
- */
-export async function ensureSlugs(
-  db: SailScoringDb,
-  workspaceId: string,
-): Promise<number> {
-  return db.transaction(async (tx) => {
-    const rows = await tx
-      .select({
-        id: competitorIdentities.id,
-        label: competitorIdentities.label,
-        slug: competitorIdentities.slug,
-      })
-      .from(competitorIdentities)
-      .where(eq(competitorIdentities.workspaceId, workspaceId));
-    const reserved = new Set(
-      rows.filter((r) => r.slug).map((r) => r.slug as string),
-    );
-    let filled = 0;
-    for (const row of rows) {
-      if (row.slug) continue;
-      await tx
-        .update(competitorIdentities)
-        .set({ slug: mintSlug(row.label, reserved) })
-        .where(eq(competitorIdentities.id, row.id));
-      filled++;
-    }
-    return filled;
-  });
-}
-
-/** Write identities + links for the clustering result, in one transaction. */
-export async function applyClusters(
-  db: SailScoringDb,
-  workspaceId: string,
-  result: ClusterResult,
-): Promise<ApplyResult> {
-  let identitiesCreated = 0;
-  let competitorsLinked = 0;
-  let conflictsSkipped = 0;
-
-  await db.transaction(async (tx) => {
-    // Seed the reserved set with the workspace's existing slugs so a whole
-    // batch of new identities can mint unique slugs without a round-trip each.
-    const reserved = new Set(
-      (
-        await tx
-          .select({ slug: competitorIdentities.slug })
-          .from(competitorIdentities)
-          .where(
-            and(
-              eq(competitorIdentities.workspaceId, workspaceId),
-              isNotNull(competitorIdentities.slug),
-            ),
-          )
-      ).map((r) => r.slug as string),
-    );
-
-    for (const cluster of result.clusters) {
-      const existing = cluster.existingIdentityIds;
-      if (existing.length >= 2) {
-        // A confirmed-identity collision — never auto-merge what a human split.
-        conflictsSkipped++;
-        continue;
-      }
-
-      let identityId: string;
-      if (existing.length === 1) {
-        identityId = existing[0];
-      } else {
-        identityId = randomUUID();
-        await tx.insert(competitorIdentities).values({
-          id: identityId,
-          workspaceId,
-          label: cluster.label,
-          slug: mintSlug(cluster.label, reserved),
-          sailNumber: cluster.sailNumber,
-          club: cluster.club,
-          nationality: cluster.nationality,
-        });
-        identitiesCreated++;
-      }
-
-      // Only touch currently-unlinked rows: the reuse case leaves confirmed
-      // links untouched, which is what keeps a re-run idempotent.
-      const res = await tx
-        .update(competitors)
-        .set({ identityId })
-        .where(
-          and(
-            eq(competitors.workspaceId, workspaceId),
-            isNull(competitors.identityId),
-            inArray(competitors.id, cluster.competitorIds),
-          ),
-        );
-      competitorsLinked += res.count ?? 0;
-    }
-  });
-
-  return { identitiesCreated, competitorsLinked, conflictsSkipped };
 }
 
 // ─── rendering ───────────────────────────────────────────────────────────────

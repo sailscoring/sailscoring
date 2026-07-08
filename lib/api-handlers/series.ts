@@ -12,6 +12,7 @@ import {
 } from '@/lib/auth/require-workspace';
 import { hasPermission } from '@/lib/auth/permissions';
 import { recordActivity } from '@/lib/activity-log';
+import { relinkIdentitiesBestEffort } from '@/lib/competitor-identity-reconcile';
 import { captureTombstone } from '@/lib/deleted-series';
 import { trackChange } from '@/lib/revision-log';
 import { getDb } from '@/lib/db/client';
@@ -517,6 +518,9 @@ export async function copySeries(
       summary: `Copied in series “${newName}”`,
     },
   );
+  // Lazy identity population (#222) in the *target* workspace — the copy's
+  // competitors are new rows there.
+  await relinkIdentitiesBestEffort(targetWorkspaceId);
   return { id: newSeriesId };
 }
 
@@ -556,6 +560,9 @@ export async function importSeries(
     seriesId: id,
     summary: `Imported series “${file.series.name}”`,
   });
+  // Lazy identity population (#222): link the imported competitors. Identity
+  // is workspace-local and never travels in the file, so it's re-derived here.
+  await relinkIdentitiesBestEffort(workspace.workspaceId);
   return { id };
 }
 
@@ -741,5 +748,7 @@ export async function createFollowOnSeries(
       summary: `Created follow-on series “${newName}” from “${source.name}”`,
     },
   );
+  // Lazy identity population (#222): the rolled-over entry list is new rows.
+  await relinkIdentitiesBestEffort(workspace.workspaceId);
   return { id: newSeriesId, seededCount };
 }

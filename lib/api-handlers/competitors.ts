@@ -3,6 +3,7 @@ import 'server-only';
 import { and, eq } from 'drizzle-orm';
 
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
+import { relinkIdentitiesBestEffort } from '@/lib/competitor-identity-reconcile';
 import { trackChange } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
@@ -83,6 +84,10 @@ export async function putCompetitor(
     sessionKey: 'competitors',
     dedupeKey: `competitor:${id}`,
   });
+  // Lazy identity population (#222): resolve the row's cross-series identity
+  // at the point it enters the series. No-op unless the workspace has adopted
+  // the identity spine.
+  await relinkIdentitiesBestEffort(workspace.workspaceId);
   return saved;
 }
 
@@ -134,6 +139,9 @@ export async function bulkPutCompetitors(
     summary: `Imported ${n} competitor${n === 1 ? '' : 's'}`,
     sessionKey: 'competitors',
   });
+  // Lazy identity population (#222). This is the import choke point: CSV,
+  // Sailwave, and client-side `.sailscoring` imports all land here.
+  await relinkIdentitiesBestEffort(workspace.workspaceId);
   return { count: competitors.length };
 }
 

@@ -376,11 +376,12 @@ export const competitors = pgTable(
     echoStartingTcf: real('echo_starting_tcf'),
     // Cross-series competitor-identity link (#212). Workspace-local: the row a
     // sailor's identity collapses onto across series. Nullable; written only by
-    // the reconcile pass, never the standard competitor CRUD path (so an in-app
-    // edit preserves it — it's absent from competitorUpdateColumns). Excluded
-    // from the .sailscoring file format and public JSON export by virtue of not
-    // being on the `Competitor` domain type at all. `set null` on identity
-    // delete leaves the event data intact.
+    // the reconcile pass — batch (CLI) or the lazy after-write hook (#222) —
+    // never the standard competitor CRUD writes themselves (so an in-app edit
+    // preserves it — it's absent from competitorUpdateColumns; the lazy pass
+    // only fills NULLs afterwards). Excluded from the .sailscoring file format
+    // and public JSON export by virtue of not being on the `Competitor` domain
+    // type at all. `set null` on identity delete leaves the event data intact.
     identityId: uuid('identity_id').references(
       (): AnyPgColumn => competitorIdentities.id,
       { onDelete: 'set null' },

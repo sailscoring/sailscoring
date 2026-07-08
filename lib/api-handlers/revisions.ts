@@ -3,6 +3,7 @@ import 'server-only';
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
+import { relinkIdentitiesBestEffort } from '@/lib/competitor-identity-reconcile';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
 import { createRepos, seriesFileReposFor } from '@/lib/postgres-repository';
 import {
@@ -81,6 +82,10 @@ export async function revertToRevision(
   const summary = `Restored the version from ${new Date(revision.createdAt).toLocaleString('en-IE')}`;
   await recordActivity(workspace, { action: 'series.reverted', seriesId, summary });
   await captureRevision(actor, seriesId, { kind: 'revert', summary });
+
+  // Lazy identity population (#222): the replay rewrote the competitor rows,
+  // so their workspace-local identity links are re-derived here.
+  await relinkIdentitiesBestEffort(workspace.workspaceId);
 
   return { ok: true };
 }

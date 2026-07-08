@@ -2,10 +2,9 @@ import 'server-only';
 
 import { and, eq, isNotNull } from 'drizzle-orm';
 
+import { workspaceIdentityFeatureOn } from '@/lib/competitor-identity-reconcile';
 import { getDb } from '@/lib/db/client';
-import { organization } from '@/lib/db/schema/auth';
 import { competitorIdentities, competitors, series } from '@/lib/db/schema/series';
-import { parseOrgMetadata } from '@/lib/features';
 
 /**
  * Server-side reads/writes for the cross-series competitor-identity spine
@@ -269,15 +268,7 @@ export async function workspaceHasCompetitors(
 export async function workspaceHasIdentityFeature(
   workspaceId: string,
 ): Promise<boolean> {
-  const [row] = await getDb()
-    .select({ metadata: organization.metadata, slug: organization.slug })
-    .from(organization)
-    .where(eq(organization.id, workspaceId))
-    .limit(1);
-  if (!row) return false;
-  return parseOrgMetadata(row.metadata, row.slug).enabledFeatures.includes(
-    'competitor-identity',
-  );
+  return workspaceIdentityFeatureOn(getDb(), workspaceId);
 }
 
 /** Whether an identity has no linked competitors left (for optional GC). */
