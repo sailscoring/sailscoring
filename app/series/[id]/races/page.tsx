@@ -825,8 +825,10 @@ export default function RacesPage({
             </div>
             <div className="space-y-2">
               <Label>How many</Label>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm">
+              {/* Radios and their inputs are siblings, not nested, so each
+                  control has a single unambiguous accessible name. */}
+              <div className="flex items-center gap-2 text-sm">
+                <label className="flex items-center gap-2">
                   <input
                     type="radio"
                     name="genMode"
@@ -834,17 +836,20 @@ export default function RacesPage({
                     onChange={() => { setGenMode('count'); setGenError(''); }}
                   />
                   <span>Number of races</span>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={MAX_GENERATED_RACES}
-                    className="h-8 w-24"
-                    value={genCount}
-                    onChange={(e) => { setGenCount(e.target.value); setGenError(''); }}
-                    onFocus={() => setGenMode('count')}
-                  />
                 </label>
-                <label className="flex items-center gap-2 text-sm">
+                <Input
+                  type="number"
+                  aria-label="Number of races"
+                  min={1}
+                  max={MAX_GENERATED_RACES}
+                  className="h-8 w-24"
+                  value={genCount}
+                  onChange={(e) => { setGenCount(e.target.value); setGenError(''); }}
+                  onFocus={() => setGenMode('count')}
+                />
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <label className="flex items-center gap-2">
                   <input
                     type="radio"
                     name="genMode"
@@ -852,14 +857,15 @@ export default function RacesPage({
                     onChange={() => { setGenMode('until'); setGenError(''); }}
                   />
                   <span>Until date</span>
-                  <Input
-                    type="date"
-                    className="h-8 w-44"
-                    value={genUntilDate}
-                    onChange={(e) => { setGenUntilDate(e.target.value); setGenError(''); }}
-                    onFocus={() => setGenMode('until')}
-                  />
                 </label>
+                <Input
+                  type="date"
+                  aria-label="Last race on or before"
+                  className="h-8 w-44"
+                  value={genUntilDate}
+                  onChange={(e) => { setGenUntilDate(e.target.value); setGenError(''); }}
+                  onFocus={() => setGenMode('until')}
+                />
               </div>
             </div>
             <div className="space-y-1.5">
