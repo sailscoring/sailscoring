@@ -1,0 +1,1598 @@
+{
+  "formatVersion": 19,
+  "seriesId": "sample-club-league",
+  "exportedAt": "2026-01-01T00:00:00.000Z",
+  "series": {
+    "id": "sample-club-league",
+    "name": "Sample Club League 2026",
+    "venue": "Howth Yacht Club",
+    "startDate": "2026-05-05",
+    "endDate": "2026-06-23",
+    "venueLogoUrl": "",
+    "eventLogoUrl": "",
+    "venueUrl": "",
+    "eventUrl": "",
+    "discardThresholds": [
+      {
+        "minRaces": 4,
+        "discardCount": 1
+      }
+    ],
+    "dnfScoring": "seriesEntries",
+    "ftpHost": "",
+    "ftpPath": "",
+    "includeJsonExport": true,
+    "enabledCompetitorFields": [
+      "boatName",
+      "boatClass",
+      "club",
+      "nationality"
+    ],
+    "primaryPersonLabel": "owner",
+    "subdivisionAxes": [],
+    "scoringMode": "handicap"
+  },
+  "fleets": [
+    {
+      "id": "lf-cruisers-1",
+      "name": "Cruisers 1",
+      "displayOrder": 0,
+      "scoringSystem": "echo",
+      "echoAlpha": 0.25
+    },
+    {
+      "id": "lf-cruisers-2",
+      "name": "Cruisers 2",
+      "displayOrder": 1,
+      "scoringSystem": "echo",
+      "echoAlpha": 0.25
+    }
+  ],
+  "competitors": [
+    {
+      "id": "lc-01",
+      "fleetIds": [
+        "lf-cruisers-1"
+      ],
+      "sailNumber": "IRL2046",
+      "boatName": "Searcher 2",
+      "boatClass": "Ker 46 Custom",
+      "name": "Pete Smyth",
+      "club": "National Yacht Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.265
+    },
+    {
+      "id": "lc-02",
+      "fleetIds": [
+        "lf-cruisers-1"
+      ],
+      "sailNumber": "IRL7887",
+      "boatName": "CRISTINA",
+      "boatClass": "NMD 43 2.99",
+      "name": "John Treanor",
+      "club": "National Yacht Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.263
+    },
+    {
+      "id": "lc-03",
+      "fleetIds": [
+        "lf-cruisers-1"
+      ],
+      "sailNumber": "IRL3429",
+      "boatName": "El Syd",
+      "boatClass": "Sydney GTS 43",
+      "name": "Frank Whelan",
+      "club": "Greystones Sailing Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.233
+    },
+    {
+      "id": "lc-04",
+      "fleetIds": [
+        "lf-cruisers-1"
+      ],
+      "sailNumber": "IRL32032",
+      "boatName": "Adrenaline",
+      "boatClass": "Melges 32",
+      "name": "Darren Wright",
+      "club": "Howth Yacht Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.169
+    },
+    {
+      "id": "lc-05",
+      "fleetIds": [
+        "lf-cruisers-1"
+      ],
+      "sailNumber": "IRL4076",
+      "boatName": "Meridian",
+      "boatClass": "Salona 45",
+      "name": "Thomas Roche",
+      "club": "Kinsale Yacht Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.16
+    },
+    {
+      "id": "lc-06",
+      "fleetIds": [
+        "lf-cruisers-1"
+      ],
+      "sailNumber": "SWE041",
+      "boatName": "No Xcuse",
+      "boatClass": "Dehler 30 One Design",
+      "name": "Patrick Hogan",
+      "club": "National Yacht Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.133
+    },
+    {
+      "id": "lc-07",
+      "fleetIds": [
+        "lf-cruisers-1"
+      ],
+      "sailNumber": "IRL1507",
+      "boatName": "Aquelina",
+      "boatClass": "J/112e",
+      "name": "James  S Tyrrell",
+      "club": "Arklow Sailing Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.126
+    },
+    {
+      "id": "lc-08",
+      "fleetIds": [
+        "lf-cruisers-1"
+      ],
+      "sailNumber": "IRL1840",
+      "boatName": "The Big Picture",
+      "boatClass": "J 112 E 2.23 Fin6",
+      "name": "Michael Evans",
+      "club": "Howth Yacht Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.126
+    },
+    {
+      "id": "lc-09",
+      "fleetIds": [
+        "lf-cruisers-2"
+      ],
+      "sailNumber": "IRL7404",
+      "boatName": "Pretty Polly",
+      "boatClass": "First 47.7 2.80",
+      "name": "Chris Horrigan",
+      "club": "Skerries Sailing Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.12
+    },
+    {
+      "id": "lc-10",
+      "fleetIds": [
+        "lf-cruisers-2"
+      ],
+      "sailNumber": "IRL10800",
+      "boatName": "Rockabill VI",
+      "boatClass": "JPK 10.80 2.15 fin6",
+      "name": "Paul O'Higgins",
+      "club": "Royal Irish Yacht Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.117
+    },
+    {
+      "id": "lc-11",
+      "fleetIds": [
+        "lf-cruisers-2"
+      ],
+      "sailNumber": "IRL9855",
+      "boatName": "Javelin",
+      "boatClass": "J/122 2.20",
+      "name": "Lance Allen",
+      "club": "Arklow Sailing Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.115
+    },
+    {
+      "id": "lc-12",
+      "fleetIds": [
+        "lf-cruisers-2"
+      ],
+      "sailNumber": "IRL35950",
+      "boatName": "Aurelia",
+      "boatClass": "J/122",
+      "name": "Chris Power Smith",
+      "club": "Royal St George Yacht Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.113
+    },
+    {
+      "id": "lc-13",
+      "fleetIds": [
+        "lf-cruisers-2"
+      ],
+      "sailNumber": "IRL2237",
+      "boatName": "Wow",
+      "boatClass": "X-Treme 37 mod 2.65",
+      "name": "Tim Kane",
+      "club": "Royal Irish Yacht Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.11
+    },
+    {
+      "id": "lc-14",
+      "fleetIds": [
+        "lf-cruisers-2"
+      ],
+      "sailNumber": "IRL19109",
+      "boatName": "Outrajeous",
+      "boatClass": "J/109",
+      "name": "John Murphy",
+      "club": "Howth Yacht Club",
+      "nationality": "IRL",
+      "gender": "",
+      "age": null,
+      "echoStartingTcf": 1.109
+    }
+  ],
+  "races": [
+    {
+      "id": "lr-1",
+      "raceNumber": 1,
+      "date": "2026-05-05",
+      "starts": [
+        {
+          "id": "lrs-1-lf-cruisers-1",
+          "fleetIds": [
+            "lf-cruisers-1"
+          ],
+          "startTime": "18:55:00"
+        },
+        {
+          "id": "lrs-1-lf-cruisers-2",
+          "fleetIds": [
+            "lf-cruisers-2"
+          ],
+          "startTime": "19:00:00"
+        }
+      ],
+      "finishes": [
+        {
+          "id": "lfin-1-lc-01",
+          "competitorId": "lc-01",
+          "sortOrder": 1,
+          "finishTime": "19:41:22",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-02",
+          "competitorId": "lc-02",
+          "sortOrder": 2,
+          "finishTime": "19:41:40",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-04",
+          "competitorId": "lc-04",
+          "sortOrder": 3,
+          "finishTime": "19:44:23",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-05",
+          "competitorId": "lc-05",
+          "sortOrder": 4,
+          "finishTime": "19:45:56",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-03",
+          "competitorId": "lc-03",
+          "sortOrder": 5,
+          "finishTime": "19:46:18",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-08",
+          "competitorId": "lc-08",
+          "sortOrder": 6,
+          "finishTime": "19:47:35",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-06",
+          "competitorId": "lc-06",
+          "sortOrder": 7,
+          "finishTime": "19:47:44",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-07",
+          "competitorId": "lc-07",
+          "sortOrder": 8,
+          "finishTime": "19:48:47",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-13",
+          "competitorId": "lc-13",
+          "sortOrder": 9,
+          "finishTime": "19:53:38",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-14",
+          "competitorId": "lc-14",
+          "sortOrder": 10,
+          "finishTime": "19:53:42",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-09",
+          "competitorId": "lc-09",
+          "sortOrder": 11,
+          "finishTime": "19:54:18",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-10",
+          "competitorId": "lc-10",
+          "sortOrder": 12,
+          "finishTime": "19:54:37",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-11",
+          "competitorId": "lc-11",
+          "sortOrder": 13,
+          "finishTime": "19:54:55",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-1-lc-12",
+          "competitorId": "lc-12",
+          "sortOrder": 14,
+          "finishTime": "19:55:07",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "lr-2",
+      "raceNumber": 2,
+      "date": "2026-05-12",
+      "starts": [
+        {
+          "id": "lrs-2-lf-cruisers-1",
+          "fleetIds": [
+            "lf-cruisers-1"
+          ],
+          "startTime": "18:55:00"
+        },
+        {
+          "id": "lrs-2-lf-cruisers-2",
+          "fleetIds": [
+            "lf-cruisers-2"
+          ],
+          "startTime": "19:00:00"
+        }
+      ],
+      "finishes": [
+        {
+          "id": "lfin-2-lc-02",
+          "competitorId": "lc-02",
+          "sortOrder": 1,
+          "finishTime": "19:42:02",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-01",
+          "competitorId": "lc-01",
+          "sortOrder": 2,
+          "finishTime": "19:43:29",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-04",
+          "competitorId": "lc-04",
+          "sortOrder": 3,
+          "finishTime": "19:44:39",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-05",
+          "competitorId": "lc-05",
+          "sortOrder": 4,
+          "finishTime": "19:44:40",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-03",
+          "competitorId": "lc-03",
+          "sortOrder": 5,
+          "finishTime": "19:46:02",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-06",
+          "competitorId": "lc-06",
+          "sortOrder": 6,
+          "finishTime": "19:46:48",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-07",
+          "competitorId": "lc-07",
+          "sortOrder": 7,
+          "finishTime": "19:47:30",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-08",
+          "competitorId": "lc-08",
+          "sortOrder": 8,
+          "finishTime": "19:48:11",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-09",
+          "competitorId": "lc-09",
+          "sortOrder": 9,
+          "finishTime": "19:53:21",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-12",
+          "competitorId": "lc-12",
+          "sortOrder": 10,
+          "finishTime": "19:53:28",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-11",
+          "competitorId": "lc-11",
+          "sortOrder": 11,
+          "finishTime": "19:53:35",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-13",
+          "competitorId": "lc-13",
+          "sortOrder": 12,
+          "finishTime": "19:54:15",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-14",
+          "competitorId": "lc-14",
+          "sortOrder": 13,
+          "finishTime": "19:54:15",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-2-lc-10",
+          "competitorId": "lc-10",
+          "sortOrder": 14,
+          "finishTime": "19:55:38",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "lr-3",
+      "raceNumber": 3,
+      "date": "2026-05-19",
+      "starts": [
+        {
+          "id": "lrs-3-lf-cruisers-1",
+          "fleetIds": [
+            "lf-cruisers-1"
+          ],
+          "startTime": "18:55:00"
+        },
+        {
+          "id": "lrs-3-lf-cruisers-2",
+          "fleetIds": [
+            "lf-cruisers-2"
+          ],
+          "startTime": "19:00:00"
+        }
+      ],
+      "finishes": [
+        {
+          "id": "lfin-3-lc-02",
+          "competitorId": "lc-02",
+          "sortOrder": 1,
+          "finishTime": "19:42:26",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-01",
+          "competitorId": "lc-01",
+          "sortOrder": 2,
+          "finishTime": "19:42:29",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-05",
+          "competitorId": "lc-05",
+          "sortOrder": 3,
+          "finishTime": "19:45:24",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-03",
+          "competitorId": "lc-03",
+          "sortOrder": 4,
+          "finishTime": "19:45:34",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-08",
+          "competitorId": "lc-08",
+          "sortOrder": 5,
+          "finishTime": "19:46:34",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-06",
+          "competitorId": "lc-06",
+          "sortOrder": 6,
+          "finishTime": "19:46:43",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-07",
+          "competitorId": "lc-07",
+          "sortOrder": 7,
+          "finishTime": "19:46:48",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-04",
+          "competitorId": "lc-04",
+          "sortOrder": 8,
+          "finishTime": "19:47:07",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-13",
+          "competitorId": "lc-13",
+          "sortOrder": 9,
+          "finishTime": "19:53:24",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-09",
+          "competitorId": "lc-09",
+          "sortOrder": 10,
+          "finishTime": "19:54:11",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-10",
+          "competitorId": "lc-10",
+          "sortOrder": 11,
+          "finishTime": "19:54:15",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-11",
+          "competitorId": "lc-11",
+          "sortOrder": 12,
+          "finishTime": "19:54:23",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-14",
+          "competitorId": "lc-14",
+          "sortOrder": 13,
+          "finishTime": "19:54:37",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-3-lc-12",
+          "competitorId": "lc-12",
+          "sortOrder": 14,
+          "finishTime": "19:55:50",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "lr-4",
+      "raceNumber": 4,
+      "date": "2026-05-26",
+      "starts": [
+        {
+          "id": "lrs-4-lf-cruisers-1",
+          "fleetIds": [
+            "lf-cruisers-1"
+          ],
+          "startTime": "18:55:00"
+        },
+        {
+          "id": "lrs-4-lf-cruisers-2",
+          "fleetIds": [
+            "lf-cruisers-2"
+          ],
+          "startTime": "19:00:00"
+        }
+      ],
+      "finishes": [
+        {
+          "id": "lfin-4-lc-01",
+          "competitorId": "lc-01",
+          "sortOrder": 1,
+          "finishTime": "19:41:19",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-02",
+          "competitorId": "lc-02",
+          "sortOrder": 2,
+          "finishTime": "19:42:35",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-05",
+          "competitorId": "lc-05",
+          "sortOrder": 3,
+          "finishTime": "19:44:12",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-03",
+          "competitorId": "lc-03",
+          "sortOrder": 4,
+          "finishTime": "19:45:52",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-04",
+          "competitorId": "lc-04",
+          "sortOrder": 5,
+          "finishTime": "19:46:36",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-08",
+          "competitorId": "lc-08",
+          "sortOrder": 6,
+          "finishTime": "19:48:20",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-07",
+          "competitorId": "lc-07",
+          "sortOrder": 7,
+          "finishTime": "19:48:45",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-06",
+          "competitorId": "lc-06",
+          "sortOrder": 8,
+          "finishTime": "19:48:48",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-10",
+          "competitorId": "lc-10",
+          "sortOrder": 9,
+          "finishTime": "19:52:35",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-11",
+          "competitorId": "lc-11",
+          "sortOrder": 10,
+          "finishTime": "19:53:04",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-13",
+          "competitorId": "lc-13",
+          "sortOrder": 11,
+          "finishTime": "19:53:28",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-09",
+          "competitorId": "lc-09",
+          "sortOrder": 12,
+          "finishTime": "19:54:07",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-14",
+          "competitorId": "lc-14",
+          "sortOrder": 13,
+          "finishTime": "19:54:37",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-4-lc-12",
+          "competitorId": "lc-12",
+          "sortOrder": 14,
+          "finishTime": "19:55:04",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "lr-5",
+      "raceNumber": 5,
+      "date": "2026-06-02",
+      "starts": [
+        {
+          "id": "lrs-5-lf-cruisers-1",
+          "fleetIds": [
+            "lf-cruisers-1"
+          ],
+          "startTime": "18:55:00"
+        },
+        {
+          "id": "lrs-5-lf-cruisers-2",
+          "fleetIds": [
+            "lf-cruisers-2"
+          ],
+          "startTime": "19:00:00"
+        }
+      ],
+      "finishes": [
+        {
+          "id": "lfin-5-lc-01",
+          "competitorId": "lc-01",
+          "sortOrder": 1,
+          "finishTime": "19:42:29",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-5-lc-02",
+          "competitorId": "lc-02",
+          "sortOrder": 2,
+          "finishTime": "19:44:03",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-5-lc-03",
+          "competitorId": "lc-03",
+          "sortOrder": 3,
+          "finishTime": "19:44:33",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-5-lc-04",
+          "competitorId": "lc-04",
+          "sortOrder": 4,
+          "finishTime": "19:45:29",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-5-lc-06",
+          "competitorId": "lc-06",
+          "sortOrder": 5,
+          "finishTime": "19:46:04",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-5-lc-05",
+          "competitorId": "lc-05",
+          "sortOrder": 6,
+          "finishTime": "19:47:00",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-5-lc-08",
+          "competitorId": "lc-08",
+          "sortOrder": 7,
+          "finishTime": "19:48:29",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-5-lc-10",
+          "competitorId": "lc-10",
+          "sortOrder": 8,
+          "finishTime": "19:52:58",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-5-lc-11",
+          "competitorId": "lc-11",
+          "sortOrder": 9,
+          "finishTime": "19:53:28",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-5-lc-14",
+          "competitorId": "lc-14",
+          "sortOrder": 10,
+          "finishTime": "19:54:18",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-5-lc-13",
+          "competitorId": "lc-13",
+          "sortOrder": 11,
+          "finishTime": "19:54:32",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-5-lc-12",
+          "competitorId": "lc-12",
+          "sortOrder": 12,
+          "finishTime": "19:54:47",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-5-lc-09",
+          "competitorId": "lc-09",
+          "sortOrder": 13,
+          "finishTime": "19:55:24",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "lr-6",
+      "raceNumber": 6,
+      "date": "2026-06-09",
+      "starts": [
+        {
+          "id": "lrs-6-lf-cruisers-1",
+          "fleetIds": [
+            "lf-cruisers-1"
+          ],
+          "startTime": "18:55:00"
+        },
+        {
+          "id": "lrs-6-lf-cruisers-2",
+          "fleetIds": [
+            "lf-cruisers-2"
+          ],
+          "startTime": "19:00:00"
+        }
+      ],
+      "finishes": [
+        {
+          "id": "lfin-6-lc-01",
+          "competitorId": "lc-01",
+          "sortOrder": 1,
+          "finishTime": "19:41:48",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-6-lc-02",
+          "competitorId": "lc-02",
+          "sortOrder": 2,
+          "finishTime": "19:42:53",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-6-lc-03",
+          "competitorId": "lc-03",
+          "sortOrder": 3,
+          "finishTime": "19:45:48",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-6-lc-05",
+          "competitorId": "lc-05",
+          "sortOrder": 4,
+          "finishTime": "19:45:55",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-6-lc-04",
+          "competitorId": "lc-04",
+          "sortOrder": 5,
+          "finishTime": "19:46:19",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-6-lc-08",
+          "competitorId": "lc-08",
+          "sortOrder": 6,
+          "finishTime": "19:46:37",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-6-lc-06",
+          "competitorId": "lc-06",
+          "sortOrder": 7,
+          "finishTime": "19:47:20",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-6-lc-09",
+          "competitorId": "lc-09",
+          "sortOrder": 8,
+          "finishTime": "19:52:00",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-6-lc-13",
+          "competitorId": "lc-13",
+          "sortOrder": 9,
+          "finishTime": "19:53:39",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-6-lc-12",
+          "competitorId": "lc-12",
+          "sortOrder": 10,
+          "finishTime": "19:53:56",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-6-lc-10",
+          "competitorId": "lc-10",
+          "sortOrder": 11,
+          "finishTime": "19:54:18",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-6-lc-11",
+          "competitorId": "lc-11",
+          "sortOrder": 12,
+          "finishTime": "19:54:36",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-6-lc-14",
+          "competitorId": "lc-14",
+          "sortOrder": 13,
+          "finishTime": "19:55:12",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "lr-7",
+      "raceNumber": 7,
+      "date": "2026-06-16",
+      "starts": [
+        {
+          "id": "lrs-7-lf-cruisers-1",
+          "fleetIds": [
+            "lf-cruisers-1"
+          ],
+          "startTime": "18:55:00"
+        },
+        {
+          "id": "lrs-7-lf-cruisers-2",
+          "fleetIds": [
+            "lf-cruisers-2"
+          ],
+          "startTime": "19:00:00"
+        }
+      ],
+      "finishes": [
+        {
+          "id": "lfin-7-lc-02",
+          "competitorId": "lc-02",
+          "sortOrder": 1,
+          "finishTime": "19:41:41",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-7-lc-01",
+          "competitorId": "lc-01",
+          "sortOrder": 2,
+          "finishTime": "19:41:57",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-7-lc-03",
+          "competitorId": "lc-03",
+          "sortOrder": 3,
+          "finishTime": "19:44:20",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-7-lc-05",
+          "competitorId": "lc-05",
+          "sortOrder": 4,
+          "finishTime": "19:45:17",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-7-lc-08",
+          "competitorId": "lc-08",
+          "sortOrder": 5,
+          "finishTime": "19:46:15",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-7-lc-04",
+          "competitorId": "lc-04",
+          "sortOrder": 6,
+          "finishTime": "19:46:24",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-7-lc-06",
+          "competitorId": "lc-06",
+          "sortOrder": 7,
+          "finishTime": "19:49:13",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-7-lc-13",
+          "competitorId": "lc-13",
+          "sortOrder": 8,
+          "finishTime": "19:52:59",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-7-lc-14",
+          "competitorId": "lc-14",
+          "sortOrder": 9,
+          "finishTime": "19:53:14",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-7-lc-12",
+          "competitorId": "lc-12",
+          "sortOrder": 10,
+          "finishTime": "19:54:00",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-7-lc-10",
+          "competitorId": "lc-10",
+          "sortOrder": 11,
+          "finishTime": "19:54:11",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-7-lc-09",
+          "competitorId": "lc-09",
+          "sortOrder": 12,
+          "finishTime": "19:54:39",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-7-lc-11",
+          "competitorId": "lc-11",
+          "sortOrder": 13,
+          "finishTime": "19:54:41",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "lr-8",
+      "raceNumber": 8,
+      "date": "2026-06-23",
+      "starts": [
+        {
+          "id": "lrs-8-lf-cruisers-1",
+          "fleetIds": [
+            "lf-cruisers-1"
+          ],
+          "startTime": "18:55:00"
+        },
+        {
+          "id": "lrs-8-lf-cruisers-2",
+          "fleetIds": [
+            "lf-cruisers-2"
+          ],
+          "startTime": "19:00:00"
+        }
+      ],
+      "finishes": [
+        {
+          "id": "lfin-8-lc-01",
+          "competitorId": "lc-01",
+          "sortOrder": 1,
+          "finishTime": "19:43:06",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-8-lc-02",
+          "competitorId": "lc-02",
+          "sortOrder": 2,
+          "finishTime": "19:43:06",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-8-lc-03",
+          "competitorId": "lc-03",
+          "sortOrder": 3,
+          "finishTime": "19:45:37",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-8-lc-06",
+          "competitorId": "lc-06",
+          "sortOrder": 4,
+          "finishTime": "19:46:13",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-8-lc-08",
+          "competitorId": "lc-08",
+          "sortOrder": 5,
+          "finishTime": "19:46:37",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-8-lc-05",
+          "competitorId": "lc-05",
+          "sortOrder": 6,
+          "finishTime": "19:46:55",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-8-lc-04",
+          "competitorId": "lc-04",
+          "sortOrder": 7,
+          "finishTime": "19:47:52",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-8-lc-09",
+          "competitorId": "lc-09",
+          "sortOrder": 8,
+          "finishTime": "19:52:01",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-8-lc-14",
+          "competitorId": "lc-14",
+          "sortOrder": 9,
+          "finishTime": "19:53:26",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-8-lc-13",
+          "competitorId": "lc-13",
+          "sortOrder": 10,
+          "finishTime": "19:54:57",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-8-lc-12",
+          "competitorId": "lc-12",
+          "sortOrder": 11,
+          "finishTime": "19:55:05",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-8-lc-10",
+          "competitorId": "lc-10",
+          "sortOrder": 12,
+          "finishTime": "19:55:21",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "lfin-8-lc-11",
+          "competitorId": "lc-11",
+          "sortOrder": 13,
+          "finishTime": "19:55:27",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    }
+  ],
+  "subSeries": [
+    {
+      "id": "lss-overall",
+      "name": "Season Overall",
+      "displayOrder": 0,
+      "raceIds": [
+        "lr-1",
+        "lr-2",
+        "lr-3",
+        "lr-4",
+        "lr-5",
+        "lr-6",
+        "lr-7",
+        "lr-8"
+      ],
+      "excludeDncOnlyCompetitors": false
+    },
+    {
+      "id": "lss-spring",
+      "name": "Spring Series",
+      "displayOrder": 1,
+      "raceIds": [
+        "lr-1",
+        "lr-2",
+        "lr-3",
+        "lr-4"
+      ],
+      "excludeDncOnlyCompetitors": true
+    },
+    {
+      "id": "lss-summer",
+      "name": "Summer Series",
+      "displayOrder": 2,
+      "raceIds": [
+        "lr-5",
+        "lr-6",
+        "lr-7",
+        "lr-8"
+      ],
+      "startingHandicapSource": "continue",
+      "continueFromSubSeriesId": "lss-spring",
+      "excludeDncOnlyCompetitors": true
+    },
+    {
+      "id": "lss-c1-champ",
+      "name": "Cruisers 1 Championship",
+      "displayOrder": 3,
+      "raceIds": [
+        "lr-1",
+        "lr-2",
+        "lr-3",
+        "lr-4",
+        "lr-5",
+        "lr-6",
+        "lr-7",
+        "lr-8"
+      ],
+      "fleetIds": [
+        "lf-cruisers-1"
+      ],
+      "raceFleetExclusions": [
+        {
+          "raceId": "lr-6",
+          "fleetId": "lf-cruisers-1"
+        }
+      ],
+      "excludeDncOnlyCompetitors": true
+    }
+  ]
+}

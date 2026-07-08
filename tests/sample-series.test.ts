@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 import { parseSeriesFile, openSeriesFromFile, type SeriesFile, type SeriesFileRepos } from '@/lib/series-file';
-import { calculateFleetStandings } from '@/lib/scoring';
+import { calculateFleetStandings, calculateSubSeriesFleetStandings } from '@/lib/scoring';
+import type { SubSeries } from '@/lib/types';
 import { seriesInputSchema } from '@/lib/validation/series';
 import { fleetSchema } from '@/lib/validation/fleet';
 import { competitorSchema } from '@/lib/validation/competitor';
@@ -132,7 +133,7 @@ function makeValidatingRepos(): SeriesFileRepos {
 }
 
 describe('sample series files', () => {
-  it.each(['regatta.sailscoring', 'club-racing.sailscoring'])(
+  it.each(['regatta.sailscoring', 'club-racing.sailscoring', 'club-league.sailscoring'])(
     '%s imports through the /api/v1 schemas without a validation error',
     async (name) => {
       const file = parseSeriesFile(readFileSync(join(SAMPLE_DIR, name), 'utf8'));
@@ -192,5 +193,73 @@ describe('sample series files', () => {
       expect(fs.standings).toHaveLength(15);
       expect(fs.standings[0].netPoints).toBeGreaterThan(0);
     }
+  });
+
+  it('club league: sub-series exercise membership, scoping, exclusions, chaining, and DNC', () => {
+    const { file, fleets, competitors, races, raceStarts, finishes } = load('club-league.sailscoring');
+
+    expect(file.formatVersion).toBe(19);
+    expect(fleets).toHaveLength(2);
+    expect(fleets.every((f) => f.scoringSystem === 'echo')).toBe(true);
+
+    // Four sub-series, each demonstrating a distinct capability.
+    const subSeries: SubSeries[] = (file.subSeries ?? []).map((ss) => ({
+      id: ss.id,
+      seriesId: file.seriesId,
+      name: ss.name,
+      displayOrder: ss.displayOrder,
+      raceIds: ss.raceIds ?? [],
+      ...(ss.fleetIds ? { fleetIds: ss.fleetIds } : {}),
+      ...(ss.raceFleetExclusions ? { raceFleetExclusions: ss.raceFleetExclusions } : {}),
+      ...(ss.startingHandicapSource ? { startingHandicapSource: ss.startingHandicapSource } : {}),
+      ...(ss.continueFromSubSeriesId ? { continueFromSubSeriesId: ss.continueFromSubSeriesId } : {}),
+      ...(ss.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: ss.excludeDncOnlyCompetitors } : {}),
+    }));
+    expect(subSeries.map((s) => s.name)).toEqual([
+      'Season Overall',
+      'Spring Series',
+      'Summer Series',
+      'Cruisers 1 Championship',
+    ]);
+
+    const overall = subSeries.find((s) => s.name === 'Season Overall')!;
+    const spring = subSeries.find((s) => s.name === 'Spring Series')!;
+    const summer = subSeries.find((s) => s.name === 'Summer Series')!;
+    const champ = subSeries.find((s) => s.name === 'Cruisers 1 Championship')!;
+
+    // Overlapping membership: Overall spans all races; Spring/Summer split them.
+    expect(overall.raceIds).toHaveLength(8);
+    expect(spring.raceIds).toHaveLength(4);
+    expect(summer.raceIds).toHaveLength(4);
+    // Chaining: Summer continues Spring's progressive handicaps.
+    expect(summer.startingHandicapSource).toBe('continue');
+    expect(summer.continueFromSubSeriesId).toBe(spring.id);
+    // Per-fleet scoping + a per-fleet race exclusion.
+    expect(champ.fleetIds).toEqual([fleets[0].id]);
+    expect(champ.raceFleetExclusions).toHaveLength(1);
+    // The DNC contrast: Overall keeps the full entry list, the blocks don't.
+    expect(overall.excludeDncOnlyCompetitors ?? false).toBe(false);
+    expect(spring.excludeDncOnlyCompetitors).toBe(true);
+
+    // Every sub-series scores with no rating rejections.
+    const standings = calculateSubSeriesFleetStandings(
+      subSeries, fleets, competitors, races, finishes,
+      file.series.discardThresholds, file.series.dnfScoring, raceStarts,
+    );
+    expect(standings).toHaveLength(4);
+    for (const s of standings) {
+      expect(s.fleetStandings.every((fs) => fs.rejections.length === 0)).toBe(true);
+    }
+
+    // The retired boat is ranked in Season Overall (full entry) but dropped from
+    // the Summer block (all-DNC there) — the visible payoff of the DNC toggle.
+    const rankedIn = (name: string) => {
+      const s = standings.find((x) => x.subSeries.name === name)!;
+      return new Set(s.fleetStandings.flatMap((fs) => fs.standings.map((r) => r.competitor.id)));
+    };
+    const overallIds = rankedIn('Season Overall');
+    const summerIds = rankedIn('Summer Series');
+    const retired = [...overallIds].find((id) => !summerIds.has(id));
+    expect(retired).toBeDefined();
   });
 });

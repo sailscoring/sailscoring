@@ -121,9 +121,25 @@ interface FileSeries {
   includeJsonExport: boolean;
   enabledCompetitorFields: CompetitorFieldKey[];
   primaryPersonLabel: PrimaryPersonLabel;
-  subdivisionLabel: string;
+  // v6–v12 files carry a single `subdivisionLabel` (upgraded to one axis on
+  // load); v13+ files carry `subdivisionAxes` directly. The club-league sample
+  // is born-modern (v19) with no subdivisions, so it emits an empty axis list.
+  subdivisionLabel?: string;
+  subdivisionAxes?: { id: string; label: string }[];
   scoringMode: 'scratch' | 'handicap';
   defaultStartSequence?: { fleetIds: string[]; intervalMinutes: number }[];
+}
+/** Sub-series (v9+): named blocks of races scored independently. */
+interface FileSubSeries {
+  id: string;
+  name: string;
+  displayOrder: number;
+  raceIds: string[];
+  fleetIds?: string[];
+  raceFleetExclusions?: { raceId: string; fleetId: string }[];
+  startingHandicapSource?: 'base' | 'continue';
+  continueFromSubSeriesId?: string;
+  excludeDncOnlyCompetitors?: boolean;
 }
 interface SeriesFile {
   formatVersion: number;
@@ -133,6 +149,7 @@ interface SeriesFile {
   fleets: FileFleet[];
   competitors: FileCompetitor[];
   races: FileRace[];
+  subSeries?: FileSubSeries[];
 }
 
 // Stable timestamp so the file is deterministic across runs.
@@ -681,6 +698,204 @@ function buildClubRacing(): SeriesFile {
   };
 }
 
+// ─── Series C: 8-week club league demonstrating sub-series ────────────────────
+
+/**
+ * A compact ECHO club league (two divisions, 8 Tuesday evenings) whose whole
+ * point is to show the sub-series feature doing real work. Kept small enough
+ * that a scorer can read the standings by eye and see each mechanism:
+ *
+ *   - Season Overall — all 8 races, both fleets, full entry list.
+ *   - Spring / Summer — race subsets (1-4 / 5-8), ranking only boats that
+ *     sailed; Summer's progressive handicaps *continue* from Spring's.
+ *   - Cruisers 1 Championship — scoped to one fleet, with race 6 struck for it
+ *     (a per-fleet race exclusion, modelling an abandoned start for that class).
+ *
+ * One boat stops sailing after Spring, so it appears in the full-entry Season
+ * Overall but drops out of the Summer block — the visible payoff of
+ * `excludeDncOnlyCompetitors`.
+ */
+function buildClubLeague(): SeriesFile {
+  const rng = makeRng(0x1ea6);
+
+  const F1 = 'lf-cruisers-1';
+  const F2 = 'lf-cruisers-2';
+  const fleets: FileFleet[] = [
+    { id: F1, name: 'Cruisers 1', displayOrder: 0, scoringSystem: 'echo', echoAlpha: 0.25 },
+    { id: F2, name: 'Cruisers 2', displayOrder: 1, scoringSystem: 'echo', echoAlpha: 0.25 },
+  ];
+
+  // 14 real dual-rated boats, fastest-rated in Cruisers 1. Each boat sails one
+  // division (unlike the club-racing sample's dual IRC+ECHO membership).
+  const all = loadDualRatedBoats().sort((a, b) => b.echo - a.echo).slice(0, 14);
+  const bands: { fleetId: string; boats: BoatRow[] }[] = [
+    { fleetId: F1, boats: all.slice(0, 8) },
+    { fleetId: F2, boats: all.slice(8, 14) },
+  ];
+
+  interface LeagueBoat {
+    comp: FileCompetitor;
+    fleetId: string;
+  }
+  const competitors: FileCompetitor[] = [];
+  const boats: LeagueBoat[] = [];
+  let bi = 0;
+  for (const band of bands) {
+    for (const b of band.boats) {
+      bi++;
+      const comp: FileCompetitor = {
+        id: `lc-${String(bi).padStart(2, '0')}`,
+        fleetIds: [band.fleetId],
+        sailNumber: b.sailNumber,
+        boatName: b.boatName,
+        boatClass: b.model,
+        name: b.owner || b.boatName,
+        club: b.club,
+        nationality: natFromSail(b.sailNumber),
+        gender: '',
+        age: null,
+        echoStartingTcf: b.echo,
+      };
+      competitors.push(comp);
+      boats.push({ comp, fleetId: band.fleetId });
+    }
+  }
+
+  // The boat that stops sailing after Spring (races 5-8) — makes the
+  // Season-Overall-vs-Summer DNC contrast visible. A Cruisers 1 boat.
+  const retiredAfterSpringId = boats[6].comp.id;
+
+  const speedBias = new Map<string, number>();
+  for (const { comp } of boats) speedBias.set(comp.id, (rng() - 0.5) * 0.06);
+
+  // 8 consecutive Tuesday evenings, both divisions off the same line 5 min apart.
+  const raceDates = [
+    '2026-05-05', '2026-05-12', '2026-05-19', '2026-05-26',
+    '2026-06-02', '2026-06-09', '2026-06-16', '2026-06-23',
+  ];
+  const FIRST_GUN = 18 * 3600 + 55 * 60; // 18:55:00
+  const OFFSET: Record<string, number> = { [F1]: 0, [F2]: 5 * 60 };
+  const TARGET_CORRECTED = 3600; // ~60 min on corrected time
+
+  const races: FileRace[] = [];
+  for (let r = 0; r < raceDates.length; r++) {
+    const raceNumber = r + 1;
+    const date = raceDates[r];
+
+    const starts: FileRaceStart[] = fleets.map((f) => ({
+      id: `lrs-${raceNumber}-${f.id}`,
+      fleetIds: [f.id],
+      startTime: hms(FIRST_GUN + OFFSET[f.id]),
+    }));
+
+    interface Crossing {
+      comp: FileCompetitor;
+      finishSecondsOfDay: number;
+    }
+    const crossings: Crossing[] = [];
+    for (const { comp, fleetId } of boats) {
+      // The retired boat simply doesn't take the start from race 5 on — absence
+      // is scored DNC, so it is all-DNC across the Summer block.
+      if (comp.id === retiredAfterSpringId && raceNumber >= 5) continue;
+      const gun = FIRST_GUN + OFFSET[fleetId];
+      const bias = speedBias.get(comp.id)!;
+      const targetCorrected = TARGET_CORRECTED * (1 + bias + noise(rng) * 0.05);
+      const elapsed = Math.round(targetCorrected / comp.echoStartingTcf!);
+      crossings.push({ comp, finishSecondsOfDay: gun + elapsed });
+    }
+
+    const placed = crossings.sort((a, b) => a.finishSecondsOfDay - b.finishSecondsOfDay);
+    const finishes: FileFinish[] = placed.map((x, i) => ({
+      id: `lfin-${raceNumber}-${x.comp.id}`,
+      competitorId: x.comp.id,
+      sortOrder: i + 1,
+      finishTime: hms(x.finishSecondsOfDay),
+      resultCode: null,
+      startPresent: true,
+      penaltyCode: null,
+      penaltyOverride: null,
+    }));
+
+    races.push({ id: `lr-${raceNumber}`, raceNumber, date, starts, finishes });
+  }
+
+  const allRaceIds = races.map((r) => r.id);
+  const subSeries: FileSubSeries[] = [
+    {
+      id: 'lss-overall',
+      name: 'Season Overall',
+      displayOrder: 0,
+      raceIds: allRaceIds,
+      // Full entry list: a boat that stops sailing is still ranked (DNC).
+      excludeDncOnlyCompetitors: false,
+    },
+    {
+      id: 'lss-spring',
+      name: 'Spring Series',
+      displayOrder: 1,
+      raceIds: allRaceIds.slice(0, 4),
+      excludeDncOnlyCompetitors: true,
+    },
+    {
+      id: 'lss-summer',
+      name: 'Summer Series',
+      displayOrder: 2,
+      raceIds: allRaceIds.slice(4, 8),
+      // Progressive ECHO handicaps carry over from the Spring block.
+      startingHandicapSource: 'continue',
+      continueFromSubSeriesId: 'lss-spring',
+      excludeDncOnlyCompetitors: true,
+    },
+    {
+      id: 'lss-c1-champ',
+      name: 'Cruisers 1 Championship',
+      displayOrder: 3,
+      raceIds: allRaceIds,
+      fleetIds: [F1],
+      // Race 6 abandoned for Cruisers 1 — struck from this championship only.
+      raceFleetExclusions: [{ raceId: 'lr-6', fleetId: F1 }],
+      excludeDncOnlyCompetitors: true,
+    },
+  ];
+
+  const enabledCompetitorFields: CompetitorFieldKey[] = [
+    'boatName',
+    'boatClass',
+    'club',
+    'nationality',
+  ];
+
+  return {
+    formatVersion: 19,
+    seriesId: 'sample-club-league',
+    exportedAt: EXPORTED_AT,
+    series: {
+      id: 'sample-club-league',
+      name: 'Sample Club League 2026',
+      venue: 'Howth Yacht Club',
+      startDate: raceDates[0],
+      endDate: raceDates[raceDates.length - 1],
+      venueLogoUrl: '',
+      eventLogoUrl: '',
+      venueUrl: '',
+      eventUrl: '',
+      discardThresholds: [{ minRaces: 4, discardCount: 1 }],
+      dnfScoring: 'seriesEntries',
+      ftpHost: '',
+      ftpPath: '',
+      includeJsonExport: true,
+      enabledCompetitorFields,
+      primaryPersonLabel: 'owner',
+      subdivisionAxes: [],
+      scoringMode: 'handicap',
+    },
+    fleets,
+    competitors,
+    races,
+    subSeries,
+  };
+}
+
 // ─── Emit ─────────────────────────────────────────────────────────────────────
 
 function write(name: string, file: SeriesFile) {
@@ -688,9 +903,11 @@ function write(name: string, file: SeriesFile) {
   writeFileSync(path, JSON.stringify(file, null, 2) + '\n');
   const compCount = file.competitors.length;
   const raceCount = file.races.length;
-  console.log(`wrote ${path}  (${file.fleets.length} fleets, ${compCount} competitors, ${raceCount} races)`);
+  const subSeriesNote = file.subSeries?.length ? `, ${file.subSeries.length} sub-series` : '';
+  console.log(`wrote ${path}  (${file.fleets.length} fleets, ${compCount} competitors, ${raceCount} races${subSeriesNote})`);
 }
 
 mkdirSync(OUT_DIR, { recursive: true });
 write('regatta.sailscoring', buildRegatta());
 write('club-racing.sailscoring', buildClubRacing());
+write('club-league.sailscoring', buildClubLeague());
