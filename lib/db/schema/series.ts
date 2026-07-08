@@ -435,6 +435,11 @@ export const competitorIdentities = pgTable(
     boatName: text('boat_name'),
     club: text('club'),
     nationality: text('nationality'),
+    // "Looks right" stamp from the reconcile review queue (#221): a long-arc
+    // identity a human has looked at and confirmed stops being flagged. Any
+    // later merge/split clears it implicitly (the arc changed under the
+    // review), handled in the repository ops.
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -447,6 +452,46 @@ export const competitorIdentities = pgTable(
     uniqueIndex('competitor_identities_workspace_slug_uidx')
       .on(table.workspaceId, table.slug)
       .where(sql`${table.slug} is not null`),
+  ],
+);
+
+/**
+ * "Confirmed different" pairs from the reconcile review queue (#221). The
+ * matcher's weak name-only edges surface as merge suggestions; dismissing one
+ * records the pair here so it never re-surfaces — the human's judgement
+ * persists across passes, mirroring how a split sticks via the conflict rule.
+ * The pair is stored ordered (`identity_a_id < identity_b_id`) so each pair
+ * has one canonical row. FKs cascade: merging or deleting either identity
+ * retires the distinction with it.
+ */
+export const competitorIdentityDistinctions = pgTable(
+  'competitor_identity_distinctions',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    identityAId: uuid('identity_a_id')
+      .notNull()
+      .references(() => competitorIdentities.id, { onDelete: 'cascade' }),
+    identityBId: uuid('identity_b_id')
+      .notNull()
+      .references(() => competitorIdentities.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
+  },
+  (table) => [
+    index('competitor_identity_distinctions_workspace_idx').on(
+      table.workspaceId,
+    ),
+    uniqueIndex('competitor_identity_distinctions_pair_uidx').on(
+      table.identityAId,
+      table.identityBId,
+    ),
   ],
 );
 

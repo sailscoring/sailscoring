@@ -32,6 +32,7 @@ function identity(over: Partial<IdentityWithArc>): IdentityWithArc {
     sailNumber: 'IRL1',
     club: null,
     nationality: null,
+    reviewedAt: null,
     // One published entry by default: the index drops identities with no
     // published series, so a bare identity needs an entry to survive.
     entries: [entry({})],

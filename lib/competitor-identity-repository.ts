@@ -1,10 +1,16 @@
 import 'server-only';
 
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, or } from 'drizzle-orm';
 
 import { workspaceIdentityFeatureOn } from '@/lib/competitor-identity-reconcile';
+import { mintSlug } from '@/lib/competitor-slug';
 import { getDb } from '@/lib/db/client';
-import { competitorIdentities, competitors, series } from '@/lib/db/schema/series';
+import {
+  competitorIdentities,
+  competitorIdentityDistinctions,
+  competitors,
+  series,
+} from '@/lib/db/schema/series';
 
 /**
  * Server-side reads/writes for the cross-series competitor-identity spine
@@ -38,6 +44,10 @@ export interface IdentityWithArc {
   sailNumber: string;
   club: string | null;
   nationality: string | null;
+  /** "Looks right" stamp from the review queue (#221) — a flagged identity a
+   *  human has confirmed. ISO string, or null when never reviewed (or the arc
+   *  changed since: merge/split clear it). */
+  reviewedAt: string | null;
   entries: ArcEntry[];
   firstYear: number | null;
   lastYear: number | null;
@@ -57,6 +67,7 @@ function assemble(
     sailNumber: string;
     club: string | null;
     nationality: string | null;
+    reviewedAt: Date | null;
     competitorId: string | null;
     seriesId: string | null;
     seriesName: string | null;
@@ -78,6 +89,7 @@ function assemble(
         sailNumber: r.sailNumber,
         club: r.club,
         nationality: r.nationality,
+        reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null,
         entries: [],
         firstYear: null,
         lastYear: null,
@@ -116,6 +128,7 @@ const selection = {
   sailNumber: competitorIdentities.sailNumber,
   club: competitorIdentities.club,
   nationality: competitorIdentities.nationality,
+  reviewedAt: competitorIdentities.reviewedAt,
   competitorId: competitors.id,
   seriesId: series.id,
   seriesName: series.name,
@@ -216,28 +229,291 @@ export async function renameIdentity(
   return (res.count ?? 0) > 0;
 }
 
+/** The display fields of an identity row — what merge returns so an undo can
+ *  recreate the row exactly (same id, same slug, so public URLs survive the
+ *  round trip). */
+export interface IdentitySnapshot {
+  id: string;
+  slug: string | null;
+  label: string;
+  sailNumber: string;
+  club: string | null;
+  nationality: string | null;
+}
+
+/** What a merge did, and everything needed to undo it. */
+export interface MergeResult {
+  source: IdentitySnapshot;
+  movedCompetitorIds: string[];
+}
+
 /**
- * Split a competitor row off its identity (sets `identity_id` null). The row is
- * left unlinked — a subsequent reconcile pass re-clusters it (into its own
- * identity or a better-matching one). Scoped to the identity + workspace so a
- * stale id can't unlink someone else's row. Returns false if nothing matched.
+ * Merge one identity into another (#221): every competitor linked to `sourceId`
+ * moves to `targetId`, then the source row is deleted (its distinctions cascade
+ * away with it). The target keeps its own label and slug — the survivor is the
+ * caller's choice of canonical record. Clears the target's `reviewed_at`: its
+ * arc just changed, so any prior "looks right" no longer applies. Returns what
+ * moved for the undo path, or null when either id is missing (or they're the
+ * same identity).
  */
-export async function unlinkCompetitor(
+export async function mergeIdentities(
+  workspaceId: string,
+  targetId: string,
+  sourceId: string,
+): Promise<MergeResult | null> {
+  if (targetId === sourceId) return null;
+  return getDb().transaction(async (tx) => {
+    const rows = await tx
+      .select({
+        id: competitorIdentities.id,
+        slug: competitorIdentities.slug,
+        label: competitorIdentities.label,
+        sailNumber: competitorIdentities.sailNumber,
+        club: competitorIdentities.club,
+        nationality: competitorIdentities.nationality,
+      })
+      .from(competitorIdentities)
+      .where(
+        and(
+          eq(competitorIdentities.workspaceId, workspaceId),
+          inArray(competitorIdentities.id, [targetId, sourceId]),
+        ),
+      );
+    const source = rows.find((r) => r.id === sourceId);
+    const target = rows.find((r) => r.id === targetId);
+    if (!source || !target) return null;
+
+    const moved = await tx
+      .update(competitors)
+      .set({ identityId: targetId })
+      .where(
+        and(
+          eq(competitors.workspaceId, workspaceId),
+          eq(competitors.identityId, sourceId),
+        ),
+      )
+      .returning({ id: competitors.id });
+    await tx
+      .delete(competitorIdentities)
+      .where(eq(competitorIdentities.id, sourceId));
+    await tx
+      .update(competitorIdentities)
+      .set({ reviewedAt: null, updatedAt: new Date() })
+      .where(eq(competitorIdentities.id, targetId));
+
+    return { source, movedCompetitorIds: moved.map((m) => m.id) };
+  });
+}
+
+/**
+ * Undo a merge (#221): recreate the merged-away identity from its snapshot —
+ * same id and slug, so its public URL comes straight back — and re-point the
+ * listed competitor rows at it. Tolerant of replays: an existing identity row
+ * is left as-is, and only rows still in the workspace move. If another
+ * identity claimed the slug in the meantime (vanishingly unlikely in an undo
+ * window), a fresh slug is minted rather than failing.
+ */
+export async function restoreIdentity(
+  workspaceId: string,
+  snapshot: IdentitySnapshot,
+  competitorIds: string[],
+): Promise<void> {
+  await getDb().transaction(async (tx) => {
+    let slug = snapshot.slug;
+    if (slug) {
+      const [taken] = await tx
+        .select({ id: competitorIdentities.id })
+        .from(competitorIdentities)
+        .where(
+          and(
+            eq(competitorIdentities.workspaceId, workspaceId),
+            eq(competitorIdentities.slug, slug),
+          ),
+        )
+        .limit(1);
+      if (taken && taken.id !== snapshot.id) {
+        slug = mintSlug(snapshot.label, new Set([slug]));
+      }
+    }
+    await tx
+      .insert(competitorIdentities)
+      .values({
+        id: snapshot.id,
+        workspaceId,
+        label: snapshot.label,
+        slug,
+        sailNumber: snapshot.sailNumber,
+        club: snapshot.club,
+        nationality: snapshot.nationality,
+      })
+      .onConflictDoNothing({ target: competitorIdentities.id });
+    if (competitorIds.length > 0) {
+      await tx
+        .update(competitors)
+        .set({ identityId: snapshot.id })
+        .where(
+          and(
+            eq(competitors.workspaceId, workspaceId),
+            inArray(competitors.id, competitorIds),
+          ),
+        );
+    }
+  });
+}
+
+/**
+ * Split competitor rows off an identity onto a fresh identity of their own
+ * (#221) — the one-row scissor and the cluster-level peel are the same
+ * operation. The peeled rows land on a *new confirmed identity* rather than
+ * `identity_id` NULL, which is what makes a human split stick: the automatic
+ * pass never re-merges a cluster spanning two confirmed identities. The new
+ * identity's display fields come from the most recent peeled row (the
+ * clusterer's representative rule). At least one row must remain behind —
+ * peeling everything is a rename, not a split. Returns the new identity's id,
+ * or null when the identity/rows don't line up.
+ */
+export async function splitIdentity(
   workspaceId: string,
   identityId: string,
-  competitorId: string,
+  competitorIds: string[],
+): Promise<string | null> {
+  if (competitorIds.length === 0) return null;
+  return getDb().transaction(async (tx) => {
+    const linked = await tx
+      .select({
+        id: competitors.id,
+        name: competitors.name,
+        sailNumber: competitors.sailNumber,
+        club: competitors.club,
+        nationality: competitors.nationality,
+        startDate: series.startDate,
+      })
+      .from(competitors)
+      .innerJoin(series, eq(competitors.seriesId, series.id))
+      .where(
+        and(
+          eq(competitors.workspaceId, workspaceId),
+          eq(competitors.identityId, identityId),
+        ),
+      );
+    const wanted = new Set(competitorIds);
+    const peeled = linked.filter((r) => wanted.has(r.id));
+    if (peeled.length !== competitorIds.length) return null; // stale selection
+    if (peeled.length === linked.length) return null; // nothing would remain
+
+    // Representative = most recent by series start date.
+    const rep = [...peeled].sort((a, b) =>
+      (a.startDate ?? '').localeCompare(b.startDate ?? ''),
+    )[peeled.length - 1];
+
+    const reserved = new Set(
+      (
+        await tx
+          .select({ slug: competitorIdentities.slug })
+          .from(competitorIdentities)
+          .where(
+            and(
+              eq(competitorIdentities.workspaceId, workspaceId),
+              isNotNull(competitorIdentities.slug),
+            ),
+          )
+      ).map((r) => r.slug as string),
+    );
+    const newId = crypto.randomUUID();
+    await tx.insert(competitorIdentities).values({
+      id: newId,
+      workspaceId,
+      label: rep.name.trim(),
+      slug: mintSlug(rep.name.trim(), reserved),
+      sailNumber: rep.sailNumber,
+      club: rep.club || null,
+      nationality: rep.nationality ?? null,
+    });
+    await tx
+      .update(competitors)
+      .set({ identityId: newId })
+      .where(
+        and(
+          eq(competitors.workspaceId, workspaceId),
+          inArray(competitors.id, competitorIds),
+        ),
+      );
+    // The remainder's arc changed too — any "looks right" is stale.
+    await tx
+      .update(competitorIdentities)
+      .set({ reviewedAt: null, updatedAt: new Date() })
+      .where(eq(competitorIdentities.id, identityId));
+    return newId;
+  });
+}
+
+/** Stamp (or clear) the review queue's "looks right" mark (#221). Returns
+ *  false if the identity isn't in the workspace. */
+export async function setIdentityReviewed(
+  workspaceId: string,
+  identityId: string,
+  reviewed: boolean,
 ): Promise<boolean> {
   const res = await getDb()
-    .update(competitors)
-    .set({ identityId: null })
+    .update(competitorIdentities)
+    .set({ reviewedAt: reviewed ? new Date() : null, updatedAt: new Date() })
     .where(
       and(
-        eq(competitors.workspaceId, workspaceId),
-        eq(competitors.id, competitorId),
-        eq(competitors.identityId, identityId),
+        eq(competitorIdentities.workspaceId, workspaceId),
+        eq(competitorIdentities.id, identityId),
       ),
     );
   return (res.count ?? 0) > 0;
+}
+
+/**
+ * Record that two identities are confirmed different sailors (#221) — the
+ * review queue's dismissal for a weak name-match suggestion. Stored as an
+ * ordered pair so each pair has one canonical row; replays are no-ops.
+ * Returns false when either identity isn't in the workspace.
+ */
+export async function addIdentityDistinction(
+  workspaceId: string,
+  a: string,
+  b: string,
+): Promise<boolean> {
+  if (a === b) return false;
+  const [identityAId, identityBId] = a < b ? [a, b] : [b, a];
+  const rows = await getDb()
+    .select({ id: competitorIdentities.id })
+    .from(competitorIdentities)
+    .where(
+      and(
+        eq(competitorIdentities.workspaceId, workspaceId),
+        inArray(competitorIdentities.id, [identityAId, identityBId]),
+      ),
+    );
+  if (rows.length !== 2) return false;
+  await getDb()
+    .insert(competitorIdentityDistinctions)
+    .values({ id: crypto.randomUUID(), workspaceId, identityAId, identityBId })
+    .onConflictDoNothing({
+      target: [
+        competitorIdentityDistinctions.identityAId,
+        competitorIdentityDistinctions.identityBId,
+      ],
+    });
+  return true;
+}
+
+/** The workspace's confirmed-different pairs, as ordered `${a}:${b}` keys —
+ *  the review queue filters its merge suggestions against this set. */
+export async function listIdentityDistinctions(
+  workspaceId: string,
+): Promise<Set<string>> {
+  const rows = await getDb()
+    .select({
+      a: competitorIdentityDistinctions.identityAId,
+      b: competitorIdentityDistinctions.identityBId,
+    })
+    .from(competitorIdentityDistinctions)
+    .where(eq(competitorIdentityDistinctions.workspaceId, workspaceId));
+  return new Set(rows.map((r) => `${r.a}:${r.b}`));
 }
 
 /**

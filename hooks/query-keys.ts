@@ -22,6 +22,7 @@ export const queryKeys = {
   competitorIdentities: {
     all: ['competitorIdentities'] as const,
     list: () => ['competitorIdentities', 'list'] as const,
+    review: () => ['competitorIdentities', 'review'] as const,
   },
   fleets: {
     all: ['fleets'] as const,

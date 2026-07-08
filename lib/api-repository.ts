@@ -4,7 +4,11 @@
  */
 import { apiFetch } from './api-client';
 import type { FeatureKey } from './features';
-import type { IdentityWithArc } from './competitor-identity-repository';
+import type { MergeSuggestion } from './api-handlers/competitor-identity';
+import type {
+  IdentityWithArc,
+  MergeResult as IdentityMergeUndo,
+} from './competitor-identity-repository';
 import type { SeriesFileRevision } from './series-file';
 import type { IrishSailingRatings } from './irish-sailing-ratings';
 import type { IrcRatings } from './irc-rating';
@@ -1040,13 +1044,68 @@ export function renameCompetitorIdentity(
   });
 }
 
-/** Split a competitor row off an identity; returns the trimmed arc. */
-export function unlinkCompetitorFromIdentity(
+/** Peel competitor rows off an identity onto a fresh identity of their own
+ *  (#221); returns the trimmed arc and the new identity's id. */
+export function splitCompetitorIdentity(
   id: string,
-  competitorId: string,
+  competitorIds: string[],
+): Promise<{ identity: IdentityWithArc; newIdentityId: string }> {
+  return apiFetch<{ identity: IdentityWithArc; newIdentityId: string }>(
+    `/api/v1/competitor-identities/${id}/split`,
+    { method: 'POST', body: { competitorIds } },
+  );
+}
+
+/** Merge `sourceId` into `id` (#221); returns the merged arc plus the undo
+ *  payload for `restoreCompetitorIdentity`. */
+export function mergeCompetitorIdentities(
+  id: string,
+  sourceId: string,
+): Promise<{ identity: IdentityWithArc; undo: IdentityMergeUndo }> {
+  return apiFetch<{ identity: IdentityWithArc; undo: IdentityMergeUndo }>(
+    `/api/v1/competitor-identities/${id}/merge`,
+    { method: 'POST', body: { sourceId } },
+  );
+}
+
+/** Undo a merge: post back exactly what the merge endpoint returned. */
+export function restoreCompetitorIdentity(
+  undo: IdentityMergeUndo,
+): Promise<{ identity: IdentityWithArc }> {
+  return apiFetch<{ identity: IdentityWithArc }>(
+    '/api/v1/competitor-identities/restore',
+    { method: 'POST', body: undo },
+  );
+}
+
+/** Stamp or clear the review queue's "looks right" mark (#221). */
+export function setCompetitorIdentityReviewed(
+  id: string,
+  reviewed: boolean,
 ): Promise<IdentityWithArc> {
   return apiFetch<IdentityWithArc>(
-    `/api/v1/competitor-identities/${id}/unlink`,
-    { method: 'POST', body: { competitorId } },
+    `/api/v1/competitor-identities/${id}/reviewed`,
+    { method: 'POST', body: { reviewed } },
   );
+}
+
+/** Dismiss a merge suggestion for good: the pair are different sailors. */
+export function distinguishCompetitorIdentities(
+  aId: string,
+  bId: string,
+): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>('/api/v1/competitor-identities/distinctions', {
+    method: 'POST',
+    body: { aId, bId },
+  });
+}
+
+/** The review queue's merge candidates (#221). */
+export async function listCompetitorIdentityMergeSuggestions(): Promise<
+  MergeSuggestion[]
+> {
+  const { mergeSuggestions } = await apiFetch<{
+    mergeSuggestions: MergeSuggestion[];
+  }>('/api/v1/competitor-identities/review');
+  return mergeSuggestions;
 }

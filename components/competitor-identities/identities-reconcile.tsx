@@ -8,7 +8,7 @@ import type { IdentityWithArc } from '@/lib/competitor-identity-repository';
 import {
   useCompetitorIdentities,
   useRenameCompetitorIdentity,
-  useUnlinkCompetitor,
+  useSplitCompetitorIdentity,
 } from '@/hooks/use-competitor-identities';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,7 +36,7 @@ function IdentityCard({
   workspaceSlug: string;
 }) {
   const rename = useRenameCompetitorIdentity();
-  const unlink = useUnlinkCompetitor();
+  const split = useSplitCompetitorIdentity();
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(identity.label);
   const longArc = isLongArc(identity);
@@ -133,9 +133,9 @@ function IdentityCard({
                 variant="ghost"
                 className="h-7 px-2 text-muted-foreground hover:text-destructive"
                 title="Split this entry off — it isn't this competitor"
-                disabled={unlink.isPending}
+                disabled={split.isPending}
                 onClick={() =>
-                  unlink.mutate({ id: identity.id, competitorId: e.competitorId })
+                  split.mutate({ id: identity.id, competitorIds: [e.competitorId] })
                 }
               >
                 <Scissors className="h-3.5 w-3.5" />

@@ -30,6 +30,7 @@ function arc(entries: CareerArcEntry[]): CareerArc {
     sailNumber: 'IRL1200',
     club: 'RCYC',
     nationality: null,
+    reviewedAt: null,
     firstYear: entries[0]?.year ?? null,
     lastYear: entries[entries.length - 1]?.year ?? null,
     entries,
