@@ -12,9 +12,12 @@ import { ScoringModeCard } from '@/components/series-settings/scoring-mode-card'
 import { CompetitorFieldsCard } from '@/components/series-settings/competitor-fields-card';
 import { PublishingCard } from '@/components/series-settings/publishing-card';
 import { CombinedPagesCard } from '@/components/series-settings/combined-pages-card';
+import { DisabledFeatureHint } from '@/components/series-settings/disabled-feature-hint';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
+import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useFeatures } from '@/components/features-provider';
+import { disabledConfigFeatures } from '@/lib/series-feature-hints';
 
 export default function SettingsPage({
   params,
@@ -27,6 +30,7 @@ export default function SettingsPage({
   const { listSeriesNames } = repos;
   const { data: series, isLoading } = useSeries(seriesId);
   const { data: fleetsData } = useFleetsBySeries(seriesId);
+  const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
   const fleets = fleetsData ?? [];
   const updateSeries = useUpdateSeries();
 
@@ -34,6 +38,16 @@ export default function SettingsPage({
   if (series === null) return <SeriesTabFallback status="missing" />;
 
   const anyProgressiveFleet = fleets.some((f) => f.scoringSystem === 'nhc' || f.scoringSystem === 'echo');
+
+  // Config the series carries for gated features that are currently off — the
+  // gate hides their cards, so surface a hint instead (#280).
+  const hints = disabledConfigFeatures(
+    {
+      'sub-series': (subSeriesList?.length ?? 0) > 0,
+      'combined-pages': (series?.publishingGroups?.length ?? 0) > 0,
+    },
+    has,
+  );
 
   // The settings cards auto-save (which the server would reject for an
   // archived, read-only series), so they're replaced with a notice while
@@ -98,6 +112,17 @@ export default function SettingsPage({
       {/* Combined pages are gated (#155): only the authoring UI hides when
           the feature is off — existing group config keeps publishing. */}
       {has('combined-pages') && <CombinedPagesCard seriesId={seriesId} series={series} />}
+      {/* A series can carry config for a feature that's since been switched off
+          (seeded, imported, or copied). The gate hides the card, so hint at
+          what's hidden and how to bring it back (#280). */}
+      {hints.map((h) => (
+        <DisabledFeatureHint
+          key={h.feature}
+          label={h.label}
+          noun={h.noun}
+          canManageWorkspace={can('manage-workspace')}
+        />
+      ))}
     </div>
   );
 }
