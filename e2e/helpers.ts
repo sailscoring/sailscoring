@@ -505,7 +505,7 @@ export async function enableFeatures(
     const slug = `u-${u.id.slice(0, 16)}`;
     await db
       .update(schema.organization)
-      .set({ metadata: serializeOrgMetadata({ kind: 'personal', enabledFeatures: features, disabledFeatures: [] }) })
+      .set({ metadata: serializeOrgMetadata({ kind: 'personal', enabledFeatures: features, disabledFeatures: [], seededFeatureSamples: [] }) })
       .where(eq(schema.organization.slug, slug));
   } finally {
     await close();
@@ -526,7 +526,7 @@ export async function enableOrgFeatures(
   try {
     await db
       .update(schema.organization)
-      .set({ metadata: serializeOrgMetadata({ kind: 'club', enabledFeatures: features, disabledFeatures: [] }) })
+      .set({ metadata: serializeOrgMetadata({ kind: 'club', enabledFeatures: features, disabledFeatures: [], seededFeatureSamples: [] }) })
       .where(eq(schema.organization.id, orgId));
   } finally {
     await close();

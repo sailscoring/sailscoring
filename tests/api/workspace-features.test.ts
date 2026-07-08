@@ -48,6 +48,14 @@ describe.skipIf(skip)('setWorkspaceFeature (#278)', () => {
     return parseOrgMetadata(row?.metadata ?? null, slug);
   }
 
+  async function seriesNames() {
+    const rows = await db
+      .select({ name: schema.series.name })
+      .from(schema.series)
+      .where(eq(schema.series.workspaceId, orgId));
+    return rows.map((r) => r.name);
+  }
+
   beforeAll(async () => {
     sql = postgres(DATABASE_URL!, { max: 1, prepare: false });
     db = drizzle(sql, { schema });
@@ -86,6 +94,24 @@ describe.skipIf(skip)('setWorkspaceFeature (#278)', () => {
   test('a default-on feature can be opted out', async () => {
     const res = await setWorkspaceFeature(ctx(), { feature: 'echo', enabled: false });
     expect(res.disabledFeatures).toContain('echo');
+  });
+
+  test('first-time enable of a feature with a demo seeds it exactly once (#256)', async () => {
+    const before = await seriesNames();
+    expect(before).not.toContain('Sample Club League 2026');
+
+    await setWorkspaceFeature(ctx(), { feature: 'sub-series', enabled: true });
+    const meta = await metadata();
+    expect(meta.enabledFeatures).toContain('sub-series');
+    expect(meta.seededFeatureSamples).toContain('sub-series');
+    const afterEnable = await seriesNames();
+    expect(afterEnable.filter((n) => n === 'Sample Club League 2026')).toHaveLength(1);
+
+    // Disable then re-enable — the seeded-sample marker prevents a second copy.
+    await setWorkspaceFeature(ctx(), { feature: 'sub-series', enabled: false });
+    await setWorkspaceFeature(ctx(), { feature: 'sub-series', enabled: true });
+    const afterReEnable = await seriesNames();
+    expect(afterReEnable.filter((n) => n === 'Sample Club League 2026')).toHaveLength(1);
   });
 
   test('operator-managed keys are rejected with a forbidden error', async () => {

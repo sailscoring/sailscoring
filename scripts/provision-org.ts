@@ -248,6 +248,7 @@ export async function createOrg(
           kind: 'club',
           enabledFeatures: args.enabledFeatures,
           disabledFeatures: [],
+          seededFeatureSamples: [],
         })
       : null;
   await db.insert(organization).values({

@@ -39,11 +39,13 @@ describe('parseOrgMetadata', () => {
       kind: 'club',
       enabledFeatures: [],
       disabledFeatures: [],
+      seededFeatureSamples: [],
     });
     expect(parseOrgMetadata('', 'u-abc')).toEqual({
       kind: 'personal',
       enabledFeatures: [],
       disabledFeatures: [],
+      seededFeatureSamples: [],
     });
   });
 
@@ -61,6 +63,7 @@ describe('parseOrgMetadata', () => {
       kind: 'club',
       enabledFeatures: ['echo', 'ftp-upload'],
       disabledFeatures: [],
+      seededFeatureSamples: [],
     });
   });
 
@@ -89,6 +92,7 @@ describe('parseOrgMetadata', () => {
       kind: 'club',
       enabledFeatures: [],
       disabledFeatures: [],
+      seededFeatureSamples: [],
     });
   });
 
@@ -99,13 +103,27 @@ describe('parseOrgMetadata', () => {
 });
 
 describe('serializeOrgMetadata round-trips', () => {
-  it('preserves kind, enabled, and disabled features', () => {
+  it('preserves kind, enabled, disabled, and seeded-sample features', () => {
     const meta = {
       kind: 'club' as const,
       enabledFeatures: ['echo' as const],
       disabledFeatures: ['irc-rating' as const],
+      seededFeatureSamples: ['sub-series' as const],
     };
     expect(parseOrgMetadata(serializeOrgMetadata(meta))).toEqual(meta);
+  });
+
+  it('defaults seededFeatureSamples to empty when the key is absent', () => {
+    const raw = JSON.stringify({ kind: 'club', enabledFeatures: ['echo'] });
+    expect(parseOrgMetadata(raw).seededFeatureSamples).toEqual([]);
+  });
+
+  it('applyFeatureToggle carries the seeded-sample marker through', () => {
+    const base = parseOrgMetadata(
+      JSON.stringify({ kind: 'club', seededFeatureSamples: ['sub-series'] }),
+    );
+    const next = applyFeatureToggle(base, 'prizes', true);
+    expect(next.seededFeatureSamples).toEqual(['sub-series']);
   });
 });
 

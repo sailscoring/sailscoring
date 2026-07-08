@@ -779,6 +779,12 @@ export default async function HelpPage() {
             one-race sub-series.
           </p>
           <p>
+            Turning this feature on drops a worked example —{' '}
+            <strong className="text-foreground">Sample Club League 2026</strong> — into your series
+            list, with an overall table, Spring and Summer blocks, a fleet-scoped championship, and a
+            continued handicap chain already set up to explore. Delete it whenever you like.
+          </p>
+          <p>
             Each sub-series is scored on its own. The series discard rule applies to its race count
             separately. By default a boat that entered the series but never started this sub-series
             is still scored DNC in it, just like a plain series. To rank only the boats that actually

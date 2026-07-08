@@ -237,6 +237,11 @@ export interface OrgMetadata {
   /** Features explicitly switched off for this workspace — only meaningful
    *  for default-on features, where it records the opt-out. */
   disabledFeatures: FeatureKey[];
+  /** Features whose `demoSample` has already been seeded into this workspace,
+   *  so a later disable/re-enable (or a re-enable after the scorer deleted the
+   *  demo) doesn't seed it again. Write-once per feature; see
+   *  `setWorkspaceFeature`. Not part of feature resolution. */
+  seededFeatureSamples: FeatureKey[];
 }
 
 /**
@@ -264,6 +269,7 @@ export function parseOrgMetadata(
     kind,
     enabledFeatures: [],
     disabledFeatures: [],
+    seededFeatureSamples: [],
   });
   if (!raw) return empty(fallbackKind);
   let parsed: unknown;
@@ -282,6 +288,7 @@ export function parseOrgMetadata(
     kind,
     enabledFeatures: dedupe(parseFeatureArray(obj.enabledFeatures)),
     disabledFeatures: dedupe(parseFeatureArray(obj.disabledFeatures)),
+    seededFeatureSamples: dedupe(parseFeatureArray(obj.seededFeatureSamples)),
   };
 }
 
@@ -300,6 +307,7 @@ export function serializeOrgMetadata(meta: OrgMetadata): string {
     kind: meta.kind,
     enabledFeatures: dedupe(meta.enabledFeatures),
     disabledFeatures: dedupe(meta.disabledFeatures),
+    seededFeatureSamples: dedupe(meta.seededFeatureSamples),
   });
 }
 
@@ -337,6 +345,7 @@ export function applyFeatureToggle(
     kind: meta.kind,
     enabledFeatures: [...enabledSet],
     disabledFeatures: [...disabledSet],
+    seededFeatureSamples: [...meta.seededFeatureSamples],
   };
 }
 

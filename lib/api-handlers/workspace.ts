@@ -10,9 +10,11 @@ import { getDb } from '@/lib/db/client';
 import { organization } from '@/lib/db/schema/auth';
 import {
   applyFeatureToggle,
+  FEATURES,
   isSelfServiceFeature,
   parseOrgMetadata,
   serializeOrgMetadata,
+  type FeatureDef,
   type FeatureKey,
 } from '@/lib/features';
 import { featureToggleSchema } from '@/lib/validation/workspace';
@@ -50,6 +52,13 @@ export function workspaceIdentity(workspace: WorkspaceContext): WorkspaceIdentit
  * CLI's alone, so an attempt to flip one from the UI is a 403 rather than a
  * silent write. The mutation itself is the shared `applyFeatureToggle` policy,
  * read-modify-written server-side so the client only ever names one key.
+ *
+ * The first time a feature carrying a `demoSample` is switched on, we also seed
+ * its worked example into the workspace (#256) so the scorer lands on a live,
+ * editable demonstration rather than an empty affordance. Seeded once — a marker
+ * in `seededFeatureSamples` keeps a later disable/re-enable (or a re-enable after
+ * the demo was deleted) from resurrecting it — and best-effort, so a seeding
+ * failure logs but never fails the toggle.
  */
 export async function setWorkspaceFeature(
   workspace: WorkspaceContext,
@@ -66,7 +75,31 @@ export async function setWorkspaceFeature(
     .where(eq(organization.id, workspace.workspaceId))
     .limit(1);
   const meta = parseOrgMetadata(row?.metadata ?? null, workspace.workspaceSlug);
+  const wasEnabled = meta.enabledFeatures.includes(input.feature);
   const next = applyFeatureToggle(meta, input.feature, input.enabled);
+
+  // First-time enable of a feature with a worked example → seed it.
+  const demoSample = (FEATURES[input.feature] as FeatureDef).demoSample;
+  if (
+    input.enabled &&
+    !wasEnabled &&
+    demoSample &&
+    !meta.seededFeatureSamples.includes(input.feature)
+  ) {
+    try {
+      const { seedFeatureSample } = await import('@/lib/sample-series/seed');
+      await seedFeatureSample(input.feature, workspace.workspaceId, db);
+      next.seededFeatureSamples = [...next.seededFeatureSamples, input.feature];
+    } catch (err) {
+      console.error(
+        '[feature-sample] seeding failed for',
+        input.feature,
+        workspace.workspaceId,
+        err,
+      );
+    }
+  }
+
   await db
     .update(organization)
     .set({ metadata: serializeOrgMetadata(next) })
