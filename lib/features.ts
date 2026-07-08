@@ -37,6 +37,13 @@ export interface FeatureDef {
    *  resolution — `computeEffectiveFeatures` honours the metadata regardless;
    *  this only governs the settings UI and its API guard. */
   selfService?: boolean;
+  /** Filename of a `.sailscoring` demo under `lib/sample-series/` seeded into
+   *  the workspace the first time this feature is switched on (self-service),
+   *  so the scorer lands on a live, editable example rather than an empty
+   *  affordance. Absent for features with nothing to demonstrate. Seeded once
+   *  and tracked in `OrgMetadata.seededFeatureSamples`; see
+   *  `seedFeatureSample` and `setWorkspaceFeature`. */
+  demoSample?: string;
 }
 
 /**
@@ -68,6 +75,8 @@ export const FEATURES = {
     // with progressive handicaps chaining across block boundaries.
     label: 'Sub-series',
     helpSectionIds: ['sub-series'],
+    // Enabling it drops a worked club-league example into the series list.
+    demoSample: 'club-league.sailscoring',
   },
   'logo-library': {
     // The flag locker — the per-workspace logo library plus the built-in

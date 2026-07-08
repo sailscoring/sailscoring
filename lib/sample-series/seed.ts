@@ -20,10 +20,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { getDb, type SailScoringDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
+import { FEATURES, type FeatureDef, type FeatureKey } from '@/lib/features';
 import { openSeriesFromFile, parseSeriesFile, type SeriesFileRepos } from '@/lib/series-file';
 import type { Competitor, Fleet, Race, RaceStart, RaceRatingOverride, Finish, Series, SubSeries } from '@/lib/types';
 
@@ -155,24 +156,52 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
     } as unknown as SeriesFileRepos['raceRepo'],
 
     subSeriesRepo: {
+      // Mirrors PostgresSubSeriesRepository.save: upsert the row (so
+      // openSeriesFromFile's two-pass 'continue' write patches
+      // continueFromSubSeriesId rather than colliding on the PK) and replace
+      // membership, carrying per-fleet exclusions on the join row's
+      // excludedFleetIds. fleetIds / excludeDncOnlyCompetitors are scoping the
+      // scoring engine reads, so they must round-trip too.
       async saveMany(list: SubSeries[]) {
         if (list.length === 0) return;
-        await db.insert(schema.subSeries).values(
-          list.map((ss) => ({
+        for (const ss of list) {
+          const row = {
             id: ss.id,
             seriesId: ss.seriesId,
             workspaceId,
             name: ss.name,
             displayOrder: ss.displayOrder,
+            fleetIds: ss.fleetIds ?? null,
             startingHandicapSource: ss.startingHandicapSource ?? 'base',
             continueFromSubSeriesId: ss.continueFromSubSeriesId ?? null,
-          })),
-        );
-        const membership = list.flatMap((ss) =>
-          ss.raceIds.map((raceId) => ({ subSeriesId: ss.id, raceId, workspaceId })),
-        );
-        if (membership.length > 0) {
-          await db.insert(schema.subSeriesRaces).values(membership);
+            excludeDncOnlyCompetitors: ss.excludeDncOnlyCompetitors ?? false,
+          };
+          await db
+            .insert(schema.subSeries)
+            .values(row)
+            .onConflictDoUpdate({ target: schema.subSeries.id, set: row });
+
+          // Replace membership: delete then re-insert, so a second saveMany for
+          // the same sub-series (the continueFrom pass) doesn't duplicate rows.
+          await db
+            .delete(schema.subSeriesRaces)
+            .where(eq(schema.subSeriesRaces.subSeriesId, ss.id));
+          const excludedByRace = new Map<string, string[]>();
+          for (const ex of ss.raceFleetExclusions ?? []) {
+            const fleets = excludedByRace.get(ex.raceId) ?? [];
+            fleets.push(ex.fleetId);
+            excludedByRace.set(ex.raceId, fleets);
+          }
+          if (ss.raceIds.length > 0) {
+            await db.insert(schema.subSeriesRaces).values(
+              ss.raceIds.map((raceId) => ({
+                subSeriesId: ss.id,
+                raceId,
+                workspaceId,
+                excludedFleetIds: excludedByRace.get(raceId) ?? [],
+              })),
+            );
+          }
         }
       },
     } as unknown as SeriesFileRepos['subSeriesRepo'],
@@ -245,6 +274,34 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
   };
 }
 
+/** The id of this workspace's "Samples" category, creating it (appended after
+ *  any existing categories) if it doesn't exist yet. Shared by the sign-up
+ *  seeding and the on-enable feature-demo seeding, so both land in one place. */
+async function ensureSamplesCategory(
+  db: SailScoringDb,
+  workspaceId: string,
+): Promise<string> {
+  const [existing] = await db
+    .select({ id: schema.categories.id })
+    .from(schema.categories)
+    .where(
+      and(
+        eq(schema.categories.workspaceId, workspaceId),
+        eq(schema.categories.name, SAMPLES_CATEGORY_NAME),
+      ),
+    )
+    .limit(1);
+  if (existing) return existing.id;
+  const categoryId = crypto.randomUUID();
+  await db.insert(schema.categories).values({
+    id: categoryId,
+    workspaceId,
+    name: SAMPLES_CATEGORY_NAME,
+    displayOrder: sql<number>`(select coalesce(max(${schema.categories.displayOrder}) + 1, 0) from ${schema.categories} where ${schema.categories.workspaceId} = ${workspaceId})`,
+  });
+  return categoryId;
+}
+
 /**
  * Seed both sample series into `workspaceId`. Atomic per call (one transaction)
  * so a mid-seed failure leaves no half-written series. Callers run this
@@ -259,17 +316,39 @@ export async function seedSampleSeries(
     // Group both samples under a "Samples" category. `categoryId` is
     // workspace-local (not carried in the .sailscoring file), so we create the
     // category here and pass its id to openSeriesFromFile.
-    const categoryId = crypto.randomUUID();
-    await txDb.insert(schema.categories).values({
-      id: categoryId,
-      workspaceId,
-      name: SAMPLES_CATEGORY_NAME,
-      displayOrder: 0,
-    });
+    const categoryId = await ensureSamplesCategory(txDb, workspaceId);
     const repos = seedRepos(txDb, workspaceId);
     for (const name of SAMPLE_FILES) {
       const file = parseSeriesFile(readFileSync(join(SAMPLE_DIR, name), 'utf8'));
       await openSeriesFromFile(file, repos, { categoryId });
     }
   });
+}
+
+/**
+ * Seed a feature's worked example (`FeatureDef.demoSample`) into `workspaceId`,
+ * grouped under the same "Samples" category as the sign-up seeds. Called when a
+ * feature is switched on for the first time (see `setWorkspaceFeature`), so the
+ * scorer meets a live, editable demonstration rather than an empty affordance.
+ *
+ * Returns whether a demo was seeded — `false` when the feature has no
+ * `demoSample`, so the caller can skip recording the one-time marker. Atomic
+ * per call and run best-effort by the caller: a failure must never fail the
+ * toggle itself.
+ */
+export async function seedFeatureSample(
+  feature: FeatureKey,
+  workspaceId: string,
+  db: SailScoringDb = getDb(),
+): Promise<boolean> {
+  const fileName = (FEATURES[feature] as FeatureDef).demoSample;
+  if (!fileName) return false;
+  await db.transaction(async (tx) => {
+    const txDb = tx as unknown as SailScoringDb;
+    const categoryId = await ensureSamplesCategory(txDb, workspaceId);
+    const repos = seedRepos(txDb, workspaceId);
+    const file = parseSeriesFile(readFileSync(join(SAMPLE_DIR, fileName), 'utf8'));
+    await openSeriesFromFile(file, repos, { categoryId });
+  });
+  return true;
 }
