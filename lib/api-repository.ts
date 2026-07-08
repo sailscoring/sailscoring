@@ -206,6 +206,19 @@ class ApiRaceRepository implements RaceRepository {
     });
   }
 
+  async generateMany(
+    seriesId: string,
+    races: Race[],
+    starts: RaceStart[],
+    _opts?: SaveOpts,
+  ): Promise<Race[]> {
+    if (races.length === 0) return [];
+    return apiFetch<Race[]>(`/api/v1/series/${seriesId}/races`, {
+      method: 'POST',
+      body: { races, starts },
+    });
+  }
+
   async reorder(seriesId: string, orderedIds: string[]): Promise<void> {
     await apiFetch(`/api/v1/series/${seriesId}/races/reorder`, {
       method: 'POST',

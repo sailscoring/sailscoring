@@ -39,6 +39,7 @@ export const ACTIVITY_ACTIONS = [
   'race.added',
   'race.updated',
   'race.deleted',
+  'races.generated',
   'races.cleared',
   'races.reordered',
   'sub-series.created',

@@ -309,6 +309,35 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('RaceRepository: generateMany appends numbered races and their starts', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+    // One existing race, so generation must continue from number 2.
+    const existing: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
+    await repos.races.save(existing);
+
+    const g1: Race = { id: uuid(), seriesId: s.id, raceNumber: 99, name: 'Tuesday', date: '2026-04-08', createdAt: Date.now() };
+    const g2: Race = { id: uuid(), seriesId: s.id, raceNumber: 99, name: 'Tuesday', date: '2026-04-15', createdAt: Date.now() };
+    const start: RaceStart = { id: uuid(), raceId: g1.id, fleetIds: [], startTime: '14:05:00' };
+
+    // Client-sent numbers (99) are ignored — the server numbers from max + 1.
+    const created = await repos.races.generateMany(s.id, [g1, g2], [start]);
+    expect(created.map((r) => r.raceNumber)).toEqual([2, 3]);
+
+    const list = await repos.races.listBySeries(s.id);
+    expect(list.map((r) => [r.raceNumber, r.date])).toEqual([
+      [1, '2026-04-01'],
+      [2, '2026-04-08'],
+      [3, '2026-04-15'],
+    ]);
+
+    const starts = await repos.raceStarts.listByRace(g1.id);
+    expect(starts.map((st) => st.startTime)).toEqual(['14:05:00']);
+
+    await repos.series.delete(s.id);
+  });
+
   // ─── RaceStartRepository / FinishRepository ────────────────────────────────
 
   test('RaceStart and Finish round-trip via parent-race tenancy check', async () => {

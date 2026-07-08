@@ -8,7 +8,11 @@ import {
   assertRaceDeletable,
   assertSeriesWritable,
 } from '@/lib/api-handlers/series-access';
-import { raceInputSchema, racesReorderSchema } from '@/lib/validation/race';
+import {
+  raceInputSchema,
+  racesGenerateSchema,
+  racesReorderSchema,
+} from '@/lib/validation/race';
 import type { Race } from '@/lib/types';
 
 async function assertSeriesInWorkspace(
@@ -72,6 +76,52 @@ export async function putRace(
     dedupeKey: existing ? `race:${id}` : undefined,
   });
   return saved;
+}
+
+/**
+ * Bulk-create appended races (the "Add multiple races" generator, #237). The
+ * body is `{ races, starts }`; every race must carry the path's seriesId.
+ * Numbers are assigned server-side, so the client's `raceNumber` values are
+ * hints only. Returns the created races with their assigned numbers, in order.
+ */
+export async function generateRaces(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<Race[]> {
+  await assertSeriesWritable(workspace, seriesId);
+  const input = racesGenerateSchema.parse(body);
+  for (const r of input.races) {
+    if (r.seriesId !== seriesId) {
+      throw new NotFoundError('generated race series mismatch');
+    }
+  }
+  const races: Race[] = input.races.map((r) => ({
+    ...r,
+    id: r.id ?? crypto.randomUUID(),
+  }));
+  const raceIds = new Set(races.map((r) => r.id));
+  for (const s of input.starts) {
+    if (!raceIds.has(s.raceId)) {
+      throw new NotFoundError('generated start references unknown race');
+    }
+  }
+  const starts = input.starts.map((s) => ({
+    ...s,
+    id: s.id ?? crypto.randomUUID(),
+  }));
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const created = await repos.races.generateMany(seriesId, races, starts, {
+    updatedBy: workspace.userId,
+  });
+  const n = created.length;
+  await trackChange(workspace, {
+    action: 'races.generated',
+    seriesId,
+    summary: `Generated ${n} race${n === 1 ? '' : 's'}`,
+    sessionKey: 'races',
+  });
+  return created;
 }
 
 /**

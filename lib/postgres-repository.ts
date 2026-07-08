@@ -1177,6 +1177,55 @@ export class PostgresRaceRepository implements RaceRepository {
   }
 
   /**
+   * Append races after the series' existing ones, numbering them sequentially
+   * from the current max + 1 within the transaction so the
+   * `(series_id, race_number)` unique index can't race with a concurrent add.
+   * Client-supplied numbers on `races` are ignored — the server is
+   * authoritative — but their ids are preserved, so the `starts` (keyed by
+   * race id) still attach correctly. Returns the created races in order.
+   */
+  async generateMany(
+    seriesId: string,
+    races: Race[],
+    starts: RaceStart[],
+    opts?: SaveOpts,
+  ): Promise<Race[]> {
+    if (races.length === 0) return [];
+    const updatedBy = opts?.updatedBy ?? null;
+    return this.db.transaction(async (tx) => {
+      const [{ maxNumber }] = await tx
+        .select({
+          maxNumber: sql<number | null>`max(${schema.races.raceNumber})`,
+        })
+        .from(schema.races)
+        .where(
+          and(
+            eq(schema.races.seriesId, seriesId),
+            eq(schema.races.workspaceId, this.workspaceId),
+          ),
+        );
+      let next = (maxNumber ?? 0) + 1;
+      const numbered = races.map((r) => ({
+        ...r,
+        seriesId,
+        raceNumber: next++,
+      }));
+      await tx.insert(schema.races).values(
+        numbered.map((r) => ({
+          ...raceToRow(r, this.workspaceId),
+          updatedBy,
+        })),
+      );
+      if (starts.length > 0) {
+        await tx.insert(schema.raceStarts).values(
+          starts.map((s) => ({ ...raceStartToRow(s), updatedBy })),
+        );
+      }
+      return numbered;
+    });
+  }
+
+  /**
    * Renumber the series' races 1..n in the given order. Two-phase so the
    * `(series_id, race_number)` unique index is never transiently violated:
    * first park every race at the negative of its current number (distinct, and

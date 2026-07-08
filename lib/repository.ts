@@ -117,6 +117,19 @@ export interface RaceRepository {
   listBySeries(seriesId: string): Promise<Race[]>;
   get(id: string): Promise<Race | undefined>;
   save(race: Race, opts?: SaveOpts): Promise<Race>;
+  /**
+   * Bulk-create races appended after the series' existing ones, numbering them
+   * sequentially from the current max + 1 (server-authoritative, so the
+   * `(series_id, race_number)` unique index can't race). Optional `starts` are
+   * inserted in the same transaction, keyed to the races' client-supplied ids.
+   * Returns the created races with their assigned numbers, in order.
+   */
+  generateMany(
+    seriesId: string,
+    races: Race[],
+    starts: RaceStart[],
+    opts?: SaveOpts,
+  ): Promise<Race[]>;
   /** Renumber the series' races 1..n to match `orderedIds` (the full set in
    *  its new order). */
   reorder(seriesId: string, orderedIds: string[]): Promise<void>;
