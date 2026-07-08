@@ -84,14 +84,151 @@ test.describe('competitor identity reconcile', () => {
     await expect(aoife).toContainText('Aoife M Murphy');
     await expect(aoife).toContainText('3 series');
 
-    // Split off the 2022 entry — it drops to 2 series.
+    // Split off the 2022 entry — it drops to 2 series, and the peeled entry
+    // lands on a fresh identity of its own (not in limbo), so the automatic
+    // pass can never re-fuse the split.
     await aoife
       .getByRole('listitem')
       .filter({ hasText: 'IODAI Munsters 2022' })
-      .getByRole('button')
+      .getByTitle("Split this entry off — it isn't this competitor")
       .click();
     await expect(aoife).toContainText('2 series');
     await expect(aoife).not.toContainText('IODAI Munsters 2022');
+    const peeled = page
+      .getByTestId('identity-card')
+      .filter({ hasText: 'IODAI Munsters 2022' });
+    await expect(peeled).toContainText('1 series');
+
+    expect(errors).toEqual([]);
+  });
+
+  test('review queue: combine a suggestion, undo it, dismiss it, confirm a long arc', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    const email = await signInFreshUser(page, 'review');
+    const { id: orgId } = await createOrgWorkspace('Review Club');
+    await addMemberByEmail(orgId, email, 'owner');
+    await enableOrgFeatures(orgId, ['competitor-reconcile']);
+    await setActiveWorkspace(page, orgId);
+
+    // Two "Tom Redmond" records that only a name links: different sails,
+    // different clubs, no ages — the matcher's weak edge, so they queue as a
+    // merge suggestion rather than auto-linking.
+    await seedCareerArc(orgId, {
+      label: 'Tom Redmond',
+      club: 'RCYC',
+      entries: [
+        { year: 2019, eventName: 'IODAI Connachts 2019', sailNumber: 'IRL1111' },
+        { year: 2020, eventName: 'IODAI Nationals 2020', sailNumber: 'IRL1111' },
+      ],
+    });
+    await seedCareerArc(orgId, {
+      label: 'Tom Redmond',
+      club: 'HYC',
+      entries: [
+        { year: 2023, eventName: 'IODAI Leinsters 2023', sailNumber: 'IRL2222' },
+      ],
+    });
+    // An implausible 12-year arc for the "Looks right" path.
+    await seedCareerArc(orgId, {
+      label: 'Ella Dempsey',
+      club: 'NYC',
+      entries: [
+        { year: 2013, eventName: 'IODAI Ulsters 2013', sailNumber: '1605' },
+        { year: 2025, eventName: 'IODAI Nationals 2025', sailNumber: '1605' },
+      ],
+    });
+
+    await page.goto('/workspace/competitors');
+    const queue = page.getByTestId('review-queue');
+    await expect(queue).toBeVisible({ timeout: 15_000 });
+    await expect(queue).toContainText('To review (2)');
+
+    // Combine the Tom Redmonds — the richer record survives.
+    const suggestion = page.getByTestId('merge-suggestion');
+    await expect(suggestion).toContainText('Tom Redmond');
+    await suggestion.getByRole('button', { name: 'Combine' }).click();
+
+    const combined = page
+      .getByTestId('identity-card')
+      .filter({ hasText: 'IODAI Leinsters 2023' });
+    await expect(combined).toContainText('3 series');
+    await expect(page.getByTestId('merge-suggestion')).toHaveCount(0);
+
+    // Undo brings the merged-away record straight back…
+    await page
+      .getByTestId('undo-merge')
+      .getByRole('button', { name: 'Undo' })
+      .click();
+    await expect(
+      page.getByTestId('identity-card').filter({ hasText: 'IODAI Leinsters 2023' }),
+    ).toContainText('1 series');
+    // …and the suggestion resurfaces, since nothing was decided.
+    await expect(page.getByTestId('merge-suggestion')).toHaveCount(1);
+
+    // "Different sailors" dismisses it for good.
+    await page
+      .getByTestId('merge-suggestion')
+      .getByRole('button', { name: 'Different sailors' })
+      .click();
+    await expect(page.getByTestId('merge-suggestion')).toHaveCount(0);
+
+    // Confirm the long arc: the flag and the queue entry clear.
+    const longArcRow = page.getByTestId('long-arc-row');
+    await expect(longArcRow).toContainText('Ella Dempsey');
+    await longArcRow.getByRole('button', { name: 'Looks right' }).click();
+    await expect(page.getByTestId('long-arc-row')).toHaveCount(0);
+    await expect(
+      page.getByTestId('identity-card').filter({ hasText: 'Ella Dempsey' }),
+    ).not.toContainText('long arc');
+
+    expect(errors).toEqual([]);
+  });
+
+  test('cluster split: peel several entries onto a new competitor in one move', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    const email = await signInFreshUser(page, 'clustersplit');
+    const { id: orgId } = await createOrgWorkspace('Cluster Split Club');
+    await addMemberByEmail(orgId, email, 'owner');
+    await enableOrgFeatures(orgId, ['competitor-reconcile']);
+    await setActiveWorkspace(page, orgId);
+
+    await seedCareerArc(orgId, {
+      label: 'Cara Long',
+      club: 'WHSC',
+      entries: [
+        { year: 2018, eventName: 'IODAI Munsters 2018', sailNumber: 'IRL800' },
+        { year: 2024, eventName: 'IODAI Ulsters 2024', sailNumber: 'IRL801' },
+        { year: 2025, eventName: 'IODAI Nationals 2025', sailNumber: 'IRL801' },
+      ],
+    });
+
+    await page.goto('/workspace/competitors');
+    const card = page
+      .getByTestId('identity-card')
+      .filter({ hasText: 'IODAI Munsters 2018' });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+
+    // The 2024 + 2025 entries are a different Cara — peel both in one action.
+    await card.getByLabel('Select IODAI Ulsters 2024').check();
+    await card.getByLabel('Select IODAI Nationals 2025').check();
+    await card.getByRole('button', { name: 'Split selected' }).click();
+
+    await expect(card).toContainText('1 series');
+    const peeled = page
+      .getByTestId('identity-card')
+      .filter({ hasText: 'IODAI Nationals 2025' });
+    await expect(peeled).toContainText('2 series');
+    await expect(peeled).toContainText('IODAI Ulsters 2024');
 
     expect(errors).toEqual([]);
   });

@@ -29,9 +29,11 @@ export default async function CompetitorsPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold">Competitors</h1>
         <p className="text-sm text-muted-foreground">
-          One recurring competitor per row, collapsed across every series they
-          entered. Reconcile the auto-matched groups: rename a competitor, or
-          split off a row that was grouped by mistake.
+          One recurring competitor per card, collapsed across every series they
+          entered. Reconcile the auto-matched groups: combine two records that
+          are the same sailor, split off entries grouped by mistake, or rename
+          a competitor. Anything the matcher is unsure about queues under
+          &ldquo;To review&rdquo;.
         </p>
       </div>
       <IdentitiesReconcile workspaceSlug={workspaceSlug} />
