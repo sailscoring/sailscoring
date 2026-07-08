@@ -21,8 +21,6 @@ import { ChevronDown } from 'lucide-react';
 
 import { authClient } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
-import { hasPermission } from '@/lib/auth/permissions';
-import { useFeatures } from '@/components/features-provider';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,21 +67,11 @@ export function WorkspaceSwitcher({
   activeOrganizationId: string | null;
 }) {
   const [busy, setBusy] = useState(false);
-  const { has } = useFeatures();
 
   if (memberships.length === 0) return null;
 
   const active =
     memberships.find((m) => m.organizationId === activeOrganizationId) ?? null;
-
-  // The competitor reconcile surface lives here (out of Workspace settings),
-  // gated by the same `competitor-reconcile` flag + manage-series role that
-  // govern the page. Distinct from the public `competitor-identity` feature, so
-  // the public pages can be live while the in-app reconcile UI stays hidden.
-  const showCompetitors =
-    has('competitor-reconcile') &&
-    active !== null &&
-    hasPermission(active.role, 'manage-series');
 
   async function switchTo(organizationId: string) {
     if (organizationId === activeOrganizationId) return;
@@ -145,11 +133,9 @@ export function WorkspaceSwitcher({
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
-        {showCompetitors && (
-          <DropdownMenuItem asChild>
-            <Link href="/workspace/competitors">Competitors</Link>
-          </DropdownMenuItem>
-        )}
+        {/* The workspace-level pages (Competitors, Rankings, …) have first-
+            class tabs on the workspace home; only Settings keeps a menu entry
+            so it stays one click away from anywhere, series pages included. */}
         <DropdownMenuItem asChild>
           <Link href="/workspace">Workspace settings</Link>
         </DropdownMenuItem>
