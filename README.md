@@ -17,7 +17,9 @@ Handles scratch (position-based) scoring, result codes, discard rules, and serie
 - **Series settings** — venue, dates, burgee
 - **Workspaces** — solo scorers work in a personal workspace; club scoring panels share an org workspace with member-by-member access control and actor attribution on every edit
 - **Per-row autosave on finish entry** — concurrent edits between scorers surface clean conflicts rather than silently overwriting
-- **Export** — HTML and JSON results export; publishing via FTP or [bilge](https://github.com/sailscoring/bilge)
+- **Publishing** — in-app publishing to public results pages under `/p/{workspace}/{series}`; HTML and JSON export; optional FTP upload to a club's own site
+- **Activity log** — per-series activity trail with actor attribution
+- **Revision history** — automatic series snapshots with named checkpoints and restore
 
 ## Tech Stack
 
@@ -51,6 +53,12 @@ pnpm deploy:prod   # production
 ```
 
 See `DEPLOY.md` for custom domain setup, `docs/workspace-provisioning.md` for setting up a shared org workspace via the `pnpm provision-org` CLI, `docs/cli.md` for the `sailscoring` CLI (bulk import, publish, and read access to the API), and `docs/` for design docs, ADRs, and requirements.
+
+## Contributing
+
+Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the
+development setup, testing expectations, and the DCO sign-off. To report a
+security vulnerability, see [`SECURITY.md`](SECURITY.md).
 
 ## License
 
