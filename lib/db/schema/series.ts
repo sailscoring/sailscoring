@@ -38,6 +38,7 @@ import type {
   SubdivisionAxis,
   PublishedSeriesPage,
 } from '@/lib/types';
+import type { RankingConfig } from '@/lib/ranking';
 import type { SeriesFile } from '@/lib/series-file';
 
 /**
@@ -492,6 +493,45 @@ export const competitorIdentityDistinctions = pgTable(
       table.identityAId,
       table.identityBId,
     ),
+  ],
+);
+
+/**
+ * Workspace cross-series rankings (#209) — the season ladder. Each row is a
+ * saved bucketed best-N configuration (see `lib/ranking.ts`); the standings
+ * are computed on demand from the referenced series' results, grouped by
+ * competitor identity — nothing scored is stored here. Workspace-local like
+ * identities: excluded from the `.sailscoring` file format and public JSON
+ * export. `published_at` is the per-ranking public toggle: null = private,
+ * set = the ladder renders at `/p/{ws}/ranking/{slug}` over the config's
+ * *published* series only.
+ */
+export const rankings = pgTable(
+  'rankings',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    // Vanity slug for the public URL, minted from the name on create and
+    // never recomputed on rename (same convention as competitor slugs).
+    slug: text('slug'),
+    config: jsonb('config').notNull().$type<RankingConfig>(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    displayOrder: integer('display_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
+  },
+  (table) => [
+    index('rankings_workspace_idx').on(table.workspaceId),
+    uniqueIndex('rankings_workspace_slug_uidx')
+      .on(table.workspaceId, table.slug)
+      .where(sql`${table.slug} is not null`),
   ],
 );
 
