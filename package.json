@@ -2,6 +2,7 @@
   "name": "sailscoring",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Sail race scoring application",
   "bin": {
     "sailscoring": "./cli/sailscoring.cjs"

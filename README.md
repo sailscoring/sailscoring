@@ -54,4 +54,8 @@ See `DEPLOY.md` for custom domain setup, `docs/workspace-provisioning.md` for se
 
 ## License
 
-All rights reserved. Copyright Mark McLoughlin. See `LICENSE`.
+MIT — see `LICENSE`. Copyright Mark McLoughlin.
+
+The "Sail Scoring" name and logo are trademarks of Mark McLoughlin and are not
+covered by the code license. Anyone may fork and run the software; operating a
+service under the Sail Scoring name requires permission.
