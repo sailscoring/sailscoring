@@ -25,6 +25,10 @@ test.describe('disabled-feature hint (#280)', () => {
     // Open the demo's Settings tab: the hint explains what's hidden.
     await page.goto('/');
     await page.getByRole('link', { name: 'Sample Club League 2026' }).click();
+    // Wait for the series page before touching its tabs: the home page has a
+    // workspace tab bar with its own Settings link, and clicking mid-navigation
+    // would hit that one instead (the nav-then-click race).
+    await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\//);
     await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
     await expect(page).toHaveURL(/\/settings$/);
     const settingsUrl = page.url();
