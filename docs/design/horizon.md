@@ -1235,22 +1235,29 @@ privacy) is preserved on #212.
 
 ### Open work in this area
 
-- **Workspace cross-series ranking (season ladder)** — **#209**. IODAI's national
-  ranking aggregates a sailor's Nationals place with their two best regional places,
-  reset each season. Sits *above* a series; groups by `identityId` and builds no
-  matcher of its own. Open questions (aggregation rule, reset boundary, eligibility)
-  on the issue. Overlaps season-spanning *views* (*Series lineage and seasons*) and
-  perpetual trophies (*Prize allocation*).
-- **On-demand identity population** — **#222**. Link identities lazily as
-  competitors are added/imported (high-confidence match links, else create), so the
-  spine fills itself rather than needing the batch pass re-run. Prerequisite for the
-  ranking to stay current.
-- **Finish the in-app reconcile UI** — **#221**. The rename/split surface is built
-  but hidden (default-off `competitor-reconcile`) until the UX is settled — merge,
-  cluster-split, a review queue. Cleanup currently runs out-of-band.
+The ranking, lazy population, and reconcile UI shipped together (July 2026):
+
+- **Workspace cross-series ranking** — **#209, implemented**. Bucketed best-N
+  ladders (`rankings` feature, the Rankings workspace tab, live public page at
+  `/p/{ws}/ranking/{slug}` over published series only). Deliberately *not*
+  built: per-category (Senior/Junior) ladders, tie-breaks beyond shared ranks,
+  cross-series discards beyond best-N — add when IODAI asks. Still overlaps
+  season-spanning *views* (*Series lineage and seasons*) and perpetual trophies
+  (*Prize allocation*).
+- **On-demand identity population** — **#222, implemented**. The reconcile pass
+  runs automatically after competitor writes (one matching model — the batch
+  CLI and the hook share `lib/competitor-identity-reconcile.ts`). Future
+  optimisation if it ever shows in traces: surname-narrowed corpus loading.
+- **In-app reconcile UI** — **#221, implemented**. Review queue (merge
+  suggestions + long arcs, persisted dismissals), combine-with-undo, cluster
+  split. Splits land on fresh confirmed identities so the auto-pass never
+  re-fuses them. A merged-away identity's public slug stops resolving — slug
+  aliases/redirects are deferred until someone actually misses them.
 - **IODAI competitor-history cleanup** — **#218**. Methodical, repeatable
   corrections keyed on vanity slugs (the iodai-archive manifest); fixes
-  blank / mojibake / malformed names at source and re-imports.
+  blank / mojibake / malformed names at source and re-imports. The manifest
+  remains authoritative over rows it covers when re-applied — fold in-app
+  corrections into it before any archive rebuild.
 
 External reconciliation against real member databases stays the separate horizon
 entry above (*Reconciling competitor identity with external member databases*).

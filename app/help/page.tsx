@@ -82,6 +82,8 @@ export default async function HelpPage() {
             ['#logo-library', 'The logo library', 'logo-library'],
             // Gated: only listed when competitor-identity is enabled.
             ['#competitor-identity', 'Competitors and timelines', 'competitor-identity'],
+            // Gated: only listed when rankings is enabled (#209).
+            ['#rankings', 'Cross-series rankings', 'rankings'],
             ['#publishing-results', 'Publishing results'],
             // Gated: only listed when combined-pages is enabled (#255).
             ['#combined-pages', 'Combined pages', 'combined-pages'],
@@ -1638,19 +1640,39 @@ export default async function HelpPage() {
           different sailors.
         </p>
         {has('competitor-reconcile') && (
-          <p>
-            Review the result under{' '}
-            <strong className="text-foreground">Competitors</strong> in the
-            workspace switcher: each card is one recurring competitor with the
-            series they entered. Click the name to{' '}
-            <strong className="text-foreground">rename</strong> it, or the{' '}
-            scissors on an entry to{' '}
-            <strong className="text-foreground">split</strong> off a row that was
-            grouped by mistake. An arc that spans more years than a sailor could
-            plausibly stay in the class is flagged{' '}
-            <strong className="text-foreground">long arc</strong> — usually two
-            namesakes to split apart.
-          </p>
+          <>
+            <p>
+              Competitors fill in automatically: whenever entries are added or
+              imported, each one either joins its recurring competitor or starts
+              a new record — you never re-run anything. Review the result on the{' '}
+              <strong className="text-foreground">Competitors</strong> tab of the
+              workspace home: each card is one recurring competitor with the
+              series they entered.
+            </p>
+            <p>
+              Anything the matcher is unsure about queues under{' '}
+              <strong className="text-foreground">To review</strong>. A{' '}
+              <em>possible same sailor</em> pair — two records sharing only a
+              name — offers <strong className="text-foreground">Combine</strong>{' '}
+              (with an immediate undo) or{' '}
+              <strong className="text-foreground">Different sailors</strong>,
+              which dismisses the pair for good. An arc spanning more years than
+              a sailor could plausibly stay in the class is flagged{' '}
+              <strong className="text-foreground">long arc</strong> — usually two
+              namesakes: split the misgrouped entries, or confirm it with{' '}
+              <strong className="text-foreground">Looks right</strong>.
+            </p>
+            <p>
+              On any card: click the name to{' '}
+              <strong className="text-foreground">rename</strong>, use the
+              scissors (or tick several entries and{' '}
+              <strong className="text-foreground">Split selected</strong>) to peel
+              misgrouped entries onto a competitor of their own, or{' '}
+              <strong className="text-foreground">Merge…</strong> the card into
+              another record the matcher never connected. Splits stick: the
+              automatic matching never re-joins what you separated.
+            </p>
+          </>
         )}
         <p>
           Each competitor has a public timeline listing every series they
@@ -1667,6 +1689,45 @@ export default async function HelpPage() {
           number (“who sailed 1605?”) or filter by year, and follow
           a competitor through to their timeline. These public pages are
           shareable by link but kept out of search engines.
+        </p>
+      </Section>
+      )}
+
+      {has('rankings') && (
+      <Section id="rankings" title="Cross-series rankings">
+        <p>
+          A <strong className="text-foreground">ranking</strong> is a season
+          ladder computed across several series — the classic shape is a
+          championship plus a sailor&rsquo;s best N regional results, summed so
+          the lowest total ranks first. Create and view them on the{' '}
+          <strong className="text-foreground">Rankings</strong> tab of the
+          workspace home.
+        </p>
+        <p>
+          A ranking is a set of <strong className="text-foreground">buckets</strong>.
+          Each bucket picks the series that belong to it, how many of a
+          sailor&rsquo;s best places count (<em>count best</em>), and how many of
+          its series a sailor must have sailed to rank at all (<em>need at
+          least</em>). For example: a <em>National</em> bucket holding just the
+          Nationals (best 1, need 1) and a <em>Regional</em> bucket holding the
+          regionals (best 2, need 2). Sailors short of a floor are listed as not
+          yet ranked rather than dropped silently; an optional nationality filter
+          restricts the ladder to home sailors.
+        </p>
+        <p>
+          The ladder groups results by recurring competitor, so it stays right
+          across sail-number and boat changes — if some finishers show as{' '}
+          <em>not yet matched</em>, resolve them on the{' '}
+          <strong className="text-foreground">Competitors</strong> tab and the
+          ladder picks them up. Places compare in one combined pool: a 2nd is a
+          2nd, whichever fleet it was scored in.
+        </p>
+        <p>
+          Switch <strong className="text-foreground">Public page</strong> on to
+          host the ladder at a public URL that updates as results land. The
+          public ladder counts <strong className="text-foreground">published
+          series only</strong> and names exactly which series it&rsquo;s based
+          on — publish the contributing series to bring them in.
         </p>
       </Section>
       )}
