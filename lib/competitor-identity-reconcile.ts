@@ -27,9 +27,8 @@ import type {
 } from '@/lib/competitor-identity-manifest';
 import { mintSlug } from '@/lib/competitor-slug';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
-import { organization } from '@/lib/db/schema/auth';
 import { competitorIdentities, competitors, series } from '@/lib/db/schema/series';
-import { parseOrgMetadata } from '@/lib/features';
+import { workspaceOwnFeatureOn } from '@/lib/workspace-features';
 
 /**
  * Delete every identity in the workspace (the FK's ON DELETE SET NULL clears
@@ -320,15 +319,7 @@ export async function workspaceIdentityFeatureOn(
   db: SailScoringDb,
   workspaceId: string,
 ): Promise<boolean> {
-  const [row] = await db
-    .select({ metadata: organization.metadata, slug: organization.slug })
-    .from(organization)
-    .where(eq(organization.id, workspaceId))
-    .limit(1);
-  if (!row) return false;
-  return parseOrgMetadata(row.metadata, row.slug).enabledFeatures.includes(
-    'competitor-identity',
-  );
+  return workspaceOwnFeatureOn(db, workspaceId, 'competitor-identity');
 }
 
 /**

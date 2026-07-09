@@ -254,14 +254,25 @@ export function renderWorkspaceIndexHtml(
   workspaceName: string,
   items: WorkspaceIndexItem[],
   logoUrl = '',
-  opts: { competitorsLink?: boolean } = {},
+  opts: {
+    competitorsLink?: boolean;
+    /** Public season ladders (#209) to link above the series listing. */
+    rankings?: Array<{ name: string; slug: string }>;
+  } = {},
 ): string {
   const heading = `${esc(workspaceName)} &mdash; published results`;
   const hero = renderPublicHero(heading, logoUrl);
   // Forward link to the competitor index, when the workspace has one to show.
-  const competitorsLink = opts.competitorsLink
-    ? `<p class="browse"><a href="/p/${esc(workspaceSlug)}/competitors">Browse competitors &rarr;</a></p>`
-    : '';
+  const rankingLinks = (opts.rankings ?? [])
+    .map(
+      (r) =>
+        `<p class="browse"><a href="/p/${esc(workspaceSlug)}/ranking/${esc(r.slug)}">${esc(r.name)} &rarr;</a></p>`,
+    )
+    .join('');
+  const competitorsLink =
+    (opts.competitorsLink
+      ? `<p class="browse"><a href="/p/${esc(workspaceSlug)}/competitors">Browse competitors &rarr;</a></p>`
+      : '') + rankingLinks;
   if (items.length === 0) {
     return renderPublicShell(
       `${workspaceName} — published results`,

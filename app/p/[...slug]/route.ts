@@ -14,6 +14,15 @@ import {
   toCompetitorIndexEntries,
 } from '@/lib/published-competitor-index';
 import { contentHash, humanizeSlug } from '@/lib/publishing';
+import { renderRankingHtml } from '@/lib/ranking-render';
+import {
+  computeRankingStandings,
+  filterRankingConfigSeries,
+  getPublishedRankingBySlug,
+  listPublishedRankings,
+} from '@/lib/ranking-standings';
+import { workspaceOwnFeatureOn } from '@/lib/workspace-features';
+import { getDb } from '@/lib/db/client';
 import {
   renderSeriesIndexHtml,
   renderWorkspaceIndexHtml,
@@ -95,6 +104,10 @@ export async function GET(
   if (segments.length === 3 && segments[1] === 'competitor') {
     return careerArc(req, segments[0], segments[2]);
   }
+  // `/p/{ws}/ranking/{slug}` — a public cross-series ladder (#209).
+  if (segments.length === 3 && segments[1] === 'ranking') {
+    return rankingPage(req, segments[0], segments[2]);
+  }
   if (segments.length === 2) return seriesIndex(req, segments[0], segments[1]);
   // Page sub-paths are one segment per fleet page, two for a sub-series page
   // (`{kebab(block)}/{fleet}`); the stored subPath carries the slash.
@@ -119,13 +132,20 @@ async function workspaceIndex(
     (await workspaceHasIdentityFeature(workspace.id)) &&
     (await workspaceHasCompetitors(workspace.id));
 
+  // Public season ladders (#209), when the feature is on and any are public.
+  const rankingLinks = (await workspaceOwnFeatureOn(getDb(), workspace.id, 'rankings'))
+    ? await listPublishedRankings(workspace.id)
+    : [];
+
   // ETag from listing metadata so repeat views revalidate without re-rendering.
   // Includes the placement fields (category / archive / order / year) so
   // re-categorising, archiving, or reordering a series busts the cached page,
-  // plus the competitors-link flag so it appears the first time one is added.
+  // plus the competitors-link flag so it appears the first time one is added,
+  // and the ranking links so publishing/renaming a ladder shows up.
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     `competitors:${competitorsLink}`,
+    ...rankingLinks.map((r) => `ranking:${r.slug}:${r.name}`),
     ...items.map(
       (i) =>
         `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.year ?? ''}`,
@@ -135,7 +155,60 @@ async function workspaceIndex(
   if (cached) return cached;
   const html = renderWorkspaceIndexHtml(workspaceSlug, workspace.name, items, workspace.logo, {
     competitorsLink,
+    rankings: rankingLinks,
   });
+  return htmlResponse(html, etag);
+}
+
+/** `/p/{ws}/ranking/{slug}` — a public cross-series season ladder (#209).
+ *  Gated on the workspace's `rankings` feature and the ranking's own public
+ *  toggle. Public = published: computed over the config's published series
+ *  only, with the basis named in the footer. */
+async function rankingPage(
+  req: NextRequest,
+  workspaceSlug: string,
+  rankingSlug: string,
+): Promise<Response> {
+  const workspace = await getWorkspaceBySlug(workspaceSlug);
+  if (!workspace) return NOT_FOUND;
+  if (!(await workspaceOwnFeatureOn(getDb(), workspace.id, 'rankings'))) {
+    return NOT_FOUND;
+  }
+
+  const ranking = await getPublishedRankingBySlug(workspace.id, rankingSlug);
+  if (!ranking) return NOT_FOUND;
+
+  const publishedIds = await listPublishedSeriesIds(workspace.id);
+  const publicConfig = filterRankingConfigSeries(ranking.config, publishedIds);
+  const standings = await computeRankingStandings(workspace.id, publicConfig);
+  const competitorLinks = await workspaceHasIdentityFeature(workspace.id);
+
+  // ETag over the computed rows and the basis, so a re-score, a re-publish of
+  // a contributing series, or a rename busts the cache while a repeat view
+  // revalidates without re-rendering.
+  const etag = `"${await contentHash([
+    `logo:${workspace.logo}`,
+    `name:${ranking.name}`,
+    `links:${competitorLinks}`,
+    ...standings.includedSeries.map((s) => `series:${s.id}:${s.name}`),
+    ...standings.result.rows.map(
+      (r) =>
+        `${r.identityId}:${r.rank}:${r.total}:${r.label}:${r.buckets
+          .map((b) => b.counted.map((c) => c.place).join(','))
+          .join('|')}`,
+    ),
+  ])}"`;
+  const cached = notModified(req, etag);
+  if (cached) return cached;
+
+  const html = renderRankingHtml(
+    workspaceSlug,
+    workspace.name,
+    ranking.name,
+    publicConfig,
+    standings,
+    { competitorLinks, logoUrl: workspace.logo },
+  );
   return htmlResponse(html, etag);
 }
 

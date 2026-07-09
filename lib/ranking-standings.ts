@@ -1,9 +1,14 @@
 import 'server-only';
 
-import { inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import { getDb } from './db/client';
-import { competitorIdentities, competitors, series } from './db/schema/series';
+import {
+  competitorIdentities,
+  competitors,
+  rankings,
+  series,
+} from './db/schema/series';
 import { seriesFileReposFor } from './postgres-repository';
 import { listPublishedSeriesIds } from './published-repository';
 import {
@@ -36,6 +41,53 @@ export interface RankingStandingsData {
    *  ladder was actually computed over. `published` lets the in-app view say
    *  which contributors the public page won't show yet. */
   includedSeries: Array<{ id: string; name: string; published: boolean }>;
+}
+
+/** A ranking with a live public page, by its vanity slug. Null when the slug
+ *  is unknown or the ranking is private — the public route 404s either way. */
+export async function getPublishedRankingBySlug(
+  workspaceId: string,
+  slug: string,
+): Promise<{
+  id: string;
+  name: string;
+  slug: string;
+  config: RankingConfig;
+  publishedAt: Date;
+} | null> {
+  const [row] = await getDb()
+    .select()
+    .from(rankings)
+    .where(
+      and(eq(rankings.workspaceId, workspaceId), eq(rankings.slug, slug)),
+    )
+    .limit(1);
+  if (!row || !row.publishedAt || !row.slug) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    config: row.config,
+    publishedAt: row.publishedAt,
+  };
+}
+
+/** The workspace's public rankings, for the `/p/{ws}` listing's links. */
+export async function listPublishedRankings(
+  workspaceId: string,
+): Promise<Array<{ name: string; slug: string }>> {
+  const rows = await getDb()
+    .select({
+      name: rankings.name,
+      slug: rankings.slug,
+      publishedAt: rankings.publishedAt,
+    })
+    .from(rankings)
+    .where(eq(rankings.workspaceId, workspaceId))
+    .orderBy(rankings.displayOrder, rankings.createdAt);
+  return rows
+    .filter((r) => r.publishedAt !== null && r.slug !== null)
+    .map((r) => ({ name: r.name, slug: r.slug as string }));
 }
 
 /** Restrict a config to an allow-list of series ids (the public path computes
