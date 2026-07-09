@@ -185,6 +185,17 @@ export const FEATURES = {
     label: 'Prizes',
     helpSectionIds: ['prizes'],
   },
+  rankings: {
+    // Workspace cross-series rankings (#209): the Rankings tab (bucketed
+    // best-N season ladders computed over the workspace's series, grouped by
+    // competitor identity) and the public `/p/{ws}/ranking/{slug}` pages.
+    // Operator-managed (not self-service): the ladder groups by the identity
+    // spine, whose adoption is centrally controlled — a workspace without
+    // `competitor-identity` would rank per-series rows as strangers.
+    label: 'Cross-series rankings',
+    helpSectionIds: ['rankings'],
+    selfService: false,
+  },
   'competitor-reconcile': {
     // Gates the *in-app* reconcile surface (/workspace/competitors, its
     // switcher entry, and the /api/v1/competitor-identities endpoints behind

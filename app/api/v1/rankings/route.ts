@@ -1,0 +1,16 @@
+import { createRanking, listRankings } from '@/lib/api-handlers/rankings';
+import { workspaceRoute } from '../_lib/handler';
+
+export const dynamic = 'force-dynamic';
+
+export const GET = workspaceRoute<Record<string, never>, unknown>(
+  async (_req, { workspace }) => {
+    return listRankings(workspace);
+  },
+);
+
+export const POST = workspaceRoute<Record<string, never>, unknown>(
+  async (req, { workspace }) => {
+    return createRanking(workspace, await req.json());
+  },
+);

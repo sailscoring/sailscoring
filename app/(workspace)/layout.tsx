@@ -25,9 +25,12 @@ export default function WorkspaceLayout({
 
   useChordShortcut({
     s: () => router.push('/'),
-    // Only where the tab exists — same gate as WorkspaceNav.
+    // Only where the tab exists — same gates as WorkspaceNav.
     ...(has('competitor-reconcile') && can('manage-series')
       ? { c: () => router.push('/workspace/competitors') }
+      : {}),
+    ...(has('rankings')
+      ? { r: () => router.push('/workspace/rankings') }
       : {}),
     t: () => router.push('/workspace'),
   });

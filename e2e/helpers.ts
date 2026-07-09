@@ -268,6 +268,120 @@ export async function seedCareerArc(
   }
 }
 
+/**
+ * Seed one scored series for the rankings tests (#209): a scratch fleet, one
+ * race, and finishes in the given entrant order (index 0 wins). Each entrant
+ * links to a workspace identity found by exact label — or freshly minted — so
+ * the same name recurs as the same sailor across several seeded series.
+ */
+export async function seedRankedSeries(
+  workspaceId: string,
+  opts: {
+    name: string;
+    year: number;
+    published?: boolean;
+    entrants: Array<{
+      name: string;
+      sailNumber: string;
+      club?: string;
+      nationality?: string;
+    }>;
+  },
+): Promise<{ seriesId: string }> {
+  const { db, close } = adminDb();
+  try {
+    const seriesId = crypto.randomUUID();
+    await db.insert(schema.series).values({
+      id: seriesId,
+      workspaceId,
+      name: opts.name,
+      startDate: `${opts.year}-06-01`,
+      displayOrder: 0,
+    });
+    const fleetId = crypto.randomUUID();
+    await db.insert(schema.fleets).values({
+      id: fleetId,
+      seriesId,
+      workspaceId,
+      name: 'Main Fleet',
+      displayOrder: 0,
+      scoringSystem: 'scratch',
+    });
+    const raceId = crypto.randomUUID();
+    await db.insert(schema.races).values({
+      id: raceId,
+      seriesId,
+      workspaceId,
+      raceNumber: 1,
+      date: `${opts.year}-06-01`,
+    });
+    let sortOrder = 0;
+    for (const entrant of opts.entrants) {
+      const [existing] = await db
+        .select({ id: schema.competitorIdentities.id })
+        .from(schema.competitorIdentities)
+        .where(
+          and(
+            eq(schema.competitorIdentities.workspaceId, workspaceId),
+            eq(schema.competitorIdentities.label, entrant.name),
+          ),
+        )
+        .limit(1);
+      let identityId = existing?.id;
+      if (!identityId) {
+        identityId = crypto.randomUUID();
+        await db.insert(schema.competitorIdentities).values({
+          id: identityId,
+          workspaceId,
+          label: entrant.name,
+          slug: competitorSlugCandidate(entrant.name),
+          sailNumber: entrant.sailNumber,
+          club: entrant.club ?? null,
+          nationality: entrant.nationality ?? null,
+        });
+      }
+      const competitorId = crypto.randomUUID();
+      await db.insert(schema.competitors).values({
+        id: competitorId,
+        seriesId,
+        workspaceId,
+        fleetIds: [fleetId],
+        sailNumber: entrant.sailNumber,
+        name: entrant.name,
+        club: entrant.club ?? '',
+        nationality: entrant.nationality ?? null,
+        gender: '',
+        age: null,
+        identityId,
+      });
+      await db.insert(schema.finishes).values({
+        id: crypto.randomUUID(),
+        raceId,
+        competitorId,
+        sortOrder: sortOrder++,
+      });
+    }
+    if (opts.published) {
+      const pubSlug = `${opts.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')}-${seriesId.slice(0, 4)}`;
+      await db.insert(schema.publishedSeries).values({
+        id: crypto.randomUUID(),
+        workspaceId,
+        seriesId,
+        slug: pubSlug,
+        pages: [],
+        contentHash: crypto.randomUUID(),
+        publishedVersion: 1,
+      });
+    }
+    return { seriesId };
+  } finally {
+    await close();
+  }
+}
+
 // 1×1 transparent PNG, base64 — the byte payload `logo_blobs` stores locally.
 const SEED_PNG_B64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';

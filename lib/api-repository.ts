@@ -5,6 +5,9 @@
 import { apiFetch } from './api-client';
 import type { FeatureKey } from './features';
 import type { MergeSuggestion } from './api-handlers/competitor-identity';
+import type { RankingDto } from './api-handlers/rankings';
+import type { RankingConfig } from './ranking';
+import type { RankingStandingsData } from './ranking-standings';
 import type {
   IdentityWithArc,
   MergeResult as IdentityMergeUndo,
@@ -1021,6 +1024,44 @@ export function submitOrgRequest(input: {
     method: 'POST',
     body: input,
   });
+}
+
+// ─── Workspace cross-series rankings (#209) ──────────────────────────────────
+
+/** The active workspace's saved rankings. */
+export async function listRankings(): Promise<RankingDto[]> {
+  const { items } = await apiFetch<{ items: RankingDto[] }>('/api/v1/rankings');
+  return items;
+}
+
+export function createRanking(name: string): Promise<RankingDto> {
+  return apiFetch<RankingDto>('/api/v1/rankings', {
+    method: 'POST',
+    body: { name },
+  });
+}
+
+export function getRanking(id: string): Promise<RankingDto> {
+  return apiFetch<RankingDto>(`/api/v1/rankings/${id}`);
+}
+
+export function putRanking(
+  id: string,
+  input: { name: string; config: RankingConfig; published: boolean },
+): Promise<RankingDto> {
+  return apiFetch<RankingDto>(`/api/v1/rankings/${id}`, {
+    method: 'PUT',
+    body: input,
+  });
+}
+
+export function deleteRanking(id: string): Promise<void> {
+  return apiFetch<void>(`/api/v1/rankings/${id}`, { method: 'DELETE' });
+}
+
+/** The computed ladder (in-app view: every config series counts). */
+export function getRankingStandings(id: string): Promise<RankingStandingsData> {
+  return apiFetch<RankingStandingsData>(`/api/v1/rankings/${id}/standings`);
 }
 
 // ─── Cross-series competitor identity (#212) ─────────────────────────────────

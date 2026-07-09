@@ -30,6 +30,10 @@ export function WorkspaceNav() {
   if (has('competitor-reconcile') && can('manage-series')) {
     tabs.push({ label: 'Competitors', href: '/workspace/competitors' });
   }
+  // Cross-series rankings (#209): any member can view the ladder.
+  if (has('rankings')) {
+    tabs.push({ label: 'Rankings', href: '/workspace/rankings' });
+  }
   tabs.push({ label: 'Settings', href: '/workspace' });
 
   return (
