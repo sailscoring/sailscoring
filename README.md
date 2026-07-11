@@ -57,7 +57,8 @@ See `DEPLOY.md` for custom domain setup, `docs/workspace-provisioning.md` for se
 ## Contributing
 
 Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the
-development setup, testing expectations, and the DCO sign-off. To report a
+development setup, testing expectations, and the DCO sign-off. Project spaces
+are covered by the [code of conduct](CODE_OF_CONDUCT.md). To report a
 security vulnerability, see [`SECURITY.md`](SECURITY.md).
 
 ## License
