@@ -37,6 +37,32 @@ named pnpm scripts for every dev/test/DB task — use those rather than ad-hoc
   (keyboard shortcuts, help page, serialization, import/export surfaces) — it
   exists because each of those is easy to forget and painful to miss.
 
+## AI-assisted contributions
+
+AI tools are welcome — much of Sail Scoring is itself developed with AI
+assistance — but accountability always stays with the human. Like the DCO
+sign-off below, this comes down to one thing: you are responsible for what you
+submit, however it was written.
+
+- **Stay involved.** No "pure agent" pull requests. You must have reviewed
+  every changed line, understood it well enough to defend it, validated the
+  behaviour end-to-end, and run the relevant tests yourself.
+- **The same bar applies.** AI-assisted changes meet the same quality,
+  testing, and review standards as anything else — for scoring logic that
+  still means a rules citation and human-verifiable fixtures. The Racing Rules
+  of Sailing don't care how the code was written.
+- **Disclose it.** Say in the PR description that AI assistance was used, and
+  add a commit trailer such as `Co-authored-by: Claude <noreply@anthropic.com>`
+  — you'll see the same trailer throughout this repo's history. Disclosure
+  isn't a mark against a contribution; it helps the reviewer read it in
+  context.
+- **No busywork.** Don't open one-off PRs for a single typo or an isolated
+  style tweak. Bundle mechanical cleanups into a clearly scoped change, or
+  attach them to substantive work.
+
+If an AI agent is doing the work, these rules apply to the person running it —
+and a PR that can't meet them shouldn't be opened.
+
 ## Developer Certificate of Origin
 
 Contributions must be signed off:
