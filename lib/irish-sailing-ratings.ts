@@ -63,24 +63,40 @@ export {
 
 const TABLE_ID = 'dt';
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+};
+
 /** Decode the HTML entities that appear in the source: numeric (decimal and
  *  hex) plus the five standard named entities. Numeric covers the accented
- *  characters in boat names (e.g. `&#243;` → `ó`). */
+ *  characters in boat names (e.g. `&#243;` → `ó`). Decoded in a single pass so
+ *  one replacement can't feed another (`&amp;lt;` → `&lt;`, not `<`). */
 function decodeEntities(s: string): string {
-  return s
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&nbsp;/g, ' ');
+  return s.replace(
+    /&(?:#x([0-9a-fA-F]+)|#(\d+)|(amp|lt|gt|quot|apos|nbsp));/g,
+    (_, hex?: string, dec?: string, name?: string) => {
+      if (hex !== undefined) return String.fromCodePoint(parseInt(hex, 16));
+      if (dec !== undefined) return String.fromCodePoint(parseInt(dec, 10));
+      return NAMED_ENTITIES[name as string];
+    },
+  );
 }
 
-/** Strip tags, decode entities, collapse whitespace, trim. */
+/** Strip tags (reapplying until none remain so fragments left by one pass
+ *  can't reassemble into a new tag), decode entities, collapse whitespace,
+ *  trim. */
 function cellText(html: string): string {
-  return decodeEntities(html.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
+  let text = html;
+  for (let prev = ''; prev !== text; ) {
+    prev = text;
+    text = text.replace(/<[^>]+>/g, '');
+  }
+  return decodeEntities(text).replace(/\s+/g, ' ').trim();
 }
 
 /** Slice out the `<table id="...">…</table>` block. Tables on the page are not

@@ -82,16 +82,35 @@ export interface VprsClub {
 
 // ─── HTML parsing ─────────────────────────────────────────────────────────────
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  '#39': "'",
+  nbsp: ' ',
+};
+
 /** Decode the handful of HTML entities that appear in VPRS boat names / designs
- *  (the page is ISO-8859-1 plain text apart from these). */
+ *  (the page is ISO-8859-1 plain text apart from these). Decoded in a single
+ *  pass so one replacement can't feed another (`&amp;lt;` → `&lt;`, not `<`). */
 function decodeEntities(s: string): string {
-  return s
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&nbsp;/gi, ' ');
+  return s.replace(
+    /&(amp|lt|gt|quot|apos|#39|nbsp);/gi,
+    (_, name: string) => NAMED_ENTITIES[name.toLowerCase()],
+  );
+}
+
+/** Strip HTML comments, reapplying until none remain so fragments left by one
+ *  pass can't reassemble into a new `<!--`. */
+function stripComments(html: string): string {
+  let out = html;
+  for (let prev = ''; prev !== out; ) {
+    prev = out;
+    out = out.replace(/<!--[\s\S]*?-->/g, '');
+  }
+  return out;
 }
 
 /** Strip tags from a `<td>` cell's inner HTML and collapse whitespace. */
@@ -129,7 +148,7 @@ export function sailFromCertHref(href: string): string {
  */
 export function parseVprsListing(html: string): VprsRatingRecord[] {
   // Drop commented-out prior-season blocks before matching any rows.
-  const live = html.replace(/<!--[\s\S]*?-->/g, '');
+  const live = stripComments(html);
 
   const records: VprsRatingRecord[] = [];
   const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
@@ -223,7 +242,7 @@ const ARCHIVE_ANCHOR_RE = /<a\s+name=["']?archive_certificates/i;
  * under. Commented-out clubs and the prior-year archive section are skipped.
  */
 export function parseVprsClubIndex(html: string, baseUrl: string = VPRS_BASE_URL): VprsClub[] {
-  let body = html.replace(/<!--[\s\S]*?-->/g, '');
+  let body = stripComments(html);
   const archiveAt = body.search(ARCHIVE_ANCHOR_RE);
   if (archiveAt >= 0) body = body.slice(0, archiveAt);
 
