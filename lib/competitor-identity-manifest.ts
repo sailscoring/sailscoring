@@ -234,6 +234,9 @@ export function planManifestApply(
 
 // ─── UUIDv5 (SHA-1) ────────────────────────────────────────────────────────────
 
+// SHA-1 here is not a security choice: RFC 4122 defines version-5 UUIDs as
+// name-based via SHA-1, and the resulting IDs are persisted, so the algorithm
+// must never change or every derived identity ID would shift.
 function uuidv5(name: string, namespace: string): string {
   const ns = parseUuid(namespace);
   const hash = createHash('sha1')
