@@ -4,14 +4,10 @@
  *   .pdf  → a print PDF honouring the document's @page size (multi-page OK)
  *   .png  → a 2× screenshot of the `.page` element if present, else full page
  *
- * Used to turn the governance repo's branded HTML builds into their committed
- * artifacts — the multi-page introduction leaflet (PDF) and the screenshot
- * storyboard (PNG):
+ * Used to turn branded HTML builds (introduction leaflets, screenshot
+ * storyboards) into their committed artifacts:
  *
- *   node ../governance/sponsorship/screenshots/build.js   # → storyboard.html
- *   npx tsx scripts/render-html.mjs \
- *     ../governance/sponsorship/screenshots/storyboard.html \
- *     ../governance/sponsorship/screenshots/storyboard.png
+ *   npx tsx scripts/render-html.mjs storyboard.html storyboard.png
  */
 
 import { chromium } from '@playwright/test';

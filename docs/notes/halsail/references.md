@@ -6,9 +6,9 @@ extraction status, so we know what's been mined and what still needs a manual
 pass. Companion to [`data-model.md`](data-model.md).
 
 These are **external sources**, catalogued here (live links and capture status,
-not vendored copies — third-party PDFs we keep live in the `reference-docs`
-sibling repo). Where a source has been mined, the findings live in
-`data-model.md`, not here.
+not vendored copies — the third-party PDFs are copyrighted and kept out-of-band,
+cited as `reference-docs:<path>`). Where a source has been mined, the findings
+live in `data-model.md`, not here.
 
 ## Official HalSail (live site)
 

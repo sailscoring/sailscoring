@@ -36,7 +36,7 @@
  * gitignored per-org folder, and point the public shots at its listing:
  *   WORKSPACE_NAME='Howth Yacht Club' \
  *   SERIES_NAME='HYC Autumn League 2025' \
- *   SCREENSHOT_OUT="$PWD/../governance/sponsorship/screenshots/hyc" \
+ *   SCREENSHOT_OUT="$PWD/screenshots/hyc" \
  *   PUBLIC_INDEX_URL='https://app.sailscoring.ie/p/hyc' \
  *   PUBLIC_SERIES_URL='https://app.sailscoring.ie/p/hyc/autumn-league' \
  *   PUBLIC_STANDINGS_URL='https://app.sailscoring.ie/p/hyc/autumn-league/class-1-irc' \

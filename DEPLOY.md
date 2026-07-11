@@ -6,8 +6,7 @@ Sail Scoring runs as a Next.js application on Vercel. Scoring data lives
 in Postgres (via Better Auth + a custom workspace-scoped repository
 layer). Results are published in-app — rendered to static HTML, stored in
 Vercel Blob, and served at `/p/{workspace}/{series}/...`; optional FTP upload
-to a club's own web host is relayed through the
-[scupper](https://github.com/sailscoring/scupper) service. (The original
+to a club's own web host is relayed through the scupper service. (The original
 standalone **bilge** publishing service was retired in ADR-008 Phase 9.)
 
 The full-stack architecture is documented in

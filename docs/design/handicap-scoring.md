@@ -1351,7 +1351,8 @@ from standings-aggregation (over a scored subset) — which it already does.
 
 Where each handicap's numbers come from, and how we obtain them. Distilled from
 reference material that previously lived under `reference/data/`; the third-party
-PDFs themselves now live out-of-band in the `reference-docs` sibling repo.
+PDFs themselves are copyrighted and kept out-of-band, cited elsewhere as
+`reference-docs:<path>`.
 
 ### IRC TCC — international (`lib/irc-rating.ts`)
 
