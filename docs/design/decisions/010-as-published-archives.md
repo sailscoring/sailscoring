@@ -131,7 +131,9 @@ read-only forever, driven entirely by a git pipeline.
 - Two series regimes forever, with branching in display, identity handling,
   and API enforcement.
 - Archived results can't feed features that need raw finishes (re-scoring,
-  what-if, rankings-over-history) — accepted: no user need identified.
+  what-if analysis) — accepted: no user need identified. Features that need
+  only *places* — rankings (#209), career-arc positions — work fine off the
+  stored ranks.
 
 ## Decision
 
@@ -151,7 +153,11 @@ The sub-decisions:
    results: per-competitor **series standing** (structured rank + display
    cells) and per-race results (structured rank where present, the cell as a
    display string, a discard flag). Elapsed time, handicap, and corrected
-   time are display strings — captured, never used to compute anything.
+   time are display strings — captured, never used to compute anything. The
+   structured ranks are first-class inputs to place-consuming features: the
+   career-arc timeline and rankings (#209) read them for as-published series
+   exactly where they re-score a full-fidelity one, so a season ladder can
+   span (or live entirely in) archived history.
 
 2. **Display.** Rendered by us, through the existing publishing pipeline,
    **auto-published on ingest** (no separate publish step). The public pages
@@ -236,8 +242,8 @@ The sub-decisions:
 - Part of the DBSC reconstruction (per-season scripts, parity tooling for
   2022–25) becomes provenance rather than product.
 - A new file format, ingest API surface, and credential type to maintain.
-- Features needing raw finishes are unavailable over archived history —
-  rankings (#209) stay a full-fidelity concern by policy.
+- Features needing raw finishes (re-scoring, what-if analysis) are
+  unavailable over archived history; place-based features are not.
 
 ### Risks
 
@@ -270,7 +276,8 @@ The sub-decisions:
 - #212 / #217 / #218 — the identity spine, public timelines, and manifest.
 - #221 / #222 — the reconcile UI and lazy linking whose jurisdiction this
   ADR narrows to full-fidelity rows.
-- #209 — rankings; full-fidelity-only by policy under this decision.
+- #209 — rankings; consumes stored ranks for as-published series, so
+  ladders work across both regimes.
 - #233 — the HYC archive, expected to be the first archive built natively on
   this pipeline rather than migrated to it.
 - `docs/design/horizon.md` — *Cross-series identity and ranking*; the
