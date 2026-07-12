@@ -38,6 +38,7 @@ import type {
   SubdivisionAxis,
   PublishedSeriesPage,
 } from '@/lib/types';
+import type { AsPublishedFleetResults } from '@/lib/archive-kit/types';
 import type { RankingConfig } from '@/lib/ranking';
 import type { SeriesFile } from '@/lib/series-file';
 
@@ -222,6 +223,17 @@ export const series = pgTable(
     // the horizon "lock" concept: archived series reject edits, and are the
     // only ones that may be deleted (deliberate archive-then-delete friction).
     archived: boolean('archived').notNull().default(false),
+    // As-published archive regime (ADR-010, #283): the series' results were
+    // ingested exactly as originally published (another engine scored them)
+    // and are display-only — the standard write surface rejects every edit,
+    // races/finishes stay empty, and `as_published_results` carries the
+    // stored tables. Orthogonal to `archived` (a display state) and to
+    // `source` (which engine published the results). Set only by the archive
+    // ingest, never from the app.
+    asPublished: boolean('as_published').notNull().default(false),
+    // Content hash of the last-applied ingest document, for idempotent CI
+    // re-runs: an unchanged document is a no-op. Null on full-fidelity series.
+    asPublishedHash: text('as_published_hash'),
     // Import provenance. Workspace-local (like category_id): nullable, set to
     // 'sailwave' for series born of a Sailwave import so the settings page can
     // offer "Update from Sailwave file". NULL for .sailscoring opens and
@@ -436,6 +448,12 @@ export const competitorIdentities = pgTable(
     boatName: text('boat_name'),
     club: text('club'),
     nationality: text('nationality'),
+    // Jurisdiction (ADR-010, #283): who owns this identity. 'app' — created
+    // by the in-app reconcile pass/UI; freely editable there. 'archive' —
+    // created by an archive ingest (manifest-pinned or ingest auto-pass);
+    // git is the authority, so the UI never renames/splits/dissolves it, and
+    // any merge involving one keeps it as the survivor.
+    managedBy: text('managed_by').notNull().default('app'),
     // "Looks right" stamp from the reconcile review queue (#221): a long-arc
     // identity a human has looked at and confirmed stops being flagged. Any
     // later merge/split clears it implicitly (the arc changed under the
@@ -453,6 +471,10 @@ export const competitorIdentities = pgTable(
     uniqueIndex('competitor_identities_workspace_slug_uidx')
       .on(table.workspaceId, table.slug)
       .where(sql`${table.slug} is not null`),
+    check(
+      'competitor_identities_managed_by_chk',
+      sql`${table.managedBy} in ('app','archive')`,
+    ),
   ],
 );
 
@@ -532,6 +554,45 @@ export const rankings = pgTable(
     uniqueIndex('rankings_workspace_slug_uidx')
       .on(table.workspaceId, table.slug)
       .where(sql`${table.slug} is not null`),
+  ],
+);
+
+/**
+ * Stored results for as-published series (ADR-010, #283): one row per
+ * (series, fleet), carrying that fleet's published table verbatim-but-
+ * structured (see `lib/archive-kit/types.ts`). Written only by the archive
+ * ingest; read by the public renderer and — for the structured ranks — the
+ * career-arc and ranking paths. Races/finishes stay empty for these series;
+ * this table is their results.
+ */
+export const asPublishedResults = pgTable(
+  'as_published_results',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    seriesId: uuid('series_id')
+      .notNull()
+      .references(() => series.id, { onDelete: 'cascade' }),
+    fleetId: uuid('fleet_id')
+      .notNull()
+      .references(() => fleets.id, { onDelete: 'cascade' }),
+    results: jsonb('results').notNull().$type<AsPublishedFleetResults>(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
+  },
+  (table) => [
+    index('as_published_results_workspace_idx').on(table.workspaceId),
+    index('as_published_results_series_idx').on(table.seriesId),
+    uniqueIndex('as_published_results_series_fleet_uidx').on(
+      table.seriesId,
+      table.fleetId,
+    ),
   ],
 );
 
