@@ -1,6 +1,6 @@
 # ADR-010: As-published archives
 
-**Status:** Proposed
+**Status:** Accepted — implementation tracked in #283
 
 **Date:** 2026-07-13
 
