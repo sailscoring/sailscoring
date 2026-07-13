@@ -55,16 +55,19 @@ export function renderAsPublishedTable(
   results: AsPublishedFleetResults,
 ): string {
   const { caption, leadColumns, raceHeaders, summaryColumns, rows } = results;
+  // A table published without places (coached regatta fleets) carries no
+  // rank data at all — don't render an empty Rank column for it.
+  const hasRanks = rows.some((r) => r.rank != null || r.rankLabel !== '');
 
   const cols = [
-    '<col class="rank" />',
+    ...(hasRanks ? ['<col class="rank" />'] : []),
     ...leadColumns.map((c) => `<col class="${esc(c.key)}" />`),
     ...raceHeaders.map(() => '<col class="race" />'),
     ...summaryColumns.map((c) => `<col class="${esc(c.key)}" />`),
   ].join('\n');
 
   const headerCells = [
-    '<th>Rank</th>',
+    ...(hasRanks ? ['<th>Rank</th>'] : []),
     ...leadColumns.map((c) => `<th>${esc(c.label)}</th>`),
     ...raceHeaders.map((r) => `<th>${esc(r.label)}</th>`),
     ...summaryColumns.map((c) => `<th>${esc(c.label)}</th>`),
@@ -73,7 +76,7 @@ export function renderAsPublishedTable(
   const body = rows
     .map((row, i) => {
       const cells = [
-        rankCell(row),
+        ...(hasRanks ? [rankCell(row)] : []),
         ...row.leadCells.map((v) => `<td>${esc(v)}</td>`),
         raceCells(row),
         ...row.summaryCells.map((v) => `<td>${esc(v)}</td>`),

@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { stableStringify, type ArchiveSeriesDoc } from '@/lib/archive-kit/format';
 import { buildHalsailArchiveDoc } from '@/lib/archive-kit/halsail-doc';
 import { parseHalsailHtml } from '@/lib/archive-kit/halsail-html';
+import { parseSail100Html } from '@/lib/archive-kit/sail100-html';
 import { buildSailwaveArchiveDoc } from '@/lib/archive-kit/sailwave-doc';
 import { parseSailwaveHtml } from '@/lib/archive-kit/sailwave-html';
 
@@ -89,27 +90,38 @@ function buildSeries(
       })),
     });
   }
+  let sawSail100 = false;
+  const fleets = entry.fleets.map((fleet) => {
+    const html = readFileSync(join(baseDir, fleet.file), 'utf8');
+    let page = parseSailwaveHtml(html);
+    if (page.summaries.length === 0) {
+      // Several IODAI events (2009–2013, some Ulsters) were published by
+      // Sail100 rather than Sailwave — same archive, different markup.
+      const sail100 = parseSail100Html(html);
+      if (sail100.summaries.length > 0) {
+        sawSail100 = true;
+        page = { ...page, summaries: sail100.summaries };
+      }
+    }
+    const summary = fleet.sectionTitle
+      ? page.summaries.find((s) => s.title === fleet.sectionTitle)
+      : page.summaries[0];
+    if (!summary) {
+      throw new Error(
+        `${entry.key}: no summary section${fleet.sectionTitle ? ` titled "${fleet.sectionTitle}"` : ''} in ${fleet.file}`,
+      );
+    }
+    return {
+      name: fleet.name,
+      subPath: fleet.subPath,
+      summary,
+      ...(fleet.includeRaces ? { races: page.races } : {}),
+    };
+  });
   return buildSailwaveArchiveDoc({
     ...meta,
-    fleets: entry.fleets.map((fleet) => {
-      const page = parseSailwaveHtml(
-        readFileSync(join(baseDir, fleet.file), 'utf8'),
-      );
-      const summary = fleet.sectionTitle
-        ? page.summaries.find((s) => s.title === fleet.sectionTitle)
-        : page.summaries[0];
-      if (!summary) {
-        throw new Error(
-          `${entry.key}: no summary section${fleet.sectionTitle ? ` titled "${fleet.sectionTitle}"` : ''} in ${fleet.file}`,
-        );
-      }
-      return {
-        name: fleet.name,
-        subPath: fleet.subPath,
-        summary,
-        ...(fleet.includeRaces ? { races: page.races } : {}),
-      };
-    }),
+    ...(sawSail100 ? { source: 'sail100' as const } : {}),
+    fleets,
   });
 }
 

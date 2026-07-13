@@ -115,12 +115,24 @@ function parseTable(table: Element): RawTable {
   const columnKeys = [...table.querySelectorAll('colgroup col')].map(
     (col) => col.getAttribute('class')?.trim() ?? '',
   );
-  const headerLabels = [...table.querySelectorAll('thead th')].map((th) =>
+  // Older Sailwave output (~2014) omits <thead>: the title row is a plain
+  // <tr> of <th> cells, so fall back to the first row carrying th's.
+  let headerLabels = [...table.querySelectorAll('thead th')].map((th) =>
     textOf(th),
   );
-  const rows = [...table.querySelectorAll('tbody tr')].map((tr) =>
-    [...tr.querySelectorAll('td')].map((td) => textOf(td)),
-  );
+  if (headerLabels.length === 0) {
+    const titleRow = [...table.querySelectorAll('tr')].find(
+      (tr) => tr.querySelector('th') !== null,
+    );
+    headerLabels = titleRow
+      ? [...titleRow.querySelectorAll('th')].map((th) => textOf(th))
+      : [];
+  }
+  // Data rows are the td-bearing ones wherever they sit (jsdom implies a
+  // tbody either way; a th-only title row yields no tds and filters out).
+  const rows = [...table.querySelectorAll('tr')]
+    .map((tr) => [...tr.querySelectorAll('td')].map((td) => textOf(td)))
+    .filter((cells) => cells.length > 0);
   return { columnKeys, headerLabels, rows };
 }
 
@@ -129,30 +141,39 @@ function toSummarySection(
 ): SailwaveSummarySection | null {
   const raw = parseTable(table);
   const keys = raw.columnKeys;
-  if (keys.length === 0 || keys[0] !== 'rank') return null;
+  // The rank column anchors the table but isn't always first — a handful of
+  // captures lead with helm/crew columns. It is lifted to the front; the
+  // other lead columns keep their published order.
+  // A section may have no rank column at all (IODAI publishes coached
+  // regatta fleets without places — participation, not a ranking): rows then
+  // carry rank null and every column is a lead column.
+  const rankIdx = keys.indexOf('rank');
+  if (keys.length === 0) return null;
 
   const firstRace = keys.indexOf('race');
   const lastRace = keys.lastIndexOf('race');
+  if (firstRace !== -1 && rankIdx > firstRace) return null;
   // A summary without race columns still parses: everything after the lead
   // block is summary (some captures publish standings-only pages).
   const leadEnd = firstRace === -1 ? keys.length : firstRace;
   const summaryStart = firstRace === -1 ? keys.length : lastRace + 1;
 
-  const columnsOf = (from: number, to: number): SailwaveColumn[] =>
-    keys.slice(from, to).map((key, i) => ({
-      key: key || `col${from + i}`,
-      label: raw.headerLabels[from + i] ?? '',
-    }));
-
-  const leadColumns = columnsOf(1, leadEnd);
+  const columnAt = (i: number): SailwaveColumn => ({
+    key: keys[i] || `col${i}`,
+    label: raw.headerLabels[i] ?? '',
+  });
+  const leadIdxs = [...Array(leadEnd).keys()].filter((i) => i !== rankIdx);
+  const leadColumns = leadIdxs.map(columnAt);
   const raceHeaders =
     firstRace === -1 ? [] : raw.headerLabels.slice(firstRace, lastRace + 1);
-  const summaryColumns = columnsOf(summaryStart, keys.length);
+  const summaryColumns = [...Array(keys.length).keys()]
+    .slice(summaryStart)
+    .map(columnAt);
 
   const rows: SailwaveSummaryRow[] = raw.rows
     .filter((cells) => cells.length === keys.length)
     .map((cells) => {
-      const rankLabel = cells[0];
+      const rankLabel = rankIdx === -1 ? '' : cells[rankIdx];
       const raceCells =
         firstRace === -1
           ? []
@@ -163,7 +184,7 @@ function toSummarySection(
       return {
         rankLabel,
         rank: parseRankLabel(rankLabel),
-        leadCells: cells.slice(1, leadEnd),
+        leadCells: leadIdxs.map((i) => cells[i]),
         raceCells,
         summaryCells: cells.slice(summaryStart),
       };
@@ -197,19 +218,25 @@ function toRaceSection(table: Element): SailwaveRaceSection | null {
 /** Parse a whole Sailwave results page. */
 export function parseSailwaveHtml(html: string): SailwavePage {
   const dom = new JSDOM(html);
-  const doc = dom.window.document;
+  try {
+    const doc = dom.window.document;
 
-  const summaries = [...doc.querySelectorAll('table.summarytable')]
-    .map(toSummarySection)
-    .filter((s): s is SailwaveSummarySection => s !== null);
-  const races = [...doc.querySelectorAll('table.racetable')]
-    .map(toRaceSection)
-    .filter((r): r is SailwaveRaceSection => r !== null);
+    const summaries = [...doc.querySelectorAll('table.summarytable')]
+      .map(toSummarySection)
+      .filter((s): s is SailwaveSummarySection => s !== null);
+    const races = [...doc.querySelectorAll('table.racetable')]
+      .map(toRaceSection)
+      .filter((r): r is SailwaveRaceSection => r !== null);
 
-  return {
-    title: textOf(doc.querySelector('h1')),
-    subtitle: textOf(doc.querySelector('h2')) || null,
-    summaries,
-    races,
-  };
+    return {
+      title: textOf(doc.querySelector('h1')),
+      subtitle: textOf(doc.querySelector('h2')) || null,
+      summaries,
+      races,
+    };
+  } finally {
+    // Bulk generation parses hundreds of pages; an unclosed window keeps the
+    // whole DOM reachable and the run OOMs.
+    dom.window.close();
+  }
 }

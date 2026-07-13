@@ -10,6 +10,7 @@
 
 import { normalizePersonName } from '@/lib/competitor-identity-match';
 
+import { isPiiKey } from './blw-scrub';
 import { archiveSeriesDocSchema, type ArchiveSeriesDoc } from './format';
 import { competitorIdFor, fleetIdFor } from './ids';
 import type {
@@ -30,6 +31,9 @@ export interface SailwaveFleetInput {
 
 export interface SailwaveDocInput {
   seriesId: string;
+  /** Which engine published the capture; 'sailwave' unless the generator
+   *  autodetected a Sail100 page. */
+  source?: 'sailwave' | 'sail100';
   name: string;
   venue?: string;
   startDate?: string;
@@ -58,6 +62,14 @@ const FIELD_BY_KEY: Record<string, 'sailNumber' | 'name' | 'club' | 'nationality
   class: 'boatClass',
   design: 'boatClass',
   owner: 'owner',
+  // Sail100 pages derive keys from header labels rather than colgroup
+  // classes (see sail100-html.ts).
+  'sail-no': 'sailNumber',
+  altsailno: 'sailNumber',
+  helm: 'name',
+  'm-f': 'gender',
+  'prize-age': 'age',
+  country: 'nationality',
 };
 
 interface ExtractedCompetitor {
@@ -115,8 +127,25 @@ export function buildSailwaveArchiveDoc(
     const fleetId = fleetIdFor(input.seriesId, fleet.name);
     const ordinals = new Map<string, number>();
 
-    const rows = fleet.summary.rows.map((row) => {
-      const extracted = extractCompetitor(fleet.summary, row);
+    // Several old captures published columns we must not re-publish — dates
+    // of birth and addresses appear on a handful of Sail100-era pages. Drop
+    // those columns (and their cells) outright; "as published" yields to the
+    // same PII line the .blw scrub draws, and age still stays.
+    const keepIdx = fleet.summary.leadColumns
+      .map((c, i) => ({ c, i }))
+      .filter(({ c }) => !isPiiKey(c.key) && !isPiiKey(c.label))
+      .map(({ i }) => i);
+    const summary = {
+      ...fleet.summary,
+      leadColumns: keepIdx.map((i) => fleet.summary.leadColumns[i]),
+      rows: fleet.summary.rows.map((row) => ({
+        ...row,
+        leadCells: keepIdx.map((i) => row.leadCells[i]),
+      })),
+    };
+
+    const rows = summary.rows.map((row) => {
+      const extracted = extractCompetitor(summary, row);
       const nameKey = normalizePersonName(extracted.name).full;
       const baseKey = `${fleet.name}/${extracted.sailNumber}/${nameKey}`;
       const ordinal = (ordinals.get(baseKey) ?? 0) + 1;
@@ -167,10 +196,10 @@ export function buildSailwaveArchiveDoc(
       name: fleet.name,
       subPath: fleet.subPath,
       results: {
-        ...(fleet.summary.caption ? { caption: fleet.summary.caption } : {}),
-        leadColumns: fleet.summary.leadColumns,
-        raceHeaders: fleet.summary.raceHeaders.map((label) => ({ label })),
-        summaryColumns: fleet.summary.summaryColumns,
+        ...(summary.caption ? { caption: summary.caption } : {}),
+        leadColumns: summary.leadColumns,
+        raceHeaders: summary.raceHeaders.map((label) => ({ label })),
+        summaryColumns: summary.summaryColumns,
         rows,
         ...(raceTables.length > 0 ? { raceTables } : {}),
       },
@@ -189,7 +218,7 @@ export function buildSailwaveArchiveDoc(
       ...(input.venueUrl ? { venueUrl: input.venueUrl } : {}),
       ...(input.venueLogoUrl ? { venueLogoUrl: input.venueLogoUrl } : {}),
       ...(input.eventLogoUrl ? { eventLogoUrl: input.eventLogoUrl } : {}),
-      source: 'sailwave',
+      source: input.source ?? 'sailwave',
       publishedSlug: input.publishedSlug,
     },
     fleets,

@@ -90,7 +90,7 @@ const competitorSchema = z.object({
   club: z.string().max(200).optional(),
   nationality: z.string().max(10).optional(),
   gender: z.enum(['M', 'F', '']).optional(),
-  age: z.number().int().min(4).max(120).optional(),
+  age: z.number().int().min(0).max(120).optional(),
   boatName: z.string().max(120).optional(),
   boatClass: z.string().max(120).optional(),
   helm: z.string().max(120).optional(),
