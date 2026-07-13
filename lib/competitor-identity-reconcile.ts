@@ -165,6 +165,9 @@ export async function applyManifest(
           sailNumber: a.sailNumber,
           club: a.club,
           nationality: a.nationality,
+          // The manifest is the archive pipeline's authority (ADR-010): its
+          // identities belong to git, and the reconcile UI leaves them alone.
+          managedBy: 'archive',
         })
         .onConflictDoUpdate({
           target: competitorIdentities.id,
@@ -174,6 +177,7 @@ export async function applyManifest(
             sailNumber: a.sailNumber,
             club: a.club,
             nationality: a.nationality,
+            managedBy: 'archive',
           },
         });
       identitiesWritten++;
@@ -235,12 +239,25 @@ export async function ensureSlugs(
   });
 }
 
+export interface ApplyClustersOpts {
+  /** Jurisdiction stamped on identities this pass creates (ADR-010). The
+   *  in-app lazy pass and the plain CLI pass create 'app' identities; the
+   *  archive ingest's pass creates 'archive' ones. Default 'app'. */
+  managedBy?: 'app' | 'archive';
+  /** When set, only these competitor rows are linked (and a cluster with
+   *  none of them is skipped entirely) — the archive ingest's pass links
+   *  rows in as-published series only, leaving live rows to the lazy pass. */
+  onlyCompetitorIds?: ReadonlySet<string>;
+}
+
 /** Write identities + links for the clustering result, in one transaction. */
 export async function applyClusters(
   db: SailScoringDb,
   workspaceId: string,
   result: ClusterResult,
+  opts: ApplyClustersOpts = {},
 ): Promise<ApplyResult> {
+  const managedBy = opts.managedBy ?? 'app';
   let identitiesCreated = 0;
   let competitorsLinked = 0;
   let conflictsSkipped = 0;
@@ -270,6 +287,11 @@ export async function applyClusters(
         continue;
       }
 
+      const targetIds = opts.onlyCompetitorIds
+        ? cluster.competitorIds.filter((id) => opts.onlyCompetitorIds!.has(id))
+        : cluster.competitorIds;
+      if (targetIds.length === 0) continue;
+
       let identityId: string;
       if (existing.length === 1) {
         identityId = existing[0];
@@ -283,6 +305,7 @@ export async function applyClusters(
           sailNumber: cluster.sailNumber,
           club: cluster.club,
           nationality: cluster.nationality,
+          managedBy,
         });
         identitiesCreated++;
       }
@@ -296,7 +319,7 @@ export async function applyClusters(
           and(
             eq(competitors.workspaceId, workspaceId),
             isNull(competitors.identityId),
-            inArray(competitors.id, cluster.competitorIds),
+            inArray(competitors.id, targetIds),
           ),
         );
       competitorsLinked += res.count ?? 0;
