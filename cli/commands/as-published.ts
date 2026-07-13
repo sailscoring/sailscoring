@@ -44,6 +44,27 @@ function readDocFile(path: string): SeriesDocFile {
   return { path, doc };
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Run a request, riding out 429s: sleep the server's retry-after (or 10s)
+ *  and try again, up to five times. A bulk push over a plain-rate-limit key
+ *  must degrade to slower, never to half-ingested. */
+async function withRateLimitRetry<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const retryAfter =
+        err instanceof ApiError && err.status === 429
+          ? ((err.body as { retryAfter?: number } | undefined)?.retryAfter ?? 10)
+          : null;
+      if (retryAfter === null || attempt >= 5) throw err;
+      console.error(`  … rate-limited, retrying in ${retryAfter}s`);
+      await sleep(retryAfter * 1000);
+    }
+  }
+}
+
 async function pushDocs(
   client: SailscoringClient,
   files: SeriesDocFile[],
@@ -61,7 +82,9 @@ async function pushDocs(
       continue;
     }
     try {
-      const result = await client.putArchiveSeries(id, file.doc, opts);
+      const result = await withRateLimitRetry(() =>
+        client.putArchiveSeries(id, file.doc, opts),
+      );
       if (result.unchanged) {
         unchanged++;
       } else {
@@ -88,7 +111,9 @@ async function pushIdentities(
 ): Promise<number> {
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   try {
-    const r = await client.applyArchiveIdentities(manifest);
+    const r = await withRateLimitRetry(() =>
+      client.applyArchiveIdentities(manifest),
+    );
     console.log(
       `identities: ${r.manifest.identitiesWritten} from the manifest (${r.manifest.competitorsLinked} rows linked), ${r.autoPass.identitiesCreated} drafted (${r.autoPass.competitorsLinked} rows linked), ${r.orphansRemoved} orphaned removed`,
     );

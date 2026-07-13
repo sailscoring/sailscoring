@@ -48,17 +48,42 @@ function RowCells({
           {value}
         </td>
       ))}
-      {row.raceCells.map((cell, i) => (
-        <td
-          key={`r${i}`}
-          className={cn(
-            'px-2 py-1 tabular-nums whitespace-nowrap',
-            cell.discard && 'text-muted-foreground',
-          )}
-        >
-          {cell.text}
-        </td>
-      ))}
+      {row.raceCells.map((cell, i) => {
+        // The published page's podium colouring (1st/2nd/3rd in the race)
+        // rides in the cell's rank slot — badge it like the full-fidelity
+        // standings table's race medals.
+        const medal =
+          !cell.discard && cell.rank === 1
+            ? 'bg-[#d4a72c] text-black'
+            : !cell.discard && cell.rank === 2
+              ? 'bg-[#9ca3af] text-black'
+              : !cell.discard && cell.rank === 3
+                ? 'bg-[#b07a48] text-white'
+                : null;
+        return (
+          <td
+            key={`r${i}`}
+            className={cn(
+              'px-2 py-1 tabular-nums whitespace-nowrap',
+              cell.discard && 'text-muted-foreground',
+            )}
+          >
+            {medal ? (
+              <span
+                data-testid="podium-badge"
+                className={cn(
+                  'inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold tabular-nums',
+                  medal,
+                )}
+              >
+                {cell.text}
+              </span>
+            ) : (
+              cell.text
+            )}
+          </td>
+        );
+      })}
       {row.summaryCells.map((value, i) => (
         <td key={`s${i}`} className="px-2 py-1 tabular-nums font-medium">
           {value}

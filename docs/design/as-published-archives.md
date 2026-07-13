@@ -43,10 +43,12 @@ Per archive repo, two secrets:
   `archive-ingest`, nothing else. A leaked key can rewrite that workspace's
   as-published series (already public) and nothing more.
 
-Provisioning: pre-create a service user (`provision-org pre-create-user`),
-add it to the workspace with the `archivist` role, then mint the key with
-`provision-token create … --workspace <slug>` (the raised rate limits apply
-to all keys since #the-bulk-import-lesson). One key per repo, revocable
+Provisioning: pre-create a service user (`provision-org pre-create-user
+… --name "IODAI Archive"`), add it to the workspace with the `archivist`
+role, then mint the key with **`provision-token create … --workspace <slug>
+--admin`** — a bulk ingest makes hundreds of requests, and a plain key's
+per-minute rate limit 429s mid-corpus (the CLI now retries with backoff, but
+raised limits are the right shape). One key per repo, revocable
 independently.
 
 ## Production migration plan (NOT yet executed)

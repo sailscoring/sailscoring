@@ -119,8 +119,9 @@ holds the **`archivist`** role in the target workspace — `read` +
 `archive-ingest` only, so a leaked key can touch nothing but that
 workspace's (already public) archive. Provision: `provision-org
 pre-create-user` for a per-repo service user, add it to the workspace with
-role `archivist`, then `provision-token create … --workspace <slug>`. See
-`docs/design/as-published-archives.md`.
+role `archivist`, then `provision-token create … --workspace <slug>
+--admin` (bulk ingests make hundreds of requests; a plain key's rate limit
+429s mid-corpus). See `docs/design/as-published-archives.md`.
 
 **Default-on features.** Most gated features are opt-in (off until enabled),
 but a feature can be marked default-on in `lib/features.ts` — on for every
