@@ -387,8 +387,10 @@ function renderSectionTables(
 
 /** Document-level fields shared by the single-fleet and combined renders:
  *  the page chrome (header logos, title, breadcrumb, footer links) around
- *  whatever section content the caller assembled. */
-interface DocumentChrome {
+ *  whatever section content the caller assembled. Exported for the renderers
+ *  that assemble their own section content in the same chrome — the prize
+ *  sheet (#240) and the as-published archive pages (ADR-010). */
+export interface DocumentChrome {
   series: { name: string; venue: string };
   /** Page heading under the series title: the fleet name for a per-fleet
    *  page, the combined page's name for a multi-fleet one. */
@@ -546,7 +548,7 @@ ${table}`;
  *  header logos + series title, the provisional stamp, the page heading, the
  *  footer credit line, and the NHC/ECHO toggle scripts when the content
  *  carries their columns. */
-function renderHtmlDocument(
+export function renderHtmlDocument(
   chrome: DocumentChrome,
   content: string,
   flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string },
