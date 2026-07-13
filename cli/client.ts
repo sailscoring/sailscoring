@@ -122,6 +122,15 @@ export class SailscoringClient {
     });
   }
 
+  /** The workspace's cross-series competitor identities (#212). Requires
+   *  the workspace to have the competitor-reconcile feature. */
+  async listIdentities(): Promise<{ items: IdentityListItem[] }> {
+    return (await this.request(
+      'GET',
+      '/api/v1/competitor-identities',
+    )) as { items: IdentityListItem[] };
+  }
+
   /** Upsert one as-published series from its ingest document (ADR-010).
    *  `convert` replaces an existing full-fidelity series (the migration
    *  path); `force` re-applies an unchanged document. */
@@ -227,6 +236,19 @@ export class SailscoringClient {
 export interface Category {
   id: string;
   name: string;
+}
+
+/** The identity list's row shape as the CLI consumes it (a subset of the
+ *  server's IdentityWithArc; extra fields flow through untouched in --json). */
+export interface IdentityListItem {
+  id: string;
+  slug: string | null;
+  label: string;
+  club: string | null;
+  managedBy: string;
+  firstYear: number | null;
+  lastYear: number | null;
+  entries: Array<{ seriesId: string; seriesName: string; sailNumber: string }>;
 }
 
 export interface ArchiveIngestResponse {

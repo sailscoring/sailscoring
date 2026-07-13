@@ -63,8 +63,10 @@ manifest's slug→UUID map — the same adopted ids in prod), so the ingest
 
 1. **Snapshot the public URL set** (before):
    `pnpm cli published list --workspace iodai --json > before.json` and dump
-   each publication's pages (`published get`). Also snapshot competitor
-   slugs (`/p/iodai/competitors` or a DB dump of `competitor_identities`).
+   each publication's pages (`published get`). Competitor slugs:
+   `pnpm cli identity list --workspace iodai --json` (needs the workspace's
+   `competitor-reconcile` feature, planned on for IODAI anyway), or scrape
+   `/p/iodai/competitors` without credentials.
 2. **Verify the config's slugs against prod**: every generated document's
    `publishedSlug` + fleet `subPath`s must match the live publication for
    that series id. The config derives them from the archive slugs (event

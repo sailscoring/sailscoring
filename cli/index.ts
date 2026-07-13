@@ -21,6 +21,7 @@ import {
   categoryListCommand,
   competitorListCommand,
   fleetListCommand,
+  identityListCommand,
   publishedGetCommand,
   publishedListCommand,
   raceListCommand,
@@ -98,6 +99,9 @@ Reads (all accept --json / --output json; child resources take --series <id>)
   fleet list --series <id>
   sub-series list --series <id>
   category list
+  identity list
+      Cross-series competitor identities (one row per recurring competitor;
+      --json emits full arcs). Needs the competitor-reconcile feature.
   published list | published get <seriesId>
   activity list [--series <id>]
   standings get <seriesId> [--fleet <name>]
@@ -201,6 +205,8 @@ export async function runCli(argv: string[]): Promise<number> {
       return listOnly('sub-series', rest, subSeriesListCommand);
     case 'category':
       return listOnly('category', rest, categoryListCommand);
+    case 'identity':
+      return listOnly('identity', rest, identityListCommand);
     case 'activity':
       return listOnly('activity', rest, activityListCommand);
     case 'published':

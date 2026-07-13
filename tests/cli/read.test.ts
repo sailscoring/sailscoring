@@ -31,6 +31,7 @@ import { GET as seriesListGET } from '@/app/api/v1/series/route';
 import { GET as seriesGetGET } from '@/app/api/v1/series/[id]/route';
 import { GET as competitorsGET } from '@/app/api/v1/series/[id]/competitors/route';
 import { GET as standingsGET } from '@/app/api/v1/series/[id]/standings/route';
+import { GET as identitiesGET } from '@/app/api/v1/competitor-identities/route';
 import { SailscoringClient, type FetchLike } from '@/cli/client';
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -68,6 +69,9 @@ describe.skipIf(skip)('CLI read methods (ADR-009 M4)', () => {
     if (init.method === 'GET' && comp) {
       return wrap(await competitorsGET(new Request(url) as Parameters<typeof competitorsGET>[0], { params: Promise.resolve({ id: comp[1] }) }));
     }
+    if (init.method === 'GET' && pathname === '/api/v1/competitor-identities') {
+      return wrap(await identitiesGET(new Request(url) as Parameters<typeof identitiesGET>[0], noParams));
+    }
     const std = /^\/api\/v1\/series\/([^/]+)\/standings$/.exec(pathname);
     if (init.method === 'GET' && std) {
       return wrap(await standingsGET(new Request(url) as Parameters<typeof standingsGET>[0], { params: Promise.resolve({ id: std[1] }) }));
@@ -85,7 +89,8 @@ describe.skipIf(skip)('CLI read methods (ADR-009 M4)', () => {
     });
     ctx = {
       userId: 'rd-user', email: 'rd@sailscoring.test', workspaceId,
-      workspaceSlug: `rd-${workspaceId.slice(7, 17)}`, role: 'owner', features: ['logo-library'],
+      workspaceSlug: `rd-${workspaceId.slice(7, 17)}`, role: 'owner',
+      features: ['logo-library', 'competitor-reconcile'],
     };
     mockedRequire.mockResolvedValue(ctx);
     client = new SailscoringClient({ baseUrl: 'http://localhost', token: 't', fetch: transport });
@@ -120,6 +125,29 @@ describe.skipIf(skip)('CLI read methods (ADR-009 M4)', () => {
       await db.delete(schema.organization).where(eq(schema.organization.id, workspaceId));
     }
     await sql?.end();
+  });
+
+  test('identity list returns the workspace identities with their arcs', async () => {
+    const identityId = uuid();
+    await db.insert(schema.competitorIdentities).values({
+      id: identityId,
+      workspaceId,
+      label: 'Read Sailor',
+      slug: 'read-sailor-ab12',
+      managedBy: 'archive',
+    });
+    await db
+      .update(schema.competitors)
+      .set({ identityId })
+      .where(eq(schema.competitors.seriesId, seriesId));
+
+    const { items } = await client.listIdentities();
+    const sailor = items.find((i) => i.slug === 'read-sailor-ab12');
+    expect(sailor).toBeDefined();
+    expect(sailor!.label).toBe('Read Sailor');
+    expect(sailor!.managedBy).toBe('archive');
+    expect(sailor!.entries).toHaveLength(1);
+    expect(sailor!.entries[0].seriesName).toBe('Read Series');
   });
 
   test('whoami returns the resolved identity', async () => {

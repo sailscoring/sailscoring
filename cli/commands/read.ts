@@ -99,6 +99,42 @@ export async function subSeriesListCommand(flags: Record<string, string>): Promi
 export const categoryListCommand = (flags: Record<string, string>): Promise<number> =>
   read(flags, (c) => c.listCategories(), ['id', 'name']);
 
+/** Cross-series competitor identities (#212): one row per recurring
+ *  competitor. `--json` emits the full arcs; the table view is the snapshot
+ *  shape the archive migration diffs (slug per timeline URL). Requires the
+ *  workspace's competitor-reconcile feature (the server gate). */
+export async function identityListCommand(
+  flags: Record<string, string>,
+): Promise<number> {
+  const client = clientFor(flags);
+  if (!client) return 1;
+  try {
+    const { items } = await client.listIdentities();
+    if (resolveFormat(flags) === 'json') {
+      printJson(items);
+      return 0;
+    }
+    const rows = items.map((i) => ({
+      slug: i.slug ?? '',
+      label: i.label,
+      club: i.club ?? '',
+      series: i.entries.length,
+      span:
+        i.firstYear != null && i.lastYear != null
+          ? i.firstYear === i.lastYear
+            ? String(i.firstYear)
+            : `${i.firstYear}-${i.lastYear}`
+          : '',
+      managedBy: i.managedBy,
+    }));
+    printTable(rows, ['slug', 'label', 'club', 'series', 'span', 'managedBy']);
+    return 0;
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    return 1;
+  }
+}
+
 export const publishedListCommand = (flags: Record<string, string>): Promise<number> =>
   read(flags, (c) => c.listPublished(), ['slug', 'url']);
 
