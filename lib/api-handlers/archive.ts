@@ -27,6 +27,7 @@ import {
   collectClusterInputs,
   collectCompetitorIndex,
   ensureSlugs,
+  gcOrphanIdentities,
 } from '@/lib/competitor-identity-reconcile';
 import { clusterCompetitors } from '@/lib/competitor-identity-cluster';
 import { mapWithConcurrency } from '@/lib/concurrency';
@@ -512,6 +513,8 @@ export interface ArchiveIdentitiesResult {
     conflictsSkipped: number;
   };
   slugsBackfilled: number;
+  /** Identities left with no rows (replaced-out drafts) and removed. */
+  orphansRemoved: number;
 }
 
 /**
@@ -587,6 +590,9 @@ export async function applyArchiveIdentities(
     onlyCompetitorIds: new Set(archiveRows.map((r) => r.id)),
   });
   const slugsBackfilled = await ensureSlugs(db, workspace.workspaceId);
+  // Manifest overwrites + row re-minting can leave drafted identities with
+  // no rows; sweep them so no empty cards or dead timelines linger.
+  const orphansRemoved = await gcOrphanIdentities(db, workspace.workspaceId);
 
   await recordActivity(workspace, {
     action: 'identities.archive-applied',
@@ -602,5 +608,6 @@ export async function applyArchiveIdentities(
     },
     autoPass,
     slugsBackfilled,
+    orphansRemoved,
   };
 }

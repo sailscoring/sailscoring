@@ -273,6 +273,7 @@ export interface ArchiveIdentitiesResponse {
     conflictsSkipped: number;
   };
   slugsBackfilled: number;
+  orphansRemoved: number;
 }
 
 export interface PublishRequest {

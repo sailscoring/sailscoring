@@ -547,6 +547,36 @@ describe.skipIf(skip)('archive ingest', () => {
     ).rejects.toThrow(/archive/);
   });
 
+  test('the identities apply sweeps orphaned identities', async () => {
+    // An identity whose rows were replaced out from under it (the
+    // pre-ADR-010 drafted blanks after a conversion re-mints row ids).
+    const orphan = uuid();
+    await db.insert(schema.competitorIdentities).values({
+      id: orphan,
+      workspaceId,
+      label: '',
+      slug: `orphan-${uuid().slice(0, 8)}`,
+      managedBy: 'app',
+    });
+    const result = await archive.applyArchiveIdentities(ctx, {
+      version: 1,
+      series: {},
+      identities: [
+        {
+          slug: 'holly-cantwell-x1y2',
+          name: 'Holly Cantwell',
+          members: [['iodai-ulsters-2015', 'IRL1641']],
+        },
+      ],
+    });
+    expect(result.orphansRemoved).toBeGreaterThanOrEqual(1);
+    const rows = await db
+      .select({ id: schema.competitorIdentities.id })
+      .from(schema.competitorIdentities)
+      .where(eq(schema.competitorIdentities.id, orphan));
+    expect(rows).toHaveLength(0);
+  });
+
   test('delete removes the publication and the series', async () => {
     await archive.deleteArchiveSeries(ctx, seriesId);
     const rows = await db

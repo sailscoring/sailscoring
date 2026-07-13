@@ -329,6 +329,41 @@ export async function applyClusters(
   return { identitiesCreated, competitorsLinked, conflictsSkipped };
 }
 
+/**
+ * Delete identities with no linked competitor rows — debris left when rows
+ * are replaced under them (a re-import, or the as-published conversion
+ * re-minting row ids, ADR-010). An orphan serves nothing: its public
+ * timeline already 404s, and in the reconcile UI it's an empty card. Safe
+ * for either jurisdiction — an archive-managed orphan the manifest still
+ * wants is recreated on the next apply. Returns how many were removed.
+ */
+export async function gcOrphanIdentities(
+  db: SailScoringDb,
+  workspaceId: string,
+): Promise<number> {
+  const removed = await db
+    .delete(competitorIdentities)
+    .where(
+      and(
+        eq(competitorIdentities.workspaceId, workspaceId),
+        notInArray(
+          competitorIdentities.id,
+          db
+            .select({ id: competitors.identityId })
+            .from(competitors)
+            .where(
+              and(
+                eq(competitors.workspaceId, workspaceId),
+                isNotNull(competitors.identityId),
+              ),
+            ),
+        ),
+      ),
+    )
+    .returning({ id: competitorIdentities.id });
+  return removed.length;
+}
+
 // ─── lazy on-demand population (#222) ────────────────────────────────────────
 
 /**

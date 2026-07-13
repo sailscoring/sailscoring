@@ -90,7 +90,7 @@ async function pushIdentities(
   try {
     const r = await client.applyArchiveIdentities(manifest);
     console.log(
-      `identities: ${r.manifest.identitiesWritten} from the manifest (${r.manifest.competitorsLinked} rows linked), ${r.autoPass.identitiesCreated} drafted (${r.autoPass.competitorsLinked} rows linked)`,
+      `identities: ${r.manifest.identitiesWritten} from the manifest (${r.manifest.competitorsLinked} rows linked), ${r.autoPass.identitiesCreated} drafted (${r.autoPass.competitorsLinked} rows linked), ${r.orphansRemoved} orphaned removed`,
     );
     if (r.manifest.unresolvedMembers > 0) {
       console.error(

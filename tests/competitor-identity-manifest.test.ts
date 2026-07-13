@@ -118,6 +118,41 @@ describe('planManifestApply', () => {
     expect(plan.unresolvedMembers).toEqual([]);
   });
 
+  it('a member listed twice claims both same-sail rows (published duplicates)', () => {
+    // The 2022 Ulsters coached page lists the same child twice on one sail
+    // ("Addison" + the "Adeson" typo row): duplicating the member row makes
+    // the second pass prefer the still-unclaimed candidate.
+    const m = parseManifest(
+      manifestJson({
+        identities: [
+          {
+            slug: 'addison-carmody-7qry',
+            name: 'Addison Carmody',
+            members: [
+              ['iodai-nationals-2019', '1087'],
+              ['iodai-nationals-2019', '1087'],
+            ],
+          },
+        ],
+      }),
+    );
+    const plan = planManifestApply(
+      m,
+      'ws1',
+      lookupCandidates({
+        [`${NATIONALS}|1087`]: [
+          { competitorId: 'comp-addison', name: 'Addison Carmody' },
+          { competitorId: 'comp-adeson', name: 'Adeson Carmody' },
+        ],
+      }),
+    );
+    expect(plan.assignments[0].competitorIds).toEqual([
+      'comp-addison',
+      'comp-adeson',
+    ]);
+    expect(plan.unresolvedMembers).toEqual([]);
+  });
+
   it('reports an unknown series-slug without dropping the rest', () => {
     const m = parseManifest(
       manifestJson({
