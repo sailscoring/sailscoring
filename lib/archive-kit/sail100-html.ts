@@ -81,10 +81,12 @@ function toSection(table: Element): SailwaveSummarySection | null {
             : texts.slice(firstRace, lastRace + 1).map((text, i) => ({
                 text,
                 // Sail100 marks a discarded cell with class `j` (counted
-                // cells are `n`); some pages parenthesise instead.
+                // cells are `n`); some pages parenthesise instead. It has no
+                // podium colouring.
                 discard:
                   cells[firstRace + i].classList.contains('j') ||
                   /^\(.*\)$/.test(text.trim()),
+                podium: 0,
               })),
         summaryCells: firstRace === -1 ? [] : texts.slice(lastRace + 1),
       },

@@ -26,8 +26,9 @@ export interface SailwaveSummaryRow {
   rank: number | null;
   /** Aligned with the section's `leadColumns`. */
   leadCells: string[];
-  /** Aligned with `raceHeaders`; discard = parenthesised as published. */
-  raceCells: Array<{ text: string; discard: boolean }>;
+  /** Aligned with `raceHeaders`; discard = parenthesised as published;
+   *  podium = the source's rank1/2/3 cell colouring (0 = none). */
+  raceCells: Array<{ text: string; discard: boolean; podium: number }>;
   /** Aligned with `summaryColumns`. */
   summaryCells: string[];
 }
@@ -109,6 +110,9 @@ interface RawTable {
   columnKeys: string[];
   headerLabels: string[];
   rows: string[][];
+  /** Per-cell podium marker (1–3) parsed from Sailwave's rank1/2/3 cell
+   *  classes, aligned with `rows`; 0 = none. */
+  podium: number[][];
 }
 
 function parseTable(table: Element): RawTable {
@@ -130,10 +134,17 @@ function parseTable(table: Element): RawTable {
   }
   // Data rows are the td-bearing ones wherever they sit (jsdom implies a
   // tbody either way; a th-only title row yields no tds and filters out).
-  const rows = [...table.querySelectorAll('tr')]
-    .map((tr) => [...tr.querySelectorAll('td')].map((td) => textOf(td)))
+  const cellRows = [...table.querySelectorAll('tr')]
+    .map((tr) => [...tr.querySelectorAll('td')])
     .filter((cells) => cells.length > 0);
-  return { columnKeys, headerLabels, rows };
+  const rows = cellRows.map((cells) => cells.map((td) => textOf(td)));
+  const podium = cellRows.map((cells) =>
+    cells.map((td) => {
+      const m = /(?:^|\s)rank([123])(?:\s|$)/.exec(td.getAttribute('class') ?? '');
+      return m ? Number(m[1]) : 0;
+    }),
+  );
+  return { columnKeys, headerLabels, rows, podium };
 }
 
 function toSummarySection(
@@ -171,15 +182,19 @@ function toSummarySection(
     .map(columnAt);
 
   const rows: SailwaveSummaryRow[] = raw.rows
-    .filter((cells) => cells.length === keys.length)
-    .map((cells) => {
+    .map((cells, rowIdx) => ({ cells, podium: raw.podium[rowIdx] }))
+    .filter(({ cells }) => cells.length === keys.length)
+    .map(({ cells, podium }) => {
       const rankLabel = rankIdx === -1 ? '' : cells[rankIdx];
       const raceCells =
         firstRace === -1
           ? []
-          : cells.slice(firstRace, lastRace + 1).map((text) => ({
+          : cells.slice(firstRace, lastRace + 1).map((text, i) => ({
               text,
               discard: /^\(.*\)$/.test(text.trim()),
+              // Sailwave marks 1st/2nd/3rd-in-race cells with rank1/2/3
+              // classes — the podium colouring on the published page.
+              podium: podium[firstRace + i] || 0,
             }));
       return {
         rankLabel,

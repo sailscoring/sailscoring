@@ -1030,7 +1030,7 @@ ${rows}
  *  same-nation competitors share a single ~1 KB SVG def rather than copying
  *  it into every row. Codes without a flag in `flagSvgByCode` are skipped
  *  here and fall back to text-only rendering in the Nat cell. */
-function renderFlagDefs(
+export function renderFlagDefs(
   referencedCodes: readonly string[],
   flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
 ): string {

@@ -11,7 +11,10 @@ import {
   toStoredResults,
   type ArchiveSeriesDoc,
 } from '@/lib/archive-kit/format';
-import { renderAsPublishedFleetHtml } from '@/lib/archive-kit/render';
+import {
+  collectNationalityCodes,
+  renderAsPublishedFleetHtml,
+} from '@/lib/archive-kit/render';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { deletePublishedHtml, putPublishedHtml } from '@/lib/blob-storage';
 import {
@@ -311,6 +314,16 @@ async function publishArchiveSeries(
   const seriesIndexUrl = `/p/${workspace.workspaceSlug}/${slug}`;
   const multiFleet = doc.fleets.length > 1;
 
+  // Flag SVGs load on demand, only when a fleet references national codes —
+  // the ~2.5 MB dataset stays out of every other request (the same pattern
+  // as the full-fidelity export path).
+  const anyNationality = doc.fleets.some(
+    (fleet) => collectNationalityCodes(toStoredResults(fleet)).length > 0,
+  );
+  const flagSvgByCode = anyNationality
+    ? (await import('@/lib/nationality/flags')).NATIONAL_FLAGS
+    : undefined;
+
   const files = doc.fleets.map((fleet) => ({
     fleetName: fleet.name,
     subPath: fleet.subPath,
@@ -325,6 +338,7 @@ async function publishArchiveSeries(
         leftUrl: doc.series.venueUrl,
         rightUrl: doc.series.eventUrl,
         seriesIndexUrl,
+        flagSvgByCode,
       },
       toStoredResults(fleet),
     ),

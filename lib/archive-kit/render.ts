@@ -11,6 +11,7 @@
 
 import { escapeHtml as esc } from '@/lib/html';
 import {
+  renderFlagDefs,
   renderHtmlDocument,
   type DocumentChrome,
 } from '@/lib/results-renderer';
@@ -34,6 +35,31 @@ export interface AsPublishedPageChrome {
   rightUrl?: string;
   /** `/p/{ws}/{slug}` — the breadcrumb up to the series listing. */
   seriesIndexUrl?: string;
+  /** Flag SVGs keyed by 3-letter code (the app's nationality dataset).
+   *  When set, nationality lead columns render flags like a full-fidelity
+   *  page; codes without a flag fall back to text. */
+  flagSvgByCode?: Readonly<Record<string, { viewBox: string; inner: string }>>;
+}
+
+/** Lead-column keys that carry a 3-letter national code — Sailwave's `nat`
+ *  colgroup class and Sail100's header-derived labels. */
+const NATIONALITY_KEYS = new Set(['nat', 'country', 'nationality']);
+
+/** Every national code referenced by the table's nationality columns. */
+export function collectNationalityCodes(
+  results: AsPublishedFleetResults,
+): string[] {
+  const natIdxs = results.leadColumns
+    .map((c, i) => (NATIONALITY_KEYS.has(c.key) ? i : -1))
+    .filter((i) => i !== -1);
+  const codes = new Set<string>();
+  for (const row of results.rows) {
+    for (const i of natIdxs) {
+      const code = (row.leadCells[i] ?? '').trim();
+      if (/^[A-Z]{3}$/.test(code)) codes.add(code);
+    }
+  }
+  return [...codes].sort();
 }
 
 function rankCell(row: AsPublishedRow): string {
@@ -42,19 +68,45 @@ function rankCell(row: AsPublishedRow): string {
 
 function raceCells(row: AsPublishedRow): string {
   return row.raceCells
-    .map(
-      (cell) =>
-        `<td${cell.discard ? ' class="discard"' : ''}>${esc(cell.text)}</td>`,
-    )
+    .map((cell) => {
+      // The published page's podium colouring (1st/2nd/3rd in the race)
+      // rides in the structured rank slot; discard styling composes with it
+      // exactly as on a full-fidelity page.
+      const classes = [
+        cell.rank != null && cell.rank >= 1 && cell.rank <= 3
+          ? `rank${cell.rank}`
+          : '',
+        cell.discard ? 'discard' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+      return `<td${classes ? ` class="${classes}"` : ''}>${esc(cell.text)}</td>`;
+    })
     .join('');
+}
+
+/** A nationality cell in the full-fidelity page's layout: flag stacked above
+ *  the code; codes without a flag (or non-code values) render as text. */
+function nationalityCell(
+  value: string,
+  flagSvgByCode: AsPublishedPageChrome['flagSvgByCode'],
+): string {
+  const code = value.trim();
+  const flag = flagSvgByCode?.[code];
+  const flagSpan = flag
+    ? `<span class="flag"><svg xmlns="http://www.w3.org/2000/svg"><use href="#flag-${esc(code)}" /></svg></span>`
+    : '';
+  return `<td class="nat">${flagSpan}<span class="nattext">${esc(code)}</span></td>`;
 }
 
 /** The stored table as `summarytable` markup, matching the full-fidelity
  *  page's classes so the shared stylesheet applies unchanged. */
 export function renderAsPublishedTable(
   results: AsPublishedFleetResults,
+  opts: { flagSvgByCode?: AsPublishedPageChrome['flagSvgByCode'] } = {},
 ): string {
   const { caption, leadColumns, raceHeaders, summaryColumns, rows } = results;
+  const isNatColumn = leadColumns.map((c) => NATIONALITY_KEYS.has(c.key));
   // A table published without places (coached regatta fleets) carries no
   // rank data at all — don't render an empty Rank column for it.
   const hasRanks = rows.some((r) => r.rank != null || r.rankLabel !== '');
@@ -77,7 +129,11 @@ export function renderAsPublishedTable(
     .map((row, i) => {
       const cells = [
         ...(hasRanks ? [rankCell(row)] : []),
-        ...row.leadCells.map((v) => `<td>${esc(v)}</td>`),
+        ...row.leadCells.map((v, i) =>
+          isNatColumn[i]
+            ? nationalityCell(v, opts.flagSvgByCode)
+            : `<td>${esc(v)}</td>`,
+        ),
         raceCells(row),
         ...row.summaryCells.map((v) => `<td>${esc(v)}</td>`),
       ].join('');
@@ -154,13 +210,17 @@ export function renderAsPublishedFleetHtml(
   const raceTables = (results.raceTables ?? [])
     .map(renderAsPublishedRaceTable)
     .join('\n');
-  const content = raceTables
-    ? `${renderAsPublishedTable(results)}\n${raceTables}`
-    : renderAsPublishedTable(results);
+  const table = renderAsPublishedTable(results, {
+    flagSvgByCode: chrome.flagSvgByCode,
+  });
+  const content = raceTables ? `${table}\n${raceTables}` : table;
   return renderHtmlDocument(documentChrome, content, {
     fontPercent: 72,
     hasNhcDetail: false,
     hasEchoDetail: false,
-    flagDefs: '',
+    flagDefs: renderFlagDefs(
+      collectNationalityCodes(results),
+      chrome.flagSvgByCode,
+    ),
   });
 }

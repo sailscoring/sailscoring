@@ -135,8 +135,17 @@ describe('sailwave-html parser', () => {
     expect(senior.summaryColumns).toEqual([]);
     expect(senior.rows[0].rank).toBe(1);
     expect(senior.rows[0].rankLabel).toBe('1st');
-    expect(senior.rows[0].raceCells[2]).toEqual({ text: '(11.0)', discard: true });
-    expect(senior.rows[0].raceCells[0]).toEqual({ text: '1.0', discard: false });
+    expect(senior.rows[0].raceCells[2]).toEqual({
+      text: '(11.0)',
+      discard: true,
+      podium: 0,
+    });
+    // The source's rank1 cell class — the published podium colouring.
+    expect(senior.rows[0].raceCells[0]).toEqual({
+      text: '1.0',
+      discard: false,
+      podium: 1,
+    });
 
     const junior = page.summaries[1];
     expect(junior.title).toBe('Junior Division');
@@ -195,6 +204,10 @@ describe('sailwave doc builder', () => {
     expect(senior.results.rows[0].raceCells[2]).toEqual({
       text: '(11.0)',
       discard: true,
+    });
+    expect(senior.results.rows[0].raceCells[0]).toEqual({
+      text: '1.0',
+      rank: 1,
     });
   });
 
@@ -258,6 +271,36 @@ describe('halsail-html parser + doc builder', () => {
     expect(doc.fleets[0].results.raceTables![0].rows[0].cells).toContain('01:05:59');
     // Race headers pick up the dates row.
     expect(doc.fleets[0].results.raceHeaders[0].label).toBe('R3 27 Apr');
+  });
+});
+
+describe('as-published rendering fidelity', () => {
+  test('podium classes and nationality flags render like a full-fidelity page', async () => {
+    const { renderAsPublishedFleetHtml } = await import('@/lib/archive-kit/render');
+    const page = parseSailwaveHtml(SAILWAVE_HTML);
+    const doc = buildSailwaveArchiveDoc({
+      seriesId: '33333333-4444-4555-8666-777777777777',
+      name: 'Fidelity Test',
+      publishedSlug: 'fidelity-test',
+      fleets: [
+        { name: 'Senior', subPath: 'senior', summary: page.summaries[0] },
+      ],
+    });
+    const html = renderAsPublishedFleetHtml(
+      {
+        seriesName: 'Fidelity Test',
+        flagSvgByCode: { IRL: { viewBox: '0 0 3 2', inner: '<rect/>' } },
+      },
+      doc.fleets[0].results,
+    );
+    // Podium colouring survives from the source's cell classes…
+    expect(html).toContain('class="rank1"');
+    // …and composes with discards.
+    expect(html).toContain('class="discard"');
+    // Nationality cells carry the flag symbol + text code.
+    expect(html).toContain('symbol id="flag-IRL"');
+    expect(html).toContain('<use href="#flag-IRL"');
+    expect(html).toContain('<span class="nattext">IRL</span>');
   });
 });
 

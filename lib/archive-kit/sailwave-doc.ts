@@ -184,6 +184,9 @@ export function buildSailwaveArchiveDoc(
         raceCells: row.raceCells.map((c) => ({
           text: c.text,
           ...(c.discard ? { discard: true } : {}),
+          // The source's podium colouring (rank1/2/3 cell classes) rides in
+          // the structured per-race rank slot.
+          ...(c.podium ? { rank: c.podium } : {}),
         })),
         summaryCells: row.summaryCells,
       };
