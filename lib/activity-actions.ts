@@ -77,7 +77,8 @@ export type ActivityKind =
  */
 export function activityKind(action: string): ActivityKind {
   if (action.startsWith('series.')) return 'series';
-  if (action.startsWith('competitor')) return 'competitor';
+  // The archive identity apply (ADR-010) groups with the competitor work.
+  if (action.startsWith('competitor') || action.startsWith('identities.')) return 'competitor';
   if (action.startsWith('fleet')) return 'fleet';
   if (action.startsWith('finish')) return 'finish';
   if (action.startsWith('race') || action.startsWith('sub-series.') || action.startsWith('starts.') || action.startsWith('ratings.')) return 'race';
