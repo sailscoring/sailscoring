@@ -11,12 +11,15 @@ import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 
 /**
- * Read-only enforcement for archived series (#154).
+ * Read-only enforcement for archived (#154) and as-published (ADR-010, #283)
+ * series.
  *
- * Archiving a series makes it — and all its children — read-only. Every
- * mutating `/api/v1` handler routes through one of these guards; reads are
- * untouched. Editing an archived series requires unarchiving it (its own
- * endpoint, which bypasses these guards) or copying it to another workspace.
+ * Archiving a series makes it — and all its children — read-only; editing
+ * requires unarchiving (its own endpoint, which bypasses these guards) or
+ * copying to another workspace. An as-published series is read-only *forever*
+ * on this surface: its results were ingested exactly as originally published
+ * and only the archive ingest may write it. Every mutating `/api/v1` handler
+ * routes through one of these guards; reads are untouched.
  *
  * Server-side enforcement is the source of truth; the UI's disabling of edit
  * controls is cosmetic on top (defence-in-depth — the repository/handler
@@ -35,13 +38,27 @@ import * as schema from '@/lib/db/schema';
  * a delete of a child whose series is archived is rejected.
  */
 
-/** `true`/`false` if the series exists in the workspace; `null` if it doesn't. */
-async function seriesArchived(
+interface WriteFlags {
+  archived: boolean;
+  asPublished: boolean;
+}
+
+/** Throws the right 423 for a read-only series; no-op when writable. */
+function assertFlagsWritable(flags: WriteFlags): void {
+  if (flags.asPublished) throw new ArchivedError('series-as-published');
+  if (flags.archived) throw new ArchivedError();
+}
+
+/** The series' read-only flags, or `null` if it isn't in the workspace. */
+async function seriesWriteFlags(
   workspaceId: string,
   seriesId: string,
-): Promise<boolean | null> {
+): Promise<WriteFlags | null> {
   const [row] = await getDb()
-    .select({ archived: schema.series.archived })
+    .select({
+      archived: schema.series.archived,
+      asPublished: schema.series.asPublished,
+    })
     .from(schema.series)
     .where(
       and(
@@ -50,16 +67,19 @@ async function seriesArchived(
       ),
     )
     .limit(1);
-  return row ? row.archived : null;
+  return row ?? null;
 }
 
 /** Same, resolving the series via one of its races. */
-async function raceSeriesArchived(
+async function raceSeriesWriteFlags(
   workspaceId: string,
   raceId: string,
-): Promise<boolean | null> {
+): Promise<WriteFlags | null> {
   const [row] = await getDb()
-    .select({ archived: schema.series.archived })
+    .select({
+      archived: schema.series.archived,
+      asPublished: schema.series.asPublished,
+    })
     .from(schema.races)
     .innerJoin(schema.series, eq(schema.races.seriesId, schema.series.id))
     .where(
@@ -69,7 +89,7 @@ async function raceSeriesArchived(
       ),
     )
     .limit(1);
-  return row ? row.archived : null;
+  return row ?? null;
 }
 
 // ─── Hard guards (used by nested write routes; also the tenancy check) ───────
@@ -78,18 +98,18 @@ export async function assertSeriesWritable(
   workspace: WorkspaceContext,
   seriesId: string,
 ): Promise<void> {
-  const archived = await seriesArchived(workspace.workspaceId, seriesId);
-  if (archived === null) throw new NotFoundError('series');
-  if (archived) throw new ArchivedError();
+  const flags = await seriesWriteFlags(workspace.workspaceId, seriesId);
+  if (flags === null) throw new NotFoundError('series');
+  assertFlagsWritable(flags);
 }
 
 export async function assertRaceWritable(
   workspace: WorkspaceContext,
   raceId: string,
 ): Promise<void> {
-  const archived = await raceSeriesArchived(workspace.workspaceId, raceId);
-  if (archived === null) throw new NotFoundError('race');
-  if (archived) throw new ArchivedError();
+  const flags = await raceSeriesWriteFlags(workspace.workspaceId, raceId);
+  if (flags === null) throw new NotFoundError('race');
+  assertFlagsWritable(flags);
 }
 
 /**
@@ -103,9 +123,12 @@ export async function assertSeriesDeletable(
   workspace: WorkspaceContext,
   seriesId: string,
 ): Promise<void> {
-  const archived = await seriesArchived(workspace.workspaceId, seriesId);
-  if (archived === null) throw new NotFoundError('series');
-  if (!archived) {
+  const flags = await seriesWriteFlags(workspace.workspaceId, seriesId);
+  if (flags === null) throw new NotFoundError('series');
+  // An as-published series is the archive repo's to remove — deleting it
+  // in-app would just resurrect on the next ingest.
+  if (flags.asPublished) throw new ArchivedError('series-as-published');
+  if (!flags.archived) {
     throw new BadRequestError('series must be archived before it can be deleted');
   }
 }
@@ -117,7 +140,10 @@ export async function assertCompetitorWritable(
   competitorId: string,
 ): Promise<void> {
   const [row] = await getDb()
-    .select({ archived: schema.series.archived })
+    .select({
+      archived: schema.series.archived,
+      asPublished: schema.series.asPublished,
+    })
     .from(schema.competitors)
     .innerJoin(schema.series, eq(schema.competitors.seriesId, schema.series.id))
     .where(
@@ -127,7 +153,7 @@ export async function assertCompetitorWritable(
       ),
     )
     .limit(1);
-  if (row?.archived) throw new ArchivedError();
+  if (row) assertFlagsWritable(row);
 }
 
 export async function assertFleetWritable(
@@ -135,7 +161,10 @@ export async function assertFleetWritable(
   fleetId: string,
 ): Promise<void> {
   const [row] = await getDb()
-    .select({ archived: schema.series.archived })
+    .select({
+      archived: schema.series.archived,
+      asPublished: schema.series.asPublished,
+    })
     .from(schema.fleets)
     .innerJoin(schema.series, eq(schema.fleets.seriesId, schema.series.id))
     .where(
@@ -145,7 +174,7 @@ export async function assertFleetWritable(
       ),
     )
     .limit(1);
-  if (row?.archived) throw new ArchivedError();
+  if (row) assertFlagsWritable(row);
 }
 
 /** Flat race delete — soft (no NotFound), unlike the hard `assertRaceWritable`. */
@@ -153,9 +182,8 @@ export async function assertRaceDeletable(
   workspace: WorkspaceContext,
   raceId: string,
 ): Promise<void> {
-  if (await raceSeriesArchived(workspace.workspaceId, raceId)) {
-    throw new ArchivedError();
-  }
+  const flags = await raceSeriesWriteFlags(workspace.workspaceId, raceId);
+  if (flags) assertFlagsWritable(flags);
 }
 
 export async function assertFinishWritable(
@@ -163,7 +191,10 @@ export async function assertFinishWritable(
   finishId: string,
 ): Promise<void> {
   const [row] = await getDb()
-    .select({ archived: schema.series.archived })
+    .select({
+      archived: schema.series.archived,
+      asPublished: schema.series.asPublished,
+    })
     .from(schema.finishes)
     .innerJoin(schema.races, eq(schema.finishes.raceId, schema.races.id))
     .innerJoin(schema.series, eq(schema.races.seriesId, schema.series.id))
@@ -174,7 +205,7 @@ export async function assertFinishWritable(
       ),
     )
     .limit(1);
-  if (row?.archived) throw new ArchivedError();
+  if (row) assertFlagsWritable(row);
 }
 
 export async function assertRaceStartWritable(
@@ -182,7 +213,10 @@ export async function assertRaceStartWritable(
   startId: string,
 ): Promise<void> {
   const [row] = await getDb()
-    .select({ archived: schema.series.archived })
+    .select({
+      archived: schema.series.archived,
+      asPublished: schema.series.asPublished,
+    })
     .from(schema.raceStarts)
     .innerJoin(schema.races, eq(schema.raceStarts.raceId, schema.races.id))
     .innerJoin(schema.series, eq(schema.races.seriesId, schema.series.id))
@@ -193,5 +227,5 @@ export async function assertRaceStartWritable(
       ),
     )
     .limit(1);
-  if (row?.archived) throw new ArchivedError();
+  if (row) assertFlagsWritable(row);
 }

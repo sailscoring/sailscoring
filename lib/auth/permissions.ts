@@ -23,15 +23,21 @@ export type Permission =
   | 'manage-series'
   /** Workspace configuration: logos, FTP servers, workspace settings.
    *  (Membership management is enforced separately by Better Auth.) */
-  | 'manage-workspace';
+  | 'manage-workspace'
+  /** The archive ingest surface (ADR-010, #283): create/update/publish
+   *  as-published series and manage archive-managed identities. Granted to
+   *  the per-archive-repo CI credential via the `archivist` role; a leaked
+   *  key can touch nothing but its workspace's already-public archive. */
+  | 'archive-ingest';
 
-export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'scorer';
+export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'scorer' | 'archivist';
 
 const ALL_PERMISSIONS: readonly Permission[] = [
   'read',
   'score',
   'manage-series',
   'manage-workspace',
+  'archive-ingest',
 ];
 
 /**
@@ -46,6 +52,9 @@ export const ROLE_PERMISSIONS: Record<WorkspaceRole, readonly Permission[]> = {
   admin: ALL_PERMISSIONS,
   scorer: ['read', 'score'],
   member: ['read'],
+  // The archive-repo CI credential (ADR-010): reads plus the ingest surface,
+  // nothing else — it cannot touch full-fidelity series, members, or settings.
+  archivist: ['read', 'archive-ingest'],
 };
 
 export function isWorkspaceRole(role: string): role is WorkspaceRole {

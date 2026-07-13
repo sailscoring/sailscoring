@@ -66,6 +66,7 @@ export async function putSeries(
   // series (no existing row) is allowed; the archive *toggle* has its own
   // endpoint (`setSeriesArchived`) and bypasses this path.
   const existing = await repos.series.get(id);
+  if (existing?.asPublished) throw new ArchivedError('series-as-published');
   if (existing?.archived) throw new ArchivedError();
   // Spread the validated input rather than hand-copying field by field — a
   // field accepted by the schema but dropped here would silently disappear
@@ -291,6 +292,12 @@ export async function copySeries(
   const repos = createRepos({ db, workspaceId: workspace.workspaceId });
   const source = await repos.series.get(sourceSeriesId);
   if (!source) throw new NotFoundError('series');
+  // An as-published series can't be copied: its results live in
+  // as_published_results (not races/finishes), so a copy would silently be
+  // an empty shell. The archive repo is where such a series is replicated.
+  if (source.asPublished) {
+    throw new BadRequestError('an as-published archive series cannot be copied');
+  }
 
   const sourceFleets = await repos.fleets.listBySeries(sourceSeriesId);
   const sourceCompetitors = await repos.competitors.listBySeries(sourceSeriesId);
@@ -590,6 +597,11 @@ export async function createFollowOnSeries(
   const repos = createRepos({ db, workspaceId: workspace.workspaceId });
   const source = await repos.series.get(sourceSeriesId);
   if (!source) throw new NotFoundError('series');
+  // No follow-on from an as-published archive: there are no in-app results
+  // or progressive handicaps to roll forward.
+  if (source.asPublished) {
+    throw new BadRequestError('an as-published archive series cannot seed a follow-on');
+  }
 
   const sourceFleets = await repos.fleets.listBySeries(sourceSeriesId);
   const sourceCompetitors = await repos.competitors.listBySeries(sourceSeriesId);

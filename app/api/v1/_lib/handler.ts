@@ -57,8 +57,10 @@ export class BadRequestError extends Error {
  * another workspace).
  */
 export class ArchivedError extends Error {
-  constructor() {
-    super('series-archived');
+  constructor(
+    public readonly reason: 'series-archived' | 'series-as-published' = 'series-archived',
+  ) {
+    super(reason);
     this.name = 'ArchivedError';
   }
 }
@@ -150,7 +152,7 @@ export function errorToResponse(err: unknown): Response {
     return Response.json({ error: 'conflict', detail: err.detail }, { status: 409 });
   }
   if (err instanceof ArchivedError) {
-    return Response.json({ error: 'archived', reason: 'series-archived' }, { status: 423 });
+    return Response.json({ error: 'archived', reason: err.reason }, { status: 423 });
   }
   if (err instanceof BadRequestError) {
     return Response.json({ error: 'invalid', issues: err.issues, message: err.message }, { status: 400 });

@@ -115,6 +115,7 @@ function seriesRowToType(row: SeriesRow): Series {
     subdivisionAxes: row.subdivisionAxes,
     categoryId: row.categoryId,
     archived: row.archived,
+    ...(row.asPublished ? { asPublished: true } : {}),
     source: row.source ?? undefined,
     previousSeriesId: row.previousSeriesId,
     displayOrder: row.displayOrder,

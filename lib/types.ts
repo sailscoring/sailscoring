@@ -211,6 +211,7 @@ export interface Series {
   // .sailscoring file format and public JSON export, and reset by copySeries.
   categoryId?: string | null;  // category assignment; null/absent = synthetic "Uncategorized" bucket
   archived?: boolean;          // read-only + collapsed out of the active list; subsumes the horizon "lock" concept
+  asPublished?: boolean;       // ADR-010: results ingested as originally published; display-only, archive-ingest-managed. Server-set; excluded from the .sailscoring file format
   // Import provenance. Set when the series originated from a Sailwave import;
   // gates the "Update from Sailwave file" affordance (only a Sailwave-born
   // series can be re-imported in place). Workspace-local like categoryId: not

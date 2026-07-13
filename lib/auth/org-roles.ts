@@ -21,8 +21,11 @@ export const orgAccessControl = createAccessControl(defaultStatements);
 export const orgRoles = {
   owner: orgAccessControl.newRole(ownerAc.statements),
   admin: orgAccessControl.newRole(adminAc.statements),
-  // member and scorer manage no memberships — both mirror the plugin's
-  // default member statements.
+  // member, scorer, and archivist manage no memberships — all mirror the
+  // plugin's default member statements. (archivist is the archive-repo CI
+  // credential's role, ADR-010 — its actual capability lives in
+  // lib/auth/permissions.ts like everyone else's.)
   member: orgAccessControl.newRole(memberAc.statements),
   scorer: orgAccessControl.newRole(memberAc.statements),
+  archivist: orgAccessControl.newRole(memberAc.statements),
 };
