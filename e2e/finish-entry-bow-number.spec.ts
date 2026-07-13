@@ -113,7 +113,12 @@ test('a sail number wins over another boat’s bow number', async ({ page }) => 
   await page.getByLabel('Sail number').fill('1234');
   await page.getByLabel('Competitor name').fill('Sail Boat');
   await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByRole('cell', { name: '1234', exact: true }).first()).toBeVisible();
+  // Anchor on Sail Boat's row, not a "1234" cell — Bow Boat's bow-number cell
+  // also reads 1234, so a cell match is satisfied before the post-save refetch
+  // lands and the test can reach finish entry while the competitors list still
+  // lacks Sail Boat. There, typing 1234 has no sail match to win, and the bow
+  // match commits the wrong boat.
+  await expect(page.getByRole('row').filter({ hasText: 'Sail Boat' })).toBeVisible();
 
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
