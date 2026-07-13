@@ -116,6 +116,11 @@ export const archiveSeriesDocSchema = z
       /** Which engine originally published these results ('sailwave',
        *  'halsail', …). Free-form but bounded; display context only. */
       source: z.string().max(40).optional(),
+      /** Initial category filing (by name; created in the workspace if
+       *  absent). Applied when the series is first ingested only — category
+       *  is workspace-local organisation, so re-ingests never move a series
+       *  a scorer has refiled. */
+      category: z.string().trim().min(1).max(80).optional(),
       /** Pinned public slug — the `/p/{ws}/{slug}` namespace this series
        *  publishes into. */
       publishedSlug: slugSegment,

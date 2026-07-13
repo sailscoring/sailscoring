@@ -51,6 +51,8 @@ const seriesSchema = z.object({
   venueLogoUrl: z.string().optional(),
   eventLogoUrl: z.string().optional(),
   source: z.enum(['sailwave', 'halsail']),
+  /** Initial category filing on first ingest (e.g. the season year). */
+  category: z.string().optional(),
   fleets: z.array(fleetSchema).min(1),
 });
 
@@ -78,6 +80,7 @@ function buildSeries(
     venueUrl: entry.venueUrl,
     venueLogoUrl: entry.venueLogoUrl,
     eventLogoUrl: entry.eventLogoUrl,
+    category: entry.category,
     publishedSlug: entry.publishedSlug,
   };
   if (entry.source === 'halsail') {

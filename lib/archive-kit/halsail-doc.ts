@@ -37,6 +37,8 @@ export interface HalsailDocInput {
   venueUrl?: string;
   venueLogoUrl?: string;
   eventLogoUrl?: string;
+  /** Initial category filing on first ingest (e.g. the season year). */
+  category?: string;
   publishedSlug: string;
   fleets: HalsailFleetInput[];
 }
@@ -154,6 +156,7 @@ export function buildHalsailArchiveDoc(input: HalsailDocInput): ArchiveSeriesDoc
       ...(input.venueLogoUrl ? { venueLogoUrl: input.venueLogoUrl } : {}),
       ...(input.eventLogoUrl ? { eventLogoUrl: input.eventLogoUrl } : {}),
       source: 'halsail',
+      ...(input.category ? { category: input.category } : {}),
       publishedSlug: input.publishedSlug,
     },
     fleets,

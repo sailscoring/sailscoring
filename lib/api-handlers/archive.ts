@@ -119,6 +119,35 @@ export async function putArchiveSeries(
 
   const db = getDb();
   await db.transaction(async (tx) => {
+    // Initial category filing: a *new* series lands in the category the
+    // document names (created here if the workspace doesn't have it yet).
+    // First ingest only — category is workspace-local organisation, so
+    // re-ingests never move a series a scorer has refiled.
+    let categoryId: string | null = null;
+    if (!existing && doc.series.category) {
+      const [category] = await tx
+        .select({ id: schema.categories.id })
+        .from(schema.categories)
+        .where(
+          and(
+            eq(schema.categories.workspaceId, workspace.workspaceId),
+            eq(schema.categories.name, doc.series.category),
+          ),
+        )
+        .limit(1);
+      if (category) {
+        categoryId = category.id;
+      } else {
+        categoryId = crypto.randomUUID();
+        await tx.insert(schema.categories).values({
+          id: categoryId,
+          workspaceId: workspace.workspaceId,
+          name: doc.series.category,
+          displayOrder: sql<number>`(select coalesce(max(${schema.categories.displayOrder}) + 1, 0) from ${schema.categories} where ${schema.categories.workspaceId} = ${workspace.workspaceId})`,
+        });
+      }
+    }
+
     // Series row. A *new* as-published series lands archived — it's history,
     // so it belongs collapsed under the year groups, not in the scorer's
     // active list. Updates leave the workspace-local organisation (category,
@@ -130,6 +159,7 @@ export async function putArchiveSeries(
         id: seriesId,
         workspaceId: workspace.workspaceId,
         archived: true,
+        categoryId,
         name: doc.series.name,
         venue: doc.series.venue ?? '',
         startDate: doc.series.startDate ?? '',

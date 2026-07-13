@@ -577,6 +577,80 @@ describe.skipIf(skip)('archive ingest', () => {
     expect(rows).toHaveLength(0);
   });
 
+  test('the document files a new series in its category; re-ingests never refile', async () => {
+    const catSeries = uuid();
+    const catFleet = uuid();
+    const catComp = uuid();
+    const catDoc = (category: string): ArchiveSeriesDoc => ({
+      formatVersion: 1,
+      series: {
+        id: catSeries,
+        name: 'Connaughts 2015 Optimists',
+        publishedSlug: 'iodai-connaughts-2015',
+        category,
+      },
+      fleets: [
+        {
+          id: catFleet,
+          name: 'Main Fleet',
+          subPath: 'main-fleet',
+          results: {
+            leadColumns: [{ key: 'helmname', label: 'Helm' }],
+            raceHeaders: [{ label: 'R1' }],
+            summaryColumns: [{ key: 'nett', label: 'Nett' }],
+            rows: [
+              {
+                competitorId: catComp,
+                rank: 1,
+                rankLabel: '1',
+                leadCells: ['Tom West'],
+                raceCells: [{ text: '1' }],
+                summaryCells: ['1'],
+              },
+            ],
+          },
+        },
+      ],
+      competitors: [
+        { id: catComp, fleetIds: [catFleet], sailNumber: '901', name: 'Tom West' },
+      ],
+    });
+
+    await archive.putArchiveSeries(ctx, catSeries, catDoc('2015'));
+    const categories = await db
+      .select()
+      .from(schema.categories)
+      .where(eq(schema.categories.workspaceId, workspaceId));
+    expect(categories.map((c) => c.name)).toEqual(['2015']);
+    const [row] = await db
+      .select({ categoryId: schema.series.categoryId })
+      .from(schema.series)
+      .where(eq(schema.series.id, catSeries));
+    expect(row.categoryId).toBe(categories[0].id);
+
+    // The scorer refiles it; a re-ingest naming a different category must
+    // neither move it back nor create the named category.
+    await db
+      .update(schema.series)
+      .set({ categoryId: null })
+      .where(eq(schema.series.id, catSeries));
+    await archive.putArchiveSeries(ctx, catSeries, catDoc('2999'), {
+      force: true,
+    });
+    const [after] = await db
+      .select({ categoryId: schema.series.categoryId })
+      .from(schema.series)
+      .where(eq(schema.series.id, catSeries));
+    expect(after.categoryId).toBeNull();
+    const names = await db
+      .select({ name: schema.categories.name })
+      .from(schema.categories)
+      .where(eq(schema.categories.workspaceId, workspaceId));
+    expect(names.map((c) => c.name)).toEqual(['2015']);
+
+    await archive.deleteArchiveSeries(ctx, catSeries);
+  });
+
   test('delete removes the publication and the series', async () => {
     await archive.deleteArchiveSeries(ctx, seriesId);
     const rows = await db

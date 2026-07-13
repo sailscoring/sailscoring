@@ -42,6 +42,8 @@ export interface SailwaveDocInput {
   venueUrl?: string;
   venueLogoUrl?: string;
   eventLogoUrl?: string;
+  /** Initial category filing on first ingest (e.g. the season year). */
+  category?: string;
   publishedSlug: string;
   fleets: SailwaveFleetInput[];
 }
@@ -229,6 +231,7 @@ export function buildSailwaveArchiveDoc(
       ...(input.venueLogoUrl ? { venueLogoUrl: input.venueLogoUrl } : {}),
       ...(input.eventLogoUrl ? { eventLogoUrl: input.eventLogoUrl } : {}),
       source: input.source ?? 'sailwave',
+      ...(input.category ? { category: input.category } : {}),
       publishedSlug: input.publishedSlug,
     },
     fleets,
