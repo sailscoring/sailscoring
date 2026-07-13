@@ -5,6 +5,7 @@
 import { apiFetch } from './api-client';
 import type { FeatureKey } from './features';
 import type { MergeSuggestion } from './api-handlers/competitor-identity';
+import type { AsPublishedFleetView } from './api-handlers/archive';
 import type { RankingDto } from './api-handlers/rankings';
 import type { RankingConfig } from './ranking';
 import type { RankingStandingsData } from './ranking-standings';
@@ -1024,6 +1025,17 @@ export function submitOrgRequest(input: {
     method: 'POST',
     body: input,
   });
+}
+
+// ─── As-published archives (ADR-010) ─────────────────────────────────────────
+
+/** The stored as-published tables for a series (the Standings tab's read). */
+export function getAsPublishedResults(
+  seriesId: string,
+): Promise<{ fleets: AsPublishedFleetView[] }> {
+  return apiFetch<{ fleets: AsPublishedFleetView[] }>(
+    `/api/v1/series/${seriesId}/as-published-results`,
+  );
 }
 
 // ─── Workspace cross-series rankings (#209) ──────────────────────────────────

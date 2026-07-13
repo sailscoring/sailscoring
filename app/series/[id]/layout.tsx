@@ -45,11 +45,11 @@ export default function SeriesLayout({
   const showPrizes = has('prizes');
   const asPublished = series?.asPublished ?? false;
   // Prizes slots in after Standings — allocation reads the standings, so the
-  // tabs follow the scorer's flow. An as-published archive (ADR-010) has no
-  // races, standings, prizes, or history in-app — its results live on the
-  // public pages — so only Competitors remains.
+  // tabs follow the scorer's flow. An as-published archive (ADR-010) keeps
+  // Competitors and Standings (the stored tables); races, prizes, settings,
+  // and history have nothing behind them in this regime.
   const tabs = asPublished
-    ? baseTabs.slice(0, 1)
+    ? [baseTabs[0], baseTabs[2]]
     : showPrizes
       ? [...baseTabs.slice(0, 3), prizesTab, ...baseTabs.slice(3)]
       : baseTabs;
@@ -83,7 +83,12 @@ export default function SeriesLayout({
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             {series.name}
-            {readOnly && (
+            {series.asPublished && (
+              <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground align-middle">
+                As published
+              </span>
+            )}
+            {readOnly && !series.asPublished && (
               <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground align-middle">
                 <Archive className="h-3 w-3" />
                 Archived

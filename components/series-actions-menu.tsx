@@ -87,6 +87,10 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
   const { data: publication } = usePublicationStatus(confirmDelete ? seriesId : null);
 
   const archived = series.archived ?? false;
+  // As-published archives (ADR-010): results ingested as originally
+  // published. File round-trips, copies, and deletion don't apply — the
+  // archive repo is where such a series is changed or removed.
+  const asPublished = series.asPublished ?? false;
   const isModified =
     series.lastSavedAt !== null && series.lastModifiedAt > series.lastSavedAt;
   // A copy target is any other workspace where the user can create series.
@@ -110,7 +114,9 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
 
   useGlobalKeyDown((e) => {
     if (e.ctrlKey && !e.metaKey && e.key === 's' && !/\/races\/[^/]+/.test(pathname)) {
-      // Ctrl+S saves to file from any series page except finish entry (which owns Ctrl+S itself)
+      // Ctrl+S saves to file from any series page except finish entry (which
+      // owns Ctrl+S itself). No file round-trip for an as-published archive.
+      if (asPublished) return;
       e.preventDefault();
       void handleSaveToFile();
     }
@@ -242,18 +248,20 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
               'Not saved to file'
             )}
           </DropdownMenuLabel>
+          {!asPublished && (
           <DropdownMenuItem onSelect={() => void handleSaveToFile()}>
             <FileDown className="h-4 w-4" />
             Save to File
             <DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
           </DropdownMenuItem>
-          {!archived && canManageSeries && (
+          )}
+          {!asPublished && !archived && canManageSeries && (
             <DropdownMenuItem onSelect={() => openChooser(fileInputRef)}>
               <FileUp className="h-4 w-4" />
               Update from File…
             </DropdownMenuItem>
           )}
-          {series.source === 'sailwave' && has('sailwave-import') && !archived && canManageSeries && (
+          {series.source === 'sailwave' && has('sailwave-import') && !asPublished && !archived && canManageSeries && (
             <DropdownMenuItem
               data-testid="update-from-sailwave"
               onSelect={() => openChooser(sailwaveInputRef)}
@@ -262,7 +270,7 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
               Update from Sailwave file…
             </DropdownMenuItem>
           )}
-          {hasCopyTargets && (
+          {hasCopyTargets && !asPublished && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => setCopyOpen(true)}>
@@ -283,6 +291,9 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
                     <ArchiveRestore className="h-4 w-4" />
                     Unarchive
                   </DropdownMenuItem>
+                  {/* An as-published series is removed through its archive
+                      repo, never here (the server refuses anyway). */}
+                  {!asPublished && (
                   <DropdownMenuItem
                     variant="destructive"
                     onSelect={() => setConfirmDelete(true)}
@@ -290,6 +301,7 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
                     <Trash2 className="h-4 w-4" />
                     Delete…
                   </DropdownMenuItem>
+                  )}
                 </>
               ) : (
                 <DropdownMenuItem

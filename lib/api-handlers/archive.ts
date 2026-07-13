@@ -115,13 +115,17 @@ export async function putArchiveSeries(
 
   const db = getDb();
   await db.transaction(async (tx) => {
-    // Series row. Insert appends to the active list; update leaves the
-    // workspace-local organisation (category, archived, display order) alone.
+    // Series row. A *new* as-published series lands archived — it's history,
+    // so it belongs collapsed under the year groups, not in the scorer's
+    // active list. Updates leave the workspace-local organisation (category,
+    // archived, display order) alone, so un-archiving one to feature it
+    // survives re-ingests.
     await tx
       .insert(schema.series)
       .values({
         id: seriesId,
         workspaceId: workspace.workspaceId,
+        archived: true,
         name: doc.series.name,
         venue: doc.series.venue ?? '',
         startDate: doc.series.startDate ?? '',
@@ -395,6 +399,53 @@ async function publishArchiveSeries(
   return {
     slug,
     pages: files.map((f) => ({ fleetName: f.fleetName, subPath: f.subPath })),
+  };
+}
+
+/** One fleet's stored tables plus its name, for the in-app Standings tab. */
+export interface AsPublishedFleetView {
+  fleetId: string;
+  fleetName: string;
+  results: import('@/lib/archive-kit/types').AsPublishedFleetResults;
+}
+
+/**
+ * The stored as-published tables for a series, in fleet display order — the
+ * in-app Standings tab's data. Read-level; 404 unless the series is in the
+ * workspace and in the as-published regime.
+ */
+export async function getAsPublishedResults(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<{ fleets: AsPublishedFleetView[] }> {
+  const existing = await getSeriesRowById(seriesId);
+  if (
+    !existing ||
+    existing.workspaceId !== workspace.workspaceId ||
+    !existing.asPublished
+  ) {
+    throw new NotFoundError('as-published series');
+  }
+  const rows = await getDb()
+    .select({
+      fleetId: schema.asPublishedResults.fleetId,
+      fleetName: schema.fleets.name,
+      displayOrder: schema.fleets.displayOrder,
+      results: schema.asPublishedResults.results,
+    })
+    .from(schema.asPublishedResults)
+    .innerJoin(
+      schema.fleets,
+      eq(schema.asPublishedResults.fleetId, schema.fleets.id),
+    )
+    .where(eq(schema.asPublishedResults.seriesId, seriesId));
+  rows.sort((a, b) => a.displayOrder - b.displayOrder);
+  return {
+    fleets: rows.map((r) => ({
+      fleetId: r.fleetId,
+      fleetName: r.fleetName,
+      results: r.results,
+    })),
   };
 }
 

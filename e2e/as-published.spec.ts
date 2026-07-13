@@ -126,10 +126,15 @@ test.describe('as-published archives', () => {
     await expect(page.getByText('(3 DNC)')).toBeVisible();
     await expect(page.getByText('Sailed: 3, Discards: 1')).toBeVisible();
 
-    // In-app: the series lists normally, opens read-only with the archive
-    // notice, and offers only the Competitors tab.
+    // In-app: a new as-published series lands *archived* (history belongs
+    // collapsed under the year groups), badged "As published" on its row.
     await page.goto('/');
-    await page.getByRole('link', { name: 'Ulsters 2014 Optimists' }).click();
+    await page.getByRole('button', { name: /Archived \(1\)/ }).click();
+    const row = page
+      .getByTestId('series-row')
+      .filter({ hasText: 'Ulsters 2014 Optimists' });
+    await expect(row.getByTestId('as-published-chip')).toBeVisible();
+    await row.getByRole('link', { name: /Ulsters 2014 Optimists/ }).click();
     await expect(page).toHaveURL(/\/competitors$/);
     await expect(page.getByTestId('as-published-notice')).toBeVisible({
       timeout: 15_000,
@@ -137,17 +142,38 @@ test.describe('as-published archives', () => {
     await expect(
       page.getByTestId('as-published-notice').getByRole('link', { name: 'Main Fleet' }),
     ).toHaveAttribute('href', /\/p\/.*\/iodai-ulsters-2014\/main-fleet$/);
+    // Tabs: Competitors + Standings only; the trimmed ⋯ menu offers no file
+    // round-trips, copy, or delete.
     const seriesNav = page
       .getByRole('navigation')
       .filter({ has: page.getByRole('link', { name: 'Competitors' }) })
       .last();
     await expect(seriesNav.getByRole('link', { name: 'Races' })).toHaveCount(0);
-    await expect(seriesNav.getByRole('link', { name: 'Standings' })).toHaveCount(0);
+    await expect(seriesNav.getByRole('link', { name: 'Settings' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Series actions' }).click();
+    await expect(
+      page.getByRole('menuitem', { name: 'Save to File' }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('menuitem', { name: /Delete/ }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('menuitem', { name: 'Unarchive' }),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
     // The competitor list renders, without add/edit affordances.
     await expect(page.getByText('Aoife Murphy')).toBeVisible();
     await expect(
       page.getByRole('button', { name: /add competitor/i }),
     ).toHaveCount(0);
+
+    // The Standings tab shows the stored tables, exactly as published.
+    await seriesNav.getByRole('link', { name: 'Standings' }).click();
+    const standings = page.getByTestId('as-published-standings');
+    await expect(standings).toBeVisible({ timeout: 15_000 });
+    await expect(standings).toContainText('Aoife Murphy');
+    await expect(standings).toContainText('(3 DNC)');
+    await expect(page.getByText('Sailed: 3, Discards: 1, Entries: 2')).toBeVisible();
 
     // The standard write surface answers 423 for the regime.
     const edit = await page.request.put(

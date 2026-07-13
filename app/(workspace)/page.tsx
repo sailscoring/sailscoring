@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Archive,
   ArchiveRestore,
+  Landmark,
   ChevronDown,
   ChevronRight,
   CopyPlus,
@@ -102,7 +103,19 @@ function SeriesCard({
         href={`/series/${series.id}/competitors`}
         className="flex-1 min-w-0"
       >
-        <div className="font-medium">{series.name}</div>
+        <div className="font-medium flex items-center gap-2">
+          {series.name}
+          {series.asPublished && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-normal text-muted-foreground"
+              title="As-published archive — results shown exactly as originally published; read-only"
+              data-testid="as-published-chip"
+            >
+              <Landmark className="h-3 w-3" />
+              As published
+            </span>
+          )}
+        </div>
         <div className="text-sm text-muted-foreground mt-0.5 flex gap-2">
           {(series.venue || series.startDate) && (
             <span>{[series.venue, series.startDate].filter(Boolean).join(' · ')}</span>

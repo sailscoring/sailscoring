@@ -97,8 +97,8 @@ re-organisation, not a breakage:
 1. Ingest the new corpus:
    `pnpm cli as-published push ../dbsc-archive/as-published --workspace dbsc`
    (new deterministic ids — no `--convert` needed).
-2. Organise: categorise the new series per year (`cli series categorise`),
-   archive them (display state).
+2. Organise: categorise the new series per year (`cli series categorise`).
+   They land archived automatically — a new as-published series always does.
 3. Retire the reconstruction: unpublish, archive, and delete the 29
    old series (`cli series unpublish/archive`, then delete). Keep them until
    the new pages are eyeballed.

@@ -20,6 +20,7 @@ import { useFeatures } from '@/components/features-provider';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
+import { AsPublishedStandings } from '@/components/as-published-standings';
 import { FleetStandingsTable } from '@/components/fleet-standings-table';
 import { ScoringRejectionsWarning } from '@/components/scoring-rejections-warning';
 import type { DiscardThreshold } from '@/lib/types';
@@ -49,11 +50,17 @@ export default function StandingsPage({
   const data = useSeriesData(seriesId, { finishes: true, raceStarts: true });
   const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
 
+  // Publish/preview don't exist for an as-published series (ADR-010): its
+  // pages are published by the archive ingest, and there's nothing to render.
+  const isAsPublished =
+    data.status === 'ready' && (data.series.asPublished ?? false);
   useShortcuts([
-    ...(canPublish
+    ...(canPublish && !isAsPublished
       ? [{ key: 'p', description: 'Publish results', section: 'Standings', handler: () => setShowPublishDialog(true) }]
       : []),
-    { key: 'x', description: 'Preview results', section: 'Standings', handler: () => setShowPreviewDialog(true) },
+    ...(!isAsPublished
+      ? [{ key: 'x', description: 'Preview results', section: 'Standings', handler: () => setShowPreviewDialog(true) }]
+      : []),
   ]);
 
   if (data.status !== 'ready' || subSeriesList === undefined) {
@@ -62,6 +69,12 @@ export default function StandingsPage({
   const { series, competitors, fleets, races } = data;
   const allFinishes = data.finishes ?? [];
   const allRaceStarts = data.raceStarts ?? [];
+
+  // An as-published series (ADR-010) shows its stored tables — nothing is
+  // computed, published, or previewed here.
+  if (series.asPublished) {
+    return <AsPublishedStandings seriesId={seriesId} />;
+  }
 
   if (competitors.length === 0) {
     return (

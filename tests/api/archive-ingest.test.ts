@@ -166,6 +166,9 @@ describe.skipIf(skip)('archive ingest', () => {
     expect(row.asPublished).toBe(true);
     expect(row.asPublishedHash).toBeTruthy();
     expect(row.name).toBe('Ulsters 2015 Optimists');
+    // History lands archived — collapsed under the year groups, not in the
+    // scorer's active list.
+    expect(row.archived).toBe(true);
 
     const stored = await db
       .select()
@@ -483,6 +486,13 @@ describe.skipIf(skip)('archive ingest', () => {
     );
     expect(holly).toBeDefined();
     expect(holly!.total).toBe(1);
+  });
+
+  test('the stored tables read back for the in-app Standings tab', async () => {
+    const view = await archive.getAsPublishedResults(ctx, seriesId);
+    expect(view.fleets).toHaveLength(1);
+    expect(view.fleets[0].fleetName).toBe('Main Fleet');
+    expect(view.fleets[0].results.rows).toHaveLength(2);
   });
 
   test('jurisdiction: the reconcile surface defers to the archive', async () => {
