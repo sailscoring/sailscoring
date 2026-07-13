@@ -10,6 +10,7 @@ import { collectClusterInputs } from '@/lib/competitor-identity-reconcile';
 import {
   addIdentityDistinction,
   getIdentityArc,
+  getIdentityJurisdictions,
   listIdentitiesWithArcs,
   listIdentityDistinctions,
   mergeIdentities,
@@ -38,6 +39,30 @@ import {
  * governs the public competitor pages.
  */
 
+/** Jurisdiction guard (ADR-010): the named operation only applies to
+ *  app-managed identities — archive-managed ones belong to the archive
+ *  repo's manifest. 404s for ids not in the workspace. */
+async function assertAppManaged(
+  workspace: WorkspaceContext,
+  ids: string[],
+  operation: string,
+): Promise<void> {
+  const jurisdictions = await getIdentityJurisdictions(
+    workspace.workspaceId,
+    ids,
+  );
+  for (const id of ids) {
+    const managedBy = jurisdictions.get(id);
+    if (!managedBy) throw new NotFoundError('competitor-identity');
+    if (managedBy === 'archive') {
+      throw new BadRequestError(
+        `${operation} is managed by the results archive — correct it in the archive repo`,
+        { code: 'archive-managed' },
+      );
+    }
+  }
+}
+
 export async function listIdentities(
   workspace: WorkspaceContext,
 ): Promise<{ items: IdentityWithArc[] }> {
@@ -62,6 +87,7 @@ export async function patchIdentity(
 ): Promise<IdentityWithArc> {
   requireFeature(workspace, 'competitor-reconcile');
   const { label } = identityRenameSchema.parse(body);
+  await assertAppManaged(workspace, [id], 'this competitor’s name');
   const ok = await renameIdentity(workspace.workspaceId, id, label);
   if (!ok) throw new NotFoundError('competitor-identity');
   return getIdentity(workspace, id);
@@ -86,7 +112,7 @@ export async function splitFromIdentity(
   );
   if (!newIdentityId) {
     throw new BadRequestError(
-      'split must leave at least one entry behind, and every selected entry must still belong to this competitor',
+      'split must leave at least one entry behind, every selected entry must still belong to this competitor, and archive entries are corrected in the archive repo',
     );
   }
   return { identity: await getIdentity(workspace, id), newIdentityId };
@@ -104,6 +130,9 @@ export async function mergeIntoIdentity(
 ): Promise<{ identity: IdentityWithArc; undo: MergeResult }> {
   requireFeature(workspace, 'competitor-reconcile');
   const { sourceId } = identityMergeSchema.parse(body);
+  // The archive identity always survives a merge (ADR-010): git would
+  // recreate a dissolved one on the next ingest and fight the UI.
+  await assertAppManaged(workspace, [sourceId], 'this competitor record');
   const result = await mergeIdentities(workspace.workspaceId, id, sourceId);
   if (!result) throw new NotFoundError('competitor-identity');
   return { identity: await getIdentity(workspace, id), undo: result };
@@ -128,6 +157,7 @@ export async function reviewIdentity(
 ): Promise<IdentityWithArc> {
   requireFeature(workspace, 'competitor-reconcile');
   const { reviewed } = identityReviewedSchema.parse(body);
+  await assertAppManaged(workspace, [id], 'this competitor’s review state');
   const ok = await setIdentityReviewed(workspace.workspaceId, id, reviewed);
   if (!ok) throw new NotFoundError('competitor-identity');
   return getIdentity(workspace, id);
@@ -141,6 +171,21 @@ export async function distinguishIdentities(
 ): Promise<{ ok: true }> {
   requireFeature(workspace, 'competitor-reconcile');
   const { aId, bId } = identityDistinctionSchema.parse(body);
+  // At least one side must be app-managed — an archive-archive judgement
+  // belongs in the manifest (its pairs never surface here anyway).
+  const jurisdictions = await getIdentityJurisdictions(workspace.workspaceId, [
+    aId,
+    bId,
+  ]);
+  if (
+    jurisdictions.get(aId) === 'archive' &&
+    jurisdictions.get(bId) === 'archive'
+  ) {
+    throw new BadRequestError(
+      'both records are managed by the results archive — record the distinction in the archive repo',
+      { code: 'archive-managed' },
+    );
+  }
   const ok = await addIdentityDistinction(workspace.workspaceId, aId, bId);
   if (!ok) throw new NotFoundError('competitor-identity');
   return { ok: true };
@@ -168,7 +213,7 @@ export async function reviewQueue(
   const { clusters, suggestions } = clusterCompetitors(inputs);
   const dismissed = await listIdentityDistinctions(workspace.workspaceId);
 
-  const mergeSuggestions: MergeSuggestion[] = [];
+  const candidates: MergeSuggestion[] = [];
   const seen = new Set<string>();
   for (const edge of suggestions) {
     const a = clusters[edge.a].existingIdentityIds;
@@ -180,7 +225,18 @@ export async function reviewQueue(
     const key = `${aId}:${bId}`;
     if (dismissed.has(key) || seen.has(key)) continue;
     seen.add(key);
-    mergeSuggestions.push({ aId, bId, reason: edge.reason });
+    candidates.push({ aId, bId, reason: edge.reason });
   }
+  // A pair of archive-managed identities is the archive manifest's to judge
+  // (ADR-010) — surfacing it here would re-litigate git's record.
+  const jurisdictions = await getIdentityJurisdictions(
+    workspace.workspaceId,
+    [...new Set(candidates.flatMap((c) => [c.aId, c.bId]))],
+  );
+  const mergeSuggestions = candidates.filter(
+    (c) =>
+      jurisdictions.get(c.aId) !== 'archive' ||
+      jurisdictions.get(c.bId) !== 'archive',
+  );
   return { mergeSuggestions };
 }

@@ -2,6 +2,8 @@ import 'server-only';
 
 import { and, eq, inArray } from 'drizzle-orm';
 
+import { loadAsPublishedPlacements } from './archive-kit/places';
+
 import { getDb } from './db/client';
 import {
   competitorIdentities,
@@ -144,10 +146,26 @@ export async function computeRankingStandings(
       published: publishedIds.has(id),
     }));
 
-  // Score each series once and collect (competitorId → best place).
+  // Score each series once and collect (competitorId → best place). An
+  // as-published series (ADR-010) contributes its *stored* ranks instead of
+  // being scored — a place there is exactly the originally-published place.
+  const storedPlacements = await loadAsPublishedPlacements(
+    db,
+    orderedIncluded.map((s) => s.id),
+  );
   const repos = seriesFileReposFor({ workspaceId });
   const placeByCompetitor = new Map<string, { seriesId: string; place: number }>();
   for (const { id: seriesId } of orderedIncluded) {
+    const stored = storedPlacements.get(seriesId);
+    if (stored) {
+      for (const [competitorId, placement] of stored) {
+        const prev = placeByCompetitor.get(competitorId);
+        if (!prev || placement.rank < prev.place) {
+          placeByCompetitor.set(competitorId, { seriesId, place: placement.rank });
+        }
+      }
+      continue;
+    }
     const snap = await loadSeriesSnapshot(repos, seriesId);
     if (!snap || snap.races.length === 0) continue;
     const { fleetStandings } = calculateFleetStandings(

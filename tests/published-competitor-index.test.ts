@@ -20,6 +20,7 @@ function entry(over: Partial<ArcEntry>): ArcEntry {
     sailNumber: 'IRL1',
     club: '',
     age: null,
+    asPublished: false,
     ...over,
   };
 }
@@ -32,6 +33,7 @@ function identity(over: Partial<IdentityWithArc>): IdentityWithArc {
     sailNumber: 'IRL1',
     club: null,
     nationality: null,
+    managedBy: 'app',
     reviewedAt: null,
     // One published entry by default: the index drops identities with no
     // published series, so a bare identity needs an entry to survive.

@@ -1,9 +1,11 @@
 import 'server-only';
 
+import { loadAsPublishedPlacements } from './archive-kit/places';
 import {
   placementInStandings,
   type ArcPlacement,
 } from './career-arc-placement';
+import { getDb } from './db/client';
 import {
   getIdentityArc,
   type ArcEntry,
@@ -97,15 +99,31 @@ export async function getCareerArc(
   // what survives, since the identity's first/last year span every entry.
   const published = identity.entries.filter((e) => publishedSlugs.has(e.seriesId));
 
+  // As-published series (ADR-010) carry their places in the stored results —
+  // read them there instead of re-scoring; a series in this map never loads a
+  // snapshot at all.
+  const storedPlacements = await loadAsPublishedPlacements(
+    getDb(),
+    [...new Set(published.map((e) => e.seriesId))],
+  );
+
   const entries: CareerArcEntry[] = [];
   for (const entry of published) {
-    const scored = await scoreSeries(entry.seriesId);
-    const placement = scored
-      ? placementInStandings(scored.result, entry.competitorId, {
-          hasRaces: scored.hasRaces,
-          multiFleet: scored.multiFleet,
-        })
-      : { rank: null, fleetSize: null, fleetName: null };
+    let placement: ArcPlacement;
+    const stored = storedPlacements.get(entry.seriesId);
+    if (stored) {
+      placement =
+        stored.get(entry.competitorId) ??
+        { rank: null, fleetSize: null, fleetName: null };
+    } else {
+      const scored = await scoreSeries(entry.seriesId);
+      placement = scored
+        ? placementInStandings(scored.result, entry.competitorId, {
+            hasRaces: scored.hasRaces,
+            multiFleet: scored.multiFleet,
+          })
+        : { rank: null, fleetSize: null, fleetName: null };
+    }
     entries.push({
       ...entry,
       ...placement,

@@ -17,6 +17,9 @@ import postgres, { type Sql } from 'postgres';
 import { ArchivedError, BadRequestError } from '@/app/api/v1/_lib/handler';
 import * as archive from '@/lib/api-handlers/archive';
 import * as competitorsApi from '@/lib/api-handlers/competitors';
+import * as identityApi from '@/lib/api-handlers/competitor-identity';
+import { getCareerArc } from '@/lib/career-arc';
+import { computeRankingStandings } from '@/lib/ranking-standings';
 import type { ArchiveSeriesDoc } from '@/lib/archive-kit/format';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { hasPermission } from '@/lib/auth/permissions';
@@ -451,6 +454,87 @@ describe.skipIf(skip)('archive ingest', () => {
       .from(schema.competitorIdentities)
       .where(eq(schema.competitorIdentities.workspaceId, workspaceId));
     expect(identities.every((i) => i.managedBy === 'archive')).toBe(true);
+  });
+
+  test('career arc and rankings read the stored ranks', async () => {
+    const hollyIdentity = identityIdForSlug(workspaceId, 'holly-cantwell-x1y2');
+    const arc = await getCareerArc(workspaceId, hollyIdentity);
+    expect(arc).not.toBeNull();
+    const entry = arc!.entries.find((e) => e.seriesId === seriesId);
+    expect(entry).toBeDefined();
+    // Holly is rank 1 of the 2 ranked rows in the stored table — read, not
+    // re-scored (the series has no races at all).
+    expect(entry!.rank).toBe(1);
+    expect(entry!.fleetSize).toBe(2);
+
+    const standings = await computeRankingStandings(workspaceId, {
+      buckets: [
+        {
+          id: 'all',
+          name: 'All',
+          seriesIds: [seriesId],
+          countBest: 1,
+          requiredMin: 1,
+        },
+      ],
+    });
+    const holly = standings.result.rows.find(
+      (r) => r.identityId === hollyIdentity,
+    );
+    expect(holly).toBeDefined();
+    expect(holly!.total).toBe(1);
+  });
+
+  test('jurisdiction: the reconcile surface defers to the archive', async () => {
+    const reconcileCtx: WorkspaceContext = {
+      ...ctx,
+      role: 'owner',
+      features: ['competitor-reconcile'],
+    };
+    const hollyIdentity = identityIdForSlug(workspaceId, 'holly-cantwell-x1y2');
+
+    // Rename, review, and merging-away are the manifest's to change.
+    await expect(
+      identityApi.patchIdentity(reconcileCtx, hollyIdentity, {
+        label: 'Renamed In App',
+      }),
+    ).rejects.toThrow(/archive/);
+    await expect(
+      identityApi.reviewIdentity(reconcileCtx, hollyIdentity, {
+        reviewed: true,
+      }),
+    ).rejects.toThrow(/archive/);
+
+    // An app identity merges INTO the archive one — the archive survives —
+    // but never the other way around.
+    const appIdentity = uuid();
+    await db.insert(schema.competitorIdentities).values({
+      id: appIdentity,
+      workspaceId,
+      label: 'Holly Cantwell',
+      slug: 'holly-cantwell-app',
+      managedBy: 'app',
+    });
+    await expect(
+      identityApi.mergeIntoIdentity(reconcileCtx, appIdentity, {
+        sourceId: hollyIdentity,
+      }),
+    ).rejects.toThrow(/archive/);
+    const merged = await identityApi.mergeIntoIdentity(
+      reconcileCtx,
+      hollyIdentity,
+      { sourceId: appIdentity },
+    );
+    expect(merged.identity.id).toBe(hollyIdentity);
+    expect(merged.identity.managedBy).toBe('archive');
+
+    // Splitting an as-published entry off is refused — even off an
+    // archive identity that also carries it.
+    await expect(
+      identityApi.splitFromIdentity(reconcileCtx, hollyIdentity, {
+        competitorIds: [holly],
+      }),
+    ).rejects.toThrow(/archive/);
   });
 
   test('delete removes the publication and the series', async () => {

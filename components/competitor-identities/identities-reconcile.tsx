@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ExternalLink, GitMerge, Scissors, TriangleAlert, Undo2 } from 'lucide-react';
+import { Landmark, ExternalLink, GitMerge, Scissors, TriangleAlert, Undo2 } from 'lucide-react';
 
 import { LONG_ARC_YEARS } from '@/lib/competitor-identity-cluster';
 import type {
@@ -77,9 +77,16 @@ function MergeSuggestionRow({
 }) {
   const merge = useMergeCompetitorIdentities();
   const distinguish = useDistinguishIdentities();
-  // The richer record survives as the canonical one.
+  // An archive-managed record always survives (ADR-010 — git would recreate
+  // it anyway); between two app records, the richer one does.
   const [target, source] =
-    b.entries.length > a.entries.length ? [b, a] : [a, b];
+    a.managedBy !== b.managedBy
+      ? a.managedBy === 'archive'
+        ? [a, b]
+        : [b, a]
+      : b.entries.length > a.entries.length
+        ? [b, a]
+        : [a, b];
 
   return (
     <div
@@ -274,7 +281,12 @@ function IdentityCard({
   const [label, setLabel] = useState(identity.label);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const longArc = isLongArc(identity) && !identity.reviewedAt;
+  // Archive-managed identities belong to the archive repo's manifest
+  // (ADR-010): no rename, no merging *away*, no long-arc nagging — and
+  // entries in as-published series can't be peeled here.
+  const archiveManaged = identity.managedBy === 'archive';
+  const longArc = isLongArc(identity) && !identity.reviewedAt && !archiveManaged;
+  const splittable = (e: { asPublished: boolean }) => !e.asPublished;
 
   const toggle = (competitorId: string) =>
     setSelected((prev) => {
@@ -324,6 +336,10 @@ function IdentityCard({
                 Cancel
               </Button>
             </form>
+          ) : archiveManaged ? (
+            <span className="font-medium truncate text-left">
+              {identity.label}
+            </span>
           ) : (
             <button
               className="font-medium truncate hover:underline text-left"
@@ -339,6 +355,16 @@ function IdentityCard({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {archiveManaged && (
+            <span
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+              title="Managed by the results archive — name and grouping are corrected in the archive repo"
+              data-testid="archive-managed-badge"
+            >
+              <Landmark className="h-3.5 w-3.5" />
+              archive
+            </span>
+          )}
           {longArc && (
             <span
               className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500"
@@ -348,6 +374,7 @@ function IdentityCard({
               long arc
             </span>
           )}
+          {!archiveManaged && (
           <Button
             size="sm"
             variant="ghost"
@@ -358,6 +385,7 @@ function IdentityCard({
             <GitMerge className="h-3.5 w-3.5" />
             Merge…
           </Button>
+          )}
           <a
             href={`/p/${workspaceSlug}/competitor/${identity.slug ?? identity.id}`}
             target="_blank"
@@ -377,7 +405,7 @@ function IdentityCard({
             className="flex items-center justify-between gap-3 py-1.5"
           >
             <span className="flex min-w-0 items-center gap-2">
-              {identity.entries.length > 1 && (
+              {identity.entries.length > 1 && splittable(e) && (
                 <input
                   type="checkbox"
                   className="h-3.5 w-3.5 accent-primary"
@@ -395,18 +423,20 @@ function IdentityCard({
             </span>
             <span className="flex items-center gap-3 shrink-0 text-muted-foreground">
               <span className="tabular-nums">{e.sailNumber}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 px-2 text-muted-foreground hover:text-destructive"
-                title="Split this entry off — it isn't this competitor"
-                disabled={split.isPending || identity.entries.length < 2}
-                onClick={() =>
-                  split.mutate({ id: identity.id, competitorIds: [e.competitorId] })
-                }
-              >
-                <Scissors className="h-3.5 w-3.5" />
-              </Button>
+              {splittable(e) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                  title="Split this entry off — it isn't this competitor"
+                  disabled={split.isPending || identity.entries.length < 2}
+                  onClick={() =>
+                    split.mutate({ id: identity.id, competitorIds: [e.competitorId] })
+                  }
+                >
+                  <Scissors className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </span>
           </li>
         ))}
@@ -473,7 +503,10 @@ export function IdentitiesReconcile({ workspaceSlug }: { workspaceSlug: string }
   );
 
   const longArcs = useMemo(
-    () => (identities ?? []).filter((i) => isLongArc(i) && !i.reviewedAt),
+    () =>
+      (identities ?? []).filter(
+        (i) => isLongArc(i) && !i.reviewedAt && i.managedBy !== 'archive',
+      ),
     [identities],
   );
 

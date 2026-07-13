@@ -360,23 +360,27 @@ export async function relinkIdentitiesAfterWrite(
 ): Promise<ApplyResult | null> {
   if (!(await workspaceIdentityFeatureOn(db, workspaceId))) return null;
 
-  // Cheap probe: the common case (an edit to already-linked rows) touches
-  // nothing, so don't load the corpus for it.
-  const [unlinked] = await db
+  // Jurisdiction (ADR-010): the lazy pass links rows in live series only —
+  // as-published rows are the archive ingest's to link. The probe and the
+  // apply share the same scope.
+  const unlinkedLive = await db
     .select({ id: competitors.id })
     .from(competitors)
+    .innerJoin(series, eq(competitors.seriesId, series.id))
     .where(
       and(
         eq(competitors.workspaceId, workspaceId),
         isNull(competitors.identityId),
+        eq(series.asPublished, false),
       ),
-    )
-    .limit(1);
-  if (!unlinked) return null;
+    );
+  if (unlinkedLive.length === 0) return null;
 
   const inputs = await collectClusterInputs(db, workspaceId);
   const result = clusterCompetitors(inputs);
-  return applyClusters(db, workspaceId, result);
+  return applyClusters(db, workspaceId, result, {
+    onlyCompetitorIds: new Set(unlinkedLive.map((r) => r.id)),
+  });
 }
 
 /**

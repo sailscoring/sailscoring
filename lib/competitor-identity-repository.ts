@@ -32,6 +32,10 @@ export interface ArcEntry {
   club: string;
   /** Age at the event, where recorded (null in most pre-2020 IODAI data). */
   age: number | null;
+  /** True when the series is an as-published archive (ADR-010): the row's
+   *  membership belongs to the archive manifest, so the reconcile UI never
+   *  peels it. */
+  asPublished: boolean;
 }
 
 /** A recurring competitor and its arc across series. */
@@ -44,6 +48,10 @@ export interface IdentityWithArc {
   sailNumber: string;
   club: string | null;
   nationality: string | null;
+  /** Jurisdiction (ADR-010): 'archive' identities belong to the archive
+   *  repo's manifest — the reconcile UI never renames, splits, or dissolves
+   *  them, and any merge involving one keeps it as the survivor. */
+  managedBy: 'app' | 'archive';
   /** "Looks right" stamp from the review queue (#221) — a flagged identity a
    *  human has confirmed. ISO string, or null when never reviewed (or the arc
    *  changed since: merge/split clear it). */
@@ -67,6 +75,7 @@ function assemble(
     sailNumber: string;
     club: string | null;
     nationality: string | null;
+    managedBy: string;
     reviewedAt: Date | null;
     competitorId: string | null;
     seriesId: string | null;
@@ -76,6 +85,7 @@ function assemble(
     compSailNumber: string | null;
     compClub: string | null;
     age: number | null;
+    seriesAsPublished: boolean | null;
   }>,
 ): IdentityWithArc[] {
   const byId = new Map<string, IdentityWithArc>();
@@ -89,6 +99,7 @@ function assemble(
         sailNumber: r.sailNumber,
         club: r.club,
         nationality: r.nationality,
+        managedBy: r.managedBy === 'archive' ? 'archive' : 'app',
         reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null,
         entries: [],
         firstYear: null,
@@ -107,6 +118,7 @@ function assemble(
         sailNumber: r.compSailNumber ?? '',
         club: r.compClub ?? '',
         age: r.age,
+        asPublished: r.seriesAsPublished ?? false,
       });
     }
   }
@@ -128,6 +140,7 @@ const selection = {
   sailNumber: competitorIdentities.sailNumber,
   club: competitorIdentities.club,
   nationality: competitorIdentities.nationality,
+  managedBy: competitorIdentities.managedBy,
   reviewedAt: competitorIdentities.reviewedAt,
   competitorId: competitors.id,
   seriesId: series.id,
@@ -137,6 +150,7 @@ const selection = {
   compSailNumber: competitors.sailNumber,
   compClub: competitors.club,
   age: competitors.age,
+  seriesAsPublished: series.asPublished,
 } as const;
 
 /** Every identity in the workspace with its linked arc, label-sorted. */
@@ -227,6 +241,31 @@ export async function renameIdentity(
       ),
     );
   return (res.count ?? 0) > 0;
+}
+
+/** Jurisdiction of the given identities (ADR-010): id → managedBy. Ids not
+ *  in the workspace are simply absent. The handlers consult this before any
+ *  operation the archive manifest owns. */
+export async function getIdentityJurisdictions(
+  workspaceId: string,
+  ids: readonly string[],
+): Promise<Map<string, 'app' | 'archive'>> {
+  if (ids.length === 0) return new Map();
+  const rows = await getDb()
+    .select({
+      id: competitorIdentities.id,
+      managedBy: competitorIdentities.managedBy,
+    })
+    .from(competitorIdentities)
+    .where(
+      and(
+        eq(competitorIdentities.workspaceId, workspaceId),
+        inArray(competitorIdentities.id, [...ids]),
+      ),
+    );
+  return new Map(
+    rows.map((r) => [r.id, r.managedBy === 'archive' ? 'archive' : 'app']),
+  );
 }
 
 /** The display fields of an identity row — what merge returns so an undo can
@@ -387,6 +426,7 @@ export async function splitIdentity(
         club: competitors.club,
         nationality: competitors.nationality,
         startDate: series.startDate,
+        asPublished: series.asPublished,
       })
       .from(competitors)
       .innerJoin(series, eq(competitors.seriesId, series.id))
@@ -400,6 +440,9 @@ export async function splitIdentity(
     const peeled = linked.filter((r) => wanted.has(r.id));
     if (peeled.length !== competitorIds.length) return null; // stale selection
     if (peeled.length === linked.length) return null; // nothing would remain
+    // Rows in an as-published series belong to the archive manifest (ADR-010)
+    // — membership corrections for them are made in git, not here.
+    if (peeled.some((r) => r.asPublished)) return null;
 
     // Representative = most recent by series start date.
     const rep = [...peeled].sort((a, b) =>
