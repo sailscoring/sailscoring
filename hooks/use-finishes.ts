@@ -10,6 +10,22 @@ import { queryKeys } from './query-keys';
 import { useVersionedSave } from './use-versioned-save';
 
 /**
+ * Result entry writes the per-race cache directly (optimistic patches, the
+ * post-save splice) and the serialized save queue depends on the cache
+ * leading the server. React Query applies fetch results last-resolve-wins,
+ * so a list fetch already in flight when one of those writes lands — e.g.
+ * the initial load of a just-opened race — would overwrite the written rows
+ * with its pre-write snapshot: a committed finisher silently vanishes from
+ * the sheet. Every direct write bumps this per-race epoch; a fetch that
+ * observes a bump while it was in flight discards its response in favour of
+ * the cache.
+ */
+const patchEpochByRace = new Map<string, number>();
+const patchEpoch = (raceId: string) => patchEpochByRace.get(raceId) ?? 0;
+const bumpPatchEpoch = (raceId: string) =>
+  patchEpochByRace.set(raceId, patchEpoch(raceId) + 1);
+
+/**
  * Optimistic per-race cache patch: write the new shape immediately so the UI
  * updates before the server round-trip resolves. Mutation onError rolls back
  * by invalidating the query if the save fails. Every result-entry mutation
@@ -22,6 +38,7 @@ export function useFinishCachePatch(raceId: string) {
     (updater: (rows: Finish[]) => Finish[]) => {
       const key = queryKeys.finishes.byRace(raceId);
       const prev = qc.getQueryData<Finish[]>(key) ?? [];
+      bumpPatchEpoch(raceId);
       qc.setQueryData<Finish[]>(key, updater(prev));
     },
     [qc, raceId],
@@ -29,9 +46,17 @@ export function useFinishCachePatch(raceId: string) {
 }
 
 export function useFinishesByRace(raceId: string) {
+  const qc = useQueryClient();
   return useQuery<Finish[]>({
     queryKey: queryKeys.finishes.byRace(raceId),
-    queryFn: () => finishRepo.listByRace(raceId),
+    queryFn: async () => {
+      const epochAtDispatch = patchEpoch(raceId);
+      const rows = await finishRepo.listByRace(raceId);
+      if (patchEpoch(raceId) === epochAtDispatch) return rows;
+      // The cache was written while this fetch was in flight, so the
+      // response predates it — keep the cached rows instead.
+      return qc.getQueryData<Finish[]>(queryKeys.finishes.byRace(raceId)) ?? rows;
+    },
   });
 }
 
@@ -56,6 +81,7 @@ export function useSaveFinish() {
       // and overwrites the optimistic order with a stale server
       // snapshot. The standings page reads from `finishes.bySeries`
       // which refreshes on tab-revisit via TanStack Query staleTime.
+      bumpPatchEpoch(saved.raceId);
       qc.setQueryData<Finish[] | undefined>(
         queryKeys.finishes.byRace(saved.raceId),
         (rows) => {
