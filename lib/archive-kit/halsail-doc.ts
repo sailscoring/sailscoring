@@ -110,10 +110,19 @@ export function buildHalsailArchiveDoc(input: HalsailDocInput): ArchiveSeriesDoc
         rank: row.rank,
         rankLabel: row.rankLabel,
         leadCells: row.leadCells,
-        raceCells: row.raceCells.map((c) => ({
-          text: c.text,
-          ...(c.discard ? { discard: true } : {}),
-        })),
+        raceCells: row.raceCells.map((c) => {
+          // HalSail colours nothing, but under low-point scoring a clean
+          // score of 1, 2, or 3 IS the place in that race — surface it in
+          // the structured rank slot so the pages get podium colouring.
+          const place = /^[123]$/.test(c.text.trim())
+            ? Number(c.text.trim())
+            : null;
+          return {
+            text: c.text,
+            ...(c.discard ? { discard: true } : {}),
+            ...(place !== null && !c.discard ? { rank: place } : {}),
+          };
+        }),
         summaryCells: row.summaryCells,
       };
     });
