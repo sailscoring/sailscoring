@@ -50,12 +50,27 @@ const rowSchema = z.object({
   summaryCells: z.array(z.string().max(80)).max(20),
 });
 
+const raceTableRowSchema = z.object({
+  competitorId: uuid.optional(),
+  rank: z.number().int().min(1).max(10_000).optional(),
+  cells: z.array(z.string().max(200)).max(30),
+});
+
+const raceTableSchema = z.object({
+  label: z.string().min(1).max(80),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  caption: z.string().max(400).optional(),
+  columns: z.array(columnSchema).min(1).max(30),
+  rows: z.array(raceTableRowSchema).max(2000),
+});
+
 const fleetResultsSchema = z.object({
   caption: z.string().max(400).optional(),
   leadColumns: z.array(columnSchema).max(20),
   raceHeaders: z.array(raceHeaderSchema).max(60),
   summaryColumns: z.array(columnSchema).max(20),
   rows: z.array(rowSchema).max(2000),
+  raceTables: z.array(raceTableSchema).max(60).optional(),
 });
 
 const fleetSchema = z.object({
@@ -126,6 +141,16 @@ export const archiveSeriesDocSchema = z
     });
     doc.fleets.forEach((fleet, fi) => {
       const { leadColumns, raceHeaders, summaryColumns, rows } = fleet.results;
+      (fleet.results.raceTables ?? []).forEach((table, ti) => {
+        table.rows.forEach((row, ri) => {
+          if (row.cells.length !== table.columns.length) {
+            ctx.addIssue({ code: 'custom', message: 'race-table cells misaligned with columns', path: ['fleets', fi, 'results', 'raceTables', ti, 'rows', ri, 'cells'] });
+          }
+          if (row.competitorId && !competitorIds.has(row.competitorId)) {
+            ctx.addIssue({ code: 'custom', message: 'race-table row references unknown competitor', path: ['fleets', fi, 'results', 'raceTables', ti, 'rows', ri, 'competitorId'] });
+          }
+        });
+      });
       rows.forEach((row, ri) => {
         if (!competitorIds.has(row.competitorId)) {
           ctx.addIssue({ code: 'custom', message: 'row references unknown competitor', path: ['fleets', fi, 'results', 'rows', ri, 'competitorId'] });

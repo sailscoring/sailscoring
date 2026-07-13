@@ -17,6 +17,7 @@ import {
 
 import type {
   AsPublishedFleetResults,
+  AsPublishedRaceTable,
   AsPublishedRow,
 } from './types';
 
@@ -100,6 +101,39 @@ ${body}
 </div>`;
 }
 
+/** A per-race detail table (handicap sources: elapsed / handicap /
+ *  corrected as published), in the full-fidelity page's race-table style. */
+export function renderAsPublishedRaceTable(
+  table: AsPublishedRaceTable,
+): string {
+  const heading = `<h3 class="racetitle">${esc(table.label)}${table.date ? ` <span class="racedate">${esc(table.date)}</span>` : ''}</h3>`;
+  const captionHtml = table.caption
+    ? `<div class="caption">${esc(table.caption)}</div>\n`
+    : '';
+  const headerCells = table.columns
+    .map((c) => `<th>${esc(c.label)}</th>`)
+    .join('');
+  const body = table.rows
+    .map(
+      (row, i) =>
+        `<tr class="${i % 2 === 0 ? 'odd' : 'even'}">${row.cells
+          .map((v) => `<td>${esc(v)}</td>`)
+          .join('')}</tr>`,
+    )
+    .join('\n');
+  return `${heading}
+${captionHtml}<div class="tablewrap">
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<thead>
+<tr>${headerCells}</tr>
+</thead>
+<tbody>
+${body}
+</tbody>
+</table>
+</div>`;
+}
+
 /** One as-published fleet page, in the standard published-page chrome. */
 export function renderAsPublishedFleetHtml(
   chrome: AsPublishedPageChrome,
@@ -114,7 +148,13 @@ export function renderAsPublishedFleetHtml(
     rightUrl: chrome.rightUrl,
     seriesIndexUrl: chrome.seriesIndexUrl,
   };
-  return renderHtmlDocument(documentChrome, renderAsPublishedTable(results), {
+  const raceTables = (results.raceTables ?? [])
+    .map(renderAsPublishedRaceTable)
+    .join('\n');
+  const content = raceTables
+    ? `${renderAsPublishedTable(results)}\n${raceTables}`
+    : renderAsPublishedTable(results);
+  return renderHtmlDocument(documentChrome, content, {
     fontPercent: 72,
     hasNhcDetail: false,
     hasEchoDetail: false,

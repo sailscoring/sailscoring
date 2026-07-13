@@ -60,8 +60,30 @@ export interface AsPublishedRow {
   summaryCells: string[];
 }
 
-/** One fleet's published results table — the unit stored per
- *  (series, fleet) in `as_published_results`. */
+/** One row of a per-race detail table — all display strings; `rank` only
+ *  where the source states one. */
+export interface AsPublishedRaceTableRow {
+  /** Linked competitor, where the generator could resolve one (lets a future
+   *  surface highlight a sailor's line); purely optional. */
+  competitorId?: string;
+  rank?: number;
+  cells: string[];
+}
+
+/** A per-race detail table, as published — where handicap sources carry
+ *  elapsed time, handicap, and corrected time per boat. Everything is a
+ *  display string: captured, never used to compute. */
+export interface AsPublishedRaceTable {
+  label: string;
+  date?: string;
+  caption?: string;
+  columns: AsPublishedColumn[];
+  rows: AsPublishedRaceTableRow[];
+}
+
+/** One fleet's published results — the unit stored per (series, fleet) in
+ *  `as_published_results`: the summary standings table, plus optional
+ *  per-race detail tables below it. */
 export interface AsPublishedFleetResults {
   /** The source's caption line, e.g.
    *  "Sailed: 6, Discards: 1, To count: 5, Entries: 46, Scoring system:
@@ -71,4 +93,7 @@ export interface AsPublishedFleetResults {
   raceHeaders: AsPublishedRaceHeader[];
   summaryColumns: AsPublishedColumn[];
   rows: AsPublishedRow[];
+  /** Per-race detail tables, in published order. Optional — scratch sources
+   *  often carry everything in the summary cells. */
+  raceTables?: AsPublishedRaceTable[];
 }
