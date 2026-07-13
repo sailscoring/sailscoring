@@ -108,6 +108,11 @@ export const archiveSeriesDocSchema = z
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       eventUrl: z.string().url().max(400).optional(),
+      venueUrl: z.string().url().max(400).optional(),
+      /** Header logo slots, as on a full-fidelity series (canonical-library
+       *  URLs in practice). */
+      venueLogoUrl: z.string().url().max(400).optional(),
+      eventLogoUrl: z.string().url().max(400).optional(),
       /** Which engine originally published these results ('sailwave',
        *  'halsail', …). Free-form but bounded; display context only. */
       source: z.string().max(40).optional(),

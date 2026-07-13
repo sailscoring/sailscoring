@@ -34,6 +34,9 @@ export interface HalsailDocInput {
   startDate?: string;
   endDate?: string;
   eventUrl?: string;
+  venueUrl?: string;
+  venueLogoUrl?: string;
+  eventLogoUrl?: string;
   publishedSlug: string;
   fleets: HalsailFleetInput[];
 }
@@ -144,6 +147,9 @@ export function buildHalsailArchiveDoc(input: HalsailDocInput): ArchiveSeriesDoc
       ...(input.startDate ? { startDate: input.startDate } : {}),
       ...(input.endDate ? { endDate: input.endDate } : {}),
       ...(input.eventUrl ? { eventUrl: input.eventUrl } : {}),
+      ...(input.venueUrl ? { venueUrl: input.venueUrl } : {}),
+      ...(input.venueLogoUrl ? { venueLogoUrl: input.venueLogoUrl } : {}),
+      ...(input.eventLogoUrl ? { eventLogoUrl: input.eventLogoUrl } : {}),
       source: 'halsail',
       publishedSlug: input.publishedSlug,
     },
