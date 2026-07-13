@@ -174,6 +174,16 @@ function issueBody(f: FlakyTest): string {
   ].join('\n');
 }
 
+/**
+ * A recurrence comment carries the failed attempt's error excerpt: the issue
+ * body holds only the FIRST sighting's error, and a recurrence that failed at
+ * a different assertion is the key diagnostic signal — without it, a sighting
+ * whose report has since been overwritten leaves nothing to work from.
+ */
+function recurrenceNote(heading: string, f: FlakyTest): string {
+  return [heading, '', '```', f.errorExcerpt, '```'].join('\n');
+}
+
 function main(): number {
   if (!existsSync(REPORT_PATH)) {
     console.error(
@@ -223,7 +233,7 @@ function main(): number {
       if (DRY_RUN) console.log(`  ↻ would REOPEN  #${found.number}  ${title}`);
       else {
         gh(['issue', 'reopen', String(found.number)]);
-        gh(['issue', 'comment', String(found.number), '--body', `Recurred after being closed — seen again on ${TODAY}.`]);
+        gh(['issue', 'comment', String(found.number), '--body', recurrenceNote(`Recurred after being closed — seen again on ${TODAY}.`, f)]);
         console.log(`  ↻ reopened #${found.number}`);
       }
       reopened++;
@@ -238,8 +248,7 @@ function main(): number {
     }
     if (DRY_RUN) console.log(`  ~ would COMMENT #${found.number}  ${title}`);
     else {
-      const firstLine = f.errorExcerpt.split('\n')[0];
-      gh(['issue', 'comment', String(found.number), '--body', `Seen again on ${TODAY} via \`pnpm test:e2e:triage\`.\n\n> ${firstLine}`]);
+      gh(['issue', 'comment', String(found.number), '--body', recurrenceNote(`Seen again on ${TODAY} via \`pnpm test:e2e:triage\`.`, f)]);
       console.log(`  ~ commented #${found.number}`);
     }
     commented++;
