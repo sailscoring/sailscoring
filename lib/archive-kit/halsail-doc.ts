@@ -77,7 +77,10 @@ export function buildHalsailArchiveDoc(input: HalsailDocInput): ArchiveSeriesDoc
       const boatName = boatIdx === -1 ? '' : (row.leadCells[boatIdx] ?? '');
       const owner = ownerIdx === -1 ? '' : (row.leadCells[ownerIdx] ?? '');
       const club = clubIdx === -1 ? '' : (row.leadCells[clubIdx] ?? '');
-      const name = owner || boatName;
+      const name =
+        owner ||
+        boatName ||
+        (sailNumber ? `Unknown Competitor (${sailNumber})` : 'Unknown Competitor');
       const nameKey = normalizePersonName(name).full || boatName.toLowerCase();
       // The same (sail, person) twice in ONE table is two real rows (rare
       // placeholder cases); across tables it's the same boat.

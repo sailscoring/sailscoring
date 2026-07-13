@@ -143,3 +143,15 @@ export function birthYearsConflict(a: number | null, b: number | null): boolean 
   if (a == null || b == null) return false;
   return Math.abs(a - b) > 1;
 }
+
+/**
+ * Whether a name is the archive ingest's placeholder for a blank helm field
+ * ("Unknown Competitor (1620)", ADR-010). Placeholders exist so competitor
+ * listings sort sensibly, but they are *not* evidence of identity: two
+ * unknowns sharing a reused sail number are not the same sailor, so the
+ * matcher must treat these rows exactly like blank names — never clustered,
+ * never suggested.
+ */
+export function isPlaceholderName(name: string | undefined): boolean {
+  return /^unknown competitor\b/i.test((name ?? '').trim());
+}

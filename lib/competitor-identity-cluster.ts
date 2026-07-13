@@ -18,6 +18,7 @@ import {
   birthYearsConflict,
   clubsOverlap,
   impliedBirthYear,
+  isPlaceholderName,
   normalizeClubs,
   normalizePersonName,
   personNamesMatch,
@@ -124,7 +125,14 @@ class UnionFind {
 
 export function clusterCompetitors(inputs: ClusterInput[]): ClusterResult {
   const n = inputs.length;
-  const norm = inputs.map((c) => normalizePersonName(c.name));
+  // The archive ingest's "Unknown Competitor (…)" placeholders carry no
+  // identity evidence — treat them exactly like blank names (never blocked,
+  // never matched), or every unknown would cluster with every other.
+  const norm = inputs.map((c) =>
+    isPlaceholderName(c.name)
+      ? { surname: '', given: [], full: '' }
+      : normalizePersonName(c.name),
+  );
   const parts = inputs.map((c) => sailNumberParts(c.sailNumber));
   const birth = inputs.map((c) => impliedBirthYear(c.age, c.raceYear));
   const clubs = inputs.map((c) => normalizeClubs(c.club));

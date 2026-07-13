@@ -146,6 +146,13 @@ export function buildSailwaveArchiveDoc(
 
     const rows = summary.rows.map((row) => {
       const extracted = extractCompetitor(summary, row);
+      // A blank helm field gets a placeholder so competitor listings sort it
+      // to the end rather than the top; the matcher ignores these names.
+      if (!extracted.name.trim()) {
+        extracted.name = extracted.sailNumber
+          ? `Unknown Competitor (${extracted.sailNumber})`
+          : 'Unknown Competitor';
+      }
       const nameKey = normalizePersonName(extracted.name).full;
       const baseKey = `${fleet.name}/${extracted.sailNumber}/${nameKey}`;
       const ordinal = (ordinals.get(baseKey) ?? 0) + 1;

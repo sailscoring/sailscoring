@@ -261,6 +261,52 @@ describe('halsail-html parser + doc builder', () => {
   });
 });
 
+describe('blank helm placeholders', () => {
+  test('a blank helm becomes "Unknown Competitor (sail)"; the matcher ignores it', async () => {
+    const { clusterCompetitors } = await import('@/lib/competitor-identity-cluster');
+    const { isPlaceholderName } = await import('@/lib/competitor-identity-match');
+    const html = SAILWAVE_HTML.replace('Aoife Byrne', '');
+    const page = parseSailwaveHtml(html);
+    const doc = buildSailwaveArchiveDoc({
+      seriesId: '22222222-3333-4444-8555-666666666666',
+      name: 'Placeholder Test',
+      publishedSlug: 'placeholder-test',
+      fleets: [
+        { name: 'Junior Fleet', subPath: 'junior-fleet', summary: page.summaries[1] },
+      ],
+    });
+    const unknown = doc.competitors.find((c) => c.sailNumber === '1500')!;
+    expect(unknown.name).toBe('Unknown Competitor (1500)');
+    expect(isPlaceholderName(unknown.name)).toBe(true);
+    // The published cell stays blank — faithful display, sensible listing.
+    expect(doc.fleets[0].results.rows[0].leadCells[2]).toBe('');
+
+    // Two unknowns on the same reused sail, years apart: neither clustered
+    // nor suggested — a placeholder is not identity evidence.
+    const result = clusterCompetitors([
+      {
+        competitorId: '00000000-0000-4000-8000-000000000001',
+        name: 'Unknown Competitor (1620)',
+        sailNumber: '1620',
+        age: null,
+        raceYear: 2012,
+        existingIdentityId: null,
+      },
+      {
+        competitorId: '00000000-0000-4000-8000-000000000002',
+        name: 'Unknown Competitor (1620)',
+        sailNumber: '1620',
+        age: null,
+        raceYear: 2019,
+        existingIdentityId: null,
+      },
+    ]);
+    expect(result.clusters).toHaveLength(2);
+    expect(result.suggestions).toHaveLength(0);
+    expect(result.stats.withoutSurname).toBe(2);
+  });
+});
+
 describe('blw PII scrub', () => {
   test('strips DOB / email / phone rows, keeps age and names', () => {
     const blw = [

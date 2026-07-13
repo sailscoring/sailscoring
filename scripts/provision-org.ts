@@ -48,7 +48,9 @@ import {
   type FeatureKey,
 } from '@/lib/features';
 
-export type Role = 'owner' | 'admin' | 'member';
+import { ROLE_PERMISSIONS, type WorkspaceRole } from '@/lib/auth/permissions';
+
+export type Role = WorkspaceRole;
 
 /**
  * Parse a comma-separated `--enable-feature` value into validated feature
@@ -70,7 +72,9 @@ function parseFeatureList(raw: string | undefined): FeatureKey[] {
   return keys as FeatureKey[];
 }
 
-const ROLES: Role[] = ['owner', 'admin', 'member'];
+// The app's role table is the single source of truth — provisioning must
+// never lag it (it did: scorer and archivist were unassignable here).
+const ROLES = Object.keys(ROLE_PERMISSIONS) as Role[];
 
 function isRole(value: string): value is Role {
   return (ROLES as string[]).includes(value);
