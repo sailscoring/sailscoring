@@ -239,11 +239,11 @@ describe('halsail-html parser + doc builder', () => {
     const page = parseHalsailHtml(HALSAIL_HTML);
     const doc = buildHalsailArchiveDoc({
       seriesId: '99999999-8888-4777-8666-555555555555',
-      name: 'Cruisers 3 — 2024 Summer Series',
-      publishedSlug: 'dbsc-2024-summer-cruisers-3',
-      fleetName: 'Cruisers 3',
-      subPath: 'cruisers-3',
-      page,
+      name: 'Cruisers 3 — DBSC Summer Series 2024',
+      publishedSlug: 'dbsc-2024-cruisers-3',
+      fleets: [
+        { name: '2024 Summer Series', subPath: '2024-summer-series', page },
+      ],
     });
     expect(doc.fleets).toHaveLength(1);
     const mary = doc.competitors.find((c) => c.owner === 'Mary Murphy')!;
