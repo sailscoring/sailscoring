@@ -122,6 +122,39 @@ export class SailscoringClient {
     });
   }
 
+  /** Upsert one as-published series from its ingest document (ADR-010).
+   *  `convert` replaces an existing full-fidelity series (the migration
+   *  path); `force` re-applies an unchanged document. */
+  async putArchiveSeries(
+    seriesId: string,
+    doc: unknown,
+    opts: { convert?: boolean; force?: boolean } = {},
+  ): Promise<ArchiveIngestResponse> {
+    const params = new URLSearchParams();
+    if (opts.convert) params.set('convert', '1');
+    if (opts.force) params.set('force', '1');
+    const qs = params.size > 0 ? `?${params.toString()}` : '';
+    return (await this.request(
+      'PUT',
+      `/api/v1/archive/series/${seriesId}${qs}`,
+      { body: doc },
+    )) as ArchiveIngestResponse;
+  }
+
+  /** Remove an as-published series (publication and all). */
+  async deleteArchiveSeries(seriesId: string): Promise<void> {
+    await this.request('DELETE', `/api/v1/archive/series/${seriesId}`);
+  }
+
+  /** Apply the archive repo's identity manifest + the scoped auto-pass. */
+  async applyArchiveIdentities(
+    manifest: unknown,
+  ): Promise<ArchiveIdentitiesResponse> {
+    return (await this.request('POST', '/api/v1/archive/identities', {
+      body: manifest,
+    })) as ArchiveIdentitiesResponse;
+  }
+
   /** Archive or unarchive a series. */
   async setSeriesArchived(seriesId: string, archived: boolean): Promise<void> {
     await this.request('POST', `/api/v1/series/${seriesId}/archive`, {
@@ -194,6 +227,30 @@ export class SailscoringClient {
 export interface Category {
   id: string;
   name: string;
+}
+
+export interface ArchiveIngestResponse {
+  seriesId: string;
+  unchanged: boolean;
+  published: {
+    slug: string;
+    pages: Array<{ fleetName: string; subPath: string }>;
+  } | null;
+}
+
+export interface ArchiveIdentitiesResponse {
+  manifest: {
+    identitiesWritten: number;
+    competitorsLinked: number;
+    unresolvedMembers: number;
+    duplicateSlugs: string[];
+  };
+  autoPass: {
+    identitiesCreated: number;
+    competitorsLinked: number;
+    conflictsSkipped: number;
+  };
+  slugsBackfilled: number;
 }
 
 export interface PublishRequest {

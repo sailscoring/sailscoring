@@ -7,6 +7,7 @@ import { Archive, ArchiveRestore } from 'lucide-react';
 import { useSeries, useArchiveSeries } from '@/hooks/use-series';
 import { cn } from '@/lib/utils';
 import { useChordShortcut, useShortcuts } from '@/hooks/use-keyboard-shortcut';
+import { usePublicationStatus } from '@/hooks/use-published';
 import { KeyboardHelp } from '@/components/keyboard-help';
 import { SeriesActionsMenu } from '@/components/series-actions-menu';
 import { SeriesReadOnlyProvider } from '@/components/series-read-only';
@@ -42,11 +43,16 @@ export default function SeriesLayout({
   const [showHelp, setShowHelp] = useState(false);
 
   const showPrizes = has('prizes');
+  const asPublished = series?.asPublished ?? false;
   // Prizes slots in after Standings — allocation reads the standings, so the
-  // tabs follow the scorer's flow.
-  const tabs = showPrizes
-    ? [...baseTabs.slice(0, 3), prizesTab, ...baseTabs.slice(3)]
-    : baseTabs;
+  // tabs follow the scorer's flow. An as-published archive (ADR-010) has no
+  // races, standings, prizes, or history in-app — its results live on the
+  // public pages — so only Competitors remains.
+  const tabs = asPublished
+    ? baseTabs.slice(0, 1)
+    : showPrizes
+      ? [...baseTabs.slice(0, 3), prizesTab, ...baseTabs.slice(3)]
+      : baseTabs;
 
   useChordShortcut({
     c: () => router.push(`/series/${id}/competitors`),
@@ -69,7 +75,7 @@ export default function SeriesLayout({
     return <SeriesTabFallback status="missing" />;
   }
 
-  const readOnly = series.archived ?? false;
+  const readOnly = (series.archived ?? false) || (series.asPublished ?? false);
 
   return (
     <div className="space-y-6 max-w-screen-2xl mx-auto">
@@ -93,7 +99,9 @@ export default function SeriesLayout({
         )}
       </div>
 
-      {readOnly && (
+      {series.asPublished ? (
+        <AsPublishedNotice seriesId={series.id} />
+      ) : readOnly && (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/40">
           <p className="text-amber-900 dark:text-amber-200">
             <strong>This series is archived and read-only.</strong> Unarchive it
@@ -140,6 +148,47 @@ export default function SeriesLayout({
       </SeriesReadOnlyProvider>
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
+    </div>
+  );
+}
+
+/**
+ * The read-only banner for an as-published archive series (ADR-010): results
+ * were ingested exactly as originally published and are corrected in the
+ * archive repo, not here. Links to the live public pages, which are the
+ * series' real face.
+ */
+function AsPublishedNotice({ seriesId }: { seriesId: string }) {
+  const { data: publication } = usePublicationStatus(seriesId);
+  const pages = publication?.published?.pages ?? [];
+  return (
+    <div
+      className="rounded-lg border bg-card px-4 py-3 text-sm space-y-1"
+      data-testid="as-published-notice"
+    >
+      <p>
+        <strong>This series is an as-published archive.</strong> Results are
+        shown exactly as originally published and can&rsquo;t be edited or
+        re-scored here; corrections are made in the archive that supplies them.
+      </p>
+      {pages.length > 0 && (
+        <p className="text-muted-foreground">
+          Public pages:{' '}
+          {pages.map((p, i) => (
+            <span key={p.url}>
+              {i > 0 && ' · '}
+              <a
+                href={p.url}
+                target="_blank"
+                rel="noreferrer"
+                className="underline hover:text-foreground"
+              >
+                {p.fleetName}
+              </a>
+            </span>
+          ))}
+        </p>
+      )}
     </div>
   );
 }

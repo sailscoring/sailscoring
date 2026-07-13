@@ -15,6 +15,7 @@ import { unpublishCommand } from './commands/unpublish';
 import { categoriseCommand } from './commands/categorise';
 import { archiveCommand } from './commands/archive';
 import { reorderCommand } from './commands/reorder';
+import { asPublishedCommand } from './commands/as-published';
 import {
   activityListCommand,
   categoryListCommand,
@@ -82,6 +83,14 @@ Series
       Rewrite display order to the given sequence (in-app list order and the
       order of contributing series on a shared-slug published page).
       (import and publish are also available as top-level aliases.)
+
+As-published archives (ADR-010 — the archive-repo CI's surface; archivist key)
+  as-published push <dir> [--convert] [--force] [--workspace <id>]
+      Upload <dir>/series/*.json ingest documents (unchanged ones are no-ops)
+      and apply <dir>/identities.json when present.
+  as-published push-series <file…> [--convert] [--force]
+  as-published identities <manifest.json>
+  as-published delete <seriesId…>
 
 Reads (all accept --json / --output json; child resources take --series <id>)
   competitor list --series <id>
@@ -196,6 +205,8 @@ export async function runCli(argv: string[]): Promise<number> {
       return listOnly('activity', rest, activityListCommand);
     case 'published':
       return publishedDispatch(rest);
+    case 'as-published':
+      return asPublishedCommand(rest);
     case 'standings':
       return getOnly('standings', rest, standingsGetCommand);
     // Top-level aliases for the bulk workflow the CLI grew out of.
