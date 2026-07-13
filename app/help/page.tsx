@@ -1672,6 +1672,13 @@ export default async function HelpPage() {
               another record the matcher never connected. Splits stick: the
               automatic matching never re-joins what you separated.
             </p>
+            <p>
+              Records badged{' '}
+              <strong className="text-foreground">archive</strong> come from a
+              results archive and are corrected there rather than here — you
+              can still merge one of your records <em>into</em> an archive
+              record when they&rsquo;re the same sailor.
+            </p>
           </>
         )}
         <p>

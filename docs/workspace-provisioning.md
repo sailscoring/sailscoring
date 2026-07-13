@@ -113,6 +113,15 @@ The current gated keys are:
 | `competitor-reconcile` | off | the **in-app** reconcile surface (#212, #221): the **Competitors** tab on the workspace home and the `/workspace/competitors` page — the review queue (merge suggestions + long-arc flags), combine-with-undo, cluster split, rename — plus the `/api/v1/competitor-identities` endpoints behind it. Separate from `competitor-identity` so the public competitor pages can be live independently of the in-app correction tooling. Off by default. |
 | `rankings` | off | the **Rankings** tab on the workspace home (#209): cross-series season ladders — each a saved bucketed best-N config (e.g. Nationals place + two best regionals), computed on demand over the selected series and grouped by competitor identity — plus each ranking's optional public page (`/p/{ws}/ranking/{slug}`, per-ranking toggle, computed over published series only). Requires the identity spine to be meaningful: enable `competitor-identity` (and normally `competitor-reconcile`) alongside it. |
 
+**Archivist credentials (ADR-010).** A class archive repo's CI pushes
+as-published series through `/api/v1/archive` with an API key whose user
+holds the **`archivist`** role in the target workspace — `read` +
+`archive-ingest` only, so a leaked key can touch nothing but that
+workspace's (already public) archive. Provision: `provision-org
+pre-create-user` for a per-repo service user, add it to the workspace with
+role `archivist`, then `provision-token create … --workspace <slug>`. See
+`docs/design/as-published-archives.md`.
+
 **Default-on features.** Most gated features are opt-in (off until enabled),
 but a feature can be marked default-on in `lib/features.ts` — on for every
 workspace unless that workspace records an explicit opt-out. `echo`,
