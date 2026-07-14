@@ -35,6 +35,13 @@ test('DNS, RET, and DSQ codes are assignable and appear in standings', async ({ 
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByText('Race 1').click();
 
+  // The sail-number entry resolves against the client's competitor list, and
+  // an unresolved sail is a no-op (inline "not found" error, no save). The
+  // refetch after the last competitor's creation can still be in flight when
+  // this page renders, so wait for the newest boat's non-finisher row — it
+  // proves the list the resolver reads includes every boat created above.
+  await expect(page.getByTestId('non-finisher-404')).toBeVisible();
+
   // Alice finishes 1st; Bob=DNS, Carol=RET, Dave=DSQ
   await page.getByLabel('Sail number').fill('101');
   await page.getByRole('button', { name: 'Add' }).click();
@@ -112,6 +119,9 @@ test('BFD is struck through like any other code when it is the discarded worst s
 
   // Race 1: 1001, 1002, 1003, 1004
   await page.getByText('Race 1').click();
+  // Sail entry no-ops on an unresolved number — wait for the newest boat's
+  // non-finisher row so the competitor list is known to be complete.
+  await expect(page.getByTestId('non-finisher-1004')).toBeVisible();
   for (const sail of ['1001', '1002', '1003', '1004']) {
     await page.getByLabel('Sail number').fill(sail);
     await page.getByRole('button', { name: 'Add' }).click();
@@ -200,6 +210,10 @@ test('ZFP penalty can be set on a finisher and appears in standings with amber s
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByText('Race 1').click();
 
+  // Sail entry no-ops on an unresolved number — wait for the newest boat's
+  // non-finisher row so the competitor list is known to be complete.
+  await expect(page.getByTestId('non-finisher-503')).toBeVisible();
+
   // Enter finishers: Alice 1st, Bob 2nd, Carol 3rd
   for (const sail of ['501', '502', '503']) {
     await page.getByLabel('Sail number').fill(sail);
@@ -250,11 +264,20 @@ test('DNC sticks on a non-finisher whose row retained a check-in flag', async ({
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByText('Race 1').click();
 
+  // Sail entry no-ops on an unresolved number (inline "not found" error, no
+  // save) — wait for the newest boat's non-finisher row so the competitor
+  // list the resolver reads is known to be complete. Without this, a slow
+  // post-create refetch makes the Add below a silent no-op, race 1 ends with
+  // no finisher at all, and the standings exclude it ("—" cells, 0 points).
+  await expect(page.getByTestId('non-finisher-202')).toBeVisible();
+
   // Bob finishes; Alice is added by mistake and removed again. The removal
   // retains her row as a check-in-only record (startPresent stays true), so
   // she shows as DNF among the non-finishers rather than DNC (absent).
   await page.getByLabel('Sail number').fill('202');
   await page.getByRole('button', { name: 'Add' }).click();
+  // Bob leaving the panel proves his finish was actually committed.
+  await expect(page.getByTestId('non-finisher-202')).toHaveCount(0);
   await page.getByLabel('Sail number').fill('101');
   await page.getByRole('button', { name: 'Add' }).click();
   await page.getByRole('button', { name: 'Remove 101' }).click();
