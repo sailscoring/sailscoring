@@ -137,12 +137,14 @@ describe.skipIf(skip)('CLI categorise + archive (ADR-009 M3.2)', () => {
     expect((await repos.series.get(a))!.archived).toBe(false);
   });
 
-  test('categorising an archived series is rejected (categorise before archive)', async () => {
+  test('categorising works while archived (filing is organisation, not an edit)', async () => {
     const a = await seedSeries('Locked');
     const catId = await findOrCreateCategory(client, 'Locked Cat');
+    const repos = createRepos({ workspaceId });
 
     await runPerSeries([a], (id) => client.setSeriesArchived(id, true));
     const results = await runPerSeries([a], (id) => client.setSeriesCategory(id, catId));
-    expect(results[0].status).toBe('failed');
+    expect(results[0].status).toBe('ok');
+    expect((await repos.series.get(a))!.categoryId).toBe(catId);
   });
 });

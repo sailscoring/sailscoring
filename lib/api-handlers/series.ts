@@ -191,7 +191,9 @@ export async function setSeriesCategory(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const current = await repos.series.get(id);
   if (!current) throw new NotFoundError('series');
-  if (current.archived) throw new ArchivedError();
+  // Deliberately not guarded by `archived`: filing a series in a category is
+  // workspace organisation, not a content edit, and since ADR-010 archived is
+  // the normal resting state of whole corpora that still need organising.
   let categoryName: string | undefined;
   if (categoryId !== null) {
     const categories = await repos.categories.list();

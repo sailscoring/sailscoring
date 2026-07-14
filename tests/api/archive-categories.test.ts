@@ -183,11 +183,14 @@ describe.skipIf(skip)('archive + categories (#154)', () => {
     await categories.deleteCategory(ctx, cat.id);
     expect((await series.getSeries(ctx, id)).categoryId).toBeNull();
 
-    // Moving is an edit, so it's blocked while archived; null clears it.
+    // Filing is organisation, not a content edit — it works while archived
+    // (since ADR-010, archived is the resting state of whole corpora).
     await series.setSeriesArchived(ctx, id, { archived: true });
-    await expect(
-      series.setSeriesCategory(ctx, id, { categoryId: null }),
-    ).rejects.toBeInstanceOf(ArchivedError);
+    const cat2 = await categories.createCategory(ctx, { name: '2024' });
+    await series.setSeriesCategory(ctx, id, { categoryId: cat2.id });
+    expect((await series.getSeries(ctx, id)).categoryId).toBe(cat2.id);
+    await series.setSeriesCategory(ctx, id, { categoryId: null });
+    expect((await series.getSeries(ctx, id)).categoryId).toBeNull();
 
     await series.deleteSeries(ctx, id);
   });
