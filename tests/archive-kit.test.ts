@@ -324,6 +324,39 @@ describe('as-published rendering fidelity', () => {
   });
 });
 
+describe('document schema', () => {
+  test('fleet sub-paths may be two-level (season-slug grouping)', async () => {
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const fleet = {
+      id: '11111111-2222-4333-8444-555555555555',
+      name: 'Saturday Overall',
+      subPath: 'saturday-overall/beneteau-211-echo',
+      results: {
+        leadColumns: [{ key: 'helmname', label: 'Helm' }],
+        raceHeaders: [{ label: 'R1' }],
+        summaryColumns: [{ key: 'nett', label: 'Nett' }],
+        rows: [],
+      },
+    };
+    const doc = {
+      formatVersion: 1,
+      series: {
+        id: '99999999-8888-4777-8666-555555555554',
+        name: 'Two-level Test',
+        publishedSlug: '2022',
+      },
+      fleets: [fleet],
+      competitors: [],
+    };
+    expect(archiveSeriesDocSchema.safeParse(doc).success).toBe(true);
+    const bad = {
+      ...doc,
+      fleets: [{ ...fleet, subPath: 'a/b/c' }],
+    };
+    expect(archiveSeriesDocSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
 describe('blank helm placeholders', () => {
   test('a blank helm becomes "Unknown Competitor (sail)"; the matcher ignores it', async () => {
     const { clusterCompetitors } = await import('@/lib/competitor-identity-cluster');

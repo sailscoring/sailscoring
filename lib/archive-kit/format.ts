@@ -25,6 +25,17 @@ const slugSegment = z
   .max(60)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'lowercase hyphen-separated slug');
 
+/** Fleet page sub-path: one or two slug segments. Two-level paths let a
+ *  corpus share one slug per season and group its fleet pages beneath it
+ *  (`/p/dbsc/2022/saturday-overall/beneteau-211-echo`). */
+const subPathSegments = z
+  .string()
+  .max(120)
+  .regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)?$/,
+    'one or two lowercase hyphen-separated slug segments',
+  );
+
 const columnSchema = z.object({
   key: z.string().min(1).max(40),
   label: z.string().max(80),
@@ -78,7 +89,7 @@ const fleetSchema = z.object({
   name: z.string().trim().min(1).max(120),
   /** Pinned public sub-path under the series slug — URL stability is data,
    *  never derived at ingest. */
-  subPath: slugSegment,
+  subPath: subPathSegments,
   results: fleetResultsSchema,
 });
 
