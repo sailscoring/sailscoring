@@ -99,15 +99,24 @@ export function useOpenSeriesFile() {
     setOpenFlow({ step: 'working' });
 
     try {
-      // Check if a series with the same seriesId already exists
-      const all = await seriesRepo.list();
+      // Check if a series with the same seriesId already exists. Categories
+      // are fetched here rather than read from the hook's value: soon after a
+      // page load the useCategories query can still be in flight, and treating
+      // its undefined as "no categories" would silently skip the confirm step.
+      const [all, workspaceCategories] = await Promise.all([
+        seriesRepo.list(),
+        queryClient.ensureQueryData({
+          queryKey: queryKeys.categories.list(),
+          queryFn: () => repos.listCategories(),
+        }),
+      ]);
       const existing = all.find((s) => s.id === parsed.seriesId);
 
       if (!existing) {
         // No match — open as new. When the workspace has categories, pause on
         // a confirm step so the scorer can file it (and eyeball the details);
         // otherwise open straight through to keep the common case one-click.
-        if ((categories?.length ?? 0) > 0) {
+        if (workspaceCategories.length > 0) {
           setOpenFlow({ step: 'confirm-new', file: parsed, categoryId: null });
           return;
         }

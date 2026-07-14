@@ -352,7 +352,9 @@ test('series file: importing a new .sailscoring file lets you file it under a ca
     buffer: Buffer.from(JSON.stringify(fresh)),
   });
 
-  await expect(page.getByRole('dialog', { name: /Import .*Imported Into Category/ })).toBeVisible();
+  // The dialog appears only after the flow's series-list and categories
+  // fetches round-trip; give them load headroom.
+  await expect(page.getByRole('dialog', { name: /Import .*Imported Into Category/ })).toBeVisible({ timeout: 15_000 });
   await page.getByTestId('import-category').click();
   await page.getByRole('option', { name: 'Open Events' }).click();
   await page.getByRole('button', { name: 'Open series' }).click();
