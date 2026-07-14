@@ -14,7 +14,7 @@
 
 import { normalizePersonName } from '@/lib/competitor-identity-match';
 
-import { archiveSeriesDocSchema, type ArchiveSeriesDoc } from './format';
+import { archiveSeriesDocSchema, type ArchiveSeriesDoc, raceTableRowRank } from './format';
 import { competitorIdFor, fleetIdFor } from './ids';
 import type { HalsailPage } from './halsail-html';
 import type { AsPublishedRaceTable } from './types';
@@ -132,7 +132,10 @@ export function buildHalsailArchiveDoc(input: HalsailDocInput): ArchiveSeriesDoc
       ...(race.date ? { date: race.date } : {}),
       ...(race.caption ? { caption: race.caption } : {}),
       columns: race.columns,
-      rows: race.rows.map((cells) => ({ cells })),
+      rows: race.rows.map((cells) => {
+        const rank = raceTableRowRank(race.columns, cells);
+        return { cells, ...(rank !== undefined ? { rank } : {}) };
+      }),
     }));
 
     return {

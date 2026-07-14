@@ -61,9 +61,9 @@ test.describe('as-published archives', () => {
                 rankLabel: '1st',
                 leadCells: ['IRL1200', 'Aoife Murphy'],
                 raceCells: [
-                  { text: '1' },
+                  { text: '1', rank: 1 },
                   { text: '(2)', discard: true },
-                  { text: '1' },
+                  { text: '1', rank: 1 },
                 ],
                 summaryCells: ['4', '2'],
               },
@@ -78,6 +78,20 @@ test.describe('as-published archives', () => {
                   { text: '(3 DNC)', discard: true },
                 ],
                 summaryCells: ['6', '3'],
+              },
+            ],
+            raceTables: [
+              {
+                label: 'Race 1',
+                columns: [
+                  { key: 'rank', label: 'Place' },
+                  { key: 'sailno', label: 'Sail Number' },
+                  { key: 'helmname', label: 'Helm' },
+                ],
+                rows: [
+                  { rank: 1, cells: ['1', 'IRL1200', 'Aoife Murphy'] },
+                  { rank: 2, cells: ['2', 'IRL1300', 'Brian Byrne'] },
+                ],
               },
             ],
           },
@@ -122,9 +136,19 @@ test.describe('as-published archives', () => {
     await expect(
       page.getByRole('heading', { name: 'Ulsters 2014 Optimists' }),
     ).toBeVisible();
-    await expect(page.getByText('Aoife Murphy')).toBeVisible();
+    // (twice on the page now: the summary table and the race detail table)
+    await expect(page.getByText('Aoife Murphy').first()).toBeVisible();
     await expect(page.getByText('(3 DNC)')).toBeVisible();
     await expect(page.getByText('Sailed: 3, Discards: 1')).toBeVisible();
+    // Podium colouring: the summary race cells and the per-race detail
+    // table's Place cells carry the rank classes.
+    expect(await page.locator('td.rank1').count()).toBeGreaterThanOrEqual(2);
+    await expect(
+      page.getByRole('heading', { name: 'Race 1' }),
+    ).toBeVisible();
+    await expect(
+      page.locator('table.racetable td.rank1'),
+    ).toHaveText('1');
 
     // In-app: a new as-published series lands *archived* (history belongs
     // collapsed under the year groups), badged "As published" on its row.
@@ -173,6 +197,10 @@ test.describe('as-published archives', () => {
     await expect(standings).toBeVisible({ timeout: 15_000 });
     await expect(standings).toContainText('Aoife Murphy');
     await expect(standings).toContainText('(3 DNC)');
+    // Podium race cells get the medal badge treatment.
+    expect(
+      await standings.getByTestId('podium-badge').count(),
+    ).toBeGreaterThanOrEqual(2);
     await expect(page.getByText('Sailed: 3, Discards: 1, Entries: 2')).toBeVisible();
 
     // The standard write surface answers 423 for the regime.

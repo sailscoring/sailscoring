@@ -173,12 +173,14 @@ export function renderAsPublishedRaceTable(
     .map((c) => `<th>${esc(c.label)}</th>`)
     .join('');
   const body = table.rows
-    .map(
-      (row, i) =>
-        `<tr class="${i % 2 === 0 ? 'odd' : 'even'}">${row.cells
-          .map((v) => `<td>${esc(v)}</td>`)
-          .join('')}</tr>`,
-    )
+    .map((row, i) => {
+      const podium =
+        row.rank !== undefined && row.rank <= 3 ? ` class="rank${row.rank}"` : '';
+      const cells = row.cells
+        .map((v, ci) => `<td${ci === 0 ? podium : ''}>${esc(v)}</td>`)
+        .join('');
+      return `<tr class="${i % 2 === 0 ? 'odd' : 'even'}">${cells}</tr>`;
+    })
     .join('\n');
   return `${heading}
 ${captionHtml}<div class="tablewrap">

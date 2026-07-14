@@ -11,7 +11,7 @@
 import { normalizePersonName } from '@/lib/competitor-identity-match';
 
 import { isPiiKey } from './blw-scrub';
-import { archiveSeriesDocSchema, type ArchiveSeriesDoc } from './format';
+import { archiveSeriesDocSchema, type ArchiveSeriesDoc, raceTableRowRank } from './format';
 import { competitorIdFor, fleetIdFor } from './ids';
 import type {
   SailwaveRaceSection,
@@ -199,7 +199,10 @@ export function buildSailwaveArchiveDoc(
         label: race.title,
         ...(race.caption ? { caption: race.caption } : {}),
         columns: race.columns,
-        rows: race.rows.map((cells) => ({ cells })),
+        rows: race.rows.map((cells) => {
+          const rank = raceTableRowRank(race.columns, cells);
+          return { cells, ...(rank !== undefined ? { rank } : {}) };
+        }),
       }),
     );
 

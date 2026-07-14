@@ -98,6 +98,18 @@ const competitorSchema = z.object({
   crewName: z.string().max(200).optional(),
 });
 
+/** Structured rank for a per-race detail row: the leading column, where it
+ *  is a rank/place column carrying a clean integer. Both HalSail ("Place")
+ *  and Sailwave ("Ranking") race tables lead with one. */
+export function raceTableRowRank(
+  columns: Array<{ label: string }>,
+  cells: string[],
+): number | undefined {
+  if (!columns[0] || !/rank|place/i.test(columns[0].label)) return undefined;
+  const cell = (cells[0] ?? '').trim();
+  return /^\d{1,4}$/.test(cell) ? Number(cell) : undefined;
+}
+
 export const archiveSeriesDocSchema = z
   .object({
     formatVersion: z.literal(1),

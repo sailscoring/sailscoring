@@ -269,6 +269,8 @@ describe('halsail-html parser + doc builder', () => {
     expect(doc.fleets[0].results.raceTables).toHaveLength(1);
     expect(doc.fleets[0].results.raceTables![0].label).toBe('Race 3');
     expect(doc.fleets[0].results.raceTables![0].rows[0].cells).toContain('01:05:59');
+    // The leading Place column yields structured ranks for podium colouring.
+    expect(doc.fleets[0].results.raceTables![0].rows[0].rank).toBe(1);
     // Race headers pick up the dates row.
     expect(doc.fleets[0].results.raceHeaders[0].label).toBe('R3 27 Apr');
   });
@@ -301,6 +303,24 @@ describe('as-published rendering fidelity', () => {
     expect(html).toContain('symbol id="flag-IRL"');
     expect(html).toContain('<use href="#flag-IRL"');
     expect(html).toContain('<span class="nattext">IRL</span>');
+  });
+
+  test('per-race detail tables colour their podium places', async () => {
+    const { renderAsPublishedRaceTable } = await import('@/lib/archive-kit/render');
+    const page = parseHalsailHtml(HALSAIL_HTML);
+    const doc = buildHalsailArchiveDoc({
+      seriesId: '99999999-8888-4777-8666-555555555555',
+      name: 'Cruisers 3 — DBSC Summer Series 2024',
+      publishedSlug: 'dbsc-2024-cruisers-3',
+      fleets: [
+        { name: '2024 Summer Series', subPath: '2024-summer-series', page },
+      ],
+    });
+    const html = renderAsPublishedRaceTable(
+      doc.fleets[0].results.raceTables![0],
+    );
+    // The winner's Place cell gets the podium class the summary table uses.
+    expect(html).toContain('<td class="rank1">1</td>');
   });
 });
 
