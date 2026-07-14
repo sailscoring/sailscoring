@@ -155,6 +155,11 @@ export class SailscoringClient {
     await this.request('DELETE', `/api/v1/archive/series/${seriesId}`);
   }
 
+  /** Delete a series and every child row (the schema cascades). */
+  async deleteSeries(seriesId: string): Promise<void> {
+    await this.request('DELETE', `/api/v1/series/${seriesId}`);
+  }
+
   /** Apply the archive repo's identity manifest + the scoped auto-pass. */
   async applyArchiveIdentities(
     manifest: unknown,
