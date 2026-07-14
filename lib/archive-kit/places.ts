@@ -11,6 +11,7 @@ import { eq, inArray } from 'drizzle-orm';
 
 import type { SailScoringDb } from '@/lib/db/client';
 import { asPublishedResults, fleets, series } from '@/lib/db/schema/series';
+import { matchesFleetFilter } from '@/lib/ranking';
 
 export interface AsPublishedPlacement {
   /** The stored series rank, 1-based. */
@@ -28,24 +29,29 @@ export interface AsPublishedPlacement {
  * not as-published (or stores nothing yet) — the caller's cue to score it
  * through the engine instead. A competitor ranked in more than one fleet's
  * table keeps its best (lowest) rank — one combined pool, a place is a place.
+ * `fleetFilter` restricts that pool to fleets of one name (a ranking with a
+ * fleet filter reads only that fleet's stored tables).
  */
 export async function loadAsPublishedPlacements(
   db: SailScoringDb,
   seriesIds: readonly string[],
+  fleetFilter?: string,
 ): Promise<Map<string, Map<string, AsPublishedPlacement>>> {
   const out = new Map<string, Map<string, AsPublishedPlacement>>();
   if (seriesIds.length === 0) return out;
 
-  const rows = await db
-    .select({
-      seriesId: asPublishedResults.seriesId,
-      fleetName: fleets.name,
-      results: asPublishedResults.results,
-    })
-    .from(asPublishedResults)
-    .innerJoin(fleets, eq(asPublishedResults.fleetId, fleets.id))
-    .innerJoin(series, eq(asPublishedResults.seriesId, series.id))
-    .where(inArray(asPublishedResults.seriesId, [...seriesIds]));
+  const rows = (
+    await db
+      .select({
+        seriesId: asPublishedResults.seriesId,
+        fleetName: fleets.name,
+        results: asPublishedResults.results,
+      })
+      .from(asPublishedResults)
+      .innerJoin(fleets, eq(asPublishedResults.fleetId, fleets.id))
+      .innerJoin(series, eq(asPublishedResults.seriesId, series.id))
+      .where(inArray(asPublishedResults.seriesId, [...seriesIds]))
+  ).filter((row) => matchesFleetFilter(row.fleetName, fleetFilter));
 
   const fleetCounts = new Map<string, number>();
   for (const row of rows) {

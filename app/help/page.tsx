@@ -1719,7 +1719,8 @@ export default async function HelpPage() {
           Nationals (best 1, need 1) and a <em>Regional</em> bucket holding the
           regionals (best 2, need 2). Sailors short of a floor are listed as not
           yet ranked rather than dropped silently; an optional nationality filter
-          restricts the ladder to home sailors.
+          restricts the ladder to home sailors, and an optional fleet filter to
+          one fleet by name.
         </p>
         <p>
           The ladder groups results by recurring competitor, so it stays right
@@ -1727,7 +1728,9 @@ export default async function HelpPage() {
           <em>not yet matched</em>, resolve them on the{' '}
           <strong className="text-foreground">Competitors</strong> tab and the
           ladder picks them up. Places compare in one combined pool: a 2nd is a
-          2nd, whichever fleet it was scored in.
+          2nd, whichever fleet it was scored in. Where fleets are ranked apart —
+          say a Junior and a Senior ladder — give each its own ranking with a
+          fleet filter naming that fleet.
         </p>
         <p>
           Switch <strong className="text-foreground">Public page</strong> on to

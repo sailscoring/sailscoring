@@ -19,6 +19,7 @@ const rankingConfigSchema = z.object({
     .toUpperCase()
     .regex(/^[A-Z]{3}$/, 'a three-letter national code')
     .optional(),
+  fleet: z.string().trim().min(1).max(80).optional(),
 });
 
 /** Create a ranking: a name is enough — buckets start empty-ish. */

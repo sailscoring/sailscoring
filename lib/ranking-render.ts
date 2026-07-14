@@ -42,10 +42,11 @@ export function renderRankingHtml(
   const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)}</a></p>`;
   const { rows } = standings.result;
 
+  const fleetNote = config.fleet ? ` ${esc(config.fleet)} fleet only.` : '';
   const basis = standings.includedSeries.length
     ? `<p class="basis">Based on: ${standings.includedSeries
         .map((s) => esc(s.name))
-        .join(', ')}.</p>`
+        .join(', ')}.${fleetNote}</p>`
     : '';
 
   if (rows.length === 0) {

@@ -285,6 +285,9 @@ export async function seedRankedSeries(
       sailNumber: string;
       club?: string;
       nationality?: string;
+      /** Fleet the entrant races in; fleets are created on first mention.
+       *  Defaults to a single 'Main Fleet'. */
+      fleet?: string;
     }>;
   },
 ): Promise<{ seriesId: string }> {
@@ -298,15 +301,21 @@ export async function seedRankedSeries(
       startDate: `${opts.year}-06-01`,
       displayOrder: 0,
     });
-    const fleetId = crypto.randomUUID();
-    await db.insert(schema.fleets).values({
-      id: fleetId,
-      seriesId,
-      workspaceId,
-      name: 'Main Fleet',
-      displayOrder: 0,
-      scoringSystem: 'scratch',
-    });
+    const fleetIdByName = new Map<string, string>();
+    for (const entrant of opts.entrants) {
+      const fleetName = entrant.fleet ?? 'Main Fleet';
+      if (fleetIdByName.has(fleetName)) continue;
+      const fleetId = crypto.randomUUID();
+      await db.insert(schema.fleets).values({
+        id: fleetId,
+        seriesId,
+        workspaceId,
+        name: fleetName,
+        displayOrder: fleetIdByName.size,
+        scoringSystem: 'scratch',
+      });
+      fleetIdByName.set(fleetName, fleetId);
+    }
     const raceId = crypto.randomUUID();
     await db.insert(schema.races).values({
       id: raceId,
@@ -345,7 +354,7 @@ export async function seedRankedSeries(
         id: competitorId,
         seriesId,
         workspaceId,
-        fleetIds: [fleetId],
+        fleetIds: [fleetIdByName.get(entrant.fleet ?? 'Main Fleet')!],
         sailNumber: entrant.sailNumber,
         name: entrant.name,
         club: entrant.club ?? '',

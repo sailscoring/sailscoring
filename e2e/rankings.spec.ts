@@ -146,4 +146,71 @@ test.describe('cross-series rankings', () => {
     const gone = await page.goto(publicUrl!);
     expect(gone?.status()).toBe(404);
   });
+
+  test('a fleet filter ranks one fleet of a multi-fleet series', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    const email = await signInFreshUser(page, 'rankings-fleet');
+    const { id: orgId } = await createOrgWorkspace('Fleet Ladder Club');
+    await addMemberByEmail(orgId, email, 'owner');
+    await enableOrgFeatures(orgId, ['rankings', 'competitor-identity']);
+    await setActiveWorkspace(page, orgId);
+
+    // One event, two fleets, a mixed crossing order (the IODAI shape):
+    //   Senior: Fionn 1st, Grace 2nd — Junior: Dara 1st, Erin 2nd.
+    const entrant = (name: string, sail: string, fleet: string) => ({
+      name,
+      sailNumber: sail,
+      nationality: 'IRL',
+      fleet,
+    });
+    await seedRankedSeries(orgId, {
+      name: 'Leinsters 2026',
+      year: 2026,
+      entrants: [
+        entrant('Fionn Doyle', 'IRL404', 'Senior'),
+        entrant('Dara Nolan', 'IRL505', 'Junior'),
+        entrant('Grace Hughes', 'IRL606', 'Senior'),
+        entrant('Erin Quinn', 'IRL707', 'Junior'),
+      ],
+    });
+
+    await page.goto('/workspace/rankings');
+    await page.getByRole('button', { name: 'New ranking' }).click();
+    await page.getByLabel('Ranking name').fill('Junior Ranking 2026');
+    await page.getByRole('button', { name: 'Create' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Junior Ranking 2026' }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    const bucket = page.getByTestId('bucket-editor').first();
+    await bucket.getByLabel('Bucket name').fill('Events');
+    await bucket.getByRole('checkbox', { name: /Leinsters 2026/ }).check();
+    await page.getByLabel('Fleet filter').fill('Junior');
+    await page.getByRole('button', { name: 'Save ranking' }).click();
+
+    // Only the Junior fleet's standings feed the ladder.
+    const table = page.getByTestId('ranking-standings');
+    await expect(table).toBeVisible({ timeout: 15_000 });
+    const rows = table.locator('tbody tr');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0)).toContainText('Dara Nolan');
+    await expect(rows.nth(1)).toContainText('Erin Quinn');
+    await expect(page.getByText(/Junior fleet only/)).toBeVisible();
+
+    // The Senior ladder is the same config with the other fleet name.
+    await page.getByLabel('Fleet filter').fill('Senior');
+    await page.getByRole('button', { name: 'Save ranking' }).click();
+    await expect(rows.nth(0)).toContainText('Fionn Doyle', {
+      timeout: 15_000,
+    });
+    await expect(rows.nth(1)).toContainText('Grace Hughes');
+    await expect(table.getByText('Dara Nolan')).toBeHidden();
+
+    expect(errors).toEqual([]);
+  });
 });

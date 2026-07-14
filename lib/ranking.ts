@@ -9,9 +9,11 @@
  * per-identity places and builds no matcher of its own.
  *
  * Places are compared in one combined pool — a place is a place, whichever
- * fleet's standings it came from (the issue's settled cross-fleet decision).
- * Ties on the summed total share a rank (competition ranking) and order
- * alphabetically for display.
+ * fleet's standings it came from. Where an association ranks its fleets
+ * separately (IODAI rank Junior and Senior apart), the config's fleet filter
+ * restricts a ladder to one fleet by name and each fleet gets its own saved
+ * ranking. Ties on the summed total share a rank (competition ranking) and
+ * order alphabetically for display.
  *
  * Pure: no DB, no `server-only` — the assembly that scores each series and
  * resolves identities lives in `ranking-standings.ts`.
@@ -35,6 +37,20 @@ export interface RankingConfig {
   /** Optional competitor filter: only sailors of this nationality
    *  (three-letter code, case-insensitive) are ranked. */
   nationality?: string;
+  /** Optional fleet filter: only standings from fleets of this name
+   *  (case-insensitive) feed the ladder. Fleet ids are per-series, so the
+   *  filter matches by name across every series in the config. */
+  fleet?: string;
+}
+
+/** Does a fleet name pass a config's fleet filter? No filter passes all. */
+export function matchesFleetFilter(
+  fleetName: string | null | undefined,
+  filter: string | undefined,
+): boolean {
+  const wanted = filter?.trim().toLowerCase();
+  if (!wanted) return true;
+  return (fleetName ?? '').trim().toLowerCase() === wanted;
 }
 
 /** One recurring competitor's raw material: their place per series. */

@@ -15,6 +15,7 @@ import { seriesFileReposFor } from './postgres-repository';
 import { listPublishedSeriesIds } from './published-repository';
 import {
   computeRanking,
+  matchesFleetFilter,
   type RankingConfig,
   type RankingEntrant,
   type RankingResult,
@@ -111,7 +112,9 @@ export function filterRankingConfigSeries(
  * Compute a ranking's ladder for a workspace. Series in the config that no
  * longer exist in the workspace are skipped (a deleted series just stops
  * contributing). A competitor ranked in more than one fleet of a series
- * counts their best place — one combined pool, a place is a place.
+ * counts their best place — one combined pool, a place is a place. A config
+ * fleet filter narrows that pool first: only standings from fleets of that
+ * name (in any of the config's series) feed the ladder.
  */
 export async function computeRankingStandings(
   workspaceId: string,
@@ -152,6 +155,7 @@ export async function computeRankingStandings(
   const storedPlacements = await loadAsPublishedPlacements(
     db,
     orderedIncluded.map((s) => s.id),
+    config.fleet,
   );
   const repos = seriesFileReposFor({ workspaceId });
   const placeByCompetitor = new Map<string, { seriesId: string; place: number }>();
@@ -181,6 +185,7 @@ export async function computeRankingStandings(
       buildRaceFleetExclusionMap(snap.series.raceFleetExclusions),
     );
     for (const fs of fleetStandings) {
+      if (!matchesFleetFilter(fs.fleet.name, config.fleet)) continue;
       for (const standing of fs.standings) {
         const key = standing.competitor.id;
         const prev = placeByCompetitor.get(key);

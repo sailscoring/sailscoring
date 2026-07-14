@@ -151,6 +151,9 @@ function StandingsSection({
       {includedSeries.length > 0 && (
         <p className="text-xs text-muted-foreground">
           Computed over: {includedSeries.map((s) => s.name).join(', ')}.
+          {ranking.config.fleet && (
+            <> {ranking.config.fleet} fleet only.</>
+          )}
         </p>
       )}
     </div>
@@ -305,6 +308,7 @@ function ConfigEditor({
   const [nationality, setNationality] = useState(
     ranking.config.nationality ?? '',
   );
+  const [fleet, setFleet] = useState(ranking.config.fleet ?? '');
   const [published, setPublished] = useState(ranking.published);
 
   const save = () => {
@@ -313,6 +317,7 @@ function ConfigEditor({
       ...(nationality.trim()
         ? { nationality: nationality.trim().toUpperCase() }
         : {}),
+      ...(fleet.trim() ? { fleet: fleet.trim() } : {}),
     };
     put.mutate(
       { id: ranking.id, name: name.trim(), config, published },
@@ -341,6 +346,17 @@ function ConfigEditor({
             placeholder="e.g. IRL"
             maxLength={3}
             className="h-8 w-24 uppercase"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="ranking-fleet">Fleet filter</Label>
+          <Input
+            id="ranking-fleet"
+            value={fleet}
+            onChange={(e) => setFleet(e.target.value)}
+            placeholder="e.g. Junior"
+            maxLength={80}
+            className="h-8 w-36"
           />
         </div>
         <label className="flex items-center gap-2 pb-1.5 ml-auto">

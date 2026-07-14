@@ -8,6 +8,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   computeRanking,
+  matchesFleetFilter,
   type RankingConfig,
   type RankingEntrant,
 } from '@/lib/ranking';
@@ -164,5 +165,21 @@ describe('computeRanking', () => {
       ['Once Out', 4],
       ['Twice Out', 8],
     ]);
+  });
+});
+
+describe('matchesFleetFilter', () => {
+  test('no filter passes every fleet, named or not', () => {
+    expect(matchesFleetFilter('Junior', undefined)).toBe(true);
+    expect(matchesFleetFilter(null, undefined)).toBe(true);
+    expect(matchesFleetFilter('Junior', '  ')).toBe(true);
+  });
+
+  test('matches by name, case-insensitively and trimmed', () => {
+    expect(matchesFleetFilter('Junior', 'junior')).toBe(true);
+    expect(matchesFleetFilter(' Junior ', 'JUNIOR')).toBe(true);
+    expect(matchesFleetFilter('Senior', 'Junior')).toBe(false);
+    expect(matchesFleetFilter(null, 'Junior')).toBe(false);
+    expect(matchesFleetFilter('Junior Bronze', 'Junior')).toBe(false);
   });
 });
