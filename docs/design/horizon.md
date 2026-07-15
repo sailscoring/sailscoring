@@ -101,43 +101,20 @@ authorities, but requires agreement on data format and access.
 
 ### Push competitor list to racingrulesofsailing.org
 
-racingrulesofsailing.org (RRS.org) is the de-facto online tool for race-committee /
-jury workflows — protest and request-for-redress filing, hearing scheduling, and
-notice-board posting. Events that score in Sail Scoring may run their protest process
-on RRS.org, and that tool needs the same competitor list. Today RRS.org imports it from
-Sailwave via a plugin: the scorer opens the **RRS Interface** widget under Sailwave's
-Plugins menu, pastes the event-specific **UUID** from the RRS Event Panel, and clicks
-upload (repeatable — re-uploading syncs changes). See
-`https://www.racingrulesofsailing.org/pages/help/sailwave_import`.
+Shipped (#260, July 2026) behind the `rrs-import` feature flag: the Competitors
+import dialog pushes the competitor list to RRS.org's documented competitor-import
+API — relaying email / phone / MNA-number columns straight from the uploaded CSV
+without ever storing them — with a push-only flow for re-pushing after edits. The
+API contract and its sharp edges (replace-not-merge semantics, uninformative 200s)
+are captured in `docs/notes/rrs-org/competitor-import-api.md`.
 
-Sail Scoring could offer the same: the scorer pastes an RRS event UUID into a series and
-pushes its competitors to RRS.org, re-pushing on change. Most of the fields RRS.org
-accepts already map cleanly onto our competitor model — Class, Division, Boat Name,
-SailNo, NAT, HelmName (→ First/Last Name), MNA No., Club Name — so for those it is a
-transport question, not a data-model one.
+Residue:
 
-Two fields RRS.org wants, though — **Email** and **Phone** — Sail Scoring deliberately
-does *not* store. Contact details belong to the event-management / entry system, not the
-scoring engine (they are never needed to compute or publish a result), and holding them
-purely to relay them onward to RRS.org is not a trade worth making. So rather than push
-them from stored data, the cleaner design is to do the RRS.org hand-off **at CSV-import
-time**: the "import competitors from CSV" dialog gains an "also push to RRS.org" option,
-reads the email / phone columns straight out of the uploaded CSV, sends them to RRS.org
-alongside the rest, and discards them — they never land in the Sail Scoring data model.
-The entry system already owns that data; Sail Scoring becomes a convenient relay point
-for it without becoming a store of record for private info.
-
-The integration contract is no longer an open question: RRS.org now publishes an
-"AI import" help page that documents the endpoint (`POST
-https://www.racingrulesofsailing.org/api/competitors`), the payload shape, and the
-replace-not-merge semantics — the event UUID in the body is the only credential. One
-consequence of those semantics must be made clear to users in the UI: every import
-deletes and re-creates *all* competitors previously imported via the API for that event,
-so any edits made to them inside RRS.org since the last push are overwritten (competitors
-entered manually in RRS.org are untouched). The contract, a worked import, and a sketch
-of the dialog integration are captured in `docs/notes/rrs-org/competitor-import-api.md`. Maps to the same "thin write client over
-the Sail Scoring API" framing as the mobile finish-recorder above, except here Sail
-Scoring is the *source* pushing to an external sink rather than the API being consumed.
+- The payload's `source` string is still the generic `"rrs-ai-import"` value from
+  RRS.org's AI-import docs — their whitelist rejected `"sailscoring"`. Asking
+  RRS.org to register a Sail Scoring-specific value is tracked in #289.
+- Retaining CSV column mappings across re-imports of revised sheets — wanted for
+  plain CSV import too; noted in #260.
 
 ---
 
