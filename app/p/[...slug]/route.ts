@@ -190,6 +190,9 @@ async function rankingPage(
     `logo:${workspace.logo}`,
     `name:${ranking.name}`,
     `links:${competitorLinks}`,
+    // The config drives filters, place recomputation, and (via adjustments)
+    // tooltip notes that don't surface in the row lines below.
+    `config:${JSON.stringify(publicConfig)}`,
     ...standings.includedSeries.map((s) => `series:${s.id}:${s.name}`),
     ...standings.result.rows.map(
       (r) =>

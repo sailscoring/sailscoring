@@ -225,4 +225,69 @@ test.describe('cross-series rankings', () => {
 
     expect(errors).toEqual([]);
   });
+
+  test('recomputed places count among home sailors only', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    const email = await signInFreshUser(page, 'rankings-nat');
+    const { id: orgId } = await createOrgWorkspace('Compression Club');
+    await addMemberByEmail(orgId, email, 'owner');
+    await enableOrgFeatures(orgId, ['rankings', 'competitor-identity']);
+    await setActiveWorkspace(page, orgId);
+
+    // The Dylan case: a visiting GBR sailor wins, the home sailors follow.
+    await seedRankedSeries(orgId, {
+      name: 'Leinsters 2026',
+      year: 2026,
+      entrants: [
+        { name: 'Sasha Brown', sailNumber: 'GBR100', nationality: 'GBR' },
+        { name: 'Dylan Byrne', sailNumber: 'IRL200', nationality: 'IRL' },
+        { name: 'Eva Murphy', sailNumber: 'IRL300', nationality: 'IRL' },
+      ],
+    });
+
+    await page.goto('/workspace/rankings');
+    await page.getByRole('button', { name: 'New ranking' }).click();
+    await page.getByLabel('Ranking name').fill('Home Ranking 2026');
+    await page.getByRole('button', { name: 'Create' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Home Ranking 2026' }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    const bucket = page.getByTestId('bucket-editor').first();
+    await bucket.getByLabel('Bucket name').fill('Events');
+    await bucket.getByRole('checkbox', { name: /Leinsters 2026/ }).check();
+    await page.getByLabel('Nationality filter').fill('IRL');
+    await page
+      .getByRole('checkbox', { name: /Count places among IRL sailors only/ })
+      .check();
+    await page.getByRole('button', { name: 'Save ranking' }).click();
+
+    // Dylan finished 2nd behind the GBR boat but counts a 1st.
+    const table = page.getByTestId('ranking-standings');
+    await expect(table).toBeVisible({ timeout: 15_000 });
+    const rows = table.locator('tbody tr');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0)).toContainText('Dylan Byrne');
+    await expect(rows.nth(0).locator('td').last()).toHaveText('1');
+    await expect(rows.nth(1)).toContainText('Eva Murphy');
+    await expect(rows.nth(1).locator('td').last()).toHaveText('2');
+    await expect(table.getByText('Sasha Brown')).toBeHidden();
+    await expect(
+      page.getByText(/Places counted among IRL sailors only/),
+    ).toBeVisible();
+
+    // Switching recomputation off restores the published places.
+    await page
+      .getByRole('checkbox', { name: /Count places among IRL sailors only/ })
+      .uncheck();
+    await page.getByRole('button', { name: 'Save ranking' }).click();
+    await expect(rows.nth(0).locator('td').last()).toHaveText('2', {
+      timeout: 15_000,
+    });
+
+    expect(errors).toEqual([]);
+  });
 });

@@ -102,7 +102,7 @@ export async function getCareerArc(
   // As-published series (ADR-010) carry their places in the stored results —
   // read them there instead of re-scoring; a series in this map never loads a
   // snapshot at all.
-  const storedPlacements = await loadAsPublishedPlacements(
+  const { placements: storedPlacements } = await loadAsPublishedPlacements(
     getDb(),
     [...new Set(published.map((e) => e.seriesId))],
   );

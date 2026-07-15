@@ -1720,7 +1720,12 @@ export default async function HelpPage() {
           regionals (best 2, need 2). Sailors short of a floor are listed as not
           yet ranked rather than dropped silently; an optional nationality filter
           restricts the ladder to home sailors, and an optional fleet filter to
-          one fleet by name.
+          one fleet by name. The nationality filter can also{' '}
+          <strong className="text-foreground">count places among matching
+          sailors only</strong> — a home sailor finishing 2nd behind a visiting
+          boat counts a 1st, the convention national rankings like IODAI&rsquo;s
+          use. Sailors with no nationality set are left out of that numbering,
+          so the ladder warns about them.
         </p>
         <p>
           The ladder groups results by recurring competitor, so it stays right

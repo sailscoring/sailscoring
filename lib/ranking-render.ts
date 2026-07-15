@@ -49,10 +49,14 @@ export function renderRankingHtml(
   const { rows } = standings.result;
 
   const fleetNote = config.fleet ? ` ${esc(config.fleet)} fleet only.` : '';
+  const placesNote =
+    config.recomputePlaces && config.nationality
+      ? ` Places counted among ${esc(config.nationality)} sailors only.`
+      : '';
   const basis = standings.includedSeries.length
     ? `<p class="basis">Based on: ${standings.includedSeries
         .map((s) => esc(s.name))
-        .join(', ')}.${fleetNote}</p>`
+        .join(', ')}.${fleetNote}${placesNote}</p>`
     : '';
 
   if (rows.length === 0) {

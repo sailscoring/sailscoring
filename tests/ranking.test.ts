@@ -7,8 +7,11 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  compressPlaces,
   computeRanking,
+  formatPlace,
   matchesFleetFilter,
+  matchesNationalityFilter,
   type RankingConfig,
   type RankingEntrant,
 } from '@/lib/ranking';
@@ -173,6 +176,56 @@ describe('computeRanking', () => {
       ['Once Out', 4],
       ['Twice Out', 8],
     ]);
+  });
+});
+
+describe('compressPlaces', () => {
+  test("the Dylan case: 2nd behind a visitor counts a 1st", () => {
+    // Leinsters 2024: GBR sailor 1st, Dylan 2nd.
+    const places = compressPlaces([
+      { key: 'gbr', rank: 1, matches: false },
+      { key: 'dylan', rank: 2, matches: true },
+      { key: 'third', rank: 3, matches: true },
+    ]);
+    expect(places.get('dylan')).toBe(1);
+    expect(places.get('third')).toBe(2);
+    // Non-matching sailors stop occupying places and get none themselves.
+    expect(places.has('gbr')).toBe(false);
+  });
+
+  test('ties survive compression', () => {
+    // Two matching sailors tied 3rd behind a visitor: both become 2nd.
+    const places = compressPlaces([
+      { key: 'gbr', rank: 1, matches: false },
+      { key: 'a', rank: 2, matches: true },
+      { key: 'b', rank: 3, matches: true },
+      { key: 'c', rank: 3, matches: true },
+      { key: 'd', rank: 5, matches: true },
+    ]);
+    expect(places.get('a')).toBe(1);
+    expect(places.get('b')).toBe(2);
+    expect(places.get('c')).toBe(2);
+    expect(places.get('d')).toBe(4);
+  });
+});
+
+describe('matchesNationalityFilter', () => {
+  test('no filter passes all; a blank nationality never passes a set one', () => {
+    expect(matchesNationalityFilter(null, undefined)).toBe(true);
+    expect(matchesNationalityFilter('GBR', undefined)).toBe(true);
+    expect(matchesNationalityFilter('irl', 'IRL')).toBe(true);
+    expect(matchesNationalityFilter(' IRL ', 'irl')).toBe(true);
+    expect(matchesNationalityFilter('GBR', 'IRL')).toBe(false);
+    expect(matchesNationalityFilter(null, 'IRL')).toBe(false);
+    expect(matchesNationalityFilter('  ', 'IRL')).toBe(false);
+  });
+});
+
+describe('formatPlace', () => {
+  test('whole places stay whole, fractional show one decimal', () => {
+    expect(formatPlace(1)).toBe('1');
+    expect(formatPlace(1.5)).toBe('1.5');
+    expect(formatPlace(13.25)).toBe('13.3');
   });
 });
 

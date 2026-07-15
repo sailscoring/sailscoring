@@ -14,8 +14,10 @@ import {
 import { seriesFileReposFor } from './postgres-repository';
 import { listPublishedSeriesIds } from './published-repository';
 import {
+  compressPlaces,
   computeRanking,
   matchesFleetFilter,
+  matchesNationalityFilter,
   type RankingConfig,
   type RankingEntrant,
   type RankingResult,
@@ -40,6 +42,10 @@ export interface RankingStandingsData {
    *  link yet — each is a sailor the ladder can't see. Surfaced in-app so
    *  the scorer knows to reconcile, never silently absorbed. */
   unmatchedCount: number;
+  /** With place recomputation on: ranked competitors skipped from place
+   *  numbering because they have no nationality at all. A missing flag
+   *  silently improves everyone behind it, so the scorer must see this. */
+  unflaggedCount: number;
   /** Config series that exist in the workspace, in bucket order — what the
    *  ladder was actually computed over. `published` lets the in-app view say
    *  which contributors the public page won't show yet. */
@@ -152,13 +158,20 @@ export async function computeRankingStandings(
   // Score each series once and collect (competitorId → best place). An
   // as-published series (ADR-010) contributes its *stored* ranks instead of
   // being scored — a place there is exactly the originally-published place.
-  const storedPlacements = await loadAsPublishedPlacements(
-    db,
-    orderedIncluded.map((s) => s.id),
-    config.fleet,
-  );
+  // With place recomputation on, places are counted among filter-matching
+  // sailors only, in both paths.
+  const compressNationality =
+    config.recomputePlaces && config.nationality?.trim()
+      ? config.nationality.trim().toUpperCase()
+      : undefined;
+  const { placements: storedPlacements, unflaggedCount: storedUnflagged } =
+    await loadAsPublishedPlacements(db, orderedIncluded.map((s) => s.id), {
+      fleetFilter: config.fleet,
+      compressNationality,
+    });
   const repos = seriesFileReposFor({ workspaceId });
   const placeByCompetitor = new Map<string, { seriesId: string; place: number }>();
+  const unflagged = new Set<string>();
   for (const { id: seriesId } of orderedIncluded) {
     const stored = storedPlacements.get(seriesId);
     if (stored) {
@@ -186,20 +199,44 @@ export async function computeRankingStandings(
     );
     for (const fs of fleetStandings) {
       if (!matchesFleetFilter(fs.fleet.name, config.fleet)) continue;
+      let placeFor: (s: { competitor: { id: string }; rank: number }) =>
+        number | undefined = (s) => s.rank;
+      if (compressNationality) {
+        for (const standing of fs.standings) {
+          if (!standing.competitor.nationality?.trim()) {
+            unflagged.add(standing.competitor.id);
+          }
+        }
+        const compressed = compressPlaces(
+          fs.standings.map((s) => ({
+            key: s.competitor.id,
+            rank: s.rank,
+            matches: matchesNationalityFilter(
+              s.competitor.nationality,
+              compressNationality,
+            ),
+          })),
+        );
+        placeFor = (s) => compressed.get(s.competitor.id);
+      }
       for (const standing of fs.standings) {
+        const place = placeFor(standing);
+        if (place === undefined) continue;
         const key = standing.competitor.id;
         const prev = placeByCompetitor.get(key);
-        if (!prev || standing.rank < prev.place) {
-          placeByCompetitor.set(key, { seriesId, place: standing.rank });
+        if (!prev || place < prev.place) {
+          placeByCompetitor.set(key, { seriesId, place });
         }
       }
     }
   }
+  const unflaggedCount = unflagged.size + storedUnflagged;
 
   if (placeByCompetitor.size === 0) {
     return {
       result: computeRanking(config, []),
       unmatchedCount: 0,
+      unflaggedCount,
       includedSeries: orderedIncluded,
     };
   }
@@ -279,6 +316,7 @@ export async function computeRankingStandings(
   return {
     result: computeRanking(config, entrants),
     unmatchedCount,
+    unflaggedCount,
     includedSeries: orderedIncluded,
   };
 }

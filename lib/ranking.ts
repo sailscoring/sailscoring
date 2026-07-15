@@ -37,10 +37,49 @@ export interface RankingConfig {
   /** Optional competitor filter: only sailors of this nationality
    *  (three-letter code, case-insensitive) are ranked. */
   nationality?: string;
+  /** With the nationality filter set: count places among matching sailors
+   *  only — a sailor's place becomes 1 + the number of matching sailors
+   *  ranked better, so visiting boats don't occupy a place (IODAI's
+   *  "excluding non-Irish sailors"). Off: places are as published. */
+  recomputePlaces?: boolean;
   /** Optional fleet filter: only standings from fleets of this name
    *  (case-insensitive) feed the ladder. Fleet ids are per-series, so the
    *  filter matches by name across every series in the config. */
   fleet?: string;
+}
+
+/** Does a nationality pass a config's filter? No filter passes all; a blank
+ *  nationality never passes a set filter. */
+export function matchesNationalityFilter(
+  nationality: string | null | undefined,
+  filter: string | undefined,
+): boolean {
+  const wanted = filter?.trim().toUpperCase();
+  if (!wanted) return true;
+  return (nationality ?? '').trim().toUpperCase() === wanted;
+}
+
+/**
+ * Compress standings places to the matching sailors: each matching row's
+ * place becomes 1 + the number of matching rows ranked strictly better, so
+ * ties survive and non-matching rows stop occupying places. Non-matching
+ * rows get no entry.
+ */
+export function compressPlaces<K>(
+  rows: Array<{ key: K; rank: number; matches: boolean }>,
+): Map<K, number> {
+  const matching = rows.filter((r) => r.matches);
+  const out = new Map<K, number>();
+  for (const row of matching) {
+    out.set(row.key, 1 + matching.filter((o) => o.rank < row.rank).length);
+  }
+  return out;
+}
+
+/** Places can be fractional (a committee-adjusted 1.5): show one decimal
+ *  when needed, none when whole. */
+export function formatPlace(place: number): string {
+  return Number.isInteger(place) ? String(place) : place.toFixed(1);
 }
 
 /** Does a fleet name pass a config's fleet filter? No filter passes all. */
@@ -145,16 +184,11 @@ export function computeRanking(
   config: RankingConfig,
   entrants: RankingEntrant[],
 ): RankingResult {
-  const nationality = config.nationality?.trim().toUpperCase() || null;
-
   const rows: Array<Omit<RankingRow, 'rank'>> = [];
   const ineligible: RankingResult['ineligible'] = [];
 
   for (const entrant of entrants) {
-    if (
-      nationality &&
-      (entrant.nationality ?? '').trim().toUpperCase() !== nationality
-    ) {
+    if (!matchesNationalityFilter(entrant.nationality, config.nationality)) {
       continue;
     }
     const buckets = config.buckets.map((b) => bucketScore(b, entrant.places));

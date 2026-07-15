@@ -45,7 +45,7 @@ function StandingsSection({
   if (!standings) {
     return <p className="text-sm text-muted-foreground">Computing…</p>;
   }
-  const { result, unmatchedCount, includedSeries } = standings;
+  const { result, unmatchedCount, unflaggedCount, includedSeries } = standings;
   const buckets = ranking.config.buckets;
   const unpublished = includedSeries.filter((s) => !s.published);
   // The ladder reads like a standings table: one column per series, a
@@ -78,6 +78,17 @@ function StandingsSection({
               Competitors
             </a>{' '}
             tab.
+          </span>
+        </p>
+      )}
+      {unflaggedCount > 0 && (
+        <p className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400">
+          <TriangleAlert className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>
+            {unflaggedCount} ranked sailor{unflaggedCount === 1 ? ' has' : 's have'}{' '}
+            no nationality set, so they&rsquo;re left out of the place numbering
+            — a missing flag improves every place behind it. Set nationality on
+            their competitor records.
           </span>
         </p>
       )}
@@ -220,6 +231,9 @@ function StandingsSection({
           Computed over: {includedSeries.map((s) => s.name).join(', ')}.
           {ranking.config.fleet && (
             <> {ranking.config.fleet} fleet only.</>
+          )}
+          {ranking.config.recomputePlaces && ranking.config.nationality && (
+            <> Places counted among {ranking.config.nationality} sailors only.</>
           )}
         </p>
       )}
@@ -378,6 +392,9 @@ function ConfigEditor({
     ranking.config.nationality ?? '',
   );
   const [fleet, setFleet] = useState(ranking.config.fleet ?? '');
+  const [recomputePlaces, setRecomputePlaces] = useState(
+    ranking.config.recomputePlaces ?? false,
+  );
   const [published, setPublished] = useState(ranking.published);
   const [slug, setSlug] = useState(ranking.slug ?? '');
   // Like a series slug: choosable while the ranking is private, fixed once
@@ -390,6 +407,7 @@ function ConfigEditor({
       ...(nationality.trim()
         ? { nationality: nationality.trim().toUpperCase() }
         : {}),
+      ...(nationality.trim() && recomputePlaces ? { recomputePlaces: true } : {}),
       ...(fleet.trim() ? { fleet: fleet.trim() } : {}),
     };
     put.mutate(
@@ -438,6 +456,19 @@ function ConfigEditor({
             className="h-8 w-36"
           />
         </div>
+        <label
+          className="flex items-center gap-2 pb-1.5 text-sm"
+          title="A sailor's place becomes their position among matching sailors — visiting boats don't occupy a place"
+        >
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 accent-primary"
+            checked={nationality.trim() !== '' && recomputePlaces}
+            disabled={!nationality.trim()}
+            onChange={(e) => setRecomputePlaces(e.target.checked)}
+          />
+          Count places among {nationality.trim() || 'filtered'} sailors only
+        </label>
         <label className="flex items-center gap-2 pb-1.5 ml-auto">
           <Switch
             checked={published}
