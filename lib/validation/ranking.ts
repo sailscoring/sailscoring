@@ -21,6 +21,17 @@ const rankingConfigSchema = z.object({
     .optional(),
   recomputePlaces: z.boolean().optional(),
   fleet: z.string().trim().min(1).max(80).optional(),
+  adjustments: z
+    .array(
+      z.object({
+        identityId: uuidSchema,
+        seriesId: uuidSchema,
+        place: z.number().positive().max(1000),
+        note: z.string().trim().min(1, 'a note is required').max(200),
+      }),
+    )
+    .max(200)
+    .optional(),
 });
 
 /** Create a ranking: a name is enough — buckets start empty-ish. */

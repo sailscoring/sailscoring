@@ -11,7 +11,7 @@
 
 import { escapeHtml as esc } from './html';
 import { renderPublicHero, renderPublicShell } from './published-index';
-import type { RankingConfig } from './ranking';
+import { formatPlace, type RankingConfig } from './ranking';
 import type { RankingStandingsData } from './ranking-standings';
 
 const RANKING_CSS = `.ladder { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e6ea; border-radius: 8px; overflow: hidden; margin: 20px 0; box-shadow: 0 1px 2px rgba(7,51,88,0.06); }
@@ -75,13 +75,22 @@ export function renderRankingHtml(
   const seriesHeads = standings.includedSeries
     .map((s) => `<th class="place">${esc(s.name)}</th>`)
     .join('');
+  const adjustmentNotes = new Map(
+    (config.adjustments ?? []).map((a) => [
+      `${a.identityId}:${a.seriesId}`,
+      a.note,
+    ]),
+  );
   const body = rows
     .map((row) => {
       const sailor =
         opts.competitorLinks && row.slug
           ? `<a href="/p/${esc(workspaceSlug)}/competitor/${esc(row.slug)}">${esc(row.label)}</a>`
           : esc(row.label);
-      const places = new Map<string, { place: number; counted: boolean }>();
+      const places = new Map<
+        string,
+        { place: number; counted: boolean; adjusted: boolean }
+      >();
       for (const b of row.buckets) {
         for (const p of b.places) {
           if (!places.has(p.seriesId)) places.set(p.seriesId, p);
@@ -91,13 +100,41 @@ export function renderRankingHtml(
         .map((s) => {
           const p = places.get(s.id);
           if (!p) return `<td class="place blank">&mdash;</td>`;
-          if (!p.counted) return `<td class="place discard">(${p.place})</td>`;
-          const medal = p.place <= 3 ? ` rank${p.place}` : '';
-          return `<td class="place${medal}">${p.place}</td>`;
+          const note = p.adjusted
+            ? adjustmentNotes.get(`${row.identityId}:${s.id}`)
+            : undefined;
+          const title = note ? ` title="${esc(note)}"` : '';
+          const text = `${formatPlace(p.place)}${p.adjusted ? '*' : ''}`;
+          if (!p.counted) {
+            return `<td class="place discard"${title}>(${text})</td>`;
+          }
+          const medal =
+            Number.isInteger(p.place) && p.place <= 3 ? ` rank${p.place}` : '';
+          return `<td class="place${medal}"${title}>${text}</td>`;
         })
         .join('');
-      const netCell = hasDiscards ? `<td class="net">${row.total}</td>` : '';
-      return `<tr><td class="rank">${row.rank}</td><td class="sailor">${sailor}</td><td class="club">${esc(row.club ?? '')}</td>${placeCells}<td class="total">${row.gross}</td>${netCell}</tr>`;
+      const netCell = hasDiscards
+        ? `<td class="net">${formatPlace(row.total)}</td>`
+        : '';
+      return `<tr><td class="rank">${row.rank}</td><td class="sailor">${sailor}</td><td class="club">${esc(row.club ?? '')}</td>${placeCells}<td class="total">${formatPlace(row.gross)}</td>${netCell}</tr>`;
+    })
+    .join('\n');
+
+  // Every adjusted place gets its explanation in a footnote, so the asterisk
+  // is never a mystery to a public reader.
+  const includedIds = new Set(standings.includedSeries.map((s) => s.id));
+  const labelById = new Map(
+    [...rows, ...standings.result.ineligible].map((r) => [
+      r.identityId,
+      r.label,
+    ]),
+  );
+  const adjustmentNoteLines = (config.adjustments ?? [])
+    .filter((a) => includedIds.has(a.seriesId) && labelById.has(a.identityId))
+    .map((a) => {
+      const seriesName =
+        standings.includedSeries.find((s) => s.id === a.seriesId)?.name ?? '';
+      return `<p class="basis">* ${esc(labelById.get(a.identityId)!)} — ${esc(seriesName)}: ${esc(a.note)}</p>`;
     })
     .join('\n');
 
@@ -112,7 +149,7 @@ ${body}
   return renderPublicShell(
     rankingName,
     hero,
-    `${back}\n${table}\n${basis}`,
+    `${back}\n${table}\n${adjustmentNoteLines}\n${basis}`,
     RANKING_CSS,
   );
 }

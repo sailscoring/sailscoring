@@ -290,4 +290,77 @@ test.describe('cross-series rankings', () => {
 
     expect(errors).toEqual([]);
   });
+
+  test('a manual adjustment supplies an asterisked place with its note', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    const email = await signInFreshUser(page, 'rankings-adjust');
+    const { id: orgId } = await createOrgWorkspace('Adjustment Club');
+    await addMemberByEmail(orgId, email, 'owner');
+    await enableOrgFeatures(orgId, ['rankings', 'competitor-identity']);
+    await setActiveWorkspace(page, orgId);
+
+    // Brian misses the Ulsters on Worlds team duty (the Donagh case).
+    const aoife = { name: 'Aoife Kelly', sailNumber: 'IRL101', nationality: 'IRL' };
+    const brian = { name: 'Brian Byrne', sailNumber: 'IRL202', nationality: 'IRL' };
+    await seedRankedSeries(orgId, {
+      name: 'Nationals 2026',
+      year: 2026,
+      entrants: [brian, aoife],
+    });
+    await seedRankedSeries(orgId, {
+      name: 'Ulsters 2026',
+      year: 2026,
+      entrants: [aoife],
+    });
+
+    await page.goto('/workspace/rankings');
+    await page.getByRole('button', { name: 'New ranking' }).click();
+    await page.getByLabel('Ranking name').fill('Season 2026');
+    await page.getByRole('button', { name: 'Create' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Season 2026' }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    // One bucket, both events, both required — Brian misses the floor.
+    const bucket = page.getByTestId('bucket-editor').first();
+    await bucket.getByLabel('Bucket name').fill('Events');
+    await bucket.getByRole('checkbox', { name: /Nationals 2026/ }).check();
+    await bucket.getByRole('checkbox', { name: /Ulsters 2026/ }).check();
+    await bucket.getByLabel('Count best').fill('2');
+    await bucket.getByLabel('Need at least').fill('2');
+    await page.getByRole('button', { name: 'Save ranking' }).click();
+    await expect(page.getByText(/Not yet ranked:.*Brian Byrne/)).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // The committee awards him an averaged 1.5 for the missed event.
+    const card = page.getByTestId('adjustments-card');
+    await card.getByLabel('Adjustment sailor').selectOption({ label: 'Brian Byrne' });
+    await card.getByLabel('Adjustment series').selectOption({ label: 'Ulsters 2026' });
+    await card.getByLabel('Adjustment place').fill('1.5');
+    await card.getByLabel('Adjustment note').fill('Worlds team duty');
+    await card.getByRole('button', { name: 'Add adjustment' }).click();
+    await page.getByRole('button', { name: 'Save ranking' }).click();
+
+    // Brian ranks first on 2.5 (Nationals 1 + adjusted 1.5), the adjusted
+    // place asterisked with the note as its tooltip.
+    const table = page.getByTestId('ranking-standings');
+    await expect(table).toBeVisible({ timeout: 15_000 });
+    const rows = table.locator('tbody tr');
+    await expect(rows).toHaveCount(2, { timeout: 15_000 });
+    await expect(rows.nth(0)).toContainText('Brian Byrne');
+    await expect(rows.nth(0)).toContainText('1.5*');
+    await expect(rows.nth(0).locator('td').last()).toHaveText('2.5');
+    await expect(
+      rows.nth(0).locator('td[title="Worlds team duty"]'),
+    ).toHaveCount(1);
+    await expect(page.getByText(/Not yet ranked/)).toBeHidden();
+
+    expect(errors).toEqual([]);
+  });
 });

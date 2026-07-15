@@ -46,6 +46,22 @@ export interface RankingConfig {
    *  (case-insensitive) feed the ladder. Fleet ids are per-series, so the
    *  filter matches by name across every series in the config. */
   fleet?: string;
+  /** Scorer-entered place adjustments — a committee's number, not a
+   *  computation (IODAI's representational-duty average placing, medical
+   *  redress). Each supplies a sailor's place for one series, inserting one
+   *  where the sailor is absent or replacing the computed one; it enters
+   *  best-N selection, discards, and bucket floors like any place. Shown
+   *  with an asterisk, the note as its explanation. */
+  adjustments?: RankingAdjustment[];
+}
+
+/** One scorer-entered place: identity + series + the place (fractional
+ *  allowed, e.g. an averaged 1.5) + the explanation shown with it. */
+export interface RankingAdjustment {
+  identityId: string;
+  seriesId: string;
+  place: number;
+  note: string;
 }
 
 /** Does a nationality pass a config's filter? No filter passes all; a blank
@@ -111,8 +127,14 @@ export interface RankingEntrant {
 export interface RankingBucketScore {
   bucketId: string;
   /** Every place the sailor sailed in the bucket's series, best first. The
-   *  best `countBest` are flagged counted; the rest are the discards. */
-  places: Array<{ seriesId: string; place: number; counted: boolean }>;
+   *  best `countBest` are flagged counted; the rest are the discards.
+   *  `adjusted` marks scorer-entered places (shown with an asterisk). */
+  places: Array<{
+    seriesId: string;
+    place: number;
+    counted: boolean;
+    adjusted: boolean;
+  }>;
 }
 
 /** How many of the bucket's series the sailor placed in. */
@@ -157,6 +179,7 @@ export interface RankingResult {
 function bucketScore(
   bucket: RankingBucket,
   places: ReadonlyMap<string, number>,
+  adjustedSeries?: ReadonlySet<string>,
 ): RankingBucketScore {
   const inBucket = bucket.seriesIds
     .map((seriesId) => {
@@ -170,6 +193,7 @@ function bucketScore(
     places: inBucket.map((p, i) => ({
       ...p,
       counted: i < Math.max(0, bucket.countBest),
+      adjusted: adjustedSeries?.has(p.seriesId) ?? false,
     })),
   };
 }
@@ -191,7 +215,25 @@ export function computeRanking(
     if (!matchesNationalityFilter(entrant.nationality, config.nationality)) {
       continue;
     }
-    const buckets = config.buckets.map((b) => bucketScore(b, entrant.places));
+    // Scorer-entered adjustments overlay the computed places: insert where
+    // the sailor is absent, replace where they placed.
+    const mine = (config.adjustments ?? []).filter(
+      (a) => a.identityId === entrant.identityId,
+    );
+    let places: ReadonlyMap<string, number> = entrant.places;
+    let adjustedSeries: Set<string> | undefined;
+    if (mine.length > 0) {
+      const overlay = new Map(entrant.places);
+      adjustedSeries = new Set();
+      for (const a of mine) {
+        overlay.set(a.seriesId, a.place);
+        adjustedSeries.add(a.seriesId);
+      }
+      places = overlay;
+    }
+    const buckets = config.buckets.map((b) =>
+      bucketScore(b, places, adjustedSeries),
+    );
     const sailedAny = buckets.some((b) => b.places.length > 0);
     if (!sailedAny) continue;
 

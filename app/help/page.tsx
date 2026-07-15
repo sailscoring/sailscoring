@@ -1741,6 +1741,12 @@ export default async function HelpPage() {
           The ladder reads like a standings table: a column per series showing
           each sailor&rsquo;s place, discarded places in parentheses, podium
           places medal-coloured, and Total alongside the Net that ranks.
+          Where a committee sets a place by hand — an averaged place for a
+          sailor away on representational duty, medical redress — add an{' '}
+          <strong className="text-foreground">adjustment</strong> in the
+          ranking&rsquo;s configuration: the place (fractions allowed) appears
+          with an asterisk and your note explains it, as a tooltip in-app and
+          a footnote on the public page.
         </p>
         <p>
           Switch <strong className="text-foreground">Public page</strong> on to

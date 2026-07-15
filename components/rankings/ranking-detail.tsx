@@ -23,7 +23,9 @@ import { RankBadge } from '@/components/fleet-standings-table';
 import type { RankingDto } from '@/lib/api-handlers/rankings';
 import {
   bucketSailed,
+  formatPlace,
   newRankingBucket,
+  type RankingAdjustment,
   type RankingBucket,
   type RankingConfig,
 } from '@/lib/ranking';
@@ -52,10 +54,15 @@ function StandingsSection({
   // sailor's place in each, discards in parentheses. Net (the ranking basis)
   // only earns its own column when a discard exists somewhere.
   const hasDiscards = result.rows.some((row) => row.gross !== row.total);
+  interface SeriesPlace {
+    place: number;
+    counted: boolean;
+    adjusted: boolean;
+  }
   const placesBySeries = (row: {
-    buckets: Array<{ places: Array<{ seriesId: string; place: number; counted: boolean }> }>;
+    buckets: Array<{ places: Array<SeriesPlace & { seriesId: string }> }>;
   }) => {
-    const map = new Map<string, { place: number; counted: boolean }>();
+    const map = new Map<string, SeriesPlace>();
     for (const b of row.buckets) {
       for (const p of b.places) {
         if (!map.has(p.seriesId)) map.set(p.seriesId, p);
@@ -63,6 +70,13 @@ function StandingsSection({
     }
     return map;
   };
+  // The scorer's explanation for each adjusted place, keyed for the tooltip.
+  const adjustmentNotes = new Map(
+    (ranking.config.adjustments ?? []).map((a) => [
+      `${a.identityId}:${a.seriesId}`,
+      a.note,
+    ]),
+  );
 
   return (
     <div className="space-y-3">
@@ -162,16 +176,28 @@ function StandingsSection({
                         </td>
                       );
                     }
+                    const note = p.adjusted
+                      ? adjustmentNotes.get(`${row.identityId}:${s.id}`)
+                      : undefined;
+                    const text = `${formatPlace(p.place)}${p.adjusted ? '*' : ''}`;
                     if (!p.counted) {
                       return (
-                        <td key={s.id} className="px-3 py-2 text-center tabular-nums text-muted-foreground">
-                          ({p.place})
+                        <td
+                          key={s.id}
+                          className="px-3 py-2 text-center tabular-nums text-muted-foreground"
+                          title={note}
+                        >
+                          ({text})
                         </td>
                       );
                     }
                     return (
-                      <td key={s.id} className="px-3 py-2 text-center tabular-nums">
-                        {p.place <= 3 ? <RankBadge rank={p.place} /> : p.place}
+                      <td key={s.id} className="px-3 py-2 text-center tabular-nums" title={note}>
+                        {Number.isInteger(p.place) && p.place <= 3 ? (
+                          <RankBadge rank={p.place} label={text} />
+                        ) : (
+                          text
+                        )}
                       </td>
                     );
                   })}
@@ -182,11 +208,11 @@ function StandingsSection({
                         : 'px-3 py-2 tabular-nums text-right font-bold text-primary'
                     }
                   >
-                    {row.gross}
+                    {formatPlace(row.gross)}
                   </td>
                   {hasDiscards && (
                     <td className="px-3 py-2 tabular-nums text-right font-bold text-primary">
-                      {row.total}
+                      {formatPlace(row.total)}
                     </td>
                   )}
                 </tr>
@@ -372,14 +398,171 @@ function BucketEditor({
   );
 }
 
+/** The scorer-entered place adjustments: a committee's number with its
+ *  explanation, shown on the ladder as an asterisked place. */
+function AdjustmentsCard({
+  adjustments,
+  entrants,
+  seriesOptions,
+  onChange,
+}: {
+  adjustments: RankingAdjustment[];
+  entrants: Array<{ identityId: string; label: string }>;
+  seriesOptions: Array<{ id: string; name: string }>;
+  onChange: (next: RankingAdjustment[]) => void;
+}) {
+  const [identityId, setIdentityId] = useState('');
+  const [seriesId, setSeriesId] = useState('');
+  const [place, setPlace] = useState('');
+  const [note, setNote] = useState('');
+
+  const labelOf = (id: string) =>
+    entrants.find((e) => e.identityId === id)?.label ?? 'Unknown sailor';
+  const seriesNameOf = (id: string) =>
+    seriesOptions.find((s) => s.id === id)?.name ?? 'Removed series';
+
+  const parsedPlace = Number(place);
+  const canAdd =
+    identityId !== '' &&
+    seriesId !== '' &&
+    Number.isFinite(parsedPlace) &&
+    parsedPlace > 0 &&
+    note.trim() !== '';
+
+  const add = () => {
+    onChange([
+      // One adjustment per sailor+series: adding again replaces it.
+      ...adjustments.filter(
+        (a) => !(a.identityId === identityId && a.seriesId === seriesId),
+      ),
+      { identityId, seriesId, place: parsedPlace, note: note.trim() },
+    ]);
+    setIdentityId('');
+    setSeriesId('');
+    setPlace('');
+    setNote('');
+  };
+
+  const selectClass =
+    'h-8 rounded-md border bg-background px-2 text-sm max-w-48';
+  return (
+    <div className="rounded-lg border bg-card p-4 space-y-3" data-testid="adjustments-card">
+      <div>
+        <h3 className="text-sm font-medium">Adjustments</h3>
+        <p className="text-xs text-muted-foreground">
+          Set a sailor&rsquo;s place for an event by hand — an averaged place
+          for representational duty, medical redress. Shown with an asterisk;
+          the note explains it.
+        </p>
+      </div>
+      {adjustments.length > 0 && (
+        <ul className="divide-y rounded-md border">
+          {adjustments.map((a) => (
+            <li
+              key={`${a.identityId}:${a.seriesId}`}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm"
+            >
+              <span className="min-w-0 truncate">
+                {labelOf(a.identityId)} — {seriesNameOf(a.seriesId)}:{' '}
+                <span className="font-medium">{formatPlace(a.place)}*</span>
+              </span>
+              <span className="min-w-0 truncate text-muted-foreground text-xs ml-auto">
+                {a.note}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="shrink-0 text-muted-foreground hover:text-destructive"
+                title="Remove this adjustment"
+                onClick={() =>
+                  onChange(
+                    adjustments.filter(
+                      (x) =>
+                        !(
+                          x.identityId === a.identityId &&
+                          x.seriesId === a.seriesId
+                        ),
+                    ),
+                  )
+                }
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex flex-wrap items-end gap-2">
+        <select
+          aria-label="Adjustment sailor"
+          className={selectClass}
+          value={identityId}
+          onChange={(e) => setIdentityId(e.target.value)}
+        >
+          <option value="">Sailor…</option>
+          {entrants.map((e) => (
+            <option key={e.identityId} value={e.identityId}>
+              {e.label}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Adjustment series"
+          className={selectClass}
+          value={seriesId}
+          onChange={(e) => setSeriesId(e.target.value)}
+        >
+          <option value="">Series…</option>
+          {seriesOptions.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+        <Input
+          aria-label="Adjustment place"
+          type="number"
+          min={0.5}
+          step={0.1}
+          value={place}
+          onChange={(e) => setPlace(e.target.value)}
+          placeholder="Place"
+          className="h-8 w-24"
+        />
+        <Input
+          aria-label="Adjustment note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Why — e.g. Worlds team duty"
+          maxLength={200}
+          className="h-8 w-64"
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={!canAdd}
+          onClick={add}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add adjustment
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ConfigEditor({
   ranking,
   seriesList,
+  entrants,
   workspaceSlug,
   onSaved,
 }: {
   ranking: RankingDto;
   seriesList: Series[];
+  entrants: Array<{ identityId: string; label: string }>;
   workspaceSlug: string;
   onSaved: () => void;
 }) {
@@ -387,6 +570,9 @@ function ConfigEditor({
   const [name, setName] = useState(ranking.name);
   const [buckets, setBuckets] = useState<RankingBucket[]>(
     ranking.config.buckets,
+  );
+  const [adjustments, setAdjustments] = useState<RankingAdjustment[]>(
+    ranking.config.adjustments ?? [],
   );
   const [nationality, setNationality] = useState(
     ranking.config.nationality ?? '',
@@ -409,6 +595,7 @@ function ConfigEditor({
         : {}),
       ...(nationality.trim() && recomputePlaces ? { recomputePlaces: true } : {}),
       ...(fleet.trim() ? { fleet: fleet.trim() } : {}),
+      ...(adjustments.length > 0 ? { adjustments } : {}),
     };
     put.mutate(
       {
@@ -522,6 +709,17 @@ function ConfigEditor({
           />
         ))}
       </div>
+
+      <AdjustmentsCard
+        adjustments={adjustments}
+        entrants={entrants}
+        seriesOptions={[...new Set(buckets.flatMap((b) => b.seriesIds))]
+          .map((id) => ({
+            id,
+            name: seriesList.find((s) => s.id === id)?.name ?? 'Removed series',
+          }))}
+        onChange={setAdjustments}
+      />
 
       <div className="flex items-center gap-2">
         <Button
@@ -641,6 +839,13 @@ export function RankingDetail({
             key={`${ranking.id}:${editorEpoch}`}
             ranking={ranking}
             seriesList={seriesList ?? []}
+            entrants={
+              standings
+                ? [...standings.result.rows, ...standings.result.ineligible]
+                    .map(({ identityId, label }) => ({ identityId, label }))
+                    .sort((a, b) => a.label.localeCompare(b.label))
+                : []
+            }
             workspaceSlug={workspaceSlug}
             onSaved={() => setEditorEpoch((n) => n + 1)}
           />

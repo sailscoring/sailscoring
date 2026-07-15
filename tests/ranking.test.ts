@@ -83,9 +83,9 @@ describe('computeRanking', () => {
     const junior = rows[1];
     const regional = junior.buckets.find((b) => b.bucketId === 'regional')!;
     expect(regional.places).toEqual([
-      { seriesId: SPRINGS, place: 2, counted: true },
-      { seriesId: ULSTERS, place: 4, counted: true },
-      { seriesId: MUNSTERS, place: 6, counted: false },
+      { seriesId: SPRINGS, place: 2, counted: true, adjusted: false },
+      { seriesId: ULSTERS, place: 4, counted: true, adjusted: false },
+      { seriesId: MUNSTERS, place: 6, counted: false, adjusted: false },
     ]);
     expect(junior.gross).toBe(15); // 3 + 2 + 4 + 6
     // The Senior discarded nothing: gross equals net.
@@ -175,6 +175,66 @@ describe('computeRanking', () => {
     expect(rows.map((r) => [r.label, r.total])).toEqual([
       ['Once Out', 4],
       ['Twice Out', 8],
+    ]);
+  });
+
+  test('an adjustment inserts a place for a missed series and grants the floor', () => {
+    // The Donagh case: away at the Worlds for the Ulsters, given an averaged
+    // 1.5 by the committee. The adjusted place counts toward the bucket
+    // floor, enters best-N, and is flagged for the asterisk.
+    const config: RankingConfig = {
+      buckets: [
+        {
+          id: 'regional',
+          name: 'Regional',
+          seriesIds: [SPRINGS, ULSTERS, MUNSTERS],
+          countBest: 2,
+          requiredMin: 2,
+        },
+      ],
+      adjustments: [
+        { identityId: 'id-maeve', seriesId: ULSTERS, place: 1.5, note: 'Worlds team duty' },
+      ],
+    };
+    const { rows, ineligible } = computeRanking(config, [
+      entrant('Maeve', { [SPRINGS]: 1 }),
+      entrant('Rival', { [SPRINGS]: 2, [MUNSTERS]: 2 }),
+    ]);
+    expect(ineligible).toEqual([]);
+    expect(rows.map((r) => [r.rank, r.label, r.total])).toEqual([
+      [1, 'Maeve', 2.5],
+      [2, 'Rival', 4],
+    ]);
+    expect(rows[0].buckets[0].places).toEqual([
+      { seriesId: SPRINGS, place: 1, counted: true, adjusted: false },
+      { seriesId: ULSTERS, place: 1.5, counted: true, adjusted: true },
+    ]);
+  });
+
+  test('an adjustment replaces a computed place and can itself be discarded', () => {
+    const config: RankingConfig = {
+      buckets: [
+        {
+          id: 'all',
+          name: 'All',
+          seriesIds: [SPRINGS, ULSTERS],
+          countBest: 1,
+          requiredMin: 1,
+        },
+      ],
+      adjustments: [
+        { identityId: 'id-anna', seriesId: SPRINGS, place: 4, note: 'Scoring review' },
+      ],
+    };
+    const { rows } = computeRanking(config, [
+      // Sailed Springs 1st, but the committee reset it to 4th; her Ulsters
+      // 2nd now counts and the adjusted 4 is the discard.
+      entrant('Anna', { [SPRINGS]: 1, [ULSTERS]: 2 }),
+    ]);
+    expect(rows[0].total).toBe(2);
+    expect(rows[0].buckets[0].places).toEqual([
+      { seriesId: ULSTERS, place: 2, counted: true, adjusted: false },
+      { seriesId: SPRINGS, place: 4, counted: false, adjusted: true },
     ]);
   });
 });
