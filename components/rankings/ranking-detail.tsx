@@ -191,12 +191,22 @@ function StandingsSection({
           <span className="font-medium">Not yet ranked:</span>{' '}
           {result.ineligible
             .map((entry) => {
+              // Match scores to config buckets by id, not index: right after
+              // a save the config (detail query) can be ahead of the computed
+              // standings (still refetching), so a just-added bucket has no
+              // score yet — treat it as 0 sailed rather than crashing.
               const short = buckets
-                .map((b, i) => ({ bucket: b, score: entry.buckets[i] }))
-                .filter(({ bucket, score }) => bucketSailed(score) < bucket.requiredMin)
+                .map((b) => ({
+                  bucket: b,
+                  sailed: entry.buckets.find((s) => s.bucketId === b.id),
+                }))
+                .filter(
+                  ({ bucket, sailed }) =>
+                    (sailed ? bucketSailed(sailed) : 0) < bucket.requiredMin,
+                )
                 .map(
-                  ({ bucket, score }) =>
-                    `${bucketSailed(score)}/${bucket.requiredMin} in ${bucket.name || 'bucket'}`,
+                  ({ bucket, sailed }) =>
+                    `${sailed ? bucketSailed(sailed) : 0}/${bucket.requiredMin} in ${bucket.name || 'bucket'}`,
                 )
                 .join(', ');
               return `${entry.label} (${short})`;
