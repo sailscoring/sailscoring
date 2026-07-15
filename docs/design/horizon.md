@@ -1240,11 +1240,11 @@ The ranking, lazy population, and reconcile UI shipped together (July 2026):
   split. Splits land on fresh confirmed identities so the auto-pass never
   re-fuses them. A merged-away identity's public slug stops resolving — slug
   aliases/redirects are deferred until someone actually misses them.
-- **IODAI competitor-history cleanup** — **#218**. Methodical, repeatable
-  corrections keyed on vanity slugs (the iodai-archive manifest); fixes
-  blank / mojibake / malformed names at source and re-imports. The manifest
-  remains authoritative over rows it covers when re-applied — fold in-app
-  corrections into it before any archive rebuild.
+- **IODAI competitor-history cleanup** — **#218, done**. Repeatable
+  corrections keyed on vanity slugs (the iodai-archive manifest) fixed
+  blank / mojibake / malformed names at source. The standing convention: the
+  manifest remains authoritative over rows it covers when re-applied — fold
+  in-app corrections into it before any archive rebuild.
 
 External reconciliation against real member databases stays the separate horizon
 entry above (*Reconciling competitor identity with external member databases*).
