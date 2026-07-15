@@ -1059,7 +1059,12 @@ export function getRanking(id: string): Promise<RankingDto> {
 
 export function putRanking(
   id: string,
-  input: { name: string; config: RankingConfig; published: boolean },
+  input: {
+    name: string;
+    config: RankingConfig;
+    published: boolean;
+    slug?: string;
+  },
 ): Promise<RankingDto> {
   return apiFetch<RankingDto>(`/api/v1/rankings/${id}`, {
     method: 'PUT',

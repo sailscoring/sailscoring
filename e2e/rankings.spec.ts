@@ -91,22 +91,32 @@ test.describe('cross-series rankings', () => {
     await regional.getByRole('checkbox', { name: /Ulsters 2026/ }).check();
     await regional.getByRole('checkbox', { name: /Munsters 2026/ }).check();
 
-    // Public from the start, so the page link appears on save.
+    // Choose the public URL (editable while private, frozen once published)
+    // and go public from the start, so the page link appears on save.
+    await page.getByLabel('Public URL').fill('national-ladder');
     await page.getByRole('switch', { name: 'Public page' }).check();
     await page.getByRole('button', { name: 'Save ranking' }).click();
 
     // The computed ladder: Aoife and Brian tie on 3 (sharing rank 1,
-    // alphabetical within the tie), Cara third on 4.
+    // alphabetical within the tie), Cara third on 4. The table reads like
+    // standings — a column per series, discards in parentheses, Total and
+    // Net (Aoife sailed both regionals; best-1 discards her Munsters 2nd).
     const table = page.getByTestId('ranking-standings');
     await expect(table).toBeVisible({ timeout: 15_000 });
+    await expect(table).toContainText('Nationals 2026');
+    await expect(table).toContainText('Net');
     const rows = table.locator('tbody tr');
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(0)).toContainText('1');
     await expect(rows.nth(0)).toContainText('Aoife Kelly');
+    await expect(rows.nth(0)).toContainText('(2)');
     await expect(rows.nth(1)).toContainText('1');
     await expect(rows.nth(1)).toContainText('Brian Byrne');
     await expect(rows.nth(2)).toContainText('3');
     await expect(rows.nth(2)).toContainText('Cara Walsh');
+
+    // Published now, so the URL is frozen in the editor.
+    await expect(page.getByLabel('Public URL')).toBeDisabled();
 
     // The in-app view counts Munsters, but warns that the public page won't.
     await expect(
@@ -119,6 +129,8 @@ test.describe('cross-series rankings', () => {
     const publicLink = page.getByRole('link', { name: /\/p\/.*\/ranking\// });
     const publicUrl = await publicLink.getAttribute('href');
     expect(publicUrl).toBeTruthy();
+    // The page lives at the chosen slug.
+    expect(publicUrl).toMatch(/\/ranking\/national-ladder$/);
     const res = await page.goto(publicUrl!);
     expect(res?.status()).toBe(200);
     await expect(

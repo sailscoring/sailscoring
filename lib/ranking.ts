@@ -71,10 +71,21 @@ export interface RankingEntrant {
 /** A sailor's score within one bucket. */
 export interface RankingBucketScore {
   bucketId: string;
-  /** The places that count, best first, with their series. */
-  counted: Array<{ seriesId: string; place: number }>;
-  /** How many of the bucket's series the sailor placed in. */
-  sailed: number;
+  /** Every place the sailor sailed in the bucket's series, best first. The
+   *  best `countBest` are flagged counted; the rest are the discards. */
+  places: Array<{ seriesId: string; place: number; counted: boolean }>;
+}
+
+/** How many of the bucket's series the sailor placed in. */
+export function bucketSailed(score: RankingBucketScore): number {
+  return score.places.length;
+}
+
+/** The places that count towards the total, best first. */
+export function bucketCounted(
+  score: RankingBucketScore,
+): Array<{ seriesId: string; place: number }> {
+  return score.places.filter((p) => p.counted);
 }
 
 /** One row of the computed ladder. */
@@ -86,6 +97,9 @@ export interface RankingRow {
   rank: number;
   /** Sum of counted places across buckets — lower is better. */
   total: number;
+  /** Sum of every sailed place, discards included — the standings-style
+   *  gross alongside the net `total`. */
+  gross: number;
   buckets: RankingBucketScore[];
 }
 
@@ -114,8 +128,10 @@ function bucketScore(
     .sort((a, b) => a.place - b.place);
   return {
     bucketId: bucket.id,
-    counted: inBucket.slice(0, Math.max(0, bucket.countBest)),
-    sailed: inBucket.length,
+    places: inBucket.map((p, i) => ({
+      ...p,
+      counted: i < Math.max(0, bucket.countBest),
+    })),
   };
 }
 
@@ -142,11 +158,11 @@ export function computeRanking(
       continue;
     }
     const buckets = config.buckets.map((b) => bucketScore(b, entrant.places));
-    const sailedAny = buckets.some((b) => b.sailed > 0);
+    const sailedAny = buckets.some((b) => b.places.length > 0);
     if (!sailedAny) continue;
 
     const eligible = config.buckets.every(
-      (b, i) => buckets[i].sailed >= b.requiredMin,
+      (b, i) => buckets[i].places.length >= b.requiredMin,
     );
     if (!eligible) {
       ineligible.push({
@@ -158,7 +174,12 @@ export function computeRanking(
       continue;
     }
     const total = buckets.reduce(
-      (sum, b) => sum + b.counted.reduce((s, c) => s + c.place, 0),
+      (sum, b) =>
+        sum + b.places.reduce((s, p) => s + (p.counted ? p.place : 0), 0),
+      0,
+    );
+    const gross = buckets.reduce(
+      (sum, b) => sum + b.places.reduce((s, p) => s + p.place, 0),
       0,
     );
     rows.push({
@@ -167,6 +188,7 @@ export function computeRanking(
       slug: entrant.slug,
       club: entrant.club,
       total,
+      gross,
       buckets,
     });
   }

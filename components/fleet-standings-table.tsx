@@ -349,8 +349,10 @@ function StandingRow({
  * colour is chosen from `rank`, while `label` controls what's shown inside —
  * the overall Rank column shows the rank itself, but per-race cells show the
  * race points (which equal the finishing place for clean finishers).
+ * Shared with the cross-series ranking ladder, whose per-series place cells
+ * medal the same way.
  */
-function RankBadge({ rank, label }: { rank: number; label?: ReactNode }) {
+export function RankBadge({ rank, label }: { rank: number; label?: ReactNode }) {
   const content = label ?? rank;
   const medal =
     rank === 1

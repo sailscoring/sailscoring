@@ -74,11 +74,19 @@ describe('computeRanking', () => {
       [1, 'Senior Sailor', 8],
       [2, 'Junior Sailor', 9],
     ]);
-    // The Junior's 6th was discarded by best-2.
+    // The Junior's 6th was discarded by best-2 — present in the bucket's
+    // places (for the standings-style table) but not counted, and part of
+    // the gross total alongside the net.
     const junior = rows[1];
     const regional = junior.buckets.find((b) => b.bucketId === 'regional')!;
-    expect(regional.counted.map((c) => c.place)).toEqual([2, 4]);
-    expect(regional.sailed).toBe(3);
+    expect(regional.places).toEqual([
+      { seriesId: SPRINGS, place: 2, counted: true },
+      { seriesId: ULSTERS, place: 4, counted: true },
+      { seriesId: MUNSTERS, place: 6, counted: false },
+    ]);
+    expect(junior.gross).toBe(15); // 3 + 2 + 4 + 6
+    // The Senior discarded nothing: gross equals net.
+    expect(rows[0].gross).toBe(rows[0].total);
   });
 
   test('missing a bucket floor excludes from the ladder, into ineligible', () => {

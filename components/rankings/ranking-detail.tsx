@@ -19,8 +19,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { RankBadge } from '@/components/fleet-standings-table';
 import type { RankingDto } from '@/lib/api-handlers/rankings';
-import { newRankingBucket, type RankingBucket, type RankingConfig } from '@/lib/ranking';
+import {
+  bucketSailed,
+  newRankingBucket,
+  type RankingBucket,
+  type RankingConfig,
+} from '@/lib/ranking';
 import type { RankingStandingsData } from '@/lib/ranking-standings';
 import type { Series } from '@/lib/types';
 
@@ -42,6 +48,21 @@ function StandingsSection({
   const { result, unmatchedCount, includedSeries } = standings;
   const buckets = ranking.config.buckets;
   const unpublished = includedSeries.filter((s) => !s.published);
+  // The ladder reads like a standings table: one column per series, a
+  // sailor's place in each, discards in parentheses. Net (the ranking basis)
+  // only earns its own column when a discard exists somewhere.
+  const hasDiscards = result.rows.some((row) => row.gross !== row.total);
+  const placesBySeries = (row: {
+    buckets: Array<{ places: Array<{ seriesId: string; place: number; counted: boolean }> }>;
+  }) => {
+    const map = new Map<string, { place: number; counted: boolean }>();
+    for (const b of row.buckets) {
+      for (const p of b.places) {
+        if (!map.has(p.seriesId)) map.set(p.seriesId, p);
+      }
+    }
+    return map;
+  };
 
   return (
     <div className="space-y-3">
@@ -85,18 +106,25 @@ function StandingsSection({
                 <th className="px-3 py-2 font-medium">Rank</th>
                 <th className="px-3 py-2 font-medium">Sailor</th>
                 <th className="px-3 py-2 font-medium">Club</th>
-                {buckets.map((b) => (
-                  <th key={b.id} className="px-3 py-2 font-medium">
-                    {b.name || 'Bucket'}
+                {includedSeries.map((s) => (
+                  <th key={s.id} className="px-3 py-2 font-medium text-center">
+                    {s.name}
                   </th>
                 ))}
                 <th className="px-3 py-2 font-medium text-right">Total</th>
+                {hasDiscards && (
+                  <th className="px-3 py-2 font-medium text-right">Net</th>
+                )}
               </tr>
             </thead>
             <tbody>
-              {result.rows.map((row) => (
+              {result.rows.map((row) => {
+                const places = placesBySeries(row);
+                return (
                 <tr key={row.identityId} className="border-b last:border-b-0">
-                  <td className="px-3 py-2 tabular-nums">{row.rank}</td>
+                  <td className="px-3 py-2 tabular-nums">
+                    <RankBadge rank={row.rank} />
+                  </td>
                   <td className="px-3 py-2 font-medium">
                     {competitorLinks && row.slug ? (
                       <a
@@ -114,16 +142,45 @@ function StandingsSection({
                   <td className="px-3 py-2 text-muted-foreground">
                     {row.club ?? ''}
                   </td>
-                  {row.buckets.map((b) => (
-                    <td key={b.bucketId} className="px-3 py-2 tabular-nums text-muted-foreground">
-                      {b.counted.map((c) => c.place).join(' + ') || '—'}
-                    </td>
-                  ))}
-                  <td className="px-3 py-2 tabular-nums text-right font-semibold">
-                    {row.total}
+                  {includedSeries.map((s) => {
+                    const p = places.get(s.id);
+                    if (!p) {
+                      return (
+                        <td key={s.id} className="px-3 py-2 text-center text-muted-foreground">
+                          —
+                        </td>
+                      );
+                    }
+                    if (!p.counted) {
+                      return (
+                        <td key={s.id} className="px-3 py-2 text-center tabular-nums text-muted-foreground">
+                          ({p.place})
+                        </td>
+                      );
+                    }
+                    return (
+                      <td key={s.id} className="px-3 py-2 text-center tabular-nums">
+                        {p.place <= 3 ? <RankBadge rank={p.place} /> : p.place}
+                      </td>
+                    );
+                  })}
+                  <td
+                    className={
+                      hasDiscards
+                        ? 'px-3 py-2 tabular-nums text-right font-semibold'
+                        : 'px-3 py-2 tabular-nums text-right font-bold text-primary'
+                    }
+                  >
+                    {row.gross}
                   </td>
+                  {hasDiscards && (
+                    <td className="px-3 py-2 tabular-nums text-right font-bold text-primary">
+                      {row.total}
+                    </td>
+                  )}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -136,10 +193,10 @@ function StandingsSection({
             .map((entry) => {
               const short = buckets
                 .map((b, i) => ({ bucket: b, score: entry.buckets[i] }))
-                .filter(({ bucket, score }) => score.sailed < bucket.requiredMin)
+                .filter(({ bucket, score }) => bucketSailed(score) < bucket.requiredMin)
                 .map(
                   ({ bucket, score }) =>
-                    `${score.sailed}/${bucket.requiredMin} in ${bucket.name || 'bucket'}`,
+                    `${bucketSailed(score)}/${bucket.requiredMin} in ${bucket.name || 'bucket'}`,
                 )
                 .join(', ');
               return `${entry.label} (${short})`;
@@ -294,10 +351,12 @@ function BucketEditor({
 function ConfigEditor({
   ranking,
   seriesList,
+  workspaceSlug,
   onSaved,
 }: {
   ranking: RankingDto;
   seriesList: Series[];
+  workspaceSlug: string;
   onSaved: () => void;
 }) {
   const put = usePutRanking();
@@ -310,6 +369,10 @@ function ConfigEditor({
   );
   const [fleet, setFleet] = useState(ranking.config.fleet ?? '');
   const [published, setPublished] = useState(ranking.published);
+  const [slug, setSlug] = useState(ranking.slug ?? '');
+  // Like a series slug: choosable while the ranking is private, fixed once
+  // it has been published.
+  const slugFrozen = ranking.published;
 
   const save = () => {
     const config: RankingConfig = {
@@ -320,7 +383,13 @@ function ConfigEditor({
       ...(fleet.trim() ? { fleet: fleet.trim() } : {}),
     };
     put.mutate(
-      { id: ranking.id, name: name.trim(), config, published },
+      {
+        id: ranking.id,
+        name: name.trim(),
+        config,
+        published,
+        ...(!slugFrozen && slug.trim() ? { slug: slug.trim() } : {}),
+      },
       { onSuccess: onSaved },
     );
   };
@@ -369,6 +438,33 @@ function ConfigEditor({
         </label>
       </div>
 
+      <div className="space-y-1">
+        <Label htmlFor="ranking-slug">Public URL</Label>
+        <div className="flex items-center gap-1">
+          <span className="text-sm text-muted-foreground shrink-0">
+            /p/{workspaceSlug}/ranking/
+          </span>
+          <Input
+            id="ranking-slug"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            disabled={slugFrozen}
+            title={
+              slugFrozen
+                ? 'The URL is fixed while the ranking is published'
+                : undefined
+            }
+            maxLength={60}
+            className="h-8 w-64"
+          />
+        </div>
+        {!slugFrozen && (
+          <p className="text-xs text-muted-foreground">
+            Lowercase letters, numbers, and hyphens. Fixed once published.
+          </p>
+        )}
+      </div>
+
       <div className="space-y-3">
         {buckets.map((bucket, i) => (
           <BucketEditor
@@ -408,6 +504,12 @@ function ConfigEditor({
           Save ranking
         </Button>
       </div>
+      {put.isError && (
+        <p className="text-sm text-destructive">
+          Couldn&rsquo;t save:{' '}
+          {put.error instanceof Error ? put.error.message : 'try again'}
+        </p>
+      )}
     </div>
   );
 }
@@ -498,6 +600,7 @@ export function RankingDetail({
             key={`${ranking.id}:${editorEpoch}`}
             ranking={ranking}
             seriesList={seriesList ?? []}
+            workspaceSlug={workspaceSlug}
             onSaved={() => setEditorEpoch((n) => n + 1)}
           />
         </section>

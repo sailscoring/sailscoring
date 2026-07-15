@@ -193,8 +193,10 @@ async function rankingPage(
     ...standings.includedSeries.map((s) => `series:${s.id}:${s.name}`),
     ...standings.result.rows.map(
       (r) =>
-        `${r.identityId}:${r.rank}:${r.total}:${r.label}:${r.buckets
-          .map((b) => b.counted.map((c) => c.place).join(','))
+        `${r.identityId}:${r.rank}:${r.total}:${r.gross}:${r.label}:${r.buckets
+          .map((b) =>
+            b.places.map((p) => `${p.place}${p.counted ? '' : 'd'}`).join(','),
+          )
           .join('|')}`,
     ),
   ])}"`;

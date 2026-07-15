@@ -63,6 +63,7 @@ export function usePutRanking() {
       name: string;
       config: RankingConfig;
       published: boolean;
+      slug?: string;
     }) => putRanking(id, input),
     onSuccess: invalidate,
   });

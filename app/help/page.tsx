@@ -1733,8 +1733,15 @@ export default async function HelpPage() {
           fleet filter naming that fleet.
         </p>
         <p>
+          The ladder reads like a standings table: a column per series showing
+          each sailor&rsquo;s place, discarded places in parentheses, podium
+          places medal-coloured, and Total alongside the Net that ranks.
+        </p>
+        <p>
           Switch <strong className="text-foreground">Public page</strong> on to
-          host the ladder at a public URL that updates as results land. The
+          host the ladder at a public URL that updates as results land. As with
+          publishing standings, you choose the URL&rsquo;s last segment while
+          the ranking is private; once published it&rsquo;s fixed. The
           public ladder counts <strong className="text-foreground">published
           series only</strong> and names exactly which series it&rsquo;s based
           on — publish the contributing series to bring them in.

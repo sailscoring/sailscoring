@@ -23,8 +23,14 @@ const RANKING_CSS = `.ladder { width: 100%; border-collapse: collapse; backgroun
 .ladder .sailor a { color: #073358; text-decoration: none; }
 .ladder .sailor a:hover { color: #fb3a3b; text-decoration: underline; }
 .ladder .club { color: #6b7280; }
-.ladder .places { color: #6b7280; font-variant-numeric: tabular-nums; }
-.ladder .total { font-weight: 700; color: #073358; text-align: right; font-variant-numeric: tabular-nums; }
+.ladder th.place, .ladder td.place { text-align: center; }
+.ladder .place { color: #1a2b3c; font-variant-numeric: tabular-nums; }
+.ladder .place.blank, .ladder .place.discard { color: #6b7280; }
+.ladder td.rank1 { background: #d4a72c; }
+.ladder td.rank2 { background: #aab0b6; }
+.ladder td.rank3 { background: #c98a5e; }
+.ladder td.discard { background: #f2f2f2; }
+.ladder .total, .ladder .net { font-weight: 700; color: #073358; text-align: right; font-variant-numeric: tabular-nums; }
 .basis { color: #6b7280; font-size: 0.85em; margin: 16px 0 0; }
 p.empty { color: #6b7280; text-align: center; margin: 48px 0; }`;
 
@@ -58,8 +64,12 @@ export function renderRankingHtml(
     );
   }
 
-  const bucketHeads = config.buckets
-    .map((b) => `<th>${esc(b.name || 'Bucket')}</th>`)
+  // Standings-like: one column per series, discards in parentheses, podium
+  // places in the published-standings medal colours (discards lose the
+  // medal), gross Total and — when a discard exists — the Net that ranks.
+  const hasDiscards = rows.some((row) => row.gross !== row.total);
+  const seriesHeads = standings.includedSeries
+    .map((s) => `<th class="place">${esc(s.name)}</th>`)
     .join('');
   const body = rows
     .map((row) => {
@@ -67,18 +77,29 @@ export function renderRankingHtml(
         opts.competitorLinks && row.slug
           ? `<a href="/p/${esc(workspaceSlug)}/competitor/${esc(row.slug)}">${esc(row.label)}</a>`
           : esc(row.label);
-      const bucketCells = row.buckets
-        .map(
-          (b) =>
-            `<td class="places">${b.counted.map((c) => c.place).join(' + ') || '&mdash;'}</td>`,
-        )
+      const places = new Map<string, { place: number; counted: boolean }>();
+      for (const b of row.buckets) {
+        for (const p of b.places) {
+          if (!places.has(p.seriesId)) places.set(p.seriesId, p);
+        }
+      }
+      const placeCells = standings.includedSeries
+        .map((s) => {
+          const p = places.get(s.id);
+          if (!p) return `<td class="place blank">&mdash;</td>`;
+          if (!p.counted) return `<td class="place discard">(${p.place})</td>`;
+          const medal = p.place <= 3 ? ` rank${p.place}` : '';
+          return `<td class="place${medal}">${p.place}</td>`;
+        })
         .join('');
-      return `<tr><td class="rank">${row.rank}</td><td class="sailor">${sailor}</td><td class="club">${esc(row.club ?? '')}</td>${bucketCells}<td class="total">${row.total}</td></tr>`;
+      const netCell = hasDiscards ? `<td class="net">${row.total}</td>` : '';
+      return `<tr><td class="rank">${row.rank}</td><td class="sailor">${sailor}</td><td class="club">${esc(row.club ?? '')}</td>${placeCells}<td class="total">${row.gross}</td>${netCell}</tr>`;
     })
     .join('\n');
 
+  const netHead = hasDiscards ? '<th style="text-align:right">Net</th>' : '';
   const table = `<table class="ladder">
-<thead><tr><th>Rank</th><th>Sailor</th><th>Club</th>${bucketHeads}<th style="text-align:right">Total</th></tr></thead>
+<thead><tr><th>Rank</th><th>Sailor</th><th>Club</th>${seriesHeads}<th style="text-align:right">Total</th>${netHead}</tr></thead>
 <tbody>
 ${body}
 </tbody>

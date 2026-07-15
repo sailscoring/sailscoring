@@ -1213,13 +1213,24 @@ privacy) is preserved on #212.
 
 The ranking, lazy population, and reconcile UI shipped together (July 2026):
 
-- **Workspace cross-series ranking** — **#209, implemented**. Bucketed best-N
-  ladders (`rankings` feature, the Rankings workspace tab, live public page at
-  `/p/{ws}/ranking/{slug}` over published series only). Deliberately *not*
-  built: per-category (Senior/Junior) ladders, tie-breaks beyond shared ranks,
-  cross-series discards beyond best-N — add when IODAI asks. Still overlaps
-  season-spanning *views* (*Series lineage and seasons*) and perpetual trophies
-  (*Prize allocation*).
+- **Workspace cross-series ranking** — **#209, implemented; open for
+  refinements**. Bucketed best-N ladders (`rankings` feature, the Rankings
+  workspace tab, live public page at `/p/{ws}/ranking/{slug}` over published
+  series only). IODAI's actual rule is now captured
+  (`reference-docs:classes/iodai/`): Nationals place plus the two best of the
+  four Regional Championships, with Junior and Senior ranked separately — so
+  the "per-category ladders, add when IODAI asks" escape clause triggered, and
+  was answered by a per-ranking **fleet filter** (matched by fleet name across
+  the config's series); a Junior/Senior pair is two saved rankings differing
+  only in the filter. Open on the issue: whether "excluding non-Irish sailors"
+  means places are *recomputed* after removing non-Irish boats (today we sum
+  full-fleet places and only hide them from the ladder) — needs IODAI's answer
+  before the ladder is authoritative for trials selection — plus surface
+  refinements (standings-like ladder table, slug choice at publish).
+  Deliberately manual: representational-duty average placings and SPRC
+  discretionary adjustments. Still not built: tie-breaks beyond shared ranks,
+  cross-series discards beyond best-N. Still overlaps season-spanning *views*
+  (*Series lineage and seasons*) and perpetual trophies (*Prize allocation*).
 - **On-demand identity population** — **#222, implemented**. The reconcile pass
   runs automatically after competitor writes (one matching model — the batch
   CLI and the hook share `lib/competitor-identity-reconcile.ts`). Future

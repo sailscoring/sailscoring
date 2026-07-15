@@ -45,9 +45,10 @@ const MAX_SLUG_LENGTH = 60;
 const PUBLISH_BLOB_CONCURRENCY = 16;
 
 /** A slug or sub-path: lowercase alphanumerics in hyphen-separated runs, no
- *  leading/trailing/double hyphens, capped length. Shared by the series slug
- *  and the per-fleet sub-path overrides — same character set, same limit. */
-function isValidSlugSegment(value: string): boolean {
+ *  leading/trailing/double hyphens, capped length. Shared by the series slug,
+ *  the per-fleet sub-path overrides, and ranking slugs — same character set,
+ *  same limit. */
+export function isValidSlugSegment(value: string): boolean {
   return value.length <= MAX_SLUG_LENGTH && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 }
 

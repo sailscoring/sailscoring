@@ -2,7 +2,8 @@ import 'server-only';
 
 import { and, eq, isNotNull } from 'drizzle-orm';
 
-import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
+import { isValidSlugSegment } from '@/lib/api-handlers/publish';
 import {
   requireFeature,
   type WorkspaceContext,
@@ -125,10 +126,43 @@ export async function putRanking(
   requireFeature(workspace, 'rankings');
   const input = rankingUpdateSchema.parse(body);
   const existing = await getRow(workspace.workspaceId, id);
+
+  // The slug is the public URL: choosable while the ranking is private,
+  // frozen once it has been published (like a series slug).
+  let slug = existing.slug;
+  if (input.slug !== undefined && input.slug !== existing.slug) {
+    if (existing.publishedAt !== null) {
+      throw new BadRequestError(
+        'the slug is fixed while the ranking is published',
+        { code: 'slug-frozen' },
+      );
+    }
+    if (!isValidSlugSegment(input.slug)) {
+      throw new BadRequestError('invalid slug', { code: 'invalid-slug' });
+    }
+    const [taken] = await getDb()
+      .select({ id: rankings.id })
+      .from(rankings)
+      .where(
+        and(
+          eq(rankings.workspaceId, workspace.workspaceId),
+          eq(rankings.slug, input.slug),
+        ),
+      )
+      .limit(1);
+    if (taken && taken.id !== id) {
+      throw new BadRequestError('another ranking already uses that slug', {
+        code: 'slug-taken',
+      });
+    }
+    slug = input.slug;
+  }
+
   const [row] = await getDb()
     .update(rankings)
     .set({
       name: input.name,
+      slug,
       config: input.config,
       // The toggle keeps its original timestamp while it stays on.
       publishedAt: input.published

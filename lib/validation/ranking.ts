@@ -27,9 +27,12 @@ export const rankingCreateSchema = z.object({
   name: z.string().trim().min(1, 'a name is required').max(120),
 });
 
-/** Full update: name, config, and the public toggle. */
+/** Full update: name, config, the public toggle, and — while the ranking is
+ *  private — the public-page slug. Format/uniqueness are checked in the
+ *  handler so each rejection carries a specific `code`. */
 export const rankingUpdateSchema = z.object({
   name: z.string().trim().min(1, 'a name is required').max(120),
   config: rankingConfigSchema,
   published: z.boolean(),
+  slug: z.string().trim().toLowerCase().optional(),
 });
