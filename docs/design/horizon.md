@@ -1225,8 +1225,7 @@ The ranking, lazy population, and reconcile UI shipped together (July 2026):
   only in the filter. Open on the issue: whether "excluding non-Irish sailors"
   means places are *recomputed* after removing non-Irish boats (today we sum
   full-fleet places and only hide them from the ladder) — needs IODAI's answer
-  before the ladder is authoritative for trials selection — plus surface
-  refinements (standings-like ladder table, slug choice at publish).
+  before the ladder is authoritative for trials selection.
   Deliberately manual: representational-duty average placings and SPRC
   discretionary adjustments. Still not built: tie-breaks beyond shared ranks,
   cross-series discards beyond best-N. Still overlaps season-spanning *views*
