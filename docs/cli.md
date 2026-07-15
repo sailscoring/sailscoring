@@ -116,6 +116,21 @@ sailscoring activity list [--series <id>]
 sailscoring standings get <seriesId> [--fleet <name>]
 ```
 
+### Rankings
+
+Workspace cross-series rankings (#209); the workspace needs the `rankings`
+feature. `set` replaces the whole config (buckets, nationality/fleet filters,
+place recomputation, adjustments) from a JSON file — the scripting surface the
+archive pipelines use to replicate historical season rankings.
+
+```sh
+sailscoring ranking list
+sailscoring ranking create <name>
+sailscoring ranking get <id>
+sailscoring ranking set <id> [--config <file.json>] [--name <n>] [--slug <s>] [--publish|--unpublish]
+sailscoring ranking standings <id>              # the computed ladder (--json for the full shape)
+```
+
 ## Bulk import
 
 ```sh

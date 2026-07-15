@@ -17,6 +17,13 @@ import { archiveCommand } from './commands/archive';
 import { reorderCommand } from './commands/reorder';
 import { asPublishedCommand } from './commands/as-published';
 import {
+  rankingCreateCommand,
+  rankingGetCommand,
+  rankingListCommand,
+  rankingSetCommand,
+  rankingStandingsCommand,
+} from './commands/rankings';
+import {
   activityListCommand,
   categoryListCommand,
   competitorListCommand,
@@ -107,6 +114,13 @@ Reads (all accept --json / --output json; child resources take --series <id>)
   published list | published get <seriesId>
   activity list [--series <id>]
   standings get <seriesId> [--fleet <name>]
+  ranking list | ranking get <id> | ranking create <name>
+  ranking set <id> [--config <file.json>] [--name <n>] [--slug <s>] [--publish|--unpublish]
+      Replace a ranking's config (buckets, filters, adjustments) from a JSON
+      file — the scripting surface for replicating historical season
+      rankings. Needs the rankings feature.
+  ranking standings <id>
+      The computed ladder (every config series counts, published or not).
 
 Env: SAILSCORING_TOKEN and SAILSCORING_BASE_URL override the saved config.`;
 }
@@ -163,6 +177,28 @@ function publishedDispatch(rest: string[]): Promise<number> {
   return Promise.resolve(1);
 }
 
+function rankingDispatch(rest: string[]): Promise<number> {
+  const [verb, ...r] = rest;
+  const { positional, flags } = parseArgs(r);
+  switch (verb) {
+    case 'list':
+      return rankingListCommand(flags);
+    case 'get':
+      return rankingGetCommand(positional, flags);
+    case 'create':
+      return rankingCreateCommand(positional, flags);
+    case 'set':
+      return rankingSetCommand(positional, flags);
+    case 'standings':
+      return rankingStandingsCommand(positional, flags);
+    default:
+      console.error(
+        `ranking: unknown verb \`${verb ?? ''}\` (expected list|get|create|set|standings)`,
+      );
+      return Promise.resolve(1);
+  }
+}
+
 function getOnly(
   noun: string,
   rest: string[],
@@ -215,6 +251,8 @@ export async function runCli(argv: string[]): Promise<number> {
       return listOnly('activity', rest, activityListCommand);
     case 'published':
       return publishedDispatch(rest);
+    case 'ranking':
+      return rankingDispatch(rest);
     case 'as-published':
       return asPublishedCommand(rest);
     case 'standings':

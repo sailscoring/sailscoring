@@ -236,11 +236,62 @@ export class SailscoringClient {
     const q = seriesId ? `?seriesId=${encodeURIComponent(seriesId)}` : '';
     return this.request('GET', `/api/v1/activity${q}`);
   }
+
+  /** Workspace cross-series rankings (#209). Requires the rankings feature. */
+  async listRankings(): Promise<{ items: RankingItem[] }> {
+    return (await this.request('GET', '/api/v1/rankings')) as {
+      items: RankingItem[];
+    };
+  }
+
+  async getRanking(id: string): Promise<RankingItem> {
+    return (await this.request(
+      'GET',
+      `/api/v1/rankings/${id}`,
+    )) as RankingItem;
+  }
+
+  async createRanking(name: string): Promise<RankingItem> {
+    return (await this.request('POST', '/api/v1/rankings', {
+      body: { name },
+    })) as RankingItem;
+  }
+
+  /** Full update — name, config, public toggle, and (while private) slug. */
+  async putRanking(
+    id: string,
+    body: {
+      name: string;
+      config: unknown;
+      published: boolean;
+      slug?: string;
+    },
+  ): Promise<RankingItem> {
+    return (await this.request('PUT', `/api/v1/rankings/${id}`, {
+      body,
+    })) as RankingItem;
+  }
+
+  /** The computed ladder (every config series counts, published or not). */
+  rankingStandings(id: string): Promise<unknown> {
+    return this.request('GET', `/api/v1/rankings/${id}/standings`);
+  }
 }
 
 export interface Category {
   id: string;
   name: string;
+}
+
+/** A ranking as the CLI consumes it; `config` (buckets, filters,
+ *  adjustments) flows through untouched. */
+export interface RankingItem {
+  id: string;
+  name: string;
+  slug: string | null;
+  config: unknown;
+  published: boolean;
+  createdAt: string;
 }
 
 /** The identity list's row shape as the CLI consumes it (a subset of the
