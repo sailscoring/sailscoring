@@ -11,22 +11,28 @@ import { signedInTest as test, expect } from './fixtures';
  */
 test.describe('feature demo seeding (#256)', () => {
   test('enabling sub-series seeds an editable demo series', async ({ page }) => {
-    // Empty to begin with — no demo until the feature is switched on.
+    // Empty to begin with — no demo until the feature is switched on. This
+    // load also warms the client-side series-list cache, which the rest of
+    // the test must see invalidated.
     await page.goto('/');
     await expect(
       page.getByRole('link', { name: 'Sample Club League 2026' }),
     ).toHaveCount(0);
 
-    // Turn sub-series on from the Workspace-settings Features card.
-    await page.goto('/workspace');
+    // Turn sub-series on from the Workspace-settings Features card, reached
+    // by client-side navigation — no full page load anywhere from here on.
+    await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+    await expect(page).toHaveURL(/\/workspace$/);
     const toggle = page.getByTestId('feature-toggle-sub-series');
     await toggle.click();
     // The switch reflecting "on" means the PATCH (which seeds server-side)
     // resolved and the effective feature set re-resolved.
     await expect(toggle).toBeChecked();
 
-    // The demo now shows in the series list, grouped under "Samples".
-    await page.goto('/');
+    // Back to the series list via its tab: the demo must show without a
+    // reload — the toggle invalidates the cached series list, grouped under
+    // "Samples".
+    await page.getByRole('navigation').getByRole('link', { name: 'Series' }).click();
     const demo = page.getByRole('link', { name: 'Sample Club League 2026' });
     await expect(demo).toBeVisible();
     await demo.click();

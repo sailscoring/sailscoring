@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 
 import { useFeatures } from '@/components/features-provider';
 import { Switch } from '@/components/ui/switch';
+import { queryKeys } from '@/hooks/query-keys';
 import { setWorkspaceFeature } from '@/lib/api-repository';
 import { FEATURES, SELF_SERVICE_FEATURES, type FeatureKey } from '@/lib/features';
 
@@ -24,12 +26,18 @@ import { FEATURES, SELF_SERVICE_FEATURES, type FeatureKey } from '@/lib/features
 export function FeaturesCard() {
   const { has } = useFeatures();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [pending, setPending] = useState<FeatureKey | null>(null);
 
   async function toggle(feature: FeatureKey, enabled: boolean) {
     setPending(feature);
     try {
       await setWorkspaceFeature(feature, enabled);
+      // router.refresh() only re-resolves the server-computed feature set;
+      // enabling a feature can also seed its demo series (and a "Samples"
+      // category) server-side, which live in the client query cache.
+      await queryClient.invalidateQueries({ queryKey: queryKeys.series.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.categories.all });
       router.refresh();
     } finally {
       setPending(null);
