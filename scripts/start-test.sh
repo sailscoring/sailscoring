@@ -43,5 +43,11 @@ export DATABASE_URL="${DATABASE_URL:-postgres://sailscoring:sailscoring@localhos
 # at build time), then start. `exec` replaces this shell with `next
 # start` so signals reach Next.js directly — important for Playwright,
 # which sends SIGTERM when the test run ends.
+#
+# --keepAliveTimeout: Node's 5s default closes idle keep-alive sockets
+# right in the window where a loaded Playwright worker reuses one — the
+# reuse races the close and surfaces as ECONNRESET on API calls or
+# ERR_ABORTED on navigations. 70s puts the close far beyond any gap
+# between requests within a test.
 pnpm build
-exec pnpm start
+exec pnpm start --keepAliveTimeout 70000
