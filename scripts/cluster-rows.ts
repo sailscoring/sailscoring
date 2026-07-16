@@ -2,13 +2,13 @@
  * Pure clustering bridge (#218): cluster competitor rows fed in as JSON, with no
  * database.
  *
- * `reconcile-identities` clusters a live workspace; this exposes the same
- * canonical matcher (`lib/competitor-identity-cluster.ts`) to an *external*
- * caller that already owns its rows — notably the `iodai-archive` manifest
- * bootstrap, which clusters the reconstructed corpus keyed by its own
+ * The as-published archive apply clusters a live workspace; this exposes the
+ * same canonical matcher (`lib/competitor-identity-cluster.ts`) to an
+ * *external* caller that already owns its rows — notably the `iodai-archive`
+ * manifest bootstrap, which clusters the reconstructed corpus keyed by its own
  * `(series-slug, sail)` identifiers (the app mints fresh competitor ids on
- * import, so those can't be recovered after the fact). Keeping one matcher means
- * the draft manifest matches what `reconcile-identities` would produce.
+ * import, so those can't be recovered after the fact). Keeping one matcher
+ * means the draft manifest matches what the workspace apply would produce.
  *
  * Reads a `ClusterInput[]` JSON array on stdin, writes the `ClusterResult` JSON
  * to stdout. The caller's `competitorId` strings are opaque to the matcher and

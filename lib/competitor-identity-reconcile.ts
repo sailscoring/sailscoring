@@ -4,8 +4,9 @@
  * The pure clustering lives in `competitor-identity-cluster.ts`; this module
  * does the I/O around it — loading the flattened competitor rows, writing
  * `competitor_identities` and stamping `competitors.identity_id`. Shared by
- * the batch CLI (`scripts/reconcile-identities.ts`) and the lazy on-demand
- * hook (`relinkIdentitiesAfterWrite`, #222) that runs the same pass after
+ * the as-published archive apply (`lib/api-handlers/archive.ts`, driven by
+ * the archive repos' CI) and the lazy on-demand hook
+ * (`relinkIdentitiesAfterWrite`, #222) that runs the same pass after
  * competitor writes, so the two can never drift onto different matching
  * models or thresholds.
  *

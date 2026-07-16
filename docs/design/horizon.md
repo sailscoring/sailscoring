@@ -1195,8 +1195,8 @@ a sailor's per-series rows into one recurring competitor. The shipped cut — **
 is the cross-season spine (not sail number), implied birth year is a *transient*
 reconciliation input (never schema, never public), identity is workspace-local
 (excluded from the `.sailscoring` file and public JSON export, re-derived on
-import), and a batch reconcile pass (`scripts/reconcile-identities.ts`) populates
-it. The principle held — a matcher only *suggests*, a human confirms; identity is
+import), and the as-published archive apply (the archive repos' CI pushing the
+identity manifest through `/api/v1/archive`) populates it. The principle held — a matcher only *suggests*, a human confirms; identity is
 persisted, never re-inferred at compute time — and matching **prefers false-splits
 over false-merges** (a wrong split is one click to fix; a wrong merge silently
 corrupts a ranking). What recurs isn't always a person (a keelboat campaign is a

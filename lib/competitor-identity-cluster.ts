@@ -11,7 +11,8 @@
  * automatic link, and a birth-year conflict is a hard split (namesakes).
  *
  * Pure and DB-free so it can be unit-tested and re-run deterministically. The
- * script `scripts/reconcile-identities.ts` does the I/O around it.
+ * as-published archive apply (`lib/api-handlers/archive.ts`) and the lazy
+ * after-write hook do the I/O around it.
  */
 
 import {

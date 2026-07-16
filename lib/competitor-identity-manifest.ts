@@ -17,7 +17,8 @@
  * case.
  *
  * Pure and DB-free so it can be unit-tested and re-run deterministically. The
- * script `scripts/reconcile-identities.ts` does the I/O around it.
+ * as-published archive apply (`lib/api-handlers/archive.ts`) does the I/O
+ * around it.
  */
 
 import { createHash } from 'node:crypto';
