@@ -35,6 +35,29 @@ test.describe('magic-link sign-in', () => {
     ).toBeVisible();
   });
 
+  // Regression: the verify endpoint URL-decodes its callback params once
+  // more than the sign-in form encoded them, so a destination containing
+  // a query string used to collapse inside newUserCallbackURL and fail
+  // Better Auth's callback validation with INVALID_CALLBACK_URL.
+  test('new-user sign-in from a callbackURL with a query string lands on it', async ({
+    page,
+  }) => {
+    const email = `auth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-qs@sailscoring.test`;
+    const destination = '/account?via=e2e';
+
+    await page.goto(`/sign-in?callbackURL=${encodeURIComponent(destination)}`);
+    await page.getByLabel('Email').fill(email);
+    await page.getByRole('button', { name: 'Send sign-in link' }).click();
+    await expect(page.getByText(/Check your inbox/i)).toBeVisible();
+
+    const link = await readLatestMagicLink(email);
+    await page.goto(link);
+
+    await expect(page).toHaveURL(/\/welcome/);
+    await page.getByTestId('welcome-skip').click();
+    await expect(page).toHaveURL(destination);
+  });
+
   test('signs out from header user menu', async ({ page }) => {
     const email = `auth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-out@sailscoring.test`;
 

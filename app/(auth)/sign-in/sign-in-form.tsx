@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { authClient } from '@/lib/auth-client';
+import { encodeNextPath } from '@/lib/safe-redirect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,7 +25,10 @@ export function SignInForm() {
       callbackURL,
       // First-time sign-ups land on the welcome step (name prompt) before
       // their intended destination; returning users skip straight to it.
-      newUserCallbackURL: `/welcome?next=${encodeURIComponent(callbackURL)}`,
+      // base64url rather than percent-encoding: the verify endpoint
+      // URL-decodes this param once more than we encode it, so a nested
+      // `?` would otherwise fail its callback validation.
+      newUserCallbackURL: `/welcome?next=${encodeNextPath(callbackURL)}`,
     });
     if (error) {
       setStatus('error');
