@@ -15,6 +15,21 @@ export function safeInternalPath(raw: string | undefined | null, fallback = '/')
 }
 
 /**
+ * Remove Better Auth's transient `error` query param from an internal path.
+ *
+ * A failed magic-link verify redirects to its callback with `?error=<code>`
+ * appended, so a path captured from the address bar — or forwarded from an
+ * old sign-in URL — can carry the residue of a previous failed attempt.
+ * Using it as the next sign-in destination would land the user on a stale
+ * error after a successful sign-in.
+ */
+export function stripAuthErrorParam(path: string): string {
+  const url = new URL(path, 'http://internal');
+  url.searchParams.delete('error');
+  return url.pathname + url.search;
+}
+
+/**
  * Encode an internal path for nesting inside another URL's query string
  * (the sign-in form's `/welcome?next=…`).
  *

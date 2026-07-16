@@ -26,6 +26,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ConflictNoticeProvider, useNotifyConflict } from '@/components/conflict-notice';
 import { AuthError, ConflictApiError } from '@/lib/api-client';
 import { authClient } from '@/lib/auth-client';
+import { stripAuthErrorParam } from '@/lib/safe-redirect';
 
 /**
  * Self-heal for a present-but-invalid session cookie. The proxy's
@@ -42,13 +43,9 @@ async function redirectToSignIn(): Promise<void> {
   if (redirectingToSignIn || window.location.pathname === '/sign-in') return;
   redirectingToSignIn = true;
   await authClient.signOut().catch(() => {});
-  // A failed magic-link verify redirects here with `?error=…` appended
-  // (e.g. INVALID_TOKEN). That's transient state from the previous
-  // attempt — carrying it into the next sign-in's callbackURL would
-  // land the user back on a stale error after a successful sign-in.
-  const url = new URL(window.location.href);
-  url.searchParams.delete('error');
-  const callbackURL = url.pathname + url.search;
+  const callbackURL = stripAuthErrorParam(
+    window.location.pathname + window.location.search,
+  );
   window.location.assign(
     `/sign-in?callbackURL=${encodeURIComponent(callbackURL)}`,
   );

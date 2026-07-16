@@ -4,14 +4,17 @@ import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { authClient } from '@/lib/auth-client';
-import { encodeNextPath } from '@/lib/safe-redirect';
+import { encodeNextPath, stripAuthErrorParam } from '@/lib/safe-redirect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export function SignInForm() {
   const searchParams = useSearchParams();
-  const callbackURL = searchParams.get('callbackURL') ?? '/';
+  // Strip a stale `?error=…` from the forwarded destination: sign-in
+  // URLs minted before the auth-guard started stripping it (bookmarks,
+  // long-lived tabs) still carry one.
+  const callbackURL = stripAuthErrorParam(searchParams.get('callbackURL') ?? '/');
   // A failed verify (expired or already-used link) redirects here with
   // ?error=<code> — see the errorCallbackURL passed below.
   const failedLink = searchParams.get('error') !== null;

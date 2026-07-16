@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { decodeNextPath, encodeNextPath, safeInternalPath } from '@/lib/safe-redirect';
+import {
+  decodeNextPath,
+  encodeNextPath,
+  safeInternalPath,
+  stripAuthErrorParam,
+} from '@/lib/safe-redirect';
 
 describe('safeInternalPath', () => {
   it('keeps same-site absolute paths', () => {
@@ -26,6 +31,20 @@ describe('safeInternalPath', () => {
   it('honours a custom fallback', () => {
     expect(safeInternalPath(undefined, '/sign-in')).toBe('/sign-in');
     expect(safeInternalPath('//evil', '/sign-in')).toBe('/sign-in');
+  });
+});
+
+describe('stripAuthErrorParam', () => {
+  it('removes the error param, alone or among others', () => {
+    expect(stripAuthErrorParam('/?error=INVALID_TOKEN')).toBe('/');
+    expect(stripAuthErrorParam('/series/abc?tab=races&error=INVALID_TOKEN')).toBe(
+      '/series/abc?tab=races',
+    );
+  });
+
+  it('leaves error-free paths untouched', () => {
+    expect(stripAuthErrorParam('/')).toBe('/');
+    expect(stripAuthErrorParam('/series/abc?tab=races')).toBe('/series/abc?tab=races');
   });
 });
 
