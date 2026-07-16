@@ -25,11 +25,21 @@ export default defineConfig({
   // (test-results/ is gitignored). A raw trace file appears on any retried
   // attempt — flaky *and* hard-failed — so the JSON status is the real signal.
   reporter: [['list'], ['json', { outputFile: 'test-results/report.json' }]],
+  // The whole suite runs 4 workers against one `next start` + Postgres on one
+  // machine, so a single save→refetch→render round-trip can exceed the 5s
+  // default under load. 15s only slows assertions that were going to fail;
+  // passing runs are unaffected.
+  expect: { timeout: 15_000 },
   use: {
     baseURL: 'http://localhost:3000',
     // Now fires locally too (retries > 0): every flaky test leaves a trace on
     // its retry, and the repro command in each filed issue captures a fresh one.
     trace: 'on-first-retry',
+    // Unbounded actions (the Playwright default) turn a swallowed click or a
+    // dialog that never opened into an anonymous "test timeout exceeded" with
+    // no locator in the report. Bounding them keeps the failure attached to
+    // the action that actually hung.
+    actionTimeout: 20_000,
   },
   projects: [
     {
