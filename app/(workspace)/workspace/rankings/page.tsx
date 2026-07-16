@@ -10,9 +10,11 @@ export const dynamic = 'force-dynamic';
  * the page 404s unless the workspace has the flag, matching the API gate.
  */
 export default async function RankingsPage() {
+  let workspaceSlug: string;
   try {
     const workspace = await requireWorkspace();
     if (!workspace.features.includes('rankings')) notFound();
+    workspaceSlug = workspace.workspaceSlug;
   } catch {
     notFound();
   }
@@ -27,7 +29,7 @@ export default async function RankingsPage() {
           series; the table stays current as results land.
         </p>
       </div>
-      <RankingsList />
+      <RankingsList workspaceSlug={workspaceSlug} />
     </div>
   );
 }

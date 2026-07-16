@@ -11,6 +11,7 @@
 
 import { escapeHtml as esc } from './html';
 import { renderPublicHero, renderPublicShell } from './published-index';
+import type { AsPublishedRankingTable } from './archive-kit/types';
 import { formatPlace, type RankingConfig } from './ranking';
 import type { RankingStandingsData } from './ranking-standings';
 
@@ -150,6 +151,82 @@ ${body}
     rankingName,
     hero,
     `${back}\n${table}\n${adjustmentNoteLines}\n${basis}`,
+    RANKING_CSS,
+  );
+}
+
+/** Render an as-published season ranking (#309): the stored table exactly as
+ *  the association published it — verbatim cells, discard styling, podium
+ *  colours on integer ranks — with rule + provenance in the footer. */
+export function renderAsPublishedRankingHtml(
+  workspaceSlug: string,
+  workspaceName: string,
+  record: {
+    name: string;
+    season: number;
+    fleetLabel: string | null;
+    ruleNote: string | null;
+    source: { url?: string; capturedAt?: string; note?: string } | null;
+    table: AsPublishedRankingTable;
+  },
+  identitySlugsWithPages: ReadonlySet<string>,
+  opts: { competitorLinks?: boolean; logoUrl?: string } = {},
+): string {
+  const hero = renderPublicHero(esc(record.name), opts.logoUrl ?? '');
+  const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)}</a></p>`;
+  const { table } = record;
+
+  const heads = [
+    '<th>Rank</th>',
+    '<th>Sailor</th>',
+    ...table.leadColumns.map((c) => `<th>${esc(c.label)}</th>`),
+    ...table.eventHeaders.map((h) => `<th class="place">${esc(h.label)}</th>`),
+    ...table.summaryColumns.map((c) => `<th style="text-align:right">${esc(c.label)}</th>`),
+  ].join('');
+
+  const body = table.rows
+    .map((row) => {
+      const sailor =
+        opts.competitorLinks && row.identity && identitySlugsWithPages.has(row.identity)
+          ? `<a href="/p/${esc(workspaceSlug)}/competitor/${esc(row.identity)}">${esc(row.name)}</a>`
+          : esc(row.name);
+      const rankCell =
+        row.rank !== null && row.rank <= 3
+          ? `<td class="rank rank${row.rank}">${esc(row.rankLabel)}</td>`
+          : `<td class="rank">${esc(row.rankLabel)}</td>`;
+      const leads = row.leadCells.map((c) => `<td class="club">${esc(c)}</td>`).join('');
+      const events = row.eventCells
+        .map((c) => `<td class="place${c.discard ? ' discard' : ''}">${esc(c.text)}</td>`)
+        .join('');
+      const summaries = row.summaryCells
+        .map((c) => `<td class="total">${esc(c)}</td>`)
+        .join('');
+      return `<tr>${rankCell}<td class="sailor">${sailor}</td>${leads}${events}${summaries}</tr>`;
+    })
+    .join('\n');
+
+  const tableHtml = `<table class="ladder">
+<thead><tr>${heads}</tr></thead>
+<tbody>
+${body}
+</tbody>
+</table>`;
+
+  const captionLine = table.caption
+    ? `<p class="basis">${esc(table.caption)}</p>`
+    : '';
+  const ruleLine = record.ruleNote
+    ? `<p class="basis">${esc(record.ruleNote)}</p>`
+    : '';
+  const src = record.source;
+  const provenance = src
+    ? `<p class="basis">As published${src.url ? ` — <a href="${esc(src.url)}">source</a>` : ''}${src.capturedAt ? `, captured ${esc(src.capturedAt)}` : ''}${src.note ? ` (${esc(src.note)})` : ''}.</p>`
+    : '<p class="basis">As published.</p>';
+
+  return renderPublicShell(
+    record.name,
+    hero,
+    `${back}\n${tableHtml}\n${captionLine}${ruleLine}${provenance}`,
     RANKING_CSS,
   );
 }

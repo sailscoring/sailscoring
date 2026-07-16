@@ -1,11 +1,16 @@
 import 'server-only';
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 
 import { loadAsPublishedPlacements } from './archive-kit/places';
+import type {
+  AsPublishedRankingSource,
+  AsPublishedRankingTable,
+} from './archive-kit/types';
 
 import { getDb } from './db/client';
 import {
+  asPublishedRankings,
   competitorIdentities,
   competitors,
   rankings,
@@ -319,4 +324,60 @@ export async function computeRankingStandings(
     unflaggedCount,
     includedSeries: orderedIncluded,
   };
+}
+
+// ─── As-published season rankings (#309) ─────────────────────────────────────
+
+export interface AsPublishedRankingRecord {
+  id: string;
+  name: string;
+  slug: string;
+  season: number;
+  fleetLabel: string | null;
+  ruleNote: string | null;
+  source: AsPublishedRankingSource | null;
+  table: AsPublishedRankingTable;
+  rankedCount: number;
+  /** Ingest content hash — doubles as the public page's ETag basis. */
+  hash: string;
+}
+
+/** One as-published ranking by its public slug, or null. Always public —
+ *  the archive pushes only what the association itself published. */
+export async function getAsPublishedRankingBySlug(
+  workspaceId: string,
+  slug: string,
+): Promise<AsPublishedRankingRecord | null> {
+  const [row] = await getDb()
+    .select()
+    .from(asPublishedRankings)
+    .where(
+      and(
+        eq(asPublishedRankings.workspaceId, workspaceId),
+        eq(asPublishedRankings.slug, slug),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/** The workspace's as-published rankings, newest season first — for the
+ *  `/p/{ws}` listing and the in-app Rankings tab. */
+export async function listAsPublishedRankings(
+  workspaceId: string,
+): Promise<
+  Array<{ id: string; name: string; slug: string; season: number; fleetLabel: string | null }>
+> {
+  const rows = await getDb()
+    .select({
+      id: asPublishedRankings.id,
+      name: asPublishedRankings.name,
+      slug: asPublishedRankings.slug,
+      season: asPublishedRankings.season,
+      fleetLabel: asPublishedRankings.fleetLabel,
+    })
+    .from(asPublishedRankings)
+    .where(eq(asPublishedRankings.workspaceId, workspaceId))
+    .orderBy(desc(asPublishedRankings.season), asPublishedRankings.name);
+  return rows;
 }

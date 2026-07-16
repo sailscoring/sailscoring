@@ -14,13 +14,20 @@ import {
   toCompetitorIndexEntries,
 } from '@/lib/published-competitor-index';
 import { contentHash, humanizeSlug } from '@/lib/publishing';
-import { renderRankingHtml } from '@/lib/ranking-render';
+import {
+  renderAsPublishedRankingHtml,
+  renderRankingHtml,
+} from '@/lib/ranking-render';
 import {
   computeRankingStandings,
   filterRankingConfigSeries,
+  getAsPublishedRankingBySlug,
   getPublishedRankingBySlug,
+  listAsPublishedRankings,
   listPublishedRankings,
 } from '@/lib/ranking-standings';
+import { and, eq, inArray } from 'drizzle-orm';
+import * as schema from '@/lib/db/schema';
 import { workspaceOwnFeatureOn } from '@/lib/workspace-features';
 import { getDb } from '@/lib/db/client';
 import {
@@ -132,9 +139,17 @@ async function workspaceIndex(
     (await workspaceHasIdentityFeature(workspace.id)) &&
     (await workspaceHasCompetitors(workspace.id));
 
-  // Public season ladders (#209), when the feature is on and any are public.
-  const rankingLinks = (await workspaceOwnFeatureOn(getDb(), workspace.id, 'rankings'))
-    ? await listPublishedRankings(workspace.id)
+  // Public season ladders (#209) and as-published historical rankings
+  // (#309), when the feature is on and any exist.
+  const rankingsOn = await workspaceOwnFeatureOn(getDb(), workspace.id, 'rankings');
+  const rankingLinks = rankingsOn
+    ? [
+        ...(await listPublishedRankings(workspace.id)),
+        ...(await listAsPublishedRankings(workspace.id)).map((r) => ({
+          name: r.name,
+          slug: r.slug,
+        })),
+      ]
     : [];
 
   // ETag from listing metadata so repeat views revalidate without re-rendering.
@@ -176,7 +191,9 @@ async function rankingPage(
   }
 
   const ranking = await getPublishedRankingBySlug(workspace.id, rankingSlug);
-  if (!ranking) return NOT_FOUND;
+  if (!ranking) {
+    return asPublishedRankingPage(req, workspace, workspaceSlug, rankingSlug);
+  }
 
   const publishedIds = await listPublishedSeriesIds(workspace.id);
   const publicConfig = filterRankingConfigSeries(ranking.config, publishedIds);
@@ -212,6 +229,63 @@ async function rankingPage(
     ranking.name,
     publicConfig,
     standings,
+    { competitorLinks, logoUrl: workspace.logo },
+  );
+  return htmlResponse(html, etag);
+}
+
+/** The as-published fall-through for `/p/{ws}/ranking/{slug}` (#309): a
+ *  historical season ranking stored exactly as the association published
+ *  it. Always public — the archive pushes only what was already public. */
+async function asPublishedRankingPage(
+  req: NextRequest,
+  workspace: { id: string; name: string; logo: string },
+  workspaceSlug: string,
+  rankingSlug: string,
+): Promise<Response> {
+  const record = await getAsPublishedRankingBySlug(workspace.id, rankingSlug);
+  if (!record) return NOT_FOUND;
+
+  const competitorLinks = await workspaceHasIdentityFeature(workspace.id);
+  // Only link sailors whose identity actually exists in the workspace —
+  // a slug the manifest hasn't (yet) created must not 404.
+  const rowSlugs = [
+    ...new Set(
+      record.table.rows
+        .map((r) => r.identity)
+        .filter((s): s is string => s !== null),
+    ),
+  ];
+  const present =
+    competitorLinks && rowSlugs.length > 0
+      ? await getDb()
+          .select({ slug: schema.competitorIdentities.slug })
+          .from(schema.competitorIdentities)
+          .where(
+            and(
+              eq(schema.competitorIdentities.workspaceId, workspace.id),
+              inArray(schema.competitorIdentities.slug, rowSlugs),
+            ),
+          )
+      : [];
+  const linkable = new Set(
+    present.map((r) => r.slug).filter((s): s is string => s !== null),
+  );
+
+  const etag = `"${await contentHash([
+    `logo:${workspace.logo}`,
+    `links:${competitorLinks}`,
+    `hash:${record.hash}`,
+    `linkable:${[...linkable].sort().join(',')}`,
+  ])}"`;
+  const cached = notModified(req, etag);
+  if (cached) return cached;
+
+  const html = renderAsPublishedRankingHtml(
+    workspaceSlug,
+    workspace.name,
+    record,
+    linkable,
     { competitorLinks, logoUrl: workspace.logo },
   );
   return htmlResponse(html, etag);

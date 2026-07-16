@@ -16,9 +16,15 @@ import type { RankingStandingsData } from '@/lib/ranking-standings';
 
 import { queryKeys } from './query-keys';
 
-/** The active workspace's cross-series rankings (#209). */
+import type { AsPublishedRankingListItem } from '@/lib/api-repository';
+
+/** The active workspace's cross-series rankings (#209) plus the read-only
+ *  as-published historical rankings (#309). */
 export function useRankings() {
-  return useQuery<RankingDto[]>({
+  return useQuery<{
+    items: RankingDto[];
+    asPublished: AsPublishedRankingListItem[];
+  }>({
     queryKey: queryKeys.rankings.list(),
     queryFn: () => listRankings(),
   });

@@ -1041,9 +1041,22 @@ export function getAsPublishedResults(
 // ─── Workspace cross-series rankings (#209) ──────────────────────────────────
 
 /** The active workspace's saved rankings. */
-export async function listRankings(): Promise<RankingDto[]> {
-  const { items } = await apiFetch<{ items: RankingDto[] }>('/api/v1/rankings');
-  return items;
+export interface AsPublishedRankingListItem {
+  id: string;
+  name: string;
+  slug: string;
+  season: number;
+  fleetLabel: string | null;
+}
+
+export async function listRankings(): Promise<{
+  items: RankingDto[];
+  asPublished: AsPublishedRankingListItem[];
+}> {
+  return apiFetch<{
+    items: RankingDto[];
+    asPublished: AsPublishedRankingListItem[];
+  }>('/api/v1/rankings');
 }
 
 export function createRanking(name: string): Promise<RankingDto> {

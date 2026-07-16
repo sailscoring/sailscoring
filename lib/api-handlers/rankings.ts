@@ -14,6 +14,7 @@ import { rankings } from '@/lib/db/schema/series';
 import { newRankingBucket, type RankingConfig } from '@/lib/ranking';
 import {
   computeRankingStandings,
+  listAsPublishedRankings,
   type RankingStandingsData,
 } from '@/lib/ranking-standings';
 import {
@@ -47,16 +48,27 @@ function toDto(row: typeof rankings.$inferSelect): RankingDto {
   };
 }
 
+export interface AsPublishedRankingListItem {
+  id: string;
+  name: string;
+  slug: string;
+  season: number;
+  fleetLabel: string | null;
+}
+
 export async function listRankings(
   workspace: WorkspaceContext,
-): Promise<{ items: RankingDto[] }> {
+): Promise<{ items: RankingDto[]; asPublished: AsPublishedRankingListItem[] }> {
   requireFeature(workspace, 'rankings');
   const rows = await getDb()
     .select()
     .from(rankings)
     .where(eq(rankings.workspaceId, workspace.workspaceId))
     .orderBy(rankings.displayOrder, rankings.createdAt);
-  return { items: rows.map(toDto) };
+  // Historical as-published rankings (#309) ride along read-only: the
+  // Rankings tab lists them beside the computed ladders.
+  const asPublished = await listAsPublishedRankings(workspace.workspaceId);
+  return { items: rows.map(toDto), asPublished };
 }
 
 export async function createRanking(
