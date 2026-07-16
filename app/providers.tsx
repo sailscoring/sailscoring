@@ -42,7 +42,13 @@ async function redirectToSignIn(): Promise<void> {
   if (redirectingToSignIn || window.location.pathname === '/sign-in') return;
   redirectingToSignIn = true;
   await authClient.signOut().catch(() => {});
-  const callbackURL = window.location.pathname + window.location.search;
+  // A failed magic-link verify redirects here with `?error=…` appended
+  // (e.g. INVALID_TOKEN). That's transient state from the previous
+  // attempt — carrying it into the next sign-in's callbackURL would
+  // land the user back on a stale error after a successful sign-in.
+  const url = new URL(window.location.href);
+  url.searchParams.delete('error');
+  const callbackURL = url.pathname + url.search;
   window.location.assign(
     `/sign-in?callbackURL=${encodeURIComponent(callbackURL)}`,
   );
