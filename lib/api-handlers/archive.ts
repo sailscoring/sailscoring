@@ -7,6 +7,7 @@ import { ForbiddenError } from '@/lib/auth/require-workspace';
 import { recordActivity } from '@/lib/activity-log';
 import {
   archiveDocHash,
+  parseArchiveRankingDoc,
   parseArchiveSeriesDoc,
   toStoredResults,
   type ArchiveSeriesDoc,
@@ -640,4 +641,125 @@ export async function applyArchiveIdentities(
     slugsBackfilled,
     orphansRemoved,
   };
+}
+
+// ─── As-published season rankings (#309) ─────────────────────────────────────
+
+export interface ArchiveRankingIngestResult {
+  rankingId: string;
+  unchanged: boolean;
+  /** Rows whose identity slug is set — the career-arc-visible count. */
+  linkedRows: number;
+  rankedCount: number;
+}
+
+/**
+ * Upsert one as-published season ranking from its ingest document. Same
+ * contract as series ingest: content-hash idempotent, deterministic id from
+ * the archive's document key, display-only forever. Rows reference identity
+ * manifest slugs; the app never matches names.
+ */
+export async function putArchiveRanking(
+  workspace: WorkspaceContext,
+  rankingId: string,
+  body: unknown,
+  opts: { force?: boolean } = {},
+): Promise<ArchiveRankingIngestResult> {
+  const doc = parseArchiveRankingDoc(body);
+  if (doc.ranking.id !== rankingId) {
+    throw new BadRequestError('document ranking id does not match the path');
+  }
+  const hash = await archiveDocHash(doc);
+  const db = getDb();
+
+  const [existing] = await db
+    .select({
+      id: schema.asPublishedRankings.id,
+      workspaceId: schema.asPublishedRankings.workspaceId,
+      hash: schema.asPublishedRankings.hash,
+    })
+    .from(schema.asPublishedRankings)
+    .where(eq(schema.asPublishedRankings.id, rankingId))
+    .limit(1);
+  if (existing && existing.workspaceId !== workspace.workspaceId) {
+    throw new ForbiddenError('ranking-id-in-use');
+  }
+
+  const rankedCount = doc.table.rows.filter((r) => r.rank !== null).length;
+  const linkedRows = doc.table.rows.filter((r) => r.identity !== null).length;
+  if (existing && existing.hash === hash && !opts.force) {
+    return { rankingId, unchanged: true, linkedRows, rankedCount };
+  }
+
+  // The public slug is a shared namespace with computed rankings: reject a
+  // collision rather than silently shadowing one.
+  const [slugTaken] = await db
+    .select({ id: schema.rankings.id })
+    .from(schema.rankings)
+    .where(
+      and(
+        eq(schema.rankings.workspaceId, workspace.workspaceId),
+        eq(schema.rankings.slug, doc.ranking.slug),
+      ),
+    )
+    .limit(1);
+  if (slugTaken) {
+    throw new BadRequestError(
+      'a computed ranking already uses this slug',
+      { code: 'slug-taken' },
+    );
+  }
+
+  const values = {
+    workspaceId: workspace.workspaceId,
+    name: doc.ranking.name,
+    slug: doc.ranking.slug,
+    season: doc.ranking.season,
+    fleetLabel: doc.ranking.fleetLabel ?? null,
+    ruleNote: doc.ranking.ruleNote ?? null,
+    source: doc.ranking.source ?? null,
+    table: doc.table,
+    rankedCount,
+    hash,
+    updatedAt: new Date(),
+    updatedBy: workspace.userId,
+  };
+  if (existing) {
+    await db
+      .update(schema.asPublishedRankings)
+      .set(values)
+      .where(eq(schema.asPublishedRankings.id, rankingId));
+  } else {
+    await db
+      .insert(schema.asPublishedRankings)
+      .values({ id: rankingId, ...values });
+  }
+
+  await recordActivity(workspace, {
+    action: 'rankings.archive-ingested',
+    summary: `${existing ? 'Updated' : 'Ingested'} as-published ranking “${doc.ranking.name}”`,
+  });
+
+  return { rankingId, unchanged: false, linkedRows, rankedCount };
+}
+
+export async function deleteArchiveRanking(
+  workspace: WorkspaceContext,
+  rankingId: string,
+): Promise<void> {
+  const db = getDb();
+  const removed = await db
+    .delete(schema.asPublishedRankings)
+    .where(
+      and(
+        eq(schema.asPublishedRankings.id, rankingId),
+        eq(schema.asPublishedRankings.workspaceId, workspace.workspaceId),
+      ),
+    )
+    .returning({ name: schema.asPublishedRankings.name });
+  if (removed.length === 0) throw new NotFoundError('ranking');
+  await recordActivity(workspace, {
+    action: 'rankings.archive-removed',
+    summary: `Deleted as-published ranking “${removed[0].name}”`,
+  });
 }

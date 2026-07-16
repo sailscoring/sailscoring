@@ -38,7 +38,11 @@ import type {
   SubdivisionAxis,
   PublishedSeriesPage,
 } from '@/lib/types';
-import type { AsPublishedFleetResults } from '@/lib/archive-kit/types';
+import type {
+  AsPublishedFleetResults,
+  AsPublishedRankingSource,
+  AsPublishedRankingTable,
+} from '@/lib/archive-kit/types';
 import type { RankingConfig } from '@/lib/ranking';
 import type { SeriesFile } from '@/lib/series-file';
 
@@ -592,6 +596,55 @@ export const asPublishedResults = pgTable(
     uniqueIndex('as_published_results_series_fleet_uidx').on(
       table.seriesId,
       table.fleetId,
+    ),
+  ],
+);
+
+/**
+ * As-published season rankings (#309) — the ranking half of the ADR-010
+ * regime. Each row is one season × fleet ranking stored exactly as the
+ * association published it: display strings everywhere, the structured rank
+ * the career arc reads, and identity manifest slugs inside the table (the
+ * app maps slug → deterministic identity id; it never matches names).
+ * Written only by the archive ingest; read-only in the app.
+ */
+export const asPublishedRankings = pgTable(
+  'as_published_rankings',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    // Pinned public slug under /p/{ws}/ranking/ — shared namespace with
+    // computed rankings; uniqueness across both is enforced at ingest.
+    slug: text('slug').notNull(),
+    season: integer('season').notNull(),
+    // "Junior" / "Senior"; null for combined (pre-2008) rankings.
+    fleetLabel: text('fleet_label'),
+    ruleNote: text('rule_note'),
+    source: jsonb('source').$type<AsPublishedRankingSource>(),
+    table: jsonb('table').notNull().$type<AsPublishedRankingTable>(),
+    // The "of M" for career-arc entries: the sheet's own count of ranked
+    // rows, computed at ingest.
+    rankedCount: integer('ranked_count').notNull(),
+    // Content hash of the last-applied ingest document (idempotent CI).
+    hash: text('hash').notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
+  },
+  (table) => [
+    index('as_published_rankings_workspace_idx').on(table.workspaceId),
+    uniqueIndex('as_published_rankings_workspace_slug_uidx').on(
+      table.workspaceId,
+      table.slug,
     ),
   ],
 );

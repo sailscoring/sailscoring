@@ -51,7 +51,10 @@ const manifestIdentitySchema = z.object({
   name: z.string().trim().min(1, 'a name is required').max(120),
   club: z.string().trim().optional(),
   nationality: z.string().trim().optional(),
-  members: z.array(manifestMemberSchema).min(1, 'an identity needs at least one member row'),
+  // Zero members is legal: a ranking-only sailor (someone who appears in
+  // season rankings but no imported series) is a manifest entry whose
+  // identity exists purely to anchor those ranking rows and their arc.
+  members: z.array(manifestMemberSchema),
   note: z.string().optional(),
 });
 

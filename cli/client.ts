@@ -237,6 +237,34 @@ export class SailscoringClient {
     return this.request('GET', `/api/v1/activity${q}`);
   }
 
+  /** Upsert one as-published season ranking (#309). Archivist credential. */
+  async putArchiveRanking(
+    rankingId: string,
+    doc: unknown,
+    opts: { force?: boolean } = {},
+  ): Promise<{
+    rankingId: string;
+    unchanged: boolean;
+    linkedRows: number;
+    rankedCount: number;
+  }> {
+    const q = opts.force ? '?force=1' : '';
+    return (await this.request(
+      'PUT',
+      `/api/v1/archive/rankings/${rankingId}${q}`,
+      { body: doc },
+    )) as {
+      rankingId: string;
+      unchanged: boolean;
+      linkedRows: number;
+      rankedCount: number;
+    };
+  }
+
+  async deleteArchiveRanking(rankingId: string): Promise<void> {
+    await this.request('DELETE', `/api/v1/archive/rankings/${rankingId}`);
+  }
+
   /** Workspace cross-series rankings (#209). Requires the rankings feature. */
   async listRankings(): Promise<{ items: RankingItem[] }> {
     return (await this.request('GET', '/api/v1/rankings')) as {

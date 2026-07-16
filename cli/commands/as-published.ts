@@ -136,6 +136,50 @@ async function pushIdentities(
   }
 }
 
+async function pushRankingDocs(
+  client: SailscoringClient,
+  paths: string[],
+  opts: { force: boolean },
+): Promise<number> {
+  let applied = 0;
+  let unchanged = 0;
+  let failed = 0;
+  for (const path of paths) {
+    const doc = JSON.parse(readFileSync(path, 'utf8')) as {
+      ranking?: { id?: string; name?: string };
+    };
+    const id = doc.ranking?.id;
+    const name = doc.ranking?.name ?? path;
+    if (!id) {
+      console.error(`  \u2717 ${path}: no ranking.id in document`);
+      failed++;
+      continue;
+    }
+    try {
+      const result = await withRateLimitRetry(() =>
+        client.putArchiveRanking(id, doc, opts),
+      );
+      if (result.unchanged) {
+        unchanged++;
+      } else {
+        applied++;
+        console.log(
+          `  \u2713 ${name} (${result.rankedCount} ranked, ${result.linkedRows} linked)`,
+        );
+      }
+    } catch (err) {
+      failed++;
+      const detail =
+        err instanceof ApiError ? err.message : err instanceof Error ? err.message : String(err);
+      console.error(`  \u2717 ${name}: ${detail}`);
+    }
+  }
+  console.log(
+    `\n${applied} applied, ${unchanged} unchanged, ${failed} failed (${paths.length} total)`,
+  );
+  return failed > 0 ? 1 : 0;
+}
+
 export async function asPublishedCommand(
   rest: string[],
 ): Promise<number> {
@@ -193,9 +237,55 @@ export async function asPublishedCommand(
       } catch {
         hasManifest = false;
       }
-      if (!hasManifest) return pushExit;
-      const idExit = await pushIdentities(client, manifestPath);
-      return pushExit || idExit;
+      let idExit = 0;
+      if (hasManifest) idExit = await pushIdentities(client, manifestPath);
+
+      // Season rankings (#309): optional rankings/ subdir of ranking
+      // ingest documents, pushed after identities so slugs referenced by
+      // rows already exist (order isn't load-bearing — ids are
+      // deterministic — but the summary reads better).
+      const rankingsDir = join(dir, 'rankings');
+      let rankingEntries: string[] = [];
+      try {
+        rankingEntries = readdirSync(rankingsDir)
+          .filter((f) => f.endsWith('.json'))
+          .sort()
+          .map((f) => join(rankingsDir, f));
+      } catch {
+        rankingEntries = [];
+      }
+      let rankExit = 0;
+      if (rankingEntries.length > 0) {
+        console.log(`pushing ${rankingEntries.length} ranking documents from ${rankingsDir}`);
+        rankExit = await pushRankingDocs(client, rankingEntries, opts);
+      }
+      return pushExit || idExit || rankExit;
+    }
+    case 'push-ranking': {
+      if (positional.length === 0) {
+        console.error('as-published push-ranking: at least one file is required');
+        return 1;
+      }
+      return pushRankingDocs(client, positional, opts);
+    }
+    case 'delete-ranking': {
+      if (positional.length === 0) {
+        console.error('as-published delete-ranking: at least one rankingId is required');
+        return 1;
+      }
+      let failed = 0;
+      for (const id of positional) {
+        try {
+          await client.deleteArchiveRanking(id);
+          console.log(`  \u2713 ${id}`);
+        } catch (err) {
+          failed++;
+          console.error(
+            `  \u2717 ${id}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+      return failed > 0 ? 1 : 0;
     }
     case 'push-series': {
       if (positional.length === 0) {

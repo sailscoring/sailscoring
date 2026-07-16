@@ -28,6 +28,8 @@ export const ACTIVITY_ACTIONS = [
   'series.archive-ingested',
   'series.archive-removed',
   'identities.archive-applied',
+  'rankings.archive-ingested',
+  'rankings.archive-removed',
   'competitors.imported',
   'competitors.rrs_pushed',
   'competitors.handicaps_updated',

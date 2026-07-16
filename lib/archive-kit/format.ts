@@ -209,6 +209,80 @@ export function parseArchiveSeriesDoc(value: unknown): ArchiveSeriesDoc {
   return archiveSeriesDocSchema.parse(value);
 }
 
+/** Manifest identity slug — the app's competitor-slug shape (name +
+ *  suffix), same character set as slugSegment but longer to fit full names. */
+const identitySlug = z
+  .string()
+  .max(200)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'lowercase hyphen-separated slug');
+
+const rankingRowSchema = z.object({
+  identity: identitySlug.nullable(),
+  rank: z.number().int().min(1).max(10_000).nullable(),
+  rankLabel: z.string().max(20),
+  name: z.string().min(1).max(120),
+  leadCells: z.array(z.string().max(200)).max(20),
+  eventCells: z.array(raceCellSchema).max(30),
+  summaryCells: z.array(z.string().max(80)).max(20),
+});
+
+const rankingTableSchema = z.object({
+  caption: z.string().max(400).optional(),
+  leadColumns: z.array(columnSchema).max(20),
+  eventHeaders: z.array(raceHeaderSchema).max(30),
+  summaryColumns: z.array(columnSchema).max(20),
+  rows: z.array(rankingRowSchema).max(2000),
+});
+
+/** An as-published season ranking (#309) — the ranking analogue of the
+ *  series ingest document. Rows reference cross-series identities by
+ *  manifest slug; the app maps slugs to its deterministic identity ids and
+ *  never matches names itself. */
+export const archiveRankingDocSchema = z
+  .object({
+    formatVersion: z.literal(1),
+    ranking: z.object({
+      id: uuid,
+      name: z.string().trim().min(1).max(200),
+      /** Pinned public slug under `/p/{ws}/ranking/` — shared namespace
+       *  with computed rankings. */
+      slug: slugSegment,
+      season: z.number().int().min(1950).max(2100),
+      /** "Junior" / "Senior"; omitted for combined (pre-2008) rankings. */
+      fleetLabel: z.string().trim().min(1).max(40).optional(),
+      /** The rule the season was ranked under, for the public footer. */
+      ruleNote: z.string().max(400).optional(),
+      source: z
+        .object({
+          url: z.string().url().max(400).optional(),
+          capturedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+          note: z.string().max(400).optional(),
+        })
+        .optional(),
+    }),
+    table: rankingTableSchema,
+  })
+  .superRefine((doc, ctx) => {
+    const { leadColumns, eventHeaders, summaryColumns, rows } = doc.table;
+    rows.forEach((row, ri) => {
+      if (row.leadCells.length !== leadColumns.length) {
+        ctx.addIssue({ code: 'custom', message: 'leadCells misaligned with leadColumns', path: ['table', 'rows', ri, 'leadCells'] });
+      }
+      if (row.eventCells.length !== eventHeaders.length) {
+        ctx.addIssue({ code: 'custom', message: 'eventCells misaligned with eventHeaders', path: ['table', 'rows', ri, 'eventCells'] });
+      }
+      if (row.summaryCells.length !== summaryColumns.length) {
+        ctx.addIssue({ code: 'custom', message: 'summaryCells misaligned with summaryColumns', path: ['table', 'rows', ri, 'summaryCells'] });
+      }
+    });
+  });
+
+export type ArchiveRankingDoc = z.infer<typeof archiveRankingDocSchema>;
+
+export function parseArchiveRankingDoc(value: unknown): ArchiveRankingDoc {
+  return archiveRankingDocSchema.parse(value);
+}
+
 /** JSON with object keys sorted at every level — a canonical byte form so
  *  the ingest hash is stable across generator implementations. */
 export function stableStringify(value: unknown): string {
@@ -229,7 +303,9 @@ function sortKeys(value: unknown): unknown {
 
 /** Content hash of a parsed document — the ingest's idempotency key: same
  *  hash as the stored `as_published_hash` means nothing to do. */
-export async function archiveDocHash(doc: ArchiveSeriesDoc): Promise<string> {
+export async function archiveDocHash(
+  doc: ArchiveSeriesDoc | ArchiveRankingDoc,
+): Promise<string> {
   const data = new TextEncoder().encode(stableStringify(doc));
   const digest = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(digest))

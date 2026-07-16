@@ -97,3 +97,44 @@ export interface AsPublishedFleetResults {
    *  often carry everything in the summary cells. */
   raceTables?: AsPublishedRaceTable[];
 }
+
+/** One sailor's row in a published season ranking. The subject is a
+ *  cross-series identity (referenced by its manifest slug), not a per-series
+ *  competitor — a season ranking outlives any one series and can predate
+ *  every imported one (ranking-only sailors get manifest entries with no
+ *  series rows). A null identity is display-only: the row renders, but
+ *  feeds no career arc. */
+export interface AsPublishedRankingRow {
+  identity: string | null;
+  /** Structured rank — what the career arc reads. Null when the source
+   *  lists the row unranked. */
+  rank: number | null;
+  /** The rank as published ("1st", "2="), for faithful display. */
+  rankLabel: string;
+  /** The sailor's name as printed — the display fallback for rows with no
+   *  identity, and the arc's cross-check. */
+  name: string;
+  leadCells: string[];
+  /** Aligned with the table's `eventHeaders` — one column per event, the
+   *  ranking analogue of a series table's race columns. */
+  eventCells: AsPublishedRaceCell[];
+  summaryCells: string[];
+}
+
+/** A published season ranking's table — stored whole in
+ *  `as_published_rankings.table`, same vocabulary as a fleet's results with
+ *  event columns in place of races. */
+export interface AsPublishedRankingTable {
+  caption?: string;
+  leadColumns: AsPublishedColumn[];
+  eventHeaders: AsPublishedRaceHeader[];
+  summaryColumns: AsPublishedColumn[];
+  rows: AsPublishedRankingRow[];
+}
+
+/** Provenance of a published ranking — rendered in the public footer. */
+export interface AsPublishedRankingSource {
+  url?: string;
+  capturedAt?: string;
+  note?: string;
+}
