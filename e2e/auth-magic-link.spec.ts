@@ -58,6 +58,25 @@ test.describe('magic-link sign-in', () => {
     await expect(page).toHaveURL(destination);
   });
 
+  test('an invalid or expired link lands back on sign-in with an explanation', async ({
+    page,
+  }) => {
+    const email = `auth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-bad@sailscoring.test`;
+
+    await page.goto('/sign-in');
+    await page.getByLabel('Email').fill(email);
+    await page.getByRole('button', { name: 'Send sign-in link' }).click();
+    await expect(page.getByText(/Check your inbox/i)).toBeVisible();
+
+    // Corrupt the token: the verify endpoint treats it exactly like an
+    // expired one, so this exercises the dead-link path deterministically.
+    const link = await readLatestMagicLink(email);
+    await page.goto(link.replace(/token=[^&]+/, 'token=corrupted'));
+
+    await expect(page).toHaveURL(/\/sign-in\?error=/);
+    await expect(page.getByText(/expired or already been used/i)).toBeVisible();
+  });
+
   test('signs out from header user menu', async ({ page }) => {
     const email = `auth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-out@sailscoring.test`;
 

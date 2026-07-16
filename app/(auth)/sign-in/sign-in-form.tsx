@@ -12,6 +12,9 @@ import { Label } from '@/components/ui/label';
 export function SignInForm() {
   const searchParams = useSearchParams();
   const callbackURL = searchParams.get('callbackURL') ?? '/';
+  // A failed verify (expired or already-used link) redirects here with
+  // ?error=<code> — see the errorCallbackURL passed below.
+  const failedLink = searchParams.get('error') !== null;
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -29,6 +32,10 @@ export function SignInForm() {
       // URL-decodes this param once more than we encode it, so a nested
       // `?` would otherwise fail its callback validation.
       newUserCallbackURL: `/welcome?next=${encodeNextPath(callbackURL)}`,
+      // A failed verify lands back here with ?error=<code> so the user
+      // gets an explanation instead of silently looping through the
+      // sign-in redirect.
+      errorCallbackURL: '/sign-in',
     });
     if (error) {
       setStatus('error');
@@ -52,6 +59,15 @@ export function SignInForm() {
         </p>
       ) : (
         <>
+          {failedLink && (
+            <p
+              role="alert"
+              className="text-sm mb-4 rounded-md border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950 px-3 py-2"
+            >
+              That sign-in link didn&apos;t work — it may have expired or
+              already been used. Enter your email to get a fresh one.
+            </p>
+          )}
           <form onSubmit={onSubmit} className="flex flex-col gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
