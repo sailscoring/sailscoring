@@ -308,9 +308,13 @@ async function careerArc(
   if (!identityId) return NOT_FOUND;
   const identity = await getCareerArc(workspace.id, identityId);
   if (!identity) return NOT_FOUND;
-  // The arc only carries published series; a competitor with nothing published
-  // isn't public — don't reveal them by name (matches the index dropping them).
-  if (identity.entries.length === 0) return NOT_FOUND;
+  // The arc only carries published series and as-published rankings; a
+  // competitor with nothing public isn't public — don't reveal them by name
+  // (matches the index dropping them). A ranking-only sailor IS public: the
+  // association already published that ranking.
+  if (identity.entries.length === 0 && identity.rankingEntries.length === 0) {
+    return NOT_FOUND;
+  }
 
   // ETag over the arc's content so a rename, split, a new linked series, a
   // re-score (which changes a rank), or (un)publishing a contributing series
@@ -322,6 +326,9 @@ async function careerArc(
     ...identity.entries.map(
       (e) =>
         `${e.competitorId}:${e.seriesName}:${e.year}:${e.sailNumber}:${e.rank}/${e.fleetSize}:${e.publishedSlug ?? ''}`,
+    ),
+    ...identity.rankingEntries.map(
+      (r) => `ranking:${r.rankingId}:${r.rankLabel}:${r.rankedCount}:${r.name}`,
     ),
   ])}"`;
   const cached = notModified(req, etag);

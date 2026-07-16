@@ -10,6 +10,7 @@ import {
   addMemberByEmail,
   createOrgWorkspace,
   enableOrgFeatures,
+  seedAsPublishedRanking,
   seedRankedSeries,
   setActiveWorkspace,
   signInFreshUser,
@@ -360,6 +361,70 @@ test.describe('cross-series rankings', () => {
       rows.nth(0).locator('td[title="Worlds team duty"]'),
     ).toHaveCount(1);
     await expect(page.getByText(/Not yet ranked/)).toBeHidden();
+
+    expect(errors).toEqual([]);
+  });
+
+  test('an as-published ranking: public page, in-app list, career arc', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    const email = await signInFreshUser(page, 'rankings-archive');
+    const { id: orgId } = await createOrgWorkspace('Archive Ranking Club');
+    await addMemberByEmail(orgId, email, 'owner');
+    await enableOrgFeatures(orgId, ['rankings', 'competitor-identity']);
+    await setActiveWorkspace(page, orgId);
+
+    // Also publish one series so the /p/{ws} listing exists at all.
+    await seedRankedSeries(orgId, {
+      name: 'Nationals 2026',
+      year: 2026,
+      published: true,
+      entrants: [
+        { name: 'Filler Sailor', sailNumber: 'IRL900', nationality: 'IRL' },
+      ],
+    });
+    await seedAsPublishedRanking(orgId, {
+      name: 'National Ranking 2012 — Junior',
+      slug: 'national-ranking-2012-junior',
+      season: 2012,
+      fleetLabel: 'Junior',
+      sailorName: 'Historic Sailor',
+      sailorSlug: 'historic-sailor-ab12',
+    });
+
+    // In-app: the Rankings tab lists it read-only under "As published".
+    await page.goto('/workspace/rankings');
+    const row = page.getByTestId('as-published-ranking-row');
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    await expect(row).toContainText('National Ranking 2012 — Junior');
+    await expect(page.getByText('As published', { exact: true })).toBeVisible();
+
+    // Public page: the stored table, verbatim, with rule + provenance.
+    const publicUrl = await row.getAttribute('href');
+    expect(publicUrl).toMatch(/\/ranking\/national-ranking-2012-junior$/);
+    const res = await page.goto(publicUrl!);
+    expect(res?.status()).toBe(200);
+    await expect(
+      page.getByRole('heading', { name: 'National Ranking 2012 — Junior' }),
+    ).toBeVisible();
+    await expect(page.getByText('Historic Sailor')).toBeVisible();
+    await expect(page.getByText('Unlinked Sailor')).toBeVisible();
+    await expect(page.getByText(/Nationals \(non-discardable\)/)).toBeVisible();
+    await expect(page.getByText(/captured 2013-01-30/)).toBeVisible();
+
+    // The linked sailor deep-links to their career arc; the arc of this
+    // ranking-only sailor is exactly the achievement line.
+    await page.getByRole('link', { name: 'Historic Sailor' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Historic Sailor' }),
+    ).toBeVisible();
+    await expect(page.getByText('Season rankings')).toBeVisible();
+    await expect(page.getByText('Ranked 1st of 2')).toBeVisible();
+    await expect(page.getByText('No series recorded yet')).toBeHidden();
 
     expect(errors).toEqual([]);
   });

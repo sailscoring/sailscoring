@@ -25,6 +25,7 @@ function arcEntry(over: Partial<CareerArcEntry>): CareerArcEntry {
 
 function arc(entries: CareerArcEntry[]): CareerArc {
   return {
+    rankingEntries: [],
     id: 'id',
     slug: 'aoife-murphy-ab12',
     label: 'Aoife Murphy',
@@ -65,5 +66,28 @@ describe('renderCareerArcHtml deep-links', () => {
   it('backlinks to the competitor index, not the workspace listing', () => {
     const html = renderCareerArcHtml('iodai', 'IODAI', arc([arcEntry({})]));
     expect(html).toContain('href="/p/iodai/competitors"');
+  });
+
+  it('renders season-ranking achievements, including for a ranking-only sailor', () => {
+    const rankingOnly: CareerArc = {
+      ...arc([]),
+      rankingEntries: [
+        {
+          rankingId: 'r1',
+          name: 'IODAI National Ranking 2006',
+          slug: 'national-ranking-2006',
+          season: 2006,
+          fleetLabel: null,
+          rank: 12,
+          rankLabel: '12th',
+          rankedCount: 51,
+        },
+      ],
+    };
+    const html = renderCareerArcHtml('iodai', 'IODAI', rankingOnly);
+    expect(html).toContain('Season rankings');
+    expect(html).toContain('Ranked 12th of 51');
+    expect(html).toContain('href="/p/iodai/ranking/national-ranking-2006"');
+    expect(html).not.toContain('No series recorded yet');
   });
 });

@@ -6,6 +6,8 @@ import {
   type ArcPlacement,
 } from './career-arc-placement';
 import { getDb } from './db/client';
+import { asPublishedRankings } from './db/schema/series';
+import { eq } from 'drizzle-orm';
 import {
   getIdentityArc,
   type ArcEntry,
@@ -35,6 +37,21 @@ export interface CareerArcEntry extends ArcEntry, ArcPlacement {
 /** An identity's arc with per-event placements. */
 export interface CareerArc extends Omit<IdentityWithArc, 'entries'> {
   entries: CareerArcEntry[];
+  /** Season-ranking achievements (#309): the identity's rows in the
+   *  workspace's as-published rankings — "Ranked 3rd of 44". Only the
+   *  published record feeds the arc; live computed ladders don't. */
+  rankingEntries: CareerArcRankingEntry[];
+}
+
+export interface CareerArcRankingEntry {
+  rankingId: string;
+  name: string;
+  slug: string;
+  season: number;
+  fleetLabel: string | null;
+  rank: number | null;
+  rankLabel: string;
+  rankedCount: number;
 }
 
 interface ScoredSeries {
@@ -135,5 +152,50 @@ export async function getCareerArc(
   const firstYear = years.length ? Math.min(...years) : null;
   const lastYear = years.length ? Math.max(...years) : null;
 
-  return { ...identity, entries, firstYear, lastYear };
+  // Season-ranking achievements: every as-published ranking row carrying
+  // this identity's slug. Volumes are small (tens of rankings), so filter
+  // in memory rather than teaching the DB about jsonb row shapes.
+  const rankingEntries: CareerArcRankingEntry[] = [];
+  if (identity.slug) {
+    const rankingRows = await getDb()
+      .select({
+        id: asPublishedRankings.id,
+        name: asPublishedRankings.name,
+        slug: asPublishedRankings.slug,
+        season: asPublishedRankings.season,
+        fleetLabel: asPublishedRankings.fleetLabel,
+        rankedCount: asPublishedRankings.rankedCount,
+        table: asPublishedRankings.table,
+      })
+      .from(asPublishedRankings)
+      .where(eq(asPublishedRankings.workspaceId, workspaceId));
+    for (const r of rankingRows) {
+      const row = r.table.rows.find((x) => x.identity === identity.slug);
+      if (!row) continue;
+      rankingEntries.push({
+        rankingId: r.id,
+        name: r.name,
+        slug: r.slug,
+        season: r.season,
+        fleetLabel: r.fleetLabel,
+        rank: row.rank,
+        rankLabel: row.rankLabel,
+        rankedCount: r.rankedCount,
+      });
+    }
+    rankingEntries.sort((a, b) => b.season - a.season || a.name.localeCompare(b.name));
+  }
+
+  const rankingYears = rankingEntries.map((r) => r.season);
+  const allFirst = [...years, ...rankingYears];
+  const arcFirst = allFirst.length ? Math.min(...allFirst) : null;
+  const arcLast = allFirst.length ? Math.max(...allFirst) : null;
+
+  return {
+    ...identity,
+    entries,
+    rankingEntries,
+    firstYear: arcFirst ?? firstYear,
+    lastYear: arcLast ?? lastYear,
+  };
 }

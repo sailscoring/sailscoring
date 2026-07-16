@@ -817,3 +817,76 @@ export async function keyboardReorder(
   await page.keyboard.press('Space'); // drop
   await page.waitForTimeout(100);
 }
+
+/**
+ * Seed one as-published season ranking (#309) plus a ranking-only identity
+ * for its first row — the archive-ingest shape, written directly so e2e can
+ * exercise the display and career-arc surfaces without the CI pipeline.
+ */
+export async function seedAsPublishedRanking(
+  workspaceId: string,
+  opts: {
+    name: string;
+    slug: string;
+    season: number;
+    fleetLabel?: string;
+    sailorName: string;
+    sailorSlug: string;
+  },
+): Promise<void> {
+  const { db, close } = adminDb();
+  try {
+    await db.insert(schema.competitorIdentities).values({
+      id: crypto.randomUUID(),
+      workspaceId,
+      label: opts.sailorName,
+      slug: opts.sailorSlug,
+      managedBy: 'archive',
+    });
+    await db.insert(schema.asPublishedRankings).values({
+      id: crypto.randomUUID(),
+      workspaceId,
+      name: opts.name,
+      slug: opts.slug,
+      season: opts.season,
+      fleetLabel: opts.fleetLabel ?? null,
+      ruleNote: 'Nationals (non-discardable) + best 2 of 4 regionals',
+      source: {
+        url: 'https://example.test/ranking',
+        capturedAt: '2013-01-30',
+        note: 'seeded for e2e',
+      },
+      table: {
+        caption: 'Sailed: 5, Discards: 2, To count: 3',
+        leadColumns: [{ key: 'club', label: 'Club' }],
+        eventHeaders: [{ label: 'Leinsters' }, { label: 'Nationals' }],
+        summaryColumns: [{ key: 'nett', label: 'Nett' }],
+        rows: [
+          {
+            identity: opts.sailorSlug,
+            rank: 1,
+            rankLabel: '1st',
+            name: opts.sailorName,
+            leadCells: ['NYC'],
+            eventCells: [{ text: '1.0' }, { text: '(2.0)', discard: true }],
+            summaryCells: ['3.0'],
+          },
+          {
+            identity: null,
+            rank: 2,
+            rankLabel: '2nd',
+            name: 'Unlinked Sailor',
+            leadCells: ['HYC'],
+            eventCells: [{ text: '2.0' }, { text: '1.0' }],
+            summaryCells: ['3.0'],
+          },
+        ],
+      },
+      rankedCount: 2,
+      hash: crypto.randomUUID(),
+      updatedBy: null,
+    });
+  } finally {
+    await close();
+  }
+}

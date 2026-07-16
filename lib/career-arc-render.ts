@@ -16,7 +16,8 @@ import type { CareerArc, CareerArcEntry } from './career-arc';
 import { escapeHtml as esc } from './html';
 import { renderPublicHero, renderPublicShell } from './published-index';
 
-const ARC_CSS = `.arcsub { text-align: center; color: #c7d6e6; font-size: 0.95em; margin: 10px 0 0; }
+const ARC_CSS = `.arch2 { font-size: 0.95em; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin: 26px 0 6px; }
+.arcsub { text-align: center; color: #c7d6e6; font-size: 0.95em; margin: 10px 0 0; }
 .arc { list-style: none; padding: 0; margin: 20px 0; }
 .arc li { display: flex; align-items: baseline; gap: 14px; background: #fff; border: 1px solid #e2e6ea; border-left: 4px solid #fb3a3b; border-radius: 8px; padding: 12px 18px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(7,51,88,0.06); }
 .arc .yr { font-weight: 700; color: #073358; font-variant-numeric: tabular-nums; min-width: 3.2em; }
@@ -80,7 +81,7 @@ export function renderCareerArcHtml(
   // the workspace results listing.
   const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}/competitors">&larr; ${esc(workspaceName)} competitors</a></p>`;
 
-  if (identity.entries.length === 0) {
+  if (identity.entries.length === 0 && identity.rankingEntries.length === 0) {
     return renderPublicShell(
       title,
       hero,
@@ -103,6 +104,23 @@ export function renderCareerArcHtml(
     })
     .join('\n');
 
-  const body = `${back}\n<p class="arcsub">${sub}</p>\n<ul class="arc">\n${rows}\n</ul>`;
+  // Season-ranking achievements (#309): an accomplishment line per ranked
+  // year, above the event timeline. A ranking-only sailor's arc is just
+  // this list.
+  const rankingRows = identity.rankingEntries
+    .map((r) => {
+      const of = r.rank !== null ? `Ranked ${esc(r.rankLabel)} of ${r.rankedCount}` : 'Listed';
+      const name = `<a href="/p/${esc(workspaceSlug)}/ranking/${esc(r.slug)}">${esc(r.name)}</a>`;
+      return `<li><span class="yr">${r.season}</span><span class="ev">${name}</span><span class="right"><span class="place">${of}</span></span></li>`;
+    })
+    .join('\n');
+  const rankingBlock = rankingRows
+    ? `<h2 class="arch2">Season rankings</h2>\n<ul class="arc">\n${rankingRows}\n</ul>\n`
+    : '';
+  const eventsBlock = rows
+    ? `<ul class="arc">\n${rows}\n</ul>`
+    : '';
+
+  const body = `${back}\n<p class="arcsub">${sub}</p>\n${rankingBlock}${eventsBlock}`;
   return renderPublicShell(title, hero, body, ARC_CSS);
 }
