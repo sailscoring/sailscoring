@@ -11,6 +11,10 @@ import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
  */
 
 test('three-start sequence at 5-minute intervals resolves to distinct start times', async ({ page }) => {
+  // Heavy: three fleets, scoring-mode change, a three-group start sequence,
+  // then a materialised race — like its fleet-delete sibling below, the setup
+  // alone can brush the 30s default under full-suite load.
+  test.slow();
   await createSeriesQuick(page, { name: 'Start Sequence Test' });
   await createFleets(page, ['Class A', 'Class B', 'Class C']);
   await setScoringMode(page, 'handicap');

@@ -30,6 +30,9 @@ const competitors = [
 ];
 
 test('start check-in marks boats present and affects A5.3 standings', async ({ page }) => {
+  // Heavy: five competitors, a settings change, two races (one fully scored,
+  // one via check-in) — no headroom over the 30s default under full-suite load.
+  test.slow();
   // ── 1. Create series ──────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'A5.3 Test Series' });
 
