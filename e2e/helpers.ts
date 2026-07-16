@@ -21,16 +21,23 @@ const MAGIC_LINKS_LOG = path.join(process.cwd(), 'tests', '.magic-links.log');
 
 /**
  * Wait for the most recent magic-link issued to `forEmail` to appear in
- * the local TSV log and return its URL. Polls for ~5 seconds.
+ * the local TSV log and return its URL. Polls for ~15 seconds — the link
+ * is written server-side during the sign-in POST, which can lag well past
+ * 5s under full-suite load. Pass `excludeUrl` when re-requesting a link
+ * for the same address so the poll waits for the *new* issuance instead
+ * of returning the one that already failed.
  */
-export async function readLatestMagicLink(forEmail: string): Promise<string> {
-  for (let attempt = 0; attempt < 20; attempt++) {
+export async function readLatestMagicLink(
+  forEmail: string,
+  excludeUrl?: string,
+): Promise<string> {
+  for (let attempt = 0; attempt < 60; attempt++) {
     try {
       const content = await fs.readFile(MAGIC_LINKS_LOG, 'utf8');
       const lines = content.trim().split('\n').reverse();
       for (const line of lines) {
         const [, email, url] = line.split('\t');
-        if (email === forEmail && url) return url;
+        if (email === forEmail && url && url !== excludeUrl) return url;
       }
     } catch {
       // file may not exist yet
@@ -48,20 +55,71 @@ export async function readLatestMagicLink(forEmail: string): Promise<string> {
  *
  * Returns the email that was used so callers can assert against it.
  */
+/**
+ * Mint a unique @sailscoring.test address. Digits-only random suffix: the
+ * UserMenu button's accessible name is this email, and getByRole's name
+ * matcher is substring-by-default, so a base36 suffix could spell a button
+ * label ("add", "done", …) and trip strict-mode violations in unrelated
+ * locators. Digits can't spell anything.
+ */
+export function freshTestEmail(prefix: string): string {
+  const suffix = Math.floor(Math.random() * 1e9).toString().padStart(9, '0');
+  return `${prefix}-${Date.now()}-${suffix}@sailscoring.test`;
+}
+
 export async function signInFreshUser(page: Page, prefix: string): Promise<string> {
-  const email = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@sailscoring.test`;
-  await page.goto('/sign-in');
-  await page.getByLabel('Email').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
-  const link = await readLatestMagicLink(email);
-  await page.goto(link);
-  // First-time sign-ups land on the welcome (name) step; skip through it
-  // so callers see the same "signed in on the home page" baseline as before.
-  if (new URL(page.url()).pathname === '/welcome') {
-    await page.getByTestId('welcome-skip').click();
+  const email = freshTestEmail(prefix);
+  // The verify GET consumes its token server-side even when the response is
+  // lost — under load the navigation can abort (a client-side router update
+  // cancelling it, a dropped connection) and a browser-level retry of the
+  // same link then lands on /sign-in?error=INVALID_TOKEN. The user identity
+  // is the email, so requesting a fresh link and verifying again reaches the
+  // exact same signed-in state.
+  let previousLink: string | undefined;
+  for (let attempt = 0; ; attempt++) {
+    await page.goto('/sign-in');
+    await page.getByLabel('Email').fill(email);
+    await page.getByRole('button', { name: 'Send sign-in link' }).click();
+    const link = await readLatestMagicLink(email, previousLink);
+    previousLink = link;
+    try {
+      await page.goto(link);
+      const url = new URL(page.url());
+      if (url.pathname === '/sign-in' && url.searchParams.has('error')) {
+        throw new Error(`magic-link verify failed: ${url.searchParams.get('error')}`);
+      }
+      // First-time sign-ups land on the welcome (name) step; skip through it
+      // so callers see the same "signed in on the home page" baseline as before.
+      if (url.pathname === '/welcome') {
+        await page.getByTestId('welcome-skip').click();
+      }
+      await expect(page).toHaveURL(/\/$/);
+      return email;
+    } catch (err) {
+      if (attempt >= 2) throw err;
+      // The failed verify may still have signed us in (cookie set, response
+      // lost). Probe before requesting another link: an authenticated '/'
+      // stays put, an anonymous one bounces to /sign-in.
+      await page.goto('/');
+      if (new URL(page.url()).pathname === '/') return email;
+    }
   }
-  await expect(page).toHaveURL(/\/$/);
-  return email;
+}
+
+/**
+ * Reload, retrying once if the reload is aborted. Right after sign-in the App
+ * Router can still be settling (the welcome step's push, callbackURL
+ * redirects); a client-side navigation committing mid-reload cancels it with
+ * net::ERR_ABORTED even though the page is healthy. One retry rides out the
+ * settle; anything else rethrows.
+ */
+async function reloadRetryingAbort(page: Page): Promise<void> {
+  try {
+    await page.reload();
+  } catch (err) {
+    if (!String(err).includes('ERR_ABORTED')) throw err;
+    await page.reload();
+  }
 }
 
 /**
@@ -599,7 +657,7 @@ export async function setActiveWorkspace(
     });
     if (!res.ok) throw new Error(`set-active failed: ${res.status}`);
   }, organizationId);
-  await page.reload();
+  await reloadRetryingAbort(page);
 }
 
 /**
@@ -633,7 +691,7 @@ export async function enableFeatures(
   } finally {
     await close();
   }
-  await page.reload();
+  await reloadRetryingAbort(page);
 }
 
 /**

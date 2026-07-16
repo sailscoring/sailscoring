@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { readLatestMagicLink } from './helpers';
+import { freshTestEmail, readLatestMagicLink } from './helpers';
 import type { Page } from '@playwright/test';
 
 /**
@@ -24,7 +24,7 @@ async function expectAccountName(page: Page, name: string): Promise<void> {
 
 test.describe('welcome name step', () => {
   test('new user can set their name on the welcome step', async ({ page }) => {
-    const email = `welcome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@sailscoring.test`;
+    const email = freshTestEmail('welcome');
 
     await page.goto('/sign-in');
     await page.getByLabel('Email').fill(email);
@@ -44,7 +44,7 @@ test.describe('welcome name step', () => {
   test('user who skipped can add and edit their name on the account page', async ({
     page,
   }) => {
-    const email = `welcome-edit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@sailscoring.test`;
+    const email = freshTestEmail('welcome-edit');
 
     await page.goto('/sign-in');
     await page.getByLabel('Email').fill(email);
@@ -74,7 +74,7 @@ test.describe('welcome name step', () => {
   test('welcome step does not re-prompt a user who already has a name', async ({
     page,
   }) => {
-    const email = `welcome-named-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@sailscoring.test`;
+    const email = freshTestEmail('welcome-named');
 
     await page.goto('/sign-in');
     await page.getByLabel('Email').fill(email);

@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { readLatestMagicLink } from './helpers';
+import { freshTestEmail, readLatestMagicLink } from './helpers';
 
 /**
  * Magic-link sign-in via the dev sender. The dev sender
@@ -10,7 +10,7 @@ import { readLatestMagicLink } from './helpers';
 
 test.describe('magic-link sign-in', () => {
   test('signs in and lands in a personal workspace', async ({ page }) => {
-    const email = `auth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@sailscoring.test`;
+    const email = freshTestEmail('auth');
 
     await page.goto('/sign-in');
     await page.getByLabel('Email').fill(email);
@@ -42,7 +42,7 @@ test.describe('magic-link sign-in', () => {
   test('new-user sign-in from a callbackURL with a query string lands on it', async ({
     page,
   }) => {
-    const email = `auth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-qs@sailscoring.test`;
+    const email = freshTestEmail('auth-qs');
     const destination = '/account?via=e2e';
 
     await page.goto(`/sign-in?callbackURL=${encodeURIComponent(destination)}`);
@@ -61,7 +61,7 @@ test.describe('magic-link sign-in', () => {
   test('an invalid or expired link lands back on sign-in with an explanation', async ({
     page,
   }) => {
-    const email = `auth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-bad@sailscoring.test`;
+    const email = freshTestEmail('auth-bad');
 
     await page.goto('/sign-in');
     await page.getByLabel('Email').fill(email);
@@ -78,7 +78,7 @@ test.describe('magic-link sign-in', () => {
   });
 
   test('signs out from header user menu', async ({ page }) => {
-    const email = `auth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-out@sailscoring.test`;
+    const email = freshTestEmail('auth-out');
 
     await page.goto('/sign-in');
     await page.getByLabel('Email').fill(email);
