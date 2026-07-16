@@ -21,7 +21,7 @@ describe('renderMagicLinkText', () => {
     expect(text).toContain(URL);
     expect(text).toContain(TO);
     expect(text).toContain('single-use');
-    expect(text).toContain('5 minutes');
+    expect(text).toContain('30 minutes');
     expect(text).toContain("didn't request");
     expect(text).toContain('Sail Scoring');
     expect(text).toContain('mark@hyc.ie');
@@ -59,7 +59,7 @@ describe('renderMagicLinkHtml', () => {
   test('includes the recipient address, expiry note, and footer contact', () => {
     const html = renderMagicLinkHtml({ to: TO, url: URL, isNewUser: false });
     expect(html).toContain(TO);
-    expect(html).toContain('5 minutes');
+    expect(html).toContain('30 minutes');
     expect(html).toContain("didn't request");
     expect(html).toContain('mark@hyc.ie');
   });

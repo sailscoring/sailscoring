@@ -72,6 +72,12 @@ export const auth = betterAuth({
         await sendMagicLinkEmail({ to: email, url, isNewUser: !existing });
       },
       rateLimit: { window: 600, max: 5 },
+      // The default 5-minute expiry loses the race against real-world
+      // email latency (greylisting, slow relays) — links were arriving
+      // already dead. Tokens are single-use and sends are rate-limited,
+      // so a longer window costs little. Keep the sign-in form, help
+      // page, and email copy in sync with this value.
+      expiresIn: 30 * 60,
     }),
     organization({
       // Registers the app's role set — notably `scorer` — so the plugin's

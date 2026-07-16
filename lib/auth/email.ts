@@ -30,7 +30,7 @@ You asked to sign in to Sail Scoring as ${args.to}. Open this link in the same b
 
 ${args.url}
 
-This link is single-use and expires in 5 minutes. If you didn't request it, you can safely ignore this email — no one can sign in to your account without the link above.${args.isNewUser ? STEALTH_BETA_TEXT : ''}
+This link is single-use and expires in 30 minutes. If you didn't request it, you can safely ignore this email — no one can sign in to your account without the link above.${args.isNewUser ? STEALTH_BETA_TEXT : ''}
 
 — Sail Scoring
 mark@hyc.ie
@@ -66,7 +66,7 @@ export function renderMagicLinkHtml(args: { to: string; url: string; isNewUser: 
               </table>
               <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#475569;">Or copy and paste this link into your browser:</p>
               <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#475569;word-break:break-all;"><a href="${urlSafe}" style="color:#475569;">${urlSafe}</a></p>
-              <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#475569;">This link is single-use and expires in 5 minutes. If you didn't request it, you can safely ignore this email — no one can sign in to your account without the link above.</p>
+              <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#475569;">This link is single-use and expires in 30 minutes. If you didn't request it, you can safely ignore this email — no one can sign in to your account without the link above.</p>
               ${args.isNewUser ? STEALTH_BETA_HTML : ''}
               <hr style="margin:24px 0 16px;border:none;border-top:1px solid #e2e8f0;">
               <p style="margin:0;font-size:13px;line-height:1.5;color:#94a3b8;">Sail Scoring · <a href="mailto:mark@hyc.ie" style="color:#475569;">mark@hyc.ie</a></p>

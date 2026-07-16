@@ -124,7 +124,7 @@ export default async function HelpPage() {
         <p>
           Sail Scoring uses passwordless email sign-in. From the home screen, click{' '}
           <strong className="text-foreground">Sign in</strong>, enter your email, and click the
-          link the app sends you. The link expires after five minutes; request a fresh one any
+          link the app sends you. The link expires after 30 minutes; request a fresh one any
           time.
         </p>
         <p>

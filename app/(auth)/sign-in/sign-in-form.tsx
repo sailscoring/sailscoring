@@ -47,7 +47,7 @@ export function SignInForm() {
 
       {status === 'sent' ? (
         <p className="text-sm">
-          Check your inbox at <strong>{email}</strong>. The link expires in 5
+          Check your inbox at <strong>{email}</strong>. The link expires in 30
           minutes.
         </p>
       ) : (
