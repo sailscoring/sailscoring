@@ -55,7 +55,14 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
   const pyNumbers: Record<string, string> = { PY1: '1034', PY2: '1087' };
   for (const sail of ['PY1', 'PY2']) {
     const row = page.getByRole('row').filter({ hasText: sail });
-    await row.click();
+    // The row can re-render (fleets refetch settling) between hit-test and
+    // dispatch, swallowing the click — the edit dialog then never opens and
+    // the fill below waits out the whole test budget. Re-click until the PY
+    // field is actually there.
+    await expect(async () => {
+      await row.click();
+      await expect(page.getByLabel('PY number', { exact: true })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20_000 });
     await page.getByLabel('PY number', { exact: true }).fill(pyNumbers[sail]);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: sail })).toBeVisible();
