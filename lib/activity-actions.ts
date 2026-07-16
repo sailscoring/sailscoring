@@ -84,5 +84,8 @@ export function activityKind(action: string): ActivityKind {
   if (action.startsWith('fleet')) return 'fleet';
   if (action.startsWith('finish')) return 'finish';
   if (action.startsWith('race') || action.startsWith('sub-series.') || action.startsWith('starts.') || action.startsWith('ratings.')) return 'race';
+  // As-published ranking ingests (#309) are workspace-level series-regime
+  // work; they group with the series activity.
+  if (action.startsWith('rankings.')) return 'series';
   return 'other';
 }
