@@ -415,6 +415,10 @@ export async function copySeries(
         fleetIds: g.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
       })),
       publishIndividualFleetPages: source.publishIndividualFleetPages ?? true,
+      // The protest-time-limit config travels (it mirrors the SIs); the
+      // results *status* does not — a copy is a fork whose scorer makes
+      // their own finality assertion, so it lands provisional.
+      protestTimeLimit: source.protestTimeLimit ?? null,
       enabledCompetitorFields: source.enabledCompetitorFields,
       primaryPersonLabel: source.primaryPersonLabel,
       // Axis ids are series-local — carried verbatim so competitor
@@ -488,6 +492,7 @@ export async function copySeries(
           workspaceId: targetWorkspaceId,
           raceNumber: r.raceNumber,
           date: r.date,
+          lastFinisherTime: r.lastFinisherTime ?? null,
           createdAt: new Date(r.createdAt),
         })),
       );
@@ -770,6 +775,9 @@ export async function createFollowOnSeries(
         fleetIds: g.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
       })),
       publishIndividualFleetPages: source.publishIndividualFleetPages ?? true,
+      // Same SIs, next series of the season: the limit config rolls over;
+      // the fresh series is provisional by construction.
+      protestTimeLimit: source.protestTimeLimit ?? null,
       enabledCompetitorFields: source.enabledCompetitorFields,
       primaryPersonLabel: source.primaryPersonLabel,
       subdivisionAxes: source.subdivisionAxes,
