@@ -341,17 +341,24 @@ export async function applyClusters(
  * re-minting row ids, ADR-010). An orphan serves nothing: its public
  * timeline already 404s, and in the reconcile UI it's an empty card. Safe
  * for either jurisdiction — an archive-managed orphan the manifest still
- * wants is recreated on the next apply. Returns how many were removed.
+ * wants is recreated on the next apply. `keepIds` exempts identities that
+ * are wanted despite having no competitor links — ranking-only sailors
+ * (#309), whose rows live in as-published rankings, not series. Returns
+ * how many were removed.
  */
 export async function gcOrphanIdentities(
   db: SailScoringDb,
   workspaceId: string,
+  keepIds: readonly string[] = [],
 ): Promise<number> {
   const removed = await db
     .delete(competitorIdentities)
     .where(
       and(
         eq(competitorIdentities.workspaceId, workspaceId),
+        keepIds.length
+          ? notInArray(competitorIdentities.id, [...keepIds])
+          : undefined,
         notInArray(
           competitorIdentities.id,
           db

@@ -623,7 +623,13 @@ export async function applyArchiveIdentities(
   const slugsBackfilled = await ensureSlugs(db, workspace.workspaceId);
   // Manifest overwrites + row re-minting can leave drafted identities with
   // no rows; sweep them so no empty cards or dead timelines linger.
-  const orphansRemoved = await gcOrphanIdentities(db, workspace.workspaceId);
+  // Manifest identities survive the orphan pass even with zero competitor
+  // links — ranking-only sailors are anchored by as-published ranking rows.
+  const orphansRemoved = await gcOrphanIdentities(
+    db,
+    workspace.workspaceId,
+    plan.assignments.map((a) => a.identityId),
+  );
 
   await recordActivity(workspace, {
     action: 'identities.archive-applied',
