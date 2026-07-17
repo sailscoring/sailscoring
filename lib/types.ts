@@ -148,6 +148,17 @@ export interface RrsOrgPushConfig {
  *    scored from the boats that came to the start (came + 1). */
 export type DnfScoring = 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
 
+/** The protest / request-for-redress time limit stated in the SIs, used to
+ *  compute a concrete limit time from a race's last finisher. `basis` picks
+ *  what the clock runs from: each race's own last finisher (the RRS 60.3(b)
+ *  default — two hours after the last boat in the race finishes) or the last
+ *  finisher across all races sharing the race's date (the common club SI:
+ *  "N minutes after the last boat finishes the last race of the day"). */
+export interface ProtestTimeLimit {
+  minutes: number;
+  basis: 'race' | 'day';
+}
+
 export interface Series {
   id: string;
   name: string;
@@ -203,6 +214,17 @@ export interface Series {
   // Prize list (#240). Sparse — absent/empty is the common case. Array order
   // is the prize-sheet display order. Gated by the `prizes` feature.
   prizes?: Prize[];
+  // Results lifecycle. Provisional until the scorer marks the series final —
+  // an RRS-grounded assertion that the scores are settled (RRS 90.3(e)'s
+  // window for score changes runs from the last race of the event). While
+  // final the write surface rejects edits, until the series is reopened as
+  // provisional. Absent = provisional.
+  resultsStatus?: 'provisional' | 'final';
+  finalisedAt?: number;  // Date.now() when marked final; cleared on reopen
+  // Protest time limit per the SIs; feeds each race's computed limit time and
+  // the finalise checklist. Absent = no stated limit tracked — finality is
+  // scorer judgement once the protest committee is silent.
+  protestTimeLimit?: ProtestTimeLimit;
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)
@@ -394,6 +416,11 @@ export interface Race {
   raceNumber: number;
   name: string | null; // optional human label distinct from the number ("Round the Island")
   date: string;        // ISO date string
+  // Time of day the last boat finished, "HH:MM:SS" — the anchor for protest /
+  // redress time limits. Manual fallback for races whose finishes carry no
+  // times: when any finish has a `finishTime` the sheet is authoritative and
+  // this field is ignored (see effectiveLastFinisherTime in lib/race-status.ts).
+  lastFinisherTime?: string;
   createdAt: number;
   version?: number;    // server-side concurrency token (see Series.version)
 }

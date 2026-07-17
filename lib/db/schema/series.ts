@@ -30,6 +30,7 @@ import type {
   NhcProfile,
   PrimaryPersonLabel,
   PublishingGroup,
+  ProtestTimeLimit,
   RaceFleetExclusion,
   RrsOrgPushConfig,
   Prize,
@@ -200,6 +201,19 @@ export const series = pgTable(
       .$type<Prize[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    // Results lifecycle: provisional until the scorer marks the series final
+    // (an RRS 90.3(e)-grounded assertion that scores are settled). A final
+    // series is read-only on the standard write surface — enforced alongside
+    // `archived` in lib/api-handlers/series-access.ts — until reopened via the
+    // dedicated results-status endpoint.
+    resultsStatus: text('results_status')
+      .$type<'provisional' | 'final'>()
+      .notNull()
+      .default('provisional'),
+    finalisedAt: timestamp('finalised_at', { withTimezone: true }),
+    // Protest / redress time limit from the SIs ({minutes, basis}). Nullable
+    // JSONB — absent = not tracked; never queried by content.
+    protestTimeLimit: jsonb('protest_time_limit').$type<ProtestTimeLimit>(),
     // Display.
     enabledCompetitorFields: jsonb('enabled_competitor_fields')
       .$type<CompetitorFieldKey[]>()
@@ -275,6 +289,10 @@ export const series = pgTable(
     check(
       'series_primary_person_label_chk',
       sql`${table.primaryPersonLabel} in ('competitor','entrant','helm','owner')`,
+    ),
+    check(
+      'series_results_status_chk',
+      sql`${table.resultsStatus} in ('provisional','final')`,
     ),
   ],
 );
@@ -704,6 +722,9 @@ export const races = pgTable(
     raceNumber: integer('race_number').notNull(),
     name: text('name'),
     date: text('date').notNull().default(''),
+    // Manual last-finisher time ("HH:MM:SS") for races with untimed finishes;
+    // ignored whenever any finish row carries a finishTime.
+    lastFinisherTime: text('last_finisher_time'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

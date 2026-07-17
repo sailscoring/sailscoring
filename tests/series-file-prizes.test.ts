@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildSeriesFile,
+  FORMAT_VERSION,
   openSeriesFromFile,
   type SeriesFile,
   type SeriesFileRepos,
@@ -151,7 +152,7 @@ describe('.sailscoring v17 prizes round-trip', () => {
   it('buildSeriesFile carries the prize list when non-empty', async () => {
     const { repos } = makeRecordingRepos(snapshot);
     const file = await buildSeriesFile('s1', repos);
-    expect(file.formatVersion).toBe(19);
+    expect(file.formatVersion).toBe(FORMAT_VERSION);
     expect(file.series.prizes).toEqual(PRIZES);
   });
 

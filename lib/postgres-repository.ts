@@ -110,6 +110,11 @@ function seriesRowToType(row: SeriesRow): Series {
     publishIndividualFleetPages: row.publishIndividualFleetPages,
     rrsOrgPush: row.rrsOrgPush ?? undefined,
     prizes: row.prizes,
+    // Sparse like the file format: written only when final / configured, so a
+    // provisional series round-trips without the fields.
+    ...(row.resultsStatus === 'final' ? { resultsStatus: 'final' as const } : {}),
+    ...(row.finalisedAt ? { finalisedAt: row.finalisedAt.getTime() } : {}),
+    ...(row.protestTimeLimit ? { protestTimeLimit: row.protestTimeLimit } : {}),
     enabledCompetitorFields: row.enabledCompetitorFields,
     primaryPersonLabel: row.primaryPersonLabel,
     subdivisionAxes: row.subdivisionAxes,
@@ -173,6 +178,7 @@ function raceRowToType(row: RaceRow): Race {
     raceNumber: row.raceNumber,
     name: row.name,
     date: row.date,
+    ...(row.lastFinisherTime ? { lastFinisherTime: row.lastFinisherTime } : {}),
     createdAt: row.createdAt.getTime(),
     version: row.version,
   };
@@ -574,6 +580,9 @@ function seriesToRow(s: Series, workspaceId: string) {
     publishIndividualFleetPages: s.publishIndividualFleetPages ?? true,
     rrsOrgPush: s.rrsOrgPush ?? null,
     prizes: s.prizes ?? [],
+    resultsStatus: s.resultsStatus ?? 'provisional',
+    finalisedAt: s.finalisedAt != null ? new Date(s.finalisedAt) : null,
+    protestTimeLimit: s.protestTimeLimit ?? null,
     enabledCompetitorFields: s.enabledCompetitorFields,
     primaryPersonLabel: s.primaryPersonLabel,
     subdivisionAxes: s.subdivisionAxes ?? [],
@@ -597,6 +606,7 @@ const seriesUpdateColumns = [
   'ftpLastUploadedAt', 'ftpUploadedVersion', 'includeJsonExport',
   'publishRatingCalculations', 'showPerRaceRatingsInSummary',
   'publishingGroups', 'publishIndividualFleetPages', 'rrsOrgPush', 'prizes',
+  'resultsStatus', 'finalisedAt', 'protestTimeLimit',
   'enabledCompetitorFields', 'primaryPersonLabel', 'subdivisionAxes',
   'categoryId', 'archived', 'source',
 ] as const satisfies readonly (keyof ReturnType<typeof seriesToRow>)[];
@@ -1118,12 +1128,13 @@ function raceToRow(r: Race, workspaceId: string) {
     raceNumber: r.raceNumber,
     name: r.name,
     date: r.date,
+    lastFinisherTime: r.lastFinisherTime ?? null,
     createdAt: new Date(r.createdAt),
   };
 }
 
 const raceUpdateColumns = [
-  'raceNumber', 'name', 'date',
+  'raceNumber', 'name', 'date', 'lastFinisherTime',
 ] as const satisfies readonly (keyof ReturnType<typeof raceToRow>)[];
 
 export class PostgresRaceRepository implements RaceRepository {

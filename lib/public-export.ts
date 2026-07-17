@@ -107,6 +107,14 @@ export interface PublicSeriesExport {
     /** Prize list (#240). Absent in exports from older builds and when the
      *  series has no prizes. */
     prizes?: ExportPrize[];
+    /** Results lifecycle. Present only when the scorer has marked the series
+     *  final; absent = provisional (and on exports from older builds). */
+    resultsStatus?: 'final';
+    /** Epoch ms when the series was marked final. */
+    finalisedAt?: number;
+    /** Protest / redress time limit from the SIs. Carried so a re-import
+     *  keeps computing per-race limit times. */
+    protestTimeLimit?: { minutes: number; basis: 'race' | 'day' };
   };
   fleets: {
     name: string;
@@ -154,6 +162,10 @@ export interface PublicSeriesExport {
     /** Sub-series this race belongs to, by name (many-to-many; a race may be
      *  in several). Importers rebuild the sub-series from these. */
     subSeries?: string[];
+    /** Manually recorded last-finisher clock time ("HH:MM:SS") for races with
+     *  untimed finishes — the anchor for protest time limits. When finishes
+     *  carry times the sheet itself is authoritative and this is absent. */
+    lastFinisherTime?: string;
     starts: {
       fleetNames: string[];
       startTime?: string;  // absent for a membership-only start (fleets, no gun time)
@@ -588,6 +600,7 @@ export function buildPublicExportFromSnapshot(
       ...(race.name ? { name: race.name } : {}),
       date: race.date,
       ...(subSeriesNames?.length ? { subSeries: subSeriesNames } : {}),
+      ...(race.lastFinisherTime ? { lastFinisherTime: race.lastFinisherTime } : {}),
       starts,
       finishes,
       ...(nhcByFleet ? { nhcByFleet } : {}),
@@ -679,6 +692,11 @@ export function buildPublicExportFromSnapshot(
           .filter((p): p is ExportPrize => p !== null);
         return prizes.length > 0 ? { prizes } : {};
       })(),
+      ...(series.resultsStatus === 'final' ? { resultsStatus: 'final' as const } : {}),
+      ...(series.resultsStatus === 'final' && series.finalisedAt != null
+        ? { finalisedAt: series.finalisedAt }
+        : {}),
+      ...(series.protestTimeLimit ? { protestTimeLimit: series.protestTimeLimit } : {}),
       // NB: `categoryId`/`archived` (#154) and `previousSeriesId` are
       // deliberately not exported — workspace-local organisation and
       // lineage, not series data.
@@ -861,6 +879,11 @@ export async function importPublicExport(
     ...(data.series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: data.series.showPerRaceRatingsInSummary } : {}),
     enabledCompetitorFields: data.series.displayFields ?? defaultEnabledCompetitorFields(),
     primaryPersonLabel: data.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+    ...(data.series.resultsStatus === 'final' ? { resultsStatus: 'final' as const } : {}),
+    ...(data.series.resultsStatus === 'final' && data.series.finalisedAt != null
+      ? { finalisedAt: data.series.finalisedAt }
+      : {}),
+    ...(data.series.protestTimeLimit ? { protestTimeLimit: data.series.protestTimeLimit } : {}),
     // Axis ids are series-local opaque keys; carried verbatim so the imported
     // competitors' `subdivisions` maps still resolve.
     subdivisionAxes: data.series.subdivisionAxes ?? [],
@@ -962,6 +985,7 @@ export async function importPublicExport(
       raceNumber: race.raceNumber,
       name: race.name ?? null,
       date: race.date,
+      ...(race.lastFinisherTime ? { lastFinisherTime: race.lastFinisherTime } : {}),
       createdAt: now,
     });
     for (const name of race.subSeries ?? []) {

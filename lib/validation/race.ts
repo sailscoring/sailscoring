@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import type { Race } from '@/lib/types';
 
-import { epochMsSchema, isoDateSchema, uuidSchema, versionSchema } from './common';
+import { epochMsSchema, isoDateSchema, uuidSchema, versionSchema, wallClockSchema } from './common';
 import { raceStartInputSchema } from './race-start';
 
 export const raceSchema = z.object({
@@ -11,6 +11,8 @@ export const raceSchema = z.object({
   raceNumber: z.number().int().positive(),
   name: z.string().nullable().default(null),
   date: isoDateSchema,
+  // Manual last-finisher time ("HH:MM:SS") for races with untimed finishes.
+  lastFinisherTime: wallClockSchema.optional(),
   createdAt: epochMsSchema,
   version: versionSchema,
 });

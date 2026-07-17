@@ -14,6 +14,7 @@ import type {
   SubdivisionAxis,
   RaceFleetExclusion,
   PublishingGroup,
+  ProtestTimeLimit,
   RrsOrgPushConfig,
   Prize,
 } from './types';
@@ -158,9 +159,16 @@ export interface SeriesFileRepos {
  *  v19 adds optional `competitor.bowNumber` (a bow number that differs from the
  *  registered sail number, for finish-entry matching) and `finish.matchedOnBowNumber`
  *  (marks a row entered by bow number rather than sail number). Both additive and
- *  sparse (written only when set); older files load with them absent. */
-export const FORMAT_VERSION = 19;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+ *  sparse (written only when set); older files load with them absent.
+ *
+ *  v20 adds the results lifecycle: optional `series.resultsStatus` ('final';
+ *  provisional is the absent default) with `series.finalisedAt`, optional
+ *  `series.protestTimeLimit` ({minutes, basis} from the SIs), and optional
+ *  `races[*].lastFinisherTime` (manual last-finisher clock time for races with
+ *  untimed finishes). All additive and sparse; older files load provisional
+ *  with nothing tracked. */
+export const FORMAT_VERSION = 20;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -211,6 +219,9 @@ interface SeriesFileSeries {
   publishIndividualFleetPages?: boolean;  // v15+; absent = true
   rrsOrgPush?: RrsOrgPushConfig;  // v16+; rrs.org competitor-push settings
   prizes?: Prize[];  // v17+; prize list (#240)
+  resultsStatus?: 'provisional' | 'final';  // v20+; written only when final
+  finalisedAt?: number;  // v20+; epoch ms when marked final
+  protestTimeLimit?: ProtestTimeLimit;  // v20+; SI time-limit config
 }
 
 interface SeriesFileCompetitor {
@@ -277,6 +288,7 @@ interface SeriesFileRace {
   raceNumber: number;
   name?: string | null; // optional label; absent in files written before v10
   date: string;
+  lastFinisherTime?: string;  // v20+; manual last-finisher clock time
   /** @deprecated pre-reshape v9 partition membership; read for back-compat,
    *  no longer written (membership now lives in `subSeries[*].raceIds`). */
   subSeriesId?: string;
@@ -485,6 +497,9 @@ export async function buildSeriesFile(
         : {}),
       ...(series.rrsOrgPush ? { rrsOrgPush: series.rrsOrgPush } : {}),
       ...(series.prizes && series.prizes.length > 0 ? { prizes: series.prizes } : {}),
+      ...(series.resultsStatus === 'final' ? { resultsStatus: 'final' as const } : {}),
+      ...(series.finalisedAt != null ? { finalisedAt: series.finalisedAt } : {}),
+      ...(series.protestTimeLimit ? { protestTimeLimit: series.protestTimeLimit } : {}),
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -515,6 +530,7 @@ export async function buildSeriesFile(
       raceNumber: r.raceNumber,
       ...(r.name ? { name: r.name } : {}),
       date: r.date,
+      ...(r.lastFinisherTime ? { lastFinisherTime: r.lastFinisherTime } : {}),
       starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
       ...(overridesByRace.get(r.id)?.length ? { ratingOverrides: overridesByRace.get(r.id) } : {}),
@@ -873,6 +889,9 @@ export async function openSeriesFromFile(
     publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
     rrsOrgPush: file.series.rrsOrgPush,
     prizes: remapPrizes(file.series.prizes, fleetIdMap),
+    resultsStatus: file.series.resultsStatus,
+    finalisedAt: file.series.finalisedAt,
+    protestTimeLimit: file.series.protestTimeLimit,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -958,6 +977,9 @@ export async function restoreSeriesFromFile(
     publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
     rrsOrgPush: file.series.rrsOrgPush,
     prizes: remapPrizes(file.series.prizes, fleetIdMap),
+    resultsStatus: file.series.resultsStatus,
+    finalisedAt: file.series.finalisedAt,
+    protestTimeLimit: file.series.protestTimeLimit,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -1034,6 +1056,9 @@ export async function updateSeriesFromFile(
     publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
     rrsOrgPush: file.series.rrsOrgPush,
     prizes: remapPrizes(file.series.prizes, fleetIdMap),
+    resultsStatus: file.series.resultsStatus,
+    finalisedAt: file.series.finalisedAt,
+    protestTimeLimit: file.series.protestTimeLimit,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
@@ -1290,6 +1315,7 @@ async function writeFleetsCompetitorsRaces(
       raceNumber: r.raceNumber,
       name: r.name ?? null,
       date: r.date,
+      ...(r.lastFinisherTime ? { lastFinisherTime: r.lastFinisherTime } : {}),
       createdAt: now,
     });
 

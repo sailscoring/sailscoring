@@ -8,6 +8,7 @@ import type {
   PrimaryPersonLabel,
   PublishingGroup,
   RrsOrgPushConfig,
+  ProtestTimeLimit,
 } from '@/lib/types';
 
 import { SUBDIVISION_LABEL_MAX_LENGTH } from '@/lib/competitor-fields';
@@ -65,6 +66,13 @@ export const publishingGroupSchema = z.object({
   fleetMode: z.enum(['all', 'chosen']),
   fleetIds: z.array(uuidSchema),
   detail: z.enum(['standings', 'full']),
+});
+
+/** Protest / redress time limit from the SIs. Minutes are bounded loosely —
+ *  real SIs range from 30 minutes to a few hours; a day is the sanity cap. */
+export const protestTimeLimitSchema = z.object({
+  minutes: z.number().int().min(1).max(24 * 60),
+  basis: z.enum(['race', 'day']),
 });
 
 /** rrs.org competitor-push settings remembered on the series. The event UUID
@@ -138,6 +146,12 @@ export const seriesSchema = z.object({
   // Prize list (#240). Optional on the wire so sparse creation and older
   // clients round-trip cleanly.
   prizes: z.array(prizeSchema).optional(),
+  // Results lifecycle. Optional on the wire (absent = provisional). Status
+  // changes normally go through the dedicated finalise/reopen endpoint —
+  // a generic series PUT is rejected while the series is final anyway.
+  resultsStatus: z.enum(['provisional', 'final']).optional(),
+  finalisedAt: epochMsSchema.optional(),
+  protestTimeLimit: protestTimeLimitSchema.optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
   primaryPersonLabel: primaryPersonLabelSchema,
   // Independent subdivision axes, e.g. a "Division" and an "Age category"
@@ -231,3 +245,8 @@ const _rrsPushFromZod: RrsOrgPushConfig = undefined as unknown as z.infer<typeof
 const _rrsPushFromTs: z.infer<typeof rrsOrgPushConfigSchema> = undefined as unknown as RrsOrgPushConfig;
 void _rrsPushFromZod;
 void _rrsPushFromTs;
+
+const _protestLimitFromZod: ProtestTimeLimit = undefined as unknown as z.infer<typeof protestTimeLimitSchema>;
+const _protestLimitFromTs: z.infer<typeof protestTimeLimitSchema> = undefined as unknown as ProtestTimeLimit;
+void _protestLimitFromZod;
+void _protestLimitFromTs;

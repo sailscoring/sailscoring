@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
   buildSeriesFile,
+  FORMAT_VERSION,
   openSeriesFromFile,
   type SeriesFile,
   type SeriesFileRepos,
@@ -218,7 +219,7 @@ describe('bow-number field file round-trip (#234)', () => {
 
     const file = await buildSeriesFile(series.id, repos);
 
-    expect(file.formatVersion).toBe(19);
+    expect(file.formatVersion).toBe(FORMAT_VERSION);
     expect(file.competitors[0].bowNumber).toBe('1234');
     expect(file.races[0].finishes[0].matchedOnBowNumber).toBe(true);
   });
