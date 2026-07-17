@@ -24,6 +24,9 @@ const competitors = [
 ];
 
 test('sub-series: select races, per-block standings, publish per block', async ({ page, signedInEmail }) => {
+  // Long setup (4 boats, 3 races with finishes, 2 sub-series, publish): under
+  // full-suite load the default 30s cap is not enough.
+  test.slow();
   await enableFeatures(page, signedInEmail, ['sub-series']);
 
   // ── 1. Series, competitors, races ────────────────────────────────────────
