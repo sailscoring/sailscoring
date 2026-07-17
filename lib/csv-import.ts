@@ -46,6 +46,21 @@ export type ColumnTarget =
 /** Sentinel target: create a fresh subdivision axis from this column's header. */
 export const NEW_AXIS_TARGET = 'newaxis';
 
+/**
+ * Split one crew cell into individual names. Splits only on separators that
+ * unambiguously mean "next person": Sailwave's `<br>` publishing convention,
+ * literal newlines, and semicolons. Deliberately NOT on commas (surname-first
+ * "MOUSE Micky" formats put a comma inside one name) and NOT on "&"
+ * ("Alice & Bob Byrne" is two people sharing a surname — splitting it would
+ * fabricate a wrong name).
+ */
+export function splitCrewCell(raw: string): string[] {
+  return raw
+    .split(/<br\s*\/?>|\r?\n|;/i)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
 /** Contact / membership fields relayed to rrs.org at import time and
  *  deliberately never stored (they belong to the entry system, not the
  *  scoring engine). Keys match `RrsOrgRelayFields` in `lib/rrs-org.ts`. */

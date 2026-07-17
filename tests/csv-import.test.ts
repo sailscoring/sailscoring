@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFleetCell, autoDetectField, matchSubdivisionAxis } from '@/lib/csv-import';
+import { parseFleetCell, autoDetectField, matchSubdivisionAxis, splitCrewCell } from '@/lib/csv-import';
 
 describe('parseFleetCell', () => {
   it('returns a single name for a plain cell', () => {
@@ -158,5 +158,34 @@ describe('matchSubdivisionAxis', () => {
   it('prefers an exact match over a mere token overlap', () => {
     // "Category" exactly matches axis 1 even though axis 0 shares no token.
     expect(matchSubdivisionAxis('Category', ['Division', 'Category'])).toBe(1);
+  });
+});
+
+describe('splitCrewCell', () => {
+  it('splits on Sailwave <br>, newlines, and semicolons', () => {
+    expect(splitCrewCell('Alice Byrne<br>Bob Malone')).toEqual(['Alice Byrne', 'Bob Malone']);
+    expect(splitCrewCell('Alice Byrne<br/>Bob Malone')).toEqual(['Alice Byrne', 'Bob Malone']);
+    expect(splitCrewCell('Alice Byrne\nBob Malone')).toEqual(['Alice Byrne', 'Bob Malone']);
+    expect(splitCrewCell('Alice Byrne; Bob Malone ; Carol Doyle')).toEqual([
+      'Alice Byrne', 'Bob Malone', 'Carol Doyle',
+    ]);
+  });
+
+  it('does not split on commas or ampersands', () => {
+    expect(splitCrewCell('MOUSE, Micky')).toEqual(['MOUSE, Micky']);
+    expect(splitCrewCell('Alice & Bob Byrne')).toEqual(['Alice & Bob Byrne']);
+  });
+
+  it('trims and drops empty segments', () => {
+    expect(splitCrewCell(' Alice Byrne ;; ')).toEqual(['Alice Byrne']);
+    expect(splitCrewCell('')).toEqual([]);
+  });
+});
+
+describe('autoDetectField — numbered crew columns', () => {
+  it('maps Crew 1 / Crew 2 / 2nd Crew to the crew field', () => {
+    expect(autoDetectField('Crew 1')).toBe('crewName');
+    expect(autoDetectField('Crew 2')).toBe('crewName');
+    expect(autoDetectField('2nd Crew')).toBe('crewName');
   });
 });

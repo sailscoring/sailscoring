@@ -29,6 +29,7 @@ import {
   isSubdivisionTarget,
   relayColumnTarget,
   relayFieldOf,
+  splitCrewCell,
   NEW_AXIS_TARGET,
   RELAY_FIELDS,
   type CompetitorField,
@@ -574,17 +575,24 @@ const MappingRow = memo(function MappingRow({
   header,
   colIndex,
   columnValue,
-  sampleText,
+  sampleCells,
   fieldLabels,
   onChange,
 }: {
   header: string;
   colIndex: number;
   columnValue: ColumnTarget;
-  sampleText: string;
+  sampleCells: string[];
   fieldLabels: Record<string, string>;
   onChange: (index: number, value: ColumnTarget) => void;
 }) {
+  // A crew-mapped column previews the in-cell split ("Alice + Bob") so the
+  // scorer sees what will be stored before confirming.
+  const sampleText =
+    (columnValue === 'crewName'
+      ? sampleCells.map((c) => splitCrewCell(c).join(' + '))
+      : sampleCells
+    ).join(', ') || '—';
   return (
     <TableRow>
       <TableCell className="font-mono text-sm truncate">{header || `Column ${colIndex + 1}`}</TableCell>
@@ -619,13 +627,13 @@ const MappingRow = memo(function MappingRow({
 const MappingTable = memo(function MappingTable({
   headers,
   columnMap,
-  sampleTexts,
+  sampleCells,
   fieldLabels,
   onChange,
 }: {
   headers: string[];
   columnMap: ColumnMap;
-  sampleTexts: string[];
+  sampleCells: string[][];
   fieldLabels: Record<string, string>;
   onChange: (index: number, value: ColumnTarget) => void;
 }) {
@@ -645,7 +653,7 @@ const MappingTable = memo(function MappingTable({
             header={header}
             colIndex={i}
             columnValue={columnMap[i]}
-            sampleText={sampleTexts[i]}
+            sampleCells={sampleCells[i]}
             fieldLabels={fieldLabels}
             onChange={onChange}
           />
@@ -807,15 +815,15 @@ function MappingDialogBody({
   });
   const planGroups = groupProposedByCsvName(livePlan.proposed);
 
-  // Pre-join each column's sample values once — headers and sampleRows are
-  // fixed for the import session, so this never recomputes after mount.
-  const sampleTexts = useMemo(
+  // Pre-slice each column's sample values once — headers and sampleRows are
+  // fixed for the import session, so this never recomputes after mount. Rows
+  // join them for display (crew-mapped columns preview their in-cell split).
+  const sampleCells = useMemo(
     () => flow.headers.map((_, i) =>
       flow.sampleRows
         .map((row) => row[i]?.trim() ?? '')
         .filter(Boolean)
-        .slice(0, 3)
-        .join(', ') || '—',
+        .slice(0, 3),
     ),
     [flow.headers, flow.sampleRows],
   );
@@ -950,7 +958,7 @@ function MappingDialogBody({
       <MappingTable
         headers={flow.headers}
         columnMap={flow.columnMap}
-        sampleTexts={sampleTexts}
+        sampleCells={sampleCells}
         fieldLabels={fieldLabels}
         onChange={updateColumn}
       />
@@ -1457,7 +1465,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let primaryName = '';
       let helmRole = '';
       let ownerRole = '';
-      let crewName = '';
+      const crewCells: string[] = [];  // every column mapped to Crew, in column order
       let club = '';
       let nationality = '';
       let gender = '';
@@ -1480,7 +1488,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'primary') primaryName = val;
         else if (field === 'helm') helmRole = val;
         else if (field === 'owner') ownerRole = val;
-        else if (field === 'crewName') crewName = val;
+        else if (field === 'crewName') { if (val) crewCells.push(val); }
         else if (field === 'club') club = val;
         else if (field === 'nationality') nationality = val;
         else if (field === 'gender') gender = val;
@@ -1557,7 +1565,10 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ? (planRows[i].csvFleetNames[0]?.trim() || DEFAULT_FLEET_NAME)
         : '';
       const resolvedBoatClass = boatClass || existingCompetitor?.boatClass || fleetNameFallback || '';
-      const resolvedCrewNames = crewName.trim() ? [crewName.trim()] : existingCompetitor?.crewNames ?? [];
+      // A row with any mapped crew replaces the whole list; a row with none
+      // keeps the existing list (the same fallback the other fields have).
+      const csvCrew = crewCells.flatMap(splitCrewCell);
+      const resolvedCrewNames = csvCrew.length ? csvCrew : existingCompetitor?.crewNames ?? [];
       const resolvedHelm = helmRole || existingCompetitor?.helm || '';
       const resolvedOwner = ownerRole || existingCompetitor?.owner || '';
       // Merge the mapped columns onto their axes, preserving any other axis
