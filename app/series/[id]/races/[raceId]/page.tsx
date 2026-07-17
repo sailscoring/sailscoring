@@ -38,6 +38,7 @@ import { isInputFocused, useGlobalKeyDown, useShortcutHelp } from '@/hooks/use-k
 import { useFeatures } from '@/components/features-provider';
 import { type FinishSheetImportHandle } from '@/components/finish-sheet-import';
 import { RaceEntryHeader } from '@/components/race-entry/race-entry-header';
+import { RaceLastFinisher } from '@/components/race-entry/race-last-finisher';
 import { RaceSwitcher } from '@/components/race-entry/race-switcher';
 import { RaceEntryTabs } from '@/components/race-entry/race-entry-tabs';
 import { adjacentRaces } from '@/lib/race-navigation';
@@ -277,6 +278,18 @@ export default function ResultEntryPage({
           await saveRace.mutateAsync({ ...race, date });
         }}
         isSaving={isSaving}
+        lastFinisher={
+          has('results-status') ? (
+            <RaceLastFinisher
+              race={race}
+              finishes={savedFinishes ?? []}
+              readOnly={readOnly}
+              onSave={async (lastFinisherTime) => {
+                await saveRace.mutateAsync({ ...race, lastFinisherTime });
+              }}
+            />
+          ) : undefined
+        }
         switcher={
           orderedRaces.length > 1 ? (
             <RaceSwitcher races={orderedRaces} currentRaceId={raceId} onSelect={goToRace} />

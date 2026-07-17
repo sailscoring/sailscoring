@@ -15,7 +15,8 @@ import {
   useSaveRace,
 } from '@/hooks/use-races';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
-import { useFinishesByRace } from '@/hooks/use-finishes';
+import { useFinishesByRace, useFinishesBySeries } from '@/hooks/use-finishes';
+import { LastFinisherStrip } from '@/components/last-finisher-strip';
 import { useSaveRaceStarts } from '@/hooks/use-race-starts';
 import {
   useCreateSubSeries,
@@ -282,6 +283,13 @@ export default function RacesPage({
   const [carryFromId, setCarryFromId] = useState('');
   const [excludeDncOnly, setExcludeDncOnly] = useState(false);
   const [subSeriesError, setSubSeriesError] = useState('');
+
+  // The last-finisher recency strip (results-status feature) needs the whole
+  // series' finishes; only fetched while the gate is on.
+  const showResultsStatus = has('results-status');
+  const { data: allFinishes } = useFinishesBySeries(seriesId, {
+    enabled: showResultsStatus,
+  });
 
   const isHandicap = series?.scoringMode === 'handicap';
   const startSequence = series?.defaultStartSequence;
@@ -675,6 +683,14 @@ export default function RacesPage({
         <p className="text-sm text-muted-foreground">
           No races yet. Add the first race above.
         </p>
+      )}
+
+      {showResultsStatus && series && races && allFinishes && (
+        <LastFinisherStrip
+          series={series}
+          races={races}
+          finishes={allFinishes}
+        />
       )}
 
       {/* Sub-series: named selections of races, each scored on its own. */}

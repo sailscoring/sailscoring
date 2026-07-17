@@ -16,6 +16,7 @@ export function RaceEntryHeader({
   onSaveDate,
   isSaving,
   switcher,
+  lastFinisher,
 }: {
   race: { name: string | null; date: string; raceNumber: number };
   readOnly: boolean;
@@ -25,6 +26,9 @@ export function RaceEntryHeader({
   /** The race-to-race switcher (prev/next + dropdown); omitted for a
    *  single-race series. Rendered above the title. */
   switcher?: ReactNode;
+  /** The last-finisher line (results-status feature); rendered under the
+   *  date editor. */
+  lastFinisher?: ReactNode;
 }) {
   // Status pill: any in-flight save / delete / reorder reads "Saving…",
   // otherwise "All changes saved." Phase 7 will swap the otherwise-static
@@ -42,6 +46,7 @@ export function RaceEntryHeader({
         )}
         <RaceNameEditor race={race} readOnly={readOnly} onSave={onSaveName} />
         <RaceDateEditor race={race} readOnly={readOnly} onSave={onSaveDate} />
+        {lastFinisher}
       </div>
       <div
         role="status"
