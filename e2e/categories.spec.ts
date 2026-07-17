@@ -50,10 +50,17 @@ test('choose a category when creating a new series', async ({ page }) => {
   await page.getByLabel('Name').fill('Tuesday Twilight');
   await page.getByTestId('setup-category').click();
   // The wizard persists the category live; wait for that write to land before
-  // navigating away so the assertion below doesn't race the save.
+  // navigating away so the assertion below doesn't race the save. Any non-GET
+  // isn't enough — the name field saves through the same endpoint (a full-row
+  // write, so every body has a categoryId key, null until one is chosen).
+  // Match the write that carries a non-null categoryId string.
   await Promise.all([
     page.waitForResponse(
-      (r) => /\/api\/v1\/series\//.test(r.url()) && r.request().method() !== 'GET' && r.ok(),
+      (r) =>
+        /\/api\/v1\/series\//.test(r.url()) &&
+        r.request().method() !== 'GET' &&
+        r.ok() &&
+        (r.request().postData() ?? '').includes('"categoryId":"'),
     ),
     page.getByRole('option', { name: 'Frostbite' }).click(),
   ]);
