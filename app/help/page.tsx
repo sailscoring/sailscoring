@@ -1818,18 +1818,20 @@ export default async function HelpPage() {
         </p>
         <p>
           <strong className="text-foreground">Managing published pages:</strong>{' '}
-          open the workspace switcher in the page header, choose{' '}
-          <strong className="text-foreground">Workspace settings</strong>, and look under{' '}
-          <strong className="text-foreground">Published results</strong> for every page
-          your workspace has published, with its public URL, when it was last published, and
-          how many edits have landed since, and whether it shares its URL with another series.{' '}
+          the <strong className="text-foreground">Published</strong> tab on the workspace pages
+          lists every page your workspace has published, with its public URL, when it was last
+          published, how many edits have landed since, and whether it shares its URL with
+          another series. Pages are grouped the same way as the public listing — active series
+          by category, archived ones under Past results by year — and you can search by name
+          or URL and filter to pages with edits since publish.{' '}
           <strong className="text-foreground">Unpublish</strong> takes a page down: the public URL
           stops working and the slug frees up for reuse (or, if the URL is shared, only that
           series’ fleets are removed and the page stays live for the rest).
           You can also unpublish from the <strong className="text-foreground">Publish</strong>{' '}
           dialog on the Standings tab. If you delete a series whose results were published,
-          the page stays live as an orphaned snapshot — the Published results page is where
-          you remove it.
+          the page stays live as an orphaned snapshot, listed on the Published tab under{' '}
+          <strong className="text-foreground">Series deleted</strong> — that’s where you remove
+          it.
         </p>
         {has('ftp-upload') && (
           <>

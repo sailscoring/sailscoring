@@ -13,7 +13,6 @@ import { FeaturesCard } from '@/components/workspace-settings/features-card';
 import { FtpServersCard } from '@/components/workspace-settings/ftp-servers-card';
 import { LogosCard } from '@/components/workspace-settings/logos-card';
 import { MembersCard } from '@/components/workspace-settings/members-card';
-import { PublishedCard } from '@/components/workspace-settings/published-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,7 +78,6 @@ export default async function WorkspacePage() {
         canAssignScorer={features.includes('fine-grained-roles')}
       />
       {canManageSeries && <CategoriesCard />}
-      <PublishedCard />
       {canManageWorkspace && <FeaturesCard />}
       {features.includes('logo-library') && canManageWorkspace && <LogosCard />}
       {features.includes('ftp-upload') && canManageWorkspace && <FtpServersCard />}

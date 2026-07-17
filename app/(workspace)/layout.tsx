@@ -32,6 +32,7 @@ export default function WorkspaceLayout({
     ...(has('rankings')
       ? { r: () => router.push('/workspace/rankings') }
       : {}),
+    p: () => router.push('/workspace/published'),
     t: () => router.push('/workspace'),
   });
 

@@ -34,6 +34,7 @@ export function WorkspaceNav() {
   if (has('rankings')) {
     tabs.push({ label: 'Rankings', href: '/workspace/rankings' });
   }
+  tabs.push({ label: 'Published', href: '/workspace/published' });
   tabs.push({ label: 'Settings', href: '/workspace' });
 
   return (
