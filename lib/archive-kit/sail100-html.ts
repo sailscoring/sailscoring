@@ -22,7 +22,7 @@ import { parseRankLabel } from './sailwave-html';
 const WS = /\s+/g;
 
 function textOf(el: Element | null): string {
-  return (el?.textContent ?? '').replace(/ /g, ' ').replace(WS, ' ').trim();
+  return (el?.textContent ?? '').replace(WS, ' ').trim();
 }
 
 /** Whether a header label is a race column ("Race 1", "Race 12"). */
