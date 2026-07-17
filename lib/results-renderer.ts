@@ -860,7 +860,7 @@ function renderSummaryTable(
         `<td>${esc(s.sailNumber)}</td>`,
         ...(showBoatName ? [`<td>${esc(s.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(s.boatClass ?? '')}</td>`] : []),
-        `<td>${esc(renderHelmCell(s.helm, s.crewNames, showCrewName))}</td>`,
+        `<td>${renderHelmCell(s.helm, s.crewNames, showCrewName)}</td>`,
         ...(showHelm ? [`<td>${esc(s.helmRole ?? '')}</td>`] : []),
         ...(showOwner ? [`<td>${esc(s.owner ?? '')}</td>`] : []),
         ...(showClub ? [`<td>${esc(s.club ?? '')}</td>`] : []),
@@ -948,7 +948,7 @@ function renderRaceTable(
         `<td>${esc(r.sailNumber)}</td>`,
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
-        `<td>${esc(renderHelmCell(r.helm, r.crewNames, showCrewName))}</td>`,
+        `<td>${renderHelmCell(r.helm, r.crewNames, showCrewName)}</td>`,
         ...(showHelm ? [`<td>${esc(r.helmRole ?? '')}</td>`] : []),
         ...(showOwner ? [`<td>${esc(r.owner ?? '')}</td>`] : []),
         ...(showClub ? [`<td>${esc(r.club ?? '')}</td>`] : []),
@@ -1157,14 +1157,13 @@ function formatSigned(n: number, digits: number): string {
 }
 
 /** Compose the text for the Helm column. When crew names are shown and a
- *  crew is set, renders "Helm / Crew"; otherwise just the helm name. The
- *  result is raw text — callers are responsible for HTML-escaping. */
+ *  crew is set, renders "Helm / Crew"; a multi-person crew stacks one name
+ *  per line under the helm. Returns escaped HTML — callers embed it as-is. */
 function renderHelmCell(helm: string, crewNames: string[] | undefined, showCrewName: boolean): string {
   const crew = (crewNames ?? []).filter((n) => n.trim());
-  if (showCrewName && crew.length > 0) {
-    return [helm, ...crew].join(' / ');
-  }
-  return helm;
+  if (!showCrewName || crew.length === 0) return esc(helm);
+  if (crew.length === 1) return esc(`${helm} / ${crew[0]}`);
+  return [helm, ...crew].map(esc).join('<br>');
 }
 
 // ---- Helpers ----

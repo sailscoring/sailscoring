@@ -524,6 +524,25 @@ describe('renderSeriesHtml', () => {
       expect(html).toContain('>Alice<');
     });
 
+    it('stacks a multi-person crew one name per line under the helm', () => {
+      const multiCrew: SeriesResultsData = {
+        ...withBoatAndCrew,
+        enabledCompetitorFields: ['crewName'],
+        primaryPersonLabel: 'helm',
+        standings: [{ ...withBoatAndCrew.standings[0], crewNames: ['Mark', 'Niamh & Co', 'Órla'] }],
+        races: [
+          {
+            ...withBoatAndCrew.races[0],
+            results: [{ ...withBoatAndCrew.races[0].results[0], crewNames: ['Mark', 'Niamh & Co', 'Órla'] }],
+          },
+        ],
+      };
+      const html = renderSeriesHtml(multiCrew);
+      // Stacked lines in one cell, each name escaped individually.
+      expect(html).toContain('Alice<br>Mark<br>Niamh &amp; Co<br>Órla');
+      expect(html).not.toContain('Alice / Mark');
+    });
+
     it('defaults to "Competitor" as the primary header when primaryPersonLabel is unset', () => {
       const html = renderSeriesHtml({ ...withBoatAndCrew, enabledCompetitorFields: [] });
       expect(html).toContain('<th>Competitor</th>');

@@ -690,7 +690,7 @@ export default function CompetitorsPage({
                 <TableCell className="whitespace-normal break-words">{c.name}</TableCell>
                 {showHelm && <TableCell className="whitespace-normal break-words">{c.helm ?? ''}</TableCell>}
                 {showOwner && <TableCell className="whitespace-normal break-words">{c.owner ?? ''}</TableCell>}
-                {showCrew && <TableCell className="whitespace-normal break-words">{(c.crewNames ?? []).join(' / ')}</TableCell>}
+                {showCrew && <TableCell className="whitespace-normal break-words">{(c.crewNames ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
                 {showClub && <TruncatedCell value={c.club} />}
                 {showNationality && <TableCell className="font-mono">{c.nationality ?? ''}</TableCell>}
                 {multipleFleets && <TableCell className="whitespace-normal break-words">{c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ')}</TableCell>}
