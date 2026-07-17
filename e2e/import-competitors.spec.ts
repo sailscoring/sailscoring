@@ -108,6 +108,39 @@ test('import CSV auto-detects the Crew column and stores crew names', async ({ p
   await expect(singleHanderRow).toContainText('Chris Brown');
 });
 
+test('import CSV with Crew 1/Crew 2 columns and a semicolon-separated cell', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Keelboat Crew Import' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByLabel('Crew', { exact: true }).check();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
+  // Both multi-crew shapes at once: one column per person for 635, and two
+  // names sharing one cell (semicolon) for 1024.
+  const csv = [
+    'Sail,Helm,Crew 1,Crew 2',
+    '635,Cormac Farrelly,Alice Byrne,Bob Malone',
+    '1024,Kate Lyttle,Carol Doyle; Dan Egan,',
+  ].join('\n');
+  await uploadCsv(page, csv);
+
+  // Both crew columns auto-detect as Crew; the sample previews the split.
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('dialog')).toContainText('Carol Doyle + Dan Egan');
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Columns append in order; the semicolon cell splits into two names.
+  const keelboatRow = page.getByRole('row').filter({ hasText: '635' });
+  await expect(keelboatRow).toContainText('Alice Byrne');
+  await expect(keelboatRow).toContainText('Bob Malone');
+  const splitRow = page.getByRole('row').filter({ hasText: '1024' });
+  await expect(splitRow).toContainText('Carol Doyle');
+  await expect(splitRow).toContainText('Dan Egan');
+});
+
 test('import competitors assigned to multiple fleets', async ({ page }) => {
   // ── 1. Create a series ────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'Multi-Fleet Import' });

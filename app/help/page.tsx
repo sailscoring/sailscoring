@@ -266,8 +266,10 @@ export default async function HelpPage() {
           <strong className="text-foreground">Settings</strong> tab. Enable{' '}
           <em>Class</em> for PY fleets with mixed classes (Laser, Firefly, Mirror) to show the boat
           class alongside each entry. Enable{' '}
-          <em>Crew name</em> for two-person dinghy classes (420, Fireball, GP14); the helm and crew
-          are then shown as <em>Helm / Crew</em> in exported results.
+          <em>Crew</em> for classes that sail with crew. A competitor can carry any number of
+          crew names — <em>Add crew</em> in the competitor dialog adds a row per person. A
+          single crew shows as <em>Helm / Crew</em> in exported results; a bigger keelboat crew
+          stacks one name per line under the helm.
         </p>
         <p>
           Enable <em>Bow number</em> when boats carry a bow number that can
@@ -474,10 +476,20 @@ export default async function HelpPage() {
           do not need can be left as <strong className="text-foreground">(ignore)</strong>. Sail
           number is the only required mapping; all other fields are optional. A column named{' '}
           <em>Fleet</em> is detected as the fleet; <em>Class</em> maps to boat class, and{' '}
-          <em>Crew</em> to the crew name. A <em>Division</em> or <em>Category</em> column maps to a
+          <em>Crew</em> to the crew. A <em>Division</em> or <em>Category</em> column maps to a
           subdivision axis: it lands on the matching axis if you already have one, or you can pick{' '}
           <strong className="text-foreground">New subdivision axis</strong> to create one from the
           column heading (so a sheet with both a Division and an Age-category column brings in both).
+        </p>
+        <p>
+          Multi-person crews import two ways, and both can be combined. Sheets with one column
+          per person (<em>Crew 1</em>, <em>Crew 2</em>, <em>Crew 3</em>…) map every column to{' '}
+          <strong className="text-foreground">Crew</strong>; the names are kept in column order.
+          Or several names can share one <em>Crew</em> cell separated by semicolons (Sailwave’s{' '}
+          <code className="text-foreground text-sm">&lt;br&gt;</code> convention and line breaks
+          also work) — the sample column previews how a cell will split before you import.
+          Commas and <em>&amp;</em> are never treated as separators, so surname-first names
+          (“MOUSE, Micky”) and shared-surname pairs (“Alice &amp; Bob Byrne”) come through intact.
         </p>
         <p>
           A competitor can be assigned to more than one fleet by separating fleet names with a

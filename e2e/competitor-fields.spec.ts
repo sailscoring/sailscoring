@@ -77,6 +77,61 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
   expect(html).toContain('<th>Boat</th>');
 });
 
+test('multi-person crew: Add crew rows, stacked column, stacked export', async ({ page }) => {
+  // ── 1. Series with Helm primary + Crew enabled ──────────────────────────
+  await createSeriesQuick(page, { name: 'Keelboat Crew List' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('radio', { name: /^Helm/ }).click();
+  await page.getByRole('checkbox', { name: 'Crew', exact: true }).check();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 2. Add a competitor with three crew via "Add crew" ──────────────────
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('635');
+  await page.getByLabel('Helm name').fill('Cormac Farrelly');
+  await page.getByLabel('Crew 1').fill('Alice Byrne');
+  await page.getByRole('button', { name: 'Add crew' }).click();
+  // "Add crew" focuses the appended row — type straight into it.
+  await expect(page.getByLabel('Crew 2')).toBeFocused();
+  await page.getByLabel('Crew 2').fill('Bob Malone');
+  await page.getByRole('button', { name: 'Add crew' }).click();
+  await page.getByLabel('Crew 3').fill('Carol Doyle');
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  // ── 3. Crew column stacks all three names in one cell ───────────────────
+  const crewCell = page.getByRole('cell', { name: 'Alice Byrne' });
+  await expect(crewCell).toContainText('Bob Malone');
+  await expect(crewCell).toContainText('Carol Doyle');
+
+  // ── 4. Removing a row updates the stored list ───────────────────────────
+  await page.getByRole('row').filter({ hasText: '635' }).click();
+  const editDialog = page.getByRole('dialog', { name: 'Edit competitor' });
+  await expect(editDialog.getByLabel('Crew 2')).toHaveValue('Bob Malone');
+  await editDialog.getByLabel('Crew 2').locator('..').getByRole('button', { name: 'Remove' }).click();
+  await expect(editDialog.getByLabel('Crew 2')).toHaveValue('Carol Doyle');
+  await editDialog.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'Alice Byrne' })).not.toContainText('Bob Malone');
+
+  // ── 5. Race + finish so the fleet HTML can be exported ──────────────────
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('635');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // ── 6. Exported HTML stacks the crew under the helm ─────────────────────
+  await page.getByRole('link', { name: 'Standings' }).click();
+  const download = await downloadFleetHtml(page);
+  const path = await download.path();
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(path, 'utf-8');
+  expect(html).toContain('<th>Helm / Crew</th>');
+  expect(html).toContain('Cormac Farrelly<br>Alice Byrne<br>Carol Doyle');
+});
+
 test('class field shows Class column and exports in results', async ({ page }) => {
   await createSeriesQuick(page, { name: 'PY Handicap' });
 
