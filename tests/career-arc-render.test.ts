@@ -85,9 +85,39 @@ describe('renderCareerArcHtml deep-links', () => {
       ],
     };
     const html = renderCareerArcHtml('iodai', 'IODAI', rankingOnly);
-    expect(html).toContain('Season rankings');
     expect(html).toContain('Ranked 12th of 51');
     expect(html).toContain('href="/p/iodai/ranking/national-ranking-2006"');
     expect(html).not.toContain('No series recorded yet');
+  });
+
+  it("interleaves each season's ranking after that year's series entries", () => {
+    const combined: CareerArc = {
+      ...arc([
+        arcEntry({ seriesName: 'Leinsters 2018', year: 2018 }),
+        arcEntry({ seriesName: 'Nationals 2018', year: 2018 }),
+        arcEntry({ seriesName: 'Leinsters 2019', year: 2019 }),
+      ]),
+      rankingEntries: [
+        {
+          rankingId: 'r18',
+          name: 'National Ranking 2018',
+          slug: 'national-ranking-2018',
+          season: 2018,
+          fleetLabel: null,
+          rank: 4,
+          rankLabel: '4th',
+          rankedCount: 60,
+        },
+      ],
+    };
+    const html = renderCareerArcHtml('iodai', 'IODAI', combined);
+    const order = [
+      html.indexOf('Leinsters 2018'),
+      html.indexOf('Nationals 2018'),
+      html.indexOf('National Ranking 2018'),
+      html.indexOf('Leinsters 2019'),
+    ];
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 });

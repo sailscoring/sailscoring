@@ -256,23 +256,23 @@ export function renderWorkspaceIndexHtml(
   logoUrl = '',
   opts: {
     competitorsLink?: boolean;
-    /** Public season ladders (#209) to link above the series listing. */
-    rankings?: Array<{ name: string; slug: string }>;
+    /** Whether the workspace has any public rankings — one forward link to
+     *  the ranking index, not a link per ladder: the series results are the
+     *  page's focus. */
+    rankingsLink?: boolean;
   } = {},
 ): string {
   const heading = `${esc(workspaceName)} &mdash; published results`;
   const hero = renderPublicHero(heading, logoUrl);
-  // Forward link to the competitor index, when the workspace has one to show.
-  const rankingLinks = (opts.rankings ?? [])
-    .map(
-      (r) =>
-        `<p class="browse"><a href="/p/${esc(workspaceSlug)}/ranking/${esc(r.slug)}">${esc(r.name)} &rarr;</a></p>`,
-    )
-    .join('');
+  // Forward links to the competitor and ranking indexes, when there's
+  // something behind them.
   const competitorsLink =
     (opts.competitorsLink
       ? `<p class="browse"><a href="/p/${esc(workspaceSlug)}/competitors">Browse competitors &rarr;</a></p>`
-      : '') + rankingLinks;
+      : '') +
+    (opts.rankingsLink
+      ? `<p class="browse"><a href="/p/${esc(workspaceSlug)}/rankings">Browse rankings &rarr;</a></p>`
+      : '');
   if (items.length === 0) {
     return renderPublicShell(
       `${workspaceName} — published results`,
@@ -389,4 +389,31 @@ ${pages
   const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)} &mdash; published results</a></p>`;
   const hero = renderPublicHero(esc(title), logoUrl);
   return renderPublicShell(title, hero, `${back}\n${sections}`);
+}
+
+/** The public ranking index at `/p/{ws}/rankings` (#209/#309): the live
+ *  computed ladders first, then the as-published historical rankings,
+ *  newest season first. */
+export function renderRankingIndexHtml(
+  workspaceSlug: string,
+  workspaceName: string,
+  entries: Array<{ name: string; slug: string }>,
+  logoUrl = '',
+): string {
+  const hero = renderPublicHero(
+    `${esc(workspaceName)} &mdash; rankings`,
+    logoUrl,
+  );
+  const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)}</a></p>`;
+  const rows = entries
+    .map(
+      (r) =>
+        `<li><a href="/p/${esc(workspaceSlug)}/ranking/${esc(r.slug)}">${esc(r.name)}</a></li>`,
+    )
+    .join('\n');
+  return renderPublicShell(
+    `${workspaceName} — rankings`,
+    hero,
+    `${back}\n<ul class="listing">\n${rows}\n</ul>`,
+  );
 }

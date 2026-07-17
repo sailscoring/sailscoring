@@ -422,7 +422,6 @@ test.describe('cross-series rankings', () => {
     await expect(
       page.getByRole('heading', { name: 'Historic Sailor' }),
     ).toBeVisible();
-    await expect(page.getByText('Season rankings')).toBeVisible();
     await expect(page.getByText('Ranked 1st of 2')).toBeVisible();
     await expect(page.getByText('No series recorded yet')).toBeHidden();
 

@@ -31,6 +31,7 @@ import * as schema from '@/lib/db/schema';
 import { workspaceOwnFeatureOn } from '@/lib/workspace-features';
 import { getDb } from '@/lib/db/client';
 import {
+  renderRankingIndexHtml,
   renderSeriesIndexHtml,
   renderWorkspaceIndexHtml,
   type SeriesIndexGroup,
@@ -107,6 +108,11 @@ export async function GET(
   if (segments.length === 2 && segments[1] === 'competitors') {
     return competitorIndex(req, segments[0]);
   }
+  // `/p/{ws}/rankings` — the public ranking index; reserved like
+  // `competitors`, so it wins over a same-named series slug.
+  if (segments.length === 2 && segments[1] === 'rankings') {
+    return rankingIndex(req, segments[0]);
+  }
   // `/p/{ws}/competitor/{identityId}` — the public competitor timeline (#212).
   if (segments.length === 3 && segments[1] === 'competitor') {
     return careerArc(req, segments[0], segments[2]);
@@ -140,17 +146,13 @@ async function workspaceIndex(
     (await workspaceHasCompetitors(workspace.id));
 
   // Public season ladders (#209) and as-published historical rankings
-  // (#309), when the feature is on and any exist.
+  // (#309): one forward link to the ranking index when any exist — the
+  // series results stay the page's focus.
   const rankingsOn = await workspaceOwnFeatureOn(getDb(), workspace.id, 'rankings');
-  const rankingLinks = rankingsOn
-    ? [
-        ...(await listPublishedRankings(workspace.id)),
-        ...(await listAsPublishedRankings(workspace.id)).map((r) => ({
-          name: r.name,
-          slug: r.slug,
-        })),
-      ]
-    : [];
+  const rankingsLink =
+    rankingsOn &&
+    ((await listPublishedRankings(workspace.id)).length > 0 ||
+      (await listAsPublishedRankings(workspace.id)).length > 0);
 
   // ETag from listing metadata so repeat views revalidate without re-rendering.
   // Includes the placement fields (category / archive / order / year) so
@@ -160,7 +162,7 @@ async function workspaceIndex(
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     `competitors:${competitorsLink}`,
-    ...rankingLinks.map((r) => `ranking:${r.slug}:${r.name}`),
+    `rankings:${rankingsLink}`,
     ...items.map(
       (i) =>
         `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.year ?? ''}`,
@@ -170,8 +172,43 @@ async function workspaceIndex(
   if (cached) return cached;
   const html = renderWorkspaceIndexHtml(workspaceSlug, workspace.name, items, workspace.logo, {
     competitorsLink,
-    rankings: rankingLinks,
+    rankingsLink,
   });
+  return htmlResponse(html, etag);
+}
+
+/** `/p/{ws}/rankings` — the public ranking index (#209/#309): computed
+ *  ladders first, then the as-published historical record by season. */
+async function rankingIndex(
+  req: NextRequest,
+  workspaceSlug: string,
+): Promise<Response> {
+  const workspace = await getWorkspaceBySlug(workspaceSlug);
+  if (!workspace) return NOT_FOUND;
+  if (!(await workspaceOwnFeatureOn(getDb(), workspace.id, 'rankings'))) {
+    return NOT_FOUND;
+  }
+  const entries = [
+    ...(await listPublishedRankings(workspace.id)),
+    ...(await listAsPublishedRankings(workspace.id)).map((r) => ({
+      name: r.name,
+      slug: r.slug,
+    })),
+  ];
+  if (entries.length === 0) return NOT_FOUND;
+
+  const etag = `"${await contentHash([
+    `logo:${workspace.logo}`,
+    ...entries.map((r) => `${r.slug}:${r.name}`),
+  ])}"`;
+  const cached = notModified(req, etag);
+  if (cached) return cached;
+  const html = renderRankingIndexHtml(
+    workspaceSlug,
+    workspace.name,
+    entries,
+    workspace.logo,
+  );
   return htmlResponse(html, etag);
 }
 

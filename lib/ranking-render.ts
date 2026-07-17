@@ -15,7 +15,9 @@ import type { AsPublishedRankingTable } from './archive-kit/types';
 import { formatPlace, type RankingConfig } from './ranking';
 import type { RankingStandingsData } from './ranking-standings';
 
-const RANKING_CSS = `.ladder { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e6ea; border-radius: 8px; overflow: hidden; margin: 20px 0; box-shadow: 0 1px 2px rgba(7,51,88,0.06); }
+const RANKING_CSS = `.content { max-width: 1100px; }
+.tablewrap { overflow-x: auto; margin: 20px 0; }
+.ladder { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e6ea; border-radius: 8px; margin: 0; box-shadow: 0 1px 2px rgba(7,51,88,0.06); }
 .ladder th { text-align: left; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; background: #f6f8fa; padding: 10px 14px; border-bottom: 1px solid #e2e6ea; }
 .ladder td { padding: 10px 14px; border-bottom: 1px solid #eef1f4; color: #1a2b3c; }
 .ladder tr:last-child td { border-bottom: none; }
@@ -140,12 +142,12 @@ export function renderRankingHtml(
     .join('\n');
 
   const netHead = hasDiscards ? '<th style="text-align:right">Net</th>' : '';
-  const table = `<table class="ladder">
+  const table = `<div class="tablewrap"><table class="ladder">
 <thead><tr><th>Rank</th><th>Sailor</th><th>Club</th>${seriesHeads}<th style="text-align:right">Total</th>${netHead}</tr></thead>
 <tbody>
 ${body}
 </tbody>
-</table>`;
+</table></div>`;
 
   return renderPublicShell(
     rankingName,
@@ -205,12 +207,12 @@ export function renderAsPublishedRankingHtml(
     })
     .join('\n');
 
-  const tableHtml = `<table class="ladder">
+  const tableHtml = `<div class="tablewrap"><table class="ladder">
 <thead><tr>${heads}</tr></thead>
 <tbody>
 ${body}
 </tbody>
-</table>`;
+</table></div>`;
 
   const captionLine = table.caption
     ? `<p class="basis">${esc(table.caption)}</p>`

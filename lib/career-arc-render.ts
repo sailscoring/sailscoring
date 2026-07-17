@@ -90,37 +90,45 @@ export function renderCareerArcHtml(
     );
   }
 
-  const rows = identity.entries
-    .map((e) => {
-      const venue = e.venue ? `<span class="venue">${esc(e.venue)}</span>` : '';
-      const place = placementHtml(e);
-      const right = `<span class="right">${place}<span class="sail">${esc(e.sailNumber)}</span></span>`;
-      // Deep-link the event to its published results when there is a page;
-      // unpublished series stay plain text.
-      const name = e.publishedSlug
-        ? `<a href="/p/${esc(workspaceSlug)}/${esc(e.publishedSlug)}">${esc(e.seriesName)}</a>`
-        : esc(e.seriesName);
-      return `<li><span class="yr">${e.year ?? '&mdash;'}</span><span class="ev">${name}${venue}</span>${right}</li>`;
-    })
+  // One chronological timeline (#309): series entries in their existing
+  // order, each season's ranking achievement sorted directly after that
+  // year's series — the season closes with its ranking. Ranking rows for
+  // years with no series entries slot into year order; a ranking-only
+  // sailor's arc is exactly those lines.
+  const seriesItems = identity.entries.map((e, i) => {
+    const venue = e.venue ? `<span class="venue">${esc(e.venue)}</span>` : '';
+    const place = placementHtml(e);
+    const right = `<span class="right">${place}<span class="sail">${esc(e.sailNumber)}</span></span>`;
+    // Deep-link the event to its published results when there is a page;
+    // unpublished series stay plain text.
+    const name = e.publishedSlug
+      ? `<a href="/p/${esc(workspaceSlug)}/${esc(e.publishedSlug)}">${esc(e.seriesName)}</a>`
+      : esc(e.seriesName);
+    return {
+      year: e.year,
+      kind: 0,
+      seq: i,
+      html: `<li><span class="yr">${e.year ?? '&mdash;'}</span><span class="ev">${name}${venue}</span>${right}</li>`,
+    };
+  });
+  const rankingItems = identity.rankingEntries.map((r, i) => {
+    const of = r.rank !== null ? `Ranked ${esc(r.rankLabel)} of ${r.rankedCount}` : 'Listed';
+    const name = `<a href="/p/${esc(workspaceSlug)}/ranking/${esc(r.slug)}">${esc(r.name)}</a>`;
+    return {
+      year: r.season as number | null,
+      kind: 1,
+      seq: i,
+      html: `<li><span class="yr">${r.season}</span><span class="ev">${name}</span><span class="right"><span class="place">${of}</span></span></li>`,
+    };
+  });
+  const rows = [...seriesItems, ...rankingItems]
+    .sort(
+      (a, b) =>
+        (a.year ?? 0) - (b.year ?? 0) || a.kind - b.kind || a.seq - b.seq,
+    )
+    .map((it) => it.html)
     .join('\n');
 
-  // Season-ranking achievements (#309): an accomplishment line per ranked
-  // year, above the event timeline. A ranking-only sailor's arc is just
-  // this list.
-  const rankingRows = identity.rankingEntries
-    .map((r) => {
-      const of = r.rank !== null ? `Ranked ${esc(r.rankLabel)} of ${r.rankedCount}` : 'Listed';
-      const name = `<a href="/p/${esc(workspaceSlug)}/ranking/${esc(r.slug)}">${esc(r.name)}</a>`;
-      return `<li><span class="yr">${r.season}</span><span class="ev">${name}</span><span class="right"><span class="place">${of}</span></span></li>`;
-    })
-    .join('\n');
-  const rankingBlock = rankingRows
-    ? `<h2 class="arch2">Season rankings</h2>\n<ul class="arc">\n${rankingRows}\n</ul>\n`
-    : '';
-  const eventsBlock = rows
-    ? `<ul class="arc">\n${rows}\n</ul>`
-    : '';
-
-  const body = `${back}\n<p class="arcsub">${sub}</p>\n${rankingBlock}${eventsBlock}`;
+  const body = `${back}\n<p class="arcsub">${sub}</p>\n<ul class="arc">\n${rows}\n</ul>`;
   return renderPublicShell(title, hero, body, ARC_CSS);
 }
