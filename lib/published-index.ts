@@ -15,49 +15,57 @@
 import { formatShortDate as formatDate } from './format-date';
 import { escapeHtml as esc } from './html';
 
-/** A published series as shown in the workspace listing. */
-export interface WorkspaceIndexItem {
-  slug: string;
-  /** Display title: the series name, or the slug for an orphaned publication. */
-  title: string;
+/**
+ * The fields the listing partition reads — what decides which section a
+ * publication lands in and where it sorts. All placement fields are optional so
+ * a bare item reads as an active, uncategorised entry — keeping the flat
+ * common-case render and old call sites compiling. Both the public workspace
+ * index and the in-app management page partition their items through this.
+ */
+export interface ListingPlacement {
   publishedAt: number; // Unix ms
-  fleetCount: number;
-  // Placement on the listing, from the slug's representative series (its
-  // categorisation / archive state and manual order). All optional so a bare item
-  // reads as an active, uncategorised entry — keeping the flat common-case
-  // render and old call sites compiling.
-  /** True when the representative series is archived → relegated to "Past
-   *  results" rather than shown among the active category sections. */
+  /** True when the series is archived → relegated to "Past results" rather
+   *  than shown among the active category sections. */
   archived?: boolean;
-  /** Representative category name; null/absent = the Uncategorized bucket. */
+  /** Category name; null/absent = the Uncategorized bucket. */
   categoryName?: string | null;
-  /** Representative category's `displayOrder` (section order); absent → last. */
+  /** The category's `displayOrder` (section order); absent → last. */
   categoryOrder?: number;
-  /** Representative series' manual `displayOrder` within the active list. */
+  /** The series' manual `displayOrder` within the active list. */
   seriesOrder?: number;
-  /** Representative series' start-date year, for the "Past results" grouping. */
+  /** The series' start-date year, for the "Past results" grouping. */
   year?: number | null;
 }
 
+/** A published series as shown in the workspace listing. Placement comes from
+ *  the slug's representative series (its categorisation / archive state and
+ *  manual order). */
+export interface WorkspaceIndexItem extends ListingPlacement {
+  slug: string;
+  /** Display title: the series name, or the slug for an orphaned publication. */
+  title: string;
+  fleetCount: number;
+}
+
 /** A category section of active publications on the workspace listing. */
-export interface ListingCategoryGroup {
+export interface ListingCategoryGroup<T extends ListingPlacement = WorkspaceIndexItem> {
   /** null = the synthetic "Uncategorized" bucket. */
   categoryName: string | null;
-  items: WorkspaceIndexItem[];
+  items: T[];
 }
 
 /** A year section of archived publications ("Past results"). */
-export interface ListingYearGroup {
+export interface ListingYearGroup<T extends ListingPlacement = WorkspaceIndexItem> {
   /** null = the "Undated" bucket. */
   year: number | null;
-  items: WorkspaceIndexItem[];
+  items: T[];
 }
 
 /** The workspace listing partitioned into active category sections and the
  *  relegated "Past results" year sections. */
-export interface WorkspaceListing {
-  active: ListingCategoryGroup[];
-  past: ListingYearGroup[];
+export interface WorkspaceListing<T extends ListingPlacement = WorkspaceIndexItem> {
+  active: ListingCategoryGroup<T>[];
+  past: ListingYearGroup<T>[];
 }
 
 /** A fleet page as shown in the series listing. */
@@ -192,22 +200,22 @@ export function renderPublicHero(headingHtml: string, logoUrl = ''): string {
  * `listPublishedByWorkspace`); a slug shared by several series under different
  * categories is fudged onto one section via that representative.
  */
-export function groupWorkspaceListing(
-  items: WorkspaceIndexItem[],
-): WorkspaceListing {
+export function groupWorkspaceListing<T extends ListingPlacement>(
+  items: T[],
+): WorkspaceListing<T> {
   const INF = Number.POSITIVE_INFINITY;
 
   // Active → category sections. Section order is the representative category's
   // displayOrder; the Uncategorized bucket (null) always sorts last. Within a
   // section the manual series order wins, newest first as a tiebreak.
-  const catBuckets = new Map<string | null, WorkspaceIndexItem[]>();
+  const catBuckets = new Map<string | null, T[]>();
   const catOrder = new Map<string | null, number>();
   for (const it of items.filter((i) => !i.archived)) {
     const key = it.categoryName ?? null;
     (catBuckets.get(key) ?? catBuckets.set(key, []).get(key)!).push(it);
     catOrder.set(key, Math.min(catOrder.get(key) ?? INF, it.categoryOrder ?? INF));
   }
-  const active: ListingCategoryGroup[] = [...catBuckets.entries()]
+  const active: ListingCategoryGroup<T>[] = [...catBuckets.entries()]
     .map(([categoryName, list]) => ({
       categoryName,
       items: list.sort(
@@ -223,12 +231,12 @@ export function groupWorkspaceListing(
     });
 
   // Archived → year sections, newest year first; the undated bucket last.
-  const yearBuckets = new Map<number | null, WorkspaceIndexItem[]>();
+  const yearBuckets = new Map<number | null, T[]>();
   for (const it of items.filter((i) => i.archived)) {
     const key = it.year ?? null;
     (yearBuckets.get(key) ?? yearBuckets.set(key, []).get(key)!).push(it);
   }
-  const past: ListingYearGroup[] = [...yearBuckets.entries()]
+  const past: ListingYearGroup<T>[] = [...yearBuckets.entries()]
     .map(([year, list]) => ({
       year,
       items: list.sort((a, b) => b.publishedAt - a.publishedAt),
