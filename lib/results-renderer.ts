@@ -33,6 +33,11 @@ export interface SeriesResultsData {
   rightUrl?: string;
   /** If set, renders "Results are provisional as of HH:MM on Month D, YYYY" */
   generatedAt?: Date;
+  /** Results marked final: the stamp reads "Results are final …" instead of
+   *  the provisional-as-of line. */
+  resultsFinal?: boolean;
+  /** When the results were marked final; dates the final stamp. */
+  finalisedAt?: Date;
   /** Which optional competitor fields the scorer has enabled for this series.
    *  Drives column visibility in the summary and race tables. The Boat column
    *  is shown iff this list contains 'boatName'; the helm cell includes the
@@ -400,6 +405,8 @@ export interface DocumentChrome {
   leftUrl?: string;
   rightUrl?: string;
   generatedAt?: Date;
+  resultsFinal?: boolean;
+  finalisedAt?: Date;
   seriesIndexUrl?: string;
   openInAppUrl?: string;
 }
@@ -472,6 +479,8 @@ export function renderCombinedSeriesHtml(
     leftUrl: first.leftUrl,
     rightUrl: first.rightUrl,
     generatedAt: first.generatedAt,
+    resultsFinal: first.resultsFinal,
+    finalisedAt: first.finalisedAt,
     seriesIndexUrl: first.seriesIndexUrl,
     openInAppUrl: first.openInAppUrl,
   };
@@ -553,7 +562,7 @@ export function renderHtmlDocument(
   content: string,
   flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string },
 ): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, seriesIndexUrl, openInAppUrl } = chrome;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl } = chrome;
   const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs } = flags;
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
 
@@ -643,7 +652,9 @@ ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 </table>
 <div style="clear:both;"></div>
 <style>div.applicant-break {page-break-after:always;}</style>
-${generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
+${resultsFinal
+  ? `<h3 class="seriestitle">Final results${finalisedAt ? ` — declared ${formatDate(finalisedAt)}` : ''}</h3>`
+  : generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
 ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${flagDefs}
 ${content}
@@ -1328,9 +1339,13 @@ export function assembleSeriesResultsData(
      *  per section on combined pages, where several fleets' race tables share
      *  one document and bare race numbers would collide. */
     anchorPrefix?: string;
+    /** Results marked final: the page stamp reads "Final results" instead of
+     *  the provisional-as-of line, dated by `finalisedAt` when known. */
+    resultsFinal?: boolean;
+    finalisedAt?: Date;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix } = options ?? {};
+  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt } = options ?? {};
   const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
@@ -1553,6 +1568,8 @@ export function assembleSeriesResultsData(
     leftUrl: series.venueUrl || undefined,
     rightUrl: series.eventUrl || undefined,
     generatedAt,
+    ...(resultsFinal ? { resultsFinal: true } : {}),
+    ...(finalisedAt ? { finalisedAt } : {}),
     enabledCompetitorFields,
     ...(primaryPersonLabel ? { primaryPersonLabel } : {}),
     ...(subdivisionAxes?.length ? { subdivisionAxes } : {}),

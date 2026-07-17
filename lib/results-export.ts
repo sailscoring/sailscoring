@@ -398,6 +398,12 @@ export async function buildFleetHtmlFiles(
           showPerRaceRatings,
           ...(seedRatingByCompetitorId ? { seedRatingByCompetitorId } : {}),
           ...(anchorPrefix ? { anchorPrefix } : {}),
+          ...(series.resultsStatus === 'final'
+            ? {
+                resultsFinal: true,
+                ...(series.finalisedAt ? { finalisedAt: new Date(series.finalisedAt) } : {}),
+              }
+            : {}),
         },
       );
       if (openInAppUrl) data.openInAppUrl = openInAppUrl;
@@ -504,6 +510,12 @@ export async function buildFleetHtmlFiles(
           leftUrl: series.venueUrl || undefined,
           rightUrl: series.eventUrl || undefined,
           generatedAt: new Date(),
+          ...(series.resultsStatus === 'final'
+            ? {
+                resultsFinal: true,
+                ...(series.finalisedAt ? { finalisedAt: new Date(series.finalisedAt) } : {}),
+              }
+            : {}),
           ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
           ...(openInAppUrl ? { openInAppUrl } : {}),
         },

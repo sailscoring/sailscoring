@@ -262,6 +262,28 @@ describe('renderSeriesHtml', () => {
     expect(html).not.toContain('provisional');
   });
 
+  it('renders the final stamp instead of the provisional line when results are final', () => {
+    const html = renderSeriesHtml({
+      ...MINIMAL,
+      generatedAt: new Date(2025, 5, 14, 19, 30),
+      resultsFinal: true,
+      finalisedAt: new Date(2025, 5, 15, 12, 0),
+    });
+    expect(html).toContain('Final results');
+    expect(html).toContain('declared');
+    expect(html).not.toContain('provisional');
+  });
+
+  it('renders an undated final stamp when finalisedAt is unknown', () => {
+    const html = renderSeriesHtml({
+      ...MINIMAL,
+      generatedAt: new Date(2025, 5, 14, 19, 30),
+      resultsFinal: true,
+    });
+    expect(html).toContain('Final results');
+    expect(html).not.toContain('declared');
+  });
+
   it('renders the provisional timestamp in the deployment timezone with a zone label', () => {
     // 22:22 UTC is 23:22 IST (Irish summer time) — the default Europe/Dublin zone.
     const html = renderSeriesHtml({
