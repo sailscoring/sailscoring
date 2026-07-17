@@ -34,6 +34,7 @@ import {
   seriesCategoryInputSchema,
   seriesInputSchema,
   seriesReorderSchema,
+  seriesResultsStatusInputSchema,
 } from '@/lib/validation/series';
 import type { Competitor, Fleet, Series } from '@/lib/types';
 
@@ -68,6 +69,7 @@ export async function putSeries(
   const existing = await repos.series.get(id);
   if (existing?.asPublished) throw new ArchivedError('series-as-published');
   if (existing?.archived) throw new ArchivedError();
+  if (existing?.resultsStatus === 'final') throw new ArchivedError('series-final');
   // Spread the validated input rather than hand-copying field by field — a
   // field accepted by the schema but dropped here would silently disappear
   // on every settings save (the Feature Checklist's data-loss hazard). The
@@ -172,6 +174,50 @@ export async function setSeriesArchived(
     action: archived ? 'series.archived' : 'series.unarchived',
     seriesId: id,
     summary: archived ? 'Archived the series' : 'Unarchived the series',
+  });
+  return saved;
+}
+
+/**
+ * Mark the series' results final, or reopen them as provisional. Like the
+ * archive toggle, its own endpoint bypassing the read-only guard: reopening
+ * is the one write that must work on a final series. The checklist that
+ * makes "final" mean something (protest time limit passed, no open
+ * inquiries, nothing outstanding — RRS 90.3(e)) lives in the UI; the server
+ * records the assertion and stamps when it was made.
+ *
+ * Allowed on an archived series (a results assertion, not a content edit —
+ * finalising after archiving the season is a natural order of operations)
+ * but not on an as-published archive, whose results were settled the moment
+ * they were ingested.
+ */
+export async function setSeriesResultsStatus(
+  workspace: WorkspaceContext,
+  id: string,
+  body: unknown,
+): Promise<Series> {
+  const { status } = seriesResultsStatusInputSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const current = await repos.series.get(id);
+  if (!current) throw new NotFoundError('series');
+  if (current.asPublished) {
+    throw new BadRequestError('an as-published archive series has no results lifecycle');
+  }
+  const final = status === 'final';
+  const saved = await repos.series.save(
+    {
+      ...current,
+      resultsStatus: status,
+      finalisedAt: final ? Date.now() : undefined,
+    },
+    { updatedBy: workspace.userId },
+  );
+  await recordActivity(workspace, {
+    action: final ? 'series.finalised' : 'series.reopened',
+    seriesId: id,
+    summary: final
+      ? 'Marked the results final'
+      : 'Reopened the results as provisional',
   });
   return saved;
 }

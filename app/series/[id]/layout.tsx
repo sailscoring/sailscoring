@@ -3,8 +3,8 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Archive, ArchiveRestore } from 'lucide-react';
-import { useSeries, useArchiveSeries } from '@/hooks/use-series';
+import { Archive, ArchiveRestore, CheckCircle2 } from 'lucide-react';
+import { useSeries, useArchiveSeries, useSetResultsStatus } from '@/hooks/use-series';
 import { cn } from '@/lib/utils';
 import { useChordShortcut, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { usePublicationStatus } from '@/hooks/use-published';
@@ -38,6 +38,7 @@ export default function SeriesLayout({
   const router = useRouter();
   const { data: series, isLoading } = useSeries(id);
   const archiveSeries = useArchiveSeries();
+  const setResultsStatus = useSetResultsStatus();
   const { can } = useWorkspacePermissions();
   const { has } = useFeatures();
   const [showHelp, setShowHelp] = useState(false);
@@ -75,7 +76,9 @@ export default function SeriesLayout({
     return <SeriesTabFallback status="missing" />;
   }
 
-  const readOnly = (series.archived ?? false) || (series.asPublished ?? false);
+  const isFinal = series.resultsStatus === 'final';
+  const readOnly =
+    (series.archived ?? false) || (series.asPublished ?? false) || isFinal;
 
   return (
     <div className="space-y-6 max-w-screen-2xl mx-auto">
@@ -88,10 +91,19 @@ export default function SeriesLayout({
                 As published
               </span>
             )}
-            {readOnly && !series.asPublished && (
+            {series.archived && !series.asPublished && (
               <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground align-middle">
                 <Archive className="h-3 w-3" />
                 Archived
+              </span>
+            )}
+            {isFinal && !series.asPublished && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border border-green-600/40 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 align-middle dark:border-green-500/40 dark:bg-green-950/40 dark:text-green-400"
+                data-testid="final-badge"
+              >
+                <CheckCircle2 className="h-3 w-3" />
+                Final
               </span>
             )}
           </h1>
@@ -106,7 +118,7 @@ export default function SeriesLayout({
 
       {series.asPublished ? (
         <AsPublishedNotice seriesId={series.id} />
-      ) : readOnly && (
+      ) : series.archived ? (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/40">
           <p className="text-amber-900 dark:text-amber-200">
             <strong>This series is archived and read-only.</strong> Unarchive it
@@ -121,6 +133,30 @@ export default function SeriesLayout({
             >
               <ArchiveRestore className="h-4 w-4" />
               Unarchive
+            </Button>
+          )}
+        </div>
+      ) : isFinal && (
+        <div
+          className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 text-sm"
+          data-testid="final-banner"
+        >
+          <p>
+            <strong>These results are final.</strong> The series is read-only;
+            reopen it as provisional to make changes.
+          </p>
+          {can('score') && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={setResultsStatus.isPending}
+              onClick={() => {
+                if (confirm('Reopen this series as provisional? Results become editable again and the Final stamp comes off the next publish.')) {
+                  setResultsStatus.mutate({ id, status: 'provisional' });
+                }
+              }}
+            >
+              Reopen as provisional
             </Button>
           )}
         </div>

@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useFeatures } from '@/components/features-provider';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
+import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
 import { AsPublishedStandings } from '@/components/as-published-standings';
@@ -45,6 +46,7 @@ export default function StandingsPage({
   const saveSubSeries = useSaveSubSeries();
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [showFinaliseDialog, setShowFinaliseDialog] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
   const data = useSeriesData(seriesId, { finishes: true, raceStarts: true });
@@ -69,6 +71,12 @@ export default function StandingsPage({
   const { series, competitors, fleets, races } = data;
   const allFinishes = data.finishes ?? [];
   const allRaceStarts = data.raceStarts ?? [];
+
+  // Results lifecycle: the chip and finalise affordance are feature-gated,
+  // but a series already marked final always shows its state — the gate
+  // controls the affordances, not the data.
+  const isFinal = series.resultsStatus === 'final';
+  const showResultsStatus = has('results-status') || isFinal;
 
   // An as-published series (ADR-010) shows its stored tables — nothing is
   // computed, published, or previewed here.
@@ -242,8 +250,36 @@ export default function StandingsPage({
         </Tabs>
       )}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{summary}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground">{summary}</p>
+          {showResultsStatus && (
+            <span
+              className={
+                isFinal
+                  ? 'inline-flex items-center rounded-full border border-green-600/40 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:border-green-500/40 dark:bg-green-950/40 dark:text-green-400'
+                  : 'inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300'
+              }
+              title={
+                isFinal && series.finalisedAt
+                  ? `Final since ${new Date(series.finalisedAt).toLocaleDateString()}`
+                  : undefined
+              }
+              data-testid="results-status-chip"
+            >
+              {isFinal ? 'Final results' : 'Provisional'}
+            </span>
+          )}
+        </div>
         <div className="flex gap-2">
+          {showResultsStatus && canScore && !isFinal && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowFinaliseDialog(true)}
+            >
+              Mark as final
+            </Button>
+          )}
           {canPublish && (
             <Button size="sm" variant="outline" onClick={() => setShowPublishDialog(true)} title="Publish (p)">
               Publish
@@ -321,6 +357,13 @@ export default function StandingsPage({
         open={showPublishDialog}
         onClose={() => setShowPublishDialog(false)}
         canFtp={canFtp}
+      />
+      <FinaliseResultsDialog
+        series={series}
+        races={races}
+        finishes={allFinishes}
+        open={showFinaliseDialog}
+        onClose={() => setShowFinaliseDialog(false)}
       />
     </div>
   );

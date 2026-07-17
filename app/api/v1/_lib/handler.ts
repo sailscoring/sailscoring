@@ -50,15 +50,19 @@ export class BadRequestError extends Error {
 }
 
 /**
- * Thrown when a write targets an archived (read-only) series (#154). Mapped to
- * 423 Locked — deliberately *not* 409, so it doesn't collide with the
- * optimistic-concurrency conflict path the client routes into its
- * row-conflict dialog. Editing requires unarchiving first (or copying to
- * another workspace).
+ * Thrown when a write targets a read-only series: archived (#154), an
+ * as-published archive (ADR-010), or one whose results have been marked
+ * final. Mapped to 423 Locked — deliberately *not* 409, so it doesn't collide
+ * with the optimistic-concurrency conflict path the client routes into its
+ * row-conflict dialog. Editing requires unarchiving / reopening first (or
+ * copying to another workspace).
  */
 export class ArchivedError extends Error {
   constructor(
-    public readonly reason: 'series-archived' | 'series-as-published' = 'series-archived',
+    public readonly reason:
+      | 'series-archived'
+      | 'series-as-published'
+      | 'series-final' = 'series-archived',
   ) {
     super(reason);
     this.name = 'ArchivedError';

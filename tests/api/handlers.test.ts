@@ -14,7 +14,7 @@ import { eq } from 'drizzle-orm';
 import postgres, { type Sql } from 'postgres';
 
 import * as schema from '@/lib/db/schema';
-import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
+import { ArchivedError, BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import * as series from '@/lib/api-handlers/series';
 import * as fleets from '@/lib/api-handlers/fleets';
@@ -190,6 +190,39 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     });
     expect(got.createdAt).toBe(input.createdAt);
     expect(got.lastModifiedAt).toBe(input.lastModifiedAt);
+
+    await removeSeries(ctxA, id);
+  });
+
+  test('series: finalise makes the series read-only until reopened', async () => {
+    const id = uuid();
+    await series.putSeries(ctxA, id, sampleSeries(id));
+    const raceId = uuid();
+    await races.putRace(ctxA, id, raceId, {
+      id: raceId, seriesId: id, raceNumber: 1, date: '2026-04-01', createdAt: Date.now(),
+    });
+
+    const finalised = await series.setSeriesResultsStatus(ctxA, id, { status: 'final' });
+    expect(finalised.resultsStatus).toBe('final');
+    expect(finalised.finalisedAt).toBeGreaterThan(0);
+
+    // The general PUT and child writes both bounce with the final reason.
+    await expect(
+      series.putSeries(ctxA, id, sampleSeries(id)),
+    ).rejects.toMatchObject({ reason: 'series-final' });
+    await expect(
+      races.putRace(ctxA, id, raceId, {
+        id: raceId, seriesId: id, raceNumber: 1, date: '2026-04-02', createdAt: Date.now(),
+      }),
+    ).rejects.toBeInstanceOf(ArchivedError);
+
+    // Reopening clears the stamp and edits work again.
+    const reopened = await series.setSeriesResultsStatus(ctxA, id, { status: 'provisional' });
+    expect(reopened.resultsStatus).toBeUndefined();
+    expect(reopened.finalisedAt).toBeUndefined();
+    await races.putRace(ctxA, id, raceId, {
+      id: raceId, seriesId: id, raceNumber: 1, date: '2026-04-02', createdAt: Date.now(),
+    });
 
     await removeSeries(ctxA, id);
   });

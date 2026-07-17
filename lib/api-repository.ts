@@ -628,6 +628,17 @@ export function archiveSeries(seriesId: string, archived: boolean): Promise<Seri
   });
 }
 
+/** Mark the series' results final, or reopen them as provisional. */
+export function setSeriesResultsStatus(
+  seriesId: string,
+  status: 'provisional' | 'final',
+): Promise<Series> {
+  return apiFetch<Series>(`/api/v1/series/${seriesId}/results-status`, {
+    method: 'POST',
+    body: { status },
+  });
+}
+
 /**
  * Progressive-handicap TCF history for a series. Server computes live
  * from the scoring engine — see `lib/api-handlers/tcf-history.ts`.

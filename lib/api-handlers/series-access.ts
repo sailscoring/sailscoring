@@ -41,12 +41,16 @@ import * as schema from '@/lib/db/schema';
 interface WriteFlags {
   archived: boolean;
   asPublished: boolean;
+  resultsStatus: string;
 }
 
 /** Throws the right 423 for a read-only series; no-op when writable. */
 function assertFlagsWritable(flags: WriteFlags): void {
   if (flags.asPublished) throw new ArchivedError('series-as-published');
   if (flags.archived) throw new ArchivedError();
+  // Final results are settled results: edits bounce until the series is
+  // reopened as provisional (its own endpoint, like unarchive).
+  if (flags.resultsStatus === 'final') throw new ArchivedError('series-final');
 }
 
 /** The series' read-only flags, or `null` if it isn't in the workspace. */
@@ -58,6 +62,7 @@ async function seriesWriteFlags(
     .select({
       archived: schema.series.archived,
       asPublished: schema.series.asPublished,
+      resultsStatus: schema.series.resultsStatus,
     })
     .from(schema.series)
     .where(
@@ -79,6 +84,7 @@ async function raceSeriesWriteFlags(
     .select({
       archived: schema.series.archived,
       asPublished: schema.series.asPublished,
+      resultsStatus: schema.series.resultsStatus,
     })
     .from(schema.races)
     .innerJoin(schema.series, eq(schema.races.seriesId, schema.series.id))
@@ -143,6 +149,7 @@ export async function assertCompetitorWritable(
     .select({
       archived: schema.series.archived,
       asPublished: schema.series.asPublished,
+      resultsStatus: schema.series.resultsStatus,
     })
     .from(schema.competitors)
     .innerJoin(schema.series, eq(schema.competitors.seriesId, schema.series.id))
@@ -164,6 +171,7 @@ export async function assertFleetWritable(
     .select({
       archived: schema.series.archived,
       asPublished: schema.series.asPublished,
+      resultsStatus: schema.series.resultsStatus,
     })
     .from(schema.fleets)
     .innerJoin(schema.series, eq(schema.fleets.seriesId, schema.series.id))
@@ -194,6 +202,7 @@ export async function assertFinishWritable(
     .select({
       archived: schema.series.archived,
       asPublished: schema.series.asPublished,
+      resultsStatus: schema.series.resultsStatus,
     })
     .from(schema.finishes)
     .innerJoin(schema.races, eq(schema.finishes.raceId, schema.races.id))
@@ -216,6 +225,7 @@ export async function assertRaceStartWritable(
     .select({
       archived: schema.series.archived,
       asPublished: schema.series.asPublished,
+      resultsStatus: schema.series.resultsStatus,
     })
     .from(schema.raceStarts)
     .innerJoin(schema.races, eq(schema.raceStarts.raceId, schema.races.id))

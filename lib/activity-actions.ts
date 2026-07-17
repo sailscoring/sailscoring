@@ -17,6 +17,8 @@ export const ACTIVITY_ACTIONS = [
   'series.updated',
   'series.archived',
   'series.unarchived',
+  'series.finalised',
+  'series.reopened',
   'series.recategorized',
   'series.deleted',
   'series.restored',

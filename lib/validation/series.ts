@@ -180,6 +180,12 @@ export const seriesArchiveInputSchema = z.object({
   archived: z.boolean(),
 });
 
+/** Body for POST /api/v1/series/:id/results-status — mark the series' results
+ *  final, or reopen them as provisional. */
+export const seriesResultsStatusInputSchema = z.object({
+  status: z.enum(['provisional', 'final']),
+});
+
 /** Body for POST /api/v1/series/reorder — rewrite the manual sort order. */
 export const seriesReorderSchema = z.object({
   orderedIds: z.array(uuidSchema),

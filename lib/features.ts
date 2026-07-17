@@ -124,6 +124,17 @@ export const FEATURES = {
     label: 'VPRS scoring',
     helpSectionIds: ['update-handicaps-vprs'],
   },
+  'results-status': {
+    // The results lifecycle (Provisional vs Final): per-race last-finisher
+    // times with computed protest time limits, the finalise checklist on the
+    // Standings tab, and the Final stamp on published pages. Opt-in (default
+    // off) while the lifecycle is proven against a real season, per the
+    // containment model. A series already marked final keeps enforcing
+    // read-only regardless of the gate — the gate controls the affordances,
+    // not the data.
+    label: 'Results status (Provisional vs Final)',
+    helpSectionIds: ['results-status'],
+  },
   'follow-on-series': {
     // Gates the "Create follow-on series" action on the series list: roll a
     // finished series into the next one of the season, carrying competitors

@@ -15,6 +15,7 @@ import {
   deleteSeriesCascade,
   listSeriesNames,
   setSeriesCategory,
+  setSeriesResultsStatus,
 } from '@/lib/api-repository';
 import { ConflictApiError } from '@/lib/api-client';
 import type { Series } from '@/lib/types';
@@ -183,6 +184,20 @@ export function useArchiveSeries() {
   return useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
       archiveSeries(id, archived),
+    onSuccess: (saved) => {
+      qc.setQueryData(queryKeys.series.detail(saved.id), saved);
+      qc.invalidateQueries({ queryKey: queryKeys.series.list() });
+    },
+    scope: { id: 'series' },
+  });
+}
+
+/** Mark results final / reopen as provisional — the results lifecycle toggle. */
+export function useSetResultsStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'provisional' | 'final' }) =>
+      setSeriesResultsStatus(id, status),
     onSuccess: (saved) => {
       qc.setQueryData(queryKeys.series.detail(saved.id), saved);
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });
