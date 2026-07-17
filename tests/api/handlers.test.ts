@@ -270,6 +270,11 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       gender: '' as const, age: null, createdAt: Date.now(),
       vprsTcc: 0.992,
     });
+    const raceId = uuid();
+    await races.putRace(ctxACopier, srcId, raceId, {
+      id: raceId, seriesId: srcId, raceNumber: 1, name: 'Round the Island',
+      date: '2026-06-01', createdAt: Date.now(),
+    });
 
     const { id: copyId } = await series.copySeries(ctxACopier, srcId, {
       targetWorkspaceId: workspaceB,
@@ -290,6 +295,10 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     expect(copiedComps).toHaveLength(1);
     expect(copiedComps[0].vprsTcc).toBe(0.992);
     expect(copiedComps[0].fleetIds).toEqual([copiedFleets[0].id]);
+
+    const copiedRaces = await races.listRaces(ctxBCopier, copyId);
+    expect(copiedRaces).toHaveLength(1);
+    expect(copiedRaces[0].name).toBe('Round the Island');
 
     await removeSeries(ctxBCopier, copyId);
     await removeSeries(ctxACopier, srcId);

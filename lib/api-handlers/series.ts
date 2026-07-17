@@ -491,6 +491,7 @@ export async function copySeries(
           seriesId: newSeriesId,
           workspaceId: targetWorkspaceId,
           raceNumber: r.raceNumber,
+          name: r.name ?? null,
           date: r.date,
           lastFinisherTime: r.lastFinisherTime ?? null,
           createdAt: new Date(r.createdAt),
