@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -134,6 +134,28 @@ export function CompetitorForm({
 
   function set<K extends keyof CompetitorFormData>(field: K, value: CompetitorFormData[K]) {
     setData((d) => ({ ...d, [field]: value }));
+  }
+
+  // Crew rows: the stored list, or one blank row so the field is immediately
+  // typable. Blanks are dropped on save (cleanCrewNames at the page boundary).
+  const crewRows = data.crewNames.length > 0 ? data.crewNames : [''];
+  // "Add crew" focuses the row it appends; the ref callback fires when the new
+  // input mounts. A ref (not state) so no re-render is involved.
+  const pendingCrewFocus = useRef<number | null>(null);
+
+  function setCrewRow(index: number, value: string) {
+    const next = [...crewRows];
+    next[index] = value;
+    set('crewNames', next);
+  }
+
+  function addCrewRow() {
+    pendingCrewFocus.current = crewRows.length;
+    set('crewNames', [...crewRows, '']);
+  }
+
+  function removeCrewRow(index: number) {
+    set('crewNames', crewRows.filter((_, i) => i !== index));
   }
 
   function toggleFleet(fleetId: string, checked: boolean) {
@@ -311,13 +333,43 @@ export function CompetitorForm({
         )}
         {enabledFields.includes('crewName') && (
           <div className="space-y-1.5">
-            <Label htmlFor="crewName">Crew name</Label>
-            <Input
-              id="crewName"
-              value={data.crewNames[0] ?? ''}
-              onChange={(e) => set('crewNames', e.target.value ? [e.target.value] : [])}
-              placeholder="e.g. Mark Smith"
-            />
+            <Label>Crew</Label>
+            {crewRows.map((crewName, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  ref={(el) => {
+                    if (el && pendingCrewFocus.current === i) {
+                      pendingCrewFocus.current = null;
+                      el.focus();
+                    }
+                  }}
+                  aria-label={`Crew ${i + 1}`}
+                  value={crewName}
+                  onChange={(e) => setCrewRow(i, e.target.value)}
+                  placeholder={i === 0 ? 'e.g. Mark Smith' : undefined}
+                />
+                {crewRows.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-xs text-muted-foreground"
+                    onClick={() => removeCrewRow(i)}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={addCrewRow}
+            >
+              Add crew
+            </Button>
           </div>
         )}
         {enabledFields.includes('club') && (

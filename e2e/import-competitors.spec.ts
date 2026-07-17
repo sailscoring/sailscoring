@@ -83,7 +83,7 @@ test('import CSV auto-detects the Crew column and stores crew names', async ({ p
   await createSeriesQuick(page, { name: 'Two-Person Dinghy Import' });
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
-  await page.getByLabel('Crew name').check();
+  await page.getByLabel('Crew', { exact: true }).check();
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('link', { name: 'Competitors' }).click();
 

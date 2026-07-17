@@ -163,7 +163,7 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
 
   const fieldHints: Partial<Record<CompetitorFieldKey, string>> = {
     boatClass: 'Enable for PY fleets with mixed classes (Laser, Firefly, Mirror).',
-    crewName: 'Enable for two-person classes (420, Fireball, GP14).',
+    crewName: 'Enable for classes that sail with crew — a single dinghy crew or a full keelboat crew.',
     helm: 'Record the helm separately when the primary identifier is not the helm.',
     owner: 'Record the owner separately when the primary identifier is not the owner.',
     subdivision: 'A prize-giving subdivision within a fleet (e.g. Gold/Silver/Bronze, or age categories). Not used for scoring.',

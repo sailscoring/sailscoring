@@ -96,7 +96,7 @@ export const COMPETITOR_FIELD_LABELS: Record<CompetitorFieldKey, string> = {
   boatClass: 'Class',
   helm: 'Helm name',
   owner: 'Owner name',
-  crewName: 'Crew name',
+  crewName: 'Crew',
   club: 'Club',
   nationality: 'Nationality',
   gender: 'Gender',

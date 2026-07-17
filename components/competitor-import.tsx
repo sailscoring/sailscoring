@@ -241,7 +241,7 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   bowNumber: 'Bow number',
   boatName: 'Boat name',
   boatClass: 'Class',
-  crewName: 'Crew name',
+  crewName: 'Crew',
   club: 'Club',
   nationality: 'Nationality',
   gender: 'Gender',

@@ -24,13 +24,13 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
 
   // ── 3. By default (after step 2): Crew column is hidden, Crew field is not in the form ──
   await page.getByRole('button', { name: 'Add competitor' }).click();
-  await expect(page.getByLabel('Crew name')).toHaveCount(0);
+  await expect(page.getByLabel('Crew 1')).toHaveCount(0);
   await page.getByRole('button', { name: 'Cancel' }).click();
 
   // ── 4. Enable crew name in Settings → Competitor fields ──────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
-  await page.getByRole('checkbox', { name: 'Crew name' }).check();
+  await page.getByRole('checkbox', { name: 'Crew', exact: true }).check();
   await page.getByRole('button', { name: 'Done' }).click();
 
   // ── 5. Add a competitor with helm + crew ────────────────────────────────
@@ -38,7 +38,7 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
   await page.getByRole('button', { name: 'Add competitor' }).click();
   await page.getByLabel('Sail number').fill('14702');
   await page.getByLabel('Helm name').fill('Jane Doe');
-  await page.getByLabel('Crew name').fill('Mark Smith');
+  await page.getByLabel('Crew 1').fill('Mark Smith');
   await page.getByRole('button', { name: 'Save' }).click();
 
   // ── 6. Competitors table now has a Crew column ───────────────────────────
@@ -252,7 +252,7 @@ test('a toggle made while a prior save is in flight does not revert it', async (
   await expect(page.getByRole('button', { name: 'Add competitor' })).toBeVisible();
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
-  await page.getByLabel('Crew name').check();
+  await page.getByLabel('Crew', { exact: true }).check();
 
   // ── 3. Release A; once both saves land the card re-syncs to the
   //       persisted row — Boat name must stay unchecked. The re-sync waits on
@@ -261,13 +261,13 @@ test('a toggle made while a prior save is in flight does not revert it', async (
   //       default expect timeout even though the final state is deterministic.
   releaseHold();
   await expect(page.getByLabel('Boat name')).not.toBeChecked({ timeout: 15_000 });
-  await expect(page.getByLabel('Crew name')).toBeChecked({ timeout: 15_000 });
+  await expect(page.getByLabel('Crew', { exact: true })).toBeChecked({ timeout: 15_000 });
 
   // ── 4. The persisted state agrees after a full reload ────────────────────
   await page.reload();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await expect(page.getByLabel('Boat name')).not.toBeChecked();
-  await expect(page.getByLabel('Crew name')).toBeChecked();
+  await expect(page.getByLabel('Crew', { exact: true })).toBeChecked();
 });
 
 test('age and gender: standings columns and export columns (#211)', async ({ page }) => {
