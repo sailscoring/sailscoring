@@ -12,6 +12,7 @@ import { ScoringModeCard } from '@/components/series-settings/scoring-mode-card'
 import { CompetitorFieldsCard } from '@/components/series-settings/competitor-fields-card';
 import { PublishingCard } from '@/components/series-settings/publishing-card';
 import { CombinedPagesCard } from '@/components/series-settings/combined-pages-card';
+import { ProtestTimeLimitCard } from '@/components/series-settings/protest-time-limit-card';
 import { DisabledFeatureHint } from '@/components/series-settings/disabled-feature-hint';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
@@ -63,6 +64,19 @@ export default function SettingsPage({
     );
   }
 
+  // Final results are read-only the same way (423 on every save); the banner
+  // above offers Reopen as provisional.
+  if (series.resultsStatus === 'final') {
+    return (
+      <div className="max-w-lg">
+        <p className="text-sm text-muted-foreground">
+          This series&apos; results are final and read-only. Reopen it as
+          provisional from the banner above to change its settings.
+        </p>
+      </div>
+    );
+  }
+
   // Same shape for roles that can't manage series — the cards auto-save, so
   // rendering them would only bounce every edit off the server's 403.
   if (!can('manage-series')) {
@@ -107,6 +121,17 @@ export default function SettingsPage({
           });
         }}
       />
+      {has('results-status') && (
+        <ProtestTimeLimitCard
+          value={series}
+          onChange={async (patch) => {
+            await updateSeries.mutateAsync({
+              id: seriesId,
+              patch: { ...patch, lastModifiedAt: Date.now() },
+            });
+          }}
+        />
+      )}
       <CompetitorFieldsCard seriesId={seriesId} series={series} />
       <PublishingCard seriesId={seriesId} series={series} anyProgressiveFleet={anyProgressiveFleet} />
       {/* Combined pages are gated (#155): only the authoring UI hides when

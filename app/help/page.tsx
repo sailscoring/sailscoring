@@ -1912,6 +1912,41 @@ export default async function HelpPage() {
         </Section>
       )}
 
+      {has('results-status') && (
+        <Section id="results-status" title="Provisional and final results">
+          <p>
+            Results are <strong className="text-foreground">provisional</strong> while they can
+            still change — a protest decision, a redress request, or a scoring correction can all
+            move a score. Once the event is settled, mark the series{' '}
+            <strong className="text-foreground">final</strong>: on the{' '}
+            <strong className="text-foreground">Standings</strong> tab, click{' '}
+            <strong className="text-foreground">Mark as final</strong>. The dialog asks you to
+            confirm the three things that make “final” mean something: the protest and
+            request-for-redress time limit for the last race has passed (under RRS 60.3(b) the
+            default is two hours after the last boat finishes, unless your sailing instructions
+            say otherwise), nothing is pending with the protest committee, and the results team
+            and organiser know of no other outstanding issues. A final series is read-only and
+            shows a green <strong className="text-foreground">Final</strong> badge; published
+            pages carry a <strong className="text-foreground">Final results</strong> stamp in
+            place of the provisional-as-of line once you publish again. If something does come
+            up, <strong className="text-foreground">Reopen as provisional</strong> from the
+            banner — reopening is recorded in the series activity, so the trail stays honest.
+          </p>
+          <p>
+            The protest window is anchored on the{' '}
+            <strong className="text-foreground">last finisher</strong>. Where finish times are
+            recorded, each race knows its last finisher automatically; for untimed racing, record
+            it by hand on the race page (<strong className="text-foreground">Record last
+            finisher</strong> under the race title). Set your SIs&rsquo; limit under{' '}
+            <strong className="text-foreground">Settings ▸ Protest time limit</strong> — a number
+            of minutes measured from each race&rsquo;s last finisher, or from the last finisher
+            of the whole race day — and the <strong className="text-foreground">Races</strong>{' '}
+            tab shows a live line on race day: when the last boat finished, and when the protest
+            time limit ends.
+          </p>
+        </Section>
+      )}
+
       <Section id="json-export" title="JSON data export and Open in Sail Scoring">
         <p>
           Every HTML results page — whether downloaded from{' '}
