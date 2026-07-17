@@ -89,6 +89,15 @@ describe('parseFinishSheetCsv', () => {
     expect(result.finishes[0].finishTime).toBe('11:57:37');
   });
 
+  it('accepts a fraction-of-day time (unformatted spreadsheet time cell)', () => {
+    // 10:31:05 = 37865s = 0.4382523148… of a day; an .xlsx time cell whose
+    // custom format import-table doesn't recognise arrives like this.
+    const rows = [['15', '0.4382523148148148', '']];
+    const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates });
+    expect(result.errors).toEqual([]);
+    expect(result.finishes[0].finishTime).toBe('10:31:05');
+  });
+
   it('rejects invalid finish times', () => {
     const rows = [['15', '25:99:00', '']];
     const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates });

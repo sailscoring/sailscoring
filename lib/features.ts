@@ -58,7 +58,7 @@ export const FEATURES = {
     helpSectionIds: [],
   },
   'csv-finish-import': {
-    label: 'CSV finish-sheet import',
+    label: 'Finish-sheet import (CSV / Excel)',
     helpSectionIds: ['importing-finish-sheet'],
   },
   'ftp-upload': {

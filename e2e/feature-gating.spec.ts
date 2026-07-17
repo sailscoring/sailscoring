@@ -26,7 +26,7 @@ test.describe('experimental feature gating (#155)', () => {
     // Help: no finish-sheet-CSV table-of-contents entry.
     await page.goto('/help');
     await expect(
-      page.getByRole('link', { name: 'Importing a finish sheet from CSV' }),
+      page.getByRole('link', { name: 'Importing a finish sheet from a spreadsheet' }),
     ).toHaveCount(0);
 
     // Fleets settings: ECHO is on by default (the seeded sample series uses it),
@@ -62,7 +62,7 @@ test.describe('experimental feature gating (#155)', () => {
 
     await page.goto('/help');
     await expect(
-      page.getByRole('link', { name: 'Importing a finish sheet from CSV' }),
+      page.getByRole('link', { name: 'Importing a finish sheet from a spreadsheet' }),
     ).toBeVisible();
 
     await createSeriesQuick(page, { name: 'Gating Enabled 2026' });

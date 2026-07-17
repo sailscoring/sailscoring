@@ -46,7 +46,7 @@ export default async function HelpPage() {
             ['#fleets', 'Fleets'],
             ['#start-sequences', 'Start sequences'],
             ['#race-fleets', 'Which fleets are in a race'],
-            ['#importing-competitors', 'Importing competitors from CSV'],
+            ['#importing-competitors', 'Importing competitors from a spreadsheet'],
             // Gated: only listed when rrs-import is enabled (#260).
             ['#rrs-org-push', 'Pushing the competitor list to rrs.org', 'rrs-import'],
             ['#updating-handicaps', 'Updating handicaps from another series'],
@@ -65,7 +65,7 @@ export default async function HelpPage() {
             ['#sub-series', 'Sub-series', 'sub-series'],
             ['#entering-results', 'Entering results'],
             // Gated: only listed when csv-finish-import is enabled (#155).
-            ['#importing-finish-sheet', 'Importing a finish sheet from CSV', 'csv-finish-import'],
+            ['#importing-finish-sheet', 'Importing a finish sheet from a spreadsheet', 'csv-finish-import'],
             ['#penalty-codes', 'Additive penalty codes'],
             ['#redress', 'Redress (RDG)'],
             ['#start-check-in', 'Start check-in'],
@@ -450,13 +450,22 @@ export default async function HelpPage() {
         </p>
       </Section>
 
-      <Section id="importing-competitors" title="Importing competitors from CSV">
+      <Section id="importing-competitors" title="Importing competitors from a spreadsheet">
         <p>
           If your entry list is already in a spreadsheet, you can import it directly rather than
           typing each competitor by hand. On the{' '}
           <strong className="text-foreground">Competitors</strong> tab, click{' '}
-          <strong className="text-foreground">Import CSV</strong> (or press{' '}
-          <strong className="text-foreground">i</strong>) and select a CSV file.
+          <strong className="text-foreground">Import spreadsheet</strong> (or press{' '}
+          <strong className="text-foreground">i</strong>) and select a CSV or Excel (.xlsx)
+          file. If an Excel workbook has several sheets with data, you pick which sheet to
+          import first. Old-format .xls files are not supported — save them as .xlsx or CSV.
+        </p>
+        <p>
+          Excel cells import as they are displayed. One caveat comes from Excel itself: a
+          sail number with leading zeros (like <code className="text-foreground text-sm">007</code>)
+          is silently turned into the number 7 <em>as you type it into the spreadsheet</em>{' '}
+          unless the column is formatted as Text — no importer can restore what the
+          spreadsheet already dropped.
         </p>
         <p>
           The importer shows each column in the file alongside a sample of its values. Use the
@@ -966,13 +975,15 @@ export default async function HelpPage() {
       </Section>
 
       {has('csv-finish-import') && (
-      <Section id="importing-finish-sheet" title="Importing a finish sheet from CSV">
+      <Section id="importing-finish-sheet" title="Importing a finish sheet from a spreadsheet">
         <p>
           On a race’s result entry screen, click{' '}
-          <strong className="text-foreground">Import CSV</strong> (or press{' '}
+          <strong className="text-foreground">Import sheet</strong> (or press{' '}
           <strong className="text-foreground">i</strong>) to import a whole finish
           sheet in one go — useful when results are captured on a tablet or in a
           spreadsheet on the RC boat and you want to transcribe the lot at once.
+          Both CSV and Excel (.xlsx) files work; Excel time cells import as the
+          time shown in the spreadsheet.
         </p>
         <p>The importer reads three columns:</p>
         <ul className="list-disc list-inside space-y-1 pl-2">
@@ -994,7 +1005,7 @@ export default async function HelpPage() {
           </li>
         </ul>
         <p>
-          Row order in the CSV is the crossing order — the importer assigns finish positions
+          Row order in the sheet is the crossing order — the importer assigns finish positions
           in the order rows appear. A preview dialog shows how many finishers and coded
           entries will be imported and how many existing finishes will be replaced.
         </p>

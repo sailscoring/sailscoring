@@ -1,9 +1,13 @@
 /**
- * Per-race finish sheet CSV parser.
+ * Per-race finish sheet parser. Rows come from a CSV or an .xlsx worksheet
+ * (via lib/import-table) — by this point both are plain strings.
  *
- * CSV columns (header-mapped; user may override):
+ * Columns (header-mapped; user may override):
  *   sailNumber   required — boat's sail number
- *   finishTime   optional — "HH:MM:SS", "H:MM:SS", or "HHMMSS"
+ *   finishTime   optional — "HH:MM:SS", "H:MM:SS", or "HHMMSS"; also accepts
+ *                a bare fraction of a day ("0.438…"), which is how a
+ *                spreadsheet time cell with an unrecognised custom format
+ *                reaches us
  *   resultCode   optional — DNF, DSQ, OCS, RET, DNE, UFD, BFD, DNS, NSC, DNC
  *
  * Row order is crossing order (ADR-007). Row produces one of:
@@ -62,6 +66,19 @@ export interface ParseFinishSheetInput {
 }
 
 const CODE_SET = new Set<string>(BUILT_IN_CODES.map((c) => c.code));
+
+/**
+ * Excel stores times of day as fractions of a day; import-table renders
+ * recognised time formats to "HH:MM:SS", but a cell with an exotic custom
+ * format falls through as the raw serial ("0.4382523…" for 10:31:05).
+ * Convert those; anything else is left for `normalizeTimeInput`.
+ */
+function fractionOfDayToTime(raw: string): string | null {
+  if (!/^0?\.\d+$/.test(raw)) return null;
+  const total = Math.round(parseFloat(raw) * 86400) % 86400;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(total / 3600))}:${pad(Math.floor(total / 60) % 60)}:${pad(total % 60)}`;
+}
 
 export function autoDetectFinishSheetField(header: string): FinishSheetField {
   const h = header.trim().toLowerCase();
@@ -147,7 +164,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
 
     let normalizedTime: string | null = null;
     if (hasTime) {
-      normalizedTime = normalizeTimeInput(rawTime);
+      normalizedTime = normalizeTimeInput(fractionOfDayToTime(rawTime) ?? rawTime);
       if (!normalizedTime) {
         errors.push({ rowIndex: csvRowNumber, reason: `invalid finish time "${rawTime}"` });
         continue;
