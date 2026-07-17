@@ -1276,3 +1276,26 @@ describe('Sailwave prize table import (#240)', () => {
     }
   });
 });
+
+describe('buildSeriesFileFromSailwave: multi-crew compcrewname', () => {
+  const raw = parseSailwaveBlw(blw([
+    ['serversion', '2.38.02', '', ''],
+    ['serevent', 'Keelboat Series', '', ''],
+    ['comphelmname', 'Cormac Farrelly', '53', ''],
+    ['compsailno', '635', '53', ''],
+    ['compcrewname', 'Alice Byrne<br>Bob Malone', '53', ''],
+    ['comphelmname', 'Kate Lyttle', '54', ''],
+    ['compsailno', '1024', '54', ''],
+    ['compcrewname', 'Carol Doyle', '54', ''],
+    ['racerank', '1', '', '62'],
+    ['rrestyp', '0', '53', '62'],
+    ['rrestyp', '0', '54', '62'],
+  ]));
+  const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+
+  it('splits <br>-separated crew into a list and keeps a single crew as one name', () => {
+    const bySail = new Map(file.competitors.map((c) => [c.sailNumber, c]));
+    expect(bySail.get('635')?.crewNames).toEqual(['Alice Byrne', 'Bob Malone']);
+    expect(bySail.get('1024')?.crewNames).toEqual(['Carol Doyle']);
+  });
+});
