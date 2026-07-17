@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useImperativeHandle, forwardRef, useMemo, useCallback, memo } from 'react';
-import Papa from 'papaparse';
 import {
   seriesRepo,
   fleetRepo,
@@ -36,6 +35,12 @@ import {
   type ColumnTarget,
   type RelayField,
 } from '@/lib/csv-import';
+import {
+  parseTabularFile,
+  TABULAR_IMPORT_ACCEPT,
+  type WorkbookSheet,
+} from '@/lib/import-table';
+import { SheetPickerDialog, ImportFileErrorDialog } from '@/components/import-file-dialogs';
 import { lookupAlias, normalizeCodeInput } from '@/lib/nationality';
 import { matchLikelySameBoat, type MatchEntry } from '@/lib/competitor-matching';
 import {
@@ -145,6 +150,14 @@ type ImportFlow =
       fleets: Fleet[];
       axes: SubdivisionAxis[];
     }
+  | {
+      /** Multi-sheet workbook: choose the sheet before mapping. Carries the
+       *  rrs.org side of the import (if any) through to the mapping step. */
+      step: 'pickSheet';
+      sheets: WorkbookSheet[];
+      rrs: { eventUuid: string; saved: RrsImportConfig | null } | null;
+    }
+  | { step: 'fileError'; message: string }
   | {
       step: 'mapping';
       headers: string[];
@@ -1155,102 +1168,108 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       e.target.value = '';
       return;
     }
-    parseCsvFile(file, null);
+    void parseImportFile(file, null);
     e.target.value = '';
   }
 
-  /** Parse the chosen CSV and open the mapping step. `rrs` is set when the
-   *  import also pushes to rrs.org; the division source defaults from the
-   *  saved settings once the series' axes are known. */
-  function parseCsvFile(file: File, rrs: { eventUuid: string; saved: RrsImportConfig | null } | null) {
-    Papa.parse<string[]>(file, {
-      header: false,
-      skipEmptyLines: true,
-      complete: async (result) => {
-        const allRows = result.data;
-        if (allRows.length < 2) return;
-        const headers = allRows[0];
-        const dataRows = allRows.slice(1);
-        const sampleRows = dataRows.slice(0, 3);
+  /** Parse the chosen file (CSV or .xlsx) and open the mapping step — via
+   *  the sheet picker when a workbook has several sheets with data. `rrs`
+   *  is set when the import also pushes to rrs.org; the division source
+   *  defaults from the saved settings once the series' axes are known. */
+  async function parseImportFile(file: File, rrs: { eventUuid: string; saved: RrsImportConfig | null } | null) {
+    const parsed = await parseTabularFile(file);
+    if (parsed.kind === 'error') {
+      setImportFlow({ step: 'fileError', message: parsed.message });
+    } else if (parsed.kind === 'workbook') {
+      setImportFlow({ step: 'pickSheet', sheets: parsed.sheets, rrs });
+    } else {
+      await openMappingFromRows(parsed.rows, rrs);
+    }
+  }
 
-        const series = await seriesRepo.get(seriesId);
-        const axes = series ? subdivisionAxes(series) : [];
-        const axisLabels = axes.map((a) => a.label);
-        // Translate a detected subdivision column onto a concrete axis target:
-        // the best-matching configured axis, else a new axis from the header.
-        const initialMap: ColumnMap = {};
-        headers.forEach((h, i) => {
-          // Relay-only columns (email/phone/MNA) exist only when the import
-          // also pushes to rrs.org; without a push those headers keep their
-          // plain detection (normally ignore) and the flow is unchanged.
-          if (rrs) {
-            const relayField = autoDetectRelayField(h);
-            if (relayField) {
-              initialMap[i] = relayColumnTarget(relayField);
-              return;
-            }
-          }
-          const detected = autoDetectField(h);
-          if (detected === 'subdivision') {
-            const matchIdx = matchSubdivisionAxis(h, axisLabels);
-            initialMap[i] = matchIdx != null ? axisColumnTarget(axes[matchIdx].id) : NEW_AXIS_TARGET;
-          } else {
-            initialMap[i] = detected;
-          }
-        });
+  /** Build and enter the mapping step from parsed rows (header row first). */
+  async function openMappingFromRows(allRows: string[][], rrs: { eventUuid: string; saved: RrsImportConfig | null } | null) {
+    if (allRows.length < 2) return;
+    const headers = allRows[0];
+    const dataRows = allRows.slice(1);
+    const sampleRows = dataRows.slice(0, 3);
 
-        const existingCompetitors = await competitorRepo.listBySeries(seriesId);
-        const firstImport = existingCompetitors.length === 0;
-        const currentPrimary = series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
-        const currentFields = series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
-        const seriesScoringMode = series?.scoringMode ?? 'scratch';
-        const existingHasBoatClass = existingCompetitors.some((c) => !!c.boatClass);
-
-        // Propose a primary label. The CSV drives the choice on the first
-        // import, and also on later imports when the series is still on the
-        // default generic primary (the scorer hasn't committed to a role yet).
-        // Once the scorer has explicitly picked a role-primary or switched to
-        // 'entrant', we respect it and only offer additive field proposals.
-        const canProposePrimary = firstImport || currentPrimary === DEFAULT_PRIMARY_PERSON_LABEL;
-        const proposedPrimary = canProposePrimary
-          ? proposePrimaryLabel(initialMap, currentPrimary)
-          : currentPrimary;
-        const columnMap = reconcileColumnMap(initialMap, proposedPrimary);
-
-        // Propose additive enable for any optional field a CSV column targets.
-        const targets = new Set(Object.values(columnMap));
-        const hasSubdivisionColumn = Object.values(columnMap).some(isSubdivisionTarget);
-        const optionalAdditions: CompetitorFieldKey[] = [];
-        for (const field of ALL_COMPETITOR_FIELDS) {
-          if (isFieldDisabledByPrimary(field, proposedPrimary)) continue;
-          if (currentFields.includes(field)) continue;
-          // The subdivision field is driven by axis-target columns; every other
-          // optional field maps 1:1 to a dropdown value of the same name.
-          const enabled = field === 'subdivision' ? hasSubdivisionColumn : targets.has(field);
-          if (enabled) optionalAdditions.push(field);
+    const series = await seriesRepo.get(seriesId);
+    const axes = series ? subdivisionAxes(series) : [];
+    const axisLabels = axes.map((a) => a.label);
+    // Translate a detected subdivision column onto a concrete axis target:
+    // the best-matching configured axis, else a new axis from the header.
+    const initialMap: ColumnMap = {};
+    headers.forEach((h, i) => {
+      // Relay-only columns (email/phone/MNA) exist only when the import
+      // also pushes to rrs.org; without a push those headers keep their
+      // plain detection (normally ignore) and the flow is unchanged.
+      if (rrs) {
+        const relayField = autoDetectRelayField(h);
+        if (relayField) {
+          initialMap[i] = relayColumnTarget(relayField);
+          return;
         }
-        const proposedFields = [...currentFields, ...optionalAdditions];
+      }
+      const detected = autoDetectField(h);
+      if (detected === 'subdivision') {
+        const matchIdx = matchSubdivisionAxis(h, axisLabels);
+        initialMap[i] = matchIdx != null ? axisColumnTarget(axes[matchIdx].id) : NEW_AXIS_TARGET;
+      } else {
+        initialMap[i] = detected;
+      }
+    });
 
-        setImportFlow({
-          step: 'mapping',
-          headers,
-          sampleRows,
-          rows: dataRows,
-          columnMap,
-          firstImport,
-          currentPrimary,
-          proposedPrimary,
-          currentFields,
-          proposedFields,
-          subdivisionAxes: axes,
-          seriesScoringMode,
-          existingHasBoatClass,
-          alsoCreateScratch: {},
-          rrs: rrs
-            ? defaultMappingRrsConfig(rrs.eventUuid, rrs.saved, axes, fleets.length, columnMap, headers)
-            : null,
-        });
-      },
+    const existingCompetitors = await competitorRepo.listBySeries(seriesId);
+    const firstImport = existingCompetitors.length === 0;
+    const currentPrimary = series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
+    const currentFields = series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
+    const seriesScoringMode = series?.scoringMode ?? 'scratch';
+    const existingHasBoatClass = existingCompetitors.some((c) => !!c.boatClass);
+
+    // Propose a primary label. The CSV drives the choice on the first
+    // import, and also on later imports when the series is still on the
+    // default generic primary (the scorer hasn't committed to a role yet).
+    // Once the scorer has explicitly picked a role-primary or switched to
+    // 'entrant', we respect it and only offer additive field proposals.
+    const canProposePrimary = firstImport || currentPrimary === DEFAULT_PRIMARY_PERSON_LABEL;
+    const proposedPrimary = canProposePrimary
+      ? proposePrimaryLabel(initialMap, currentPrimary)
+      : currentPrimary;
+    const columnMap = reconcileColumnMap(initialMap, proposedPrimary);
+
+    // Propose additive enable for any optional field a CSV column targets.
+    const targets = new Set(Object.values(columnMap));
+    const hasSubdivisionColumn = Object.values(columnMap).some(isSubdivisionTarget);
+    const optionalAdditions: CompetitorFieldKey[] = [];
+    for (const field of ALL_COMPETITOR_FIELDS) {
+      if (isFieldDisabledByPrimary(field, proposedPrimary)) continue;
+      if (currentFields.includes(field)) continue;
+      // The subdivision field is driven by axis-target columns; every other
+      // optional field maps 1:1 to a dropdown value of the same name.
+      const enabled = field === 'subdivision' ? hasSubdivisionColumn : targets.has(field);
+      if (enabled) optionalAdditions.push(field);
+    }
+    const proposedFields = [...currentFields, ...optionalAdditions];
+
+    setImportFlow({
+      step: 'mapping',
+      headers,
+      sampleRows,
+      rows: dataRows,
+      columnMap,
+      firstImport,
+      currentPrimary,
+      proposedPrimary,
+      currentFields,
+      proposedFields,
+      subdivisionAxes: axes,
+      seriesScoringMode,
+      existingHasBoatClass,
+      alsoCreateScratch: {},
+      rrs: rrs
+        ? defaultMappingRrsConfig(rrs.eventUuid, rrs.saved, axes, fleets.length, columnMap, headers)
+        : null,
     });
   }
 
@@ -1722,16 +1741,33 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         {trigger ?? (
           <Button variant="outline">
             <Upload className="h-4 w-4 mr-2" />
-            {rrsEnabled ? 'Import' : 'Import CSV'}
+            {rrsEnabled ? 'Import' : 'Import spreadsheet'}
           </Button>
         )}
       </span>
       <input
         ref={csvInputRef}
         type="file"
-        accept=".csv,text/csv"
+        accept={TABULAR_IMPORT_ACCEPT}
         onChange={handleCsvFileSelected}
         className="hidden"
+        data-testid="competitor-import-input"
+      />
+
+      {/* Multi-sheet workbook: pick the sheet, then map as usual */}
+      <SheetPickerDialog
+        open={importFlow.step === 'pickSheet'}
+        sheets={importFlow.step === 'pickSheet' ? importFlow.sheets : []}
+        onCancel={resetImport}
+        onPick={(sheet) => {
+          if (importFlow.step !== 'pickSheet') return;
+          void openMappingFromRows(sheet.rows, importFlow.rrs);
+        }}
+      />
+      <ImportFileErrorDialog
+        open={importFlow.step === 'fileError'}
+        message={importFlow.step === 'fileError' ? importFlow.message : ''}
+        onClose={resetImport}
       />
 
       {/* Choice dialog (rrs-import only): source and/or destination */}
@@ -1754,7 +1790,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
                     onChange={(e) => setImportFlow({ ...importFlow, csvChecked: e.target.checked })}
                     className="h-3.5 w-3.5"
                   />
-                  CSV file
+                  Spreadsheet file (CSV or Excel)
                 </label>
                 {importFlow.csvChecked && (
                   <div className="flex items-center gap-2 pl-5 min-w-0">
@@ -1812,7 +1848,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
                 if (importFlow.step !== 'choose') return;
                 const saved = importFlow.savedConfig;
                 if (importFlow.csvChecked && importFlow.file) {
-                  parseCsvFile(
+                  void parseImportFile(
                     importFlow.file,
                     importFlow.rrsChecked ? { eventUuid: importFlow.eventUuid, saved } : null,
                   );

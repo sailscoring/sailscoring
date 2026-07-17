@@ -312,7 +312,7 @@ export default function CompetitorsPage({
 
   useShortcuts([
     { key: 'n', description: 'Add competitor', section: 'Competitors', handler: () => setShowAddForm(true) },
-    { key: 'i', description: hasRrsImport ? 'Import (CSV / rrs.org)' : 'Import CSV', section: 'Competitors', handler: () => importRef.current?.trigger() },
+    { key: 'i', description: hasRrsImport ? 'Import (spreadsheet / rrs.org)' : 'Import spreadsheet', section: 'Competitors', handler: () => importRef.current?.trigger() },
     {
       key: 'u',
       description: 'Update handicaps (handicap fleets only)',

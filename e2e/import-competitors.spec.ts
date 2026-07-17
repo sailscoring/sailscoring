@@ -1,12 +1,13 @@
 import { signedInTest as test, expect } from './fixtures';
 import { createSeriesQuick } from './helpers';
+import { resolve } from 'path';
 
 function csvBuffer(content: string) {
   return { name: 'competitors.csv', mimeType: 'text/csv', buffer: Buffer.from(content) };
 }
 
 async function uploadCsv(page: import('@playwright/test').Page, content: string) {
-  await page.locator('input[type=file][accept=".csv,text/csv"]').setInputFiles(csvBuffer(content));
+  await page.getByTestId('competitor-import-input').setInputFiles(csvBuffer(content));
 }
 
 test('import competitors from CSV', async ({ page }) => {
@@ -275,6 +276,56 @@ test('re-import detects sail number changes and updates in place', async ({ page
   // Both the old and the new number exist now — two separate boats.
   await expect(page.getByRole('cell', { name: 'IRL150', exact: true })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'IRL175', exact: true })).toBeVisible();
+});
+
+test('import competitors from Excel (.xlsx)', async ({ page }) => {
+  // The workbook fixture exercises what CSV can't: numeric sail-number
+  // cells, a text cell with leading zeros ('007'), and a boat name
+  // containing a comma — the case that silently loses boats in CSV land.
+  await createSeriesQuick(page, { name: 'XLSX Import Series' });
+
+  await page
+    .getByTestId('competitor-import-input')
+    .setInputFiles(resolve(__dirname, '../tests/fixtures/xlsx/competitors.xlsx'));
+
+  await expect(page.getByRole('heading', { name: /map columns/i })).toBeVisible();
+  await page.getByRole('button', { name: /Import 3 rows/i }).click();
+  await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
+  await expect(page.getByText(/3 competitor.* added/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Numeric cell → plain sail number; leading zeros and the comma survive.
+  await expect(page.getByRole('cell', { name: '1234', exact: true })).toBeVisible();
+  await expect(page.getByRole('row', { name: /1234/ })).toContainText('Rebel');
+  await expect(page.getByRole('cell', { name: '007', exact: true })).toBeVisible();
+  await expect(page.getByRole('row', { name: /007/ })).toContainText('Comma, The Boat');
+  await expect(page.getByRole('row', { name: /4321/ })).toContainText('Carol Cc');
+});
+
+test('multi-sheet workbook offers a sheet picker before mapping', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Multi-Sheet Import' });
+
+  await page
+    .getByTestId('competitor-import-input')
+    .setInputFiles(resolve(__dirname, '../tests/fixtures/xlsx/multi-sheet.xlsx'));
+
+  // The picker lists only sheets with data — the workbook's empty third
+  // sheet must not be offered.
+  await expect(page.getByRole('heading', { name: /choose a sheet/i })).toBeVisible();
+  await expect(page.getByText('Instructions')).toBeVisible();
+  await expect(page.getByText('Entries')).toBeVisible();
+  await expect(page.getByText('Empty Sheet')).not.toBeVisible();
+
+  await page.getByRole('radio', { name: /Entries/ }).check();
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  await expect(page.getByRole('heading', { name: /map columns/i })).toBeVisible();
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await expect(page.getByRole('cell', { name: '101', exact: true })).toBeVisible();
+  await expect(page.getByRole('row', { name: /101/ })).toContainText('Alice Aa');
 });
 
 test('CSV import maps two columns to distinct subdivision axes', async ({ page }) => {

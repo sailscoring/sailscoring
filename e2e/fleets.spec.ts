@@ -171,7 +171,7 @@ test('reorder works after CSV import creates multiple fleets in parallel (#90)',
     '1,Alice,HYC,Alpha|Bravo',
   ].join('\n');
   await page
-    .locator('input[type=file][accept=".csv,text/csv"]')
+    .getByTestId('competitor-import-input')
     .setInputFiles({ name: 'competitors.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('button', { name: /Import 1 row/i }).click();

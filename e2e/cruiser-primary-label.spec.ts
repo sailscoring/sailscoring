@@ -6,7 +6,7 @@ function csvBuffer(content: string) {
 }
 
 async function uploadCsv(page: import('@playwright/test').Page, content: string) {
-  await page.locator('input[type=file][accept=".csv,text/csv"]').setInputFiles(csvBuffer(content));
+  await page.getByTestId('competitor-import-input').setInputFiles(csvBuffer(content));
 }
 
 /**

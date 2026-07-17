@@ -141,7 +141,7 @@ function Step2({
         trigger={
           <Button variant="outline">
             <Upload className="h-4 w-4 mr-2" />
-            Import CSV
+            Import spreadsheet
           </Button>
         }
       />

@@ -29,9 +29,9 @@ async function readPushLog(): Promise<LoggedPush[]> {
     .map((l) => JSON.parse(l));
 }
 
-test('flag off: the button stays "Import CSV" and opens the file picker directly', async ({ page }) => {
+test('flag off: the button stays "Import spreadsheet" and opens the file picker directly', async ({ page }) => {
   await createSeriesQuick(page, { name: 'RRS Flag Off' });
-  const button = page.getByRole('button', { name: 'Import CSV' });
+  const button = page.getByRole('button', { name: 'Import spreadsheet' });
   await expect(button).toBeVisible();
   const chooserPromise = page.waitForEvent('filechooser');
   await button.click();
@@ -58,7 +58,7 @@ test('CSV import + push in one step, then a push-only re-push', async ({ page, s
     'IRL14302,Kevin Donnelly,Sutton DC,IRL,Gold,kd@example.com,086 123 4567',
     'GBR14271,Brian Morrison,Lough Erne YC,GBR,Silver,bm@example.com,',
   ].join('\n');
-  await page.locator('input[type=file][accept=".csv,text/csv"]').setInputFiles({
+  await page.getByTestId('competitor-import-input').setInputFiles({
     name: 'entries.csv', mimeType: 'text/csv', buffer: Buffer.from(csv),
   });
   await expect(page.getByText('entries.csv')).toBeVisible();
