@@ -70,6 +70,7 @@ import {
   sameFleetIdSet,
   subdivisionAxes,
   subdivisionAxisLabel,
+  cleanCrewNames,
   cleanSubdivisions,
 } from '@/lib/competitor-fields';
 import {
@@ -377,7 +378,10 @@ export default function CompetitorsPage({
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
       name: data.name,
       ...(data.owner.trim() ? { owner: data.owner.trim() } : {}),
-      ...(data.crewName.trim() ? { crewName: data.crewName.trim() } : {}),
+      ...((): { crewNames?: string[] } => {
+        const crew = cleanCrewNames(data.crewNames);
+        return crew ? { crewNames: crew } : {};
+      })(),
       club: data.club,
       ...(data.nationality.trim() ? { nationality: data.nationality.trim() } : {}),
       gender: data.gender,
@@ -412,7 +416,10 @@ export default function CompetitorsPage({
       name: data.name,
       ...(data.owner.trim() ? { owner: data.owner.trim() } : {}),
       ...(data.helm.trim() ? { helm: data.helm.trim() } : {}),
-      ...(data.crewName.trim() ? { crewName: data.crewName.trim() } : {}),
+      ...((): { crewNames?: string[] } => {
+        const crew = cleanCrewNames(data.crewNames);
+        return crew ? { crewNames: crew } : {};
+      })(),
       club: data.club,
       ...(data.nationality.trim() ? { nationality: data.nationality.trim() } : {}),
       gender: data.gender,
@@ -434,7 +441,7 @@ export default function CompetitorsPage({
     if (!data.boatClass.trim()) delete updated.boatClass;
     if (!data.owner.trim()) delete updated.owner;
     if (!data.helm.trim()) delete updated.helm;
-    if (!data.crewName.trim()) delete updated.crewName;
+    if (!cleanCrewNames(data.crewNames)) delete updated.crewNames;
     if (!data.nationality.trim()) delete updated.nationality;
     if (!cleanSubdivisions(data.subdivisions)) delete updated.subdivisions;
     log('competitors', 'updating', updated);
@@ -683,7 +690,7 @@ export default function CompetitorsPage({
                 <TableCell className="whitespace-normal break-words">{c.name}</TableCell>
                 {showHelm && <TableCell className="whitespace-normal break-words">{c.helm ?? ''}</TableCell>}
                 {showOwner && <TableCell className="whitespace-normal break-words">{c.owner ?? ''}</TableCell>}
-                {showCrew && <TableCell className="whitespace-normal break-words">{c.crewName ?? ''}</TableCell>}
+                {showCrew && <TableCell className="whitespace-normal break-words">{(c.crewNames ?? []).join(' / ')}</TableCell>}
                 {showClub && <TruncatedCell value={c.club} />}
                 {showNationality && <TableCell className="font-mono">{c.nationality ?? ''}</TableCell>}
                 {multipleFleets && <TableCell className="whitespace-normal break-words">{c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ')}</TableCell>}
@@ -850,7 +857,7 @@ export default function CompetitorsPage({
                 name: editingCompetitor.name,
                 owner: editingCompetitor.owner ?? '',
                 helm: editingCompetitor.helm ?? '',
-                crewName: editingCompetitor.crewName ?? '',
+                crewNames: editingCompetitor.crewNames ?? [],
                 club: editingCompetitor.club,
                 nationality: editingCompetitor.nationality ?? '',
                 gender: editingCompetitor.gender,

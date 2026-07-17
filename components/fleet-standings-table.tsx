@@ -242,7 +242,7 @@ function StandingRow({
       <TableCell>{competitor.name}</TableCell>
       {showHelm && <TableCell>{competitor.helm ?? ''}</TableCell>}
       {showOwner && <TableCell>{competitor.owner ?? ''}</TableCell>}
-      {showCrew && <TableCell>{competitor.crewName ?? ''}</TableCell>}
+      {showCrew && <TableCell>{(competitor.crewNames ?? []).join(' / ')}</TableCell>}
       {showClub && <TableCell className="text-muted-foreground">{competitor.club}</TableCell>}
       {showNationality && <TableCell className="font-mono">{competitor.nationality ?? ''}</TableCell>}
       {subdivisionAxes.map((axis) => (

@@ -642,8 +642,8 @@ describe('buildSeriesFileFromSailwave: Dinghies (auto bare-name detection)', () 
     expect(race).toBeDefined();
   });
 
-  it('populates crewName from compcrewname when present', () => {
-    const withCrew = file.competitors.filter((c) => c.crewName);
+  it('populates crewNames from compcrewname when present', () => {
+    const withCrew = file.competitors.filter((c) => c.crewNames?.length);
     expect(withCrew.length).toBeGreaterThan(0);
   });
 

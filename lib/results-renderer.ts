@@ -161,7 +161,7 @@ export interface RaceResultData {
   owner?: string;
   /** Helm when recorded separately from the primary (owner-primary series). */
   helmRole?: string;
-  crewName?: string;
+  crewNames?: string[];
   /** Sailing club affiliation. */
   club?: string;
   /** 3-letter national-letters code (RRS Appendix G / IOC). */
@@ -244,7 +244,7 @@ export interface StandingRowData {
   owner?: string;
   /** Helm when recorded separately (owner-primary series). */
   helmRole?: string;
-  crewName?: string;
+  crewNames?: string[];
   /** Sailing club affiliation. */
   club?: string;
   /** 3-letter national-letters code (RRS Appendix G / IOC). */
@@ -860,7 +860,7 @@ function renderSummaryTable(
         `<td>${esc(s.sailNumber)}</td>`,
         ...(showBoatName ? [`<td>${esc(s.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(s.boatClass ?? '')}</td>`] : []),
-        `<td>${esc(renderHelmCell(s.helm, s.crewName, showCrewName))}</td>`,
+        `<td>${esc(renderHelmCell(s.helm, s.crewNames, showCrewName))}</td>`,
         ...(showHelm ? [`<td>${esc(s.helmRole ?? '')}</td>`] : []),
         ...(showOwner ? [`<td>${esc(s.owner ?? '')}</td>`] : []),
         ...(showClub ? [`<td>${esc(s.club ?? '')}</td>`] : []),
@@ -948,7 +948,7 @@ function renderRaceTable(
         `<td>${esc(r.sailNumber)}</td>`,
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
-        `<td>${esc(renderHelmCell(r.helm, r.crewName, showCrewName))}</td>`,
+        `<td>${esc(renderHelmCell(r.helm, r.crewNames, showCrewName))}</td>`,
         ...(showHelm ? [`<td>${esc(r.helmRole ?? '')}</td>`] : []),
         ...(showOwner ? [`<td>${esc(r.owner ?? '')}</td>`] : []),
         ...(showClub ? [`<td>${esc(r.club ?? '')}</td>`] : []),
@@ -1159,9 +1159,10 @@ function formatSigned(n: number, digits: number): string {
 /** Compose the text for the Helm column. When crew names are shown and a
  *  crew is set, renders "Helm / Crew"; otherwise just the helm name. The
  *  result is raw text — callers are responsible for HTML-escaping. */
-function renderHelmCell(helm: string, crewName: string | undefined, showCrewName: boolean): string {
-  if (showCrewName && crewName && crewName.trim()) {
-    return `${helm} / ${crewName}`;
+function renderHelmCell(helm: string, crewNames: string[] | undefined, showCrewName: boolean): string {
+  const crew = (crewNames ?? []).filter((n) => n.trim());
+  if (showCrewName && crew.length > 0) {
+    return [helm, ...crew].join(' / ');
   }
   return helm;
 }
@@ -1292,7 +1293,7 @@ export function assembleSeriesResultsData(
   races: Array<{ id: string; raceNumber: number; name?: string | null; date: string }>,
   standings: Array<{
     rank: number;
-    competitor: { id: string; sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; club?: string; nationality?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
+    competitor: { id: string; sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewNames?: string[]; club?: string; nationality?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
     racePoints: number[];
     raceCodes: (ResultCode | null)[];
     racePenaltyCodes?: (PenaltyCode | null)[];
@@ -1304,7 +1305,7 @@ export function assembleSeriesResultsData(
     raceExcluded?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewName?: string; club?: string; nationality?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
+  competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewNames?: string[]; club?: string; nationality?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -1441,7 +1442,7 @@ export function assembleSeriesResultsData(
         helm: competitor.name,
         ...(competitor.owner ? { owner: competitor.owner } : {}),
         ...(competitor.helm ? { helmRole: competitor.helm } : {}),
-        ...(competitor.crewName ? { crewName: competitor.crewName } : {}),
+        ...(competitor.crewNames?.length ? { crewNames: competitor.crewNames } : {}),
         ...(competitor.club ? { club: competitor.club } : {}),
         ...(competitor.nationality ? { nationality: competitor.nationality } : {}),
         ...(competitor.subdivisions && Object.keys(competitor.subdivisions).length > 0
@@ -1517,7 +1518,7 @@ export function assembleSeriesResultsData(
       helm: s.competitor.name,
       ...(s.competitor.owner ? { owner: s.competitor.owner } : {}),
       ...(s.competitor.helm ? { helmRole: s.competitor.helm } : {}),
-      ...(s.competitor.crewName ? { crewName: s.competitor.crewName } : {}),
+      ...(s.competitor.crewNames?.length ? { crewNames: s.competitor.crewNames } : {}),
       ...(s.competitor.club ? { club: s.competitor.club } : {}),
       ...(s.competitor.nationality ? { nationality: s.competitor.nationality } : {}),
       ...(s.competitor.subdivisions && Object.keys(s.competitor.subdivisions).length > 0

@@ -6,6 +6,7 @@ import {
   DEFAULT_SUBDIVISION_LABEL,
   PRIMARY_PERSON_LABELS,
   PRIMARY_PERSON_LABEL_TEXT,
+  cleanCrewNames,
   competitorFleetNames,
   defaultEnabledCompetitorFields,
   displayCompetitorLabel,
@@ -14,6 +15,7 @@ import {
   subdivisionAxisLabel,
   subdivisionAxes,
   cleanSubdivisions,
+  sameCrewNames,
   subdivisionsEqual,
   upgradeSubdivisionAxes,
 } from '@/lib/competitor-fields';
@@ -91,8 +93,8 @@ describe('primary-person label helpers', () => {
 });
 
 describe('displayCompetitorLabel', () => {
-  const keelboat = { name: 'Hogan', crewName: 'Dyson', boatName: 'Eclipse' };
-  const dinghy = { name: 'Ian Dickson', crewName: 'J. Crew', boatName: undefined };
+  const keelboat = { name: 'Hogan', crewNames: ['Dyson'], boatName: 'Eclipse' };
+  const dinghy = { name: 'Ian Dickson', crewNames: ['J. Crew'], boatName: undefined };
 
   it('leads with the boat name when boatName is enabled (keelboat)', () => {
     expect(
@@ -115,7 +117,7 @@ describe('displayCompetitorLabel', () => {
   it('ignores an enabled-but-empty boat name', () => {
     expect(
       displayCompetitorLabel(
-        { name: 'Hogan', crewName: '', boatName: '   ' },
+        { name: 'Hogan', crewNames: [], boatName: '   ' },
         { enabledCompetitorFields: ['boatName'], showCrew: false },
       ),
     ).toBe('Hogan');
@@ -234,5 +236,53 @@ describe('upgradeSubdivisionAxes', () => {
     expect(
       upgradeSubdivisionAxes({ legacyLabel: 'Division', fieldEnabled: false, hasAnyValue: false }),
     ).toEqual({ axes: [], axisId: null });
+  });
+});
+
+describe('cleanCrewNames', () => {
+  it('trims names and drops empties', () => {
+    expect(cleanCrewNames([' Alice Byrne ', '', '  ', 'Bob Malone'])).toEqual(['Alice Byrne', 'Bob Malone']);
+  });
+
+  it('returns undefined when nothing remains', () => {
+    expect(cleanCrewNames([])).toBeUndefined();
+    expect(cleanCrewNames(['  '])).toBeUndefined();
+    expect(cleanCrewNames(undefined)).toBeUndefined();
+  });
+});
+
+describe('sameCrewNames', () => {
+  it('ignores blanks and trims when comparing', () => {
+    expect(sameCrewNames(['Alice', ''], [' Alice '])).toBe(true);
+    expect(sameCrewNames(undefined, [])).toBe(true);
+  });
+
+  it('is order-sensitive', () => {
+    expect(sameCrewNames(['Alice', 'Bob'], ['Bob', 'Alice'])).toBe(false);
+  });
+
+  it('detects changed and added names', () => {
+    expect(sameCrewNames(['Alice'], ['Alice', 'Bob'])).toBe(false);
+    expect(sameCrewNames(['Alice'], ['Bob'])).toBe(false);
+  });
+});
+
+describe('displayCompetitorLabel — multi-crew', () => {
+  it('shows the single crew inline', () => {
+    expect(
+      displayCompetitorLabel(
+        { name: 'Hogan', crewNames: ['Dyson'], boatName: undefined },
+        { enabledCompetitorFields: ['crewName'], showCrew: true },
+      ),
+    ).toBe('Hogan / Dyson');
+  });
+
+  it('shows the primary alone when more than one crew is set', () => {
+    expect(
+      displayCompetitorLabel(
+        { name: 'Hogan', crewNames: ['Dyson', 'Byrne', 'Malone'], boatName: undefined },
+        { enabledCompetitorFields: ['crewName'], showCrew: true },
+      ),
+    ).toBe('Hogan');
   });
 });

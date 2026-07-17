@@ -166,9 +166,13 @@ export interface SeriesFileRepos {
  *  `series.protestTimeLimit` ({minutes, basis} from the SIs), and optional
  *  `races[*].lastFinisherTime` (manual last-finisher clock time for races with
  *  untimed finishes). All additive and sparse; older files load provisional
- *  with nothing tracked. */
-export const FORMAT_VERSION = 20;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+ *  with nothing tracked.
+ *
+ *  v21 replaces `competitors[*].crewName` (a single crew name) with
+ *  `crewNames` (an ordered list, for keelboat crews of any size). The parser
+ *  folds a legacy `crewName` into a one-element list on read. */
+export const FORMAT_VERSION = 21;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -234,7 +238,8 @@ interface SeriesFileCompetitor {
   name: string;
   owner?: string;  // v2+
   helm?: string;   // v2+
-  crewName?: string;
+  crewNames?: string[];  // v21+; ordered crew list
+  crewName?: string;     // ≤v20 legacy single crew; the parser folds it into `crewNames`
   club: string;
   nationality?: string;  // v5+
   gender: 'M' | 'F' | '';
@@ -511,7 +516,7 @@ export async function buildSeriesFile(
       name: c.name,
       ...(c.owner ? { owner: c.owner } : {}),
       ...(c.helm ? { helm: c.helm } : {}),
-      ...(c.crewName ? { crewName: c.crewName } : {}),
+      ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
       club: c.club,
       ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
@@ -660,8 +665,22 @@ export function parseSeriesFile(content: string): SeriesFile {
   if (obj.formatVersion < 4 && obj.nhcTcfHistory !== undefined && obj.tcfHistory === undefined) {
     obj.tcfHistory = obj.nhcTcfHistory;
   }
+  if (obj.formatVersion < 21) migrateCrewNameToList(obj.competitors);
 
   return data as SeriesFile;
+}
+
+/** ≤v20 → v21: a single `crewName` becomes a one-element `crewNames` list.
+ *  Mutates in place. */
+function migrateCrewNameToList(competitors: unknown): void {
+  if (!Array.isArray(competitors)) return;
+  for (const c of competitors as { crewName?: unknown; crewNames?: string[] }[]) {
+    if (typeof c !== 'object' || c === null) continue;
+    if (c.crewNames === undefined && typeof c.crewName === 'string' && c.crewName.trim()) {
+      c.crewNames = [c.crewName.trim()];
+    }
+    delete c.crewName;
+  }
 }
 
 /** v1/v2 → v3: `defaultStartSequence[i].offsetMinutes` (cumulative from first
@@ -1281,7 +1300,7 @@ async function writeFleetsCompetitorsRaces(
         name: c.name,
         ...(c.owner ? { owner: c.owner } : {}),
         ...(c.helm ? { helm: c.helm } : {}),
-        ...(c.crewName ? { crewName: c.crewName } : {}),
+        ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
         club: c.club,
         ...(c.nationality ? { nationality: c.nationality } : {}),
         gender: c.gender,

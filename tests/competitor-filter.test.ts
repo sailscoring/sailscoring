@@ -39,7 +39,7 @@ describe('competitorMatchesFilter', () => {
       boatClass: 'J24',
       helm: 'Alice Helm',
       owner: 'Bob Owner',
-      crewName: 'Carol Crew',
+      crewNames: ['Carol Crew'],
       club: 'Howth YC',
     });
     expect(competitorMatchesFilter(c, 'jane')).toBe(true);

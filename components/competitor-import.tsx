@@ -86,6 +86,7 @@ import {
   PRIMARY_PERSON_LABEL_TEXT,
   defaultEnabledCompetitorFields,
   isFieldDisabledByPrimary,
+  sameCrewNames,
   sameFleetIdSet,
   subdivisionAxes,
   newSubdivisionAxis,
@@ -1556,7 +1557,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ? (planRows[i].csvFleetNames[0]?.trim() || DEFAULT_FLEET_NAME)
         : '';
       const resolvedBoatClass = boatClass || existingCompetitor?.boatClass || fleetNameFallback || '';
-      const resolvedCrewName = crewName || existingCompetitor?.crewName || '';
+      const resolvedCrewNames = crewName.trim() ? [crewName.trim()] : existingCompetitor?.crewNames ?? [];
       const resolvedHelm = helmRole || existingCompetitor?.helm || '';
       const resolvedOwner = ownerRole || existingCompetitor?.owner || '';
       // Merge the mapped columns onto their axes, preserving any other axis
@@ -1576,7 +1577,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         name: primaryName || existingCompetitor?.name || '',
         ...(resolvedHelm ? { helm: resolvedHelm } : {}),
         ...(resolvedOwner ? { owner: resolvedOwner } : {}),
-        ...(resolvedCrewName ? { crewName: resolvedCrewName } : {}),
+        ...(resolvedCrewNames.length ? { crewNames: resolvedCrewNames } : {}),
         club: club || existingCompetitor?.club || '',
         ...(cleanNationality ? { nationality: cleanNationality } : {}),
         gender: (normGender === 'M' || normGender === 'F') ? normGender : (existingCompetitor?.gender ?? ''),
@@ -1606,7 +1607,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         existingCompetitor.name === competitor.name &&
         (existingCompetitor.owner ?? '') === (competitor.owner ?? '') &&
         (existingCompetitor.helm ?? '') === (competitor.helm ?? '') &&
-        (existingCompetitor.crewName ?? '') === (competitor.crewName ?? '') &&
+        sameCrewNames(existingCompetitor.crewNames, competitor.crewNames) &&
         existingCompetitor.club === competitor.club &&
         (existingCompetitor.nationality ?? '') === (competitor.nationality ?? '') &&
         existingCompetitor.gender === competitor.gender &&

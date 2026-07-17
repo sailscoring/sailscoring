@@ -379,3 +379,67 @@ describe('parseSeriesFile — v13 multi-axis subdivisions', () => {
     expect(file.competitors[0].subdivisions).toEqual({ 'ax-div': 'Silver', 'ax-cat': 'Master' });
   });
 });
+
+describe('parseSeriesFile — v21 crew list', () => {
+  function fileWithCompetitor(formatVersion: number, competitor: Record<string, unknown>): string {
+    return JSON.stringify({
+      formatVersion,
+      seriesId: 's1',
+      exportedAt: '2026-07-17T00:00:00.000Z',
+      series: {
+        id: 's1',
+        name: 'Autumn League',
+        venue: 'HYC',
+        startDate: '2026-09-01',
+        endDate: '2026-10-30',
+        venueLogoUrl: '',
+        eventLogoUrl: '',
+        discardThresholds: [],
+        dnfScoring: 'seriesEntries',
+        ftpHost: '',
+        ftpPath: '',
+        includeJsonExport: true,
+        enabledCompetitorFields: ['crewName'],
+        primaryPersonLabel: 'helm',
+        scoringMode: 'scratch',
+      },
+      fleets: [],
+      competitors: [
+        {
+          id: 'c1',
+          fleetIds: [],
+          sailNumber: 'IRL-7',
+          name: 'Skipper',
+          club: 'HYC',
+          gender: '',
+          age: null,
+          ...competitor,
+        },
+      ],
+      races: [],
+    });
+  }
+
+  it('folds a ≤v20 crewName into a one-element crewNames list', () => {
+    const file = parseSeriesFile(fileWithCompetitor(20, { crewName: 'J. Crew' }));
+    expect(file.competitors[0].crewNames).toEqual(['J. Crew']);
+    expect('crewName' in file.competitors[0]).toBe(false);
+  });
+
+  it('drops an empty legacy crewName', () => {
+    const file = parseSeriesFile(fileWithCompetitor(20, { crewName: '  ' }));
+    expect(file.competitors[0].crewNames).toBeUndefined();
+  });
+
+  it('leaves a competitor with no crew untouched', () => {
+    const file = parseSeriesFile(fileWithCompetitor(20, {}));
+    expect(file.competitors[0].crewNames).toBeUndefined();
+  });
+
+  it('passes a v21 crewNames list through unchanged', () => {
+    const file = parseSeriesFile(
+      fileWithCompetitor(21, { crewNames: ['Alice Byrne', 'Bob Malone'] }),
+    );
+    expect(file.competitors[0].crewNames).toEqual(['Alice Byrne', 'Bob Malone']);
+  });
+});

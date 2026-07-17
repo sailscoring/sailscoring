@@ -20,7 +20,7 @@ interface FileCompetitor {
   fleetIds: string[];
   sailNumber: string;
   name: string;
-  crewName?: string;
+  crewNames?: string[];
   club: string;
   gender: string;
   age: number | null;

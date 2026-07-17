@@ -153,7 +153,7 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     name: row.name,
     ...(row.owner ? { owner: row.owner } : {}),
     ...(row.helm ? { helm: row.helm } : {}),
-    ...(row.crewName ? { crewName: row.crewName } : {}),
+    ...(row.crewNames?.length ? { crewNames: row.crewNames } : {}),
     club: row.club,
     ...(row.nationality ? { nationality: row.nationality } : {}),
     gender: row.gender as Competitor['gender'],
@@ -932,7 +932,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     name: c.name,
     owner: c.owner ?? null,
     helm: c.helm ?? null,
-    crewName: c.crewName ?? null,
+    crewNames: c.crewNames?.length ? c.crewNames : null,
     club: c.club,
     nationality: c.nationality ?? null,
     gender: c.gender,
@@ -949,7 +949,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
 
 const competitorUpdateColumns = [
   'fleetIds', 'sailNumber', 'bowNumber', 'boatName', 'boatClass', 'name',
-  'owner', 'helm', 'crewName', 'club', 'nationality',
+  'owner', 'helm', 'crewNames', 'club', 'nationality',
   'gender', 'age', 'subdivisions',
   'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf',
 ] as const satisfies readonly (keyof ReturnType<typeof competitorToRow>)[];

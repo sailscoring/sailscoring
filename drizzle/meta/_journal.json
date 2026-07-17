@@ -470,6 +470,20 @@
       "when": 1784296801464,
       "tag": "0066_supreme_diamondback",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1784326715258,
+      "tag": "0067_eager_black_tom",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1784326728738,
+      "tag": "0068_solid_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

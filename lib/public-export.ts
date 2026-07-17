@@ -136,6 +136,11 @@ export interface PublicSeriesExport {
     owner?: string;
     /** Helm, when recorded separately from the primary (owner-primary series). */
     helm?: string;
+    /** Crew names in listed order — one for a two-person dinghy, several for a
+     *  keelboat crew. */
+    crewNames?: string[];
+    /** Legacy single crew name, written by pre-crew-list exports; the importer
+     *  folds it into a one-element `crewNames`. Never written by current builds. */
     crewName?: string;
     club: string;
     /** 3-letter national-letters code (RRS Appendix G / IOC), e.g. "IRL". */
@@ -716,7 +721,7 @@ export function buildPublicExportFromSnapshot(
       name: c.name,
       ...(c.owner ? { owner: c.owner } : {}),
       ...(c.helm ? { helm: c.helm } : {}),
-      ...(c.crewName ? { crewName: c.crewName } : {}),
+      ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
       club: c.club,
       ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
@@ -947,7 +952,10 @@ export async function importPublicExport(
         name: c.name,
         ...(c.owner ? { owner: c.owner } : {}),
         ...(c.helm ? { helm: c.helm } : {}),
-        ...(c.crewName ? { crewName: c.crewName } : {}),
+        ...((): { crewNames?: string[] } => {
+          const crew = c.crewNames?.length ? c.crewNames : c.crewName ? [c.crewName] : [];
+          return crew.length ? { crewNames: crew } : {};
+        })(),
         club: c.club,
         ...(c.nationality ? { nationality: c.nationality } : {}),
         gender: c.gender,

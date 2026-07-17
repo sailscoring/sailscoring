@@ -37,7 +37,7 @@ function groupKey(c: Competitor): string {
  *  favour of the copy the scorer would least want to retype. */
 function completeness(c: Competitor): number {
   let n = 0;
-  for (const v of [c.boatName, c.boatClass, c.name, c.owner, c.helm, c.crewName, c.club, c.nationality]) {
+  for (const v of [c.boatName, c.boatClass, c.name, c.owner, c.helm, c.crewNames?.join(' '), c.club, c.nationality]) {
     if (v && v.trim()) n++;
   }
   for (const v of [c.ircTcc, c.vprsTcc, c.pyNumber, c.nhcStartingTcf, c.echoStartingTcf, c.age]) {
@@ -222,7 +222,7 @@ function overlayFields(base: Competitor, next: Competitor): Competitor {
     name: str(next.name, base.name) ?? '',
     owner: str(next.owner, base.owner),
     helm: str(next.helm, base.helm),
-    crewName: str(next.crewName, base.crewName),
+    crewNames: next.crewNames?.length ? next.crewNames : base.crewNames,
     club: str(next.club, base.club) ?? '',
     nationality: str(next.nationality, base.nationality),
     gender: next.gender || base.gender,
@@ -239,7 +239,7 @@ function overlayFields(base: Competitor, next: Competitor): Competitor {
   };
   // Drop optional keys that ended up undefined so the survivor round-trips
   // like a hand-entered competitor.
-  for (const k of ['boatName', 'boatClass', 'owner', 'helm', 'crewName', 'nationality', 'subdivisions', 'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf'] as const) {
+  for (const k of ['boatName', 'boatClass', 'owner', 'helm', 'crewNames', 'nationality', 'subdivisions', 'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf'] as const) {
     if (merged[k] === undefined) delete merged[k];
   }
   return merged;

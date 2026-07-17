@@ -257,7 +257,7 @@ export async function putArchiveSeries(
         boatClass: c.boatClass ?? null,
         helm: c.helm ?? null,
         owner: c.owner ?? null,
-        crewName: c.crewName ?? null,
+        crewNames: c.crewName ? [c.crewName] : null,
       };
       await tx
         .insert(schema.competitors)

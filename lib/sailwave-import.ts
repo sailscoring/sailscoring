@@ -1214,7 +1214,7 @@ interface CompetitorBuild {
   boatName?: string;
   boatClass?: string;
   name: string;
-  crewName?: string;
+  crewNames?: string[];
   club: string;
   nationality?: string;
   subdivisions?: Record<string, string>;
@@ -1413,7 +1413,7 @@ export function buildSeriesFileFromSailwave(
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       name: c.name,
-      ...(c.crewName ? { crewName: c.crewName } : {}),
+      ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
       club: c.club,
       ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
@@ -1589,7 +1589,7 @@ function buildCompetitors(
     // boatClass — the values are prize categories, not boat classes.
     const classIsAxis = axes.some((a) => a.sourceKey === 'compclass');
     if (!classIsAxis && v.compclass?.trim()) built.boatClass = v.compclass.trim();
-    if (v.compcrewname?.trim()) built.crewName = v.compcrewname.trim();
+    if (v.compcrewname?.trim()) built.crewNames = [v.compcrewname.trim()];
     // Nationality: uppercase, fold Sailwave aliases (BVI → IVB), keep only
     // well-formed 3-letter values. Unknown but well-formed codes pass
     // through so future dataset bumps surface naturally.
@@ -1830,7 +1830,7 @@ function dataFlagsFor(competitors: ReadonlyArray<CompetitorBuild>): CompetitorDa
     // Helm is stored on `name` (the primary identifier slot); only flag it
     // if at least one competitor actually has a name string.
     hasHelm: competitors.some((c) => !!c.name),
-    hasCrewName: competitors.some((c) => !!c.crewName),
+    hasCrewName: competitors.some((c) => !!c.crewNames?.length),
     hasClub: competitors.some((c) => !!c.club),
     hasNationality: competitors.some((c) => !!c.nationality),
     hasGender: competitors.some((c) => !!c.gender),

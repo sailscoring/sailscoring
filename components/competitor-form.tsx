@@ -32,7 +32,7 @@ export interface CompetitorFormData {
   name: string;
   owner: string;
   helm: string;
-  crewName: string;
+  crewNames: string[];  // dynamic rows in the form; blanks dropped on save
   club: string;
   nationality: string;
   gender: '' | 'M' | 'F';
@@ -54,7 +54,7 @@ export const emptyCompetitorForm: CompetitorFormData = {
   name: '',
   owner: '',
   helm: '',
-  crewName: '',
+  crewNames: [],
   club: '',
   nationality: '',
   gender: '',
@@ -314,8 +314,8 @@ export function CompetitorForm({
             <Label htmlFor="crewName">Crew name</Label>
             <Input
               id="crewName"
-              value={data.crewName}
-              onChange={(e) => set('crewName', e.target.value)}
+              value={data.crewNames[0] ?? ''}
+              onChange={(e) => set('crewNames', e.target.value ? [e.target.value] : [])}
               placeholder="e.g. Mark Smith"
             />
           </div>

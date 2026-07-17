@@ -14,7 +14,7 @@ function haystack(c: Competitor): string {
     c.name,
     c.helm,
     c.owner,
-    c.crewName,
+    ...(c.crewNames ?? []),
     c.club,
   ]
     .filter(Boolean)

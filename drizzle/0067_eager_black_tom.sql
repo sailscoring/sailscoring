@@ -1,0 +1,1 @@
+ALTER TABLE "competitors" ADD COLUMN "crew_names" jsonb;

@@ -7,14 +7,33 @@ import type {
   SubdivisionAxis,
 } from './types';
 
-/** Render "Helm / Crew" when the series has crew names enabled and a crew is
- *  set; otherwise just the helm. Used in autocomplete rows and finish lists. */
+/** Trim crew names and drop empty entries, returning undefined when nothing
+ *  remains (sparse storage — a competitor with no crew carries no `crewNames`,
+ *  mirroring `cleanSubdivisions`). */
+export function cleanCrewNames(names: string[] | undefined): string[] | undefined {
+  const out = (names ?? []).map((n) => n.trim()).filter((n) => n.length > 0);
+  return out.length > 0 ? out : undefined;
+}
+
+/** Order-sensitive equality of two crew lists, ignoring blank entries. Used to
+ *  detect "no change" on CSV re-import. */
+export function sameCrewNames(a: string[] | undefined, b: string[] | undefined): boolean {
+  const na = cleanCrewNames(a) ?? [];
+  const nb = cleanCrewNames(b) ?? [];
+  return na.length === nb.length && na.every((v, i) => v === nb[i]);
+}
+
+/** Render "Helm / Crew" when the series has crew enabled and exactly one crew
+ *  is set; otherwise just the helm. Used in autocomplete rows and finish
+ *  lists — one-line contexts, so a multi-person crew is deliberately left to
+ *  the tables (a finish-sheet row is no place for a keelboat's eight names). */
 export function displayHelmCrew(
-  competitor: Pick<Competitor, 'name' | 'crewName'>,
+  competitor: Pick<Competitor, 'name' | 'crewNames'>,
   showCrew: boolean,
 ): string {
-  if (showCrew && competitor.crewName && competitor.crewName.trim()) {
-    return `${competitor.name} / ${competitor.crewName}`;
+  const crew = cleanCrewNames(competitor.crewNames);
+  if (showCrew && crew?.length === 1) {
+    return `${competitor.name} / ${crew[0]}`;
   }
   return competitor.name;
 }
@@ -26,7 +45,7 @@ export function displayHelmCrew(
  *  When `boatName` is not enabled or absent, returns just the person, identical
  *  to `displayHelmCrew`. */
 export function displayCompetitorLabel(
-  competitor: Pick<Competitor, 'name' | 'crewName' | 'boatName'>,
+  competitor: Pick<Competitor, 'name' | 'crewNames' | 'boatName'>,
   opts: { enabledCompetitorFields: readonly CompetitorFieldKey[]; showCrew: boolean },
 ): string {
   const person = displayHelmCrew(competitor, opts.showCrew);

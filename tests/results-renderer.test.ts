@@ -450,7 +450,7 @@ describe('renderSeriesHtml', () => {
               sailNumber: '1',
               boatName: 'Windchaser',
               helm: 'Alice',
-              crewName: 'Mark',
+              crewNames: ['Mark'],
               place: 1,
               rank: 1,
               points: 1,
@@ -467,7 +467,7 @@ describe('renderSeriesHtml', () => {
           sailNumber: '1',
           boatName: 'Windchaser',
           helm: 'Alice',
-          crewName: 'Mark',
+          crewNames: ['Mark'],
           raceScores: [
             { points: 1, resultCode: null, penaltyCode: null, penaltyOverride: null, isDiscard: false, isRedress: false, podiumRank: 1 },
           ],
@@ -508,11 +508,11 @@ describe('renderSeriesHtml', () => {
         ...withBoatAndCrew,
         enabledCompetitorFields: ['crewName'],
         primaryPersonLabel: 'helm',
-        standings: [{ ...withBoatAndCrew.standings[0], crewName: undefined }],
+        standings: [{ ...withBoatAndCrew.standings[0], crewNames: undefined }],
         races: [
           {
             ...withBoatAndCrew.races[0],
-            results: [{ ...withBoatAndCrew.races[0].results[0], crewName: undefined }],
+            results: [{ ...withBoatAndCrew.races[0].results[0], crewNames: undefined }],
           },
         ],
       };

@@ -316,7 +316,7 @@ export interface Competitor {
   name: string;       // primary identifying person (labelled per Series.primaryPersonLabel)
   owner?: string;     // owner, when recorded separately from the primary (e.g. helm-primary series)
   helm?: string;      // helm, when recorded separately from the primary (e.g. owner-primary series)
-  crewName?: string;  // crew name, for two-person dinghy classes
+  crewNames?: string[]; // crew names in listed order — one for a two-person dinghy, several for a keelboat crew; sparse (absent when no crew recorded)
   club: string;
   nationality?: string;  // 3-letter national-letters code (RRS Appendix G / IOC), e.g. "IRL"
   gender: 'M' | 'F' | '';

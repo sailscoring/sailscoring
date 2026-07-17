@@ -393,7 +393,7 @@ export const competitors = pgTable(
     name: text('name').notNull(),
     owner: text('owner'),
     helm: text('helm'),
-    crewName: text('crew_name'),
+    crewNames: jsonb('crew_names').$type<string[]>(),
     club: text('club').notNull().default(''),
     nationality: text('nationality'),
     gender: text('gender').notNull().default(''),
