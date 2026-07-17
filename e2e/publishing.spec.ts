@@ -305,11 +305,12 @@ test('workspace Published page lists a publication and unpublishing frees the sl
   // The public page is live.
   expect((await page.request.get(path)).status()).toBe(200);
 
-  // The workspace Published management page lists it with its public URL.
-  await page.goto('/workspace');
+  // The workspace Published tab lists it with its public URL.
+  await page.goto('/workspace/published');
   await expect(
     page.getByRole('heading', { name: 'Published results' }),
   ).toBeVisible();
+  await expect(page.getByText('1 page published')).toBeVisible();
   await expect(page.getByRole('link', { name: /\/autumn-26$/ })).toBeVisible();
 
   // Unpublish (a confirm dialog guards it) → the row goes and the page 404s.
@@ -356,10 +357,13 @@ test('an orphaned snapshot (series deleted) stays listed and can be unpublished'
   await page.getByRole('button', { name: 'Delete series' }).click();
   await expect(page.getByText('HYC Autumn League 2026')).not.toBeVisible();
 
-  // The workspace Published page is the only surface that manages it: marked as
-  // orphaned, titled by its slug, and still unpublishable.
-  await page.goto('/workspace');
-  await expect(page.getByText('series deleted')).toBeVisible();
+  // The workspace Published tab is the only surface that manages it: relegated
+  // to its own "Series deleted" section, titled by its slug, and still
+  // unpublishable.
+  await page.goto('/workspace/published');
+  await expect(
+    page.getByRole('heading', { name: 'Series deleted' }),
+  ).toBeVisible();
   const unpublishBtn = page.getByRole('button', { name: 'Unpublish orphan-me' });
   await expect(unpublishBtn).toBeVisible();
   page.once('dialog', (d) => d.accept());
@@ -621,15 +625,35 @@ test('the public workspace listing mirrors category sections and relegates archi
   // a "Past results" block that holds the archived series under its event year.
   await page.goto(`/p/${workspaceSlug}`);
   await expect(page.getByRole('heading', { name: 'Club Racing' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Spring League 2026' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Past results' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '2024' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Lambay Race 2024' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).toBeVisible();
 
   // The active, categorised series is listed before the relegated Past results.
   const body = await page.locator('body').innerHTML();
   expect(body.indexOf('Spring League 2026')).toBeLessThan(body.indexOf('Past results'));
   expect(body.indexOf('Past results')).toBeLessThan(body.indexOf('Lambay Race 2024'));
+
+  // The workspace Published tab mirrors the same sections: the active page
+  // under its category heading, the archived one behind a collapsed
+  // "Past results" toggle that expands to its event year.
+  await page.goto('/workspace/published');
+  await expect(page.getByText('2 pages published')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Club Racing' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).not.toBeVisible();
+  await page.getByRole('button', { name: /Past results \(1\)/ }).click();
+  await expect(page.getByRole('heading', { name: '2024' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).toBeVisible();
+
+  // Searching narrows across sections — and keeps Past results matches
+  // visible regardless of the collapse.
+  await page.getByLabel('Search published pages').fill('lambay');
+  await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).not.toBeVisible();
+  await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).toBeVisible();
+  await page.getByLabel('Search published pages').fill('nothing-matches-this');
+  await expect(page.getByText('No pages match.')).toBeVisible();
 });
 
 test('keyboard shortcut p opens the publish dialog', async ({ page }) => {

@@ -59,6 +59,18 @@ describe('groupWorkspaceListing', () => {
     expect(past.map((g) => g.year)).toEqual([2025, 2024, null]);
   });
 
+  it('sorts null category and series orders last, like absent ones', () => {
+    // The management page's rows cross /api/v1 as JSON, which can't carry the
+    // Infinity sentinel — unset orders arrive as null and must still sort last.
+    const { active } = groupWorkspaceListing([
+      item({ slug: 'loose', categoryName: 'Fleet', categoryOrder: 0, seriesOrder: null }),
+      item({ slug: 'first', categoryName: 'Fleet', categoryOrder: 0, seriesOrder: 1 }),
+      item({ slug: 'tail', categoryName: 'Tail', categoryOrder: null }),
+    ]);
+    expect(active.map((g) => g.categoryName)).toEqual(['Fleet', 'Tail']);
+    expect(active[0].items.map((i) => i.slug)).toEqual(['first', 'loose']);
+  });
+
   it('treats an orphaned/bare item as an active uncategorised entry', () => {
     const { active, past } = groupWorkspaceListing([item({ slug: 'orphan' })]);
     expect(past).toEqual([]);
