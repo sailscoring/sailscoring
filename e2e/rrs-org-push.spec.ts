@@ -110,7 +110,7 @@ test('CSV import + push in one step, then a push-only re-push', async ({ page, s
   await page.getByRole('button', { name: 'Import', exact: true }).click();
   await page.getByRole('checkbox', { name: 'rrs.org' }).check();
   await expect(page.getByLabel('Event UUID')).toHaveValue(EVENT_UUID);
-  await page.getByRole('checkbox', { name: 'CSV file' }).uncheck();
+  await page.getByRole('checkbox', { name: 'Spreadsheet file (CSV or Excel)' }).uncheck();
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(page.getByRole('heading', { name: 'Push competitors to rrs.org' })).toBeVisible();
