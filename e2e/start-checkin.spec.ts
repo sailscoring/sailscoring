@@ -87,8 +87,11 @@ test('start check-in marks boats present and affects A5.3 standings', async ({ p
   await expect(search).toHaveValue('');
   await expect(page.getByText('Present at start: 2 / 5')).toBeVisible();
 
-  // Mark Carol by clicking the row (covers the original mouse-down path)
-  await page.getByRole('button', { name: /303/ }).click();
+  // Mark Carol by clicking the row (covers the original mouse-down path).
+  // Full "sail name" accessible name, not a bare /303/: the header user-menu
+  // carries the signed-in digits-based test email, which can contain any
+  // 3-digit substring and then collides under strict mode.
+  await page.getByRole('button', { name: '303 Carol' }).click();
 
   // Confirm count shows 3 present
   await expect(page.getByText('Present at start: 3 / 5')).toBeVisible();
