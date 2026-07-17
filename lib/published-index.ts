@@ -29,10 +29,11 @@ export interface ListingPlacement {
   archived?: boolean;
   /** Category name; null/absent = the Uncategorized bucket. */
   categoryName?: string | null;
-  /** The category's `displayOrder` (section order); absent → last. */
-  categoryOrder?: number;
-  /** The series' manual `displayOrder` within the active list. */
-  seriesOrder?: number;
+  /** The category's `displayOrder` (section order); absent/null → last. */
+  categoryOrder?: number | null;
+  /** The series' manual `displayOrder` within the active list; absent/null →
+   *  last (null rather than absent where the value has crossed JSON). */
+  seriesOrder?: number | null;
   /** The series' start-date year, for the "Past results" grouping. */
   year?: number | null;
 }

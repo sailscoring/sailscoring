@@ -292,19 +292,33 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
  * Every publication in a workspace, newest first, for the authenticated
  * management page (#164). Richer than {@link listPublishedByWorkspace} (the
  * public listing): carries the publication `id` (the unpublish handle), the
- * orphan flag, and `editsSincePublish` — how many series edits have landed
+ * orphan flag, `editsSincePublish` — how many series edits have landed
  * since the snapshot, from the live `series.version` vs the captured
- * `publishedVersion` (0 for an orphan, whose series is gone).
+ * `publishedVersion` (0 for an orphan, whose series is gone) — and the
+ * `seriesId` so live rows can link back to the authoring page.
+ *
+ * Unlike the public listing there is one row per publication, not per slug, so
+ * the placement fields (category / archive / order / year) are each row's own
+ * series — no representative fudge. An orphan has no placement at all.
  */
 export async function listPublishedForWorkspace(workspaceId: string): Promise<
   {
     id: string;
     slug: string;
     title: string;
+    seriesId: string | null;
     orphaned: boolean;
     publishedAt: number;
     editsSincePublish: number;
     sharedWith: string[];
+    fleetCount: number;
+    archived: boolean;
+    categoryName: string | null;
+    // null (not Infinity, which JSON can't carry — these rows cross /api/v1)
+    // when the series has no category / manual order; sorts last either way.
+    categoryOrder: number | null;
+    seriesOrder: number | null;
+    year: number | null;
   }[]
 > {
   const rows = await getDb()
@@ -312,15 +326,25 @@ export async function listPublishedForWorkspace(workspaceId: string): Promise<
       id: schema.publishedSeries.id,
       slug: schema.publishedSeries.slug,
       seriesId: schema.publishedSeries.seriesId,
+      pages: schema.publishedSeries.pages,
       publishedVersion: schema.publishedSeries.publishedVersion,
       publishedAt: schema.publishedSeries.publishedAt,
       seriesName: schema.series.name,
       seriesVersion: schema.series.version,
+      archived: schema.series.archived,
+      seriesOrder: schema.series.displayOrder,
+      startDate: schema.series.startDate,
+      categoryName: schema.categories.name,
+      categoryOrder: schema.categories.displayOrder,
     })
     .from(schema.publishedSeries)
     .leftJoin(
       schema.series,
       eq(schema.publishedSeries.seriesId, schema.series.id),
+    )
+    .leftJoin(
+      schema.categories,
+      eq(schema.series.categoryId, schema.categories.id),
     )
     .where(eq(schema.publishedSeries.workspaceId, workspaceId))
     .orderBy(desc(schema.publishedSeries.publishedAt));
@@ -339,6 +363,7 @@ export async function listPublishedForWorkspace(workspaceId: string): Promise<
     id: r.id,
     slug: r.slug,
     title: titleOf(r),
+    seriesId: r.seriesId,
     orphaned: r.seriesId === null,
     publishedAt: r.publishedAt.getTime(),
     editsSincePublish:
@@ -348,6 +373,12 @@ export async function listPublishedForWorkspace(workspaceId: string): Promise<
     sharedWith: (bySlug.get(r.slug) ?? [])
       .filter((o) => o.id !== r.id)
       .map(titleOf),
+    fleetCount: r.pages.length,
+    archived: r.archived ?? false,
+    categoryName: r.categoryName ?? null,
+    categoryOrder: r.categoryOrder ?? null,
+    seriesOrder: r.seriesOrder ?? null,
+    year: yearOf(r.startDate),
   }));
 }
 

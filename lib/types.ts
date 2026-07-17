@@ -696,10 +696,20 @@ export interface PublishedListItem {
   slug: string;
   title: string;                  // live series name, or the slug for an orphan
   url: string;                    // public series-index URL: {APP_URL}/p/{ws}/{slug}
+  seriesId: string | null;        // authoring link target; null for an orphan
   orphaned: boolean;              // the series was deleted (the snapshot lives on)
   publishedAt: number;            // Unix ms of the last publish
   editsSincePublish: number;      // series edits since the snapshot (0 if orphaned)
   sharedWith: string[];           // titles of other publications sharing this slug
+  fleetCount: number;             // published fleet pages under the slug's entry
+  // Placement on the management page's sections (ListingPlacement) — this
+  // publication's own series, unlike the public listing's per-slug
+  // representative. All null-ish for an orphan.
+  archived: boolean;
+  categoryName: string | null;
+  categoryOrder: number | null;
+  seriesOrder: number | null;
+  year: number | null;
 }
 
 export interface FtpServer {
