@@ -386,6 +386,11 @@ test('finish blocked for competitor whose fleet has no start when handicap fleet
   // Close the starts editor so only the finish entry UI is active.
   await page.getByRole('button', { name: 'Done' }).click();
 
+  // The finish gate reads the same raceStarts cache as this summary — enter
+  // nothing until the saved start is reflected, or the gate decides on stale
+  // data (no starts at all would imply every fleet is in the race).
+  await expect(page.getByText('14:00:00')).toBeVisible();
+
   // ── Try to finish G1 (ILCA, no start) — should be blocked ────────────────
   const sailInput = page.getByLabel('Sail number');
   await sailInput.fill('G1');
@@ -402,6 +407,9 @@ test('finish blocked for competitor whose fleet has no start when handicap fleet
   await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await page.getByRole('button', { name: 'Done' }).first().click();
+
+  // Same cache race as above: G1 stays blocked until the ILCA start lands.
+  await expect(page.getByText('14:05:00')).toBeVisible();
 
   await sailInput.fill('G1');
   await sailInput.press('Enter');
