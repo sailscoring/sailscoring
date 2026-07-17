@@ -213,4 +213,42 @@ describe('renderCompetitorIndexHtml', () => {
     // The headline count excludes the hidden blank.
     expect(withBlank).toContain('>1 competitor<');
   });
+
+  it('counts rankings and folds ranked seasons into the year span', () => {
+    const [row] = toCompetitorIndexEntries(
+      [
+        identity({
+          slug: 'emily-donagh-cjuj',
+          entries: [entry({ year: 2023 })],
+        }),
+      ],
+      PUBLISHED,
+      new Map([['emily-donagh-cjuj', [2022, 2025]]]),
+    );
+    expect(row.rankingCount).toBe(2);
+    expect(row.firstYear).toBe(2022);
+    expect(row.lastYear).toBe(2025);
+    expect(row.years).toEqual([2022, 2023, 2025]);
+  });
+
+  it('keeps a ranking-only sailor (no published series) in the index', () => {
+    const rows = toCompetitorIndexEntries(
+      [
+        identity({
+          slug: 'ranking-only-aa11',
+          label: 'Ranking Only',
+          entries: [],
+        }),
+      ],
+      PUBLISHED,
+      new Map([['ranking-only-aa11', [2006]]]),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      seriesCount: 0,
+      rankingCount: 1,
+      firstYear: 2006,
+      lastYear: 2006,
+    });
+  });
 });

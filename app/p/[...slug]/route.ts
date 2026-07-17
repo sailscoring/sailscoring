@@ -391,21 +391,40 @@ async function competitorIndex(
   if (!workspace) return NOT_FOUND;
   if (!(await workspaceHasIdentityFeature(workspace.id))) return NOT_FOUND;
 
-  // Published = public: the index reflects only series with a live publication,
-  // so an unpublished series never contributes a row, sail number, or year.
+  // Published = public: the index reflects only series with a live
+  // publication, so an unpublished series never contributes a row, sail
+  // number, or year. As-published rankings (#309) count alongside: each
+  // identity's ranked seasons extend its span and add a rankings count.
+  const rankingRows = await getDb()
+    .select({
+      season: schema.asPublishedRankings.season,
+      table: schema.asPublishedRankings.table,
+    })
+    .from(schema.asPublishedRankings)
+    .where(eq(schema.asPublishedRankings.workspaceId, workspace.id));
+  const rankingSeasonsBySlug = new Map<string, number[]>();
+  for (const r of rankingRows) {
+    for (const row of r.table.rows) {
+      if (!row.identity) continue;
+      const seasons = rankingSeasonsBySlug.get(row.identity) ?? [];
+      seasons.push(r.season);
+      rankingSeasonsBySlug.set(row.identity, seasons);
+    }
+  }
   const competitors = toCompetitorIndexEntries(
     await listIdentitiesWithArcs(workspace.id),
     await listPublishedSeriesIds(workspace.id),
+    rankingSeasonsBySlug,
   );
   if (competitors.length === 0) return NOT_FOUND;
 
-  // ETag over each row's identity (slug, name, sails, year span, count) so a
-  // rename, split, or newly linked series busts the cached index.
+  // ETag over each row's identity (slug, name, sails, year span, counts) so a
+  // rename, split, a newly linked series, or a new ranking busts the index.
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     ...competitors.map(
       (c) =>
-        `${c.slug}:${c.name}:${c.sailNumbers.join(',')}:${c.firstYear}-${c.lastYear}:${c.seriesCount}`,
+        `${c.slug}:${c.name}:${c.sailNumbers.join(',')}:${c.firstYear}-${c.lastYear}:${c.seriesCount}:${c.rankingCount}`,
     ),
   ])}"`;
   const cached = notModified(req, etag);

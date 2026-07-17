@@ -30,9 +30,12 @@ export interface CompetitorIndexEntry {
   sailNumbers: string[];
   firstYear: number | null;
   lastYear: number | null;
-  /** Distinct years the competitor raced, ascending — drives the year filter. */
+  /** Distinct years the competitor raced or was ranked, ascending — drives
+   *  the year filter. */
   years: number[];
   seriesCount: number;
+  /** As-published season rankings (#309) the competitor appears in. */
+  rankingCount: number;
 }
 
 /** Folded search key: diacritics stripped, lowercased, whitespace collapsed —
@@ -55,29 +58,32 @@ function fold(s: string): string {
  *
  * Published = public: only entries whose series has a live publication
  * (`publishedSeriesIds`) contribute, so an unpublished series never surfaces a
- * row, sail number, or year. An identity with no published series is dropped
- * entirely — it has nothing the club chose to make public. The year span is
- * recomputed from the surviving entries rather than read off the identity,
- * whose `firstYear`/`lastYear` span every entry.
+ * row, sail number, or year. As-published season rankings (#309) are public by
+ * construction, so they count alongside — a ranking-only sailor gets a row,
+ * and ranking seasons extend the year span and filter. An identity with
+ * nothing published either way is dropped entirely.
  */
 export function toCompetitorIndexEntries(
   identities: IdentityWithArc[],
   publishedSeriesIds: ReadonlySet<string>,
+  rankingSeasonsBySlug: ReadonlyMap<string, number[]> = new Map(),
 ): CompetitorIndexEntry[] {
   const out: CompetitorIndexEntry[] = [];
   for (const id of identities) {
     if (!id.slug) continue;
     const entries = id.entries.filter((e) => publishedSeriesIds.has(e.seriesId));
-    if (entries.length === 0) continue;
+    const rankingSeasons = rankingSeasonsBySlug.get(id.slug) ?? [];
+    if (entries.length === 0 && rankingSeasons.length === 0) continue;
     const sailNumbers = [
       ...new Set(entries.map((e) => e.sailNumber).filter(Boolean)),
     ];
     const years = [
-      ...new Set(
-        entries
+      ...new Set([
+        ...entries
           .map((e) => e.year)
           .filter((y): y is number => y != null),
-      ),
+        ...rankingSeasons,
+      ]),
     ].sort((a, b) => a - b);
     out.push({
       slug: id.slug,
@@ -87,6 +93,7 @@ export function toCompetitorIndexEntries(
       lastYear: years.length ? years[years.length - 1] : null,
       years,
       seriesCount: entries.length,
+      rankingCount: rankingSeasons.length,
     });
   }
   // Alphabetical by folded name, with blank-name rows (data debris awaiting
@@ -179,8 +186,13 @@ export function renderCompetitorIndexHtml(
         ? `<span class="sails">${esc(c.sailNumbers.join(', '))}</span>`
         : '';
       const span = spanLabel(c);
-      const count = `${c.seriesCount} ${c.seriesCount === 1 ? 'series' : 'series'}`;
-      const det = `<span class="det">${span ? `${span} &middot; ` : ''}${count}${sails}</span>`;
+      const counts = [
+        ...(c.seriesCount ? [`${c.seriesCount} series`] : []),
+        ...(c.rankingCount
+          ? [`${c.rankingCount} ${c.rankingCount === 1 ? 'ranking' : 'rankings'}`]
+          : []),
+      ].join(' &middot; ');
+      const det = `<span class="det">${span ? `${span} &middot; ` : ''}${counts}${sails}</span>`;
       // Blank-name rows: tagged + hidden by default (so they don't lead the
       // browse), shown a placeholder so a sail search reveals a usable row.
       const nm = blank
