@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useImperativeHandle, forwardRef } from 'react';
-import Papa from 'papaparse';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -35,6 +34,12 @@ import {
   type FinishSheetField,
   type ParseFinishSheetResult,
 } from '@/lib/finish-sheet-csv';
+import {
+  parseTabularFile,
+  TABULAR_IMPORT_ACCEPT,
+  type WorkbookSheet,
+} from '@/lib/import-table';
+import { SheetPickerDialog, ImportFileErrorDialog } from '@/components/import-file-dialogs';
 
 const FIELD_LABELS: Record<FinishSheetField, string> = {
   sailNumber: 'Sail number',
@@ -45,6 +50,8 @@ const FIELD_LABELS: Record<FinishSheetField, string> = {
 
 type ImportFlow =
   | { step: 'idle' }
+  | { step: 'pickSheet'; sheets: WorkbookSheet[] }
+  | { step: 'fileError'; message: string }
   | {
       step: 'mapping';
       headers: string[];
@@ -64,10 +71,11 @@ export interface FinishSheetImportHandle {
 }
 
 /**
- * Per-race finish sheet CSV importer. Presents a file picker, a
- * column-mapping dialog, and a preview dialog. On confirm, the parsed
- * finishes are returned via `onConfirm` (replace-all semantics; caller
- * updates race state and persists).
+ * Per-race finish sheet importer (CSV or .xlsx). Presents a file picker, a
+ * sheet picker for multi-sheet workbooks, a column-mapping dialog, and a
+ * preview dialog. On confirm, the parsed finishes are returned via
+ * `onConfirm` (replace-all semantics; caller updates race state and
+ * persists).
  */
 export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
   candidates: Candidate[];
@@ -87,30 +95,34 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
-  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    Papa.parse<string[]>(file, {
-      header: false,
-      skipEmptyLines: true,
-      complete: (parsed) => {
-        const allRows = parsed.data;
-        if (allRows.length < 2) {
-          // No data rows — bail silently rather than opening an empty dialog.
-          reset();
-          return;
-        }
-        const headers = allRows[0];
-        const dataRows = allRows.slice(1);
-        const sampleRows = dataRows.slice(0, 3);
-        const columnMap: FinishSheetColumnMap = {};
-        headers.forEach((h, i) => {
-          columnMap[i] = autoDetectFinishSheetField(h);
-        });
-        setFlow({ step: 'mapping', headers, sampleRows, rows: dataRows, columnMap });
-      },
-    });
     e.target.value = '';
+    if (!file) return;
+    const parsed = await parseTabularFile(file);
+    if (parsed.kind === 'error') {
+      setFlow({ step: 'fileError', message: parsed.message });
+    } else if (parsed.kind === 'workbook') {
+      setFlow({ step: 'pickSheet', sheets: parsed.sheets });
+    } else {
+      openMapping(parsed.rows);
+    }
+  }
+
+  function openMapping(allRows: string[][]) {
+    if (allRows.length < 2) {
+      // No data rows — bail silently rather than opening an empty dialog.
+      reset();
+      return;
+    }
+    const headers = allRows[0];
+    const dataRows = allRows.slice(1);
+    const sampleRows = dataRows.slice(0, 3);
+    const columnMap: FinishSheetColumnMap = {};
+    headers.forEach((h, i) => {
+      columnMap[i] = autoDetectFinishSheetField(h);
+    });
+    setFlow({ step: 'mapping', headers, sampleRows, rows: dataRows, columnMap });
   }
 
   function runParse() {
@@ -140,17 +152,30 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
         {trigger ?? (
           <Button variant="outline">
             <Upload className="h-4 w-4 mr-2" />
-            Import CSV
+            Import sheet
           </Button>
         )}
       </span>
       <input
         ref={fileInputRef}
         type="file"
-        accept=".csv,text/csv"
-        onChange={handleFileSelected}
+        accept={TABULAR_IMPORT_ACCEPT}
+        onChange={(e) => void handleFileSelected(e)}
         className="hidden"
         data-testid="finish-sheet-csv-input"
+      />
+
+      {/* Multi-sheet workbook: pick the sheet, then map as usual */}
+      <SheetPickerDialog
+        open={flow.step === 'pickSheet'}
+        sheets={flow.step === 'pickSheet' ? flow.sheets : []}
+        onCancel={reset}
+        onPick={(sheet) => openMapping(sheet.rows)}
+      />
+      <ImportFileErrorDialog
+        open={flow.step === 'fileError'}
+        message={flow.step === 'fileError' ? flow.message : ''}
+        onClose={reset}
       />
 
       {/* Mapping dialog */}
@@ -159,7 +184,7 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
           <DialogHeader>
             <DialogTitle>Import finish sheet — map columns</DialogTitle>
             <DialogDescription>
-              Match each CSV column to a field. Sail number is required.
+              Match each column to a field. Sail number is required.
               Row order is the crossing order. Rows with a result code
               (DNF, DSQ, OCS, etc.) are recorded as non-finishers.
             </DialogDescription>

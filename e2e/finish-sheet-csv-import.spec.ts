@@ -1,15 +1,17 @@
 import { signedInTest as test, expect } from './fixtures';
 import { createSeriesQuick, enableFeatures } from './helpers';
+import { resolve } from 'path';
 
 /**
- * E2E for the per-race finish sheet CSV importer.
+ * E2E for the per-race finish sheet importer (CSV and .xlsx).
  *
  * Covers: the happy path (map → preview → confirm), auto-detection of headers,
  * result codes for non-finishers, unregistered sail numbers importing as
- * unresolved crossings, and replace-all semantics.
+ * unresolved crossings, replace-all semantics, and the same flow fed from an
+ * Excel workbook with real time-formatted cells.
  *
- * Finish-sheet CSV import is a gated experimental feature (#155); enable it so
- * the Import CSV control appears.
+ * Finish-sheet import is a gated experimental feature (#155); enable it so
+ * the Import sheet control appears.
  */
 
 test.beforeEach(async ({ page, signedInEmail }) => {
@@ -98,6 +100,56 @@ test('import per-race finish sheet from CSV', async ({ page }) => {
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await expect(page.getByRole('listitem').nth(0)).toContainText('6413');
   await expect(page.getByTestId('non-finisher-22')).toContainText('DNF');
+});
+
+test('import per-race finish sheet from Excel (.xlsx)', async ({ page }) => {
+  // Same competitors as the CSV happy path; the workbook fixture holds the
+  // same sheet with real time-formatted cells (hh:mm:ss serials) and
+  // numeric sail-number cells — the cases CSV never exercises.
+  await createSeriesQuick(page, { name: 'XLSX Import Race' });
+
+  for (const c of [
+    { sail: '15',   name: 'Alice Pearson' },
+    { sail: '22',   name: 'Bob Dickson' },
+    { sail: '254',  name: 'Carol Walls' },
+    { sail: '6413', name: 'Dave Murphy' },
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sail);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sail, exact: true })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  // Fixture rows: 6413 → 11:55:09, 15 → 11:57:37, 22 → 11:57:15,
+  // 254 → DNF, 999 → 12:01:00 (unregistered).
+  await page
+    .getByTestId('finish-sheet-csv-input')
+    .setInputFiles(resolve(__dirname, '../tests/fixtures/xlsx/finish-sheet-times.xlsx'));
+
+  // Mapping dialog — headers auto-detect from the worksheet's header row.
+  await expect(page.getByRole('heading', { name: /map columns/i })).toBeVisible();
+  await page.getByRole('button', { name: /Preview 5 rows/i }).click();
+
+  await expect(page.getByRole('heading', { name: /confirm finish sheet import/i })).toBeVisible();
+  await expect(page.getByText(/4 finishers/i)).toBeVisible();
+  await expect(page.getByText(/1 coded entry/i)).toBeVisible();
+  await expect(page.getByText(/1 unresolved sail number/i)).toBeVisible();
+  await page.getByRole('button', { name: /import and replace/i }).click();
+
+  // Crossing order and the DNF arrived intact from the workbook.
+  const items = page.getByRole('listitem');
+  await expect(items.nth(0)).toContainText('6413');
+  await expect(items.nth(1)).toContainText('15');
+  await expect(items.nth(2)).toContainText('22');
+  await expect(items.nth(3)).toContainText('999');
+  await expect(page.getByTestId('non-finisher-254')).toContainText('DNF');
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 });
 
 test('finish sheet CSV import replaces existing finishes', async ({ page }) => {

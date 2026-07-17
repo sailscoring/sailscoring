@@ -244,7 +244,7 @@ export default function ResultEntryPage({
     { key: '[', displayKeys: ['[', ']'], description: 'Previous / next race', section: 'Finish entry' },
     { key: 'c', description: 'Toggle start check-in tab', section: 'Finish entry' },
     ...(has('csv-finish-import')
-      ? [{ key: 'i', description: 'Import finish sheet from CSV', section: 'Finish entry' }]
+      ? [{ key: 'i', description: 'Import finish sheet from CSV or Excel', section: 'Finish entry' }]
       : []),
     ...(canManageStarts
       ? [{ key: 's', description: 'Add start (gun time, or fleets-only to scope the race)', section: 'Finish entry' }]

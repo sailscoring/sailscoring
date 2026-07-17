@@ -270,8 +270,8 @@ export function FinishTab(props: FinishTabProps) {
               existingFinishCount={savedFinishes?.filter((f) => f.sortOrder !== null || f.resultCode !== null).length ?? 0}
               onConfirm={applyCsvImport}
               trigger={
-                <Button variant="outline" size="sm" title="Import finish sheet from CSV (i)">
-                  Import CSV
+                <Button variant="outline" size="sm" title="Import finish sheet from CSV or Excel (i)">
+                  Import sheet
                 </Button>
               }
             />
