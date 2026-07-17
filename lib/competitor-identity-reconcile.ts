@@ -136,7 +136,10 @@ export async function applyManifest(
   workspaceId: string,
   plan: ManifestPlan,
 ): Promise<{ identitiesWritten: number; competitorsLinked: number }> {
-  const writable = plan.assignments.filter((a) => a.competitorIds.length > 0);
+  // Zero-member assignments still write their identity row: a ranking-only
+  // sailor (someone in season rankings but no imported series) exists to
+  // anchor as-published ranking rows and their career arc.
+  const writable = plan.assignments;
   const targetIds = writable.map((a) => a.identityId);
   const targetSlugs = writable.map((a) => a.slug);
   let identitiesWritten = 0;
@@ -183,16 +186,18 @@ export async function applyManifest(
         });
       identitiesWritten++;
 
-      const res = await tx
-        .update(competitors)
-        .set({ identityId: a.identityId })
-        .where(
-          and(
-            eq(competitors.workspaceId, workspaceId),
-            inArray(competitors.id, a.competitorIds),
-          ),
-        );
-      competitorsLinked += res.count ?? 0;
+      if (a.competitorIds.length > 0) {
+        const res = await tx
+          .update(competitors)
+          .set({ identityId: a.identityId })
+          .where(
+            and(
+              eq(competitors.workspaceId, workspaceId),
+              inArray(competitors.id, a.competitorIds),
+            ),
+          );
+        competitorsLinked += res.count ?? 0;
+      }
     }
   });
 
