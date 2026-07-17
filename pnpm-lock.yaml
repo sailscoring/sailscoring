@@ -77,6 +77,9 @@ importers:
       react-dom:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
+      read-excel-file:
+        specifier: ^9.3.2
+        version: 9.3.2
       resend:
         specifier: ^6.17.2
         version: 6.17.2
@@ -3716,6 +3719,9 @@ packages:
       picomatch:
         optional: true
 
+  fflate@0.8.3:
+    resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
+
   figures@6.1.0:
     resolution: {integrity: sha512-d+l3qxjSesT4V7v2fh+QnmFnUWv9lSpjarhShNTgBOfA0ttejbQUAlHLitbjkoRiDulW0OPoQPYIGhIC8ohejg==}
     engines: {node: '>=18'}
@@ -4498,6 +4504,9 @@ packages:
     resolution: {integrity: sha512-kXs9Go0cah0qHVV2v389IXQLdLCeE1xfFtjOAF+iobu0OIoG1pje8At2vMHyaPMiPMnG/LWP50twML21eMcAag==}
     engines: {node: '>= 0.4'}
 
+  node-int64@0.4.0:
+    resolution: {integrity: sha512-O5lz91xSOeoXP6DulyHfllpq+Eg00MWitZIbtPfoSEvqIHdl5gfcY6hYzDWnj0qD5tz52PI08u9qUvSVeUBeHw==}
+
   node-releases@2.0.50:
     resolution: {integrity: sha512-J6l92tKHX6w8Jy5nO1Vuc01NoIiRGi/d6qBKVxh+IQ8Cr3b6HbVNfKiF8ZpFKufTwpwxMmce2W3iQZ861ZRyTg==}
     engines: {node: '>=18'}
@@ -4818,6 +4827,10 @@ packages:
     resolution: {integrity: sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ==}
     engines: {node: '>=0.10.0'}
 
+  read-excel-file@9.3.2:
+    resolution: {integrity: sha512-+zgqv/f6sll72omYA5kmlKf9W8ws7L+E/ZfhYpr8jJCFvOY5urGf4AnbwCIrtIUOFsT4LrpqYeMSleHQRJNnBg==}
+    engines: {node: '>=18'}
+
   recast@0.23.12:
     resolution: {integrity: sha512-dEWRjcINDu/F4l2dYx57ugBtD7HV9KXESyxhzw/MqWLeglJrsjJKqACPyUPg+6AF8mIgm+Zi0dZ3ACoIg+QtpA==}
     engines: {node: '>= 4'}
@@ -4907,6 +4920,10 @@ packages:
 
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
+
+  saxen@11.1.0:
+    resolution: {integrity: sha512-GOxBOAmiWVAytOHBuMlgFMZ4MAk+2Ny5QJpzM9I4IozfPLXq3FsDdIHNviTQGZGIx7G2mBkA+uySiJlYmSU1Gg==}
+    engines: {node: '>= 20.12'}
 
   saxes@6.0.0:
     resolution: {integrity: sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==}
@@ -5314,6 +5331,10 @@ packages:
 
   until-async@3.0.2:
     resolution: {integrity: sha512-IiSk4HlzAMqTUseHHe3VhIGyuFmN90zMTpD3Z3y8jeQbzLIq500MVM7Jq2vUAnTKAFPJrqwkzr6PoTcPhGcOiw==}
+
+  unzipper-esm@0.13.2:
+    resolution: {integrity: sha512-lt8GtgDYV8YcAFZNQuLyR2QvHI8C/TstpgsdjUn9ZxiWLJgn+e5uW6DsO3e/HUJVuWD57ZLLFMZ9xk26tePuHQ==}
+    engines: {node: '>=8.0.0'}
 
   update-browserslist-db@1.2.3:
     resolution: {integrity: sha512-Js0m9cx+qOgDxo0eMiFGEueWztz+d4+M3rGlmKPT+T4IS/jP4ylw3Nwpu6cpTTP8R1MAC1kF4VbdLt3ARf209w==}
@@ -8931,6 +8952,8 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.5
 
+  fflate@0.8.3: {}
+
   figures@6.1.0:
     dependencies:
       is-unicode-supported: 2.1.0
@@ -9645,6 +9668,8 @@ snapshots:
       object.entries: 1.1.9
       semver: 6.3.1
 
+  node-int64@0.4.0: {}
+
   node-releases@2.0.50: {}
 
   npm-run-path@4.0.1:
@@ -10013,6 +10038,12 @@ snapshots:
 
   react@19.2.7: {}
 
+  read-excel-file@9.3.2:
+    dependencies:
+      fflate: 0.8.3
+      saxen: 11.1.0
+      unzipper-esm: 0.13.2
+
   recast@0.23.12:
     dependencies:
       ast-types: 0.16.1
@@ -10138,6 +10169,8 @@ snapshots:
       is-regex: 1.2.1
 
   safer-buffer@2.1.2: {}
+
+  saxen@11.1.0: {}
 
   saxes@6.0.0:
     dependencies:
@@ -10687,6 +10720,11 @@ snapshots:
 
   until-async@3.0.2:
     optional: true
+
+  unzipper-esm@0.13.2:
+    dependencies:
+      graceful-fs: 4.2.11
+      node-int64: 0.4.0
 
   update-browserslist-db@1.2.3(browserslist@4.28.5):
     dependencies:
