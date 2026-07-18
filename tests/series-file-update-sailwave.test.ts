@@ -155,7 +155,7 @@ function makeFile(over: Partial<SeriesFile['series']> = {}): SeriesFile {
         id: 'c1',
         fleetIds: ['new-fleet-cruisers'],
         sailNumber: 'IRL 1',
-        name: 'Boat One',
+        names: ['Boat One'],
         club: 'HYC',
         gender: '',
         age: null,

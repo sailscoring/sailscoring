@@ -170,9 +170,14 @@ export interface SeriesFileRepos {
  *
  *  v21 replaces `competitors[*].crewName` (a single crew name) with
  *  `crewNames` (an ordered list, for keelboat crews of any size). The parser
- *  folds a legacy `crewName` into a one-element list on read. */
-export const FORMAT_VERSION = 21;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
+ *  folds a legacy `crewName` into a one-element list on read.
+ *
+ *  v22 does the same for the remaining person fields: `name` → `names`
+ *  (required, min one — co-owned/co-helmed entries), `owner` → `owners`,
+ *  `helm` → `helms`. The parser folds the legacy singulars into one-element
+ *  lists on read. */
+export const FORMAT_VERSION = 22;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -235,9 +240,12 @@ interface SeriesFileCompetitor {
   bowNumber?: string;  // v19+
   boatName?: string;
   boatClass?: string;
-  name: string;
-  owner?: string;  // v2+
-  helm?: string;   // v2+
+  names: string[];    // v22+; primary person(s), min one
+  name?: string;      // ≤v21 legacy single primary; the parser folds it into `names`
+  owners?: string[];  // v22+
+  owner?: string;     // v2–v21 legacy; folds into `owners`
+  helms?: string[];   // v22+
+  helm?: string;      // v2–v21 legacy; folds into `helms`
   crewNames?: string[];  // v21+; ordered crew list
   crewName?: string;     // ≤v20 legacy single crew; the parser folds it into `crewNames`
   club: string;
@@ -513,9 +521,9 @@ export async function buildSeriesFile(
       ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
-      name: c.name,
-      ...(c.owner ? { owner: c.owner } : {}),
-      ...(c.helm ? { helm: c.helm } : {}),
+      names: c.names,
+      ...(c.owners?.length ? { owners: c.owners } : {}),
+      ...(c.helms?.length ? { helms: c.helms } : {}),
       ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
       club: c.club,
       ...(c.nationality ? { nationality: c.nationality } : {}),
@@ -666,6 +674,7 @@ export function parseSeriesFile(content: string): SeriesFile {
     obj.tcfHistory = obj.nhcTcfHistory;
   }
   if (obj.formatVersion < 21) migrateCrewNameToList(obj.competitors);
+  if (obj.formatVersion < 22) migratePersonFieldsToLists(obj.competitors);
 
   return data as SeriesFile;
 }
@@ -680,6 +689,32 @@ function migrateCrewNameToList(competitors: unknown): void {
       c.crewNames = [c.crewName.trim()];
     }
     delete c.crewName;
+  }
+}
+
+/** ≤v21 → v22: the single `name`/`owner`/`helm` person fields become
+ *  one-element lists (`names` is required and keeps an empty name as ['']).
+ *  Mutates in place. */
+function migratePersonFieldsToLists(competitors: unknown): void {
+  if (!Array.isArray(competitors)) return;
+  for (const c of competitors as {
+    name?: unknown; names?: string[];
+    owner?: unknown; owners?: string[];
+    helm?: unknown; helms?: string[];
+  }[]) {
+    if (typeof c !== 'object' || c === null) continue;
+    if (c.names === undefined) {
+      c.names = [typeof c.name === 'string' ? c.name : ''];
+    }
+    delete c.name;
+    if (c.owners === undefined && typeof c.owner === 'string' && c.owner.trim()) {
+      c.owners = [c.owner.trim()];
+    }
+    delete c.owner;
+    if (c.helms === undefined && typeof c.helm === 'string' && c.helm.trim()) {
+      c.helms = [c.helm.trim()];
+    }
+    delete c.helm;
   }
 }
 
@@ -1297,9 +1332,9 @@ async function writeFleetsCompetitorsRaces(
         ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
         ...(c.boatName ? { boatName: c.boatName } : {}),
         ...(c.boatClass ? { boatClass: c.boatClass } : {}),
-        name: c.name,
-        ...(c.owner ? { owner: c.owner } : {}),
-        ...(c.helm ? { helm: c.helm } : {}),
+        names: c.names,
+        ...(c.owners?.length ? { owners: c.owners } : {}),
+        ...(c.helms?.length ? { helms: c.helms } : {}),
         ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
         club: c.club,
         ...(c.nationality ? { nationality: c.nationality } : {}),

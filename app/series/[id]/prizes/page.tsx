@@ -10,7 +10,7 @@ import {
   calculateFleetStandings,
   buildRaceFleetExclusionMap,
 } from '@/lib/scoring';
-import { subdivisionAxes, subdivisionAxisLabel } from '@/lib/competitor-fields';
+import { formatPrimaryNames, subdivisionAxes, subdivisionAxisLabel } from '@/lib/competitor-fields';
 import {
   allocatePrizes,
   describePrizeClauses,
@@ -241,7 +241,7 @@ export default function PrizesPage({
                             <TableRow key={r.standing.competitor.id}>
                               <TableCell>{ordinal(r.position)}</TableCell>
                               <TableCell>{r.standing.competitor.sailNumber}</TableCell>
-                              <TableCell>{r.standing.competitor.name}</TableCell>
+                              <TableCell>{formatPrimaryNames(r.standing.competitor.names)}</TableCell>
                               {multiFleet && <TableCell>{r.fleet.name}</TableCell>}
                               <TableCell className="text-right">{r.standing.rank}</TableCell>
                             </TableRow>

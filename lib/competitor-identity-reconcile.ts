@@ -26,6 +26,7 @@ import type {
   CompetitorCandidate,
   ManifestPlan,
 } from '@/lib/competitor-identity-manifest';
+import { formatPrimaryNames } from '@/lib/competitor-fields';
 import { mintSlug } from '@/lib/competitor-slug';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
 import { competitorIdentities, competitors, series } from '@/lib/db/schema/series';
@@ -58,7 +59,7 @@ export async function collectClusterInputs(
   const rows = await db
     .select({
       competitorId: competitors.id,
-      name: competitors.name,
+      names: competitors.names,
       sailNumber: competitors.sailNumber,
       club: competitors.club,
       nationality: competitors.nationality,
@@ -74,7 +75,7 @@ export async function collectClusterInputs(
     const year = Number.parseInt((r.startDate ?? '').slice(0, 4), 10);
     return {
       competitorId: r.competitorId,
-      name: r.name,
+      name: formatPrimaryNames(r.names),
       sailNumber: r.sailNumber,
       club: r.club ?? undefined,
       nationality: r.nationality ?? undefined,
@@ -102,7 +103,7 @@ export async function collectCompetitorIndex(
       competitorId: competitors.id,
       seriesId: competitors.seriesId,
       sailNumber: competitors.sailNumber,
-      name: competitors.name,
+      names: competitors.names,
     })
     .from(competitors)
     .where(eq(competitors.workspaceId, workspaceId));
@@ -112,10 +113,10 @@ export async function collectCompetitorIndex(
     const key = `${r.seriesId}|${r.sailNumber}`;
     const arr = index.get(key);
     if (arr) {
-      arr.push({ competitorId: r.competitorId, name: r.name });
+      arr.push({ competitorId: r.competitorId, name: formatPrimaryNames(r.names) });
       collisions++;
     } else {
-      index.set(key, [{ competitorId: r.competitorId, name: r.name }]);
+      index.set(key, [{ competitorId: r.competitorId, name: formatPrimaryNames(r.names) }]);
     }
   }
   return { index, collisions };

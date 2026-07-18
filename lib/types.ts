@@ -313,9 +313,9 @@ export interface Competitor {
   bowNumber?: string; // bow number, when it differs from the registered sail number (e.g. a borrowed hull); optional, used for finish-entry matching
   boatName?: string;  // name of the vessel, e.g. "The Big Picture"
   boatClass?: string; // boat class, e.g. "Laser", "Firefly" — relevant for PY fleets
-  name: string;       // primary identifying person (labelled per Series.primaryPersonLabel)
-  owner?: string;     // owner, when recorded separately from the primary (e.g. helm-primary series)
-  helm?: string;      // helm, when recorded separately from the primary (e.g. owner-primary series)
+  names: string[];    // primary identifying person(s), min one (labelled per Series.primaryPersonLabel); several for co-owned/co-helmed entries, joined " & " in one-line contexts
+  owners?: string[];  // owner(s), when recorded separately from the primary (e.g. helm-primary series); sparse
+  helms?: string[];   // helm(s), when recorded separately from the primary (e.g. owner-primary series); sparse
   crewNames?: string[]; // crew names in listed order — one for a two-person dinghy, several for a keelboat crew; sparse (absent when no crew recorded)
   club: string;
   nationality?: string;  // 3-letter national-letters code (RRS Appendix G / IOC), e.g. "IRL"

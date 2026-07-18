@@ -443,3 +443,70 @@ describe('parseSeriesFile — v21 crew list', () => {
     expect(file.competitors[0].crewNames).toEqual(['Alice Byrne', 'Bob Malone']);
   });
 });
+
+describe('parseSeriesFile — v22 person lists', () => {
+  function fileWithCompetitor(formatVersion: number, competitor: Record<string, unknown>): string {
+    return JSON.stringify({
+      formatVersion,
+      seriesId: 's1',
+      exportedAt: '2026-07-18T00:00:00.000Z',
+      series: {
+        id: 's1',
+        name: 'Cruisers 1',
+        venue: 'HYC',
+        startDate: '2026-05-01',
+        endDate: '2026-09-30',
+        venueLogoUrl: '',
+        eventLogoUrl: '',
+        discardThresholds: [],
+        dnfScoring: 'seriesEntries',
+        ftpHost: '',
+        ftpPath: '',
+        includeJsonExport: true,
+        enabledCompetitorFields: ['helm'],
+        primaryPersonLabel: 'owner',
+        scoringMode: 'handicap',
+      },
+      fleets: [],
+      competitors: [
+        {
+          id: 'c1',
+          fleetIds: [],
+          sailNumber: 'IRL1234',
+          club: 'HYC',
+          gender: '',
+          age: null,
+          ...competitor,
+        },
+      ],
+      races: [],
+    });
+  }
+
+  it('folds legacy name/owner/helm singulars into one-element lists', () => {
+    const file = parseSeriesFile(
+      fileWithCompetitor(21, { name: 'J. Murphy', owner: 'M. Murphy', helm: 'D. Kissane' }),
+    );
+    const c = file.competitors[0];
+    expect(c.names).toEqual(['J. Murphy']);
+    expect(c.owners).toEqual(['M. Murphy']);
+    expect(c.helms).toEqual(['D. Kissane']);
+    expect('name' in c).toBe(false);
+    expect('owner' in c).toBe(false);
+    expect('helm' in c).toBe(false);
+  });
+
+  it('keeps a required empty primary as a one-element list of empty string', () => {
+    const file = parseSeriesFile(fileWithCompetitor(21, { name: '' }));
+    expect(file.competitors[0].names).toEqual(['']);
+    expect(file.competitors[0].owners).toBeUndefined();
+  });
+
+  it('passes v22 lists through unchanged', () => {
+    const file = parseSeriesFile(
+      fileWithCompetitor(22, { names: ['J. Murphy', 'M. Murphy'], owners: ['J. Murphy', 'M. Murphy'] }),
+    );
+    expect(file.competitors[0].names).toEqual(['J. Murphy', 'M. Murphy']);
+    expect(file.competitors[0].owners).toEqual(['J. Murphy', 'M. Murphy']);
+  });
+});

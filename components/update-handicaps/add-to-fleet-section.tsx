@@ -12,6 +12,7 @@ import { additionKey, type FleetAdditionCandidate } from '@/lib/source-handicaps
 import type { Competitor } from '@/lib/types';
 
 import { SYSTEM_LABEL, describeMatch, formatTcf } from './shared';
+import { formatPrimaryNames } from '@/lib/competitor-fields';
 
 export function AddToFleetSection({
   candidates,
@@ -73,7 +74,7 @@ export function AddToFleetSection({
                 </TableCell>
                 <TableCell>{comp?.sailNumber}</TableCell>
                 <TableCell>
-                  {comp?.boatName ?? comp?.name}{' '}
+                  {comp?.boatName ?? formatPrimaryNames(comp?.names ?? [])}{' '}
                   <span className="text-muted-foreground">({SYSTEM_LABEL[c.system]})</span>
                   {c.match && (
                     <span className="block text-xs text-amber-600 dark:text-amber-500">

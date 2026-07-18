@@ -10,6 +10,7 @@ import {
 } from '@/hooks/use-race-rating-overrides';
 import { useTcfHistoryBySeries } from '@/hooks/use-tcf-history';
 import type { Competitor, Fleet, RaceRatingOverride, RatingField } from '@/lib/types';
+import { formatPrimaryNames } from '@/lib/competitor-fields';
 
 export interface RatingsTabProps {
   seriesId: string;
@@ -148,7 +149,7 @@ export function RatingsTab({ seriesId, raceId, competitors, fleets }: RatingsTab
                 return (
                   <tr key={r.key} className="border-t">
                     <td className="py-1.5 pr-3 font-mono">{r.competitor.sailNumber}</td>
-                    <td className="py-1.5 pr-3">{r.competitor.boatName ?? r.competitor.name}</td>
+                    <td className="py-1.5 pr-3">{r.competitor.boatName ?? formatPrimaryNames(r.competitor.names)}</td>
                     <td className="py-1.5 pr-3">{r.fleet.name}</td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">
                       {isEditing ? (
@@ -219,7 +220,7 @@ export function RatingsTab({ seriesId, raceId, competitors, fleets }: RatingsTab
                   return (
                     <tr key={r.key} className="border-t">
                       <td className="py-1.5 pr-3 font-mono">{r.competitor.sailNumber}</td>
-                      <td className="py-1.5 pr-3">{r.competitor.boatName ?? r.competitor.name}</td>
+                      <td className="py-1.5 pr-3">{r.competitor.boatName ?? formatPrimaryNames(r.competitor.names)}</td>
                       <td className="py-1.5 pr-3">{r.fleet.name}</td>
                       <td className="py-1.5 pr-3 text-right tabular-nums">{formatRating(r.applied, r.system)}</td>
                       <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">{formatRating(r.base, r.system)}</td>

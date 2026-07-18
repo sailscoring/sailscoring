@@ -6,6 +6,7 @@ import { ConflictApiError, type ConflictDetail } from '@/lib/api-client';
 import type { Competitor, Finish } from '@/lib/types';
 import { entryKey, type FinishEntry } from '@/lib/finish-entry';
 import { queryKeys } from '@/hooks/query-keys';
+import { formatPrimaryNames } from '@/lib/competitor-fields';
 
 interface ConflictState {
   finishId: string;
@@ -57,7 +58,7 @@ export function useFinishConflictDialog({
     }
     const competitor = competitors?.find((c) => c.id === finish.competitorId);
     const sail = competitor?.sailNumber ?? '?';
-    const name = competitor?.name ?? '';
+    const name = competitor ? formatPrimaryNames(competitor.names) : '';
     if (finish.sortOrder !== null) {
       const idx = finishingOrder.findIndex((e) => entryKey(e) === finish.competitorId);
       const pos = idx >= 0 ? idx + 1 : finish.sortOrder;

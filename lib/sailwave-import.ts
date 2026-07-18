@@ -1413,7 +1413,7 @@ export function buildSeriesFileFromSailwave(
       sailNumber: c.sailNumber,
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
-      name: c.name,
+      names: [c.name],
       ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
       club: c.club,
       ...(c.nationality ? { nationality: c.nationality } : {}),

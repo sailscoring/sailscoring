@@ -15,7 +15,7 @@ function makeCompetitor(overrides: Partial<Competitor> & { id: string }): Compet
     seriesId: 's1',
     fleetIds: ['fl-scratch'],
     sailNumber: '14302',
-    name: 'Kevin Donnelly',
+    names: ['Kevin Donnelly'],
     club: 'Sutton DC',
     gender: '',
     age: null,
@@ -74,8 +74,8 @@ describe('buildRrsOrgCompetitors', () => {
       nationality: 'IRL',
       boatName: 'Rufus',
       boatClass: 'GP14',
-      helm: 'Diana Kissane',
-      name: 'D. Kissane', // owner-primary series: helm wins for RRS.org
+      helms: ['Diana Kissane'],
+      names: ['D. Kissane'], // owner-primary series: helm wins for RRS.org
     });
     const { competitors, warnings } = buildRrsOrgCompetitors([c], fleets, { divisionSource: 'none' });
     expect(warnings).toEqual([]);

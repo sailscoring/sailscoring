@@ -233,7 +233,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       id: uuid(), seriesId: s.id, fleetIds: [fleetA, fleetB],
       sailNumber: '1234',
       boatName: 'Big', boatClass: 'Half-Tonner',
-      name: 'Helm', owner: 'Owner', helm: 'Helm',
+      names: ['Helm'], owners: ['Owner'], helms: ['Helm'],
       crewNames: ['Crew'], club: 'HYC', nationality: 'IRL', gender: 'M', age: 42,
       createdAt: Date.now(),
       ircTcc: 0.972, pyNumber: 1034,
@@ -241,7 +241,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     };
     const c2: Competitor = {
       id: uuid(), seriesId: s.id, fleetIds: [fleetA],
-      sailNumber: '0001', name: 'Other', club: '', gender: '', age: null,
+      sailNumber: '0001', names: ['Other'], club: '', gender: '', age: null,
       createdAt: Date.now(),
     };
     await repos.competitors.save(c1);
@@ -254,7 +254,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       fleetIds: [fleetA, fleetB],
       sailNumber: '1234',
       boatName: 'Big', boatClass: 'Half-Tonner',
-      name: 'Helm', owner: 'Owner', helm: 'Helm',
+      names: ['Helm'], owners: ['Owner'], helms: ['Helm'],
       crewNames: ['Crew'], club: 'HYC', nationality: 'IRL', gender: 'M', age: 42,
       ircTcc: 0.972, pyNumber: 1034,
       nhcStartingTcf: 0.95, echoStartingTcf: 0.97,
@@ -348,7 +348,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.fleets.save({ id: fleet, seriesId: s.id, name: 'F', displayOrder: 0, scoringSystem: 'irc' });
     const competitor: Competitor = {
       id: uuid(), seriesId: s.id, fleetIds: [fleet],
-      sailNumber: '1', name: 'Boat',
+      sailNumber: '1', names: ['Boat'],
       club: '', gender: '', age: null, createdAt: Date.now(),
     };
     await repos.competitors.save(competitor);
@@ -417,7 +417,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.fleets.save({ id: fleet, seriesId: s.id, name: 'F', displayOrder: 0, scoringSystem: 'irc' });
     const competitor: Competitor = {
       id: uuid(), seriesId: s.id, fleetIds: [fleet],
-      sailNumber: '1', name: 'Boat', club: '', gender: '', age: null, createdAt: Date.now(),
+      sailNumber: '1', names: ['Boat'], club: '', gender: '', age: null, createdAt: Date.now(),
     };
     await repos.competitors.save(competitor);
     const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
@@ -447,7 +447,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     for (let i = 0; i < 30; i++) {
       const c: Competitor = {
         id: uuid(), seriesId: s.id, fleetIds: [fleet],
-        sailNumber: String(100 + i), name: `Boat ${i}`,
+        sailNumber: String(100 + i), names: [`Boat ${i}`],
         club: '', gender: '', age: null, createdAt: Date.now(),
       };
       competitors.push(c);
@@ -490,7 +490,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     await reposA.fleets.save({ id: fleet, seriesId: s.id, name: 'F', displayOrder: 0, scoringSystem: 'scratch' });
     const competitor: Competitor = {
       id: uuid(), seriesId: s.id, fleetIds: [fleet],
-      sailNumber: '1', name: 'Boat', club: '', gender: '', age: null,
+      sailNumber: '1', names: ['Boat'], club: '', gender: '', age: null,
       createdAt: Date.now(),
     };
     await reposA.competitors.save(competitor);
@@ -658,7 +658,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       competitors.push({
         id: uuid(), seriesId: s.id, fleetIds: [fleet],
         sailNumber: String(1000 + i),
-        name: `Helm ${i}`,
+        names: [`Helm ${i}`],
         club: 'HYC', gender: '', age: null, createdAt: Date.now(),
       });
     }
@@ -669,10 +669,10 @@ describe.skipIf(skip)('postgres repositories', () => {
     expect(new Set(list.map((c) => c.id))).toEqual(new Set(competitors.map((c) => c.id)));
 
     // Re-run with mutated names; rows are upserted in place.
-    const renamed = competitors.map((c) => ({ ...c, name: `Renamed ${c.sailNumber}` }));
+    const renamed = competitors.map((c) => ({ ...c, names: [`Renamed ${c.sailNumber}`] }));
     await repos.competitors.saveMany(renamed);
     const reread = await repos.competitors.listBySeries(s.id);
-    expect(reread.every((c) => c.name.startsWith('Renamed '))).toBe(true);
+    expect(reread.every((c) => c.names[0].startsWith('Renamed '))).toBe(true);
     expect(reread.every((c) => (c.version ?? 0) === 2)).toBe(true);
 
     await repos.series.delete(s.id);
@@ -688,7 +688,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       reposB.competitors.saveMany([
         {
           id: uuid(), seriesId: s.id, fleetIds: [],
-          sailNumber: '1', name: 'X', club: '', gender: '', age: null,
+          sailNumber: '1', names: ['X'], club: '', gender: '', age: null,
           createdAt: Date.now(),
         },
       ]),

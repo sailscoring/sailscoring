@@ -143,7 +143,7 @@ describe.skipIf(skip)('CLI publish (ADR-009 M3.1)', () => {
       const compId = uuid();
       await competitors.putCompetitor(ctx, srcId, compId, {
         id: compId, seriesId: srcId, fleetIds: [fleetId], sailNumber: `${n}`,
-        name: `${fleetName} boat`, club: 'HYC', gender: '' as const, age: null,
+        names: [`${fleetName} boat`], club: 'HYC', gender: '' as const, age: null,
         createdAt: Date.now(),
       });
     }

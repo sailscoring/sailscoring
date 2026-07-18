@@ -127,7 +127,7 @@ describe.skipIf(skip)('createFollowOnSeries', () => {
       compIdBySail.set(b.sail, compId);
       await competitors.putCompetitor(ctx, srcId, compId, {
         id: compId, seriesId: srcId, fleetIds: [fleetId],
-        sailNumber: b.sail, name: `Helm ${b.sail}`, club: 'HYC',
+        sailNumber: b.sail, names: [`Helm ${b.sail}`], club: 'HYC',
         gender: '' as const, age: null, createdAt: Date.now(),
         nhcStartingTcf: b.tcf, vprsTcc: 0.992,
       });
@@ -246,7 +246,7 @@ describe.skipIf(skip)('createFollowOnSeries', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctx, srcId, compId, {
       id: compId, seriesId: srcId, fleetIds: [fleetId],
-      sailNumber: '7', name: 'Helm', club: 'HYC',
+      sailNumber: '7', names: ['Helm'], club: 'HYC',
       gender: '' as const, age: null, createdAt: Date.now(),
       nhcStartingTcf: 0.88,
     });

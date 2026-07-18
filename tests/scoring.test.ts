@@ -4,7 +4,7 @@ import type { Competitor, Fleet, Race, Finish, DiscardThreshold, PenaltyCode, Ra
 
 // Helpers to build test fixtures with minimal required fields
 function makeCompetitor(id: string, seriesId = 's1', fleetId = 'f1'): Competitor {
-  return { id, seriesId, fleetIds: [fleetId], sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0 };
+  return { id, seriesId, fleetIds: [fleetId], sailNumber: id, names: [id], club: '', gender: '', age: null, createdAt: 0 };
 }
 
 function makeRace(id: string, raceNumber: number, seriesId = 's1'): Race {
@@ -891,7 +891,7 @@ describe('calculateHandicapAdjustment — NHC1 edge cases', () => {
     return { id: 'fl-0', seriesId: 's1', name: 'NHC', displayOrder: 0, scoringSystem: 'nhc' };
   }
   function comp(id: string, startTcf?: number): Competitor {
-    return { id, seriesId: 's1', fleetIds: ['fl-0'], sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0, ...(startTcf != null ? { nhcStartingTcf: startTcf } : {}) };
+    return { id, seriesId: 's1', fleetIds: ['fl-0'], sailNumber: id, names: [id], club: '', gender: '', age: null, createdAt: 0, ...(startTcf != null ? { nhcStartingTcf: startTcf } : {}) };
   }
   function start(): RaceStart {
     return { id: 'rs-0', raceId: 'r-0', fleetIds: ['fl-0'], startTime: '14:00:00' };
@@ -1024,7 +1024,7 @@ describe('calculateHandicapRaceScores — penalty points', () => {
     return { id: 'fl-0', seriesId: 's1', name: 'IRC', displayOrder: 0, scoringSystem: 'irc' };
   }
   function comp(id: string, ircTcc?: number): Competitor {
-    return { id, seriesId: 's1', fleetIds: ['fl-0'], sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0, ...(ircTcc != null ? { ircTcc } : {}) };
+    return { id, seriesId: 's1', fleetIds: ['fl-0'], sailNumber: id, names: [id], club: '', gender: '', age: null, createdAt: 0, ...(ircTcc != null ? { ircTcc } : {}) };
   }
   function start(): RaceStart {
     return { id: 'rs-0', raceId: 'r-0', fleetIds: ['fl-0'], startTime: '14:00:00' };
@@ -1139,7 +1139,7 @@ describe('calculateFleetStandings — NHC progressive handicap', () => {
     return { id: 'fl-0', seriesId: 's1', name: 'NHC', displayOrder: 0, scoringSystem: 'nhc' };
   }
   function nhcComp(id: string, startTcf?: number): Competitor {
-    return { id, seriesId: 's1', fleetIds: ['fl-0'], sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0, ...(startTcf != null ? { nhcStartingTcf: startTcf } : {}) };
+    return { id, seriesId: 's1', fleetIds: ['fl-0'], sailNumber: id, names: [id], club: '', gender: '', age: null, createdAt: 0, ...(startTcf != null ? { nhcStartingTcf: startTcf } : {}) };
   }
   function rs(raceId: string): RaceStart {
     return { id: `rs-${raceId}`, raceId, fleetIds: ['fl-0'], startTime: '14:00:00' };
@@ -1235,7 +1235,7 @@ describe('per-fleet stated RDG / DPI points', () => {
     id, seriesId: 's1', name: id, displayOrder, scoringSystem: 'scratch',
   });
   const comp = (id: string, fleetIds: string[]): Competitor => ({
-    id, seriesId: 's1', fleetIds, sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0,
+    id, seriesId: 's1', fleetIds, sailNumber: id, names: [id], club: '', gender: '', age: null, createdAt: 0,
   });
   const finish = (raceId: string, competitorId: string, over: Partial<Finish>): Finish => ({
     ...makeFinish(raceId, competitorId, null), ...over,

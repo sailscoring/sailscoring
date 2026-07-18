@@ -24,7 +24,7 @@ export interface ResolveUnknownDialogProps {
   /** When non-null, the dialog is open. The unknown entry being resolved. */
   unknownSailNumber: string | null;
   /** Candidate competitors to link to (typically non-finishers). */
-  candidates: Pick<Competitor, 'id' | 'sailNumber' | 'name' | 'crewNames' | 'boatName'>[];
+  candidates: Pick<Competitor, 'id' | 'sailNumber' | 'names' | 'crewNames' | 'boatName'>[];
   fleets: Fleet[];
   primaryFieldLabel: string;
   showCrew: boolean;

@@ -23,7 +23,7 @@ const COMPETITOR: Competitor = {
   seriesId: UUID_B,
   fleetIds: [UUID_C],
   sailNumber: 'IRL-1',
-  name: 'Helm',
+  names: ['Helm'],
   club: 'HYC',
   gender: 'M',
   age: 40,

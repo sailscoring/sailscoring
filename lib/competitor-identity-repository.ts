@@ -3,6 +3,7 @@ import 'server-only';
 import { and, eq, inArray, isNotNull, or } from 'drizzle-orm';
 
 import { workspaceIdentityFeatureOn } from '@/lib/competitor-identity-reconcile';
+import { formatPrimaryNames } from '@/lib/competitor-fields';
 import { mintSlug } from '@/lib/competitor-slug';
 import { getDb } from '@/lib/db/client';
 import {
@@ -421,7 +422,7 @@ export async function splitIdentity(
     const linked = await tx
       .select({
         id: competitors.id,
-        name: competitors.name,
+        names: competitors.names,
         sailNumber: competitors.sailNumber,
         club: competitors.club,
         nationality: competitors.nationality,
@@ -466,8 +467,8 @@ export async function splitIdentity(
     await tx.insert(competitorIdentities).values({
       id: newId,
       workspaceId,
-      label: rep.name.trim(),
-      slug: mintSlug(rep.name.trim(), reserved),
+      label: formatPrimaryNames(rep.names),
+      slug: mintSlug(formatPrimaryNames(rep.names), reserved),
       sailNumber: rep.sailNumber,
       club: rep.club || null,
       nationality: rep.nationality ?? null,

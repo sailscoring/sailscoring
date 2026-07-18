@@ -8,11 +8,11 @@ import type { Competitor, Finish, Fleet, Race, RaceStart } from '@/lib/types';
 const fleet: Fleet = { id: 'f1', seriesId: 's1', name: 'IRC', displayOrder: 0, scoringSystem: 'irc' };
 
 const compA: Competitor = {
-  id: 'a', seriesId: 's1', fleetIds: ['f1'], sailNumber: 'A', name: 'A', club: '',
+  id: 'a', seriesId: 's1', fleetIds: ['f1'], sailNumber: 'A', names: ['A'], club: '',
   gender: '', age: null, createdAt: 0, ircTcc: 1.100,
 };
 const compB: Competitor = {
-  id: 'b', seriesId: 's1', fleetIds: ['f1'], sailNumber: 'B', name: 'B', club: '',
+  id: 'b', seriesId: 's1', fleetIds: ['f1'], sailNumber: 'B', names: ['B'], club: '',
   gender: '', age: null, createdAt: 0, ircTcc: 0.900,
 };
 const competitors = [compA, compB];

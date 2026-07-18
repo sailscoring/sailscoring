@@ -25,6 +25,7 @@ import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMa
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import {
   defaultEnabledCompetitorFields,
+  formatPrimaryNames,
   DEFAULT_PRIMARY_PERSON_LABEL,
 } from './competitor-fields';
 import { disambiguateSeriesName } from './series-name';
@@ -131,10 +132,17 @@ export interface PublicSeriesExport {
     bowNumber?: string;
     boatName?: string;
     boatClass?: string;
-    name: string;
-    /** Owner, when recorded separately from the primary (helm-primary series). */
+    /** Primary person(s), min one; several for co-owned/co-helmed entries. */
+    names: string[];
+    /** Legacy single primary from pre-list exports; folds into `names`. */
+    name?: string;
+    /** Owner(s), when recorded separately from the primary (helm-primary series). */
+    owners?: string[];
+    /** Legacy single owner; folds into `owners`. */
     owner?: string;
-    /** Helm, when recorded separately from the primary (owner-primary series). */
+    /** Helm(s), when recorded separately from the primary (owner-primary series). */
+    helms?: string[];
+    /** Legacy single helm; folds into `helms`. */
     helm?: string;
     /** Crew names in listed order — one for a two-person dinghy, several for a
      *  keelboat crew. */
@@ -618,7 +626,7 @@ export function buildPublicExportFromSnapshot(
     rows: standings.map((s) => ({
       rank: s.rank,
       sailNumber: s.competitor.sailNumber,
-      name: s.competitor.name,
+      name: formatPrimaryNames(s.competitor.names),
       racePoints: s.racePoints,
       raceCodes: s.raceCodes,
       raceDiscards: s.raceDiscards,
@@ -718,9 +726,9 @@ export function buildPublicExportFromSnapshot(
       ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
-      name: c.name,
-      ...(c.owner ? { owner: c.owner } : {}),
-      ...(c.helm ? { helm: c.helm } : {}),
+      names: c.names,
+      ...(c.owners?.length ? { owners: c.owners } : {}),
+      ...(c.helms?.length ? { helms: c.helms } : {}),
       ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
       club: c.club,
       ...(c.nationality ? { nationality: c.nationality } : {}),
@@ -949,9 +957,15 @@ export async function importPublicExport(
         ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
         ...(c.boatName ? { boatName: c.boatName } : {}),
         ...(c.boatClass ? { boatClass: c.boatClass } : {}),
-        name: c.name,
-        ...(c.owner ? { owner: c.owner } : {}),
-        ...(c.helm ? { helm: c.helm } : {}),
+        names: c.names?.length ? c.names : [c.name ?? ''],
+        ...((): { owners?: string[] } => {
+          const owners = c.owners?.length ? c.owners : c.owner ? [c.owner] : [];
+          return owners.length ? { owners } : {};
+        })(),
+        ...((): { helms?: string[] } => {
+          const helms = c.helms?.length ? c.helms : c.helm ? [c.helm] : [];
+          return helms.length ? { helms } : {};
+        })(),
         ...((): { crewNames?: string[] } => {
           const crew = c.crewNames?.length ? c.crewNames : c.crewName ? [c.crewName] : [];
           return crew.length ? { crewNames: crew } : {};

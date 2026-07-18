@@ -18,7 +18,7 @@ function comp(
     seriesId: 's-target',
     fleetIds,
     sailNumber,
-    name: id,
+    names: [id],
     club: '',
     gender: '',
     age: null,

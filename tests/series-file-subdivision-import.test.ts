@@ -103,7 +103,7 @@ function makeLegacyFile(): SeriesFile {
         id: 'file-comp-gold',
         fleetIds: ['file-fleet'],
         sailNumber: '211091',
-        name: 'Gold Sailor',
+        names: ['Gold Sailor'],
         club: '',
         gender: '',
         age: null,
@@ -113,7 +113,7 @@ function makeLegacyFile(): SeriesFile {
         id: 'file-comp-silver',
         fleetIds: ['file-fleet'],
         sailNumber: '216101',
-        name: 'Silver Sailor',
+        names: ['Silver Sailor'],
         club: '',
         gender: '',
         age: null,
@@ -134,8 +134,8 @@ describe('legacy subdivision import: axis id survives to competitors', () => {
     const axisId = series.subdivisionAxes[0].id;
     expect(series.subdivisionAxes[0].label).toBe('Division');
 
-    const gold = repos.savedCompetitors.find((c) => c.name === 'Gold Sailor')!;
-    const silver = repos.savedCompetitors.find((c) => c.name === 'Silver Sailor')!;
+    const gold = repos.savedCompetitors.find((c) => c.names[0] === 'Gold Sailor')!;
+    const silver = repos.savedCompetitors.find((c) => c.names[0] === 'Silver Sailor')!;
 
     // The bug: the competitors were keyed onto a *different* random axis id, so
     // these maps existed but never matched the series axis and rendered blank.
@@ -152,7 +152,7 @@ describe('legacy subdivision import: axis id survives to competitors', () => {
 
     const series = repos.savedSeries.at(-1)!;
     const axisId = series.subdivisionAxes[0].id;
-    const gold = repos.savedCompetitors.find((c) => c.name === 'Gold Sailor')!;
+    const gold = repos.savedCompetitors.find((c) => c.names[0] === 'Gold Sailor')!;
     expect(gold.subdivisions).toEqual({ [axisId]: 'Gold' });
   });
 });

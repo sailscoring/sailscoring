@@ -111,7 +111,7 @@ describe.skipIf(skip)('CLI read methods (ADR-009 M4)', () => {
     });
     const compId = uuid();
     await competitors.putCompetitor(ctx, seriesId, compId, {
-      id: compId, seriesId, fleetIds: [fleetId], sailNumber: '999', name: 'Read Boat',
+      id: compId, seriesId, fleetIds: [fleetId], sailNumber: '999', names: ['Read Boat'],
       club: 'HYC', gender: '' as const, age: null, createdAt: Date.now(),
     });
     const raceId = uuid();

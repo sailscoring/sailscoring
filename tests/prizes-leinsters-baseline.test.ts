@@ -169,7 +169,7 @@ describe('2026 ILCA Leinsters — the #240 baseline, end to end', () => {
 
   it('allocates each prize to the published recipients', () => {
     for (const a of allocations) {
-      const got = a.recipients.map((r) => [r.standing.competitor.sailNumber, r.standing.competitor.name]);
+      const got = a.recipients.map((r) => [r.standing.competitor.sailNumber, r.standing.competitor.names[0]]);
       expect(got, a.prize.name).toEqual(EXPECTED[a.prize.name]);
     }
   });

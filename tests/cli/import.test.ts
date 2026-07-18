@@ -123,7 +123,7 @@ describe.skipIf(skip)('CLI bulk import (ADR-009 M3)', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctx, srcId, compId, {
       id: compId, seriesId: srcId, fleetIds: [fleetId], sailNumber: '1',
-      name: `Boat ${name}`, club: 'HYC', gender: '' as const, age: null, createdAt: Date.now(),
+      names: [`Boat ${name}`], club: 'HYC', gender: '' as const, age: null, createdAt: Date.now(),
     });
     const file = await buildSeriesFile(srcId, seriesFileReposFor({ workspaceId }));
     const path = join(tmp, `${name.replace(/\s+/g, '-')}.sailscoring`);

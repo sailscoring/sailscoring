@@ -115,7 +115,7 @@ describe.skipIf(skip)('series import (ADR-009 M2)', () => {
       const compId = uuid();
       await competitors.putCompetitor(ctx, srcId, compId, {
         id: compId, seriesId: srcId, fleetIds: [fleetId],
-        sailNumber: sail, name: `Helm ${sail}`, club: 'HYC',
+        sailNumber: sail, names: [`Helm ${sail}`], club: 'HYC',
         gender: '' as const, age: null, createdAt: Date.now(),
       });
     }

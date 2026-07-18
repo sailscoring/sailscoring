@@ -34,7 +34,7 @@ const fleet: Fleet = { id: 'fl-1', seriesId: 's1', name: 'Default', displayOrder
 
 function makeCompetitor(id: string, sail: string, crewNames?: string[]): Competitor {
   return {
-    id, seriesId: 's1', fleetIds: ['fl-1'], sailNumber: sail, name: `Helm ${sail}`,
+    id, seriesId: 's1', fleetIds: ['fl-1'], sailNumber: sail, names: [`Helm ${sail}`],
     ...(crewNames ? { crewNames } : {}),
     club: '', gender: '', age: null, createdAt: 0,
   };

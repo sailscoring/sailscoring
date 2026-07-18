@@ -26,7 +26,7 @@ function makeCompetitor(
     seriesId: 's1',
     fleetIds,
     sailNumber: id,
-    name: `Helm ${id}`,
+    names: [`Helm ${id}`],
     club: '',
     gender: '',
     age: null,

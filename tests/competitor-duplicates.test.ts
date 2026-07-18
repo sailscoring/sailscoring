@@ -13,7 +13,7 @@ function competitor(overrides: Partial<Competitor> & { id: string }): Competitor
     seriesId: 's1',
     fleetIds: ['f1'],
     sailNumber: 'IRL100',
-    name: 'Jane Doe',
+    names: ['Jane Doe'],
     club: '',
     gender: '',
     age: null,
@@ -139,9 +139,9 @@ describe('findPossibleDuplicateGroups', () => {
   test('groups different sail numbers with a matching boat name in the same fleet', () => {
     const groups = findPossibleDuplicateGroups(
       [
-        competitor({ id: 'a', sailNumber: 'IRL100', boatName: 'White Mischief', name: 'J. Bloggs' }),
-        competitor({ id: 'b', sailNumber: 'IRL150', boatName: 'white mischief', name: 'J. B.' }),
-        competitor({ id: 'c', sailNumber: 'IRL200', boatName: 'Sea Biscuit', name: 'A. Nother' }),
+        competitor({ id: 'a', sailNumber: 'IRL100', boatName: 'White Mischief', names: ['J. Bloggs'] }),
+        competitor({ id: 'b', sailNumber: 'IRL150', boatName: 'white mischief', names: ['J. B.'] }),
+        competitor({ id: 'c', sailNumber: 'IRL200', boatName: 'Sea Biscuit', names: ['A. Nother'] }),
       ],
       noFinishes,
     );
@@ -153,8 +153,8 @@ describe('findPossibleDuplicateGroups', () => {
   test('matches on person name across the primary and helm fields', () => {
     const groups = findPossibleDuplicateGroups(
       [
-        competitor({ id: 'a', sailNumber: 'IRL100', name: 'J. Bloggs' }),
-        competitor({ id: 'b', sailNumber: 'IRL150', name: 'A. Owner', helm: 'j. bloggs' }),
+        competitor({ id: 'a', sailNumber: 'IRL100', names: ['J. Bloggs'] }),
+        competitor({ id: 'b', sailNumber: 'IRL150', names: ['A. Owner'], helms: ['j. bloggs'] }),
       ],
       noFinishes,
     );
@@ -187,8 +187,8 @@ describe('findPossibleDuplicateGroups', () => {
   test('empty identity fields never match', () => {
     const groups = findPossibleDuplicateGroups(
       [
-        competitor({ id: 'a', sailNumber: 'IRL100', name: '' }),
-        competitor({ id: 'b', sailNumber: 'IRL150', name: '' }),
+        competitor({ id: 'a', sailNumber: 'IRL100', names: [''] }),
+        competitor({ id: 'b', sailNumber: 'IRL150', names: [''] }),
       ],
       noFinishes,
     );

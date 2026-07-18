@@ -3,6 +3,7 @@ import { escapeHtml as esc } from './html';
 import { parseHmsToSeconds } from './time-parse';
 import {
   PRIMARY_PERSON_LABEL_TEXT,
+  formatPrimaryNames,
   DEFAULT_PRIMARY_PERSON_LABEL,
   DEFAULT_SUBDIVISION_LABEL,
   isFieldDisabledByPrimary,
@@ -519,7 +520,7 @@ export function renderPrizesHtml(
       const cells = [
         `<td class="${r.position <= 3 ? `rank${r.position}` : ''}">${esc(ordinal(r.position))}</td>`,
         `<td>${esc(r.standing.competitor.sailNumber)}</td>`,
-        `<td>${esc(r.standing.competitor.name)}</td>`,
+        `<td>${esc(formatPrimaryNames(r.standing.competitor.names))}</td>`,
         ...(context.multiFleet ? [`<td>${esc(r.fleet.name)}</td>`] : []),
         `<td>${r.standing.rank}</td>`,
       ].join('');
@@ -1292,7 +1293,7 @@ export function assembleSeriesResultsData(
   races: Array<{ id: string; raceNumber: number; name?: string | null; date: string }>,
   standings: Array<{
     rank: number;
-    competitor: { id: string; sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewNames?: string[]; club?: string; nationality?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
+    competitor: { id: string; sailNumber: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
     racePoints: number[];
     raceCodes: (ResultCode | null)[];
     racePenaltyCodes?: (PenaltyCode | null)[];
@@ -1304,7 +1305,7 @@ export function assembleSeriesResultsData(
     raceExcluded?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; name: string; owner?: string; helm?: string; crewNames?: string[]; club?: string; nationality?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
+  competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -1438,9 +1439,9 @@ export function assembleSeriesResultsData(
         sailNumber: competitor.sailNumber,
         ...(competitor.boatName ? { boatName: competitor.boatName } : {}),
         ...(competitor.boatClass ? { boatClass: competitor.boatClass } : {}),
-        helm: competitor.name,
-        ...(competitor.owner ? { owner: competitor.owner } : {}),
-        ...(competitor.helm ? { helmRole: competitor.helm } : {}),
+        helm: formatPrimaryNames(competitor.names),
+        ...(competitor.owners?.length ? { owner: competitor.owners.join(' & ') } : {}),
+        ...(competitor.helms?.length ? { helmRole: competitor.helms.join(' & ') } : {}),
         ...(competitor.crewNames?.length ? { crewNames: competitor.crewNames } : {}),
         ...(competitor.club ? { club: competitor.club } : {}),
         ...(competitor.nationality ? { nationality: competitor.nationality } : {}),
@@ -1514,9 +1515,9 @@ export function assembleSeriesResultsData(
       sailNumber: s.competitor.sailNumber,
       ...(s.competitor.boatName ? { boatName: s.competitor.boatName } : {}),
       ...(s.competitor.boatClass ? { boatClass: s.competitor.boatClass } : {}),
-      helm: s.competitor.name,
-      ...(s.competitor.owner ? { owner: s.competitor.owner } : {}),
-      ...(s.competitor.helm ? { helmRole: s.competitor.helm } : {}),
+      helm: formatPrimaryNames(s.competitor.names),
+      ...(s.competitor.owners?.length ? { owner: s.competitor.owners.join(' & ') } : {}),
+      ...(s.competitor.helms?.length ? { helmRole: s.competitor.helms.join(' & ') } : {}),
       ...(s.competitor.crewNames?.length ? { crewNames: s.competitor.crewNames } : {}),
       ...(s.competitor.club ? { club: s.competitor.club } : {}),
       ...(s.competitor.nationality ? { nationality: s.competitor.nationality } : {}),

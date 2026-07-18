@@ -248,15 +248,15 @@ export async function putArchiveSeries(
       const fields = {
         fleetIds: c.fleetIds,
         sailNumber: c.sailNumber,
-        name: c.name,
+        names: [c.name],
         club: c.club ?? '',
         nationality: c.nationality ?? null,
         gender: c.gender ?? '',
         age: c.age ?? null,
         boatName: c.boatName ?? null,
         boatClass: c.boatClass ?? null,
-        helm: c.helm ?? null,
-        owner: c.owner ?? null,
+        helms: c.helm ? [c.helm] : null,
+        owners: c.owner ? [c.owner] : null,
         crewNames: c.crewName ? [c.crewName] : null,
       };
       await tx

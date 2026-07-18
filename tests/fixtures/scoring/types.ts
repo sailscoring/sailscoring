@@ -267,7 +267,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       seriesId: 's1',
       fleetIds: [fleetId],
       sailNumber: c.sailNumber,
-      name: c.name,
+      names: [c.name],
       club: '',
       gender: '',
       age: null,

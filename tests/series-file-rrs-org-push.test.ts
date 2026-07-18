@@ -64,7 +64,7 @@ function makeSeries(id: string): Series {
 const fleet: Fleet = { id: 'fl-1', seriesId: 's1', name: 'GP14', displayOrder: 0, scoringSystem: 'scratch' };
 
 function makeCompetitor(id: string, sail: string): Competitor {
-  return { id, seriesId: 's1', fleetIds: ['fl-1'], sailNumber: sail, name: sail, club: '', gender: '', age: null, createdAt: 0 };
+  return { id, seriesId: 's1', fleetIds: ['fl-1'], sailNumber: sail, names: [sail], club: '', gender: '', age: null, createdAt: 0 };
 }
 
 function makeRace(id: string, n: number): Race {

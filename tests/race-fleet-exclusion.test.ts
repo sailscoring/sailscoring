@@ -3,7 +3,7 @@ import { calculateFleetStandings, buildRaceFleetExclusionMap } from '@/lib/scori
 import type { Competitor, Finish, Fleet, Race } from '@/lib/types';
 
 function makeCompetitor(id: string, fleetIds: string[]): Competitor {
-  return { id, seriesId: 's1', fleetIds, sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0 };
+  return { id, seriesId: 's1', fleetIds, sailNumber: id, names: [id], club: '', gender: '', age: null, createdAt: 0 };
 }
 
 function makeRace(id: string, raceNumber: number): Race {

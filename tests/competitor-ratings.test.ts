@@ -21,7 +21,7 @@ function mkCompetitor(over: Partial<Competitor> & { id: string; fleetIds: string
   return {
     seriesId: 's1',
     sailNumber: '1',
-    name: 'Helm',
+    names: ['Helm'],
     club: '',
     gender: '',
     age: null,

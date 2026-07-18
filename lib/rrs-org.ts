@@ -190,7 +190,9 @@ export function buildRrsOrgCompetitors(
 
     // The person RRS.org wants is the skipper/helm: the helm field when it's
     // recorded separately (owner-primary series), otherwise the primary name.
-    const { first, last } = splitName(c.helm || c.name);
+    // rrs.org has a single person slot, so a multi-person entry sends its
+    // first listed person.
+    const { first, last } = splitName(c.helms?.[0] || c.names[0] || '');
 
     let phone = '';
     if (r?.phone?.trim()) {

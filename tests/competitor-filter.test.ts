@@ -9,7 +9,7 @@ function competitor(overrides: Partial<Competitor>): Competitor {
     seriesId: 's1',
     fleetIds: ['f1'],
     sailNumber: 'IRL1234',
-    name: 'Jane Doe',
+    names: ['Jane Doe'],
     club: 'HYC',
     gender: '',
     age: null,
@@ -34,11 +34,11 @@ describe('competitorMatchesFilter', () => {
 
   test('matches on name, boat, class, helm, owner, crew and club', () => {
     const c = competitor({
-      name: 'Jane Doe',
+      names: ['Jane Doe'],
       boatName: 'Windshift',
       boatClass: 'J24',
-      helm: 'Alice Helm',
-      owner: 'Bob Owner',
+      helms: ['Alice Helm'],
+      owners: ['Bob Owner'],
       crewNames: ['Carol Crew'],
       club: 'Howth YC',
     });
@@ -58,8 +58,8 @@ describe('competitorMatchesFilter', () => {
   });
 
   test('multi-word queries require every word to match', () => {
-    const j24 = competitor({ boatClass: 'J24', helm: 'Sam Smith' });
-    const laser = competitor({ boatClass: 'Laser', helm: 'Sam Smith' });
+    const j24 = competitor({ boatClass: 'J24', helms: ['Sam Smith'] });
+    const laser = competitor({ boatClass: 'Laser', helms: ['Sam Smith'] });
     expect(competitorMatchesFilter(j24, 'j24 smith')).toBe(true);
     expect(competitorMatchesFilter(laser, 'j24 smith')).toBe(false);
     // Words can match across different fields.
@@ -69,7 +69,7 @@ describe('competitorMatchesFilter', () => {
   test('a word must not match across field boundaries', () => {
     // "DoeHYC" spanning name+club must not match: fields are joined with a
     // separator, not concatenated.
-    const c = competitor({ name: 'Jane Doe', club: 'HYC' });
+    const c = competitor({ names: ['Jane Doe'], club: 'HYC' });
     expect(competitorMatchesFilter(c, 'doehyc')).toBe(false);
   });
 });

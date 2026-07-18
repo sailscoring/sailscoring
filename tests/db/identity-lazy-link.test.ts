@@ -89,7 +89,7 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
   async function addCompetitor(p: {
     workspaceId?: string;
     seriesId: string;
-    name: string;
+    names: string[];
     sailNumber: string;
     club?: string;
   }): Promise<string> {
@@ -100,7 +100,7 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
       workspaceId: p.workspaceId ?? workspaceId,
       fleetIds: [],
       sailNumber: p.sailNumber,
-      name: p.name,
+      names: p.names,
       club: p.club ?? '',
       gender: '',
       age: null,
@@ -120,7 +120,7 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
     await addCompetitor({
       workspaceId: coldWorkspaceId,
       seriesId: coldSeriesId,
-      name: 'Aoife Murphy',
+      names: ['Aoife Murphy'],
       sailNumber: 'IRL1200',
     });
     expect(await relinkIdentitiesAfterWrite(coldWorkspaceId, db)).toBeNull();
@@ -134,7 +134,7 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
   test('creates an identity for a new sailor, then links a corroborated recurrence', async () => {
     const first = await addCompetitor({
       seriesId: seriesByYear[2023],
-      name: 'Holly Cantwell',
+      names: ['Holly Cantwell'],
       sailNumber: 'IRL1641',
       club: 'RSGYC',
     });
@@ -154,7 +154,7 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
     // no second identity minted.
     const second = await addCompetitor({
       seriesId: seriesByYear[2024],
-      name: 'Holly Cantwell',
+      names: ['Holly Cantwell'],
       sailNumber: 'IRL1641',
     });
     const r2 = await relinkIdentitiesAfterWrite(workspaceId, db);
@@ -173,7 +173,7 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
     // review suggestion, never an auto-link.
     const namesake = await addCompetitor({
       seriesId: seriesByYear[2025],
-      name: 'Holly Cantwell',
+      names: ['Holly Cantwell'],
       sailNumber: 'IRL9999',
       club: 'TBSC',
     });
@@ -201,12 +201,12 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
     ]);
     const rowA = await addCompetitor({
       seriesId: seriesByYear[2023],
-      name: 'Jack Keating',
+      names: ['Jack Keating'],
       sailNumber: '1605',
     });
     const rowB = await addCompetitor({
       seriesId: seriesByYear[2024],
-      name: 'Jack Keating',
+      names: ['Jack Keating'],
       sailNumber: '1605',
     });
     await db.update(schema.competitors).set({ identityId: idA }).where(eq(schema.competitors.id, rowA));
@@ -214,7 +214,7 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
 
     const fresh = await addCompetitor({
       seriesId: seriesByYear[2025],
-      name: 'Jack Keating',
+      names: ['Jack Keating'],
       sailNumber: '1605',
     });
     const r = await relinkIdentitiesAfterWrite(workspaceId, db);

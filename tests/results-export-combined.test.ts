@@ -57,7 +57,7 @@ const FLEETS: Fleet[] = [
 ];
 
 function makeCompetitor(id: string, sail: string, fleetIds: string[]): Competitor {
-  return { id, seriesId: 's1', fleetIds, sailNumber: sail, name: `Helm ${sail}`, club: '', gender: '', age: null, createdAt: 0 };
+  return { id, seriesId: 's1', fleetIds, sailNumber: sail, names: [`Helm ${sail}`], club: '', gender: '', age: null, createdAt: 0 };
 }
 
 const COMPETITORS = [

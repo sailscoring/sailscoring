@@ -70,7 +70,8 @@ import {
   sameFleetIdSet,
   subdivisionAxes,
   subdivisionAxisLabel,
-  cleanCrewNames,
+  cleanPersonNames,
+  formatPrimaryNames,
   cleanSubdivisions,
 } from '@/lib/competitor-fields';
 import {
@@ -376,10 +377,10 @@ export default function CompetitorsPage({
       ...(data.bowNumber.trim() ? { bowNumber: data.bowNumber.trim() } : {}),
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
-      name: data.name,
-      ...(data.owner.trim() ? { owner: data.owner.trim() } : {}),
+      names: [data.name],
+      ...(data.owner.trim() ? { owners: [data.owner.trim()] } : {}),
       ...((): { crewNames?: string[] } => {
-        const crew = cleanCrewNames(data.crewNames);
+        const crew = cleanPersonNames(data.crewNames);
         return crew ? { crewNames: crew } : {};
       })(),
       club: data.club,
@@ -413,11 +414,11 @@ export default function CompetitorsPage({
       ...(data.bowNumber.trim() ? { bowNumber: data.bowNumber.trim() } : {}),
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
-      name: data.name,
-      ...(data.owner.trim() ? { owner: data.owner.trim() } : {}),
-      ...(data.helm.trim() ? { helm: data.helm.trim() } : {}),
+      names: [data.name],
+      ...(data.owner.trim() ? { owners: [data.owner.trim()] } : {}),
+      ...(data.helm.trim() ? { helms: [data.helm.trim()] } : {}),
       ...((): { crewNames?: string[] } => {
-        const crew = cleanCrewNames(data.crewNames);
+        const crew = cleanPersonNames(data.crewNames);
         return crew ? { crewNames: crew } : {};
       })(),
       club: data.club,
@@ -439,9 +440,9 @@ export default function CompetitorsPage({
     if (!data.bowNumber.trim()) delete updated.bowNumber;
     if (!data.boatName.trim()) delete updated.boatName;
     if (!data.boatClass.trim()) delete updated.boatClass;
-    if (!data.owner.trim()) delete updated.owner;
-    if (!data.helm.trim()) delete updated.helm;
-    if (!cleanCrewNames(data.crewNames)) delete updated.crewNames;
+    if (!data.owner.trim()) delete updated.owners;
+    if (!data.helm.trim()) delete updated.helms;
+    if (!cleanPersonNames(data.crewNames)) delete updated.crewNames;
     if (!data.nationality.trim()) delete updated.nationality;
     if (!cleanSubdivisions(data.subdivisions)) delete updated.subdivisions;
     log('competitors', 'updating', updated);
@@ -450,7 +451,7 @@ export default function CompetitorsPage({
   }
 
   async function handleDelete(competitor: Competitor) {
-    if (!confirm(`Delete ${competitor.name} (${competitor.sailNumber})?`)) return;
+    if (!confirm(`Delete ${formatPrimaryNames(competitor.names)} (${competitor.sailNumber})?`)) return;
     log('competitors', 'deleting', competitor.id);
     await deleteCompetitor.mutateAsync({ id: competitor.id, seriesId });
     // Close the edit dialog (delete is now dialog-only) and drop the stale
@@ -687,9 +688,9 @@ export default function CompetitorsPage({
                 {showBow && <TableCell className="font-mono">{c.bowNumber ?? ''}</TableCell>}
                 {showBoat && <TruncatedCell value={c.boatName} />}
                 {showClass && <TruncatedCell value={c.boatClass} />}
-                <TableCell className="whitespace-normal break-words">{c.name}</TableCell>
-                {showHelm && <TableCell className="whitespace-normal break-words">{c.helm ?? ''}</TableCell>}
-                {showOwner && <TableCell className="whitespace-normal break-words">{c.owner ?? ''}</TableCell>}
+                <TableCell className="whitespace-normal break-words">{formatPrimaryNames(c.names)}</TableCell>
+                {showHelm && <TableCell className="whitespace-normal break-words">{(c.helms ?? []).join(' & ')}</TableCell>}
+                {showOwner && <TableCell className="whitespace-normal break-words">{(c.owners ?? []).join(' & ')}</TableCell>}
                 {showCrew && <TableCell className="whitespace-normal break-words">{(c.crewNames ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
                 {showClub && <TruncatedCell value={c.club} />}
                 {showNationality && <TableCell className="font-mono">{c.nationality ?? ''}</TableCell>}
@@ -750,7 +751,7 @@ export default function CompetitorsPage({
                       <div key={c.id} className="flex items-center gap-3 text-sm">
                         <span className="font-mono whitespace-nowrap">{c.sailNumber}</span>
                         <span className="truncate min-w-0">
-                          {[c.boatName, c.name].filter(Boolean).join(' — ')}
+                          {[c.boatName, formatPrimaryNames(c.names)].filter(Boolean).join(' — ')}
                         </span>
                         <span className="ml-auto shrink-0 text-xs text-muted-foreground">
                           {resultCount} result{resultCount === 1 ? '' : 's'}
@@ -854,9 +855,9 @@ export default function CompetitorsPage({
                 bowNumber: editingCompetitor.bowNumber ?? '',
                 boatName: editingCompetitor.boatName ?? '',
                 boatClass: editingCompetitor.boatClass ?? '',
-                name: editingCompetitor.name,
-                owner: editingCompetitor.owner ?? '',
-                helm: editingCompetitor.helm ?? '',
+                name: editingCompetitor.names[0] ?? '',
+                owner: editingCompetitor.owners?.[0] ?? '',
+                helm: editingCompetitor.helms?.[0] ?? '',
                 crewNames: editingCompetitor.crewNames ?? [],
                 club: editingCompetitor.club,
                 nationality: editingCompetitor.nationality ?? '',

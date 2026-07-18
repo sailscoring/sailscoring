@@ -266,7 +266,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctxACopier, srcId, compId, {
       id: compId, seriesId: srcId, fleetIds: [fleetId],
-      sailNumber: 'IRL 7007', name: 'Helm', club: 'HYC',
+      sailNumber: 'IRL 7007', names: ['Helm'], club: 'HYC',
       gender: '' as const, age: null, createdAt: Date.now(),
       vprsTcc: 0.992,
     });
@@ -385,7 +385,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     const competitor = {
       id: compId, seriesId, fleetIds: [fleetId],
-      sailNumber: '1234', boatName: 'Big', name: 'Helm',
+      sailNumber: '1234', boatName: 'Big', names: ['Helm'],
       club: 'HYC', gender: 'M' as const, age: 42,
       createdAt: Date.now(), ircTcc: 0.972,
     };
@@ -415,7 +415,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       seriesId,
       fleetIds: [fleetId],
       sailNumber: String(2000 + i),
-      name: `Helm ${i}`,
+      names: [`Helm ${i}`],
       club: '', gender: '' as const, age: null,
       createdAt: Date.now(),
     }));
@@ -431,7 +431,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       competitors.bulkPutCompetitors(ctxA, seriesId, {
         competitors: [{
           id: uuid(), seriesId: otherSeriesId, fleetIds: [],
-          sailNumber: '1', name: 'X', club: '', gender: '' as const, age: null,
+          sailNumber: '1', names: ['X'], club: '', gender: '' as const, age: null,
           createdAt: Date.now(),
         }],
       }),
@@ -452,7 +452,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     const created = await competitors.putCompetitor(ctxA, seriesId, compId, {
       id: compId, seriesId, fleetIds: [fleetId],
-      sailNumber: 'IRL 1', boatName: 'Zesty', name: 'Skipper',
+      sailNumber: 'IRL 1', boatName: 'Zesty', names: ['Skipper'],
       club: 'HYC', gender: 'M' as const, age: 40, createdAt: Date.now(),
       nhcStartingTcf: 1.201, ircTcc: 0.972,
     });
@@ -482,7 +482,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const otherCompId = uuid();
     const otherCreated = await competitors.putCompetitor(ctxA, otherSeriesId, otherCompId, {
       id: otherCompId, seriesId: otherSeriesId, fleetIds: [otherFleetId],
-      sailNumber: 'X', name: 'X', club: '', gender: '' as const, age: null, createdAt: Date.now(),
+      sailNumber: 'X', names: ['X'], club: '', gender: '' as const, age: null, createdAt: Date.now(),
       ircTcc: 1.0,
     });
     await expect(
@@ -528,7 +528,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     const created = await competitors.putCompetitor(ctxA, seriesId, compId, {
       id: compId, seriesId, fleetIds: [scratchId],
-      sailNumber: 'IRL 7404', name: 'Skipper', club: 'HYC', gender: 'M' as const, age: 50,
+      sailNumber: 'IRL 7404', names: ['Skipper'], club: 'HYC', gender: 'M' as const, age: 50,
       createdAt: Date.now(),
     });
 
@@ -567,7 +567,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     const created = await competitors.putCompetitor(ctxA, seriesId, compId, {
       id: compId, seriesId, fleetIds: [fleetId],
-      sailNumber: '1', name: 'Boat', club: '', gender: '' as const, age: null,
+      sailNumber: '1', names: ['Boat'], club: '', gender: '' as const, age: null,
       createdAt: Date.now(), ircTcc: 1.008,
     });
     // One scored race (the boat finished it on the old TCC) and one future race.
@@ -621,7 +621,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     for (const [i, id] of compIds.entries()) {
       await competitors.putCompetitor(ctxA, seriesId, id, {
         id, seriesId, fleetIds: [fleetId],
-        sailNumber: String(100 + i), name: `Boat ${i}`,
+        sailNumber: String(100 + i), names: [`Boat ${i}`],
         club: '', gender: '' as const, age: null, createdAt: Date.now(),
       });
     }
@@ -741,7 +741,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await competitors.bulkPutCompetitors(ctxA, seriesId, {
       competitors: Array.from({ length: 5 }, (_, i) => ({
         id: uuid(), seriesId, fleetIds: [fleetId],
-        sailNumber: String(3000 + i), name: `Helm ${i}`,
+        sailNumber: String(3000 + i), names: [`Helm ${i}`],
         club: '', gender: '' as const, age: null, createdAt: Date.now(),
       })),
     });
@@ -768,7 +768,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await competitors.bulkPutCompetitors(ctxA, seriesId, {
       competitors: ids.map((id, i) => ({
         id, seriesId, fleetIds: [fleetId],
-        sailNumber: String(4000 + i), name: `Helm ${i}`,
+        sailNumber: String(4000 + i), names: [`Helm ${i}`],
         club: '', gender: '' as const, age: null, createdAt: Date.now(),
       })),
     });
@@ -813,7 +813,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await competitors.bulkPutCompetitors(ctxA, seriesId, {
       competitors: ids.map((id, i) => ({
         id, seriesId, fleetIds: [fleetId],
-        sailNumber: String(5000 + i), name: `Helm ${i}`,
+        sailNumber: String(5000 + i), names: [`Helm ${i}`],
         club: 'Old YC', gender: '' as const, age: null, createdAt: Date.now(),
       })),
     });
@@ -839,7 +839,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     // Only the targeted rows get a version bump; other fields are untouched.
     expect(after.get(ids[0])!.version).toBe(2);
     expect(after.get(ids[1])!.version).toBe(1);
-    expect(after.get(ids[0])!.name).toBe('Helm 0');
+    expect(after.get(ids[0])!.names[0]).toBe('Helm 0');
     expect(after.get(ids[0])!.sailNumber).toBe('5000');
 
     // Nothing matching → count 0.
@@ -875,7 +875,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const id = uuid();
     await competitors.putCompetitor(ctxA, seriesId, id, {
       id, seriesId, fleetIds: [fleetId],
-      sailNumber: '6000', name: 'Helm', boatClass: 'Laser',
+      sailNumber: '6000', names: ['Helm'], boatClass: 'Laser',
       club: 'HYC', nationality: 'IRL', gender: 'M' as const,
       age: null, createdAt: Date.now(),
     });
@@ -916,7 +916,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const id = uuid();
     await competitors.putCompetitor(ctxA, seriesId, id, {
       id, seriesId, fleetIds: [fleetId],
-      sailNumber: '7000', name: 'Helm', club: '', gender: '' as const,
+      sailNumber: '7000', names: ['Helm'], club: '', gender: '' as const,
       age: null, createdAt: Date.now(),
       subdivisions: { [axisB]: 'Master' },
     });
@@ -967,7 +967,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await competitors.bulkPutCompetitors(ctxA, seriesId, {
       competitors: ids.map((id, i) => ({
         id, seriesId, fleetIds: i === 2 ? [fleetA, fleetB] : [fleetA],
-        sailNumber: String(8000 + i), name: `Helm ${i}`,
+        sailNumber: String(8000 + i), names: [`Helm ${i}`],
         club: '', gender: '' as const, age: null, createdAt: Date.now(),
       })),
     });
@@ -1000,7 +1000,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await competitors.bulkPutCompetitors(ctxA, seriesId, {
       competitors: [dupe, ...pair].map((id, i) => ({
         id, seriesId, fleetIds: [fleetA],
-        sailNumber: i === 0 ? '8000' : '9000', name: `Late entry ${i}`,
+        sailNumber: i === 0 ? '8000' : '9000', names: [`Late entry ${i}`],
         club: '', gender: '' as const, age: null, createdAt: Date.now(),
       })),
     });
@@ -1054,7 +1054,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctxA, seriesId, compId, {
       id: compId, seriesId, fleetIds: [fleetId],
-      sailNumber: '500', name: 'Boat', club: '', gender: '' as const,
+      sailNumber: '500', names: ['Boat'], club: '', gender: '' as const,
       age: null, createdAt: Date.now(),
     });
     const raceId = uuid();
@@ -1133,7 +1133,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     for (const [i, id] of compIds.entries()) {
       await competitors.putCompetitor(ctxA, seriesId, id, {
         id, seriesId, fleetIds: [fleetId],
-        sailNumber: String(600 + i), name: `Boat ${i}`,
+        sailNumber: String(600 + i), names: [`Boat ${i}`],
         club: '', gender: '' as const, age: null, createdAt: Date.now(),
       });
     }
@@ -1175,7 +1175,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctxA, seriesId, compId, {
       id: compId, seriesId, fleetIds: [fleetId],
-      sailNumber: '7', name: 'Boat', club: '', gender: '' as const, age: null,
+      sailNumber: '7', names: ['Boat'], club: '', gender: '' as const, age: null,
       createdAt: Date.now(), ircTcc: 1.0,
     });
     const raceIds = [uuid(), uuid()];

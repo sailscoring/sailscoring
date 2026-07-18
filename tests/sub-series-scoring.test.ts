@@ -11,7 +11,7 @@ import type { Competitor, Finish, Fleet, PenaltyCode, Race, SubSeries } from '@/
 import { buildFixtureInputs, loadFixturesFromDir } from './fixtures/scoring/types';
 
 function makeCompetitor(id: string, seriesId = 's1', fleetId = 'f1'): Competitor {
-  return { id, seriesId, fleetIds: [fleetId], sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0 };
+  return { id, seriesId, fleetIds: [fleetId], sailNumber: id, names: [id], club: '', gender: '', age: null, createdAt: 0 };
 }
 
 function makeRace(id: string, raceNumber: number, seriesId = 's1'): Race {
@@ -44,7 +44,7 @@ const scratchFleet: Fleet = { id: 'f1', seriesId: 's1', name: 'Fleet', displayOr
 const fleetTwo: Fleet = { id: 'f2', seriesId: 's1', name: 'Fleet Two', displayOrder: 1, scoringSystem: 'scratch' };
 
 function makeMultiFleetCompetitor(id: string, fleetIds: string[]): Competitor {
-  return { id, seriesId: 's1', fleetIds, sailNumber: id, name: id, club: '', gender: '', age: null, createdAt: 0 };
+  return { id, seriesId: 's1', fleetIds, sailNumber: id, names: [id], club: '', gender: '', age: null, createdAt: 0 };
 }
 
 // ─── groupRacesBySubSeries ───────────────────────────────────────────────────

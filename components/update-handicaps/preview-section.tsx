@@ -11,6 +11,7 @@ import {
 import type { PreviewRow } from '@/lib/source-handicaps';
 import type { Competitor, Fleet } from '@/lib/types';
 
+import { formatPrimaryNames } from '@/lib/competitor-fields';
 import {
   SYSTEM_LABEL,
   describeMatch,
@@ -82,7 +83,7 @@ export function PreviewSection({
                   </TableCell>
                   <TableCell>{comp?.sailNumber}</TableCell>
                   <TableCell>
-                    {comp?.boatName ?? comp?.name}
+                    {comp?.boatName ?? formatPrimaryNames(comp?.names ?? [])}
                     {r.match && (
                       <span className="block text-xs text-amber-600 dark:text-amber-500">
                         {describeMatch(r.match)}
@@ -137,7 +138,7 @@ export function PreviewSection({
                     const fleet = targetFleetById.get(r.targetFleetId);
                     return (
                       <li key={rowKey(r)} className="text-muted-foreground">
-                        {comp?.sailNumber} {comp?.boatName ?? comp?.name} ({fleet?.name},{' '}
+                        {comp?.sailNumber} {comp?.boatName ?? formatPrimaryNames(comp?.names ?? [])} ({fleet?.name},{' '}
                         {SYSTEM_LABEL[r.system]}) — {r.notFoundReason?.replaceAll('-', ' ')}
                       </li>
                     );

@@ -128,7 +128,7 @@ describe.skipIf(skip)('child-entity writes mark the series modified', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctx, seriesId, compId, {
       id: compId, seriesId, fleetIds: [],
-      sailNumber: 'T1', name: 'Helm', club: '', gender: '' as const, age: null,
+      sailNumber: 'T1', names: ['Helm'], club: '', gender: '' as const, age: null,
       createdAt: Date.now(), ircTcc: 1.0,
     });
     expect(await modifiedAt()).toBeGreaterThan(past);
@@ -144,7 +144,7 @@ describe.skipIf(skip)('child-entity writes mark the series modified', () => {
     await competitors.bulkPutCompetitors(ctx, seriesId, {
       competitors: [{
         id: compId, seriesId, fleetIds: [],
-        sailNumber: 'T2', name: 'Bulk', club: '', gender: '' as const, age: null,
+        sailNumber: 'T2', names: ['Bulk'], club: '', gender: '' as const, age: null,
         createdAt: Date.now(), ircTcc: 1.01,
       }],
     });
@@ -190,7 +190,7 @@ describe.skipIf(skip)('child-entity writes mark the series modified', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctx, seriesId, compId, {
       id: compId, seriesId, fleetIds: [fleetList[0].id],
-      sailNumber: 'T3', name: 'Racer', club: '', gender: '' as const, age: null,
+      sailNumber: 'T3', names: ['Racer'], club: '', gender: '' as const, age: null,
       createdAt: Date.now(), ircTcc: 0.99,
     });
 

@@ -770,15 +770,15 @@ describe('assembleSeriesResultsData', () => {
     { id: 'r2', raceNumber: 2, date: '2025-06-08' },
   ];
   const competitors = [
-    { id: 'c1', sailNumber: '42', name: 'Alice' },
-    { id: 'c2', sailNumber: '99', name: 'Bob' },
+    { id: 'c1', sailNumber: '42', names: ['Alice'] },
+    { id: 'c2', sailNumber: '99', names: ['Bob'] },
   ];
   const competitorsById = new Map(competitors.map((c) => [c.id, c]));
 
   const standings = [
     {
       rank: 1,
-      competitor: { id: 'c1', sailNumber: '42', name: 'Alice' },
+      competitor: { id: 'c1', sailNumber: '42', names: ['Alice'] },
       racePoints: [1, 2],
       raceCodes: [null, null] as (ResultCode | null)[],
       totalPoints: 3,
@@ -787,7 +787,7 @@ describe('assembleSeriesResultsData', () => {
     },
     {
       rank: 2,
-      competitor: { id: 'c2', sailNumber: '99', name: 'Bob' },
+      competitor: { id: 'c2', sailNumber: '99', names: ['Bob'] },
       racePoints: [2, 1],
       raceCodes: [null, null] as (ResultCode | null)[],
       totalPoints: 3,
@@ -878,8 +878,8 @@ describe('assembleSeriesResultsData', () => {
       ],
       raceScoresByRaceId,
       new Map([
-        ['c1', { id: 'c1', sailNumber: '42', name: 'Alice', club: 'HYC' }],
-        ['c2', { id: 'c2', sailNumber: '99', name: 'Bob', club: 'RStGYC' }],
+        ['c1', { id: 'c1', sailNumber: '42', names: ['Alice'], club: 'HYC' }],
+        ['c2', { id: 'c2', sailNumber: '99', names: ['Bob'], club: 'RStGYC' }],
       ]),
       ['club'],
       now,
@@ -1195,14 +1195,14 @@ describe('assembleSeriesResultsData — per-race ratings wiring', () => {
     { id: 'r2', raceNumber: 2, date: '2025-06-08' },
   ];
   const competitors = [
-    { id: 'c1', sailNumber: '42', name: 'Alice', nhcStartingTcf: 1.350 },
-    { id: 'c2', sailNumber: '99', name: 'Bob', nhcStartingTcf: 1.200 },
+    { id: 'c1', sailNumber: '42', names: ['Alice'], nhcStartingTcf: 1.350 },
+    { id: 'c2', sailNumber: '99', names: ['Bob'], nhcStartingTcf: 1.200 },
   ];
   const competitorsById = new Map(competitors.map((c) => [c.id, c]));
   const standings = [
     {
       rank: 1,
-      competitor: { id: 'c1', sailNumber: '42', name: 'Alice' },
+      competitor: { id: 'c1', sailNumber: '42', names: ['Alice'] },
       racePoints: [1, 2],
       raceCodes: [null, null] as (ResultCode | null)[],
       totalPoints: 3,
@@ -1211,7 +1211,7 @@ describe('assembleSeriesResultsData — per-race ratings wiring', () => {
     },
     {
       rank: 2,
-      competitor: { id: 'c2', sailNumber: '99', name: 'Bob' },
+      competitor: { id: 'c2', sailNumber: '99', names: ['Bob'] },
       racePoints: [2, 1],
       raceCodes: [null, null] as (ResultCode | null)[],
       totalPoints: 3,
@@ -1428,12 +1428,12 @@ describe('assembleSeriesResultsData — anchorPrefix', () => {
   ]);
   const competitors = new Map([[
     'c1',
-    { sailNumber: '42', name: 'Alice' },
+    { sailNumber: '42', names: ['Alice'] },
   ]]);
   const standings = [
     {
       rank: 1,
-      competitor: { id: 'c1', sailNumber: '42', name: 'Alice' },
+      competitor: { id: 'c1', sailNumber: '42', names: ['Alice'] },
       racePoints: [1],
       raceCodes: [null],
       totalPoints: 1,
@@ -1484,7 +1484,7 @@ describe('renderPrizesHtml', () => {
         rank,
         competitor: {
           id: `c-${sailNumber}`, seriesId: 's1', fleetIds: ['fl-1'], sailNumber,
-          name, club: '', gender: '' as const, age: null, createdAt: 0,
+          names: [name], club: '', gender: '' as const, age: null, createdAt: 0,
         },
         racePoints: [], raceRanks: [], raceCodes: [], racePenaltyCodes: [],
         racePenaltyOverrides: [], raceRedressFlags: [], totalPoints: rank,

@@ -114,7 +114,7 @@ describe.skipIf(skip)('competitor-identity reconcile operations', () => {
       workspaceId,
       fleetIds: [],
       sailNumber: p.sailNumber,
-      name: p.name,
+      names: [p.name],
       club: p.club ?? '',
       gender: '',
       age: null,

@@ -23,7 +23,7 @@ import {
   calculateHandicapRaceScores,
 } from '../lib/scoring';
 import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-renderer';
-import { defaultEnabledCompetitorFields } from '../lib/competitor-fields';
+import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/competitor-fields';
 import type { DiscardThreshold, ResultCode, PenaltyCode } from '../lib/types';
 import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests/fixtures/scoring/types';
 
@@ -286,7 +286,7 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
       const rankDisplay = score.rank !== null ? score.rank.toString() : '—';
       return `<tr>
   <td>${esc(rankDisplay)}</td>
-  <td>${esc(c.name)}</td>
+  <td>${esc(formatPrimaryNames(c.names))}</td>
   <td class="mono">${esc(c.sailNumber)}</td>
   <td class="mono">${esc(ratingDisplay)}</td>
   <td class="mono">${esc(finishTimeDisplay)}</td>
@@ -410,7 +410,7 @@ function generateNhcFixtureHtml(fixture: Fixture, yamlSource: string): string {
       const adjustment = score.nhc?.adjustment;
       return `<tr>
   <td>${esc(rankDisplay)}</td>
-  <td>${esc(c.name)}</td>
+  <td>${esc(formatPrimaryNames(c.names))}</td>
   <td class="mono">${esc(c.sailNumber)}</td>
   <td class="mono">${esc(finishTimeDisplay)}</td>
   <td class="mono">${esc(fmtSeconds(score.elapsedTime))}</td>
@@ -559,7 +559,7 @@ function generateEchoFixtureHtml(fixture: Fixture, yamlSource: string): string {
       const adjustment = score.echo?.adjustment;
       return `<tr>
   <td>${esc(rankDisplay)}</td>
-  <td>${esc(c.name)}</td>
+  <td>${esc(formatPrimaryNames(c.names))}</td>
   <td class="mono">${esc(c.sailNumber)}</td>
   <td class="mono">${esc(finishTimeDisplay)}</td>
   <td class="mono">${esc(fmtSeconds(score.elapsedTime))}</td>

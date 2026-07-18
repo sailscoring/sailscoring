@@ -75,7 +75,7 @@ describe.skipIf(skip)('series standings (ADR-009 M4)', () => {
       compIds.push(compId);
       await competitors.putCompetitor(ctx, srcId, compId, {
         id: compId, seriesId: srcId, fleetIds: [fleetId], sailNumber: sailNo,
-        name: `Helm ${sailNo}`, club: 'HYC', gender: '' as const, age: null, createdAt: Date.now(),
+        names: [`Helm ${sailNo}`], club: 'HYC', gender: '' as const, age: null, createdAt: Date.now(),
       });
     }
     const raceId = uuid();

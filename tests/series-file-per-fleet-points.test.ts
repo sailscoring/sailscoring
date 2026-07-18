@@ -105,7 +105,7 @@ function makeFile(): SeriesFile {
         id: 'file-comp-1',
         fleetIds: ['file-fleet-irc', 'file-fleet-echo'],
         sailNumber: 'IRL1',
-        name: 'Tandem',
+        names: ['Tandem'],
         club: '',
         gender: '',
         age: null,

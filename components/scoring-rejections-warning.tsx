@@ -1,5 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
 import type { Competitor, ScoringRejection } from '@/lib/types';
+import { formatPrimaryNames } from '@/lib/competitor-fields';
 
 export interface ScoringRejectionsWarningProps {
   rejections: ScoringRejection[];
@@ -15,7 +16,7 @@ export function ScoringRejectionsWarning({
 
   function nameOf(r: ScoringRejection): string {
     const c = competitorById.get(r.competitorId);
-    return c ? `${c.sailNumber} (${c.name})` : r.competitorId;
+    return c ? `${c.sailNumber} (${formatPrimaryNames(c.names)})` : r.competitorId;
   }
 
   const noRating = rejections.filter((r) => r.reason === 'no_rating');

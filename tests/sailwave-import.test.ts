@@ -1156,7 +1156,7 @@ describe('helm gender import (comphelmsex)', () => {
       ['comphelmsex', 'Prefer not to say', '3', ''],
     ]));
     const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
-    const byName = new Map(file.competitors.map((c) => [c.name, c.gender]));
+    const byName = new Map(file.competitors.map((c) => [c.names[0], c.gender]));
     expect(byName.get('Alice')).toBe('F');
     expect(byName.get('Bob')).toBe('M');
     expect(byName.get('Chris')).toBe('');

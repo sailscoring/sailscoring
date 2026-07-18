@@ -87,7 +87,8 @@ import {
   PRIMARY_PERSON_LABEL_TEXT,
   defaultEnabledCompetitorFields,
   isFieldDisabledByPrimary,
-  sameCrewNames,
+  formatPrimaryNames,
+  samePersonNames,
   sameFleetIdSet,
   subdivisionAxes,
   newSubdivisionAxis,
@@ -520,8 +521,8 @@ function detectSailNumberChanges(
       item: c,
       fleetKey: fleetKeyOf(c.fleetIds),
       boatName: c.boatName ?? '',
-      name: c.name,
-      helm: c.helm ?? '',
+      name: formatPrimaryNames(c.names),
+      helm: c.helms?.join(' & ') ?? '',
     }));
 
   return matchLikelySameBoat(newRows, disappeared)
@@ -531,7 +532,7 @@ function detectSailNumberChanges(
       existingId: competitor.id,
       oldSailNumber: competitor.sailNumber,
       boatName: cell(rows[rowIndex], boatNameCol) || competitor.boatName || '',
-      personName: cell(rows[rowIndex], primaryCol) || competitor.name,
+      personName: cell(rows[rowIndex], primaryCol) || formatPrimaryNames(competitor.names),
       matchedOn,
     }))
     .sort((a, b) => a.rowIndex - b.rowIndex);
@@ -1569,8 +1570,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       // keeps the existing list (the same fallback the other fields have).
       const csvCrew = crewCells.flatMap(splitCrewCell);
       const resolvedCrewNames = csvCrew.length ? csvCrew : existingCompetitor?.crewNames ?? [];
-      const resolvedHelm = helmRole || existingCompetitor?.helm || '';
-      const resolvedOwner = ownerRole || existingCompetitor?.owner || '';
+      const resolvedHelms = helmRole.trim() ? [helmRole.trim()] : existingCompetitor?.helms ?? [];
+      const resolvedOwners = ownerRole.trim() ? [ownerRole.trim()] : existingCompetitor?.owners ?? [];
       // Merge the mapped columns onto their axes, preserving any other axis
       // values the existing competitor already holds.
       const resolvedSubdivisions = cleanSubdivisions({
@@ -1585,9 +1586,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(resolvedBowNumber ? { bowNumber: resolvedBowNumber } : {}),
         ...(resolvedBoatName ? { boatName: resolvedBoatName } : {}),
         ...(resolvedBoatClass ? { boatClass: resolvedBoatClass } : {}),
-        name: primaryName || existingCompetitor?.name || '',
-        ...(resolvedHelm ? { helm: resolvedHelm } : {}),
-        ...(resolvedOwner ? { owner: resolvedOwner } : {}),
+        names: primaryName.trim() ? [primaryName.trim()] : existingCompetitor?.names ?? [''],
+        ...(resolvedHelms.length ? { helms: resolvedHelms } : {}),
+        ...(resolvedOwners.length ? { owners: resolvedOwners } : {}),
         ...(resolvedCrewNames.length ? { crewNames: resolvedCrewNames } : {}),
         club: club || existingCompetitor?.club || '',
         ...(cleanNationality ? { nationality: cleanNationality } : {}),
@@ -1615,10 +1616,10 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         (existingCompetitor.bowNumber ?? '') === (competitor.bowNumber ?? '') &&
         (existingCompetitor.boatName ?? '') === (competitor.boatName ?? '') &&
         (existingCompetitor.boatClass ?? '') === (competitor.boatClass ?? '') &&
-        existingCompetitor.name === competitor.name &&
-        (existingCompetitor.owner ?? '') === (competitor.owner ?? '') &&
-        (existingCompetitor.helm ?? '') === (competitor.helm ?? '') &&
-        sameCrewNames(existingCompetitor.crewNames, competitor.crewNames) &&
+        samePersonNames(existingCompetitor.names, competitor.names) &&
+        samePersonNames(existingCompetitor.owners, competitor.owners) &&
+        samePersonNames(existingCompetitor.helms, competitor.helms) &&
+        samePersonNames(existingCompetitor.crewNames, competitor.crewNames) &&
         existingCompetitor.club === competitor.club &&
         (existingCompetitor.nationality ?? '') === (competitor.nationality ?? '') &&
         existingCompetitor.gender === competitor.gender &&

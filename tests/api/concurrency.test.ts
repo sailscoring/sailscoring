@@ -164,7 +164,7 @@ describe.skipIf(skip)('optimistic concurrency (CAS via expectedVersion)', () => 
       id: fleet, seriesId: s.id, name: 'Default', displayOrder: 0, scoringSystem: 'scratch',
     });
     const c: Competitor = {
-      id: uuid(), seriesId: s.id, fleetIds: [fleet], sailNumber: '1', name: 'Boat',
+      id: uuid(), seriesId: s.id, fleetIds: [fleet], sailNumber: '1', names: ['Boat'],
       club: '', gender: '', age: null, createdAt: Date.now(),
     };
     const created = await setup.competitors.save(c);
@@ -172,7 +172,7 @@ describe.skipIf(skip)('optimistic concurrency (CAS via expectedVersion)', () => 
 
     // Race two updates.
     const updated = await setup.competitors.save(
-      { ...created, name: 'first edit' },
+      { ...created, names: ['first edit'] },
       { expectedVersion: 1 },
     );
     expect(updated.version).toBe(2);
@@ -180,7 +180,7 @@ describe.skipIf(skip)('optimistic concurrency (CAS via expectedVersion)', () => 
     let thrown: unknown;
     try {
       await setup.competitors.save(
-        { ...created, name: 'stale edit' },
+        { ...created, names: ['stale edit'] },
         { expectedVersion: 1 },
       );
     } catch (err) {
@@ -229,7 +229,7 @@ describe.skipIf(skip)('optimistic concurrency (CAS via expectedVersion)', () => 
       id: fleet, seriesId: s.id, name: 'Default', displayOrder: 0, scoringSystem: 'scratch',
     });
     const competitor: Competitor = {
-      id: uuid(), seriesId: s.id, fleetIds: [fleet], sailNumber: '1', name: 'Boat',
+      id: uuid(), seriesId: s.id, fleetIds: [fleet], sailNumber: '1', names: ['Boat'],
       club: '', gender: '', age: null, createdAt: Date.now(),
     };
     await repos.competitors.save(competitor);

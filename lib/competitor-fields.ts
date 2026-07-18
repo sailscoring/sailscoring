@@ -7,35 +7,45 @@ import type {
   SubdivisionAxis,
 } from './types';
 
-/** Trim crew names and drop empty entries, returning undefined when nothing
- *  remains (sparse storage — a competitor with no crew carries no `crewNames`,
- *  mirroring `cleanSubdivisions`). */
-export function cleanCrewNames(names: string[] | undefined): string[] | undefined {
+/** Trim a person-name list and drop empty entries, returning undefined when
+ *  nothing remains (sparse storage — a competitor with no crew carries no
+ *  `crewNames`, mirroring `cleanSubdivisions`). Shared by the primary, owner,
+ *  helm, and crew lists. */
+export function cleanPersonNames(names: string[] | undefined): string[] | undefined {
   const out = (names ?? []).map((n) => n.trim()).filter((n) => n.length > 0);
   return out.length > 0 ? out : undefined;
 }
 
-/** Order-sensitive equality of two crew lists, ignoring blank entries. Used to
- *  detect "no change" on CSV re-import. */
-export function sameCrewNames(a: string[] | undefined, b: string[] | undefined): boolean {
-  const na = cleanCrewNames(a) ?? [];
-  const nb = cleanCrewNames(b) ?? [];
+/** Order-sensitive equality of two person-name lists, ignoring blank entries.
+ *  Used to detect "no change" on CSV re-import. */
+export function samePersonNames(a: string[] | undefined, b: string[] | undefined): boolean {
+  const na = cleanPersonNames(a) ?? [];
+  const nb = cleanPersonNames(b) ?? [];
   return na.length === nb.length && na.every((v, i) => v === nb[i]);
 }
 
+/** One-line rendering of the primary person(s): a single name as-is, a
+ *  multi-person primary joined " & " — "J. Murphy & M. Murphy". The joined
+ *  form is also what sorting, search, and duplicate detection compare. */
+export function formatPrimaryNames(names: readonly string[]): string {
+  return names.filter((n) => n.trim()).join(' & ');
+}
+
 /** Render "Helm / Crew" when the series has crew enabled and exactly one crew
- *  is set; otherwise just the helm. Used in autocomplete rows and finish
- *  lists — one-line contexts, so a multi-person crew is deliberately left to
- *  the tables (a finish-sheet row is no place for a keelboat's eight names). */
+ *  is set; otherwise just the primary name(s). Used in autocomplete rows and
+ *  finish lists — one-line contexts, so a multi-person crew is deliberately
+ *  left to the tables (a finish-sheet row is no place for a keelboat's eight
+ *  names). A multi-person primary joins with " & " (it cannot be dropped). */
 export function displayHelmCrew(
-  competitor: Pick<Competitor, 'name' | 'crewNames'>,
+  competitor: Pick<Competitor, 'names' | 'crewNames'>,
   showCrew: boolean,
 ): string {
-  const crew = cleanCrewNames(competitor.crewNames);
+  const primary = formatPrimaryNames(competitor.names);
+  const crew = cleanPersonNames(competitor.crewNames);
   if (showCrew && crew?.length === 1) {
-    return `${competitor.name} / ${crew[0]}`;
+    return `${primary} / ${crew[0]}`;
   }
-  return competitor.name;
+  return primary;
 }
 
 /** Label a competitor for finish entry, check-in, and other crew-facing lists.
@@ -45,7 +55,7 @@ export function displayHelmCrew(
  *  When `boatName` is not enabled or absent, returns just the person, identical
  *  to `displayHelmCrew`. */
 export function displayCompetitorLabel(
-  competitor: Pick<Competitor, 'name' | 'crewNames' | 'boatName'>,
+  competitor: Pick<Competitor, 'names' | 'crewNames' | 'boatName'>,
   opts: { enabledCompetitorFields: readonly CompetitorFieldKey[]; showCrew: boolean },
 ): string {
   const person = displayHelmCrew(competitor, opts.showCrew);
