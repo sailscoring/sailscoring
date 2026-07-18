@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFleetCell, autoDetectField, matchSubdivisionAxis, splitCrewCell } from '@/lib/csv-import';
+import { parseFleetCell, autoDetectField, matchSubdivisionAxis, splitPersonCell } from '@/lib/csv-import';
 
 describe('parseFleetCell', () => {
   it('returns a single name for a plain cell', () => {
@@ -161,24 +161,24 @@ describe('matchSubdivisionAxis', () => {
   });
 });
 
-describe('splitCrewCell', () => {
+describe('splitPersonCell', () => {
   it('splits on Sailwave <br>, newlines, and semicolons', () => {
-    expect(splitCrewCell('Alice Byrne<br>Bob Malone')).toEqual(['Alice Byrne', 'Bob Malone']);
-    expect(splitCrewCell('Alice Byrne<br/>Bob Malone')).toEqual(['Alice Byrne', 'Bob Malone']);
-    expect(splitCrewCell('Alice Byrne\nBob Malone')).toEqual(['Alice Byrne', 'Bob Malone']);
-    expect(splitCrewCell('Alice Byrne; Bob Malone ; Carol Doyle')).toEqual([
+    expect(splitPersonCell('Alice Byrne<br>Bob Malone')).toEqual(['Alice Byrne', 'Bob Malone']);
+    expect(splitPersonCell('Alice Byrne<br/>Bob Malone')).toEqual(['Alice Byrne', 'Bob Malone']);
+    expect(splitPersonCell('Alice Byrne\nBob Malone')).toEqual(['Alice Byrne', 'Bob Malone']);
+    expect(splitPersonCell('Alice Byrne; Bob Malone ; Carol Doyle')).toEqual([
       'Alice Byrne', 'Bob Malone', 'Carol Doyle',
     ]);
   });
 
   it('does not split on commas or ampersands', () => {
-    expect(splitCrewCell('MOUSE, Micky')).toEqual(['MOUSE, Micky']);
-    expect(splitCrewCell('Alice & Bob Byrne')).toEqual(['Alice & Bob Byrne']);
+    expect(splitPersonCell('MOUSE, Micky')).toEqual(['MOUSE, Micky']);
+    expect(splitPersonCell('Alice & Bob Byrne')).toEqual(['Alice & Bob Byrne']);
   });
 
   it('trims and drops empty segments', () => {
-    expect(splitCrewCell(' Alice Byrne ;; ')).toEqual(['Alice Byrne']);
-    expect(splitCrewCell('')).toEqual([]);
+    expect(splitPersonCell(' Alice Byrne ;; ')).toEqual(['Alice Byrne']);
+    expect(splitPersonCell('')).toEqual([]);
   });
 });
 

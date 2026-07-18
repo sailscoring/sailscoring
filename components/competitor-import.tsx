@@ -29,7 +29,7 @@ import {
   isSubdivisionTarget,
   relayColumnTarget,
   relayFieldOf,
-  splitCrewCell,
+  splitPersonCell,
   NEW_AXIS_TARGET,
   RELAY_FIELDS,
   type CompetitorField,
@@ -587,11 +587,13 @@ const MappingRow = memo(function MappingRow({
   fieldLabels: Record<string, string>;
   onChange: (index: number, value: ColumnTarget) => void;
 }) {
-  // A crew-mapped column previews the in-cell split ("Alice + Bob") so the
-  // scorer sees what will be stored before confirming.
+  // A person-mapped column (primary, owner, helm, crew) previews the in-cell
+  // split ("Alice + Bob") so the scorer sees what will be stored.
+  const isPersonColumn =
+    columnValue === 'crewName' || columnValue === 'primary' || columnValue === 'owner' || columnValue === 'helm';
   const sampleText =
-    (columnValue === 'crewName'
-      ? sampleCells.map((c) => splitCrewCell(c).join(' + '))
+    (isPersonColumn
+      ? sampleCells.map((c) => splitPersonCell(c).join(' + '))
       : sampleCells
     ).join(', ') || '—';
   return (
@@ -1463,9 +1465,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let bowNumber = '';
       let boatName = '';
       let boatClass = '';
-      let primaryName = '';
-      let helmRole = '';
-      let ownerRole = '';
+      const primaryCells: string[] = [];  // every column mapped to the primary, in column order
+      const helmCells: string[] = [];
+      const ownerCells: string[] = [];
       const crewCells: string[] = [];  // every column mapped to Crew, in column order
       let club = '';
       let nationality = '';
@@ -1486,9 +1488,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'bowNumber') bowNumber = val;
         else if (field === 'boatName') boatName = val;
         else if (field === 'boatClass') boatClass = val;
-        else if (field === 'primary') primaryName = val;
-        else if (field === 'helm') helmRole = val;
-        else if (field === 'owner') ownerRole = val;
+        else if (field === 'primary') { if (val) primaryCells.push(val); }
+        else if (field === 'helm') { if (val) helmCells.push(val); }
+        else if (field === 'owner') { if (val) ownerCells.push(val); }
         else if (field === 'crewName') { if (val) crewCells.push(val); }
         else if (field === 'club') club = val;
         else if (field === 'nationality') nationality = val;
@@ -1566,12 +1568,21 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ? (planRows[i].csvFleetNames[0]?.trim() || DEFAULT_FLEET_NAME)
         : '';
       const resolvedBoatClass = boatClass || existingCompetitor?.boatClass || fleetNameFallback || '';
-      // A row with any mapped crew replaces the whole list; a row with none
+      // A row with any mapped names replaces the whole list; a row with none
       // keeps the existing list (the same fallback the other fields have).
-      const csvCrew = crewCells.flatMap(splitCrewCell);
+      const resolvedNames = ((): string[] => {
+        const csv = primaryCells.flatMap(splitPersonCell);
+        return csv.length ? csv : existingCompetitor?.names ?? [''];
+      })();
+      // Gender and age describe a single named primary; rows that resolve to
+      // a multi-person primary carry neither (#316), whatever the cells say.
+      const singlePrimary = resolvedNames.filter((n) => n.trim()).length <= 1;
+      const csvCrew = crewCells.flatMap(splitPersonCell);
       const resolvedCrewNames = csvCrew.length ? csvCrew : existingCompetitor?.crewNames ?? [];
-      const resolvedHelms = helmRole.trim() ? [helmRole.trim()] : existingCompetitor?.helms ?? [];
-      const resolvedOwners = ownerRole.trim() ? [ownerRole.trim()] : existingCompetitor?.owners ?? [];
+      const csvHelms = helmCells.flatMap(splitPersonCell);
+      const resolvedHelms = csvHelms.length ? csvHelms : existingCompetitor?.helms ?? [];
+      const csvOwners = ownerCells.flatMap(splitPersonCell);
+      const resolvedOwners = csvOwners.length ? csvOwners : existingCompetitor?.owners ?? [];
       // Merge the mapped columns onto their axes, preserving any other axis
       // values the existing competitor already holds.
       const resolvedSubdivisions = cleanSubdivisions({
@@ -1586,14 +1597,14 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(resolvedBowNumber ? { bowNumber: resolvedBowNumber } : {}),
         ...(resolvedBoatName ? { boatName: resolvedBoatName } : {}),
         ...(resolvedBoatClass ? { boatClass: resolvedBoatClass } : {}),
-        names: primaryName.trim() ? [primaryName.trim()] : existingCompetitor?.names ?? [''],
+        names: resolvedNames,
         ...(resolvedHelms.length ? { helms: resolvedHelms } : {}),
         ...(resolvedOwners.length ? { owners: resolvedOwners } : {}),
         ...(resolvedCrewNames.length ? { crewNames: resolvedCrewNames } : {}),
         club: club || existingCompetitor?.club || '',
         ...(cleanNationality ? { nationality: cleanNationality } : {}),
-        gender: (normGender === 'M' || normGender === 'F') ? normGender : (existingCompetitor?.gender ?? ''),
-        age: parsedAge !== null && !isNaN(parsedAge) ? parsedAge : (existingCompetitor?.age ?? null),
+        gender: singlePrimary && (normGender === 'M' || normGender === 'F') ? normGender : (singlePrimary ? (existingCompetitor?.gender ?? '') : ''),
+        age: singlePrimary ? (parsedAge !== null && !isNaN(parsedAge) ? parsedAge : (existingCompetitor?.age ?? null)) : null,
         ...(resolvedSubdivisions ? { subdivisions: resolvedSubdivisions } : {}),
         createdAt: existingCompetitor?.createdAt ?? Date.now(),
         ...(ircTcc != null ? { ircTcc } : {}),

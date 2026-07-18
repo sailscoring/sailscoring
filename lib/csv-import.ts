@@ -47,14 +47,15 @@ export type ColumnTarget =
 export const NEW_AXIS_TARGET = 'newaxis';
 
 /**
- * Split one crew cell into individual names. Splits only on separators that
- * unambiguously mean "next person": Sailwave's `<br>` publishing convention,
- * literal newlines, and semicolons. Deliberately NOT on commas (surname-first
- * "MOUSE Micky" formats put a comma inside one name) and NOT on "&"
- * ("Alice & Bob Byrne" is two people sharing a surname — splitting it would
- * fabricate a wrong name).
+ * Split one person cell (crew, owner, helm, or primary) into individual
+ * names. Splits only on separators that unambiguously mean "next person":
+ * Sailwave's `<br>` publishing convention, literal newlines, and semicolons.
+ * Deliberately NOT on commas (surname-first "MOUSE Micky" formats put a comma
+ * inside one name) and NOT on "&" ("Alice & Bob Byrne" is two people sharing
+ * a surname, and "J & M Murphy" is the canonical co-owner spelling — one
+ * entry unless the sheet separates them).
  */
-export function splitCrewCell(raw: string): string[] {
+export function splitPersonCell(raw: string): string[] {
   return raw
     .split(/<br\s*\/?>|\r?\n|;/i)
     .map((s) => s.trim())

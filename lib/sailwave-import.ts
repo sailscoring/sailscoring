@@ -38,7 +38,7 @@ import {
   defaultEnabledCompetitorFields,
   newSubdivisionAxis,
 } from './competitor-fields';
-import { splitCrewCell } from './csv-import';
+import { splitPersonCell } from './csv-import';
 import { getCodeDefinition } from './scoring-codes';
 import { lookupAlias } from './nationality';
 
@@ -1592,7 +1592,7 @@ function buildCompetitors(
     if (!classIsAxis && v.compclass?.trim()) built.boatClass = v.compclass.trim();
     // Sailwave stores all crew as one string; scorers separate multiple names
     // with <br> so they publish on separate lines. Split that back into a list.
-    const crew = splitCrewCell(v.compcrewname ?? '');
+    const crew = splitPersonCell(v.compcrewname ?? '');
     if (crew.length > 0) built.crewNames = crew;
     // Nationality: uppercase, fold Sailwave aliases (BVI → IVB), keep only
     // well-formed 3-letter values. Unknown but well-formed codes pass
