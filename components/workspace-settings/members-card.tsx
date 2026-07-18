@@ -58,9 +58,10 @@ function RoleSelect({
  * user's email comes from the (server) workspace page so we can find their
  * member row — and their role — once the roster loads.
  *
- * A personal workspace has no invite form at all: it is single-user by
- * design, and collaboration means asking for a club workspace. The server
- * refuses such invitations regardless; this only keeps the UI honest.
+ * A personal workspace shows a read-only roster and nothing else: it is
+ * single-user by design, and collaboration means asking for a club
+ * workspace. The server refuses such invitations regardless; this only keeps
+ * the UI honest.
  */
 export function MembersCard({
   currentUserEmail,
@@ -89,12 +90,11 @@ export function MembersCard({
   const members = data?.members ?? [];
   const invitations = data?.invitations ?? [];
   const me = members.find((m) => m.user.email === currentUserEmail);
-  const canManage = me?.role === 'owner' || me?.role === 'admin';
-  // Inviting is what a personal workspace must not do. Removing a member or
-  // cancelling an invitation stays available: both only ever shrink the
-  // workspace, and the owner needs them to clear out anyone who joined
-  // before the guard existed.
-  const canInvite = canManage && !isPersonal;
+  // A personal workspace has no membership controls at all — not even
+  // removal. It should only ever hold its owner, so there is nothing to
+  // manage; the one workspace that picked up members before invitations were
+  // blocked is being cleared by hand.
+  const canManage = !isPersonal && (me?.role === 'owner' || me?.role === 'admin');
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -218,7 +218,7 @@ export function MembersCard({
         </div>
       )}
 
-      {canInvite && (
+      {canManage && (
         <form onSubmit={handleInvite} className="space-y-2 border-t pt-4">
           <Label htmlFor="invite-email">Invite a co-scorer by email</Label>
           <div className="flex gap-2">

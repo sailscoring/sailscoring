@@ -85,13 +85,16 @@ workspace-switcher data attributes.
 ### Personal workspaces
 
 Personal workspaces are single-user: the app refuses invitations to them
-on both create and accept, and the Members card offers no invite form
-there. Someone who wants co-scorers asks for a club workspace, which is
-the approval step this whole document exists for.
+on both create and accept, and the Members card there is a read-only
+roster with no membership controls at all. Someone who wants co-scorers
+asks for a club workspace, which is the approval step this whole document
+exists for.
 
-They're awkward to address by hand, though — every one is named "My
-Workspace" and the slug is derived from a user id you don't have. Resolve
-one from the owner's email:
+That means clearing one out is an operator job — deliberately, since it
+should only ever come up for the workspaces that picked up members before
+invitations were blocked. They're awkward to address by hand, though:
+every one is named "My Workspace" and the slug is derived from a user id
+you don't have. Resolve one from the owner's email:
 
 ```bash
 pnpm provision-org personal-workspace mary@example.com
