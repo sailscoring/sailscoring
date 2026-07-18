@@ -29,7 +29,7 @@ import type {
 import { formatPrimaryNames } from '@/lib/competitor-fields';
 import { mintSlug } from '@/lib/competitor-slug';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
-import { competitorIdentities, competitors, series } from '@/lib/db/schema/series';
+import { competitorIdentities, competitorIdentityLinks, competitors, series } from '@/lib/db/schema/series';
 import { workspaceOwnFeatureOn } from '@/lib/workspace-features';
 
 /**
@@ -65,13 +65,26 @@ export async function collectClusterInputs(
       nationality: competitors.nationality,
       age: competitors.age,
       startDate: series.startDate,
-      existingIdentityId: competitors.identityId,
+      existingIdentityId: competitorIdentityLinks.identityId,
     })
     .from(competitors)
     .innerJoin(series, eq(competitors.seriesId, series.id))
+    .leftJoin(
+      competitorIdentityLinks,
+      eq(competitorIdentityLinks.competitorId, competitors.id),
+    )
     .where(eq(competitors.workspaceId, workspaceId));
 
-  return rows.map((r) => {
+  // A multi-linked row (one link per co-owner) repeats in the join; the
+  // row-level clusterer takes the first membership as its existing identity.
+  const seen = new Set<string>();
+  const deduped = rows.filter((r) => {
+    if (seen.has(r.competitorId)) return false;
+    seen.add(r.competitorId);
+    return true;
+  });
+
+  return deduped.map((r) => {
     const year = Number.parseInt((r.startDate ?? '').slice(0, 4), 10);
     return {
       competitorId: r.competitorId,
@@ -188,16 +201,25 @@ export async function applyManifest(
       identitiesWritten++;
 
       if (a.competitorIds.length > 0) {
-        const res = await tx
-          .update(competitors)
-          .set({ identityId: a.identityId })
+        // The manifest is authoritative over rows it covers: replace their
+        // memberships wholesale, unlike the auto-pass which only fills blanks.
+        await tx
+          .delete(competitorIdentityLinks)
           .where(
             and(
-              eq(competitors.workspaceId, workspaceId),
-              inArray(competitors.id, a.competitorIds),
+              eq(competitorIdentityLinks.workspaceId, workspaceId),
+              inArray(competitorIdentityLinks.competitorId, a.competitorIds),
             ),
           );
-        competitorsLinked += res.count ?? 0;
+        const res = await tx
+          .insert(competitorIdentityLinks)
+          .values(a.competitorIds.map((id) => ({
+            competitorId: id,
+            identityId: a.identityId,
+            workspaceId,
+          })))
+          .onConflictDoNothing();
+        competitorsLinked += res.count ?? a.competitorIds.length;
       }
     }
   });
@@ -318,18 +340,32 @@ export async function applyClusters(
       }
 
       // Only touch currently-unlinked rows: the reuse case leaves confirmed
-      // links untouched, which is what keeps a re-run idempotent.
-      const res = await tx
-        .update(competitors)
-        .set({ identityId })
-        .where(
-          and(
-            eq(competitors.workspaceId, workspaceId),
-            isNull(competitors.identityId),
-            inArray(competitors.id, targetIds),
-          ),
-        );
-      competitorsLinked += res.count ?? 0;
+      // memberships untouched, which is what keeps a re-run idempotent.
+      const alreadyLinked = new Set(
+        (
+          await tx
+            .select({ competitorId: competitorIdentityLinks.competitorId })
+            .from(competitorIdentityLinks)
+            .where(
+              and(
+                eq(competitorIdentityLinks.workspaceId, workspaceId),
+                inArray(competitorIdentityLinks.competitorId, targetIds),
+              ),
+            )
+        ).map((r) => r.competitorId),
+      );
+      const toLink = targetIds.filter((id) => !alreadyLinked.has(id));
+      if (toLink.length > 0) {
+        await tx
+          .insert(competitorIdentityLinks)
+          .values(toLink.map((id) => ({
+            competitorId: id,
+            identityId,
+            workspaceId,
+          })))
+          .onConflictDoNothing();
+        competitorsLinked += toLink.length;
+      }
     }
   });
 
@@ -363,14 +399,9 @@ export async function gcOrphanIdentities(
         notInArray(
           competitorIdentities.id,
           db
-            .select({ id: competitors.identityId })
-            .from(competitors)
-            .where(
-              and(
-                eq(competitors.workspaceId, workspaceId),
-                isNotNull(competitors.identityId),
-              ),
-            ),
+            .select({ id: competitorIdentityLinks.identityId })
+            .from(competitorIdentityLinks)
+            .where(eq(competitorIdentityLinks.workspaceId, workspaceId)),
         ),
       ),
     )
@@ -416,10 +447,14 @@ export async function relinkIdentitiesAfterWrite(
     .select({ id: competitors.id })
     .from(competitors)
     .innerJoin(series, eq(competitors.seriesId, series.id))
+    .leftJoin(
+      competitorIdentityLinks,
+      eq(competitorIdentityLinks.competitorId, competitors.id),
+    )
     .where(
       and(
         eq(competitors.workspaceId, workspaceId),
-        isNull(competitors.identityId),
+        isNull(competitorIdentityLinks.identityId),
         eq(series.asPublished, false),
       ),
     );

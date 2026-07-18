@@ -110,9 +110,9 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
 
   async function identityIdOf(competitorId: string): Promise<string | null> {
     const [row] = await db
-      .select({ identityId: schema.competitors.identityId })
-      .from(schema.competitors)
-      .where(eq(schema.competitors.id, competitorId));
+      .select({ identityId: schema.competitorIdentityLinks.identityId })
+      .from(schema.competitorIdentityLinks)
+      .where(eq(schema.competitorIdentityLinks.competitorId, competitorId));
     return row?.identityId ?? null;
   }
 
@@ -182,8 +182,12 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
     expect(r!.identitiesCreated).toBe(1);
     const namesakeIdentity = await identityIdOf(namesake);
     const original = await db
-      .select({ id: schema.competitors.identityId })
-      .from(schema.competitors)
+      .select({ id: schema.competitorIdentityLinks.identityId })
+      .from(schema.competitorIdentityLinks)
+      .innerJoin(
+        schema.competitors,
+        eq(schema.competitors.id, schema.competitorIdentityLinks.competitorId),
+      )
       .where(eq(schema.competitors.seriesId, seriesByYear[2023]));
     expect(namesakeIdentity).not.toBeNull();
     expect(namesakeIdentity).not.toBe(original[0].id);
@@ -209,8 +213,10 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
       names: ['Jack Keating'],
       sailNumber: '1605',
     });
-    await db.update(schema.competitors).set({ identityId: idA }).where(eq(schema.competitors.id, rowA));
-    await db.update(schema.competitors).set({ identityId: idB }).where(eq(schema.competitors.id, rowB));
+    await db.insert(schema.competitorIdentityLinks).values([
+      { competitorId: rowA, identityId: idA, workspaceId },
+      { competitorId: rowB, identityId: idB, workspaceId },
+    ]);
 
     const fresh = await addCompetitor({
       seriesId: seriesByYear[2025],

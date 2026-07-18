@@ -136,10 +136,13 @@ describe.skipIf(skip)('CLI read methods (ADR-009 M4)', () => {
       slug: 'read-sailor-ab12',
       managedBy: 'archive',
     });
-    await db
-      .update(schema.competitors)
-      .set({ identityId })
+    const linked = await db
+      .select({ id: schema.competitors.id })
+      .from(schema.competitors)
       .where(eq(schema.competitors.seriesId, seriesId));
+    await db.insert(schema.competitorIdentityLinks).values(
+      linked.map((c) => ({ competitorId: c.id, identityId, workspaceId })),
+    );
 
     const { items } = await client.listIdentities();
     const sailor = items.find((i) => i.slug === 'read-sailor-ab12');

@@ -213,10 +213,11 @@ describe.skipIf(skip)('archive ingest', () => {
       slug: 'holly-cantwell-test',
       managedBy: 'archive',
     });
-    await db
-      .update(schema.competitors)
-      .set({ identityId })
-      .where(eq(schema.competitors.id, holly));
+    await db.insert(schema.competitorIdentityLinks).values({
+      competitorId: holly,
+      identityId,
+      workspaceId,
+    });
 
     const renamed = await archive.putArchiveSeries(
       ctx,
@@ -225,9 +226,9 @@ describe.skipIf(skip)('archive ingest', () => {
     );
     expect(renamed.unchanged).toBe(false);
     const [hollyRow] = await db
-      .select({ identityId: schema.competitors.identityId })
-      .from(schema.competitors)
-      .where(eq(schema.competitors.id, holly));
+      .select({ identityId: schema.competitorIdentityLinks.identityId })
+      .from(schema.competitorIdentityLinks)
+      .where(eq(schema.competitorIdentityLinks.competitorId, holly));
     expect(hollyRow.identityId).toBe(identityId);
   });
 
@@ -432,9 +433,9 @@ describe.skipIf(skip)('archive ingest', () => {
     expect(result.autoPass.identitiesCreated).toBeGreaterThanOrEqual(1);
 
     const [hollyRow] = await db
-      .select({ identityId: schema.competitors.identityId })
-      .from(schema.competitors)
-      .where(eq(schema.competitors.id, holly));
+      .select({ identityId: schema.competitorIdentityLinks.identityId })
+      .from(schema.competitorIdentityLinks)
+      .where(eq(schema.competitorIdentityLinks.competitorId, holly));
     expect(hollyRow.identityId).toBe(
       identityIdForSlug(workspaceId, 'holly-cantwell-x1y2'),
     );
@@ -445,11 +446,11 @@ describe.skipIf(skip)('archive ingest', () => {
     expect(identity.managedBy).toBe('archive');
     expect(identity.slug).toBe('holly-cantwell-x1y2');
 
-    const [live] = await db
-      .select({ identityId: schema.competitors.identityId })
-      .from(schema.competitors)
-      .where(eq(schema.competitors.id, liveRow));
-    expect(live.identityId).toBeNull();
+    const liveLinks = await db
+      .select({ identityId: schema.competitorIdentityLinks.identityId })
+      .from(schema.competitorIdentityLinks)
+      .where(eq(schema.competitorIdentityLinks.competitorId, liveRow));
+    expect(liveLinks).toHaveLength(0);
 
     // Every identity in the workspace is archive-managed — none drafted 'app'.
     const identities = await db

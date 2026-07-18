@@ -118,16 +118,22 @@ describe.skipIf(skip)('competitor-identity reconcile operations', () => {
       club: p.club ?? '',
       gender: '',
       age: null,
-      identityId: p.identityId ?? null,
     });
+    if (p.identityId) {
+      await db.insert(schema.competitorIdentityLinks).values({
+        competitorId: id,
+        identityId: p.identityId,
+        workspaceId,
+      });
+    }
     return id;
   }
 
   async function identityIdOf(competitorId: string): Promise<string | null> {
     const [row] = await db
-      .select({ identityId: schema.competitors.identityId })
-      .from(schema.competitors)
-      .where(eq(schema.competitors.id, competitorId));
+      .select({ identityId: schema.competitorIdentityLinks.identityId })
+      .from(schema.competitorIdentityLinks)
+      .where(eq(schema.competitorIdentityLinks.competitorId, competitorId));
     return row?.identityId ?? null;
   }
 

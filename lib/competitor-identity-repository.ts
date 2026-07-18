@@ -9,6 +9,7 @@ import { getDb } from '@/lib/db/client';
 import {
   competitorIdentities,
   competitorIdentityDistinctions,
+  competitorIdentityLinks,
   competitors,
   series,
 } from '@/lib/db/schema/series';
@@ -161,7 +162,8 @@ export async function listIdentitiesWithArcs(
   const rows = await getDb()
     .select(selection)
     .from(competitorIdentities)
-    .leftJoin(competitors, eq(competitors.identityId, competitorIdentities.id))
+    .leftJoin(competitorIdentityLinks, eq(competitorIdentityLinks.identityId, competitorIdentities.id))
+    .leftJoin(competitors, eq(competitors.id, competitorIdentityLinks.competitorId))
     .leftJoin(series, eq(competitors.seriesId, series.id))
     .where(eq(competitorIdentities.workspaceId, workspaceId));
   return assemble(rows).sort((a, b) => a.label.localeCompare(b.label));
@@ -175,7 +177,8 @@ export async function getIdentityArc(
   const rows = await getDb()
     .select(selection)
     .from(competitorIdentities)
-    .leftJoin(competitors, eq(competitors.identityId, competitorIdentities.id))
+    .leftJoin(competitorIdentityLinks, eq(competitorIdentityLinks.identityId, competitorIdentities.id))
+    .leftJoin(competitors, eq(competitors.id, competitorIdentityLinks.competitorId))
     .leftJoin(series, eq(competitors.seriesId, series.id))
     .where(
       and(
@@ -323,16 +326,29 @@ export async function mergeIdentities(
     const target = rows.find((r) => r.id === targetId);
     if (!source || !target) return null;
 
-    const moved = await tx
-      .update(competitors)
-      .set({ identityId: targetId })
+    // Move the source's memberships onto the target: insert target links for
+    // every source-linked row (no-op where the row already has one), then let
+    // the source identity's delete cascade its own links away.
+    const sourceLinks = await tx
+      .select({ competitorId: competitorIdentityLinks.competitorId })
+      .from(competitorIdentityLinks)
       .where(
         and(
-          eq(competitors.workspaceId, workspaceId),
-          eq(competitors.identityId, sourceId),
+          eq(competitorIdentityLinks.workspaceId, workspaceId),
+          eq(competitorIdentityLinks.identityId, sourceId),
         ),
-      )
-      .returning({ id: competitors.id });
+      );
+    if (sourceLinks.length > 0) {
+      await tx
+        .insert(competitorIdentityLinks)
+        .values(sourceLinks.map((l) => ({
+          competitorId: l.competitorId,
+          identityId: targetId,
+          workspaceId,
+        })))
+        .onConflictDoNothing();
+    }
+    const moved = sourceLinks.map((l) => ({ id: l.competitorId }));
     await tx
       .delete(competitorIdentities)
       .where(eq(competitorIdentities.id, sourceId));
@@ -388,15 +404,25 @@ export async function restoreIdentity(
       })
       .onConflictDoNothing({ target: competitorIdentities.id });
     if (competitorIds.length > 0) {
+      // Undo of a merge: the listed rows' memberships moved to the merge
+      // target; take them back. Pre-multi-link semantics — replace the rows'
+      // links wholesale with the restored identity.
       await tx
-        .update(competitors)
-        .set({ identityId: snapshot.id })
+        .delete(competitorIdentityLinks)
         .where(
           and(
-            eq(competitors.workspaceId, workspaceId),
-            inArray(competitors.id, competitorIds),
+            eq(competitorIdentityLinks.workspaceId, workspaceId),
+            inArray(competitorIdentityLinks.competitorId, competitorIds),
           ),
         );
+      await tx
+        .insert(competitorIdentityLinks)
+        .values(competitorIds.map((id) => ({
+          competitorId: id,
+          identityId: snapshot.id,
+          workspaceId,
+        })))
+        .onConflictDoNothing();
     }
   });
 }
@@ -429,12 +455,13 @@ export async function splitIdentity(
         startDate: series.startDate,
         asPublished: series.asPublished,
       })
-      .from(competitors)
+      .from(competitorIdentityLinks)
+      .innerJoin(competitors, eq(competitors.id, competitorIdentityLinks.competitorId))
       .innerJoin(series, eq(competitors.seriesId, series.id))
       .where(
         and(
-          eq(competitors.workspaceId, workspaceId),
-          eq(competitors.identityId, identityId),
+          eq(competitorIdentityLinks.workspaceId, workspaceId),
+          eq(competitorIdentityLinks.identityId, identityId),
         ),
       );
     const wanted = new Set(competitorIds);
@@ -474,14 +501,21 @@ export async function splitIdentity(
       nationality: rep.nationality ?? null,
     });
     await tx
-      .update(competitors)
-      .set({ identityId: newId })
+      .delete(competitorIdentityLinks)
       .where(
         and(
-          eq(competitors.workspaceId, workspaceId),
-          inArray(competitors.id, competitorIds),
+          eq(competitorIdentityLinks.workspaceId, workspaceId),
+          eq(competitorIdentityLinks.identityId, identityId),
+          inArray(competitorIdentityLinks.competitorId, competitorIds),
         ),
       );
+    await tx
+      .insert(competitorIdentityLinks)
+      .values(competitorIds.map((id) => ({
+        competitorId: id,
+        identityId: newId,
+        workspaceId,
+      })));
     // The remainder's arc changed too — any "looks right" is stale.
     await tx
       .update(competitorIdentities)
@@ -597,12 +631,12 @@ export async function isIdentityOrphaned(
   identityId: string,
 ): Promise<boolean> {
   const [row] = await getDb()
-    .select({ id: competitors.id })
-    .from(competitors)
+    .select({ id: competitorIdentityLinks.competitorId })
+    .from(competitorIdentityLinks)
     .where(
       and(
-        eq(competitors.workspaceId, workspaceId),
-        eq(competitors.identityId, identityId),
+        eq(competitorIdentityLinks.workspaceId, workspaceId),
+        eq(competitorIdentityLinks.identityId, identityId),
       ),
     )
     .limit(1);

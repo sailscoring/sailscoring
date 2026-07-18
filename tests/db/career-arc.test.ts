@@ -80,7 +80,6 @@ describe.skipIf(skip)('getCareerArc placements', () => {
         club: 'RCYC',
         gender: '',
         age: null,
-        identityId,
       },
       {
         id: filler,
@@ -126,8 +125,9 @@ describe.skipIf(skip)('getCareerArc placements', () => {
       startDate: '2019-05-01',
       displayOrder: 2,
     });
+    const emptyRow = uuid();
     await db.insert(schema.competitors).values({
-      id: uuid(),
+      id: emptyRow,
       seriesId: emptySeries,
       workspaceId,
       fleetIds: [],
@@ -136,8 +136,11 @@ describe.skipIf(skip)('getCareerArc placements', () => {
       club: 'RCYC',
       gender: '',
       age: null,
-      identityId,
     });
+    // Memberships via the link table (#316).
+    await db.insert(schema.competitorIdentityLinks).values(
+      [star, emptyRow].map((competitorId) => ({ competitorId, identityId, workspaceId })),
+    );
   });
 
   afterAll(async () => {
@@ -182,8 +185,9 @@ describe.skipIf(skip)('getCareerArc placements', () => {
       startDate: '2020-05-01',
       displayOrder: 9,
     });
+    const rowId = uuid();
     await db.insert(schema.competitors).values({
-      id: uuid(),
+      id: rowId,
       seriesId: unpublished,
       workspaceId,
       fleetIds: [],
@@ -192,7 +196,11 @@ describe.skipIf(skip)('getCareerArc placements', () => {
       club: '',
       gender: '',
       age: null,
+    });
+    await db.insert(schema.competitorIdentityLinks).values({
+      competitorId: rowId,
       identityId: id,
+      workspaceId,
     });
 
     const arc = await getCareerArc(workspaceId, id);

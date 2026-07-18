@@ -498,6 +498,13 @@
       "when": 1784397591581,
       "tag": "0070_nostalgic_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1784402531723,
+      "tag": "0071_left_gressill",
+      "breakpoints": true
     }
   ]
 }

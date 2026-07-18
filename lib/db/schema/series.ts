@@ -417,10 +417,6 @@ export const competitors = pgTable(
     // only fills NULLs afterwards). Excluded from the .sailscoring file format
     // and public JSON export by virtue of not being on the `Competitor` domain
     // type at all. `set null` on identity delete leaves the event data intact.
-    identityId: uuid('identity_id').references(
-      (): AnyPgColumn => competitorIdentities.id,
-      { onDelete: 'set null' },
-    ),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,
@@ -428,7 +424,6 @@ export const competitors = pgTable(
   (table) => [
     index('competitors_series_idx').on(table.seriesId),
     index('competitors_workspace_idx').on(table.workspaceId),
-    index('competitors_identity_idx').on(table.identityId),
     index('competitors_fleet_gin').using('gin', table.fleetIds),
     check(
       'competitors_gender_chk',
@@ -497,6 +492,39 @@ export const competitorIdentities = pgTable(
       'competitor_identities_managed_by_chk',
       sql`${table.managedBy} in ('app','archive')`,
     ),
+  ],
+);
+
+/**
+ * Person-level identity membership (#316): which cross-series identities
+ * claim a competitor row. Replaces the old single `competitors.identity_id`
+ * FK — a row with a multi-person primary ("J. & M. Murphy") is claimed by
+ * each co-owner's identity, so the co-owned event appears on both career
+ * arcs. A link is plain membership: no slot/index column, because `names`
+ * order is editable and the reconcile pass re-derives who-matches-what.
+ * Cascades both ways: deleting a competitor or an identity retires its links.
+ */
+export const competitorIdentityLinks = pgTable(
+  'competitor_identity_links',
+  {
+    competitorId: uuid('competitor_id')
+      .notNull()
+      .references(() => competitors.id, { onDelete: 'cascade' }),
+    identityId: uuid('identity_id')
+      .notNull()
+      .references((): AnyPgColumn => competitorIdentities.id, { onDelete: 'cascade' }),
+    // Denormalised like the parent tables so tenancy filters are one lookup.
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.competitorId, table.identityId] }),
+    index('competitor_identity_links_identity_idx').on(table.identityId),
+    index('competitor_identity_links_workspace_idx').on(table.workspaceId),
   ],
 );
 

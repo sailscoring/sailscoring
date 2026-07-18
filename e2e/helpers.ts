@@ -276,7 +276,11 @@ export async function seedCareerArc(
         club: entry.club ?? opts.club ?? '',
         gender: '',
         age: null,
+      });
+      await db.insert(schema.competitorIdentityLinks).values({
+        competitorId: starId,
         identityId,
+        workspaceId,
       });
       if (entry.scored && fleetId) {
         const fillerId = crypto.randomUUID();
@@ -419,7 +423,11 @@ export async function seedRankedSeries(
         nationality: entrant.nationality ?? null,
         gender: '',
         age: null,
+      });
+      await db.insert(schema.competitorIdentityLinks).values({
+        competitorId,
         identityId,
+        workspaceId,
       });
       await db.insert(schema.finishes).values({
         id: crypto.randomUUID(),

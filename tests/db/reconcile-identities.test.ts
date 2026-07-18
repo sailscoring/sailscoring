@@ -94,9 +94,9 @@ describe.skipIf(skip)('reconcile-identities apply path', () => {
 
   async function identityIdOf(competitorId: string): Promise<string | null> {
     const [row] = await db
-      .select({ identityId: schema.competitors.identityId })
-      .from(schema.competitors)
-      .where(eq(schema.competitors.id, competitorId));
+      .select({ identityId: schema.competitorIdentityLinks.identityId })
+      .from(schema.competitorIdentityLinks)
+      .where(eq(schema.competitorIdentityLinks.competitorId, competitorId));
     return row?.identityId ?? null;
   }
 
@@ -269,9 +269,9 @@ describe.skipIf(skip)('reconcile-identities manifest apply path (#218)', () => {
 
   async function identityIdOf(competitorId: string): Promise<string | null> {
     const [row] = await db
-      .select({ identityId: schema.competitors.identityId })
-      .from(schema.competitors)
-      .where(eq(schema.competitors.id, competitorId));
+      .select({ identityId: schema.competitorIdentityLinks.identityId })
+      .from(schema.competitorIdentityLinks)
+      .where(eq(schema.competitorIdentityLinks.competitorId, competitorId));
     return row?.identityId ?? null;
   }
 
@@ -375,10 +375,16 @@ describe.skipIf(skip)('reconcile-identities manifest apply path (#218)', () => {
       slug: 'wrong-identity-zzzz',
       sailNumber: '1423',
     });
+    // Replace charlie1's membership with the wrong identity (the pre-link-table
+    // seed overwrote the single FK; replicate that shape).
     await db
-      .update(schema.competitors)
-      .set({ identityId: throwaway })
-      .where(eq(schema.competitors.id, charlie1));
+      .delete(schema.competitorIdentityLinks)
+      .where(eq(schema.competitorIdentityLinks.competitorId, charlie1));
+    await db.insert(schema.competitorIdentityLinks).values({
+      competitorId: charlie1,
+      identityId: throwaway,
+      workspaceId,
+    });
     expect(await identityIdOf(charlie1)).toBe(throwaway);
 
     const plan = await planFor({

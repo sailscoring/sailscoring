@@ -12,6 +12,7 @@ import { getDb } from './db/client';
 import {
   asPublishedRankings,
   competitorIdentities,
+  competitorIdentityLinks,
   competitors,
   rankings,
   series,
@@ -248,14 +249,20 @@ export async function computeRankingStandings(
 
   // Resolve the placed rows to identities.
   const placedIds = [...placeByCompetitor.keys()];
+  // One row per identity membership: a co-owned entry (several links) credits
+  // each linked identity with the full place, once per identity (#316).
   const rows = await db
     .select({
       id: competitors.id,
-      identityId: competitors.identityId,
+      identityId: competitorIdentityLinks.identityId,
       nationality: competitors.nationality,
       seriesId: competitors.seriesId,
     })
     .from(competitors)
+    .leftJoin(
+      competitorIdentityLinks,
+      eq(competitorIdentityLinks.competitorId, competitors.id),
+    )
     .where(inArray(competitors.id, placedIds));
 
   const seriesOrder = new Map(orderedIncluded.map((s, i) => [s.id, i]));
