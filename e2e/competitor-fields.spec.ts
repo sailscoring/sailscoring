@@ -237,6 +237,11 @@ test('subdivisions: two axes through the form, standings, and export', async ({ 
   // ── 3. Add two competitors with values on both axes ──────────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();
   await page.getByRole('button', { name: 'Add competitor' }).click();
+  // The axis-2 rename autosaves asynchronously; until it lands, the form
+  // shows two default-labelled "Division" axes and the Division locator is
+  // ambiguous. The renamed field appearing (the form re-renders from the
+  // live series query) is the signal that the settings write has propagated.
+  await expect(page.getByLabel('Age category', { exact: true })).toBeVisible();
   await page.getByLabel('Sail number').fill('1');
   await page.getByLabel('Competitor name').fill('Alice');
   await page.getByLabel('Division', { exact: true }).fill('Gold');
