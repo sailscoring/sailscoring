@@ -20,7 +20,7 @@ interface FileCompetitor {
   id: string;
   fleetIds: string[];
   sailNumber: string;
-  name: string;
+  names: string[];
   crewNames?: string[];
   club: string;
   gender: string;
@@ -154,7 +154,7 @@ test.describe('series file save / open / update, server mode', () => {
           id: 'new-competitor-1',
           fleetIds: original.competitors[0].fleetIds,
           sailNumber: '99',
-          name: 'New Helm',
+          names: ['New Helm'],
           club: 'RIYC',
           gender: '',
           age: null,

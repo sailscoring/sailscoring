@@ -19,7 +19,7 @@ interface FileCompetitor {
   id: string;
   fleetIds: string[];
   sailNumber: string;
-  name: string;
+  names: string[];
   crewNames?: string[];
   club: string;
   gender: string;
@@ -205,7 +205,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   // Competitors and races
   expect(file.competitors).toHaveLength(1);
   expect(file.competitors[0].sailNumber).toBe('1234');
-  expect(file.competitors[0].name).toBe('Jane Doe');
+  expect(file.competitors[0].names).toEqual(['Jane Doe']);
 
   expect(file.races).toHaveLength(1);
   expect(file.races[0].raceNumber).toBe(1);
@@ -237,7 +237,7 @@ test('series file: Update from File replaces the series in place (matched by ser
     series: { ...original.series, name: 'Updated by Co-scorer', venue: 'RIYC' },
     competitors: [
       ...original.competitors,
-      { id: crypto.randomUUID(), fleetIds: original.competitors[0].fleetIds, sailNumber: '99', name: 'New Helm', club: 'RIYC', gender: '', age: null },
+      { id: crypto.randomUUID(), fleetIds: original.competitors[0].fleetIds, sailNumber: '99', names: ['New Helm'], club: 'RIYC', gender: '', age: null },
     ],
   };
 

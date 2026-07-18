@@ -151,7 +151,7 @@ test('co-owners: Add owner rows, gender/age single-individual rule, stacked expo
   await page.getByLabel('Age').fill('44');
 
   // ── 3. A second owner hides gender/age and states the clearing rule ──────
-  await page.getByRole('button', { name: 'Add owner' }).click();
+  await page.getByRole('button', { name: 'Add name' }).click();
   await page.getByLabel('Owner name 2').fill('M. Murphy');
   await expect(page.getByLabel('Age')).toHaveCount(0);
   await expect(page.getByText(/Gender and age apply to a single named owner/)).toBeVisible();

@@ -63,7 +63,7 @@ test('cruiser-style CSV import proposes Owner as the primary identifier', async 
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('navigation').getByRole('link', { name: 'Competitors' }).click();
   await page.getByRole('button', { name: 'Add competitor' }).click();
-  await expect(page.getByLabel('Owner name *')).toBeVisible();
+  await expect(page.getByLabel('Owner name 1')).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
 });
 
@@ -82,9 +82,9 @@ test('helm-primary series keeps the Helm label across UI and rejects the owner-a
   // On the Competitors tab, the add dialog asks for "Helm name *".
   await page.getByRole('navigation').getByRole('link', { name: 'Competitors' }).click();
   await page.getByRole('button', { name: 'Add competitor' }).click();
-  await expect(page.getByLabel('Helm name *')).toBeVisible();
+  await expect(page.getByLabel('Helm name 1')).toBeVisible();
   await page.getByLabel('Sail number').fill('GBR100');
-  await page.getByLabel('Helm name *').fill('Alice');
+  await page.getByLabel('Helm name 1').fill('Alice');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: 'GBR100', exact: true })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Helm', exact: true })).toBeVisible();

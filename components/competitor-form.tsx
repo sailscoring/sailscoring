@@ -304,7 +304,7 @@ export function CompetitorForm({
           <PersonRowsField
             heading={<>{primaryFieldLabel} name *</>}
             rowLabelBase={`${primaryFieldLabel} name`}
-            addLabel={`Add ${primaryFieldLabel.toLowerCase()}`}
+            addLabel="Add name"
             rows={data.names}
             onChange={(rows) => set('names', rows)}
             placeholder="e.g. Jane Doe"

@@ -270,8 +270,9 @@ export default async function HelpPage() {
           <em>Crew</em> for classes that sail with crew.
         </p>
         <p>
-          Every person field takes any number of names: <em>Add owner</em>, <em>Add helm</em>, or{' '}
-          <em>Add crew</em> in the competitor dialog adds a row per person, so co-owned boats
+          Every person field takes any number of names: <em>Add name</em> (on the primary),{' '}
+          <em>Add owner</em>, <em>Add helm</em>, or <em>Add crew</em> in the competitor dialog
+          adds a row per person, so co-owned boats
           (&ldquo;J. &amp; M. Murphy&rdquo; syndicates), offshore co-helms, and full keelboat
           crews are all first-class. A single owner-and-crew pairing keeps the classic one-line{' '}
           <em>Helm / Crew</em> in exported results; any more people stack one name per line.
