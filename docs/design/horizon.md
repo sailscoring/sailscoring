@@ -840,6 +840,18 @@ chosen and whether it's capped (pursuit races usually run to a time limit, not a
 course); how mixed-handicap-system fleets are handled in one pursuit start sequence; and
 whether start times round to sensible whole seconds/minutes for a startable sequence.
 
+### Qualifying and final series (flights) — deferred residue
+
+The championship format that splits a large entry into rotating qualifying
+flights and then Gold/Silver/Bronze final fleets is designed in
+[`docs/design/qualifying-final-series.md`](qualifying-final-series.md) (primer,
+data model, UX, rollout). What stays on the horizon beyond that design's v1
+scope: authoring UX for the 29er net-plus-net and Topper rank-as-seed carry
+modes (modelled and fixture-tested, no UI); knockout medal-series brackets
+(iQFOiL / Formula Kite quarter/semi/grand finals scored on match points —
+not low-point arithmetic at all); and electronic finish/OCS ingestion from
+race-management systems like Vakaros RaceSense.
+
 ---
 
 ## Esoteric scoring engine requirements
