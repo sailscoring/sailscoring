@@ -29,10 +29,10 @@ export interface CompetitorFormData {
   bowNumber: string;
   boatName: string;
   boatClass: string;
-  name: string;
-  owner: string;
-  helm: string;
-  crewNames: string[];  // dynamic rows in the form; blanks dropped on save
+  names: string[];   // primary person rows; blanks dropped on save, at least one non-blank required
+  owners: string[];  // dynamic rows; blanks dropped on save
+  helms: string[];
+  crewNames: string[];
   club: string;
   nationality: string;
   gender: '' | 'M' | 'F';
@@ -51,9 +51,9 @@ export const emptyCompetitorForm: CompetitorFormData = {
   bowNumber: '',
   boatName: '',
   boatClass: '',
-  name: '',
-  owner: '',
-  helm: '',
+  names: [''],
+  owners: [],
+  helms: [],
   crewNames: [],
   club: '',
   nationality: '',
@@ -67,6 +67,78 @@ export const emptyCompetitorForm: CompetitorFormData = {
   nhcStartingTcf: '',
   echoStartingTcf: '',
 };
+
+/** One input row per person, shared by the primary, owner, helm, and crew
+ *  fields. "Add" appends a row and focuses it (ref callback — no re-render);
+ *  "Remove" appears once there is more than one row; blanks are dropped on
+ *  save at the page boundary. Row aria-labels are numbered from 1 so a
+ *  single-row field still answers to its base label as a prefix. */
+function PersonRowsField({
+  heading,
+  rowLabelBase,
+  addLabel,
+  rows,
+  onChange,
+  placeholder,
+}: {
+  heading: React.ReactNode;
+  rowLabelBase: string;
+  addLabel: string;
+  rows: string[];
+  onChange: (rows: string[]) => void;
+  placeholder?: string;
+}) {
+  const displayRows = rows.length > 0 ? rows : [''];
+  const pendingFocus = useRef<number | null>(null);
+  return (
+    <div className="space-y-1.5">
+      <Label>{heading}</Label>
+      {displayRows.map((value, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <Input
+            ref={(el) => {
+              if (el && pendingFocus.current === i) {
+                pendingFocus.current = null;
+                el.focus();
+              }
+            }}
+            aria-label={`${rowLabelBase} ${i + 1}`}
+            value={value}
+            onChange={(e) => {
+              const next = [...displayRows];
+              next[i] = e.target.value;
+              onChange(next);
+            }}
+            placeholder={i === 0 ? placeholder : undefined}
+          />
+          {displayRows.length > 1 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs text-muted-foreground"
+              onClick={() => onChange(displayRows.filter((_, j) => j !== i))}
+            >
+              Remove
+            </Button>
+          )}
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-7 px-2 text-xs"
+        onClick={() => {
+          pendingFocus.current = displayRows.length;
+          onChange([...displayRows, '']);
+        }}
+      >
+        {addLabel}
+      </Button>
+    </div>
+  );
+}
 
 /** Passive "who last edited this" stamp in the edit dialog (#153). */
 export function CompetitorAuditLine({ competitorId }: { competitorId: string }) {
@@ -107,7 +179,7 @@ export function CompetitorForm({
   // "+ More fields" lets scorers add owner/helm/etc. without leaving the form.
   // Defaults to expanded when the initial data already populates one of the
   // extra slots (editing) so the value stays visible.
-  const initialExtra = (['owner', 'helm'] as const).some((f) => (initial[f] ?? '').trim().length > 0);
+  const initialExtra = (['owners', 'helms'] as const).some((f) => initial[f].some((n) => n.trim().length > 0));
   const [showMore, setShowMore] = useState(initialExtra);
   const primaryFieldLabel = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
   // Extra role fields available through "+ More fields" — the two role slots
@@ -136,27 +208,10 @@ export function CompetitorForm({
     setData((d) => ({ ...d, [field]: value }));
   }
 
-  // Crew rows: the stored list, or one blank row so the field is immediately
-  // typable. Blanks are dropped on save (cleanCrewNames at the page boundary).
-  const crewRows = data.crewNames.length > 0 ? data.crewNames : [''];
-  // "Add crew" focuses the row it appends; the ref callback fires when the new
-  // input mounts. A ref (not state) so no re-render is involved.
-  const pendingCrewFocus = useRef<number | null>(null);
-
-  function setCrewRow(index: number, value: string) {
-    const next = [...crewRows];
-    next[index] = value;
-    set('crewNames', next);
-  }
-
-  function addCrewRow() {
-    pendingCrewFocus.current = crewRows.length;
-    set('crewNames', [...crewRows, '']);
-  }
-
-  function removeCrewRow(index: number) {
-    set('crewNames', crewRows.filter((_, i) => i !== index));
-  }
+  // Gender and age describe the primary person, and only when the primary is
+  // a single individual — a syndicate entry carries neither (#316).
+  const multiPrimary = data.names.filter((n) => n.trim()).length > 1;
+  const clearsDemographics = multiPrimary && (data.gender !== '' || data.age.trim() !== '');
 
   function toggleFleet(fleetId: string, checked: boolean) {
     set('fleetIds', checked
@@ -171,7 +226,7 @@ export function CompetitorForm({
       setError('Sail number is required.');
       return;
     }
-    if (!data.name.trim()) {
+    if (!data.names.some((n) => n.trim())) {
       setError(`${primaryFieldLabel} name is required.`);
       return;
     }
@@ -246,13 +301,19 @@ export function CompetitorForm({
           )}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="primaryName">{primaryFieldLabel} name *</Label>
-          <Input
-            id="primaryName"
-            value={data.name}
-            onChange={(e) => set('name', e.target.value)}
+          <PersonRowsField
+            heading={<>{primaryFieldLabel} name *</>}
+            rowLabelBase={`${primaryFieldLabel} name`}
+            addLabel={`Add ${primaryFieldLabel.toLowerCase()}`}
+            rows={data.names}
+            onChange={(rows) => set('names', rows)}
             placeholder="e.g. Jane Doe"
           />
+          {clearsDemographics && (
+            <p className="text-sm text-amber-600">
+              Gender and age apply to a single named {primaryFieldLabel.toLowerCase()} and will be cleared.
+            </p>
+          )}
         </div>
         {enabledFields.includes('bowNumber') && (
           <div className="space-y-1.5">
@@ -288,89 +349,54 @@ export function CompetitorForm({
           </div>
         )}
         {enabledFields.includes('helm') && !isFieldDisabledByPrimary('helm', primaryLabel) && (
-          <div className="space-y-1.5">
-            <Label htmlFor="helm">Helm name</Label>
-            <Input
-              id="helm"
-              value={data.helm}
-              onChange={(e) => set('helm', e.target.value)}
-              placeholder="e.g. Jane Doe"
-            />
-          </div>
+          <PersonRowsField
+            heading="Helm name"
+            rowLabelBase="Helm name"
+            addLabel="Add helm"
+            rows={data.helms}
+            onChange={(rows) => set('helms', rows)}
+            placeholder="e.g. Jane Doe"
+          />
         )}
         {enabledFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel) && (
-          <div className="space-y-1.5">
-            <Label htmlFor="owner">Owner name</Label>
-            <Input
-              id="owner"
-              value={data.owner}
-              onChange={(e) => set('owner', e.target.value)}
-              placeholder="e.g. John Smith"
-            />
-          </div>
+          <PersonRowsField
+            heading="Owner name"
+            rowLabelBase="Owner name"
+            addLabel="Add owner"
+            rows={data.owners}
+            onChange={(rows) => set('owners', rows)}
+            placeholder="e.g. John Smith"
+          />
         )}
         {showMore && extraRoleFields.includes('helm') && (
-          <div className="space-y-1.5">
-            <Label htmlFor="helm">Helm name</Label>
-            <Input
-              id="helm"
-              value={data.helm}
-              onChange={(e) => set('helm', e.target.value)}
-              placeholder="e.g. Jane Doe"
-            />
-          </div>
+          <PersonRowsField
+            heading="Helm name"
+            rowLabelBase="Helm name"
+            addLabel="Add helm"
+            rows={data.helms}
+            onChange={(rows) => set('helms', rows)}
+            placeholder="e.g. Jane Doe"
+          />
         )}
         {showMore && extraRoleFields.includes('owner') && (
-          <div className="space-y-1.5">
-            <Label htmlFor="owner">Owner name</Label>
-            <Input
-              id="owner"
-              value={data.owner}
-              onChange={(e) => set('owner', e.target.value)}
-              placeholder="e.g. John Smith"
-            />
-          </div>
+          <PersonRowsField
+            heading="Owner name"
+            rowLabelBase="Owner name"
+            addLabel="Add owner"
+            rows={data.owners}
+            onChange={(rows) => set('owners', rows)}
+            placeholder="e.g. John Smith"
+          />
         )}
         {enabledFields.includes('crewName') && (
-          <div className="space-y-1.5">
-            <Label>Crew</Label>
-            {crewRows.map((crewName, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <Input
-                  ref={(el) => {
-                    if (el && pendingCrewFocus.current === i) {
-                      pendingCrewFocus.current = null;
-                      el.focus();
-                    }
-                  }}
-                  aria-label={`Crew ${i + 1}`}
-                  value={crewName}
-                  onChange={(e) => setCrewRow(i, e.target.value)}
-                  placeholder={i === 0 ? 'e.g. Mark Smith' : undefined}
-                />
-                {crewRows.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 text-xs text-muted-foreground"
-                    onClick={() => removeCrewRow(i)}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={addCrewRow}
-            >
-              Add crew
-            </Button>
-          </div>
+          <PersonRowsField
+            heading="Crew"
+            rowLabelBase="Crew"
+            addLabel="Add crew"
+            rows={data.crewNames}
+            onChange={(rows) => set('crewNames', rows)}
+            placeholder="e.g. Mark Smith"
+          />
         )}
         {enabledFields.includes('club') && (
           <div className="space-y-1.5">
@@ -393,7 +419,7 @@ export function CompetitorForm({
             />
           </div>
         )}
-        {enabledFields.includes('gender') && (
+        {enabledFields.includes('gender') && !multiPrimary && (
           <div className="space-y-1.5">
             <Label>Gender</Label>
             <Select value={data.gender} onValueChange={(v) => set('gender', v as '' | 'M' | 'F')}>
@@ -407,7 +433,7 @@ export function CompetitorForm({
             </Select>
           </div>
         )}
-        {enabledFields.includes('age') && (
+        {enabledFields.includes('age') && !multiPrimary && (
           <div className="space-y-1.5">
             <Label htmlFor="age">Age</Label>
             <Input

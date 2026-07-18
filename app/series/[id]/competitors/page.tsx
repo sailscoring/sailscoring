@@ -377,16 +377,22 @@ export default function CompetitorsPage({
       ...(data.bowNumber.trim() ? { bowNumber: data.bowNumber.trim() } : {}),
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
-      names: [data.name],
-      ...(data.owner.trim() ? { owners: [data.owner.trim()] } : {}),
+      names: cleanPersonNames(data.names) ?? [''],
+      ...((): { owners?: string[] } => {
+        const owners = cleanPersonNames(data.owners);
+        return owners ? { owners } : {};
+      })(),
       ...((): { crewNames?: string[] } => {
         const crew = cleanPersonNames(data.crewNames);
         return crew ? { crewNames: crew } : {};
       })(),
       club: data.club,
       ...(data.nationality.trim() ? { nationality: data.nationality.trim() } : {}),
-      gender: data.gender,
-      age: data.age ? parseInt(data.age, 10) : null,
+      // Gender and age describe a single named primary; a multi-person entry
+      // (syndicate, co-helms) carries neither. The dialog states this before
+      // save clears them.
+      gender: (cleanPersonNames(data.names) ?? ['']).length <= 1 ? data.gender : '',
+      age: (cleanPersonNames(data.names) ?? ['']).length <= 1 && data.age ? parseInt(data.age, 10) : null,
       ...((): { subdivisions?: Record<string, string> } => {
         const subs = cleanSubdivisions(data.subdivisions);
         return subs ? { subdivisions: subs } : {};
@@ -414,17 +420,26 @@ export default function CompetitorsPage({
       ...(data.bowNumber.trim() ? { bowNumber: data.bowNumber.trim() } : {}),
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
-      names: [data.name],
-      ...(data.owner.trim() ? { owners: [data.owner.trim()] } : {}),
-      ...(data.helm.trim() ? { helms: [data.helm.trim()] } : {}),
+      names: cleanPersonNames(data.names) ?? [''],
+      ...((): { owners?: string[] } => {
+        const owners = cleanPersonNames(data.owners);
+        return owners ? { owners } : {};
+      })(),
+      ...((): { helms?: string[] } => {
+        const helms = cleanPersonNames(data.helms);
+        return helms ? { helms } : {};
+      })(),
       ...((): { crewNames?: string[] } => {
         const crew = cleanPersonNames(data.crewNames);
         return crew ? { crewNames: crew } : {};
       })(),
       club: data.club,
       ...(data.nationality.trim() ? { nationality: data.nationality.trim() } : {}),
-      gender: data.gender,
-      age: data.age ? parseInt(data.age, 10) : null,
+      // Gender and age describe a single named primary; a multi-person entry
+      // (syndicate, co-helms) carries neither. The dialog states this before
+      // save clears them.
+      gender: (cleanPersonNames(data.names) ?? ['']).length <= 1 ? data.gender : '',
+      age: (cleanPersonNames(data.names) ?? ['']).length <= 1 && data.age ? parseInt(data.age, 10) : null,
       ...((): { subdivisions?: Record<string, string> } => {
         const subs = cleanSubdivisions(data.subdivisions);
         return subs ? { subdivisions: subs } : {};
@@ -440,8 +455,8 @@ export default function CompetitorsPage({
     if (!data.bowNumber.trim()) delete updated.bowNumber;
     if (!data.boatName.trim()) delete updated.boatName;
     if (!data.boatClass.trim()) delete updated.boatClass;
-    if (!data.owner.trim()) delete updated.owners;
-    if (!data.helm.trim()) delete updated.helms;
+    if (!cleanPersonNames(data.owners)) delete updated.owners;
+    if (!cleanPersonNames(data.helms)) delete updated.helms;
     if (!cleanPersonNames(data.crewNames)) delete updated.crewNames;
     if (!data.nationality.trim()) delete updated.nationality;
     if (!cleanSubdivisions(data.subdivisions)) delete updated.subdivisions;
@@ -855,9 +870,9 @@ export default function CompetitorsPage({
                 bowNumber: editingCompetitor.bowNumber ?? '',
                 boatName: editingCompetitor.boatName ?? '',
                 boatClass: editingCompetitor.boatClass ?? '',
-                name: editingCompetitor.names[0] ?? '',
-                owner: editingCompetitor.owners?.[0] ?? '',
-                helm: editingCompetitor.helms?.[0] ?? '',
+                names: editingCompetitor.names,
+                owners: editingCompetitor.owners ?? [],
+                helms: editingCompetitor.helms ?? [],
                 crewNames: editingCompetitor.crewNames ?? [],
                 club: editingCompetitor.club,
                 nationality: editingCompetitor.nationality ?? '',
