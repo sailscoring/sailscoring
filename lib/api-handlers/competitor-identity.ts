@@ -6,7 +6,7 @@ import {
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
 import { clusterCompetitors } from '@/lib/competitor-identity-cluster';
-import { collectClusterInputs } from '@/lib/competitor-identity-reconcile';
+import { collectClusterInputs, collectStaleLinks, type StaleLink } from '@/lib/competitor-identity-reconcile';
 import {
   addIdentityDistinction,
   getIdentityArc,
@@ -207,7 +207,7 @@ export interface MergeSuggestion {
  */
 export async function reviewQueue(
   workspace: WorkspaceContext,
-): Promise<{ mergeSuggestions: MergeSuggestion[] }> {
+): Promise<{ mergeSuggestions: MergeSuggestion[]; staleLinks: StaleLink[] }> {
   requireFeature(workspace, 'competitor-reconcile');
   const inputs = await collectClusterInputs(getDb(), workspace.workspaceId);
   const { clusters, suggestions } = clusterCompetitors(inputs);
@@ -238,5 +238,18 @@ export async function reviewQueue(
       jurisdictions.get(c.aId) !== 'archive' ||
       jurisdictions.get(c.bId) !== 'archive',
   );
-  return { mergeSuggestions };
+
+  // Stale memberships (#316): a link whose identity label matches no person
+  // on its (multi-person) row — a rename walked away from the link, or a
+  // pre-list joined-name identity still attached. Never auto-unlinked; a
+  // human resolves each. Archive-managed identities are git's to judge.
+  const allStale = await collectStaleLinks(getDb(), workspace.workspaceId);
+  const staleJurisdictions = await getIdentityJurisdictions(
+    workspace.workspaceId,
+    [...new Set(allStale.map((l) => l.identityId))],
+  );
+  const staleLinks = allStale.filter(
+    (l) => staleJurisdictions.get(l.identityId) !== 'archive',
+  );
+  return { mergeSuggestions, staleLinks };
 }

@@ -525,6 +525,29 @@ export async function splitIdentity(
   });
 }
 
+/**
+ * Remove one membership (#316) — the review queue's resolution for a stale
+ * link (an identity whose label matches no person on the row). Plain removal:
+ * the identity keeps its other rows, and orphan GC collects it if none
+ * remain. Returns false when no such link exists in the workspace.
+ */
+export async function removeIdentityLink(
+  workspaceId: string,
+  competitorId: string,
+  identityId: string,
+): Promise<boolean> {
+  const res = await getDb()
+    .delete(competitorIdentityLinks)
+    .where(
+      and(
+        eq(competitorIdentityLinks.workspaceId, workspaceId),
+        eq(competitorIdentityLinks.competitorId, competitorId),
+        eq(competitorIdentityLinks.identityId, identityId),
+      ),
+    );
+  return (res.count ?? 0) > 0;
+}
+
 /** Stamp (or clear) the review queue's "looks right" mark (#221). Returns
  *  false if the identity isn't in the workspace. */
 export async function setIdentityReviewed(

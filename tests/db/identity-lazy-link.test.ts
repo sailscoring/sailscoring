@@ -14,7 +14,8 @@ import { eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres, { type Sql } from 'postgres';
 
-import { relinkIdentitiesAfterWrite } from '@/lib/competitor-identity-reconcile';
+import { collectStaleLinks, relinkIdentitiesAfterWrite } from '@/lib/competitor-identity-reconcile';
+import { removeIdentityLink } from '@/lib/competitor-identity-repository';
 import * as schema from '@/lib/db/schema';
 import { serializeOrgMetadata } from '@/lib/features';
 
@@ -230,5 +231,105 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
     // Neither confirmed link moved.
     expect(await identityIdOf(rowA)).toBe(idA);
     expect(await identityIdOf(rowB)).toBe(idB);
+  });
+
+  test('a co-owned entry links each person to their own identity (#316)', async () => {
+    // Two established single-owner arcs...
+    const j1 = await addCompetitor({
+      seriesId: seriesByYear[2023],
+      names: ['Joseph Murtagh'],
+      sailNumber: 'IRL808',
+      club: 'HYC',
+    });
+    const m1 = await addCompetitor({
+      seriesId: seriesByYear[2023],
+      names: ['Maeve Murtagh'],
+      sailNumber: 'IRL808',
+      club: 'HYC',
+    });
+    await relinkIdentitiesAfterWrite(workspaceId, db);
+    const jId = await identityIdOf(j1);
+    const mId = await identityIdOf(m1);
+    expect(jId).not.toBeNull();
+    expect(mId).not.toBeNull();
+    expect(jId).not.toBe(mId);
+
+    // ...then a co-owned entry on the same hull: both arcs claim it.
+    const coOwned = await addCompetitor({
+      seriesId: seriesByYear[2024],
+      names: ['Joseph Murtagh', 'Maeve Murtagh'],
+      sailNumber: 'IRL808',
+      club: 'HYC',
+    });
+    const r = await relinkIdentitiesAfterWrite(workspaceId, db);
+    expect(r).not.toBeNull();
+    const links = await db
+      .select({ identityId: schema.competitorIdentityLinks.identityId })
+      .from(schema.competitorIdentityLinks)
+      .where(eq(schema.competitorIdentityLinks.competitorId, coOwned));
+    expect(new Set(links.map((l) => l.identityId))).toEqual(new Set([jId, mId]));
+  });
+
+  test('fragment names need sail or age corroboration — club alone only suggests', async () => {
+    // A whole-row sailor at a club...
+    const solo = await addCompetitor({
+      seriesId: seriesByYear[2023],
+      names: ['Nuala Brennan'],
+      sailNumber: 'IRL111',
+      club: 'RCYC',
+    });
+    await relinkIdentitiesAfterWrite(workspaceId, db);
+    const soloId = await identityIdOf(solo);
+    expect(soloId).not.toBeNull();
+
+    // ...and a namesake fragment on a co-owned entry: same club, different
+    // boat. Club-only corroboration is demoted for fragments, so this mints
+    // a separate identity instead of joining the solo arc.
+    const coOwned = await addCompetitor({
+      seriesId: seriesByYear[2024],
+      names: ['Nuala Brennan', 'Peter Brennan'],
+      sailNumber: 'IRL999',
+      club: 'RCYC',
+    });
+    await relinkIdentitiesAfterWrite(workspaceId, db);
+    const links = await db
+      .select({ identityId: schema.competitorIdentityLinks.identityId })
+      .from(schema.competitorIdentityLinks)
+      .where(eq(schema.competitorIdentityLinks.competitorId, coOwned));
+    expect(links).toHaveLength(2);
+    expect(links.map((l) => l.identityId)).not.toContain(soloId);
+  });
+
+  test('a membership whose label matches no person surfaces as stale and can be unlinked', async () => {
+    // A joined-pair label that shares a surname with a person still gets
+    // attributed (initial matching favours continuity); stale is the label
+    // that matches nobody — a hand-rename that walked away from the row.
+    const jointId = uuid();
+    await db.insert(schema.competitorIdentities).values({
+      id: jointId,
+      workspaceId,
+      label: 'Windchaser Syndicate',
+      slug: `windchaser-syndicate-${jointId.slice(0, 4)}`,
+    });
+    const row = await addCompetitor({
+      seriesId: seriesByYear[2025],
+      names: ['Tomás Sharkey', 'Vera Sharkey'],
+      sailNumber: 'IRL404',
+    });
+    await db.insert(schema.competitorIdentityLinks).values({
+      competitorId: row,
+      identityId: jointId,
+      workspaceId,
+    });
+
+    const stale = await collectStaleLinks(db, workspaceId);
+    const mine = stale.filter((l) => l.competitorId === row);
+    expect(mine).toHaveLength(1);
+    expect(mine[0].identityId).toBe(jointId);
+    expect(mine[0].identityLabel).toBe('Windchaser Syndicate');
+
+    expect(await removeIdentityLink(workspaceId, row, jointId)).toBe(true);
+    expect(await removeIdentityLink(workspaceId, row, jointId)).toBe(false);
+    expect((await collectStaleLinks(db, workspaceId)).filter((l) => l.competitorId === row)).toHaveLength(0);
   });
 });

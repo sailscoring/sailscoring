@@ -27,6 +27,7 @@ import type {
   ManifestPlan,
 } from '@/lib/competitor-identity-manifest';
 import { formatPrimaryNames } from '@/lib/competitor-fields';
+import { normalizePersonName, personNamesMatch } from '@/lib/competitor-identity-match';
 import { mintSlug } from '@/lib/competitor-slug';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
 import { competitorIdentities, competitorIdentityLinks, competitors, series } from '@/lib/db/schema/series';
@@ -51,7 +52,19 @@ export async function resetIdentities(
   return removed.length;
 }
 
-/** Load the flattened competitor rows the clusterer needs. */
+/**
+ * Load the flattened inputs the clusterer needs: **one input per person** of
+ * each row's primary slot (#316). A single-person row behaves exactly as
+ * before. For a multi-person row ("J. & M. Murphy") each co-owner is an
+ * independent matching unit, flagged `fromMultiPersonRow` so the clusterer
+ * demands harder corroboration for the fragment names.
+ *
+ * Link attribution: a row's memberships carry no slot, so each link is
+ * attributed to the person its identity label matches (each link at most
+ * once); a single-person row keeps its first link regardless of label, which
+ * is what lets a renamed identity stay confirmed. Links matching no person
+ * are left alone here — they surface in the review queue as stale.
+ */
 export async function collectClusterInputs(
   db: SailScoringDb,
   workspaceId: string,
@@ -65,38 +78,128 @@ export async function collectClusterInputs(
       nationality: competitors.nationality,
       age: competitors.age,
       startDate: series.startDate,
-      existingIdentityId: competitorIdentityLinks.identityId,
     })
     .from(competitors)
     .innerJoin(series, eq(competitors.seriesId, series.id))
-    .leftJoin(
-      competitorIdentityLinks,
-      eq(competitorIdentityLinks.competitorId, competitors.id),
-    )
     .where(eq(competitors.workspaceId, workspaceId));
+  const linkRows = await db
+    .select({
+      competitorId: competitorIdentityLinks.competitorId,
+      identityId: competitorIdentityLinks.identityId,
+      label: competitorIdentities.label,
+    })
+    .from(competitorIdentityLinks)
+    .innerJoin(
+      competitorIdentities,
+      eq(competitorIdentities.id, competitorIdentityLinks.identityId),
+    )
+    .where(eq(competitorIdentityLinks.workspaceId, workspaceId));
+  const linksByRow = new Map<string, { identityId: string; label: string }[]>();
+  for (const l of linkRows) {
+    const arr = linksByRow.get(l.competitorId);
+    if (arr) arr.push(l);
+    else linksByRow.set(l.competitorId, [l]);
+  }
 
-  // A multi-linked row (one link per co-owner) repeats in the join; the
-  // row-level clusterer takes the first membership as its existing identity.
-  const seen = new Set<string>();
-  const deduped = rows.filter((r) => {
-    if (seen.has(r.competitorId)) return false;
-    seen.add(r.competitorId);
-    return true;
-  });
-
-  return deduped.map((r) => {
+  const inputs: ClusterInput[] = [];
+  for (const r of rows) {
     const year = Number.parseInt((r.startDate ?? '').slice(0, 4), 10);
-    return {
+    const base = {
       competitorId: r.competitorId,
-      name: formatPrimaryNames(r.names),
       sailNumber: r.sailNumber,
       club: r.club ?? undefined,
       nationality: r.nationality ?? undefined,
       age: r.age,
       raceYear: Number.isFinite(year) ? year : null,
-      existingIdentityId: r.existingIdentityId ?? null,
     };
-  });
+    const persons = r.names.filter((n) => n.trim());
+    const links = linksByRow.get(r.competitorId) ?? [];
+    if (persons.length <= 1) {
+      inputs.push({
+        ...base,
+        name: persons[0] ?? '',
+        existingIdentityId: links[0]?.identityId ?? null,
+      });
+      continue;
+    }
+    const used = new Set<number>();
+    for (const person of persons) {
+      const normPerson = normalizePersonName(person);
+      let attributed: string | null = null;
+      for (let i = 0; i < links.length; i++) {
+        if (used.has(i)) continue;
+        if (personNamesMatch(normPerson, normalizePersonName(links[i].label))) {
+          used.add(i);
+          attributed = links[i].identityId;
+          break;
+        }
+      }
+      inputs.push({
+        ...base,
+        name: person,
+        existingIdentityId: attributed,
+        fromMultiPersonRow: true,
+      });
+    }
+  }
+  return inputs;
+}
+
+/** A membership whose identity label matches no person on the row — usually a
+ *  rename that walked away from the link, or a pre-list joined-name identity
+ *  ("J. & M. Murphy") still attached to a now per-person row. Never touched
+ *  automatically; the review queue surfaces it for a human (#316). */
+export interface StaleLink {
+  competitorId: string;
+  identityId: string;
+  identityLabel: string;
+  competitorNames: string[];
+  sailNumber: string;
+}
+
+/** Find stale memberships (see `StaleLink`). Only multi-person rows are
+ *  examined: a single-person row keeps its link through renames by design. */
+export async function collectStaleLinks(
+  db: SailScoringDb,
+  workspaceId: string,
+): Promise<StaleLink[]> {
+  const linkRows = await db
+    .select({
+      competitorId: competitorIdentityLinks.competitorId,
+      identityId: competitorIdentityLinks.identityId,
+      label: competitorIdentities.label,
+      names: competitors.names,
+      sailNumber: competitors.sailNumber,
+    })
+    .from(competitorIdentityLinks)
+    .innerJoin(
+      competitorIdentities,
+      eq(competitorIdentities.id, competitorIdentityLinks.identityId),
+    )
+    .innerJoin(
+      competitors,
+      eq(competitors.id, competitorIdentityLinks.competitorId),
+    )
+    .where(eq(competitorIdentityLinks.workspaceId, workspaceId));
+  const stale: StaleLink[] = [];
+  for (const l of linkRows) {
+    const persons = l.names.filter((n) => n.trim());
+    if (persons.length <= 1) continue;
+    const normLabel = normalizePersonName(l.label);
+    const matchesSomeone = persons.some((p) =>
+      personNamesMatch(normalizePersonName(p), normLabel),
+    );
+    if (!matchesSomeone) {
+      stale.push({
+        competitorId: l.competitorId,
+        identityId: l.identityId,
+        identityLabel: l.label,
+        competitorNames: l.names,
+        sailNumber: l.sailNumber,
+      });
+    }
+  }
+  return stale;
 }
 
 /**
@@ -316,9 +419,14 @@ export async function applyClusters(
         continue;
       }
 
-      const targetIds = opts.onlyCompetitorIds
-        ? cluster.competitorIds.filter((id) => opts.onlyCompetitorIds!.has(id))
-        : cluster.competitorIds;
+      // Person-aware fill rule (#316): link a row when one of its persons in
+      // this cluster carried no membership at collect time — a row whose
+      // co-owner A is already confirmed elsewhere still gets B's new link.
+      const needing = cluster.members.filter((m) => m.needsLink);
+      const targetIds = (opts.onlyCompetitorIds
+        ? needing.filter((m) => opts.onlyCompetitorIds!.has(m.competitorId))
+        : needing
+      ).map((m) => m.competitorId);
       if (targetIds.length === 0) continue;
 
       let identityId: string;
@@ -339,33 +447,17 @@ export async function applyClusters(
         identitiesCreated++;
       }
 
-      // Only touch currently-unlinked rows: the reuse case leaves confirmed
-      // memberships untouched, which is what keeps a re-run idempotent.
-      const alreadyLinked = new Set(
-        (
-          await tx
-            .select({ competitorId: competitorIdentityLinks.competitorId })
-            .from(competitorIdentityLinks)
-            .where(
-              and(
-                eq(competitorIdentityLinks.workspaceId, workspaceId),
-                inArray(competitorIdentityLinks.competitorId, targetIds),
-              ),
-            )
-        ).map((r) => r.competitorId),
-      );
-      const toLink = targetIds.filter((id) => !alreadyLinked.has(id));
-      if (toLink.length > 0) {
-        await tx
-          .insert(competitorIdentityLinks)
-          .values(toLink.map((id) => ({
-            competitorId: id,
-            identityId,
-            workspaceId,
-          })))
-          .onConflictDoNothing();
-        competitorsLinked += toLink.length;
-      }
+      // Confirmed memberships were attributed at collect time and never
+      // re-written here; the PK no-op absorbs a race with a concurrent pass.
+      await tx
+        .insert(competitorIdentityLinks)
+        .values(targetIds.map((id) => ({
+          competitorId: id,
+          identityId,
+          workspaceId,
+        })))
+        .onConflictDoNothing();
+      competitorsLinked += targetIds.length;
     }
   });
 
@@ -443,8 +535,12 @@ export async function relinkIdentitiesAfterWrite(
   // Jurisdiction (ADR-010): the lazy pass links rows in live series only —
   // as-published rows are the archive ingest's to link. The probe and the
   // apply share the same scope.
-  const unlinkedLive = await db
-    .select({ id: competitors.id })
+  const liveRows = await db
+    .select({
+      id: competitors.id,
+      names: competitors.names,
+      linkedIdentityId: competitorIdentityLinks.identityId,
+    })
     .from(competitors)
     .innerJoin(series, eq(competitors.seriesId, series.id))
     .leftJoin(
@@ -454,16 +550,37 @@ export async function relinkIdentitiesAfterWrite(
     .where(
       and(
         eq(competitors.workspaceId, workspaceId),
-        isNull(competitorIdentityLinks.identityId),
         eq(series.asPublished, false),
       ),
     );
-  if (unlinkedLive.length === 0) return null;
+  // Under-linked = fewer memberships than named persons (zero links on a
+  // single-person row is the classic case; a co-owned row with one link has
+  // an unlinked co-owner). Persons may legitimately outnumber links while a
+  // stale link exists too — the pass only ever adds, so that's safe.
+  const linkCounts = new Map<string, number>();
+  const personCounts = new Map<string, number>();
+  for (const r of liveRows) {
+    if (!personCounts.has(r.id)) {
+      personCounts.set(r.id, Math.max(1, r.names.filter((n) => n.trim()).length));
+    }
+    if (r.linkedIdentityId) {
+      linkCounts.set(r.id, (linkCounts.get(r.id) ?? 0) + 1);
+    }
+  }
+  const underLinked = [...personCounts].some(
+    ([id, persons]) => (linkCounts.get(id) ?? 0) < persons,
+  );
+  if (!underLinked) return null;
 
   const inputs = await collectClusterInputs(db, workspaceId);
   const result = clusterCompetitors(inputs);
+  const underLinkedIds = new Set(
+    [...personCounts]
+      .filter(([id, persons]) => (linkCounts.get(id) ?? 0) < persons)
+      .map(([id]) => id),
+  );
   return applyClusters(db, workspaceId, result, {
-    onlyCompetitorIds: new Set(unlinkedLive.map((r) => r.id)),
+    onlyCompetitorIds: underLinkedIds,
   });
 }
 

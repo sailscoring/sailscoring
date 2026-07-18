@@ -36,13 +36,22 @@ export interface ClusterInput {
   age: number | null;
   /** Year of the series' first race, from `series.start_date`; null if unknown. */
   raceYear: number | null;
-  /** Pre-existing identity link, if the row was reconciled on an earlier pass. */
+  /** Pre-existing identity link attributed to this person, if any. */
   existingIdentityId: string | null;
+  /** True when this input is one person of a multi-person entry (a co-owner
+   *  fragment like "J. Murphy" from "J. & M. Murphy"). Fragments are more
+   *  collision-prone than whole-row names, so club-only corroboration is
+   *  demoted to a review suggestion — sail-number continuity or a compatible
+   *  birth year is required to auto-merge. */
+  fromMultiPersonRow?: boolean;
 }
 
 /** A proposed recurring identity: a set of competitor rows that link together. */
 export interface IdentityCluster {
   competitorIds: string[];
+  /** Per-row membership detail: whether any person-input of this row inside
+   *  this cluster still lacks an identity link (the apply step links those). */
+  members: { competitorId: string; needsLink: boolean }[];
   /** Distinct existing identity ids among the members (excludes null). 0 → all
    *  new (create one); 1 → reuse it; ≥2 → a conflict, never auto-merged. */
   existingIdentityIds: string[];
@@ -179,11 +188,16 @@ export function clusterCompetitors(inputs: ClusterInput[]): ClusterResult {
           clubs[i].length > 0 &&
           clubs[j].length > 0 &&
           clubsOverlap(inputs[i].club, inputs[j].club);
-        if (sailOk || birthOk || clubOk) {
+        // A person fragment from a multi-person entry needs harder evidence
+        // than a whole-row name: co-owners share a club by default, so
+        // club-only corroboration of short fragment names is exactly the
+        // false-merge shape. Prefer a false split (one click to fix).
+        const fragile = inputs[i].fromMultiPersonRow || inputs[j].fromMultiPersonRow;
+        if (sailOk || birthOk || (clubOk && !fragile)) {
           uf.union(i, j);
         } else {
-          // Names agree but nothing corroborates — could be one sailor who
-          // changed boat and club, or two namesakes. Leave it for review.
+          // Names agree but nothing corroborates (enough) — could be one
+          // sailor who changed boat and club, or two namesakes. For review.
           weakPairs.push({ i, j });
         }
       }
@@ -222,8 +236,17 @@ export function clusterCompetitors(inputs: ClusterInput[]): ClusterResult {
           .filter((x): x is string => x != null),
       ),
     ];
+    const memberByRow = new Map<string, { competitorId: string; needsLink: boolean }>();
+    for (const i of idxs) {
+      const id = inputs[i].competitorId;
+      const needs = inputs[i].existingIdentityId == null;
+      const prev = memberByRow.get(id);
+      if (!prev) memberByRow.set(id, { competitorId: id, needsLink: needs });
+      else if (needs) prev.needsLink = true;
+    }
     return {
-      competitorIds: idxs.map((i) => inputs[i].competitorId),
+      competitorIds: [...memberByRow.keys()],
+      members: [...memberByRow.values()],
       existingIdentityIds: existing,
       label: inputs[rep].name.trim(),
       sailNumber: inputs[rep].sailNumber,
