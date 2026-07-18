@@ -53,18 +53,21 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
   await expect(header.getByRole('columnheader', { name: 'Rating' })).toBeVisible();
 
   const pyNumbers: Record<string, string> = { PY1: '1034', PY2: '1087' };
+  const dialog = page.getByRole('dialog', { name: 'Edit competitor' });
   for (const sail of ['PY1', 'PY2']) {
     const row = page.getByRole('row').filter({ hasText: sail });
     // The row can re-render (fleets refetch settling) between hit-test and
     // dispatch, swallowing the click — the edit dialog then never opens and
     // the fill below waits out the whole test budget. Re-click until the PY
-    // field is actually there.
+    // field is actually there — but only while the dialog is still closed:
+    // once it's open, clicking the row again just hangs on actionability
+    // (the overlay intercepts the pointer) and burns the rest of the budget.
     await expect(async () => {
-      await row.click();
-      await expect(page.getByLabel('PY number', { exact: true })).toBeVisible({ timeout: 2000 });
+      if (!(await dialog.isVisible())) await row.click();
+      await expect(dialog.getByLabel('PY number', { exact: true })).toBeVisible({ timeout: 2000 });
     }).toPass({ timeout: 20_000 });
-    await page.getByLabel('PY number', { exact: true }).fill(pyNumbers[sail]);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await dialog.getByLabel('PY number', { exact: true }).fill(pyNumbers[sail]);
+    await dialog.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('cell', { name: sail })).toBeVisible();
   }
 
