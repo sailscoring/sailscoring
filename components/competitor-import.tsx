@@ -1052,6 +1052,12 @@ function PushConfirmBody({
           <p className="text-sm font-medium">
             Preview (first {preview.length} of {flow.competitors.length})
           </p>
+          {flow.competitors.some((c) => (c.helms?.length ?? 0) > 1 || c.names.length > 1) && (
+            <p className="text-xs text-muted-foreground">
+              rrs.org holds one person per entry — multi-person entries send their first
+              listed helm (or first primary name).
+            </p>
+          )}
           <Table>
             <TableHeader>
               <TableRow>

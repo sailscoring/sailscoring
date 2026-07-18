@@ -155,8 +155,22 @@ describe('buildRrsOrgCompetitors', () => {
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toMatchObject({ competitorId: 'c1', sailNumber: '14302' });
   });
-});
 
+  it('sends the first listed person for a multi-person entry (rrs.org has one person slot)', () => {
+    const coOwned = makeCompetitor({
+      id: 'c2',
+      names: ['J. Murphy', 'M. Murphy'],
+    });
+    const coHelmed = makeCompetitor({
+      id: 'c3',
+      helms: ['Alice Byrne', 'Bob Malone'],
+      names: ['Owner Person'],
+    });
+    const { competitors } = buildRrsOrgCompetitors([coOwned, coHelmed], fleets, { divisionSource: 'none' });
+    expect(competitors[0]).toMatchObject({ first_name: 'J.', last_name: 'Murphy' });
+    expect(competitors[1]).toMatchObject({ first_name: 'Alice', last_name: 'Byrne' });
+  });
+});
 describe('buildRrsOrgPayload', () => {
   it('wraps rows with the event uuid and our source marker', () => {
     const payload = buildRrsOrgPayload('d17854ef-f55f-4ab6-8429-3f55527b6e9f', []);
