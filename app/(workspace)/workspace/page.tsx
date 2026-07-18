@@ -70,17 +70,21 @@ export default async function WorkspacePage() {
     workspace !== null && hasPermission(workspace.role, 'manage-series');
   const canManageWorkspace =
     workspace !== null && hasPermission(workspace.role, 'manage-workspace');
+  // A personal workspace is single-user by design, so membership isn't a
+  // concept there at all — no roster, no invitations. Collaboration means
+  // asking for a club workspace, which is approved out-of-band.
+  const isPersonal =
+    workspace !== null && isPersonalWorkspaceSlug(workspace.workspaceSlug);
 
   return (
     <div className="space-y-6 max-w-lg mx-auto">
       <h1 className="text-2xl font-semibold">{title}</h1>
-      <MembersCard
-        currentUserEmail={session?.user.email ?? null}
-        canAssignScorer={features.includes('fine-grained-roles')}
-        isPersonal={
-          workspace !== null && isPersonalWorkspaceSlug(workspace.workspaceSlug)
-        }
-      />
+      {!isPersonal && (
+        <MembersCard
+          currentUserEmail={session?.user.email ?? null}
+          canAssignScorer={features.includes('fine-grained-roles')}
+        />
+      )}
       {canManageSeries && <CategoriesCard />}
       {canManageWorkspace && <FeaturesCard />}
       {features.includes('logo-library') && canManageWorkspace && <LogosCard />}

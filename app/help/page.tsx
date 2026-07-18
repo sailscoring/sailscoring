@@ -1516,8 +1516,9 @@ export default async function HelpPage() {
         <p>
           This applies to a shared club or class workspace only.{' '}
           <em>My Workspace</em> is your own — it holds the series you score by
-          yourself, and can’t take other members. If you want a panel, request a
-          shared workspace as below and score there instead.
+          yourself, has no members but you, and shows no Members card at all.
+          If you want a panel, request a shared workspace as below and score
+          there instead.
         </p>
         <p>
           What someone can do is set by their{' '}

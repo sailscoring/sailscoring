@@ -58,21 +58,17 @@ function RoleSelect({
  * user's email comes from the (server) workspace page so we can find their
  * member row — and their role — once the roster loads.
  *
- * A personal workspace shows a read-only roster and nothing else: it is
- * single-user by design, and collaboration means asking for a club
- * workspace. The server refuses such invitations regardless; this only keeps
- * the UI honest.
+ * Only mounted for a shared workspace. A personal workspace has no members
+ * to speak of — it is single-user by design — so the caller leaves this card
+ * out entirely rather than rendering a roster of one.
  */
 export function MembersCard({
   currentUserEmail,
   canAssignScorer = false,
-  isPersonal = false,
 }: {
   currentUserEmail: string | null;
   /** Whether the `scorer` role is offered — the `fine-grained-roles` feature. */
   canAssignScorer?: boolean;
-  /** Whether the active workspace is the viewer's personal one. */
-  isPersonal?: boolean;
 }) {
   const roles: WorkspaceRole[] = canAssignScorer
     ? ['owner', 'admin', 'scorer', 'member']
@@ -90,11 +86,7 @@ export function MembersCard({
   const members = data?.members ?? [];
   const invitations = data?.invitations ?? [];
   const me = members.find((m) => m.user.email === currentUserEmail);
-  // A personal workspace has no membership controls at all — not even
-  // removal. It should only ever hold its owner, so there is nothing to
-  // manage; the one workspace that picked up members before invitations were
-  // blocked is being cleared by hand.
-  const canManage = !isPersonal && (me?.role === 'owner' || me?.role === 'admin');
+  const canManage = me?.role === 'owner' || me?.role === 'admin';
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -124,19 +116,9 @@ export function MembersCard({
       <div>
         <h2 className="text-lg font-semibold">Members</h2>
         <p className="text-sm text-muted-foreground">
-          {isPersonal ? (
-            <>
-              This is your personal workspace, so it&apos;s yours alone. To
-              score alongside other people, request a club or class workspace
-              from your <a className="underline" href="/account">account page</a>.
-            </>
-          ) : (
-            <>
-              Owners and admins can see and edit every series in this
-              workspace; members get read-only access. Changes show up in each
-              series&apos; Activity log.
-            </>
-          )}
+          Owners and admins can see and edit every series in this workspace;
+          members get read-only access. Changes show up in each series&apos;
+          Activity log.
         </p>
       </div>
 

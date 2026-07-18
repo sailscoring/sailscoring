@@ -85,7 +85,7 @@ test.describe('workspace invitations', () => {
     }
   });
 
-  test('a personal workspace offers no invite form and refuses invitations', async ({
+  test('a personal workspace has no members UI and refuses invitations', async ({
     page,
   }) => {
     const errors: string[] = [];
@@ -97,10 +97,15 @@ test.describe('workspace invitations', () => {
     try {
       const stamp = Date.now();
       // A fresh user's active workspace is their personal one.
-      const email = await signInFreshUser(page, `inv-solo-${stamp}`);
+      await signInFreshUser(page, `inv-solo-${stamp}`);
 
+      // Membership isn't a concept on a personal workspace: the whole card is
+      // absent, not just the invite form. Anchor on a card that does render so
+      // we're asserting against a settled page, not an unrendered one.
       await page.goto('/workspace');
-      await expect(page.getByTestId('members-list')).toContainText(email);
+      await expect(page.getByRole('heading', { name: /Workspace settings/ })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Members' })).toHaveCount(0);
+      await expect(page.getByTestId('members-list')).toHaveCount(0);
       await expect(page.getByLabel('Invite a co-scorer by email')).toHaveCount(0);
 
       // The guard is server-side, not just a hidden form: calling the

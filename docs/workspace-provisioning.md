@@ -85,10 +85,10 @@ workspace-switcher data attributes.
 ### Personal workspaces
 
 Personal workspaces are single-user: the app refuses invitations to them
-on both create and accept, and the Members card there is a read-only
-roster with no membership controls at all. Someone who wants co-scorers
-asks for a club workspace, which is the approval step this whole document
-exists for.
+on both create and accept, and `/workspace` doesn't render the Members
+card there at all — membership isn't a concept on a workspace that holds
+one person. Someone who wants co-scorers asks for a club workspace, which
+is the approval step this whole document exists for.
 
 That means clearing one out is an operator job — deliberately, since it
 should only ever come up for the workspaces that picked up members before
