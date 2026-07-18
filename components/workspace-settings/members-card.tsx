@@ -70,6 +70,11 @@ export function MembersCard({
   /** Whether the `scorer` role is offered — the `fine-grained-roles` feature. */
   canAssignScorer?: boolean;
 }) {
+  // The roles on offer in the invite and change-role selects. `archivist`
+  // (the archive-repo CI credential role, ADR-010) is deliberately absent:
+  // it is provisioned by operator tooling for API keys, never assigned to
+  // people — a member holding it (or any other unoffered role) renders
+  // read-only below, with Remove still available.
   const roles: WorkspaceRole[] = canAssignScorer
     ? ['owner', 'admin', 'scorer', 'member']
     : ['owner', 'admin', 'member'];
@@ -148,13 +153,22 @@ export function MembersCard({
                 </div>
                 {canManage && !isSelf ? (
                   <div className="flex items-center gap-2 shrink-0">
-                    <RoleSelect
-                      roles={roles}
-                      value={m.role as WorkspaceRole}
-                      onChange={(role) => run(() => updateRole.mutateAsync({ memberId: m.id, role }))}
-                      disabled={updateRole.isPending}
-                      testId={`member-role-${m.user.email}`}
-                    />
+                    {roles.includes(m.role as WorkspaceRole) ? (
+                      <RoleSelect
+                        roles={roles}
+                        value={m.role as WorkspaceRole}
+                        onChange={(role) => run(() => updateRole.mutateAsync({ memberId: m.id, role }))}
+                        disabled={updateRole.isPending}
+                        testId={`member-role-${m.user.email}`}
+                      />
+                    ) : (
+                      <span
+                        className="text-xs text-muted-foreground"
+                        data-testid={`member-role-${m.user.email}`}
+                      >
+                        {m.role}
+                      </span>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"

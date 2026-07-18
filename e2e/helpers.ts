@@ -565,6 +565,40 @@ export async function addMemberByEmail(
 }
 
 /**
+ * Set an existing member's role directly in the database — for roles the
+ * Members card deliberately doesn't offer, like `archivist` (the
+ * archive-repo CI credential role, set by operator tooling in real life).
+ */
+export async function setMemberRole(
+  orgId: string,
+  email: string,
+  role: string,
+): Promise<void> {
+  const { db, close } = adminDb();
+  try {
+    const [user] = await db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, email.toLowerCase()))
+      .limit(1);
+    if (!user) {
+      throw new Error(`setMemberRole: user "${email}" not found`);
+    }
+    await db
+      .update(schema.member)
+      .set({ role })
+      .where(
+        and(
+          eq(schema.member.organizationId, orgId),
+          eq(schema.member.userId, user.id),
+        ),
+      );
+  } finally {
+    await close();
+  }
+}
+
+/**
  * Delete every session row for a user (looked up by email), leaving the
  * browser's session cookie in place. Simulates a server-side revocation /
  * DB wipe so the stale-cookie self-heal can be exercised.

@@ -156,6 +156,9 @@ pre-create-user` for a per-repo service user, add it to the workspace with
 role `archivist`, then `provision-token create … --workspace <slug>
 --admin` (bulk ingests make hundreds of requests; a plain key's rate limit
 429s mid-corpus). See `docs/design/as-published-archives.md`.
+The Members card never offers `archivist` in its role selects — it is an
+operator-provisioned machine role, not a human membership tier; a member
+holding it shows read-only in the roster (with Remove still available).
 
 **Default-on features.** Most gated features are opt-in (off until enabled),
 but a feature can be marked default-on in `lib/features.ts` — on for every

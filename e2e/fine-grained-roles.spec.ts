@@ -21,6 +21,7 @@ import {
   enableOrgFeatures,
   latestInvitationId,
   setActiveWorkspace,
+  setMemberRole,
   signInFreshUser,
 } from './helpers';
 
@@ -70,6 +71,9 @@ test.describe('fine-grained workspace roles', () => {
       await alice.goto('/workspace');
       await alice.getByLabel('Invite a co-scorer by email').fill(emailCarol);
       await alice.getByTestId('invite-role').click();
+      // archivist (the archive-repo CI credential role) is never on offer.
+      await expect(alice.getByRole('option', { name: 'scorer' })).toBeVisible();
+      await expect(alice.getByRole('option', { name: 'archivist' })).toHaveCount(0);
       await alice.getByRole('option', { name: 'scorer' }).click();
       await alice.getByRole('button', { name: 'Invite', exact: true }).click();
       await expect(alice.getByTestId('pending-invitations')).toContainText(emailCarol);
@@ -135,6 +139,17 @@ test.describe('fine-grained workspace roles', () => {
       // Alice's roster shows Carol holding the scorer role.
       await alice.goto('/workspace');
       await expect(alice.getByTestId(`member-role-${emailCarol}`)).toContainText('scorer');
+
+      // A member holding a role the card doesn't offer — archivist, the
+      // archive-repo CI credential, set by operator tooling — renders
+      // read-only in the roster: plain text rather than a role select,
+      // with Remove still available so the membership can be revoked.
+      await setMemberRole(org.id, emailCarol, 'archivist');
+      await alice.reload();
+      const carolRole = alice.getByTestId(`member-role-${emailCarol}`);
+      await expect(carolRole).toHaveText('archivist');
+      await expect(carolRole).toHaveJSProperty('tagName', 'SPAN');
+      await expect(alice.getByRole('button', { name: `Remove ${emailCarol}` })).toBeVisible();
     } finally {
       await ctxAlice.close();
       await ctxCarol.close();
