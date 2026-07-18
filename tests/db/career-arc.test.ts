@@ -168,6 +168,44 @@ describe.skipIf(skip)('getCareerArc placements', () => {
     expect(arc!.lastYear).toBe(2018);
   });
 
+  test('a co-owned entry appears on each linked identity\'s arc (#316)', async () => {
+    // Second co-owner claims the same starred row via a second membership.
+    const coOwnerId = uuid();
+    await db.insert(schema.competitorIdentities).values({
+      id: coOwnerId,
+      workspaceId,
+      label: 'Brian Murphy',
+      sailNumber: 'IRL1200',
+      club: 'RCYC',
+    });
+    const aoifeLinks = await db
+      .select({ competitorId: schema.competitorIdentityLinks.competitorId })
+      .from(schema.competitorIdentityLinks)
+      .where(eq(schema.competitorIdentityLinks.identityId, identityId));
+    await db.insert(schema.competitorIdentityLinks).values(
+      aoifeLinks.map((l) => ({
+        competitorId: l.competitorId,
+        identityId: coOwnerId,
+        workspaceId,
+      })),
+    );
+
+    const coArc = await getCareerArc(workspaceId, coOwnerId);
+    expect(coArc).not.toBeNull();
+    expect(coArc!.entries).toHaveLength(1);
+    expect(coArc!.entries[0].seriesName).toBe('IODAI Leinsters 2018');
+    expect(coArc!.entries[0].rank).toBe(1);
+
+    // The original arc is unchanged — full credit once per identity.
+    const arc = await getCareerArc(workspaceId, identityId);
+    expect(arc!.entries).toHaveLength(1);
+    expect(arc!.entries[0].rank).toBe(1);
+
+    await db
+      .delete(schema.competitorIdentities)
+      .where(eq(schema.competitorIdentities.id, coOwnerId));
+  });
+
   test('returns an empty arc when the identity has nothing published', async () => {
     const id = uuid();
     await db.insert(schema.competitorIdentities).values({
