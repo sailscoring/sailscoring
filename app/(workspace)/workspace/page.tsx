@@ -7,6 +7,7 @@ import {
 } from '@/lib/auth/require-workspace';
 import { hasPermission } from '@/lib/auth/permissions';
 import { getDb } from '@/lib/db/client';
+import { isPersonalWorkspaceSlug } from '@/lib/features';
 import { member, organization } from '@/lib/db/schema/auth';
 import { CategoriesCard } from '@/components/workspace-settings/categories-card';
 import { FeaturesCard } from '@/components/workspace-settings/features-card';
@@ -76,6 +77,9 @@ export default async function WorkspacePage() {
       <MembersCard
         currentUserEmail={session?.user.email ?? null}
         canAssignScorer={features.includes('fine-grained-roles')}
+        isPersonal={
+          workspace !== null && isPersonalWorkspaceSlug(workspace.workspaceSlug)
+        }
       />
       {canManageSeries && <CategoriesCard />}
       {canManageWorkspace && <FeaturesCard />}

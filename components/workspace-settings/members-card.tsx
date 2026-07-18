@@ -57,14 +57,21 @@ function RoleSelect({
  * pending invitations; everyone else sees a read-only roster. The current
  * user's email comes from the (server) workspace page so we can find their
  * member row — and their role — once the roster loads.
+ *
+ * A personal workspace has no invite form at all: it is single-user by
+ * design, and collaboration means asking for a club workspace. The server
+ * refuses such invitations regardless; this only keeps the UI honest.
  */
 export function MembersCard({
   currentUserEmail,
   canAssignScorer = false,
+  isPersonal = false,
 }: {
   currentUserEmail: string | null;
   /** Whether the `scorer` role is offered — the `fine-grained-roles` feature. */
   canAssignScorer?: boolean;
+  /** Whether the active workspace is the viewer's personal one. */
+  isPersonal?: boolean;
 }) {
   const roles: WorkspaceRole[] = canAssignScorer
     ? ['owner', 'admin', 'scorer', 'member']
@@ -82,7 +89,7 @@ export function MembersCard({
   const members = data?.members ?? [];
   const invitations = data?.invitations ?? [];
   const me = members.find((m) => m.user.email === currentUserEmail);
-  const canManage = me?.role === 'owner' || me?.role === 'admin';
+  const canManage = !isPersonal && (me?.role === 'owner' || me?.role === 'admin');
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -112,9 +119,19 @@ export function MembersCard({
       <div>
         <h2 className="text-lg font-semibold">Members</h2>
         <p className="text-sm text-muted-foreground">
-          Owners and admins can see and edit every series in this workspace;
-          members get read-only access. Changes show up in each series&apos;
-          Activity log.
+          {isPersonal ? (
+            <>
+              This is your personal workspace, so it&apos;s yours alone. To
+              score alongside other people, request a club or class workspace
+              from your <a className="underline" href="/account">account page</a>.
+            </>
+          ) : (
+            <>
+              Owners and admins can see and edit every series in this
+              workspace; members get read-only access. Changes show up in each
+              series&apos; Activity log.
+            </>
+          )}
         </p>
       </div>
 

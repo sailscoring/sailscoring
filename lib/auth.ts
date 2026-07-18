@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { APIError } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink } from 'better-auth/plugins/magic-link';
 import { organization } from 'better-auth/plugins/organization';
@@ -7,6 +8,7 @@ import { eq } from 'drizzle-orm';
 
 import { sendInvitationEmail, sendMagicLinkEmail } from '@/lib/auth/email';
 import { orgAccessControl, orgRoles } from '@/lib/auth/org-roles';
+import { isPersonalWorkspaceSlug } from '@/lib/features';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
 import * as authSchema from '@/lib/db/schema/auth';
 
@@ -33,6 +35,12 @@ function trustedOrigins(): string[] {
  * is signed in. Existing rows from before this rename keep whatever name
  * they were created with; the switcher renders that as-is. */
 const PERSONAL_WORKSPACE_NAME = 'My Workspace';
+
+/** Shown when an invite to a personal workspace is refused — the same text
+ *  whether it's the inviter or the invitee who hits the guard. */
+export const PERSONAL_WORKSPACE_INVITE_MESSAGE =
+  'Personal workspaces are for one scorer only. Request a club or class ' +
+  'workspace from your account page to score alongside other people.';
 
 function randomId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
@@ -94,6 +102,29 @@ export const auth = betterAuth({
       // Re-inviting an address with a pending invite supersedes the old one
       // rather than stacking duplicates.
       cancelPendingInvitationsOnReInvite: true,
+      // Personal workspaces are single-user by design; collaboration belongs
+      // to club workspaces, whose creation is admin-approved. Without this
+      // guard a user is `owner` of their own personal workspace and the
+      // plugin ACL lets them invite freely — which routes around the approval
+      // step that gates who runs club and class racing on the service.
+      // Accept is blocked as well as create, so any invitation issued before
+      // this guard existed can't still be redeemed.
+      organizationHooks: {
+        beforeCreateInvitation: async ({ organization }) => {
+          if (isPersonalWorkspaceSlug(organization.slug)) {
+            throw new APIError('FORBIDDEN', {
+              message: PERSONAL_WORKSPACE_INVITE_MESSAGE,
+            });
+          }
+        },
+        beforeAcceptInvitation: async ({ organization }) => {
+          if (isPersonalWorkspaceSlug(organization.slug)) {
+            throw new APIError('FORBIDDEN', {
+              message: PERSONAL_WORKSPACE_INVITE_MESSAGE,
+            });
+          }
+        },
+      },
       sendInvitationEmail: async (data) => {
         const base =
           process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || '';

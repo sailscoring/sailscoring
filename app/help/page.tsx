@@ -1514,6 +1514,12 @@ export default async function HelpPage() {
           a member’s role or remove them there too.
         </p>
         <p>
+          This applies to a shared club or class workspace only.{' '}
+          <em>My Workspace</em> is your own — it holds the series you score by
+          yourself, and can’t take other members. If you want a panel, request a
+          shared workspace as below and score there instead.
+        </p>
+        <p>
           What someone can do is set by their{' '}
           <strong className="text-foreground">role</strong>.{' '}
           <strong className="text-foreground">Owners</strong> and{' '}

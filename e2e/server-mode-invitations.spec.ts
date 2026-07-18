@@ -84,4 +84,39 @@ test.describe('workspace invitations', () => {
       }
     }
   });
+
+  test('a personal workspace offers no invite form and refuses invitations', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    page.on('console', (m) => {
+      if (m.type() === 'error') errors.push(m.text());
+    });
+
+    try {
+      const stamp = Date.now();
+      // A fresh user's active workspace is their personal one.
+      const email = await signInFreshUser(page, `inv-solo-${stamp}`);
+
+      await page.goto('/workspace');
+      await expect(page.getByTestId('members-list')).toContainText(email);
+      await expect(page.getByLabel('Invite a co-scorer by email')).toHaveCount(0);
+
+      // The guard is server-side, not just a hidden form: calling the
+      // endpoint directly is refused too.
+      const res = await page.request.post('/api/auth/organization/invite-member', {
+        // Better Auth rejects an origin-less request before it reaches the
+        // route, so send the one the browser would.
+        headers: { origin: new URL(page.url()).origin },
+        data: { email: `someone-else-${stamp}@example.test`, role: 'member' },
+      });
+      expect(res.status()).toBe(403);
+      expect(await res.text()).toContain('Personal workspaces are for one scorer only');
+    } finally {
+      if (errors.length > 0) {
+        throw new Error(`unexpected console/page errors:\n${errors.join('\n')}`);
+      }
+    }
+  });
 });
