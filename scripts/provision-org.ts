@@ -37,7 +37,7 @@
 import { and, eq, like, or, sql } from 'drizzle-orm';
 
 import { getDb, getDbClient, type SailScoringDb } from '@/lib/db/client';
-import { member, organization, orgRequest, user } from '@/lib/db/schema/auth';
+import { invitation, member, organization, orgRequest, user } from '@/lib/db/schema/auth';
 import { competitors, fleets, races, series } from '@/lib/db/schema/series';
 import {
   ALL_FEATURE_KEYS,
@@ -485,6 +485,64 @@ export async function listMembers(
   };
 }
 
+/**
+ * Resolve a user's personal workspace from their email, so the operator can
+ * feed its slug to `list-members` / `remove-member`. Personal workspaces have
+ * no name to search on — they're all called "My Workspace" — and their slug is
+ * derived from a user id nobody has to hand, which otherwise leaves the
+ * operator with no way in. Also reports pending invitations, since clearing a
+ * personal workspace means cancelling those too.
+ */
+export async function findPersonalWorkspace(
+  db: SailScoringDb,
+  args: { email: string },
+): Promise<{
+  org: { id: string; name: string; slug: string };
+  members: MemberRow[];
+  pendingInvitations: { email: string; role: string | null }[];
+}> {
+  const email = args.email.toLowerCase();
+  const [owner] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, email))
+    .limit(1);
+  if (!owner) throw new Error(`no user with email "${args.email}"`);
+
+  const slug = `u-${owner.id.slice(0, 16)}`;
+  const org = await findOrgBySlugOrId(db, slug);
+  if (!org) throw new Error(`no personal workspace (slug "${slug}") for ${args.email}`);
+
+  const { members } = await listMembers(db, { orgSlugOrId: org.id });
+  const pending = await db
+    .select({ email: invitation.email, role: invitation.role })
+    .from(invitation)
+    .where(
+      and(eq(invitation.organizationId, org.id), eq(invitation.status, 'pending')),
+    )
+    .orderBy(invitation.email);
+  return { org, members, pendingInvitations: pending };
+}
+
+/** Cancel every pending invitation on a workspace. Removing a member who
+ *  shouldn't be there is only half the job if an unredeemed invitation is
+ *  still sitting in the list. */
+export async function cancelInvitations(
+  db: SailScoringDb,
+  args: { orgSlugOrId: string },
+): Promise<{ cancelled: string[] }> {
+  const org = await findOrgBySlugOrId(db, args.orgSlugOrId);
+  if (!org) throw new Error(`org "${args.orgSlugOrId}" not found`);
+  const rows = await db
+    .update(invitation)
+    .set({ status: 'canceled' })
+    .where(
+      and(eq(invitation.organizationId, org.id), eq(invitation.status, 'pending')),
+    )
+    .returning({ email: invitation.email });
+  return { cancelled: rows.map((r) => r.email) };
+}
+
 // ─── Org-creation requests (#153, iteration 3) ───────────────────────────────
 
 export interface OrgRequestSummary {
@@ -612,6 +670,8 @@ function usage(): string {
   set-role <org-slug-or-id> <email> <role>
   remove-member <org-slug-or-id> <email>
   list-members <org-slug-or-id>
+  personal-workspace <email>
+  cancel-invitations <org-slug-or-id>
   list-requests [--all]
   fulfil-request <request-id> [--slug <slug>] [--enable-feature <key[,key...]>]
   decline-request <request-id>
@@ -626,6 +686,11 @@ seed-samples backfills the two sample series into a user's personal
 workspace (for accounts created before sign-up started seeding them). It
 skips any workspace that already holds series, so it's safe to re-run and
 won't touch anyone who's started real scoring.
+
+personal-workspace resolves a user's own workspace from their email — they
+all share the name "My Workspace" and a slug derived from the user id, so
+there's otherwise nothing to look them up by. Prints the slug, the roster,
+and any pending invitations, ready for remove-member / cancel-invitation.
 
 list-requests shows pending self-service workspace requests (#153); --all
 includes resolved ones. fulfil-request creates the workspace, adds the
@@ -765,6 +830,39 @@ export async function runCli(argv: string[]): Promise<number> {
             const joined = m.joinedAt.toISOString().slice(0, 10);
             console.log(`  ${m.role.padEnd(6)}  ${m.email.padEnd(40)}  ${m.name || '(no name)'}  joined ${joined}`);
           }
+        }
+        return 0;
+      }
+      case 'personal-workspace': {
+        const [email] = positional;
+        if (!email) throw new Error('personal-workspace: <email> is required');
+        const { org, members, pendingInvitations } = await findPersonalWorkspace(db, {
+          email,
+        });
+        console.log(`${org.name} (slug: ${org.slug}, id: ${org.id})`);
+        for (const m of members) {
+          const joined = m.joinedAt.toISOString().slice(0, 10);
+          console.log(
+            `  ${m.role.padEnd(6)}  ${m.email.padEnd(40)}  ${m.name || '(no name)'}  joined ${joined}`,
+          );
+        }
+        if (pendingInvitations.length > 0) {
+          console.log('  pending invitations:');
+          for (const inv of pendingInvitations) {
+            console.log(`    ${inv.email} (${inv.role ?? 'member'})`);
+          }
+        }
+        return 0;
+      }
+      case 'cancel-invitations': {
+        const [orgSlugOrId] = positional;
+        if (!orgSlugOrId) throw new Error('cancel-invitations: <org-slug-or-id> is required');
+        const { cancelled } = await cancelInvitations(db, { orgSlugOrId });
+        if (cancelled.length === 0) {
+          console.log(`no pending invitations on ${orgSlugOrId}`);
+        } else {
+          console.log(`cancelled ${cancelled.length} invitation(s) on ${orgSlugOrId}:`);
+          for (const email of cancelled) console.log(`  ${email}`);
         }
         return 0;
       }

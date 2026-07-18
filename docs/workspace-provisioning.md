@@ -82,6 +82,36 @@ pnpm provision-org remove-member hyc carol@example.com
 useful for support — it appears on the `/workspace` page and in the
 workspace-switcher data attributes.
 
+### Personal workspaces
+
+Personal workspaces are single-user: the app refuses invitations to them
+on both create and accept, and the Members card offers no invite form
+there. Someone who wants co-scorers asks for a club workspace, which is
+the approval step this whole document exists for.
+
+They're awkward to address by hand, though — every one is named "My
+Workspace" and the slug is derived from a user id you don't have. Resolve
+one from the owner's email:
+
+```bash
+pnpm provision-org personal-workspace mary@example.com
+```
+
+That prints the slug, the roster, and any pending invitations. To clear
+out members who joined before the guard existed, feed the slug back to
+the usual commands:
+
+```bash
+pnpm provision-org remove-member u-usr_1234567890ab bob@example.com
+pnpm provision-org cancel-invitations u-usr_1234567890ab
+```
+
+Removing a member takes away their access to the workspace; it doesn't
+touch their own account or their own personal workspace. If they were
+scoring a series that ought to survive, get the owner to copy it to a
+club workspace first ("Copy to another workspace" on series Settings)
+— removal leaves the series where it is, reachable only by the owner.
+
 ## Feature gating (experimental features)
 
 Some features are kept behind a gate (#155) because they're experimental

@@ -8,9 +8,11 @@ import postgres, { type Sql } from 'postgres';
 import * as schema from '@/lib/db/schema';
 import {
   addMember,
+  cancelInvitations,
   createOrg,
   declineRequest,
   deleteOrg,
+  findPersonalWorkspace,
   fulfilRequest,
   listMembers,
   listOrgsWithFeature,
@@ -142,6 +144,53 @@ describe.skipIf(skip)('provision-org operations', () => {
     await expect(
       seedSamplesForUser(db, { email }),
     ).rejects.toThrow(/no personal workspace/);
+  });
+
+  test('findPersonalWorkspace resolves by email and reports strays to clear', async () => {
+    const stamp = Date.now();
+    const owner = `solo-${stamp}@sailscoring.test`;
+    const stray = `stray-${stamp}@sailscoring.test`;
+    const { userId, orgId } = await makePersonalWorkspace(owner);
+    await makeUser(stray);
+
+    // The state the guard now prevents, reproduced directly: an extra member
+    // and an unredeemed invitation on a personal workspace.
+    await addMember(db, { orgSlugOrId: orgId, email: stray });
+    await db.insert(schema.invitation).values({
+      id: `inv_${crypto.randomUUID().replace(/-/g, '')}`,
+      organizationId: orgId,
+      email: `pending-${stamp}@sailscoring.test`,
+      role: 'member',
+      status: 'pending',
+      expiresAt: new Date(Date.now() + 86_400_000),
+      inviterId: userId,
+    });
+
+    const found = await findPersonalWorkspace(db, { email: owner });
+    expect(found.org.id).toBe(orgId);
+    expect(found.org.slug).toBe(`u-${userId.slice(0, 16)}`);
+    expect(found.members.map((m) => m.email).sort()).toEqual([owner, stray].sort());
+    expect(found.pendingInvitations.map((i) => i.email)).toEqual([
+      `pending-${stamp}@sailscoring.test`,
+    ]);
+
+    // Clearing it out: remove the stray, cancel the invitation.
+    await removeMember(db, { orgSlugOrId: found.org.slug, email: stray });
+    const { cancelled } = await cancelInvitations(db, { orgSlugOrId: found.org.slug });
+    expect(cancelled).toEqual([`pending-${stamp}@sailscoring.test`]);
+
+    const after = await findPersonalWorkspace(db, { email: owner });
+    expect(after.members.map((m) => m.email)).toEqual([owner]);
+    expect(after.pendingInvitations).toEqual([]);
+
+    // Cancelling again is a no-op rather than re-cancelling settled rows.
+    expect((await cancelInvitations(db, { orgSlugOrId: found.org.slug })).cancelled).toEqual([]);
+  });
+
+  test('findPersonalWorkspace rejects an unknown user', async () => {
+    await expect(
+      findPersonalWorkspace(db, { email: 'nobody@nowhere.test' }),
+    ).rejects.toThrow(/no user with email/);
   });
 
   test('createOrg + add/list/setRole/remove round-trip', async () => {
