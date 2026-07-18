@@ -703,9 +703,9 @@ export default function CompetitorsPage({
                 {showBow && <TableCell className="font-mono">{c.bowNumber ?? ''}</TableCell>}
                 {showBoat && <TruncatedCell value={c.boatName} />}
                 {showClass && <TruncatedCell value={c.boatClass} />}
-                <TableCell className="whitespace-normal break-words">{formatPrimaryNames(c.names)}</TableCell>
-                {showHelm && <TableCell className="whitespace-normal break-words">{(c.helms ?? []).join(' & ')}</TableCell>}
-                {showOwner && <TableCell className="whitespace-normal break-words">{(c.owners ?? []).join(' & ')}</TableCell>}
+                <TableCell className="whitespace-normal break-words">{c.names.filter((n) => n.trim()).map((n, i) => <div key={i}>{n}</div>)}</TableCell>
+                {showHelm && <TableCell className="whitespace-normal break-words">{(c.helms ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
+                {showOwner && <TableCell className="whitespace-normal break-words">{(c.owners ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
                 {showCrew && <TableCell className="whitespace-normal break-words">{(c.crewNames ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
                 {showClub && <TruncatedCell value={c.club} />}
                 {showNationality && <TableCell className="font-mono">{c.nationality ?? ''}</TableCell>}

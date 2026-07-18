@@ -22,7 +22,7 @@ function makeStanding(
   return {
     rank,
     sailNumber: sail,
-    helm,
+    helm: [helm],
     raceScores: scores.map((s) => ({
       points: s.points,
       resultCode: s.resultCode ?? null,
@@ -46,7 +46,7 @@ function makeRace(n: number, results: Array<[string, string, number, ResultCode 
     results: results.map(([sail, helm, points, code], i) => ({
       rank: i + 1,
       sailNumber: sail,
-      helm,
+      helm: [helm],
       place: code === null ? points : null,
       points,
       resultCode: code,
@@ -183,7 +183,7 @@ describe('renderSeriesHtml', () => {
         {
           rank: 1,
           sailNumber: '1',
-          helm: 'A',
+          helm: ['A'],
           raceScores: [
             { points: 1, resultCode: null, isDiscard: false, podiumRank: 1, penaltyCode: null, penaltyOverride: null, isRedress: false },
             { points: 4, resultCode: 'DNC', isDiscard: true, podiumRank: null, penaltyCode: null, penaltyOverride: null, isRedress: false },
@@ -449,7 +449,7 @@ describe('renderSeriesHtml', () => {
             {
               sailNumber: '1',
               boatName: 'Windchaser',
-              helm: 'Alice',
+              helm: ['Alice'],
               crewNames: ['Mark'],
               place: 1,
               rank: 1,
@@ -466,7 +466,7 @@ describe('renderSeriesHtml', () => {
           rank: 1,
           sailNumber: '1',
           boatName: 'Windchaser',
-          helm: 'Alice',
+          helm: ['Alice'],
           crewNames: ['Mark'],
           raceScores: [
             { points: 1, resultCode: null, penaltyCode: null, penaltyOverride: null, isDiscard: false, isRedress: false, podiumRank: 1 },
@@ -522,6 +522,24 @@ describe('renderSeriesHtml', () => {
       expect(html).toContain('<th>Helm / Crew</th>');
       expect(html).not.toContain('Alice /');
       expect(html).toContain('>Alice<');
+    });
+
+    it('stacks a multi-person primary, with crew below, one name per line', () => {
+      const syndicate: SeriesResultsData = {
+        ...withBoatAndCrew,
+        enabledCompetitorFields: ['crewName'],
+        primaryPersonLabel: 'owner',
+        standings: [{ ...withBoatAndCrew.standings[0], helm: ['J. Murphy', 'M. Murphy'], crewNames: ['Mark'] }],
+        races: [
+          {
+            ...withBoatAndCrew.races[0],
+            results: [{ ...withBoatAndCrew.races[0].results[0], helm: ['J. Murphy', 'M. Murphy'], crewNames: ['Mark'] }],
+          },
+        ],
+      };
+      const html = renderSeriesHtml(syndicate);
+      expect(html).toContain('J. Murphy<br>M. Murphy<br>Mark');
+      expect(html).not.toContain('J. Murphy / ');
     });
 
     it('stacks a multi-person crew one name per line under the helm', () => {
@@ -909,7 +927,7 @@ function nhcFixture(withExplain = true): SeriesResultsData {
     ...(withExplain ? { nhcHeader } : {}),
     results: [
       {
-        rank: 1, sailNumber: '42', helm: 'Alice',
+        rank: 1, sailNumber: '42', helm: ['Alice'],
         place: 1, points: 1, resultCode: null, penaltyCode: null, penaltyOverride: null,
         tcc: 1.0, finishTime: '14:58:20',
         elapsedTimeSecs: 3500, correctedTimeSecs: 3500,
@@ -920,7 +938,7 @@ function nhcFixture(withExplain = true): SeriesResultsData {
           : { tcfApplied: 1.0, newTcf: 1.014, isFinisher: true },
       },
       {
-        rank: 2, sailNumber: '99', helm: 'Bob',
+        rank: 2, sailNumber: '99', helm: ['Bob'],
         place: 2, points: 2, resultCode: null, penaltyCode: null, penaltyOverride: null,
         tcc: 1.0, finishTime: '15:01:40',
         elapsedTimeSecs: 3700, correctedTimeSecs: 3700,
@@ -1054,7 +1072,7 @@ function echoFixture(withExplain = true): SeriesResultsData {
     ...(withExplain ? { echoHeader } : {}),
     results: [
       {
-        rank: 1, sailNumber: '42', helm: 'Alice',
+        rank: 1, sailNumber: '42', helm: ['Alice'],
         place: 1, points: 1, resultCode: null, penaltyCode: null, penaltyOverride: null,
         tcc: 1.0, finishTime: '14:58:20',
         elapsedTimeSecs: 3500, correctedTimeSecs: 3500,
@@ -1107,7 +1125,7 @@ describe('renderSeriesHtml — per-race ratings in summary', () => {
     const aliceStanding: StandingRowData = {
       rank: 1,
       sailNumber: '42',
-      helm: 'Alice',
+      helm: ['Alice'],
       ...(withSeed ? { seedRating: 1.350 } : {}),
       raceScores: [
         { points: 1, resultCode: null, isDiscard: false, podiumRank: 1, penaltyCode: null, penaltyOverride: null, isRedress: false },
@@ -1119,7 +1137,7 @@ describe('renderSeriesHtml — per-race ratings in summary', () => {
     const bobStanding: StandingRowData = {
       rank: 2,
       sailNumber: '99',
-      helm: 'Bob',
+      helm: ['Bob'],
       ...(withSeed ? { seedRating: 1.200 } : {}),
       raceScores: [
         { points: 2, resultCode: null, isDiscard: false, podiumRank: 2, penaltyCode: null, penaltyOverride: null, isRedress: false },
@@ -1281,9 +1299,9 @@ describe('renderSeriesHtml — nationality', () => {
       {
         ...makeRace(1, [['42', 'Alice', 1, null], ['99', 'Bob', 2, null], ['7', 'Charlie', 3, null]]),
         results: [
-          { rank: 1, sailNumber: '42', helm: 'Alice', place: 1, points: 1, resultCode: null, penaltyCode: null, penaltyOverride: null, nationality: 'IRL' },
-          { rank: 2, sailNumber: '99', helm: 'Bob', place: 2, points: 2, resultCode: null, penaltyCode: null, penaltyOverride: null, nationality: 'IRL' },
-          { rank: 3, sailNumber: '7', helm: 'Charlie', place: 3, points: 3, resultCode: null, penaltyCode: null, penaltyOverride: null, nationality: 'GBR' },
+          { rank: 1, sailNumber: '42', helm: ['Alice'], place: 1, points: 1, resultCode: null, penaltyCode: null, penaltyOverride: null, nationality: 'IRL' },
+          { rank: 2, sailNumber: '99', helm: ['Bob'], place: 2, points: 2, resultCode: null, penaltyCode: null, penaltyOverride: null, nationality: 'IRL' },
+          { rank: 3, sailNumber: '7', helm: ['Charlie'], place: 3, points: 3, resultCode: null, penaltyCode: null, penaltyOverride: null, nationality: 'GBR' },
         ],
       },
     ],

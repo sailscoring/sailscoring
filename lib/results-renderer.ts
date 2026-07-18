@@ -156,12 +156,12 @@ export interface RaceResultData {
   sailNumber: string;
   boatName?: string;
   boatClass?: string;
-  /** Primary name — labelled per `SeriesResultsData.primaryPersonLabel`. */
-  helm: string;
-  /** Owner when recorded separately from the primary (helm-primary series). */
-  owner?: string;
-  /** Helm when recorded separately from the primary (owner-primary series). */
-  helmRole?: string;
+  /** Primary person(s) — labelled per `SeriesResultsData.primaryPersonLabel`. */
+  helm: string[];
+  /** Owner(s) when recorded separately from the primary (helm-primary series). */
+  owner?: string[];
+  /** Helm(s) when recorded separately from the primary (owner-primary series). */
+  helmRole?: string[];
   crewNames?: string[];
   /** Sailing club affiliation. */
   club?: string;
@@ -239,12 +239,12 @@ export interface StandingRowData {
   sailNumber: string;
   boatName?: string;
   boatClass?: string;
-  /** Primary name — labelled per `SeriesResultsData.primaryPersonLabel`. */
-  helm: string;
-  /** Owner when recorded separately (helm-primary series). */
-  owner?: string;
-  /** Helm when recorded separately (owner-primary series). */
-  helmRole?: string;
+  /** Primary person(s) — labelled per `SeriesResultsData.primaryPersonLabel`. */
+  helm: string[];
+  /** Owner(s) when recorded separately (helm-primary series). */
+  owner?: string[];
+  /** Helm(s) when recorded separately (owner-primary series). */
+  helmRole?: string[];
   crewNames?: string[];
   /** Sailing club affiliation. */
   club?: string;
@@ -862,8 +862,8 @@ function renderSummaryTable(
         ...(showBoatName ? [`<td>${esc(s.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(s.boatClass ?? '')}</td>`] : []),
         `<td>${renderHelmCell(s.helm, s.crewNames, showCrewName)}</td>`,
-        ...(showHelm ? [`<td>${esc(s.helmRole ?? '')}</td>`] : []),
-        ...(showOwner ? [`<td>${esc(s.owner ?? '')}</td>`] : []),
+        ...(showHelm ? [`<td>${renderPersonCell(s.helmRole)}</td>`] : []),
+        ...(showOwner ? [`<td>${renderPersonCell(s.owner)}</td>`] : []),
         ...(showClub ? [`<td>${esc(s.club ?? '')}</td>`] : []),
         ...(showNationality ? [renderNationalityCell(s.nationality, flagSvgByCode)] : []),
         ...subdivisionAxes.map((axis) => `<td>${esc(s.subdivisions?.[axis.id] ?? '')}</td>`),
@@ -950,8 +950,8 @@ function renderRaceTable(
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
         `<td>${renderHelmCell(r.helm, r.crewNames, showCrewName)}</td>`,
-        ...(showHelm ? [`<td>${esc(r.helmRole ?? '')}</td>`] : []),
-        ...(showOwner ? [`<td>${esc(r.owner ?? '')}</td>`] : []),
+        ...(showHelm ? [`<td>${renderPersonCell(r.helmRole)}</td>`] : []),
+        ...(showOwner ? [`<td>${renderPersonCell(r.owner)}</td>`] : []),
         ...(showClub ? [`<td>${esc(r.club ?? '')}</td>`] : []),
         ...(showNationality ? [renderNationalityCell(r.nationality, flagSvgByCode)] : []),
         ...subdivisionAxes.map((axis) => `<td>${esc(r.subdivisions?.[axis.id] ?? '')}</td>`),
@@ -1157,14 +1157,24 @@ function formatSigned(n: number, digits: number): string {
   return n >= 0 ? `+${n.toFixed(digits)}` : n.toFixed(digits);
 }
 
-/** Compose the text for the Helm column. When crew names are shown and a
- *  crew is set, renders "Helm / Crew"; a multi-person crew stacks one name
- *  per line under the helm. Returns escaped HTML — callers embed it as-is. */
-function renderHelmCell(helm: string, crewNames: string[] | undefined, showCrewName: boolean): string {
-  const crew = (crewNames ?? []).filter((n) => n.trim());
-  if (!showCrewName || crew.length === 0) return esc(helm);
-  if (crew.length === 1) return esc(`${helm} / ${crew[0]}`);
-  return [helm, ...crew].map(esc).join('<br>');
+/** One role column's cell: a single person as plain text, several stacked
+ *  one per line. Returns escaped HTML — callers embed it as-is. */
+function renderPersonCell(names: string[] | undefined): string {
+  const list = (names ?? []).filter((n) => n.trim());
+  if (list.length <= 1) return esc(list[0] ?? '');
+  return list.map(esc).join('<br>');
+}
+
+/** Compose the combined primary/crew cell. The single-person, single-crew
+ *  case keeps the classic one-line "Helm / Crew"; any more people — a
+ *  syndicate primary or a keelboat crew — stack one name per line, primary
+ *  first. Returns escaped HTML — callers embed it as-is. */
+function renderHelmCell(helm: string[], crewNames: string[] | undefined, showCrewName: boolean): string {
+  const primary = helm.filter((n) => n.trim());
+  const crew = showCrewName ? (crewNames ?? []).filter((n) => n.trim()) : [];
+  if (primary.length <= 1 && crew.length === 0) return esc(primary[0] ?? '');
+  if (primary.length === 1 && crew.length === 1) return esc(`${primary[0]} / ${crew[0]}`);
+  return [...primary, ...crew].map(esc).join('<br>');
 }
 
 // ---- Helpers ----
@@ -1439,9 +1449,9 @@ export function assembleSeriesResultsData(
         sailNumber: competitor.sailNumber,
         ...(competitor.boatName ? { boatName: competitor.boatName } : {}),
         ...(competitor.boatClass ? { boatClass: competitor.boatClass } : {}),
-        helm: formatPrimaryNames(competitor.names),
-        ...(competitor.owners?.length ? { owner: competitor.owners.join(' & ') } : {}),
-        ...(competitor.helms?.length ? { helmRole: competitor.helms.join(' & ') } : {}),
+        helm: competitor.names,
+        ...(competitor.owners?.length ? { owner: competitor.owners } : {}),
+        ...(competitor.helms?.length ? { helmRole: competitor.helms } : {}),
         ...(competitor.crewNames?.length ? { crewNames: competitor.crewNames } : {}),
         ...(competitor.club ? { club: competitor.club } : {}),
         ...(competitor.nationality ? { nationality: competitor.nationality } : {}),
@@ -1515,9 +1525,9 @@ export function assembleSeriesResultsData(
       sailNumber: s.competitor.sailNumber,
       ...(s.competitor.boatName ? { boatName: s.competitor.boatName } : {}),
       ...(s.competitor.boatClass ? { boatClass: s.competitor.boatClass } : {}),
-      helm: formatPrimaryNames(s.competitor.names),
-      ...(s.competitor.owners?.length ? { owner: s.competitor.owners.join(' & ') } : {}),
-      ...(s.competitor.helms?.length ? { helmRole: s.competitor.helms.join(' & ') } : {}),
+      helm: s.competitor.names,
+      ...(s.competitor.owners?.length ? { owner: s.competitor.owners } : {}),
+      ...(s.competitor.helms?.length ? { helmRole: s.competitor.helms } : {}),
       ...(s.competitor.crewNames?.length ? { crewNames: s.competitor.crewNames } : {}),
       ...(s.competitor.club ? { club: s.competitor.club } : {}),
       ...(s.competitor.nationality ? { nationality: s.competitor.nationality } : {}),

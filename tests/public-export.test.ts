@@ -86,7 +86,7 @@ describe('renderSeriesHtml — NHC explainability', () => {
           } : {}),
           results: [
             {
-              sailNumber: '1', helm: 'Alpha',
+              sailNumber: '1', helm: ['Alpha'],
               place: 1, rank: 1, points: 1,
               resultCode: null, penaltyCode: null, penaltyOverride: null,
               tcc: 1.0,
@@ -101,7 +101,7 @@ describe('renderSeriesHtml — NHC explainability', () => {
                 : { tcfApplied: 1.0, newTcf: 1.015, isFinisher: true },
             },
             {
-              sailNumber: '2', helm: 'Beta',
+              sailNumber: '2', helm: ['Beta'],
               place: null, rank: null, points: 4,
               resultCode: 'DNF', penaltyCode: null, penaltyOverride: null,
               tcc: 1.05,
