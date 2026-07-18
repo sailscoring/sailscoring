@@ -5,14 +5,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   distinguishCompetitorIdentities,
   listCompetitorIdentities,
-  listCompetitorIdentityMergeSuggestions,
+  listCompetitorIdentityReview,
   mergeCompetitorIdentities,
   renameCompetitorIdentity,
   restoreCompetitorIdentity,
   setCompetitorIdentityReviewed,
   splitCompetitorIdentity,
+  unlinkCompetitorIdentity,
 } from '@/lib/api-repository';
 import type { MergeSuggestion } from '@/lib/api-handlers/competitor-identity';
+import type { StaleLink } from '@/lib/competitor-identity-reconcile';
 import type {
   IdentityWithArc,
   MergeResult as IdentityMergeUndo,
@@ -28,11 +30,11 @@ export function useCompetitorIdentities() {
   });
 }
 
-/** The review queue's merge candidates (#221). */
-export function useIdentityMergeSuggestions() {
-  return useQuery<MergeSuggestion[]>({
+/** The review queue (#221/#316): merge candidates plus stale memberships. */
+export function useIdentityReviewQueue() {
+  return useQuery<{ mergeSuggestions: MergeSuggestion[]; staleLinks: StaleLink[] }>({
     queryKey: queryKeys.competitorIdentities.review(),
-    queryFn: () => listCompetitorIdentityMergeSuggestions(),
+    queryFn: () => listCompetitorIdentityReview(),
   });
 }
 
@@ -86,6 +88,16 @@ export function useSetIdentityReviewed() {
   return useMutation({
     mutationFn: ({ id, reviewed }: { id: string; reviewed: boolean }) =>
       setCompetitorIdentityReviewed(id, reviewed),
+    onSuccess: invalidate,
+  });
+}
+
+/** Remove one membership (#316) — the stale-link resolution. */
+export function useUnlinkIdentity() {
+  const invalidate = useInvalidateIdentities();
+  return useMutation({
+    mutationFn: ({ identityId, competitorId }: { identityId: string; competitorId: string }) =>
+      unlinkCompetitorIdentity(identityId, competitorId),
     onSuccess: invalidate,
   });
 }

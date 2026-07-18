@@ -17,6 +17,9 @@ export const identityMergeSchema = z.object({
   sourceId: uuidSchema,
 });
 
+/** Body of POST /competitor-identities/{id}/unlink (#316). */
+export const identityUnlinkSchema = z.object({ competitorId: uuidSchema });
+
 /** Undo a merge: recreate the merged-away identity and re-link its rows.
  *  The body is exactly what the merge endpoint returned. */
 export const identityRestoreSchema = z.object({

@@ -5,6 +5,7 @@
 import { apiFetch } from './api-client';
 import type { FeatureKey } from './features';
 import type { MergeSuggestion } from './api-handlers/competitor-identity';
+import type { StaleLink } from './competitor-identity-reconcile';
 import type { AsPublishedFleetView } from './api-handlers/archive';
 import type { RankingDto } from './api-handlers/rankings';
 import type { RankingConfig } from './ranking';
@@ -1182,12 +1183,24 @@ export function distinguishCompetitorIdentities(
   });
 }
 
-/** The review queue's merge candidates (#221). */
-export async function listCompetitorIdentityMergeSuggestions(): Promise<
-  MergeSuggestion[]
-> {
-  const { mergeSuggestions } = await apiFetch<{
+/** The review queue (#221/#316): merge candidates plus stale memberships. */
+export async function listCompetitorIdentityReview(): Promise<{
+  mergeSuggestions: MergeSuggestion[];
+  staleLinks: StaleLink[];
+}> {
+  return apiFetch<{
     mergeSuggestions: MergeSuggestion[];
+    staleLinks: StaleLink[];
   }>('/api/v1/competitor-identities/review');
-  return mergeSuggestions;
+}
+
+/** Remove one identity membership (#316) — stale-link resolution. */
+export async function unlinkCompetitorIdentity(
+  identityId: string,
+  competitorId: string,
+): Promise<void> {
+  await apiFetch(`/api/v1/competitor-identities/${identityId}/unlink`, {
+    method: 'POST',
+    body: JSON.stringify({ competitorId }),
+  });
 }

@@ -8,10 +8,12 @@ import type {
   IdentityWithArc,
   MergeResult as IdentityMergeUndo,
 } from '@/lib/competitor-identity-repository';
+import type { StaleLink } from '@/lib/competitor-identity-reconcile';
 import {
   useCompetitorIdentities,
   useDistinguishIdentities,
-  useIdentityMergeSuggestions,
+  useIdentityReviewQueue,
+  useUnlinkIdentity,
   useMergeCompetitorIdentities,
   useRenameCompetitorIdentity,
   useRestoreCompetitorIdentity,
@@ -137,6 +139,41 @@ function MergeSuggestionRow({
           onClick={() => distinguish.mutate({ aId: a.id, bId: b.id })}
         >
           Different sailors
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** A stale membership (#316): the identity's label matches no person on the
+ *  (multi-person) row — a rename that walked away from the link, or a
+ *  pre-list joined-name identity still attached. Unlink removes just this
+ *  membership; the identity keeps its other events. */
+function StaleLinkRow({ link }: { link: StaleLink }) {
+  const unlink = useUnlinkIdentity();
+  return (
+    <div
+      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+      data-testid="stale-link-row"
+    >
+      <div className="min-w-0 text-sm">
+        <span className="font-medium">{link.identityLabel}</span>
+        <span className="text-muted-foreground">
+          {' '}— linked to {link.competitorNames.filter((n) => n.trim()).join(' & ')} ({link.sailNumber})
+        </span>
+        <p className="text-xs text-muted-foreground mt-1">
+          None of the entry&rsquo;s named people match this record. Unlink it,
+          or rename the record if it should match.
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={unlink.isPending}
+          onClick={() => unlink.mutate({ identityId: link.identityId, competitorId: link.competitorId })}
+        >
+          Unlink
         </Button>
       </div>
     </div>
@@ -480,7 +517,9 @@ function IdentityCard({
 
 export function IdentitiesReconcile({ workspaceSlug }: { workspaceSlug: string }) {
   const { data: identities, isError, refetch } = useCompetitorIdentities();
-  const { data: mergeSuggestions } = useIdentityMergeSuggestions();
+  const { data: review } = useIdentityReviewQueue();
+  const mergeSuggestions = review?.mergeSuggestions;
+  const staleLinks = review?.staleLinks ?? [];
   const restore = useRestoreCompetitorIdentity();
   const [query, setQuery] = useState('');
   const [undo, setUndo] = useState<UndoState | null>(null);
@@ -543,7 +582,7 @@ export function IdentitiesReconcile({ workspaceSlug }: { workspaceSlug: string }
     );
   }
 
-  const reviewCount = suggestionPairs.length + longArcs.length;
+  const reviewCount = suggestionPairs.length + longArcs.length + staleLinks.length;
 
   return (
     <div className="space-y-4">
@@ -600,6 +639,9 @@ export function IdentitiesReconcile({ workspaceSlug }: { workspaceSlug: string }
             ))}
             {longArcs.map((identity) => (
               <LongArcRow key={identity.id} identity={identity} onShow={setQuery} />
+            ))}
+            {staleLinks.map((link) => (
+              <StaleLinkRow key={`${link.identityId}:${link.competitorId}`} link={link} />
             ))}
           </div>
         </section>

@@ -536,16 +536,24 @@ export async function removeIdentityLink(
   competitorId: string,
   identityId: string,
 ): Promise<boolean> {
-  const res = await getDb()
-    .delete(competitorIdentityLinks)
-    .where(
-      and(
-        eq(competitorIdentityLinks.workspaceId, workspaceId),
-        eq(competitorIdentityLinks.competitorId, competitorId),
-        eq(competitorIdentityLinks.identityId, identityId),
-      ),
-    );
-  return (res.count ?? 0) > 0;
+  return getDb().transaction(async (tx) => {
+    const res = await tx
+      .delete(competitorIdentityLinks)
+      .where(
+        and(
+          eq(competitorIdentityLinks.workspaceId, workspaceId),
+          eq(competitorIdentityLinks.competitorId, competitorId),
+          eq(competitorIdentityLinks.identityId, identityId),
+        ),
+      );
+    if ((res.count ?? 0) === 0) return false;
+    // The arc changed — any "looks right" review mark is stale.
+    await tx
+      .update(competitorIdentities)
+      .set({ reviewedAt: null, updatedAt: new Date() })
+      .where(eq(competitorIdentities.id, identityId));
+    return true;
+  });
 }
 
 /** Stamp (or clear) the review queue's "looks right" mark (#221). Returns

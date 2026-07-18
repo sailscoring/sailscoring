@@ -14,6 +14,7 @@ import {
   listIdentitiesWithArcs,
   listIdentityDistinctions,
   mergeIdentities,
+  removeIdentityLink,
   renameIdentity,
   restoreIdentity,
   setIdentityReviewed,
@@ -25,6 +26,7 @@ import { getDb } from '@/lib/db/client';
 import {
   identityDistinctionSchema,
   identityMergeSchema,
+  identityUnlinkSchema,
   identityRenameSchema,
   identityRestoreSchema,
   identityReviewedSchema,
@@ -136,6 +138,23 @@ export async function mergeIntoIdentity(
   const result = await mergeIdentities(workspace.workspaceId, id, sourceId);
   if (!result) throw new NotFoundError('competitor-identity');
   return { identity: await getIdentity(workspace, id), undo: result };
+}
+
+/**
+ * Remove one membership (#316) — the review queue's stale-link resolution.
+ * Archive-managed identities are git's to correct (ADR-010).
+ */
+export async function unlinkIdentity(
+  workspace: WorkspaceContext,
+  id: string,
+  body: unknown,
+): Promise<{ removed: boolean }> {
+  requireFeature(workspace, 'competitor-reconcile');
+  const { competitorId } = identityUnlinkSchema.parse(body);
+  await assertAppManaged(workspace, [id], 'this competitor record');
+  const removed = await removeIdentityLink(workspace.workspaceId, competitorId, id);
+  if (!removed) throw new NotFoundError('competitor-identity-link');
+  return { removed };
 }
 
 /** Undo a merge: the body is exactly what the merge endpoint returned. */
