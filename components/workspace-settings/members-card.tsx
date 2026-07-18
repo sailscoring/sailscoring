@@ -89,7 +89,12 @@ export function MembersCard({
   const members = data?.members ?? [];
   const invitations = data?.invitations ?? [];
   const me = members.find((m) => m.user.email === currentUserEmail);
-  const canManage = !isPersonal && (me?.role === 'owner' || me?.role === 'admin');
+  const canManage = me?.role === 'owner' || me?.role === 'admin';
+  // Inviting is what a personal workspace must not do. Removing a member or
+  // cancelling an invitation stays available: both only ever shrink the
+  // workspace, and the owner needs them to clear out anyone who joined
+  // before the guard existed.
+  const canInvite = canManage && !isPersonal;
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -213,7 +218,7 @@ export function MembersCard({
         </div>
       )}
 
-      {canManage && (
+      {canInvite && (
         <form onSubmit={handleInvite} className="space-y-2 border-t pt-4">
           <Label htmlFor="invite-email">Invite a co-scorer by email</Label>
           <div className="flex gap-2">
