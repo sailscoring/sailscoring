@@ -132,6 +132,53 @@ test('multi-person crew: Add crew rows, stacked column, stacked export', async (
   expect(html).toContain('Cormac Farrelly<br>Alice Byrne<br>Carol Doyle');
 });
 
+test('co-owners: Add owner rows, gender/age single-individual rule, stacked export', async ({ page }) => {
+  // ── 1. Owner-primary series with gender + age enabled ───────────────────
+  await createSeriesQuick(page, { name: 'Cruiser Syndicates' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('radio', { name: /^Owner/ }).click();
+  await page.getByRole('checkbox', { name: 'Gender' }).check();
+  await page.getByRole('checkbox', { name: 'Age', exact: true }).check();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 2. Single owner: gender and age are editable ─────────────────────────
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('IRL1431');
+  await page.getByLabel('Owner name 1').fill('J. Murphy');
+  await expect(page.getByLabel('Age')).toBeVisible();
+  await page.getByLabel('Age').fill('44');
+
+  // ── 3. A second owner hides gender/age and states the clearing rule ──────
+  await page.getByRole('button', { name: 'Add owner' }).click();
+  await page.getByLabel('Owner name 2').fill('M. Murphy');
+  await expect(page.getByLabel('Age')).toHaveCount(0);
+  await expect(page.getByText(/Gender and age apply to a single named owner/)).toBeVisible();
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  // ── 4. The competitor table stacks both owners in one cell ───────────────
+  const row = page.getByRole('row').filter({ hasText: 'IRL1431' });
+  await expect(row).toContainText('J. Murphy');
+  await expect(row).toContainText('M. Murphy');
+
+  // ── 5. Race + finish, then export: stacked primary, no stored age ────────
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('IRL1431');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  const download = await downloadFleetHtml(page);
+  const path = await download.path();
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(path, 'utf-8');
+  expect(html).toContain('J. Murphy<br>M. Murphy');
+  expect(html).not.toContain('>44<');
+});
+
 test('class field shows Class column and exports in results', async ({ page }) => {
   await createSeriesQuick(page, { name: 'PY Handicap' });
 

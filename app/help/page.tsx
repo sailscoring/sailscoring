@@ -259,17 +259,30 @@ export default async function HelpPage() {
         </p>
         <p>
           Each competitor requires a <strong className="text-foreground">sail number</strong> and a
-          <strong className="text-foreground"> helm name</strong>. Sail numbers must be unique within
-          the series. Other fields — boat name, class, crew name, club, gender, age — are optional,
-          and which of them appear in the form and tables is controlled by the{' '}
-          <strong className="text-foreground">Competitor fields</strong> card on the{' '}
-          <strong className="text-foreground">Settings</strong> tab. Enable{' '}
+          primary <strong className="text-foreground">name</strong> (labelled Helm, Owner,
+          Competitor, or Entrant per the series&rsquo; primary-identifier setting). Sail numbers
+          must be unique within the series. Other fields — boat name, class, owner, helm, crew,
+          club, gender, age — are optional, and which of them appear in the form and tables is
+          controlled by the <strong className="text-foreground">Competitor fields</strong> card on
+          the <strong className="text-foreground">Settings</strong> tab. Enable{' '}
           <em>Class</em> for PY fleets with mixed classes (Laser, Firefly, Mirror) to show the boat
           class alongside each entry. Enable{' '}
-          <em>Crew</em> for classes that sail with crew. A competitor can carry any number of
-          crew names — <em>Add crew</em> in the competitor dialog adds a row per person. A
-          single crew shows as <em>Helm / Crew</em> in exported results; a bigger keelboat crew
-          stacks one name per line under the helm.
+          <em>Crew</em> for classes that sail with crew.
+        </p>
+        <p>
+          Every person field takes any number of names: <em>Add owner</em>, <em>Add helm</em>, or{' '}
+          <em>Add crew</em> in the competitor dialog adds a row per person, so co-owned boats
+          (&ldquo;J. &amp; M. Murphy&rdquo; syndicates), offshore co-helms, and full keelboat
+          crews are all first-class. A single owner-and-crew pairing keeps the classic one-line{' '}
+          <em>Helm / Crew</em> in exported results; any more people stack one name per line.
+          One-line contexts such as finish entry join co-owners with an ampersand.
+        </p>
+        <p>
+          <strong className="text-foreground">Gender</strong> and{' '}
+          <strong className="text-foreground">age</strong> describe the primary person, and only
+          when the primary is a single individual — add a second name and the dialog clears both
+          (a syndicate entry has no single age). Nationality is different: national letters
+          attach to the boat, so it stays whatever the entry declares.
         </p>
         <p>
           Enable <em>Bow number</em> when boats carry a bow number that can
@@ -482,14 +495,17 @@ export default async function HelpPage() {
           column heading (so a sheet with both a Division and an Age-category column brings in both).
         </p>
         <p>
-          Multi-person crews import two ways, and both can be combined. Sheets with one column
-          per person (<em>Crew 1</em>, <em>Crew 2</em>, <em>Crew 3</em>…) map every column to{' '}
-          <strong className="text-foreground">Crew</strong>; the names are kept in column order.
-          Or several names can share one <em>Crew</em> cell separated by semicolons (Sailwave’s{' '}
+          Multi-person fields (owners, helms, crew, and the primary itself) import two ways, and
+          both can be combined. Sheets with one column per person (<em>Owner 1</em>,{' '}
+          <em>Owner 2</em>, or <em>Crew 1</em>…<em>Crew 3</em>) map every column to the same
+          field; the names are kept in column order. Or several names can share one cell
+          separated by semicolons (Sailwave’s{' '}
           <code className="text-foreground text-sm">&lt;br&gt;</code> convention and line breaks
           also work) — the sample column previews how a cell will split before you import.
           Commas and <em>&amp;</em> are never treated as separators, so surname-first names
-          (“MOUSE, Micky”) and shared-surname pairs (“Alice &amp; Bob Byrne”) come through intact.
+          (“MOUSE, Micky”), shared-surname pairs (“Alice &amp; Bob Byrne”), and “J &amp; M
+          Murphy” co-owners come through intact as one entry each. Rows that arrive with more
+          than one primary name carry no gender or age, whatever those cells say.
         </p>
         <p>
           A competitor can be assigned to more than one fleet by separating fleet names with a
