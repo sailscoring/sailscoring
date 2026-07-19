@@ -155,6 +155,7 @@ export default function SeriesHistoryPage({
   const revert = useRevertToRevision(id);
   const checkpoint = useCreateCheckpoint(id);
   const [confirming, setConfirming] = useState<RevisionEntry | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
   const [naming, setNaming] = useState(false);
   const [label, setLabel] = useState('');
 
@@ -245,7 +246,10 @@ export default function SeriesHistoryPage({
         ))}
       </ul>
 
-      <Dialog open={confirming !== null} onOpenChange={(o) => { if (!o) setConfirming(null); }}>
+      <Dialog
+        open={confirming !== null}
+        onOpenChange={(o) => { if (!o) { setConfirming(null); setRestoreError(null); } }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Restore this version?</DialogTitle>
@@ -256,6 +260,11 @@ export default function SeriesHistoryPage({
               recorded as a new version — so you can undo it by restoring again.
             </DialogDescription>
           </DialogHeader>
+          {restoreError && (
+            <p role="alert" className="text-sm text-destructive">
+              {restoreError} The series has not been changed.
+            </p>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirming(null)} disabled={revert.isPending}>
               Cancel
@@ -263,7 +272,16 @@ export default function SeriesHistoryPage({
             <Button
               onClick={() => {
                 if (!confirming) return;
-                revert.mutate(confirming.id, { onSuccess: () => setConfirming(null) });
+                setRestoreError(null);
+                revert.mutate(confirming.id, {
+                  onSuccess: () => setConfirming(null),
+                  onError: (err) =>
+                    setRestoreError(
+                      err instanceof Error && err.message
+                        ? `Restore failed: ${err.message}.`
+                        : 'Restore failed.',
+                    ),
+                });
               }}
               disabled={revert.isPending}
             >
