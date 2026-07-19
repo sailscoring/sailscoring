@@ -54,6 +54,13 @@ export interface SeriesFileRepos {
   finishRepo: FinishRepository;
   listSeriesNames(opts?: { excludeId?: string }): Promise<string[]>;
   deleteSeriesChildren(seriesId: string): Promise<void>;
+  /** Run `fn` against transaction-scoped repos, rolling back everything it
+   *  wrote if it throws. The file replays below delete a series' children
+   *  before rewriting them, so without this a mid-replay failure leaves the
+   *  series empty with no way back. Optional: implementations that can't
+   *  offer one (the client repository, seed, tests) omit it and the replay
+   *  runs unwrapped, exactly as before. */
+  runInTransaction?<T>(fn: (repos: SeriesFileRepos) => Promise<T>): Promise<T>;
   /** Optional workspace logo-defaults reader. Structurally satisfies the
    *  `ExportRepos.logoRepo` slot so this same bundle drives the public-export
    *  publish path (`buildPublicExport`); the file builder itself ignores it. */
@@ -674,14 +681,27 @@ export function parseSeriesFile(content: string): SeriesFile {
   if (obj.subSeries !== undefined && !Array.isArray(obj.subSeries))
     throw new Error('Invalid file: subSeries must be a list');
 
+  migrateSeriesFileObject(obj);
+
+  return data as SeriesFile;
+}
+
+/**
+ * Bring a parsed series-file object up to the current format version, mutating
+ * in place. Split out of `parseSeriesFile` because not every consumer arrives
+ * via a file: revision snapshots are stored as raw JSON at the format version
+ * current when they were captured, and replaying one without migrating it
+ * feeds the writers fields that were renamed since (v22's `name` → `names`),
+ * which the schema then rejects.
+ */
+export function migrateSeriesFileObject(obj: Record<string, unknown>): void {
+  if (typeof obj.formatVersion !== 'number') return;
   if (obj.formatVersion < 3) migrateStartSequenceCumulativeToIntervals(obj.series);
   if (obj.formatVersion < 4 && obj.nhcTcfHistory !== undefined && obj.tcfHistory === undefined) {
     obj.tcfHistory = obj.nhcTcfHistory;
   }
   if (obj.formatVersion < 21) migrateCrewNameToList(obj.competitors);
   if (obj.formatVersion < 22) migratePersonFieldsToLists(obj.competitors);
-
-  return data as SeriesFile;
 }
 
 /** ≤v20 → v21: a single `crewName` becomes a one-element `crewNames` list.
@@ -1066,6 +1086,24 @@ export async function updateSeriesFromFile(
   file: SeriesFile,
   repos: SeriesFileRepos,
 ): Promise<void> {
+  return replayAtomically(repos, (r) => updateSeriesFromFileInner(seriesId, file, r));
+}
+
+/** Run a destructive replay inside a transaction where the repositories offer
+ *  one, so a failure part-way through rolls the delete back instead of
+ *  stranding the series with no children. */
+function replayAtomically<T>(
+  repos: SeriesFileRepos,
+  fn: (repos: SeriesFileRepos) => Promise<T>,
+): Promise<T> {
+  return repos.runInTransaction ? repos.runInTransaction(fn) : fn(repos);
+}
+
+async function updateSeriesFromFileInner(
+  seriesId: string,
+  file: SeriesFile,
+  repos: SeriesFileRepos,
+): Promise<void> {
   const now = Date.now();
 
   const current = await repos.seriesRepo.get(seriesId);
@@ -1235,6 +1273,14 @@ function remapPrizesByFleetName(
  * afterwards.
  */
 export async function updateSeriesFromSailwave(
+  seriesId: string,
+  file: SeriesFile,
+  repos: SeriesFileRepos,
+): Promise<void> {
+  return replayAtomically(repos, (r) => updateSeriesFromSailwaveInner(seriesId, file, r));
+}
+
+async function updateSeriesFromSailwaveInner(
   seriesId: string,
   file: SeriesFile,
   repos: SeriesFileRepos,

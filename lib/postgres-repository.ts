@@ -2365,5 +2365,13 @@ export function seriesFileReposFor(ctx: RepoCtx): SeriesFileRepos {
       await repos.competitors.deleteBySeries(seriesId);
       await repos.fleets.deleteBySeries(seriesId);
     },
+    // Rebind the whole bundle onto the transaction handle so every repo below
+    // writes inside it. Already-transactional callers nest via savepoints.
+    runInTransaction(fn) {
+      const db = ctx.db ?? getDb();
+      return db.transaction((tx) =>
+        fn(seriesFileReposFor({ ...ctx, db: tx as unknown as SailScoringDb })),
+      );
+    },
   };
 }

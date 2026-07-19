@@ -11,6 +11,7 @@ import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { eq } from 'drizzle-orm';
 import postgres, { type Sql } from 'postgres';
+import { zstdCompressSync, zstdDecompressSync } from 'node:zlib';
 
 import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
@@ -150,6 +151,73 @@ describe.skipIf(skip)('revertToRevision', () => {
     const revs = await listRevisions(ctx(actorA), seriesId);
     expect(revs).toHaveLength(3);
     expect(revs[0].kind).toBe('revert');
+  });
+
+  test('restores a snapshot captured before the v22 person-list rename', async () => {
+    const repos = createRepos({ workspaceId });
+    const seriesId = uuid();
+    await repos.series.save(makeSeries(seriesId));
+    await repos.competitors.save(makeCompetitor(seriesId, 'A1'));
+    await captureRevision({ workspaceId, userId: actorA }, seriesId, { summary: 'one competitor' });
+
+    // Age the stored snapshot to v21: `names` becomes the single `name` the
+    // format used before v22. Replaying this without migrating first violates
+    // the competitors.names NOT NULL constraint and — before the replay became
+    // transactional — left the series with no children at all.
+    const [row] = await db
+      .select({ id: schema.seriesRevision.id, snapshotGz: schema.seriesRevision.snapshotGz })
+      .from(schema.seriesRevision)
+      .where(eq(schema.seriesRevision.seriesId, seriesId));
+    const snapshot = JSON.parse(zstdDecompressSync(row.snapshotGz!).toString());
+    snapshot.formatVersion = 21;
+    for (const c of snapshot.competitors) {
+      c.name = c.names[0];
+      delete c.names;
+    }
+    await db
+      .update(schema.seriesRevision)
+      .set({ snapshotGz: zstdCompressSync(Buffer.from(JSON.stringify(snapshot))) })
+      .where(eq(schema.seriesRevision.id, row.id));
+
+    // A later edit to revert away from.
+    await repos.competitors.save(makeCompetitor(seriesId, 'B2'));
+    await captureRevision({ workspaceId, userId: actorB }, seriesId, { summary: 'two competitors' });
+
+    await revertToRevision(ctx(actorA), seriesId, row.id);
+
+    const after = await repos.competitors.listBySeries(seriesId);
+    expect(after).toHaveLength(1);
+    expect(after[0].sailNumber).toBe('A1');
+    expect(after[0].names).toEqual(['Boat A1']);
+  });
+
+  test('a failed replay rolls back instead of leaving the series empty', async () => {
+    const repos = createRepos({ workspaceId });
+    const seriesId = uuid();
+    await repos.series.save(makeSeries(seriesId));
+    await repos.competitors.save(makeCompetitor(seriesId, 'A1'));
+    await repos.competitors.save(makeCompetitor(seriesId, 'B2'));
+    await captureRevision({ workspaceId, userId: actorA }, seriesId, { summary: 'two competitors' });
+
+    // Corrupt the snapshot in a way no migration can rescue: a competitor with
+    // no name field at all still trips the NOT NULL constraint, so the replay
+    // fails after deleteSeriesChildren has already run.
+    const [row] = await db
+      .select({ id: schema.seriesRevision.id, snapshotGz: schema.seriesRevision.snapshotGz })
+      .from(schema.seriesRevision)
+      .where(eq(schema.seriesRevision.seriesId, seriesId));
+    const snapshot = JSON.parse(zstdDecompressSync(row.snapshotGz!).toString());
+    for (const c of snapshot.competitors) delete c.names;
+    await db
+      .update(schema.seriesRevision)
+      .set({ snapshotGz: zstdCompressSync(Buffer.from(JSON.stringify(snapshot))) })
+      .where(eq(schema.seriesRevision.id, row.id));
+
+    await expect(revertToRevision(ctx(actorA), seriesId, row.id)).rejects.toThrow();
+
+    // The competitors the failed restore deleted are still there.
+    const after = await repos.competitors.listBySeries(seriesId);
+    expect(after.map((c) => c.sailNumber).sort()).toEqual(['A1', 'B2']);
   });
 
   test('a save milestone seals the open session and pins a `saved` revision', async () => {

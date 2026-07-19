@@ -15,7 +15,11 @@ import {
   sealOpenRevisions,
   type RevisionEntry,
 } from '@/lib/revision-log';
-import { updateSeriesFromFile, type SeriesFileRevision } from '@/lib/series-file';
+import {
+  migrateSeriesFileObject,
+  updateSeriesFromFile,
+  type SeriesFileRevision,
+} from '@/lib/series-file';
 import {
   checkpointInputSchema,
   seriesRevisionsImportSchema,
@@ -67,6 +71,11 @@ export async function revertToRevision(
     // there's nothing to restore to.
     throw new BadRequestError('this version is no longer restorable');
   }
+
+  // Snapshots are stored raw, at whatever format version was current when they
+  // were captured, so an old one has to be brought forward before it can be
+  // replayed — the file-import path gets this from `parseSeriesFile`.
+  migrateSeriesFileObject(revision.snapshot as unknown as Record<string, unknown>);
 
   // Replay the snapshot over the existing series row (preserves its id,
   // createdAt, category, archived flag — see updateSeriesFromFile).
