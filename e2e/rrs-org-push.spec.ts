@@ -88,7 +88,7 @@ test('CSV import + push in one step, then a push-only re-push', async ({ page, s
   expect(pushes).toHaveLength(1);
   const { payload } = pushes[0];
   expect(payload.uuid).toBe(EVENT_UUID);
-  expect(payload.source).toBe('rrs-ai-import');
+  expect(payload.source).toBe('sailscoring');
   expect(payload.competitors).toHaveLength(2);
   const kevin = payload.competitors.find((c) => c.sail_number === 'IRL14302')!;
   expect(kevin).toMatchObject({

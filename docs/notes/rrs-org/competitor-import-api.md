@@ -29,7 +29,7 @@ Request body:
 ```json
 {
   "uuid": "<event UUID>",
-  "source": "rrs-ai-import",
+  "source": "sailscoring",
   "competitors": [
     {
       "competitor_id": "1",
@@ -67,10 +67,10 @@ Payload rules (from RRS.org's documentation, confirmed in practice):
 - `last_name` doubles as the full-name field: if a name can't be split, put
   the whole thing in `last_name` and leave `first_name` empty.
 - `source` identifies the client and is **validated against a whitelist**:
-  a first in-app push with `"source": "sailscoring"` was rejected with
-  HTTP 422 `{"errors":["unrecognized_source"]}` (July 2026). Stick to the
-  documented `"rrs-ai-import"` unless/until RRS.org registers a Sail
-  Scoring-specific value.
+  an unregistered value is rejected with HTTP 422
+  `{"errors":["unrecognized_source"]}`. We send `"sailscoring"`, which RRS.org
+  registered for us in July 2026; before that we sent the generic
+  `"rrs-ai-import"` from their AI-import documentation.
 
 ## Response and error semantics
 

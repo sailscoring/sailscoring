@@ -15,10 +15,9 @@ import type { Competitor, Fleet, RrsOrgPushConfig } from './types';
 export const RRS_ORG_API_URL = 'https://www.racingrulesofsailing.org/api/competitors';
 
 /** The payload's `source` field. RRS.org validates it against a whitelist —
- *  an unregistered value is rejected with 422 `unrecognized_source` — so this
- *  must stay the value its AI-import documentation prescribes until RRS.org
- *  registers a Sail Scoring-specific one. */
-export const RRS_ORG_SOURCE = 'rrs-ai-import';
+ *  an unregistered value is rejected with 422 `unrecognized_source`. RRS.org
+ *  registered this Sail Scoring-specific value in July 2026. */
+export const RRS_ORG_SOURCE = 'sailscoring';
 
 /** One competitor as RRS.org's API expects it. Field names are the API's.
  *  Every field is a string; absent values are empty strings, never null. */

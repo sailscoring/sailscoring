@@ -110,9 +110,6 @@ are captured in `docs/notes/rrs-org/competitor-import-api.md`.
 
 Residue:
 
-- The payload's `source` string is still the generic `"rrs-ai-import"` value from
-  RRS.org's AI-import docs — their whitelist rejected `"sailscoring"`. Asking
-  RRS.org to register a Sail Scoring-specific value is tracked in #289.
 - Retaining CSV column mappings across re-imports of revised sheets — wanted for
   plain CSV import too; noted in #260.
 
