@@ -77,7 +77,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Upload } from 'lucide-react';
-import type { Competitor, Fleet, CompetitorFieldKey, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
+import type { Competitor, Fleet, CompetitorFieldKey, MultiPersonFieldKey, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
 import {
   ALL_COMPETITOR_FIELDS,
   COMPETITOR_FIELD_LABELS,
@@ -182,6 +182,9 @@ type ImportFlow =
       /** The series' configured subdivision axes, each offered as a distinct
        *  dropdown target for a subdivision column. */
       subdivisionAxes: SubdivisionAxis[];
+      /** Person fields opened to multiple names (#316). Governs whether
+       *  person-mapped columns append/split; absent affordance = single. */
+      multiPersonFields: MultiPersonFieldKey[];
       /** Series scoring mode at upload time. The planner doesn't take this
        *  as input — column mappings drive system choice. We track it here
        *  only so the importer knows whether to flip the series to
@@ -578,6 +581,7 @@ const MappingRow = memo(function MappingRow({
   columnValue,
   sampleCells,
   fieldLabels,
+  multiPersonFields,
   onChange,
 }: {
   header: string;
@@ -585,14 +589,16 @@ const MappingRow = memo(function MappingRow({
   columnValue: ColumnTarget;
   sampleCells: string[];
   fieldLabels: Record<string, string>;
+  multiPersonFields: MultiPersonFieldKey[];
   onChange: (index: number, value: ColumnTarget) => void;
 }) {
-  // A person-mapped column (primary, owner, helm, crew) previews the in-cell
-  // split ("Alice + Bob") so the scorer sees what will be stored.
-  const isPersonColumn =
-    columnValue === 'crewName' || columnValue === 'primary' || columnValue === 'owner' || columnValue === 'helm';
+  // A person-mapped column whose field is opened to multiple names previews
+  // the in-cell split ("Alice + Bob") so the scorer sees what will be stored.
+  const splits =
+    (columnValue === 'crewName' || columnValue === 'primary' || columnValue === 'owner' || columnValue === 'helm') &&
+    multiPersonFields.includes(columnValue === 'crewName' ? 'crewName' : columnValue);
   const sampleText =
-    (isPersonColumn
+    (splits
       ? sampleCells.map((c) => splitPersonCell(c).join(' + '))
       : sampleCells
     ).join(', ') || '—';
@@ -632,12 +638,14 @@ const MappingTable = memo(function MappingTable({
   columnMap,
   sampleCells,
   fieldLabels,
+  multiPersonFields,
   onChange,
 }: {
   headers: string[];
   columnMap: ColumnMap;
   sampleCells: string[][];
   fieldLabels: Record<string, string>;
+  multiPersonFields: MultiPersonFieldKey[];
   onChange: (index: number, value: ColumnTarget) => void;
 }) {
   return (
@@ -658,6 +666,7 @@ const MappingTable = memo(function MappingTable({
             columnValue={columnMap[i]}
             sampleCells={sampleCells[i]}
             fieldLabels={fieldLabels}
+            multiPersonFields={multiPersonFields}
             onChange={onChange}
           />
         ))}
@@ -963,6 +972,7 @@ function MappingDialogBody({
         columnMap={flow.columnMap}
         sampleCells={sampleCells}
         fieldLabels={fieldLabels}
+        multiPersonFields={flow.multiPersonFields}
         onChange={updateColumn}
       />
 
@@ -1282,6 +1292,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       currentFields,
       proposedFields,
       subdivisionAxes: axes,
+      multiPersonFields: series?.multiPersonFields ?? [],
       seriesScoringMode,
       existingHasBoatClass,
       alsoCreateScratch: {},
@@ -1330,7 +1341,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
    *  sail number matched nothing, so an accepted rename updates that
    *  competitor in place (keeping its id, and with it its results). */
   async function executeImport(flow: MappingFlow, renameByRowIndex: Map<number, string>) {
-    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, alsoCreateScratch, rrs } = flow;
+    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, alsoCreateScratch, rrs, multiPersonFields } = flow;
 
     const existing = await competitorRepo.listBySeries(seriesId);
     const existingById = new Map(existing.map((c) => [c.id, c]));
@@ -1576,18 +1587,24 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const resolvedBoatClass = boatClass || existingCompetitor?.boatClass || fleetNameFallback || '';
       // A row with any mapped names replaces the whole list; a row with none
       // keeps the existing list (the same fallback the other fields have).
+      // Fields not opened to multiple names (#316) keep the pre-list entry
+      // shape: last mapped column wins and cells are stored verbatim.
+      const personCells = (cells: string[], key: MultiPersonFieldKey): string[] =>
+        multiPersonFields.includes(key)
+          ? cells.flatMap(splitPersonCell)
+          : cells.slice(-1).map((v) => v.trim()).filter(Boolean);
       const resolvedNames = ((): string[] => {
-        const csv = primaryCells.flatMap(splitPersonCell);
+        const csv = personCells(primaryCells, 'primary');
         return csv.length ? csv : existingCompetitor?.names ?? [''];
       })();
       // Gender and age describe a single named primary; rows that resolve to
       // a multi-person primary carry neither (#316), whatever the cells say.
       const singlePrimary = resolvedNames.filter((n) => n.trim()).length <= 1;
-      const csvCrew = crewCells.flatMap(splitPersonCell);
+      const csvCrew = personCells(crewCells, 'crewName');
       const resolvedCrewNames = csvCrew.length ? csvCrew : existingCompetitor?.crewNames ?? [];
-      const csvHelms = helmCells.flatMap(splitPersonCell);
+      const csvHelms = personCells(helmCells, 'helm');
       const resolvedHelms = csvHelms.length ? csvHelms : existingCompetitor?.helms ?? [];
-      const csvOwners = ownerCells.flatMap(splitPersonCell);
+      const csvOwners = personCells(ownerCells, 'owner');
       const resolvedOwners = csvOwners.length ? csvOwners : existingCompetitor?.owners ?? [];
       // Merge the mapped columns onto their axes, preserving any other axis
       // values the existing competitor already holds.

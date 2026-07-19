@@ -153,6 +153,7 @@ export const seriesSchema = z.object({
   finalisedAt: epochMsSchema.optional(),
   protestTimeLimit: protestTimeLimitSchema.optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
+  multiPersonFields: z.array(z.enum(['primary', 'owner', 'helm', 'crewName'])).optional(),
   primaryPersonLabel: primaryPersonLabelSchema,
   // Independent subdivision axes, e.g. a "Division" and an "Age category"
   // axis. Each freeform label is bounded; empty is tolerated on the wire (the

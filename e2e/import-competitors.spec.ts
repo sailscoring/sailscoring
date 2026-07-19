@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, enableFeatures } from './helpers';
 import { resolve } from 'path';
 
 function csvBuffer(content: string) {
@@ -108,11 +108,13 @@ test('import CSV auto-detects the Crew column and stores crew names', async ({ p
   await expect(singleHanderRow).toContainText('Chris Brown');
 });
 
-test('import CSV with Crew 1/Crew 2 columns and a semicolon-separated cell', async ({ page }) => {
+test('import CSV with Crew 1/Crew 2 columns and a semicolon-separated cell', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['multi-person-fields']);
   await createSeriesQuick(page, { name: 'Keelboat Crew Import' });
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByLabel('Crew', { exact: true }).check();
+  await page.getByRole('checkbox', { name: 'Allow multiple Crew' }).check();
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('link', { name: 'Competitors' }).click();
 

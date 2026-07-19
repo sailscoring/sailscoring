@@ -22,7 +22,7 @@ import {
 } from '@/lib/competitor-fields';
 import { requiredForFleetsHint } from '@/lib/competitor-ratings';
 import { formatRelativeTime } from '@/lib/relative-time';
-import type { CompetitorFieldKey, Fleet, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
+import type { CompetitorFieldKey, Fleet, MultiPersonFieldKey, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
 
 export interface CompetitorFormData {
   sailNumber: string;
@@ -80,6 +80,7 @@ function PersonRowsField({
   rows,
   onChange,
   placeholder,
+  allowMultiple,
 }: {
   heading: React.ReactNode;
   rowLabelBase: string;
@@ -87,6 +88,10 @@ function PersonRowsField({
   rows: string[];
   onChange: (rows: string[]) => void;
   placeholder?: string;
+  /** Entry affordance gate (#316): false hides the add-a-row button, so the
+   *  field behaves as a single input. Stored extra rows still render (with
+   *  Remove) — data is never hidden by switching the setting off. */
+  allowMultiple: boolean;
 }) {
   const displayRows = rows.length > 0 ? rows : [''];
   const pendingFocus = useRef<number | null>(null);
@@ -124,18 +129,20 @@ function PersonRowsField({
           )}
         </div>
       ))}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-7 px-2 text-xs"
-        onClick={() => {
-          pendingFocus.current = displayRows.length;
-          onChange([...displayRows, '']);
-        }}
-      >
-        {addLabel}
-      </Button>
+      {allowMultiple && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onClick={() => {
+            pendingFocus.current = displayRows.length;
+            onChange([...displayRows, '']);
+          }}
+        >
+          {addLabel}
+        </Button>
+      )}
     </div>
   );
 }
@@ -162,6 +169,7 @@ export function CompetitorForm({
   enabledFields,
   primaryLabel,
   subdivisionAxes,
+  multiPersonFields,
 }: {
   initial: CompetitorFormData;
   onSave: (data: CompetitorFormData) => Promise<void>;
@@ -172,6 +180,8 @@ export function CompetitorForm({
   enabledFields: CompetitorFieldKey[];
   primaryLabel: PrimaryPersonLabel;
   subdivisionAxes: SubdivisionAxis[];
+  /** Person fields opened to multiple names (#316); [] = all single. */
+  multiPersonFields: MultiPersonFieldKey[];
 }) {
   const [data, setData] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -308,6 +318,7 @@ export function CompetitorForm({
             rows={data.names}
             onChange={(rows) => set('names', rows)}
             placeholder="e.g. Jane Doe"
+            allowMultiple={multiPersonFields.includes('primary')}
           />
           {clearsDemographics && (
             <p className="text-sm text-amber-600">
@@ -356,6 +367,7 @@ export function CompetitorForm({
             rows={data.helms}
             onChange={(rows) => set('helms', rows)}
             placeholder="e.g. Jane Doe"
+            allowMultiple={multiPersonFields.includes('helm')}
           />
         )}
         {enabledFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel) && (
@@ -366,6 +378,7 @@ export function CompetitorForm({
             rows={data.owners}
             onChange={(rows) => set('owners', rows)}
             placeholder="e.g. John Smith"
+            allowMultiple={multiPersonFields.includes('owner')}
           />
         )}
         {showMore && extraRoleFields.includes('helm') && (
@@ -376,6 +389,7 @@ export function CompetitorForm({
             rows={data.helms}
             onChange={(rows) => set('helms', rows)}
             placeholder="e.g. Jane Doe"
+            allowMultiple={multiPersonFields.includes('helm')}
           />
         )}
         {showMore && extraRoleFields.includes('owner') && (
@@ -386,6 +400,7 @@ export function CompetitorForm({
             rows={data.owners}
             onChange={(rows) => set('owners', rows)}
             placeholder="e.g. John Smith"
+            allowMultiple={multiPersonFields.includes('owner')}
           />
         )}
         {enabledFields.includes('crewName') && (
@@ -396,6 +411,7 @@ export function CompetitorForm({
             rows={data.crewNames}
             onChange={(rows) => set('crewNames', rows)}
             placeholder="e.g. Mark Smith"
+            allowMultiple={multiPersonFields.includes('crewName')}
           />
         )}
         {enabledFields.includes('club') && (

@@ -29,6 +29,12 @@ export type CompetitorFieldKey =
  *  the primary label already carries it. */
 export type PrimaryPersonLabel = 'competitor' | 'entrant' | 'helm' | 'owner';
 
+/** Person fields whose entry affordances can be opened to multiple names per
+ *  entry (`Series.multiPersonFields`, gated by the `multi-person-fields`
+ *  feature). `primary` is the primary slot; the rest match their
+ *  `CompetitorFieldKey`. Entry-side only — stored lists render regardless. */
+export type MultiPersonFieldKey = 'primary' | 'owner' | 'helm' | 'crewName';
+
 export interface StartGroup {
   fleetIds: string[];       // fleets sharing this starting signal
   intervalMinutes: number;  // minutes after the previous start (0 for the first group)
@@ -227,6 +233,7 @@ export interface Series {
   protestTimeLimit?: ProtestTimeLimit;
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
+  multiPersonFields?: MultiPersonFieldKey[];  // person fields opened to multiple names per entry (gated by the multi-person-fields feature); sparse — absent = all single
   primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)
   subdivisionAxes: SubdivisionAxis[];  // independent subdivision/category axes; each labels a Competitor.subdivisions entry. Empty = no axes configured. Shown only when 'subdivision' is in enabledCompetitorFields.
   // Series-list organisation (#154). Workspace-local: excluded from the

@@ -1,0 +1,1 @@
+ALTER TABLE "series" ADD COLUMN "multi_person_fields" jsonb;

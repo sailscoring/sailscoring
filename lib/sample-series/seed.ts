@@ -81,6 +81,7 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
           publishRatingCalculations: s.publishRatingCalculations ?? true,
           showPerRaceRatingsInSummary: s.showPerRaceRatingsInSummary ?? true,
           enabledCompetitorFields: s.enabledCompetitorFields,
+          multiPersonFields: s.multiPersonFields?.length ? s.multiPersonFields : null,
           primaryPersonLabel: s.primaryPersonLabel,
           subdivisionAxes: s.subdivisionAxes ?? [],
           categoryId: s.categoryId ?? null,

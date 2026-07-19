@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, downloadFleetHtml } from './helpers';
+import { createSeriesQuick, downloadFleetHtml, enableFeatures } from './helpers';
 
 /**
  * E2E tests for configurable competitor fields (#64) and crew name (#69).
@@ -77,13 +77,33 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
   expect(html).toContain('<th>Boat</th>');
 });
 
-test('multi-person crew: Add crew rows, stacked column, stacked export', async ({ page }) => {
-  // ── 1. Series with Helm primary + Crew enabled ──────────────────────────
+test('without the multi-person feature there is no Allow multiple and no add-a-name button', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Single Names Only' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('checkbox', { name: 'Crew', exact: true }).check();
+  // The gate is off by default: no per-field affordance in the settings card.
+  await expect(page.getByRole('checkbox', { name: /^Allow multiple/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ...and the dialog is a plain single input per person field.
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await expect(page.getByLabel('Competitor name 1')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add name' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add crew' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Cancel' }).click();
+});
+
+test('multi-person crew: Add crew rows, stacked column, stacked export', async ({ page, signedInEmail }) => {
+  // ── 1. Series with Helm primary + Crew enabled, crew opened to multiple ──
+  await enableFeatures(page, signedInEmail, ['multi-person-fields']);
   await createSeriesQuick(page, { name: 'Keelboat Crew List' });
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('radio', { name: /^Helm/ }).click();
   await page.getByRole('checkbox', { name: 'Crew', exact: true }).check();
+  await page.getByRole('checkbox', { name: 'Allow multiple Crew' }).check();
   await page.getByRole('button', { name: 'Done' }).click();
 
   // ── 2. Add a competitor with three crew via "Add crew" ──────────────────
@@ -132,12 +152,14 @@ test('multi-person crew: Add crew rows, stacked column, stacked export', async (
   expect(html).toContain('Cormac Farrelly<br>Alice Byrne<br>Carol Doyle');
 });
 
-test('co-owners: Add owner rows, gender/age single-individual rule, stacked export', async ({ page }) => {
-  // ── 1. Owner-primary series with gender + age enabled ───────────────────
+test('co-owners: Add owner rows, gender/age single-individual rule, stacked export', async ({ page, signedInEmail }) => {
+  // ── 1. Owner-primary series, primary opened to multiple, gender + age on ─
+  await enableFeatures(page, signedInEmail, ['multi-person-fields']);
   await createSeriesQuick(page, { name: 'Cruiser Syndicates' });
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('radio', { name: /^Owner/ }).click();
+  await page.getByRole('checkbox', { name: 'Allow multiple Owner' }).check();
   await page.getByRole('checkbox', { name: 'Gender' }).check();
   await page.getByRole('checkbox', { name: 'Age', exact: true }).check();
   await page.getByRole('button', { name: 'Done' }).click();

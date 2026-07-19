@@ -135,6 +135,9 @@ export default function CompetitorsPage({
     series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
   const primaryFieldLabel = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
   const axes = series ? subdivisionAxes(series) : [];
+  // Person fields opened to multiple names (#316). The feature gate lives in
+  // the settings card that writes this; the dialog only reads the result.
+  const multiPersonFields = series?.multiPersonFields ?? [];
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const multipleFleets = (fleets ?? []).length > 1;
   const ratingSystems = configuredRatingSystems(fleets ?? []);
@@ -547,6 +550,7 @@ export default function CompetitorsPage({
             enabledFields={enabledFields}
             primaryLabel={primaryLabel}
             subdivisionAxes={axes}
+            multiPersonFields={multiPersonFields}
           />
         </div>
       )}
@@ -894,6 +898,7 @@ export default function CompetitorsPage({
               enabledFields={enabledFields}
               primaryLabel={primaryLabel}
               subdivisionAxes={axes}
+              multiPersonFields={multiPersonFields}
             />
           )}
         </DialogContent>

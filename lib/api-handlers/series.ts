@@ -420,6 +420,7 @@ export async function copySeries(
       // their own finality assertion, so it lands provisional.
       protestTimeLimit: source.protestTimeLimit ?? null,
       enabledCompetitorFields: source.enabledCompetitorFields,
+      multiPersonFields: source.multiPersonFields?.length ? source.multiPersonFields : null,
       primaryPersonLabel: source.primaryPersonLabel,
       // Axis ids are series-local — carried verbatim so competitor
       // `subdivisions` keys still resolve in the copy.
@@ -780,6 +781,7 @@ export async function createFollowOnSeries(
       // the fresh series is provisional by construction.
       protestTimeLimit: source.protestTimeLimit ?? null,
       enabledCompetitorFields: source.enabledCompetitorFields,
+      multiPersonFields: source.multiPersonFields?.length ? source.multiPersonFields : null,
       primaryPersonLabel: source.primaryPersonLabel,
       subdivisionAxes: source.subdivisionAxes,
       categoryId: source.categoryId ?? null,

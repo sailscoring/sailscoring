@@ -1591,7 +1591,10 @@ function buildCompetitors(
     const classIsAxis = axes.some((a) => a.sourceKey === 'compclass');
     if (!classIsAxis && v.compclass?.trim()) built.boatClass = v.compclass.trim();
     // Sailwave stores all crew as one string; scorers separate multiple names
-    // with <br> so they publish on separate lines. Split that back into a list.
+    // with <br> so they publish on separate lines. Split that back into a
+    // list — format fidelity, not an entry affordance, so this is deliberately
+    // not behind the multi-person-fields gate: storing a literal "<br>" inside
+    // a name would be wrong however the series is configured.
     const crew = splitPersonCell(v.compcrewname ?? '');
     if (crew.length > 0) built.crewNames = crew;
     // Nationality: uppercase, fold Sailwave aliases (BVI → IVB), keep only

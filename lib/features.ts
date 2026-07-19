@@ -187,6 +187,17 @@ export const FEATURES = {
     label: 'RRS.org competitor push',
     helpSectionIds: ['rrs-org-push'],
   },
+  'multi-person-fields': {
+    // Multi-person identifier fields (#316): the per-field "Allow multiple"
+    // checkboxes in the Competitor fields card, the dialog's add-a-row
+    // buttons, and the import's append-across-columns / in-cell splitting.
+    // Opt-in (default off): most scorers run single-helm or two-person
+    // classes and never need the affordance. Display, the gender/age
+    // single-individual rule, and identity slot matching stay data-driven
+    // and ungated, so switching the feature off never hides existing data.
+    label: 'Multi-person identifier fields',
+    helpSectionIds: [],
+  },
   'prizes': {
     // Prize allocation (#240): the Prizes tab (named awards with an
     // eligibility predicate over fleet / subdivision axes / rank, top-N by

@@ -2,6 +2,7 @@ import type {
   Competitor,
   CompetitorFieldKey,
   Fleet,
+  MultiPersonFieldKey,
   PrimaryPersonLabel,
   Series,
   SubdivisionAxis,
@@ -113,6 +114,34 @@ export const COMPETITOR_FIELD_LABELS: Record<CompetitorFieldKey, string> = {
   age: 'Age',
   subdivision: 'Division',
 };
+
+/** Order of the person fields in the "Allow multiple" settings UI. */
+export const MULTI_PERSON_FIELD_KEYS: readonly MultiPersonFieldKey[] = [
+  'primary',
+  'owner',
+  'helm',
+  'crewName',
+] as const;
+
+/** Whether an optional competitor field is one of the person fields that can
+ *  be opened to multiple names (`owner`, `helm`, `crewName`). Narrows the key
+ *  so the settings card can pass it to the multi-person toggles. */
+export function isMultiPersonField(
+  field: CompetitorFieldKey,
+): field is Extract<MultiPersonFieldKey, CompetitorFieldKey> {
+  return field === 'owner' || field === 'helm' || field === 'crewName';
+}
+
+/** Whether a person field's entry affordances are opened to multiple names
+ *  (per-series setting, gated by the `multi-person-fields` feature). Stored
+ *  lists render regardless — this only governs the add-a-row button and the
+ *  import's append/split behaviour. */
+export function multiPersonAllowed(
+  series: Pick<Series, 'multiPersonFields'>,
+  key: MultiPersonFieldKey,
+): boolean {
+  return series.multiPersonFields?.includes(key) ?? false;
+}
 
 /** Display order for the primary-label picker. */
 export const PRIMARY_PERSON_LABELS: readonly PrimaryPersonLabel[] = [

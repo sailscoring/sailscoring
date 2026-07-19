@@ -269,22 +269,29 @@ export default async function HelpPage() {
           class alongside each entry. Enable{' '}
           <em>Crew</em> for classes that sail with crew.
         </p>
-        <p>
-          Every person field takes any number of names: <em>Add name</em> (on the primary),{' '}
-          <em>Add owner</em>, <em>Add helm</em>, or <em>Add crew</em> in the competitor dialog
-          adds a row per person, so co-owned boats
-          (&ldquo;J. &amp; M. Murphy&rdquo; syndicates), offshore co-helms, and full keelboat
-          crews are all first-class. A single owner-and-crew pairing keeps the classic one-line{' '}
-          <em>Helm / Crew</em> in exported results; any more people stack one name per line.
-          One-line contexts such as finish entry join co-owners with an ampersand.
-        </p>
-        <p>
-          <strong className="text-foreground">Gender</strong> and{' '}
-          <strong className="text-foreground">age</strong> describe the primary person, and only
-          when the primary is a single individual — add a second name and the dialog clears both
-          (a syndicate entry has no single age). Nationality is different: national letters
-          attach to the boat, so it stays whatever the entry declares.
-        </p>
+        {has('multi-person-fields') && (
+          <>
+            <p>
+              Tick <em>Allow multiple</em> beside a person field in the{' '}
+              <strong className="text-foreground">Competitor fields</strong> card and it takes any
+              number of names: <em>Add name</em> (on the primary), <em>Add owner</em>,{' '}
+              <em>Add helm</em>, or <em>Add crew</em> in the competitor dialog adds a row per
+              person, so co-owned boats (&ldquo;J. &amp; M. Murphy&rdquo; syndicates), offshore
+              co-helms, and full keelboat crews are all first-class. A single owner-and-crew
+              pairing keeps the classic one-line <em>Helm / Crew</em> in exported results; any
+              more people stack one name per line. One-line contexts such as finish entry join
+              co-owners with an ampersand. Untick it and the field goes back to a single value —
+              entries that already carry several names keep them and still show every row.
+            </p>
+            <p>
+              <strong className="text-foreground">Gender</strong> and{' '}
+              <strong className="text-foreground">age</strong> describe the primary person, and
+              only when the primary is a single individual — add a second name and the dialog
+              clears both (a syndicate entry has no single age). Nationality is different:
+              national letters attach to the boat, so it stays whatever the entry declares.
+            </p>
+          </>
+        )}
         <p>
           Enable <em>Bow number</em> when boats carry a bow number that can
           differ from the sail number they’re registered under — a competitor
@@ -495,9 +502,10 @@ export default async function HelpPage() {
           <strong className="text-foreground">New subdivision axis</strong> to create one from the
           column heading (so a sheet with both a Division and an Age-category column brings in both).
         </p>
+        {has('multi-person-fields') && (
         <p>
-          Multi-person fields (owners, helms, crew, and the primary itself) import two ways, and
-          both can be combined. Sheets with one column per person (<em>Owner 1</em>,{' '}
+          Fields with <em>Allow multiple</em> ticked (owners, helms, crew, or the primary itself)
+          import two ways, and both can be combined. Sheets with one column per person (<em>Owner 1</em>,{' '}
           <em>Owner 2</em>, or <em>Crew 1</em>…<em>Crew 3</em>) map every column to the same
           field; the names are kept in column order. Or several names can share one cell
           separated by semicolons (Sailwave’s{' '}
@@ -508,6 +516,7 @@ export default async function HelpPage() {
           Murphy” co-owners come through intact as one entry each. Rows that arrive with more
           than one primary name carry no gender or age, whatever those cells say.
         </p>
+        )}
         <p>
           A competitor can be assigned to more than one fleet by separating fleet names with a
           pipe character in the fleet column — for example,{' '}

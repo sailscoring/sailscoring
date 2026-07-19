@@ -17,6 +17,7 @@ import type {
   ProtestTimeLimit,
   RrsOrgPushConfig,
   Prize,
+  MultiPersonFieldKey,
 } from './types';
 import {
   defaultEnabledCompetitorFields,
@@ -175,7 +176,9 @@ export interface SeriesFileRepos {
  *  v22 does the same for the remaining person fields: `name` → `names`
  *  (required, min one — co-owned/co-helmed entries), `owner` → `owners`,
  *  `helm` → `helms`. The parser folds the legacy singulars into one-element
- *  lists on read. */
+ *  lists on read. Also adds optional `series.multiPersonFields` — the person
+ *  fields whose entry affordances are opened to multiple names (gated by the
+ *  `multi-person-fields` feature). Sparse; absent means all single. */
 export const FORMAT_VERSION = 22;
 export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 export const FILE_EXTENSION = '.sailscoring';
@@ -217,6 +220,7 @@ interface SeriesFileSeries {
   // longer written; older files that still carry it are simply ignored on read.
   includeJsonExport: boolean;
   enabledCompetitorFields: CompetitorFieldKey[];
+  multiPersonFields?: MultiPersonFieldKey[];  // v22+; person fields opened to multiple names (sparse)
   primaryPersonLabel?: PrimaryPersonLabel;  // v2+; absent in v1 files, defaults to 'competitor'
   subdivisionAxes?: SubdivisionAxis[];  // v13+; named subdivision axes
   subdivisionLabel?: string;  // v6–v12 (read-only legacy): single axis label, upgraded to subdivisionAxes on load
@@ -496,6 +500,7 @@ export async function buildSeriesFile(
       ...(series.ftpUploadedVersion != null ? { ftpUploadedVersion: series.ftpUploadedVersion } : {}),
       includeJsonExport: series.includeJsonExport ?? true,
       enabledCompetitorFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
+      ...(series.multiPersonFields?.length ? { multiPersonFields: series.multiPersonFields } : {}),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
       subdivisionAxes: series.subdivisionAxes ?? [],
       scoringMode: series.scoringMode ?? 'scratch',
@@ -947,6 +952,7 @@ export async function openSeriesFromFile(
     finalisedAt: file.series.finalisedAt,
     protestTimeLimit: file.series.protestTimeLimit,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
+    ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
     categoryId: opts?.categoryId ?? null,
@@ -1035,6 +1041,7 @@ export async function restoreSeriesFromFile(
     finalisedAt: file.series.finalisedAt,
     protestTimeLimit: file.series.protestTimeLimit,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
+    ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
     categoryId: null,
@@ -1114,6 +1121,7 @@ export async function updateSeriesFromFile(
     finalisedAt: file.series.finalisedAt,
     protestTimeLimit: file.series.protestTimeLimit,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
+    ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
   });

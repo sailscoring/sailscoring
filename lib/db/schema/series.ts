@@ -26,6 +26,7 @@ const bytea = customType<{ data: Buffer; default: false }>({
 import { organization } from './auth';
 import type {
   CompetitorFieldKey,
+  MultiPersonFieldKey,
   DiscardThreshold,
   NhcProfile,
   PrimaryPersonLabel,
@@ -219,6 +220,7 @@ export const series = pgTable(
       .$type<CompetitorFieldKey[]>()
       .notNull()
       .default(sql`'["boatName","club"]'::jsonb`),
+    multiPersonFields: jsonb('multi_person_fields').$type<MultiPersonFieldKey[]>(),
     primaryPersonLabel: text('primary_person_label')
       .$type<PrimaryPersonLabel>()
       .notNull()

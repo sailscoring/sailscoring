@@ -116,6 +116,7 @@ function seriesRowToType(row: SeriesRow): Series {
     ...(row.finalisedAt ? { finalisedAt: row.finalisedAt.getTime() } : {}),
     ...(row.protestTimeLimit ? { protestTimeLimit: row.protestTimeLimit } : {}),
     enabledCompetitorFields: row.enabledCompetitorFields,
+    ...(row.multiPersonFields?.length ? { multiPersonFields: row.multiPersonFields } : {}),
     primaryPersonLabel: row.primaryPersonLabel,
     subdivisionAxes: row.subdivisionAxes,
     categoryId: row.categoryId,
@@ -584,6 +585,7 @@ function seriesToRow(s: Series, workspaceId: string) {
     finalisedAt: s.finalisedAt != null ? new Date(s.finalisedAt) : null,
     protestTimeLimit: s.protestTimeLimit ?? null,
     enabledCompetitorFields: s.enabledCompetitorFields,
+    multiPersonFields: s.multiPersonFields?.length ? s.multiPersonFields : null,
     primaryPersonLabel: s.primaryPersonLabel,
     subdivisionAxes: s.subdivisionAxes ?? [],
     categoryId: s.categoryId ?? null,
@@ -607,7 +609,7 @@ const seriesUpdateColumns = [
   'publishRatingCalculations', 'showPerRaceRatingsInSummary',
   'publishingGroups', 'publishIndividualFleetPages', 'rrsOrgPush', 'prizes',
   'resultsStatus', 'finalisedAt', 'protestTimeLimit',
-  'enabledCompetitorFields', 'primaryPersonLabel', 'subdivisionAxes',
+  'enabledCompetitorFields', 'multiPersonFields', 'primaryPersonLabel', 'subdivisionAxes',
   'categoryId', 'archived', 'source',
 ] as const satisfies readonly (keyof ReturnType<typeof seriesToRow>)[];
 

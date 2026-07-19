@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useIsMutating } from '@tanstack/react-query';
 
+import { useFeatures } from '@/components/features-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import { seriesRowMutationKey, useUpdateSeries } from '@/hooks/use-series';
 import {
   ALL_COMPETITOR_FIELDS,
   COMPETITOR_FIELD_LABELS,
+  MULTI_PERSON_FIELD_KEYS,
   DEFAULT_PRIMARY_PERSON_LABEL,
   DEFAULT_SUBDIVISION_LABEL,
   PRIMARY_PERSON_LABELS,
@@ -18,12 +20,14 @@ import {
   SUBDIVISION_LABEL_MAX_LENGTH,
   defaultEnabledCompetitorFields,
   isFieldDisabledByPrimary,
+  isMultiPersonField,
   newSubdivisionAxis,
   subdivisionAxes,
   subdivisionAxisLabel,
 } from '@/lib/competitor-fields';
 import type {
   CompetitorFieldKey,
+  MultiPersonFieldKey,
   PrimaryPersonLabel,
   Series,
   SubdivisionAxis,
@@ -31,6 +35,8 @@ import type {
 
 export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: Series }) {
   const updateSeries = useUpdateSeries();
+  const { has } = useFeatures();
+  const multiPersonEnabled = has('multi-person-fields');
   const [expanded, setExpanded] = useState(false);
   // Mirror the persisted array into local state so the checkbox updates
   // instantly on click — the async save that follows would otherwise leave
@@ -55,6 +61,35 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
     setLocalEnabled(persisted);
   }
   const enabledSet = new Set<CompetitorFieldKey>(localEnabled);
+
+  // "Allow multiple" per person field (#316), mirrored locally on the same
+  // pattern as the enabled-fields array above.
+  const persistedMulti = series.multiPersonFields ?? [];
+  const [localMulti, setLocalMulti] = useState<MultiPersonFieldKey[]>(persistedMulti);
+  const persistedMultiKey = persistedMulti.join(',');
+  const [prevMultiKey, setPrevMultiKey] = useState(persistedMultiKey);
+  if (prevMultiKey !== persistedMultiKey && !savesInFlight) {
+    setPrevMultiKey(persistedMultiKey);
+    setLocalMulti(persistedMulti);
+  }
+  const multiSet = new Set<MultiPersonFieldKey>(localMulti);
+
+  async function toggleMulti(field: MultiPersonFieldKey, checked: boolean) {
+    const next = new Set(multiSet);
+    if (checked) next.add(field); else next.delete(field);
+    setLocalMulti(MULTI_PERSON_FIELD_KEYS.filter((f) => next.has(f)));
+    await updateSeries.mutateAsync({
+      id: seriesId,
+      patch: (current) => {
+        const fields = new Set(current.multiPersonFields ?? []);
+        if (checked) fields.add(field); else fields.delete(field);
+        return {
+          multiPersonFields: MULTI_PERSON_FIELD_KEYS.filter((f) => fields.has(f)),
+          lastModifiedAt: Date.now(),
+        };
+      },
+    });
+  }
 
   // Subdivision axes, mirrored locally so the text inputs stay responsive
   // while the controlled value catches up to the async save (same pattern as
@@ -210,6 +245,24 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
                 </label>
               ))}
             </div>
+            {multiPersonEnabled && (
+              <label className="ml-6 flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  aria-label={`Allow multiple ${primaryFieldLabel}`}
+                  checked={multiSet.has('primary')}
+                  onChange={(e) => toggleMulti('primary', e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                />
+                <div>
+                  <span className="text-sm font-medium">Allow multiple</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    For co-owned or co-helmed entries — the competitor dialog gains an
+                    add-a-name button, and imports keep every mapped name.
+                  </p>
+                </div>
+              </label>
+            )}
           </div>
           <div className="space-y-2 pt-2 border-t">
             <p className="text-sm font-medium">Optional fields</p>
@@ -242,6 +295,21 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
                     ) : fieldHints[field] ? (
                       <p className="text-xs text-muted-foreground mt-0.5">{fieldHints[field]}</p>
                     ) : null}
+                    {multiPersonEnabled &&
+                      !disabledByPrimary &&
+                      enabledSet.has(field) &&
+                      isMultiPersonField(field) && (
+                        <label className="mt-1.5 flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            aria-label={`Allow multiple ${fieldDisplayLabel(field)}`}
+                            checked={multiSet.has(field)}
+                            onChange={(e) => toggleMulti(field, e.target.checked)}
+                            className="h-4 w-4 shrink-0"
+                          />
+                          <span className="text-xs">Allow multiple</span>
+                        </label>
+                      )}
                   </div>
                 </div>
               );

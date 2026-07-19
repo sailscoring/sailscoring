@@ -11,6 +11,8 @@ import {
   defaultEnabledCompetitorFields,
   displayCompetitorLabel,
   isFieldDisabledByPrimary,
+  isMultiPersonField,
+  multiPersonAllowed,
   primaryPersonFieldKey,
   subdivisionAxisLabel,
   subdivisionAxes,
@@ -284,5 +286,30 @@ describe('displayCompetitorLabel — multi-crew', () => {
         { enabledCompetitorFields: ['crewName'], showCrew: true },
       ),
     ).toBe('Hogan');
+  });
+});
+
+describe('multiPersonAllowed', () => {
+  it('is false when the series records no multi-person fields', () => {
+    expect(multiPersonAllowed({}, 'primary')).toBe(false);
+    expect(multiPersonAllowed({ multiPersonFields: [] }, 'crewName')).toBe(false);
+  });
+
+  it('is true only for the listed fields', () => {
+    const series = { multiPersonFields: ['owner', 'crewName'] as const };
+    expect(multiPersonAllowed({ multiPersonFields: [...series.multiPersonFields] }, 'owner')).toBe(true);
+    expect(multiPersonAllowed({ multiPersonFields: [...series.multiPersonFields] }, 'crewName')).toBe(true);
+    expect(multiPersonAllowed({ multiPersonFields: [...series.multiPersonFields] }, 'primary')).toBe(false);
+    expect(multiPersonAllowed({ multiPersonFields: [...series.multiPersonFields] }, 'helm')).toBe(false);
+  });
+});
+
+describe('isMultiPersonField', () => {
+  it('accepts the optional person fields only', () => {
+    expect(isMultiPersonField('owner')).toBe(true);
+    expect(isMultiPersonField('helm')).toBe(true);
+    expect(isMultiPersonField('crewName')).toBe(true);
+    expect(isMultiPersonField('club')).toBe(false);
+    expect(isMultiPersonField('boatName')).toBe(false);
   });
 });

@@ -4,6 +4,7 @@ import type {
   DiscardThreshold,
   DnfScoring,
   CompetitorFieldKey,
+  MultiPersonFieldKey,
   PrimaryPersonLabel,
   Finish,
   SubdivisionAxis,
@@ -90,6 +91,9 @@ export interface PublicSeriesExport {
      *  Display hint for re-renderers; competitor data is still exported in
      *  full regardless of this setting. */
     displayFields: CompetitorFieldKey[];
+    /** Person fields opened to multiple names per entry (#316). Display/entry
+     *  hint like `displayFields`; sparse — absent means all single. */
+    multiPersonFields?: MultiPersonFieldKey[];
     /** Label for the primary person slot (`Competitor.name`). Display hint —
      *  "competitor" / "entrant" / "helm" / "owner". Absent in exports produced
      *  by older builds; importers default to "competitor". */
@@ -679,6 +683,7 @@ export function buildPublicExportFromSnapshot(
         return raceFleetExclusions.length > 0 ? { raceFleetExclusions } : {};
       })(),
       displayFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
+      ...(series.multiPersonFields?.length ? { multiPersonFields: series.multiPersonFields } : {}),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
       ...(series.subdivisionAxes?.length ? { subdivisionAxes: series.subdivisionAxes } : {}),
       scoringMode: series.scoringMode ?? 'scratch',
@@ -891,6 +896,7 @@ export async function importPublicExport(
     ...(data.series.publishRatingCalculations != null ? { publishRatingCalculations: data.series.publishRatingCalculations } : {}),
     ...(data.series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: data.series.showPerRaceRatingsInSummary } : {}),
     enabledCompetitorFields: data.series.displayFields ?? defaultEnabledCompetitorFields(),
+    ...(data.series.multiPersonFields?.length ? { multiPersonFields: data.series.multiPersonFields } : {}),
     primaryPersonLabel: data.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     ...(data.series.resultsStatus === 'final' ? { resultsStatus: 'final' as const } : {}),
     ...(data.series.resultsStatus === 'final' && data.series.finalisedAt != null
