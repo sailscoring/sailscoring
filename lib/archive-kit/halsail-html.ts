@@ -172,23 +172,19 @@ function toRace(table: Element): HalsailRace | null {
 
 /** Parse one HalSail results page (one class × series). */
 export function parseHalsailHtml(html: string): HalsailPage {
-  const dom = new JSDOM(html);
-  try {
-    const doc = dom.window.document;
+  // Fragment parsing, not `new JSDOM(html)` — see the note in
+  // `sailwave-html.ts`: a Window per page is retained for the life of the
+  // process and bulk generation OOMs.
+  const doc = JSDOM.fragment(html);
 
-    const tables = [...doc.querySelectorAll('table')];
-    const raceTables = tables.filter((t) => /^race\d+$/.test(t.id));
-    const overallTable = tables.find((t) => !/^race\d+$/.test(t.id) && t.querySelector('thead'));
+  const tables = [...doc.querySelectorAll('table')];
+  const raceTables = tables.filter((t) => /^race\d+$/.test(t.id));
+  const overallTable = tables.find((t) => !/^race\d+$/.test(t.id) && t.querySelector('thead'));
 
-    return {
-      overall: overallTable ? toOverall(overallTable) : null,
-      races: raceTables
-        .map(toRace)
-        .filter((r): r is HalsailRace => r !== null),
-    };
-  } finally {
-    // Bulk generation parses hundreds of pages; an unclosed window keeps the
-    // whole DOM reachable and the run OOMs.
-    dom.window.close();
-  }
+  return {
+    overall: overallTable ? toOverall(overallTable) : null,
+    races: raceTables
+      .map(toRace)
+      .filter((r): r is HalsailRace => r !== null),
+  };
 }

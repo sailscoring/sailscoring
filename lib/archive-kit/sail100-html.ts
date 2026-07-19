@@ -108,17 +108,14 @@ export function parseSail100Html(html: string): {
   title: string | null;
   summaries: SailwaveSummarySection[];
 } {
-  const dom = new JSDOM(html);
-  try {
-    const doc = dom.window.document;
-    const summaries = [...doc.querySelectorAll('table')]
-      .map(toSection)
-      .filter((s): s is SailwaveSummarySection => s !== null && s.rows.length > 0);
-    return {
-      title: textOf(doc.querySelector('h1')) || null,
-      summaries,
-    };
-  } finally {
-    dom.window.close();
-  }
+  // Fragment parsing, not `new JSDOM(html)` — see the note in
+  // `sailwave-html.ts`.
+  const doc = JSDOM.fragment(html);
+  const summaries = [...doc.querySelectorAll('table')]
+    .map(toSection)
+    .filter((s): s is SailwaveSummarySection => s !== null && s.rows.length > 0);
+  return {
+    title: textOf(doc.querySelector('h1')) || null,
+    summaries,
+  };
 }

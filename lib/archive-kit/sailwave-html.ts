@@ -232,26 +232,23 @@ function toRaceSection(table: Element): SailwaveRaceSection | null {
 
 /** Parse a whole Sailwave results page. */
 export function parseSailwaveHtml(html: string): SailwavePage {
-  const dom = new JSDOM(html);
-  try {
-    const doc = dom.window.document;
+  // Fragment parsing, not `new JSDOM(html)`: bulk generation parses hundreds
+  // of pages, and each Window is retained for the life of the process whether
+  // or not `window.close()` is called — the run OOMs. A fragment carries no
+  // Window, and these parsers only need querySelector over the markup.
+  const doc = JSDOM.fragment(html);
 
-    const summaries = [...doc.querySelectorAll('table.summarytable')]
-      .map(toSummarySection)
-      .filter((s): s is SailwaveSummarySection => s !== null);
-    const races = [...doc.querySelectorAll('table.racetable')]
-      .map(toRaceSection)
-      .filter((r): r is SailwaveRaceSection => r !== null);
+  const summaries = [...doc.querySelectorAll('table.summarytable')]
+    .map(toSummarySection)
+    .filter((s): s is SailwaveSummarySection => s !== null);
+  const races = [...doc.querySelectorAll('table.racetable')]
+    .map(toRaceSection)
+    .filter((r): r is SailwaveRaceSection => r !== null);
 
-    return {
-      title: textOf(doc.querySelector('h1')),
-      subtitle: textOf(doc.querySelector('h2')) || null,
-      summaries,
-      races,
-    };
-  } finally {
-    // Bulk generation parses hundreds of pages; an unclosed window keeps the
-    // whole DOM reachable and the run OOMs.
-    dom.window.close();
-  }
+  return {
+    title: textOf(doc.querySelector('h1')),
+    subtitle: textOf(doc.querySelector('h2')) || null,
+    summaries,
+    races,
+  };
 }
