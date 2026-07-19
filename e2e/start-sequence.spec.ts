@@ -50,10 +50,18 @@ test('three-start sequence at 5-minute intervals resolves to distinct start time
   await expect(editor.getByText(/min after Start 2/)).toBeVisible();
 
   await editor.getByRole('button', { name: 'Save sequence' }).click();
+  // The button only renders while the editor is dirty, and it clears that
+  // after the save resolves — so it unmounting is the signal that the
+  // sequence is persisted and in the series cache the Races page reads.
+  // Add race decides between the start-time dialog and creating a race
+  // outright from that same data, so clicking too early takes the wrong
+  // branch and no dialog ever opens.
+  await expect(editor.getByRole('button', { name: 'Save sequence' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Done' }).first().click();
 
   // ── Add a race; the new-race dialog appears in handicap mode ──────────────
   await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page).toHaveURL(/\/races$/);
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByLabel('First start time').fill('14:05:00');
 
@@ -99,10 +107,14 @@ test('deleting a fleet strips it from the default start sequence and existing ra
   await editor.locator('input[type="number"]').last().fill('5');
 
   await editor.getByRole('button', { name: 'Save sequence' }).click();
+  // See the sibling test: the Save button unmounting is the signal that the
+  // sequence is persisted, and Add race picks its branch from that data.
+  await expect(editor.getByRole('button', { name: 'Save sequence' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Done' }).first().click();
 
   // Create a race so the sequence gets materialised into raceStarts rows.
   await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page).toHaveURL(/\/races$/);
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByLabel('First start time').fill('14:05:00');
   await page.getByRole('button', { name: 'Create race' }).click();

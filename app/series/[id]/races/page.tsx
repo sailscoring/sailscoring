@@ -378,16 +378,9 @@ export default function RacesPage({
       key: 'n',
       description: 'Add race',
       section: 'Races',
-      when: () => !readOnly,
-      handler: () => {
-        if (isHandicap && hasStartSequence) {
-          setFirstStartTime('');
-          setNewRaceError('');
-          setShowNewRaceDialog(true);
-        } else {
-          handleAddRaceScratch();
-        }
-      },
+      // Same series-row wait as the button: the branch is decided from it.
+      when: () => !readOnly && series !== undefined,
+      handler: handleAddRaceClick,
     },
     {
       key: 'g',
@@ -673,7 +666,11 @@ export default function RacesPage({
             <AddRaceMenu
               onAddRace={handleAddRaceClick}
               onGenerate={openGenerateDialog}
-              disabled={addingRace}
+              // Also wait for the series row: the handicap branch (start-time
+              // dialog) versus the scratch branch (create immediately) is
+              // decided from it, so a click before it loads would silently
+              // create a race with no start sequence.
+              disabled={addingRace || series === undefined}
             />
           )}
         </div>
