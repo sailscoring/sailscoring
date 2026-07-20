@@ -53,8 +53,15 @@ Request body:
 Payload rules (from RRS.org's documentation, confirmed in practice):
 
 - **Empty string, not null**, for any field with no value.
-- **`competitor_id` is required and must be unique** per row. Any stable
-  identifier works; row number as a string is the documented fallback.
+- **`competitor_id` is required and must be a string that *resolves to a
+  unique integer*** — the API reference's wording
+  (`apipie/1.0/competitors/create.en.html`). "Any stable unique string" is
+  wrong and dangerous: we sent our UUID competitor ids, RRS.org resolved them
+  to colliding integers, and it **dropped the collisions silently on an HTTP
+  200** — 110 competitors pushed, 92-99 imported, a different count each time
+  (July 2026, #319). Send the row number; nothing is lost by it, because each
+  import replaces the previous one wholesale (below), so an id carries no
+  meaning between pushes.
 - `sail_number` may optionally carry a nationality prefix (`"GBR 1234"`);
   `country_code` is a separate 3-letter IOC/World Sailing code. We sent them
   separately (plain number + code) and that was accepted.
@@ -102,7 +109,7 @@ pushed to RRS.org").
 
 | RRS.org field   | Sail Scoring `Competitor` | Notes |
 |-----------------|---------------------------|-------|
-| `competitor_id` | `id` (or row number)      | Any stable unique string. Using our competitor `id` keeps re-pushes coherent. |
+| `competitor_id` | row number (1-based)      | Must resolve to a unique integer — see above. Never send the UUID `id`. |
 | `sail_number`   | `sailNumber`              | Send plain; nationality goes in `country_code`. |
 | `country_code`  | `nationality`             | Same 3-letter IOC/national-letters vocabulary. |
 | `first_name` / `last_name` | `helm` / `name` (per `primaryPersonLabel`) | We store one name string; split on first space, whole string into `last_name` when unsplittable. |

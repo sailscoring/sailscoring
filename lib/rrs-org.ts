@@ -183,7 +183,7 @@ export function buildRrsOrgCompetitors(
   const warnings: RrsOrgBuildWarning[] = [];
   let relayCount = 0;
 
-  const rows = competitors.map((c): RrsOrgCompetitor => {
+  const rows = competitors.map((c, index): RrsOrgCompetitor => {
     const r = relay?.get(c.id);
     if (r && (r.email || r.phone || r.mnaCode || r.mnaNumber)) relayCount++;
 
@@ -208,7 +208,14 @@ export function buildRrsOrgCompetitors(
     }
 
     return {
-      competitor_id: c.id,
+      // The API's own words: "Identifier that will resolve to a unique
+      // integer". Our competitor ids are UUIDs, which don't — RRS.org resolved
+      // them to colliding integers and silently dropped the losers, importing
+      // ~92-99 of 110 with no error. The row number is the fallback its
+      // documentation prescribes, and it costs nothing: RRS.org replaces its
+      // API-imported competitors wholesale on every push, so a row's id has no
+      // meaning to carry across one.
+      competitor_id: String(index + 1),
       sail_number: c.sailNumber,
       country_code: c.nationality ?? '',
       first_name: first,

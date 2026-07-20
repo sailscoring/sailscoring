@@ -80,7 +80,7 @@ describe('buildRrsOrgCompetitors', () => {
     const { competitors, warnings } = buildRrsOrgCompetitors([c], fleets, { divisionSource: 'none' });
     expect(warnings).toEqual([]);
     expect(competitors).toEqual([{
-      competitor_id: 'c1',
+      competitor_id: '1',
       sail_number: '14302',
       country_code: 'IRL',
       first_name: 'Diana',
@@ -102,6 +102,21 @@ describe('buildRrsOrgCompetitors', () => {
     for (const value of Object.values(row)) {
       expect(typeof value).toBe('string');
     }
+  });
+
+  it('numbers competitor_id from 1, never sending the UUID competitor id', () => {
+    // RRS.org resolves competitor_id to an integer: UUIDs collide there and it
+    // drops the losers silently, on a 200. Every row must be a distinct integer.
+    const cs = [
+      makeCompetitor({ id: '83d8ad30-5570-452c-bf78-5482560362ad' }),
+      makeCompetitor({ id: '9dbf5a30-9538-44b0-83a4-5c59ee4c1986' }),
+      makeCompetitor({ id: '90c69e88-0fed-4a22-a85c-8a9e6167acb0' }),
+    ];
+    const { competitors } = buildRrsOrgCompetitors(cs, fleets, { divisionSource: 'none' });
+    expect(competitors.map((r) => r.competitor_id)).toEqual(['1', '2', '3']);
+    const asIntegers = competitors.map((r) => Number(r.competitor_id));
+    expect(asIntegers.every(Number.isInteger)).toBe(true);
+    expect(new Set(asIntegers).size).toBe(cs.length);
   });
 
   it('divisionSource fleet joins multi-fleet memberships in fleet order', () => {
