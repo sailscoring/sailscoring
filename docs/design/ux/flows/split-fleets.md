@@ -375,11 +375,6 @@ system" guarantee, and each row lands in the activity log:
 | Publish standings / assignment lists | Standard publications under the series' `/p/` slug |
 | Promote / wrong-fleet resolution | Override on the round record + membership edit |
 
-Series categories play no part — they organise the workspace series list,
-not competitors within a series. (If a workspace wants a "Final fleet"
-subdivision value for prize filtering, prizes already reference fleets
-directly, so nothing extra is needed.)
-
 **Drift handling:** because the view re-derives from entities, hand edits
 in the standard tabs are absorbed silently when consistent (renaming a
 fleet, fixing a start time) and flagged when they contradict a round
