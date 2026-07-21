@@ -1857,7 +1857,11 @@ export default async function HelpPage() {
           <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc</code> listing all the
           series you’ve published. Both update automatically as you publish. Each fleet page
           links back up to its series listing, and that listing links up to the workspace index,
-          so a visitor can climb from one fleet’s results to everything you’ve published.
+          so a visitor can climb from one fleet’s results to everything you’ve published. A
+          fleet page in a multi-fleet publication also carries a switcher to its sibling fleets,
+          and once a workspace has more than one published series its index gains quick-jump
+          dropdowns — year, category, series, fleet — so a visitor can go straight to the table
+          they’re after instead of scrolling.
         </p>
         <p>
           <strong className="text-foreground">Co-publishing several series to one URL:</strong>{' '}
