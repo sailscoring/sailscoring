@@ -180,6 +180,8 @@ function raceRowToType(row: RaceRow): Race {
     name: row.name,
     date: row.date,
     ...(row.lastFinisherTime ? { lastFinisherTime: row.lastFinisherTime } : {}),
+    ...(row.stage ? { stage: row.stage } : {}),
+    ...(row.stageRaceNumber != null ? { stageRaceNumber: row.stageRaceNumber } : {}),
     createdAt: row.createdAt.getTime(),
     version: row.version,
   };
@@ -1131,12 +1133,14 @@ function raceToRow(r: Race, workspaceId: string) {
     name: r.name,
     date: r.date,
     lastFinisherTime: r.lastFinisherTime ?? null,
+    stage: r.stage ?? null,
+    stageRaceNumber: r.stageRaceNumber ?? null,
     createdAt: new Date(r.createdAt),
   };
 }
 
 const raceUpdateColumns = [
-  'raceNumber', 'name', 'date', 'lastFinisherTime',
+  'raceNumber', 'name', 'date', 'lastFinisherTime', 'stage', 'stageRaceNumber',
 ] as const satisfies readonly (keyof ReturnType<typeof raceToRow>)[];
 
 export class PostgresRaceRepository implements RaceRepository {

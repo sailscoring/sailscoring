@@ -428,6 +428,12 @@ export interface Race {
   // times: when any finish has a `finishTime` the sheet is authoritative and
   // this field is ignored (see effectiveLastFinisherTime in lib/race-status.ts).
   lastFinisherTime?: string;
+  // Split-fleet series (PROTOTYPE — see lib/split-fleets.ts): the stage this
+  // race belongs to and its race number within the stage (Q3 → ('qualifying',
+  // 3)). Absent on standard series. Workspace-local for now: not carried in
+  // the .sailscoring file format or public JSON export.
+  stage?: 'qualifying' | 'final' | 'medal';
+  stageRaceNumber?: number;
   createdAt: number;
   version?: number;    // server-side concurrency token (see Series.version)
 }

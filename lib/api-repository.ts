@@ -927,6 +927,65 @@ export async function ensureFleet(
   return fleetId;
 }
 
+// ─── Split fleets (PROTOTYPE — see lib/split-fleets.ts) ─────────────────────
+
+export interface SplitFleetStateDto {
+  config: import('./split-fleets').SplitFleetConfig | null;
+  rounds: import('./split-fleets').SplitRound[];
+}
+
+export function getSplitFleetState(seriesId: string): Promise<SplitFleetStateDto> {
+  return apiFetch<SplitFleetStateDto>(`/api/v1/series/${seriesId}/split-fleets`);
+}
+
+export function putSplitFleetConfig(
+  seriesId: string,
+  config: import('./split-fleets').SplitFleetConfig,
+): Promise<SplitFleetStateDto> {
+  return apiFetch<SplitFleetStateDto>(`/api/v1/series/${seriesId}/split-fleets`, {
+    method: 'PUT',
+    body: config,
+  });
+}
+
+export interface SplitRoundCommit {
+  stage: 'qualifying' | 'final' | 'medal';
+  fromStageRace: number;
+  method: 'seeded' | 'rank-pattern' | 'split' | 'medal-select' | 'manual';
+  basis: { throughStageRace: number; capturedAt: number } | null;
+  fleets: { label: string; color: string }[];
+  assignments: Record<string, number>;
+  stageRaceNumbers: number[];
+  date?: string;
+}
+
+export function commitSplitRound(
+  seriesId: string,
+  payload: SplitRoundCommit,
+): Promise<import('./split-fleets').SplitRound> {
+  return apiFetch(`/api/v1/series/${seriesId}/split-fleets/rounds`, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function addSplitStageRaces(
+  seriesId: string,
+  roundId: string,
+  payload: { stageRaceNumbers: number[]; fleetIds?: string[]; date?: string },
+): Promise<void> {
+  await apiFetch(`/api/v1/series/${seriesId}/split-fleets/rounds/${roundId}/races`, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function deleteSplitRound(seriesId: string, roundId: string): Promise<void> {
+  await apiFetch(`/api/v1/series/${seriesId}/split-fleets/rounds/${roundId}`, {
+    method: 'DELETE',
+  });
+}
+
 // ─── Activity log (#153) ────────────────────────────────────────────────────
 
 /**
