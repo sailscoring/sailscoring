@@ -496,6 +496,110 @@ describe.skipIf(skip)('archive ingest', () => {
     expect(view.fleets[0].results.rows).toHaveLength(2);
   });
 
+  test('combined page: two member fleets publish as one page (#321)', async () => {
+    const combinedSeriesId = uuid();
+    const hphId = uuid();
+    const scratchId = uuid();
+    const alice = uuid();
+    const bob = uuid();
+
+    function memberFleet(
+      id: string,
+      name: string,
+      compId: string,
+      helm: string,
+    ): ArchiveSeriesDoc['fleets'][number] {
+      return {
+        id,
+        name,
+        // No subPath — published only as a section of the combined page.
+        results: {
+          leadColumns: [
+            { key: 'sailno', label: 'Sail Number' },
+            { key: 'helmname', label: 'Helm' },
+          ],
+          raceHeaders: [{ label: 'R1' }],
+          summaryColumns: [{ key: 'nett', label: 'Nett' }],
+          rows: [
+            {
+              competitorId: compId,
+              rank: 1,
+              rankLabel: '1',
+              leadCells: ['42', helm],
+              raceCells: [{ text: '1' }],
+              summaryCells: ['1'],
+            },
+          ],
+        },
+      };
+    }
+
+    const combinedDoc: ArchiveSeriesDoc = {
+      formatVersion: 1,
+      series: {
+        id: combinedSeriesId,
+        name: 'Tuesday Series 2 2025',
+        venue: 'Howth',
+        publishedSlug: 'hyc-2025-tuesday-2',
+        source: 'sailwave',
+      },
+      fleets: [
+        memberFleet(hphId, 'Puppeteer HPH Fleet', alice, 'Alice'),
+        memberFleet(scratchId, 'Puppeteer Scratch Fleet', bob, 'Bob'),
+      ],
+      combinedPages: [
+        {
+          subPath: 'puppeteer-22',
+          name: 'Puppeteer 22',
+          fleetIds: [hphId, scratchId],
+        },
+      ],
+      competitors: [
+        { id: alice, fleetIds: [hphId], sailNumber: '42', name: 'Alice' },
+        { id: bob, fleetIds: [scratchId], sailNumber: '42', name: 'Bob' },
+      ],
+    };
+
+    const result = await archive.putArchiveSeries(
+      ctx,
+      combinedSeriesId,
+      combinedDoc,
+    );
+    // One published page carrying the group name and sub-path — not two.
+    expect(result.published).toEqual({
+      slug: 'hyc-2025-tuesday-2',
+      pages: [{ fleetName: 'Puppeteer 22', subPath: 'puppeteer-22' }],
+    });
+
+    // Both members are stored as first-class fleets (own results rows).
+    const stored = await db
+      .select()
+      .from(schema.asPublishedResults)
+      .where(eq(schema.asPublishedResults.seriesId, combinedSeriesId));
+    expect(stored).toHaveLength(2);
+
+    // The one published page stacks both sections.
+    const [pub] = await db
+      .select()
+      .from(schema.publishedSeries)
+      .where(eq(schema.publishedSeries.seriesId, combinedSeriesId));
+    expect(pub.pages).toHaveLength(1);
+    const html = await readPublishedHtml(pub.pages[0].blobUrl);
+    expect(html).toContain('<h3 class="summarytitle">Puppeteer HPH Fleet</h3>');
+    expect(html).toContain('<h3 class="summarytitle">Puppeteer Scratch Fleet</h3>');
+    expect(html).toContain('Alice');
+    expect(html).toContain('Bob');
+
+    // The Standings tab shows both member fleets.
+    const view = await archive.getAsPublishedResults(ctx, combinedSeriesId);
+    expect(view.fleets.map((f) => f.fleetName)).toEqual([
+      'Puppeteer HPH Fleet',
+      'Puppeteer Scratch Fleet',
+    ]);
+
+    await archive.deleteArchiveSeries(ctx, combinedSeriesId);
+  });
+
   test('jurisdiction: the reconcile surface defers to the archive', async () => {
     const reconcileCtx: WorkspaceContext = {
       ...ctx,
