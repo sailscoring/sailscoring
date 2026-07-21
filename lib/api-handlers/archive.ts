@@ -14,6 +14,7 @@ import {
 } from '@/lib/archive-kit/format';
 import {
   collectNationalityCodes,
+  renderAsPublishedCombinedHtml,
   renderAsPublishedFleetHtml,
 } from '@/lib/archive-kit/render';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
@@ -333,9 +334,11 @@ export async function putArchiveSeries(
 
 /**
  * Publish (or re-publish) an as-published series' pages from its document —
- * pinned slug, pinned per-fleet sub-paths, whole publication replaced each
- * time. Runs after every applying ingest so the public pages exist without a
- * separate publish step.
+ * pinned slug, pinned sub-paths, whole publication replaced each time. Runs
+ * after every applying ingest so the public pages exist without a separate
+ * publish step. Each standalone fleet is one page; a combined page (#321)
+ * stacks its member fleets' results as sections of one page — the members give
+ * up their standalone pages.
  */
 async function publishArchiveSeries(
   workspace: WorkspaceContext,
@@ -344,7 +347,6 @@ async function publishArchiveSeries(
   const seriesId = doc.series.id;
   const slug = doc.series.publishedSlug;
   const seriesIndexUrl = `/p/${workspace.workspaceSlug}/${slug}`;
-  const multiFleet = doc.fleets.length > 1;
 
   // Flag SVGs load on demand, only when a fleet references national codes —
   // the ~2.5 MB dataset stays out of every other request (the same pattern
@@ -356,25 +358,66 @@ async function publishArchiveSeries(
     ? (await import('@/lib/nationality/flags')).NATIONAL_FLAGS
     : undefined;
 
-  const files = doc.fleets.map((fleet) => ({
-    fleetName: fleet.name,
-    subPath: fleet.subPath,
-    html: renderAsPublishedFleetHtml(
-      {
-        seriesName: doc.series.name,
-        venue: doc.series.venue,
-        fleetName:
-          multiFleet || fleet.name !== 'Default' ? fleet.name : undefined,
-        leftLogoUrl: doc.series.venueLogoUrl,
-        rightLogoUrl: doc.series.eventLogoUrl,
-        leftUrl: doc.series.venueUrl,
-        rightUrl: doc.series.eventUrl,
-        seriesIndexUrl,
-        flagSvgByCode,
-      },
-      toStoredResults(fleet),
-    ),
-  }));
+  const commonChrome = {
+    seriesName: doc.series.name,
+    venue: doc.series.venue,
+    leftLogoUrl: doc.series.venueLogoUrl,
+    rightLogoUrl: doc.series.eventLogoUrl,
+    leftUrl: doc.series.venueUrl,
+    rightUrl: doc.series.eventUrl,
+    seriesIndexUrl,
+    flagSvgByCode,
+  };
+
+  const fleetById = new Map(doc.fleets.map((f) => [f.id, f]));
+  const combinedPages = doc.combinedPages ?? [];
+  const groupByMemberId = new Map(
+    combinedPages.flatMap((page) => page.fleetIds.map((id) => [id, page])),
+  );
+  // Every published page — standalone fleets and combined pages — carries a
+  // subtitle unless the series is a single unnamed fleet.
+  const pageCount =
+    doc.fleets.filter((f) => !groupByMemberId.has(f.id)).length +
+    combinedPages.length;
+  const multiPage = pageCount > 1;
+
+  // Pages in fleet display order: a combined page emits at its first member;
+  // its other members are skipped (they publish only as sections).
+  const emittedGroups = new Set<string>();
+  const files: Array<{ fleetName: string; subPath: string; html: string }> = [];
+  for (const fleet of doc.fleets) {
+    const group = groupByMemberId.get(fleet.id);
+    if (group) {
+      if (emittedGroups.has(group.subPath)) continue;
+      emittedGroups.add(group.subPath);
+      const sections = group.fleetIds
+        .map((id) => fleetById.get(id))
+        .filter((f): f is ArchiveSeriesDoc['fleets'][number] => f !== undefined)
+        .map((f) => ({ name: f.name, results: toStoredResults(f) }));
+      files.push({
+        fleetName: group.name,
+        subPath: group.subPath,
+        html: renderAsPublishedCombinedHtml(
+          { ...commonChrome, fleetName: group.name },
+          sections,
+        ),
+      });
+      continue;
+    }
+    // Standalone fleet; the schema guarantees a subPath here.
+    files.push({
+      fleetName: fleet.name,
+      subPath: fleet.subPath as string,
+      html: renderAsPublishedFleetHtml(
+        {
+          ...commonChrome,
+          fleetName:
+            multiPage || fleet.name !== 'Default' ? fleet.name : undefined,
+        },
+        toStoredResults(fleet),
+      ),
+    });
+  }
 
   const hash = await contentHash(files.map((f) => f.html));
   const existing = await getPublishedBySeries(seriesId);

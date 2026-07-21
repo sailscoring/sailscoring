@@ -1,9 +1,11 @@
 /**
  * Public pages for as-published series (ADR-010, #283): render a stored
  * results table into the same document chrome as a full-fidelity fleet page,
- * so an archive page doesn't read as a different kind of thing. What it
- * simply doesn't have — the embedded JSON export, per-race detail tables,
- * handicap-calculation toggles — is omitted rather than faked.
+ * so an archive page doesn't read as a different kind of thing. A combined
+ * page stacks several fleets' results as sections of one document (#321), the
+ * archive analogue of a live publishing group. What an archive page simply
+ * doesn't have — the embedded JSON export, handicap-calculation toggles — is
+ * omitted rather than faked.
  *
  * Pure: string in, string out. The ingest handler publishes the output
  * through the standard blob pipeline.
@@ -195,12 +197,20 @@ ${body}
 </div>`;
 }
 
-/** One as-published fleet page, in the standard published-page chrome. */
-export function renderAsPublishedFleetHtml(
-  chrome: AsPublishedPageChrome,
+/** One fleet's standings table followed by its per-race detail tables. */
+function renderFleetContent(
   results: AsPublishedFleetResults,
+  flagSvgByCode: AsPublishedPageChrome['flagSvgByCode'],
 ): string {
-  const documentChrome: DocumentChrome = {
+  const raceTables = (results.raceTables ?? [])
+    .map(renderAsPublishedRaceTable)
+    .join('\n');
+  const table = renderAsPublishedTable(results, { flagSvgByCode });
+  return raceTables ? `${table}\n${raceTables}` : table;
+}
+
+function documentChromeOf(chrome: AsPublishedPageChrome): DocumentChrome {
+  return {
     series: { name: chrome.seriesName, venue: chrome.venue ?? '' },
     fleetName: chrome.fleetName,
     leftLogoUrl: chrome.leftLogoUrl,
@@ -209,20 +219,62 @@ export function renderAsPublishedFleetHtml(
     rightUrl: chrome.rightUrl,
     seriesIndexUrl: chrome.seriesIndexUrl,
   };
-  const raceTables = (results.raceTables ?? [])
-    .map(renderAsPublishedRaceTable)
+}
+
+/** One as-published fleet page, in the standard published-page chrome. */
+export function renderAsPublishedFleetHtml(
+  chrome: AsPublishedPageChrome,
+  results: AsPublishedFleetResults,
+): string {
+  return renderHtmlDocument(
+    documentChromeOf(chrome),
+    renderFleetContent(results, chrome.flagSvgByCode),
+    {
+      fontPercent: 72,
+      hasNhcDetail: false,
+      hasEchoDetail: false,
+      flagDefs: renderFlagDefs(
+        collectNationalityCodes(results),
+        chrome.flagSvgByCode,
+      ),
+    },
+  );
+}
+
+/** One section of a combined page: a member fleet's display name and its
+ *  stored results. */
+export interface AsPublishedSection {
+  name: string;
+  results: AsPublishedFleetResults;
+}
+
+/**
+ * A combined as-published page (#321): several fleets' results stacked as
+ * titled sections of one document — the archive analogue of a live publishing
+ * group. Each section carries a `summarytitle` heading (as the source Sailwave
+ * page did), then that fleet's standings and per-race tables.
+ */
+export function renderAsPublishedCombinedHtml(
+  chrome: AsPublishedPageChrome,
+  sections: AsPublishedSection[],
+): string {
+  const content = sections
+    .map(
+      (section) =>
+        `<h3 class="summarytitle">${esc(section.name)}</h3>\n${renderFleetContent(
+          section.results,
+          chrome.flagSvgByCode,
+        )}`,
+    )
     .join('\n');
-  const table = renderAsPublishedTable(results, {
-    flagSvgByCode: chrome.flagSvgByCode,
-  });
-  const content = raceTables ? `${table}\n${raceTables}` : table;
-  return renderHtmlDocument(documentChrome, content, {
+  const codes = new Set<string>();
+  for (const section of sections) {
+    for (const code of collectNationalityCodes(section.results)) codes.add(code);
+  }
+  return renderHtmlDocument(documentChromeOf(chrome), content, {
     fontPercent: 72,
     hasNhcDetail: false,
     hasEchoDetail: false,
-    flagDefs: renderFlagDefs(
-      collectNationalityCodes(results),
-      chrome.flagSvgByCode,
-    ),
+    flagDefs: renderFlagDefs([...codes].sort(), chrome.flagSvgByCode),
   });
 }

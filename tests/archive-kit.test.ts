@@ -357,6 +357,107 @@ describe('document schema', () => {
   });
 });
 
+describe('combined pages (#321)', () => {
+  const FLEET_A = '11111111-2222-4333-8444-555555555555';
+  const FLEET_B = '11111111-2222-4333-8444-555555555556';
+
+  function fleet(id: string, subPath: string | undefined) {
+    return {
+      id,
+      name: id === FLEET_A ? 'HPH' : 'Scratch',
+      ...(subPath ? { subPath } : {}),
+      results: {
+        leadColumns: [{ key: 'helmname', label: 'Helm' }],
+        raceHeaders: [{ label: 'R1' }],
+        summaryColumns: [{ key: 'nett', label: 'Nett' }],
+        rows: [],
+      },
+    };
+  }
+
+  function doc(overrides: Record<string, unknown>) {
+    return {
+      formatVersion: 1,
+      series: {
+        id: '99999999-8888-4777-8666-555555555554',
+        name: 'Combined Test',
+        publishedSlug: '2025',
+      },
+      fleets: [fleet(FLEET_A, undefined), fleet(FLEET_B, undefined)],
+      combinedPages: [
+        { subPath: 'puppeteer-22', name: 'Puppeteer 22', fleetIds: [FLEET_A, FLEET_B] },
+      ],
+      competitors: [],
+      ...overrides,
+    };
+  }
+
+  test('accepts two section-only fleets grouped under one combined page', async () => {
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    expect(archiveSeriesDocSchema.safeParse(doc({})).success).toBe(true);
+  });
+
+  test('rejects a fleet that is both standalone and a combined-page member', async () => {
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const bad = doc({ fleets: [fleet(FLEET_A, 'hph'), fleet(FLEET_B, undefined)] });
+    expect(archiveSeriesDocSchema.safeParse(bad).success).toBe(false);
+  });
+
+  test('rejects a fleet that is neither standalone nor grouped', async () => {
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const bad = doc({ combinedPages: [{ subPath: 'puppeteer-22', name: 'Puppeteer 22', fleetIds: [FLEET_A] }] });
+    expect(archiveSeriesDocSchema.safeParse(bad).success).toBe(false);
+  });
+
+  test('rejects a combined page referencing an unknown fleet', async () => {
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const bad = doc({
+      combinedPages: [
+        { subPath: 'puppeteer-22', name: 'Puppeteer 22', fleetIds: [FLEET_A, FLEET_B, '00000000-0000-4000-8000-000000000009'] },
+      ],
+    });
+    expect(archiveSeriesDocSchema.safeParse(bad).success).toBe(false);
+  });
+
+  test('rejects a combined subPath colliding with a standalone fleet', async () => {
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const other = fleet('11111111-2222-4333-8444-555555555557', 'puppeteer-22');
+    const bad = doc({ fleets: [fleet(FLEET_A, undefined), fleet(FLEET_B, undefined), other] });
+    expect(archiveSeriesDocSchema.safeParse(bad).success).toBe(false);
+  });
+
+  test('renders each member fleet as a titled section of one document', async () => {
+    const { renderAsPublishedCombinedHtml } = await import('@/lib/archive-kit/render');
+    const page = parseSailwaveHtml(SAILWAVE_HTML);
+    const senior = buildSailwaveArchiveDoc({
+      seriesId: '33333333-4444-4555-8666-777777777777',
+      name: 'Combined Render Test',
+      publishedSlug: 'combined-render',
+      fleets: [{ name: 'Senior', subPath: 'senior', summary: page.summaries[0] }],
+    });
+    const junior = buildSailwaveArchiveDoc({
+      seriesId: '33333333-4444-4555-8666-777777777778',
+      name: 'Combined Render Test',
+      publishedSlug: 'combined-render',
+      fleets: [{ name: 'Junior', subPath: 'junior', summary: page.summaries[1] }],
+    });
+    const html = renderAsPublishedCombinedHtml(
+      { seriesName: 'Combined Render Test' },
+      [
+        { name: 'Senior Division', results: senior.fleets[0].results },
+        { name: 'Junior Division', results: junior.fleets[0].results },
+      ],
+    );
+    expect(html).toContain('<h3 class="summarytitle">Senior Division</h3>');
+    expect(html).toContain('<h3 class="summarytitle">Junior Division</h3>');
+    // Both sections' rows are present in the one document.
+    expect(html).toContain('Rocco Wright');
+    expect(html).toContain('Aoife Byrne');
+    // Two standings tables, one per section.
+    expect(html.match(/class="summarytable"/g)).toHaveLength(2);
+  });
+});
+
 describe('blank helm placeholders', () => {
   test('a blank helm becomes "Unknown Competitor (sail)"; the matcher ignores it', async () => {
     const { clusterCompetitors } = await import('@/lib/competitor-identity-cluster');

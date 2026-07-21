@@ -88,9 +88,23 @@ const fleetSchema = z.object({
   id: uuid,
   name: z.string().trim().min(1).max(120),
   /** Pinned public sub-path under the series slug — URL stability is data,
-   *  never derived at ingest. */
-  subPath: subPathSegments,
+   *  never derived at ingest. Omitted when the fleet publishes only as a
+   *  section of a combined page (see `combinedPages`); a fleet is published
+   *  exactly once, standalone XOR as a member. */
+  subPath: subPathSegments.optional(),
   results: fleetResultsSchema,
+});
+
+/** A page that renders several fleets' results as stacked sections of one
+ *  document — the as-published analogue of a live publishing group (#255).
+ *  Its members give up their standalone pages; the page owns the sub-path. */
+const combinedPageSchema = z.object({
+  /** Pinned public sub-path — same shape and namespace as a fleet's. */
+  subPath: subPathSegments,
+  /** Page title and breadcrumb label — the class name (e.g. "Puppeteer 22"). */
+  name: z.string().trim().min(1).max(120),
+  /** Member fleets, rendered as sections in this order. */
+  fleetIds: z.array(uuid).min(1).max(20),
 });
 
 const competitorSchema = z.object({
@@ -149,6 +163,9 @@ export const archiveSeriesDocSchema = z
       publishedSlug: slugSegment,
     }),
     fleets: z.array(fleetSchema).min(1).max(50),
+    /** Multi-section pages; fleets referenced here publish only as sections.
+     *  Absent for the common one-fleet-per-page case. */
+    combinedPages: z.array(combinedPageSchema).max(50).optional(),
     competitors: z.array(competitorSchema).max(2000),
   })
   .superRefine((doc, ctx) => {
@@ -156,9 +173,39 @@ export const archiveSeriesDocSchema = z
     if (fleetIds.size !== doc.fleets.length) {
       ctx.addIssue({ code: 'custom', message: 'duplicate fleet id', path: ['fleets'] });
     }
-    const subPaths = new Set(doc.fleets.map((f) => f.subPath));
-    if (subPaths.size !== doc.fleets.length) {
-      ctx.addIssue({ code: 'custom', message: 'duplicate fleet subPath', path: ['fleets'] });
+
+    // Publication invariant: every fleet is published exactly once — either it
+    // carries a standalone subPath, or it is a member of exactly one combined
+    // page, never both and never neither. Standalone and combined sub-paths
+    // share one namespace and must be unique.
+    const combinedPages = doc.combinedPages ?? [];
+    const memberOf = new Map<string, number>();
+    combinedPages.forEach((page, pi) => {
+      page.fleetIds.forEach((fid) => {
+        memberOf.set(fid, (memberOf.get(fid) ?? 0) + 1);
+        if (!fleetIds.has(fid)) {
+          ctx.addIssue({ code: 'custom', message: 'combined page references unknown fleet', path: ['combinedPages', pi, 'fleetIds'] });
+        }
+      });
+    });
+    doc.fleets.forEach((fleet, fi) => {
+      const groups = memberOf.get(fleet.id) ?? 0;
+      if (fleet.subPath && groups > 0) {
+        ctx.addIssue({ code: 'custom', message: 'fleet is both standalone and a combined-page member', path: ['fleets', fi, 'subPath'] });
+      }
+      if (!fleet.subPath && groups === 0) {
+        ctx.addIssue({ code: 'custom', message: 'fleet has no subPath and no combined page publishes it', path: ['fleets', fi] });
+      }
+      if (groups > 1) {
+        ctx.addIssue({ code: 'custom', message: 'fleet is a member of more than one combined page', path: ['fleets', fi] });
+      }
+    });
+    const publishedSubPaths = [
+      ...doc.fleets.flatMap((f) => (f.subPath ? [f.subPath] : [])),
+      ...combinedPages.map((p) => p.subPath),
+    ];
+    if (new Set(publishedSubPaths).size !== publishedSubPaths.length) {
+      ctx.addIssue({ code: 'custom', message: 'duplicate published subPath', path: ['fleets'] });
     }
     const competitorIds = new Set<string>();
     doc.competitors.forEach((c, i) => {
