@@ -623,11 +623,13 @@ math react per the rules above.
   columns, carried-score column for the rank-seed mode, and medal column
   where present.
 - **Assignment lists** become a publishable artifact: per-fleet rosters
-  for the notice board and the boat park, published to the series' `/p/`
-  page alongside results, print-friendly (CORK prints the web page for
-  the official notice board; so will our users). This mirrors the
-  pursuit-race start-schedule idea in horizon.md — the second case of
-  "publishing something that isn't results".
+  for the notice board and the boat park, published to a single rolling
+  page under the series' `/p/` slug with the latest round at the top,
+  print-friendly (CORK prints the web page for the official notice board;
+  so will our users); committed-but-unpublished assignments stay visible
+  to workspace members only. This mirrors the pursuit-race start-schedule
+  idea in horizon.md — the second case of "publishing something that
+  isn't results".
 
 ## Part 4 — Rollout, scope, and open questions
 
@@ -716,12 +718,6 @@ RaceSense/Vakaros (the existing CSV finish import is the interim answer).
    v1 requires `scoringMode: 'scratch'`; split fleets × handicap systems
    is uncharted (no known real event) and stays unsupported until one
    exists.
-8. **Assignment-list publishing details.** Standalone page under the
-   series' `/p/` slug vs a section of the results page; and whether
-   unpublished-but-computed next-day assignments are visible to workspace
-   members only (CORK deliberately withholds assignments from some
-   printouts — "the onus is on the competitor to pick up his/her correct
-   flag colour").
 
 ### Feature-checklist mapping (when implementation starts)
 
