@@ -18,10 +18,10 @@ Interactive walkthrough:
 
 1. `pnpm db:up && pnpm db:migrate:test && pnpm dev:local`, sign in.
 2. Enable the gate for your workspace:
-   `pnpm provision-org:test feature <slug> --enable-feature split-fleets`
+   `pnpm provision-org:test enable-feature <slug> split-fleets`
    (personal workspace slug is `u-` + first 16 chars of your user id; the
-   e2e helper writes the org metadata directly if the CLI subcommand
-   grumbles).
+   e2e `enableFeatures` helper writes the org metadata directly if the
+   CLI grumbles about a personal workspace).
 3. Create a series (quick form). Open the **Split Fleets** tab (chord `g q`).
 4. **Add 24 demo competitors**, pick 2 or 3 qualifying fleets, **Enable
    split fleets** (ILCA preset).
