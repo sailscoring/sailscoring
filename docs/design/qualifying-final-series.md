@@ -568,12 +568,18 @@ Presets matter more than knobs here: "ILCA World/European Championship",
 "IODA Championship", "Custom" — each filling `QualifyingFinalConfig` with
 the class-standard values, the way NHC profiles default to SWNHC2015.
 
-### The Rounds view
+### The Split Fleets view
 
-A split-fleet series gets a fleet-assignment surface (working name: the
-**Rounds** view): the timeline of assignment rounds, each showing method,
-basis ("from standings through Q4, captured 20:00"), the per-fleet
-rosters, any overrides, and its published state. Actions:
+A split-fleet series gets a **Split Fleets** tab: a guided workflow view
+that walks the scorer through the event's ceremony as an automation layer
+over the standard entities — each phase (qualifying → final → medal) a
+visually distinct section, each round a card carrying its assignment
+provenance, each step a preview-then-commit action. The full flow design
+lives in
+[`docs/design/ux/flows/split-fleets.md`](ux/flows/split-fleets.md); in
+outline, the round cards show method, basis ("from ranking after Q4,
+captured 20:00"), per-fleet rosters, overrides, and published state, with
+these actions:
 
 - **Seed initial fleets** — sort key choice (seeding column from CSV,
   nationality-spread, sail number), preview, save as round 1.
@@ -657,7 +663,7 @@ Validation plan, in order:
 In: continuous-points carry, 2–4 qualifying fleets, equal-blocks and
 fixed-top splits, both code bases + fixed, both equalisation modes,
 stage-aware discard caps, rank-pattern + seeded assignment + manual
-overrides, the Rounds view, combined/tiered standings, fleet-coloured
+overrides, the Split Fleets view, combined/tiered standings, fleet-coloured
 published pages, assignment-list publishing, medal race as config
 (`size` / `raceCount` / `multiplier` / companion-race offset).
 
@@ -719,7 +725,7 @@ RaceSense/Vakaros (the existing CSV finish import is the interim answer).
 
 ### Feature-checklist mapping (when implementation starts)
 
-Keyboard shortcuts for the Rounds-view actions; help-page section (a new
+Keyboard shortcuts for the Split Fleets view's actions; help-page section (a new
 scorer's guide to running a split-fleet event); Vitest + ordered-steps
 YAML fixtures per the validation plan; Playwright happy path (seed → race
 → reassign → split → final → publish); series-file format bump; public
