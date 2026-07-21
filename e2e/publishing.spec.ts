@@ -601,9 +601,10 @@ test('unticking a published fleet on re-publish leaves its page live and unchang
   expect(await cruiserUpdated.text()).toContain('>C9<');
 });
 
-test('the public workspace listing mirrors category sections and relegates archived series to Past results', async ({ page }) => {
+test('the public workspace listing mirrors category sections, relegates archived series, and quick-jumps (#320)', async ({ page }) => {
   // Two series: one we'll categorise and keep active, one we'll archive.
-  await createSeriesWithData(page, { name: 'Spring League 2026', sail: '11' });
+  // Both carry a start date so the quick-jump picker has two years to offer.
+  await createSeriesWithData(page, { name: 'Spring League 2026', sail: '11', date: '2026-05-01' });
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
   await dialog.getByLabel('URL slug').fill('spring-26');
@@ -654,10 +655,37 @@ test('the public workspace listing mirrors category sections and relegates archi
   await expect(page.getByRole('heading', { name: '2024' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).toBeVisible();
 
-  // The active, categorised series is listed before the relegated Past results.
+  // The active, categorised section is listed before the relegated Past
+  // results block, which holds the archived series. (The picker's series
+  // options also carry the titles, so anchor on the section structure rather
+  // than the first occurrence of a title in the page source.)
   const body = await page.locator('body').innerHTML();
-  expect(body.indexOf('Spring League 2026')).toBeLessThan(body.indexOf('Past results'));
-  expect(body.indexOf('Past results')).toBeLessThan(body.indexOf('Lambay Race 2024'));
+  expect(body.indexOf('Club Racing')).toBeLessThan(body.indexOf('Past results'));
+  await expect(
+    page.locator('.pastblock').getByRole('link', { name: 'Lambay Race 2024', exact: true }),
+  ).toBeVisible();
+
+  // The quick-jump picker (#320): Year filters the listing, sections hiding
+  // when emptied; with only one category in play the category select is
+  // degenerate and doesn't render.
+  const picker = page.locator('.picker');
+  await expect(picker).toBeVisible();
+  await expect(picker.locator('#picker-cat')).toHaveCount(0);
+  await picker.locator('#picker-year').selectOption('2024');
+  await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).not.toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Club Racing' })).not.toBeVisible();
+  await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).toBeVisible();
+  await picker.locator('#picker-year').selectOption('');
+  await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).toBeVisible();
+
+  // Picking a series narrows the listing to it; picking a fleet page
+  // navigates straight there.
+  await picker.locator('#picker-series').selectOption('spring-26');
+  await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).not.toBeVisible();
+  await picker.locator('#picker-fleet').selectOption({ label: 'Standings' });
+  await expect(page).toHaveURL(/\/spring-26\/standings$/);
+  await expect(page.getByRole('cell', { name: '11' }).first()).toBeVisible();
+  await page.goBack();
 
   // The workspace Published tab mirrors the same sections: the active page
   // under its category heading, the archived one behind a collapsed

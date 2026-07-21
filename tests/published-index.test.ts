@@ -81,6 +81,95 @@ describe('renderWorkspaceIndexHtml', () => {
   });
 });
 
+describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
+  const twoSeries = [
+    {
+      slug: 'tue-1',
+      title: 'Tuesday Series 1',
+      publishedAt: Date.UTC(2026, 4, 20),
+      fleetCount: 2,
+      categoryName: 'Tuesday',
+      categoryOrder: 0,
+      year: 2026,
+      pages: [
+        { fleetName: 'Squibs', subPath: 'squibs' },
+        { fleetName: 'Puppeteers', subPath: 'puppeteers' },
+      ],
+    },
+    {
+      slug: 'wed-1',
+      title: 'Wednesday Series 1',
+      publishedAt: Date.UTC(2026, 4, 21),
+      fleetCount: 1,
+      categoryName: 'Wednesday',
+      categoryOrder: 1,
+      year: 2025,
+      pages: [{ fleetName: 'Default', subPath: 'standings' }],
+    },
+  ];
+
+  it('renders the hidden picker controls and behaviour script for two or more publications', () => {
+    const html = renderWorkspaceIndexHtml('hyc', 'HYC', twoSeries);
+    expect(html).toContain('<div class="picker" hidden>');
+    expect(html).toContain('id="picker-series"');
+    expect(html).toContain('id="picker-fleet"');
+    expect(html).toContain('id="picker-data"');
+    // Rows carry the slug the script filters on; sections are wrapped so an
+    // emptied one can hide, heading and all.
+    expect(html).toContain('data-slug="tue-1"');
+    expect(html).toContain('<section class="lgroup">');
+  });
+
+  it('renders no picker for a single publication', () => {
+    const html = renderWorkspaceIndexHtml('hyc', 'HYC', [twoSeries[0]]);
+    expect(html).not.toContain('class="picker"');
+    expect(html).not.toContain('id="picker-data"');
+  });
+
+  it('embeds each publication\'s fleet pages as label + public URL', () => {
+    const html = renderWorkspaceIndexHtml('hyc', 'HYC', twoSeries);
+    expect(html).toContain('"url":"/p/hyc/tue-1/squibs"');
+    expect(html).toContain('"label":"Squibs"');
+    // A single-page publication's lone page reads as "Standings".
+    expect(html).toContain('"url":"/p/hyc/wed-1/standings"');
+    expect(html).toContain('"label":"Standings"');
+  });
+
+  it('renders the year and category selects only when the dimension has two values', () => {
+    const html = renderWorkspaceIndexHtml('hyc', 'HYC', twoSeries);
+    expect(html).toContain('id="picker-year"');
+    expect(html).toContain('<option value="2026">2026</option>');
+    expect(html).toContain('id="picker-cat"');
+    expect(html).toContain('<option value="Tuesday">Tuesday</option>');
+
+    const sameYearAndCat = renderWorkspaceIndexHtml('hyc', 'HYC', [
+      { ...twoSeries[0] },
+      { ...twoSeries[1], year: 2026, categoryName: 'Tuesday' },
+    ]);
+    expect(sameYearAndCat).not.toContain('id="picker-year"');
+    expect(sameYearAndCat).not.toContain('id="picker-cat"');
+    expect(sameYearAndCat).toContain('id="picker-series"');
+  });
+
+  it('escapes < in the embedded JSON so titles cannot close the script tag', () => {
+    const html = renderWorkspaceIndexHtml('hyc', 'HYC', [
+      { ...twoSeries[0], title: 'Race </script><b>' },
+      twoSeries[1],
+    ]);
+    expect(html).not.toContain('</script><b>');
+    expect(html).toContain('\\u003c/script>');
+  });
+
+  it('wraps archived publications in a hideable past block', () => {
+    const html = renderWorkspaceIndexHtml('hyc', 'HYC', [
+      twoSeries[0],
+      { ...twoSeries[1], archived: true },
+    ]);
+    expect(html).toContain('<div class="pastblock">');
+    expect(html).toContain('Past results');
+  });
+});
+
 describe('renderSeriesIndexHtml', () => {
   it('renders a single-fleet publication as a one-item "Standings" listing', () => {
     const html = renderSeriesIndexHtml('hyc', 'Howth Yacht Club', 'spring-26', 'Spring Series', [

@@ -194,7 +194,11 @@ function yearOf(startDate: string | null): number | null {
  *  contributor (rows are newest-first). When several series share a slug under
  *  different categories this is a deliberate fudge: the slug lands wherever its
  *  newest contributor sits. An orphaned publication (series deleted) reads as
- *  active and uncategorised. */
+ *  active and uncategorised.
+ *
+ *  `pages` unions the slug's fleet pages across contributors (newest
+ *  contributor first) for the quick-jump picker (#320), stripped of blob
+ *  locators — this listing feeds a public page. */
 export async function listPublishedByWorkspace(workspaceId: string): Promise<
   {
     slug: string;
@@ -206,6 +210,12 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     categoryOrder: number;
     seriesOrder: number;
     year: number | null;
+    pages: {
+      fleetName: string;
+      subSeriesName?: string;
+      isPrizes?: boolean;
+      subPath: string;
+    }[];
   }[]
 > {
   const rows = await getDb()
@@ -239,12 +249,19 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     seriesOrder: number;
     year: number | null;
   };
+  type PageEntry = {
+    fleetName: string;
+    subSeriesName?: string;
+    isPrizes?: boolean;
+    subPath: string;
+  };
   const groups = new Map<
     string,
     {
       publishedAt: number;
       fleetCount: number;
       names: (string | null)[];
+      pages: PageEntry[];
       rep: Rep;
     }
   >();
@@ -258,6 +275,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
         publishedAt: 0,
         fleetCount: 0,
         names: [],
+        pages: [],
         rep: {
           archived: r.archived ?? false,
           categoryName: r.categoryName ?? null,
@@ -271,6 +289,14 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     g.publishedAt = Math.max(g.publishedAt, r.publishedAt.getTime());
     g.fleetCount += r.pages.length;
     g.names.push(r.seriesName);
+    g.pages.push(
+      ...r.pages.map((p) => ({
+        fleetName: p.fleetName,
+        ...(p.subSeriesName ? { subSeriesName: p.subSeriesName } : {}),
+        ...(p.isPrizes ? { isPrizes: true } : {}),
+        subPath: p.subPath,
+      })),
+    );
   }
 
   return [...groups.entries()]
@@ -284,6 +310,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
       categoryOrder: g.rep.categoryOrder,
       seriesOrder: g.rep.seriesOrder,
       year: g.rep.year,
+      pages: g.pages,
     }))
     .sort((a, b) => b.publishedAt - a.publishedAt);
 }

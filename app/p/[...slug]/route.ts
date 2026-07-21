@@ -162,14 +162,17 @@ async function workspaceIndex(
   // Includes the placement fields (category / archive / order / year) so
   // re-categorising, archiving, or reordering a series busts the cached page,
   // plus the competitors-link flag so it appears the first time one is added,
-  // and the ranking links so publishing/renaming a ladder shows up.
+  // and the ranking links so publishing/renaming a ladder shows up. Each
+  // item's page list feeds the quick-jump picker (#320), so it contributes too.
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     `competitors:${competitorsLink}`,
     `rankings:${rankingsLink}`,
     ...items.map(
       (i) =>
-        `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.year ?? ''}`,
+        `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.year ?? ''}:${i.pages
+          .map((p) => `${p.subPath}~${p.subSeriesName ?? ''}~${p.fleetName}`)
+          .join('|')}`,
     ),
   ])}"`;
   const cached = notModified(req, etag);

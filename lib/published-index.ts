@@ -46,6 +46,9 @@ export interface WorkspaceIndexItem extends ListingPlacement {
   /** Display title: the series name, or the slug for an orphaned publication. */
   title: string;
   fleetCount: number;
+  /** The slug's fleet pages (unioned across contributors), feeding the
+   *  quick-jump picker's Fleet level (#320). Absent = no picker data. */
+  pages?: SeriesIndexPage[];
 }
 
 /** A category section of active publications on the workspace listing. */
@@ -77,6 +80,17 @@ export interface SeriesIndexPage {
   /** The prize sheet (#240) — labelled by its own name, never "Standings". */
   isPrizes?: boolean;
   subPath: string; // `standings` for a single fleet, else `kebab(fleetName)`
+}
+
+/** Display label for a fleet page outside the series index's own lists (the
+ *  fleet switcher and the quick-jump picker, #320). A lone results page reads
+ *  as "Standings" rather than its (possibly synthetic "Default") fleet name —
+ *  `single` is that judgement over the page's whole publication — the prize
+ *  sheet keeps its own name, and a sub-series page carries its block name so
+ *  same-named fleets in different blocks stay distinguishable. */
+export function fleetPageLabel(page: SeriesIndexPage, single: boolean): string {
+  const leaf = !page.isPrizes && single ? 'Standings' : page.fleetName;
+  return page.subSeriesName ? `${page.subSeriesName} — ${leaf}` : leaf;
 }
 
 /** One contributing series' fleet pages within a shared-slug listing. With a
@@ -145,6 +159,9 @@ h2.series { font-size: 1.15em; color: #073358; font-weight: 700; margin: 24px 0 
 h3.subseries { font-size: 1.0em; color: #073358; font-weight: 700; margin: 20px 0 6px; }
 h2.past { font-size: 1.2em; color: #073358; font-weight: 700; margin: 36px 0 0; border-top: 1px solid #e2e6ea; padding-top: 18px; }
 h3.year { font-size: 0.95em; color: #556; font-weight: 600; margin: 18px 0 8px; }
+.picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
+.picker select { font: inherit; font-size: 0.9em; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #073358; max-width: 100%; }
+.picker select:disabled { color: #94a3b8; }
 p.empty { color: #6b7280; text-align: center; margin: 48px 0; }
 footer.credit { text-align: center; color: #475569; font-size: 0.85em; padding: 22px 20px; border-top: 1px solid #e2e6ea; }
 footer.credit a { color: #073358; text-decoration: none; }
@@ -292,10 +309,14 @@ export function renderWorkspaceIndexHtml(
 
   const row = (it: WorkspaceIndexItem) => {
     const fleets = it.fleetCount > 1 ? ` &middot; ${it.fleetCount} fleets` : '';
-    return `<li><a href="/p/${esc(workspaceSlug)}/${esc(it.slug)}">${esc(it.title)}</a><span class="meta">Published ${esc(formatDate(it.publishedAt))}${fleets}</span></li>`;
+    return `<li data-slug="${esc(it.slug)}"><a href="/p/${esc(workspaceSlug)}/${esc(it.slug)}">${esc(it.title)}</a><span class="meta">Published ${esc(formatDate(it.publishedAt))}${fleets}</span></li>`;
   };
   const list = (rows: WorkspaceIndexItem[]) =>
     `<ul class="listing">\n${rows.map(row).join('\n')}\n</ul>`;
+  // Each heading + list pairs inside a `section.lgroup` so the quick-jump
+  // picker can hide a section its filter empties, heading and all.
+  const section = (heading: string, rows: WorkspaceIndexItem[]) =>
+    `<section class="lgroup">\n${heading}${list(rows)}\n</section>`;
 
   const { active, past } = groupWorkspaceListing(items);
 
@@ -308,31 +329,183 @@ export function renderWorkspaceIndexHtml(
 
   let sections: string;
   if (flat) {
-    sections = list(active[0]?.items ?? []);
+    sections = section('', active[0]?.items ?? []);
   } else {
     const activeHtml = active
-      .map(
-        (g) =>
-          `<h2 class="section">${esc(g.categoryName ?? 'Uncategorized')}</h2>\n${list(g.items)}`,
+      .map((g) =>
+        section(
+          `<h2 class="section">${esc(g.categoryName ?? 'Uncategorized')}</h2>\n`,
+          g.items,
+        ),
       )
       .join('\n');
     const pastHtml = past.length
-      ? `\n<h2 class="past">Past results</h2>\n${past
-          .map(
-            (g) =>
-              `<h3 class="year">${g.year ?? 'Undated'}</h3>\n${list(g.items)}`,
+      ? `\n<div class="pastblock">\n<h2 class="past">Past results</h2>\n${past
+          .map((g) =>
+            section(`<h3 class="year">${g.year ?? 'Undated'}</h3>\n`, g.items),
           )
-          .join('\n')}`
+          .join('\n')}\n</div>`
       : '';
     sections = activeHtml + pastHtml;
   }
 
+  const picker = renderQuickJumpPicker(workspaceSlug, active, past);
+
   return renderPublicShell(
     `${workspaceName} — published results`,
     hero,
-    `${competitorsLink}${sections}`,
+    `${competitorsLink}${picker.controls}${sections}${picker.script}`,
   );
 }
+
+/**
+ * The quick-jump picker above the workspace listing (#320): cascading Year /
+ * Category / Series / Fleet selects for scorers who know what they're looking
+ * for, with the scrolling listing staying the browsable default. Year and
+ * Category narrow the Series options and filter the listing below; picking a
+ * Series populates Fleet; picking a Fleet navigates to its page.
+ *
+ * Progressive enhancement: the controls ship `hidden` and are revealed by the
+ * inline script, which reads the embedded JSON tree — no framework, no
+ * external requests, nothing to see without JS. Degenerate dimensions (one
+ * year, one category) don't render their select, and a workspace with fewer
+ * than two publications gets no picker at all.
+ */
+function renderQuickJumpPicker(
+  workspaceSlug: string,
+  active: ListingCategoryGroup<WorkspaceIndexItem>[],
+  past: ListingYearGroup<WorkspaceIndexItem>[],
+): { controls: string; script: string } {
+  // Display order: active sections then past, matching the listing below.
+  const ordered = [
+    ...active.flatMap((g) => g.items),
+    ...past.flatMap((g) => g.items),
+  ];
+  if (ordered.length < 2) return { controls: '', script: '' };
+
+  const years = [
+    ...new Set(
+      ordered.map((i) => i.year).filter((y): y is number => y != null),
+    ),
+  ].sort((a, b) => b - a);
+  // Categories in section order; ones only present on archived items (their
+  // sections live under Past results by year) follow in listing order.
+  const cats = [
+    ...new Set([
+      ...active.map((g) => g.categoryName),
+      ...ordered.map((i) => i.categoryName ?? null),
+    ]),
+  ].filter((c): c is string => c != null);
+
+  const data = {
+    items: ordered.map((it) => {
+      const pages = it.pages ?? [];
+      const single = pages.filter((p) => !p.isPrizes).length === 1;
+      return {
+        slug: it.slug,
+        title: it.title,
+        year: it.year ?? null,
+        cat: it.categoryName ?? null,
+        pages: pages.map((p) => ({
+          label: fleetPageLabel(p, single),
+          url: `/p/${workspaceSlug}/${it.slug}/${p.subPath}`,
+        })),
+      };
+    }),
+  };
+
+  const yearSelect =
+    years.length >= 2
+      ? `<select id="picker-year" aria-label="Year"><option value="">All years</option>${years
+          .map((y) => `<option value="${y}">${y}</option>`)
+          .join('')}</select>`
+      : '';
+  const catSelect =
+    cats.length >= 2
+      ? `<select id="picker-cat" aria-label="Category"><option value="">All categories</option>${cats
+          .map((c) => `<option value="${esc(c)}">${esc(c)}</option>`)
+          .join('')}</select>`
+      : '';
+  const controls = `<div class="picker" hidden>${yearSelect}${catSelect}<select id="picker-series" aria-label="Series"><option value="">All series</option></select><select id="picker-fleet" aria-label="Fleet" disabled><option value="">Go to fleet&hellip;</option></select></div>\n`;
+
+  // `<` escaped so an adversarial series title can't close the script tag.
+  const json = JSON.stringify(data).replace(/</g, '\\u003c');
+  const script = `\n<script type="application/json" id="picker-data">${json}</script>\n<script>${PICKER_SCRIPT}</script>`;
+  return { controls, script };
+}
+
+/** The picker's behaviour. Runs after the listing markup (the script tag sits
+ *  at the end of the body content), so every `li[data-slug]` exists. */
+const PICKER_SCRIPT = `(function () {
+  var data = JSON.parse(document.getElementById('picker-data').textContent);
+  var bySlug = {};
+  data.items.forEach(function (it) { bySlug[it.slug] = it; });
+  var yearSel = document.getElementById('picker-year');
+  var catSel = document.getElementById('picker-cat');
+  var seriesSel = document.getElementById('picker-series');
+  var fleetSel = document.getElementById('picker-fleet');
+  function matches(it, y, c) {
+    if (y && String(it.year) !== y) return false;
+    if (c && it.cat !== c) return false;
+    return true;
+  }
+  function option(value, label) {
+    var o = document.createElement('option');
+    o.value = value;
+    o.textContent = label;
+    return o;
+  }
+  function refresh() {
+    var y = yearSel ? yearSel.value : '';
+    var c = catSel ? catSel.value : '';
+    var keep = seriesSel.value;
+    seriesSel.textContent = '';
+    seriesSel.appendChild(option('', 'All series'));
+    data.items.forEach(function (it) {
+      if (matches(it, y, c)) seriesSel.appendChild(option(it.slug, it.title));
+    });
+    seriesSel.value = keep;
+    if (seriesSel.value !== keep) seriesSel.value = '';
+    var s = seriesSel.value;
+    var selected = bySlug[s];
+    fleetSel.textContent = '';
+    fleetSel.appendChild(option('', 'Go to fleet\\u2026'));
+    if (selected) {
+      selected.pages.forEach(function (p) {
+        fleetSel.appendChild(option(p.url, p.label));
+      });
+    }
+    fleetSel.disabled = !selected || selected.pages.length === 0;
+    document.querySelectorAll('li[data-slug]').forEach(function (li) {
+      var it = bySlug[li.getAttribute('data-slug')];
+      var show = !!it && matches(it, y, c) && (!s || it.slug === s);
+      li.style.display = show ? '' : 'none';
+    });
+    document.querySelectorAll('section.lgroup').forEach(function (sec) {
+      var any = false;
+      sec.querySelectorAll('li[data-slug]').forEach(function (li) {
+        if (li.style.display !== 'none') any = true;
+      });
+      sec.style.display = any ? '' : 'none';
+    });
+    var pastBlock = document.querySelector('.pastblock');
+    if (pastBlock) {
+      var any = false;
+      pastBlock.querySelectorAll('li[data-slug]').forEach(function (li) {
+        if (li.style.display !== 'none') any = true;
+      });
+      pastBlock.style.display = any ? '' : 'none';
+    }
+  }
+  [yearSel, catSel, seriesSel].forEach(function (sel) {
+    if (sel) sel.addEventListener('change', refresh);
+  });
+  fleetSel.addEventListener('change', function () {
+    if (fleetSel.value) location.href = fleetSel.value;
+  });
+  refresh();
+  document.querySelector('.picker').hidden = false;
+})();`;
 
 /**
  * Series listing at `/p/{ws}/{series}`. Lists the publication's fleet pages; a

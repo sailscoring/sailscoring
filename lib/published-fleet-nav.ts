@@ -13,20 +13,10 @@
  */
 
 import { escapeHtml as esc } from './html';
-import type { SeriesIndexPage } from './published-index';
+import { fleetPageLabel, type SeriesIndexPage } from './published-index';
 
 /** Inline links up to this many pages; beyond it, a select. */
 const MAX_LINKS = 4;
-
-/** Display label for a page in the switcher. Mirrors the series-index rule: a
- *  lone results page reads as "Standings" rather than its (possibly synthetic
- *  "Default") fleet name, the prize sheet always keeps its own name, and a
- *  sub-series page carries its block name so same-named fleets in different
- *  blocks stay distinguishable. */
-function pageLabel(page: SeriesIndexPage, single: boolean): string {
-  const leaf = !page.isPrizes && single ? 'Standings' : page.fleetName;
-  return page.subSeriesName ? `${page.subSeriesName} — ${leaf}` : leaf;
-}
 
 // Scoped under `ssfleetnav-` so nothing collides with the stored page's own
 // styles. Floats right beside the breadcrumb (which is left-aligned and
@@ -61,7 +51,7 @@ export function renderFleetNav(
   if (pages.length < 2) return '';
   const single = pages.filter((p) => !p.isPrizes).length === 1;
   const entries = pages.map((p) => ({
-    label: pageLabel(p, single),
+    label: fleetPageLabel(p, single),
     href: `${base}/${p.subPath}`,
     current: p.subPath === currentSubPath,
   }));
