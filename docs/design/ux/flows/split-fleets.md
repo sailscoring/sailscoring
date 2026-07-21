@@ -244,21 +244,18 @@ RC-sanctioned fleet correction). No heuristic detective work at 21:00.
   extra scores are marked excluded — the view presents whichever the
   config prescribes when qualifying ends with fleets out of step.
 
-### Publishing during qualifying — a pushback
+### Publishing during qualifying
 
-The sketch suggested holding a physical race's results until its logical
-race completes. Recommend against making that the default. Real events
-publish continuously and provisionally — the ILCA Worlds pages carry
-"results as of 17:20" and republish all evening — and the protest window
-runs from posted results, so withholding Yellow's finishes because Red
-hasn't started yet works against the room. The SI rule ("a race will not
-count until all fleets have completed it") is about *totals*, not
-secrecy — so express it in the presentation: the published qualifying
-standings show an incomplete logical race as a greyed column, its scores
-visible but struck from Total/Nett, headed "Q4 — does not yet count
-(awaiting Red)". Scores appear as soon as they exist; totals move only on
-valid races. A "hold publication until the logical race completes" toggle
-can exist for conservative committees, off by default.
+Qualifying standings publish continuously and provisionally, matching
+real-event practice — the ILCA Worlds pages carry "results as of 17:20"
+and republish all evening, and the protest window runs from posted
+results. The SI rule that "a race will not count until all fleets have
+completed it" is about *totals*, not visibility, and the presentation
+carries it: **an incomplete logical race renders as a greyed column**,
+its scores visible but struck from Total/Nett, headed "Q4 — does not yet
+count (awaiting Red)". Scores appear as soon as they exist; totals move
+only on valid races. A "hold publication until the logical race
+completes" toggle can exist for conservative committees, off by default.
 
 Assignment lists are the other publishable: per-fleet rosters (name, sail,
 bow/colour), print-first layout for the notice board, published under the
@@ -411,7 +408,7 @@ never modal.
 | # | Question | Impact |
 |---|----------|--------|
 | 1 | Expandable stack vs tabs for phases — stack recommended here (chronology, transition buttons between phases, cross-phase glancing); revisit if the page gets heavy on small screens | Low — presentational |
-| 2 | Default publish policy for in-progress logical races: continuous-with-greyed-column (recommended) vs hold-until-valid toggle placement | Medium — affects published-page renderer |
+| 2 | Is the hold-until-valid publication toggle worth having at all, and if so where does it live (series settings vs publish dialog)? | Medium — affects published-page renderer |
 | 3 | Where the cut line shows: in-app standings only, or also on published pages? (Sailors would love it; committees may consider it noise) | Low |
 | 4 | Assignment-list publication shape: standalone `/p/` page per round vs a rolling "current assignments" page that each round replaces | Medium — public URL structure |
 | 5 | Does `[ Promote… ]` also live on the standings row context menu (scorer instinct: "fix it where I see it") in addition to the split card? | Low |
