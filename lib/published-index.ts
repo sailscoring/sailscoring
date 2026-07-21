@@ -361,9 +361,10 @@ export function renderWorkspaceIndexHtml(
 /**
  * The quick-jump picker above the workspace listing (#320): cascading Year /
  * Category / Series / Fleet selects for scorers who know what they're looking
- * for, with the scrolling listing staying the browsable default. Year and
- * Category narrow the Series options and filter the listing below; picking a
- * Series populates Fleet; picking a Fleet navigates to its page.
+ * for, with the scrolling listing staying the browsable default. Year narrows
+ * the Category options (not every category spans every year), both narrow the
+ * Series options and filter the listing below; picking a Series populates
+ * Fleet; picking a Fleet navigates to its page.
  *
  * Progressive enhancement: the controls ship `hidden` and are revealed by the
  * inline script, which reads the embedded JSON tree — no framework, no
@@ -457,7 +458,25 @@ const PICKER_SCRIPT = `(function () {
   }
   function refresh() {
     var y = yearSel ? yearSel.value : '';
-    var c = catSel ? catSel.value : '';
+    // Category sits downstream of Year in the cascade: its options narrow to
+    // the categories with a publication in the selected year (not every
+    // category spans every year), keeping the selection when it survives.
+    var c = '';
+    if (catSel) {
+      var keepCat = catSel.value;
+      var cats = [];
+      data.items.forEach(function (it) {
+        if (!it.cat || cats.indexOf(it.cat) !== -1) return;
+        if (y && String(it.year) !== y) return;
+        cats.push(it.cat);
+      });
+      catSel.textContent = '';
+      catSel.appendChild(option('', 'All categories'));
+      cats.forEach(function (cat) { catSel.appendChild(option(cat, cat)); });
+      catSel.value = keepCat;
+      if (catSel.value !== keepCat) catSel.value = '';
+      c = catSel.value;
+    }
     var keep = seriesSel.value;
     seriesSel.textContent = '';
     seriesSel.appendChild(option('', 'All series'));

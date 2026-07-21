@@ -625,13 +625,17 @@ test('the public workspace listing mirrors category sections, relegates archived
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(dialog.getByRole('link', { name: /\/lambay-24\/standings$/ })).toBeVisible();
 
-  // Categorise the active series; archive the old one (both from the home list).
+  // Categorise both series — each in its own category, so the picker's
+  // category dropdown has two values that don't span the same years — then
+  // archive the old one (all from the home list).
   await page.goto('/workspace');
   await page.getByRole('button', { name: 'Manage' }).click();
   const catDialog = page.getByRole('dialog');
-  await catDialog.getByPlaceholder('New category name').fill('Club Racing');
-  await catDialog.getByRole('button', { name: 'Add' }).click();
-  await expect(catDialog.getByPlaceholder('New category name')).toHaveValue('');
+  for (const cat of ['Club Racing', 'Open Events']) {
+    await catDialog.getByPlaceholder('New category name').fill(cat);
+    await catDialog.getByRole('button', { name: 'Add' }).click();
+    await expect(catDialog.getByPlaceholder('New category name')).toHaveValue('');
+  }
   await catDialog.getByRole('button', { name: 'Done' }).click();
 
   await page.goto('/');
@@ -639,6 +643,11 @@ test('the public workspace listing mirrors category sections, relegates archived
   await page.getByRole('menuitem', { name: 'Move to category' }).click();
   await page.getByRole('menuitemradio', { name: 'Club Racing' }).click();
   await expect(page.getByRole('heading', { name: 'Club Racing' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Actions for Lambay Race 2024' }).click();
+  await page.getByRole('menuitem', { name: 'Move to category' }).click();
+  await page.getByRole('menuitemradio', { name: 'Open Events' }).click();
+  await expect(page.getByRole('heading', { name: 'Open Events' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Actions for Lambay Race 2024' }).click();
   await page.getByRole('menuitem', { name: 'Archive' }).click();
@@ -666,16 +675,26 @@ test('the public workspace listing mirrors category sections, relegates archived
   ).toBeVisible();
 
   // The quick-jump picker (#320): Year filters the listing, sections hiding
-  // when emptied; with only one category in play the category select is
-  // degenerate and doesn't render.
+  // when emptied, and narrows the category options to the categories with a
+  // publication in that year — a selection that no longer applies resets.
   const picker = page.locator('.picker');
   await expect(picker).toBeVisible();
-  await expect(picker.locator('#picker-cat')).toHaveCount(0);
+  await picker.locator('#picker-cat').selectOption('Club Racing');
   await picker.locator('#picker-year').selectOption('2024');
+  await expect(picker.locator('#picker-cat')).toHaveValue('');
+  await expect(picker.locator('#picker-cat').locator('option')).toHaveText([
+    'All categories',
+    'Open Events',
+  ]);
   await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).not.toBeVisible();
   await expect(page.getByRole('heading', { name: 'Club Racing' })).not.toBeVisible();
   await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).toBeVisible();
   await picker.locator('#picker-year').selectOption('');
+  await expect(picker.locator('#picker-cat').locator('option')).toHaveText([
+    'All categories',
+    'Club Racing',
+    'Open Events',
+  ]);
   await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).toBeVisible();
 
   // Picking a series narrows the listing to it; picking a fleet page
