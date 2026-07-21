@@ -172,8 +172,13 @@ h3.subseries { font-size: 1.0em; color: #073358; font-weight: 700; margin: 20px 
 h2.past { font-size: 1.2em; color: #073358; font-weight: 700; margin: 36px 0 0; border-top: 1px solid #e2e6ea; padding-top: 18px; }
 h3.year { font-size: 0.95em; color: #556; font-weight: 600; margin: 18px 0 8px; }
 .picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
-.picker select { font: inherit; font-size: 0.9em; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #073358; max-width: 100%; }
+/* Stable flex widths, not content width: a select sizes to its widest option,
+   so "All years" (every series title loaded) would otherwise wrap the row and
+   re-flow every time a filter changes the options. */
+.picker select { font: inherit; font-size: 0.9em; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #073358; min-width: 0; }
 .picker select:disabled { color: #94a3b8; }
+.picker #picker-year, .picker #picker-cat { flex: 1 1 110px; }
+.picker #picker-series, .picker #picker-fleet { flex: 2 1 200px; }
 p.empty { color: #6b7280; text-align: center; margin: 48px 0; }
 footer.credit { text-align: center; color: #475569; font-size: 0.85em; padding: 22px 20px; border-top: 1px solid #e2e6ea; }
 footer.credit a { color: #073358; text-decoration: none; }
