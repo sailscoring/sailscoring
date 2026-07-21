@@ -12,6 +12,9 @@ See `docs/local-dev-scripts.md` for the full script reference.
 The local Postgres container (`sailscoring-pg`) **persists its data**
 between runs — `pnpm db:up` is idempotent and just starts the existing
 one. So "fresh DB" means destroying and recreating the container.
+(A secondary git worktree gets its own container and app port via
+`.env.worktree` — see "Working in a second git worktree" in
+`docs/local-dev-scripts.md`; everything below applies per checkout.)
 
 ```bash
 # 1. Nuke the existing container (wipes all local data — it's just test data)

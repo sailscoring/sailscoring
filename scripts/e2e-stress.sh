@@ -20,6 +20,12 @@
 
 set -uo pipefail
 
+# Resolve this checkout's app port so the readiness probe below watches
+# the server the suite will actually start. Sourcing leaves shell
+# options untouched (this script deliberately runs without -e).
+# shellcheck disable=SC1091
+source "$(dirname "$0")/local-env.sh"
+
 cores=$(nproc)
 burners=$(( cores / 2 ))
 (( burners < 1 )) && burners=1
@@ -31,7 +37,7 @@ burner_pids_file=$(mktemp)
 # subshell (re-parented on its exit), so the EXIT trap must kill them by
 # recorded pid.
 (
-  until curl -sfo /dev/null http://localhost:3000; do sleep 2; done
+  until curl -sfo /dev/null "http://localhost:${SS_APP_PORT}"; do sleep 2; done
   echo "e2e-stress: server up — starting ${burners} CPU burners (of ${cores} cores)"
   for ((i = 0; i < burners; i++)); do
     yes > /dev/null &

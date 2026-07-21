@@ -34,10 +34,28 @@ if [ -f .env.test ]; then
   set +a
 fi
 
+# Resolve this checkout's app port and local Postgres URL. A secondary
+# git worktree overrides both via .env.worktree; the primary checkout
+# gets the historical defaults (3000, 5432).
+# shellcheck disable=SC1091
+source "$(dirname "$0")/local-env.sh"
+
 # Default DATABASE_URL to db-up.sh's local Postgres. A caller-provided
 # value (e.g. CI, or someone running against a different DB) wins
 # because ${VAR:-default} only substitutes when VAR is unset or empty.
-export DATABASE_URL="${DATABASE_URL:-postgres://sailscoring:sailscoring@localhost:5432/sailscoring}"
+export DATABASE_URL="${DATABASE_URL:-$SS_PG_URL}"
+
+# On a non-default app port, the URLs sourced from .env.test must be
+# re-derived — Better Auth validates redirects against BETTER_AUTH_URL,
+# and NEXT_PUBLIC_APP_URL is baked into the bundle by `pnpm build`
+# below, so both have to match the origin the server actually serves.
+if [ "$SS_APP_PORT" != "3000" ]; then
+  export BETTER_AUTH_URL="http://localhost:${SS_APP_PORT}"
+  export NEXT_PUBLIC_APP_URL="http://localhost:${SS_APP_PORT}"
+fi
+
+# `next start` listens on PORT.
+export PORT="$SS_APP_PORT"
 
 # Build with the test env in scope (NEXT_PUBLIC_* values are baked in
 # at build time), then start. `exec` replaces this shell with `next

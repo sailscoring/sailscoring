@@ -57,7 +57,8 @@ on a runner that doesn't have it.)
 
 | File                              | Purpose                                                                                  |
 |-----------------------------------|------------------------------------------------------------------------------------------|
-| `scripts/db-up.sh`                | Idempotently bring up local Postgres in a podman container; verify port mapping is 5432  |
+| `scripts/local-env.sh`            | Resolve this checkout's app port + local Postgres container/URL (see [Working in a second git worktree](#working-in-a-second-git-worktree)); the one place the local `DATABASE_URL` is built. The `*:test` scripts wrap their commands in it |
+| `scripts/db-up.sh`                | Idempotently bring up local Postgres in a podman container; verify the port mapping matches `local-env.sh`'s resolved port |
 | `scripts/start-test.sh`           | Build + start Next.js with `.env.test` sourced; used by Playwright's `webServer.command` |
 | `scripts/db-migrate.ts`           | Apply Drizzle migrations (called by `pnpm db:migrate`)                                   |
 | `scripts/provision-org.ts`        | Admin CLI behind `pnpm provision-org` — create orgs, seed users, manage members          |
@@ -82,15 +83,16 @@ Stop with `podman-remote stop sailscoring-pg`; data persists until
 
 ## Env file layout
 
-Three env files matter, in this load order (later wins):
+Four env files matter:
 
 1. **`.env.example`** — committed; documents what you'd set in `.env.local`. Never loaded.
 2. **`.env.local`** — gitignored; your personal dev config (Neon URL, your Better Auth secret, etc.). Loaded by `pnpm dev`, `pnpm build`, `pnpm start`, and the `db:*` scripts via `tsx --env-file-if-exists`.
 3. **`.env.test`** — committed; the test fixtures. Loaded by `tests/setup-env.ts` (vitest) and `scripts/start-test.sh` (Playwright). Values here are not secrets; they're test fixtures (see comments in `.env.test` for why that's safe).
+4. **`.env.worktree`** — gitignored, optional; per-checkout port overrides (`SS_APP_PORT`, `SS_PG_PORT`). Loaded only by `scripts/local-env.sh`, never by Next.js — see [Working in a second git worktree](#working-in-a-second-git-worktree).
 
 `DATABASE_URL` is deliberately *not* in `.env.test`. Both test paths default it to the local container URL when unset:
-- vitest: tests with `const skip = !DATABASE_URL` self-skip when nothing has set it (i.e. plain `pnpm test:unit`); `pnpm test:unit:db` sets it inline.
-- Playwright: `scripts/start-test.sh` sets `DATABASE_URL=${DATABASE_URL:-postgres://sailscoring:...:5432/sailscoring}`.
+- vitest: tests with `const skip = !DATABASE_URL` self-skip when nothing has set it (i.e. plain `pnpm test:unit`); `pnpm test:unit:db` forces it via `scripts/local-env.sh --local-db`.
+- Playwright: `scripts/start-test.sh` sets `DATABASE_URL=${DATABASE_URL:-$SS_PG_URL}` (the URL `local-env.sh` resolves for this checkout).
 
 CI overrides `DATABASE_URL` directly when a service-container Postgres
 is in scope; both defaults yield to whatever CI provides.
@@ -111,29 +113,52 @@ pnpm test:unit
 ```
 pnpm test:unit:db
   ├─ pretest:unit:db
-  │   └─ scripts/db-up.sh     ← starts/verifies sailscoring-pg container
-  └─ DATABASE_URL=… vitest run
+  │   └─ scripts/db-up.sh     ← starts/verifies this checkout's container
+  └─ scripts/local-env.sh --local-db vitest run   ← forces DATABASE_URL
       └─ tests/setup-env.ts   ← loads .env.test (DATABASE_URL already set, kept)
-      └─ DB tests run against localhost:5432
+      └─ DB tests run against this checkout's local Postgres
 ```
 
 ### `pnpm test:e2e`
 
 ```
-(prereq: pnpm db:up           ← starts/verifies sailscoring-pg container)
+(prereq: pnpm db:up           ← starts/verifies this checkout's container)
 
 pnpm test:e2e
   ├─ pretest:e2e
   │   └─ pnpm db:migrate:test
   │       └─ scripts/db-migrate.ts  ← applies Drizzle migrations (idempotent)
-  └─ DATABASE_URL=… playwright test
+  └─ scripts/local-env.sh --local-db playwright test  ← forces DATABASE_URL,
+      │                                                  exports SS_APP_PORT
       └─ webServer: pnpm start:test
           └─ scripts/start-test.sh
               ├─ source .env.test
+              ├─ source scripts/local-env.sh   ← re-derives URLs on a
+              │                                  non-default port
               ├─ DATABASE_URL inherited from caller
               ├─ pnpm build
               └─ pnpm start
 ```
+
+## Working in a second git worktree
+
+By default every checkout shares one Postgres container (`sailscoring-pg`
+on 5432) and one app port (3000). A second git worktree gets its own of
+both by dropping an untracked `.env.worktree` at its repo root:
+
+```bash
+# .env.worktree
+SS_APP_PORT=3001
+SS_PG_PORT=5433
+```
+
+That's the whole setup. `scripts/local-env.sh` reads it and everything
+downstream follows: `pnpm db:up` creates and manages a separate container
+(`sailscoring-pg-5433`, its own data volume and lifecycle), the `*:test`
+scripts and the e2e suite target it, and `pnpm dev` / the Playwright web
+server listen on 3001. The two checkouts can run dev servers and test
+suites concurrently without touching each other's data. Without the file,
+nothing changes — the primary checkout and CI use the historical defaults.
 
 ## Why this shape
 
@@ -145,4 +170,6 @@ A few decisions are not obvious:
 
 - **`scripts/start-test.sh` does build + start.** `next build` bakes `NEXT_PUBLIC_*` into the bundle at build time, so the test env has to be in scope for the build, not just the start. Doing both in one script keeps the env-file sourcing in one place.
 
-- **Container port mapping is verified, not just "docker run on first use".** A container created with `-p 5433:5432` (because 5432 was busy once) keeps that mapping until recreated. Every script downstream assumes 5432; without the verification, you'd silently connect to the wrong DB. `db-up.sh` exits non-zero if the existing container's mapping doesn't match.
+- **Container port mapping is verified, not just "docker run on first use".** A container created with a different `-p` mapping (because the port was busy once) keeps that mapping until recreated. Every script downstream assumes the port `local-env.sh` resolves; without the verification, you'd silently connect to the wrong DB. `db-up.sh` exits non-zero if the existing container's mapping doesn't match.
+
+- **Explicit per-worktree ports instead of derived ones.** `.env.worktree` could compute ports from a hash of the checkout path, but predictable, greppable port numbers you chose yourself are worth the two-line file when you're staring at `podman ps` or a browser tab wondering which checkout you're in.

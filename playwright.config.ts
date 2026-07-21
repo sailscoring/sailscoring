@@ -10,6 +10,13 @@ import { defineConfig, devices } from '@playwright/test';
  * local Postgres URL, then runs `pnpm build && pnpm start`. See
  * docs/local-dev-scripts.md.
  */
+
+// Per-checkout app port. `pnpm test:e2e` goes through scripts/local-env.sh,
+// which exports SS_APP_PORT (3000 unless overridden by a worktree's
+// .env.worktree); start-test.sh derives the same value, so the server
+// really listens where baseURL points.
+const appPort = process.env.SS_APP_PORT ?? '3000';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -31,7 +38,7 @@ export default defineConfig({
   // passing runs are unaffected.
   expect: { timeout: 15_000 },
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: `http://localhost:${appPort}`,
     // Now fires locally too (retries > 0): every flaky test leaves a trace on
     // its retry, and the repro command in each filed issue captures a fresh one.
     trace: 'on-first-retry',
@@ -49,7 +56,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'pnpm start:test',
-    url: 'http://localhost:3000',
+    url: `http://localhost:${appPort}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {

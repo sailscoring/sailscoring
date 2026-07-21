@@ -7,9 +7,10 @@
 # run repeatedly; verifies the existing container's port mapping and
 # fails loudly if it has drifted from the expected value.
 #
-# Connection details (matches scripts/start-test.sh and
-# tests/setup-env.ts defaults):
-#   postgres://sailscoring:sailscoring@localhost:5432/sailscoring
+# Container name and port come from scripts/local-env.sh (defaults:
+# `sailscoring-pg` on 5432; a secondary worktree overrides them via
+# .env.worktree). The connection URL matches what local-env.sh exports
+# as SS_PG_URL and what the `*:test` scripts force as DATABASE_URL.
 #
 # This script currently uses `podman-remote` because the canonical dev
 # environment is a podman-managed dev container that talks to a
@@ -20,8 +21,11 @@
 
 set -euo pipefail
 
-NAME=sailscoring-pg
-PORT=5432
+# shellcheck disable=SC1091
+source "$(dirname "$0")/local-env.sh"
+
+NAME="$SS_PG_CONTAINER"
+PORT="$SS_PG_PORT"
 IMAGE=docker.io/library/postgres:17
 
 if podman-remote container exists "$NAME"; then

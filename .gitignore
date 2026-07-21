@@ -38,6 +38,7 @@ yarn-error.log*
 # local env files
 .env*.local
 .env.tmp
+.env.worktree
 
 # saved Better Auth session for scripts/screenshots.ts (production cookie)
 /scripts/.auth/
