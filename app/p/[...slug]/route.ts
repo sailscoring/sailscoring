@@ -37,6 +37,10 @@ import {
   type SeriesIndexGroup,
 } from '@/lib/published-index';
 import {
+  injectAfterBodyTag,
+  renderFleetNav,
+} from '@/lib/published-fleet-nav';
+import {
   getPublishedGroupByWorkspaceSlug,
   getSeriesName,
   getWorkspaceBySlug,
@@ -511,5 +515,14 @@ async function fleetPage(
 
   const html = await readPublishedHtml(page.blobUrl);
   if (html === null) return NOT_FOUND;
-  return htmlResponse(html, etag);
+  // Sideways navigation between the owning publication's pages (#320),
+  // injected at serve time so the stored blob stays exactly the published
+  // artifact. The ETag needs no extension: the switcher derives from
+  // `owner.pages`, and any change to that set changes `contentHash`.
+  const nav = renderFleetNav(
+    owner.pages,
+    subPath,
+    `/p/${workspaceSlug}/${seriesSlug}`,
+  );
+  return htmlResponse(nav ? injectAfterBodyTag(html, nav) : html, etag);
 }

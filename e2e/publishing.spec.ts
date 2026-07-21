@@ -410,6 +410,9 @@ test('two series publish into one shared slug → the listing unions both, sub-h
   // Both fleet pages resolve under the one slug.
   await page.goto(`${indexPath}/standings`);
   await expect(page.getByRole('cell', { name: '11' }).first()).toBeVisible();
+  // The fleet switcher (#320) covers the owning publication's pages only —
+  // each contributor here has a single page, so neither shows a switcher.
+  await expect(page.locator('.ssfleetnav')).toHaveCount(0);
   await page.goto(`${indexPath}/lambay-races-one-designs`);
   await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
 });
@@ -508,6 +511,27 @@ test('selective publishing: choose fleets and override a fleet URL segment', asy
   // deselected Cruiser fleet was never published — both 404.
   expect((await page.request.get(`${base}/irc`)).status()).toBe(404);
   expect((await page.request.get(`${base}/cruiser`)).status()).toBe(404);
+});
+
+test('fleet switcher moves between a publication\'s fleet pages (#320)', async ({ page }) => {
+  await createTwoFleetSeries(page, 'HYC Spring League');
+
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('URL slug').fill('spring-26');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const link = dialog.getByRole('link', { name: /\/spring-26\/irc$/ });
+  await expect(link).toBeVisible();
+  const ircPath = new URL((await link.getAttribute('href')) ?? '').pathname;
+
+  // On a fleet page the switcher shows the current fleet unlinked and links
+  // the sibling; clicking it lands on the sibling's standings.
+  await page.goto(ircPath);
+  await expect(page.locator('.ssfleetnav-current')).toHaveText('IRC');
+  await page.locator('.ssfleetnav').getByRole('link', { name: 'Cruiser' }).click();
+  await expect(page).toHaveURL(/\/spring-26\/cruiser$/);
+  await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
+  await expect(page.locator('.ssfleetnav-current')).toHaveText('Cruiser');
 });
 
 test('unticking a published fleet on re-publish leaves its page live and unchanged', async ({ page }) => {
