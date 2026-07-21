@@ -121,12 +121,13 @@ export async function putArchiveSeries(
 
   const db = getDb();
   await db.transaction(async (tx) => {
-    // Initial category filing: a *new* series lands in the category the
-    // document names (created here if the workspace doesn't have it yet).
-    // First ingest only — category is workspace-local organisation, so
-    // re-ingests never move a series a scorer has refiled.
+    // Category filing: the series lands in the category the document names
+    // (created here if the workspace doesn't have it yet). The archive repo is
+    // the authority on category for as-published series — unlike archived/
+    // displayOrder below, which stay workspace-local — so a re-ingest re-files
+    // it, every time.
     let categoryId: string | null = null;
-    if (!existing && doc.series.category) {
+    if (doc.series.category) {
       const [category] = await tx
         .select({ id: schema.categories.id })
         .from(schema.categories)
@@ -152,8 +153,8 @@ export async function putArchiveSeries(
 
     // Series row. A *new* as-published series lands archived — it's history,
     // so it belongs collapsed under the year groups, not in the scorer's
-    // active list. Updates leave the workspace-local organisation (category,
-    // archived, display order) alone, so un-archiving one to feature it
+    // active list. Updates re-file category (archive-controlled) but leave
+    // archived and display order alone, so un-archiving one to feature it
     // survives re-ingests.
     await tx
       .insert(schema.series)
@@ -190,6 +191,9 @@ export async function putArchiveSeries(
           source: (doc.series.source ?? null) as never,
           asPublished: true,
           asPublishedHash: hash,
+          // Re-file to the document's category (or clear it when the document
+          // names none); archived and display order are left untouched.
+          categoryId,
           lastModifiedAt: new Date(),
           updatedAt: new Date(),
           updatedBy: workspace.userId,

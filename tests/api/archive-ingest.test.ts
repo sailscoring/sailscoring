@@ -682,7 +682,7 @@ describe.skipIf(skip)('archive ingest', () => {
     expect(rows).toHaveLength(0);
   });
 
-  test('the document files a new series in its category; re-ingests never refile', async () => {
+  test('the document controls category: a re-ingest re-files it', async () => {
     const catSeries = uuid();
     const catFleet = uuid();
     const catComp = uuid();
@@ -733,25 +733,28 @@ describe.skipIf(skip)('archive ingest', () => {
       .where(eq(schema.series.id, catSeries));
     expect(row.categoryId).toBe(categories[0].id);
 
-    // The scorer refiles it; a re-ingest naming a different category must
-    // neither move it back nor create the named category.
+    // A re-ingest naming a different category re-files the series and creates
+    // the named category — the archive repo is the authority, so even a manual
+    // move is overridden on the next ingest.
     await db
       .update(schema.series)
       .set({ categoryId: null })
       .where(eq(schema.series.id, catSeries));
-    await archive.putArchiveSeries(ctx, catSeries, catDoc('2999'), {
+    await archive.putArchiveSeries(ctx, catSeries, catDoc('2016'), {
       force: true,
     });
+    const cats2 = await db
+      .select()
+      .from(schema.categories)
+      .where(eq(schema.categories.workspaceId, workspaceId));
+    const cat2016 = cats2.find((c) => c.name === '2016')!;
+    expect(cat2016).toBeDefined();
     const [after] = await db
       .select({ categoryId: schema.series.categoryId })
       .from(schema.series)
       .where(eq(schema.series.id, catSeries));
-    expect(after.categoryId).toBeNull();
-    const names = await db
-      .select({ name: schema.categories.name })
-      .from(schema.categories)
-      .where(eq(schema.categories.workspaceId, workspaceId));
-    expect(names.map((c) => c.name)).toEqual(['2015']);
+    expect(after.categoryId).toBe(cat2016.id);
+    expect(cats2.map((c) => c.name).sort()).toEqual(['2015', '2016']);
 
     await archive.deleteArchiveSeries(ctx, catSeries);
   });
