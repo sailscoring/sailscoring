@@ -12,9 +12,9 @@ See `docs/local-dev-scripts.md` for the full script reference.
 The local Postgres container (`sailscoring-pg`) **persists its data**
 between runs — `pnpm db:up` is idempotent and just starts the existing
 one. So "fresh DB" means destroying and recreating the container.
-(A secondary git worktree gets its own container and app port via
-`.env.worktree` — see "Working in a second git worktree" in
-`docs/local-dev-scripts.md`; everything below applies per checkout.)
+(In a secondary git worktree the container name and ports differ — see
+[Working on a branch in a git worktree](#working-on-a-branch-in-a-git-worktree);
+everything below applies per checkout.)
 
 ```bash
 # 1. Nuke the existing container (wipes all local data — it's just test data)
@@ -57,6 +57,82 @@ want when validating a large new feature.
   `DATABASE_URL`).
 - **Connection string**, if anything asks:
   `postgres://sailscoring:sailscoring@localhost:5432/sailscoring`
+
+## Working on a branch in a git worktree
+
+A [git worktree](https://git-scm.com/docs/git-worktree) is a second
+working directory sharing the main checkout's `.git` store — useful for
+keeping a long-running branch buildable and testable alongside `main`
+without stash/checkout churn. A branch can only be checked out in one
+worktree at a time: `main` stays in the primary checkout, the branch
+lives in its own directory.
+
+### Create and set up
+
+```bash
+# From the primary checkout
+git worktree add ../sailscoring-flights feature/flights
+
+cd ../sailscoring-flights
+pnpm install                     # node_modules is per-directory
+cp ../sailscoring/.env.local .   # untracked files don't come along
+```
+
+Then give the worktree its own app port and Postgres container, so the
+two checkouts can run dev servers and test suites concurrently without
+clobbering each other's data — an untracked `.env.worktree` at its root:
+
+```bash
+# .env.worktree
+SS_APP_PORT=3001
+SS_PG_PORT=5433
+```
+
+`scripts/local-env.sh` reads it and everything follows: `pnpm db:up`
+creates a separate container (`sailscoring-pg-5433`, own data volume),
+the `*:test` scripts and the e2e suite target it, and `pnpm dev` / the
+Playwright web server listen on 3001. Pick any free ports; the file is
+the mechanism, the numbers are yours. See "Working in a second git
+worktree" in `docs/local-dev-scripts.md` for how the resolution works.
+
+Note the branch itself must contain `scripts/local-env.sh` — a branch
+cut before it existed ignores `.env.worktree` until rebased onto
+current `main`.
+
+### Day-to-day
+
+Work normally: edit, `pnpm dev`, commit, push. Refs are shared, so
+commits made in the worktree are immediately visible from the primary
+checkout and vice versa. To pick up `main`:
+
+```bash
+git rebase main        # or merge, as the branch warrants
+```
+
+After a rebase, pushing needs `--force-with-lease` (history was
+rewritten; the lease refuses if origin has commits you haven't seen):
+
+```bash
+git push --force-with-lease origin feature/flights
+```
+
+The pre-push rule applies unchanged: `pnpm lint`, `pnpm test:unit`, and
+`pnpm test:e2e:triage` — all against the worktree's own container
+(`pnpm db:up` first).
+
+### Clean up
+
+```bash
+# From the primary checkout, once the branch is merged or abandoned
+git worktree remove ../sailscoring-flights
+podman-remote rm -f sailscoring-pg-5433   # its Postgres container + data
+```
+
+`git worktree remove` deletes the directory and releases the branch
+(refusing if there are uncommitted changes); the branch itself
+survives. If the directory was deleted by hand instead, `git worktree
+prune` clears the stale registration. `git worktree list` shows what's
+active.
 
 ## Preview deployment
 
