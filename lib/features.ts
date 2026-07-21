@@ -233,6 +233,17 @@ export const FEATURES = {
     helpSectionIds: [],
     selfService: false,
   },
+  'split-fleets': {
+    // PROTOTYPE: the Split Fleets guided workflow for qualifying/final
+    // championship series (docs/design/qualifying-final-series.md) — the
+    // Split Fleets series tab, its assignment ceremonies, and the
+    // split-fleets API surface. Operator-managed (not self-service): expert
+    // machinery for a handful of championship workspaces; mis-configuration
+    // produces authoritative-looking nonsense. Off by default.
+    label: 'Split-fleet series (qualifying/final)',
+    helpSectionIds: [],
+    selfService: false,
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;

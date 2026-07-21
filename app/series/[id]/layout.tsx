@@ -26,6 +26,11 @@ const baseTabs = [
 
 const prizesTab = { label: 'Prizes', href: (id: string) => `/series/${id}/prizes` };
 
+const splitFleetsTab = {
+  label: 'Split Fleets',
+  href: (id: string) => `/series/${id}/split-fleets`,
+};
+
 export default function SeriesLayout({
   children,
   params,
@@ -44,16 +49,21 @@ export default function SeriesLayout({
   const [showHelp, setShowHelp] = useState(false);
 
   const showPrizes = has('prizes');
+  const showSplitFleets = has('split-fleets');
   const asPublished = series?.asPublished ?? false;
   // Prizes slots in after Standings — allocation reads the standings, so the
-  // tabs follow the scorer's flow. An as-published archive (ADR-010) keeps
-  // Competitors and Standings (the stored tables); races, prizes, settings,
-  // and history have nothing behind them in this regime.
-  const tabs = asPublished
-    ? [baseTabs[0], baseTabs[2]]
-    : showPrizes
-      ? [...baseTabs.slice(0, 3), prizesTab, ...baseTabs.slice(3)]
-      : baseTabs;
+  // tabs follow the scorer's flow. Split Fleets (PROTOTYPE) slots in after
+  // Races — the guided workflow drives race creation and reads finishes. An
+  // as-published archive (ADR-010) keeps Competitors and Standings (the
+  // stored tables); races, prizes, settings, and history have nothing behind
+  // them in this regime.
+  const gatedTabs = showPrizes
+    ? [...baseTabs.slice(0, 3), prizesTab, ...baseTabs.slice(3)]
+    : [...baseTabs];
+  if (showSplitFleets) {
+    gatedTabs.splice(2, 0, splitFleetsTab);
+  }
+  const tabs = asPublished ? [baseTabs[0], baseTabs[2]] : gatedTabs;
 
   useChordShortcut({
     c: () => router.push(`/series/${id}/competitors`),
@@ -62,6 +72,7 @@ export default function SeriesLayout({
     t: () => router.push(`/series/${id}/settings`),
     h: () => router.push(`/series/${id}/history`),
     ...(showPrizes ? { p: () => router.push(`/series/${id}/prizes`) } : {}),
+    ...(showSplitFleets ? { q: () => router.push(`/series/${id}/split-fleets`) } : {}),
   });
 
   // No description: the dialog's static Global section documents `?` itself.

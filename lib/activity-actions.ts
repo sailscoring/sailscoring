@@ -62,6 +62,9 @@ export const ACTIVITY_ACTIONS = [
   'starts.cleared',
   'ratings.updated',
   'ratings.cleared',
+  'split-fleets.configured',
+  'split-fleets.round-committed',
+  'split-fleets.round-deleted',
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
@@ -83,7 +86,7 @@ export function activityKind(action: string): ActivityKind {
   if (action.startsWith('series.')) return 'series';
   // The archive identity apply (ADR-010) groups with the competitor work.
   if (action.startsWith('competitor') || action.startsWith('identities.')) return 'competitor';
-  if (action.startsWith('fleet')) return 'fleet';
+  if (action.startsWith('fleet') || action.startsWith('split-fleets.')) return 'fleet';
   if (action.startsWith('finish')) return 'finish';
   if (action.startsWith('race') || action.startsWith('sub-series.') || action.startsWith('starts.') || action.startsWith('ratings.')) return 'race';
   // As-published ranking ingests (#309) are workspace-level series-regime

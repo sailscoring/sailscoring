@@ -512,6 +512,13 @@
       "when": 1784446175200,
       "tag": "0072_chemical_sheva_callister",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1784674180314,
+      "tag": "0073_cute_silhouette",
+      "breakpoints": true
     }
   ]
 }

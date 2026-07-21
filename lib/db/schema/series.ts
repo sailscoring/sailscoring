@@ -47,6 +47,7 @@ import type {
 } from '@/lib/archive-kit/types';
 import type { RankingConfig } from '@/lib/ranking';
 import type { SeriesFile } from '@/lib/series-file';
+import type { SplitFleetConfig } from '@/lib/split-fleets';
 
 /**
  * ADR-008 Phase 2 schema. Mirrors `lib/types.ts` 1:1.
@@ -215,6 +216,11 @@ export const series = pgTable(
     // Protest / redress time limit from the SIs ({minutes, basis}). Nullable
     // JSONB — absent = not tracked; never queried by content.
     protestTimeLimit: jsonb('protest_time_limit').$type<ProtestTimeLimit>(),
+    // Split-fleet (qualifying/final) series config (PROTOTYPE — see
+    // lib/split-fleets.ts). Nullable JSONB, never queried by content; present
+    // iff the series is a split-fleet series. Exposed through the
+    // split-fleets API, not the Series DTO.
+    qfConfig: jsonb('qf_config').$type<SplitFleetConfig>(),
     // Display.
     enabledCompetitorFields: jsonb('enabled_competitor_fields')
       .$type<CompetitorFieldKey[]>()
@@ -755,6 +761,11 @@ export const races = pgTable(
     // Manual last-finisher time ("HH:MM:SS") for races with untimed finishes;
     // ignored whenever any finish row carries a finishTime.
     lastFinisherTime: text('last_finisher_time'),
+    // Split-fleet series (PROTOTYPE): the stage a physical race belongs to
+    // ('qualifying' | 'final' | 'medal') and its logical race number within
+    // the stage. Both null on standard series.
+    stage: text('stage').$type<'qualifying' | 'final' | 'medal'>(),
+    stageRaceNumber: integer('stage_race_number'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -766,6 +777,41 @@ export const races = pgTable(
     uniqueIndex('races_series_number_uidx').on(table.seriesId, table.raceNumber),
     index('races_workspace_idx').on(table.workspaceId),
   ],
+);
+
+/**
+ * Split-fleet assignment rounds (PROTOTYPE — see lib/split-fleets.ts and
+ * docs/design/qualifying-final-series.md). One row per assignment event
+ * (seeding, daily reassignment, the final split, medal selection); the
+ * round's fleets are ordinary `fleets` rows referenced by id in SI/tier
+ * order. Computed-then-frozen: the stored assignment is authoritative and
+ * never recomputed.
+ */
+export const splitRounds = pgTable(
+  'split_rounds',
+  {
+    id: uuid('id').primaryKey(),
+    seriesId: uuid('series_id')
+      .notNull()
+      .references(() => series.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    stage: text('stage').$type<'qualifying' | 'final' | 'medal'>().notNull(),
+    fromStageRace: integer('from_stage_race').notNull(),
+    // The round's fleets in SI order (qualifying) / tier order (final).
+    // Small ordered list, never queried by content.
+    fleetIds: uuid('fleet_ids').array().notNull(),
+    method: text('method').notNull(),
+    basis: jsonb('basis').$type<{ throughStageRace: number; capturedAt: number }>(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
+  },
+  (table) => [index('split_rounds_series_idx').on(table.seriesId)],
 );
 
 /**

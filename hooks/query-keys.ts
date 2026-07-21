@@ -47,6 +47,10 @@ export const queryKeys = {
     all: ['subSeries'] as const,
     bySeries: (seriesId: string) => ['subSeries', 'bySeries', seriesId] as const,
   },
+  splitFleets: {
+    all: ['splitFleets'] as const,
+    bySeries: (seriesId: string) => ['splitFleets', 'bySeries', seriesId] as const,
+  },
   races: {
     all: ['races'] as const,
     bySeries: (seriesId: string) => ['races', 'bySeries', seriesId] as const,

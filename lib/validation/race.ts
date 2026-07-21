@@ -13,6 +13,9 @@ export const raceSchema = z.object({
   date: isoDateSchema,
   // Manual last-finisher time ("HH:MM:SS") for races with untimed finishes.
   lastFinisherTime: wallClockSchema.optional(),
+  // Split-fleet series (PROTOTYPE — see lib/split-fleets.ts).
+  stage: z.enum(['qualifying', 'final', 'medal']).optional(),
+  stageRaceNumber: z.number().int().positive().optional(),
   createdAt: epochMsSchema,
   version: versionSchema,
 });
