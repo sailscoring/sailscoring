@@ -91,9 +91,16 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
       categoryName: 'Tuesday',
       categoryOrder: 0,
       year: 2026,
-      pages: [
-        { fleetName: 'Squibs', subPath: 'squibs' },
-        { fleetName: 'Puppeteers', subPath: 'puppeteers' },
+      contributors: [
+        {
+          title: 'Tuesday Series 1',
+          year: 2026,
+          categoryName: 'Tuesday',
+          pages: [
+            { fleetName: 'Squibs', subPath: 'squibs' },
+            { fleetName: 'Puppeteers', subPath: 'puppeteers' },
+          ],
+        },
       ],
     },
     {
@@ -104,7 +111,14 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
       categoryName: 'Wednesday',
       categoryOrder: 1,
       year: 2025,
-      pages: [{ fleetName: 'Default', subPath: 'standings' }],
+      contributors: [
+        {
+          title: 'Wednesday Series 1',
+          year: 2025,
+          categoryName: 'Wednesday',
+          pages: [{ fleetName: 'Default', subPath: 'standings' }],
+        },
+      ],
     },
   ];
 
@@ -144,7 +158,14 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
 
     const sameYearAndCat = renderWorkspaceIndexHtml('hyc', 'HYC', [
       { ...twoSeries[0] },
-      { ...twoSeries[1], year: 2026, categoryName: 'Tuesday' },
+      {
+        ...twoSeries[1],
+        year: 2026,
+        categoryName: 'Tuesday',
+        contributors: [
+          { ...twoSeries[1].contributors[0], year: 2026, categoryName: 'Tuesday' },
+        ],
+      },
     ]);
     expect(sameYearAndCat).not.toContain('id="picker-year"');
     expect(sameYearAndCat).not.toContain('id="picker-cat"');
@@ -153,11 +174,59 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
 
   it('escapes < in the embedded JSON so titles cannot close the script tag', () => {
     const html = renderWorkspaceIndexHtml('hyc', 'HYC', [
-      { ...twoSeries[0], title: 'Race </script><b>' },
+      {
+        ...twoSeries[0],
+        contributors: [
+          { ...twoSeries[0].contributors[0], title: 'Race </script><b>' },
+        ],
+      },
       twoSeries[1],
     ]);
     expect(html).not.toContain('</script><b>');
     expect(html).toContain('\\u003c/script>');
+  });
+
+  it('offers each contributing series by name when a slug is shared (archive year buckets)', () => {
+    const html = renderWorkspaceIndexHtml('hyc', 'HYC', [
+      {
+        slug: '2025',
+        title: '2025',
+        publishedAt: Date.UTC(2025, 9, 1),
+        fleetCount: 4,
+        categoryName: '2025',
+        categoryOrder: 0,
+        year: 2025,
+        contributors: [
+          {
+            title: 'Tuesday Series 1 2025',
+            year: 2025,
+            categoryName: '2025',
+            pages: [
+              { fleetName: 'Squibs', subPath: 'tuesday-series-1/squibs' },
+              { fleetName: 'Puppeteers', subPath: 'tuesday-series-1/puppeteers' },
+            ],
+          },
+          {
+            title: 'Wednesday Series 1 2025',
+            year: 2025,
+            categoryName: '2025',
+            pages: [
+              { fleetName: 'Class 1', subPath: 'wednesday-series-1/class-1' },
+              { fleetName: 'Class 2', subPath: 'wednesday-series-1/class-2' },
+            ],
+          },
+        ],
+      },
+    ]);
+    // Two contributing series justify the picker even with one listing slug,
+    // and each appears under its own name with its own fleet pages.
+    expect(html).toContain('id="picker-data"');
+    expect(html).toContain('"title":"Tuesday Series 1 2025"');
+    expect(html).toContain('"title":"Wednesday Series 1 2025"');
+    expect(html).toContain('"url":"/p/hyc/2025/tuesday-series-1/puppeteers"');
+    expect(html).toContain('"label":"Puppeteers"');
+    // The humanised slug never appears as a series option title.
+    expect(html).not.toContain('"title":"2025"');
   });
 
   it('wraps archived publications in a hideable past block', () => {

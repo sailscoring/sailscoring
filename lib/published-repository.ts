@@ -196,9 +196,12 @@ function yearOf(startDate: string | null): number | null {
  *  newest contributor sits. An orphaned publication (series deleted) reads as
  *  active and uncategorised.
  *
- *  `pages` unions the slug's fleet pages across contributors (newest
- *  contributor first) for the quick-jump picker (#320), stripped of blob
- *  locators — this listing feeds a public page. */
+ *  `contributors` carries each publication sharing the slug — its own series
+ *  name, placement (year / category) and fleet pages, in the in-app series
+ *  order — for the quick-jump picker (#320), whose Series level is the
+ *  contributing series, not the slug (an archive workspace publishes a whole
+ *  year of series into one slug). Stripped of blob locators — this listing
+ *  feeds a public page. */
 export async function listPublishedByWorkspace(workspaceId: string): Promise<
   {
     slug: string;
@@ -210,11 +213,17 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     categoryOrder: number;
     seriesOrder: number;
     year: number | null;
-    pages: {
-      fleetName: string;
-      subSeriesName?: string;
-      isPrizes?: boolean;
-      subPath: string;
+    contributors: {
+      /** The contributing series' name; null for an orphaned publication. */
+      title: string | null;
+      year: number | null;
+      categoryName: string | null;
+      pages: {
+        fleetName: string;
+        subSeriesName?: string;
+        isPrizes?: boolean;
+        subPath: string;
+      }[];
     }[];
   }[]
 > {
@@ -255,13 +264,23 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     isPrizes?: boolean;
     subPath: string;
   };
+  type Contributor = {
+    title: string | null;
+    year: number | null;
+    categoryName: string | null;
+    // Sort keys only — the in-app series order, publish recency as tiebreak
+    // (mirroring getPublishedGroupByWorkspaceSlug); stripped before return.
+    seriesOrder: number;
+    publishedAt: number;
+    pages: PageEntry[];
+  };
   const groups = new Map<
     string,
     {
       publishedAt: number;
       fleetCount: number;
       names: (string | null)[];
-      pages: PageEntry[];
+      contributors: Contributor[];
       rep: Rep;
     }
   >();
@@ -275,7 +294,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
         publishedAt: 0,
         fleetCount: 0,
         names: [],
-        pages: [],
+        contributors: [],
         rep: {
           archived: r.archived ?? false,
           categoryName: r.categoryName ?? null,
@@ -289,14 +308,19 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     g.publishedAt = Math.max(g.publishedAt, r.publishedAt.getTime());
     g.fleetCount += r.pages.length;
     g.names.push(r.seriesName);
-    g.pages.push(
-      ...r.pages.map((p) => ({
+    g.contributors.push({
+      title: r.seriesName ?? null,
+      year: yearOf(r.startDate),
+      categoryName: r.categoryName ?? null,
+      seriesOrder: r.seriesOrder ?? Number.POSITIVE_INFINITY,
+      publishedAt: r.publishedAt.getTime(),
+      pages: r.pages.map((p) => ({
         fleetName: p.fleetName,
         ...(p.subSeriesName ? { subSeriesName: p.subSeriesName } : {}),
         ...(p.isPrizes ? { isPrizes: true } : {}),
         subPath: p.subPath,
       })),
-    );
+    });
   }
 
   return [...groups.entries()]
@@ -310,7 +334,23 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
       categoryOrder: g.rep.categoryOrder,
       seriesOrder: g.rep.seriesOrder,
       year: g.rep.year,
-      pages: g.pages,
+      contributors: g.contributors
+        .sort(
+          // Not `a - b`: unordered rows are both Infinity and the difference
+          // would be NaN, which sorts unpredictably.
+          (a, b) =>
+            (a.seriesOrder < b.seriesOrder
+              ? -1
+              : a.seriesOrder > b.seriesOrder
+                ? 1
+                : 0) || b.publishedAt - a.publishedAt,
+        )
+        .map(({ title, year, categoryName, pages }) => ({
+          title,
+          year,
+          categoryName,
+          pages,
+        })),
     }))
     .sort((a, b) => b.publishedAt - a.publishedAt);
 }

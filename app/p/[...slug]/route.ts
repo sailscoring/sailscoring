@@ -170,9 +170,14 @@ async function workspaceIndex(
     `rankings:${rankingsLink}`,
     ...items.map(
       (i) =>
-        `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.year ?? ''}:${i.pages
-          .map((p) => `${p.subPath}~${p.subSeriesName ?? ''}~${p.fleetName}`)
-          .join('|')}`,
+        `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.year ?? ''}:${i.contributors
+          .map(
+            (c) =>
+              `${c.title ?? ''}^${c.year ?? ''}^${c.categoryName ?? ''}^${c.pages
+                .map((p) => `${p.subPath}~${p.subSeriesName ?? ''}~${p.fleetName}`)
+                .join('|')}`,
+          )
+          .join('§')}`,
     ),
   ])}"`;
   const cached = notModified(req, etag);

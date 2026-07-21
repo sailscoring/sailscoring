@@ -415,6 +415,18 @@ test('two series publish into one shared slug → the listing unions both, sub-h
   await expect(page.locator('.ssfleetnav')).toHaveCount(0);
   await page.goto(`${indexPath}/lambay-races-one-designs`);
   await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
+
+  // The workspace index picker offers each contributing series by name —
+  // never the shared slug — and jumps to the chosen series' page (#320).
+  await page.goto(indexPath.replace(/\/[^/]+$/, ''));
+  const picker = page.locator('.picker');
+  await expect(picker).toBeVisible();
+  await picker
+    .locator('#picker-series')
+    .selectOption({ label: 'Lambay Races One Designs' });
+  await picker.locator('#picker-fleet').selectOption({ label: 'Standings' });
+  await expect(page).toHaveURL(/\/2026-lambay-races\/lambay-races-one-designs$/);
+  await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
 });
 
 test('single-fleet: the default page URL is editable before first publish', async ({ page }) => {
@@ -699,7 +711,7 @@ test('the public workspace listing mirrors category sections, relegates archived
 
   // Picking a series narrows the listing to it; picking a fleet page
   // navigates straight there.
-  await picker.locator('#picker-series').selectOption('spring-26');
+  await picker.locator('#picker-series').selectOption({ label: 'Spring League 2026' });
   await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).not.toBeVisible();
   await picker.locator('#picker-fleet').selectOption({ label: 'Standings' });
   await expect(page).toHaveURL(/\/spring-26\/standings$/);

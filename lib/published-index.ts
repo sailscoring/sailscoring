@@ -38,6 +38,18 @@ export interface ListingPlacement {
   year?: number | null;
 }
 
+/** One publication sharing a listing slug: its own series name, placement and
+ *  fleet pages. The quick-jump picker's Series level is the contributor, not
+ *  the slug — an archive workspace publishes a whole year of series into one
+ *  slug, and "Tuesday Series 1" must still appear by name (#320). */
+export interface WorkspaceIndexContributor {
+  /** The contributing series' name; null for an orphaned publication. */
+  title: string | null;
+  year?: number | null;
+  categoryName?: string | null;
+  pages: SeriesIndexPage[];
+}
+
 /** A published series as shown in the workspace listing. Placement comes from
  *  the slug's representative series (its categorisation / archive state and
  *  manual order). */
@@ -46,9 +58,9 @@ export interface WorkspaceIndexItem extends ListingPlacement {
   /** Display title: the series name, or the slug for an orphaned publication. */
   title: string;
   fleetCount: number;
-  /** The slug's fleet pages (unioned across contributors), feeding the
-   *  quick-jump picker's Fleet level (#320). Absent = no picker data. */
-  pages?: SeriesIndexPage[];
+  /** The slug's publications, feeding the quick-jump picker (#320). Absent =
+   *  no picker data for this slug. */
+  contributors?: WorkspaceIndexContributor[];
 }
 
 /** A category section of active publications on the workspace listing. */
@@ -382,38 +394,52 @@ function renderQuickJumpPicker(
     ...active.flatMap((g) => g.items),
     ...past.flatMap((g) => g.items),
   ];
-  if (ordered.length < 2) return { controls: '', script: '' };
 
-  const years = [
-    ...new Set(
-      ordered.map((i) => i.year).filter((y): y is number => y != null),
-    ),
-  ].sort((a, b) => b - a);
-  // Categories in section order; ones only present on archived items (their
-  // sections live under Past results by year) follow in listing order.
-  const cats = [
-    ...new Set([
-      ...active.map((g) => g.categoryName),
-      ...ordered.map((i) => i.categoryName ?? null),
-    ]),
-  ].filter((c): c is string => c != null);
-
-  const data = {
-    items: ordered.map((it) => {
-      const pages = it.pages ?? [];
-      const single = pages.filter((p) => !p.isPrizes).length === 1;
+  // One picker entry per contributing publication, each with its own name,
+  // placement, and fleet pages — a slug shared by a whole year of series
+  // (the as-published archive shape) still offers every series by name. An
+  // item without contributor data falls back to one slug-level entry.
+  const entries = ordered.flatMap((it) =>
+    (
+      it.contributors ?? [
+        {
+          title: it.title,
+          year: it.year,
+          categoryName: it.categoryName,
+          pages: [],
+        },
+      ]
+    ).map((c) => {
+      const single = c.pages.filter((p) => !p.isPrizes).length === 1;
       return {
         slug: it.slug,
-        title: it.title,
-        year: it.year ?? null,
-        cat: it.categoryName ?? null,
-        pages: pages.map((p) => ({
+        title: c.title ?? it.title,
+        year: c.year ?? null,
+        cat: c.categoryName ?? null,
+        pages: c.pages.map((p) => ({
           label: fleetPageLabel(p, single),
           url: `/p/${workspaceSlug}/${it.slug}/${p.subPath}`,
         })),
       };
     }),
-  };
+  );
+  if (entries.length < 2) return { controls: '', script: '' };
+
+  const years = [
+    ...new Set(
+      entries.map((e) => e.year).filter((y): y is number => y != null),
+    ),
+  ].sort((a, b) => b - a);
+  // Categories in section order; ones only present on contributors placed
+  // elsewhere (e.g. under Past results) follow in listing order.
+  const cats = [
+    ...new Set([
+      ...active.map((g) => g.categoryName),
+      ...entries.map((e) => e.cat),
+    ]),
+  ].filter((c): c is string => c != null);
+
+  const data = { items: entries };
 
   const yearSelect =
     years.length >= 2
@@ -439,8 +465,6 @@ function renderQuickJumpPicker(
  *  at the end of the body content), so every `li[data-slug]` exists. */
 const PICKER_SCRIPT = `(function () {
   var data = JSON.parse(document.getElementById('picker-data').textContent);
-  var bySlug = {};
-  data.items.forEach(function (it) { bySlug[it.slug] = it; });
   var yearSel = document.getElementById('picker-year');
   var catSel = document.getElementById('picker-cat');
   var seriesSel = document.getElementById('picker-series');
@@ -477,16 +501,18 @@ const PICKER_SCRIPT = `(function () {
       if (catSel.value !== keepCat) catSel.value = '';
       c = catSel.value;
     }
+    // Series options are entries (one per publication), keyed by index — a
+    // slug is not a key here, since several series can share one.
     var keep = seriesSel.value;
     seriesSel.textContent = '';
     seriesSel.appendChild(option('', 'All series'));
-    data.items.forEach(function (it) {
-      if (matches(it, y, c)) seriesSel.appendChild(option(it.slug, it.title));
+    data.items.forEach(function (it, i) {
+      if (matches(it, y, c)) seriesSel.appendChild(option(String(i), it.title));
     });
     seriesSel.value = keep;
     if (seriesSel.value !== keep) seriesSel.value = '';
     var s = seriesSel.value;
-    var selected = bySlug[s];
+    var selected = s === '' ? null : data.items[Number(s)];
     fleetSel.textContent = '';
     fleetSel.appendChild(option('', 'Go to fleet\\u2026'));
     if (selected) {
@@ -495,9 +521,15 @@ const PICKER_SCRIPT = `(function () {
       });
     }
     fleetSel.disabled = !selected || selected.pages.length === 0;
+    // A listing row covers a whole slug: it stays visible while any of its
+    // publications match the filter.
+    var slugVisible = {};
+    data.items.forEach(function (it) {
+      if (matches(it, y, c)) slugVisible[it.slug] = true;
+    });
     document.querySelectorAll('li[data-slug]').forEach(function (li) {
-      var it = bySlug[li.getAttribute('data-slug')];
-      var show = !!it && matches(it, y, c) && (!s || it.slug === s);
+      var slug = li.getAttribute('data-slug');
+      var show = !!slugVisible[slug] && (!selected || selected.slug === slug);
       li.style.display = show ? '' : 'none';
     });
     document.querySelectorAll('section.lgroup').forEach(function (sec) {
