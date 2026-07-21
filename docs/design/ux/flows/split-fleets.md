@@ -126,6 +126,13 @@ Setup runs once, when the series is created as a split-fleet series (see
   enforced softly: picking two colours with the same initial letter gets a
   warning, not a block.
 - **Final fleet names** default to Gold/Silver/Bronze to match the count.
+- **The planned schedule**: the scorer sketches the event's days and races
+  per day (pre-filled by the preset — six days, two a day), which gives
+  the day strip its future days before any race exists and each round its
+  default coverage. Scorers like their ducks in a row: the whole event is
+  laid out from day zero, as a plan the strip reconciles against reality
+  as racing happens. Editing the plan mid-event is an ordinary setup
+  edit, not a ceremony.
 
 Setup creates *no* fleets or races — those belong to rounds, so that the
 entity trail always reads in event order.
@@ -167,8 +174,8 @@ this boat in Blue?" is always one glance away:
    entry.
 4. Offer: publish the assignment lists (see Publishing below).
 
-How many races a round covers comes from the schedule (two per day is
-typical); the scorer can add another logical race to the current round in
+How many races a round covers comes from the planned schedule sketched at
+setup; the scorer can add another logical race to the current round in
 one action ("Add Q5 to Round 2") when the committee races ahead of
 schedule — the day strip updates to match.
 
@@ -254,12 +261,14 @@ completed it" is about *totals*, not visibility, and the presentation
 carries it: **an incomplete logical race renders as a greyed column**,
 its scores visible but struck from Total/Nett, headed "Q4 — does not yet
 count (awaiting Red)". Scores appear as soon as they exist; totals move
-only on valid races. A "hold publication until the logical race
-completes" toggle can exist for conservative committees, off by default.
+only on valid races.
 
 Assignment lists are the other publishable: per-fleet rosters (name, sail,
-bow/colour), print-first layout for the notice board, published under the
-series' `/p/` slug alongside results. Committed-but-unpublished
+bow/colour) in a print-first layout for the notice board, published to a
+single rolling **Fleet assignments** page under the series' `/p/` slug —
+each publish puts the newest round at the top, with earlier rounds
+preserved below it, so competitors bookmark one URL for the whole event.
+Committed-but-unpublished
 assignments are visible to workspace members only — publication to
 competitors is the explicit step the SIs time-box, and CORK deliberately
 keeps some print-outs assignment-free.
@@ -267,7 +276,7 @@ keeps some print-outs assignment-free.
 ### The cut line
 
 One flourish with outsized value: once enough qualifying races count, the
-qualifying standings (in-app, and optionally the published page) draw the
+qualifying standings — in-app and on the published page — draw the
 **provisional final-series cut lines** — a horizontal rule at each future
 Gold/Silver/Bronze boundary, labelled "provisional split if qualifying
 ended now". Every sailor asks exactly this question all week; Sailwave
@@ -334,12 +343,13 @@ same number of final races").
 
 ### Promotion
 
-The split card keeps a `[ Promote… ]` action for the redress case: pick a
-boat, see the effect ("IRL 220999 Silver → Gold; Gold becomes 48, Silver
-46 — no one is demoted"), commit with a note. It's an attributed override
-on the split round — the audit trail shows the original computed split and
-the promotion separately. Demotion isn't offered; the rules don't allow
-it.
+Promotion is redress applied to an assignment, so the affordance lives
+with the assignment and nowhere else: the split card carries a
+`[ Promote… ]` action — pick a boat, see the effect ("IRL 220999 Silver →
+Gold; Gold becomes 48, Silver 46 — no one is demoted"), commit with a
+note. It's an attributed override on the split round — the audit trail
+shows the original computed split and the promotion separately. Demotion
+isn't offered; the rules don't allow it.
 
 ---
 
@@ -398,14 +408,14 @@ never modal.
 
 ---
 
-## Open questions
+## Small screens
 
-| # | Question | Impact |
-|---|----------|--------|
-| 1 | Expandable stack vs tabs for phases — stack recommended here (chronology, transition buttons between phases, cross-phase glancing); revisit if the page gets heavy on small screens | Low — presentational |
-| 2 | Is the hold-until-valid publication toggle worth having at all, and if so where does it live (series settings vs publish dialog)? | Medium — affects published-page renderer |
-| 3 | Where the cut line shows: in-app standings only, or also on published pages? (Sailors would love it; committees may consider it noise) | Low |
-| 4 | Assignment-list publication shape: standalone `/p/` page per round vs a rolling "current assignments" page that each round replaces | Medium — public URL structure |
-| 5 | Does `[ Promote… ]` also live on the standings row context menu (scorer instinct: "fix it where I see it") in addition to the split card? | Low |
-| 6 | Day-strip source of truth: derived from race dates only, or does the scorer sketch the planned schedule at setup (giving the strip future days before races exist)? | Medium — affects setup scope |
-| 7 | Small screens: the desk always has a laptop, but coaches will open the view read-only on phones — is there a lightweight read-only rendering? | Low — later |
+The desk runs on a laptop; the view is designed for it. But tweaks happen
+away from the desk — a late scoring code, a wrong-fleet exception, a
+republish after a jury decision — sometimes by the lead scorer with
+nothing but a phone. So the view degrades to a phone deliberately rather
+than accidentally: the phase stack and day strip collapse naturally,
+every action stays reachable, and the ceremony previews compress to
+their summary lines ("38 of 141 boats change fleet") with the full table
+a tap away. No separate read-only mode — the pinch-tweak scorer needs
+the same buttons, just smaller.
