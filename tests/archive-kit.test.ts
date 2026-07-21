@@ -463,6 +463,47 @@ describe('combined pages (#321)', () => {
     expect(archiveSeriesDocSchema.safeParse(built).success).toBe(true);
   });
 
+  test('groups every standings table first, then all race tables (Sailwave layout)', async () => {
+    const { renderAsPublishedCombinedHtml } = await import('@/lib/archive-kit/render');
+    const section = (helm: string, raceLabel: string) => ({
+      name: `${helm} Fleet`,
+      results: {
+        leadColumns: [{ key: 'helmname', label: 'Helm' }],
+        raceHeaders: [{ label: 'R1' }],
+        summaryColumns: [{ key: 'nett', label: 'Nett' }],
+        rows: [
+          {
+            competitorId: '00000000-0000-4000-8000-000000000001',
+            rank: 1,
+            rankLabel: '1',
+            leadCells: [helm],
+            raceCells: [{ text: '1' }],
+            summaryCells: ['1'],
+          },
+        ],
+        raceTables: [
+          {
+            label: raceLabel,
+            columns: [{ key: 'rank', label: 'Place' }],
+            rows: [{ cells: ['1'] }],
+          },
+        ],
+      },
+    });
+    const html = renderAsPublishedCombinedHtml({ seriesName: 'X' }, [
+      section('HPH', 'R1 - HPH Fleet'),
+      section('Scratch', 'R1 - Scratch Fleet'),
+    ]);
+    // Both standings tables precede the first race table.
+    expect(html.lastIndexOf('class="summarytable"')).toBeLessThan(
+      html.indexOf('class="racetable"'),
+    );
+    // Race tables keep their own fleet-named titles, in section order.
+    expect(html.indexOf('R1 - HPH Fleet')).toBeLessThan(
+      html.indexOf('R1 - Scratch Fleet'),
+    );
+  });
+
   test('renders each member fleet as a titled section of one document', async () => {
     const { renderAsPublishedCombinedHtml } = await import('@/lib/archive-kit/render');
     const page = parseSailwaveHtml(SAILWAVE_HTML);

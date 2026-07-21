@@ -258,15 +258,24 @@ export function renderAsPublishedCombinedHtml(
   chrome: AsPublishedPageChrome,
   sections: AsPublishedSection[],
 ): string {
-  const content = sections
+  // Match the Sailwave combined-page layout: every section's standings table
+  // first, each under its heading, then all the per-race detail tables. The
+  // race titles already name their fleet, so the race block needs no headings.
+  const standings = sections
     .map(
       (section) =>
-        `<h3 class="summarytitle">${esc(section.name)}</h3>\n${renderFleetContent(
+        `<h3 class="summarytitle">${esc(section.name)}</h3>\n${renderAsPublishedTable(
           section.results,
-          chrome.flagSvgByCode,
+          { flagSvgByCode: chrome.flagSvgByCode },
         )}`,
     )
     .join('\n');
+  const races = sections
+    .flatMap((section) =>
+      (section.results.raceTables ?? []).map(renderAsPublishedRaceTable),
+    )
+    .join('\n');
+  const content = races ? `${standings}\n${races}` : standings;
   const codes = new Set<string>();
   for (const section of sections) {
     for (const code of collectNationalityCodes(section.results)) codes.add(code);
