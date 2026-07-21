@@ -21,12 +21,22 @@ import type {
 import type { AsPublishedRaceTable } from './types';
 
 /** One fleet of the series being built: a parsed summary section plus its
- *  pinned public sub-path, and optionally the race sections that follow it. */
+ *  pinned public sub-path, and optionally the race sections that follow it.
+ *  `subPath` is omitted when the fleet publishes only as a section of a
+ *  combined page (see `combinedPages`). */
 export interface SailwaveFleetInput {
   name: string;
-  subPath: string;
+  subPath?: string;
   summary: SailwaveSummarySection;
   races?: SailwaveRaceSection[];
+}
+
+/** A combined page grouping several of the series' fleets (by name) as
+ *  sections of one published page (#321). */
+export interface SailwaveCombinedPageInput {
+  subPath: string;
+  name: string;
+  fleetNames: string[];
 }
 
 export interface SailwaveDocInput {
@@ -46,6 +56,8 @@ export interface SailwaveDocInput {
   category?: string;
   publishedSlug: string;
   fleets: SailwaveFleetInput[];
+  /** Combined pages; the named fleets publish only as their sections. */
+  combinedPages?: SailwaveCombinedPageInput[];
 }
 
 /** Sailwave colgroup classes → competitor fields. Everything else stays a
@@ -209,7 +221,7 @@ export function buildSailwaveArchiveDoc(
     return {
       id: fleetId,
       name: fleet.name,
-      subPath: fleet.subPath,
+      ...(fleet.subPath ? { subPath: fleet.subPath } : {}),
       results: {
         ...(summary.caption ? { caption: summary.caption } : {}),
         leadColumns: summary.leadColumns,
@@ -238,6 +250,17 @@ export function buildSailwaveArchiveDoc(
       publishedSlug: input.publishedSlug,
     },
     fleets,
+    ...(input.combinedPages && input.combinedPages.length > 0
+      ? {
+          combinedPages: input.combinedPages.map((page) => ({
+            subPath: page.subPath,
+            name: page.name,
+            fleetIds: page.fleetNames.map((name) =>
+              fleetIdFor(input.seriesId, name),
+            ),
+          })),
+        }
+      : {}),
     competitors,
   };
   // Validate on the way out: a generator bug should fail generation, not the

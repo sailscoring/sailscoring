@@ -426,6 +426,43 @@ describe('combined pages (#321)', () => {
     expect(archiveSeriesDocSchema.safeParse(bad).success).toBe(false);
   });
 
+  test('doc builder resolves member fleet ids and omits their subPaths', async () => {
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const { fleetIdFor } = await import('@/lib/archive-kit/ids');
+    const seriesId = '44444444-5555-4666-8777-888888888888';
+    const page = parseSailwaveHtml(SAILWAVE_HTML);
+    const built = buildSailwaveArchiveDoc({
+      seriesId,
+      name: 'Combined Builder Test',
+      publishedSlug: 'combined-builder',
+      fleets: [
+        { name: 'Senior Division', summary: page.summaries[0] },
+        { name: 'Junior Division', summary: page.summaries[1] },
+      ],
+      combinedPages: [
+        {
+          subPath: 'optimists',
+          name: 'Optimists',
+          fleetNames: ['Senior Division', 'Junior Division'],
+        },
+      ],
+    });
+    // Members carry no standalone subPath; the combined page owns the URL.
+    expect(built.fleets.every((f) => f.subPath === undefined)).toBe(true);
+    expect(built.combinedPages).toEqual([
+      {
+        subPath: 'optimists',
+        name: 'Optimists',
+        fleetIds: [
+          fleetIdFor(seriesId, 'Senior Division'),
+          fleetIdFor(seriesId, 'Junior Division'),
+        ],
+      },
+    ]);
+    // And the whole document satisfies the publication invariant.
+    expect(archiveSeriesDocSchema.safeParse(built).success).toBe(true);
+  });
+
   test('renders each member fleet as a titled section of one document', async () => {
     const { renderAsPublishedCombinedHtml } = await import('@/lib/archive-kit/render');
     const page = parseSailwaveHtml(SAILWAVE_HTML);

@@ -25,6 +25,16 @@ import { parseSail100Html } from '@/lib/archive-kit/sail100-html';
 import { buildSailwaveArchiveDoc } from '@/lib/archive-kit/sailwave-doc';
 import { parseSailwaveHtml } from '@/lib/archive-kit/sailwave-html';
 
+/** One section of a combined page: a summary of the file, matched by its
+ *  heading, published as its own member fleet. */
+const sectionSchema = z.object({
+  /** Which summary section of the file (matched against the section heading). */
+  sectionTitle: z.string().min(1),
+  /** Carry this section's per-race detail tables (races whose title names
+   *  this section). */
+  includeRaces: z.boolean().optional(),
+});
+
 const fleetSchema = z.object({
   name: z.string().min(1),
   subPath: z.string().min(1),
@@ -35,6 +45,11 @@ const fleetSchema = z.object({
   sectionTitle: z.string().optional(),
   /** Sailwave only: carry the file's per-race detail tables too. */
   includeRaces: z.boolean().optional(),
+  /** Sailwave only: when the file publishes several summary sections on one
+   *  page (e.g. a class scored HPH and Scratch), list them here to publish a
+   *  single combined page (ADR-010, #321) whose sections are these summaries,
+   *  each a member fleet. Takes precedence over `sectionTitle`/`includeRaces`. */
+  sections: z.array(sectionSchema).min(1).optional(),
 });
 
 const seriesSchema = z.object({
@@ -94,7 +109,7 @@ function buildSeries(
     });
   }
   let sawSail100 = false;
-  const fleets = entry.fleets.map((fleet) => {
+  const parse = (fleet: z.infer<typeof fleetSchema>) => {
     const html = readFileSync(join(baseDir, fleet.file), 'utf8');
     let page = parseSailwaveHtml(html);
     if (page.summaries.length === 0) {
@@ -106,26 +121,104 @@ function buildSeries(
         page = { ...page, summaries: sail100.summaries };
       }
     }
-    const summary = fleet.sectionTitle
-      ? page.summaries.find((s) => s.title === fleet.sectionTitle)
+    return page;
+  };
+  const summaryOf = (page: ReturnType<typeof parse>, title: string | undefined, file: string) => {
+    const summary = title
+      ? page.summaries.find((s) => s.title === title)
       : page.summaries[0];
     if (!summary) {
       throw new Error(
-        `${entry.key}: no summary section${fleet.sectionTitle ? ` titled "${fleet.sectionTitle}"` : ''} in ${fleet.file}`,
+        `${entry.key}: no summary section${title ? ` titled "${title}"` : ''} in ${file}`,
       );
     }
-    return {
+    return summary;
+  };
+
+  const fleets: Array<{
+    name: string;
+    subPath?: string;
+    summary: ReturnType<typeof parse>['summaries'][number];
+    races?: ReturnType<typeof parse>['races'];
+  }> = [];
+  const combinedPages: Array<{ subPath: string; name: string; fleetNames: string[] }> = [];
+
+  // Fleet names must be unique within a series (they mint the fleet ids and
+  // key the competitor rows). Standalone class names already are; but two
+  // combined pages can legitimately reuse a section heading — Lambay's
+  // Saturday and Sunday class pages both publish a "Class 0 IRC Fleet". Reserve
+  // the standalone names first, then qualify any clashing section with its page
+  // name so member names stay unique and stable.
+  const usedNames = new Set(
+    entry.fleets.filter((f) => !f.sections).map((f) => f.name),
+  );
+  const uniqueName = (base: string, pageName: string): string => {
+    if (!usedNames.has(base)) {
+      usedNames.add(base);
+      return base;
+    }
+    let name = `${base} (${pageName})`;
+    for (let n = 2; usedNames.has(name); n++) name = `${base} (${pageName} ${n})`;
+    usedNames.add(name);
+    return name;
+  };
+
+  for (const fleet of entry.fleets) {
+    const page = parse(fleet);
+    if (fleet.sections) {
+      // Combined page: each listed section becomes a member fleet named by its
+      // source heading; races are partitioned to the section whose title they
+      // name (longest match wins, so "Class 0" never steals "Class 0 IRC").
+      const titles = fleet.sections.map((s) => s.sectionTitle);
+      const memberNames: string[] = [];
+      for (const section of fleet.sections) {
+        const races = section.includeRaces
+          ? page.races.filter(
+              (race) => bestSectionFor(race.title, titles) === section.sectionTitle,
+            )
+          : undefined;
+        const memberName = uniqueName(section.sectionTitle, fleet.name);
+        memberNames.push(memberName);
+        fleets.push({
+          name: memberName,
+          summary: summaryOf(page, section.sectionTitle, fleet.file),
+          ...(races ? { races } : {}),
+        });
+      }
+      combinedPages.push({
+        subPath: fleet.subPath,
+        name: fleet.name,
+        fleetNames: memberNames,
+      });
+      continue;
+    }
+    fleets.push({
       name: fleet.name,
       subPath: fleet.subPath,
-      summary,
+      summary: summaryOf(page, fleet.sectionTitle, fleet.file),
       ...(fleet.includeRaces ? { races: page.races } : {}),
-    };
-  });
+    });
+  }
+
   return buildSailwaveArchiveDoc({
     ...meta,
     ...(sawSail100 ? { source: 'sail100' as const } : {}),
     fleets,
+    ...(combinedPages.length > 0 ? { combinedPages } : {}),
   });
+}
+
+/** The section whose title a race names, preferring the longest match so a
+ *  shorter title that is a prefix of another never claims its races. Returns
+ *  null when the race names no listed section. */
+function bestSectionFor(raceTitle: string, titles: string[]): string | null {
+  let best: string | null = null;
+  for (const title of titles) {
+    if (raceTitle.includes(title) && (best === null || title.length > best.length)) {
+      best = title;
+    }
+  }
+  return best;
 }
 
 function run(argv: string[]): number {
