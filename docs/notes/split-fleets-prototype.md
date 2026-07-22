@@ -37,11 +37,11 @@ Interactive walkthrough:
    that fleet's roster (enter digits-only sail numbers, e.g. `210001`).
 6. Enter the finish sheets. By hand, or — with the `csv-finish-import`
    feature also enabled — import the pre-built sheets in
-   [`split-fleets-demo-sheets/`](split-fleets-demo-sheets/) (one per
-   Round-1 race × fleet, matching the 48-entry CSV's sail-number-seeded
-   rosters; row order = crossing order, times included, a sprinkling of
-   OCS/RET/DNF/BFD, and one boat left off Q2 · Yellow to show implicit
-   DNC). Q1 flips to **counts** once both fleets are in, Q2 shows
+   [`split-fleets-demo-sheets/`](split-fleets-demo-sheets/) (Q1–Q2 match
+   the 48-entry CSV's sail-number-seeded Round 1; Q3–Q4 match the Round 2
+   reassignment as actually committed in the demo DB; row order = crossing
+   order, times included, a sprinkling of OCS/RET/DNF/BFD/UFD/DNS, and one
+   boat left off Q2 · Yellow to show implicit DNC). Q1 flips to **counts** once both fleets are in, Q2 shows
    **awaiting**; the standings table below shows fleet-tinted cells,
    greyed non-counting columns, and the provisional Gold/Silver **cut
    line**.
@@ -72,6 +72,14 @@ Interactive walkthrough:
   columns, and the largest-fleet code base.
 
 ## Findings for the real implementation
+
+- **Round fleets need round-scoped names** (review feedback, 2026-07-22):
+  after Round 2, Settings → Fleets shows two indistinguishable "Yellow"
+  rows. Bare colour names collide the moment a second round exists — the
+  fleet list wants something like "Round 1 · Yellow" while race chips and
+  standings cells keep the bare colour. This is design open question
+  "Fleet naming for rounds" answered by contact: disambiguation is
+  required, not optional, anywhere the raw fleet list shows.
 
 - **Sail-number matching is prefix-from-start** (`resolveSailEntry`), so
   `210960` does not match a stored `DEN 210960`. Championship entry lists
