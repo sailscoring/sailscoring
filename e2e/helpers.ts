@@ -157,7 +157,22 @@ export async function createFleets(page: Page, names: string[]): Promise<void> {
   for (const name of names) {
     await page.getByRole('button', { name: '+ Add fleet' }).click();
     await page.getByPlaceholder('Fleet name').fill(name);
-    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    // "Add" fires a fire-and-forget fleet PUT. Wait for it to persist before the
+    // next fleet / Done: callers routinely navigate straight to Competitors and
+    // add a competitor, which auto-assigns to the sole fleet by reading the
+    // server's fleet list. If that read races an unpersisted fleet it comes back
+    // empty and the competitor is saved with no fleet — a silent corruption that
+    // only surfaces much later (e.g. a rating field that never renders).
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          /\/api\/v1\/series\/[^/]+\/fleets\/[^/]+$/.test(r.url()) &&
+          r.request().method() === 'PUT' &&
+          r.ok() &&
+          (r.request().postData() ?? '').includes(`"name":"${name}"`),
+      ),
+      page.getByRole('button', { name: 'Add', exact: true }).click(),
+    ]);
   }
   await page.getByRole('button', { name: 'Done' }).first().click();
 }

@@ -39,35 +39,53 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
   // Open Fleets card for editing
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
   await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
-  await page.getByRole('option', { name: 'PY' }).click();
+  // Changing the scoring system is a fire-and-forget fleet PUT. Wait for it to
+  // persist before moving on: without this, navigating to Competitors and
+  // reading the fleets query can race the write, and the edit form (whose PY
+  // number field only appears once it sees the fleet's PY scoring system) can
+  // render against the stale (scratch) fleet and never show the field.
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        /\/api\/v1\/series\/[^/]+\/fleets\//.test(r.url()) &&
+        r.request().method() === 'PUT' &&
+        r.ok() &&
+        (r.request().postData() ?? '').includes('"scoringSystem":"py"'),
+    ),
+    page.getByRole('option', { name: 'PY' }).click(),
+  ]);
   await page.getByRole('button', { name: 'Done' }).click();
 
   // ── 6. Edit competitors to set PY numbers ────────────────────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();
 
-  // Gate on the fleet-scoring change having propagated before opening the edit
-  // dialog. The Rating column and the edit form's fleet data both come from the
-  // same fleets query; navigating here can briefly serve the stale (scratch)
-  // cache, in which case the form renders without the PY number field. The
-  // Rating column appearing is the exact signal that the refetch has landed.
+  // The Rating column appearing is the exact signal the PY scoring change is
+  // live in the page's fleet data.
   await expect(header.getByRole('columnheader', { name: 'Rating' })).toBeVisible();
 
   const pyNumbers: Record<string, string> = { PY1: '1034', PY2: '1087' };
   const dialog = page.getByRole('dialog', { name: 'Edit competitor' });
   for (const sail of ['PY1', 'PY2']) {
+    // Start each edit from a fully-closed dialog. After saving the first
+    // competitor the dialog animates shut; without this wait the next iteration
+    // could see the still-closing dialog as "open", skip the row click, and
+    // then wait out the budget on a PY field that's about to unmount.
+    await expect(dialog).not.toBeVisible();
     const row = page.getByRole('row').filter({ hasText: sail });
-    // The row can re-render (fleets refetch settling) between hit-test and
-    // dispatch, swallowing the click — the edit dialog then never opens and
-    // the fill below waits out the whole test budget. Re-click until the PY
-    // field is actually there — but only while the dialog is still closed:
-    // once it's open, clicking the row again just hangs on actionability
-    // (the overlay intercepts the pointer) and burns the rest of the budget.
+    const pyField = dialog.getByLabel('PY number', { exact: true });
+    // The row can re-render (queries refetch settling after the previous save)
+    // between hit-test and dispatch, swallowing the click — the edit dialog
+    // then never opens and the fill below waits out the whole test budget.
+    // Re-click until the PY field is actually there, but only while the dialog
+    // is still closed: once it's open, clicking the row again just hangs on
+    // actionability (the overlay intercepts the pointer).
     await expect(async () => {
       if (!(await dialog.isVisible())) await row.click();
-      await expect(dialog.getByLabel('PY number', { exact: true })).toBeVisible({ timeout: 2000 });
+      await expect(pyField).toBeVisible({ timeout: 2000 });
     }).toPass({ timeout: 20_000 });
-    await dialog.getByLabel('PY number', { exact: true }).fill(pyNumbers[sail]);
+    await pyField.fill(pyNumbers[sail]);
     await dialog.getByRole('button', { name: 'Save' }).click();
+    await expect(dialog).not.toBeVisible();
     await expect(page.getByRole('cell', { name: sail })).toBeVisible();
   }
 

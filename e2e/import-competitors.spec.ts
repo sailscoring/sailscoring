@@ -113,8 +113,24 @@ test('import CSV with Crew 1/Crew 2 columns and a semicolon-separated cell', asy
   await createSeriesQuick(page, { name: 'Keelboat Crew Import' });
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
-  await page.getByLabel('Crew', { exact: true }).check();
-  await page.getByRole('checkbox', { name: 'Allow multiple Crew' }).check();
+  // Each toggle fires a fire-and-forget series PUT. Wait for both to persist
+  // before importing: the mapping dialog snapshots the series' multiPersonFields
+  // at file-parse time (via a one-shot GET), so if the "Allow multiple Crew"
+  // write hasn't landed the split preview ("Carol Doyle + Dan Egan") never
+  // renders and the assertion below times out.
+  const seriesWrite = (bodyIncludes: string) => (r: import('@playwright/test').Response) =>
+    /\/api\/v1\/series\//.test(r.url()) &&
+    r.request().method() !== 'GET' &&
+    r.ok() &&
+    (r.request().postData() ?? '').includes(bodyIncludes);
+  await Promise.all([
+    page.waitForResponse(seriesWrite('"enabledCompetitorFields"')),
+    page.getByLabel('Crew', { exact: true }).check(),
+  ]);
+  await Promise.all([
+    page.waitForResponse(seriesWrite('"multiPersonFields":["crewName"]')),
+    page.getByRole('checkbox', { name: 'Allow multiple Crew' }).check(),
+  ]);
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('link', { name: 'Competitors' }).click();
 
