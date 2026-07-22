@@ -73,6 +73,15 @@ Interactive walkthrough:
 
 ## Findings for the real implementation
 
+- **Hide the Standings tab on a split-fleet series** (review feedback,
+  2026-07-22): the regular per-fleet standings are noise in this mode —
+  every round fleet gets its own meaningless table, and the standings
+  that matter are the combined/tiered ones on the Split Fleets page. The
+  tab should go (like the as-published regime trims the tab set), but its
+  affordances must not: publish / preview / download need a home on the
+  Split Fleets standings section, which also fits the flow design's
+  publishing cadence (publish after each completed logical race, from
+  where the scorer is looking).
 - **The medal ceremony needs the full dialog treatment** (review feedback,
   2026-07-22): the prototype's `window.confirm()` reads as a glitch next to
   the other ceremonies' preview dialogs. The real version is a
