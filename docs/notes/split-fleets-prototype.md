@@ -73,6 +73,16 @@ Interactive walkthrough:
 
 ## Findings for the real implementation
 
+- **Split-fleet config belongs on the Settings tab too** (review feedback,
+  2026-07-22): it's a series-format fact like scoring mode, and Settings
+  is where a scorer expects to *see* it — fleet count, colours, final
+  fleet names, discard caps, medal config — as a standard settings card
+  with a collapsed summary, read-only once racing locks it (the
+  scoring-mode card is the exact pattern). The prototype's
+  setup-only-on-the-workflow-tab shape hides the configuration after
+  enablement. The Split Fleets tab keeps the *workflow*; Settings shows
+  (and pre-lock, edits) the *configuration* — feeding design open
+  question 6 (which fields stay editable mid-event).
 - **Hide the Standings tab on a split-fleet series** (review feedback,
   2026-07-22): the regular per-fleet standings are noise in this mode —
   every round fleet gets its own meaningless table, and the standings
