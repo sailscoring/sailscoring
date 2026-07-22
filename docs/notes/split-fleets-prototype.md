@@ -23,8 +23,15 @@ Interactive walkthrough:
    e2e `enableFeatures` helper writes the org metadata directly if the
    CLI grumbles about a personal workspace).
 3. Create a series (quick form). Open the **Split Fleets** tab (chord `g q`).
-4. **Add 24 demo competitors**, pick 2 or 3 qualifying fleets, **Enable
-   split fleets** (ILCA preset).
+4. Add competitors: either **Add 24 demo competitors** (one click), or —
+   the fuller demo — import
+   [`split-fleets-demo-competitors.csv`](split-fleets-demo-competitors.csv)
+   (48 entries, 16 nations, digits-only sails) via the Competitors tab's
+   CSV import; the headers auto-map, and the nationality column makes the
+   **Nationality, then sail number** seeding order meaningful. Then pick
+   2 or 3 qualifying fleets and **Enable split fleets** (ILCA preset).
+   With 48 entries and 3 fleets, expect 16/16/16 and a 16/16/16
+   Gold/Silver/Bronze split.
 5. **Create Round 1** — seeding dialog, preview table, commit. Q1–Q2 appear
    as slot rows; each chip opens the standard finish-entry page, scoped to
    that fleet's roster (enter digits-only sail numbers, e.g. `210001`).
