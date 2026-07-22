@@ -1,5 +1,5 @@
 // Split-fleet (qualifying/final series) prototype engine.
-// See docs/design/qualifying-final-series.md and
+// See docs/design/split-fleets.md and
 // docs/design/ux/flows/split-fleets.md. PROTOTYPE: continuous-points carry
 // only; no RDG/penalty handling; simplified tie-breaking (A8.1 without the
 // A8.2 last-race step); no equalisation modes (a qualifying race simply

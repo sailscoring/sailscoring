@@ -235,7 +235,7 @@ export const FEATURES = {
   },
   'split-fleets': {
     // PROTOTYPE: the Split Fleets guided workflow for qualifying/final
-    // championship series (docs/design/qualifying-final-series.md) — the
+    // championship series (docs/design/split-fleets.md) — the
     // Split Fleets series tab, its assignment ceremonies, and the
     // split-fleets API surface. Operator-managed (not self-service): expert
     // machinery for a handful of championship workspaces; mis-configuration

@@ -1,7 +1,7 @@
 # Split Fleets prototype — demo notes
 
 A quick-and-dirty implementation of the Split Fleets design
-(`docs/design/qualifying-final-series.md`,
+(`docs/design/split-fleets.md`,
 `docs/design/ux/flows/split-fleets.md`) built for design review. **Throwaway:
 review it, extract the lessons, then discard the implementation.** Nothing
 here is production-quality; see Shortcuts below.
@@ -25,7 +25,7 @@ Interactive walkthrough:
 3. Create a series (quick form). Open the **Split Fleets** tab (chord `g q`).
 4. Add competitors: either **Add 24 demo competitors** (one click), or —
    the fuller demo — import
-   [`split-fleets-demo-competitors.csv`](split-fleets-demo-competitors.csv)
+   [`demo-competitors.csv`](demo-competitors.csv)
    (48 entries, 16 nations, digits-only sails) via the Competitors tab's
    CSV import; the headers auto-map, and the nationality column makes the
    **Nationality, then sail number** seeding order meaningful. Then pick
@@ -37,7 +37,7 @@ Interactive walkthrough:
    that fleet's roster (enter digits-only sail numbers, e.g. `210001`).
 6. Enter the finish sheets. By hand, or — with the `csv-finish-import`
    feature also enabled — import the pre-built sheets in
-   [`split-fleets-demo-sheets/`](split-fleets-demo-sheets/) (Q1–Q2 match
+   [`demo-sheets/`](demo-sheets/) (Q1–Q2 match
    the 48-entry CSV's sail-number-seeded Round 1; Q3–Q4 match the Round 2
    reassignment as actually committed in the demo DB; row order = crossing
    order, times included, a sprinkling of OCS/RET/DNF/BFD/UFD/DNS, and one
@@ -59,7 +59,7 @@ Interactive walkthrough:
 ## Screenshot walkthrough
 
 A full reviewed event run, screenshot by screenshot with commentary, is in
-[`split-fleets-walkthrough.md`](split-fleets-walkthrough.md) — it doubles as
+[`walkthrough.md`](walkthrough.md) — it doubles as
 the evidence trail for the findings below.
 
 ## What the prototype demonstrates

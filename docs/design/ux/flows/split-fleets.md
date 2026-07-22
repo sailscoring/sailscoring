@@ -2,7 +2,7 @@
 
 Detailed user flow and wireframes for the **Split Fleets** view — the guided
 workflow for running a qualifying/final series (split-fleet) event. Companion
-to [`docs/design/qualifying-final-series.md`](../../qualifying-final-series.md),
+to [`docs/design/split-fleets.md`](../../split-fleets.md),
 which holds the format primer, data model, and scoring rules; this document
 is about what the scorer sees and does.
 

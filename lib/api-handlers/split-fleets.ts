@@ -1,7 +1,7 @@
 import 'server-only';
 
 // Split-fleet (qualifying/final series) API handlers. PROTOTYPE — see
-// docs/design/qualifying-final-series.md. Deliberate shortcuts: raw drizzle
+// docs/design/split-fleets.md. Deliberate shortcuts: raw drizzle
 // access instead of dedicated repository classes, coarse validation, and
 // round deletion as the undo story.
 
