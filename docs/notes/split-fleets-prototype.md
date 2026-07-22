@@ -35,9 +35,16 @@ Interactive walkthrough:
 5. **Create Round 1** — seeding dialog, preview table, commit. Q1–Q2 appear
    as slot rows; each chip opens the standard finish-entry page, scoped to
    that fleet's roster (enter digits-only sail numbers, e.g. `210001`).
-6. Enter both fleets' Q1 sheets → Q1 flips to **counts**, Q2 shows
-   **awaiting**; the standings table below shows fleet-tinted cells, greyed
-   non-counting columns, and the provisional Gold/Silver **cut line**.
+6. Enter the finish sheets. By hand, or — with the `csv-finish-import`
+   feature also enabled — import the pre-built sheets in
+   [`split-fleets-demo-sheets/`](split-fleets-demo-sheets/) (one per
+   Round-1 race × fleet, matching the 48-entry CSV's sail-number-seeded
+   rosters; row order = crossing order, times included, a sprinkling of
+   OCS/RET/DNF/BFD, and one boat left off Q2 · Yellow to show implicit
+   DNC). Q1 flips to **counts** once both fleets are in, Q2 shows
+   **awaiting**; the standings table below shows fleet-tinted cells,
+   greyed non-counting columns, and the provisional Gold/Silver **cut
+   line**.
 7. **Assign Round 2** — the reassignment preview shows the basis ("from the
    ranking after Q1"), who moves, and freezes the snapshot on commit.
 8. **End qualifying → split fleets** — Gold/Silver(/Bronze) preview with
