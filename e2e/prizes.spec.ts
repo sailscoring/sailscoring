@@ -23,6 +23,10 @@ const competitors = [
 ];
 
 test('prizes: division podiums allocate live and publish as a prize sheet', async ({ page, signedInEmail }) => {
+  // Heavy sequential setup (6 competitors, a 6-boat finish, two prize dialogs,
+  // publish and re-navigation) runs close to the 30s budget and tips over it
+  // under 4-worker load. Triple the budget rather than let it flake.
+  test.slow();
   await enableFeatures(page, signedInEmail, ['prizes']);
 
   // ── 1. Series with a Division axis ────────────────────────────────────────

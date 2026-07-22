@@ -158,6 +158,10 @@ test('replace-members page: full detail, standalone fleet pages retracted', asyn
 });
 
 test('block series: each sub-series gets its own combined page', async ({ page, signedInEmail }) => {
+  // Heavy sequential setup (two fleets, competitors, two races, two sub-series
+  // with race entries, a combined page, publish and two page fetches) runs
+  // close to the 30s budget and tips over it under 4-worker load. Triple it.
+  test.slow();
   await enableFeatures(page, signedInEmail, ['combined-pages', 'sub-series']);
   await createSeriesQuick(page, { name: 'Block League 2026' });
   await createFleets(page, ['IRC', 'Cruiser']);
