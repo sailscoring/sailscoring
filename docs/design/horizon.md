@@ -844,7 +844,7 @@ whether start times round to sensible whole seconds/minutes for a startable sequ
 
 The split-fleet championship format — a large entry in rotating qualifying
 fleets, then Gold/Silver/Bronze final fleets — is designed in
-[`docs/design/qualifying-final-series.md`](qualifying-final-series.md) (primer,
+[`docs/design/split-fleets.md`](split-fleets.md) (primer,
 data model, UX, rollout). What stays on the horizon beyond that design's v1
 scope: authoring UX for the 29er net-plus-net and Topper rank-as-seed carry
 modes (modelled and fixture-tested, no UI); knockout medal-series brackets

@@ -781,7 +781,7 @@ export const races = pgTable(
 
 /**
  * Split-fleet assignment rounds (PROTOTYPE — see lib/split-fleets.ts and
- * docs/design/qualifying-final-series.md). One row per assignment event
+ * docs/design/split-fleets.md). One row per assignment event
  * (seeding, daily reassignment, the final split, medal selection); the
  * round's fleets are ordinary `fleets` rows referenced by id in SI/tier
  * order. Computed-then-frozen: the stored assignment is authoritative and
