@@ -73,6 +73,16 @@ Interactive walkthrough:
 
 ## Findings for the real implementation
 
+- **The event needs an ending** (review feedback, 2026-07-22): the phase
+  statuses pay off ("Complete" on qualifying, then final) and then leave
+  the scorer hanging — the Medal section reads "In progress" forever. The
+  medal phase needs its own completion state (all configured medal races
+  + the companion race completed), and the page wants a terminal
+  **event-complete** moment beyond it. That moment should carry the
+  results lifecycle: surface **Mark as final** (the `results-status`
+  checklist) from the Split Fleets page, so the workflow that guided the
+  whole event also closes it — publish, then finalise, from the same
+  place. Pairs with the rehomed publish affordances above.
 - **Split-fleet config belongs on the Settings tab too** (review feedback,
   2026-07-22): it's a series-format fact like scoring mode, and Settings
   is where a scorer expects to *see* it — fleet count, colours, final
