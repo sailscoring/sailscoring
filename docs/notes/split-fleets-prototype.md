@@ -73,6 +73,14 @@ Interactive walkthrough:
 
 ## Findings for the real implementation
 
+- **The medal ceremony needs the full dialog treatment** (review feedback,
+  2026-07-22): the prototype's `window.confirm()` reads as a glitch next to
+  the other ceremonies' preview dialogs. The real version is a
+  `CeremonyDialog` like the rest — basis snapshot, the selection table,
+  boundary-tie diagnostics at the cutoff, the companion-fleet remainder —
+  and the **medal fleet size must be scorer-chosen at selection time**
+  (default from the preset's `medal.size`, editable in the dialog): SIs
+  say "top ten" but juries extend cutoffs and formats vary.
 - **Round fleets need round-scoped names** (review feedback, 2026-07-22):
   after Round 2, Settings → Fleets shows two indistinguishable "Yellow"
   rows. Bare colour names collide the moment a second round exists — the
