@@ -56,6 +56,12 @@ Interactive walkthrough:
 10. The trash icon on the newest round deletes it with everything it
     created (fleets, races, finishes) — the prototype's undo.
 
+## Screenshot walkthrough
+
+A full reviewed event run, screenshot by screenshot with commentary, is in
+[`split-fleets-walkthrough.md`](split-fleets-walkthrough.md) — it doubles as
+the evidence trail for the findings below.
+
 ## What the prototype demonstrates
 
 - The **automation-layer claim holds**: every ceremony writes ordinary
