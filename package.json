@@ -8,8 +8,8 @@
     "sailscoring": "./cli/sailscoring.cjs"
   },
   "scripts": {
-    "dev": "./scripts/local-env.sh next dev",
-    "dev:local": "./scripts/local-env.sh --local-db next dev",
+    "dev": "./scripts/local-env.sh --app-origin next dev",
+    "dev:local": "./scripts/local-env.sh --app-origin --local-db next dev",
     "predev:local": "./scripts/db-up.sh",
     "prebuild": "pnpm canonical:sync",
     "build": "next build",

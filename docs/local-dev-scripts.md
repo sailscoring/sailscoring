@@ -160,6 +160,14 @@ server listen on 3001. The two checkouts can run dev servers and test
 suites concurrently without touching each other's data. Without the file,
 nothing changes — the primary checkout and CI use the historical defaults.
 
+Sign-in works on the non-default port because the dev scripts pass
+`--app-origin` to the wrapper, which re-derives `BETTER_AUTH_URL` and
+`NEXT_PUBLIC_APP_URL` to `http://localhost:3001` — overriding the
+`.env.local` values, which name the default origin and would otherwise
+make Better Auth reject the browser's requests as coming from an
+untrusted origin. (`start-test.sh` does the same re-derivation itself
+for the Playwright server.)
+
 ## Why this shape
 
 A few decisions are not obvious:

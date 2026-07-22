@@ -91,8 +91,10 @@ SS_PG_PORT=5433
 `scripts/local-env.sh` reads it and everything follows: `pnpm db:up`
 creates a separate container (`sailscoring-pg-5433`, own data volume),
 the `*:test` scripts and the e2e suite target it, and `pnpm dev` / the
-Playwright web server listen on 3001. Pick any free ports; the file is
-the mechanism, the numbers are yours. See "Working in a second git
+Playwright web server listen on 3001 — with `BETTER_AUTH_URL` and
+`NEXT_PUBLIC_APP_URL` re-derived to match, so sign-in works despite
+`.env.local` naming the default origin. Pick any free ports; the file
+is the mechanism, the numbers are yours. See "Working in a second git
 worktree" in `docs/local-dev-scripts.md` for how the resolution works.
 
 Note the branch itself must contain `scripts/local-env.sh` — a branch

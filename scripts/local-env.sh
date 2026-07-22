@@ -21,12 +21,18 @@
 #   SS_PG_PORT=5433
 #
 # Two modes:
-#   - Executed with a command (`./scripts/local-env.sh [--local-db]
-#     cmd args…`): exports PORT for Next.js and execs the command.
-#     `--local-db` additionally forces DATABASE_URL to the local
-#     container URL — deliberately *overriding* any inherited value, so
-#     a stray DATABASE_URL in the shell (e.g. pointed at Neon) can
-#     never leak into a `*:test` script.
+#   - Executed with a command (`./scripts/local-env.sh [flags] cmd
+#     args…`): exports PORT for Next.js and execs the command.
+#     `--local-db` forces DATABASE_URL to the local container URL —
+#     deliberately *overriding* any inherited value, so a stray
+#     DATABASE_URL in the shell (e.g. pointed at Neon) can never leak
+#     into a `*:test` script. `--app-origin` (the dev-server scripts)
+#     re-derives BETTER_AUTH_URL and NEXT_PUBLIC_APP_URL on a
+#     non-default port — .env.local's values name the default origin,
+#     and Better Auth rejects sign-ins whose Origin doesn't match.
+#     Only the dev scripts pass it: vitest must keep .env.test's URLs
+#     (tests build requests against them), and start-test.sh re-derives
+#     for itself after sourcing .env.test.
 #   - Sourced (db-up.sh, start-test.sh): only exports the SS_* and PG*
 #     values; the caller decides what to do with them. Shell options
 #     are left untouched in this mode.
@@ -64,10 +70,24 @@ export PGHOST=localhost PGPORT="$SS_PG_PORT" PGUSER=sailscoring \
   PGPASSWORD=sailscoring PGDATABASE=sailscoring
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
-  if [ "${1:-}" = "--local-db" ]; then
-    shift
-    export DATABASE_URL="$SS_PG_URL"
-  fi
+  while :; do
+    case "${1:-}" in
+      --local-db)
+        export DATABASE_URL="$SS_PG_URL"
+        shift
+        ;;
+      --app-origin)
+        if [ "$SS_APP_PORT" != "3000" ]; then
+          export BETTER_AUTH_URL="http://localhost:${SS_APP_PORT}"
+          export NEXT_PUBLIC_APP_URL="http://localhost:${SS_APP_PORT}"
+        fi
+        shift
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
   export PORT="$SS_APP_PORT"
   exec "$@"
 fi
