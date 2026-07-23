@@ -15,6 +15,7 @@ import {
   useSaveRace,
 } from '@/hooks/use-races';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
+import { pickableFleets } from '@/lib/split-fleets';
 import { useFinishesByRace, useFinishesBySeries } from '@/hooks/use-finishes';
 import { LastFinisherStrip } from '@/components/last-finisher-strip';
 import { useSaveRaceStarts } from '@/hooks/use-race-starts';
@@ -983,11 +984,11 @@ export default function RacesPage({
                 {selectedRaceIds.size} of {races?.length ?? 0} races selected.
               </p>
             </div>
-            {(fleets?.length ?? 0) > 1 && (
+            {pickableFleets(fleets ?? []).length > 1 && (
               <div className="space-y-1.5">
                 <Label>Fleets</Label>
                 <div className="space-y-1 rounded-md border p-2">
-                  {(fleets ?? []).map((fleet) => (
+                  {pickableFleets(fleets ?? []).map((fleet) => (
                     <label
                       key={fleet.id}
                       className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted"

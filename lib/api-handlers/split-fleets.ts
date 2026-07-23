@@ -150,6 +150,7 @@ export async function commitSplitRound(
       name: f.label,
       displayOrder: maxOrder + 1 + i,
       scoringSystem: 'scratch',
+      splitRoundId: roundId,
     }));
     await tx.insert(schema.fleets).values(fleetRows);
 

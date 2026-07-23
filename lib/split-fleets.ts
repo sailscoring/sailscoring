@@ -163,6 +163,14 @@ export type SeedOrder = 'seed-rank' | 'sail-number' | 'nationality-spread' | 'en
 /** Initial seeding order. Prototype sources: numeric-ish sail-number order,
  *  nationality-then-sail (spreads compatriots across fleets when fed through
  *  the rank pattern), or plain entry order. */
+/** Fleets not owned by a split round — what general-purpose fleet pickers
+ *  (competitor assignment, start sequences, publishing groups, prize
+ *  conditions) should offer. Round fleets' membership belongs to the Split
+ *  Fleets ceremonies. */
+export function pickableFleets<T extends { splitRoundId?: string }>(fleets: T[]): T[] {
+  return fleets.filter((f) => !f.splitRoundId);
+}
+
 export function seedOrder(competitors: Competitor[], order: SeedOrder): string[] {
   const bySail = (a: Competitor, b: Competitor) => {
     const na = parseInt(a.sailNumber.replace(/\D/g, ''), 10) || 0;

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SortableList, DragHandle } from '@/components/ui/sortable-list';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
+import { pickableFleets } from '@/lib/split-fleets';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useUpdateSeries } from '@/hooks/use-series';
 import {
@@ -28,7 +29,9 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
   const updateSeries = useUpdateSeries();
   const { data: fleetsData } = useFleetsBySeries(seriesId);
   const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
-  const fleets = fleetsData ?? [];
+  // Round-owned fleets (split-fleet ceremonies) never publish their own
+  // pages, so they can't be publishing-group members either.
+  const fleets = pickableFleets(fleetsData ?? []);
   const [expanded, setExpanded] = useState(false);
   // Name edits are committed on blur/Enter; keep the draft local so typing
   // doesn't round-trip per keystroke.

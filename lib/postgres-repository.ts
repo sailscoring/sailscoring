@@ -140,6 +140,7 @@ function fleetRowToType(row: FleetRow): Fleet {
     scoringSystem: row.scoringSystem as Fleet['scoringSystem'],
     ...(row.echoAlpha != null ? { echoAlpha: row.echoAlpha } : {}),
     ...(row.nhcProfile != null ? { nhcProfile: row.nhcProfile } : {}),
+    ...(row.splitRoundId != null ? { splitRoundId: row.splitRoundId } : {}),
     version: row.version,
   };
 }
@@ -730,11 +731,12 @@ function fleetToRow(f: Fleet, workspaceId: string) {
     scoringSystem: f.scoringSystem,
     echoAlpha: f.echoAlpha ?? null,
     nhcProfile: f.nhcProfile ?? null,
+    splitRoundId: f.splitRoundId ?? null,
   };
 }
 
 const fleetUpdateColumns = [
-  'name', 'displayOrder', 'scoringSystem', 'echoAlpha', 'nhcProfile',
+  'name', 'displayOrder', 'scoringSystem', 'echoAlpha', 'nhcProfile', 'splitRoundId',
 ] as const satisfies readonly (keyof ReturnType<typeof fleetToRow>)[];
 
 export class PostgresFleetRepository implements FleetRepository {
@@ -2518,6 +2520,22 @@ export function seriesFileReposFor(ctx: RepoCtx): SeriesFileRepos {
               createdAt: new Date(r.createdAt),
             })),
           );
+          // Re-stamp round ownership on the freshly-minted fleets: the file's
+          // fleet rows carry no splitRoundId (round ids are re-minted per
+          // import), so the marker is derived from each round's fleet list.
+          for (const r of data.rounds) {
+            if (r.fleetIds.length === 0) continue;
+            await db
+              .update(schema.fleets)
+              .set({ splitRoundId: r.id })
+              .where(
+                and(
+                  inArray(schema.fleets.id, r.fleetIds),
+                  eq(schema.fleets.seriesId, seriesId),
+                  eq(schema.fleets.workspaceId, ctx.workspaceId),
+                ),
+              );
+          }
         }
       },
     },

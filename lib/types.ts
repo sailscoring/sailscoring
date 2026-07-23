@@ -278,6 +278,11 @@ export interface Fleet {
   // (see docs/design/horizon.md); the inline shape is forward-compatible with
   // that migration.
   nhcProfile?: NhcProfile;
+  // The split round that created this fleet (round-scoped identity: a
+  // round-1 "Yellow" is a different fleet from a round-2 "Yellow").
+  // Round-owned fleets are filtered from general-purpose fleet pickers —
+  // their membership is managed by the Split Fleets ceremonies.
+  splitRoundId?: string;
   version?: number;   // server-side concurrency token (see Series.version)
 }
 

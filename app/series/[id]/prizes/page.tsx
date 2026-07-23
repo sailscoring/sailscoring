@@ -20,6 +20,7 @@ import {
   PRIZE_RECIPIENT_COUNT_MAX,
   PRIZE_CLAUSES_MAX,
 } from '@/lib/prizes';
+import { pickableFleets } from '@/lib/split-fleets';
 import type { Prize, PrizeClause } from '@/lib/types';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { useSeriesReadOnly } from '@/components/series-read-only';
@@ -264,7 +265,7 @@ export default function PrizesPage({
       {editing !== null && (
         <PrizeEditorDialog
           prize={editing === 'new' ? null : editing}
-          fleets={fleets}
+          fleets={pickableFleets(fleets)}
           axes={axes}
           competitors={competitors}
           onClose={() => setEditing(null)}

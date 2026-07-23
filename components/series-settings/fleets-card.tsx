@@ -32,6 +32,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { SortableList, DragHandle } from '@/components/ui/sortable-list';
 import { StartSequenceEditor } from './start-sequence-editor';
+import { useSplitFleetState } from '@/hooks/use-split-fleets';
+import { roundsForStage } from '@/lib/split-fleets';
 import { ECHO_DEFAULT_ALPHA } from '@/lib/scoring';
 import { NhcProfileDialog } from './nhc-profile-dialog';
 
@@ -66,6 +68,28 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
   const [editingNhcProfileFor, setEditingNhcProfileFor] = useState<Fleet | null>(null);
 
   const isOnlyDefault = fleets.length === 1 && fleets[0].name === 'Default';
+
+  // Round-scoped naming: a split-fleet series accumulates a "Yellow" per
+  // qualifying round, indistinguishable in this raw list without the round.
+  const hasRoundFleets = fleets.some((f) => f.splitRoundId);
+  const { data: sfState } = useSplitFleetState(seriesId, {
+    enabled: hasRoundFleets && has('split-fleets'),
+  });
+  const roundLabelById = new Map<string, string>();
+  if (sfState?.rounds) {
+    const qualifying = roundsForStage(sfState.rounds, 'qualifying');
+    for (const round of sfState.rounds) {
+      const label =
+        round.stage === 'qualifying'
+          ? `Round ${qualifying.indexOf(round) + 1}`
+          : round.stage === 'final'
+            ? 'Final'
+            : 'Medal';
+      roundLabelById.set(round.id, label);
+    }
+  }
+  const roundLabelFor = (fleet: Fleet): string | null =>
+    fleet.splitRoundId ? (roundLabelById.get(fleet.splitRoundId) ?? 'Round') : null;
 
   async function reorderFleets(orderedIds: string[]) {
     const byId = new Map(fleets.map((f) => [f.id, f]));
@@ -282,7 +306,12 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                   }}
                 />
               ) : (
-                <span className="flex-1 text-sm">{fleet.name}</span>
+                <span className="flex-1 text-sm">
+                  {roundLabelFor(fleet) && (
+                    <span className="text-muted-foreground">{roundLabelFor(fleet)} · </span>
+                  )}
+                  {fleet.name}
+                </span>
               )}
               {series.scoringMode === 'handicap' && (
                 <>

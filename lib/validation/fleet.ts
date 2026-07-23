@@ -37,6 +37,9 @@ export const fleetSchema = z.object({
   scoringSystem: scoringSystemSchema,
   echoAlpha: z.number().optional(),
   nhcProfile: nhcProfileSchema.optional(),
+  // Server-set at round commit; accepted here so a client save round-trips
+  // it rather than stripping the marker off a renamed round fleet.
+  splitRoundId: uuidSchema.optional(),
   version: versionSchema,
 });
 

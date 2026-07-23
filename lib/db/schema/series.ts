@@ -369,6 +369,7 @@ export const fleets = pgTable(
     scoringSystem: text('scoring_system').notNull(),
     echoAlpha: real('echo_alpha'),
     nhcProfile: jsonb('nhc_profile').$type<NhcProfile>(),
+    splitRoundId: uuid('split_round_id'),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

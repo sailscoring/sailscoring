@@ -32,7 +32,11 @@ export function StartSequenceEditor({ value, fleets, onSave }: StartSequenceEdit
   }
 
   const assignedFleetIds = new Set(groups.flatMap((g) => g.fleetIds));
-  const unassignedFleets = fleets.filter((f) => !assignedFleetIds.has(f.id));
+  // Round-owned fleets (split-fleet ceremonies) get per-race starts when the
+  // round is committed; the series default sequence never includes them.
+  const unassignedFleets = fleets.filter(
+    (f) => !assignedFleetIds.has(f.id) && !f.splitRoundId,
+  );
 
   function addGroup() {
     const intervalMinutes = groups.length === 0 ? 0 : 3;

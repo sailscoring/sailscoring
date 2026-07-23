@@ -109,7 +109,9 @@ function RaceStartDialogInner({
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Fleets in this start</label>
             <div className="space-y-1.5">
-              {fleets.map((f) => (
+              {/* Round-owned fleets are managed by the split-fleet ceremonies;
+                  offer them only when this start already includes one. */}
+              {fleets.filter((f) => !f.splitRoundId || fleetIds.includes(f.id)).map((f) => (
                 <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
                   <input
                     type="checkbox"

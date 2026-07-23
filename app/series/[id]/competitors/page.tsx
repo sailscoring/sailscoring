@@ -53,6 +53,7 @@ import {
   type CompetitorFormData,
 } from '@/components/competitor-form';
 import { UpdateHandicaps, type UpdateHandicapsHandle } from '@/components/update-handicaps';
+import { pickableFleets } from '@/lib/split-fleets';
 import type { Competitor, Fleet, CompetitorFieldKey, Finish, PrimaryPersonLabel, RaceRatingOverride } from '@/lib/types';
 import {
   missingRatings,
@@ -313,7 +314,10 @@ export default function CompetitorsPage({
 
   const hasHandicapFleet = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
   const hasRrsImport = useFeatures().has('rrs-import');
-  const bulkFieldOptions = bulkEditFieldOptions(enabledFields, axes, fleets ?? []);
+  // Round-owned fleets (split-fleet ceremonies) stay visible in the table's
+  // Fleet column but are never offered for manual assignment or import.
+  const assignableFleets = pickableFleets(fleets ?? []);
+  const bulkFieldOptions = bulkEditFieldOptions(enabledFields, axes, assignableFleets);
 
   useShortcuts([
     { key: 'n', description: 'Add competitor', section: 'Competitors', handler: () => setShowAddForm(true) },
@@ -533,7 +537,7 @@ export default function CompetitorsPage({
             <CompetitorImport
               ref={importRef}
               seriesId={seriesId}
-              fleets={fleets ?? []}
+              fleets={assignableFleets}
             />
             <Button onClick={() => setShowAddForm(true)}>Add competitor</Button>
           </div>
@@ -549,7 +553,7 @@ export default function CompetitorsPage({
             onSave={handleAdd}
             onCancel={() => setShowAddForm(false)}
             existingCompetitors={existingCompetitors}
-            availableFleets={fleets ?? []}
+            availableFleets={assignableFleets}
             enabledFields={enabledFields}
             primaryLabel={primaryLabel}
             subdivisionAxes={axes}
@@ -898,7 +902,7 @@ export default function CompetitorsPage({
               onCancel={() => setEditingCompetitor(null)}
               onDelete={() => handleDelete(editingCompetitor)}
               existingCompetitors={editingExcluded}
-              availableFleets={fleets ?? []}
+              availableFleets={assignableFleets}
               enabledFields={enabledFields}
               primaryLabel={primaryLabel}
               subdivisionAxes={axes}
