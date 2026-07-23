@@ -1,0 +1,67 @@
+description: "D8 equalisation: a qualifying race one flight never sailed does not count for anyone"
+provenance:
+  class: "ILCA 7"
+  year: 2024
+  event: "World Championship, Adelaide AUS (Addendum A2.8)"
+  si: "reference-docs:events/ilca7-worlds-2024/SI-Amendment-1.pdf"
+  results: "reference-docs:events/ilca7-worlds-2024/results-sailwave.html"
+  code: F1
+  scenarios: [D8]
+  alternatives: "IODA SI 19.1.2 and 420/29er/470 SIs use the equivalent exclude-most-recent variant; ILCA 2021 Barcelona uniquely discards a score inside the split ranking (SI 22.5(c))."
+runnable: true
+notes: |
+  A qualifying race only counts once every flight has completed it: "A
+  qualifying series race will not count until all qualifying series fleets have
+  completed that race" (ILCA SI 7.7), and end-of-qualifying, ILCA abandons the
+  surplus so every boat has equal counts (Addendum A2.8). Here Yellow sailed a
+  second qualifying race that Blue never did, so that logical race is
+  incomplete and counts for nobody — Yellow's Q2 scores are recorded but
+  struck from the total. The standings rest on Q1 alone.
+
+  This is the common case of the equalisation rule. The per-boat refinement —
+  where boats WITHIN a flight have different counts (a resail), and the
+  IODA/420/470 variant excludes each boat's most-recent surplus score rather
+  than voiding the whole race — is not exercised by the prototype's validity
+  gate and is noted in codes.md as a spec item. `expected` verified against
+  the engine: y1/y2/y3 net counts Q1 only (net 1/2/3), not Q1+Q2.
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds:
+    - minRaces: 4
+      discardCount: 1
+  maxFinalDiscards: 1
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+      - n: 2
+        results:
+          Yellow: [y1, y2, y3]     # Blue never sailed Q2 -> logical race Q2 incomplete
+
+expected:
+  standings:
+    # Q2 counts for nobody (Blue never sailed it): nets rest on Q1 alone.
+    - { rank: 1, sail: y1, total: 1, net: 1 }
+    - { rank: 2, sail: b1, total: 1, net: 1 }
+    - { rank: 3, sail: y2, total: 2, net: 2 }
+    - { rank: 4, sail: b2, total: 2, net: 2 }
+    - { rank: 5, sail: y3, total: 3, net: 3 }
+    - { rank: 6, sail: b3, total: 3, net: 3 }

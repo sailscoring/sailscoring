@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>D10 redress across the split: RRS A9(a) average points (fractional) and promotion into a higher fleet — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>D10 redress across the split: RRS A9(a) average points (fractional) and promotion into a higher fleet</h1>
+<p style="color:#555;">ILCA 6 / Optimist 2021 — ILCA 6 Worlds, Al Mussanah OMA (fractional RDG); IODA redress-and-promote &middot; <strong>F1</strong> &middot; D10 &middot; SI (<code>reference-docs:rrs/Appendix-LE-Expanded-SI-Guide-2013.md (7.4(b)); RRS A9</code>) &middot; <a href="https://en.wikipedia.org/wiki/2021_Laser_Radial_World_Championships">results</a></p>
+<p style="padding:0.6em 1em;background:#fff3cd;border:1px solid #ffe69c;"><strong>Specification (not yet implemented).</strong> the prototype engine ignores redress — it scores an RDG cell at the code base, not the A9(a) average, so it cannot reproduce the fractional net. Specification for the eventual engine.</p>
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; no split &middot; discards: 1 discard from race 4.</div>
+<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">Two things happen around a split that the eventual engine must handle and the
+prototype cannot:
+
+1. AVERAGE POINTS (RRS A9(a)): a boat given redress is scored the mean of her
+   points in all other races, to the nearest tenth — a FRACTIONAL race score.
+   Here y1 is given RDG in Q3; her other qualifying scores are 1 and 2, so
+   her Q3 = (1 + 2) / 2 = 1.5, and her qualifying total is 1 + 2 + 1.5 = 4.5.
+   Real fractional RDGs are routine (ILCA 6 2021 Oman &quot;14.8 RDGc&quot;; a 420 2024
+   champion's net was 71.33).
+
+2. PROMOTION-ONLY REFLEETING (Addendum 7.4(b) / A3.4): a redress decision
+   after the split may PROMOTE a boat to a higher final fleet, but never
+   demotes anyone to make room — so fleets can end unequal. The prototype
+   models this as a manual round override, not a recompute; it is documented
+   here as the second half of the requirement rather than asserted.
+
+`expected` below is the SPECIFICATION (final engine), not the prototype's
+output — the runner marks this fixture pending with `reason`. The prototype
+would instead score y1's Q3 as the code base (largest flight + 1 = 4).</pre>
+<h2>Standings</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td class="mono">b1</td>
+  <td>Helm B1</td>
+  <td style="background:#d0ebff;text-align:center">1</td>
+  <td style="background:#d0ebff;text-align:center">1</td>
+  <td style="background:#d0ebff;text-align:center">1</td>
+  <td style="text-align:right">3</td>
+  <td style="text-align:right;font-weight:bold">3</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td class="mono">y2</td>
+  <td>Helm Y2</td>
+  <td style="background:#fff3bf;text-align:center">2</td>
+  <td style="background:#fff3bf;text-align:center">1</td>
+  <td style="background:#fff3bf;text-align:center">1</td>
+  <td style="text-align:right">4</td>
+  <td style="text-align:right;font-weight:bold">4</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td class="mono">b2</td>
+  <td>Helm B2</td>
+  <td style="background:#d0ebff;text-align:center">2</td>
+  <td style="background:#d0ebff;text-align:center">2</td>
+  <td style="background:#d0ebff;text-align:center">2</td>
+  <td style="text-align:right">6</td>
+  <td style="text-align:right;font-weight:bold">6</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td class="mono">y1</td>
+  <td>Helm Y1</td>
+  <td style="background:#fff3bf;text-align:center">1</td>
+  <td style="background:#fff3bf;text-align:center">2</td>
+  <td style="background:#fff3bf;text-align:center">4 RDG</td>
+  <td style="text-align:right">7</td>
+  <td style="text-align:right;font-weight:bold">7</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">y3</td>
+  <td>Helm Y3</td>
+  <td style="background:#fff3bf;text-align:center">3</td>
+  <td style="background:#fff3bf;text-align:center">3</td>
+  <td style="background:#fff3bf;text-align:center">2</td>
+  <td style="text-align:right">8</td>
+  <td style="text-align:right;font-weight:bold">8</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td class="mono">b3</td>
+  <td>Helm B3</td>
+  <td style="background:#d0ebff;text-align:center">3</td>
+  <td style="background:#d0ebff;text-align:center">3</td>
+  <td style="background:#d0ebff;text-align:center">3</td>
+  <td style="text-align:right">9</td>
+  <td style="text-align:right;font-weight:bold">9</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

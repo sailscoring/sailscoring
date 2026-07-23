@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>F1 continuous-carry: qualifying scores carry into the final total; Gold outranks Silver on points — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>F1 continuous-carry: qualifying scores carry into the final total; Gold outranks Silver on points</h1>
+<p style="color:#555;">ILCA 7 2022 — World Championship, Vallarta MEX &middot; <strong>F1</strong> &middot; SI (<code>reference-docs:events/ilca7-worlds-2022/SI.pdf</code>) &middot; results (<code>reference-docs:events/ilca7-worlds-2022/results-sailwave.html</code>)</p>
+
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; → Gold/Silver &middot; discards: 1 discard from race 4.</div>
+<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">The Addendum-C classic: one continuous low-point line across qualifying and
+final. Real Vallarta was 2 flights (Gold 63 / Silver 63), 6 Q + 6 F races,
+DNC base = largest flight + 1 = 64, &quot;max one final-series discard&quot; (SI 18.3.3),
+champion J-B Bernaz (FRA) 51 net. Reduced here to 2 flights of 3 over
+Q1–Q2 + F1–F2 so a scorer can verify every cell; the real parameters
+(continuous carry, per-fleet finals base, max-1-final discard) are preserved.
+
+Two teaching points survive the reduction:
+- Qualifying scores stay in the total (b1's two Q wins are half his line).
+- Gold outranks Silver regardless of points: y2 (Gold, net 6) is ranked
+  ABOVE b2 (Silver, net 5).
+
+Worked line (4 races, 1 discard at 4; the discarded score in parens):
+  Gold   b1  1  1 (2) 1  -&gt; total 5, net 3
+  Gold   y1  1 (2) 1  2  -&gt; total 6, net 4
+  Gold   y2  2  1 (3) 3  -&gt; total 9, net 6
+  Silver b2 (2) 2  1  2  -&gt; total 7, net 5
+  Silver y3 (3) 3  2  1  -&gt; total 9, net 6
+  Silver b3 (3) 3  3  3  -&gt; total 12, net 9</pre>
+<h2>Gold fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>F1</th><th>F2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td class="mono">b1</td>
+  <td>Helm B1</td>
+  <td style="background:#d0ebff;text-align:center">1</td>
+  <td style="background:#d0ebff;text-align:center">1</td>
+  <td style="background:#ffec99;text-align:center">(2)</td>
+  <td style="background:#ffec99;text-align:center">1</td>
+  <td style="text-align:right">5</td>
+  <td style="text-align:right;font-weight:bold">3</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td class="mono">y1</td>
+  <td>Helm Y1</td>
+  <td style="background:#fff3bf;text-align:center">1</td>
+  <td style="background:#fff3bf;text-align:center">(2)</td>
+  <td style="background:#ffec99;text-align:center">1</td>
+  <td style="background:#ffec99;text-align:center">2</td>
+  <td style="text-align:right">6</td>
+  <td style="text-align:right;font-weight:bold">4</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td class="mono">y2</td>
+  <td>Helm Y2</td>
+  <td style="background:#fff3bf;text-align:center">2</td>
+  <td style="background:#fff3bf;text-align:center">1</td>
+  <td style="background:#ffec99;text-align:center">(3)</td>
+  <td style="background:#ffec99;text-align:center">3</td>
+  <td style="text-align:right">9</td>
+  <td style="text-align:right;font-weight:bold">6</td>
+</tr>
+</tbody>
+</table>
+<h2>Silver fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>F1</th><th>F2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>4</td>
+  <td class="mono">b2</td>
+  <td>Helm B2</td>
+  <td style="background:#d0ebff;text-align:center">(2)</td>
+  <td style="background:#d0ebff;text-align:center">2</td>
+  <td style="background:#e9ecef;text-align:center">1</td>
+  <td style="background:#e9ecef;text-align:center">2</td>
+  <td style="text-align:right">7</td>
+  <td style="text-align:right;font-weight:bold">5</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">y3</td>
+  <td>Helm Y3</td>
+  <td style="background:#fff3bf;text-align:center">(3)</td>
+  <td style="background:#fff3bf;text-align:center">3</td>
+  <td style="background:#e9ecef;text-align:center">2</td>
+  <td style="background:#e9ecef;text-align:center">1</td>
+  <td style="text-align:right">9</td>
+  <td style="text-align:right;font-weight:bold">6</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td class="mono">b3</td>
+  <td>Helm B3</td>
+  <td style="background:#d0ebff;text-align:center">(3)</td>
+  <td style="background:#d0ebff;text-align:center">3</td>
+  <td style="background:#e9ecef;text-align:center">3</td>
+  <td style="background:#e9ecef;text-align:center">3</td>
+  <td style="text-align:right">12</td>
+  <td style="text-align:right;font-weight:bold">9</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

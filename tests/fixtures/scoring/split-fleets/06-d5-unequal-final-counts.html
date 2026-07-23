@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>D5 unequal final counts: Gold sails more final races than Silver — both score correctly — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>D5 unequal final counts: Gold sails more final races than Silver — both score correctly</h1>
+<p style="color:#555;">ILCA 7 2022 — World Championship, Vallarta MEX &middot; <strong>F1</strong> &middot; D5 &middot; SI (<code>reference-docs:events/ilca7-worlds-2022/SI.pdf</code>) &middot; results (<code>reference-docs:events/ilca7-worlds-2022/results-sailwave.html</code>)</p>
+
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; → Gold/Silver &middot; discards: No discards.</div>
+<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">&quot;Different final-series fleets need not have completed the same number of
+races&quot; (Addendum A3.5). At Vallarta the Gold fleet completed 12 races and
+Silver 11 — unequal by design, not a fault. Each fleet's total simply counts
+the races it sailed; the fleet band (Gold above Silver) orders the two.
+
+Modelled as 2 flights of 3 -&gt; Gold(3)/Silver(3), then Gold sails F1 AND F2
+while Silver sails only F1. No series discard, so the effect is visible in
+the raw totals: Gold boats carry three race scores, Silver boats two.
+`expected` verified against the engine.</pre>
+<h2>Gold fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>F1</th><th>F2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td class="mono">y1</td>
+  <td>Helm Y1</td>
+  <td style="background:#fff3bf;text-align:center">1</td>
+  <td style="background:#ffec99;text-align:center">1</td>
+  <td style="background:#ffec99;text-align:center">2</td>
+  <td style="text-align:right">4</td>
+  <td style="text-align:right;font-weight:bold">4</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td class="mono">b1</td>
+  <td>Helm B1</td>
+  <td style="background:#d0ebff;text-align:center">1</td>
+  <td style="background:#ffec99;text-align:center">2</td>
+  <td style="background:#ffec99;text-align:center">1</td>
+  <td style="text-align:right">4</td>
+  <td style="text-align:right;font-weight:bold">4</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td class="mono">y2</td>
+  <td>Helm Y2</td>
+  <td style="background:#fff3bf;text-align:center">2</td>
+  <td style="background:#ffec99;text-align:center">3</td>
+  <td style="background:#ffec99;text-align:center">3</td>
+  <td style="text-align:right">8</td>
+  <td style="text-align:right;font-weight:bold">8</td>
+</tr>
+</tbody>
+</table>
+<h2>Silver fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>F1</th><th>F2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>4</td>
+  <td class="mono">b2</td>
+  <td>Helm B2</td>
+  <td style="background:#d0ebff;text-align:center">2</td>
+  <td style="background:#e9ecef;text-align:center">1</td>
+  <td></td>
+  <td style="text-align:right">3</td>
+  <td style="text-align:right;font-weight:bold">3</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">y3</td>
+  <td>Helm Y3</td>
+  <td style="background:#fff3bf;text-align:center">3</td>
+  <td style="background:#e9ecef;text-align:center">2</td>
+  <td></td>
+  <td style="text-align:right">5</td>
+  <td style="text-align:right;font-weight:bold">5</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td class="mono">b3</td>
+  <td>Helm B3</td>
+  <td style="background:#d0ebff;text-align:center">3</td>
+  <td style="background:#e9ecef;text-align:center">3</td>
+  <td></td>
+  <td style="text-align:right">6</td>
+  <td style="text-align:right;font-weight:bold">6</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

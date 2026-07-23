@@ -1,0 +1,72 @@
+description: "D1 no split: too few races to divide the fleet — the qualifying ranking is the official result"
+provenance:
+  class: "ILCA 6 / ILCA 7"
+  year: 2025
+  event: "World Championships, Qingdao CHN"
+  si: "https://onb.ilca.roms.ar/ilcaoly2025/ (SI 18.4.2)"
+  results: "https://jpvm.org/results/2025/ILCA_WORLDS/mens.html"
+  code: F1
+  scenarios: [D1]
+  alternatives: "Optimist (2024+ SIs) and WASZP carry the same no-split fallback clause."
+runnable: true
+notes: |
+  Four consecutive fog/calm days at Qingdao meant the men completed only 5
+  qualifying races and the women 6; the fleet never split, and SI 18.4.2 was
+  invoked — "the overall ranking in the Qualifying series will be established
+  and this shall count as the official result." The DNC base stayed the
+  largest QUALIFYING FLEET + 1 (men: 46 + 1 = 47), not the entry list.
+
+  Modelled as 3 flights of 3 (real men: 3 fleets of 46), 2 qualifying races,
+  and no final stage at all — so the standings are the combined qualifying
+  ranking, everyone in one table, no Gold/Silver. y3's race-2 DNC scores
+  largest flight (3) + 1 = 4. `expected` verified against the engine.
+
+config:
+  qualifyingFleets: [Yellow, Blue, Red]
+  # no finalFleets: the split never happened
+  discardThresholds:
+    - minRaces: 4
+      discardCount: 1
+  maxFinalDiscards: 1
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+  - "r1 Helm R1"
+  - "r2 Helm R2"
+  - "r3 Helm R3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+      Red: [r1, r2, r3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+          Red: [r1, r2, r3]
+      - n: 2
+        results:
+          Yellow: [y1, y2]       # y3 absent -> DNC = 4
+          Blue: [b1, b2, b3]
+          Red: [r1, r2, r3]
+
+expected:
+  standings:
+    - { rank: 1, sail: y1, total: 2, net: 2 }
+    - { rank: 2, sail: b1, total: 2, net: 2 }
+    - { rank: 3, sail: r1, total: 2, net: 2 }
+    - { rank: 4, sail: y2, total: 4, net: 4 }
+    - { rank: 5, sail: b2, total: 4, net: 4 }
+    - { rank: 6, sail: r2, total: 4, net: 4 }
+    - { rank: 7, sail: b3, total: 6, net: 6 }
+    - { rank: 8, sail: r3, total: 6, net: 6 }
+    - { rank: 9, sail: y3, total: 7, net: 7 }  # race-2 DNC = largest flight 3 + 1

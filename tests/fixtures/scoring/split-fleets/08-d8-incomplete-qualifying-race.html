@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>D8 equalisation: a qualifying race one flight never sailed does not count for anyone — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>D8 equalisation: a qualifying race one flight never sailed does not count for anyone</h1>
+<p style="color:#555;">ILCA 7 2024 — World Championship, Adelaide AUS (Addendum A2.8) &middot; <strong>F1</strong> &middot; D8 &middot; SI (<code>reference-docs:events/ilca7-worlds-2024/SI-Amendment-1.pdf</code>) &middot; results (<code>reference-docs:events/ilca7-worlds-2024/results-sailwave.html</code>)</p>
+
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; → Gold/Silver &middot; discards: 1 discard from race 4.</div>
+<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">A qualifying race only counts once every flight has completed it: &quot;A
+qualifying series race will not count until all qualifying series fleets have
+completed that race&quot; (ILCA SI 7.7), and end-of-qualifying, ILCA abandons the
+surplus so every boat has equal counts (Addendum A2.8). Here Yellow sailed a
+second qualifying race that Blue never did, so that logical race is
+incomplete and counts for nobody — Yellow's Q2 scores are recorded but
+struck from the total. The standings rest on Q1 alone.
+
+This is the common case of the equalisation rule. The per-boat refinement —
+where boats WITHIN a flight have different counts (a resail), and the
+IODA/420/470 variant excludes each boat's most-recent surplus score rather
+than voiding the whole race — is not exercised by the prototype's validity
+gate and is noted in codes.md as a spec item. `expected` verified against
+the engine: y1/y2/y3 net counts Q1 only (net 1/2/3), not Q1+Q2.</pre>
+<h2>Standings</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td class="mono">y1</td>
+  <td>Helm Y1</td>
+  <td style="background:#fff3bf;text-align:center">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">1</td>
+  <td style="text-align:right">1</td>
+  <td style="text-align:right;font-weight:bold">1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td class="mono">b1</td>
+  <td>Helm B1</td>
+  <td style="background:#d0ebff;text-align:center">1</td>
+  <td></td>
+  <td style="text-align:right">1</td>
+  <td style="text-align:right;font-weight:bold">1</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td class="mono">y2</td>
+  <td>Helm Y2</td>
+  <td style="background:#fff3bf;text-align:center">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">2</td>
+  <td style="text-align:right">2</td>
+  <td style="text-align:right;font-weight:bold">2</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td class="mono">b2</td>
+  <td>Helm B2</td>
+  <td style="background:#d0ebff;text-align:center">2</td>
+  <td></td>
+  <td style="text-align:right">2</td>
+  <td style="text-align:right;font-weight:bold">2</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">y3</td>
+  <td>Helm Y3</td>
+  <td style="background:#fff3bf;text-align:center">3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">3</td>
+  <td style="text-align:right">3</td>
+  <td style="text-align:right;font-weight:bold">3</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td class="mono">b3</td>
+  <td>Helm B3</td>
+  <td style="background:#d0ebff;text-align:center">3</td>
+  <td></td>
+  <td style="text-align:right">3</td>
+  <td style="text-align:right;font-weight:bold">3</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

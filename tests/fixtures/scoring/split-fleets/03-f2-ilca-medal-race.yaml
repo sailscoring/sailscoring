@@ -1,0 +1,97 @@
+description: "F2 medal race: doubled non-discardable medal points; companion 'last race' scored from below the medal fleet"
+provenance:
+  class: "ILCA 7"
+  year: 2024
+  event: "World Championship, Adelaide AUS"
+  si: "reference-docs:events/ilca7-worlds-2024/SI-Amendment-1.pdf"
+  results: "reference-docs:events/ilca7-worlds-2024/results-sailwave.html"
+  code: F2
+  scenarios: []
+  alternatives: "470 Worlds/Europeans 2021–25; skiff Worlds 2022–24 (Gold-25 template)."
+runnable: true
+notes: |
+  Adds a medal race to F1 (SI 18.6): the medal race scores double Appendix-A4
+  points and is never discardable, and its boats are ranked at the top of the
+  championship regardless of opening-series points. Non-medal boats sail one
+  further opening-series race scored "first finisher 11, second 12, and so on"
+  (SI 18.3.4) — a companion race whose points start immediately below the ten
+  medal boats.
+
+  Real Adelaide: 3 flights → G/S/B, medal fleet = top 10, companion first = 11,
+  Gold 11 races / Silver-Bronze 10, champion Matt Wearn 24 net (medal win
+  scored 2.0). Reduced here to 2 flights of 3, medal size 2 (so companion
+  first = size + 1 = 3), no series discard (discardThresholds empty) so the
+  medal arithmetic is transparent. `expected` verified against the engine.
+
+  Structure: Q1–Q2 -> split Gold(3)/Silver(3) -> F1 -> medal fleet = top 2 of
+  Gold (y1, b1); the remaining Gold boat (y2) sails the companion "last race".
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds: []
+  maxFinalDiscards: 0
+  medal:
+    size: 2
+    raceCount: 1
+    multiplier: 2
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+      - n: 2
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+
+  - stage: final
+    from: 1
+    fleets:
+      Gold: [y1, b1, y2]
+      Silver: [b2, y3, b3]
+    races:
+      - n: 1
+        results:
+          Gold: [y1, b1, y2]
+          Silver: [b2, y3, b3]
+
+  - stage: medal
+    from: 1
+    # Medal fleet = top 2 of the opening series (y1 = 3, b1 = 4). The remaining
+    # Gold boat y2 sails the companion "last race".
+    fleets:
+      Medal: [y1, b1]
+      "Gold last race": [y2]
+    races:
+      - n: 1
+        results:
+          Medal: [y1, b1]              # y1 wins the medal race: 1 x2 = 2 pts
+          "Gold last race": [y2]       # y2 first: (place 1 + offset 2) = 3 pts
+
+expected:
+  # Medal boats (y1, b1) are pinned to the top: y1 ties b2 on net 5 but ranks
+  # 1st because medal boats outrank the fleets. y1's medal cell is 2 (place 1
+  # doubled); y2's companion cell is 3 (first finisher = medal size 2 + 1).
+  standings:
+    - { rank: 1, sail: y1, total: 5, net: 5, fleet: Gold, medal: true }
+    - { rank: 2, sail: b1, total: 8, net: 8, fleet: Gold, medal: true }
+    - { rank: 3, sail: y2, total: 10, net: 10, fleet: Gold, medal: false }
+    - { rank: 4, sail: b2, total: 5, net: 5, fleet: Silver }
+    - { rank: 5, sail: y3, total: 8, net: 8, fleet: Silver }
+    - { rank: 6, sail: b3, total: 9, net: 9, fleet: Silver }

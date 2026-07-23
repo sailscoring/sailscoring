@@ -1,0 +1,84 @@
+description: "D10 redress across the split: RRS A9(a) average points (fractional) and promotion into a higher fleet"
+provenance:
+  class: "ILCA 6 / Optimist"
+  year: 2021
+  event: "ILCA 6 Worlds, Al Mussanah OMA (fractional RDG); IODA redress-and-promote"
+  si: "reference-docs:rrs/Appendix-LE-Expanded-SI-Guide-2013.md (7.4(b)); RRS A9"
+  results: "https://en.wikipedia.org/wiki/2021_Laser_Radial_World_Championships"
+  code: F1
+  scenarios: [D10]
+  alternatives: "Every split-fleet SI carries the promotion-only redress clause; fractional RDG appears in real ILCA/IODA results (Oman 2021 '14.8 RDGc'; 420 2024 winner's net 71.33)."
+runnable: false
+reason: "the prototype engine ignores redress — it scores an RDG cell at the code base, not the A9(a) average, so it cannot reproduce the fractional net. Specification for the eventual engine."
+notes: |
+  Two things happen around a split that the eventual engine must handle and the
+  prototype cannot:
+
+  1. AVERAGE POINTS (RRS A9(a)): a boat given redress is scored the mean of her
+     points in all other races, to the nearest tenth — a FRACTIONAL race score.
+     Here y1 is given RDG in Q3; her other qualifying scores are 1 and 2, so
+     her Q3 = (1 + 2) / 2 = 1.5, and her qualifying total is 1 + 2 + 1.5 = 4.5.
+     Real fractional RDGs are routine (ILCA 6 2021 Oman "14.8 RDGc"; a 420 2024
+     champion's net was 71.33).
+
+  2. PROMOTION-ONLY REFLEETING (Addendum 7.4(b) / A3.4): a redress decision
+     after the split may PROMOTE a boat to a higher final fleet, but never
+     demotes anyone to make room — so fleets can end unequal. The prototype
+     models this as a manual round override, not a recompute; it is documented
+     here as the second half of the requirement rather than asserted.
+
+  `expected` below is the SPECIFICATION (final engine), not the prototype's
+  output — the runner marks this fixture pending with `reason`. The prototype
+  would instead score y1's Q3 as the code base (largest flight + 1 = 4).
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  discardThresholds:
+    - minRaces: 4
+      discardCount: 1
+  maxFinalDiscards: 1
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+      - n: 2
+        results:
+          Yellow: [y2, y1, y3]     # y1 scores 2
+          Blue: [b1, b2, b3]
+      - n: 3
+        # y1 is given redress (RDG); the jury awards RRS A9(a) average points.
+        results:
+          Yellow: [y2, y3, "y1 RDG"]
+          Blue: [b1, b2, b3]
+
+expected:
+  # SPECIFICATION (final engine), 3 races, no discard yet (threshold is 4).
+  #   y1  1  2  1.5(RDG)  -> 4.5   (RDG = mean of the other races = (1+2)/2)
+  #   y2  2  1  1         -> 4
+  #   y3  3  3  2         -> 8
+  #   b1  1  1  1         -> 3
+  #   b2  2  2  2         -> 6
+  #   b3  3  3  3         -> 9
+  standings:
+    - { rank: 1, sail: b1, total: 3, net: 3 }
+    - { rank: 2, sail: y2, total: 4, net: 4 }
+    - { rank: 3, sail: y1, total: 4.5, net: 4.5 }
+    - { rank: 4, sail: b2, total: 6, net: 6 }
+    - { rank: 5, sail: y3, total: 8, net: 8 }
+    - { rank: 6, sail: b3, total: 9, net: 9 }

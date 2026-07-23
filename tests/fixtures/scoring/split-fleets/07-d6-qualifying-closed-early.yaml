@@ -1,0 +1,75 @@
+description: "D6 qualifying closed early: abandoned days force the split at the minimum race count"
+provenance:
+  class: "ILCA 6 / ILCA 7"
+  year: 2023
+  event: "Allianz Sailing World Championships, The Hague NED"
+  si: "SWC 2023 notice board (offline; format from event reports + Wikipedia)"
+  results: "https://en.wikipedia.org/wiki/2023_Sailing_World_Championships_%E2%80%93_ILCA_7"
+  code: F1
+  scenarios: [D6]
+  alternatives: "ILCA Addendum A2.7 extension; Qingdao 2025 mid-event schedule amendments (4-per-day notice, superseded next day)."
+runnable: true
+notes: |
+  Two abandoned days at The Hague meant qualifying was closed at the 4-race
+  minimum ("Gold & Silver fleets decided after only 4 races"), rather than the
+  scheduled six, before the split was made. Engine-wise this is just "fewer
+  qualifying races than planned, then split" — the split proceeds on whatever
+  the qualifying ranking is at the day boundary. The fixture's value is
+  documentary: the split is legitimate at the minimum, and the "scheduled 6"
+  never appears in the data.
+
+  Modelled as 2 flights of 3, exactly 2 qualifying races completed (standing in
+  for the shortened qualifying), then a normal split + one final race per
+  fleet. `expected` verified against the engine.
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds:
+    - minRaces: 4
+      discardCount: 1
+  maxFinalDiscards: 1
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+      - n: 2
+        results:
+          Yellow: [y2, y1, y3]
+          Blue: [b2, b1, b3]
+
+  - stage: final
+    from: 1
+    fleets:
+      Gold: [y1, b1, y2]
+      Silver: [b2, y3, b3]
+    races:
+      - n: 1
+        results:
+          Gold: [b1, y1, y2]
+          Silver: [b2, y3, b3]
+
+expected:
+  standings:
+    - { rank: 1, sail: b1, total: 4, net: 4, fleet: Gold }
+    - { rank: 2, sail: y1, total: 5, net: 5, fleet: Gold }
+    - { rank: 3, sail: y2, total: 6, net: 6, fleet: Gold }
+    - { rank: 4, sail: b2, total: 4, net: 4, fleet: Silver }
+    - { rank: 5, sail: y3, total: 8, net: 8, fleet: Silver }
+    - { rank: 6, sail: b3, total: 9, net: 9, fleet: Silver }

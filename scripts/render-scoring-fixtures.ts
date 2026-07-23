@@ -26,6 +26,12 @@ import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-rend
 import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/competitor-fields';
 import type { DiscardThreshold, ResultCode, PenaltyCode } from '../lib/types';
 import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests/fixtures/scoring/types';
+import { splitFleetStandings } from '../lib/split-fleets';
+import type { SeriesStage } from '../lib/split-fleets';
+import {
+  buildSplitFleetData,
+  type SplitFleetFixture,
+} from '../tests/fixtures/scoring/split-fleets/loader';
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -714,9 +720,144 @@ function generateFixtureHtml(fixture: Fixture, yamlSource: string): string {
   return generateScratchFixtureHtml(fixture, yamlSource);
 }
 
+// ─── Split-fleet renderer (qualifying / final series) ───────────────────────
+
+const STAGE_ORDER: Record<SeriesStage, number> = { qualifying: 0, final: 1, medal: 2 };
+const STAGE_PREFIX: Record<SeriesStage, string> = { qualifying: 'Q', final: 'F', medal: 'M' };
+
+/** Fleet-colour tints so the preview reads like a published flighted result. */
+const FLEET_TINT: Record<string, string> = {
+  Yellow: '#fff3bf', Blue: '#d0ebff', Red: '#ffd6d6', Green: '#d3f9d8',
+  Gold: '#ffec99', Silver: '#e9ecef', Bronze: '#ffd8a8', Emerald: '#c3fae8',
+  Medal: '#ffe066',
+};
+
+function generateSplitFleetFixtureHtml(fixture: SplitFleetFixture, yamlSource: string): string {
+  const data = buildSplitFleetData(fixture);
+  const rows = splitFleetStandings(data);
+  const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
+
+  // Column set: one per logical race, ordered qualifying → final → medal.
+  const colKeys = new Map<string, { stage: SeriesStage; n: number }>();
+  for (const r of rows) {
+    for (const c of r.cells) colKeys.set(`${c.stage}:${c.stageRaceNumber}`, { stage: c.stage, n: c.stageRaceNumber });
+  }
+  const columns = [...colKeys.values()].sort(
+    (a, b) => STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage] || a.n - b.n,
+  );
+
+  const cellHtml = (row: (typeof rows)[number], col: { stage: SeriesStage; n: number }): string => {
+    const c = row.cells.find((x) => x.stage === col.stage && x.stageRaceNumber === col.n);
+    if (!c) return '<td></td>';
+    const tint = FLEET_TINT[fleetName.get(c.fleetId) ?? ''] ?? '#fff';
+    const text = `${c.points}${c.code ? ` ${c.code}` : ''}`;
+    const inner = c.discarded ? `(${esc(text)})` : esc(text);
+    const styles = [`background:${c.counts ? tint : '#f8f9fa'}`, 'text-align:center'];
+    if (!c.counts) styles.push('color:#adb5bd');
+    if (!c.discardable) styles.push('font-weight:bold'); // medal cell (doubled)
+    const title = c.counts ? '' : ' title="does not yet count — race incomplete across fleets"';
+    return `<td style="${styles.join(';')}"${title}>${inner}</td>`;
+  };
+
+  const table = (title: string, tableRows: typeof rows): string => {
+    const head = columns.map((c) => `<th>${STAGE_PREFIX[c.stage]}${c.n}</th>`).join('');
+    const body = tableRows.map((row) => {
+      const name = row.competitor.names.join(' & ');
+      const medalBadge = row.medal ? ' <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span>' : '';
+      return `<tr>
+  <td>${row.rank}</td>
+  <td class="mono">${esc(row.competitor.sailNumber)}</td>
+  <td>${esc(name)}${medalBadge}</td>
+  ${columns.map((c) => cellHtml(row, c)).join('\n  ')}
+  <td style="text-align:right">${row.total}</td>
+  <td style="text-align:right;font-weight:bold">${row.net}</td>
+</tr>`;
+    }).join('\n');
+    return `<h2>${esc(title)}</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th>${head}<th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+${body}
+</tbody>
+</table>`;
+  };
+
+  // Tiered tables per final fleet (Gold, Silver…) if the split happened;
+  // otherwise one combined qualifying table (the no-split case).
+  const finalFleets = fixture.config.finalFleets ?? [];
+  const splat = rows.some((r) => r.finalFleetId);
+  let tables: string;
+  if (splat && finalFleets.length) {
+    tables = finalFleets
+      .map((name) => {
+        const fleetRows = rows.filter((r) => r.finalFleetId && fleetName.get(r.finalFleetId) === name);
+        return fleetRows.length ? table(`${name} fleet`, fleetRows) : '';
+      })
+      .filter(Boolean)
+      .join('\n');
+  } else {
+    tables = table('Standings', rows);
+  }
+
+  const p = fixture.provenance;
+  const scenarios = p.scenarios?.length ? ` &middot; ${p.scenarios.join(', ')}` : '';
+  const link = (label: string, target?: string) =>
+    target ? (/^https?:/.test(target) ? `<a href="${esc(target)}">${label}</a>` : `${label} (<code>${esc(target)}</code>)`) : '';
+  const provLinks = [link('SI', p.si), link('results', p.results)].filter(Boolean).join(' &middot; ');
+  const medal = fixture.config.medal;
+  const configSummary = [
+    `${fixture.config.qualifyingFleets.length} qualifying fleets`,
+    finalFleets.length ? `→ ${finalFleets.join('/')}` : 'no split',
+    `discards: ${discardThresholdsSummary(fixture.config.discardThresholds.map((t) => ({ minRaces: t.minRaces, discardCount: t.discardCount })))}`,
+    medal ? `medal race ×${medal.multiplier}` : null,
+  ].filter(Boolean).join(' &middot; ');
+
+  const notesHtml = fixture.notes
+    ? `<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">${esc(fixture.notes.trim())}</pre>`
+    : '';
+  const specBanner = fixture.runnable
+    ? ''
+    : `<p style="padding:0.6em 1em;background:#fff3cd;border:1px solid #ffe69c;"><strong>Specification (not yet implemented).</strong> ${esc(fixture.reason ?? '')}</p>`;
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>${esc(fixture.description)} — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>${esc(fixture.description)}</h1>
+<p style="color:#555;">${esc(p.class)} ${p.year} — ${esc(p.event)} &middot; <strong>${esc(p.code)}</strong>${scenarios}${provLinks ? ` &middot; ${provLinks}` : ''}</p>
+${specBanner}
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">${configSummary}</div>
+${notesHtml}
+${tables}
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>
+`;
+}
+
 // ─── Index generation ────────────────────────────────────────────────────────
 
 const CATEGORY_META: Record<string, { title: string; intro: string }> = {
+  'split-fleets': {
+    title: 'Split-fleet series (qualifying / final)',
+    intro: 'Championship scoring where a large entry races in qualifying fleets, then\n  splits into Gold/Silver/Bronze for a final series on one continuous points\n  line — the RRS Appendix LE Addendum C format. Each example is drawn from a\n  real ILCA/Optimist/… championship (see its provenance line) and shows the\n  combined, fleet-tinted standings a scorer would publish; medal-race points\n  are doubled and shown in bold. See docs/design/split-fleets/format-survey.md.',
+  },
   scratch: {
     title: 'Scratch racing',
     intro: "Position-based scoring with no handicap. Each boat's score in a race equals\n  its finishing position. Series score is the sum of race scores; lowest wins.",
@@ -859,8 +1000,12 @@ let htmCount = 0;
 
 for (const yamlPath of yamlFiles) {
   const yamlSource = readFileSync(yamlPath, 'utf-8');
-  const fixture = parseYaml(yamlSource) as Fixture;
-  const html = generateFixtureHtml(fixture, yamlSource);
+  const parsed = parseYaml(yamlSource) as Record<string, unknown>;
+  // Split-fleet fixtures carry `stages`; the unified scoring fixtures carry
+  // top-level `races` and dispatch on fleet.scoringSystem.
+  const html = 'stages' in parsed
+    ? generateSplitFleetFixtureHtml(parsed as unknown as SplitFleetFixture, yamlSource)
+    : generateFixtureHtml(parsed as unknown as Fixture, yamlSource);
   const outPath = yamlPath.replace(/\.yaml$/, '.html');
   writeFileSync(outPath, html, 'utf-8');
   console.log(`  ${basename(outPath)}`);
@@ -868,7 +1013,7 @@ for (const yamlPath of yamlFiles) {
 
   const categoryDir = dirname(yamlPath);
   if (!byCategory.has(categoryDir)) byCategory.set(categoryDir, []);
-  byCategory.get(categoryDir)!.push({ yamlPath, description: fixture.description });
+  byCategory.get(categoryDir)!.push({ yamlPath, description: parsed.description as string });
 }
 
 const categories: Array<{ dirName: string; title: string }> = [];

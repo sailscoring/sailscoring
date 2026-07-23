@@ -1,0 +1,90 @@
+description: "D3 finale scheduled but never sailed: the companion 'last race' does not run, and the opening series stands"
+provenance:
+  class: "ILCA 7"
+  year: 2024
+  event: "World Championship, Adelaide AUS"
+  si: "reference-docs:events/ilca7-worlds-2024/SI-Amendment-1.pdf"
+  results: "reference-docs:events/ilca7-worlds-2024/results-sailwave.html"
+  code: F2
+  scenarios: [D3]
+  alternatives: "49erFX 2023 The Hague (medal race abandoned, title stood on the opening series); 470 2024 Palma (medal race not completed)."
+runnable: true
+notes: |
+  A scheduled finale that never sails must leave the results resting on what
+  was sailed. At Adelaide the non-medal Gold boats were scheduled a companion
+  "last race" (SI 7.4) that never ran — so those boats simply carry no
+  companion score, and the medal race alone decides the top. (The sibling case:
+  49erFX 2023's medal race was abandoned for lack of wind and the title stood
+  on the opening series.)
+
+  This fixture is fixture 03 with the companion "last race" NOT sailed: the
+  medal fleet (y1, b1) sails its medal race, but the remaining Gold boat y2
+  has no companion race at all. y2 therefore keeps only her opening total —
+  the finale that was scheduled for her never happened. `expected` verified
+  against the engine.
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds: []
+  maxFinalDiscards: 0
+  medal:
+    size: 2
+    raceCount: 1
+    multiplier: 2
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+      - n: 2
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+
+  - stage: final
+    from: 1
+    fleets:
+      Gold: [y1, b1, y2]
+      Silver: [b2, y3, b3]
+    races:
+      - n: 1
+        results:
+          Gold: [y1, b1, y2]
+          Silver: [b2, y3, b3]
+
+  - stage: medal
+    from: 1
+    fleets:
+      Medal: [y1, b1]
+      "Gold last race": [y2]
+    races:
+      - n: 1
+        results:
+          Medal: [y1, b1]              # medal race sails
+          # companion "Gold last race" was scheduled for y2 but never ran
+
+expected:
+  standings:
+    # y2's companion race never ran: she keeps only her opening total (7).
+    - { rank: 1, sail: y1, total: 5, net: 5, fleet: Gold, medal: true }
+    - { rank: 2, sail: b1, total: 8, net: 8, fleet: Gold, medal: true }
+    - { rank: 3, sail: y2, total: 7, net: 7, fleet: Gold, medal: false }
+    - { rank: 4, sail: b2, total: 5, net: 5, fleet: Silver }
+    - { rank: 5, sail: y3, total: 8, net: 8, fleet: Silver }
+    - { rank: 6, sail: b3, total: 9, net: 9, fleet: Silver }
