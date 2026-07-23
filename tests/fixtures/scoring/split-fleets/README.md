@@ -70,6 +70,12 @@ stages:
           Yellow: [y1, y2, "y3 BFD"]
           Blue: [b1, b2, b3]
 
+# amendments:                     # optional: post-hoc protest/redress —
+#   - stage: qualifying           # replaces one race-fleet sheet AFTER all
+#     race: 1                     # rounds are computed and frozen
+#     fleet: Yellow
+#     results: [...]
+
 expected:
   standings:
     - {rank, sail, total, net, fleet?, medal?}   # fleet/medal optional
@@ -106,6 +112,11 @@ produce), and the runner computes the assignment via the engine's
   land in *different* fleets (the whole point of seeding).
 - **10** is the dedicated assignment test: seed → race → **reassign by the
   standings after Q2** → assert the fleets reshuffled.
+- **12** proves the frozen-round property end to end: a top-level
+  `amendments:` block replaces a race sheet *after* every round is computed
+  (a protest decided that evening), so `expectedFleets` asserts the
+  assignment didn't move while `expected.standings` carries the corrected
+  scores.
 
 The scenario fixtures (02–09) derive the final split from the qualifying
 ranking too, but declare their qualifying fleets explicitly with `fleets:` —

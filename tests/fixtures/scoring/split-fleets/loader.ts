@@ -110,6 +110,12 @@ export interface SplitFleetFixture {
   };
   competitors: string[]; // "sail name..." — first token is the sail number
   stages: FixtureStage[];
+  /** Post-hoc result amendments (a protest or redress decided after later
+   *  rounds were committed): each replaces one race-fleet sheet's results
+   *  wholesale. Applied after every stage's assignment has been computed and
+   *  frozen, so the `expectedFleets` assertions prove the frozen rounds
+   *  don't move while `expected.standings` reflects the amended scores. */
+  amendments?: { stage: SeriesStage; race: number; fleet: string; results: string[] }[];
   expected: { standings: FixtureExpectedRow[] };
 }
 
@@ -175,7 +181,8 @@ export interface BuiltSplitFleet {
 }
 
 const sortedMembers = (m: Record<string, string[]>): Record<string, string[]> =>
-  Object.fromEntries(Object.entries(m).map(([k, v]) => [k, [...v].sort()]));
+  // String(): YAML parses all-digit sail numbers as numbers.
+  Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v.map(String).sort()]));
 
 /**
  * Build the engine's SplitFleetData from a fixture, resolving each round's
@@ -302,7 +309,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
       if (!fleets.some((f) => f.id === fid(name))) {
         fleets.push({ id: fid(name), seriesId: 's', name, displayOrder: order++, scoringSystem: 'scratch' });
       }
-      for (const sail of membership[name]) {
+      for (const sail of membership[name].map(String)) {
         const c = requireCompetitor(sail);
         if (!c.fleetIds.includes(fid(name))) c.fleetIds.push(fid(name));
       }
@@ -328,28 +335,48 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
           ...(isCompanion && fx.config.medal ? { firstPlaceOffset: fx.config.medal.size } : {}),
         });
         raceFleetIds[raceId] = fid(name);
-        let finisherIndex = 0;
-        for (const token of r.results[name]) {
-          const [sail, codeRaw, extra] = token.trim().split(/\s+/);
-          requireCompetitor(sail);
-          const upper = codeRaw?.toUpperCase();
-          if (upper === 'SCP' || upper === 'DPI' || upper === 'ZFP') {
-            // A penalty on a finisher: takes its place in crossing order.
-            const fin = makeFinish(raceId, sail, finisherIndex++, null);
-            fin.penaltyCode = upper;
-            fin.penaltyOverride = extra != null ? Number(extra) : null;
-            finishes.push(fin);
-            continue;
-          }
-          const code = upper ? (upper as ResultCode) : null;
-          if (code && !RESULT_CODES.has(code)) throw new Error(`fixture uses unknown result code "${codeRaw}"`);
-          finishes.push(code ? makeFinish(raceId, sail, null, code) : makeFinish(raceId, sail, finisherIndex++, null));
-        }
+        enterResults(raceId, r.results[name]);
       }
     }
   }
 
+  // Amendments: a protest/redress decided after later rounds were committed.
+  // Every round above is already computed and frozen, so re-entering a sheet
+  // here changes scores but can never move an assignment — the property the
+  // fixture's expectedFleets + expected.standings pair asserts.
+  for (const am of fx.amendments ?? []) {
+    const raceId = `${am.stage}${am.race}:${am.fleet}`;
+    if (!races.some((r) => r.id === raceId)) {
+      throw new Error(`amendment targets unknown race ${am.stage}${am.race} · ${am.fleet}`);
+    }
+    for (let i = finishes.length - 1; i >= 0; i--) {
+      if (finishes[i].raceId === raceId) finishes.splice(i, 1);
+    }
+    enterResults(raceId, am.results);
+  }
+
   return { data: snapshot(), rounds: resolved };
+
+  function enterResults(raceId: string, tokens: string[]): void {
+    let finisherIndex = 0;
+    for (const token of tokens) {
+      // String(): YAML parses an all-digit sail number as a number.
+      const [sail, codeRaw, extra] = String(token).trim().split(/\s+/);
+      requireCompetitor(sail);
+      const upper = codeRaw?.toUpperCase();
+      if (upper === 'SCP' || upper === 'DPI' || upper === 'ZFP') {
+        // A penalty on a finisher: takes its place in crossing order.
+        const fin = makeFinish(raceId, sail, finisherIndex++, null);
+        fin.penaltyCode = upper;
+        fin.penaltyOverride = extra != null ? Number(extra) : null;
+        finishes.push(fin);
+        continue;
+      }
+      const code = upper ? (upper as ResultCode) : null;
+      if (code && !RESULT_CODES.has(code)) throw new Error(`fixture uses unknown result code "${codeRaw}"`);
+      finishes.push(code ? makeFinish(raceId, sail, null, code) : makeFinish(raceId, sail, finisherIndex++, null));
+    }
+  }
 }
 
 /** Turn a fixture into the engine's SplitFleetData. */
