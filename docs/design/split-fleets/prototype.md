@@ -6,6 +6,17 @@ A quick-and-dirty implementation of the Split Fleets design
 review it, extract the lessons, then discard the implementation.** Nothing
 here is production-quality; see Shortcuts below.
 
+> **Status (July 2026).** The review happened and #328 hardened the
+> prototype in place rather than discarding it: the findings below are
+> implemented (event ending + Mark as final, settings card, hidden
+> Standings tab with rehomed publish/preview, real medal dialog with a
+> chosen size, day strip, promotion, assignment publishing, full config
+> surface, file format / export / revision carriage, repositories + Zod,
+> and the engine shortcuts — penalties, redress, A8.2, medal doubling —
+> undone). This document stays as the review's evidence trail; the
+> Shortcuts section describes the prototype as reviewed, not the current
+> branch.
+
 ## Demo
 
 Self-contained script (also the smoke test):
