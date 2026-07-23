@@ -59,6 +59,9 @@ export const splitRoundCommitSchema = z.object({
   fleets: z.array(fleetSpecSchema).min(1),
   /** competitorId → index into `fleets`. */
   assignments: z.record(uuidSchema, z.number().int().min(0)),
+  /** Hand-moved boats within `assignments` (editable preview): competitorId
+   *  set. Stored on the round as computed-vs-override provenance. */
+  overrideCompetitorIds: z.array(uuidSchema).default([]),
   stageRaceNumbers: z.array(z.number().int().positive()).default([]),
   date: z.string().default(''),
 });
@@ -75,3 +78,10 @@ const _configFromZod: SplitFleetConfig = undefined as unknown as z.infer<
   typeof splitFleetConfigSchema
 >;
 void _configFromZod;
+
+/** Body for POST …/rounds/:roundId/overrides — one manual placement (late
+ *  entry, RC/jury move, redress promotion). */
+export const splitOverrideSchema = z.object({
+  competitorId: uuidSchema,
+  toFleetId: uuidSchema,
+});

@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 
 import {
   addSplitStageRaces,
+  applySplitOverride,
   commitSplitRound,
   deleteSplitRound,
   getSplitFleetState,
@@ -62,6 +63,18 @@ export function useAddSplitStageRaces(seriesId: string) {
       addSplitStageRaces(seriesId, input.roundId, {
         stageRaceNumbers: input.stageRaceNumbers,
         fleetIds: input.fleetIds,
+      }),
+    onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
+  });
+}
+
+export function useApplySplitOverride(seriesId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { roundId: string; competitorId: string; toFleetId: string }) =>
+      applySplitOverride(seriesId, input.roundId, {
+        competitorId: input.competitorId,
+        toFleetId: input.toFleetId,
       }),
     onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
   });

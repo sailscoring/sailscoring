@@ -21,6 +21,8 @@ import {
   type SubSeriesRepository,
 } from './repository';
 import type { SeriesFileRepos } from './series-file';
+import { normalizeSplitFleetConfig } from './split-fleets';
+import type { SplitFleetConfig, SplitRound } from './split-fleets';
 import type {
   Category,
   Competitor,
@@ -2324,6 +2326,110 @@ export class PostgresCategoryRepository {
   }
 }
 
+
+// ─── Split rounds (split-fleet series, #328) ────────────────────────────────
+
+function splitRoundRowToType(row: typeof schema.splitRounds.$inferSelect): SplitRound {
+  return {
+    id: row.id,
+    seriesId: row.seriesId,
+    stage: row.stage,
+    fromStageRace: row.fromStageRace,
+    fleetIds: row.fleetIds,
+    method: row.method as SplitRound['method'],
+    basis: row.basis ?? null,
+    ...(row.overrides ? { overrides: row.overrides } : {}),
+    ...(row.publishedAt ? { publishedAt: row.publishedAt.getTime() } : {}),
+    createdAt: row.createdAt.getTime(),
+  };
+}
+
+/** Assignment rounds + the series' split-fleet config. Tenancy: rounds carry
+ *  workspace_id; config lives on the series row. */
+export class PostgresSplitRoundRepository {
+  private readonly db: SailScoringDb;
+  private readonly workspaceId: string;
+
+  constructor(ctx: RepoCtx) {
+    this.db = ctx.db ?? getDb();
+    this.workspaceId = ctx.workspaceId;
+  }
+
+  async listBySeries(seriesId: string): Promise<SplitRound[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.splitRounds)
+      .where(and(eq(schema.splitRounds.seriesId, seriesId), eq(schema.splitRounds.workspaceId, this.workspaceId)))
+      .orderBy(asc(schema.splitRounds.createdAt));
+    return rows.map(splitRoundRowToType);
+  }
+
+  async get(roundId: string): Promise<SplitRound | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(schema.splitRounds)
+      .where(and(eq(schema.splitRounds.id, roundId), eq(schema.splitRounds.workspaceId, this.workspaceId)));
+    return row ? splitRoundRowToType(row) : undefined;
+  }
+
+  async insert(round: SplitRound, opts?: { updatedBy?: string }): Promise<void> {
+    await this.db.insert(schema.splitRounds).values({
+      id: round.id,
+      seriesId: round.seriesId,
+      workspaceId: this.workspaceId,
+      stage: round.stage,
+      fromStageRace: round.fromStageRace,
+      fleetIds: round.fleetIds,
+      method: round.method,
+      basis: round.basis,
+      overrides: round.overrides ?? null,
+      publishedAt: round.publishedAt ? new Date(round.publishedAt) : null,
+      createdAt: new Date(round.createdAt),
+      updatedBy: opts?.updatedBy ?? null,
+    });
+  }
+
+  async setOverrides(roundId: string, overrides: Record<string, string>, opts?: { updatedBy?: string }): Promise<void> {
+    await this.db
+      .update(schema.splitRounds)
+      .set({
+        overrides: Object.keys(overrides).length ? overrides : null,
+        version: sql`${schema.splitRounds.version} + 1`,
+        updatedAt: sql`now()`,
+        updatedBy: opts?.updatedBy ?? null,
+      })
+      .where(and(eq(schema.splitRounds.id, roundId), eq(schema.splitRounds.workspaceId, this.workspaceId)));
+  }
+
+  async setPublishedAt(roundId: string, when: number): Promise<void> {
+    await this.db
+      .update(schema.splitRounds)
+      .set({ publishedAt: new Date(when) })
+      .where(and(eq(schema.splitRounds.id, roundId), eq(schema.splitRounds.workspaceId, this.workspaceId)));
+  }
+
+  async delete(roundId: string): Promise<void> {
+    await this.db
+      .delete(schema.splitRounds)
+      .where(and(eq(schema.splitRounds.id, roundId), eq(schema.splitRounds.workspaceId, this.workspaceId)));
+  }
+
+  async getConfig(seriesId: string): Promise<SplitFleetConfig | null> {
+    const [row] = await this.db
+      .select({ qfConfig: schema.series.qfConfig })
+      .from(schema.series)
+      .where(and(eq(schema.series.id, seriesId), eq(schema.series.workspaceId, this.workspaceId)));
+    return row?.qfConfig ? normalizeSplitFleetConfig(row.qfConfig) : null;
+  }
+
+  async setConfig(seriesId: string, config: SplitFleetConfig): Promise<void> {
+    await this.db
+      .update(schema.series)
+      .set({ qfConfig: config })
+      .where(and(eq(schema.series.id, seriesId), eq(schema.series.workspaceId, this.workspaceId)));
+  }
+}
+
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
 export function createRepos(ctx: RepoCtx) {
@@ -2339,6 +2445,7 @@ export function createRepos(ctx: RepoCtx) {
     finishes: new PostgresFinishRepository(ctx),
     ftpServers: new PostgresFtpServerRepository(ctx),
     logos: new PostgresLogoRepository(ctx),
+    splitRounds: new PostgresSplitRoundRepository(ctx),
   };
 }
 

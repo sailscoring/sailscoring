@@ -955,6 +955,7 @@ export interface SplitRoundCommit {
   basis: { throughStageRace: number; capturedAt: number } | null;
   fleets: { label: string; color: string }[];
   assignments: Record<string, number>;
+  overrideCompetitorIds?: string[];
   stageRaceNumbers: number[];
   date?: string;
 }
@@ -975,6 +976,17 @@ export async function addSplitStageRaces(
   payload: { stageRaceNumbers: number[]; fleetIds?: string[]; date?: string },
 ): Promise<void> {
   await apiFetch(`/api/v1/series/${seriesId}/split-fleets/rounds/${roundId}/races`, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function applySplitOverride(
+  seriesId: string,
+  roundId: string,
+  payload: { competitorId: string; toFleetId: string },
+): Promise<{ warning: string | null }> {
+  return apiFetch(`/api/v1/series/${seriesId}/split-fleets/rounds/${roundId}/overrides`, {
     method: 'POST',
     body: payload,
   });

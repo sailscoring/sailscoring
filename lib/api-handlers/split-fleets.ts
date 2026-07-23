@@ -18,6 +18,7 @@ import { normalizeSplitFleetConfig } from '@/lib/split-fleets';
 import type { SplitFleetConfig, SplitRound } from '@/lib/split-fleets';
 import {
   splitFleetConfigSchema,
+  splitOverrideSchema,
   splitRoundCommitSchema,
   splitStageRacesSchema,
 } from '@/lib/validation/split-fleets';
@@ -67,17 +68,13 @@ export async function getSplitFleetState(
   workspace: WorkspaceContext,
   seriesId: string,
 ): Promise<SplitFleetState> {
-  const row = await getSeriesRow(workspace, seriesId);
-  const db = getDb();
-  const rounds = await db
-    .select()
-    .from(schema.splitRounds)
-    .where(eq(schema.splitRounds.seriesId, seriesId))
-    .orderBy(asc(schema.splitRounds.createdAt));
-  return {
-    config: row.qfConfig ? normalizeSplitFleetConfig(row.qfConfig) : null,
-    rounds: rounds.map(roundRowToType),
-  };
+  await getSeriesRow(workspace, seriesId);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const [config, rounds] = await Promise.all([
+    repos.splitRounds.getConfig(seriesId),
+    repos.splitRounds.listBySeries(seriesId),
+  ]);
+  return { config, rounds };
 }
 
 export async function putSplitFleetConfig(
@@ -87,16 +84,30 @@ export async function putSplitFleetConfig(
 ): Promise<SplitFleetState> {
   await assertSeriesWritable(workspace, seriesId);
   const config = splitFleetConfigSchema.parse(body);
-  const db = getDb();
-  await db
-    .update(schema.series)
-    .set({ qfConfig: config })
-    .where(
-      and(
-        eq(schema.series.id, seriesId),
-        eq(schema.series.workspaceId, workspace.workspaceId),
-      ),
-    );
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+
+  // The config-editability contract (design open question 6): once any race
+  // has finishes, the structural fields — carry mode and qualifying fleet
+  // count — are frozen; everything else merely re-scores and stays live.
+  const existing = await repos.splitRounds.getConfig(seriesId);
+  if (existing) {
+    const [anyFinish] = await getDb()
+      .select({ id: schema.finishes.id })
+      .from(schema.finishes)
+      .innerJoin(schema.races, eq(schema.races.id, schema.finishes.raceId))
+      .where(eq(schema.races.seriesId, seriesId))
+      .limit(1);
+    if (anyFinish) {
+      if (config.carry !== existing.carry) {
+        throw new BadRequestError('carry mode is frozen once racing has started');
+      }
+      if (config.qualifyingFleets.length !== existing.qualifyingFleets.length) {
+        throw new BadRequestError('qualifying fleet count is frozen once racing has started');
+      }
+    }
+  }
+
+  await repos.splitRounds.setConfig(seriesId, config);
   await trackChange(workspace, {
     action: 'split-fleets.configured',
     seriesId,
@@ -174,6 +185,13 @@ export async function commitSplitRound(
       date: input.date,
     });
 
+    // Editable-preview hand-moves: record which boats were placed by hand
+    // and where, as computed-vs-override provenance on the round.
+    const overrides = Object.fromEntries(
+      (input.overrideCompetitorIds ?? [])
+        .filter((cid) => input.assignments[cid] != null)
+        .map((cid) => [cid, fleetRows[input.assignments[cid]].id]),
+    );
     await tx.insert(schema.splitRounds).values({
       id: roundId,
       seriesId,
@@ -183,6 +201,7 @@ export async function commitSplitRound(
       fleetIds: fleetRows.map((f) => f.id),
       method: input.method,
       basis: input.basis,
+      overrides: Object.keys(overrides).length ? overrides : null,
       updatedBy: workspace.userId,
     });
 
@@ -380,4 +399,95 @@ export async function deleteSplitRound(
     summary: `Deleted ${round.stage} round`,
     sessionKey: 'split-fleets',
   });
+}
+
+/**
+ * Manual placement on a round: late entry, RC/jury move, wrong-fleet
+ * correction, or (on the final round) a redress promotion. Moves the boat's
+ * membership between the round's fleets and records the override on the
+ * round. Promotion after final racing has begun is allowed but flagged —
+ * the response carries `warning` so the UI routes the scorer to the
+ * jury-shaped resolution (the boat already has scores in the old fleet).
+ */
+export async function applySplitOverride(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  roundId: string,
+  body: unknown,
+): Promise<{ warning: string | null }> {
+  await assertSeriesWritable(workspace, seriesId);
+  const input = splitOverrideSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const round = await repos.splitRounds.get(roundId);
+  if (!round || round.seriesId !== seriesId) throw new NotFoundError('round');
+  if (!round.fleetIds.includes(input.toFleetId)) {
+    throw new BadRequestError('target fleet is not part of this round');
+  }
+
+  // Post-finals promotion check: any completed race in this round's stage?
+  let warning: string | null = null;
+  if (round.stage === 'final') {
+    const [sailed] = await getDb()
+      .select({ id: schema.finishes.id })
+      .from(schema.finishes)
+      .innerJoin(schema.races, eq(schema.races.id, schema.finishes.raceId))
+      .where(and(eq(schema.races.seriesId, seriesId), eq(schema.races.stage, 'final')))
+      .limit(1);
+    if (sailed) {
+      warning =
+        'Final racing has started: the boat already has scores in her ' +
+        'current fleet. Record how the protest committee directs those ' +
+        'scores to be treated — this move only changes the assignment.';
+    }
+  }
+
+  await getDb().transaction(async (tx) => {
+    const txRepos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
+    // Move membership: drop the round's other fleets, add the target.
+    for (const fid of round.fleetIds) {
+      if (fid === input.toFleetId) continue;
+      await tx
+        .update(schema.competitors)
+        .set({
+          fleetIds: sql`array_remove(${schema.competitors.fleetIds}, ${fid}::uuid)`,
+          version: sql`${schema.competitors.version} + 1`,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(schema.competitors.id, input.competitorId),
+            eq(schema.competitors.seriesId, seriesId),
+            eq(schema.competitors.workspaceId, workspace.workspaceId),
+          ),
+        );
+    }
+    await tx
+      .update(schema.competitors)
+      .set({
+        fleetIds: sql`array_append(array_remove(${schema.competitors.fleetIds}, ${input.toFleetId}::uuid), ${input.toFleetId}::uuid)`,
+        version: sql`${schema.competitors.version} + 1`,
+        updatedAt: sql`now()`,
+      })
+      .where(
+        and(
+          eq(schema.competitors.id, input.competitorId),
+          eq(schema.competitors.seriesId, seriesId),
+          eq(schema.competitors.workspaceId, workspace.workspaceId),
+        ),
+      );
+    await txRepos.splitRounds.setOverrides(
+      roundId,
+      { ...(round.overrides ?? {}), [input.competitorId]: input.toFleetId },
+      { updatedBy: workspace.userId },
+    );
+    await txRepos.series.touch(seriesId);
+  });
+
+  await trackChange(workspace, {
+    action: 'split-fleets.round-committed',
+    seriesId,
+    summary: 'Manual fleet placement recorded',
+    sessionKey: 'split-fleets',
+  });
+  return { warning };
 }
