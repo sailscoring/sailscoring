@@ -94,8 +94,8 @@ expected:
   # y3's discard falls on the DNC (4 = largest fleet 3 + 1); y2 (Gold, net 11)
   # still outranks b2 (Silver, net 9) — fleet band beats points.
   standings:
-    - { rank: 1, sail: y1, total: 7, net: 5, fleet: Gold }
-    - { rank: 2, sail: b1, total: 7, net: 5, fleet: Gold }
+    - { rank: 1, sail: b1, total: 7, net: 5, fleet: Gold }   # A8.2: b1 won F2, y1 won F1 — last race decides
+    - { rank: 2, sail: y1, total: 7, net: 5, fleet: Gold }
     - { rank: 3, sail: y2, total: 14, net: 11, fleet: Gold }
     - { rank: 4, sail: b2, total: 11, net: 9, fleet: Silver }
     - { rank: 5, sail: b3, total: 15, net: 12, fleet: Silver }

@@ -64,27 +64,30 @@ stages:
   - stage: qualifying
     from: 3
     assign: { reassignAfter: 2 }
+    # Ranking after Q1–Q2 (with A8.2): s5, s1, s7, s2, s6, s3, s8, s4 — the
+    # Q2 winners rise on the last-race tie-break. Pattern Y B B Y Y B B Y.
     expectedFleets:
-      Yellow: [s1, s3, s7, s8]
-      Blue: [s2, s4, s5, s6]
+      Yellow: [s5, s2, s6, s4]
+      Blue: [s1, s7, s3, s8]
     races:
       - n: 3
         results:
-          Yellow: [s1, s3, s7, s8]
-          Blue: [s2, s4, s5, s6]
+          Yellow: [s5, s2, s6, s4]
+          Blue: [s1, s7, s3, s8]
       - n: 4
         results:
-          Yellow: [s3, s1, s8, s7]
-          Blue: [s4, s2, s6, s5]
+          Yellow: [s2, s5, s4, s6]
+          Blue: [s7, s1, s8, s3]
 
 expected:
   standings:
-    # Qualifying total over Q1–Q4 (1 discard at 4 races); no split.
-    - { rank: 1, sail: s1, total: 7, net: 4 }
+    # Nets tie in pairs; A8.2 separates each pair on the earliest differing
+    # race counting backwards (discarded scores included, per A8.2).
+    - { rank: 1, sail: s7, total: 8, net: 4 }
     - { rank: 2, sail: s2, total: 8, net: 4 }
-    - { rank: 3, sail: s3, total: 8, net: 5 }
-    - { rank: 4, sail: s4, total: 9, net: 5 }
-    - { rank: 5, sail: s5, total: 11, net: 7 }
-    - { rank: 6, sail: s7, total: 12, net: 8 }
-    - { rank: 7, sail: s6, total: 12, net: 8 }
-    - { rank: 8, sail: s8, total: 13, net: 9 }
+    - { rank: 3, sail: s5, total: 7, net: 4 }
+    - { rank: 4, sail: s1, total: 7, net: 4 }
+    - { rank: 5, sail: s6, total: 12, net: 8 }
+    - { rank: 6, sail: s3, total: 12, net: 8 }
+    - { rank: 7, sail: s8, total: 13, net: 9 }
+    - { rank: 8, sail: s4, total: 13, net: 9 }

@@ -15,6 +15,17 @@ export const splitFleetConfigSchema = z.object({
   plannedDays: z.array(
     z.object({ label: z.string(), races: z.number().int().min(0) }),
   ),
+  carry: z.enum(['points', 'net-plus-net', 'rank-seed']),
+  split: z.union([
+    z.object({ kind: z.literal('equal-blocks') }),
+    z.object({ kind: z.literal('fixed-top'), topSize: z.number().int().positive() }),
+  ]),
+  codeBasis: z.object({
+    qualifying: z.enum(['largest-fleet', 'fixed']),
+    fixedPoints: z.number().int().positive().optional(),
+    final: z.enum(['own-fleet', 'largest-qualifying']),
+  }),
+  equalization: z.enum(['abandon-extra-races', 'exclude-extra-scores']),
   discardThresholds: z.array(
     z.object({
       minRaces: z.number().int().positive(),
@@ -22,6 +33,8 @@ export const splitFleetConfigSchema = z.object({
     }),
   ),
   maxFinalDiscards: z.number().int().min(0),
+  protectLoneFinalRace: z.boolean(),
+  reassignmentTieOrder: z.enum(['a8-then-entry-order', 'fleet-order']),
   medal: z
     .object({
       size: z.number().int().positive(),

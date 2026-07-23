@@ -8,8 +8,7 @@ provenance:
   code: F1
   scenarios: [D10]
   alternatives: "Every split-fleet SI carries the promotion-only redress clause; fractional RDG appears in real ILCA/IODA results (Oman 2021 '14.8 RDGc'; 420 2024 winner's net 71.33)."
-runnable: false
-reason: "the prototype engine ignores redress — it scores an RDG cell at the code base, not the A9(a) average, so it cannot reproduce the fractional net. Specification for the eventual engine."
+runnable: true
 notes: |
   Two things happen around a split that the eventual engine must handle and the
   prototype cannot:
@@ -68,7 +67,7 @@ stages:
           Blue: [b1, b2, b3]
 
 expected:
-  # SPECIFICATION (final engine), 3 races, no discard yet (threshold is 4).
+  # 3 races, no discard yet (threshold is 4).
   #   y1  1  2  1.5(RDG)  -> 4.5   (RDG = mean of the other races = (1+2)/2)
   #   y2  2  1  1         -> 4
   #   y3  3  3  2         -> 8

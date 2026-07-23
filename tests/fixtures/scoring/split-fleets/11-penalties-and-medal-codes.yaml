@@ -1,0 +1,90 @@
+description: "Penalties on finishers (SCP/DPI) and a medal-race code scored at the base, not doubled"
+provenance:
+  class: "ILCA 7"
+  year: 2024
+  event: "World Championship, Adelaide AUS (SI 15.1.1 SCP 10%; SI 18.6 medal doubling)"
+  si: "reference-docs:events/ilca7-worlds-2024/SI-Amendment-1.md"
+  results: "reference-docs:events/ilca7-worlds-2024/results-sailwave.html"
+  code: F2
+  scenarios: []
+  alternatives: "Real Adelaide results carry '(17.0 30%)' SCP cells and check-in DPI-style 1-point penalties."
+runnable: true
+notes: |
+  Two rules the real results exercise constantly:
+
+  - SCP adds a percentage of the race's DNF score (RRS 44.3(c)) on top of the
+    finish, rounded half-up. Here y1 finishes 1st in Q2 with a 50% SCP:
+    1 + round(50% x 4) = 1 + 2 = 3. DPI adds stated points: b1 finishes 1st
+    in F1 with DPI 1 -> 2.
+  - Medal doubling applies to FINISH points only (RRS A4.1 "points ...
+    doubled"): b1 wins the medal race (1 x2 = 2), y1 is BFD — scored at the
+    medal-fleet base (2 boats + 1 = 3), NOT doubled.
+
+  No discards (threshold empty) so every cell is visible. `expected` verified
+  against the engine.
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds: []
+  maxFinalDiscards: 0
+  medal:
+    size: 2
+    raceCount: 1
+    multiplier: 2
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+      - n: 2
+        results:
+          Yellow: ["y1 SCP 50", y2, y3]   # y1 1st + 50% of DNC base 4 = 3
+          Blue: [b1, b2, b3]
+
+  - stage: final
+    from: 1
+    assign: { split: true }
+    expectedFleets:
+      Gold: [b1, y1, y2]
+      Silver: [b2, y3, b3]
+    races:
+      - n: 1
+        results:
+          Gold: ["b1 DPI 1", y1, y2]      # b1 1st + 1 DPI point = 2
+          Silver: [b2, y3, b3]
+
+  - stage: medal
+    from: 1
+    fleets:
+      Medal: [b1, y1]
+      "Gold last race": [y2]
+    races:
+      - n: 1
+        results:
+          Medal: [b1, "y1 BFD"]           # b1 1x2=2; y1 BFD = base 3, NOT doubled
+          "Gold last race": [y2]           # first = medal size 2 + 1 = 3
+
+expected:
+  standings:
+    - { rank: 1, sail: b1, total: 6, net: 6, fleet: Gold, medal: true }
+    - { rank: 2, sail: y1, total: 9, net: 9, fleet: Gold, medal: true }
+    - { rank: 3, sail: y2, total: 10, net: 10, fleet: Gold, medal: false }
+    - { rank: 4, sail: b2, total: 5, net: 5, fleet: Silver }
+    - { rank: 5, sail: y3, total: 8, net: 8, fleet: Silver }
+    - { rank: 6, sail: b3, total: 9, net: 9, fleet: Silver }

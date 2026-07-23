@@ -318,6 +318,8 @@ export interface Competitor {
   fleetIds: string[];
   sailNumber: string;
   bowNumber?: string; // bow number, when it differs from the registered sail number (e.g. a borrowed hull); optional, used for finish-entry matching
+  entryNumber?: string; // the OA's registration/admin number on the entry list (split-fleet championships); distinct from bowNumber, often coincident — leave unset when they match
+  seed?: number;      // OA seeding rank for split-fleet initial assignment (Sailwave's "Seeding" column); not derivable from entry order/sail/nationality
   boatName?: string;  // name of the vessel, e.g. "The Big Picture"
   boatClass?: string; // boat class, e.g. "Laser", "Firefly" — relevant for PY fleets
   names: string[];    // primary identifying person(s), min one (labelled per Series.primaryPersonLabel); several for co-owned/co-helmed entries, joined " & " in one-line contexts
@@ -434,6 +436,10 @@ export interface Race {
   // the .sailscoring file format or public JSON export.
   stage?: 'qualifying' | 'final' | 'medal';
   stageRaceNumber?: number;
+  // Companion "last race" primitive: first finisher scores offset + 1 (e.g.
+  // the non-medal race scored from 11 when the medal fleet is 10). Absent on
+  // ordinary races.
+  firstPlaceOffset?: number;
   createdAt: number;
   version?: number;    // server-side concurrency token (see Series.version)
 }

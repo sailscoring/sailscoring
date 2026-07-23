@@ -57,20 +57,23 @@ stages:
   - stage: final
     from: 1
     assign: { split: true }
+    # Ranking after Q1–Q2: four boats tie on 3; A8.1 ties too (all [1,2]);
+    # A8.2's last-race step puts the Q2 winners (y2, b2) ahead of the Q1
+    # winners (y1, b1). Top 3 -> Gold.
     expectedFleets:
-      Gold: [y1, b1, y2]
-      Silver: [b2, y3, b3]
+      Gold: [y2, b2, y1]
+      Silver: [b1, y3, b3]
     races:
       - n: 1
         results:
-          Gold: [b1, y1, y2]
-          Silver: [b2, y3, b3]
+          Gold: [b2, y1, y2]
+          Silver: [b1, y3, b3]
 
 expected:
   standings:
-    - { rank: 1, sail: b1, total: 4, net: 4, fleet: Gold }
+    - { rank: 1, sail: b2, total: 4, net: 4, fleet: Gold }
     - { rank: 2, sail: y1, total: 5, net: 5, fleet: Gold }
     - { rank: 3, sail: y2, total: 6, net: 6, fleet: Gold }
-    - { rank: 4, sail: b2, total: 4, net: 4, fleet: Silver }
+    - { rank: 4, sail: b1, total: 4, net: 4, fleet: Silver }   # better net than y1/y2, but Silver
     - { rank: 5, sail: y3, total: 8, net: 8, fleet: Silver }
     - { rank: 6, sail: b3, total: 9, net: 9, fleet: Silver }

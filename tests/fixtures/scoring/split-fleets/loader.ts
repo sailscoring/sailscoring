@@ -105,6 +105,7 @@ export interface SplitFleetFixture {
     finalFleets?: string[];
     discardThresholds: { minRaces: number; discardCount: number }[];
     maxFinalDiscards: number;
+    protectLoneFinalRace?: boolean;
     medal?: { size: number; raceCount: number; multiplier: number };
   };
   competitors: string[]; // "sail name..." — first token is the sail number
@@ -189,8 +190,14 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     qualifyingFleets: dummy(fx.config.qualifyingFleets),
     finalFleets: dummy(fx.config.finalFleets ?? []),
     plannedDays: [],
+    carry: 'points',
+    split: { kind: 'equal-blocks' },
+    codeBasis: { qualifying: 'largest-fleet', final: 'own-fleet' },
+    equalization: 'abandon-extra-races',
     discardThresholds: fx.config.discardThresholds,
     maxFinalDiscards: fx.config.maxFinalDiscards,
+    protectLoneFinalRace: fx.config.protectLoneFinalRace ?? false,
+    reassignmentTieOrder: 'a8-then-entry-order',
     medal: fx.config.medal,
   };
 
@@ -311,17 +318,30 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     for (const r of stage.races ?? []) {
       for (const name of Object.keys(r.results)) {
         const raceId = `${st}${r.n}:${name}`;
+        // A medal-stage race for a non-medal fleet is the companion "last
+        // race": first finisher scores medal size + 1 (Race.firstPlaceOffset).
+        const isCompanion = st === 'medal' && name !== fleetNames[0];
         races.push({
           id: raceId, seriesId: 's', raceNumber: races.length + 1,
           name: `${PREFIX[st]}${r.n} ${name}`, date: '2020-01-01', createdAt: createdAt++,
           stage: st, stageRaceNumber: r.n,
+          ...(isCompanion && fx.config.medal ? { firstPlaceOffset: fx.config.medal.size } : {}),
         });
         raceFleetIds[raceId] = fid(name);
         let finisherIndex = 0;
         for (const token of r.results[name]) {
-          const [sail, codeRaw] = token.trim().split(/\s+/);
+          const [sail, codeRaw, extra] = token.trim().split(/\s+/);
           requireCompetitor(sail);
-          const code = codeRaw ? (codeRaw.toUpperCase() as ResultCode) : null;
+          const upper = codeRaw?.toUpperCase();
+          if (upper === 'SCP' || upper === 'DPI' || upper === 'ZFP') {
+            // A penalty on a finisher: takes its place in crossing order.
+            const fin = makeFinish(raceId, sail, finisherIndex++, null);
+            fin.penaltyCode = upper;
+            fin.penaltyOverride = extra != null ? Number(extra) : null;
+            finishes.push(fin);
+            continue;
+          }
+          const code = upper ? (upper as ResultCode) : null;
           if (code && !RESULT_CODES.has(code)) throw new Error(`fixture uses unknown result code "${codeRaw}"`);
           finishes.push(code ? makeFinish(raceId, sail, null, code) : makeFinish(raceId, sail, finisherIndex++, null));
         }

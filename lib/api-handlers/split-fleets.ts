@@ -14,6 +14,7 @@ import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
 import { trackChange } from '@/lib/revision-log';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
+import { normalizeSplitFleetConfig } from '@/lib/split-fleets';
 import type { SplitFleetConfig, SplitRound } from '@/lib/split-fleets';
 import {
   splitFleetConfigSchema,
@@ -73,7 +74,10 @@ export async function getSplitFleetState(
     .from(schema.splitRounds)
     .where(eq(schema.splitRounds.seriesId, seriesId))
     .orderBy(asc(schema.splitRounds.createdAt));
-  return { config: row.qfConfig ?? null, rounds: rounds.map(roundRowToType) };
+  return {
+    config: row.qfConfig ? normalizeSplitFleetConfig(row.qfConfig) : null,
+    rounds: rounds.map(roundRowToType),
+  };
 }
 
 export async function putSplitFleetConfig(
