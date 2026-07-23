@@ -190,6 +190,16 @@ opening series** (the 2026 FK women's Sailwave table is topped by the silver
 medallist, not the world champion). Capture documents and results at survey
 time — done below — and never cite live URLs as fixture sources.
 
+A deeper reconstruction gap the captures can't close: the published results
+carry each boat's per-race *score* but not *which qualifying fleet she sailed
+in that race*, so the reshuffle history — the very thing a split-fleet engine
+needs to reproduce an event — is unrecoverable once the regatta ends. It is
+why the fixtures are hand-built at small scale rather than parsed from the
+real tables. **Sail Scoring will not create this gap in its own events:** it
+publishes every round's fleet assignment as a permanent artifact alongside the
+results (design doc, "Assignment lists"), so its own results stay fully
+reconstructible.
+
 ## Reference-docs captures
 
 One exemplar per fixture code (SIs + results from the same event), in

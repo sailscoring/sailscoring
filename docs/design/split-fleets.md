@@ -420,7 +420,7 @@ export interface AssignmentRound {
 
 /** Series-level format configuration. Present iff the series is a
  *  split-fleet series. */
-export interface QualifyingFinalConfig {
+export interface SplitFleetConfig {
   carry: 'points' | 'net-plus-net' | 'rank-seed';
   /** Final-fleet sizing: LE-style near-equal blocks (Gold ≥ Silver ≥ …),
    *  or a fixed top-fleet size (49er/29er). */
@@ -474,7 +474,7 @@ stageRaceNumber?: number;   // Q3 → ('qualifying', 3); final/medal races are
                             // cross-fleet pairing
 ```
 
-`Series` gains `qfConfig?: QualifyingFinalConfig`. `Fleet` needs no new
+`Series` gains `qfConfig?: SplitFleetConfig`. `Fleet` needs no new
 fields for v1: a fleet's stage, round, and order all live on the round
 that created it. The logical qualifying race Qk is derived state: the set
 of physical races with `stageRaceNumber == k` across the covering round's
@@ -619,7 +619,7 @@ standard colour sets — with the race-officer folklore rule that colour
 names must not share an initial letter), final fleet names (defaulting
 Gold/Silver/Bronze to match the count), and the carry/discard preset.
 Presets matter more than knobs here: "ILCA World/European Championship",
-"IODA Championship", "Custom" — each filling `QualifyingFinalConfig` with
+"IODA Championship", "Custom" — each filling `SplitFleetConfig` with
 the class-standard values, the way NHC profiles default to SWNHC2015.
 
 ### The Split Fleets view
@@ -689,6 +689,17 @@ math react per the rules above.
   to workspace members only. This mirrors the pursuit-race start-schedule
   idea in horizon.md — the second case of "publishing something that
   isn't results".
+
+  **This closes a real gap the survey hit.** When we tried to rebuild
+  fixtures from past events, we could not reconstruct their qualifying
+  fleet assignments: the published Sailwave/Sailti results carry each
+  boat's per-race *score* but not *which fleet she sailed in that race*, so
+  the reshuffle history is lost the moment the event ends (see the survey's
+  capture note). Because Sail Scoring publishes every round's assignment as
+  a first-class, permanent artifact — not just the final standings — its
+  own results are fully reconstructible: the assignment record is part of
+  what's published, so a future reader (or a future scorer rebuilding a
+  fixture) has the complete picture the sources we surveyed threw away.
 
 ## Part 4 — Rollout, scope, and open questions
 
@@ -800,8 +811,10 @@ JSON export; CSV seeding-column import; feature-table row in
 ## Implementation checklist
 
 The concrete work to take the prototype to "complete enough" for F1, F2, and
-the prioritised scenarios (D1/D3/D5/D6/D8/D10) is enumerated in
-[`split-fleets/implementation-checklist.md`](split-fleets/implementation-checklist.md).
+the prioritised scenarios (D1/D3/D5/D6/D8/D10) is tracked in
+[**#328**](https://github.com/sailscoring/sailscoring/issues/328) — organised
+by layer, each item tagging its scenario driver and the prototype shortcut it
+undoes.
 
 ## References
 

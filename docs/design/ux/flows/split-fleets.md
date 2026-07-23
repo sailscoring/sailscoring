@@ -119,7 +119,7 @@ Setup runs once, when the series is created as a split-fleet series (see
   Championship", "Custom". The preset fills the whole scoring regime
   (carry mode, code bases, equalisation mode, discard caps, medal config) —
   the scorer confirms rather than composes. Custom exposes the full
-  `QualifyingFinalConfig` surface.
+  `SplitFleetConfig` surface.
 - **Fleet count and colours**: entry count is known, so the view shows the
   arithmetic live: "141 entries → 3 fleets of 47". Colour sets offered in
   SI-standard order (Yellow, Blue, Red, Green), with the race-office rule

@@ -9,8 +9,8 @@ import type { Competitor, Finish, Fleet, Race } from './types';
 
 export type SeriesStage = 'qualifying' | 'final' | 'medal';
 
-/** Stored on series.qf_config. Sparse prototype of the design's
- *  QualifyingFinalConfig — only what the prototype scoring path reads. */
+/** Stored on series.qf_config. Sparse prototype of the design's full
+ *  SplitFleetConfig — only what the prototype scoring path reads. */
 export interface SplitFleetConfig {
   /** Qualifying fleet labels in SI order (the reassignment-pattern order). */
   qualifyingFleets: { label: string; color: string }[];
