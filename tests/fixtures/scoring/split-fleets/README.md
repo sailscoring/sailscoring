@@ -7,7 +7,7 @@ capturing a real championship scoring case. Companion to
 
 Run with `pnpm test:unit tests/split-fleets-fixtures.test.ts`. Adding a `.yaml`
 here is enough to add a test. `pnpm generate:fixtures` renders an `.html`
-preview alongside each one (Sailwave-style flighted standings — fleet-tinted
+preview alongside each one (Sailwave-style fleet-tinted standings — fleet-tinted
 cells, medal-race points doubled and bold); commit both, like the other
 scoring fixtures. The previews publish to the worked-examples site with the
 rest of `tests/fixtures/scoring/`.
@@ -101,14 +101,14 @@ produce), and the runner computes the assignment via the engine's
 `assignByRankPattern` / `finalBlockSizes` / `seedOrder` and asserts it:
 
 - **01** seeds round 1 from the entry ranking and derives the final split —
-  note the rank pattern (down the flight list and back) spreads ability
-  across flights, so consecutive seeds
-  land in *different* flights (the whole point of seeding).
+  note the rank pattern (down the fleet list and back) spreads ability
+  across fleets, so consecutive seeds
+  land in *different* fleets (the whole point of seeding).
 - **10** is the dedicated assignment test: seed → race → **reassign by the
-  standings after Q2** → assert the flights reshuffled.
+  standings after Q2** → assert the fleets reshuffled.
 
 The scenario fixtures (02–09) derive the final split from the qualifying
-ranking too, but declare their qualifying flights explicitly with `fleets:` —
+ranking too, but declare their qualifying fleets explicitly with `fleets:` —
 they isolate a scoring rule (discards, medal, no-split, redress), so the
 qualifying assignment is a fixed input, like a scoring fixture's declared
 races. Each round's fleet id is scoped to the round, so a round-1 "Yellow" and
@@ -117,8 +117,8 @@ double-scored.
 
 ## Score-code bases at small scale
 
-The engine derives the qualifying code base from the largest modelled flight
+The engine derives the qualifying code base from the largest modelled fleet
 (+1) and the finals base from the boat's own fleet (+1). At the reduced fixture
-scale these are small numbers (a DNC in a 3-boat flight scores 4), and each
+scale these are small numbers (a DNC in a 3-boat fleet scores 4), and each
 fixture's `notes` records the real event's value (e.g. ILCA Vallarta's 64). The
 *rule* is what's tested; the *value* scales with the model.

@@ -404,7 +404,7 @@ never modal.
 - The next-action computation never crosses into rules judgement: it
   points at incomplete work, not at SI decisions.
 - Finish entry fleet-scoping plus the explicit wrong-fleet exception flow
-  replaces wrong-flight forensics.
+  replaces wrong-fleet forensics.
 
 ---
 

@@ -16,7 +16,7 @@ block names its real anchor event and links its captured SIs/results in
 
 Not covered here (later priorities, per the survey): **F3** compressed-carry
 medal series, **F4** knockout overlay (record-only), **F5** net+net, **F6**
-rank-seed carry, **F7** no-carry, **F8** frozen flights / merged starts.
+rank-seed carry, **F7** no-carry, **F8** frozen fleets / merged starts.
 
 ## Scenario codes (this batch)
 
@@ -26,7 +26,7 @@ rank-seed carry, **F7** no-carry, **F8** frozen flights / merged starts.
 | **D3** | Finale scheduled but never sailed | `05` | ILCA 2024 Adelaide (companion "last race" not run); 49erFX 2023 (medal race abandoned) |
 | **D5** | Unequal final-fleet race counts | `06` | ILCA 2022 Vallarta (Gold 12 / Silver 11) |
 | **D6** | Qualifying closed early at the day boundary | `07` | SWC 2023 The Hague (split at the 4-race minimum) |
-| **D8** | Equalisation of a qualifying race not completed by all flights | `08` | ILCA A2.8 (abandon & cancel the surplus) |
+| **D8** | Equalisation of a qualifying race not completed by all fleets | `08` | ILCA A2.8 (abandon & cancel the surplus) |
 | **D10** | Redress across the split — A9(a) fractional average points + promotion | `09` (spec-only) | ILCA 6 2021 Oman ("14.8 RDGc"); IODA promote-only refleeting |
 
 The remaining survey scenarios (D2 void championship, D4 finals near-void, D7
@@ -44,10 +44,10 @@ RDG cell at the code base rather than the RRS A9(a) average.
 Two rules are *partially* covered and flagged for the eventual engine:
 
 - **Equalisation (D8):** the prototype's validity gate handles the common case
-  (a whole flight never sailed a qualifying race → that logical race counts for
+  (a whole fleet never sailed a qualifying race → that logical race counts for
   nobody), which matches ILCA's abandon-and-cancel. The IODA/420/470/29er
   variant — exclude each boat's *most-recent surplus* score when boats within a
-  flight have unequal counts (e.g. a resail) — is not modelled; `08` notes it.
+  fleet have unequal counts (e.g. a resail) — is not modelled; `08` notes it.
 - **Redress (D10):** fractional average points and promotion-only refleeting,
   both spec-only for now.
 - **Fleet-boundary ties at the split:** when the Gold/Silver boundary falls on
@@ -61,11 +61,11 @@ Two rules are *partially* covered and flagged for the eventual engine:
 
 ## Scale note
 
-The fixtures are small (6–9 boats, 2–3 flights, a handful of races) so a human
+The fixtures are small (6–9 boats, 2–3 fleets, a handful of races) so a human
 scorer can verify every cell by hand — the project's established fixture style.
 The real events are 100–280 boats; the captured published results (see each
 fixture's `provenance`) are Sailwave/Sailti tables that carry per-race *scores*
-but not the per-race *flight assignments*, so full-fleet reconstruction is not
+but not the per-race *fleet assignments*, so full-fleet reconstruction is not
 possible from them. What each fixture preserves faithfully is the real event's
 *structure and rules*: fleet counts, discard profile, score-code bases, medal
 config, and what actually happened. Real full-fleet totals appear in the

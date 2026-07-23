@@ -29,7 +29,7 @@ notes: |
 
   `expected` below is the SPECIFICATION (final engine), not the prototype's
   output — the runner marks this fixture pending with `reason`. The prototype
-  would instead score y1's Q3 as the code base (largest flight + 1 = 4).
+  would instead score y1's Q3 as the code base (largest fleet + 1 = 4).
 
 config:
   qualifyingFleets: [Yellow, Blue]

@@ -15,7 +15,7 @@ notes: |
   Silver 11 — unequal by design, not a fault. Each fleet's total simply counts
   the races it sailed; the fleet band (Gold above Silver) orders the two.
 
-  Modelled as 2 flights of 3 -> Gold(3)/Silver(3), then Gold sails F1 AND F2
+  Modelled as 2 fleets of 3 -> Gold(3)/Silver(3), then Gold sails F1 AND F2
   while Silver sails only F1. No series discard, so the effect is visible in
   the raw totals: Gold boats carry three race scores, Silver boats two.
   `expected` verified against the engine.

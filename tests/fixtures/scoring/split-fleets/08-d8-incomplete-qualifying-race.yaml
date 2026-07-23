@@ -1,4 +1,4 @@
-description: "D8 equalisation: a qualifying race one flight never sailed does not count for anyone"
+description: "D8 equalisation: a qualifying race one fleet never sailed does not count for anyone"
 provenance:
   class: "ILCA 7"
   year: 2024
@@ -10,7 +10,7 @@ provenance:
   alternatives: "IODA SI 19.1.2 and 420/29er/470 SIs use the equivalent exclude-most-recent variant; ILCA 2021 Barcelona uniquely discards a score inside the split ranking (SI 22.5(c))."
 runnable: true
 notes: |
-  A qualifying race only counts once every flight has completed it: "A
+  A qualifying race only counts once every fleet has completed it: "A
   qualifying series race will not count until all qualifying series fleets have
   completed that race" (ILCA SI 7.7), and end-of-qualifying, ILCA abandons the
   surplus so every boat has equal counts (Addendum A2.8). Here Yellow sailed a
@@ -19,7 +19,7 @@ notes: |
   struck from the total. The standings rest on Q1 alone.
 
   This is the common case of the equalisation rule. The per-boat refinement —
-  where boats WITHIN a flight have different counts (a resail), and the
+  where boats WITHIN a fleet have different counts (a resail), and the
   IODA/420/470 variant excludes each boat's most-recent surplus score rather
   than voiding the whole race — is not exercised by the prototype's validity
   gate and is noted in codes.md as a spec item. `expected` verified against

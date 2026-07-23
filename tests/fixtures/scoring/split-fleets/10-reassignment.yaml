@@ -1,4 +1,4 @@
-description: "Reassignment: seed by ranking, then reshuffle the flights by standings after each day"
+description: "Reassignment: seed by ranking, then reshuffle the fleets by standings after each day"
 provenance:
   class: "ILCA 7"
   year: 2026
@@ -12,11 +12,11 @@ runnable: true
 notes: |
   The assignment ceremony under test end to end:
   - Round 1 is SEEDED from the entry ranking — the rank pattern assigns down
-    the flight list and back over the seed order: Yellow = s1, s4, s5, s8;
-    Blue = s2, s3, s6, s7 (consecutive seeds split across flights).
-  - After Q1–Q2 the flights are REASSIGNED by the current standings (Addendum
+    the fleet list and back over the seed order: Yellow = s1, s4, s5, s8;
+    Blue = s2, s3, s6, s7 (consecutive seeds split across fleets).
+  - After Q1–Q2 the fleets are REASSIGNED by the current standings (Addendum
     A2.3–A2.5: "reassigned based on their ranks in the series"). Boats that
-    did well move up, so the flights change: the round-2 Yellow/Blue are the
+    did well move up, so the fleets change: the round-2 Yellow/Blue are the
     rank pattern over the Q1–Q2 ranking, not the seed order. `expectedFleets`
     on the second round asserts the reshuffle; the movement (e.g. s5 and s4
     drop from Yellow to Blue, s7 and s3 rise from Blue to Yellow) is the whole

@@ -16,10 +16,10 @@ notes: |
   and this shall count as the official result." The DNC base stayed the
   largest QUALIFYING FLEET + 1 (men: 46 + 1 = 47), not the entry list.
 
-  Modelled as 3 flights of 3 (real men: 3 fleets of 46), 2 qualifying races,
+  Modelled as 3 fleets of 3 (real men: 3 fleets of 46), 2 qualifying races,
   and no final stage at all — so the standings are the combined qualifying
   ranking, everyone in one table, no Gold/Silver. y3's race-2 DNC scores
-  largest flight (3) + 1 = 4. `expected` verified against the engine.
+  largest fleet (3) + 1 = 4. `expected` verified against the engine.
 
 config:
   qualifyingFleets: [Yellow, Blue, Red]
@@ -69,4 +69,4 @@ expected:
     - { rank: 6, sail: r2, total: 4, net: 4 }
     - { rank: 7, sail: b3, total: 6, net: 6 }
     - { rank: 8, sail: r3, total: 6, net: 6 }
-    - { rank: 9, sail: y3, total: 7, net: 7 }  # race-2 DNC = largest flight 3 + 1
+    - { rank: 9, sail: y3, total: 7, net: 7 }  # race-2 DNC = largest fleet 3 + 1

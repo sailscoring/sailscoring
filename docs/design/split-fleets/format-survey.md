@@ -51,10 +51,10 @@ replacement base per stage (qualifying / finals).
 | **F2** = F1 + medal race(s) | Continuous | Top-10 medal race, ×2 points, never discardable, breaks ties; companion "last race" scored from 11; ILCA 2026: two-race medal series | As F1 + medal exclusions (ILCA 2024: ONE discard total) | As F1; medal base = 10 | As F1 | As F1; skiffs: Gold fixed 25 | ILCA 2024, 2026 (planned); 470 Worlds/Europeans 2021-25; SWC 2023 (all classes); 49er/FX/Nacra 2021-24 (one discard only, F-scores-only tie-break) |
 | **F3** compressed-carry medal series | Continuous through finals, then carried score **transformed** before an additive 2-race medal series (÷2.25 truncated; or chained gap caps 9/18) | 10-boat, 2 races, additive, non-discardable, Appendix MR | Stage-scoped | As F1 | As F1 | Fixed Gold 25 | Skiffs 2026; 470 Europeans 2026 (which also rank-carries into finals — F3+F6) |
 | **F4** knockout overlay | Continuous opening; bracket **replaces** top 8–10 ranks via placement table | QF→SF→GF; currencies churn (winner-take-all → first-to-3-wins → match-points 1/½, 1-0-0-0, 1-1-0-0); fallback: no medal race → opening stands | Opening: sliding ladder, per-phase caps, max-1-sprint-BFD | Largest group/heat | Daily by rank | G/S/B, fixed-size Gold | iQFOiL all years; Formula Kite all years; skiffs 2025 ("4-Point Race" = winner-takes-title variant) |
-| **F5** net + net | Q net + F net, separately-discarded stages; carry displayed as non-race scalar | None | Per-stage schedules (29er 2023+: 1 @3 per stage) | Largest Q fleet / own final fleet | Daily by rank **with two-race gate** (29er) | Fixed Gold scaled by entries (40/45/50); 4 or 6 fleets | 29er 2022-26; WASZP 2025 (3 flights, Gold+Silver fixed 70 each); Topper 4.2 2023 (nightly re-flight by rank) |
+| **F5** net + net | Q net + F net, separately-discarded stages; carry displayed as non-race scalar | None | Per-stage schedules (29er 2023+: 1 @3 per stage) | Largest Q fleet / own final fleet | Daily by rank **with two-race gate** (29er) | Fixed Gold scaled by entries (40/45/50); 4 or 6 fleets | 29er 2022-26; WASZP 2025 (3 fleets, Gold+Silver fixed 70 each); Topper 4.2 2023 (nightly reassignment by rank) |
 | **F6** rank-seed carry | Finals restart; carried score = qualifying **rank**, non-discardable | None (Topper/29er); 470E 2026 adds F3 medal series | Per-stage | Largest start / own fleet | Daily (29er 2021) or frozen (Topper) | 50/50 or banded | Topper 5.3 2022 (only sailed instance); 29er 2021; 470 Europeans 2026 |
-| **F7** no carry | Championship score = **final-series score only**; fleet band dominates | None | Per-stage | Largest start / own fleet | Frozen flights (see F8) | Percentage split (Gold 40–50% + ties, Silver 50–60% of rest) | Topper 5.3 2023-25 (SIs overrode the NoR's F6 boilerplate 2023-24; NoR rewritten 2025) |
-| **F8** frozen flights + pairing rota | (orthogonal structure, combines with F7) | — | — | "Largest number of boats assigned to **start together**" | **None** — 4 flights frozen all week; fixed 6-race pairing rota; each Q race = TWO starts merged into one column, duplicate ranks, A7 disapplied | — | Topper 5.3 all sailed years |
+| **F7** no carry | Championship score = **final-series score only**; fleet band dominates | None | Per-stage | Largest start / own fleet | Frozen fleets (see F8) | Percentage split (Gold 40–50% + ties, Silver 50–60% of rest) | Topper 5.3 2023-25 (SIs overrode the NoR's F6 boilerplate 2023-24; NoR rewritten 2025) |
+| **F8** frozen fleets + pairing rota | (orthogonal structure, combines with F7) | — | — | "Largest number of boats assigned to **start together**" | **None** — 4 fleets frozen all week; fixed 6-race pairing rota; each Q race = TWO starts merged into one column, duplicate ranks, A7 disapplied | — | Topper 5.3 all sailed years |
 
 Orthogonal structural flags (apply across codes):
 
@@ -157,7 +157,7 @@ Ordered by coverage of events Sail Scoring will actually score:
    (skiffs, 470 Europeans); expect more as LA2028 approaches. Needs a
    carried-score-transform hook. Post-v1, but the hook belongs in the data
    model conversation now.
-6. **F8 (Topper's frozen flights / merged starts)** — one class, but scoring
+6. **F8 (Topper's frozen fleets / merged starts)** — one class, but scoring
    it requires merged-start race columns with duplicate ranks and a
    largest-*start* code base. Defer; document as known-unsupported.
 
@@ -203,7 +203,7 @@ One exemplar per fixture code (SIs + results from the same event), in
 | `topper-worlds-2023/` | ITCA Worlds, Royal Cork | F7+F8; F5 (4.2); D9 | NoR + SI + both rigs' results |
 | `topper-worlds-2022/` | ITCA Worlds, Garda | F6 (sailed rank-seed; SIs unlocated) | results PDFs |
 | `29er-worlds-2023/` | 29er Worlds, Weymouth | F5 exemplar | SI + Q-series + finals Sailwave HTML |
-| `waszp-games-2025/` | WASZP Games, WPNSA | F5 at 3 flights + composite races | NoR + SI + Q/F Sailwave HTML |
+| `waszp-games-2025/` | WASZP Games, WPNSA | F5 at 3 fleets + composite races | NoR + SI + Q/F Sailwave HTML |
 | `420-worlds-2025/` | 420 Worlds, Urla | F1 ×3 divisions | NoR + SI + resultsajax HTML |
 | `470-worlds-2025/` | 470 Worlds, Gdynia | F2 (470 parameters) | NoR + final results PDF |
 | `470-europeans-2026/` | 470 Europeans, Vilamoura | F6+F3 | NoR/SI + results |

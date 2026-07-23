@@ -14,10 +14,10 @@ notes: |
   and there is NEVER a second, even at 12 (SI 19.3/19.4, verbatim 2021–2026;
   the 2026 Tangier winner discarded one score of twelve). The rule lives
   entirely in `discardThresholds`: a single {minRaces: 5} entry and no 10→2
-  tier — contrast fixture 01's ILCA ladder. Real IODA is 4 flights →
-  Gold/Silver/Bronze/Emerald; reduced here to 2 flights over 4 Q + 2 F races
+  tier — contrast fixture 01's ILCA ladder. Real IODA is 4 fleets →
+  Gold/Silver/Bronze/Emerald; reduced here to 2 fleets over 4 Q + 2 F races
   (6 total, so the single discard is active). A qualifying DNC scores
-  largest-flight + 1 = 4 (y3, race 3). `expected` verified against the engine.
+  largest-fleet + 1 = 4 (y3, race 3). `expected` verified against the engine.
 
   A fleet-boundary tie at the split (worth understanding): after Q1–Q4, no
   discard yet (threshold is 5 races), y2 and b2 are tied on 8 points with
@@ -66,7 +66,7 @@ stages:
           Blue: [b1, b2, b3]
       - n: 3
         results:
-          Yellow: [y1, y2]        # y3 absent -> DNC = largest flight (3) + 1 = 4
+          Yellow: [y1, y2]        # y3 absent -> DNC = largest fleet (3) + 1 = 4
           Blue: [b1, b2, b3]
       - n: 4
         results:
@@ -91,7 +91,7 @@ stages:
           Silver: [b3, b2, y3]
 
 expected:
-  # y3's discard falls on the DNC (4 = largest flight 3 + 1); y2 (Gold, net 11)
+  # y3's discard falls on the DNC (4 = largest fleet 3 + 1); y2 (Gold, net 11)
   # still outranks b2 (Silver, net 9) — fleet band beats points.
   standings:
     - { rank: 1, sail: y1, total: 7, net: 5, fleet: Gold }

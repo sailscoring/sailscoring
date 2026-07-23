@@ -18,7 +18,7 @@ notes: |
   documentary: the split is legitimate at the minimum, and the "scheduled 6"
   never appears in the data.
 
-  Modelled as 2 flights of 3, exactly 2 qualifying races completed (standing in
+  Modelled as 2 fleets of 3, exactly 2 qualifying races completed (standing in
   for the shortened qualifying), then a normal split + one final race per
   fleet. `expected` verified against the engine.
 

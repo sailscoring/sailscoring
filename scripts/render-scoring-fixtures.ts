@@ -725,7 +725,7 @@ function generateFixtureHtml(fixture: Fixture, yamlSource: string): string {
 const STAGE_ORDER: Record<SeriesStage, number> = { qualifying: 0, final: 1, medal: 2 };
 const STAGE_PREFIX: Record<SeriesStage, string> = { qualifying: 'Q', final: 'F', medal: 'M' };
 
-/** Fleet-colour tints so the preview reads like a published flighted result. */
+/** Fleet-colour tints so the preview reads like a published split-fleet result. */
 const FLEET_TINT: Record<string, string> = {
   Yellow: '#fff3bf', Blue: '#d0ebff', Red: '#ffd6d6', Green: '#d3f9d8',
   Gold: '#ffec99', Silver: '#e9ecef', Bronze: '#ffd8a8', Emerald: '#c3fae8',

@@ -132,7 +132,7 @@ const PREFIX: Record<SeriesStage, string> = {
 /** Fleet id is scoped to the ROUND, not just the colour: a round-1 "Yellow"
  *  and a round-2 "Yellow" are distinct fleets with distinct memberships (as
  *  they are in the real model), so scoring a round-1 race never sees the
- *  round-2 flight's members. */
+ *  round-2 fleet's members. */
 function fleetId(roundKey: string, name: string): string {
   return `fleet:${roundKey}:${name}`;
 }
