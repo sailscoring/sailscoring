@@ -40,6 +40,7 @@ describe('ALL_COMPETITOR_FIELDS', () => {
   it('includes all optional fields in display order', () => {
     expect(ALL_COMPETITOR_FIELDS).toEqual([
       'bowNumber',
+      'entryNumber',
       'boatName',
       'boatClass',
       'helm',
