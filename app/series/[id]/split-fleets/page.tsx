@@ -35,6 +35,7 @@ import {
   useSaveSplitFleetConfig,
   useSplitFleetState,
 } from '@/hooks/use-split-fleets';
+import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { competitorRepo, type SplitRoundCommit } from '@/lib/api-repository';
 import {
@@ -273,6 +274,15 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     qc.invalidateQueries({ queryKey: queryKeys.finishes.bySeries(seriesId) });
   }, [qc, seriesId]);
+
+  // Same keys as the Standings tab this page replaces on split-fleet series.
+  const canPublish = can('score');
+  useShortcuts([
+    ...(canPublish
+      ? [{ key: 'p', description: 'Publish results', section: 'Split Fleets', handler: () => setShowPublish(true) }]
+      : []),
+    { key: 'x', description: 'Preview results', section: 'Split Fleets', handler: () => setShowPreview(true) },
+  ]);
 
   if (data.status !== 'ready' || sfState === undefined) {
     return <SeriesTabFallback status={data.status === 'missing' ? 'missing' : 'loading'} />;

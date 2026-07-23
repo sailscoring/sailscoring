@@ -70,6 +70,8 @@ export default async function HelpPage() {
             ['#redress', 'Redress (RDG)'],
             ['#start-check-in', 'Start check-in'],
             ['#reading-the-standings', 'Reading the standings'],
+            // Gated: only listed when split-fleets is enabled (#328).
+            ['#split-fleets', 'Split-fleet championships', 'split-fleets'],
             // Gated: only listed when prizes is enabled (#240).
             ['#prizes', 'Prizes', 'prizes'],
             ['#rating-systems', 'Rating systems'],
@@ -1247,6 +1249,56 @@ export default async function HelpPage() {
           add venue and event links to the page footer. All four are optional.
         </p>
       </Section>
+
+      {has('split-fleets') && (
+        <Section id="split-fleets" title="Split-fleet championships">
+          <p>
+            Big one-design championships split the entry into{' '}
+            <strong className="text-foreground">qualifying fleets</strong> (Yellow, Blue, …) that
+            are reshuffled by rank as the event goes on, then into{' '}
+            <strong className="text-foreground">final fleets</strong> (Gold, Silver, …) for the
+            closing races — the format behind ILCA and Optimist worlds and nationals. Enable it
+            from the <strong className="text-foreground">Split Fleets</strong> tab on a series;
+            everything about the event then runs from that tab.
+          </p>
+          <p>
+            <strong className="text-foreground">Round 1</strong> seeds the qualifying fleets — from
+            a seed ranking or sail numbers, or by pasting the committee&rsquo;s own lists — with an
+            editable preview, so a hand-move is a click, not a spreadsheet edit. Each following
+            morning, <strong className="text-foreground">Assign Round N</strong> reshuffles from
+            the ranking over the races every fleet has completed, in the standard rank pattern
+            (down the fleet list and back). The assignment is frozen when you commit it: a protest
+            decided that evening re-scores the standings but never re-deals fleets already racing.
+          </p>
+          <p>
+            A qualifying race <strong className="text-foreground">counts only once every fleet
+            has completed it</strong> — until then its column is greyed in the standings, matching
+            the abandon-and-cancel rule in championship sailing instructions. Finish entry is
+            per-fleet: each fleet&rsquo;s race gets its own sheet.
+          </p>
+          <p>
+            <strong className="text-foreground">End qualifying → split fleets</strong> deals the
+            final fleets from the qualifying ranking — adjust the top-fleet size if the SIs fix
+            one, and the dialog flags rank ties sitting on a boundary. Final fleets race
+            independently (they need not sail the same number of races). If the event carries a{' '}
+            <strong className="text-foreground">medal race</strong>, select the medal fleet when
+            racing closes: the top boats sail it (points doubled, never discardable) while the rest
+            of the top fleet sail the companion last race, scored from just below the medal group.
+            A redress decision that promotes a boat across the split is the{' '}
+            <strong className="text-foreground">Promote (redress)</strong> action on the split
+            round.
+          </p>
+          <p>
+            The published output is a single{' '}
+            <strong className="text-foreground">championship standings</strong> page — combined
+            with a provisional cut line during qualifying, tiered Gold/Silver tables after the
+            split — plus a rolling <strong className="text-foreground">fleet assignments</strong>{' '}
+            page, newest round first, so competitors always know which start they&rsquo;re in.
+            Preview, publish, and <strong className="text-foreground">Mark as final</strong> all
+            live on the Split Fleets tab (the regular Standings tab is hidden for these series).
+          </p>
+        </Section>
+      )}
 
       {has('prizes') && (
         <Section id="prizes" title="Prizes">
