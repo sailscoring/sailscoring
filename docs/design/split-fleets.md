@@ -797,6 +797,12 @@ JSON export; CSV seeding-column import; feature-table row in
 
 ---
 
+## Implementation checklist
+
+The concrete work to take the prototype to "complete enough" for F1, F2, and
+the prioritised scenarios (D1/D3/D5/D6/D8/D10) is enumerated in
+[`split-fleets/implementation-checklist.md`](split-fleets/implementation-checklist.md).
+
 ## References
 
 - `reference-docs:rrs/Appendix-LE-Expanded-SI-Guide-2013.md` — the final
