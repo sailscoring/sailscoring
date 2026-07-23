@@ -25,6 +25,7 @@ import { useSeriesData } from '@/hooks/use-series-data';
 import { queryKeys } from '@/hooks/query-keys';
 import {
   useAddSplitStageRaces,
+  useApplySplitOverride,
   useCommitSplitRound,
   useDeleteSplitRound,
   useSaveSplitFleetConfig,
@@ -37,6 +38,7 @@ import {
   defaultSplitFleetConfig,
   finalBlockSizes,
   fleetMembers,
+  iodaSplitFleetConfig,
   logicalRaces,
   provisionalCutIndexes,
   raceCompleted,
@@ -45,10 +47,123 @@ import {
   splitFleetStandings,
   type SeedOrder,
   type SeriesStage,
+  type SplitFleetConfig,
   type SplitFleetData,
   type SplitRound,
   type SplitStandingRow,
 } from '@/lib/split-fleets';
+
+interface NextAction { label: string; href?: string }
+
+/** The one obvious next step: the first incomplete physical race, else the
+ *  pending ceremony. Advisory — never a rules judgement. */
+function computeNextAction(
+  data: SplitFleetData,
+  config: SplitFleetConfig,
+  qualifyingRounds: SplitRound[],
+  splitRound: SplitRound | null,
+  medalRound: SplitRound | null,
+  fleetMeta: Map<string, { label: string; color: string }>,
+): NextAction | null {
+  if (qualifyingRounds.length === 0) return { label: 'seed Round 1 (create the qualifying fleets)' };
+  const stageOrder: SeriesStage[] = ['qualifying', 'final', 'medal'];
+  const pending = [...data.races]
+    .sort(
+      (a, b) =>
+        stageOrder.indexOf(a.stage!) - stageOrder.indexOf(b.stage!) ||
+        (a.stageRaceNumber ?? 0) - (b.stageRaceNumber ?? 0),
+    )
+    .find((r) => !raceCompleted(r, data.finishes));
+  if (pending) {
+    const fleet = fleetMeta.get(data.raceFleetIds[pending.id])?.label ?? '';
+    const prefix = pending.stage === 'qualifying' ? 'Q' : pending.stage === 'final' ? 'F' : 'M';
+    return {
+      label: `enter finishes for ${prefix}${pending.stageRaceNumber} · ${fleet}`,
+      href: `/series/${pending.seriesId}/races/${pending.id}`,
+    };
+  }
+  if (!splitRound) return { label: 'end qualifying and split into final fleets (when the SIs are satisfied)' };
+  if (config.medal && !medalRound) return { label: 'select the medal fleet' };
+  return null;
+}
+
+function DayStrip({ data, config }: { data: SplitFleetData; config: SplitFleetConfig }) {
+  // Planned schedule chips reconciled against reality: each planned day
+  // shows its races; completed ones tick.
+  const stageOrder: SeriesStage[] = ['qualifying', 'final', 'medal'];
+  const sorted = [...data.races].sort(
+    (a, b) =>
+      stageOrder.indexOf(a.stage!) - stageOrder.indexOf(b.stage!) ||
+      (a.stageRaceNumber ?? 0) - (b.stageRaceNumber ?? 0) ||
+      (data.raceFleetIds[a.id] ?? '').localeCompare(data.raceFleetIds[b.id] ?? ''),
+  );
+  // One chip per logical race (stage+number), ticked when all its physical
+  // races are complete.
+  const chips: { key: string; label: string; state: 'done' | 'part' | 'todo' }[] = [];
+  const seen = new Set<string>();
+  for (const r of sorted) {
+    const key = `${r.stage}:${r.stageRaceNumber}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const group = sorted.filter((x) => `${x.stage}:${x.stageRaceNumber}` === key);
+    const done = group.filter((x) => raceCompleted(x, data.finishes)).length;
+    const prefix = r.stage === 'qualifying' ? 'Q' : r.stage === 'final' ? 'F' : 'M';
+    chips.push({
+      key,
+      label: `${prefix}${r.stageRaceNumber}`,
+      state: done === group.length ? 'done' : done > 0 ? 'part' : 'todo',
+    });
+  }
+  const plannedTotal = config.plannedDays.reduce((n, d) => n + d.races, 0);
+  return (
+    <div className="flex flex-wrap items-center gap-1.5" data-testid="sf-day-strip">
+      {chips.map((c) => (
+        <span
+          key={c.key}
+          className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
+            c.state === 'done'
+              ? 'border-green-600/40 bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400'
+              : c.state === 'part'
+                ? 'border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                : 'text-muted-foreground'
+          }`}
+        >
+          {c.label}
+          {c.state === 'done' ? ' ✓' : c.state === 'part' ? ' ◐' : ''}
+        </span>
+      ))}
+      {plannedTotal > chips.length && (
+        <span className="text-xs text-muted-foreground">
+          · {plannedTotal - chips.length} more planned
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** The medal phase is complete when the medal fleet has sailed at least the
+ *  planned race count and every medal-stage race (incl. the companion last
+ *  race) is complete. */
+function medalPhaseComplete(
+  data: SplitFleetData,
+  medalRound: SplitRound,
+  config: SplitFleetConfig,
+): boolean {
+  const medalRaces = data.races.filter((r) => r.stage === 'medal');
+  if (medalRaces.length === 0) return false;
+  if (!medalRaces.every((r) => raceCompleted(r, data.finishes))) return false;
+  const medalFleetRaces = medalRaces.filter(
+    (r) => data.raceFleetIds[r.id] === medalRound.fleetIds[0],
+  );
+  return medalFleetRaces.length >= (config.medal?.raceCount ?? 1);
+}
+
+/** How many logical races the first round covers: the planned first day's
+ *  count (default 2). */
+function plannedFirstRaces(config: SplitFleetConfig): number[] {
+  const n = Math.max(1, config.plannedDays[0]?.races ?? 2);
+  return Array.from({ length: n }, (_, i) => i + 1);
+}
 import type { Competitor, Finish, Fleet, Race } from '@/lib/types';
 
 // ─── Demo data ──────────────────────────────────────────────────────────────
@@ -192,8 +307,32 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   const medalRound = roundsForStage(sfState.rounds, 'medal')[0] ?? null;
   const standings = splitFleetStandings(sfData);
 
+  const nextAction = computeNextAction(sfData, sfState.config, qualifyingRounds, splitRound, medalRound, fleetMeta);
+  const eventComplete =
+    !!medalRound && medalPhaseComplete(sfData, medalRound, sfState.config);
+
   return (
     <div className="space-y-6">
+      <DayStrip data={sfData} config={sfState.config} />
+      {nextAction && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2 text-sm" data-testid="sf-next-action">
+          <span>
+            <span className="text-muted-foreground">Next:</span> {nextAction.label}
+          </span>
+          {nextAction.href && (
+            <Link href={nextAction.href} className="text-sm font-medium underline">
+              Open
+            </Link>
+          )}
+        </div>
+      )}
+      {eventComplete && (
+        <div className="rounded-lg border border-green-600/40 bg-green-50 px-4 py-3 text-sm dark:border-green-500/40 dark:bg-green-950/40" data-testid="sf-event-complete">
+          <strong>Event complete.</strong> Every scheduled stage has been
+          sailed — publish the final standings, then mark the results final
+          from the checklist on this series (Standings status controls).
+        </div>
+      )}
       <StageSection
         title={STAGE_TITLES.qualifying}
         status={
@@ -240,8 +379,14 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
       {sfState.config.medal && (
         <StageSection
           title={STAGE_TITLES.medal}
-          status={medalRound ? 'In progress' : 'Not started'}
-          defaultOpen={!!medalRound}
+          status={
+            medalRound
+              ? medalPhaseComplete(sfData, medalRound, sfState.config)
+                ? 'Complete'
+                : 'In progress'
+              : 'Not started'
+          }
+          defaultOpen={!!medalRound && !medalPhaseComplete(sfData, medalRound, sfState.config)}
         >
           {medalRound ? (
             <MedalSection
@@ -285,6 +430,7 @@ function SetupCard({
 }) {
   const saveConfig = useSaveSplitFleetConfig(seriesId);
   const [fleetCount, setFleetCount] = useState(3);
+  const [preset, setPreset] = useState<'ilca' | 'ioda'>('ilca');
   const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -311,6 +457,16 @@ function SetupCard({
         from 4 races, medal race for the top 10).
       </p>
       <div className="flex items-center gap-3">
+        <label className="text-sm" htmlFor="sf-preset">Preset</label>
+        <select
+          id="sf-preset"
+          className="rounded-md border bg-background px-2 py-1 text-sm"
+          value={preset}
+          onChange={(e) => setPreset(e.target.value as 'ilca' | 'ioda')}
+        >
+          <option value="ilca">ILCA World/European Championship</option>
+          <option value="ioda">IODA Championship</option>
+        </select>
         <label className="text-sm" htmlFor="sf-fleet-count">
           Qualifying fleets
         </label>
@@ -328,7 +484,11 @@ function SetupCard({
       <div className="flex items-center gap-2">
         <Button
           disabled={!canManage || saveConfig.isPending}
-          onClick={() => saveConfig.mutate(defaultSplitFleetConfig(fleetCount))}
+          onClick={() =>
+            saveConfig.mutate(
+              preset === 'ioda' ? iodaSplitFleetConfig(fleetCount) : defaultSplitFleetConfig(fleetCount),
+            )
+          }
         >
           {saveConfig.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           Enable split fleets
@@ -673,9 +833,16 @@ function CeremonyDialog({
 
 function AssignmentPreviewTable({
   rows,
+  fleetLabels,
+  onMove,
 }: {
-  rows: { sail: string; name: string; from?: string; to: string; moved?: boolean }[];
+  rows: { id: string; sail: string; name: string; from?: string; to: string; moved?: boolean; overridden?: boolean }[];
+  /** When set (with onMove), each row gets a fleet select — the editable
+   *  preview: hand-moves are recorded as overrides on commit. */
+  fleetLabels?: string[];
+  onMove?: (competitorId: string, toLabel: string) => void;
 }) {
+  const hasFrom = rows.some((r) => r.from !== undefined);
   return (
     <table className="w-full text-sm">
       <thead>
@@ -683,20 +850,38 @@ function AssignmentPreviewTable({
           <th className="py-1 pr-2 font-medium">#</th>
           <th className="py-1 pr-2 font-medium">Sail</th>
           <th className="py-1 pr-2 font-medium">Name</th>
-          {rows.some((r) => r.from !== undefined) && <th className="py-1 pr-2 font-medium">From</th>}
+          {hasFrom && <th className="py-1 pr-2 font-medium">From</th>}
           <th className="py-1 font-medium">Fleet</th>
         </tr>
       </thead>
       <tbody>
         {rows.map((r, i) => (
-          <tr key={i} className="border-t">
+          <tr key={r.id}>
             <td className="py-1 pr-2 text-muted-foreground">{i + 1}</td>
             <td className="py-1 pr-2 whitespace-nowrap">{r.sail}</td>
             <td className="py-1 pr-2">{r.name}</td>
-            {rows.some((x) => x.from !== undefined) && (
-              <td className="py-1 pr-2 text-muted-foreground">{r.from}</td>
-            )}
-            <td className={`py-1 ${r.moved ? 'font-semibold' : ''}`}>{r.to}</td>
+            {hasFrom && <td className="py-1 pr-2 text-muted-foreground">{r.from}</td>}
+            <td className={`py-1 ${r.moved ? 'font-semibold' : ''}`}>
+              {fleetLabels && onMove ? (
+                <select
+                  className="rounded border bg-background px-1 py-0.5 text-xs"
+                  aria-label={`Fleet for ${r.sail}`}
+                  value={r.to}
+                  onChange={(e) => onMove(r.id, e.target.value)}
+                >
+                  {fleetLabels.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+              ) : (
+                r.to
+              )}
+              {r.overridden && (
+                <span className="ml-1 rounded-full border border-amber-400 px-1 text-[10px] text-amber-600 dark:text-amber-400">
+                  moved by hand
+                </span>
+              )}
+            </td>
           </tr>
         ))}
       </tbody>
@@ -714,32 +899,70 @@ function SeedRoundDialog({
   onClose: () => void;
 }) {
   const { commit, run } = useCommit(seriesId, onClose);
-  const [order, setOrder] = useState<SeedOrder>('sail-number');
+  const [order, setOrder] = useState<SeedOrder | 'committee'>('seed-rank');
+  const [committeeText, setCommitteeText] = useState('');
+  const [moves, setMoves] = useState<Record<string, number>>({});
   const qFleets = data.config.qualifyingFleets;
+
   const preview = useMemo(() => {
-    const ordered = seedOrder(data.competitors, order);
-    const byFleet = assignByRankPattern(ordered, qFleets.length);
     const byId = new Map(data.competitors.map((c) => [c.id, c]));
-    const assignments: Record<string, number> = {};
-    byFleet.forEach((ids, i) => ids.forEach((cid) => (assignments[cid] = i)));
+    const bySail = new Map(data.competitors.map((c) => [c.sailNumber.toUpperCase(), c]));
+    let assignments: Record<string, number> = {};
+    if (order === 'committee') {
+      // The committee's named lists: one block per fleet, "Yellow:" then
+      // sail numbers (whitespace/comma separated), Sailwave-style.
+      let current = -1;
+      for (const raw of committeeText.split(/\n/)) {
+        const line = raw.trim();
+        if (!line) continue;
+        const header = qFleets.findIndex((f) => line.toLowerCase().startsWith(f.label.toLowerCase()));
+        if (header >= 0 && /[:\-]?\s*$/.test(line.slice(qFleets[header].label.length))) {
+          current = header;
+          continue;
+        }
+        if (current < 0) continue;
+        for (const tok of line.split(/[\s,;]+/)) {
+          const c = bySail.get(tok.toUpperCase());
+          if (c) assignments[c.id] = current;
+        }
+      }
+      // Unlisted boats fall to the end of the smallest fleet.
+      for (const c of data.competitors) {
+        if (assignments[c.id] == null) {
+          const sizes = qFleets.map((_, i) => Object.values(assignments).filter((v) => v === i).length);
+          assignments[c.id] = sizes.indexOf(Math.min(...sizes));
+        }
+      }
+    } else {
+      const ordered = seedOrder(data.competitors, order);
+      const byFleet = assignByRankPattern(ordered, qFleets.length);
+      byFleet.forEach((ids, i) => ids.forEach((cid) => (assignments[cid] = i)));
+    }
+    // Hand-moves layer on top.
+    assignments = { ...assignments, ...moves };
+    const ordered = order === 'committee'
+      ? data.competitors.map((c) => c.id)
+      : seedOrder(data.competitors, order);
     return {
       assignments,
       rows: ordered.map((cid) => {
         const c = byId.get(cid)!;
         return {
+          id: cid,
           sail: c.sailNumber,
           name: c.names.join(' & '),
           to: qFleets[assignments[cid]].label,
+          overridden: moves[cid] != null,
         };
       }),
-      sizes: byFleet.map((ids) => ids.length),
+      sizes: qFleets.map((_, i) => Object.values(assignments).filter((v) => v === i).length),
     };
-  }, [data.competitors, order, qFleets]);
+  }, [data.competitors, order, committeeText, moves, qFleets]);
 
   return (
     <CeremonyDialog
       title="Create Round 1"
-      description="Seed the initial qualifying fleets and create the first day's races (Q1–Q2)."
+      description="Seed the initial qualifying fleets and create the first day's races."
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit Round 1 (${preview.sizes.join(' / ')})`}
@@ -752,11 +975,12 @@ function SeedRoundDialog({
           basis: null,
           fleets: qFleets,
           assignments: preview.assignments,
-          stageRaceNumbers: [1, 2],
+          overrideCompetitorIds: Object.keys(moves),
+          stageRaceNumbers: plannedFirstRaces(data.config),
         })
       }
     >
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm" htmlFor="sf-seed-order">
           Seeding order
         </label>
@@ -764,14 +988,30 @@ function SeedRoundDialog({
           id="sf-seed-order"
           className="rounded-md border bg-background px-2 py-1 text-sm"
           value={order}
-          onChange={(e) => setOrder(e.target.value as SeedOrder)}
+          onChange={(e) => { setOrder(e.target.value as SeedOrder | 'committee'); setMoves({}); }}
         >
-          <option value="sail-number">Sail number</option>
+          <option value="seed-rank">Seeding rank (seed column)</option>
           <option value="nationality-spread">Nationality, then sail number</option>
-          <option value="entry-order">Entry order</option>
+          <option value="sail-number">Sail number</option>
+          <option value="committee">Committee lists (paste)</option>
         </select>
       </div>
-      <AssignmentPreviewTable rows={preview.rows} />
+      {order === 'committee' && (
+        <textarea
+          className="h-32 w-full rounded-md border bg-background p-2 font-mono text-xs"
+          aria-label="Committee fleet lists"
+          placeholder={`Yellow:\n210001 210004 210005\nBlue:\n210002 210003 210006`}
+          value={committeeText}
+          onChange={(e) => setCommitteeText(e.target.value)}
+        />
+      )}
+      <AssignmentPreviewTable
+        rows={preview.rows}
+        fleetLabels={qFleets.map((f) => f.label)}
+        onMove={(cid, label) =>
+          setMoves((m) => ({ ...m, [cid]: qFleets.findIndex((f) => f.label === label) }))
+        }
+      />
     </CeremonyDialog>
   );
 }
@@ -794,13 +1034,15 @@ function ReassignDialog({
   onClose: () => void;
 }) {
   const { commit, run } = useCommit(seriesId, onClose);
+  const [moves, setMoves] = useState<Record<string, number>>({});
   const qFleets = data.config.qualifyingFleets;
   const preview = useMemo(() => {
     const rows = splitFleetStandings(data);
     const ordered = rows.map((r) => r.competitor.id);
     const byFleet = assignByRankPattern(ordered, qFleets.length);
-    const assignments: Record<string, number> = {};
+    let assignments: Record<string, number> = {};
     byFleet.forEach((ids, i) => ids.forEach((cid) => (assignments[cid] = i)));
+    assignments = { ...assignments, ...moves };
     let moved = 0;
     const table = rows.map((r) => {
       const currentFleetId = r.competitor.fleetIds.findLast((fid) => fleetMeta.has(fid));
@@ -809,20 +1051,22 @@ function ReassignDialog({
       const didMove = from !== undefined && from !== to;
       if (didMove) moved++;
       return {
+        id: r.competitor.id,
         sail: r.competitor.sailNumber,
         name: r.competitor.names.join(' & '),
         from,
         to,
         moved: didMove,
+        overridden: moves[r.competitor.id] != null,
       };
     });
     return { assignments, table, moved };
-  }, [data, qFleets, fleetMeta]);
+  }, [data, qFleets, fleetMeta, moves]);
 
   return (
     <CeremonyDialog
       title={`Assign Round ${roundNumber} · Q${fromStageRace} onward`}
-      description={`From the ranking after Q${throughStageRace} — the races completed by all fleets. Captured now; later rescoring will not change this assignment.`}
+      description={`From the ranking after Q${throughStageRace} — the races completed by all fleets. Captured now; later rescoring will not change this assignment. Hand-moves (late entries, committee instructions) are recorded as overrides.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit Round ${roundNumber} (${preview.moved} boats change fleet)`}
@@ -835,11 +1079,18 @@ function ReassignDialog({
           basis: { throughStageRace, capturedAt: Date.now() },
           fleets: qFleets,
           assignments: preview.assignments,
+          overrideCompetitorIds: Object.keys(moves),
           stageRaceNumbers: [fromStageRace, fromStageRace + 1],
         })
       }
     >
-      <AssignmentPreviewTable rows={preview.table} />
+      <AssignmentPreviewTable
+        rows={preview.table}
+        fleetLabels={qFleets.map((f) => f.label)}
+        onMove={(cid, label) =>
+          setMoves((m) => ({ ...m, [cid]: qFleets.findIndex((f) => f.label === label) }))
+        }
+      />
     </CeremonyDialog>
   );
 }
@@ -857,30 +1108,61 @@ function SplitDialog({
 }) {
   const { commit, run } = useCommit(seriesId, onClose);
   const fFleets = data.config.finalFleets;
+  const rows = useMemo(() => splitFleetStandings(data), [data]);
+  const defaultTop =
+    data.config.split.kind === 'fixed-top'
+      ? Math.min(data.config.split.topSize, rows.length)
+      : finalBlockSizes(rows.length, fFleets.length)[0];
+  const [topSize, setTopSize] = useState(defaultTop);
+  const [moves, setMoves] = useState<Record<string, number>>({});
+
   const preview = useMemo(() => {
-    const rows = splitFleetStandings(data);
-    const sizes = finalBlockSizes(rows.length, fFleets.length);
-    const assignments: Record<string, number> = {};
+    // Top fleet takes `topSize`; the remainder splits near-equally.
+    const rest = finalBlockSizes(Math.max(0, rows.length - topSize), Math.max(1, fFleets.length - 1));
+    const sizes = [topSize, ...rest];
+    let assignments: Record<string, number> = {};
     let idx = 0;
-    const table: { sail: string; name: string; to: string }[] = [];
     sizes.forEach((size, fleetIdx) => {
-      for (let k = 0; k < size; k++, idx++) {
-        const r = rows[idx];
-        assignments[r.competitor.id] = fleetIdx;
-        table.push({
-          sail: r.competitor.sailNumber,
-          name: r.competitor.names.join(' & '),
-          to: fFleets[fleetIdx].label,
-        });
+      for (let k = 0; k < size && idx < rows.length; k++, idx++) {
+        assignments[rows[idx].competitor.id] = fleetIdx;
       }
     });
-    return { assignments, table, sizes };
-  }, [data, fFleets]);
+    assignments = { ...assignments, ...moves };
+    const table = rows.map((r) => ({
+      id: r.competitor.id,
+      sail: r.competitor.sailNumber,
+      name: r.competitor.names.join(' & '),
+      to: fFleets[assignments[r.competitor.id]].label,
+      overridden: moves[r.competitor.id] != null,
+    }));
+    // Boundary-tie diagnostics: equal nets across a fleet boundary.
+    const boundaryTies: string[] = [];
+    let cum = 0;
+    for (let i = 0; i < sizes.length - 1; i++) {
+      cum += sizes[i];
+      const a = rows[cum - 1];
+      const b = rows[cum];
+      if (a && b && a.net === b.net) {
+        boundaryTies.push(
+          `Ranks ${cum}/${cum + 1} (${a.competitor.sailNumber}, ${b.competitor.sailNumber}) tie on ${a.net} — separated by RRS A8 (then ${
+            data.config.reassignmentTieOrder === 'fleet-order' ? 'fleet order' : 'entry order'
+          }); the ${fFleets[i].label}/${fFleets[i + 1].label} boundary depends on it.`,
+        );
+      }
+    }
+    const counted = Object.values(assignments);
+    return {
+      assignments,
+      table,
+      sizes: fFleets.map((_, i) => counted.filter((v) => v === i).length),
+      boundaryTies,
+    };
+  }, [rows, topSize, moves, fFleets, data.config.reassignmentTieOrder]);
 
   return (
     <CeremonyDialog
       title="Split into final fleets"
-      description={`Basis: the qualifying ranking after Q${throughStageRace}. The split is frozen once committed — later rescoring will not change it. Creates the final fleets and the first final race (F1).`}
+      description={`Basis: the qualifying ranking after Q${throughStageRace}. The split is frozen once committed — later rescoring will not change it (a redress decision may promote). Creates the final fleets and the first final race.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit split (${preview.sizes.join(' / ')})`}
@@ -893,11 +1175,40 @@ function SplitDialog({
           basis: { throughStageRace, capturedAt: Date.now() },
           fleets: fFleets,
           assignments: preview.assignments,
+          overrideCompetitorIds: Object.keys(moves),
           stageRaceNumbers: [1],
         })
       }
     >
-      <AssignmentPreviewTable rows={preview.table} />
+      <div className="flex items-center gap-2">
+        <label className="text-sm" htmlFor="sf-top-size">
+          {fFleets[0]?.label ?? 'Gold'} fleet size
+        </label>
+        <input
+          id="sf-top-size"
+          type="number"
+          min={1}
+          max={rows.length}
+          className="w-20 rounded-md border bg-background px-2 py-1 text-sm"
+          value={topSize}
+          onChange={(e) => { setTopSize(Number(e.target.value)); setMoves({}); }}
+        />
+        <span className="text-xs text-muted-foreground">
+          {data.config.split.kind === 'fixed-top' ? 'fixed-size preset' : 'near-equal blocks; adjust if the SIs direct'}
+        </span>
+      </div>
+      {preview.boundaryTies.map((t) => (
+        <p key={t} className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          ⚠ {t}
+        </p>
+      ))}
+      <AssignmentPreviewTable
+        rows={preview.table}
+        fleetLabels={fFleets.map((f) => f.label)}
+        onMove={(cid, label) =>
+          setMoves((m) => ({ ...m, [cid]: fFleets.findIndex((f) => f.label === label) }))
+        }
+      />
     </CeremonyDialog>
   );
 }
@@ -922,40 +1233,11 @@ function FinalSection({
   canManage: boolean;
 }) {
   const addRaces = useAddSplitStageRaces(seriesId);
-  const commitRound = useCommitSplitRound(seriesId);
+  const override = useApplySplitOverride(seriesId);
+  const [medalOpen, setMedalOpen] = useState(false);
+  const [promoteOpen, setPromoteOpen] = useState(false);
+  const [overrideWarning, setOverrideWarning] = useState<string | null>(null);
   const medalConfig = data.config.medal;
-
-  const selectMedal = async () => {
-    if (!medalConfig) return;
-    const goldId = round.fleetIds[0];
-    const goldRows = standings.filter((r) => r.finalFleetId === goldId);
-    const medalists = goldRows.slice(0, medalConfig.size);
-    const rest = goldRows.slice(medalConfig.size);
-    if (
-      !confirm(
-        `Assign the top ${medalConfig.size} to the medal fleet?\n\n${medalists
-          .map((r, i) => `${i + 1}. ${r.competitor.sailNumber} ${r.competitor.names.join(' & ')}`)
-          .join('\n')}`,
-      )
-    ) {
-      return;
-    }
-    const assignments: Record<string, number> = {};
-    for (const r of medalists) assignments[r.competitor.id] = 0;
-    for (const r of rest) assignments[r.competitor.id] = 1;
-    await commitRound.mutateAsync({
-      stage: 'medal',
-      fromStageRace: 1,
-      method: 'medal-select',
-      basis: { throughStageRace: 0, capturedAt: Date.now() },
-      fleets: [
-        { label: 'Medal', color: '#f59e0b' },
-        { label: `${fleetMeta.get(goldId)?.label ?? 'Gold'} last race`, color: '#94a3b8' },
-      ],
-      assignments,
-      stageRaceNumbers: [1],
-    });
-  };
 
   return (
     <div className="space-y-3">
@@ -1013,20 +1295,193 @@ function FinalSection({
           </div>
         );
       })}
-      {canManage && medalConfig && !medalRound && (
-        <Button
-          variant="outline"
-          disabled={commitRound.isPending}
-          onClick={() => void selectMedal()}
-        >
-          {commitRound.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-          Select medal fleet (top {medalConfig.size})
-        </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        {canManage && medalConfig && !medalRound && (
+          <Button variant="outline" onClick={() => setMedalOpen(true)}>
+            Select medal fleet…
+          </Button>
+        )}
+        {canManage && (
+          <Button variant="ghost" size="sm" onClick={() => setPromoteOpen(true)}>
+            Promote (redress)…
+          </Button>
+        )}
+      </div>
+      {overrideWarning && (
+        <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          {overrideWarning}
+        </p>
       )}
-      {commitRound.isError && (
-        <p className="text-sm text-destructive">{String(commitRound.error)}</p>
+      {medalOpen && medalConfig && (
+        <MedalSelectDialog
+          seriesId={seriesId}
+          data={data}
+          fleetMeta={fleetMeta}
+          round={round}
+          standings={standings}
+          onClose={() => setMedalOpen(false)}
+        />
+      )}
+      {promoteOpen && (
+        <Dialog open onOpenChange={(o) => !o && setPromoteOpen(false)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Promote a boat (redress)</DialogTitle>
+              <DialogDescription>
+                A redress decision may promote a boat to a higher fleet; nobody
+                is demoted to make room, so fleets may end unequal. Clean before
+                the first final race; after that the boat&rsquo;s existing
+                final scores need the protest committee&rsquo;s direction.
+              </DialogDescription>
+            </DialogHeader>
+            <PromoteForm
+              data={data}
+              fleetMeta={fleetMeta}
+              round={round}
+              pending={override.isPending}
+              onSubmit={async (competitorId, toFleetId) => {
+                const res = await override.mutateAsync({ roundId: round.id, competitorId, toFleetId });
+                setOverrideWarning(res.warning);
+                setPromoteOpen(false);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
+  );
+}
+
+function PromoteForm({
+  data,
+  fleetMeta,
+  round,
+  pending,
+  onSubmit,
+}: {
+  data: SplitFleetData;
+  fleetMeta: Map<string, FleetMeta>;
+  round: SplitRound;
+  pending: boolean;
+  onSubmit: (competitorId: string, toFleetId: string) => Promise<void>;
+}) {
+  const [competitorId, setCompetitorId] = useState('');
+  const [toFleetId, setToFleetId] = useState(round.fleetIds[0] ?? '');
+  const candidates = data.competitors.filter((c) => !c.fleetIds.includes(toFleetId));
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <label className="text-sm" htmlFor="sf-promote-fleet">Promote into</label>
+        <select
+          id="sf-promote-fleet"
+          className="w-full rounded-md border bg-background px-2 py-1 text-sm"
+          value={toFleetId}
+          onChange={(e) => { setToFleetId(e.target.value); setCompetitorId(''); }}
+        >
+          {round.fleetIds.map((fid) => (
+            <option key={fid} value={fid}>{fleetMeta.get(fid)?.label ?? fid}</option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-sm" htmlFor="sf-promote-boat">Boat</label>
+        <select
+          id="sf-promote-boat"
+          className="w-full rounded-md border bg-background px-2 py-1 text-sm"
+          value={competitorId}
+          onChange={(e) => setCompetitorId(e.target.value)}
+        >
+          <option value="">Choose…</option>
+          {candidates.map((c) => (
+            <option key={c.id} value={c.id}>{c.sailNumber} {c.names.join(' & ')}</option>
+          ))}
+        </select>
+      </div>
+      <DialogFooter>
+        <Button disabled={!competitorId || pending} onClick={() => void onSubmit(competitorId, toFleetId)}>
+          {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+          Promote
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+}
+
+function MedalSelectDialog({
+  seriesId,
+  data,
+  fleetMeta,
+  round,
+  standings,
+  onClose,
+}: {
+  seriesId: string;
+  data: SplitFleetData;
+  fleetMeta: Map<string, FleetMeta>;
+  round: SplitRound;
+  standings: SplitStandingRow[];
+  onClose: () => void;
+}) {
+  const { commit, run } = useCommit(seriesId, onClose);
+  const medalConfig = data.config.medal!;
+  const [size, setSize] = useState(medalConfig.size);
+  const goldId = round.fleetIds[0];
+  const goldRows = standings.filter((r) => r.finalFleetId === goldId);
+  const medalists = goldRows.slice(0, size);
+  const rest = goldRows.slice(size);
+  const goldLabel = fleetMeta.get(goldId)?.label ?? 'Gold';
+
+  const medalAssignments = useMemo(() => {
+    const assignments: Record<string, number> = {};
+    for (const r of medalists) assignments[r.competitor.id] = 0;
+    for (const r of rest) assignments[r.competitor.id] = 1;
+    return assignments;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [standings, size, goldId]);
+
+  return (
+    <CeremonyDialog
+      title="Select the medal fleet"
+      description={`The top boats of the opening series sail the medal race${medalConfig.raceCount > 1 ? 's' : ''} (points ×${medalConfig.multiplier}, never discardable); the rest of ${goldLabel} sail the companion last race, scored from ${size + 1}. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
+      error={commit.isError ? String(commit.error) : null}
+      pending={commit.isPending}
+      commitLabel={`Commit medal fleet (top ${size})`}
+      onClose={onClose}
+      onCommit={() =>
+        run({
+          stage: 'medal',
+          fromStageRace: 1,
+          method: 'medal-select',
+          basis: { throughStageRace: 0, capturedAt: Date.now() },
+          fleets: [
+            { label: 'Medal', color: '#f59e0b' },
+            { label: `${goldLabel} last race`, color: '#94a3b8' },
+          ],
+          assignments: medalAssignments,
+          stageRaceNumbers: [1],
+        })
+      }
+    >
+      <div className="flex items-center gap-2">
+        <label className="text-sm" htmlFor="sf-medal-size">Medal fleet size</label>
+        <input
+          id="sf-medal-size"
+          type="number"
+          min={2}
+          max={goldRows.length}
+          className="w-20 rounded-md border bg-background px-2 py-1 text-sm"
+          value={size}
+          onChange={(e) => setSize(Number(e.target.value))}
+        />
+        <span className="text-xs text-muted-foreground">SIs usually say ten; juries vary it</span>
+      </div>
+      <AssignmentPreviewTable
+        rows={[
+          ...medalists.map((r) => ({ id: r.competitor.id, sail: r.competitor.sailNumber, name: r.competitor.names.join(' & '), to: 'Medal' })),
+          ...rest.map((r) => ({ id: r.competitor.id, sail: r.competitor.sailNumber, name: r.competitor.names.join(' & '), to: `${goldLabel} last race` })),
+        ]}
+      />
+    </CeremonyDialog>
   );
 }
 
@@ -1061,8 +1516,9 @@ function MedalSection({
         const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
         const nextN = races.length ? Math.max(...races.map((r) => r.stageRaceNumber ?? 0)) + 1 : 1;
         const isMedal = i === 0;
-        const canAddMore =
-          !isMedal ? races.length < 1 : races.length < (medalConfig?.raceCount ?? 1);
+        // raceCount is a planning hint, not a limit: the 2026 two-race medal
+        // series is just two adds. Companion fleets sail one last race.
+        const canAddMore = isMedal || races.length < 1;
         return (
           <div key={fid} className="flex flex-wrap items-center gap-2">
             <span className="w-40">
