@@ -33,21 +33,32 @@ import {
 } from '@/lib/finish-entry';
 import type { Competitor, CompetitorFieldKey, Finish, Fleet } from '@/lib/types';
 
-/** One badge per fleet a competitor belongs to. Multi-fleet boats (e.g. a
- *  handicap fleet and a scratch fleet sharing a start) get a pill each rather
- *  than only the first. Falls back to a single "—" when none resolve. */
+/** One badge per fleet a competitor belongs to, scoped to the fleets actually
+ *  racing this sheet. Multi-fleet boats (e.g. a handicap fleet and a scratch
+ *  fleet sharing a start) still get a pill each when both fleets are in the
+ *  race — the badge disambiguates scoring context — but a fleet the boat
+ *  carries that isn't in this race is dropped as noise. `raceFleetIds` is the
+ *  race's started fleets; an empty set means no starts are recorded, so every
+ *  fleet is implied racing and all memberships show. A boat force-entered from
+ *  outside the started fleets (no overlap) falls back to all its memberships
+ *  rather than rendering blank. Falls back to a single "—" when none resolve. */
 function FleetBadges({
   fleetIds,
+  raceFleetIds,
   fleetById,
   variant,
   testId,
 }: {
   fleetIds: string[];
+  raceFleetIds: Set<string>;
   fleetById: Map<string, Fleet>;
   variant: 'secondary' | 'outline';
   testId?: string;
 }) {
-  const names = competitorFleetNames(fleetIds, fleetById);
+  const inRace = raceFleetIds.size > 0
+    ? fleetIds.filter((id) => raceFleetIds.has(id))
+    : fleetIds;
+  const names = competitorFleetNames(inRace.length > 0 ? inRace : fleetIds, fleetById);
   const labels = names.length > 0 ? names : ['—'];
   return (
     <span data-testid={testId} className="flex items-center gap-1 shrink-0">
@@ -80,6 +91,10 @@ export interface FinishTabProps {
   competitors: Competitor[];
   competitorMap: Map<string, Competitor>;
   fleetById: Map<string, Fleet>;
+  /** The fleets with a start in this race — badges are scoped to these so a
+   *  multi-fleet boat only shows the tags relevant to the sheet being entered.
+   *  Empty when no starts are recorded (every fleet implied racing). */
+  raceFleetIds: Set<string>;
   showFleetBadge: boolean;
   showCrew: boolean;
   enabledCompetitorFields: CompetitorFieldKey[];
@@ -101,7 +116,7 @@ export function FinishTab(props: FinishTabProps) {
   const { has } = useFeatures();
   const {
     finishInput, rowOps, nonFinishers,
-    competitors, competitorMap, fleetById,
+    competitors, competitorMap, fleetById, raceFleetIds,
     showFleetBadge, showCrew, enabledCompetitorFields, derived, savedFinishes,
     finishSheetImportRef, applyCsvImport,
     setEditingPenaltyEntryId, openRedressDialog, setResolvingEntry,
@@ -193,7 +208,7 @@ export function FinishTab(props: FinishTabProps) {
         {competitor.sailNumber}
       </span>
       {showFleetBadge && (
-        <FleetBadges fleetIds={competitor.fleetIds} fleetById={fleetById} variant="outline" />
+        <FleetBadges fleetIds={competitor.fleetIds} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="outline" />
       )}
       <span className="text-sm flex-1 truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
       {code === 'RDG' && (
@@ -286,6 +301,7 @@ export function FinishTab(props: FinishTabProps) {
               {showFleetBadge && (
                 <FleetBadges
                   fleetIds={pendingTimeEntry.competitor.fleetIds}
+                  raceFleetIds={raceFleetIds}
                   fleetById={fleetById}
                   variant="secondary"
                 />
@@ -403,7 +419,7 @@ export function FinishTab(props: FinishTabProps) {
                     </Badge>
                   )}
                   {showFleetBadge && (
-                    <FleetBadges fleetIds={competitor.fleetIds} fleetById={fleetById} variant="secondary" />
+                    <FleetBadges fleetIds={competitor.fleetIds} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="secondary" />
                   )}
                   <span className="flex-1 truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
                 </li>
@@ -561,6 +577,7 @@ export function FinishTab(props: FinishTabProps) {
                 {showFleetBadge && (
                   <FleetBadges
                     fleetIds={competitor.fleetIds}
+                    raceFleetIds={raceFleetIds}
                     fleetById={fleetById}
                     variant="secondary"
                     testId={`fleet-badge-${competitor.sailNumber}`}

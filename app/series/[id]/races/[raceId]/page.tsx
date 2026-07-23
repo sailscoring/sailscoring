@@ -21,7 +21,7 @@ import {
   useSaveFinishes,
 } from '@/hooks/use-finishes';
 import { useRaceStartsByRace } from '@/hooks/use-race-starts';
-import { competitorsInRace } from '@/lib/race-membership';
+import { competitorsInRace, raceFleetIds } from '@/lib/race-membership';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -96,6 +96,10 @@ export default function ResultEntryPage({
     () => competitorsInRace(competitors ?? [], raceStarts),
     [competitors, raceStarts],
   );
+  // The fleets with a start in this race — scopes the finish-tab fleet badges
+  // to the sheet being entered, so a multi-fleet boat isn't tagged with fleets
+  // that aren't racing here (#327). Empty when no starts are recorded.
+  const raceFleets = useMemo(() => raceFleetIds(raceStarts), [raceStarts]);
 
   const saveFinish = useSaveFinish();
   const saveFinishes = useSaveFinishes();
@@ -346,6 +350,7 @@ export default function ResultEntryPage({
           competitors={competitors}
           competitorMap={competitorMap}
           fleetById={fleetById}
+          raceFleetIds={raceFleets}
           showFleetBadge={showFleetBadge}
           showCrew={showCrew}
           enabledCompetitorFields={enabledCompetitorFields}
