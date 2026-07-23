@@ -16,6 +16,7 @@ export const raceSchema = z.object({
   // Split-fleet series (PROTOTYPE — see lib/split-fleets.ts).
   stage: z.enum(['qualifying', 'final', 'medal']).optional(),
   stageRaceNumber: z.number().int().positive().optional(),
+  firstPlaceOffset: z.number().int().min(0).optional(),
   createdAt: epochMsSchema,
   version: versionSchema,
 });

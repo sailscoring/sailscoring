@@ -86,6 +86,7 @@ export function competitorFleetNames(
  *  role the primary label doesn't already carry. */
 export const ALL_COMPETITOR_FIELDS: readonly CompetitorFieldKey[] = [
   'bowNumber',
+  'entryNumber',
   'boatName',
   'boatClass',
   'helm',
@@ -103,6 +104,7 @@ export const ALL_COMPETITOR_FIELDS: readonly CompetitorFieldKey[] = [
  *  per-series and come from `Series.subdivisionAxes` (see `subdivisionAxisLabel`). */
 export const COMPETITOR_FIELD_LABELS: Record<CompetitorFieldKey, string> = {
   bowNumber: 'Bow number',
+  entryNumber: 'Entry number',
   boatName: 'Boat name',
   boatClass: 'Class',
   helm: 'Helm name',

@@ -10,6 +10,7 @@ export interface DiscardThreshold {
  *  role, the matching key is disabled to avoid duplication with the primary. */
 export type CompetitorFieldKey =
   | 'bowNumber'
+  | 'entryNumber'
   | 'boatName'
   | 'boatClass'
   | 'helm'

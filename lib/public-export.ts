@@ -134,6 +134,8 @@ export interface PublicSeriesExport {
     sailNumber: string;
     /** Bow number, when it differs from the registered sail number. */
     bowNumber?: string;
+    /** OA registration number (split-fleet championships). */
+    entryNumber?: string;
     boatName?: string;
     boatClass?: string;
     /** Primary person(s), min one; several for co-owned/co-helmed entries. */
@@ -183,6 +185,10 @@ export interface PublicSeriesExport {
      *  untimed finishes — the anchor for protest time limits. When finishes
      *  carry times the sheet itself is authoritative and this is absent. */
     lastFinisherTime?: string;
+    /** Split-fleet series: stage + logical race number + companion offset. */
+    stage?: 'qualifying' | 'final' | 'medal';
+    stageRaceNumber?: number;
+    firstPlaceOffset?: number;
     starts: {
       fleetNames: string[];
       startTime?: string;  // absent for a membership-only start (fleets, no gun time)
@@ -618,6 +624,9 @@ export function buildPublicExportFromSnapshot(
       date: race.date,
       ...(subSeriesNames?.length ? { subSeries: subSeriesNames } : {}),
       ...(race.lastFinisherTime ? { lastFinisherTime: race.lastFinisherTime } : {}),
+      ...(race.stage ? { stage: race.stage } : {}),
+      ...(race.stageRaceNumber != null ? { stageRaceNumber: race.stageRaceNumber } : {}),
+      ...(race.firstPlaceOffset != null ? { firstPlaceOffset: race.firstPlaceOffset } : {}),
       starts,
       finishes,
       ...(nhcByFleet ? { nhcByFleet } : {}),
@@ -729,6 +738,7 @@ export function buildPublicExportFromSnapshot(
     competitors: competitors.map((c) => ({
       sailNumber: c.sailNumber,
       ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
+      ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       names: c.names,
@@ -961,6 +971,7 @@ export async function importPublicExport(
         fleetIds,
         sailNumber: c.sailNumber,
         ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
+      ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
         ...(c.boatName ? { boatName: c.boatName } : {}),
         ...(c.boatClass ? { boatClass: c.boatClass } : {}),
         names: c.names?.length ? c.names : [c.name ?? ''],
@@ -1014,6 +1025,9 @@ export async function importPublicExport(
       name: race.name ?? null,
       date: race.date,
       ...(race.lastFinisherTime ? { lastFinisherTime: race.lastFinisherTime } : {}),
+      ...(race.stage ? { stage: race.stage } : {}),
+      ...(race.stageRaceNumber != null ? { stageRaceNumber: race.stageRaceNumber } : {}),
+      ...(race.firstPlaceOffset != null ? { firstPlaceOffset: race.firstPlaceOffset } : {}),
       createdAt: now,
     });
     for (const name of race.subSeries ?? []) {

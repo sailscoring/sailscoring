@@ -244,6 +244,8 @@ export interface ImportResult {
 const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 'owner'>, string> = {
   sailNumber: 'Sail number',
   bowNumber: 'Bow number',
+  entryNumber: 'Entry number',
+  seed: 'Seeding rank',
   boatName: 'Boat name',
   boatClass: 'Class',
   crewName: 'Crew',
@@ -285,6 +287,8 @@ function buildFieldLabels(
   const labels: Record<string, string> = {
     sailNumber: STATIC_FIELD_LABELS.sailNumber,
     bowNumber: STATIC_FIELD_LABELS.bowNumber,
+    entryNumber: STATIC_FIELD_LABELS.entryNumber,
+    seed: STATIC_FIELD_LABELS.seed,
     boatName: STATIC_FIELD_LABELS.boatName,
     boatClass: STATIC_FIELD_LABELS.boatClass,
     primary: `${primaryText} name (primary)`,
@@ -1480,6 +1484,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
 
       let sailNumber = '';
       let bowNumber = '';
+      let entryNumber = '';
+      let seed: number | undefined;
       let boatName = '';
       let boatClass = '';
       const primaryCells: string[] = [];  // every column mapped to the primary, in column order
@@ -1503,6 +1509,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         const val = row[col]?.trim() ?? '';
         if (field === 'sailNumber') sailNumber = val;
         else if (field === 'bowNumber') bowNumber = val;
+        else if (field === 'entryNumber') entryNumber = val;
+        else if (field === 'seed') seed = parseInt(val, 10) || undefined;
         else if (field === 'boatName') boatName = val;
         else if (field === 'boatClass') boatClass = val;
         else if (field === 'primary') { if (val) primaryCells.push(val); }
@@ -1618,6 +1626,12 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         fleetIds,
         sailNumber: normSail,
         ...(resolvedBowNumber ? { bowNumber: resolvedBowNumber } : {}),
+        ...(entryNumber || existingCompetitor?.entryNumber
+          ? { entryNumber: entryNumber || existingCompetitor?.entryNumber }
+          : {}),
+        ...(seed != null || existingCompetitor?.seed != null
+          ? { seed: seed ?? existingCompetitor?.seed }
+          : {}),
         ...(resolvedBoatName ? { boatName: resolvedBoatName } : {}),
         ...(resolvedBoatClass ? { boatClass: resolvedBoatClass } : {}),
         names: resolvedNames,

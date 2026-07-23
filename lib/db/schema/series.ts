@@ -396,6 +396,10 @@ export const competitors = pgTable(
     fleetIds: uuid('fleet_ids').array().notNull(),
     sailNumber: text('sail_number').notNull(),
     bowNumber: text('bow_number'),
+    // Split-fleet championships: the OA's registration number and seeding
+    // rank (docs/design/split-fleets.md). Sparse; both nullable.
+    entryNumber: text('entry_number'),
+    seed: integer('seed'),
     boatName: text('boat_name'),
     boatClass: text('boat_class'),
     names: jsonb('names').$type<string[]>().notNull(),
@@ -766,6 +770,8 @@ export const races = pgTable(
     // the stage. Both null on standard series.
     stage: text('stage').$type<'qualifying' | 'final' | 'medal'>(),
     stageRaceNumber: integer('stage_race_number'),
+    // Companion "last race": first finisher scores offset + 1.
+    firstPlaceOffset: integer('first_place_offset'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -804,6 +810,11 @@ export const splitRounds = pgTable(
     fleetIds: uuid('fleet_ids').array().notNull(),
     method: text('method').notNull(),
     basis: jsonb('basis').$type<{ throughStageRace: number; capturedAt: number }>(),
+    // Manual placements layered over the computed assignment
+    // (competitorId → fleetId); never queried by content.
+    overrides: jsonb('overrides').$type<Record<string, string>>(),
+    // When the round's assignment lists were last published.
+    publishedAt: timestamp('published_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

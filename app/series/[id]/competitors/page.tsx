@@ -378,6 +378,7 @@ export default function CompetitorsPage({
       fleetIds,
       sailNumber: data.sailNumber,
       ...(data.bowNumber.trim() ? { bowNumber: data.bowNumber.trim() } : {}),
+      ...(data.entryNumber.trim() ? { entryNumber: data.entryNumber.trim() } : {}),
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
       names: cleanPersonNames(data.names) ?? [''],
@@ -421,6 +422,7 @@ export default function CompetitorsPage({
       fleetIds: newFleetIds,
       sailNumber: data.sailNumber,
       ...(data.bowNumber.trim() ? { bowNumber: data.bowNumber.trim() } : {}),
+      ...(data.entryNumber.trim() ? { entryNumber: data.entryNumber.trim() } : {}),
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
       names: cleanPersonNames(data.names) ?? [''],
@@ -456,6 +458,7 @@ export default function CompetitorsPage({
     if (!updated.nhcStartingTcf) delete updated.nhcStartingTcf;
     if (!updated.echoStartingTcf) delete updated.echoStartingTcf;
     if (!data.bowNumber.trim()) delete updated.bowNumber;
+    if (!data.entryNumber.trim()) delete updated.entryNumber;
     if (!data.boatName.trim()) delete updated.boatName;
     if (!data.boatClass.trim()) delete updated.boatClass;
     if (!cleanPersonNames(data.owners)) delete updated.owners;
@@ -872,6 +875,7 @@ export default function CompetitorsPage({
               initial={{
                 sailNumber: editingCompetitor.sailNumber,
                 bowNumber: editingCompetitor.bowNumber ?? '',
+                entryNumber: editingCompetitor.entryNumber ?? '',
                 boatName: editingCompetitor.boatName ?? '',
                 boatClass: editingCompetitor.boatClass ?? '',
                 names: editingCompetitor.names,

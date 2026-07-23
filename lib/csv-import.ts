@@ -9,6 +9,8 @@
 export type CompetitorField =
   | 'sailNumber'
   | 'bowNumber'
+  | 'entryNumber'
+  | 'seed'
   | 'boatName'
   | 'boatClass'
   | 'primary'
@@ -157,6 +159,8 @@ export function autoDetectField(header: string): CompetitorField {
   const h = header.trim().replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
   if (/sail/.test(h)) return 'sailNumber';
   if (/\bbow\b/.test(h)) return 'bowNumber';
+  if (/entry\s*(number|no|id|#)?/.test(h)) return 'entryNumber';
+  if (/\bseed(ing)?\b|\brank(ing)?\b/.test(h)) return 'seed';
   if (/\bboat\b/.test(h)) return 'boatName';
   if (/\bclass\b/.test(h)) return 'boatClass';
   if (/crew/.test(h)) return 'crewName';

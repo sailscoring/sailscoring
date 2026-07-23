@@ -27,6 +27,7 @@ import type { CompetitorFieldKey, Fleet, MultiPersonFieldKey, PrimaryPersonLabel
 export interface CompetitorFormData {
   sailNumber: string;
   bowNumber: string;
+  entryNumber: string;
   boatName: string;
   boatClass: string;
   names: string[];   // primary person rows; blanks dropped on save, at least one non-blank required
@@ -49,6 +50,7 @@ export interface CompetitorFormData {
 export const emptyCompetitorForm: CompetitorFormData = {
   sailNumber: '',
   bowNumber: '',
+  entryNumber: '',
   boatName: '',
   boatClass: '',
   names: [''],
@@ -326,6 +328,16 @@ export function CompetitorForm({
             </p>
           )}
         </div>
+        {enabledFields.includes('entryNumber') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="entryNumber">Entry number</Label>
+            <Input
+              id="entryNumber"
+              value={data.entryNumber}
+              onChange={(e) => set('entryNumber', e.target.value)}
+            />
+          </div>
+        )}
         {enabledFields.includes('bowNumber') && (
           <div className="space-y-1.5">
             <Label htmlFor="bowNumber">Bow number</Label>

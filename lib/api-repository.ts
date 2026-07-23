@@ -986,6 +986,29 @@ export async function deleteSplitRound(seriesId: string, roundId: string): Promi
   });
 }
 
+/** SeriesFileRepos.splitFleets member (v23+): lets the client file-save path
+ *  carry split-fleet config + rounds. File opens replay server-side, so the
+ *  client bundle only needs `get`. */
+export const splitFleets = {
+  async get(seriesId: string) {
+    const state = await getSplitFleetState(seriesId);
+    if (!state.config) return null;
+    return {
+      config: state.config,
+      rounds: state.rounds.map((r) => ({
+        id: r.id,
+        stage: r.stage,
+        fromStageRace: r.fromStageRace,
+        fleetIds: r.fleetIds,
+        method: r.method,
+        basis: r.basis,
+        ...(r.overrides ? { overrides: r.overrides } : {}),
+        createdAt: r.createdAt,
+      })),
+    };
+  },
+};
+
 // ─── Activity log (#153) ────────────────────────────────────────────────────
 
 /**

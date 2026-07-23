@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
 import type { PgInsertValue, PgUpdateSetSource } from 'drizzle-orm/pg-core';
 
 import { decryptCredential, encryptCredential } from './crypto';
@@ -149,6 +149,8 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     fleetIds: row.fleetIds,
     sailNumber: row.sailNumber,
     ...(row.bowNumber ? { bowNumber: row.bowNumber } : {}),
+    ...(row.entryNumber ? { entryNumber: row.entryNumber } : {}),
+    ...(row.seed != null ? { seed: row.seed } : {}),
     ...(row.boatName ? { boatName: row.boatName } : {}),
     ...(row.boatClass ? { boatClass: row.boatClass } : {}),
     names: row.names,
@@ -182,6 +184,7 @@ function raceRowToType(row: RaceRow): Race {
     ...(row.lastFinisherTime ? { lastFinisherTime: row.lastFinisherTime } : {}),
     ...(row.stage ? { stage: row.stage } : {}),
     ...(row.stageRaceNumber != null ? { stageRaceNumber: row.stageRaceNumber } : {}),
+    ...(row.firstPlaceOffset != null ? { firstPlaceOffset: row.firstPlaceOffset } : {}),
     createdAt: row.createdAt.getTime(),
     version: row.version,
   };
@@ -931,6 +934,8 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     fleetIds: c.fleetIds,
     sailNumber: c.sailNumber,
     bowNumber: c.bowNumber ?? null,
+    entryNumber: c.entryNumber ?? null,
+    seed: c.seed ?? null,
     boatName: c.boatName ?? null,
     boatClass: c.boatClass ?? null,
     names: c.names,
@@ -952,7 +957,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
 }
 
 const competitorUpdateColumns = [
-  'fleetIds', 'sailNumber', 'bowNumber', 'boatName', 'boatClass', 'names',
+  'fleetIds', 'sailNumber', 'bowNumber', 'entryNumber', 'seed', 'boatName', 'boatClass', 'names',
   'owners', 'helms', 'crewNames', 'club', 'nationality',
   'gender', 'age', 'subdivisions',
   'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf',
@@ -1135,12 +1140,13 @@ function raceToRow(r: Race, workspaceId: string) {
     lastFinisherTime: r.lastFinisherTime ?? null,
     stage: r.stage ?? null,
     stageRaceNumber: r.stageRaceNumber ?? null,
+    firstPlaceOffset: r.firstPlaceOffset ?? null,
     createdAt: new Date(r.createdAt),
   };
 }
 
 const raceUpdateColumns = [
-  'raceNumber', 'name', 'date', 'lastFinisherTime', 'stage', 'stageRaceNumber',
+  'raceNumber', 'name', 'date', 'lastFinisherTime', 'stage', 'stageRaceNumber', 'firstPlaceOffset',
 ] as const satisfies readonly (keyof ReturnType<typeof raceToRow>)[];
 
 export class PostgresRaceRepository implements RaceRepository {
@@ -2354,6 +2360,60 @@ export function seriesFileReposFor(ctx: RepoCtx): SeriesFileRepos {
     raceRatingOverrideRepo: repos.raceRatingOverrides,
     finishRepo: repos.finishes,
     logoRepo: repos.logos,
+    // Split-fleet state (v23+): read for file/revision export; replace on
+    // file replay (config onto the series row, rounds rewritten wholesale).
+    splitFleets: {
+      async get(seriesId) {
+        const db = ctx.db ?? getDb();
+        const [row] = await db
+          .select({ qfConfig: schema.series.qfConfig })
+          .from(schema.series)
+          .where(and(eq(schema.series.id, seriesId), eq(schema.series.workspaceId, ctx.workspaceId)));
+        if (!row?.qfConfig) return null;
+        const rounds = await db
+          .select()
+          .from(schema.splitRounds)
+          .where(eq(schema.splitRounds.seriesId, seriesId))
+          .orderBy(asc(schema.splitRounds.createdAt));
+        return {
+          config: row.qfConfig,
+          rounds: rounds.map((r) => ({
+            id: r.id,
+            stage: r.stage,
+            fromStageRace: r.fromStageRace,
+            fleetIds: r.fleetIds,
+            method: r.method,
+            basis: r.basis ?? null,
+            ...(r.overrides ? { overrides: r.overrides } : {}),
+            createdAt: r.createdAt.getTime(),
+          })),
+        };
+      },
+      async replace(seriesId, data) {
+        const db = ctx.db ?? getDb();
+        await db
+          .update(schema.series)
+          .set({ qfConfig: data.config })
+          .where(and(eq(schema.series.id, seriesId), eq(schema.series.workspaceId, ctx.workspaceId)));
+        await db.delete(schema.splitRounds).where(eq(schema.splitRounds.seriesId, seriesId));
+        if (data.rounds.length) {
+          await db.insert(schema.splitRounds).values(
+            data.rounds.map((r) => ({
+              id: r.id,
+              seriesId,
+              workspaceId: ctx.workspaceId,
+              stage: r.stage,
+              fromStageRace: r.fromStageRace,
+              fleetIds: r.fleetIds,
+              method: r.method,
+              basis: r.basis ?? null,
+              overrides: r.overrides ?? null,
+              createdAt: new Date(r.createdAt),
+            })),
+          );
+        }
+      },
+    },
     async listSeriesNames(opts) {
       const all = await repos.series.list();
       return all

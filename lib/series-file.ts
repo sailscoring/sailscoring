@@ -52,6 +52,13 @@ export interface SeriesFileRepos {
   raceStartRepo: RaceStartRepository;
   raceRatingOverrideRepo: RaceRatingOverrideRepository;
   finishRepo: FinishRepository;
+  /** Split-fleet state (v23+). Optional: bundles that lack it simply don't
+   *  carry split-fleet data through files/revisions. `replace` rewrites the
+   *  series' rounds + config wholesale (ids freshly minted by the caller). */
+  splitFleets?: {
+    get(seriesId: string): Promise<SeriesFileSplitFleets | null>;
+    replace?(seriesId: string, data: SeriesFileSplitFleets): Promise<void>;
+  };
   listSeriesNames(opts?: { excludeId?: string }): Promise<string[]>;
   deleteSeriesChildren(seriesId: string): Promise<void>;
   /** Run `fn` against transaction-scoped repos, rolling back everything it
@@ -185,12 +192,36 @@ export interface SeriesFileRepos {
  *  `helm` → `helms`. The parser folds the legacy singulars into one-element
  *  lists on read. Also adds optional `series.multiPersonFields` — the person
  *  fields whose entry affordances are opened to multiple names (gated by the
- *  `multi-person-fields` feature). Sparse; absent means all single. */
-export const FORMAT_VERSION = 22;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+ *  `multi-person-fields` feature). Sparse; absent means all single.
+ *
+ *  v23 adds split-fleet series (#328): a top-level `splitFleets` block
+ *  (config + assignment rounds), `races[*].stage` / `stageRaceNumber` /
+ *  `firstPlaceOffset`, and `competitors[*].entryNumber` / `seed`. All sparse
+ *  — absent on ordinary series. */
+export const FORMAT_VERSION = 23;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
+
+// Split-fleet series (v23+): the series' scoring configuration and the
+// assignment rounds (docs/design/split-fleets.md). `publishedAt` is
+// workspace-local publishing state and is not carried.
+export interface SeriesFileSplitRound {
+  id: string;
+  stage: 'qualifying' | 'final' | 'medal';
+  fromStageRace: number;
+  fleetIds: string[];
+  method: string;
+  basis?: { throughStageRace: number; capturedAt: number } | null;
+  overrides?: Record<string, string>;
+  createdAt: number;
+}
+export interface SeriesFileSplitFleets {
+  config: import('./split-fleets').SplitFleetConfig;
+  rounds: SeriesFileSplitRound[];
+}
+
 
 interface SeriesFileFleet {
   id: string;
@@ -249,6 +280,8 @@ interface SeriesFileCompetitor {
   fleetIds: string[];
   sailNumber: string;
   bowNumber?: string;  // v19+
+  entryNumber?: string;  // v23+; OA registration number (split-fleet events)
+  seed?: number;  // v23+; OA seeding rank
   boatName?: string;
   boatClass?: string;
   names: string[];    // v22+; primary person(s), min one
@@ -313,6 +346,9 @@ interface SeriesFileRace {
   name?: string | null; // optional label; absent in files written before v10
   date: string;
   lastFinisherTime?: string;  // v20+; manual last-finisher clock time
+  stage?: 'qualifying' | 'final' | 'medal';  // v23+; split-fleet stage
+  stageRaceNumber?: number;  // v23+; logical race number within the stage
+  firstPlaceOffset?: number;  // v23+; companion race: first finisher scores offset + 1
   /** @deprecated pre-reshape v9 partition membership; read for back-compat,
    *  no longer written (membership now lives in `subSeries[*].raceIds`). */
   subSeriesId?: string;
@@ -368,6 +404,7 @@ export interface SeriesFile {
   /** Sub-series (v9+): named blocks of races, each scored independently.
    *  Absent or empty when the series has none. */
   subSeries?: SeriesFileSubSeries[];
+  splitFleets?: SeriesFileSplitFleets;  // v23+; split-fleet config + rounds
   tcfHistory?: SeriesFileTcfRecord[];
   /** Pre-v4 alias for `tcfHistory`. Loader accepts either key; writer emits
    *  the new key only. Kept on the type so v1–v3 files parse without a cast. */
@@ -531,6 +568,8 @@ export async function buildSeriesFile(
       fleetIds: c.fleetIds,
       sailNumber: c.sailNumber,
       ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
+      ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
+      ...(c.seed != null ? { seed: c.seed } : {}),
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       names: c.names,
@@ -556,6 +595,9 @@ export async function buildSeriesFile(
       ...(r.name ? { name: r.name } : {}),
       date: r.date,
       ...(r.lastFinisherTime ? { lastFinisherTime: r.lastFinisherTime } : {}),
+      ...(r.stage ? { stage: r.stage } : {}),
+      ...(r.stageRaceNumber != null ? { stageRaceNumber: r.stageRaceNumber } : {}),
+      ...(r.firstPlaceOffset != null ? { firstPlaceOffset: r.firstPlaceOffset } : {}),
       starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
       ...(overridesByRace.get(r.id)?.length ? { ratingOverrides: overridesByRace.get(r.id) } : {}),
@@ -595,6 +637,11 @@ export async function buildSeriesFile(
         }
       : {}),
   };
+
+  if (repos.splitFleets) {
+    const sf = await repos.splitFleets.get(seriesId);
+    if (sf) file.splitFleets = sf;
+  }
 
   return file;
 }
@@ -1391,6 +1438,8 @@ async function writeFleetsCompetitorsRaces(
         ...(c.helms?.length ? { helms: c.helms } : {}),
         ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
         club: c.club,
+        ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
+        ...(c.seed != null ? { seed: c.seed } : {}),
         ...(c.nationality ? { nationality: c.nationality } : {}),
         gender: c.gender,
         age: c.age,
@@ -1424,6 +1473,9 @@ async function writeFleetsCompetitorsRaces(
       name: r.name ?? null,
       date: r.date,
       ...(r.lastFinisherTime ? { lastFinisherTime: r.lastFinisherTime } : {}),
+      ...(r.stage ? { stage: r.stage } : {}),
+      ...(r.stageRaceNumber != null ? { stageRaceNumber: r.stageRaceNumber } : {}),
+      ...(r.firstPlaceOffset != null ? { firstPlaceOffset: r.firstPlaceOffset } : {}),
       createdAt: now,
     });
 
@@ -1544,6 +1596,34 @@ async function writeFleetsCompetitorsRaces(
         })),
       );
     }
+  }
+
+  // Split-fleet rounds + config (v23+): replayed last, with fleet and
+  // competitor ids remapped onto the freshly-minted rows. Rounds whose
+  // fleets didn't survive the remap are dropped rather than half-written.
+  if (file.splitFleets && repos.splitFleets?.replace) {
+    await repos.splitFleets.replace(seriesId, {
+      config: file.splitFleets.config,
+      rounds: file.splitFleets.rounds.map((r) => ({
+        ...r,
+        id: crypto.randomUUID(),
+        fleetIds: r.fleetIds
+          .map((id) => fleetIdMap.get(id))
+          .filter((id): id is string => !!id),
+        ...(r.overrides
+          ? {
+              overrides: Object.fromEntries(
+                Object.entries(r.overrides)
+                  .map(([cid, fid]) => [
+                    competitorIdMap.get(cid),
+                    fleetIdMap.get(fid),
+                  ])
+                  .filter(([a, b]) => a && b) as [string, string][],
+              ),
+            }
+          : {}),
+      })),
+    });
   }
 
   // NHC tcf history is no longer persisted — the only consumer was the
