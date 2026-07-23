@@ -12,7 +12,8 @@ runnable: true
 notes: |
   The Addendum-C classic, with the assignment computed rather than declared:
   - Round 1 is SEEDED from the entry ranking — competitors are listed in seed
-    order (s1 best), and the serpentine spreads ability across flights, so s1
+    order (s1 best), and the rank pattern (down the flight list and back)
+    spreads ability across flights, so s1
     and s2 land in DIFFERENT flights (Yellow gets s1, s4, s5; Blue gets s2,
     s3, s6). This is the point of seeding — consecutive seeds never share a
     flight — and `expectedFleets` asserts it.

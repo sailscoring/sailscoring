@@ -101,7 +101,8 @@ produce), and the runner computes the assignment via the engine's
 `assignByRankPattern` / `finalBlockSizes` / `seedOrder` and asserts it:
 
 - **01** seeds round 1 from the entry ranking and derives the final split —
-  note the serpentine spreads ability across flights, so consecutive seeds
+  note the rank pattern (down the flight list and back) spreads ability
+  across flights, so consecutive seeds
   land in *different* flights (the whole point of seeding).
 - **10** is the dedicated assignment test: seed → race → **reassign by the
   standings after Q2** → assert the flights reshuffled.

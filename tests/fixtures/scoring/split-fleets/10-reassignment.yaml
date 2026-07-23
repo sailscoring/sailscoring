@@ -1,4 +1,4 @@
-description: "Reassignment: seed by ranking, then reshuffle the flights by standings after each day (the serpentine)"
+description: "Reassignment: seed by ranking, then reshuffle the flights by standings after each day"
 provenance:
   class: "ILCA 7"
   year: 2026
@@ -7,17 +7,17 @@ provenance:
   results: "https://jpvm.org/results/2024/ILCA_7/"
   code: F1
   scenarios: []
-  alternatives: "Every Addendum-C class reassigns daily; the 2/3/4-fleet serpentine tables are unit-tested in tests/split-fleets.test.ts."
+  alternatives: "Every Addendum-C class reassigns daily; the 2/3/4-fleet reassignment tables are unit-tested in tests/split-fleets.test.ts."
 runnable: true
 notes: |
   The assignment ceremony under test end to end:
-  - Round 1 is SEEDED from the entry ranking (serpentine over seed order):
-    Yellow = s1, s4, s5, s8; Blue = s2, s3, s6, s7 (consecutive seeds split
-    across flights).
+  - Round 1 is SEEDED from the entry ranking — the rank pattern assigns down
+    the flight list and back over the seed order: Yellow = s1, s4, s5, s8;
+    Blue = s2, s3, s6, s7 (consecutive seeds split across flights).
   - After Q1–Q2 the flights are REASSIGNED by the current standings (Addendum
     A2.3–A2.5: "reassigned based on their ranks in the series"). Boats that
     did well move up, so the flights change: the round-2 Yellow/Blue are the
-    serpentine over the Q1–Q2 ranking, not the seed order. `expectedFleets`
+    rank pattern over the Q1–Q2 ranking, not the seed order. `expectedFleets`
     on the second round asserts the reshuffle; the movement (e.g. s5 and s4
     drop from Yellow to Blue, s7 and s3 rise from Blue to Yellow) is the whole
     point of daily reassignment.

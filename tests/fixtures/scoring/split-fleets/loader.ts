@@ -56,7 +56,7 @@ export interface FixtureStageRace {
  *   splitAfter:    final split by the qualifying ranking through race N
  *   medalTop:      medal-fleet selection — top N of the opening series (the
  *                  rest of the top final fleet go to the companion fleet)
- * The engine's serpentine (`assignByRankPattern`) and block-split
+ * The engine's rank pattern (`assignByRankPattern`) and block-split
  * (`finalBlockSizes`) do the work; the fixture asserts the result via
  * `expectedFleets`.
  */

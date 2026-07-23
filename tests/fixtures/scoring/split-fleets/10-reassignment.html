@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta name="viewport" content="width=device-width">
-<title>Reassignment: seed by ranking, then reshuffle the flights by standings after each day (the serpentine) — Sail Scoring</title>
+<title>Reassignment: seed by ranking, then reshuffle the flights by standings after each day — Sail Scoring</title>
 <style>
 body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
 h1 { font-size: 1.4em; margin-bottom: 0.2em; }
@@ -18,18 +18,18 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 </head>
 <body>
 <p><a href="../">&larr; All split-fleet examples</a></p>
-<h1>Reassignment: seed by ranking, then reshuffle the flights by standings after each day (the serpentine)</h1>
+<h1>Reassignment: seed by ranking, then reshuffle the flights by standings after each day</h1>
 <p style="color:#555;">ILCA 7 2026 — World Championship, Dun Laoghaire IRL (class-standard Addendum A) &middot; <strong>F1</strong> &middot; SI (<code>reference-docs:events/ilca7-worlds-2024/SI-Amendment-1.md (Addendum A2.2–A2.5)</code>) &middot; <a href="https://jpvm.org/results/2024/ILCA_7/">results</a></p>
 
 <div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; → Gold/Silver &middot; discards: 1 discard from race 4.</div>
 <pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">The assignment ceremony under test end to end:
-- Round 1 is SEEDED from the entry ranking (serpentine over seed order):
-  Yellow = s1, s4, s5, s8; Blue = s2, s3, s6, s7 (consecutive seeds split
-  across flights).
+- Round 1 is SEEDED from the entry ranking — the rank pattern assigns down
+  the flight list and back over the seed order: Yellow = s1, s4, s5, s8;
+  Blue = s2, s3, s6, s7 (consecutive seeds split across flights).
 - After Q1–Q2 the flights are REASSIGNED by the current standings (Addendum
   A2.3–A2.5: &quot;reassigned based on their ranks in the series&quot;). Boats that
   did well move up, so the flights change: the round-2 Yellow/Blue are the
-  serpentine over the Q1–Q2 ranking, not the seed order. `expectedFleets`
+  rank pattern over the Q1–Q2 ranking, not the seed order. `expectedFleets`
   on the second round asserts the reshuffle; the movement (e.g. s5 and s4
   drop from Yellow to Blue, s7 and s3 rise from Blue to Yellow) is the whole
   point of daily reassignment.
