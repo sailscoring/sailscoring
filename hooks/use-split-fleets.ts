@@ -18,10 +18,11 @@ import type { SplitFleetConfig } from '@/lib/split-fleets';
 
 import { queryKeys } from './query-keys';
 
-export function useSplitFleetState(seriesId: string) {
+export function useSplitFleetState(seriesId: string, opts?: { enabled?: boolean }) {
   return useQuery<SplitFleetStateDto>({
     queryKey: queryKeys.splitFleets.bySeries(seriesId),
     queryFn: () => getSplitFleetState(seriesId),
+    enabled: opts?.enabled ?? true,
   });
 }
 

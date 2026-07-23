@@ -97,6 +97,13 @@ function exportReposFor(workspaceId: string): ExportRepos {
     raceStartRepo: repos.raceStarts,
     raceRatingOverrideRepo: repos.raceRatingOverrides,
     logoRepo: repos.logos,
+    splitFleets: {
+      async get(seriesId: string) {
+        const config = await repos.splitRounds.getConfig(seriesId);
+        if (!config) return null;
+        return { config, rounds: await repos.splitRounds.listBySeries(seriesId) };
+      },
+    },
   };
 }
 
@@ -394,6 +401,17 @@ export async function publishSeries(
   await mapWithConcurrency(supersededPages, PUBLISH_BLOB_CONCURRENCY, (page) =>
     deletePublishedHtml(page.blobUrl),
   );
+
+  // Split-fleet series (#328): the publish carried the rolling assignments
+  // page, so stamp each not-yet-published round — the Split Fleets page can
+  // then show which assignments are public. Best-effort, like the revision
+  // below.
+  const splitRoundsNow = await repos.splitRounds.listBySeries(seriesId);
+  for (const round of splitRoundsNow) {
+    if (!round.publishedAt) {
+      await repos.splitRounds.setPublishedAt(round.id, Date.now());
+    }
+  }
 
   // Revision milestone (#166): seal the open session and pin a `publish`
   // revision capturing exactly what went public — a clean "restore to what I

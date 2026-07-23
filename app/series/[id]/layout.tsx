@@ -13,6 +13,7 @@ import { SeriesActionsMenu } from '@/components/series-actions-menu';
 import { SeriesReadOnlyProvider } from '@/components/series-read-only';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useFeatures } from '@/components/features-provider';
+import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import { Button } from '@/components/ui/button';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
@@ -50,6 +51,11 @@ export default function SeriesLayout({
 
   const showPrizes = has('prizes');
   const showSplitFleets = has('split-fleets');
+  // On a split-fleet series the regular per-fleet Standings tab is noise —
+  // every round fleet gets a meaningless table; the standings that matter
+  // live on the Split Fleets page (which also carries publish/preview).
+  const { data: sfState } = useSplitFleetState(id, { enabled: showSplitFleets });
+  const isSplitFleetSeries = !!sfState?.config;
   const asPublished = series?.asPublished ?? false;
   // Prizes slots in after Standings — allocation reads the standings, so the
   // tabs follow the scorer's flow. Split Fleets (PROTOTYPE) slots in after
@@ -63,7 +69,10 @@ export default function SeriesLayout({
   if (showSplitFleets) {
     gatedTabs.splice(2, 0, splitFleetsTab);
   }
-  const tabs = asPublished ? [baseTabs[0], baseTabs[2]] : gatedTabs;
+  const visibleTabs = isSplitFleetSeries
+    ? gatedTabs.filter((t) => t.label !== 'Standings')
+    : gatedTabs;
+  const tabs = asPublished ? [baseTabs[0], baseTabs[2]] : visibleTabs;
 
   useChordShortcut({
     c: () => router.push(`/series/${id}/competitors`),

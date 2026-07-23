@@ -10,6 +10,8 @@ import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Loader2, Trash2 } from 'lucide-react';
 
+import { PreviewDialog } from '@/components/preview-dialog';
+import { PublishDialog } from '@/components/publish-dialog';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { Button } from '@/components/ui/button';
@@ -258,6 +260,8 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   const readOnly = useSeriesReadOnly();
   const { can } = useWorkspacePermissions();
   const qc = useQueryClient();
+  const [showPublish, setShowPublish] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // The scorer bounces between this view and finish entry all day; the
   // global 30s staleTime would otherwise show a just-entered sheet as
@@ -410,7 +414,28 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         fleetMeta={fleetMeta}
         standings={standings}
         splitRound={splitRound}
+        onPublish={can('manage-workspace') || can('score') ? () => setShowPublish(true) : undefined}
+        onPreview={() => setShowPreview(true)}
       />
+      {/* The round fleets are internal — the published output is the
+          championship page + the assignments page, so both dialogs run in
+          single-default-page mode (empty fleet list) and the build emits the
+          split-fleet pages itself. */}
+      <PreviewDialog
+        series={data.series}
+        fleets={[]}
+        open={showPreview}
+        onClose={() => setShowPreview(false)}
+        onPublish={can('score') ? () => { setShowPreview(false); setShowPublish(true); } : undefined}
+      />
+      <PublishDialog
+        series={data.series}
+        fleets={[]}
+        open={showPublish}
+        onClose={() => setShowPublish(false)}
+        canFtp={false}
+      />
+
     </div>
   );
 }
@@ -1571,11 +1596,15 @@ function StandingsSection({
   fleetMeta,
   standings,
   splitRound,
+  onPublish,
+  onPreview,
 }: {
   data: SplitFleetData;
   fleetMeta: Map<string, FleetMeta>;
   standings: SplitStandingRow[];
   splitRound: SplitRound | null;
+  onPublish?: () => void;
+  onPreview?: () => void;
 }) {
   const columns = useMemo(() => {
     const seen = new Map<string, { stage: SeriesStage; n: number }>();
@@ -1632,7 +1661,17 @@ function StandingsSection({
 
   return (
     <section className="bg-card border rounded-lg p-5 space-y-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wide">Standings</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wide">Standings</h2>
+        <div className="flex gap-2">
+          {onPreview && (
+            <Button variant="outline" size="sm" onClick={onPreview}>Preview</Button>
+          )}
+          {onPublish && (
+            <Button size="sm" onClick={onPublish}>Publish…</Button>
+          )}
+        </div>
+      </div>
       <div className="overflow-x-auto">
         {splitRound ? (
           splitRound.fleetIds.map((fid) => {

@@ -24,6 +24,8 @@ import type {
 } from './repository';
 import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap } from './scoring';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
+import type { SplitFleetConfig } from './split-fleets';
+import type { RenderSplitRound } from './split-fleets-render';
 import {
   defaultEnabledCompetitorFields,
   formatPrimaryNames,
@@ -349,6 +351,13 @@ export interface ExportRepos {
    *  defaults (see `applyWorkspaceLogoDefaults`). Absent on the `.sailscoring`
    *  file path, which must serialise the series exactly as stored. */
   logoRepo?: LogoDefaultsReader;
+  /** Optional split-fleet reader (#328). When present and the series carries a
+   *  split-fleet config with at least one round, `buildFleetHtmlFiles` emits
+   *  the championship standings page + the fleet-assignments page instead of
+   *  per-fleet pages. */
+  splitFleets?: {
+    get(seriesId: string): Promise<{ config: SplitFleetConfig; rounds: RenderSplitRound[] } | null>;
+  };
 }
 
 /**

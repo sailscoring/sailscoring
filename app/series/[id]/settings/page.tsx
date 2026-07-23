@@ -9,6 +9,7 @@ import { BasicsCard } from '@/components/series-settings/basics-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
 import { ScoringModeCard } from '@/components/series-settings/scoring-mode-card';
+import { SplitFleetsCard } from '@/components/series-settings/split-fleets-card';
 import { CompetitorFieldsCard } from '@/components/series-settings/competitor-fields-card';
 import { PublishingCard } from '@/components/series-settings/publishing-card';
 import { CombinedPagesCard } from '@/components/series-settings/combined-pages-card';
@@ -111,6 +112,7 @@ export default function SettingsPage({
         }}
       />
       <ScoringModeCard seriesId={seriesId} series={series} />
+      <SplitFleetsCard seriesId={seriesId} />
       <FleetsCard seriesId={seriesId} series={series} />
       <ScoringCard
         value={series}

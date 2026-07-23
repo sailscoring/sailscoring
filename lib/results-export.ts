@@ -20,6 +20,7 @@ import {
   type ExportRepos,
 } from './public-export';
 import { loadSeriesSnapshot } from './series-snapshot';
+import { renderSplitFleetAssignmentsPage, renderSplitFleetStandingsPage } from './split-fleets-render';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -105,6 +106,35 @@ export async function buildFleetHtmlFiles(
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
   if (!snapshot || snapshot.competitors.length === 0 || snapshot.races.length === 0) {
     return null;
+  }
+  // Split-fleet series (#328): the published output is the championship
+  // standings page (tiered, fleet-tinted, cut line) plus the rolling
+  // fleet-assignments page — the per-round fleets never get their own pages.
+  // Shared by preview, download, and publish, like the per-fleet path below.
+  const splitFleets = await repos.splitFleets?.get(seriesId);
+  if (splitFleets && splitFleets.rounds.length > 0) {
+    const input = {
+      seriesName: snapshot.series.name,
+      config: splitFleets.config,
+      rounds: splitFleets.rounds,
+      fleets: snapshot.fleets,
+      competitors: snapshot.competitors,
+      races: snapshot.races,
+      raceStarts: snapshot.raceStarts,
+      finishes: snapshot.finishes,
+    };
+    return [
+      {
+        fleetName: 'Championship',
+        isDefault: true,
+        html: renderSplitFleetStandingsPage(input, { backHref: seriesIndexUrl }),
+      },
+      {
+        fleetName: 'Fleet assignments',
+        isDefault: false,
+        html: renderSplitFleetAssignmentsPage(input, { backHref: seriesIndexUrl }),
+      },
+    ];
   }
   // Publish-time fallback: empty venue/event logo slots inherit the workspace
   // defaults, so the rendered header and the embedded JSON both carry them.
