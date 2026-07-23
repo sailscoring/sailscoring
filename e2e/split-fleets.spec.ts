@@ -2,12 +2,13 @@ import { signedInTest as test, expect } from './fixtures';
 import { createSeriesQuick, enableFeatures } from './helpers';
 
 /**
- * Split Fleets prototype smoke (also the demo script): enable the feature,
- * create a series, seed demo competitors, enable split fleets (2 qualifying
- * fleets), commit Round 1 (Q1–Q2 created), enter Q1 finishes for both
- * fleets, watch Q1 flip to "counts" while Q2 awaits, see the provisional
- * cut line, reassign Round 2, split into Gold/Silver, and select the medal
- * fleet.
+ * Split Fleets smoke (also the demo script): enable the feature, create a
+ * series, seed demo competitors, enable split fleets (2 qualifying fleets),
+ * commit Round 1 (Q1–Q2 created), enter Q1 finishes for both fleets, watch
+ * Q1 flip to "counts" while Q2 awaits, see the provisional cut line,
+ * reassign Round 2, split into Gold/Silver, check the rehomed standings
+ * surfaces (hidden Standings tab, Preview with the championship +
+ * assignments pages, the settings card), and select the medal fleet.
  */
 
 // Mirrors the page's demo data: sails 210001 + i*137, seeded by sail-number
@@ -80,9 +81,37 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await expect(page.getByRole('heading', { name: /Gold/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Silver/ })).toBeVisible();
 
+  // ── Rehomed standings surfaces ────────────────────────────────────────────
+  // The regular Standings tab is hidden for a split-fleet series; preview and
+  // publish live on this page instead. Preview builds the two published
+  // pages: the championship standings and the rolling fleet assignments.
+  await expect(
+    page.getByRole('navigation').getByRole('link', { name: 'Standings' }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Preview' }).click();
+  const preview = page.getByRole('dialog');
+  await expect(preview).toContainText('Preview results');
+  await preview.getByRole('combobox').click();
+  await expect(page.getByRole('option', { name: 'Championship' })).toBeVisible();
+  // Pick a page rather than dismissing the popup — closing a select and its
+  // parent dialog with back-to-back Escapes leaves Radix's aria-hidden
+  // restore in a broken state that strips the nav's accessibility role.
+  await page.getByRole('option', { name: 'Fleet assignments' }).click();
+  await preview.getByRole('button', { name: 'Close' }).click();
+  await expect(preview).toBeHidden();
+
+  // The split-fleet config surfaces as a series-format card on Settings.
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const sfCard = page.getByTestId('split-fleets-card');
+  await expect(sfCard).toBeVisible();
+  await expect(sfCard).toContainText('2 qualifying fleets');
+  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+  await expect(page.getByText('Split committed')).toBeVisible();
+
   // ── Medal fleet ───────────────────────────────────────────────────────────
-  page.once('dialog', (d) => void d.accept());
-  await page.getByRole('button', { name: 'Select medal fleet (top 10)' }).click();
+  await page.getByRole('button', { name: 'Select medal fleet…' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Select the medal fleet');
+  await page.getByRole('button', { name: /Commit medal fleet \(top 10\)/ }).click();
   await expect(page.getByText('Medal races score ×2')).toBeVisible();
   await expect(page.getByRole('link', { name: /M1/ })).toHaveCount(2);
 });
