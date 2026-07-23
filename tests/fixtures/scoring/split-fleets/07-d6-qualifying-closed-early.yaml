@@ -56,7 +56,8 @@ stages:
 
   - stage: final
     from: 1
-    fleets:
+    assign: { split: true }
+    expectedFleets:
       Gold: [y1, b1, y2]
       Silver: [b2, y3, b3]
     races:

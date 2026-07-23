@@ -62,7 +62,8 @@ stages:
   - stage: final
     from: 1
     # Split of the Q1–Q4 ranking (y1 4, b1 4, y2 8, b2 8, b3 12, y3 13).
-    fleets:
+    assign: { split: true }
+    expectedFleets:
       Gold: [y1, b1, y2]
       Silver: [b2, b3, y3]
     races:

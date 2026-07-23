@@ -53,8 +53,17 @@ competitors:
 stages:
   - stage: qualifying | final | medal
     from: 1                      # fromStageRace (default 1)
-    fleets:                      # membership for this round
-      Yellow: [y1, y2, y3]
+    # Assign the round's fleets — prefer `assign` so the assignment logic is
+    # under test; `fleets` declares membership explicitly (hand-picked cases).
+    assign:
+      seed: entry-order          # qualifying round 1: seed by an ordering
+      # reassignAfter: 2         # qualifying: reshuffle by standings after Q2
+      # split: true              # final: split the qualifying ranking
+      # medalTop: 10             # medal: top N of the opening series
+    expectedFleets:              # assert the computed membership (optional)
+      Yellow: [s1, s4, s5]
+      Blue: [s2, s3, s6]
+    # fleets: { Yellow: [...], Blue: [...] }   # OR: explicit membership
     races:
       - n: 1                     # stage race number (Q1, F1, M1…)
         results:                 # fleet -> finish order; "sail" or "sail CODE"
@@ -81,6 +90,29 @@ Notes on the schema:
 - **Medal stage.** The first fleet listed under a `medal` stage is the medal
   fleet (doubled points); any other is a companion "last race" fleet (scored
   from `medal.size + 1`).
+
+## Testing fleet assignment
+
+Fixtures should test the *assignment ceremony*, not just declare its output —
+initial seeding, daily reassignment, and the final split are the most
+format-specific, edge-case-prone part of the format. So a round declares
+`assign:` (how it is formed) plus `expectedFleets:` (what that should
+produce), and the runner computes the assignment via the engine's
+`assignByRankPattern` / `finalBlockSizes` / `seedOrder` and asserts it:
+
+- **01** seeds round 1 from the entry ranking and derives the final split —
+  note the serpentine spreads ability across flights, so consecutive seeds
+  land in *different* flights (the whole point of seeding).
+- **10** is the dedicated assignment test: seed → race → **reassign by the
+  standings after Q2** → assert the flights reshuffled.
+
+The scenario fixtures (02–09) derive the final split from the qualifying
+ranking too, but declare their qualifying flights explicitly with `fleets:` —
+they isolate a scoring rule (discards, medal, no-split, redress), so the
+qualifying assignment is a fixed input, like a scoring fixture's declared
+races. Each round's fleet id is scoped to the round, so a round-1 "Yellow" and
+a round-2 "Yellow" are distinct fleets — a boat reassigned between them is not
+double-scored.
 
 ## Score-code bases at small scale
 

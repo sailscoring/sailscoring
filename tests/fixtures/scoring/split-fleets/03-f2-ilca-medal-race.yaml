@@ -62,7 +62,8 @@ stages:
 
   - stage: final
     from: 1
-    fleets:
+    assign: { split: true }
+    expectedFleets:
       Gold: [y1, b1, y2]
       Silver: [b2, y3, b3]
     races:
@@ -75,7 +76,8 @@ stages:
     from: 1
     # Medal fleet = top 2 of the opening series (y1 = 3, b1 = 4). The remaining
     # Gold boat y2 sails the companion "last race".
-    fleets:
+    assign: { medalTop: 2 }
+    expectedFleets:
       Medal: [y1, b1]
       "Gold last race": [y2]
     races:

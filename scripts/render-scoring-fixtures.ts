@@ -29,7 +29,7 @@ import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests
 import { splitFleetStandings } from '../lib/split-fleets';
 import type { SeriesStage } from '../lib/split-fleets';
 import {
-  buildSplitFleetData,
+  buildSplitFleet,
   type SplitFleetFixture,
 } from '../tests/fixtures/scoring/split-fleets/loader';
 
@@ -733,9 +733,29 @@ const FLEET_TINT: Record<string, string> = {
 };
 
 function generateSplitFleetFixtureHtml(fixture: SplitFleetFixture, yamlSource: string): string {
-  const data = buildSplitFleetData(fixture);
+  const { data, rounds: resolvedRounds } = buildSplitFleet(fixture);
   const rows = splitFleetStandings(data);
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
+
+  // How each round's fleets were formed (seeding, reassignment, split, …).
+  const assignmentsHtml = resolvedRounds.length
+    ? `<h2>Fleet assignments</h2>
+<table>
+<thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
+<tbody>
+${resolvedRounds.map((r) => {
+      const stageLabel = r.stage === 'qualifying' ? `Qualifying (from ${STAGE_PREFIX.qualifying}${r.from})` : r.stage === 'final' ? 'Final split' : 'Medal';
+      const fleetsCell = Object.entries(r.computed)
+        .map(([name, sails]) => {
+          const tint = FLEET_TINT[name] ?? '#fff';
+          return `<span style="background:${tint};padding:0 4px;border-radius:3px;">${esc(name)}: ${esc(sails.join(', '))}</span>`;
+        })
+        .join('&nbsp; ');
+      return `<tr><td>${esc(stageLabel)}</td><td>${esc(r.method)}</td><td>${fleetsCell}</td></tr>`;
+    }).join('\n')}
+</tbody>
+</table>`
+    : '';
 
   // Column set: one per logical race, ordered qualifying → final → medal.
   const colKeys = new Map<string, { stage: SeriesStage; n: number }>();
@@ -844,6 +864,7 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 ${specBanner}
 <div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">${configSummary}</div>
 ${notesHtml}
+${assignmentsHtml}
 ${tables}
 <footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
 </body>

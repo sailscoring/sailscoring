@@ -1,0 +1,90 @@
+description: "Reassignment: seed by ranking, then reshuffle the flights by standings after each day (the serpentine)"
+provenance:
+  class: "ILCA 7"
+  year: 2026
+  event: "World Championship, Dun Laoghaire IRL (class-standard Addendum A)"
+  si: "reference-docs:events/ilca7-worlds-2024/SI-Amendment-1.md (Addendum A2.2–A2.5)"
+  results: "https://jpvm.org/results/2024/ILCA_7/"
+  code: F1
+  scenarios: []
+  alternatives: "Every Addendum-C class reassigns daily; the 2/3/4-fleet serpentine tables are unit-tested in tests/split-fleets.test.ts."
+runnable: true
+notes: |
+  The assignment ceremony under test end to end:
+  - Round 1 is SEEDED from the entry ranking (serpentine over seed order):
+    Yellow = s1, s4, s5, s8; Blue = s2, s3, s6, s7 (consecutive seeds split
+    across flights).
+  - After Q1–Q2 the flights are REASSIGNED by the current standings (Addendum
+    A2.3–A2.5: "reassigned based on their ranks in the series"). Boats that
+    did well move up, so the flights change: the round-2 Yellow/Blue are the
+    serpentine over the Q1–Q2 ranking, not the seed order. `expectedFleets`
+    on the second round asserts the reshuffle; the movement (e.g. s5 and s4
+    drop from Yellow to Blue, s7 and s3 rise from Blue to Yellow) is the whole
+    point of daily reassignment.
+
+  No split here — this fixture isolates the assignment logic; scoring is the
+  ordinary qualifying total over Q1–Q4. `expected` and both `expectedFleets`
+  blocks are verified against the engine.
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds:
+    - minRaces: 4
+      discardCount: 1
+  maxFinalDiscards: 1
+
+competitors:
+  - "s1 Seed 1"
+  - "s2 Seed 2"
+  - "s3 Seed 3"
+  - "s4 Seed 4"
+  - "s5 Seed 5"
+  - "s6 Seed 6"
+  - "s7 Seed 7"
+  - "s8 Seed 8"
+
+stages:
+  - stage: qualifying
+    from: 1
+    assign: { seed: entry-order }
+    expectedFleets:
+      Yellow: [s1, s4, s5, s8]
+      Blue: [s2, s3, s6, s7]
+    races:
+      - n: 1
+        results:
+          Yellow: [s1, s4, s5, s8]
+          Blue: [s2, s3, s6, s7]
+      - n: 2
+        results:
+          Yellow: [s5, s8, s1, s4]
+          Blue: [s7, s6, s3, s2]
+
+  - stage: qualifying
+    from: 3
+    assign: { reassignAfter: 2 }
+    expectedFleets:
+      Yellow: [s1, s3, s7, s8]
+      Blue: [s2, s4, s5, s6]
+    races:
+      - n: 3
+        results:
+          Yellow: [s1, s3, s7, s8]
+          Blue: [s2, s4, s5, s6]
+      - n: 4
+        results:
+          Yellow: [s3, s1, s8, s7]
+          Blue: [s4, s2, s6, s5]
+
+expected:
+  standings:
+    # Qualifying total over Q1–Q4 (1 discard at 4 races); no split.
+    - { rank: 1, sail: s1, total: 7, net: 4 }
+    - { rank: 2, sail: s2, total: 8, net: 4 }
+    - { rank: 3, sail: s3, total: 8, net: 5 }
+    - { rank: 4, sail: s4, total: 9, net: 5 }
+    - { rank: 5, sail: s5, total: 11, net: 7 }
+    - { rank: 6, sail: s7, total: 12, net: 8 }
+    - { rank: 7, sail: s6, total: 12, net: 8 }
+    - { rank: 8, sail: s8, total: 13, net: 9 }

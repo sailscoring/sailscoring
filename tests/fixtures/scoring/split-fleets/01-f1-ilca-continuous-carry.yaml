@@ -1,4 +1,4 @@
-description: "F1 continuous-carry: qualifying scores carry into the final total; Gold outranks Silver on points"
+description: "F1 continuous carry: fleets seeded by ranking, qualifying scores carry into the final total, Gold outranks Silver"
 provenance:
   class: "ILCA 7"
   year: 2022
@@ -10,25 +10,23 @@ provenance:
   alternatives: "Any ILCA/Optimist/420/470 worlds; F1 is the dominant archetype."
 runnable: true
 notes: |
-  The Addendum-C classic: one continuous low-point line across qualifying and
-  final. Real Vallarta was 2 flights (Gold 63 / Silver 63), 6 Q + 6 F races,
-  DNC base = largest flight + 1 = 64, "max one final-series discard" (SI 18.3.3),
+  The Addendum-C classic, with the assignment computed rather than declared:
+  - Round 1 is SEEDED from the entry ranking — competitors are listed in seed
+    order (s1 best), and the serpentine spreads ability across flights, so s1
+    and s2 land in DIFFERENT flights (Yellow gets s1, s4, s5; Blue gets s2,
+    s3, s6). This is the point of seeding — consecutive seeds never share a
+    flight — and `expectedFleets` asserts it.
+  - The final split is derived from the qualifying ranking: Gold = the top
+    block, Silver = the rest.
+
+  Real Vallarta was 2 flights (Gold 63 / Silver 63), 6 Q + 6 F races, DNC base
+  = largest flight + 1 = 64, "max one final-series discard" (SI 18.3.3),
   champion J-B Bernaz (FRA) 51 net. Reduced here to 2 flights of 3 over
-  Q1–Q2 + F1–F2 so a scorer can verify every cell; the real parameters
-  (continuous carry, per-fleet finals base, max-1-final discard) are preserved.
+  Q1-Q2 + F1-F2 so a scorer can verify every cell.
 
-  Two teaching points survive the reduction:
-  - Qualifying scores stay in the total (b1's two Q wins are half his line).
-  - Gold outranks Silver regardless of points: y2 (Gold, net 6) is ranked
-    ABOVE b2 (Silver, net 5).
-
-  Worked line (4 races, 1 discard at 4; the discarded score in parens):
-    Gold   b1  1  1 (2) 1  -> total 5, net 3
-    Gold   y1  1 (2) 1  2  -> total 6, net 4
-    Gold   y2  2  1 (3) 3  -> total 9, net 6
-    Silver b2 (2) 2  1  2  -> total 7, net 5
-    Silver y3 (3) 3  2  1  -> total 9, net 6
-    Silver b3 (3) 3  3  3  -> total 12, net 9
+  Teaching points: qualifying scores stay in the total (continuous carry),
+  and Gold outranks Silver regardless of points. `expected` verified against
+  the engine.
 
 config:
   qualifyingFleets: [Yellow, Blue]
@@ -38,52 +36,53 @@ config:
       discardCount: 1
   maxFinalDiscards: 1
 
+# Listed in seed order (s1 = top seed). Round 1 assigns by this order.
 competitors:
-  - "y1 Helm Y1"
-  - "y2 Helm Y2"
-  - "y3 Helm Y3"
-  - "b1 Helm B1"
-  - "b2 Helm B2"
-  - "b3 Helm B3"
+  - "s1 Seed 1"
+  - "s2 Seed 2"
+  - "s3 Seed 3"
+  - "s4 Seed 4"
+  - "s5 Seed 5"
+  - "s6 Seed 6"
 
 stages:
   - stage: qualifying
     from: 1
-    fleets:
-      Yellow: [y1, y2, y3]
-      Blue: [b1, b2, b3]
+    assign: { seed: entry-order }
+    expectedFleets:
+      Yellow: [s1, s4, s5]
+      Blue: [s2, s3, s6]
     races:
       - n: 1
         results:
-          Yellow: [y1, y2, y3]
-          Blue: [b1, b2, b3]
+          Yellow: [s1, s4, s5]
+          Blue: [s2, s3, s6]
       - n: 2
         results:
-          Yellow: [y2, y1, y3]
-          Blue: [b1, b2, b3]
+          Yellow: [s4, s1, s5]
+          Blue: [s2, s3, s6]
 
   - stage: final
     from: 1
-    # Split of the Q1–Q2 ranking (b1 2, y1 3, y2 3, b2 4, y3 6, b3 6) into
-    # equal blocks: Gold = top 3, Silver = next 3.
-    fleets:
-      Gold: [b1, y1, y2]
-      Silver: [b2, y3, b3]
+    assign: { split: true }
+    expectedFleets:
+      Gold: [s1, s2, s4]
+      Silver: [s3, s5, s6]
     races:
       - n: 1
         results:
-          Gold: [y1, b1, y2]
-          Silver: [b2, y3, b3]
+          Gold: [s1, s2, s4]
+          Silver: [s3, s5, s6]
       - n: 2
         results:
-          Gold: [b1, y1, y2]
-          Silver: [y3, b2, b3]
+          Gold: [s2, s1, s4]
+          Silver: [s5, s3, s6]
 
 expected:
   standings:
-    - { rank: 1, sail: b1, total: 5, net: 3, fleet: Gold }
-    - { rank: 2, sail: y1, total: 6, net: 4, fleet: Gold }
-    - { rank: 3, sail: y2, total: 9, net: 6, fleet: Gold }
-    - { rank: 4, sail: b2, total: 7, net: 5, fleet: Silver }
-    - { rank: 5, sail: y3, total: 9, net: 6, fleet: Silver }
-    - { rank: 6, sail: b3, total: 12, net: 9, fleet: Silver }
+    - { rank: 1, sail: s2, total: 5, net: 3, fleet: Gold }
+    - { rank: 2, sail: s1, total: 6, net: 4, fleet: Gold }
+    - { rank: 3, sail: s4, total: 9, net: 6, fleet: Gold }
+    - { rank: 4, sail: s3, total: 7, net: 5, fleet: Silver }
+    - { rank: 5, sail: s5, total: 9, net: 6, fleet: Silver }
+    - { rank: 6, sail: s6, total: 12, net: 9, fleet: Silver }

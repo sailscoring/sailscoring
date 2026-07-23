@@ -17,7 +17,7 @@ import { join } from 'node:path';
 
 import { splitFleetStandings } from '@/lib/split-fleets';
 import {
-  buildSplitFleetData,
+  buildSplitFleet,
   loadSplitFleetFixtures,
   type SplitFleetFixture,
 } from './fixtures/scoring/split-fleets/loader';
@@ -26,7 +26,17 @@ const dir = join(__dirname, 'fixtures/scoring/split-fleets');
 const fixtures = loadSplitFleetFixtures(dir);
 
 function assertStandings(fx: SplitFleetFixture, file: string) {
-  const data = buildSplitFleetData(fx);
+  const { data, rounds } = buildSplitFleet(fx);
+
+  // Assignment: every round that declares an expectation matches the
+  // computed membership (seeding, reassignment, split, medal selection).
+  for (const round of rounds) {
+    if (!round.expected) continue;
+    expect(round.computed, `${file}: ${round.stage} round (${round.method}) assignment`).toEqual(
+      round.expected,
+    );
+  }
+
   const rows = splitFleetStandings(data);
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
   const bySail = new Map(rows.map((r) => [r.competitor.sailNumber, r]));
