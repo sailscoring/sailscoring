@@ -162,11 +162,19 @@ this boat in Blue?" is always one glance away:
 
 `[ Create Round 1 ]` opens the seeding dialog:
 
-1. Choose the order source: the competitors' seeding column (imported via
-   CSV), nationality-spread, or sail-number order. The chosen source is
-   recorded on the round.
+1. Choose the order source: the competitors' seeding column (the `seed`
+   field, imported via CSV), nationality-spread, or sail-number order — or
+   **enter the assignment directly**. A seeding committee doesn't always
+   hand over an *order*; the SI is "as nearly as possible, equal size **and
+   ability**", and the ability judgment is human, so the dialog also accepts
+   the committee's named lists (paste/import per colour, Sailwave-style). The
+   chosen source is recorded on the round.
 2. Preview: the full assignment table (rank order → fleet), with fleet-size
    totals and a per-nation spread summary when nationality-spread is used.
+   **The preview is editable** — the scorer can drag a boat between fleets
+   before committing (the committee's ability tweaks, a hull that must join a
+   compatriot's fleet), and those hand-moves are recorded as overrides on top
+   of the computed order.
 3. Commit. The automation then: creates the round's fleets ("Yellow",
    "Blue", "Red"), assigns every competitor, creates the physical races the
    round covers (Q1·Y, Q1·B, Q1·R, Q2·Y, …) each with its fleet-scoped
@@ -233,6 +241,17 @@ RC-sanctioned fleet correction). No heuristic detective work at 21:00.
   the day strip shows tomorrow's reality — *"Thu: Q4 · Red (Round 2
   fleets), then Q5–Q6 (Round 3 fleets)"*. The catch-up race stays owned by
   its round; nothing needs re-wiring.
+- **Manual overrides sit on top of the computed assignment.** The pattern
+  is the default, not a straitjacket — the preview is editable, and a
+  hand-move is recorded as an attributed override (the same mechanism as a
+  redress promotion), leaving the computed basis intact for the audit trail.
+  Three real cases need this, none of which the pure pattern covers: a
+  **late entry** who joined after seeding (she isn't in the ranking, so the
+  scorer places her by hand), an **RC/jury instruction** to move a specific
+  boat, and a **wrong-fleet correction** (§Filling in the races) promoted
+  into the next round's assignment. Committing the moves in writing is the
+  scorer's discipline; the round card shows computed-vs-override side by
+  side.
 
 ### Rescoring, abandonment, and cancelling a logical race
 
@@ -317,9 +336,20 @@ The one-time ceremony, same preview-commit shape as a reassignment:
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
+- **The block sizes are adjustable, not just computed.** The split rule
+  from setup (near-equal blocks, or a fixed top-fleet size) seeds the
+  proposal, but the boundary is a judgment the SIs hand to the scorer: the
+  ILCA/IODA rule is "as nearly as possible equal, but Gold the largest,"
+  and the fixed-top classes (49er Gold = 25, 29er Gold = 45/50) set a size
+  outright. So the dialog exposes the **Gold (top-fleet) size** as an input
+  and lets the scorer nudge the boundary, the tally updating live — a
+  fixed-top preset arrives pre-filled, an equal-blocks preset arrives at the
+  near-equal split and can be tuned.
 - Boundary ties get first-class diagnostics: any tie broken *across a cut
-  line* is surfaced with its A8 resolution spelled out, because that's the
-  decision a jury will ask the scorer to defend.
+  line* is surfaced with its A8 resolution spelled out (and which tie-order
+  rule — registration/seeding order, or the fleet-order scatter — settled
+  it, per `reassignmentTieOrder`), because that's the decision a jury will
+  ask the scorer to defend.
 - Commit creates the final fleets (Gold/Silver/Bronze), assigns
   memberships, and switches the standings presentation to tiered tables
   (Gold ranked 1…47, Silver continuing 48…, qualifying columns still
@@ -350,6 +380,16 @@ Gold; Gold becomes 48, Silver 46 — no one is demoted"), commit with a
 note. It's an attributed override on the split round — the audit trail
 shows the original computed split and the promotion separately. Demotion
 isn't offered; the rules don't allow it.
+
+Timing matters. Before the first final race, promotion is clean — the boat
+simply moves up a fleet and races Gold from F1. A redress decided *after*
+final races have been sailed is messier: the boat already has Silver final
+scores, so a bare fleet-move would mis-score her. The action stays available
+(redress can land late) but **warns once any final race is complete** and
+routes the scorer to the jury-shaped resolution the decision actually
+requires (Gold status with averaged points, a re-sail, or scores carried as
+the PC directs) rather than silently relocating a boat who has already
+scored in the wrong fleet.
 
 ---
 

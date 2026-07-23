@@ -448,10 +448,22 @@ export interface QualifyingFinalConfig {
     size: number;
     raceCount: number;
     multiplier: number;
-    companionRaceOffset?: boolean;
   };
 }
 ```
+
+Two of these are deliberately *not* hard-wired, so unusual events don't need
+a config change:
+
+- **The companion "last race" is a per-race primitive, not a medal flag.**
+  A `Race.firstPlaceOffset?: number` (first finisher scores `offset + 1`)
+  lives on the race itself, so *any* race can be a companion race — the
+  common case (non-medal Gold, first = medal size + 1) is just what the
+  medal ceremony pre-fills, but a Silver last race or a one-off follows the
+  same primitive with no new pattern to encode.
+- **`medal.raceCount` is a planning hint, not a limit.** It seeds the day
+  strip; the medal phase lets the scorer add M1, M2, … like final races (the
+  2026 two-race medal series is two adds, not a special mode).
 
 `Race` gains optional fields (absent on standard series):
 
@@ -538,9 +550,10 @@ standings:
   `net-plus-net` computes per-stage nets and sums; `rank-seed` synthesises
   a non-discardable carried score equal to qualifying rank (Sailwave's
   CarriedFwd field, but computed, not hand-merged).
-- **Medal scoring:** points × multiplier, never discarded; the companion
-  race scores from `medal.size + 1` when `companionRaceOffset` is set (a
-  per-race first-place offset, like ZW's "First As").
+- **Medal scoring:** points × multiplier, never discarded; a race whose
+  `Race.firstPlaceOffset` is set scores its first finisher `offset + 1` and
+  so on (like ZW's "First As") — the companion "last race" pre-filled with
+  `offset = medal.size`, but usable on any race.
 - **Event ranking.** Overall order: medal fleet first (where the stage
   exists), then Gold block, Silver block, … — each block internally by net
   points + A8 — with the RRS 6/69 carve-out surfaced as a per-boat flag
@@ -622,21 +635,26 @@ outline, the round cards show method, basis ("from ranking after Q4,
 captured 20:00"), per-fleet rosters, overrides, and published state, with
 these actions:
 
-- **Seed initial fleets** — sort key choice (seeding column from CSV,
-  nationality-spread, sail number), preview, save as round 1.
+- **Seed initial fleets** — order-source choice (`seed` column from CSV,
+  nationality-spread, sail number) *or* the committee's named lists entered
+  directly; an editable preview (drag a boat, recorded as an override),
+  saved as round 1.
 - **Reassign for tomorrow** — the rank-pattern reassignment over current
   standings, with a side-by-side preview (who moves where) before
   committing; the snapshot basis is recorded automatically. The tool
   proposes `fromStageRace` = next unsailed logical race — never a
   hand-typed race range, eliminating Sailwave's overwrite-sailed-
-  assignments failure mode.
+  assignments failure mode. Manual overrides layer on top for late entries,
+  RC/jury moves, and wrong-fleet corrections.
 - **Split into final fleets** — end-of-qualifying wizard: shows the
   equalised qualifying ranking (with any per-boat excluded scores), the
-  proposed Gold/Silver/Bronze blocks per the split rule, tie diagnostics,
-  and creates the final-stage round plus the F-race skeletons.
+  proposed Gold/Silver/Bronze blocks with an adjustable **top-fleet size**
+  and boundary, tie diagnostics (and which tie-order rule settled a
+  boundary tie), and creates the final-stage round plus the F-race
+  skeletons.
 - **Promote (redress)** — a targeted override on the final round moving
   one boat up a fleet, attributed and logged, without touching anyone
-  else.
+  else; clean before the first final race, warned and jury-routed after.
 
 Every round mutation is an activity-log entry, and revision history
 (#166) covers the disaster cases Sailwave handles with file copies.
@@ -750,11 +768,19 @@ RaceSense/Vakaros (the existing CSV finish import is the interim answer).
    qualifying/final .blw (flight columns, LE tab, CarriedFwd) — useful
    for adopting an in-progress event or cross-checking against another
    scorer's file — or is CSV seeding-list import enough for v1?
-6. **Mid-event config changes.** The 2026 NoR adds a medal series that
-   2025 didn't have; SIs get amended mid-event. Which of
-   `QualifyingFinalConfig`'s fields are safely editable after racing
-   starts (discard caps, medal config) vs frozen (fleet count, carry
-   mode)?
+6. **The config-editability contract.** SIs get amended mid-event (the 2026
+   NoR added a medal series 2025 didn't have; the 2025 IODA scorer applied a
+   per-fleet finals code base a year before the SI codified it), so the
+   config can't freeze wholesale at setup. The working split: **frozen once
+   any race has finishes** — `carry` and the qualifying fleet *count*
+   (structural: they shape rounds and the entity graph already built).
+   **Editable throughout** — everything that only re-scores or affects a
+   not-yet-run stage: `discardThresholds`, `maxFinalDiscards`,
+   `protectLoneFinalRace`, `codeBasis`, `equalization`, `split` (the rule and
+   its top-fleet size, until the split is committed), `reassignmentTieOrder`,
+   and the `medal` block. These live on the Settings card (a series-format
+   card like scoring mode): visible always, frozen fields read-only after
+   lock, the rest editable — a change just triggers a recompute.
 7. **Scratch only?** All target events are one-design scratch. Proposal:
    v1 requires `scoringMode: 'scratch'`; split fleets × handicap systems
    is uncharted (no known real event) and stays unsupported until one
