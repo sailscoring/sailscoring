@@ -50,6 +50,14 @@ Two rules are *partially* covered and flagged for the eventual engine:
   flight have unequal counts (e.g. a resail) — is not modelled; `08` notes it.
 - **Redress (D10):** fractional average points and promotion-only refleeting,
   both spec-only for now.
+- **Fleet-boundary ties at the split:** when the Gold/Silver boundary falls on
+  a tie that RRS A8 cannot break (identical race scores — A8.1 and A8.2 both
+  tie), the SIs specify a further order: registration/seeding order, or LE's
+  deliberate fleet-order scatter (the design's `reassignmentTieOrder`). The
+  prototype resolves such ties by **entry order** (the `a8-then-entry-order`
+  variant); it does not implement the fleet-order scatter, and it omits the
+  A8.2 last-race step (which does not affect identical-score ties). Fixture
+  `02` exercises exactly this boundary tie (y2 vs b2) and documents it.
 
 ## Scale note
 

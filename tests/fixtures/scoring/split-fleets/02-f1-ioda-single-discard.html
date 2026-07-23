@@ -29,7 +29,21 @@ entirely in `discardThresholds`: a single {minRaces: 5} entry and no 10→2
 tier — contrast fixture 01's ILCA ladder. Real IODA is 4 flights →
 Gold/Silver/Bronze/Emerald; reduced here to 2 flights over 4 Q + 2 F races
 (6 total, so the single discard is active). A qualifying DNC scores
-largest-flight + 1 = 4 (y3, race 3). `expected` verified against the engine.</pre>
+largest-flight + 1 = 4 (y3, race 3). `expected` verified against the engine.
+
+A fleet-boundary tie at the split (worth understanding): after Q1–Q4, no
+discard yet (threshold is 5 races), y2 and b2 are tied on 8 points with
+IDENTICAL race scores (2,2,2,2 each). RRS A8 cannot separate them — A8.1
+(best scores first) and A8.2 (last race, then next-to-last…) both stay tied
+on identical scores. The tie sits exactly on the Gold/Silver boundary (top 3
+go Gold: y1 and b1 on 4, then one of y2/b2 on 8). It is broken by ENTRY
+ORDER — y2 was entered before b2 — so y2 takes the last Gold place and b2
+drops to Silver. That is the SIs' &quot;if still tied after RRS A8, order by the
+registration/seeding order&quot; rule (the design's `reassignmentTieOrder:
+a8-then-entry-order`; the other real variant is LE's deliberate fleet-order
+scatter). It is also why b2 finishes with the BETTER net (9) than y2 (11)
+yet ranks below her: y2 is Gold, b2 is Silver, and Gold beats Silver
+regardless of points.</pre>
 <h2>Fleet assignments</h2>
 <table>
 <thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
