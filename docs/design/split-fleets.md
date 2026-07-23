@@ -471,6 +471,47 @@ Because rounds are keyed by logical race number, not date, a catch-up race
 sailed a day late automatically uses the round it was scheduled under —
 the LE 7.3(c) behaviour falls out with no special case.
 
+**`Competitor` gains an optional `seed?: number`** — the OA's initial
+seeding rank (Sailwave's "Seeding" column). Initial seeding by a class
+ranking list is *not* derivable from any field we already store: entry
+order (`createdAt` / `displayOrder`), sail number, and nationality all
+exist, but an externally-supplied ranking is a distinct value with nowhere
+to live — which is exactly why Sailwave carries a dedicated Seeding field.
+The seed order function therefore reads one of: `seed` (when the OA supplied
+a ranking), nationality-then-sail (spread), or plain sail number. The CSV
+import's seeding column (below) populates `seed`. It is workspace-local like
+the other assignment inputs — carried in the file format but not the public
+export (the seeding list is operational, not a result).
+
+**`Competitor` also gains an optional `entryNumber?: string`** — the OA's
+registration/admin number on the entry list. It sits alongside the existing
+number fields, each with a distinct job:
+
+- `sailNumber` — the boat's own number.
+- `bowNumber` — the number a boat flies on the water, for finish-sheet
+  matching. Currently framed narrowly ("when it differs from the sail
+  number"); at championship scale every boat carries one (LE SI 2.1).
+- `entryNumber` — the number the OA *filed* her under at registration. It
+  and the bow number often coincide, but not always (bow numbers can be
+  assigned per fleet or per day), so they are separate optional fields; where
+  they coincide, `entryNumber` is simply left unset. Gated into
+  `enabledCompetitorFields` like `bowNumber` — a club Tuesday series never
+  needs it.
+
+Its main value is identity/admin (entry lists, bow-number assignment,
+import round-trips), but it also gives a **stable** basis for a
+seed-by-entry-order option, rather than the internal `createdAt` (which
+re-import and CSV order perturb). Note that real SIs seldom seed by entry
+order — they use a seed ranking or nationality-then-sail — so entry order is
+a secondary seeding basis, not a primary one.
+
+An external entry system's own competitor/entry **id** (Manage2Sail, sailti,
+Sailwave) is a different concern: import *provenance* for dedupe and
+round-trip, belonging with the integration metadata (cf. the rrs.org push
+config, the `CompetitorIdentity` spine) rather than a displayed field. It is
+deferred to the entry-system import work, not added as a competitor field
+now.
+
 ### Scoring engine changes
 
 The engine (`lib/scoring.ts`) gains a split-fleet path alongside fleet
